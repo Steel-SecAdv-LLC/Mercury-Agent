@@ -41,5 +41,8 @@ def test_asha_on_trial_complete() -> None:
 
 def test_asha_on_trial_complete_missing_id() -> None:
     scheduler = ASHAScheduler(max_budget=81, min_budget=1, reduction_factor=3)
-    # Should not raise when trial_id is not tracked
+    scheduler._trial_budgets["tracked"] = 1.0
+    # A completion for an untracked id must not raise and must not
+    # disturb the budgets of tracked trials.
     scheduler.on_trial_complete("nonexistent")
+    assert scheduler._trial_budgets == {"tracked": 1.0}

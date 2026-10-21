@@ -7,6 +7,7 @@ namespace: mercury-agent
 
 resources:
   - ../../base
+  - ../../../monitoring/prometheus
   - kafka-cluster.yaml
   - redis-cluster.yaml
   - streaming-workers.yaml

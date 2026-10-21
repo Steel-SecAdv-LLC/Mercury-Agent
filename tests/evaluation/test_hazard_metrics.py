@@ -18,6 +18,8 @@ definition:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -231,17 +233,40 @@ class TestProbabilisticAndKp:
             hm.kp_mae([2.0], [9.5])
 
     def test_g_scale_buckets_match_noaa_thresholds(self) -> None:
-        # Published NOAA Space Weather Scale onsets.
-        assert hm.g_scale_bucket(4.99) == "G0"
-        assert hm.g_scale_bucket(5.0) == "G1"
-        assert hm.g_scale_bucket(6.0) == "G2"
-        assert hm.g_scale_bucket(7.0) == "G3"
-        assert hm.g_scale_bucket(8.0) == "G4"
-        assert hm.g_scale_bucket(9.0) == "G5"
+        # SWPC: G1 "Kp = 5" (5-, 5o, 5+), G4 "Kp = 8, 9-", G5 "Kp = 9o".
+        thirds = {
+            "4+": "G0",
+            "5-": "G1",
+            "5o": "G1",
+            "5+": "G1",
+            "6-": "G2",
+            "7-": "G3",
+            "8-": "G4",
+            "8+": "G4",
+            "9-": "G4",
+            "9o": "G5",
+        }
+        for text, bucket in thirds.items():
+            assert hm.g_scale_bucket(hm.parse_kp(text)) == bucket, text
         assert hm.g_scale_bucket(0.0) == "G0"
+        assert hm.noaa_g_scale(hm.parse_kp("7M")) == 3
+
+    @pytest.mark.parametrize("bad", ["9+", "-1", "abc", float("nan")])
+    def test_parse_kp_refuses_values_off_the_scale(self, bad: Any) -> None:
+        with pytest.raises(ValueError):
+            hm.parse_kp(bad)
+
+    def test_r_and_s_scales_match_noaa_thresholds(self) -> None:
+        # R: M1, M5, X1, X10, X20. S: 10 pfu and one level per decade.
+        r = [(9.9e-6, 0), (1e-5, 1), (5e-5, 2), (1e-4, 3), (1e-3, 4), (2e-3, 5)]
+        s = [(9.9, 0), (10.0, 1), (100.0, 2), (1e3, 3), (1e4, 4), (1e5, 5)]
+        assert [hm.noaa_r_scale(f) for f, _ in r] == [level for _, level in r]
+        assert [hm.noaa_s_scale(f) for f, _ in s] == [level for _, level in s]
+        with pytest.raises(ValueError):
+            hm.noaa_r_scale(float("nan"))
 
     def test_g_bucket_accuracy_hand_example(self) -> None:
-        # Buckets: (G0, G1, G3) vs (G0, G1, G2) -> 2/3 match.
+        # Buckets: (G0, G1, G4) vs (G0, G1, G3) -> 2/3 match (7.67 is 8-, G4).
         acc = hm.g_bucket_accuracy([1.0, 5.33, 7.67], [0.5, 5.1, 6.9])
         assert acc == pytest.approx(2 / 3)
 

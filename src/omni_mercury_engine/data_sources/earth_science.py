@@ -436,7 +436,7 @@ class NOAANWPSSource(DataSourceBase):
     def __init__(
         self,
         bbox: tuple[float, float, float, float] | None = None,
-        max_gauges: int = 50,
+        max_gauges: int | None = None,
         config: DataSourceConfig | None = None,
     ) -> None:
         """Initialize NOAA NWPS data source.
@@ -444,7 +444,10 @@ class NOAANWPSSource(DataSourceBase):
         Args:
             bbox: Bounding box (xmin, ymin, xmax, ymax) in EPSG:4326 degrees.
                 Required by the NWPS ``/gauges`` endpoint for non-empty output.
-            max_gauges: Maximum gauges to parse per fetch.
+            max_gauges: Maximum gauges to parse per fetch; ``None`` (default)
+                parses every gauge in the bounding box. A cap of 50 used to be
+                the default, so in a 155-gauge Houston box the flooding gauge
+                could be one that was never read.
             config: Optional base configuration.
         """
         base_config = config or DataSourceConfig()
@@ -563,6 +566,12 @@ class NOAANWPSSource(DataSourceBase):
                 retryable=False,
             )
         gauges = data["gauges"]
+        if self._max_gauges is not None and len(gauges) > self._max_gauges:
+            logger.warning(
+                "NOAA NWPS: %d gauges in the bounding box, parsing the first %d (max_gauges)",
+                len(gauges),
+                self._max_gauges,
+            )
 
         for gauge in gauges[: self._max_gauges]:
             try:

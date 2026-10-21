@@ -137,26 +137,36 @@ class TestGeomageticCorrelator:
         assert result["geomagnetic_status"] == "quiet"
 
     def test_classify_geomagnetic_activity(self) -> None:
-        """Test geomagnetic activity classification."""
+        """Storm statuses follow the NOAA G scale; sub-storm bands follow Kp thirds."""
         correlator = GeomageticCorrelator()
         assert correlator._classify_geomagnetic_activity(1.0) == "quiet"
-        assert correlator._classify_geomagnetic_activity(3.5) == "unsettled"
-        assert correlator._classify_geomagnetic_activity(4.5) == "active"
-        assert correlator._classify_geomagnetic_activity(5.5) == "minor_storm"
-        assert correlator._classify_geomagnetic_activity(6.5) == "major_storm"
-        assert correlator._classify_geomagnetic_activity(8.0) == "severe_storm"
+        assert correlator._classify_geomagnetic_activity(3.0) == "unsettled"
+        assert correlator._classify_geomagnetic_activity(4.0) == "active"
+        assert correlator._classify_geomagnetic_activity(4.33) == "active"  # 4+
+        # G1 starts at Kp 5- (4.67): the old literal integer bands read this
+        # as merely "active".
+        assert correlator._classify_geomagnetic_activity(4.67) == "minor_storm"
+        assert correlator._classify_geomagnetic_activity(5.67) == "major_storm"  # G2
+        assert correlator._classify_geomagnetic_activity(6.67) == "severe_storm"  # G3
+        assert correlator._classify_geomagnetic_activity(8.0) == "severe_storm"  # G4
 
     def test_space_weather_factor(self) -> None:
-        """Test space weather factor calculation."""
+        """The factor rises from the G1 onset (Kp 5-), not from a literal Kp 5."""
         correlator = GeomageticCorrelator()
         schumann_anomaly: dict[str, Any] = {}
-        result_low = correlator.correlate_geomagnetic(
-            schumann_anomaly, {"kp_index": 3.0, "dst_index": -20}
-        )
-        result_high = correlator.correlate_geomagnetic(
-            schumann_anomaly, {"kp_index": 6.0, "dst_index": -20}
-        )
-        assert result_high["space_weather_factor"] > result_low["space_weather_factor"]
+
+        def factor(kp: float) -> float:
+            result = correlator.correlate_geomagnetic(
+                schumann_anomaly, {"kp_index": kp, "dst_index": -20}
+            )
+            return float(result["space_weather_factor"])
+
+        assert factor(3.0) == 1.0
+        assert factor(4.33) == 1.0  # 4+: below G1
+        assert factor(4.67) == 1.3  # 5-: G1 onset (old code returned 1.0 here)
+        assert factor(6.0) == 1.3  # G2 still 1.3
+        assert factor(6.67) == 1.6  # G3 (strong) and up
+        assert factor(8.0) == 1.6
 
 
 class TestIonosphericDisturbanceDetector:

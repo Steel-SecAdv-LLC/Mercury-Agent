@@ -103,6 +103,8 @@ _TOOL_NAMES: Final[tuple[str, ...]] = (
     "model_card_generator",
     "dataset_card_generator",
     "adversarial_probe",
+    # Data protection
+    "gdpr_processing_check",
 )
 
 

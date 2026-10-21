@@ -394,63 +394,40 @@ class ParetoOptimizer:
         # produce identical Pareto fronts.
         self._rng = np.random.default_rng(self.seed)
 
-        # Initialize population
-        population = []
-        for _ in range(self.population_size):
-            params = np.array([self._rng.uniform(low, high) for low, high in bounds])
-            objectives = self.objective_fn(params)
-            population.append(ParetoSolution(params, objectives))
+        # The search is the validated elitist NSGA-II in
+        # omni_mercury_engine.ml.multi_objective (binary tournament on
+        # rank/crowding, bounded SBX, polynomial mutation at 1/n per gene).
+        # The loop this replaced crashed in its non-dominated sort
+        # (``list.index`` on dataclasses holding numpy arrays) and selected
+        # parents uniformly instead of by rank.
+        from omni_mercury_engine.ml.multi_objective import NSGA2Optimizer
 
-        # Evolutionary loop
-        for gen in range(self.n_generations):
-            # Non-dominated sorting
-            fronts = self._fast_non_dominated_sort(population)
-
-            # Select parents from best fronts
-            parents: list[ParetoSolution] = []
-            for front in fronts:
-                if len(parents) + len(front) <= self.population_size:
-                    parents.extend(front)
-                else:
-                    # Crowding distance selection
-                    front = self._crowding_distance_selection(
-                        front, self.population_size - len(parents)
-                    )
-                    parents.extend(front)
-                    break
-
-            # Generate offspring
-            offspring: list[ParetoSolution] = []
-            while len(offspring) < self.population_size:
-                # Tournament selection
-                p1, p2 = self._rng.choice(len(parents), 2, replace=False)
-                parent1, parent2 = parents[p1], parents[p2]
-
-                # Crossover
-                if self._rng.random() < self.crossover_rate:
-                    child_params = self._sbx_crossover(
-                        parent1.parameters, parent2.parameters, bounds
-                    )
-                else:
-                    child_params = parent1.parameters.copy()
-
-                # Mutation
-                if self._rng.random() < self.mutation_rate:
-                    child_params = self._polynomial_mutation(child_params, bounds)
-
-                objectives = self.objective_fn(child_params)
-                offspring.append(ParetoSolution(child_params, objectives))
-
-            population = parents + offspring
-
-        # Final Pareto front
-        fronts = self._fast_non_dominated_sort(population)
-        pareto_solutions = fronts[0] if fronts else []
+        names = (
+            ["detection_loss", "1-benevolence", "1-fairness"]
+            if self.n_objectives == 3
+            else [f"objective_{i}" for i in range(self.n_objectives)]
+        )
+        front = NSGA2Optimizer(
+            self.objective_fn,
+            self.n_objectives,
+            population_size=max(self.population_size, 4),
+            n_generations=self.n_generations,
+            mutation_rate=self.mutation_rate,
+            crossover_rate=self.crossover_rate,
+            seed=self.seed,
+            objective_names=names,
+        ).optimize(bounds)
+        pareto_solutions = [
+            ParetoSolution(np.asarray(sol.parameters), np.asarray(sol.objectives))
+            for sol in front.solutions
+        ]
 
         # Filter by benevolence constraint
         # benevolence is stored as (1 - benevolence), so constraint is (1 - threshold)
         constrained_solutions = [
-            s for s in pareto_solutions if s.objectives[1] <= (1 - benevolence_constraint)
+            s
+            for s in pareto_solutions
+            if len(s.objectives) < 2 or s.objectives[1] <= (1 - benevolence_constraint)
         ]
 
         if not constrained_solutions:
@@ -463,150 +440,8 @@ class ParetoOptimizer:
         return ParetoFront(
             solutions=constrained_solutions,
             n_objectives=self.n_objectives,
-            objective_names=["detection_loss", "1-benevolence", "1-fairness"],
+            objective_names=names,
         )
-
-    def _fast_non_dominated_sort(
-        self,
-        population: list[ParetoSolution],
-    ) -> list[list[ParetoSolution]]:
-        """Fast non-dominated sorting (NSGA-II)."""
-        n = len(population)
-        domination_count = [0] * n
-        dominated_set: list[list[int]] = [[] for _ in range(n)]
-        fronts: list[list[ParetoSolution]] = [[]]
-
-        for i in range(n):
-            for j in range(i + 1, n):
-                if self._dominates(population[i], population[j]):
-                    dominated_set[i].append(j)
-                    domination_count[j] += 1
-                elif self._dominates(population[j], population[i]):
-                    dominated_set[j].append(i)
-                    domination_count[i] += 1
-
-        for i in range(n):
-            population[i].dominated_by = domination_count[i]
-            if domination_count[i] == 0:
-                fronts[0].append(population[i])
-
-        current_front = 0
-        while fronts[current_front]:
-            next_front = []
-            for sol in fronts[current_front]:
-                idx = population.index(sol)
-                for j in dominated_set[idx]:
-                    domination_count[j] -= 1
-                    if domination_count[j] == 0:
-                        next_front.append(population[j])
-            current_front += 1
-            if next_front:
-                fronts.append(next_front)
-
-        return [f for f in fronts if f]
-
-    def _dominates(self, sol1: ParetoSolution, sol2: ParetoSolution) -> bool:
-        """Check if sol1 dominates sol2 (all objectives <=, at least one <)."""
-        better_in_any = False
-        for o1, o2 in zip(sol1.objectives, sol2.objectives):
-            if o1 > o2:
-                return False
-            if o1 < o2:
-                better_in_any = True
-        return better_in_any
-
-    def _crowding_distance_selection(
-        self,
-        front: list[ParetoSolution],
-        n_select: int,
-    ) -> list[ParetoSolution]:
-        """Select solutions with highest crowding distance."""
-        if len(front) <= n_select:
-            return front
-
-        n = len(front)
-        distances = [0.0] * n
-
-        for m in range(self.n_objectives):
-            # Sort by objective m
-            sorted_idx = sorted(range(n), key=lambda i: front[i].objectives[m])
-
-            # Boundary points get infinite distance
-            distances[sorted_idx[0]] = float("inf")
-            distances[sorted_idx[-1]] = float("inf")
-
-            # Range for normalization
-            obj_range = front[sorted_idx[-1]].objectives[m] - front[sorted_idx[0]].objectives[m]
-            if obj_range == 0:
-                continue
-
-            for i in range(1, n - 1):
-                distances[sorted_idx[i]] += (
-                    front[sorted_idx[i + 1]].objectives[m] - front[sorted_idx[i - 1]].objectives[m]
-                ) / obj_range
-
-        # Select top by distance
-        selected_idx = sorted(range(n), key=lambda i: -distances[i])[:n_select]
-        return [front[i] for i in selected_idx]
-
-    def _sbx_crossover(
-        self,
-        p1: np.ndarray[Any, Any],
-        p2: np.ndarray[Any, Any],
-        bounds: list[tuple[float, float]],
-        eta: float = 20.0,
-    ) -> np.ndarray[Any, Any]:
-        """Simulated Binary Crossover (SBX)."""
-        child = np.zeros_like(p1)
-
-        for i in range(len(p1)):
-            if self._rng.random() < 0.5:
-                if abs(p1[i] - p2[i]) > 1e-10:
-                    y1, y2 = min(p1[i], p2[i]), max(p1[i], p2[i])
-                    lo, hi = bounds[i]
-
-                    beta = 1.0 + 2.0 * (y1 - lo) / (y2 - y1)
-                    alpha = 2.0 - beta ** (-(eta + 1))
-                    u = self._rng.random()
-
-                    if u <= 1.0 / alpha:
-                        betaq = (u * alpha) ** (1.0 / (eta + 1))
-                    else:
-                        betaq = (1.0 / (2.0 - u * alpha)) ** (1.0 / (eta + 1))
-
-                    c1 = 0.5 * (y1 + y2 - betaq * (y2 - y1))
-                    child[i] = np.clip(c1, lo, hi)
-                else:
-                    child[i] = p1[i]
-            else:
-                child[i] = p1[i]
-
-        return child
-
-    def _polynomial_mutation(
-        self,
-        params: np.ndarray[Any, Any],
-        bounds: list[tuple[float, float]],
-        eta: float = 20.0,
-    ) -> np.ndarray[Any, Any]:
-        """Polynomial mutation."""
-        mutated = params.copy()
-
-        for i in range(len(params)):
-            if self._rng.random() < 1.0 / len(params):
-                lo, hi = bounds[i]
-                delta_max = hi - lo
-
-                u = self._rng.random()
-                if u < 0.5:
-                    delta = (2 * u) ** (1 / (eta + 1)) - 1
-                else:
-                    delta = 1 - (2 * (1 - u)) ** (1 / (eta + 1))
-
-                mutated[i] = params[i] + delta * delta_max
-                mutated[i] = np.clip(mutated[i], lo, hi)
-
-        return mutated
 
 
 def optimize_benevolent_detector(
@@ -636,10 +471,10 @@ def optimize_benevolent_detector(
     """
     mo_loss = MultiObjectiveLoss(benevolence_threshold=benevolence_threshold)
 
-    def objective(params: dict[str, Any]) -> np.ndarray[Any, Any]:
+    def objective(params: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Multi-objective function returning [detection, 1-benevolence, 1-fairness]."""
         try:
-            model = model_fn(params)  # type: ignore[arg-type, unused-ignore]
+            model = model_fn(params)
             model.fit(X_train, y_train)
             predictions = model.predict_proba(X_train)
             if predictions.ndim == 2:
@@ -659,7 +494,7 @@ def optimize_benevolent_detector(
         )
 
     optimizer = ParetoOptimizer(
-        objective_fn=objective,  # type: ignore[arg-type, unused-ignore]
+        objective_fn=objective,
         n_objectives=3,
         n_generations=n_generations,
         seed=seed,

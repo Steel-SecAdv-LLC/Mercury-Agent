@@ -24,6 +24,7 @@ Rate Limits:
 from __future__ import annotations
 
 import logging
+import math
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -40,6 +41,15 @@ from omni_mercury_engine.data_sources.base import (
     DataSourceType,
     RateLimitConfig,
 )
+from omni_mercury_engine.evaluation.hazard_metrics import (
+    noaa_g_scale,
+    noaa_r_scale,
+    noaa_s_scale,
+    parse_kp,
+)
+
+# Peak 0.1-0.8 nm flux (W/m^2) at magnitude 1 of each GOES flare class letter.
+_FLARE_CLASS_FLUX = {"A": 1e-8, "B": 1e-7, "C": 1e-6, "M": 1e-5, "X": 1e-4}
 
 logger = logging.getLogger(__name__)
 
@@ -155,51 +165,58 @@ class NASADONKISource(DataSourceBase):
         return mapping.get(event_type, DataSourceType.CUSTOM)
 
     def _parse_flare_class(self, class_type: str | None) -> AlertLevel:
-        """Parse solar flare class to alert level."""
+        """Alert level of a GOES flare class (``"M1.5"``), on the NOAA R scale.
+
+        The class is the peak 0.1-0.8 nm flux (``M1.5`` = 1.5e-5 W/m^2), and
+        R1-R5 start at M1, M5, X1, X10 and X20, so A-C flares are below R1. A
+        class with no readable magnitude counts as magnitude 1.
+        """
         if not class_type:
             return AlertLevel.NONE
-
-        # Extract magnitude (e.g., "M1.5" -> "M", "X2.1" -> "X")
-        class_letter = class_type[0].upper() if class_type else ""
-
-        if class_letter == "X":
-            # X-class: Major flare
-            try:
-                magnitude = float(class_type[1:])
-                if magnitude >= 10:
-                    return AlertLevel.EXTREME
-                elif magnitude >= 5:
-                    return AlertLevel.SEVERE
-                else:
-                    return AlertLevel.STRONG
-            except (ValueError, IndexError):
-                return AlertLevel.STRONG
-        elif class_letter == "M":
-            return AlertLevel.MODERATE
-        elif class_letter == "C":
-            return AlertLevel.MINOR
-        return AlertLevel.NONE
+        text = class_type.strip().upper()
+        base = _FLARE_CLASS_FLUX.get(text[:1])
+        if base is None:
+            return AlertLevel.NONE
+        try:
+            magnitude = float(text[1:]) if text[1:] else 1.0
+        except ValueError:
+            magnitude = 1.0
+        if not magnitude > 0.0:
+            magnitude = 1.0
+        return AlertLevel.from_noaa_r_scale(noaa_r_scale(base * magnitude))
 
     def _parse_kp_index(self, kp_index: str | float | None) -> AlertLevel:
         """Parse Kp index to alert level (G-scale)."""
         if kp_index is None:
             return AlertLevel.NONE
 
+        # "5-" is 4.67, a G1 storm; it used to parse as 5.0, and "5o" as no
+        # storm at all.
         try:
-            kp = float(str(kp_index).replace("+", ".33").replace("-", ""))
-            if kp >= 9:
-                return AlertLevel.EXTREME  # G5
-            elif kp >= 8:
-                return AlertLevel.SEVERE  # G4
-            elif kp >= 7:
-                return AlertLevel.STRONG  # G3
-            elif kp >= 6:
-                return AlertLevel.MODERATE  # G2
-            elif kp >= 5:
-                return AlertLevel.MINOR  # G1
-        except ValueError:
-            pass
-        return AlertLevel.NONE
+            return AlertLevel.from_noaa_g_scale(noaa_g_scale(parse_kp(kp_index)))
+        except (TypeError, ValueError):
+            return AlertLevel.NONE
+
+    @staticmethod
+    def _peak_kp(all_kp_index: Any) -> float | None:
+        """The storm's peak Kp: the largest parsable ``kpIndex`` in ``allKpIndex``.
+
+        DONKI lists a storm's 3-hourly Kp in time order, so the first entry
+        is its onset, not its peak (the 2024-05-10 storm opens at 7.67 and
+        reaches 9.0, G5). Entries that do not parse as a Kp are skipped, as
+        :meth:`_parse_kp_index` reads an unparsable Kp as no storm.
+
+        Returns:
+            The largest Kp, or None when no entry parses.
+        """
+        peak: float | None = None
+        for entry in all_kp_index or ():
+            try:
+                kp = parse_kp(entry.get("kpIndex") if isinstance(entry, dict) else None)
+            except (TypeError, ValueError):
+                continue
+            peak = kp if peak is None else max(peak, kp)
+        return peak
 
     async def _fetch_event_type(
         self,
@@ -274,7 +291,7 @@ class NASADONKISource(DataSourceBase):
                 confidence = 0.95  # Well-observed events
 
             elif event_type == DONKIEventType.GEOMAGNETIC_STORM:
-                kp_index = event.get("kpIndex") or event.get("allKpIndex", [{}])[0].get("kpIndex")
+                kp_index = event.get("kpIndex") or self._peak_kp(event.get("allKpIndex"))
                 alert_level = self._parse_kp_index(kp_index)
 
             elif event_type == DONKIEventType.CME:
@@ -698,18 +715,8 @@ class NOAASWPCSource(DataSourceBase):
         return mapping.get(product, DataSourceType.CUSTOM)
 
     def _parse_kp_alert_level(self, kp: float) -> AlertLevel:
-        """Parse Kp index to G-scale alert level."""
-        if kp >= 9:
-            return AlertLevel.EXTREME  # G5
-        elif kp >= 8:
-            return AlertLevel.SEVERE  # G4
-        elif kp >= 7:
-            return AlertLevel.STRONG  # G3
-        elif kp >= 6:
-            return AlertLevel.MODERATE  # G2
-        elif kp >= 5:
-            return AlertLevel.MINOR  # G1
-        return AlertLevel.NONE
+        """Parse Kp index to G-scale alert level (NOAA thirds: 5- is G1, 9- is G4)."""
+        return AlertLevel.from_noaa_g_scale(noaa_g_scale(parse_kp(kp)))
 
     async def _fetch_product(self, product: SWPCProduct) -> list[DataPoint]:
         """Fetch a specific SWPC product."""
@@ -722,14 +729,16 @@ class NOAASWPCSource(DataSourceBase):
             # ``products/rtsw/...`` path 404s (verified 2026-08-03).
             endpoint = f"json/{product.value}"
 
+        # A failed fetch or an unreadable body raises: returned as [] it read
+        # as a quiet live feed (no Kp, no alerts), an all-clear nobody issued.
+        response = await self._http_get(endpoint)
         try:
-            response = await self._http_get(endpoint)
             data = response.json()
-            return self._parse_product_data(product, data)
-
-        except Exception as e:
-            logger.warning(f"SWPC {product.value} fetch failed: {e}")
-            return []
+        except ValueError as exc:
+            raise DataSourceError(
+                f"SWPC {product.value} returned a non-JSON body", source_id=self.source_id
+            ) from exc
+        return self._parse_product_data(product, data)
 
     def _parse_product_data(
         self,
@@ -1117,15 +1126,10 @@ class NOAASWPCSource(DataSourceBase):
 
     @staticmethod
     def _xray_alert_level(long_flux: float) -> AlertLevel:
-        """Alert level from the GOES 0.1-0.8 nm flare-classification channel."""
-        # M-class: 1e-5 to 1e-4 W/m^2; X-class: > 1e-4 W/m^2
-        if long_flux > 1e-4:
-            return AlertLevel.STRONG  # X-class
-        elif long_flux > 1e-5:
-            return AlertLevel.MODERATE  # M-class
-        elif long_flux > 1e-6:
-            return AlertLevel.MINOR  # C-class
-        return AlertLevel.NONE
+        """NOAA R-scale alert level of a GOES 0.1-0.8 nm flux (R1 at M1, 1e-5 W/m^2)."""
+        if not math.isfinite(long_flux) or long_flux < 0.0:
+            return AlertLevel.NONE
+        return AlertLevel.from_noaa_r_scale(noaa_r_scale(long_flux))
 
     def _parse_xray_flux(
         self,
@@ -1255,17 +1259,8 @@ class NOAASWPCSource(DataSourceBase):
                 timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
 
                 alert_level = AlertLevel.NONE
-                if energy == ">=10 MeV":
-                    if flux >= 1e5:
-                        alert_level = AlertLevel.EXTREME  # S5
-                    elif flux >= 1e4:
-                        alert_level = AlertLevel.SEVERE  # S4
-                    elif flux >= 1e3:
-                        alert_level = AlertLevel.STRONG  # S3
-                    elif flux >= 1e2:
-                        alert_level = AlertLevel.MODERATE  # S2
-                    elif flux >= 1e1:
-                        alert_level = AlertLevel.MINOR  # S1
+                if energy == ">=10 MeV" and math.isfinite(flux) and flux >= 0.0:
+                    alert_level = AlertLevel.from_noaa_s_scale(noaa_s_scale(flux))
 
                 data_points.append(
                     DataPoint(

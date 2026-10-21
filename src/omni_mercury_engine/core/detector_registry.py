@@ -58,9 +58,11 @@ Example:
 
 from __future__ import annotations
 
+import contextlib
+import functools
 import logging
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol
@@ -68,6 +70,11 @@ from typing import TYPE_CHECKING, Any, Protocol
 import numpy as np
 
 from omni_mercury_engine._compat import HAS_TORCH
+from omni_mercury_engine.core.parallel_detectors import (
+    DetectorTask,
+    OutcomeStatus,
+    ParallelDetectorExecutor,
+)
 from omni_mercury_engine.resilience.api_circuit_breakers import get_detector_breaker
 from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
@@ -77,6 +84,85 @@ else:
     torch = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
+
+
+class _CallTicket:
+    """Agreement between a registry call's worker and its caller on who reports it.
+
+    The executor abandons a call that overruns its budget but cannot stop the
+    thread running it. Before this ticket, the abandoned call was reported as
+    a plain failure result with no circuit-breaker failure and no
+    ``error_count``, and when its thread finally returned, ``breaker.call``
+    counted it as a *success*. A hung detector therefore never tripped its
+    breaker: it was relaunched on every call, each launch stranding a thread,
+    until the executor saturated and every healthy parallel-safe detector
+    failed with ``ExecutorSaturatedError``.
+
+    Exactly one side reports each call: the worker when it finishes first, the
+    caller (as a timeout) when it abandons a started call first. A call
+    abandoned before it started is skipped if its worker ever picks it up.
+    """
+
+    _PENDING, _RUNNING, _FINISHED, _ABANDONED = range(4)
+
+    def __init__(self) -> None:
+        """Create a ticket for a call that has not started."""
+        self._lock = threading.Lock()
+        self._state = self._PENDING
+
+    def start(self) -> bool:
+        """Mark the call running; ``False`` when it was abandoned before starting."""
+        with self._lock:
+            if self._state == self._ABANDONED:
+                return False
+            self._state = self._RUNNING
+            return True
+
+    def finish(self) -> bool:
+        """Mark the call finished; ``False`` when the caller already abandoned it."""
+        with self._lock:
+            if self._state == self._ABANDONED:
+                return False
+            self._state = self._FINISHED
+            return True
+
+    def abandon(self) -> bool:
+        """Abandon the call at the deadline.
+
+        Returns:
+            ``True`` when the call was running (a timeout the caller must
+            report); ``False`` when it had finished (the worker reported it) or
+            never started (nothing ran, so nothing failed).
+        """
+        with self._lock:
+            previous = self._state
+            if previous == self._FINISHED:
+                return False
+            self._state = self._ABANDONED
+            return previous == self._RUNNING
+
+
+def _record_breaker_outcome(breaker: Any, error: Exception | None) -> None:
+    """Feed one call's outcome to ``breaker`` through its public ``call`` API.
+
+    The detector runs outside ``breaker.call`` so that an abandoned call is
+    counted once, as a failure, at the deadline, and its late completion not
+    at all. Replaying the outcome through ``call`` records it exactly as a
+    wrapped call would. A breaker that opened meanwhile (another thread's
+    failures) rejects the replay; the outcome is then dropped, which is what
+    an open breaker does with any call.
+
+    Args:
+        breaker: The detector's circuit breaker.
+        error: The exception the call raised, or ``None`` for a success.
+    """
+
+    def _replay() -> None:
+        if error is not None:
+            raise error
+
+    with contextlib.suppress(Exception):
+        breaker.call(_replay)
 
 
 class DetectorCategory(Enum):
@@ -103,6 +189,7 @@ class DetectorCategory(Enum):
     PHYSICS = "physics"  # Physics-inspired detectors (spectral, dynamics, kinematics)
     UIUX = "uiux"  # UI/UX behavioral anomaly detection
     METEOROLOGICAL = "meteorological"  # Hydro-climate hazards (drought, heatwave, AR, lightning)
+    UAV = "uav"  # Uncrewed aerial vehicle telemetry (RADD rules + Mercury ensemble)
 
 
 class DetectorProtocol(Protocol):
@@ -811,6 +898,35 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MARINE,
         "Marine biodiversity threat detection",
     ),
+    # -- Trained sequence / security ensembles --------------------------------
+    DetectorManifestEntry(
+        "lstm_autoencoder",
+        "omni_mercury_engine.models.lstm_ae",
+        "LSTMAutoencoderDetector",
+        DetectorCategory.MODEL,
+        "Trained LSTM-autoencoder multivariate sequence reconstruction",
+        feature_dim=1,
+        tags=["time-series", "trained", "multivariate", "reconstruction"],
+    ),
+    DetectorManifestEntry(
+        "realtime_threat",
+        "omni_mercury_engine.security.realtime_threat_detection",
+        "RealTimeThreatDetector",
+        DetectorCategory.SECURITY,
+        "Projection + kNN + robust-covariance ensemble, training-calibrated",
+        feature_dim=3,
+        tags=["security", "ensemble", "calibrated"],
+    ),
+    # -- UAV detectors --------------------------------------------------------
+    DetectorManifestEntry(
+        "drone",
+        "omni_mercury_engine.detectors.drone.detector",
+        "DroneAnomalyDetector",
+        DetectorCategory.UAV,
+        "Drone fault detection: RADD phase invariants + single-row Mercury ensemble",
+        feature_dim=16,
+        tags=["drone", "uav", "telemetry", "radd"],
+    ),
     # -- Safeguards -----------------------------------------------------------
     DetectorManifestEntry(
         "nano_safeguard",
@@ -962,6 +1078,74 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Neuro-symbolic spectral-domain anomaly detection with per-band scoring",
         tags=["physics", "spectral", "frequency", "neuro-symbolic", "humanitarian"],
     ),
+    # -- Hazard adapters: the engine contract over the hazard detectors ------
+    # Each wraps its domain detector's own API in named-column batches; the
+    # scores and decisions are the wrapped detector's own (see
+    # detectors/hazard_adapter.py). The "adapter" tag drives the manifest
+    # contract test that holds these to the full BaseDetector contract.
+    DetectorManifestEntry(
+        "tornado_conditions",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "TornadoConditionsAdapter",
+        DetectorCategory.GEOLOGICAL,
+        "TornadoDetector over (cape_j_kg, cin_j_kg, srh_m2_s2, bulk_shear_kt, lcl_m) rows",
+        feature_dim=4,
+        tags=["adapter", "tornado", "atmospheric"],
+    ),
+    DetectorManifestEntry(
+        "hurricane_pressure",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "HurricanePressureAdapter",
+        DetectorCategory.GEOLOGICAL,
+        "HurricaneDetector over (central_pressure_mb, environmental_pressure_mb, sst_celsius)",
+        feature_dim=4,
+        tags=["adapter", "hurricane", "pressure"],
+    ),
+    DetectorManifestEntry(
+        "flood_precipitation",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "FloodPrecipitationAdapter",
+        DetectorCategory.GEOLOGICAL,
+        "FloodDetector over measured and forecast precipitation depth rows (inches)",
+        feature_dim=3,
+        tags=["adapter", "flood", "precipitation"],
+    ),
+    DetectorManifestEntry(
+        "financial_stress",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "FinancialStressAdapter",
+        DetectorCategory.ECONOMIC,
+        "FinancialCrisisDetector over measured market and banking metric rows",
+        feature_dim=4,
+        tags=["adapter", "financial", "market", "banking"],
+    ),
+    DetectorManifestEntry(
+        "solar_wind_geomag",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "SolarWindGeomagAdapter",
+        DetectorCategory.SPACE,
+        "SolarStormDetector over (solar_wind_speed_km_s, bz_imf_nt); score is NOAA G/5",
+        feature_dim=3,
+        tags=["adapter", "geomagnetic", "solar-wind"],
+    ),
+    DetectorManifestEntry(
+        "xray_flare",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "XrayFlareAdapter",
+        DetectorCategory.SPACE,
+        "SolarFlareDetector over GOES long-band flux rows; score is NOAA R/5",
+        feature_dim=3,
+        tags=["adapter", "flare", "xray"],
+    ),
+    DetectorManifestEntry(
+        "gic_minute_series",
+        "omni_mercury_engine.detectors.hazard_adapter",
+        "GICMinuteSeriesAdapter",
+        DetectorCategory.SPACE,
+        "GICDetector over a (bx_nt, by_nt) minute series; score is the dB/dt tier over 3",
+        feature_dim=3,
+        tags=["adapter", "gic", "magnetometer"],
+    ),
 ]
 
 
@@ -1000,10 +1184,118 @@ class DetectorRegistry:
         self._category_index: dict[DetectorCategory, list[str]] = {
             cat: [] for cat in DetectorCategory
         }
-        self._executor: ThreadPoolExecutor | None = None
+        # Dedicated detector executor: keeps finished results when a detector
+        # overruns ``timeout_seconds``, returns results in request order, and
+        # runs only ``parallel_safe`` detectors concurrently.
+        self._executor: ParallelDetectorExecutor | None = None
+        # Opt-in result cache (enable_feature_cache); the tensor-vs-ndarray
+        # provenance of a hit is encoded in the cache key itself (|ft / |f),
+        # so the registry keeps no side state that could outlive eviction.
+        self._feature_cache: Any = None
 
         if auto_discover:
             self.auto_discover_detectors()
+
+    # -- opt-in feature cache ------------------------------------------------
+
+    def enable_feature_cache(
+        self,
+        max_memory_mb: float = 256.0,
+        max_entries: int = 1000,
+        ttl_seconds: float = 0.0,
+    ) -> None:
+        """Cache (features, scores) for repeated identical payloads.
+
+        Only detectors exposing ``feature_cache_token()`` take part: the
+        token must change whenever their fitted state changes, so a refit
+        can never serve stale features, and a detector without one (e.g. a
+        stateful per-tick detector) is never cached. Hits and misses are
+        recorded in ``omni_feature_cache_hits_total`` /
+        ``omni_feature_cache_misses_total``. Storage is lossless.
+        """
+        from omni_mercury_engine.utils.feature_cache import (
+            CacheConfig,
+            MemoryEfficientFeatureCache,
+        )
+
+        self._feature_cache = MemoryEfficientFeatureCache(
+            CacheConfig(max_size=max_entries, max_memory_mb=max_memory_mb, ttl_seconds=ttl_seconds)
+        )
+
+    def disable_feature_cache(self) -> None:
+        """Drop the feature cache and its entries."""
+        self._feature_cache = None
+
+    def feature_cache_stats(self) -> dict[str, Any] | None:
+        """Cache statistics, or ``None`` when the cache is off."""
+        return None if self._feature_cache is None else self._feature_cache.get_stats()
+
+    def _feature_cache_key(self, name: str, detector: Any, data: Any) -> str | None:
+        """``name|token|sha3(data)`` for a cacheable call, else ``None``."""
+        if self._feature_cache is None or isinstance(data, dict):
+            return None
+        token_fn = getattr(detector, "feature_cache_token", None)
+        if not callable(token_fn):
+            return None
+        token = token_fn()
+        if token is None:
+            return None
+        if torch is not None and isinstance(data, torch.Tensor):
+            arr = data.detach().cpu().numpy()
+        else:
+            arr = np.asarray(data)
+        if arr.dtype == object:
+            return None
+        import hashlib
+
+        digest = hashlib.sha3_256(
+            np.ascontiguousarray(arr).tobytes() + repr((arr.shape, arr.dtype.str)).encode()
+        ).hexdigest()
+        return f"{name}|{token!r}|{digest}"
+
+    def _cached_result(self, key: str) -> tuple[Any, Any] | None:
+        """Coherent cache hit, or ``None``.
+
+        A hit requires the features entry AND its scores companion: the
+        underlying cache evicts entries independently (LRU / memory / TTL),
+        and serving features whose scores entry was evicted would silently
+        strip ``anomaly_scores`` from the result. ``|ft`` marks features
+        stored from a torch tensor (the flag lives in the key, so no side
+        state can outlive or outgrow the cache itself); a zero-length
+        scores array is the sentinel for "this result had no scores".
+        """
+        cache = self._feature_cache
+        if cache is None:
+            return None
+        tensor_hit = cache.contains(f"{key}|ft")
+        features_key = f"{key}|ft" if tensor_hit else f"{key}|f"
+        if not cache.contains(features_key) or not cache.contains(f"{key}|s"):
+            return None
+        features = cache.get(features_key)
+        scores = cache.get(f"{key}|s")
+        if features is None or scores is None:
+            return None
+        if tensor_hit and torch is not None:
+            features = torch.as_tensor(features)
+        return features, (None if scores.size == 0 else scores)
+
+    def _store_result(self, key: str, features: Any, scores: Any) -> None:
+        cache = self._feature_cache
+        if cache is None or features is None:
+            return
+        is_tensor = torch is not None and isinstance(features, torch.Tensor)
+        stored = features.detach().cpu().numpy() if is_tensor else np.asarray(features)
+        if stored.dtype == object:
+            return
+        scores_arr = np.empty(0, dtype=np.float64) if scores is None else np.asarray(scores)
+        if scores_arr.dtype == object:
+            return
+        features_key = f"{key}|ft" if is_tensor else f"{key}|f"
+        if cache.put(features_key, stored):
+            # If this put fails the lone features entry is unreadable by
+            # design (_cached_result demands both), so it degrades to a
+            # miss instead of a scores-less hit.
+            cache.put(f"{key}|s", scores_arr)
 
     def register(
         self,
@@ -1082,10 +1374,13 @@ class DetectorRegistry:
                 matching.append(name)
         return matching
 
-    def _get_executor(self) -> ThreadPoolExecutor:
+    def _get_executor(self) -> ParallelDetectorExecutor:
         """Get or create thread pool executor."""
         if self._executor is None:
-            self._executor = ThreadPoolExecutor(max_workers=self.max_workers)
+            self._executor = ParallelDetectorExecutor(
+                max_workers=self.max_workers,
+                thread_name_prefix="mercury-registry",
+            )
         return self._executor
 
     def extract_features(
@@ -1102,6 +1397,25 @@ class DetectorRegistry:
         Args:
             name: Detector name
             data: Input data
+
+        Returns:
+            FeatureExtractionResult with features and metadata
+        """
+        return self._extract_features(name, data, _CallTicket())
+
+    def _extract_features(
+        self,
+        name: str,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+        ticket: _CallTicket,
+    ) -> FeatureExtractionResult:
+        """:meth:`extract_features` under a ticket the caller may abandon at a deadline.
+
+        Args:
+            name: Detector name
+            data: Input data
+            ticket: Shared with the caller; an abandoned call neither updates
+                the breaker nor the detector's statistics when it ends.
 
         Returns:
             FeatureExtractionResult with features and metadata
@@ -1131,10 +1445,19 @@ class DetectorRegistry:
 
         info = self._detectors[name]
         detector = info.instance
+        if not ticket.start():
+            return FeatureExtractionResult(
+                detector_name=name,
+                features=None,
+                scores=None,
+                execution_time_ms=0,
+                success=False,
+                error=f"Detector '{name}' abandoned at the deadline before it started",
+            )
         start_time = time.perf_counter()
 
         def _execute_detector() -> FeatureExtractionResult:
-            """Inner function to execute detector, wrapped by circuit breaker."""
+            """Run the detector; the caller reports the outcome to the breaker."""
             # Try to fit if needed. ``is_fitted`` is a method on the core
             # detector contract (core/base.py), but this registry is a
             # plugin boundary: registered detectors may expose it as a
@@ -1146,46 +1469,51 @@ class DetectorRegistry:
                 if not fitted and hasattr(detector, "fit") and not isinstance(data, dict):
                     detector.fit(data)
 
-            # Extract features
-            features = None
-            if hasattr(detector, "extract_features"):
-                features = detector.extract_features(data)
+            cache_key = self._feature_cache_key(name, detector, data)
+            cached = self._cached_result(cache_key) if cache_key is not None else None
+            if cached is not None:
+                from omni_mercury_engine.core.metrics import record_cache_hit
 
-            # Get predictions/scores
-            scores = None
-            if hasattr(detector, "predict"):
-                result = detector.predict(data)
-                if isinstance(result, dict):
-                    scores = result.get("anomaly_scores", result.get("scores"))
-                    if scores is not None:
-                        scores = np.atleast_1d(scores)
+                record_cache_hit(name)
+                features, scores = cached
+            else:
+                # Extract features
+                features = None
+                if hasattr(detector, "extract_features"):
+                    features = detector.extract_features(data)
 
-            execution_time = (time.perf_counter() - start_time) * 1000
+                # Get predictions/scores
+                scores = None
+                if hasattr(detector, "predict"):
+                    result = detector.predict(data)
+                    if isinstance(result, dict):
+                        scores = result.get("anomaly_scores", result.get("scores"))
+                        if scores is not None:
+                            scores = np.atleast_1d(scores)
+                if cache_key is not None:
+                    from omni_mercury_engine.core.metrics import record_cache_miss
 
-            # Update stats
-            info.last_execution_time_ms = execution_time
-            info.total_invocations += 1
-            info.is_fitted = getattr(detector, "_is_fitted", True)
+                    record_cache_miss(name)
+                    self._store_result(cache_key, features, scores)
 
             return FeatureExtractionResult(
                 detector_name=name,
                 features=features,
                 scores=scores,
-                execution_time_ms=execution_time,
+                execution_time_ms=(time.perf_counter() - start_time) * 1000,
                 success=True,
             )
 
         try:
-            result: FeatureExtractionResult = breaker.call(_execute_detector)
-            return result
-
+            result = _execute_detector()
         except Exception as e:
             execution_time = (time.perf_counter() - start_time) * 1000
-            info.error_count += 1
-            info.last_execution_time_ms = execution_time
-
+            if ticket.finish():
+                _record_breaker_outcome(breaker, e)
+                info.error_count += 1
+                info.last_execution_time_ms = execution_time
+            # else: abandoned at the deadline, already counted as a timeout.
             logger.debug(f"Feature extraction failed for '{name}': {e}")
-
             return FeatureExtractionResult(
                 detector_name=name,
                 features=None,
@@ -1194,6 +1522,37 @@ class DetectorRegistry:
                 success=False,
                 error=str(e),
             )
+
+        if ticket.finish():
+            _record_breaker_outcome(breaker, None)
+            info.last_execution_time_ms = result.execution_time_ms
+            info.total_invocations += 1
+            info.is_fitted = getattr(detector, "_is_fitted", True)
+        # else: a late completion of a call abandoned (and counted as a
+        # timeout) at the deadline. Its result is discarded by the executor,
+        # and it must not count as a success that resets the breaker.
+        return result
+
+    def _record_timeout(self, name: str, duration_s: float) -> None:
+        """Count a call abandoned at the deadline as a detector failure.
+
+        Args:
+            name: Detector name.
+            duration_s: How long the call had been running at the deadline.
+        """
+        info = self._detectors.get(name)
+        if info is not None:
+            info.error_count += 1
+            info.last_execution_time_ms = duration_s * 1000.0
+        _record_breaker_outcome(
+            get_detector_breaker(name),
+            TimeoutError(f"{name} exceeded the {self.timeout_seconds:g}s detector budget"),
+        )
+        logger.warning(
+            "Detector '%s' timed out after %gs; counted as a circuit-breaker failure",
+            name,
+            self.timeout_seconds,
+        )
 
     def extract_all_features(
         self,
@@ -1226,22 +1585,49 @@ class DetectorRegistry:
         results: dict[str, FeatureExtractionResult] = {}
 
         if parallel and len(names) > 1:
-            executor = self._get_executor()
-            futures = {executor.submit(self.extract_features, name, data): name for name in names}
-
-            for future in as_completed(futures, timeout=self.timeout_seconds):
-                name = futures[future]
-                try:
-                    results[name] = future.result()
-                except Exception as e:
-                    results[name] = FeatureExtractionResult(
-                        detector_name=name,
-                        features=None,
-                        scores=None,
-                        execution_time_ms=0,
-                        success=False,
-                        error=str(e),
+            # The old loop used ``as_completed(..., timeout=...)``: on expiry it
+            # raised TimeoutError out of the loop and lost every result that had
+            # already finished, and it returned results in completion order.
+            #
+            # When the executor is saturated by stranded overrun threads it
+            # refuses parallel work rather than running it in this thread:
+            # here nothing could bound a hung detector, and the caller would
+            # hang with it. Counting timeouts as breaker failures (below) is
+            # what keeps a hung detector from stranding threads until then.
+            tickets = {name: _CallTicket() for name in dict.fromkeys(names)}
+            outcomes = self._get_executor().run(
+                [
+                    DetectorTask(
+                        name,
+                        functools.partial(self._extract_features, name, data, tickets[name]),
+                        parallel_safe=getattr(
+                            self._detectors[name].instance, "parallel_safe", False
+                        )
+                        is True,
                     )
+                    for name in tickets
+                ],
+                timeout_s=self.timeout_seconds,
+            )
+            for outcome in outcomes:
+                if outcome.ok:
+                    results[outcome.name] = outcome.value
+                    continue
+                if outcome.status is OutcomeStatus.TIMEOUT and tickets[outcome.name].abandon():
+                    self._record_timeout(outcome.name, outcome.duration_s)
+                error = (
+                    f"timed out after {self.timeout_seconds:g}s"
+                    if outcome.status is OutcomeStatus.TIMEOUT
+                    else str(outcome.error)
+                )
+                results[outcome.name] = FeatureExtractionResult(
+                    detector_name=outcome.name,
+                    features=None,
+                    scores=None,
+                    execution_time_ms=outcome.duration_s * 1000.0,
+                    success=False,
+                    error=error,
+                )
         else:
             for name in names:
                 results[name] = self.extract_features(name, data)

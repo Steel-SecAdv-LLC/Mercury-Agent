@@ -153,10 +153,8 @@ class TestTierCounterfactualHTTP:
             "/api/v1/detect/tier",
             headers=auth_headers,
             json={
-                "request": {
-                    "data": _burst_series().tolist(),
-                    "include_counterfactual": True,
-                }
+                "data": _burst_series().tolist(),
+                "include_counterfactual": True,
             },
         )
         assert response.status_code == 200, response.text
@@ -167,7 +165,7 @@ class TestTierCounterfactualHTTP:
         response = client.post(
             "/api/v1/detect/tier",
             headers=auth_headers,
-            json={"request": {"data": _burst_series().tolist()}},
+            json={"data": _burst_series().tolist()},
         )
         assert response.status_code == 200, response.text
         assert "counterfactual" not in response.json()
@@ -177,11 +175,9 @@ class TestTierCounterfactualHTTP:
             "/api/v1/detect/tier",
             headers=auth_headers,
             json={
-                "request": {
-                    "data": _burst_series().tolist(),
-                    "include_counterfactual": True,
-                    "counterfactual_method": "magic",
-                }
+                "data": _burst_series().tolist(),
+                "include_counterfactual": True,
+                "counterfactual_method": "magic",
             },
         )
         assert response.status_code == 422
@@ -240,11 +236,9 @@ class TestFlagshipGdprReportHTTP:
             "/api/v1/detect/flagship",
             headers=auth_headers,
             json={
-                "request": {
-                    "data": rng.normal(size=(24, 6)).tolist(),
-                    "gdpr_report": True,
-                    "subject_id": "test-subject-1",
-                }
+                "data": rng.normal(size=(24, 6)).tolist(),
+                "gdpr_report": True,
+                "subject_id": "test-subject-1",
             },
         )
         # 403 = ethical-gate refusal (fail-closed, acceptable and asserted as
@@ -262,7 +256,7 @@ class TestFlagshipGdprReportHTTP:
         response = client.post(
             "/api/v1/detect/flagship",
             headers=auth_headers,
-            json={"request": {"data": rng.normal(size=(24, 6)).tolist()}},
+            json={"data": rng.normal(size=(24, 6)).tolist()},
         )
         assert response.status_code in (200, 403), response.text
         if response.status_code == 200:

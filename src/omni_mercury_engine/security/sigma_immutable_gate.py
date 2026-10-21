@@ -114,8 +114,8 @@ SIGMA_IMMUTABLE_ETHICAL_DIMS: int = SIGMA_ETHICAL_BAND_END
 SIGMA_IMMUTABLE_PERMISSIBLE_LOW: float = 1.5
 
 #: Upper bound for permissible benevolence values inside the trained
-#: positive band.  Matches the upper end of ``U[0, 2]`` training support.
-SIGMA_IMMUTABLE_PERMISSIBLE_HIGH: float = 2.0
+#: positive band: the upper end of the ``U[0, 2]`` training support.
+SIGMA_IMMUTABLE_PERMISSIBLE_HIGH: float = ETHICAL.SIGMA_TRAINED_SUPPORT_HIGH
 
 #: Upper bound for impermissible benevolence values (forces σ_Immutable
 #: below the calibrated decision threshold).
@@ -690,7 +690,7 @@ class SigmaImmutableGate:
     def critical_ethical_floor_violations(
         self, anchors: dict[str, float]
     ) -> list[tuple[str, float]]:
-        """Return the ethical anchors that sit below :data:`CRITICAL_ETHICAL_FLOOR`.
+        """Return the ethical anchors outside ``[CRITICAL_ETHICAL_FLOOR, trained support]``.
 
         This is the deterministic half of the boundary gate.  It does not
         touch the trained network — it is a pure, synthetic-data-free
@@ -708,15 +708,22 @@ class SigmaImmutableGate:
             anchors: Mapping of ethical-anchor name -> value (already
                 excludes narrative/personality tuning scalars).
 
+        An anchor above ``ETHICAL.SIGMA_TRAINED_SUPPORT_HIGH`` is a violation
+        too. The network never saw such values and extrapolates: with every
+        anchor at 10.0 it scored 1.0, so without this ceiling an inflated
+        configuration passed both halves of the gate.
+
         Returns:
-            List of ``(name, value)`` pairs that fail the floor (non-finite
-            or below it), in input order.  Empty when every anchor holds a
-            finite value at-or-above the floor.
+            List of ``(name, value)`` pairs that fail the floor (non-finite,
+            below it, or above the trained support), in input order. Empty
+            when every anchor is a finite value inside that range.
         """
         return [
             (name, float(value))
             for name, value in anchors.items()
-            if not math.isfinite(float(value)) or float(value) < CRITICAL_ETHICAL_FLOOR
+            if not math.isfinite(float(value))
+            or float(value) < CRITICAL_ETHICAL_FLOOR
+            or float(value) > ETHICAL.SIGMA_TRAINED_SUPPORT_HIGH
         ]
 
     def enforce_ethical_floor(
@@ -743,22 +750,36 @@ class SigmaImmutableGate:
         Raises:
             EthicalConstraintViolationError: With
                 ``check="sigma_immutable_ethical_floor"`` when one or more
-                anchors are below the floor.
+                anchors are below the floor or non-finite, else with
+                ``check="sigma_immutable_ethical_ceiling"`` when anchors only
+                exceed the trained support; the ceiling error's ``score`` is
+                the support margin ``ceiling - worst value`` (negative) against
+                a threshold of 0.
         """
         violations = self.critical_ethical_floor_violations(anchors)
         if not violations:
             return
+        ceiling = ETHICAL.SIGMA_TRAINED_SUPPORT_HIGH
         merged_details: dict[str, Any] = {"action": action}
         if details:
             merged_details.update(details)
         merged_details["floor"] = CRITICAL_ETHICAL_FLOOR
+        merged_details["ceiling"] = ceiling
         merged_details["floor_violations"] = dict(violations)
-        worst_value = min(value for _, value in violations)
+        below = [v for _, v in violations if not (math.isfinite(v) and v > ceiling)]
+        if below:
+            raise EthicalConstraintViolationError(
+                action=action,
+                score=min(below),
+                threshold=CRITICAL_ETHICAL_FLOOR,
+                check="sigma_immutable_ethical_floor",
+                details=merged_details,
+            )
         raise EthicalConstraintViolationError(
             action=action,
-            score=worst_value,
-            threshold=CRITICAL_ETHICAL_FLOOR,
-            check="sigma_immutable_ethical_floor",
+            score=ceiling - max(v for _, v in violations),
+            threshold=0.0,
+            check="sigma_immutable_ethical_ceiling",
             details=merged_details,
         )
 

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -42,6 +43,7 @@ __all__ = [
     "audit_retention_days",
     "build_auth_auditor",
     "prune_rotated_audit_segments",
+    "shared_secure_logger",
 ]
 
 AUDIT_DIR_ENV = "MERCURY_AUDIT_LOG_DIR"
@@ -97,34 +99,58 @@ def audit_retention_days() -> float:
 def prune_rotated_audit_segments(audit_dir: str | os.PathLike[str], older_than_epoch: float) -> int:
     """Delete rotated audit segments (+ their ``.sha256``) older than a cutoff.
 
-    Only whole *rotated* segments (``audit_*.jsonl``) are removed — never the
-    active ``audit.jsonl``, and never individual lines — so the hash chain of
-    every retained segment stays intact and independently verifiable. Each
-    segment's SHA-256 sidecar is removed alongside it. Failures on one segment
-    are logged and skipped so retention never takes the sweep (or the API)
-    down.
+    Only whole files are removed, never individual lines, so the hash chain of
+    every retained file stays intact and independently verifiable:
+
+    * rotated segments (``audit_*.jsonl``, every writer's) and their SHA-256
+      sidecars;
+    * a finished worker's log (``audit-<pid>.jsonl``), only once its writer no
+      longer runs (its ``.audit-<pid>.lock`` is free, or without one its pid is
+      gone) -- a live worker's active log is never a target however old --
+      together with that stale lock file;
+    * crash fragments a writer set aside on restart (``*.torn-<usec>``).
+
+    The primary's active ``audit.jsonl`` is never removed. Failures on one file
+    are logged and skipped so retention never takes the sweep (or the API) down.
 
     Args:
         audit_dir: The audit log directory.
-        older_than_epoch: UNIX seconds; segments last modified before this are
+        older_than_epoch: UNIX seconds; files last modified before this are
             deleted.
 
     Returns:
-        The number of segment files deleted.
+        The number of log files deleted (sidecars and lock files not counted).
     """
+    from omni_mercury_engine.security.secure_audit_logging import (
+        _WORKER_LOG_RE,
+        _worker_lock_path,
+        _writer_is_live,
+    )
+
     directory = Path(audit_dir)
     if not directory.is_dir():
         return 0
     removed = 0
-    for segment in directory.glob("audit_*.jsonl"):
-        try:
-            if segment.stat().st_mtime >= older_than_epoch:
+    for path in sorted(directory.iterdir()):
+        name = path.name
+        worker = _WORKER_LOG_RE.fullmatch(name)
+        if not (name.startswith("audit_") and name.endswith(".jsonl")) and worker is None:
+            if ".torn-" not in name:
                 continue
-            segment.unlink(missing_ok=True)
-            segment.with_suffix(".sha256").unlink(missing_ok=True)
+        try:
+            if not path.is_file() or path.stat().st_mtime >= older_than_epoch:
+                continue
+            if worker is not None:
+                pid = int(worker.group("pid"))
+                if _writer_is_live(directory, pid):
+                    continue
+                _worker_lock_path(directory, pid).unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
+            if name.endswith(".jsonl"):
+                path.with_suffix(".sha256").unlink(missing_ok=True)
             removed += 1
         except OSError:
-            logger.exception("failed to prune audit segment %s", segment)
+            logger.exception("failed to prune audit file %s", path)
     return removed
 
 
@@ -182,6 +208,40 @@ class AuthAuditor:
             logger.exception("auth audit sink failed for action=%s", action)
 
 
+_shared_loggers: dict[Path, SecureAuditLogger] = {}
+_shared_loggers_lock = threading.Lock()
+
+
+def shared_secure_logger() -> SecureAuditLogger | None:
+    """The process's one tamper-evident sink for ``MERCURY_AUDIT_LOG_DIR``.
+
+    Every auditor in the process (auth events, per-request API audit) must
+    append to the *same* :class:`SecureAuditLogger`: two loggers on one
+    directory would each run their own hash chain, and the second would be
+    pushed onto a per-process file by the directory's writer lock. Returns
+    ``None`` when ``MERCURY_AUDIT_LOG_DIR`` is unset. Rotation settings are
+    read when a directory's logger is first built.
+    """
+    audit_dir = os.getenv(AUDIT_DIR_ENV, "").strip()
+    if not audit_dir:
+        return None
+    key = Path(audit_dir).resolve()
+    with _shared_loggers_lock:
+        secure = _shared_loggers.get(key)
+        if secure is None:
+            from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
+
+            secure = SecureAuditLogger(
+                log_dir=key,
+                rotate_size_mb=_positive_float_env(
+                    AUDIT_ROTATE_SIZE_MB_ENV, _DEFAULT_ROTATE_SIZE_MB
+                ),
+                max_rotated_files=_positive_int_env(AUDIT_MAX_FILES_ENV, _DEFAULT_MAX_FILES),
+            )
+            _shared_loggers[key] = secure
+        return secure
+
+
 def build_auth_auditor() -> AuthAuditor:
     """Construct the auditor from the environment.
 
@@ -196,15 +256,4 @@ def build_auth_auditor() -> AuthAuditor:
         An :class:`AuthAuditor` over a :class:`SecureAuditLogger` rooted at
         ``MERCURY_AUDIT_LOG_DIR`` when that is set, else the logging fallback.
     """
-    audit_dir = os.getenv(AUDIT_DIR_ENV, "").strip()
-    if not audit_dir:
-        return AuthAuditor(None)
-    from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
-
-    return AuthAuditor(
-        SecureAuditLogger(
-            log_dir=audit_dir,
-            rotate_size_mb=_positive_float_env(AUDIT_ROTATE_SIZE_MB_ENV, _DEFAULT_ROTATE_SIZE_MB),
-            max_rotated_files=_positive_int_env(AUDIT_MAX_FILES_ENV, _DEFAULT_MAX_FILES),
-        )
-    )
+    return AuthAuditor(shared_secure_logger())

@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from omni_mercury_engine.datasets.exceptions import check_synthetic_allowed
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -56,10 +57,21 @@ _FLARE_CLASS_MAP: dict[str, float] = {
 }
 
 # ---------------------------------------------------------------------------
-# Geomagnetic storm thresholds
+# Geomagnetic storm thresholds: NOAA G levels via hazard_metrics.noaa_g_scale
+# (storm = G1, Kp 5- and up; severe = G3, Kp 7- and up). Literal integer Kp
+# cutoffs (5, 7) dropped every "minus"-third storm hour.
 # ---------------------------------------------------------------------------
-_KP_STORM_THRESHOLD = 5
-_KP_SEVERE_THRESHOLD = 7
+_STORM_G_LEVEL = 1
+_SEVERE_G_LEVEL = 3
+
+
+def _g_levels(kp_values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """NOAA G level per Kp value (values outside [0, 9] are clipped first)."""
+    clipped = np.clip(np.asarray(kp_values, dtype=np.float64), 0.0, 9.0)
+    return np.fromiter(
+        (noaa_g_scale(float(k)) for k in clipped), dtype=np.int64, count=clipped.size
+    )
+
 
 # ---------------------------------------------------------------------------
 # Ground truth event catalog
@@ -297,11 +309,11 @@ class EnergyLoader(BaseDomainLoader):
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """Generate binary anomaly labels for a historical event.
 
-        Labeling strategy:
+        Labeling strategy (NOAA G scale via ``noaa_g_scale``):
 
-        * **Kp >= 7** (severe geomagnetic storm): labeled anomaly (``1``).
-        * **Kp < 5** (quiet/unsettled): labeled normal (``0``).
-        * **Kp 5-6** (minor storm): labeled normal (``0``) for
+        * **G3 and stronger** (Kp 7- and up): labeled anomaly (``1``).
+        * **Below G1** (quiet/unsettled/active): labeled normal (``0``).
+        * **G1-G2** (minor/moderate storm): labeled normal (``0``) for
           conservative labeling to reduce false-positive contamination.
 
         For the ``texas_2021`` grid event, anomaly labels are based on
@@ -332,9 +344,9 @@ class EnergyLoader(BaseDomainLoader):
             # For grid events, anomaly = demand exceeds supply capacity
             labels = self._label_grid_anomalies(df)
         else:
-            # For geomagnetic events, anomaly = Kp >= 7
+            # For geomagnetic events, anomaly = NOAA G3+ (severe; Kp 7- and up)
             kp_values = df["kp"].values.astype(np.float64)
-            labels = (kp_values >= _KP_SEVERE_THRESHOLD).astype(np.int64)
+            labels = (_g_levels(kp_values) >= _SEVERE_G_LEVEL).astype(np.int64)
 
         logger.info(
             "Ground truth for '%s': %d anomalies / %d total.",
@@ -742,8 +754,13 @@ class EnergyLoader(BaseDomainLoader):
 
         Creates a plausible multi-week Kp profile with a background of
         quiet/unsettled conditions punctuated by the documented major
-        storm.  Solar wind and X-ray parameters are correlated with Kp
-        using empirical relationships.
+        storm. Solar wind speed and density are correlated with the
+        simultaneous Kp (a CME arrival raises both at once); X-ray flare
+        activity instead LEADS the storm by the Sun-Earth CME transit time
+        (1-3 days for storm-capable CMEs), because flares happen at eruption
+        while Kp responds only at arrival -- a synthetic series where
+        X-ray class tracked instantaneous Kp taught the anti-physical
+        shortcut that flares and storms are simultaneous.
 
         For extended time windows, minor storms (Kp 4-5) are sprinkled
         throughout the quiet period to provide realistic baseline variance.
@@ -783,12 +800,26 @@ class EnergyLoader(BaseDomainLoader):
         sw_density = base_density + rng.normal(0, 2, size=n_steps)
         sw_density = np.clip(sw_density, 0.5, 50.0)
 
-        # X-ray class: elevated during storm peaks
-        xray = np.zeros(n_steps, dtype=np.float64)
-        xray[kp_values >= 7] = 5.0  # X-class during severe storms
-        xray[(kp_values >= 5) & (kp_values < 7)] = 4.0  # M-class
-        xray[(kp_values >= 3) & (kp_values < 5)] = 3.0  # C-class
-        xray[kp_values < 3] = 1.0  # A-class background
+        # X-ray class: flares LEAD each geomagnetic disturbance by the CME
+        # transit time (storm-capable CMEs reach Earth in 1-3 days), so the
+        # flare window of a storm step sits 8-24 three-hour steps EARLIER.
+        # The flare magnitude still scales with how strong the storm will
+        # be (bigger CMEs from bigger flares), banded on the NOAA G scale.
+        g_levels = _g_levels(kp_values)
+        xray = np.ones(n_steps, dtype=np.float64)  # A-class background
+        xray[rng.random(n_steps) < 0.05] = 3.0  # sporadic C-class, no storm follows
+        # One eruption per storm EPISODE (contiguous G1+ run): the CME that
+        # causes it erupts 8-24 three-hour steps (1-3 days) before onset.
+        storm_mask = g_levels >= _STORM_G_LEVEL
+        onsets = np.flatnonzero(storm_mask & ~np.concatenate(([False], storm_mask[:-1])))
+        for onset in onsets:
+            run_end = onset
+            while run_end + 1 < n_steps and storm_mask[run_end + 1]:
+                run_end += 1
+            transit_steps = int(rng.integers(8, 25))
+            eruption = max(int(onset) - transit_steps, 0)
+            severe = bool(np.any(g_levels[onset : run_end + 1] >= _SEVERE_G_LEVEL))
+            xray[eruption] = 5.0 if severe else 4.0
 
         df = pd.DataFrame(
             {

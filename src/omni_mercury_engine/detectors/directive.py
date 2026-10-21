@@ -19,6 +19,7 @@ Memory Management:
 
 from __future__ import annotations
 
+import math
 import warnings
 
 warnings.warn(
@@ -48,68 +49,61 @@ from scipy.fft import fft
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
-# Optional numba lane for the O(n^2*d) GSIS distance computation
-# (``[performance]`` extra, mirrors ``detectors/spatial.py``). The kernel is
-# an exact compiled form of the numpy reference: the inner sum of squared
-# differences replicates numpy's pairwise-summation order (sequential below
-# 8 elements, the 8-accumulator block up to 128, recursive halving above),
-# so the produced distances — and therefore the percentile/count and the
-# final scores — are bit-identical to the chunked-broadcast path. Pinned by
-# ``tests/test_native_acceleration.py`` across seeds, shapes and
-# duplicate-heavy (tie-boundary) data; measured 2.9x at 1.1k rows and 5.5x
-# at 4k rows (2026-06-11).
-try:
-    from numba import njit, prange
+#: Reference rows kept from the fit for the GSIS density score (a deterministic,
+#: evenly spaced subsample). It bounds the score's cost at O(n * m * d) for a
+#: batch of n rows instead of the O(n^2 * d) of all pairwise batch distances.
+GSIS_REFERENCE_ROWS = 512
+#: The neighbour used for density: the k-th nearest reference row with
+#: k = 20% of the reference (the 20th-percentile radius GSIS was written for).
+GSIS_NEIGHBOUR_FRACTION = 0.2
+#: Rows per distance block (bounds peak memory at block x m floats).
+_GSIS_BLOCK_ROWS = 1024
 
-    @njit(cache=True)
-    def _gsis_pairwise_sum_sq(row_a, row_b, n):  # type: ignore[no-untyped-def]
-        """Sum of squared differences in numpy's pairwise-summation order.
 
-        Covers numpy's sequential (n < 8) and 8-accumulator (n <= 128)
-        regimes; the recursive-halving regime (n > 128) is deliberately not
-        implemented — self-recursion inside a numba parallel region is
-        fragile (observed segfault), so wider rows take the numpy lane via
-        the dtype/width gate in ``_gravitational_stability_check``.
-        """
-        if n < 8:
-            res = 0.0
-            for i in range(n):
-                d = row_a[i] - row_b[i]
-                res += d * d
-            return res
-        r = np.empty(8, dtype=np.float64)
-        for j in range(8):
-            d = row_a[j] - row_b[j]
-            r[j] = d * d
-        i = 8
-        limit = n - (n % 8)
-        while i < limit:
-            for j in range(8):
-                d = row_a[i + j] - row_b[i + j]
-                r[j] += d * d
-            i += 8
-        res = ((r[0] + r[1]) + (r[2] + r[3])) + ((r[4] + r[5]) + (r[6] + r[7]))
-        while i < n:
-            d = row_a[i] - row_b[i]
-            res += d * d
-            i += 1
-        return res
+def _gsis_kth_distances(
+    rows: np.ndarray[Any, Any],
+    reference: np.ndarray[Any, Any],
+    k: int,
+    exclude: np.ndarray[Any, Any] | None,
+) -> np.ndarray[Any, Any]:
+    """Distance from each row to its k-th nearest reference row (1-based k).
 
-    @njit(cache=True, parallel=True)
-    def _gsis_distance_block(data, start, stop):  # type: ignore[no-untyped-def]
-        """Distances from rows ``start:stop`` to every row (one chunk)."""
-        n, d = data.shape
-        out = np.empty((stop - start, n), dtype=np.float64)
-        # numba absent (CI mypy lane): prange is Any via the override; numba
-        # installed ([performance]): prange is real and untyped -- ignore both.
-        for i in prange(stop - start):  # type: ignore[no-untyped-call, attr-defined, unused-ignore]
-            for j in range(n):
-                out[i, j] = np.sqrt(_gsis_pairwise_sum_sq(data[start + i], data[j], d))
-        return out
+    ``exclude[i]`` is the reference index of row i itself (or -1): that
+    reference row is skipped, giving the leave-one-out distance.
+    """
+    ref = np.asarray(reference, dtype=np.float64)
+    ref_sq = np.einsum("ij,ij->i", ref, ref)
+    out = np.empty(len(rows))
+    for start in range(0, len(rows), _GSIS_BLOCK_ROWS):
+        block = np.asarray(rows[start : start + _GSIS_BLOCK_ROWS], dtype=np.float64)
+        sq = np.einsum("ij,ij->i", block, block)[:, None] + ref_sq[None, :] - 2.0 * block @ ref.T
+        np.maximum(sq, 0.0, out=sq)
+        if exclude is not None:
+            own = exclude[start : start + len(block)]
+            hit = own >= 0
+            sq[np.flatnonzero(hit), own[hit]] = np.inf
+        out[start : start + len(block)] = np.sqrt(np.partition(sq, k - 1, axis=1)[:, k - 1])
+    return out
 
-    GSIS_NUMBA_AVAILABLE = True
-except ImportError:
-    GSIS_NUMBA_AVAILABLE = False
+
+def _gsis_reference(
+    data: np.ndarray[Any, Any],
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] | None:
+    """``(reference rows, their sorted leave-one-out k-th distances, source indices)``.
+
+    ``None`` when fewer than two finite rows exist.
+    """
+    finite = np.flatnonzero(np.isfinite(data).all(axis=1))
+    if finite.size < 2:
+        return None
+    m = min(GSIS_REFERENCE_ROWS, finite.size)
+    picked = finite[np.unique(np.linspace(0, finite.size - 1, m).round().astype(np.intp))]
+    reference = np.asarray(data[picked], dtype=np.float64)
+    k = max(1, math.ceil(GSIS_NEIGHBOUR_FRACTION * (len(reference) - 1)))
+    own = np.arange(len(reference), dtype=np.intp)
+    kdist = np.sort(_gsis_kth_distances(reference, reference, k, own))
+    return reference, kdist, picked
+
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +212,12 @@ class SigmaDirectiveDetector(BaseDetector):
         >>> anomalies = result["is_anomaly"]
     """
 
+    #: Verified free of process-global mutable state at inference (bit-identical
+    #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
+    parallel_safe = True
+    #: The memory buffer is per calling thread (see ``_get_thread_state``).
+    thread_bound_state = True
+
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize SigmaDirectiveDetector with configuration.
 
@@ -234,6 +234,8 @@ class SigmaDirectiveDetector(BaseDetector):
         super().__init__(config)
         self.convergence_threshold: float = self.config.get("convergence_threshold", 0.01)
         self.stability_factor: float = self.config.get("stability_factor", 1.0)
+        # (reference rows, sorted leave-one-out k-th distances) from the fit.
+        self._gsis_reference: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
         self.memory_depth: int = self.config.get("memory_depth", 5)
         self.use_quantum_enhanced: bool = self.config.get("use_quantum_enhanced", True)
         self.use_nano_detection: bool = self.config.get("use_nano_detection", True)
@@ -341,6 +343,8 @@ class SigmaDirectiveDetector(BaseDetector):
             data = data[finite_mask]
 
         self.baseline_pattern = np.mean(data, axis=0).astype(np.float64)
+        built = _gsis_reference(np.asarray(data, dtype=np.float64))
+        self._gsis_reference = None if built is None else (built[0], built[1])
 
         # Clear memory buffer on new fit (fresh start)
         self.clear_memory()
@@ -529,54 +533,47 @@ class SigmaDirectiveDetector(BaseDetector):
         return scores
 
     def _gravitational_stability_check(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """GSIS: Check gravitational stability (data distribution stability).
+        """GSIS: how sparse each row's neighbourhood is, relative to the baseline.
 
-        Vectorized (2026-06-11): the per-row Python loop (one full distance
-        pass plus one percentile call per sample) is replaced by chunked
-        broadcasting — pairwise norms and the per-row 20th percentile are
-        computed a block of rows at a time, bounding peak memory while
-        removing ~2n small numpy calls. The norm uses the same ufunc
-        reduction as the former ``np.linalg.norm(data - data[i], axis=1)``,
-        so scores are bit-identical (pinned by
-        ``tests/test_native_acceleration.py``).
+        A row's density radius is its distance to the k-th nearest reference
+        row (k = :data:`GSIS_NEIGHBOUR_FRACTION` of the reference). Its score
+        is the fraction of reference rows whose own leave-one-out radius is
+        no larger: about 0.5 for a typical row, approaching 1 for a row in a
+        sparser region than any baseline row. The reference is the fit's
+        (up to :data:`GSIS_REFERENCE_ROWS` rows); an unfitted call or a
+        state without one uses the batch itself, leave-one-out. A row with a
+        non-finite value scores 1.
 
-        Numba lane (2026-06-11, ``[performance]`` extra): for float64 input
-        up to 128 features the chunk distances come from a parallel JIT
-        kernel that replicates numpy's pairwise-summation order exactly —
-        still bit-identical (same parity test), ~3x at 1k rows and ~5.5x at
-        4k rows, without the (chunk, n, d) broadcast temporaries. Other
-        dtypes, wider rows (numpy's recursive-halving summation regime) and
-        numba-less installs keep the numpy path.
+        Replaces the original form (2026-10-16), which compared each row
+        against the 20th percentile of *its own* distances: by construction
+        about 20% of rows always fall inside that radius, so every row scored
+        ``1 - 0.2 = 0.8`` (measured: std 1e-16 on 1,000 rows with ten planted
+        8-sigma outliers) while all pairwise distances made it O(n^2 * d) and
+        the slowest detector on the served path (287 s at 32,768 rows). Cost
+        is now O(n * m * d).
         """
         n = len(data)
         if n < 2:
             return np.zeros(n)
-
-        # The numba lane computes the same distances in the same summation
-        # order without the (chunk, n, d) broadcast temporaries (bit-equal;
-        # see the kernel docstring). float64 only: other dtypes follow the
-        # numpy path so their (dtype-specific) arithmetic is untouched.
-        use_numba = (
-            GSIS_NUMBA_AVAILABLE
-            and data.dtype == np.float64
-            and data.ndim == 2
-            and data.shape[1] <= 128  # numpy enters recursive pairwise halving above
+        finite = np.isfinite(data).all(axis=1)
+        scores = np.ones(n)
+        reference = self._gsis_reference
+        exclude: np.ndarray[Any, Any] | None = None
+        if reference is None or reference[0].shape[1] != data.shape[1]:
+            built = _gsis_reference(data)
+            if built is None:
+                return np.zeros(n) if not finite.any() else scores * self.stability_factor
+            ref_rows, kdist, picked = built
+            exclude = np.full(n, -1, dtype=np.intp)
+            exclude[picked] = np.arange(len(picked), dtype=np.intp)
+        else:
+            ref_rows, kdist = reference
+        k = max(1, math.ceil(GSIS_NEIGHBOUR_FRACTION * (len(ref_rows) - 1)))
+        rows = np.flatnonzero(finite)
+        radius = _gsis_kth_distances(
+            data[rows], ref_rows, k, None if exclude is None else exclude[rows]
         )
-        data_contiguous = np.ascontiguousarray(data) if use_numba else data
-
-        scores = np.zeros(n)
-        chunk = max(1, min(128, n))
-        for start in range(0, n, chunk):
-            stop = min(start + chunk, n)
-            if use_numba:
-                distances = _gsis_distance_block(data_contiguous, start, stop)
-            else:
-                block = data[start:stop]
-                distances = np.linalg.norm(block[:, None, :] - data[None, :, :], axis=2)
-            thresholds = np.percentile(distances, 20, axis=1)
-            local_density = np.sum(distances < thresholds[:, None], axis=1)
-            scores[start:stop] = 1.0 - local_density / n
-
+        scores[rows] = np.searchsorted(kdist, radius, side="right") / len(kdist)
         return scores * self.stability_factor
 
     def _recursive_memory_dynamics(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -852,10 +849,27 @@ class SigmaDirectiveDetector(BaseDetector):
         """
         if not self._is_fitted or self.baseline_pattern is None:
             return None
-        return {"baseline_pattern": np.asarray(self.baseline_pattern, dtype=np.float64)}
+        state: dict[str, Any] = {
+            "baseline_pattern": np.asarray(self.baseline_pattern, dtype=np.float64)
+        }
+        if self._gsis_reference is not None:
+            state["gsis_reference"] = np.asarray(self._gsis_reference[0], dtype=np.float64)
+            state["gsis_radii"] = np.asarray(self._gsis_reference[1], dtype=np.float64)
+        return state
 
     def set_fitted_state(self, state: dict[str, Any]) -> None:
-        """Restore a state produced by :meth:`get_fitted_state`."""
+        """Restore a state produced by :meth:`get_fitted_state`.
+
+        A state written before the GSIS reference existed restores without
+        one; GSIS then scores against each batch, leave-one-out.
+        """
         self.baseline_pattern = np.asarray(state["baseline_pattern"], dtype=np.float64)
+        if "gsis_reference" in state and "gsis_radii" in state:
+            self._gsis_reference = (
+                np.asarray(state["gsis_reference"], dtype=np.float64),
+                np.asarray(state["gsis_radii"], dtype=np.float64),
+            )
+        else:
+            self._gsis_reference = None
         self.clear_memory()
         self._is_fitted = True

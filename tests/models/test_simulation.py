@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
+import omni_mercury_engine.models.simulation as simulation_module
 from omni_mercury_engine.models.simulation import SimulationModule
 
 
@@ -89,6 +91,21 @@ class TestSimulationModule:
         assert "supporting_cases" in result
         assert "counterexamples" in result
 
+    def test_analyze_navier_stokes_dates_unverified_claims(self) -> None:
+        """Claimed-but-unverified results are recorded as claims, never as facts.
+
+        Fails on the replaced output, which had no ``claimed_results``
+        record at all.
+        """
+        sim = SimulationModule()
+        result = sim.analyze_millennium_problem("navier_stokes")
+
+        assert result["status"] == "unsolved"
+        claims = result["claimed_results"]
+        assert len(claims) >= 1
+        assert claims[0]["status"] == "claimed_unverified"
+        assert "2026" in claims[0]["source"]
+
     def test_analyze_p_vs_np(self) -> None:
         """Test P vs NP analysis."""
         sim = SimulationModule()
@@ -108,6 +125,64 @@ class TestSimulationModule:
         assert result["status"] == "SOLVED"
         assert "solved_by" in result
         assert result["solved_by"] == "Grigori Perelman"
+
+    def test_riemann_zeros_are_real_not_simulated(self) -> None:
+        """The Riemann path measures actual zeta zeros, never RNG output.
+
+        Fails on the replaced implementation, which fabricated ordinates
+        at 14.134725 + 10k (the real second ordinate is 21.02, not 24.13) and
+        had no ``oracle`` key.
+        """
+        sim = SimulationModule()
+        result = sim.explore_conjecture("riemann", search_space=5)
+
+        assert result["oracle"] == "mpmath"
+        assert result["explored_cases"] == 5
+        known_ordinates = [14.134725, 21.022040, 25.010858, 30.424876, 32.935062]
+        for got, want in zip(result["first_zero_ordinates"], known_ordinates, strict=True):
+            assert got == pytest.approx(want, abs=1e-5)
+
+    def test_riemann_strip_count_cross_check(self) -> None:
+        """Turing-style check: zeros found on the line == zeros in the strip.
+
+        Fails on the replaced implementation: no ``strip_zero_count`` or
+        ``max_zeta_residual`` keys, and its RNG deviations made
+        ``viability_score`` land near 0.9992, never exactly 1.0 with a zero
+        ``max_deviation_from_half``.
+        """
+        sim = SimulationModule()
+        result = sim.explore_conjecture("riemann", search_space=5)
+
+        assert result["strip_zero_count"] == 5
+        assert result["zeros_on_critical_line"] == 5
+        assert result["viability_score"] == 1.0
+        assert result["max_deviation_from_half"] == 0.0
+        assert result["max_zeta_residual"] < 1e-8
+
+    def test_riemann_fails_closed_without_mpmath(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """No oracle means zero explored cases and zero viability — no fabrication.
+
+        Fails on the replaced implementation, which needed no oracle and
+        happily reported 5 fabricated zeros with viability near 1.0.
+        """
+        monkeypatch.setattr(simulation_module, "MPMATH_AVAILABLE", False)
+        result = SimulationModule().explore_conjecture("riemann", search_space=5)
+
+        assert result["oracle"] == "unavailable"
+        assert result["explored_cases"] == 0
+        assert result["zeros_on_critical_line"] == 0
+        assert result["viability_score"] == 0.0
+
+    def test_riemann_nonpositive_search_space(self) -> None:
+        """A search space asking for no zeros reports none — it must not crash.
+
+        Fails on the replaced implementation, which raised ``ValueError``
+        from ``max()`` on an empty deviations list.
+        """
+        result = SimulationModule().explore_conjecture("riemann", search_space=0)
+
+        assert result["explored_cases"] == 0
+        assert result["viability_score"] == 0.0
 
     def test_extract_features(self) -> None:
         """Test feature extraction."""

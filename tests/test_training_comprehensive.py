@@ -10,6 +10,7 @@ pytest.importorskip("torch")
 
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 import torch
@@ -209,10 +210,21 @@ class TestLearningRateScheduler:
         loss.backward()
         optimizer.step()
 
-        # Simulate no improvement
+        # First step records the best metric; the next two are "bad" epochs
+        # within patience=step_size=2, so the LR must hold at 0.1.
         scheduler.step(metric=1.0)
         scheduler.step(metric=1.0)
-        scheduler.step(metric=1.0)  # Should trigger reduction
+        scheduler.step(metric=1.0)
+        assert optimizer.param_groups[0]["lr"] == pytest.approx(
+            0.1
+        ), "plateau scheduler reduced the LR inside the patience window"
+        # The third consecutive bad epoch exceeds patience and halves the LR.
+        scheduler.step(metric=1.0)
+        reduced_lr = optimizer.param_groups[0]["lr"]
+        assert reduced_lr == pytest.approx(0.1 * 0.5), (
+            f"plateau scheduler should have halved the LR once num_bad_epochs "
+            f"exceeded patience=2; got {reduced_lr}"
+        )
 
     def test_invalid_mode(self) -> None:
         """Test invalid scheduler mode raises error."""
@@ -335,8 +347,21 @@ class TestMercuryOptimizers:
         """Create simple model for optimizer testing."""
         return nn.Linear(10, 1)
 
+    @staticmethod
+    def _snapshot(model: nn.Module) -> list[torch.Tensor]:
+        return [p.detach().clone() for p in model.parameters()]
+
+    @staticmethod
+    def _assert_params_updated_and_finite(model: nn.Module, before: list[torch.Tensor]) -> None:
+        after = [p.detach() for p in model.parameters()]
+        assert any(
+            not torch.equal(b, a) for b, a in zip(before, after)
+        ), "optimizer.step() left every parameter unchanged"
+        assert all(torch.isfinite(a).all() for a in after), "step produced non-finite params"
+
     def test_mercury_optimizer_step(self) -> None:
-        """Test MercuryOptimizer step function."""
+        """A step with non-zero gradients moves the parameters and stays finite."""
+        torch.manual_seed(0)
         model = self._create_simple_model()
         optimizer = MercuryOptimizer(model.parameters(), lr=0.01, alpha=0.1, beta=0.9)
 
@@ -347,10 +372,13 @@ class TestMercuryOptimizers:
         loss = nn.functional.mse_loss(output, y)
         loss.backward()
 
+        before = self._snapshot(model)
         optimizer.step()
+        self._assert_params_updated_and_finite(model, before)
 
     def test_mercury_optimizer_with_quantum_noise(self) -> None:
-        """Test MercuryOptimizer with quantum noise."""
+        """Quantum-noise variant still updates parameters and stays finite."""
+        torch.manual_seed(0)
         model = self._create_simple_model()
         optimizer = MercuryOptimizer(model.parameters(), lr=0.01, quantum_noise=0.01)
 
@@ -361,7 +389,9 @@ class TestMercuryOptimizers:
         loss = nn.functional.mse_loss(output, y)
         loss.backward()
 
+        before = self._snapshot(model)
         optimizer.step()
+        self._assert_params_updated_and_finite(model, before)
 
     def test_mercury_optimizer_with_closure(self) -> None:
         """Test MercuryOptimizer with closure function."""
@@ -382,53 +412,49 @@ class TestMercuryOptimizers:
         assert loss is not None
         assert isinstance(loss, float)
 
-    def test_mercury_momentum_optimizer(self) -> None:
-        """Test MercuryMomentumOptimizer."""
-        model = self._create_simple_model()
-        optimizer = MercuryMomentumOptimizer(model.parameters(), lr=0.01, alpha=0.1, momentum=0.9)
+    def _assert_optimizes(self, optimizer: Any, model: nn.Module, steps: int) -> None:
+        """Run ``steps`` full-batch iterations and assert the loss decreases."""
+        torch.manual_seed(0)
+        x = torch.randn(16, 10)
+        y = torch.randn(16, 1)
 
-        x = torch.randn(4, 10)
-        y = torch.randn(4, 1)
-
-        # Multiple steps to test momentum accumulation
-        for _ in range(3):
+        losses: list[float] = []
+        before = self._snapshot(model)
+        for _ in range(steps):
             optimizer.zero_grad()
             output = model(x)
             loss = nn.functional.mse_loss(output, y)
             loss.backward()
             optimizer.step()
+            losses.append(float(loss.item()))
+        self._assert_params_updated_and_finite(model, before)
+        assert losses[-1] < losses[0], (
+            f"optimizer failed to reduce the training loss over {steps} "
+            f"full-batch steps: {losses[0]:.6f} -> {losses[-1]:.6f}"
+        )
+
+    def test_mercury_momentum_optimizer(self) -> None:
+        """Momentum accumulation over steps reduces the full-batch loss."""
+        torch.manual_seed(0)
+        model = self._create_simple_model()
+        optimizer = MercuryMomentumOptimizer(model.parameters(), lr=0.01, alpha=0.1, momentum=0.9)
+        self._assert_optimizes(optimizer, model, steps=3)
 
     def test_mercury_exp_decay_optimizer(self) -> None:
-        """Test MercuryExponentialDecayOptimizer."""
+        """Exponential-decay variant still optimizes the full-batch loss."""
+        torch.manual_seed(0)
         model = self._create_simple_model()
         optimizer = MercuryExponentialDecayOptimizer(
             model.parameters(), lr=0.01, alpha=0.1, decay_rate=0.99
         )
-
-        x = torch.randn(4, 10)
-        y = torch.randn(4, 1)
-
-        for _ in range(5):
-            optimizer.zero_grad()
-            output = model(x)
-            loss = nn.functional.mse_loss(output, y)
-            loss.backward()
-            optimizer.step()
+        self._assert_optimizes(optimizer, model, steps=5)
 
     def test_mercury_harmonic_optimizer(self) -> None:
-        """Test MercuryHarmonicOptimizer."""
+        """Harmonic variant still optimizes the full-batch loss."""
+        torch.manual_seed(0)
         model = self._create_simple_model()
         optimizer = MercuryHarmonicOptimizer(model.parameters(), lr=0.01, alpha=0.1, omega=0.1)
-
-        x = torch.randn(4, 10)
-        y = torch.randn(4, 1)
-
-        for _ in range(5):
-            optimizer.zero_grad()
-            output = model(x)
-            loss = nn.functional.mse_loss(output, y)
-            loss.backward()
-            optimizer.step()
+        self._assert_optimizes(optimizer, model, steps=5)
 
 
 class TestCreateMercuryOptimizer:

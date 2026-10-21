@@ -237,6 +237,45 @@ class TestShippedSolarStormCheckpoint:
         assert evaluation["learned"]["kp_mae"] < evaluation["physics"]["kp_mae"]
         assert evaluation["n_test_samples"] > 10000
 
+    def test_storm_labels_start_at_g1_onset(self) -> None:
+        """Training labels follow noaa_g_scale: 5- (4.7 in OMNI2 encoding) is a storm.
+
+        Regression: labels were ``kp >= 5.0``, which called every 5- hour
+        quiet although NOAA's G1 starts at Kp 5- — the labels disagreed with
+        the deployed decision rule (noaa_g_scale) the detector emits.
+        """
+        from omni_mercury_engine.ml.hazard_training.solar_storm import _is_g1_storm
+
+        labels = _is_g1_storm(np.array([4.0, 4.3, 4.7, 5.0, 5.3, 9.0]))
+        assert labels.tolist() == [False, False, True, True, True, True]
+
+    def test_evaluation_physics_baseline_is_untrained(self) -> None:
+        """The merit gate's physics detector must be Boyle physics, not the incumbent.
+
+        Regression: a default-constructed SolarStormDetector auto-loads the
+        committed checkpoint, so once one is shipped the "physics" baseline
+        silently became the previously shipped network (measured: "physics"
+        Kp MAE 0.574 — the incumbent's own score — instead of Boyle's 1.054).
+        """
+        from omni_mercury_engine.ml.hazard_training.solar_storm import _evaluation_detectors
+
+        physics_det, learned_det = _evaluation_detectors(
+            shipped_checkpoint_path("solar_storm_geomag")
+        )
+        assert physics_det._neural_trained is False
+        assert learned_det._neural_trained is True
+
+    def test_provenance_records_the_g1_label_convention(self) -> None:
+        """The shipped artifact was trained and scored on G1-onset labels."""
+        _payload, provenance = load_shipped_checkpoint("solar_storm_geomag")
+        assert provenance is not None
+        evaluation = provenance["evaluation"]
+        for side in ("learned", "physics"):
+            assert "storm_recall_kp_g1" in evaluation[side]
+            assert "storm_recall_kp5" not in evaluation[side]
+        policy = provenance["evaluation"]["extras"]["operating_point"]
+        assert "noaa_g_scale" in policy
+
     def test_dual_rule_operating_point_drives_storm_onset(self) -> None:
         """The classifier head must raise storm onset at the ratified threshold.
 

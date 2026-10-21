@@ -287,13 +287,15 @@ class MultiScaleFeatureAggregator(nn.Module):
 
         Returns:
             Aggregated features [B, output_dim]
-        """
-        pooled = []
-        for name in self.feature_dims:
-            if name in features:
-                feat = self.pool(features[name])
-                pooled.append(feat.flatten(1))
 
+        Raises:
+            KeyError: a layer in ``feature_dims`` is missing from ``features``;
+                the projection is sized for all of them.
+        """
+        missing = [name for name in self.feature_dims if name not in features]
+        if missing:
+            raise KeyError(f"features missing layers {missing}")
+        pooled = [self.pool(features[name]).flatten(1) for name in self.feature_dims]
         concatenated = torch.cat(pooled, dim=1)
         return self.projection(concatenated)
 

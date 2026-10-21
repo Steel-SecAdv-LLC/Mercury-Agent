@@ -318,20 +318,30 @@ class TestHurricaneDetector:
         assert result.cyclone_detected is False
 
     def test_saffir_simpson_classification(self, detector: Any) -> None:
-        """Test Saffir-Simpson scale classification."""
+        """NHC Saffir-Simpson boundaries in knots, both sides of each boundary.
+
+        The detector's wind is in knots; the ladder used to carry the mph
+        boundaries (74/96/111/130/157), which this table would reject.
+        """
         test_cases = [
-            (20, "no_cyclone"),
-            (30, "tropical_depression"),
-            (50, "tropical_storm"),
-            (80, "category_1"),
-            (100, "category_2"),
-            (115, "category_3"),
-            (140, "category_4"),
-            (160, "category_5"),
+            (20, "tropical_depression"),
+            (33, "tropical_depression"),
+            (34, "tropical_storm"),
+            (63, "tropical_storm"),
+            (64, "category_1"),
+            (82, "category_1"),
+            (83, "category_2"),
+            (95, "category_2"),
+            (96, "category_3"),
+            (112, "category_3"),
+            (113, "category_4"),
+            (136, "category_4"),
+            (137, "category_5"),
+            (165, "category_5"),
         ]
         for wind_speed, expected_category in test_cases:
             category = detector._classify_category(wind_speed)
-            assert category == expected_category
+            assert category == expected_category, wind_speed
 
     def test_cyclone_type_detection(self, detector: Any) -> None:
         """Test cyclone type detection based on basin."""
@@ -396,13 +406,9 @@ class TestFloodPredictionResult:
             precipitation_forecast_inches=4.0,
             soil_saturation_pct=95.0,
             runoff_coefficient=0.8,
-            time_to_peak_hours=6.0,
-            peak_discharge_cfs=50000.0,
             refactoring_score=0.9,
             model_optimization_iterations=5,
             prediction_uncertainty=0.15,
-            affected_area_sq_mi=100.0,
-            population_at_risk=50000,
             warning_actions=["Evacuate low-lying areas"],
             evacuation_routes=["Route 1", "Route 2"],
             shelter_locations=["Community Center"],

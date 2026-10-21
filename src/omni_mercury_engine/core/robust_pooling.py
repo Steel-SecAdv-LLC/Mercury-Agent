@@ -18,7 +18,7 @@ kinematic stream at AUROC ~0.66 — cannot drag the fused score down:
   (breakdown ``t/k``) and pools the rest.
 
 Attribution: the bounded-influence / trimmed pooling framing is a *blueprint*
-adapted from FINDOYOU robust-pooling work; this code and the numbers Mercury
+adapted from FINDΩYOU™ robust-pooling work; this code and the numbers Mercury
 reports with it are Mercury's own.  Default-off everywhere it is wired.
 """
 
@@ -156,7 +156,13 @@ def reliability_pool(
     c: float = 2.0,
     t: int = 1,
 ) -> np.ndarray[Any, Any]:
-    """Dispatch to the clipped (default) or trimmed bounded-influence pool."""
+    """Dispatch to the clipped (default) or trimmed bounded-influence pool.
+
+    Raises:
+        ValueError: ``mode`` is neither ``"clipped"`` nor ``"trimmed"``.
+    """
     if mode == "trimmed":
         return trimmed_logodds(probs, weights, t=t)
-    return clipped_logodds(probs, weights, c=c)
+    if mode == "clipped":
+        return clipped_logodds(probs, weights, c=c)
+    raise ValueError(f"mode must be 'clipped' or 'trimmed', got {mode!r}")

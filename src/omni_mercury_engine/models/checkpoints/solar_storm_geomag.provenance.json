@@ -1,7 +1,7 @@
 {
   "checkpoint": "solar_storm_geomag.pt",
-  "checkpoint_sha256": "307b07579c061c9cf6e231c28197d499cbabfc359354cf973fbb647c0429bf98",
-  "created_utc": "2026-07-10T07:05:12+00:00",
+  "checkpoint_sha256": "e57fa95477848ee6da51ce7e7fbc702bd46d1b09411db7457aade99c2105d5f9",
+  "created_utc": "2026-10-19T21:01:42+00:00",
   "data_sources": [
     {
       "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2005",
@@ -129,35 +129,35 @@
     ],
     "extras": {
       "comparison": "identical held-out OMNI2 hours through SolarStormDetector.predict_solar_storm, physics fallback vs loaded checkpoint",
-      "operating_point": "learned storm onset uses the dual rule carried by the checkpoint (see payload['operating_point']); physics onset is its Kp>=5 threshold \u2014 each path is scored on its own deployed decision rule",
-      "test_storm_fraction": 0.026309680193662643
+      "operating_point": "learned storm onset uses the dual rule carried by the checkpoint (see payload['operating_point']); physics onset is G1 per noaa_g_scale on its Kp \u2014 each path is scored on its own deployed decision rule",
+      "test_storm_fraction": 0.03900023177266121
     },
     "failed_constraints": [],
     "higher_is_better": false,
     "hook": "solar_storm_geomag",
     "learned": {
-      "false_alarm_rate_kp5": 0.0008741953429229914,
-      "false_alarm_rate_op": 0.02614638798378765,
-      "g_bucket_accuracy": 0.9597616652480074,
-      "kp_mae": 0.5742663251280619,
-      "kp_rmse": 0.7537715022076086,
-      "storm_auc": 0.9716830247158865,
-      "storm_csi_op": 0.38565022421524664,
-      "storm_recall_kp5": 0.3044117647058823,
-      "storm_recall_op": 0.7588235294117647
+      "false_alarm_rate_kp_g1": 0.003019566792817457,
+      "false_alarm_rate_op": 0.03631532329495128,
+      "g_bucket_accuracy": 0.9444014547705641,
+      "kp_mae": 0.5746165111316188,
+      "kp_rmse": 0.7539707007082485,
+      "storm_auc": 0.9660762854407673,
+      "storm_csi_op": 0.406282722513089,
+      "storm_recall_kp_g1": 0.35119047619047616,
+      "storm_recall_op": 0.7698412698412699
     },
     "learned_beats_physics": true,
     "n_test_samples": 25846,
     "physics": {
-      "false_alarm_rate_kp5": 0.031391560041325595,
-      "false_alarm_rate_op": 0.031391560041325595,
-      "g_bucket_accuracy": 0.9483092161262865,
+      "false_alarm_rate_kp_g1": 0.047709155326515824,
+      "false_alarm_rate_op": 0.047709155326515824,
+      "g_bucket_accuracy": 0.9230441847868142,
       "kp_mae": 1.0536682437391807,
       "kp_rmse": 1.3437883141203117,
-      "storm_auc": 0.8449684681947165,
-      "storm_csi_op": 0.2653061224489796,
-      "storm_recall_kp5": 0.5735294117647058,
-      "storm_recall_op": 0.5735294117647058
+      "storm_auc": 0.8157475321032672,
+      "storm_csi_op": 0.2808937528499772,
+      "storm_recall_kp_g1": 0.6111111111111112,
+      "storm_recall_op": 0.6111111111111112
     },
     "primary_metric": "kp_mae",
     "primary_metric_wins": true,
@@ -167,7 +167,7 @@
       2024
     ]
   },
-  "git_commit": "c0f516c8ea2bf1200efada5bcca871f63d2f3b2d",
+  "git_commit": "28c94bb6d974157a2c8f5708b421db0616124471",
   "hook": "solar_storm_geomag",
   "seed": 20260709
 }

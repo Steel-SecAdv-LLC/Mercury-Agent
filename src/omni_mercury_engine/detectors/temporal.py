@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 try:
     import torch
@@ -26,6 +27,9 @@ from omni_mercury_engine.core.exceptions import DetectorException
 # checkpoints are unaffected (they persist the projector weights).
 _LSTM_INIT_SEED: int = 1_726_021
 
+#: Elements of the window view scored per block in ``_detect_trend_anomalies``.
+_TREND_BLOCK_ELEMENTS: int = 1 << 21
+
 
 class TemporalAnomalyDetector(BaseDetector):
     """Time series anomaly detection using:.
@@ -35,6 +39,10 @@ class TemporalAnomalyDetector(BaseDetector):
     - Seasonality detection
     - LSTM-based forecasting
     """
+
+    #: Verified free of process-global mutable state at inference (bit-identical
+    #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
+    parallel_safe = True
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the instance."""
@@ -86,7 +94,7 @@ class TemporalAnomalyDetector(BaseDetector):
         if self.lstm is None:
             raise ImportError(
                 "TemporalAnomalyDetector LSTM forecasting requires PyTorch. "
-                "Install with `pip install 'mercury-agent[ml]'` or use the "
+                "Install with `pip install 'mercury-agent-global[ml]'` or use the "
                 "trend / change / seasonality detection paths which run on "
                 "NumPy only."
             )
@@ -187,7 +195,7 @@ class TemporalAnomalyDetector(BaseDetector):
         if not TORCH_AVAILABLE:
             raise ImportError(
                 "TemporalAnomalyDetector.extract_features requires PyTorch. "
-                "Install with `pip install 'mercury-agent[ml]'`, or use "
+                "Install with `pip install 'mercury-agent-global[ml]'`, or use "
                 "detect()/fit() which run on NumPy only."
             )
 
@@ -221,23 +229,26 @@ class TemporalAnomalyDetector(BaseDetector):
 
         scores = np.zeros(len(data))
 
-        for i in range(self.window_size, len(data)):
-            window = data[i - self.window_size : i]
-            current = data[i]
-
-            if data.ndim == 1:
-                window_mean = np.mean(window)
-                window_std = np.std(window) + 1e-6
-                z_score = np.abs((current - window_mean) / window_std)
-            else:
-                window_mean = np.mean(window, axis=0)
-                window_std = np.std(window, axis=0) + 1e-6
-                z_scores = np.abs((current - window_mean) / window_std)
-                z_score = np.max(z_scores)
+        # Score every point against the ``window_size`` points before it, a
+        # block of points at a time so the window views stay small.
+        width = self.window_size
+        per_point = max(1, width * (data.shape[1] if data.ndim > 1 else 1))
+        block = max(1, _TREND_BLOCK_ELEMENTS // per_point)
+        for start in range(width, len(data), block):
+            stop = min(start + block, len(data))
+            # Window k of this view is ``data[start - width + k : start + k]``,
+            # the history of point ``start + k``; the last window is unused.
+            windows = sliding_window_view(data[start - width : stop], width, axis=0)[:-1]
+            current = data[start:stop]
+            window_mean = np.mean(windows, axis=-1)
+            window_std = np.std(windows, axis=-1) + 1e-6
+            z_score = np.abs((current - window_mean) / window_std)
+            if data.ndim > 1:
+                z_score = z_score.reshape(len(z_score), -1).max(axis=1)
 
             # Continuous score: sigmoid-like transformation for soft capping
             # Preserves ordering while keeping scores in reasonable range
-            scores[i] = z_score / (3.0 + z_score)  # Asymptotic to 1.0
+            scores[start:stop] = z_score / (3.0 + z_score)  # Asymptotic to 1.0
 
         return scores
 

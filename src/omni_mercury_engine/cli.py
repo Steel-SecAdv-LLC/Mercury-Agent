@@ -39,6 +39,21 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
     return OmniMercuryEngine(*args, **kwargs)
 
 
+def _json_default(value: Any) -> Any:
+    """Serialise what ``json`` cannot, keeping array contents.
+
+    ``default=str`` turned every ndarray into numpy's abbreviated repr
+    (``"[0.12 0.13 ... 0.26]"``), so a saved results file kept six values per
+    array and lost the rest. Arrays, numpy scalars and CPU/GPU tensors all
+    expose ``tolist``; anything else still falls back to ``str``.
+    """
+    if hasattr(value, "tolist"):
+        return value.tolist()
+    if isinstance(value, (set, frozenset)):
+        return sorted(value, key=str)
+    return str(value)
+
+
 @click.group()
 @click.version_option(version=_DISTRIBUTION_VERSION)
 def main() -> None:
@@ -126,9 +141,9 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
 
     if output:
         with open(output, "w") as f:
-            json.dump(results, f, indent=2, default=str)
+            json.dump(results, f, indent=2, default=_json_default)
     else:
-        click.echo(json.dumps(results, indent=2, default=str))
+        click.echo(json.dumps(results, indent=2, default=_json_default))
 
 
 @main.command("tier-detect")
@@ -230,7 +245,7 @@ def tier_detect(
         counterfactual_method=cf_method,
     )
 
-    text = json.dumps(result, indent=2, default=str)
+    text = json.dumps(result, indent=2, default=_json_default)
     if output:
         Path(output).write_text(text)
         click.echo(f"Wrote tier detection result to {output}", err=True)
@@ -283,7 +298,7 @@ def rca(
         observations, adjacency=adj, train=train_rows, top_k=top_k, node_names=names
     )
 
-    text = json.dumps(result, indent=2, default=str)
+    text = json.dumps(result, indent=2, default=_json_default)
     if output:
         Path(output).write_text(text)
         click.echo(f"Wrote root-cause analysis to {output}", err=True)
@@ -334,8 +349,11 @@ _HAZARD_CHOICES = (
     "-f",
     "fmt",
     default="png",
-    type=click.Choice(["png", "geojson"]),
-    help="Artifact format",
+    type=click.Choice(["png", "geojson", "html"]),
+    help=(
+        "Artifact format: static PNG, GeoJSON hotspots, or a self-contained "
+        "interactive Plotly page (html; needs the [gui] extra)"
+    ),
 )
 @click.option("--output", "-o", required=True, help="Output artifact path")
 @click.option(
@@ -360,7 +378,7 @@ def hazard_viz(
     pixel_size_km: float | None,
     grid_spacing_m: float | None,
 ) -> None:
-    """Render a hazard detector's persisted diagnostics to PNG or GeoJSON.
+    """Render a hazard detector's persisted diagnostics to PNG, GeoJSON or HTML.
 
     Renders the REAL intermediate arrays the hazard detectors compute
     (spectrograms, STA/LTA series, Doppler velocity fields, thermal hotspot
@@ -368,7 +386,8 @@ def hazard_viz(
     diagnostics payload (--input) or by running a detector on raw input
     (--detector + --data). GeoJSON output (wildfire ignition hotspots) needs a
     --geotransform: the detectors work in pixel space and coordinates are
-    never fabricated.
+    never fabricated. HTML output is the interactive Plotly panel for the
+    same payload, with plotly.js inlined (works offline).
     """
     from omni_mercury_engine.detectors.hazard_diagnostics import (
         HazardDiagnostics,
@@ -411,7 +430,22 @@ def hazard_viz(
             raise click.UsageError(str(exc)) from exc
 
     out = Path(output)
-    if fmt == "geojson":
+    if fmt == "html":
+        from omni_mercury_engine.gui.visualization_dashboard import (
+            PLOTLY_AVAILABLE,
+            DashboardBuilder,
+            DashboardConfig,
+        )
+
+        if not PLOTLY_AVAILABLE:
+            raise click.UsageError(
+                "--format html needs plotly: pip install 'mercury-agent-global[gui]'"
+            )
+        builder = DashboardBuilder(DashboardConfig(title=f"{diagnostics.hazard} diagnostics"))
+        builder.add_hazard_panel(f"{diagnostics.hazard} panel", diagnostics)
+        builder.export_html(str(out))
+        click.echo(f"Wrote {diagnostics.hazard} interactive HTML to {out}", err=True)
+    elif fmt == "geojson":
         gt: dict[str, float] | None = None
         if geotransform is not None:
             with open(geotransform) as fh:
@@ -456,7 +490,11 @@ def _load_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
     if path.suffix == ".npy":
         return {PRIMARY_INPUT_ARRAY[hazard]: np.load(path, allow_pickle=False)}
     if path.suffix == ".csv":
-        return {PRIMARY_INPUT_ARRAY[hazard]: np.loadtxt(path, delimiter=",")}
+        return {
+            PRIMARY_INPUT_ARRAY[hazard]: np.loadtxt(
+                path, delimiter=",", skiprows=_csv_header_rows(path)
+            )
+        }
     if path.suffix == ".json":
         with open(path) as fh:
             return {PRIMARY_INPUT_ARRAY[hazard]: np.asarray(json.load(fh), dtype=float)}
@@ -474,7 +512,7 @@ def biometric(reference: str, test: str) -> None:
 
     result = engine.detect_biometric(reference, test)
 
-    click.echo(json.dumps(result, indent=2, default=str))
+    click.echo(json.dumps(result, indent=2, default=_json_default))
 
 
 @main.command()
@@ -485,7 +523,7 @@ def security(payload: str) -> None:
 
     result = engine.detect_security_threat(payload)
 
-    click.echo(json.dumps(result, indent=2, default=str))
+    click.echo(json.dumps(result, indent=2, default=_json_default))
 
 
 @main.command()
@@ -511,9 +549,15 @@ def security(payload: str) -> None:
         "semi-supervised consensus labels are derived from detector agreement."
     ),
 )
-@click.option("--output", "-o", required=True, help="Model checkpoint output path (.pt)")
+@click.option("--output", "-o", default=None, help="Model checkpoint output path (.pt)")
+@click.option(
+    "--install",
+    is_flag=True,
+    help="Also install the model as the one the API, MCP server and CLI serve "
+    "($MERCURY_MODEL_DIR/fusion.pt; the replaced model is kept as fusion.previous.pt).",
+)
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
-def train(data: str, labels: str | None, output: str, epochs: int) -> None:
+def train(data: str, labels: str | None, output: str | None, install: bool, epochs: int) -> None:
     r"""Train the fusion model.
 
     Two input modes are supported:
@@ -526,6 +570,8 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
     * Pre-extracted feature archive (.npz): trained directly via
       ``train_fusion_model`` (see ``mercury-agent build-features``).
     """
+    if output is None and not install:
+        raise click.UsageError("give --output, --install, or both")
     try:
         engine = _get_engine(mode="fusion")
 
@@ -541,9 +587,17 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
             click.echo(f"Training fusion model on {len(X)} samples from {data} [{mode_str}]...")
             metrics = engine.fit_fusion(X, y, epochs=epochs)
 
-        click.echo(f"Best validation loss: {metrics.get('best_loss', float('nan')):.4f}")
-        engine.save_model(output)
-        click.echo(f"Model saved to {output}")
+        best = float(metrics.get("best_loss", float("nan")))
+        click.echo(f"Best validation loss: {best:.4f}")
+        if not np.isfinite(best):
+            raise ValueError("training produced a non-finite loss; the model is not saved")
+        if output is not None:
+            engine.save_model(output)
+            click.echo(f"Model saved to {output}")
+        if install:
+            from omni_mercury_engine.engine import install_fusion_checkpoint
+
+            click.echo(f"Model installed at {install_fusion_checkpoint(engine)}")
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
@@ -685,10 +739,10 @@ def causal(
 
         if output:
             with open(output, "w") as f:
-                json.dump(graph, f, indent=2, default=str)
+                json.dump(graph, f, indent=2, default=_json_default)
             click.echo(f"Causal graph saved to {output}")
         else:
-            click.echo(json.dumps(graph, indent=2, default=str))
+            click.echo(json.dumps(graph, indent=2, default=_json_default))
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
@@ -703,10 +757,10 @@ def symbolic_rules(output: str | None) -> None:
         graph = engine.symbolic_rule_graph()
         if output:
             with open(output, "w") as f:
-                json.dump(graph, f, indent=2, default=str)
+                json.dump(graph, f, indent=2, default=_json_default)
             click.echo(f"Rule graph saved to {output}")
         else:
-            click.echo(json.dumps(graph, indent=2, default=str))
+            click.echo(json.dumps(graph, indent=2, default=_json_default))
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
@@ -745,8 +799,19 @@ def explain(input: str, model: str) -> None:
         raise SystemExit(1) from e
 
 
+def _csv_header_rows(path: Path) -> int:
+    """Return 1 when the first line of a CSV holds column names, else 0."""
+    with open(path, encoding="utf-8") as handle:
+        first_line = handle.readline()
+    try:
+        [float(cell) for cell in first_line.strip().split(",")]
+    except ValueError:
+        return 1
+    return 0
+
+
 def _load_data(filepath: str) -> np.ndarray[Any, Any]:
-    """Load data from file."""
+    """Load data from file (a CSV may start with a header row)."""
     path = Path(filepath)
 
     if path.suffix == ".json":
@@ -757,7 +822,7 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
             return np.array([data])
 
     elif path.suffix == ".csv":
-        data = np.loadtxt(path, delimiter=",", dtype=np.float32)
+        data = np.loadtxt(path, delimiter=",", dtype=np.float32, skiprows=_csv_header_rows(path))
         if data.ndim == 1:
             data = data.reshape(1, -1)
         return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
@@ -778,7 +843,7 @@ def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
     if path.suffix == ".npy":
         y = np.load(path, allow_pickle=False)
     elif path.suffix == ".csv":
-        y = np.loadtxt(path, delimiter=",")
+        y = np.loadtxt(path, delimiter=",", skiprows=_csv_header_rows(path))
     elif path.suffix == ".json":
         with open(path) as f:
             y = np.array(json.load(f))
@@ -927,10 +992,10 @@ def physics_spectral(
 
         if output:
             with open(output, "w") as f:
-                json.dump(output_data, f, indent=2, default=str)
+                json.dump(output_data, f, indent=2, default=_json_default)
             click.echo(f"Results saved to {output}")
         else:
-            click.echo(json.dumps(output_data, indent=2, default=str))
+            click.echo(json.dumps(output_data, indent=2, default=_json_default))
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
@@ -1008,10 +1073,10 @@ def physics_dynamics(
 
         if output:
             with open(output, "w") as f:
-                json.dump(output_data, f, indent=2, default=str)
+                json.dump(output_data, f, indent=2, default=_json_default)
             click.echo(f"Results saved to {output}")
         else:
-            click.echo(json.dumps(output_data, indent=2, default=str))
+            click.echo(json.dumps(output_data, indent=2, default=_json_default))
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
@@ -1144,10 +1209,10 @@ def physics_uiux(
 
         if output:
             with open(output, "w") as f:
-                json.dump(output_data, f, indent=2, default=str)
+                json.dump(output_data, f, indent=2, default=_json_default)
             click.echo(f"Results saved to {output}")
         else:
-            click.echo(json.dumps(output_data, indent=2, default=str))
+            click.echo(json.dumps(output_data, indent=2, default=_json_default))
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
@@ -1315,10 +1380,10 @@ def physics_integrated(
 
         if output:
             with open(output, "w") as f:
-                json.dump(output_data, f, indent=2, default=str)
+                json.dump(output_data, f, indent=2, default=_json_default)
             click.echo(f"Results saved to {output}")
         else:
-            click.echo(json.dumps(output_data, indent=2, default=str))
+            click.echo(json.dumps(output_data, indent=2, default=_json_default))
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
@@ -1809,7 +1874,7 @@ def stream(
     except ImportError as exc:  # optional aiokafka/redis extras not installed
         click.echo(
             "Error: streaming dependencies are not installed. "
-            f"Install with: pip install 'mercury-agent[streaming]' ({exc})",
+            f"Install with: pip install 'mercury-agent-global[streaming]' ({exc})",
             err=True,
         )
         raise SystemExit(1) from exc
@@ -1826,10 +1891,10 @@ def stream(
     def _start_metrics_server(pipeline: Any) -> Any:
         """Serve live pipeline stats as Prometheus exposition on ``metrics_port``.
 
-        Hand-rolls the text exposition with the stdlib (matching
-        ``api/health.py``'s ``/metrics`` endpoint) so the worker needs no extra
-        runtime dependency. Returns the server (for shutdown) or ``None`` when
-        metrics are disabled.
+        Hand-rolls the pipeline counters with the stdlib and appends the
+        ``prometheus_client`` default registry when it is installed (matching
+        ``api/health.py``'s ``/metrics`` endpoint). Returns the server (for
+        shutdown) or ``None`` when metrics are disabled.
         """
         if not metrics_port or metrics_port <= 0:
             return None
@@ -1872,6 +1937,8 @@ def stream(
             ),
         )
 
+        from omni_mercury_engine.core.metrics import render_exposition
+
         def _exposition() -> bytes:
             stats = pipeline.get_stats()
             lines: list[str] = []
@@ -1879,7 +1946,14 @@ def stream(
                 lines.append(f"# HELP {metric_name} {help_text}")
                 lines.append(f"# TYPE {metric_name} {prom_type}")
                 lines.append(f"{metric_name} {float(stats.get(stats_key, 0.0) or 0.0)}")
-            return ("\n".join(lines) + "\n").encode()
+            body = ("\n".join(lines) + "\n").encode()
+            # Append the prometheus_client default registry (omni_detection_*,
+            # omni_model_inference_errors_total, omni_detection_queue_depth, ...)
+            # so the worker exports the series the alert rules and the engine
+            # HPA query -- the same composition api/health.py serves. No-op
+            # when prometheus_client is not installed.
+            rendered = render_exposition()
+            return body + rendered[0] if rendered is not None else body
 
         class _MetricsHandler(http.server.BaseHTTPRequestHandler):
             def do_GET(self) -> None:
@@ -2501,10 +2575,21 @@ def platform_audit() -> None:
     "--file",
     "file_path",
     default=None,
-    help="Verify a specific segment file (defaults to the active audit.jsonl)",
+    help=(
+        "Verify only this segment file (default: every writer's chain in "
+        "MERCURY_AUDIT_LOG_DIR -- rotated segments, then the active log)"
+    ),
 )
 def platform_audit_verify(file_path: str | None) -> None:
     """Verify the audit log's HMAC hash chain; exit 1 on any break.
+
+    Strictly read-only: nothing is opened for writing and the directory's
+    writer lock is not touched, so it is safe to run while the server is
+    writing. Without `--file` every writer's chain is checked -- the primary
+    `audit.jsonl` with its rotated segments, plus any per-process
+    `audit-<pid>.jsonl` chains -- including the links between consecutive
+    segments. Records removed from the very start or end of a chain cannot
+    be detected without an external anchor.
 
     Verification recomputes the chain with the key derived from
     `AMA_MASTER_SEED` — run it with the same environment the server writes
@@ -2513,17 +2598,540 @@ def platform_audit_verify(file_path: str | None) -> None:
     audit_dir = _require_env_path(
         "MERCURY_AUDIT_LOG_DIR", "audit verification reads the deployment's audit directory"
     )
-    from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
+    from omni_mercury_engine.security.secure_audit_logging import (
+        SecureHashChain,
+        verify_audit_directory,
+        verify_log_file,
+    )
 
-    logger = SecureAuditLogger(log_dir=audit_dir)
-    try:
-        target = Path(file_path) if file_path else None
-        ok, message = logger.verify_log_integrity(target)
-    finally:
-        logger.shutdown()
-    click.echo(json.dumps({"ok": ok, "message": message}, indent=2))
+    payload: dict[str, Any]
+    if file_path:
+        ok, message = verify_log_file(Path(file_path), SecureHashChain())
+        payload = {"ok": ok, "message": message}
+    else:
+        ok, chains = verify_audit_directory(audit_dir)
+        broken = [
+            f"{chain['writer']}: {entry['file']}: {entry['message']}"
+            for chain in chains
+            for entry in chain["files"]
+            if not entry["ok"]
+        ]
+        if ok:
+            total = sum(len(chain["files"]) for chain in chains)
+            message = f"{len(chains)} chain(s), {total} file(s) verified"
+        else:
+            message = "; ".join(broken) or "no audit files found in " + audit_dir
+        payload = {"ok": ok, "message": message, "chains": chains}
+    click.echo(json.dumps(payload, indent=2))
     if not ok:
         raise SystemExit(1)
+
+
+# --------------------------------------------------------------------------- #
+# Evidence assessment and human-subject capabilities.
+# --------------------------------------------------------------------------- #
+#: Exit statuses of the ``assess`` and ``adjudication`` groups.
+_EXIT_ERROR = 1  # runtime failure, or the ledger cannot support the request
+_EXIT_INPUT = 2  # malformed input; nothing ran
+_EXIT_REFUSED = 3  # refused by the decision gate, consent or operator policy
+
+
+def _read_json_input(source: str) -> Any:
+    """Parse JSON from a file path, or from stdin when ``source`` is ``-``."""
+    import sys
+
+    try:
+        text = sys.stdin.read() if source == "-" else Path(source).read_text(encoding="utf-8")
+        return json.loads(text)
+    except (OSError, ValueError) as exc:
+        click.echo(json.dumps({"error": f"cannot read JSON from {source}: {exc}"}), err=True)
+        raise SystemExit(_EXIT_INPUT) from exc
+
+
+def _run_assessment(call: Any, *args: Any, **kwargs: Any) -> None:
+    """Run a service call, print its JSON result, and map refusals to exit statuses."""
+    try:
+        from omni_mercury_engine.assessment.policy import CapabilityDisabledError
+        from omni_mercury_engine.assessment.service import InputError
+        from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
+        from omni_mercury_engine.security.adjudication import ExportRefused
+        from omni_mercury_engine.truth_decipher import ConsentRequiredError
+    except ImportError as exc:  # the gate needs the ML stack; never run ungated
+        click.echo(json.dumps({"error": f"the decision gate is unavailable: {exc}"}), err=True)
+        raise SystemExit(_EXIT_ERROR) from exc
+    try:
+        result = call(*args, **kwargs)
+    except EthicalConstraintViolationError as exc:
+        refusal = {"refused": True, "check": exc.check, "reason": str(exc)}
+        click.echo(json.dumps(refusal), err=True)
+        raise SystemExit(_EXIT_REFUSED) from exc
+    except ConsentRequiredError as exc:
+        click.echo(json.dumps({"refused": True, "check": "consent", "reason": str(exc)}), err=True)
+        raise SystemExit(_EXIT_REFUSED) from exc
+    except CapabilityDisabledError as exc:
+        click.echo(json.dumps({"refused": True, "check": "disabled", "reason": str(exc)}), err=True)
+        raise SystemExit(_EXIT_REFUSED) from exc
+    except InputError as exc:
+        click.echo(json.dumps({"error": str(exc)}), err=True)
+        raise SystemExit(_EXIT_INPUT) from exc
+    except ExportRefused as exc:
+        click.echo(json.dumps({"error": str(exc)}), err=True)
+        raise SystemExit(_EXIT_ERROR) from exc
+    click.echo(json.dumps(result, indent=2, default=_json_default))
+
+
+@main.group()
+def assess() -> None:
+    """Statement verification, CIT, intelligence screening and fusion, vital signs.
+
+    Each command reads one JSON request (a file, or ``-`` for stdin) in the
+    format the matching ``/api/v1/assessment`` route takes, passes the same
+    gates (harm-uplift decision gate; for the CIT and vital signs also operator
+    policy ``MERCURY_HUMAN_SUBJECT_CAPABILITIES``, a screened purpose and a
+    verified consent record), and prints the JSON result.
+
+    Exit status: 0 ok, 1 runtime failure, 2 malformed input, 3 refused.
+    """
+
+
+@assess.command("verify-statements")
+@click.argument("request_file")
+def assess_verify_statements(request_file: str) -> None:
+    """Verify statements against evidence (corroboration, contradictions, consistency)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.verify_statements,
+        _read_json_input(request_file),
+        surface="cli.assessment.verify_statements",
+    )
+
+
+@assess.command("cit")
+@click.argument("request_file")
+def assess_cit(request_file: str) -> None:
+    """Score a consented Concealed Information Test session (recognition, not deception)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.concealed_information_test,
+        _read_json_input(request_file),
+        surface="cli.assessment.concealed_information_test",
+    )
+
+
+@assess.command("vital-signs")
+@click.argument("request_file")
+@click.option(
+    "--arrays",
+    "arrays_file",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="A .npz file whose arrays (csi_amplitude, csi_phase, subcarrier_indices, "
+    "radar_displacement_m, radar_phase_rad, timestamps_s) join the request; for "
+    "recordings too large for JSON.",
+)
+def assess_vital_signs(request_file: str, arrays_file: str | None) -> None:
+    """Estimate or track respiration and heart rate from radar or Wi-Fi CSI."""
+    from omni_mercury_engine.assessment import service
+
+    request = _read_json_input(request_file)
+    if arrays_file is not None:
+        if not isinstance(request, dict):
+            click.echo(json.dumps({"error": "the request must be a JSON object"}), err=True)
+            raise SystemExit(_EXIT_INPUT)
+        with np.load(arrays_file, allow_pickle=False) as archive:
+            for name in archive.files:
+                if name in request:
+                    click.echo(
+                        json.dumps({"error": f"{name} is given both in JSON and in --arrays"}),
+                        err=True,
+                    )
+                    raise SystemExit(_EXIT_INPUT)
+                request[name] = archive[name]
+    _run_assessment(service.vital_signs, request, surface="cli.assessment.vital_signs")
+
+
+@assess.command("screen")
+@click.argument("request_file")
+def assess_screen(request_file: str) -> None:
+    """Counterintelligence screens over a report batch (flags, never a threat level)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.screen_intel_reports,
+        _read_json_input(request_file),
+        surface="cli.assessment.screen_intel_reports",
+    )
+
+
+@assess.command("fuse")
+@click.argument("request_file")
+def assess_fuse(request_file: str) -> None:
+    """All-source fusion of screened reports into a threat assessment."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.fuse_intelligence,
+        _read_json_input(request_file),
+        surface="cli.assessment.fuse_intelligence",
+    )
+
+
+@assess.command("fusion-status")
+def assess_fusion_status() -> None:
+    """Which path the fusion engine decides with (evidence, or merit-admitted network)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(service.fusion_status)
+
+
+@assess.command("cit-plan")
+@click.option(
+    "--effect",
+    "effects",
+    multiple=True,
+    required=True,
+    help="Assumed probe shift CHANNEL=SD, e.g. skin_conductance=1.0 (repeatable).",
+)
+@click.option("--target", type=float, default=0.8, show_default=True)
+@click.option("--test", "primary_test", type=click.Choice(["rank", "permutation"]), default="rank")
+@click.option("--alpha", type=float, default=0.05, show_default=True)
+@click.option("--sessions", type=int, default=1000, show_default=True)
+@click.option("--seed", type=int, default=0)
+def assess_cit_plan(
+    effects: tuple[str, ...],
+    target: float,
+    primary_test: str,
+    alpha: float,
+    sessions: int,
+    seed: int,
+) -> None:
+    """Shortest CIT design whose simulated power (Wilson lower bound) reaches --target."""
+    from omni_mercury_engine.truth_decipher import plan_cit_design
+
+    effect_sd: dict[str, float] = {}
+    for item in effects:
+        name, sep, value = item.partition("=")
+        if not sep:
+            raise click.BadParameter(f"{item!r} is not CHANNEL=SD", param_hint="--effect")
+        effect_sd[name.strip()] = float(value)
+    try:
+        chosen, tried = plan_cit_design(
+            effect_sd,
+            target_power=target,
+            primary_test="permutation" if primary_test == "permutation" else "rank",
+            alpha=alpha,
+            sessions=sessions,
+            seed=seed,
+        )
+    except ValueError as exc:
+        raise click.BadParameter(str(exc)) from exc
+
+    def row(power: Any) -> dict[str, Any]:
+        d = power.design
+        return {
+            "questions": d.questions,
+            "items": d.items,
+            "repetitions": d.repetitions,
+            "presentations": d.presentations,
+            "minutes": round(d.minutes, 1),
+            "power": power.power.estimate,
+            "power_lower_95": power.power.lower,
+        }
+
+    click.echo(
+        json.dumps(
+            {"chosen": None if chosen is None else row(chosen), "tried": [row(t) for t in tried]},
+            indent=2,
+        )
+    )
+    if chosen is None:
+        raise SystemExit(_EXIT_ERROR)
+
+
+@main.group()
+def adjudication() -> None:
+    """The adjudication ledger: held-out threat-level labels for the fusion merit gate.
+
+    Operates on ``MERCURY_ADJUDICATION_PATH`` (default
+    ``~/.mercury/adjudication.jsonl``). Records and exports are ML-DSA-65
+    signed when ``MERCURY_ADJUDICATION_SIGNING_KEY`` names a key file, and
+    verified against ``MERCURY_ADJUDICATION_PUBLIC_KEY`` when that is set.
+    Ratings and decisions are stamped with the current time.
+    """
+
+
+@adjudication.command("status")
+def adjudication_status() -> None:
+    """Chain validity, agreement, counts and work queues."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(service.adjudication_status)
+
+
+@adjudication.command("verify")
+@click.option(
+    "--expected-head",
+    default=None,
+    help="A record digest seen earlier (e.g. an export's head); fails if it is gone.",
+)
+def adjudication_verify(expected_head: str | None) -> None:
+    """Verify the hash chain (and pinned signatures); exit 1 when it does not verify."""
+    from omni_mercury_engine.assessment import service
+
+    result = service.adjudication_verify(expected_head)
+    click.echo(json.dumps(result))
+    if not result["valid"]:
+        raise SystemExit(_EXIT_ERROR)
+
+
+@adjudication.command("repair")
+def adjudication_repair() -> None:
+    """Drop an unterminated last line left by a crash (nothing else is ever rewritten)."""
+    from omni_mercury_engine.assessment import service
+
+    result = service.adjudication_repair()
+    click.echo(json.dumps(result))
+    if not result["repaired"]:
+        raise SystemExit(_EXIT_ERROR)
+
+
+@adjudication.command("export")
+@click.option("--split", type=click.Choice(["heldout", "training"]), required=True)
+@click.option("--out", type=click.Path(dir_okay=False), required=True)
+def adjudication_export(split: str, out: str) -> None:
+    """Write one split's labels (signed when MERCURY_ADJUDICATION_SIGNING_KEY is set)."""
+    from omni_mercury_engine.assessment import service
+
+    def summary() -> dict[str, Any]:
+        document = service.adjudication_export(split, out)
+        return {
+            "exported": True,
+            "split": split,
+            "out": out,
+            "cases": len(document["cases"]),
+            "ledger_head_digest": document["ledger_head_digest"],
+            "signed": "signature" in document,
+        }
+
+    _run_assessment(summary)
+
+
+@adjudication.command("keygen")
+@click.option("--out", type=click.Path(dir_okay=False), required=True)
+def adjudication_keygen(out: str) -> None:
+    """Create an owner-only ML-DSA-65 key file (never overwrites) and print its public key."""
+    from omni_mercury_engine.security.signing_keys import generate_keyfile
+
+    try:
+        public_hex = generate_keyfile(out)
+    except FileExistsError as exc:
+        click.echo(json.dumps({"error": f"{out} exists; keys are never overwritten"}), err=True)
+        raise SystemExit(_EXIT_ERROR) from exc
+    click.echo(json.dumps({"key_file": out, "public_key_hex": public_hex}))
+
+
+@adjudication.command("add-case")
+@click.argument("request_file")
+def adjudication_add_case(request_file: str) -> None:
+    """Record a case (its held-out/training split is fixed by its id)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.adjudication_add_case,
+        _read_json_input(request_file),
+        surface="cli.assessment.adjudication_add_case",
+    )
+
+
+@adjudication.command("add-outcome")
+@click.argument("request_file")
+def adjudication_add_outcome(request_file: str) -> None:
+    """Record what happened in a case."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.adjudication_add_outcome,
+        _read_json_input(request_file),
+        surface="cli.assessment.adjudication_add_outcome",
+    )
+
+
+@adjudication.command("rate")
+@click.argument("request_file")
+@click.option("--rater", required=True, help="The rater's id (who is rating).")
+def adjudication_rate(request_file: str, rater: str) -> None:
+    """Record a blind rating ({case_id, level, rationale}) by --rater, stamped now."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.adjudication_add_rating,
+        _read_json_input(request_file),
+        rater_id=rater,
+        surface="cli.assessment.adjudication_add_rating",
+    )
+
+
+@adjudication.command("decide")
+@click.argument("request_file")
+@click.option("--adjudicator", required=True, help="The adjudicator's id (never a rater).")
+def adjudication_decide(request_file: str, adjudicator: str) -> None:
+    """Record an adjudicator decision ({case_id, level, rationale}), stamped now."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(
+        service.adjudication_add_decision,
+        _read_json_input(request_file),
+        adjudicator_id=adjudicator,
+        surface="cli.assessment.adjudication_add_decision",
+    )
+
+
+@adjudication.command("rater-view")
+@click.argument("case_id")
+@click.option("--rater", required=True, help="The rater asking.")
+def adjudication_rater_view(case_id: str, rater: str) -> None:
+    """What --rater may see of CASE_ID (others' ratings only after their own)."""
+    from omni_mercury_engine.assessment import service
+
+    _run_assessment(service.adjudication_rater_view, rater, case_id)
+
+
+@main.group()
+def observatory() -> None:
+    """Mathematical Observatory: verified solving + anomaly instruments."""
+    pass
+
+
+def _emit(result: dict[str, Any], as_json: bool, lines: list[str]) -> None:
+    """Print a result as JSON or as the prepared human-readable lines."""
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=_json_default))
+    else:
+        for line in lines:
+            click.echo(line)
+
+
+@observatory.command("solve")
+@click.argument("equation")
+@click.option("--variable", "-v", default=None, help="Unknown to solve for (auto when single)")
+@click.option(
+    "--domain",
+    "-d",
+    default="real",
+    type=click.Choice(["real", "complex"]),
+    help="Solution filter: real (default) or complex",
+)
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def observatory_solve(equation: str, variable: str | None, domain: str, as_json: bool) -> None:
+    """Solve EQUATION with every answer verified by substitution.
+
+    Classroom notation works: ^ is power, 2x multiplies, e and pi are the
+    constants, and a bare expression means '= 0'.
+
+    Examples:
+        mercury-agent observatory solve "x^2 - 5x + 6 = 0"
+        mercury-agent observatory solve "cos(x) = x" --json
+        mercury-agent observatory solve "x^2 + 1 = 0" --domain complex
+    """
+    from omni_mercury_engine.observatory import EquationSolver
+
+    try:
+        result = EquationSolver().solve(equation, variable, domain=domain)
+    except ValueError as exc:
+        click.echo(f"refused: {exc}")
+        raise SystemExit(2) from exc
+
+    lines = [f"status: {result['status']} (method: {result['method']})"]
+    for sol in result["solutions"]:
+        tag = "exact" if sol["exact"] else f"residual {sol['residual']:.2e}"
+        lines.append(f"  {result['variable']} = {sol['value']}  [{tag}]")
+    if result["excluded_by_domain"]:
+        lines.append(
+            f"  ({result['excluded_by_domain']} complex solution(s) hidden; --domain complex shows them)"
+        )
+    for anomaly in result["anomalies"]:
+        lines.append(f"  anomaly: {anomaly['kind']} at {anomaly['value']}")
+    lines.extend(f"  note: {note}" for note in result["notes"])
+    _emit(result, as_json, lines)
+
+
+@observatory.command("zeta")
+@click.option("--zeros", "-n", default=50, type=int, help="Zeta zeros to compute (2..100)")
+@click.option("--threshold", default=0.5, type=float, help="Close-pair anomaly threshold")
+@click.option("--top", default=5, type=int, help="Closest pairs to show")
+@click.option("--anomalies-only", is_flag=True, help="Show only below-threshold pairs")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def observatory_zeta(
+    zeros: int, threshold: float, top: int, anomalies_only: bool, as_json: bool
+) -> None:
+    """Zeta zero-spacing statistics vs the GUE law; Lehmer close-pair hunting."""
+    from omni_mercury_engine.observatory import ZetaSpectrumInstrument
+
+    result = ZetaSpectrumInstrument().observe(zeros, close_pair_threshold=threshold, top_k=top)
+    lines = [
+        f"status: {result['status']} ({result['num_zeros']} zeros)",
+        f"mean normalized spacing: {result['mean_normalized_spacing']:.4f} (GUE expects 1)",
+        f"KS distance to GUE: {result['ks_distance_to_gue']:.4f}",
+    ]
+    pairs = result["close_pair_anomalies"] if anomalies_only else result["closest_pairs"]
+    label = "close-pair anomaly" if anomalies_only else "closest pair"
+    for pair in pairs:
+        lines.append(
+            f"  {label}: zeros #{pair['lower_zero_index']}-#{pair['upper_zero_index']} "
+            f"(ordinates {pair['lower_ordinate']:.4f}, {pair['upper_ordinate']:.4f}), "
+            f"normalized spacing {pair['normalized_spacing']:.4f}"
+        )
+    if anomalies_only and not pairs:
+        lines.append(f"  no pairs below threshold {threshold}")
+    _emit(result, as_json, lines)
+
+
+@observatory.command("goldbach")
+@click.option("--limit", "-l", default=10000, type=int, help="Check even n up to this bound")
+@click.option("--top", default=5, type=int, help="Largest prediction outliers to show")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def observatory_goldbach(limit: int, top: int, as_json: bool) -> None:
+    """Goldbach comet vs the Hardy-Littlewood prediction; counterexample hunt."""
+    from omni_mercury_engine.observatory import GoldbachCometInstrument
+
+    result = GoldbachCometInstrument().observe(limit, top_k=top)
+    bands = result["band_density_by_mod3"]
+    lines = [
+        f"status: {result['status']} ({result['evens_checked']} even numbers to {limit})",
+        "comet bands, raw density r(n)*ln(n)^2/n by n mod 3: "
+        + ", ".join(f"{k}: {v:.3f}" for k, v in sorted(bands.items())),
+        f"counterexample candidates (r(n)=0): {result['counterexample_candidates'] or 'none'}",
+    ]
+    for outlier in result["ratio_outliers"]:
+        lines.append(
+            f"  outlier: n={outlier['n']} has {outlier['partitions']} partitions vs "
+            f"{outlier['hardy_littlewood_prediction']:.1f} predicted"
+        )
+    _emit(result, as_json, lines)
+
+
+@observatory.command("collatz")
+@click.option("--limit", "-l", default=50000, type=int, help="Check trajectories for n up to this")
+@click.option("--top", default=10, type=int, help="Most recent records to show")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def observatory_collatz(limit: int, top: int, as_json: bool) -> None:
+    """Collatz stopping-time and excursion records; non-terminator hunt."""
+    from omni_mercury_engine.observatory import CollatzRecordsInstrument
+
+    result = CollatzRecordsInstrument().observe(limit)
+    lines = [
+        f"status: {result['status']} (n up to {limit})",
+        f"counterexample candidates (budget exhausted): "
+        f"{result['counterexample_candidates'] or 'none'}",
+    ]
+    for record in result["stopping_time_records"][-top:]:
+        lines.append(
+            f"  record: n={record['n']} takes {record['stopping_time']} steps "
+            f"(peak {record['peak']}, {record['anomaly_score']:.2f}x the heuristic average)"
+        )
+    _emit(result, as_json, lines)
 
 
 if __name__ == "__main__":

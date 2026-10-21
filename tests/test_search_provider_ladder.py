@@ -316,8 +316,11 @@ class TestDefaultTransportReachesOpenWeb:
 
         from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
-        SafeHTTPClient.validate_url(
-            "https://en.wikipedia.org/wiki/X", allow_http=True, user_configured=True
+        assert (
+            SafeHTTPClient.validate_url(
+                "https://en.wikipedia.org/wiki/X", allow_http=True, user_configured=True
+            )
+            is None
         )
         for blocked in ("http://169.254.169.254/latest/meta-data/", "http://127.0.0.1/"):
             with _pytest.raises(UnsafeURLError):

@@ -11,6 +11,22 @@
 #   curl http://localhost:8000/health
 #   open http://localhost:3000    # Grafana  (default credentials: admin / admin)
 #   open http://localhost:9090    # Prometheus
+#
+# Data volumes carry the major version of the image that writes them
+# (prometheus-data-v3, grafana-data-v13). Prometheus 3 can only be downgraded to
+# 2.55 and Grafana migrates its database forward-only, so a major bump that
+# reused the old volume could not be rolled back. A new major starts on a new
+# volume and the old one stays intact; tests/scripts/test_compose_platform.py
+# fails when a volume name stops matching its image's major version. Prometheus
+# is pinned to its LTS line (3.13) and Grafana to a supported minor; see
+# docs/DEPLOYMENT.md "Upgrading the monitoring stack".
+#
+# Every published port is bound to 127.0.0.1. Docker publishes on all
+# interfaces by default and bypasses host firewalls such as ufw, so the bare
+# "8000:8000" form put the API, an unauthenticated Prometheus and a Grafana
+# with a default password on the LAN (and, under docker-compose.platform.yml,
+# on the internet). To reach a service from another machine use an SSH tunnel
+# (ssh -L 3000:127.0.0.1:3000 <host>) or a reverse proxy.
 
 services:
   # ---------------------------------------------------------------------------
@@ -24,7 +40,7 @@ services:
     container_name: mercury-agent
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     environment:
@@ -59,11 +75,11 @@ services:
   # Prometheus — metrics collection
   # ---------------------------------------------------------------------------
   prometheus:
-    image: prom/prometheus:v2.51.2
+    image: prom/prometheus:v3.13.4
     container_name: mercury-prometheus
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -71,22 +87,22 @@ services:
       - "--web.enable-lifecycle"
     volumes:
       - ./monitoring/prometheus:/etc/prometheus:ro
-      - prometheus-data:/prometheus
+      - prometheus-data-v3:/prometheus
 
   # ---------------------------------------------------------------------------
   # Grafana — dashboards
   # ---------------------------------------------------------------------------
   grafana:
-    image: grafana/grafana:10.4.2
+    image: grafana/grafana:13.2.4
     container_name: mercury-grafana
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
-      - grafana-data:/var/lib/grafana
+      - grafana-data-v13:/var/lib/grafana
       - ./monitoring/grafana:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
@@ -94,5 +110,5 @@ services:
 volumes:
   mercury-cache:
   mercury-models:
-  prometheus-data:
-  grafana-data:
+  prometheus-data-v3:
+  grafana-data-v13:

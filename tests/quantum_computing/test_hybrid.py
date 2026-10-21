@@ -232,7 +232,7 @@ class TestClassicalOptimizerMinimize:
         np.testing.assert_array_equal(unknown[0], cobyla[0])
         assert unknown[2] == cobyla[2]
 
-    @pytest.mark.parametrize("method", ["cobyla", "spsa", "gradient_descent"])
+    @pytest.mark.parametrize("method", ["coordinate_search", "spsa", "gradient_descent"])
     def test_constant_objective_triggers_convergence_break(self, method: str) -> None:
         # A flat objective makes |history[-1] - history[-2]| == 0 < tol, so the
         # loop breaks on the second iteration for every method.
@@ -241,7 +241,29 @@ class TestClassicalOptimizerMinimize:
         assert len(history) == 2
         assert value == pytest.approx(7.0)
 
-    @pytest.mark.parametrize("method", ["cobyla", "spsa", "gradient_descent"])
+    def test_cobyla_stops_on_a_flat_objective(self) -> None:
+        # Real COBYLA stops once its trust region shrinks below tol (5
+        # evaluations here, plus the returned one), far below maxiter; the
+        # two-evaluation break above belongs to the iterative loops.
+        opt = ClassicalOptimizer("cobyla", maxiter=50, tol=1e-6, seed=SEED)
+        _, value, history = opt.minimize(lambda p: 7.0, np.array([1.0]))
+        assert len(history) <= 10
+        assert value == pytest.approx(7.0)
+
+    def test_cobyla_is_scipy_cobyla(self) -> None:
+        # The "cobyla" method ran a coordinate search; it is now COBYLA itself.
+        from scipy.optimize import minimize
+
+        obj = _quadratic(0.3)
+        start = np.array([1.0, -1.0, 0.5])
+        params, value, _ = ClassicalOptimizer("cobyla", maxiter=200, tol=1e-8).minimize(obj, start)
+        reference = minimize(
+            obj, start, method="COBYLA", options={"maxiter": 200, "rhobeg": 1.0, "tol": 1e-8}
+        )
+        np.testing.assert_allclose(params, reference.x)
+        assert value == pytest.approx(float(reference.fun))
+
+    @pytest.mark.parametrize("method", ["cobyla", "coordinate_search", "spsa", "gradient_descent"])
     def test_maxiter_zero_uses_objective_fallback(self, method: str) -> None:
         # With maxiter == 0 the loop never runs, so history stays empty and the
         # returned value comes from the ``objective(params)`` fallback.
@@ -251,7 +273,7 @@ class TestClassicalOptimizerMinimize:
         assert value == pytest.approx(13.0)  # 2^2 + 3^2
         np.testing.assert_array_equal(params, [2.0, 3.0])
 
-    @pytest.mark.parametrize("method", ["cobyla", "spsa", "gradient_descent"])
+    @pytest.mark.parametrize("method", ["cobyla", "coordinate_search", "spsa", "gradient_descent"])
     def test_empty_parameter_vector(self, method: str) -> None:
         # Zero-length parameters exercise the per-coordinate loops with no body.
         opt = ClassicalOptimizer(method, maxiter=3, seed=SEED)
@@ -299,7 +321,8 @@ class TestHybridOptimizerOptimize:
         assert result.optimal_parameters.shape == (circuit.num_parameters,)
         assert isinstance(result.optimal_value, float)
         assert result.n_iterations == len(result.convergence_history)
-        assert result.n_iterations == FEW_ITERS
+        # COBYLA evaluates at least n + 2 points, plus the returned one.
+        assert result.n_iterations <= max(FEW_ITERS, circuit.num_parameters + 2) + 1
         assert isinstance(result.final_circuit, SimulatedQuantumCircuit)
         assert np.isfinite(result.optimal_value)
 
@@ -448,14 +471,14 @@ class TestVQEFitScore:
 
     def test_score_list_result_is_unwrapped(self) -> None:
         # Replace the inner executor with a stub returning a list, so the
-        # ``result = result[0]`` unwrap in score() is exercised.  Counts of
-        # even-parity "11" give energy 0, so each score is |0 - training|.
+        # ``result = result[0]`` unwrap in score() is exercised. A stub is
+        # not a simulator, so P(|00>) comes from counts: none of "11" is
+        # "00", so each score 1 - P(|00>) is 1.
         vqe = VQEAnomalyDetector(FAST_QUBITS, reps=1)
         vqe.fit(_sample_matrix(), maxiter=FEW_ITERS)
         vqe._optimizer._executor = _ListResultExecutor({"11": 100})  # type: ignore[assignment]
         scores = vqe.score(np.array([[0.1, 0.2], [0.3, 0.4]]))
-        expected = abs(0.0 - vqe._training_energy)
-        np.testing.assert_allclose(scores, [expected, expected])
+        np.testing.assert_allclose(scores, [1.0, 1.0])
 
 
 class TestVQEHelpers:

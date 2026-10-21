@@ -168,6 +168,8 @@ metrics:
     enabled: true
     interval: 15s
     scrapeTimeout: 10s
+  prometheusRule:
+    enabled: true
 
 priorityClassName: system-cluster-critical
 terminationGracePeriodSeconds: 120

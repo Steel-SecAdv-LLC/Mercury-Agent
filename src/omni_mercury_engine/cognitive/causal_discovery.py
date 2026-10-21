@@ -1363,22 +1363,42 @@ class CausalDiscoveryEngine:
     ) -> float:
         """Sensitivity analysis: how much confounding would nullify the effect?
 
-        Returns Γ (Rosenbaum bounds): effect robust to confounding up to Γ.
+        Computes the E-value of VanderWeele & Ding (Ann Intern Med 2017):
+        the minimum strength of association an unmeasured confounder would
+        need with both treatment and outcome to explain the observed effect
+        away. The standardized effect uses the treatment-conditional pooled
+        outcome SD when the treatment column is binary (the SD that a
+        confounding story must act against), falling back to the marginal
+        SD for continuous treatments; the standardized difference ``d`` is
+        converted to a risk-ratio scale via ``RR = exp(0.91 * d)``
+        (Hasselblad-Hedges) and ``E = RR + sqrt(RR * (RR - 1))``.
+
+        Returns:
+            The E-value, capped at 3.0 to preserve this module's calibrated
+            ``probability = 0.5 + 0.4 * robustness`` consumer range
+            (E = 1 means any confounding nullifies it; values near the cap
+            mean only a very strong confounder could).
         """
-        # Simplified: based on effect size relative to outcome variance
-        outcome_std = np.std(data[:, outcome_idx])
-        if outcome_std == 0:
+        treatment = data[:, treatment_idx]
+        outcome = data[:, outcome_idx]
+
+        levels = np.unique(treatment)
+        if len(levels) == 2:
+            groups = [outcome[treatment == level] for level in levels]
+            pooled_var = float(
+                sum((len(g) - 1) * np.var(g, ddof=1) for g in groups if len(g) > 1)
+            ) / max(1, sum(len(g) - 1 for g in groups if len(g) > 1))
+            outcome_std = float(np.sqrt(max(pooled_var, 0.0)))
+        else:
+            outcome_std = float(np.std(outcome))
+        if outcome_std <= 1e-12:
             return 1.0
 
-        # Effect in standard deviation units
-        effect_sds = abs(observed_effect) / outcome_std
+        d = abs(observed_effect) / outcome_std
+        rr = float(np.exp(0.91 * d))
+        e_value = rr + float(np.sqrt(max(rr * (rr - 1.0), 0.0)))
 
-        # Larger effect -> more robust to confounding
-        # Γ = 1 means sensitive to any confounding
-        # Γ = 2 means robust to 2x confounding
-        robustness = 1 + effect_sds
-
-        return float(min(3.0, robustness))
+        return float(min(3.0, e_value))
 
     def _apply_prior_knowledge(
         self,

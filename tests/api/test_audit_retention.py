@@ -126,6 +126,36 @@ class TestSegmentPrune:
         assert removed == 0
         assert active.exists()
 
+    def test_finished_worker_logs_and_torn_fragments_are_pruned(self, tmp_path: Path) -> None:
+        """Old files of a writer that no longer runs go; a live writer's stay."""
+        import fcntl
+        import time
+
+        stamp = time.time() - 400 * 86400
+        dead = tmp_path / "audit-999999.jsonl"
+        dead.write_text('{"event": "old"}\n')
+        (tmp_path / ".audit-999999.lock").write_text("")
+        live = tmp_path / "audit-424242.jsonl"
+        live.write_text('{"event": "idle but live"}\n')
+        live_lock = tmp_path / ".audit-424242.lock"
+        live_lock.write_text("")
+        torn = tmp_path / "audit.jsonl.torn-1700000000000000"
+        torn.write_text('{"partial')
+        fresh_torn = tmp_path / "audit.jsonl.torn-1800000000000000"
+        fresh_torn.write_text('{"partial')
+        for path in (dead, live, torn):
+            os.utime(path, (stamp, stamp))
+
+        with live_lock.open("a") as held:
+            fcntl.flock(held.fileno(), fcntl.LOCK_EX)  # the live writer's lock
+            removed = prune_rotated_audit_segments(tmp_path, time.time() - 90 * 86400)
+
+        assert removed == 2
+        assert not dead.exists() and not (tmp_path / ".audit-999999.lock").exists()
+        assert not torn.exists()
+        assert live.exists() and live_lock.exists()
+        assert fresh_torn.exists()
+
     def test_missing_directory_is_zero(self, tmp_path: Path) -> None:
         """A nonexistent audit dir prunes nothing (never raises)."""
         assert prune_rotated_audit_segments(tmp_path / "nope", 0.0) == 0

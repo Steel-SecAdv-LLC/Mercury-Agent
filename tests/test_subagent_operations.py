@@ -216,7 +216,7 @@ _CASES: list[tuple[str, dict[str, Any], str, Callable[[dict[str, Any]], bool]]] 
         "Pan_XXV",
         {"scalars": {"bias": 0.9, "fairness": 0.85, "integrity": 0.8}},
         "core.GlobalOmniScalarNetwork.compute_global_intelligence_score",
-        lambda o: o["n_registered"] == 3,
+        lambda o: o["n_scored"] == 3,
     ),
     ("Persephone_XXVI", {}, "resilience.get_all_breaker_stats", lambda o: "n_breakers" in o),
     (

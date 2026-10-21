@@ -35,6 +35,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InputModalityError
+
 if TYPE_CHECKING:
     import torch
     from torch import nn
@@ -107,7 +109,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
         Architecture optimized with golden ratio (φ ≈ 1.618) for layer dimensions.
         """
 
-        def __init__(self, input_dim: int = 64, num_specialties: int = 24) -> None:
+        def __init__(self, input_dim: int = 64) -> None:
             """Initialize the instance."""
             super().__init__()
 
@@ -214,7 +216,7 @@ class ABMSDisciplineDetector:
         self.enable_neurosymbolic = enable_neurosymbolic
         self.golden_ratio = 1.618 if golden_ratio_threshold else 1.0
 
-        self.model = MultiSpecialtyNeuralNet(input_dim=64, num_specialties=24)
+        self.model = MultiSpecialtyNeuralNet(input_dim=64)
 
         self.subspecialties = self._initialize_subspecialties()
 
@@ -600,7 +602,7 @@ class ABMSDisciplineDetector:
         """Extract numerical features from patient clinical data (O(n) complexity)."""
         if not isinstance(patient_data, Mapping):
             shape_hint = f" of shape {patient_data.shape}" if hasattr(patient_data, "shape") else ""
-            raise ValueError(
+            raise InputModalityError(
                 "ABMSDisciplineDetector expects a patient-record mapping "
                 "(dict with 'vitals'/'labs'/'symptoms'/'history' keys), got "
                 f"{type(patient_data).__name__}{shape_hint}. "
@@ -911,11 +913,20 @@ class ABMSDisciplineDetector:
         return results
 
 
+ABMSAnomalyDetector = ABMSDisciplineDetector
+
+# Alias for test compatibility - ABMSSpecialty is an alias for ABMSBoard
+ABMSSpecialty = ABMSBoard
+
+
 def create_omni_medical_scalars() -> dict[str, float]:
     """Create doctorate-level medical scalars for truth deciphering.
 
+    The values are a hand-set table, each base weight times phi (1.618).
+    They are fixed constants, not fitted or optimized on data.
+
     Returns:
-        Dictionary of omni-medical scalars with golden ratio optimization
+        Dictionary of omni-medical scalars
     """
     phi = 1.618
 
@@ -936,9 +947,3 @@ def create_omni_medical_scalars() -> dict[str, float]:
         "omni_imaging_interpretation": 1.41 * phi,
         "omni_laboratory_correlation": 1.34 * phi,
     }
-
-
-ABMSAnomalyDetector = ABMSDisciplineDetector
-
-# Alias for test compatibility - ABMSSpecialty is an alias for ABMSBoard
-ABMSSpecialty = ABMSBoard

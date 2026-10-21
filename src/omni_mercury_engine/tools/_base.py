@@ -293,16 +293,20 @@ def sign_certificate_ed25519(payload: bytes, secret_key_hex: str) -> dict[str, s
     Raises:
         ValueError: secret_key_hex is not exactly 64 hex characters.
     """
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from omni_mercury_engine.security.pqc_backends import (
+        ed25519_keypair_from_seed,
+        ed25519_sign,
+    )
 
     if len(secret_key_hex) != 64:
         raise ValueError(
             f"Ed25519 secret_key_hex must be 32 bytes (64 hex chars); got {len(secret_key_hex)}"
         )
     sk_bytes = bytes.fromhex(secret_key_hex)
-    sk = Ed25519PrivateKey.from_private_bytes(sk_bytes)
-    pk_bytes = sk.public_key().public_bytes_raw()
-    signature = sk.sign(payload)
+    # AMA native Ed25519 (RFC 8032): deterministic signing, so records are
+    # byte-identical to those the previous PyCA-backed path produced.
+    pk_bytes = ed25519_keypair_from_seed(sk_bytes).public_key
+    signature = ed25519_sign(payload, sk_bytes)
     return {
         "algorithm": "ed25519",
         "public_key_hex": pk_bytes.hex(),
@@ -318,8 +322,7 @@ def verify_certificate_ed25519(payload: bytes, signature_record: Mapping[str, An
     record, and returns False on a cryptographic verification failure.
     Used by :class:`signed_release_bundle` and the round-trip tests.
     """
-    from cryptography.exceptions import InvalidSignature
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    from omni_mercury_engine.security.pqc_backends import ed25519_verify
 
     if signature_record.get("algorithm") != "ed25519":
         raise ValueError(f"expected algorithm 'ed25519', got {signature_record.get('algorithm')!r}")
@@ -327,12 +330,11 @@ def verify_certificate_ed25519(payload: bytes, signature_record: Mapping[str, An
     actual_digest = hashlib.sha3_256(payload).hexdigest()
     if expected_digest != actual_digest:
         return False
-    pk = Ed25519PublicKey.from_public_bytes(bytes.fromhex(signature_record["public_key_hex"]))
-    try:
-        pk.verify(bytes.fromhex(signature_record["signature_hex"]), payload)
-    except InvalidSignature:
-        return False
-    return True
+    return ed25519_verify(
+        payload,
+        bytes.fromhex(signature_record["signature_hex"]),
+        bytes.fromhex(signature_record["public_key_hex"]),
+    )
 
 
 # ---------------------------------------------------------------------------

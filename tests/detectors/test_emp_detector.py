@@ -60,7 +60,8 @@ class TestEMPPredictionResult:
         assert result.e2_component_detected is False
         assert result.e3_component_detected is False
         assert result.grid_impact_assessment == "none"
-        assert result.intentional_attack_probability == 0.0
+        # None until a trained IEMI network is consulted (0.0 claimed "no attack").
+        assert result.intentional_attack_probability is None
         assert result.protective_actions == []
         assert result.recovery_actions == []
 
@@ -126,8 +127,10 @@ class TestE3PulseDetector:
 
     def test_no_e3_pulse_normal_conditions(self, detector: Any) -> None:
         """Test detection with normal geomagnetic conditions."""
+        # 0.5 nT/s = 30 nT/min; 100 nT/s is 300 times the largest storm rate
+        # observed (~20 nT/s, March 1989), not a normal condition.
         magnetometer_data = {
-            "db_dt_nt_s": 100.0,
+            "db_dt_nt_s": 0.5,
             "duration_seconds": 10.0,
         }
         result = detector.detect_e3_pulse(magnetometer_data)
@@ -147,32 +150,36 @@ class TestE3PulseDetector:
 
     def test_grid_impact_levels(self, detector: Any) -> None:
         """Test different grid impact levels."""
+        # The GIC detector's 1-minute tiers: 90 / 300 / 480 nT/min.
         # Low impact
-        result = detector.detect_e3_pulse({"db_dt_nt_s": 100.0, "duration_seconds": 120.0})
+        result = detector.detect_e3_pulse({"db_dt_nt_s": 1.0, "duration_seconds": 120.0})
         assert result["grid_impact"] == "low"
 
         # Moderate impact
-        result = detector.detect_e3_pulse({"db_dt_nt_s": 300.0, "duration_seconds": 120.0})
+        result = detector.detect_e3_pulse({"db_dt_nt_s": 2.0, "duration_seconds": 120.0})
         assert result["grid_impact"] == "moderate"
 
         # High impact
-        result = detector.detect_e3_pulse({"db_dt_nt_s": 700.0, "duration_seconds": 120.0})
+        result = detector.detect_e3_pulse({"db_dt_nt_s": 6.0, "duration_seconds": 120.0})
         assert result["grid_impact"] == "high"
 
         # Critical impact
-        result = detector.detect_e3_pulse({"db_dt_nt_s": 1500.0, "duration_seconds": 120.0})
+        result = detector.detect_e3_pulse({"db_dt_nt_s": 9.0, "duration_seconds": 120.0})
         assert result["grid_impact"] == "critical"
 
-    def test_gic_amplitude_calculation(self, detector: Any) -> None:
-        """Test GIC amplitude calculation."""
+    def test_peak_dbdt_reported(self, detector: Any) -> None:
+        """The measured |dB/dt| is reported in its unit.
+
+        It replaces ``gic_amplitude_a`` (0.1 x |dB/dt| labelled amperes): a GIC
+        in amperes depends on the network and ground model, not on dB/dt alone.
+        """
         magnetometer_data = {
-            "db_dt_nt_s": 1000.0,
+            "db_dt_nt_s": -1000.0,
             "duration_seconds": 120.0,
         }
         result = detector.detect_e3_pulse(magnetometer_data)
 
-        expected_gic = abs(1000.0) * 0.1
-        assert result["gic_amplitude_a"] == expected_gic
+        assert result["peak_dbdt_nt_per_s"] == 1000.0
 
 
 class TestIntentionalEMIDetector:
@@ -223,7 +230,8 @@ class TestEMPDetector:
                 "peak_frequency_mhz": 1.0,
             },
             "magnetometer_data": {
-                "db_dt_nt_s": 50.0,
+                # Quiet field (30 nT/min); 50 nT/s is a "critical" grid impact.
+                "db_dt_nt_s": 0.5,
                 "duration_seconds": 10.0,
             },
             "signature_data": {"repetition_rate_hz": 0.0},
@@ -242,12 +250,12 @@ class TestEMPDetector:
         }
 
     @pytest.fixture
-    def e3_emp_data(self):
-        """Create E3 EMP event data."""
+    def storm_gic_data(self):
+        """Create severe-storm GIC data (Gannon storm, Sitka: 553.7 nT/min)."""
         return {
             "magnetometer_data": {
-                "db_dt_nt_s": 3000.0,
-                "duration_seconds": 120.0,
+                "db_dt_nt_s": 553.7 / 60.0,
+                "duration_seconds": 600.0,
             },
             "solar_data": {"storm_active": True},
         }
@@ -284,15 +292,22 @@ class TestEMPDetector:
 
         assert result.emp_detected is True
         assert result.e1_component_detected is True
-        assert result.emp_type == "non_nuclear_emp"
+        # E1 is the HEMP early-time pulse (IEC 61000-2-9), not "non-nuclear".
+        assert result.emp_type == "high_altitude_emp"
 
-    def test_predict_e3_event(self, detector: Any, e3_emp_data: Any) -> None:
-        """Test prediction of E3 event (solar GIC)."""
-        result = detector.predict_emp(e3_emp_data)
+    def test_predict_storm_gic_event(self, detector: Any, storm_gic_data: Any) -> None:
+        """Test prediction of a solar-storm GIC event.
 
-        assert result.emp_detected is True
-        assert result.e3_component_detected is True
+        A storm's dB/dt (~20 nT/s at most observed) is far below E3 (>= 450
+        nT/s), so it is a geomagnetic disturbance with a grid impact, not an
+        EMP; the former 3000 nT/s "solar" input was no storm.
+        """
+        result = detector.predict_emp(storm_gic_data)
+
+        assert result.emp_detected is False
+        assert result.e3_component_detected is False
         assert result.emp_type == "solar_geomagnetic_current"
+        assert result.grid_impact_assessment == "critical"
 
     def test_predict_nuclear_emp(self, detector: Any) -> None:
         """Test prediction of nuclear EMP (E1 + E3)."""

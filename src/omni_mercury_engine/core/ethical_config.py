@@ -73,6 +73,11 @@ class EthicalScalars:
     omni_autonomy_respect: float = 1.40
     omni_biosecurity_guard: float = 1.32
 
+    # Research-priority weights named for open problems. Hand-set like every
+    # scalar in this dataclass: the names honor the problems, the values are
+    # NOT evidence of progress on them. Evidence-grounded mathematical
+    # scalars live in ScalarGroup.MATHEMATICAL_MYSTERIES and are registered
+    # only by the verifiers (omni_mercury_engine.verifiers).
     omni_riemann_conjecture: float = 1.35
     omni_p_vs_np_resolution: float = 1.32
     omni_collatz_verification: float = 1.30
@@ -211,7 +216,7 @@ class EthicalScalars:
     omni_ci_ethical_threshold: float = 0.85
     omni_proactive_psi_p: complex = 1.30 + 0.15j
     omni_chaos_lambda_bifurcation: float = 1.28
-    omni_survivor_first_protection: float = 1.45
+    omni_civilization_first_protection: float = 1.45
     omni_non_discriminatory_ci: float = 1.40
     omni_bio_threat_vigilance: float = 1.38
     omni_pandemic_foresight: float = 1.42
@@ -260,7 +265,7 @@ class EngineConfig:
     fusion_mode: str = "hybrid"
     enable_neurosymbolic: bool = True
     enable_multiverse: bool = True
-    enable_ci: bool = False
+    enable_ci: bool = False  # inert: nothing reads it; kept so existing configs still load
 
     num_universes: int = 10
     multiverse_state_dim: int = 50

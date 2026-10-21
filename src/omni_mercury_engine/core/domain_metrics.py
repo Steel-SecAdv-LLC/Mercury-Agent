@@ -477,32 +477,25 @@ class MetricsCalculator:
         scores: np.ndarray[Any, Any],
         weights: np.ndarray[Any, Any],
     ) -> None:
-        """Compute spatial autocorrelation metrics."""
+        """Compute Moran's I and Geary's C of the scores under *weights*.
+
+        Both statistics use the same weight matrix as given (the former
+        code row-normalised it for Moran's I but not for Geary's C, so the
+        two described different neighbourhood structures). See
+        :mod:`omni_mercury_engine.ml.spatial_autocorrelation`.
+        """
         try:
-            n = len(scores)
-            mean = np.mean(scores)
-            deviations = scores - mean
+            from scipy import sparse
 
-            # Normalize weights
-            row_sums = weights.sum(axis=1, keepdims=True)
-            weights_norm = weights / (row_sums + 1e-10)
+            from omni_mercury_engine.ml.spatial_autocorrelation import gearys_c, morans_i
 
-            # Moran's I
-            numerator = np.sum(weights_norm * np.outer(deviations, deviations))
-            denominator = np.sum(deviations**2)
-            w_sum = np.sum(weights_norm)
-
-            if denominator > 0 and w_sum > 0:
-                metrics.morans_i = float((n / w_sum) * (numerator / denominator))
-
-            # Geary's C
-            diff_matrix = (scores[:, None] - scores[None, :]) ** 2
-            numerator_c = np.sum(weights * diff_matrix)
-            denominator_c = 2 * np.sum(weights) * np.sum((scores - mean) ** 2)
-
-            if denominator_c > 0:
-                metrics.gearys_c = float((n - 1) * numerator_c / denominator_c)
-
+            w = sparse.csr_matrix(np.asarray(weights, dtype=np.float64))
+            moran = morans_i(scores, w)
+            geary = gearys_c(scores, w)
+            if np.isfinite(moran):
+                metrics.morans_i = float(moran)
+            if np.isfinite(geary):
+                metrics.gearys_c = float(geary)
         except Exception as e:
             logger.warning(f"Spatial metrics computation failed: {e}")
 
@@ -673,6 +666,12 @@ class DomainSpecificMetrics:
         return DomainSpecificMetrics.compute_spatial_metrics(node_scores, adjacency_matrix)
 
 
+#: Domains :func:`compute_benchmark_metrics` specializes for; any other
+#: domain (``"general"``, ``"statistical"``, ``"dimensional"``, ...) gets the
+#: standard suite.
+BENCHMARK_DOMAINS = ("temporal", "spatial", "graph")
+
+
 def compute_benchmark_metrics(
     y_true: np.ndarray[Any, Any],
     y_pred: np.ndarray[Any, Any],
@@ -682,15 +681,36 @@ def compute_benchmark_metrics(
 ) -> ComprehensiveMetrics:
     """Convenience function to compute metrics for benchmarking.
 
+    ``domain`` selects the specialized metrics (it was ignored):
+    ``"temporal"`` always computes the event metrics (otherwise they need
+    ``timestamps`` or more than 100 samples), and ``"spatial"`` / ``"graph"``
+    compute Moran's I and Geary's C from ``spatial_weights`` /
+    ``adjacency_matrix`` and ``y_prob``. Every other domain, and a spatial or
+    graph domain called without its weights or ``y_prob``, gets the standard
+    suite, as every call did before; the missing inputs are logged.
+
     Args:
         y_true: Ground truth labels
         y_pred: Binary predictions
         y_prob: Probability predictions
-        domain: Domain type for specialized metrics
-        **kwargs: Additional arguments
+        domain: Domain type; see :data:`BENCHMARK_DOMAINS`
+        **kwargs: Passed to :meth:`MetricsCalculator.compute_all_metrics`
+            (``protected_attrs``, ``timestamps``, ``spatial_weights``);
+            ``adjacency_matrix`` is accepted for ``domain="graph"``.
 
     Returns:
         ComprehensiveMetrics instance
     """
+    if domain == "graph" and "adjacency_matrix" in kwargs:
+        kwargs["spatial_weights"] = kwargs.pop("adjacency_matrix")
+    if domain in ("spatial", "graph") and (kwargs.get("spatial_weights") is None or y_prob is None):
+        weights = "adjacency_matrix" if domain == "graph" else "spatial_weights"
+        logger.warning(
+            "domain=%r without %s and y_prob: Moran's I and Geary's C are not computed",
+            domain,
+            weights,
+        )
+    if domain == "temporal" and kwargs.get("timestamps") is None:
+        kwargs["timestamps"] = np.arange(len(y_true))
     calculator = MetricsCalculator()
     return calculator.compute_all_metrics(y_true, y_pred, y_prob, **kwargs)

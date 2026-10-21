@@ -81,6 +81,9 @@ def make_swpc_source() -> NOAASWPCSource:
     kp = load_fixture("swpc_kp.json")
     xray = load_fixture("swpc_xray.json")
     wind = load_fixture("swpc_solar_wind.json")
+    # Real integral-protons slice (last 2 h of the 7-day product, all energy
+    # channels, recorded 2026-10-19); the >=10 MeV channel drives the S level.
+    protons = load_fixture("swpc_protons.json")
 
     async def _fake_http_get(endpoint: str, params: dict[str, Any] | None = None) -> _FakeResponse:
         if "k-index" in endpoint:
@@ -89,6 +92,8 @@ def make_swpc_source() -> NOAASWPCSource:
             return _FakeResponse(xray)
         if "propagated-solar-wind" in endpoint:
             return _FakeResponse(wind)
+        if "integral-protons" in endpoint:
+            return _FakeResponse(protons)
         raise AssertionError(f"unexpected SWPC endpoint: {endpoint}")
 
     source._http_get = _fake_http_get  # type: ignore[assignment, method-assign, unused-ignore]
@@ -226,6 +231,12 @@ class TestSolarStormDetectorLive:
         assert result.live_context is not None
         assert result.live_context["solar_wind_speed_km_s"] is not None
         assert result.live_context["observed_kp"] == pytest.approx(2.67)
+        # The S level is measured from the >=10 MeV integral proton flux
+        # (0.275 pfu in the recorded slice: S0, quiet) instead of staying
+        # unset because the product was never requested.
+        assert result.live_context["proton_flux_10mev_pfu"] == pytest.approx(0.2753648758)
+        assert result.radiation_storm_level == 0
+        assert result.radiation_storm is False
 
     def test_offline_path_unchanged(self) -> None:
         """The existing dict-driven offline API is untouched by the wiring."""

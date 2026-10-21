@@ -246,11 +246,12 @@ class TestCacheStubDataTypes:
 
     @pytest.mark.asyncio
     async def test_cache_none(self, cache: Any) -> None:
-        """Test caching None value."""
+        """A stored None reads back as None yet is distinguishable from a miss."""
         await cache.set("none", None)
-        # Note: This might return None which could be ambiguous
-        _ = await cache.get("none")
-        # Implementation dependent - just verify no exception
+        assert await cache.get("none") is None
+        # ``exists`` disambiguates a cached None from an absent key.
+        assert await cache.exists("none") is True
+        assert await cache.exists("never-set") is False
 
 
 class TestCacheStubTTL:

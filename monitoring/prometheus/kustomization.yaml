@@ -1,0 +1,9 @@
+# Prometheus Operator objects for the k8s/ overlays (production, staging,
+# distributed list this directory under `resources:`). Requires the
+# monitoring.coreos.com CRDs in the cluster.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - podmonitors.yaml
+  - prometheus-rules.yaml

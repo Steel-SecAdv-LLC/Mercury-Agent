@@ -35,10 +35,13 @@ class TestIdentifierShape:
                 HFModelPolicy.validate(bad, revision=_OK_SHA)
 
     def test_valid_namespace_name_accepted(self) -> None:
-        HFModelPolicy.validate("Salesforce/blip-image-captioning-base", revision=_OK_SHA)
+        assert (
+            HFModelPolicy.validate("Salesforce/blip-image-captioning-base", revision=_OK_SHA)
+            is None
+        )
 
     def test_absolute_local_path_accepted_without_revision(self) -> None:
-        HFModelPolicy.validate("/opt/models/local-bert", revision=None)
+        assert HFModelPolicy.validate("/opt/models/local-bert", revision=None) is None
 
     def test_relative_path_rejected(self) -> None:
         # ./foo and ../foo are NOT treated as local paths -- they
@@ -60,7 +63,7 @@ class TestRevisionPinning:
             HFModelPolicy.validate("Salesforce/blip", revision="   ")
 
     def test_remote_with_sha_accepted(self) -> None:
-        HFModelPolicy.validate("Salesforce/blip", revision=_OK_SHA)
+        assert HFModelPolicy.validate("Salesforce/blip", revision=_OK_SHA) is None
 
     def test_remote_with_short_sha_rejected(self) -> None:
         """Short SHA prefixes are NOT immutable -- the full SHA is required.
@@ -94,10 +97,13 @@ class TestAllowlist:
             )
 
     def test_listed_accepted(self) -> None:
-        HFModelPolicy.validate(
-            "Salesforce/blip",
-            revision=_OK_SHA,
-            allowlist={"Salesforce/blip"},
+        assert (
+            HFModelPolicy.validate(
+                "Salesforce/blip",
+                revision=_OK_SHA,
+                allowlist={"Salesforce/blip"},
+            )
+            is None
         )
 
     def test_trust_remote_code_requires_allowlist(self) -> None:
@@ -117,10 +123,13 @@ class TestAllowlist:
         reachable for callers (BLIP / Chronos / LVLM) that also pass a
         Hub-id allowlist.
         """
-        HFModelPolicy.validate(
-            "/opt/models/local-bert",
-            revision=None,
-            allowlist={"Salesforce/blip-image-captioning-base"},
+        assert (
+            HFModelPolicy.validate(
+                "/opt/models/local-bert",
+                revision=None,
+                allowlist={"Salesforce/blip-image-captioning-base"},
+            )
+            is None
         )
 
 

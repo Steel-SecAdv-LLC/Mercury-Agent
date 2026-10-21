@@ -497,7 +497,9 @@ class TCPMessageTransport(MessageTransport):
                 return None
             req = _deserialize_request_vote(envelope["body"])
             resp: RequestVoteResponse = await handler(req)
-            return self._make_response_envelope(envelope, "request_vote_response", asdict(resp))
+            return self._make_response_envelope(
+                envelope, "request_vote_response", _serialize_request_vote_response(resp)
+            )
         if msg_type == "append_entries":
             handler = self._message_handlers.get("append_entries")
             if handler is None:
@@ -505,7 +507,7 @@ class TCPMessageTransport(MessageTransport):
             ae_req = _deserialize_append_entries(envelope["body"])
             resp_ae: AppendEntriesResponse = await handler(ae_req)
             return self._make_response_envelope(
-                envelope, "append_entries_response", asdict(resp_ae)
+                envelope, "append_entries_response", _serialize_append_entries_response(resp_ae)
             )
         logger.debug("Unknown inbound message type %s", msg_type)
         return None

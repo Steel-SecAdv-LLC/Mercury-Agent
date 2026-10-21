@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import multiprocessing
 import os
@@ -258,8 +259,34 @@ async def test_replay_is_rejected() -> None:
 # ---------------------------------------------------------------------------
 
 
+async def _assert_rejected_and_listener_alive(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    transport: TCPMessageTransport,
+) -> None:
+    """Shared contract for every malformed frame.
+
+    The server must (1) write no response bytes and close the connection
+    (the client reads a clean EOF), and (2) keep its listener serving, so
+    a fresh connection still succeeds after the attack.
+    """
+    host, port = transport.bound_address
+    try:
+        data = await asyncio.wait_for(reader.read(), timeout=5.0)
+        assert data == b"", f"server responded to a malformed frame: {data!r}"
+        reader2, writer2 = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=5.0)
+        writer2.close()
+        with contextlib.suppress(ConnectionError, OSError):
+            await writer2.wait_closed()
+    finally:
+        writer.close()
+        with contextlib.suppress(ConnectionError, OSError):
+            await writer.wait_closed()
+        await transport.stop()
+
+
 async def test_fuzzer_truncated_prefix() -> None:
-    """Sending fewer than 4 bytes for the length prefix does not crash."""
+    """Fewer than 4 bytes of length prefix: closed without reply, no crash."""
     transport = TCPMessageTransport("target")
     await transport.start()
     host, port = transport.bound_address
@@ -267,9 +294,8 @@ async def test_fuzzer_truncated_prefix() -> None:
     reader, writer = await asyncio.open_connection(host, port)
     writer.write(b"\x00\x01")  # only 2 bytes
     await writer.drain()
-    writer.close()
-    await asyncio.sleep(0.1)
-    await transport.stop()
+    writer.write_eof()  # half-close so the server's readexactly sees EOF
+    await _assert_rejected_and_listener_alive(reader, writer, transport)
 
 
 async def test_fuzzer_length_exceeds_max() -> None:
@@ -282,9 +308,7 @@ async def test_fuzzer_length_exceeds_max() -> None:
     # Send a length prefix claiming 32 MiB (over the 16 MiB limit)
     writer.write(struct.pack(">I", MAX_PAYLOAD_BYTES + 1))
     await writer.drain()
-    await asyncio.sleep(0.1)
-    writer.close()
-    await transport.stop()
+    await _assert_rejected_and_listener_alive(reader, writer, transport)
 
 
 async def test_fuzzer_invalid_json() -> None:
@@ -297,13 +321,11 @@ async def test_fuzzer_invalid_json() -> None:
     garbage = b"this is not json"
     writer.write(_frame(garbage))
     await writer.drain()
-    await asyncio.sleep(0.1)
-    writer.close()
-    await transport.stop()
+    await _assert_rejected_and_listener_alive(reader, writer, transport)
 
 
 async def test_fuzzer_unexpected_fields() -> None:
-    """Valid JSON with unexpected fields is handled without crash."""
+    """Valid JSON with a bogus signature and unknown fields gets no reply."""
     transport = TCPMessageTransport("target")
     await transport.start()
     host, port = transport.bound_address
@@ -322,9 +344,7 @@ async def test_fuzzer_unexpected_fields() -> None:
     ).encode()
     writer.write(_frame(payload))
     await writer.drain()
-    await asyncio.sleep(0.1)
-    writer.close()
-    await transport.stop()
+    await _assert_rejected_and_listener_alive(reader, writer, transport)
 
 
 async def test_fuzzer_zero_length_frame() -> None:
@@ -336,9 +356,7 @@ async def test_fuzzer_zero_length_frame() -> None:
     reader, writer = await asyncio.open_connection(host, port)
     writer.write(struct.pack(">I", 0))  # zero-length frame
     await writer.drain()
-    await asyncio.sleep(0.1)
-    writer.close()
-    await transport.stop()
+    await _assert_rejected_and_listener_alive(reader, writer, transport)
 
 
 # ---------------------------------------------------------------------------

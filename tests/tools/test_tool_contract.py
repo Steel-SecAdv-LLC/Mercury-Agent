@@ -73,7 +73,7 @@ class TestEnvelopeConformance:
             status="ok",
             body={"w_R": 0.4472, "w_H": 0.2764, "w_O": 0.2764},
         ).envelope()
-        validate_envelope(cert)  # no raise
+        validate_envelope(cert)  # accepted: a rejection raises EnvelopeValidationError
 
     def test_validator_rejects_unknown_status(self) -> None:
         with pytest.raises(EnvelopeValidationError):

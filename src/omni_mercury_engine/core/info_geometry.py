@@ -51,21 +51,46 @@ def _regularize(
     return matrix + tikhonov_lambda * np.eye(n, dtype=matrix.dtype)
 
 
+#: Doublings of the diagonal shift before :func:`_safe_cholesky` gives up;
+#: from 1e-6, 64 doublings pass 1e13.
+_MAX_SHIFT_DOUBLINGS = 64
+
+
 def _safe_cholesky(
     matrix: np.ndarray[Any, Any],
     tikhonov_lambda: float = _DEFAULT_TIKHONOV,
 ) -> np.ndarray[Any, Any]:
     """Cholesky decomposition with automatic Tikhonov fallback.
 
-    Returns the lower-triangular factor *L* such that ``L @ L.T == matrix`` (up to regularization).
+    Returns the lower-triangular factor *L* such that ``L @ L.T == matrix +
+    tau * I``, with ``tau = 0`` when ``matrix`` is positive definite. Otherwise
+    ``tau`` starts at ``max(tikhonov_lambda, tikhonov_lambda - min(diag))`` and
+    doubles until the factorization succeeds (Cholesky with added multiple of
+    the identity, Nocedal & Wright, *Numerical Optimization*, 2nd ed., Alg.
+    3.3), so it lands within a factor of two of the smallest shift that works.
+    A single fixed shift, as released, still failed on any matrix with an
+    eigenvalue below ``-tikhonov_lambda``.
+
+    Raises:
+        ValueError: ``matrix`` is not square or holds a non-finite value.
+        numpy.linalg.LinAlgError: no shift up to ``2**64 * tau`` worked.
     """
+    matrix = _ensure_2d_square(matrix, "matrix")
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError("matrix holds a non-finite value")
     try:
         result: np.ndarray[Any, Any] = sp_linalg.cholesky(matrix, lower=True)
         return result
     except sp_linalg.LinAlgError:
-        regularized = _regularize(matrix, tikhonov_lambda)
-        result = sp_linalg.cholesky(regularized, lower=True)
-        return result
+        pass
+    tau = max(tikhonov_lambda, tikhonov_lambda - float(np.min(np.diag(matrix))))
+    for _ in range(_MAX_SHIFT_DOUBLINGS):
+        try:
+            result = sp_linalg.cholesky(_regularize(matrix, tau), lower=True)
+            return result
+        except sp_linalg.LinAlgError:
+            tau *= 2.0
+    raise np.linalg.LinAlgError(f"no diagonal shift up to {tau:g} made the matrix factorable")
 
 
 # =========================================================================
@@ -398,15 +423,18 @@ class FisherRaoAdaptiveThreshold:
 
     The threshold is set as:
 
-        tau = mu_distance + k * sqrt(trace(F^{-1}))
+        tau = mu_distance + k * sigma_distance
 
-    where *mu_distance* is the mean geodesic distance of calibration samples
-    to the reference, *k* is a confidence multiplier (analogous to the number
-    of standard deviations), and ``trace(F^{-1})`` captures the local
-    curvature of the statistical manifold.
+    where *mu_distance* and *sigma_distance* are the mean and standard
+    deviation of the calibration samples' geodesic distances to the
+    reference and *k* is a confidence multiplier. Both terms are in the
+    distance's own (Mahalanobis) units. The earlier ``k * sqrt(trace(F^-1))``
+    spread term is ``k * sqrt(trace(Sigma))`` -- data units -- so the cut
+    moved with the data's scale (x10 for features with variance 100).
 
-    The threshold is automatically recalibrated when the FIM changes
-    beyond a configurable drift tolerance.
+    :meth:`check_drift` reports a change in the Fisher metric; recalibration
+    happens only through an explicit :meth:`recalibrate_if_drifted` call
+    with data the caller trusts as in-distribution.
     """
 
     def __init__(
@@ -477,10 +505,10 @@ class FisherRaoAdaptiveThreshold:
 
         distances = np.array([self._manifold.geodesic_distance(sample) for sample in cal])
         self._mu_distance = float(np.mean(distances))
+        sigma_distance = float(np.std(distances)) if len(distances) > 1 else 0.0
 
-        # tau = mu_distance + k * sqrt(trace(F^{-1}))
-        trace_inv = self._fim_obj.trace_inverse()
-        self._threshold = self._mu_distance + self.confidence_k * np.sqrt(max(trace_inv, 0.0))
+        # tau = mu_distance + k * sigma_distance (both in distance units)
+        self._threshold = self._mu_distance + self.confidence_k * sigma_distance
 
         self._calibration_count += 1
         self._history.append((self._threshold, self._calibration_count))
@@ -553,10 +581,15 @@ class FisherRaoAdaptiveThreshold:
         self,
         new_data: np.ndarray[Any, Any],
     ) -> bool:
-        """Check for drift and recalibrate when detected.
+        """Check for drift and recalibrate on *new_data* when detected.
+
+        The reference becomes *new_data*, so pass only data known to be
+        in-distribution. Feeding it unvetted inputs lets a sustained attack
+        or fault become the new normal; :class:`InformationGeometryDetector`
+        therefore never calls this on the data it is scoring.
 
         Args:
-            new_data: Recent observation window.
+            new_data: Recent, trusted observation window.
 
         Returns:
             ``True`` if recalibration was performed.
@@ -678,16 +711,42 @@ class InformationGeometryDetector:
             distribution_2: Second distribution ``{'mean': ..., 'cov': ...}``.
 
         Returns:
-            Fisher-Rao distance (geodesic distance on manifold).
+            Fisher-Rao distance (geodesic distance on manifold). When both
+            distributions carry a covariance, the covariance mismatch term
+            ``0.5 * sum(log(lambda_i)^2)`` over the generalised eigenvalues
+            of the two covariances is included (as in
+            :meth:`StatisticalManifold.geodesic_distance`), so a change in
+            correlation structure registers even with equal means.
         """
-        mean_diff = distribution_1["mean"] - distribution_2["mean"]
+        mean_diff = np.asarray(distribution_1["mean"], dtype=np.float64) - np.asarray(
+            distribution_2["mean"], dtype=np.float64
+        )
 
         if self.fisher_matrix is not None:
-            distance = np.sqrt(float(mean_diff.T @ self.fisher_matrix @ mean_diff))
+            mean_term = float(mean_diff.T @ self.fisher_matrix @ mean_diff)
         else:
-            distance = float(np.linalg.norm(mean_diff))
+            mean_term = float(mean_diff @ mean_diff)
 
-        return float(distance)
+        cov_term = 0.0
+        cov_1 = distribution_1.get("cov")
+        cov_2 = distribution_2.get("cov")
+        if cov_1 is not None and cov_2 is not None:
+            from scipy import linalg as sp_linalg
+
+            c1 = _regularize(
+                np.atleast_2d(np.asarray(cov_1, dtype=np.float64)), self._tikhonov_lambda
+            )
+            c2 = _regularize(
+                np.atleast_2d(np.asarray(cov_2, dtype=np.float64)), self._tikhonov_lambda
+            )
+            lam = sp_linalg.eigh(0.5 * (c2 + c2.T), 0.5 * (c1 + c1.T), eigvals_only=True)
+            log_lam = np.log(np.maximum(lam, _MIN_VARIANCE))
+            # Identical covariances give eigenvalues 1 up to rounding; treat
+            # |log(lambda)| below eigensolver precision as exactly zero.
+            log_lam[np.abs(log_lam) < 1e-10] = 0.0
+            cov_term = 0.5 * float(np.sum(log_lam**2))
+
+        return float(np.sqrt(max(mean_term + cov_term, 0.0)))
 
     # -- Detection -----------------------------------------------------------
 
@@ -705,42 +764,72 @@ class InformationGeometryDetector:
                 otherwise falls back to 3.0.
 
         Returns:
-            Detection results with OOD scores and labels.
+            Detection results. ``sample_scores`` are each row's Fisher-Rao
+            distance to the reference -- the quantity the threshold is
+            calibrated on -- and ``sample_is_ood`` flags rows above it.
+            ``ood_score`` is the median row score, so ``is_ood`` says the
+            typical row of the batch is out of distribution (scoring the
+            batch MEAN against a per-row threshold, as before, shrank the
+            score by ~1/sqrt(n) and almost never fired).
+            ``distribution_distance`` is the batch-vs-reference distance
+            including the covariance term. ``drift_detected`` reports a
+            Fisher-metric change; the reference is never refit on the
+            scored batch (``recalibrated`` is always False), so an attack
+            or fault cannot make itself the new normal.
         """
         if self.reference_distribution is None:
             raise ValueError(
                 "Must fit reference distribution first using " "fit_reference_distribution()"
             )
 
+        test_data = np.asarray(test_data, dtype=np.float64)
+        if test_data.ndim == 1:
+            test_data = test_data.reshape(1, -1)
+
+        manifold = (
+            self._adaptive._manifold
+            if self._adaptive is not None and self._adaptive._manifold is not None
+            else StatisticalManifold(
+                self.reference_distribution["mean"],
+                np.atleast_2d(self.reference_distribution["cov"]),
+                tikhonov_lambda=self._tikhonov_lambda,
+            )
+        )
+        sample_scores = np.array([manifold.geodesic_distance(row) for row in test_data])
+        ood_score = float(np.median(sample_scores))
+
         test_distribution = {
             "mean": np.mean(test_data, axis=0),
             "cov": (np.cov(test_data.T) if test_data.shape[0] > 1 else np.eye(test_data.shape[1])),
         }
-
-        ood_score = self.fisher_rao_distance(self.reference_distribution, test_distribution)
+        distribution_distance = self.fisher_rao_distance(
+            self.reference_distribution, test_distribution
+        )
 
         # Determine threshold.
-        user_provided_threshold = threshold is not None
         if threshold is None:
             if self._adaptive is not None:
                 threshold = self._adaptive.threshold
             else:
                 threshold = 3.0
 
-        # Check for drift and recalibrate when appropriate.
-        recalibrated = False
-        if self._adaptive is not None:
-            recalibrated = self._adaptive.recalibrate_if_drifted(test_data)
-            if recalibrated and not user_provided_threshold:
-                threshold = self._adaptive.threshold
+        drift_detected = (
+            self._adaptive.check_drift(test_data)
+            if self._adaptive is not None and test_data.shape[0] > test_data.shape[1]
+            else False
+        )
 
         results: dict[str, Any] = {
             "ood_score": ood_score,
             "is_ood": ood_score > threshold,
             "threshold": threshold,
+            "sample_scores": sample_scores,
+            "sample_is_ood": sample_scores > threshold,
+            "distribution_distance": distribution_distance,
             "method": "fisher_rao_geometry",
             "adaptive": self._adaptive_enabled,
-            "recalibrated": recalibrated,
+            "drift_detected": bool(drift_detected),
+            "recalibrated": False,
         }
 
         return results

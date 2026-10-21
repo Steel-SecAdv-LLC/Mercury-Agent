@@ -805,21 +805,42 @@ class BiasmitigationProcessor:
     """Post-processing bias mitigation.
 
     Applies threshold optimization and other post-hoc corrections to reduce bias in predictions.
+
+    * ``THRESHOLD_OPTIMIZATION``: per-group cuts matching the overall base
+      rate (demographic parity), accuracy not considered.
+    * ``POST_PROCESSING``: per-group cuts searched with NSGA-II over two
+      objectives, error rate and the ``fairness_constraint`` gap
+      (demographic-parity: max-min positive rate; equalized odds: the
+      larger of the TPR and FPR gaps). The chosen point is the most
+      accurate one whose gap is within ``max_fairness_gap`` (the knee of
+      the front when no tolerance is set or none meets it); the whole
+      front is kept in :attr:`pareto_front`.
+    * ``REWEIGHTING``: Kamiran-Calders training weights (pre-processing).
+    * ``ADVERSARIAL_DEBIASING`` trains the predictor against an adversary;
+      it cannot be applied to fixed predictions, so :meth:`fit` refuses it
+      instead of returning unmitigated output.
     """
 
     def __init__(
         self,
         strategy: MitigationStrategy = MitigationStrategy.THRESHOLD_OPTIMIZATION,
         fairness_constraint: FairnessMetric = FairnessMetric.DEMOGRAPHIC_PARITY,
+        max_fairness_gap: float | None = None,
+        seed: int = 0,
     ):
         """Initialize bias mitigation processor.
 
         Args:
             strategy: Mitigation strategy to use
             fairness_constraint: Fairness metric to optimize
+            max_fairness_gap: POST_PROCESSING tolerance on the fairness gap
+            seed: POST_PROCESSING search seed (deterministic)
         """
         self.strategy = strategy
         self.fairness_constraint = fairness_constraint
+        self.max_fairness_gap = max_fairness_gap
+        self.seed = seed
+        self.pareto_front: Any = None
         self.group_thresholds: dict[str, float] = {}
         # Kamiran–Calders reweighing weights keyed by (group, label):
         # w(g, y) = P(g) * P(y) / P(g, y) — >1 for under-represented
@@ -846,8 +867,99 @@ class BiasmitigationProcessor:
             self._fit_threshold_optimization(predictions, labels, sensitive_features)
         elif self.strategy == MitigationStrategy.REWEIGHTING:
             self._fit_reweighting(predictions, labels, sensitive_features)
+        elif self.strategy == MitigationStrategy.POST_PROCESSING:
+            self._fit_pareto_thresholds(predictions, labels, sensitive_features)
+        elif self.strategy == MitigationStrategy.ADVERSARIAL_DEBIASING:
+            raise ValueError(
+                "ADVERSARIAL_DEBIASING trains the predictor against an adversary and "
+                "cannot be applied to fixed predictions; use POST_PROCESSING or "
+                "THRESHOLD_OPTIMIZATION here, or REWEIGHTING to change training"
+            )
 
         return self
+
+    def _fairness_gap(
+        self,
+        decisions: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+        groups: np.ndarray[Any, Any],
+        group_names: list[str],
+    ) -> float:
+        """Gap of the configured fairness criterion across groups."""
+        if self.fairness_constraint == FairnessMetric.EQUALIZED_ODDS:
+            tprs, fprs = [], []
+            for g in group_names:
+                m = groups == g
+                pos, neg = m & (labels == 1), m & (labels == 0)
+                if pos.any():
+                    tprs.append(float(decisions[pos].mean()))
+                if neg.any():
+                    fprs.append(float(decisions[neg].mean()))
+            tpr_gap = max(tprs) - min(tprs) if tprs else 0.0
+            fpr_gap = max(fprs) - min(fprs) if fprs else 0.0
+            return max(tpr_gap, fpr_gap)
+        rates = [float(decisions[groups == g].mean()) for g in group_names]
+        return max(rates) - min(rates)
+
+    def _fit_pareto_thresholds(
+        self,
+        predictions: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+        sensitive_features: np.ndarray[Any, Any],
+    ) -> None:
+        """NSGA-II over per-group cuts: minimise (error rate, fairness gap).
+
+        Each group's cut is searched as a quantile level of that group's own
+        scores, so the search space is the same for scores on any range.
+        """
+        from omni_mercury_engine.ml.multi_objective import NSGA2Optimizer
+
+        scores = np.asarray(predictions, dtype=float)
+        y = (np.asarray(labels) > 0).astype(int)
+        groups = np.asarray(sensitive_features).astype(str)
+        group_names = sorted(np.unique(groups).tolist())
+        if len(group_names) < 2:
+            raise ValueError("POST_PROCESSING needs at least two groups")
+        sorted_scores = {g: np.sort(scores[groups == g]) for g in group_names}
+
+        def cuts(levels: np.ndarray[Any, Any]) -> dict[str, float]:
+            return {
+                g: float(np.quantile(sorted_scores[g], float(level)))
+                for g, level in zip(group_names, levels, strict=True)
+            }
+
+        def decide(thresholds: dict[str, float]) -> np.ndarray[Any, Any]:
+            out = np.zeros(len(scores), dtype=float)
+            for g, cut in thresholds.items():
+                m = groups == g
+                out[m] = (scores[m] >= cut).astype(float)
+            return out
+
+        def objective(levels: np.ndarray[Any, Any]) -> list[float]:
+            decisions = decide(cuts(levels))
+            error = float(np.mean(decisions != y))
+            return [error, self._fairness_gap(decisions, y, groups, group_names)]
+
+        front = NSGA2Optimizer(
+            objective,
+            n_objectives=2,
+            population_size=40,
+            n_generations=40,
+            seed=self.seed,
+            objective_names=["error_rate", f"{self.fairness_constraint.value}_gap"],
+        ).optimize([(0.0, 1.0)] * len(group_names))
+        self.pareto_front = front
+
+        chosen = None
+        if self.max_fairness_gap is not None:
+            feasible = [s for s in front.solutions if s.objectives[1] <= self.max_fairness_gap]
+            if feasible:
+                chosen = min(feasible, key=lambda s: (s.objectives[0], s.objectives[1]))
+        if chosen is None:
+            chosen = front.knee()
+        if chosen is None:
+            raise RuntimeError("POST_PROCESSING found no feasible thresholds")
+        self.group_thresholds = cuts(np.asarray(chosen.parameters))
 
     def _fit_threshold_optimization(
         self,
@@ -953,7 +1065,10 @@ class BiasmitigationProcessor:
         Returns:
             Adjusted predictions
         """
-        if self.strategy == MitigationStrategy.THRESHOLD_OPTIMIZATION:
+        if self.strategy in (
+            MitigationStrategy.THRESHOLD_OPTIMIZATION,
+            MitigationStrategy.POST_PROCESSING,
+        ):
             return self._apply_threshold_optimization(predictions, sensitive_features)
         else:
             return predictions

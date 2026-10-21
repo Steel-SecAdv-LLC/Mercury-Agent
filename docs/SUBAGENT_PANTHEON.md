@@ -13,7 +13,8 @@ contract. The implementation lives in
 >
 > **Terminology:** **Omni-Codes only.** No other code system is referenced
 > anywhere in this subsystem; the term is enforced by
-> `tests/test_subagent_roster.py::test_no_memorial_terminology_anywhere_in_subsystem`.
+> `tests/test_subagent_roster.py::test_omni_codes_is_the_only_code_terminology_in_subsystem`
+> and repository-wide by `tests/test_retired_terminology.py`.
 
 ## Naming convention
 

@@ -48,7 +48,7 @@ _PNG_METADATA = {"Software": "mercury-agent hazard-visuals"}
 
 _MATPLOTLIB_HINT = (
     "matplotlib is required for hazard PNG rendering. Install it with "
-    "'pip install matplotlib' (it ships with the mercury-agent[benchmark] extra)."
+    "'pip install matplotlib' (it ships with the mercury-agent-global[benchmark] extra)."
 )
 
 

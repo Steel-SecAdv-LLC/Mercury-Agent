@@ -116,7 +116,20 @@ class TestUnavailableAbstains:
 
 
 class TestUndecidableRegistersNothingEver:
-    """No decision procedure in principle -> UNDECIDABLE, registers nothing."""
+    """Beyond the instance oracle's reach -> UNDECIDABLE, registers nothing."""
+
+    def test_entries_state_open_never_unprovable(self) -> None:
+        """The catalog describes OPEN problems, never proven-unprovable ones.
+
+        Fails on the replaced wording, which claimed "no checkable proof
+        object" for the Millennium problems — false: a kernel-accepted Lean
+        proof is exactly a checkable proof object, and these problems are
+        open, not proven undecidable.
+        """
+        for key in ("riemann_hypothesis", "p_vs_np"):
+            text = KNOWN_UNDECIDABLE_IN_GENERAL[key]
+            assert "Open" in text, key
+            assert "no checkable proof object" not in text, key
 
     def test_known_undecidable_problem(self, registry: MysteryRegistry) -> None:
         gosnn = registry.gosnn

@@ -5,7 +5,7 @@
 The CI workflows that collect this file
 (``.github/workflows/pqc-production-check.yml::verify-real-pqc`` and
 ``.github/workflows/ci.yml::ml-tests``) both build AMA Cryptography
-v3.1.0 from source before invoking pytest, so the tests below exercise
+v5.0.0 from source before invoking pytest, so the tests below exercise
 the real native cryptographic primitives every run.
 
 What this file proves on every CI run
@@ -35,7 +35,8 @@ import os
 # These imports are deliberately at module scope and unguarded:
 # if AMA Cryptography is not installed, this file fails to collect,
 # which is exactly the signal we want — no skip, no silence.
-import ama_cryptography.pqc_backends as ama_pqc_backends  # noqa: F401
+import ama_cryptography.pqc_backends as ama_pqc_backends
+import pytest
 from ama_cryptography.pqc_backends import (
     DILITHIUM_AVAILABLE,
     KYBER_AVAILABLE,
@@ -115,9 +116,15 @@ class TestKyberRoundTripAgainstNativeLib:
         # property of a KEM.
         decapsulated_ss = kyber_decapsulate(encap.ciphertext, kp.secret_key)
         assert decapsulated_ss == encap.shared_secret
-        # Sanity-check the shape: ML-KEM-1024 yields a 32-byte SS.
-        assert isinstance(encap.shared_secret, bytes)
+        # Sanity-check the shape: ML-KEM-1024 yields a 32-byte SS. AMA v5.0.0
+        # (glance row 24) returns every minted secret as a *wipeable*
+        # ``bytearray`` — the caller owns the only copy and can zero it
+        # (upstream INVARIANT-6) — where v4 returned an unwipeable ``bytes``.
+        # Pin the stronger contract: wipeable, correct length, and equal to
+        # its ``bytes`` image (so every API that took ``bytes`` still works).
+        assert isinstance(encap.shared_secret, bytearray)
         assert len(encap.shared_secret) == 32
+        assert encap.shared_secret == bytes(encap.shared_secret)
 
 
 class TestSphincsRoundTripAgainstNativeLib:
@@ -220,11 +227,16 @@ class TestEnvVarsDoNotDisableAma:
         finally:
             self._restore(saved)
 
-    def test_explicit_false_does_not_disable_gate(self) -> None:
+    def test_explicit_false_does_not_disable_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The env var must not weaken enforcement: with AMA complete the
+        # gate passes, and with a backend flag missing it still raises.
         saved = self._clear()
         os.environ["MERCURY_ENV"] = "production"
         os.environ["AMA_REQUIRE_REAL_PQC"] = "false"
         try:
-            _enforce_pqc_production_gate()
+            _enforce_pqc_production_gate()  # AMA complete: must pass
+            monkeypatch.setattr(ama_pqc_backends, "SPHINCS_AVAILABLE", False, raising=False)
+            with pytest.raises(RuntimeError, match="incomplete"):
+                _enforce_pqc_production_gate()
         finally:
             self._restore(saved)

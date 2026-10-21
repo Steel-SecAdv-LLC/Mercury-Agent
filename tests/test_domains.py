@@ -735,33 +735,30 @@ class TestPropertyBased:
     )
     @settings(max_examples=10)
     def test_benevolence_computation(self, n_samples: Any, anomaly_rate: Any) -> None:
-        """Benevolence metrics should be in valid range."""
-        try:
-            from omni_mercury_engine.core.domain_metrics import MetricsCalculator
+        """Benevolence metrics land in [0, 1] and compliance is a bool."""
+        from omni_mercury_engine.core.domain_metrics import MetricsCalculator
 
-            np.random.seed(42)
-            y_true = np.random.binomial(1, anomaly_rate, n_samples)
-            y_pred = np.random.binomial(1, anomaly_rate, n_samples)
+        np.random.seed(42)
+        y_true = np.random.binomial(1, anomaly_rate, n_samples)
+        y_pred = np.random.binomial(1, anomaly_rate, n_samples)
 
-            calculator = MetricsCalculator()
-            calculator._compute_benevolence_metrics(
-                type(
-                    "Metrics",
-                    (),
-                    {
-                        "harm_reduction_score": 0,
-                        "equity_score": 0,
-                        "benevolence_index": 0,
-                        "ethical_compliance": True,
-                    },
-                )(),
-                y_true,
-                y_pred,
-                None,
-            )
+        calculator = MetricsCalculator()
+        metrics = type(
+            "Metrics",
+            (),
+            {
+                "harm_reduction_score": 0,
+                "equity_score": 0,
+                "benevolence_index": 0,
+                "ethical_compliance": True,
+            },
+        )()
+        calculator._compute_benevolence_metrics(metrics, y_true, y_pred, None)
 
-        except (ImportError, Exception):
-            pass  # Expected: optional dependency or computation may fail
+        assert 0.0 <= metrics.harm_reduction_score <= 1.0
+        assert 0.0 <= metrics.equity_score <= 1.0
+        assert 0.0 <= metrics.benevolence_index <= 1.0
+        assert isinstance(metrics.ethical_compliance, bool)
 
 
 if __name__ == "__main__":

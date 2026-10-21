@@ -18,7 +18,7 @@
 #   * the Code Quality job ("Run Black/Ruff/Flake8", header + docstring gates)
 #   * the Type Checking job (mypy src lane, lenient tests lane, and the
 #     graduated strict lane's directory list)
-# Tool pins (black==26.5.1, mypy==2.3.0, pydocstyle==6.3.0) are mirrored in
+# Tool pins (black==26.5.1, mypy==2.3.1, ruff==0.16.4, pydocstyle==6.3.0) are mirrored in
 # pyproject and enforced across surfaces by scripts/check_pinned_tool_versions.py.
 #
 # Behaviour: every gate runs (no fail-fast), failures are summarised at the
@@ -48,8 +48,9 @@ run_gate() {
 }
 
 # --- Code Quality job ------------------------------------------------------
-run_gate "black --check (ci.yml: Run Black)" \
-  black --check src/ tests/
+# format.yml checks a superset of ci.yml's black scope; mirror the superset.
+run_gate "black --check (ci.yml: Run Black; format.yml scope)" \
+  black --check src/ tests/ benchmarks/ scripts/ examples/
 
 run_gate "ruff (ci.yml: Run Ruff)" \
   ruff check src/ tests/ scripts/ tools/
@@ -69,6 +70,48 @@ run_gate "benchmark-integrity gate (ci.yml: ROADMAP row 17 offline fallback)" \
 
 run_gate "torch.load safety gate (ci.yml: no raw torch.load outside safe wrapper)" \
   python scripts/check_torch_load_safety.py
+
+# --- Workflow Hardening job (repository script gates) ----------------------
+# actionlint and zizmor need their own toolchains and are not mirrored here.
+run_gate "workflow hardening checks (ci.yml: check_workflow_hardening)" \
+  python scripts/check_workflow_hardening.py
+
+run_gate "suppression hygiene (ci.yml: check_suppression_hygiene)" \
+  python scripts/check_suppression_hygiene.py
+
+run_gate "pinned dev-tool version parity (ci.yml: check_pinned_tool_versions)" \
+  python scripts/check_pinned_tool_versions.py
+
+run_gate "Lyapunov λ documentation drift (ci.yml: check_readme_lyapunov)" \
+  python scripts/check_readme_lyapunov.py
+
+run_gate "codebase-scale documentation drift (ci.yml: measure_codebase_scale --check)" \
+  python scripts/measure_codebase_scale.py --check README.md
+
+# --- Other repository drift gates CI runs --------------------------------
+# These ran only in CI (or only inside the pytest lane), so a stale generated
+# file reached a pushed head before anything local flagged it. Each takes a
+# few seconds at most.
+run_gate "capability inventory drift (pytest: test_committed_inventory_is_fresh)" \
+  python scripts/generate_capability_inventory.py --check
+
+run_gate "documentation lint (ci.yml: doc_lint)" \
+  python scripts/doc_lint.py
+
+run_gate "neural coverage drift (ci.yml: neural_coverage --check)" \
+  python scripts/neural_coverage.py --check
+
+run_gate "weapons-gate corpus drift (ci.yml: ingest_weapons_gate_corpus --check)" \
+  python scripts/ingest_weapons_gate_corpus.py --check
+
+run_gate "Prometheus rule render drift (render_prometheus_rules --check)" \
+  python scripts/render_prometheus_rules.py --check
+
+# --- pqc-production-check job: tests/security without torch ----------------
+# That lane installs only [dev,api]. scripts/no_torch hides torch the way an
+# absent package does, so torch-dependent imports fail here as they do there.
+run_gate "torch-free security tests (pqc-production-check.yml: pytest tests/security/)" \
+  env PYTHONPATH=scripts/no_torch python -m pytest tests/security/ -q -p no:cacheprovider
 
 # --- Type Checking job (three lanes) ---------------------------------------
 if [[ "${FAST}" -eq 0 ]]; then
@@ -99,7 +142,7 @@ if [[ "${FAST}" -eq 0 ]]; then
     tests/loaders/ tests/narrative/ tests/fairness/ tests/scripts/ \
     tests/cyber/ tests/decision/ tests/distributed/ tests/emergent/ \
     tests/evaluation/ tests/federated/ tests/medical/ tests/metrics/ \
-    tests/proofs/ tests/reasoning/ tests/research/ tests/truth_decipher/ \
+    tests/proofs/ tests/reasoning/ tests/research/ \
     tests/utils/ \
     --disallow-subclassing-any \
     --show-error-codes \
@@ -126,6 +169,7 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/generate_anomaly_panel.py \
     scripts/run_sigma_mutation_gate.py \
     scripts/check_benchmark_integrity.py \
+    scripts/render_prometheus_rules.py \
     scripts/check_torch_load_safety.py \
     scripts/ci_gate_watchdog.py \
     --show-error-codes

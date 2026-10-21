@@ -102,8 +102,8 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | ``run_hardware_benchmark`` | Records CPU/GPU/memory capability + deterministic matmul/FFT timings so benchmark numbers are reproducibility-anchored. |
 | ``benchmark_diff`` | Per-dataset / per-detector diff of two benchmark JSON files with regression detection. |
 | ``detector_profiler`` | Per-detector latency + RSS + cache-hit-rate profile.  Reproduces the README's ``<100ms`` and ``>50%`` claims off-CI. |
-| ``gosnn_latency_sla_gate`` | Drives ``GOSNNDetector.detect`` for N iterations to assert the README's <100 ms p50 / <250 ms p95 / ≥50 % cache-hit-rate SLA. **Inert until ``omni_mercury_engine.ml.gosnn_detector:GOSNNDetector`` is provided** — that module/class is not shipped, so the gate reports ``unavailable`` rather than running (the shipped GOSNN classes are ``GOSNNIntegration`` / ``LearnableGOSNN`` / ``GOSNNOptimizer``). |
-| ``memory_leak_sentinel`` | ``tracemalloc`` sustained-load RSS-plateau check; computes bytes-per-iteration slope (second-half vs first-half) and fails on positive drift. |
+| ``gosnn_latency_sla_gate`` | Times the GOSNN step inside every ``detect_with_fusion`` call (``GlobalOmniScalarNetwork.get_enhanced_scalars``, through ``GOSNNStep``) and fails above the p50 / p95 budget (default 100 ms / 250 ms); warm-up calls are reported separately. GOSNN has no result cache, so no cache rate is claimed. Earlier versions targeted a ``GOSNNDetector`` module that never existed and never measured anything. |
+| ``memory_leak_sentinel`` | ``tracemalloc`` sustained-load RSS-plateau check (default target: the GOSNN step, ``tools.gosnn_latency_sla_gate:GOSNNStep``); computes bytes-per-iteration slope (second-half vs first-half) and fails on positive drift. |
 | ``gpu_capability_probe`` | Sibling to ``pqc_capability_probe``: enumerates CUDA/ROCm/MPS, driver version, FP16/BF16/INT8 support; diffs against the release manifest. |
 | ``thermal_throttle_probe`` | Samples ``psutil.sensors_temperatures`` (handwritten ``/sys/class/hwmon`` fallback) during a benchmark window; flags throttled intervals. |
 
@@ -112,6 +112,7 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | Tool | What it proves |
 | --- | --- |
 | ``config_validator`` | Schema-validates every ``configs/*.yaml`` against a documented contract. |
+| ``gdpr_processing_check`` | GDPR Arts. 5-49 checklist for one processing operation (``--context ctx.json``): each unmet obligation with article, severity, remediation and the evidence an auditor would request; per-right Art. 12(3) status. ``ok`` only when nothing is unmet. |
 | ``helm_values_linter`` | Validates ``helm/mercury-agent/values.yaml`` for resource limits, security contexts, network policies, image pinning. |
 | ``image_surface_auditor`` | Audits the runtime image / Dockerfile for non-root user, no dev tools, no apt cache, correct entrypoint, correct AMA ``LD_LIBRARY_PATH``. |
 | ``workflow_version_drift_gate`` | Verifies ``pyproject.toml @ AMA_REF``, ``ci.yml AMA_REF``, ``pqc-production-check.yml AMA_REF`` all reference the same git tag. |

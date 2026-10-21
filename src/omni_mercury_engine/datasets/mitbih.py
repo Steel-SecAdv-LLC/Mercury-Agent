@@ -173,7 +173,7 @@ class MITBIHLoader(DatasetLoader):
             raise DataSourceUnavailableError(
                 loader_name="MIT-BIH",
                 reason=(
-                    "wfdb library required: pip install mercury-agent[medical] "
+                    "wfdb library required: pip install mercury-agent-global[medical] "
                     "(or: pip install wfdb>=4.3.1). "
                     "MIT-BIH data source: https://physionet.org/content/mitdb/1.0.0/"
                 ),

@@ -7,7 +7,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 - Python >= 3.11 (3.12 recommended; 3.13 and 3.14 supported)
 - pip >= 26.1 (the CVE-2026-6357 floor enforced across every install
   path in CI by `tests/security/test_cve_2026_6357_regression.py`)
-- GCC >= 12 and CMake >= 4.4.0 for the AMA Cryptography native PQC
+- GCC >= 12 and CMake >= 4.4.4 for the AMA Cryptography native PQC
   build (see "Post-Quantum Cryptography backend" below). Mercury does
   not import without real AMA/PQC.
 
@@ -19,7 +19,7 @@ importing `omni_mercury_engine`:
 ```bash
 export MERCURY_ENV=production
 export AMA_REQUIRE_REAL_PQC=true
-# AMA_REQUIRE_CONSTANT_TIME is superseded by the pinned AMA v4.0.0
+# AMA_REQUIRE_CONSTANT_TIME is superseded by the pinned AMA v5.0.0
 # (native-only constant-time operation is unconditional; AMA warns if it is
 # set, and Mercury reads it only for diagnostics); leave it unset.
 ```
@@ -51,10 +51,10 @@ downgrades.
 
 | Variable | Value | Purpose |
 |---|---|---|
-| `AMA_CRYPTO_VERSION` | `4.0.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v4.0.0`, `4.0.0.post1`, `4.0` are accepted; `3.3.0` is not. |
+| `AMA_CRYPTO_VERSION` | `5.0.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v4.0.0`, `4.0.0.post1`, `4.0` are accepted; `3.3.0` is not. |
 | `LD_LIBRARY_PATH` | native AMA lib dir | Only for a manual out-of-tree AMA build; unneeded when `scripts/build_ama_native.sh` co-locates the `.so`. |
 | `MERCURY_ENV` | `production` | Mock/stub collaborators raise instead of downgrading. |
-| `AMA_REQUIRE_CONSTANT_TIME` | unset | **Superseded compatibility flag with the pinned AMA v4.0.0.** AMA enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use; setting this variable changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), and on an install without the native backend it fails closed redundantly with Mercury's mandatory import-time PQC gate. Mercury still reads it for diagnostics — `security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`. Leave it unset. |
+| `AMA_REQUIRE_CONSTANT_TIME` | unset | **Superseded compatibility flag with the pinned AMA v5.0.0.** AMA enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use; setting this variable changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), and on an install without the native backend it fails closed redundantly with Mercury's mandatory import-time PQC gate. Mercury still reads it for diagnostics — `security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`. Leave it unset. |
 | `MERCURY_GATE_AUDIT_LOG` | durable path | Persistent JSONL sink for every harm-gate decision. |
 | `MERCURY_GATE_AUDIT_SECURELOG` | `1` | Also forward to the hash-chained, tamper-evident audit. |
 | `MERCURY_REQUIRE_REAL_HARM_CLASSIFIER` | `1` | Fail closed unless a real meaning-level classifier is serving. |
@@ -65,8 +65,8 @@ downgrades.
 ```bash
 # Tier 0 minimal production env
 export MERCURY_ENV=production
-export AMA_CRYPTO_VERSION=4.0.0
-# AMA_REQUIRE_CONSTANT_TIME omitted: superseded by AMA v4.0.0 (constant-time is unconditional).
+export AMA_CRYPTO_VERSION=5.0.0
+# AMA_REQUIRE_CONSTANT_TIME omitted: superseded by AMA v5.0.0 (constant-time is unconditional).
 export MERCURY_GATE_AUDIT_LOG=/var/lib/mercury/audit/gate_decisions.jsonl
 export MERCURY_GATE_AUDIT_SECURELOG=1
 export MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1
@@ -109,7 +109,7 @@ pip install -e ".[all]"
 | **Foundation** | `pip install -e ".[foundation]"` | ML + foundation-model adapters: `chronos-forecasting` (Amazon Chronos, local inference), `nixtla` (TimeGPT API client), `stumpy` (matrix profile) |
 | **Explainability** | `pip install -e ".[explainability]"` | `shap`. The default explainer (IntegratedGradients + faithfulness evaluator) is self-contained and needs no extra. `lime` is deliberately not declared — its only release cannot build on modern setuptools; the LIME adapter uses the library if manually installed and otherwise falls back to its in-repo linear surrogate. |
 | **API** | `pip install -e ".[api]"` | FastAPI, httpx, uvicorn, python-multipart |
-| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v4.0.0`) |
+| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v5.0.0`) |
 | **Compliance** | `pip install -e ".[compliance]"` | NIST CSF live-fetcher dependency (`openpyxl`) |
 | **All** | `pip install -e ".[all]"` | Every runtime feature extra (ml, visual, vlm, foundation, medical, face, api, sota, llm, drift, fairness, streaming, optimization, benchmark, domains, gui, explainability, compliance). `[pqc]` and `[dev]` install separately. |
 | **Dev** | `pip install -e ".[dev]"` | Tooling only: pytest (+ asyncio/cov/timeout/mock/xdist), hypothesis, black, mypy, ruff, pre-commit. Combine with `[all]` for the full stack. |
@@ -118,6 +118,45 @@ The `[compliance]` extra installs `openpyxl`, used only by
 `NISTCSFReferenceFetcher` when parsing the live NIST CSRC reference
 XLSX. The OSHA and TLP 2.0 modules in `omni_mercury_engine.compliance`
 have no extra dependencies beyond core.
+
+PyTorch Lightning, torchmetrics, matplotlib, SymPy, SHAP, LIME and
+DeepFace/TensorFlow are imported the first time the feature that needs them
+runs, not when `omni_mercury_engine` is imported (a cold
+`import omni_mercury_engine.engine` took about 3 s on the 4-CPU host it was
+measured on, by `benchmarks/fusion_latency.py`). A missing library is therefore
+noticed, or replaced by the in-repo fallback where one exists, when that
+feature first runs.
+
+### Biometric image analysis (DeepFace) assets
+
+DeepFace is installed only on Python < 3.14 (TensorFlow has no 3.14 wheel), so
+the container image, which runs 3.14, uses the harmonic fallback instead. On
+other installs the first image analysis downloads, into
+`$DEEPFACE_HOME/.deepface/weights` (default `~/.deepface/weights`):
+
+| Asset | Size | Needed by |
+|---|---|---|
+| `age_model_weights.h5`, `gender_model_weights.h5`, `facial_expression_model_weights.h5` | 539 MB, 537 MB, 6 MB | `predict()` on an image |
+| `facenet_weights.h5` | 92 MB | `extract_features()` and reference-vs-test matching |
+| `haarcascade_frontalface_default.xml`, `haarcascade_eye.xml` | 930 KB, 341 KB | face detection, **only with OpenCV 5.x**; 4.x wheels ship them in `cv2/data` |
+
+A failed download does not raise: `predict()` returns the visual assessment with
+an `error` key and `attributes_measured: false`. On a host without GitHub
+access, copy a populated `weights` directory into place, and fetch the two
+cascades (pinned to the OpenCV 4.9.0 tag DeepFace uses) with:
+
+```bash
+cd "${DEEPFACE_HOME:-$HOME}/.deepface/weights"
+base=https://raw.githubusercontent.com/opencv/opencv/4.9.0/data/haarcascades
+curl -fLO "$base/haarcascade_frontalface_default.xml" -O "$base/haarcascade_eye.xml"
+sha256sum -c <<'SUMS'
+0f7d4527844eb514d4a4948e822da90fbb16a34a0bbbbc6adc6498747a5aafb0  haarcascade_frontalface_default.xml
+71cc64fc305a355dc60067880f6fbbd43dd155bd63ee3844661a1bda34b2fd8c  haarcascade_eye.xml
+SUMS
+```
+
+The unit tests stub DeepFace; the end-to-end test needs `[face]` installed and
+`MERCURY_NETWORK_TESTS=1`, and no CI lane runs it yet.
 
 ## Core Dependencies
 
@@ -146,24 +185,24 @@ For local and production installs, build and install the native library with the
 canonical helper Mercury ships, **`scripts/build_ama_native.sh`** (the `cmake`
 step operates on the AMA-Cryptography checkout the script clones, **not** on the
 Mercury-Agent repo, which has no `CMakeLists.txt` of its own). It clones the
-pinned `AMA_REF` (`v4.0.0`, matching pyproject's `ama-cryptography` git pin and
+pinned `AMA_REF` (`v5.0.0`, matching pyproject's `ama-cryptography` git pin and
 `.github/actions/build-ama-cryptography`), builds the native PQC library,
 installs the Python package, **co-locates the shared object inside the installed
 `ama_cryptography` package** so it loads with no `LD_LIBRARY_PATH`, and fails
 loudly unless ML-DSA-65 + Kyber-1024 + SPHINCS+ all load:
 
 ```bash
-# Requires git, gcc/g++ >= 12, and cmake >= 4.4.0 on PATH.
+# Requires git and gcc/g++ >= 12; the script installs cmake >= 4.4.4 itself.
 bash scripts/build_ama_native.sh
-# AMA_REQUIRE_CONSTANT_TIME is superseded by AMA v4.0.0 (native-only
+# AMA_REQUIRE_CONSTANT_TIME is superseded by AMA v5.0.0 (native-only
 # constant-time is unconditional; AMA warns if it is set); no need to export it.
 ```
 
 Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
 The script performs, in order: install the PEP 517 build floors
-(`setuptools>=83.0.0`, `wheel>=0.47.0`, `cmake>=4.4.0` — AMA v4.0.0 raised the
+(`setuptools>=84.0.0`, `wheel>=0.48.0`, `cmake>=4.4.4` — AMA v5.0.0 raised the
 setuptools and cmake floors; older toolchains fail its preflight); `git clone
---branch v4.0.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
+--branch v5.0.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
 `AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`;
 co-locate `libama_cryptography.so*`; verify via `get_pqc_backend_info()`.
 
@@ -172,20 +211,20 @@ build AMA yourself and leave the shared object in the build tree, export its
 directory on `LD_LIBRARY_PATH` before importing Mercury:
 
 ```bash
-git clone --depth 1 --branch v4.0.0 \
+git clone --depth 1 --branch v5.0.0 \
     https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
 cd /tmp/ama-cryptography
-pip install --upgrade "setuptools>=83.0.0" "wheel>=0.47.0" "cmake>=4.4.0"
+pip install --upgrade "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
 cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
 AMA_NO_CYTHON=1 pip install --no-build-isolation .
 export LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}
-export AMA_CRYPTO_VERSION=4.0.0
+export AMA_CRYPTO_VERSION=5.0.0
 ```
 
 The import-time gate additionally enforces the pinned **version**: it refuses
-unless the installed `ama_cryptography.__version__` resolves to release `4.0.0`
+unless the installed `ama_cryptography.__version__` resolves to release `5.0.0`
 and, when set, `AMA_CRYPTO_VERSION` agrees. Both are matched PEP 440-tolerantly
-(`v4.0.0`, `4.0.0.post1`, `4.0.0+cpu`, and even `4.0` / `4` are accepted — a
+(`v5.0.0`, `5.0.0.post1`, `5.0.0+cpu`, and even `5.0` / `5` are accepted — a
 shorter string is zero-padded to the pinned width, so `4` becomes `(4, 0, 0)`
 and matches, whereas under the old `3.3.0` pin `3` padded to `(3, 0, 0)` and was
 refused; a different release such as `3.3.0` is refused), so a valid post/local
@@ -195,15 +234,19 @@ build is not misdiagnosed as a failure — see
 **Docker / Kubernetes:** the production image builds this automatically — the
 Dockerfile builder stage runs `scripts/build_ama_native.sh`, the `.so` travels
 into the runtime image with the virtualenv, and a build-time
-`import omni_mercury_engine` smoke test fails the build if the backend is
-missing. No extra steps are required to deploy a PQC-complete image.
+`import omni_mercury_engine.engine` smoke test fails the build if the backend
+is missing. No extra steps are required to deploy a PQC-complete image.
 
-The gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`,
-imported and invoked from `__init__.py`) runs at package import and
-refuses to proceed if the native library is unloadable —
-`import omni_mercury_engine` raises `RuntimeError` before
-any other package state is materialised. There is no stub path and no
-fallback chain to a non-AMA backend.
+The gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is
+scoped to the agent surfaces: it runs at import of
+`omni_mercury_engine.engine` (which the CLI and API serve),
+`omni_mercury_engine.crypto`, and every AMA-backed `security` export, and
+refuses to proceed if the native library is unloadable — those imports raise
+`RuntimeError` before any agent state is materialised. There is no stub path
+and no fallback chain to a non-AMA backend. Only the standalone analytic
+leaves (dataset loaders, individual detectors, metrics — the quickstart path,
+which cannot decide, serve, sign, or encrypt) import without AMA; the split
+is pinned by `tests/test_pqc_startup_gate.py::TestScopedGateContract`.
 
 ## Verify Installation
 

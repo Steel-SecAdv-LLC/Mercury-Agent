@@ -71,9 +71,9 @@ Mercury Agent implements multiple layers of security:
 ### Post-Quantum Cryptography (PQC) Backend Audit Status
 
 Mercury Agent uses NIST-approved post-quantum cryptographic algorithms
-sourced from AMA Cryptography v4.0.0 (pinned in
+sourced from AMA Cryptography v5.0.0 (pinned in
 `pyproject.toml [project.optional-dependencies].pqc` and via the
-`ama-ref: v4.0.0` input that `.github/workflows/ci.yml` /
+`ama-ref: v5.0.0` input that `.github/workflows/ci.yml` /
 `.github/workflows/pqc-production-check.yml` pass to the
 `build-ama-cryptography` composite action, which exports it internally
 as `AMA_REF`):
@@ -114,7 +114,7 @@ SlhDsaKeyPair` declarations).
 
 | Backend | Status | Recommendation |
 |---------|--------|----------------|
-| AMA Cryptography (Native C, v4.0.0) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
+| AMA Cryptography (Native C, v5.0.0) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
 
 **Important Security Considerations:**
 
@@ -127,15 +127,15 @@ SlhDsaKeyPair` declarations).
 
 3. **Sole Backend**: Mercury Agent **hard-requires** AMA Cryptography. There is no fallback chain — if AMA Cryptography is not installed, Mercury refuses to start. The native C library must be built for PQC algorithms:
    ```bash
-   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v4.0.0"
+   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v5.0.0"
    cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
    ```
 
 4. **Universal Enforcement**: Mercury Agent refuses to run without real PQC cryptography at package import. `AMA_REQUIRE_REAL_PQC=true` is retained for legacy workflow readability, but the gate is no longer optional.
 
-5. **Constant-Time Operation**: AMA Cryptography v4.0.0 enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use — no configuration is needed or possible. `AMA_REQUIRE_CONSTANT_TIME` is a superseded compatibility flag: setting it changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), it redundantly fails closed on an install without the native backend (which Mercury's import-time PQC gate already refuses), and Mercury reads it only for diagnostics (`security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`). Leave it unset.
+5. **Constant-Time Operation**: AMA Cryptography v5.0.0 enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use — no configuration is needed or possible. `AMA_REQUIRE_CONSTANT_TIME` is a superseded compatibility flag: setting it changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), it redundantly fails closed on an install without the native backend (which Mercury's import-time PQC gate already refuses), and Mercury reads it only for diagnostics (`security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`). Leave it unset.
 
-6. **HMAC routing (v1.7.x)**: AMA Cryptography v4.0.0 also surfaces
+6. **HMAC routing (v1.7.x)**: AMA Cryptography v5.0.0 also surfaces
    ACVP-validated HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
    (`native_hmac_sha256`, `native_hmac_sha256_2`, `native_hmac_sha384`,
    `native_hmac_sha512`). Mercury's `native_jwt` module routes HS256,
@@ -165,11 +165,50 @@ SlhDsaKeyPair` declarations).
 - [CRYSTALS-Kyber (pre-FIPS reference)](https://pq-crystals.org/kyber/)
 - [SPHINCS+ (pre-FIPS reference)](https://sphincs.org/)
 
+### Quantum-Risk Assessment (`security/quantum_risk_cyber.py`)
+
+The module assesses any cryptographic inventory, and Mercury's own, against
+published standards and caller-stated assumptions. It never uses invented
+probabilities.
+
+- **Classification.** Algorithm names, OIDs and CycloneDX CBOM entries are
+  matched by exact token only:
+  - FIPS 203/204/205, draft FIPS 206 and SP 800-208;
+  - SP 800-57 strength bands;
+  - pre-standard Kyber, Dilithium and SPHINCS+ names, which are flagged;
+  - broken algorithms (SIKE, Rainbow, SHA-1, 3DES, RC4).
+
+  Unrecognised names are reported as `unknown`, never guessed.
+- **Deadlines.**
+  - NIST IR 8547 (initial public draft): Shor-vulnerable algorithms at the
+    112-bit level are deprecated after 2030, and all strengths are disallowed
+    after 2035.
+  - CNSA 2.0 "exclusively use by" dates are applied per category.
+- **Exposure.** Mosca's inequality `x + y > z`:
+  - `z` (years until a cryptographically relevant quantum computer) is the
+    caller's assumption, given as a value or a probability curve. Without
+    one, the report states the arrival time below which the asset is exposed.
+  - Harvest-now-decrypt-later applies to confidentiality.
+  - Signatures are at risk only while they must stay trusted.
+- **Self-audit** (`python -m omni_mercury_engine.security.quantum_risk_cyber`)
+  covers Mercury's own uses, each pinned by a test to its source file. Current
+  findings:
+  - The sovereign emergency tier verifies **Ed25519**, which is
+    Shor-vulnerable (NIST disallowance 2035).
+  - Under CNSA 2.0, these would change:
+    - ML-DSA-65 → ML-DSA-87;
+    - HMAC-SHA-256 → HMAC-SHA-384;
+    - ChaCha20-Poly1305 and SHA3-256 are not in the suite.
+  - Hybrid encryption (ML-KEM-1024 + AES-256-GCM) and sealed secrets
+    (AES-256-GCM) already comply.
+
 ### API Security
 
 - **Authentication**: JWT-based authentication with secure token handling
 - **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20)
 - **Input Validation**: Comprehensive input sanitization and validation
+- **`/health`**: unauthenticated and exempt from rate limiting, so load balancers and container health checks can poll it. It returns only `status` and `version`; process uptime would reveal when the service last restarted, so it is exported as `omni_mercury_uptime_seconds` on `/metrics` instead.
+- **`/metrics`**: unauthenticated Prometheus exposition. Prometheus' security model says instrumented `/metrics` endpoints must not be exposed to the internet, so the platform's Caddy edge answers 404 for it and Prometheus scrapes the API over the internal network. Restrict it the same way if you expose the API directly.
 - **CORS Configuration**: Environment-aware cross-origin resource sharing
   - Production: cross-origin access requires explicit `MERCURY_CORS_ORIGINS` configuration; unset means same-origin only (fail-closed)
   - Development: Allows localhost origins by default
@@ -239,11 +278,13 @@ Mercury Agent includes security intelligence capabilities. Users must:
 - **PyTorch**: GPU acceleration library with its own security considerations
 - **NumPy/SciPy**: Numerical libraries - keep updated for security patches
 - **FastAPI**: Web framework - follow OWASP guidelines for API security
+- **Optional libraries are imported on first use**: PyTorch Lightning, torchmetrics, matplotlib, SymPy, SHAP, LIME and DeepFace/TensorFlow load when the code that needs them first runs, not when `omni_mercury_engine` is imported. Pin and scan them like any other dependency (see Two-Tier Dependency-CVE Coverage below); a vulnerable copy that is installed but never used is no longer imported at start-up, and one that is used is imported at that point.
 
 ### Machine Learning Security
 
 - **Model Integrity**: Verify model checksums before loading
 - **Adversarial Inputs**: Be aware of potential adversarial attacks on ML models
+- **Distribution drift**: the drift ensemble (per-feature KS and PSI, covariance, and a principal-axis KS test) flags a batch that differs from the reference, and the decision layer defers at MEDIUM severity or above. It is a statistical test, not an adversarial-robustness guarantee: a crafted input drawn from the reference distribution is not drift, and a batch whose width differs from the reference is reported `incomparable` and not deferred. See [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md) and [`docs/runbooks/data-drift.md`](docs/runbooks/data-drift.md).
 - **Training Data**: Ensure training data is from trusted sources
 
 ### Autonomous Self-Modification (Governed, Fail-Closed)
@@ -283,7 +324,7 @@ Every disposition is recorded to an append-only audit trail. See
 
 ## Current Vulnerability Status
 
-*Last Review: 2026-07-09*
+*Last Review: 2026-09-27*
 
 ### Accepted Vulnerabilities (with Mitigations)
 
@@ -304,20 +345,23 @@ Debian 13.5) after the Python 3.13 → 3.14 base-image bump, and
 unfixed CRITICAL/HIGH findings (gzip, glib — both eliminated from the
 image, not accepted; see below), and **re-reviewed 2026-07-09** after
 the vulnerability DB published CVE-2026-53615 against `util-linux`
-(added to the ledger, not eliminated — see below); every retained entry
-cross-checked against the Debian Security Tracker (trixie status "open",
-no fixed version):
+(added to the ledger, not eliminated — see below), and **re-reviewed
+2026-09-27** (Debian 13.7) after the scheduled Security run went red on
+the expired ncurses entry plus five new unfixed HIGH findings (see
+below); every retained entry cross-checked against the Debian Security
+Tracker (trixie `<no-dsa>`, no fixed version):
 
-- **Total accepted:** 4 CVEs — **Critical:** 0, **High:** 4
+- **Total accepted:** 7 CVEs — **Critical:** 0, **High:** 7
 - All are Debian-**trixie** OS packages with **no upstream fix available**; none sits on an untrusted-input path in the shipped API; the container runs as non-root UID 1000 with SUID/SGID bits stripped
-- All are genuinely irreducible: `ncurses` (`libtinfo6`/`libncursesw6`/`ncurses-base`/`ncurses-bin`) is linked by CPython itself (the `readline`/`curses` stdlib modules), `libacl1`/`libattr1` back the base image's own `coreutils`/`tar` toolchain, and the `util-linux` family (`mount`/`login` back the base image; `libuuid1`/`libblkid1` back CPython and `coreutils`) is Debian-essential — the packages `apt-get upgrade` itself depends on — so none can be removed without breaking the interpreter or the image's update path. The genuinely removable packages were **eliminated outright** rather than accepted: `perl-base` — which carried both former CRITICALs — is purged in the Dockerfile (together with its `adduser` consumer), `gzip` and `libglib2.0-0` followed on 2026-07-02, as did the Mesa GL stack before them (see below)
+- All are genuinely irreducible: `ncurses` (`libtinfo6`/`libncursesw6`/`ncurses-base`/`ncurses-bin`) is linked by bash and CPython itself (the `readline`/`curses` stdlib modules), `libacl1` backs the base image's own `coreutils`/`sed`/`tar`/`passwd`, `libsystemd0`/`libudev1` are hard dependencies of `coreutils`/`util-linux`/`apt`/`libpam-modules`, and the `util-linux` family (`util-linux`/`bsdutils` are Debian-essential; `libuuid1`/`libblkid1` back CPython and `coreutils`) cannot be removed without breaking the interpreter or the image's update path. Its one removable member, `mount` (the SUID `mount(8)` entry point of three of the four 2026-09-27 util-linux CVEs), is purged. The genuinely removable packages were **eliminated outright** rather than accepted: `perl-base` — which carried both former CRITICALs — is purged in the Dockerfile (together with its `adduser` consumer), `gzip` and `libglib2.0-0` followed on 2026-07-02, as did the Mesa GL stack before them (see below)
 
 | CVE | Severity | Component (trixie version) | Status | Mitigation |
 |-----|----------|-----------|--------|------------|
-| CVE-2025-69720 | High | ncurses (libncursesw6 et al. 6.5+20250216-2) | trixie open, no fix | Terminal handling only; never exposed to untrusted input. Linked by CPython's `readline`/`_curses` stdlib modules (and `libtinfo` backs the shell). Expires 2026-09-16 |
-| CVE-2026-54369 | High | acl/attr (libacl1 2.3.2-2+b1, libattr1 1:2.5.2-3) | trixie open, no fix (fixed upstream only in acl ≥ 2.4.0 / attr ≥ 2.6.0) | Local-only symlink-traversal privilege escalation in pathname-based ACL/xattr APIs, reachable only via a *privileged* caller traversing an attacker-controlled path component. Container is non-root UID 1000, SUID/SGID stripped, and never invokes the acl/attr CLIs or APIs. Retained because Debian's `coreutils`/`tar` are built against them and back `apt-get upgrade` itself. Expires 2026-09-28 |
-| CVE-2026-54371 | High | acl/attr (libacl1 2.3.2-2+b1, libattr1 1:2.5.2-3) | trixie open, no fix (fixed upstream only in acl ≥ 2.4.0 / attr ≥ 2.6.0) | Same surface and mitigation as CVE-2026-54369. Expires 2026-09-28 |
-| CVE-2026-53615 | High | util-linux (bsdutils/libblkid1/libmount1/libuuid1/login/mount/util-linux 2.41-5) | trixie open, no fix | Integer overflow in `libblkid`'s MS-DOS partition-table parser (`libblkid/src/partitions/dos.c`), reachable only when a *privileged* caller probes an attacker-crafted block device / disk image; the container runs non-root UID 1000, SUID/SGID stripped, and never probes block devices. `util-linux` is Debian-essential (`mount`/`login` back the base image; `libuuid1`/`libblkid1` back CPython and `coreutils`). Expires 2026-10-07 |
+| CVE-2025-69720 | High | ncurses (libncursesw6 et al. 6.5+20250216-2) | trixie `<no-dsa>`, no fix | The overflow is in the `infocmp(1)` CLI (`progs/infocmp.c`), not the shared libraries; Mercury never runs `infocmp`. Libraries linked by bash and CPython's `readline`/`_curses`. Re-reviewed 2026-09-27; expires 2026-12-26 |
+| CVE-2026-54369 | High | acl (libacl1 2.3.2-2+b1) | trixie `<no-dsa>` (point-release fix pending; upstream acl ≥ 2.4.0) | Local-only symlink-traversal privilege escalation in pathname-based `acl_*_file()` APIs, reachable only via a *privileged* caller traversing an attacker-controlled path component. Container is non-root UID 1000, SUID/SGID stripped, and never invokes the acl CLIs or API. Retained because `coreutils`/`sed`/`tar`/`passwd` link it. Re-reviewed 2026-09-27; expires 2026-12-26 |
+| CVE-2026-16742 | High | systemd (libsystemd0/libudev1 257.13-1~deb13u1) | trixie `<no-dsa>`, no fix | Privilege escalation in the `systemd-homed` daemon, which is not installed; only the client libraries are present, as hard dependencies of `coreutils`/`util-linux`/`apt`/`libpam-modules`. Added 2026-09-27; expires 2026-12-26 |
+| CVE-2026-76642, CVE-2026-78409, CVE-2026-78410 | High | util-linux (2.41.5-0+deb13u1) | trixie `<no-dsa>`, no fix | SUID `mount(8)` X-mount.* hook / X-mount.subdir / restricted-bind-mount flaws. The `mount` package (`mount`/`umount`/`losetup`/`swapon`) is **purged** from the image, removing the vulnerable entry point; `libmount1` remains only for util-linux's own tools. Added 2026-09-27; expire 2026-12-26 |
+| CVE-2026-78408 | High | util-linux (2.41.5-0+deb13u1) | trixie `<no-dsa>`, no fix | `nsenter --join-cgroup` fd leak; requires a *privileged operator* running `nsenter` against an attacker-controlled target. The container runs no `nsenter` and has no root operator. Added 2026-09-27; expires 2026-12-26 |
 
 **Trixie re-enumeration + perl-base elimination (2026-06-18).** The deployment image migrated from `python:3.13-slim-bookworm` to `python:3.13-slim-trixie` (Debian 13.5). The ledger was rebuilt from first principles: the runtime image's OS layer was built and scanned with the gate's own trivy 0.70.0, and each finding cross-checked against the Debian Security Tracker. Six bookworm-era acceptances were **dropped, not carried inert**, because they are gone or no longer CRITICAL/HIGH on trixie — CVE-2023-45853 (zlib, resolved in trixie `1:1.3.dfsg-2`) and CVE-2025-7458 (SQLite, resolved in trixie `3.42.0-1`) are fixed by trixie's newer packages; CVE-2025-59375 / CVE-2026-25210 / CVE-2026-45186 (expat) drop because `libexpat1` is not an installed dpkg package in the trixie image, so trivy reports no OS-level expat finding (the Python `pyexpat` path remains defusedxml-hardened); and CVE-2026-48959 (perl-base) is no longer a CRITICAL/HIGH finding under the current vuln DB. That left 8. Then **`perl-base` was eliminated, not accepted**: it is a Debian-essential package carrying 5 of those 8 — both CRITICALs (CVE-2026-8376, CVE-2026-42496) plus CVE-2026-42497 / CVE-2026-48962 / CVE-2026-9538 — but nothing in the runtime needs Perl, so the Dockerfile purges `perl-base` and its `adduser` consumer right after the apt upgrade (verified on the built image: the interpreter, `sqlite3`, `pip` and `useradd` all work without it, and trivy then reports the 5 CVEs gone). Accepted count: **14 → 8 → 3 (Critical 4 → 2 → 0, High 10 → 6 → 3)**. The three retained entries each suppress a real, currently-present trixie finding (verified 1:1 against the built-image scan — no inert entries).
 
@@ -331,7 +375,9 @@ no fixed version):
 
 **util-linux — accepted, not eliminated (2026-07-09).** The vulnerability DB published CVE-2026-53615 (High) against the `util-linux` family (`bsdutils`/`libblkid1`/`libmount1`/`libuuid1`/`login`/`mount`/`util-linux` 2.41-5): an integer overflow in `libblkid`'s MS-DOS partition-table parser (`libblkid/src/partitions/dos.c`), Debian trixie status "open" with no fixed version published. Unlike gzip/glib, `util-linux` is genuinely irreducible — it is Debian-essential (`mount`/`login` back the base image, and `libuuid1`/`libblkid1` back CPython and `coreutils`), so it cannot be purged without breaking the image's own toolchain. The parse path is reachable only when a *privileged* caller probes an attacker-crafted block device or disk image; the container runs non-root UID 1000 with SUID/SGID stripped and never probes block devices, so the finding was accepted as a time-boxed, enumerated entry (`exp:2026-10-07`) rather than eliminated. Accepted count: **3 → 4 (0 Critical, 4 High)**.
 
-The bookworm-era ledger evolution (the 2026-06-10 first-enforced-gate enumeration, the 2026-06-13 SQLite FTS5 additions, and the 2026-06-15 mesa elimination) is preserved in commit history and the CHANGELOG; it is superseded as the live posture by the 2026-06-30 trixie/3.14 re-enumeration, the 2026-07-02 eliminations, and the 2026-07-09 `util-linux` addition above.
+**2026-09-27 re-review — expired entries renewed, five new findings accepted, `mount` eliminated.** The scheduled Security run failed on `main`: the ncurses acceptance had expired (2026-09-16) and the vulnerability DB had published five new unfixed HIGH findings against Debian 13.7 — CVE-2026-76642 / CVE-2026-78408 / CVE-2026-78409 / CVE-2026-78410 (`util-linux`) and CVE-2026-16742 (`systemd`). The runtime stage's OS layer was rebuilt and scanned with trivy 0.70.0, reproducing the CI failure exactly, and every finding was checked against the Debian Security Tracker (all trixie `<no-dsa>`, "Minor issue"). Removable before acceptable: `mount` has no reverse dependency and ships the SUID `mount(8)` entry point of three of the util-linux CVEs, so the Dockerfile now purges it (verified: `apt-get update`/`install`, `dpkg --audit`, `useradd` and the CPython `uuid`/`gzip`/`ssl`/`sqlite3`/`readline`/`curses` modules all work without it). The rest are irreducible and entered the ledger with the rationale above; ncurses and acl were re-reviewed and renewed to 2026-12-26. Two entries were **dropped, not carried inert**: CVE-2026-53615 is fixed in trixie `util-linux 2.41.5-0+deb13u1` (installed by the runtime `apt-get upgrade`), and CVE-2026-54371 (`libattr1`) was re-scored HIGH → MEDIUM, out of scope for the CRITICAL/HIGH gate (to be re-added should it return to HIGH). Verified: with the old ledger the rebuilt layer fails the gate (exit 1); with the new ledger it reports 0 unaccepted CRITICAL/HIGH findings. Accepted count: **4 → 7 (0 Critical, 7 High)**.
+
+The bookworm-era ledger evolution (the 2026-06-10 first-enforced-gate enumeration, the 2026-06-13 SQLite FTS5 additions, and the 2026-06-15 mesa elimination) is preserved in commit history and the CHANGELOG; it is superseded as the live posture by the 2026-06-30 trixie/3.14 re-enumeration, the 2026-07-02 eliminations, the 2026-07-09 `util-linux` addition, and the 2026-09-27 re-review above.
 
 ### Vulnerability Assessment Process
 
@@ -363,19 +409,19 @@ Mercury Agent runs **two complementary CVE gates** on every PR:
 
 | Tier | Tool | Scope | Source of truth |
 |------|------|-------|-----------------|
-| Python-package | `safety check` + `pip-audit` | Editable install (`pip install -e ".[api]"`) | `.safety-policy-v2.yml` + [CHANGELOG.md](CHANGELOG.md) (per-CVE rationale tracked under the dated security entries) |
+| Python-package | `safety check` + `pip-audit` | Editable install (`pip install -e ".[api]"`) | [`.safety-policy.yml`](.safety-policy.yml) (every severity reported, unscored and unpinned findings included, nothing accepted; an exception needs a reason and an expiry at most 90 days out) + [CHANGELOG.md](CHANGELOG.md) (per-CVE rationale under the dated security entries) |
 | Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) (enumerated, expiring acceptances) + the gate configuration in `.github/workflows/{ci,security}.yml` |
 
 Both gates must be GREEN for any PR to merge. The Python-package gate
-runs with **zero risk acceptance**: the policy files are no-op shims
-and no `--ignore` / `--ignore-vuln` flags are wired into either CI
-workflow. Findings are remediated by upgrade, isolation, or native
+runs with **zero risk acceptance**: `.safety-policy.yml` accepts nothing
+(`tests/security/test_safety_policy.py` pins that) and no `--ignore` /
+`--ignore-vuln` flags are wired into either CI workflow. Findings are remediated by upgrade, isolation, or native
 re-implementation — see the CHANGELOG entries dated 2026-05-20
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable
 CRITICAL/HIGH finding and every unfixed finding not enumerated in
-[`.trivyignore`](.trivyignore) (4 CVEs, each with a 90-day expiry that
-fails the gate until re-reviewed).
+[`.trivyignore`](.trivyignore) (7 CVEs, each expiring 2026-12-26 — the gate
+fails until it is re-reviewed).
 
 ## Security Assessment Posture
 
@@ -469,5 +515,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-07-24*
+*Last Updated: 2026-09-27*
 *Version: 2.1.0*

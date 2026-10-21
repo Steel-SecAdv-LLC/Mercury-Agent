@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Pandemic Forecasting Module (Medical Interdiction).
 
-Real-time epidemiological modeling with chaos detection for
-multi-stage progression analysis using SEIR models.
+SEIR forecasting with R0 = β/γ, an epidemic-threshold test, R estimated
+from observed daily incidence, and β fitted to that incidence with bootstrap
+forecast intervals.
 
 Part of Medical Interdiction and Intervention framework.
 """
@@ -14,5 +15,9 @@ from omni_mercury_engine.medical.pandemic.forecasting.epidemic_model import (
     EpidemicForecaster,
     PandemicForecast,
 )
+from omni_mercury_engine.medical.pandemic.forecasting.incidence_fit import (
+    IncidenceForecast,
+    fit_seir_incidence,
+)
 
-__all__ = ["EpidemicForecaster", "PandemicForecast"]
+__all__ = ["EpidemicForecaster", "IncidenceForecast", "PandemicForecast", "fit_seir_incidence"]

@@ -65,10 +65,17 @@ class TestSyntheticGradientPredictor:
 
     def test_update_weights(self, predictor: Any, deterministic_rng: Any) -> None:
         """Test weight update with target gradients."""
+        import numpy as np
+
         input_data = deterministic_rng.randn(1, 64)
         target_grad = deterministic_rng.randn(1, 64)
         predicted = predictor.forward(input_data)
-        predictor.update(predicted, target_grad)
+        error = predictor.update(predicted, target_grad)
+        # update() reports the prediction MSE: finite, non-negative, and
+        # equal to the mean squared difference it was handed.
+        expected = float(np.mean((np.asarray(predicted) - np.asarray(target_grad)) ** 2))
+        assert np.isfinite(error) and error >= 0.0
+        assert error == pytest.approx(expected, rel=1e-4)
 
     def test_prediction_improves(self, predictor: Any, deterministic_rng: Any) -> None:
         """Test prediction improves with training."""
@@ -326,7 +333,6 @@ class TestOmniFusionModelAdvancedTraining:
             epochs=5,
             learning_rate=0.001,
             use_synthetic_gradients=True,
-            use_dtp=True,
             use_amav=True,
             log_interval=2,
         )
@@ -340,18 +346,6 @@ class TestOmniFusionModelAdvancedTraining:
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=False,
-            use_dtp=True,
-            use_amav=True,
-        )
-        assert "final_loss" in result
-
-    def test_train_without_dtp(self, fusion_model: Any, train_loader: Any) -> None:
-        """Test training without DTP."""
-        result = fusion_model.train_with_optimizers(
-            train_loader=train_loader,
-            epochs=3,
-            use_synthetic_gradients=True,
-            use_dtp=False,
             use_amav=True,
         )
         assert "final_loss" in result
@@ -362,7 +356,6 @@ class TestOmniFusionModelAdvancedTraining:
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=True,
-            use_dtp=True,
             use_amav=False,
         )
         assert "final_loss" in result
@@ -373,7 +366,6 @@ class TestOmniFusionModelAdvancedTraining:
             train_loader=train_loader,
             epochs=3,
             use_synthetic_gradients=False,
-            use_dtp=False,
             use_amav=False,
         )
         assert "final_loss" in result

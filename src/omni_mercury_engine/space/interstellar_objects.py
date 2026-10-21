@@ -643,8 +643,11 @@ class InterstellarObjectDetector:
 def create_omni_interstellar_scalars() -> dict[str, float]:
     """Create doctorate-level interstellar object analysis scalars.
 
+    The values are a hand-set table, each base weight times phi (1.618).
+    They are fixed constants, not fitted or optimized on data.
+
     Returns:
-        Dictionary of interstellar scalars with golden ratio optimization
+        Dictionary of interstellar scalars
     """
     phi = 1.618
 

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import importlib
 import math
 from typing import Any
 
@@ -176,7 +177,7 @@ class TestInvariantRulesEvaluateAfterFieldFix:
     """Rules that referenced missing fields now actually evaluate."""
 
     def test_landing_altitude_rate_rule_fires(self) -> None:
-        """LANDING with non-descending altitude_rate raises a CONFIGURATION_ERROR."""
+        """LANDING with non-descending altitude_rate raises an ACTUATOR_FAILURE."""
         detector = DroneAnomalyDetector()
         # Vertical velocity > 0 means ascending; rule needs altitude_rate < 0
         state = _make_state(phase=MissionPhase.LANDING, velocity=(0.0, 0.0, 2.0))
@@ -518,3 +519,254 @@ class TestNoUnvalidatedRecallClaim:
             if isinstance(doc, str) and "93.84" in doc:
                 bad_texts.append(doc)
         assert not bad_texts, "Unvalidated 93.84% recall claim must be removed: " + repr(bad_texts)
+
+
+def _cruise_state(
+    rng: np.random.Generator,
+    tick: int,
+    *,
+    motor: float = 4000.0,
+    temperature: float = 40.0,
+    position_jump: float = 0.0,
+) -> DroneState:
+    """Noisy straight-line cruise at 1 m/tick (a realistic trending feed)."""
+    return DroneState(
+        position=np.array([tick + position_jump, 0.0, 50.0]) + rng.normal(0, 0.1, 3),
+        velocity=np.array([1.0, 0.0, 0.0]) + rng.normal(0, 0.05, 3),
+        attitude=rng.normal(0, 0.01, 3),
+        battery_level=0.9 - tick * 0.001,
+        altitude=50.0 + float(rng.normal(0, 0.1)),
+        gps_satellites=12,
+        signal_strength=0.9,
+        motor_speeds=np.full(4, motor) + rng.normal(0, 20, 4),
+        temperature=temperature + float(rng.normal(0, 0.5)),
+        mission_phase=MissionPhase.ON_MISSION,
+    )
+
+
+def _flown_detector(
+    seed: int, ticks: int = 120
+) -> tuple[DroneAnomalyDetector, np.random.Generator]:
+    rng = np.random.default_rng(seed)
+    detector = DroneAnomalyDetector()
+    for tick in range(ticks):
+        faults = detector.detect_faults(_cruise_state(rng, tick))
+        assert not [f for f in faults if f.detected_by == "RADD_Ensemble"], tick
+    return detector, rng
+
+
+class TestSingleRowEnsembleDecision:
+    """The ensemble judges one tick against a window that excludes it."""
+
+    @pytest.mark.parametrize(
+        ("kwargs", "fault_type"),
+        [
+            ({"motor": 300.0}, FaultType.MOTOR_FAILURE),
+            ({"motor": 3000.0}, FaultType.MOTOR_FAILURE),
+            ({"temperature": 95.0}, FaultType.THERMAL_ANOMALY),
+            ({"position_jump": 500.0}, FaultType.SENSOR_FAILURE),
+        ],
+    )
+    def test_injected_fault_is_flagged(
+        self, kwargs: dict[str, float], fault_type: FaultType
+    ) -> None:
+        detector, rng = _flown_detector(seed=1)
+        faults = detector.detect_faults(_cruise_state(rng, 120, **kwargs))
+        ensemble = [f for f in faults if f.detected_by == "RADD_Ensemble"]
+        assert len(ensemble) == 1
+        assert ensemble[0].fault_type is fault_type
+        assert 0.5 <= ensemble[0].severity < 1.0 or ensemble[0].severity == pytest.approx(1.0)
+        assert "knn_density z=" in ensemble[0].description
+
+    def test_judged_state_is_not_in_its_own_reference(self) -> None:
+        detector, rng = _flown_detector(seed=2, ticks=40)
+        faulty = _cruise_state(rng, 40, motor=300.0)
+        row = detector._extract_features_for_ensemble(faulty)
+        detector.detect_faults(faulty)
+        model = detector._model
+        assert model is not None
+        train = model.detector._train_data
+        assert train is not None
+        assert not np.any(np.all(np.isclose(train, row), axis=1))
+        assert detector.state_history[-1] is faulty
+
+    def test_refits_every_interval(self) -> None:
+        detector, rng = _flown_detector(seed=3, ticks=30)
+        model = detector._model
+        assert model is not None
+        for tick in range(30, 30 + detector.refit_interval - 1):
+            detector.detect_faults(_cruise_state(rng, tick))
+            if detector._tick - model.fitted_at_tick < detector.refit_interval:
+                assert detector._model is model
+        for tick in range(40, 40 + detector.refit_interval):
+            detector.detect_faults(_cruise_state(rng, tick))
+        assert detector._model is not model
+
+    def test_invalid_gate_and_interval_rejected(self) -> None:
+        with pytest.raises(ValueError, match="z_gate"):
+            DroneAnomalyDetector(z_gate=0.0)
+        with pytest.raises(ValueError, match="refit_interval"):
+            DroneAnomalyDetector(refit_interval=-1)
+
+
+class TestRuleFaultTyping:
+    """Rule violations carry the fault their field evidences."""
+
+    def test_init_battery_and_gps_types(self) -> None:
+        detector = DroneAnomalyDetector()
+        state = _make_state(
+            phase=MissionPhase.INIT, battery=0.05, gps_sats=2, motors=(0.0, 0.0, 0.0, 0.0)
+        )
+        types = {f.fault_type for f in detector.detect_faults(state)}
+        assert FaultType.BATTERY_CRITICAL in types
+        assert FaultType.GPS_LOSS in types
+
+    def test_signal_and_motor_types(self) -> None:
+        detector = DroneAnomalyDetector()
+        on_mission = detector.detect_faults(_make_state(signal=0.1))
+        assert FaultType.COMMUNICATION_LOSS in {f.fault_type for f in on_mission}
+        takeoff = detector.detect_faults(
+            _make_state(
+                phase=MissionPhase.TAKEOFF,
+                velocity=(0.0, 0.0, 1.0),
+                motors=(3000.0, 3000.0, 3000.0, 200.0),
+            )
+        )
+        assert FaultType.MOTOR_FAILURE in {f.fault_type for f in takeoff}
+
+    def test_motors_spinning_at_init_is_configuration_error(self) -> None:
+        detector = DroneAnomalyDetector()
+        faults = detector.detect_faults(_make_state(phase=MissionPhase.INIT))
+        assert {f.fault_type for f in faults} == {FaultType.CONFIGURATION_ERROR}
+
+    def test_fault_ids_are_unique(self) -> None:
+        detector = DroneAnomalyDetector()
+        state = _make_state(
+            phase=MissionPhase.INIT, battery=0.05, gps_sats=2, motors=(1.0, 1.0, 1.0, 1.0)
+        )
+        ids = [f.fault_id for f in detector.detect_faults(state)]
+        assert len(ids) == 3
+        assert len(set(ids)) == 3
+
+
+class TestRegistryProtocol:
+    """The detector is discoverable and speaks the registry protocol."""
+
+    def test_manifest_entry_resolves(self) -> None:
+        from omni_mercury_engine.core.detector_registry import (
+            DETECTOR_MANIFEST,
+            DetectorCategory,
+        )
+
+        entry = next(e for e in DETECTOR_MANIFEST if e.name == "drone")
+        assert entry.category is DetectorCategory.UAV
+        module = importlib.import_module(entry.module_path)
+        assert getattr(module, entry.class_name) is DroneAnomalyDetector
+        assert entry.feature_dim == DroneAnomalyDetector.FEATURE_DIM
+
+    def test_state_tick_is_processed_once(self) -> None:
+        detector = DroneAnomalyDetector()
+        state = _make_state(signal=0.1)
+        features = detector.extract_features(state)
+        result = detector.predict(state)
+        assert features.shape == (DroneAnomalyDetector.FEATURE_DIM,)
+        assert len(detector.state_history) == 1
+        assert result["is_anomaly"] is True
+        assert result["anomaly_scores"][0] == pytest.approx(features[0])
+        assert any(f["fault_type"] == "COMMUNICATION_LOSS" for f in result["faults"])
+
+    def test_dict_state_is_accepted(self) -> None:
+        detector = DroneAnomalyDetector()
+        state = _make_state()
+        payload = {
+            "position": state.position.tolist(),
+            "velocity": state.velocity.tolist(),
+            "attitude": state.attitude.tolist(),
+            "battery_level": state.battery_level,
+            "altitude": state.altitude,
+            "gps_satellites": state.gps_satellites,
+            "signal_strength": state.signal_strength,
+            "motor_speeds": state.motor_speeds.tolist(),
+            "temperature": state.temperature,
+            "mission_phase": "ON_MISSION",
+        }
+        assert detector.predict(payload)["anomaly_scores"][0] == 0.0
+
+    def test_anonymous_array_gets_summary_statistics_only(self) -> None:
+        detector = DroneAnomalyDetector()
+        data = np.arange(12.0).reshape(3, 4)
+        features = detector.extract_features(data)
+        assert features[:6] == pytest.approx([5.5, np.std(data), 0.0, 11.0, 5.5, 5.5])
+        assert detector.predict(data)["anomaly_scores"] is None
+        assert detector.state_history == []
+
+    def test_registry_extracts_drone_features(self) -> None:
+        from omni_mercury_engine.core.detector_registry import DetectorRegistry
+
+        registry = DetectorRegistry()
+        registry.register("drone", DroneAnomalyDetector(), feature_dim=16)
+        result = registry.extract_features("drone", np.ones((4, 22)))
+        assert result.success
+        assert np.asarray(result.features).shape == (16,)
+
+
+class TestEnsembleLiveFromFitMinimum:
+    """The decision stream must be live from the first ensemble fit.
+
+    Regression: the kNN density stream's default minimum (100 reference
+    rows, built for benchmark ranking quality) silently disabled the
+    drone's only ensemble decision stream for every window smaller than
+    100 states, although the ensemble fits from ``DEFAULT_FIT_MINIMUM``
+    (20). A total motor collapse plus thermal excursion at tick 50
+    produced zero faults; the identical fault at tick 120 was flagged.
+    The drone now constructs its ensemble with
+    ``knn_stream_min_reference = DEFAULT_FIT_MINIMUM`` (the regime its
+    own validation measured: z-gate 8.0, 0 false alarms / 5,600 ticks).
+    """
+
+    @staticmethod
+    def _fly(detector: DroneAnomalyDetector, tick: int, *, faulty: bool) -> list[DroneFault]:
+        rng = np.random.default_rng(tick)
+
+        def rpm() -> float:
+            return float(300 + rng.normal(0, 10)) if faulty else float(4000 + rng.normal(0, 30))
+
+        state = _make_state(
+            motors=(rpm(), rpm(), rpm(), rpm()),
+            temperature=95.0 if faulty else float(40 + rng.normal(0, 0.5)),
+        )
+        return detector.detect_faults(state)
+
+    def test_motor_collapse_at_tick_50_is_flagged(self) -> None:
+        detector = DroneAnomalyDetector()
+        for tick in range(50):
+            assert not self._fly(detector, tick, faulty=False)
+        assert self._fly(
+            detector, 50, faulty=True
+        ), "ensemble decision stream dead inside the first history window"
+
+    def test_ensemble_config_lowers_knn_minimum(self) -> None:
+        detector = DroneAnomalyDetector()
+        ensemble = detector._new_ensemble_detector()
+        assert ensemble._knn_min_reference == DroneAnomalyDetector.DEFAULT_FIT_MINIMUM
+
+
+class TestAssessMemoKeysOnContent:
+    """One mutated-in-place payload dict must not pin the first verdict.
+
+    Regression: ``_assess`` memoized on input object identity alone, so a
+    telemetry loop reusing one dict got the first tick's faults forever and
+    no later telemetry was processed.
+    """
+
+    def test_mutated_payload_is_reprocessed(self) -> None:
+        detector = DroneAnomalyDetector()
+        healthy = _make_state()
+        payload = {"shared": "payload-object"}
+
+        first = detector._assess(healthy, payload)
+        assert detector._assess(healthy, payload) == first  # memo hit
+
+        failing = _make_state(motors=(0.0, 0.0, 0.0, 0.0), battery=0.02)
+        verdict = detector._assess(failing, payload)
+        assert verdict, "mutated payload content returned the stale empty verdict"

@@ -284,7 +284,7 @@ re-run `--update` after any such change.
 
 | Symptom | Check |
 |---|---|
-| `import omni_mercury_engine` raises / gate unavailable | AMA/PQC backend missing — run in the `ci/red-team` lane or build AMA (`scripts/build_ama_native.sh`). |
+| An agent-surface import (`omni_mercury_engine.engine` / `.crypto`) raises / gate unavailable | AMA/PQC backend missing — run in the `ci/red-team` lane or build AMA (`scripts/build_ama_native.sh`). |
 | `n_candidates == 0` | Every seed was skipped (the gate already ALLOWs each unmutated seed), or `mutations` produced only no-op chains. Check `n_skipped_seeds`. |
 | `ValueError: unknown mutations` | A name in the config's `mutations` is not in `red_team.MUTATIONS`. |
 | Seeds silently defaulted | The `seeds` path is missing/unreadable, or has no `label == "offensive"` rows — the harness warns and falls back to the bundled seeds. |

@@ -211,10 +211,10 @@ class TestNeuroSymbolicHub:
         # Get scalars
         scalars = hub.get_gosnn_scalars()
 
-        assert "neurosymbolic_neural_weight" in scalars
-        assert "neurosymbolic_symbolic_weight" in scalars
-        assert "neurosymbolic_inference_count" in scalars
-        assert scalars["neurosymbolic_inference_count"] == 3
+        assert "omni_neurosymbolic_neural_weight" in scalars
+        assert "omni_neurosymbolic_symbolic_weight" in scalars
+        assert "omni_diag_neurosymbolic_inference_count" in scalars
+        assert scalars["omni_diag_neurosymbolic_inference_count"] == 3
 
     def test_fit_learns_weights(self) -> None:
         """Test fitting learns optimal fusion weights."""

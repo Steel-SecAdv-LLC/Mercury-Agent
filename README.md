@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img width="959" height="223" alt="Mercury Agent banner" src="https://github.com/user-attachments/assets/0f654715-42fb-4a29-9554-19011e23dc6a" />
+  <img width="957" height="205" alt="image" src="https://github.com/user-attachments/assets/00956c72-ed69-4814-8883-dd0942892737" />
 
 </div>
 
@@ -13,7 +13,7 @@
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-13%2C950%20collected-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-16%2C717%20collected-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -24,10 +24,10 @@
 ```
               +===============================================================================+
               |                            Mercury Agent ♱ v2.1.0                             |
-              | Neuro-Symbolic AI for Autonomous, Multi-Model, Multi-Domain Anomaly Detection |
+              | Computational Systems Intelligence - Multi-Domain Anomaly & Hazard Detection  |
               |                                                                               |
               |   Cognitive Orchestrator |   Hybrid Fusion ML      |   Production Security    |
-              |   Neural + Symbolic      |   30 Detection Engines  |   Post-Quantum Crypto    |
+              |   Neural + Symbolic      |   89 Detector Classes   |   Post-Quantum Crypto    |
               |   Ethical Governance     |   Multi-Head Attention  |   OWASP Validation       |
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
@@ -40,39 +40,19 @@
               +===============================================================================+
 ```
 
-> **On the Layer-3 entries:** these are runtime-enforced gates, **not static
-> guarantees**.
->
-> The enforced harm control is the two-axis (hazard-domain × operational-intent)
-> **harm-uplift gate** (`src/omni_mercury_engine/cognitive/decision_gate.py`,
-> policy in [`docs/HARM_POLICY.md`](docs/HARM_POLICY.md)). It gates on
-> *operational uplift toward a weapon or mass-casualty outcome*, not on the
-> presence of a hazardous subject, and it fails closed. It replaced a
-> benevolence pass-bar (`≥ 0.99`) that scored a **fixed string the engine wrote
-> for itself** rather than the caller's request — so it rejected benign work for
-> having plain vocabulary and could not discriminate anything. Benevolence
-> remains as an **advisory** score that decides nothing.
->
-> Lyapunov stability is a *design-time* convergence proof plus *runtime
-> monitoring* (`is_stable`), not a runtime guarantee:
-> `LyapunovRuntimeEnforcer` defaults to `halt_on_violation=False`, so it
-> observes and records unless an operator constructs it to halt. See
-> [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md) §2.2 and §2.7.3, and
-> [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md).
-
-**Copyright 2025 Steel Security Advisors LLC**
-**Author/Inventor:** Andrew E. A.
-**Contact:** steel.sa.llc@gmail.com
-**License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
-**Version:** v2.1.0
-**Date:** 2026-07-24
-**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
+**Copyright 2025 Steel Security Advisors LLC**\
+**Author/Inventor:** Andrew E. A.\
+**Contact:** steel.sa.llc@gmail.com\
+**License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)\
+**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛\
+**Version:** v2.1.0\
+**Date:** 2026-10-17
 
 ---
 
 ## Executive Summary
 
-Mercury Agent is a comprehensive neuro-symbolic AI for multi-domain anomaly detection. Its cognitive layer is wired at runtime by the `CognitiveOrchestrator` over ten components — a knowledge graph, multi-hop reasoner and uncertainty quantifier (always on) plus plasticity, causal discovery, IPB, case-based reasoning, indicator development, curiosity and enhanced anomaly detection (optional). The "7-phase evolution" described below is the historical build spine, not a runtime pipeline. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
+Mercury Agent is a civilization-first **Computational Systems Intelligence (CSI)**: a comprehensive neuro-symbolic AI for multi-domain anomaly and hazard detection, built at the meeting point of systems intelligence, computational science, resilience engineering, complex adaptive systems engineering, and humanitarian technology — with STEAM research as its application domain, not its identity. Its cognitive layer is wired at runtime by the `CognitiveOrchestrator` over ten components — a knowledge graph, multi-hop reasoner and uncertainty quantifier (always on) plus plasticity, causal discovery, IPB, case-based reasoning, indicator development, curiosity and enhanced anomaly detection (optional). The "7-phase evolution" described below is the historical build spine, not a runtime pipeline. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** mission: serving the broad range of scientific, clinical, engineering, humanitarian and public-safety work that hazard detection touches. FINDΩYOU™ — locating the lost, missing and abducted — is one deployment of that mission, not its ceiling. Every public decision surface clears one mandatory, fail-closed **harm-uplift gate** (`cognitive/decision_gate.py`, [`docs/HARM_POLICY.md`](docs/HARM_POLICY.md)), which refuses operational uplift toward a weapon or mass-casualty outcome and permits the diagnostic, defensive, clinical and responsive half of every hazard domain. Benevolence is scored and logged as an **advisory** signal; it is not a pass-bar.
 
@@ -94,7 +74,7 @@ Beyond the library and CLI, the repository ships an **opt-in self-service platfo
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-07-24
+> **Last Updated:** 2026-10-17
 >
 
 ---
@@ -144,17 +124,17 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8251 | 0.8251 | +0.0000 |
-| Median ROC-AUC | 0.8747 | 0.8747 | +0.0000 |
-| Mean Oracle F1 | 0.5998 | 0.5998 | +0.0000 |
-| Datasets (successful / total) | 66 / 75 | 66 / 75 | +0.0000 |
-| Run timestamp (UTC) | 2026-06-21T00:11:10.047740+00:00 | 2026-06-21T00:11:10.047740+00:00 | — |
-| Commit | `a7a194b` | `a7a194b` | — |
+| Mean ROC-AUC | 0.8545 | 0.8546 | -0.0000 |
+| Median ROC-AUC | 0.9052 | 0.9052 | +0.0000 |
+| Mean Oracle F1 | 0.6425 | 0.6430 | -0.0005 |
+| Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
+| Run timestamp (UTC) | 2026-10-14T20:27:14.966442+00:00 | 2026-10-14T20:04:58.109883+00:00 | — |
+| Commit | `27d2293` | `5569e83` | — |
 
-Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held ~9% below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
+Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
 
-**Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8251**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
+**Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8515**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
 
 **Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7634 (+2.37 pts, 14 W / 2 tie / 2 L)** from base `e118e1f` to the hardened detector (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`.
 
@@ -170,15 +150,15 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and gated in C
 
 | Measurement | Value |
 |---|---|
-| Python source files in `src/omni_mercury_engine/` | **778** |
-| Source lines of code (LOC) | **~411,000** |
-| Top-level subpackages (true Python packages with `__init__.py`) | **49** |
-| Files importing PyTorch (optional `[ml]` extra) | **175** |
+| Python source files in `src/omni_mercury_engine/` | **819** |
+| Source lines of code (LOC) | **~450,000** |
+| Top-level subpackages (true Python packages with `__init__.py`) | **52** |
+| Files importing PyTorch (optional `[ml]` extra) | **173** |
 | Distinct `torch.nn.Module` subclasses | **173** |
-| Detector classes (`class *Detector`) in `detectors/` | **88** |
+| Detector classes (`class *Detector`) in `detectors/` | **89** |
 | Data-loader classes (`class *Loader`) in `loaders/` | **21** |
-| Test modules (`test_*.py`) / total test LOC | **701 modules / ~197,000 LOC** |
-| GitHub Actions workflows | **23** |
+| Test modules (`test_*.py`) / total test LOC | **811 modules / ~233,000 LOC** |
+| GitHub Actions workflows | **24** |
 
 _Generated by `python scripts/measure_codebase_scale.py --update README.md` and gated in CI (`scripts/measure_codebase_scale.py --check README.md`); do not hand-edit between the markers._
 
@@ -188,7 +168,7 @@ _Generated by `python scripts/measure_codebase_scale.py --update README.md` and 
 
 * `src/omni_mercury_engine/cognitive/` — ~32,000 LOC, 30 modules (excluding `__init__.py`; measured at v2.1.x), including `neural_memory_layer.py`, `symbolic_logic_layer.py`, `neurosymbolic_fusion.py`, `differentiable_logic.py` (with `NeuralPredicateEncoder`, `DifferentiableRuleModule`, `NeuralTheoremProver`, `CounterfactualReasoner` — all real `nn.Module` subclasses), `cognitive_evolution_engine.py`, `chain_of_thought.py`, `multi_hop_reasoner.py`, `causal_discovery.py`, `case_based_reasoning.py`, `predictive_coding.py`, `formal_verification.py`, `knowledge_graph.py`, `multi_agent_coordination.py`, `reflexion.py`, `plasticity_engine.py`, `hierarchical_planning.py`, `ipb_engine.py`.
 * `src/omni_mercury_engine/core/neurosymbolic_hub.py` — 1,446 LOC; defines `KnowledgeGraph`, `NeuralEncoder`, `SymbolicRule`, `NeuroSymbolicHub`, `ExplainableOutput`, `FusionMode`.
-* PyTorch is the engine of the ML / neuro-symbolic stack, shipped as the **optional `[ml]` extra** (`torch>=2.2.0`, `torchvision>=0.17.0`, `pytorch-lightning>=2.0.0`) — it is **not** a core install dependency: the top-level `import omni_mercury_engine` and the default (non-ML) detection path import without torch, while the ML / neuro-symbolic submodules import `torch` at module scope and require the `[ml]` extra. The measured count of torch-importing files and `nn.Module` subclasses is in the table above. Install the full neuro-symbolic path with `pip install mercury-agent[ml]`.
+* PyTorch is the engine of the ML / neuro-symbolic stack, shipped as the **optional `[ml]` extra** (`torch>=2.2.0`, `torchvision>=0.17.0`, `pytorch-lightning>=2.0.0`) — it is **not** a core install dependency: the top-level `import omni_mercury_engine` and the default (non-ML) detection path import without torch, while the ML / neuro-symbolic submodules import `torch` at module scope and require the `[ml]` extra. The measured count of torch-importing files and `nn.Module` subclasses is in the table above. Install the full neuro-symbolic path from a clone with `pip install -e ".[ml]"`.
 
 Mercury Agent is a **neuro-symbolic AI** that exposes anomaly detection as one of its capabilities — it is not "an anomaly detection library that happens to use neural networks."
 
@@ -237,15 +217,16 @@ hyperparameter tuning.
 
 ### Methodology and comparability
 
-`MercuryAnomalyDetector` was run untuned over **66 of 75 attempted real-world
-datasets** across 12 domains (the 9 failures were unreachable external sources,
+`MercuryAnomalyDetector` was run untuned over **67 of 76 attempted real-world
+datasets** across 13 domains (the 9 failures were unreachable external sources,
 tracked by a two-lane reachability harness, `.github/workflows/dataset-reachability.yml`).
 Results fall into two regimes, and **only the first is comparable** to published
 detectors:
 
 - **Externally-labeled (comparable).** Labels come from a source independent of
-  the scored features (ADBench, NSL-KDD, BATADAL, SMD/NAB, CWRU/MSDS). The
-  headline is the 47-dataset ADBench result: **Mean AUC 0.8251 / Mean F1 0.5975**.
+  the scored features (ADBench, NSL-KDD, BATADAL, SMD/NAB, CWRU, ADRepository,
+  DTU AIS). The
+  headline is the 47-dataset ADBench result: **Mean AUC 0.8515 / Mean F1 0.6415**.
 - **Self-labeled / threshold-derived (not comparable).** Some environmental
   loaders manufacture labels by thresholding a feature they also score, so the
   detector recovers them almost trivially (0.97–1.00 AUC). That is **label
@@ -264,16 +245,16 @@ governed self-improvement rollout.
 
 | Component | Weight | Method | Mean AUC | Median AUC |
 |-----------|--------|--------|----------|------------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7665 | 0.8294 |
-| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6009 | 0.6116 |
-| InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8267 | 0.8760 |
-| **Ensemble** | **100%** | **Weighted combination** | **0.8251** | **0.8747** |
+| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7665 | 0.8008 |
+| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6013 | 0.5719 |
+| InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8265 | 0.8671 |
+| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8545** | **0.9052** |
 
-| Aggregate (66 successful datasets) | Value |
-|------------------------------------|-------|
-| Mean AUC / Median AUC | 0.8251 / 0.8747 |
-| Std AUC | 0.1638 |
-| Mean / Median Oracle F1 | 0.5998 / 0.6747 |
+| Aggregate (54 genuine-label datasets of 67 successful) | Value |
+|---------------------------------------------------------|-------|
+| Mean AUC / Median AUC | 0.8545 / 0.9052 |
+| Std AUC | 0.1460 |
+| Mean / Median Oracle F1 | 0.6425 / 0.7074 |
 
 *Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
 operational performance.*
@@ -283,19 +264,24 @@ operational performance.*
 These rows use labels independent of the scored features — the numbers to line up
 against other detectors.
 
-| Domain | Datasets | Mean AUC | Mean F1 |
-|--------|----------|----------|---------|
-| **ADBench** | 47 | **0.8251** | **0.5975** |
-| Industrial (BATADAL) | 1 | 0.9114 | 0.5545 |
-| Security (NSL-KDD, ThreatIntel) | 2 | 0.8995 | 0.7423 |
-| Space (NASA, Solar) | 2 | 0.8753 | 0.7356 |
-| Time Series (SMD, NAB) | 2 | 0.6807 | 0.4333 |
-| General (ADRepository) | 1 | 0.7086 | 0.3468 |
-| Academic (CWRU, MSDS)† | 2 | 1.0000 | 1.0000 |
+<!-- BENCHMARK-DOMAINS:START -->
+| Domain | Datasets | Mean AUC | Mean oracle F1 |
+|--------|----------|----------|----------------|
+| ADBench | 47 | 0.8515 | 0.6415 |
+| Time series (SMD, NAB) | 2 | 0.7558 | 0.4580 |
+| Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
+| General (ADRepository) | 1 | 0.8657 | 0.5150 |
+| Industrial (BATADAL) | 1 | 0.9095 | 0.5548 |
+| Maritime (DTU_AIS_Abnormal) | 1 | 0.8613 | 0.6000 |
+| Security (NSL-KDD) | 1 | 0.9750 | 0.9567 |
 
-*† Academic/General rows are genuinely labeled but tiny; the 1.0000 AUC reflects
-easy separability at that size, not headline accuracy. The representative
-comparable figure is the 47-dataset ADBench row.*
+*Generated from `benchmarks/mercury_benchmark_results.json` by
+`scripts/update_readme_benchmarks.py`: the 54 successful datasets whose
+labels are `ground_truth` or `expert_annotated`. Threshold-derived
+(`statistical`) labels are excluded as circular. Domains of one to three
+datasets are easy to separate at that size; the comparable figure is the
+47-dataset ADBench row.*
+<!-- BENCHMARK-DOMAINS:END -->
 
 ### Competitive positioning (ADBench, one identical unsupervised protocol)
 
@@ -367,14 +353,14 @@ into a headline.
 diverse and need adaptive profiling, or no labeled anomaly data is available.
 **Prefer alternatives when** labeled data exists (use a supervised classifier) or
 memory is tightly constrained. Caveats, stated plainly: KinematicScore is
-near-random on shuffled tabular data (mean AUC 0.60); 6 datasets fall below 0.50
+near-random on shuffled tabular data (mean AUC 0.60); 2 datasets fall below 0.50
 AUC (ensemble inversion on high-dimensional data); no tuning was performed.
 
 ### Visual proof
 
 The benchmark panels below are generated from the current committed
-`mercury_benchmark_results.json` run (2026-06-21; Mean AUC 0.8251 over 66
-successful datasets) by `benchmarks/generate_benchmark_visuals.py`; the
+`mercury_benchmark_results.json` run (2026-10-14; Mean AUC 0.8545 over the 54
+genuinely labelled of 67 successful datasets) by `benchmarks/generate_benchmark_visuals.py`; the
 calibration panel comes from the MD-011/MD-005 calibration-validation run
 (52 datasets).
 
@@ -532,7 +518,7 @@ loss = loss_fn(
 ### Integration with Mercury Agent
 
 The 3R mechanism is integrated throughout Mercury Agent:
-- **Detectors**: All 30 detection engines leverage 3R for feature extraction
+- **Detectors**: The detector classes leverage 3R for feature extraction
 - **Fusion Network**: Multi-head attention combines 3R outputs across domains
 - **Ethical Governance**: Refactoring engine ensures Lyapunov stability constraints
 - **Self-Healing**: CRISPR-inspired adaptation uses recursive pattern learning
@@ -559,9 +545,9 @@ Modern anomaly detection faces three critical challenges:
 
 Mercury Agent addresses all three challenges through:
 
-- **Unified Framework**: 30 detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
+- **Unified Framework**: 89 detector classes (the measured, CI-gated count; 101 manifest entries including the 7 hazard adapters, 5 in the engine's default set) under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
-- **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v4.0.0, JWT authentication, rate limiting
+- **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v5.0.0, JWT authentication, rate limiting
 
 ### Target Use Cases
 
@@ -583,8 +569,8 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 
 | Layer | Protection | Components |
 |-------|------------|------------|
-| 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (AMA Cryptography v4.0.0), JWT auth, OWASP validation |
-| 2. ML/AI Pipeline | Detection intelligence | 30 engines, hybrid fusion, multi-head attention |
+| 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (AMA Cryptography v5.0.0), JWT auth, OWASP validation |
+| 2. ML/AI Pipeline | Detection intelligence | 89 detector classes, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
 ### Ethical AI Governance
@@ -621,6 +607,14 @@ unchanged).
   `{0,1}` → **UNAVAILABLE**, a *resolvable* don't-know; `{}` → **UNDECIDABLE**, a
   *fail-closed* hold). Neuro-symbolic disagreement, drift, or an ethical-gate
   refusal can only move a verdict toward abstention.
+- **Drift-aware abstention** — the normal-looking rows of every served batch are
+  tested against the model's reference rows: per-feature KS and PSI, the
+  covariance structure, and mean shifts along the reference's principal axes
+  (the case per-feature tests dilute in correlated data; measured by
+  `benchmarks/drift_power.py`). Drift at MEDIUM or above demotes the decision to
+  `DEFER`; the scores are still returned. An input whose feature count differs
+  from the reference is reported `incomparable` and is not tested — see
+  [`docs/runbooks/data-drift.md`](docs/runbooks/data-drift.md).
 - **Bounded, non-destructive response** — `monitor` / `alert` /
   `recommend_mitigation` / `recommend_conversion` / `recommend_restoration` /
   `escalate_to_human` / `request_input` / `hold`. The loop recommends and
@@ -647,13 +641,13 @@ See `examples/decision_abstention_response_demo.py` and
 
 | Achievement | Description |
 |-------------|-------------|
-| Multi-Domain Coverage | 30 detection engines across 12 domains (8 new statistical methods) |
+| Multi-Domain Coverage | 89 detector classes across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 13,950 tests collected (2026-07-24, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
-| Benchmark Coverage | 66 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain); canonical Mean ROC-AUC **0.8251** / Median **0.8747** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8251** |
+| Comprehensive Testing | 16,717 tests collected (2026-10-17, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
+| Benchmark Coverage | 67 reproducible datasets (of 76 attempted; 47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8545** / Median **0.9052** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8515** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
-| Mathematical Rigor | Lyapunov stability (`λ = 0.25`, design-time proof certified by `tools/lyapunov_validator.py`, monitored at runtime — see note above), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
+| Mathematical Rigor | Lyapunov stability (`λ = 0.25`: a design-time proof certified by `tools/lyapunov_validator.py`, *monitored* at runtime and not enforced by default — `LyapunovRuntimeEnforcer` has `halt_on_violation=False`; see [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
 
 </details>
@@ -667,16 +661,16 @@ See `examples/decision_abstention_response_demo.py` and
 | Decision / Abstention / Response | **Complete** | Calibration-grounded `ThreeState` "don't-know" gate; bounded non-destructive response; enabled by default on the served entrypoints (API `/detect/flagship`, MCP, CLI fusion), opt-in on the core engine via `enable_decision_layer()` |
 | Bias Detection | **Complete** | Fairlearn metrics, built-in fallback |
 | Input Validation | **Complete** | OWASP-compliant, SQL/XSS/injection detection |
-| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v4.0.0's ACVP-validated native HMAC, fail-closed (no stdlib downgrade) |
+| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v5.0.0's ACVP-validated native HMAC, fail-closed (no stdlib downgrade) |
 | Property Testing | **Complete** | Hypothesis-based test suite |
 | Post-Quantum Crypto | **Complete** | AMA Cryptography (sole PQC backend) |
-| Real-Data Validation | **Pending** | Requires MIMIC-III, NSL-KDD datasets |
+| Real-Data Validation | **Partial** | NSL-KDD benchmarked (AUC 0.975, table above); medical modules still require MIMIC-III clinical validation |
 
 **Legend:**
 - **Complete**: Implemented and tested
 - **Pending**: Requires real-world dataset validation
 
-> **Note:** Core anomaly detection is benchmarked on **66 reproducible real-world datasets** (of 75 attempted; see `benchmarks/mercury_benchmark_results.json` and the reproducibility note in the Benchmarks section). Domain-specific modules may still require validation on their target datasets before production deployment.
+> **Note:** Core anomaly detection is benchmarked on **67 reproducible real-world datasets** (of 76 attempted; see `benchmarks/mercury_benchmark_results.json` and the reproducibility note in the Benchmarks section). Domain-specific modules may still require validation on their target datasets before production deployment.
 
 </details>
 
@@ -707,7 +701,7 @@ See `examples/decision_abstention_response_demo.py` and
 
 - **Threat Detection**: SQL injection, XSS, path traversal detection with pattern matching and ML classification
 - **Intelligence Fusion**: 13-source fusion (OSINT, SIGINT, HUMINT, GEOINT) with bias-aware aggregation
-- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber-1024 / ML-DSA-65 (AMA Cryptography v4.0.0)
+- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber-1024 / ML-DSA-65 (AMA Cryptography v5.0.0)
 - **Traffic Analysis**: Encrypted traffic anomaly detection with privacy-preserving techniques
 
 </details>
@@ -743,21 +737,30 @@ See `examples/decision_abstention_response_demo.py` and
 <details>
 <summary><strong>Latency Benchmarks</strong></summary>
 
-| Configuration | CPU Latency | GPU Latency (RTX 4090) |
-|---------------|-------------|------------------------|
-| Full (30 engines) | ~500ms | ~50ms |
-| Standard | ~250ms | ~25ms |
-| Fast (statistical only) | ~100ms | ~10ms |
+| Measurement (CPU, 4 cores) | Latency |
+|---------------|-------------|
+| `detect_with_fusion`, 64 rows x 8 features | 0.038 s |
+| `detect_with_fusion`, 1,024 rows x 8 features | 0.182 s |
+| `detect_with_fusion`, 4,096 rows x 8 features | 0.397 s |
 
-*Historical snapshot: synthetic data, Python 3.12, Ubuntu 22.04; real-world
-performance may vary 20-40%. The GPU column was measured on the stated
-hardware and is not re-verified per release. Reproduce the CPU-side core
+*Measured by `benchmarks/fusion_latency.py` (committed results with host
+provenance: `benchmarks/results/fusion_latency.json`; Python 3.13, numpy
+2.5, 4-CPU host, seeded synthetic data, 3 repeats). No GPU measurement is
+committed, so no GPU figure is claimed. Reproduce the CPU-side core
 claim on your host with ``mercury-agent tool detector_profiler``, which
 emits a provenance-stamped JSON latency/RSS profile (schema
 ``mercury.tools.detector_profiler/v1``; most recent sandbox re-run: median
 47.7 ms, p95 56.3 ms — the ``<100ms`` fast-path claim holds).*
 
 </details>
+
+**Measured on this tree** (4 vCPU sandbox, 8 features, cold feature cache,
+warm engine; `python benchmarks/fusion_latency.py` reproduces it and
+`benchmarks/results/fusion_latency.json` holds the run): `detect_with_fusion`
+takes 38 ms for 64 rows, 182 ms for 1,024 and 397 ms for 4,096. Importing the
+engine takes 3.0 s and constructing it with the shipped checkpoint 0.24 s;
+PyTorch Lightning, sympy, shap, lime and DeepFace/TensorFlow load on first use,
+not at import.
 
 <details>
 <summary><strong>Memory Footprint</strong></summary>
@@ -791,18 +794,70 @@ emits a provenance-stamped JSON latency/RSS profile (schema
 
 ## Quick Start
 
+### Ten minutes to one honest number
+
+Three commands take you from clone to a measured result on the only public,
+expert-annotated real-AIS anomaly benchmark (521 Danish-waters vessel
+trajectories, 25 labelled abnormal — DTU, CC BY 4.0), next to the published
+state-of-the-art baselines on the identical evaluation set:
+
+```bash
+git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git && cd Mercury-Agent
+pip install -e .                   # analytic core only — no native PQC build
+python examples/mercury_quickstart.py
+```
+
+```text
+Mercury ensemble (this run)  ROC-AUC 0.8613   unsupervised, fit in seconds <-- you
+GeoTrackNet (VRNN)           ROC-AUC 0.8700   deep, the field's reference model
+RAE                          ROC-AUC 0.8600   deep recurrent autoencoder
+...
+```
+
+The run is deterministic (seed 42), downloads ~38 MB of digest-pinned real
+AIS data on first use, and reproduces the `DTU_AIS_Abnormal` row of the
+committed benchmark results bit for bit. The published models were trained
+for 50 epochs on months of trajectories; Mercury fits unsupervised in under
+a second on 22 trajectory features. Read the caveats the demo prints — with
+25 positives this is parity with the state of the art, not superiority.
+Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md),
+[docs/DATASOURCES.md](docs/DATASOURCES.md).
+
+Prerequisites: Python ≥ 3.11. The demo runs entirely on the AMA-free
+analytic leaves (dataset loader, statistical detector, metrics) under the
+scoped production gate — no C compiler, no native PQC build. Measured end
+to end in a clean virtualenv with no AMA Cryptography installed at all:
+26 s `pip install -e .`, 51 s total from install to the printed table
+(including the 38 MB first-run download), ROC-AUC 0.8613 reproduced
+exactly. This is a
+deliberate, scoped fast path, not a bypass of the agent's crypto mandate:
+the Mercury *agent* surfaces (engine, CLI, API, crypto, and every AMA-backed
+security export) fail closed at import without the native AMA Cryptography
+backend (`omni_mercury_engine/_pqc_gate.py`; pinned by
+`tests/test_pqc_startup_gate.py::TestScopedGateContract`). To run the full
+agent, install with `pip install -e ".[pqc]"` instead — measured end to end
+in a clean virtualenv on a stock Linux container: 121 s, no environment
+variables, no manual build steps. If that automatic build fails on your
+platform, use the explicit path below.
+
 <details>
 <summary><strong>Installation</strong></summary>
 
 ### Standard Installation
 
-Mercury will not import without the AMA Cryptography **native** PQC backend.
-`import omni_mercury_engine` runs a fail-closed gate that requires ML-DSA-65,
-Kyber-1024 and SPHINCS+ to be loadable from the native C library, and there is
-no development-mode or CI-mode escape hatch (`omni_mercury_engine/_pqc_gate.py`).
-Neither `pip install -e .` nor `pip install -e ".[all]"` pulls it — it lives in
-the `[pqc]` extra and needs a compiled shared object — so the pip step alone
-leaves you with a package that raises on import:
+The Mercury **agent** will not start without the AMA Cryptography **native**
+PQC backend. Importing any agent surface — `omni_mercury_engine.engine` (which
+the CLI and API serve), `omni_mercury_engine.crypto`, the engine's lazy root
+export, or an AMA-backed `security` name such as `MercuryCrypto` — runs a
+fail-closed gate that requires ML-DSA-65, Kyber-1024 and SPHINCS+ to be
+loadable from the native C library, and there is no development-mode or
+CI-mode escape hatch (`omni_mercury_engine/_pqc_gate.py`). Only the
+standalone analytic leaves (dataset loaders, individual detectors, metrics —
+the quickstart path, which cannot decide, serve, sign, or encrypt) import
+without it. Neither `pip install -e .` nor `pip install -e ".[all]"` pulls
+the backend — it lives in the `[pqc]` extra and needs a compiled shared
+object — so the pip step alone leaves you with an agent that raises on
+import:
 
 > `RuntimeError: AMA/PQC is mandatory for Mercury, but the AMA Cryptography
 > Python package is not importable.`
@@ -826,7 +881,7 @@ bash scripts/build_ama_native.sh
 python -c "import omni_mercury_engine as m; print(m.__version__)"
 ```
 
-Build prerequisites for step 2: GCC >= 12 and the PyPI `cmake>=4.4.0` shim
+Build prerequisites for step 2: GCC >= 12 and the PyPI `cmake>=4.4.4` shim
 (the script installs the Python build floors itself). The full procedure,
 including the manual out-of-tree variant and the `AMA_REF` / `AMA_REPO`
 overrides, is in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
@@ -863,16 +918,22 @@ wsl --install
 
 The package uses the following naming conventions:
 
-- **Package Name**: `mercury-agent` (used in pip install and pyproject.toml)
+- **Distribution Name**: `mercury-agent-global` (pyproject.toml `[project].name`; the name `mercury-agent` on PyPI belongs to an unrelated project)
 - **CLI Command**: `mercury-agent` (the command-line interface)
 - **Internal Module**: `omni_mercury_engine` (the Python import path)
 
 You import with `from omni_mercury_engine import ...`. The internal module name preserves backward compatibility with the original codebase while the package and CLI names reflect the current project identity.
 
-**There is no PyPI release.** `pyproject.toml` sets `upload_to_pypi = false`, so
-`pip install mercury-agent` does not resolve to this project. Install from a
-clone, following **Standard Installation** above — including the AMA native
-build, which a wheel could not carry anyway.
+**There is no PyPI release, by choice.** The distribution is named
+`mercury-agent-global` because `mercury-agent` on PyPI is an unrelated
+project — a bare `pip install mercury-agent` installs someone else's code.
+Install from a clone, following **Standard Installation** above (including
+the AMA native build), or by direct reference to a tag:
+`pip install "mercury-agent-global @ git+https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git@<tag>"`.
+The release workflow runs `scripts/check_pypi_publishable.py` before any
+upload; publishing stays off until the `[pqc]` extra's git-URL pin on AMA
+(which PyPI rejects) is resolved — and nothing in this repository depends on
+it ever being published.
 
 ### External Dependencies
 
@@ -935,7 +996,7 @@ Once enabled, a detector contributes its feature group to `fit_fusion` and `dete
 # View available commands
 mercury-agent --help
 
-# Anomaly detection
+# Anomaly detection (CSV with or without a header row, .json or .npy)
 mercury-agent detect --input data.csv --detector fusion
 
 # Biometric analysis
@@ -943,6 +1004,16 @@ mercury-agent biometric --help
 
 # Security analysis
 mercury-agent security --help
+
+# Intelligence assessment (statement verification, consent-gated CIT,
+# contactless vital signs, intel screening and merit-gated fusion)
+mercury-agent assess --help
+
+# Adjudication ledger (held-out labels, ML-DSA-65-signed records/exports)
+mercury-agent adjudication --help
+
+# Train the fusion model and install it as the served default
+mercury-agent train --data features.npz --install
 ```
 
 </details>
@@ -1104,6 +1175,9 @@ docker run -it \
 | `OMNI_DETECTOR_MAX_MAGNITUDE` | Unified safe magnitude cap for detector scores/inputs/metadata | `1e100` |
 | `OMNI_DETECTOR_RIDGE_FACTOR` | Digital-twin scale-relative Tikhonov ridge factor | `1e-6` |
 | `OMNI_DETECTION_CONFIG` | Path to a YAML/JSON file supplying the `OMNI_DETECTOR_*` / `OMNI_ENSEMBLE_*` knobs (env overrides file) | unset |
+| `MERCURY_FUSION_CHECKPOINT` | Serve this fusion checkpoint instead of the installed/bundled one (a set-but-missing path fails loudly) | unset |
+| `MERCURY_MODEL_DIR` | Directory of the installed fusion model written by `mercury-agent train --install` (`fusion.pt`; replaced model kept as `fusion.previous.pt`) | `~/.mercury/models` |
+| `MERCURY_DRIFT_DETECTION` | Data-drift checks on served detections: per-feature KS/PSI, covariance structure, principal-axis shifts (`0` disables; see `docs/runbooks/data-drift.md`) | `1` |
 | `MERCURY_FRONTEND_ENABLED` | Serve the browser account UI from the API process (see [Self-Service Account Platform](#quick-start)) | `false` |
 | `MERCURY_KEYSTORE_PATH` | SQLite file backing all account/quota platform state | unset (in-memory) |
 | `MERCURY_QUOTA_ENABLED` | Per-account quota enforcement on metered routes | `false` |
@@ -1164,7 +1238,9 @@ byte-identical (pinned by `tests/api/test_frontend.py`).
 
 ```bash
 # API + Caddy auto-TLS reverse proxy (app.mercuryagent.global by default),
-# persistent platform state in the mercury-platform-data volume:
+# persistent platform state in the mercury-platform-data volume. Only Caddy
+# (80/443) listens publicly; the API, Prometheus and Grafana are bound to
+# 127.0.0.1, and GRAFANA_ADMIN_PASSWORD must be set in .env:
 docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
 ```
 
@@ -1208,7 +1284,11 @@ kubectl get pods -n mercury-agent -l app.kubernetes.io/name=mercury-agent
 `MERCURY_ENV=production`, and API-key hashing then refuses to fall back to the
 built-in default salt.
 
-Raw manifests, if you prefer kustomize to Helm:
+Raw manifests, if you prefer kustomize to Helm — the production, staging
+and distributed overlays install their Prometheus Operator monitoring
+(PodMonitors + PrometheusRule) in the same apply, and the prometheus-adapter
+values backing the HPAs' custom metrics are generated, drift-gated, at
+`monitoring/prometheus/prometheus-adapter-values.yaml`:
 
 ```bash
 kubectl apply -k k8s/overlays/production
@@ -1404,9 +1484,9 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **13,950 tests collected** (`pytest --collect-only -q`, 2026-07-24, with the
+- **16,717 tests collected** (2026-10-17, with the
   optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` / `h5py` /
-  `plotly` dependencies installed — zero modules skipped at collection) across
+  `plotly` dependencies installed) across
   the test modules counted in the CI-gated
   [Codebase Scale](#codebase-scale-measured-not-estimated) block (the exact
   module count is measured from disk, never hand-typed). A minimal install
@@ -1514,8 +1594,8 @@ lanes) is measured in the CI-gated
 | Layer | Protection |
 |-------|------------|
 | Input Validation | OWASP-compliant SQL/XSS/injection detection |
-| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS384/HS512 route through AMA Cryptography v4.0.0's ACVP-validated native HMAC, fail-closed |
-| Post-Quantum Cryptography | ML-DSA-65 (FIPS 204 §5.2), ML-KEM-1024 / Kyber-1024 (FIPS 203), SLH-DSA-SHAKE-128s + legacy SPHINCS+-SHA2-256f-simple (FIPS 205); sole backend = AMA Cryptography v4.0.0 (unconditionally hard-required at import — fail-closed, no env-var escape hatch) |
+| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS384/HS512 route through AMA Cryptography v5.0.0's ACVP-validated native HMAC, fail-closed |
+| Post-Quantum Cryptography | ML-DSA-65 (FIPS 204 §5.2), ML-KEM-1024 / Kyber-1024 (FIPS 203), SLH-DSA-SHAKE-128s + legacy SPHINCS+-SHA2-256f-simple (FIPS 205); sole backend = AMA Cryptography v5.0.0 (unconditionally hard-required at import — fail-closed, no env-var escape hatch) |
 | Classical Cryptography | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via Rust + PyO3 (`rust_crypto/`); constant-time comparisons |
 | Rate Limiting | Token bucket algorithm with configurable limits (100 req/min, 20 burst by default) |
 | Secret Detection | `detect-secrets` in pre-commit hooks |
@@ -1575,14 +1655,15 @@ mypy src/
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Detailed system architecture |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Python API quick reference (detector ensemble, compliance, medical, drone, profiling) |
 | [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | Benchmark methodology and results |
-| [docs/DOMAIN_PERFORMANCE.md](docs/DOMAIN_PERFORMANCE.md) | Per-domain precision/recall analysis |
 | [docs/HARDWARE_HARNESS.md](docs/HARDWARE_HARNESS.md) | Reproducible hardware-benchmark methodology and environment fingerprint schema |
+| [docs/HARM_POLICY.md](docs/HARM_POLICY.md) | Two-axis (hazard domain × operational intent) harm-uplift gate: what is refused, what is permitted, and why |
 | [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification (including Lyapunov certificate proof) |
 | [docs/ORACLE_NOISE_COLOR.md](docs/ORACLE_NOISE_COLOR.md) | Oracle noise color calibration theory |
 | [docs/NEUROSYMBOLIC.md](docs/NEUROSYMBOLIC.md) | Neuro-symbolic co-training accounting, ablation, and keep/quarantine verdicts |
 | [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
 | [docs/SELF_IMPROVEMENT_LOOP.md](docs/SELF_IMPROVEMENT_LOOP.md) | Governed self-improvement rollout gated on label-provenance-clean loaders |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment reference for the served API |
+| [docs/GCN_KAFKA_MCP.md](docs/GCN_KAFKA_MCP.md) | NASA GCN Kafka credential keep-alive that stops the 30-day inactivity expiry, and why no Kafka MCP server is configured |
 | [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md) | Free-service account/auth/quota platform: threat model, security controls, configuration, deployment, migration, and acceptance checklist |
 | [docs/DOMAIN_EMAIL_HOSTING_SETUP.md](docs/DOMAIN_EMAIL_HOSTING_SETUP.md) | Public-deployment ground truth: DNS, mailbox, DKIM/DMARC, and measured hosting sizing |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Feature roadmap and planned work |
@@ -1905,7 +1986,7 @@ Mercury Agent employs a comprehensive security architecture designed for product
 - Signature verification
 - Rate limiting (token bucket algorithm)
 
-**Post-Quantum Cryptography (AMA Cryptography v4.0.0):**
+**Post-Quantum Cryptography (AMA Cryptography v5.0.0):**
 
 > **What the AMA dependency is, and is not.** AMA Cryptography is Mercury's
 > **trust substrate** — the thing Mercury's own guarantees rest on — not a
@@ -2007,7 +2088,7 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub. It regis
 
 The **AMA Cryptography adapter** provides post-quantum cryptographic security with GOSNN synapse integration:
 
-**PQC Algorithms** (sourced from AMA Cryptography v4.0.0):
+**PQC Algorithms** (sourced from AMA Cryptography v5.0.0):
 - **ML-KEM-1024 / Kyber-1024**: Post-quantum key encapsulation, FIPS 203, NIST Level 5
 - **ML-DSA-65 (Dilithium-3)**: Post-quantum digital signatures, FIPS 204 §5.2 (context-aware deterministic signing), NIST Level 3 (≈ 192-bit classical security strength)
 - **SLH-DSA-SHAKE-128s / SHA2-256f**: Hash-based digital signatures, FIPS 205, NIST Level 1 / Level 5 respectively
@@ -2207,16 +2288,22 @@ from omni_mercury_engine.integrations.cross_platform_hub import (
 )
 
 hub = CrossPlatformHub()
-hub.register_platform(PlatformConfig(
-    platform_type=PlatformType.PROMETHEUS,
-    name="prometheus-main",
-    endpoint="http://prometheus:9090"
+hub.register_platform("soc-splunk", PlatformConfig(
+    platform_type=PlatformType.SPLUNK,       # HEC /services/collector/event
+    name="soc-splunk",
+    endpoint="https://splunk.example.org:8088",
+    auth_type="api_key",                      # sent as "Authorization: Splunk <token>"
+    credentials={"api_key": hec_token},
 ))
-
-# Ingest and correlate across platforms
-await hub.ingest_from_all()
-correlations = hub.correlate_events(window_seconds=300)
+await hub.publish_detection_result(detector.detect(batch), source="security:ids")
+groups = hub.get_correlated_events(time_window_seconds=300, min_correlation=0.8)
 ```
+
+Each platform is spoken natively (Splunk HEC, Datadog `/api/v1/series`,
+Elastic/OpenSearch `_doc`/`_bulk`, a merged Prometheus push, OTLP). The API
+server forwards every anomalous detection automatically when
+`MERCURY_ALERT_SINKS` is set, TLP-gated per sink (see
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#siem--observability-alert-egress)).
 
 </details>
 
@@ -2361,7 +2448,7 @@ the Free Software Foundation, either version 3 of the License, or
 - **Fairlearn**: MIT license
 - **Hypothesis**: MPL 2.0 license
 - **FastAPI**: MIT license
-- **AMA Cryptography**: GNU GPL v3.0 (pinned to `v4.0.0`; the sole PQC backend, and the source of the ACVP-validated native HMAC bindings consumed by `omni_mercury_engine.security.native_jwt`)
+- **AMA Cryptography**: GNU GPL v3.0 (pinned to `v5.0.0`; the sole PQC backend, and the source of the ACVP-validated native HMAC bindings consumed by `omni_mercury_engine.security.native_jwt`)
 
 PyJWT was retired from the dependency surface in v1.7.0; Mercury now
 ships a pure-stdlib JOSE implementation
@@ -2461,17 +2548,17 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics.
 - **Quantified claims:** All performance metrics are measured and documented with methodology; no figure appears in this README without a referenced source.
-- **Comprehensive testing:** 13,950 tests collected with the full optional-dependency surface (`pytest --collect-only -q`, 2026-07-24) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
+- **Comprehensive testing:** 16,717 tests collected with the full optional-dependency surface (2026-10-17) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; a minimal install collects fewer because optional-import-gated modules skip. The suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
 - **Executable mathematical certificates:** The Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job -- a documentation claim that disagrees with the certificate fails CI rather than going to print.
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and benchmark figures are paired with the dataset, the methodology document, and the date of the run that produced them.
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; σ_Immutable + Benevolence gates are mandatory hard gates at every public detection / analysis / prediction surface (no advisory mode).
-- **Academic grounding:** Medical modules reference JAMA Sepsis-3 guidelines, security follows OWASP, post-quantum cryptography is built against AMA Cryptography v4.0.0 (NIST FIPS 203/204/205 KAT vectors verified bit-for-bit).
+- **Academic grounding:** Medical modules reference JAMA Sepsis-3 guidelines, security follows OWASP, post-quantum cryptography is built against AMA Cryptography v5.0.0 (NIST FIPS 203/204/205 KAT vectors verified bit-for-bit).
 
 ### What Requires Caution
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on **66 reproducible real datasets** (of 75 attempted; canonical Mean ROC-AUC **0.8251** / Median **0.8747** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8251**). 9 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on **67 reproducible real datasets** (of 76 attempted; canonical Mean ROC-AUC **0.8545** / Median **0.9052** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8515**). 9 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 
@@ -2479,7 +2566,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 Before production use:
 
-- Validate performance on domain-specific real-world datasets (MIMIC-III, NSL-KDD)
+- Validate performance on domain-specific real-world datasets (e.g. MIMIC-III for the medical modules; NSL-KDD is already in the committed benchmarks)
 - Commission independent security audit by qualified professionals
 - Conduct clinical validation for any medical applications
 - Deploy with FIPS 140-2 Level 3+ HSM for production secrets
@@ -2495,12 +2582,12 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent v2.1.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent v2.1.0 — Computational Systems Intelligence for Multi-Domain Anomaly & Hazard Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
-<img width="91" height="96" alt="Mercury Agent icon" src="https://github.com/user-attachments/assets/4c1d5a43-a547-4c76-8db8-7b045113c906" />
+<img width="63" height="65" alt="image" src="https://github.com/user-attachments/assets/ff4770d8-40a9-4d83-b5b7-eb525494a91b" />
 
-*Last updated: 2026-07-24*
+*Last updated: 2026-10-17*
 
 </div>

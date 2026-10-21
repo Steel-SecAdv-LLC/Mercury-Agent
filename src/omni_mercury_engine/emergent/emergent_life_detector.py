@@ -162,8 +162,12 @@ class SETICosmicSignalAnalyzer:
         if len(signal_data) < 10:
             return {"detected": False, "period": 0.0}
 
-        autocorr = np.correlate(signal_data, signal_data, mode="full")
-        autocorr = autocorr[len(autocorr) // 2 :]
+        # Zero-padded Wiener-Khinchin linear autocorrelation (O(n log n));
+        # cosmic-signal captures are long, and the direct form is O(n^2).
+        n_sig = len(signal_data)
+        padded = np.zeros(2 * n_sig)
+        padded[:n_sig] = signal_data
+        autocorr = np.fft.irfft(np.abs(np.fft.rfft(padded)) ** 2)[:n_sig]
 
         peaks = []
         for i in range(1, len(autocorr) - 1):
@@ -348,6 +352,85 @@ class BioSignalPatternRecognizer:
         return recs
 
 
+def _clip01(signal_characteristics: dict[str, Any], key: str, default: float = 0.5) -> float:
+    """Read a signal characteristic and clip it to ``[0, 1]``.
+
+    Values are expected already normalised to ``[0, 1]``; out-of-range or
+    non-numeric entries are clipped or replaced with ``default`` so a missing
+    characteristic leaves the corresponding fitness weight neutral.
+    """
+    value = signal_characteristics.get(key) if isinstance(signal_characteristics, dict) else None
+    if isinstance(value, (int, float)) and np.isfinite(value):
+        return float(np.clip(value, 0.0, 1.0))
+    return default
+
+
+def _derive_signal_characteristics(signal_data: np.ndarray[Any, Any]) -> dict[str, float] | None:
+    """Measure ``snr`` / ``bandwidth`` / ``periodicity`` in ``[0, 1]`` from a raw signal.
+
+    Uses the module's own spectral machinery (``ResonanceEngine``) so the
+    protocol search is conditioned on what the receiver actually measured,
+    not on caller-supplied summaries:
+
+    - ``snr``: dominant spectral peak over the median noise floor on the
+      mean-removed signal, log-mapped so a flat spectrum (0 dB) gives 0.0 and
+      a >= 30 dB peak gives 1.0.
+    - ``bandwidth``: occupied-bandwidth fraction — the share of positive-
+      frequency bins at or above 10 % of the peak magnitude (a pure tone is
+      near 0, white noise near 1).
+    - ``periodicity``: height of the strongest non-zero-lag peak of the
+      normalised (mean-removed) autocorrelation, clipped to ``[0, 1]``.
+
+    A degenerate input (too short, non-finite, or constant) is unmeasurable:
+    ``None`` is returned so the caller can keep any characteristics it already
+    holds instead of having them overwritten by placeholders.
+    Convention note: the shared spectrum helper keeps only ``frequencies >= 0``
+    and the FFT convention places the Nyquist bin at a negative frequency, so
+    an exact-Nyquist tone contributes no measured peak.
+    """
+    x = np.asarray(signal_data, dtype=float).ravel()
+    if x.size < 8 or not np.all(np.isfinite(x)):
+        return None
+    centered = x - float(np.mean(x))
+    energy = float(np.dot(centered, centered))
+    if energy <= 1e-24:
+        return None
+
+    engine = ResonanceEngine(sampling_rate=1.0)
+    _freqs, magnitudes = engine.compute_resonance_spectrum(centered)
+    magnitudes = np.asarray(magnitudes, dtype=float)[1:]  # drop the DC bin
+
+    peak = float(np.max(magnitudes)) if magnitudes.size else 0.0
+    floor = float(np.median(magnitudes)) if magnitudes.size else 0.0
+    ratio = peak / max(floor, 1e-12) if peak > 0.0 else 1.0
+    snr = float(np.clip(np.log10(max(ratio, 1.0)) / 3.0, 0.0, 1.0))  # 30 dB full scale
+
+    bandwidth = float(np.mean(magnitudes >= 0.1 * peak)) if peak > 0.0 else 1.0
+
+    # Linear autocorrelation via zero-padded Wiener-Khinchin: O(n log n),
+    # where np.correlate's direct form is O(n^2) — it matters because this
+    # module's stated input is telescope/receiver time series, which can be
+    # long captures. Zero-padding to 2n makes the circular transform equal to
+    # the linear autocorrelation (to floating point).
+    n_samples = centered.size
+    padded = np.zeros(2 * n_samples)
+    padded[:n_samples] = centered
+    autocorr = np.fft.irfft(np.abs(np.fft.rfft(padded)) ** 2)[:n_samples] / energy
+    periodicity = 0.0
+    if autocorr.size > 3:
+        interior = autocorr[1:-1]
+        local_max = (interior > autocorr[:-2]) & (interior > autocorr[2:])
+        peaks = interior[local_max]
+        if peaks.size:
+            periodicity = float(np.clip(np.max(peaks), 0.0, 1.0))
+
+    return {
+        "snr": snr,
+        "bandwidth": float(np.clip(bandwidth, 0.0, 1.0)),
+        "periodicity": periodicity,
+    }
+
+
 class MultiverseContactProtocolExplorer:
     """Multiverse-based exploration of contact protocols.
 
@@ -362,20 +445,56 @@ class MultiverseContactProtocolExplorer:
         )
         self.logger = logging.getLogger(__name__)
 
-    def explore_contact_protocols(self, signal_characteristics: dict[str, Any]) -> dict[str, Any]:
+    def explore_contact_protocols(
+        self,
+        signal_characteristics: dict[str, Any] | None = None,
+        signal_data: np.ndarray[Any, Any] | None = None,
+    ) -> dict[str, Any]:
         """Explore potential contact/communication protocols using multiverse.
 
         Args:
-            signal_characteristics: Characteristics of detected signal
+            signal_characteristics: Characteristics of the detected signal.
+                ``snr`` / ``bandwidth`` / ``periodicity`` entries in ``[0, 1]``
+                condition the fitness weights directly when no raw signal is
+                supplied.
+            signal_data: The raw received signal. When given, the three
+                conditioning characteristics are **measured from it** with the
+                module's own spectral machinery (see
+                :func:`_derive_signal_characteristics`) and take precedence
+                over any caller-supplied summary values.
 
         Returns:
-            Optimal contact protocol strategies
+            Optimal contact protocol strategies, including the conditioning
+            actually used and whether it was derived from the signal.
         """
+        # Condition the fitness weights on the observed signal: a wider band
+        # rewards raw throughput, a noisier channel (low SNR) rewards error
+        # correction, and a more periodic (structured) carrier rewards a more
+        # universal encoding. A missing characteristic leaves its weight neutral.
+        signal_characteristics = signal_characteristics or {}
+        measured = _derive_signal_characteristics(signal_data) if signal_data is not None else None
+        signal_unmeasurable = signal_data is not None and measured is None
+        if measured is not None:
+            derived_from_signal = True
+            characteristics: dict[str, Any] = dict(signal_characteristics)
+            characteristics.update(measured)
+        else:
+            # An unmeasurable signal must not overwrite genuine caller-supplied
+            # characteristics with placeholders labelled as measurements.
+            derived_from_signal = False
+            characteristics = signal_characteristics
+        snr = _clip01(characteristics, "snr")
+        bandwidth = _clip01(characteristics, "bandwidth")
+        periodicity = _clip01(characteristics, "periodicity")
+
+        info_weight = 0.5 + bandwidth
+        ecc_weight = 0.5 + (1.0 - snr)
+        universality_weight = 0.5 + periodicity
 
         def protocol_fitness(protocol_vector: np.ndarray[Any, Any]) -> float:
-            info_transfer = np.mean(protocol_vector[:32])
-            error_correction = np.std(protocol_vector[32:64])
-            universality = -np.var(protocol_vector[64:96])
+            info_transfer = np.mean(protocol_vector[:32]) * info_weight
+            error_correction = np.std(protocol_vector[32:64]) * ecc_weight
+            universality = -np.var(protocol_vector[64:96]) * universality_weight
 
             return float(info_transfer + error_correction + universality)
 
@@ -403,6 +522,18 @@ class MultiverseContactProtocolExplorer:
             "optimal_protocols": protocol_candidates,
             "protocols_explored": len(self.multiverse.universes),
             "convergence_achieved": converged.fitness > 0.9,
+            "signal_conditioning": {
+                "info_weight": info_weight,
+                "ecc_weight": ecc_weight,
+                "universality_weight": universality_weight,
+                "characteristics": {
+                    "snr": snr,
+                    "bandwidth": bandwidth,
+                    "periodicity": periodicity,
+                },
+                "derived_from_signal": derived_from_signal,
+                "signal_unmeasurable": signal_unmeasurable,
+            },
             "recommendations": self._generate_protocol_recommendations(protocol_candidates),
         }
 
@@ -505,7 +636,11 @@ class EmergentLifeDetector:
                     "Protocol explorer not initialized despite enable_contact_protocols=True"
                 )
             protocols = self.protocol_explorer.explore_contact_protocols(  # type: ignore[union-attr, unused-ignore]
-                {"confidence": result.confidence, "technosignatures": result.seti_technosignatures}
+                {
+                    "confidence": result.confidence,
+                    "technosignatures": result.seti_technosignatures,
+                },
+                signal_data=data,
             )
             if protocols is not None:
                 result.contact_protocols = [

@@ -454,14 +454,19 @@ class TLPHandler:
         lowered_type: str,
         context: Mapping[str, Any],
     ) -> TLPColor:
-        """Escalate AMBER to AMBER+STRICT when context warrants it."""
+        """Escalate to AMBER+STRICT when context warrants it.
+
+        ``contains_pii`` escalates AMBER *or weaker* (a CLEAR or GREEN
+        record carrying personal data must not become freely shareable);
+        ``strict_sharing`` and the medical PHI rule escalate AMBER only.
+        """
+        if bool(context.get("contains_pii", False)) and base.rank <= TLPColor.AMBER.rank:
+            return TLPColor.AMBER_STRICT
+
         if base is not TLPColor.AMBER:
             return base
 
-        strict_context = bool(context.get("strict_sharing", False)) or bool(
-            context.get("contains_pii", False)
-        )
-        if strict_context:
+        if bool(context.get("strict_sharing", False)):
             return TLPColor.AMBER_STRICT
 
         # Sensitive types in medical/healthcare default to strict because

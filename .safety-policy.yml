@@ -1,108 +1,40 @@
-# Mercury Agent Safety Policy (v3.0)
-# Defines accepted vulnerabilities for the Safety CLI scanner.
+# Mercury Agent: Safety policy for the Python-package CVE gate.
 #
-# Each CVE entry documents the rationale, applied mitigations, and review
-# schedule so that CI can hard-fail on NEW vulnerabilities while allowing
-# known, risk-assessed exceptions through.
+# Read by `safety check --policy-file .safety-policy.yml` in the blocking
+# dependency gates of .github/workflows/ci.yml and security.yml, which scan the
+# isolated Mercury install (`pip freeze` of `pip install -e ".[api]"`). Safety's
+# `check` command reads only this format (policy version 2.0); a 3.0 file makes
+# it abort, so this file stays at 2.0 until the gate moves to `safety scan`.
 #
-# Last Updated: 2026-05-22 (PR #238 — refreshed cross-references after
-#   `docs/SECURITY.md` was retired per owner directive; the Python-package
-#   gate runs with zero risk acceptance and the OS-level acceptances
-#   below remain enforced by Trivy via `.trivyignore`.  Per-CVE
-#   rationale that previously lived in `docs/SECURITY.md` is now tracked
-#   under the dated security entries in `CHANGELOG.md`.)
-# Reviewed By: Steel Security Advisors LLC
-# Next Review: 2026-08-02 (quarterly)
+# Posture: zero accepted risk. Every severity is reported, a vulnerability with
+# no CVSS score is reported, unpinned requirements are scanned, and any report
+# fails the job. tests/security/test_safety_policy.py pins each of these values
+# and the rules for exceptions below.
 #
-# Reference: https://docs.safetycli.com/safety-docs/policy-file
+# Exceptions: none. An exception is a last resort for a finding with no fixed
+# release that cannot be removed or isolated. It names the Safety advisory id,
+# says why the vulnerable code is not reachable in Mercury, and carries an
+# expiry at most 90 days out; Safety stops applying an expired entry, so the
+# gate fails again until the exception is re-reviewed or the dependency fixed.
+# Record the full rationale in a dated CHANGELOG security entry. Shape:
+#
+#   ignore-vulnerabilities:
+#     77680:
+#       reason: "requests: <component>; not reachable because <...>; CHANGELOG 2026-10-17"
+#       expires: "2027-01-15"
+#
+# Deployment-image (OS package) acceptances are a separate ledger: .trivyignore.
 
-version: '3.0'
+version: '2.0'
 
-scanning-settings:
-  max-depth: 6
-  exclude: []
-  include-files: []
-  system:
-    targets: []
-
-report:
-  dependency-vulnerabilities:
-    enabled: true
-    auto-ignore-in-report:
-      python:
-        environment-results: true
-        unpinned-requirements: true
-      cvss-severity: []
-
-fail-scan-with-exit-code:
-  dependency-vulnerabilities:
-    enabled: true
-    fail-on-any-of:
-      cvss-severity:
-        - critical
-        - high
-      exploitability:
-        - critical
-        - high
-
-security-updates:
-  dependency-vulnerabilities:
-    auto-security-updates-limit:
-      - patch
-
-installation:
-  default-action: allow
-  audit-logging:
-    enabled: true
-  allow:
-    packages: []
-    # Accepted CVEs with documented risk assessment.
-    # Each entry expires 2026-08-02 (quarterly review).
-    vulnerabilities:
-      # CVE-2025-14104: util-linux heap buffer overread in setpwnam()
-      # Severity: Medium | Non-root container; setpwnam() never called.
-      CVE-2025-14104:
-        reason: "Non-root container; setpwnam() not called by application."
-        expires: "2026-08-02"
-      # CVE-2025-8869: pip symlink extraction vulnerability
-      # Severity: Medium | Runtime image does not run pip.
-      CVE-2025-8869:
-        reason: "Runtime image does not invoke pip; fixed in pip >= 26.0."
-        expires: "2026-08-02"
-      # CVE-2025-7709: libsqlite3 FTS5 vulnerability
-      # Severity: Medium | FTS5 module not used.
-      CVE-2025-7709:
-        reason: "FTS5 module not used by application."
-        expires: "2026-08-02"
-      # CVE-2025-68973: GnuPG key handling
-      # Severity: High | GnuPG not present in runtime image.
-      CVE-2025-68973:
-        reason: "GnuPG not used; package absent from runtime image."
-        expires: "2026-08-02"
-      # CVE-2025-13601: glib URI processing
-      # Severity: High | No glib URI processing in code.
-      CVE-2025-13601:
-        reason: "Application does not process URIs via glib."
-        expires: "2026-08-02"
-      # CVE-2025-6020: linux-pam
-      # Severity: High | No PAM usage; non-root container.
-      CVE-2025-6020:
-        reason: "PAM not used; container runs non-root."
-        expires: "2026-08-02"
-      # CVE-2025-7458: SQLite (Critical, no fix in Debian bookworm)
-      # Severity: Critical | No SQLite bindings or imports.
-      CVE-2025-7458:
-        reason: "SQLite not used by application; no direct bindings."
-        expires: "2026-08-02"
-      # CVE-2023-45853: zlib/minizip (Critical, no fix in Debian bookworm)
-      # Severity: Critical | minizip not used; only zlib core compression.
-      CVE-2023-45853:
-        reason: "minizip not used; only zlib core compression."
-        expires: "2026-08-02"
-  deny:
-    packages: {}
-    vulnerabilities:
-      warning-on-any-of:
-        cvss-severity: []
-      block-on-any-of:
-        cvss-severity: []
+security:
+  # Report every CVSS score; no floor below which findings are dropped.
+  ignore-cvss-severity-below: 0
+  # A vulnerability that has no CVSS score yet is still a vulnerability.
+  ignore-cvss-unknown-severity: false
+  # Scan unpinned requirements against every vulnerable version they allow.
+  ignore-unpinned-requirements: false
+  # Any reported vulnerability fails the job.
+  continue-on-vulnerability-error: false
+  # Accepted exceptions (see the rules above). Empty: nothing is accepted.
+  ignore-vulnerabilities: {}

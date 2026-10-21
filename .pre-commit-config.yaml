@@ -45,7 +45,7 @@ repos:
   # Linting
   # ==========================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.0  # PINNED with ci.yml + pyproject [dev] (check_pinned_tool_versions.py)
+    rev: v0.16.4  # PINNED with ci.yml + pyproject [dev] (check_pinned_tool_versions.py)
     hooks:
       - id: ruff
         args: ['--fix', '--exit-non-zero-on-fix']
@@ -63,7 +63,7 @@ repos:
   # Type Checking
   # ==========================================================================
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
+    rev: v2.3.1
     hooks:
       - id: mypy
         args: ['--config-file', 'pyproject.toml', '--follow-imports=silent', '--ignore-missing-imports', '--no-error-summary']

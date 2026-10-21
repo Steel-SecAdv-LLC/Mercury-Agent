@@ -3,8 +3,9 @@
 """Offline, deterministic tests for the Schumann weak-supervision labeller (WS-C).
 
 These inject fixed NOAA-shaped catalogs (no network), so the labeling logic --
-Kp>=5 storm windows, M/X-class flare windows, documented lag, provenance, and
-label-noise disclosure -- is verified reproducibly.
+NOAA G1+ storm windows (Kp 5- and up, via noaa_g_scale), M/X-class flare
+windows, documented lag, provenance, and label-noise disclosure -- is verified
+reproducibly.
 """
 
 from __future__ import annotations
@@ -19,11 +20,16 @@ from omni_mercury_engine.space.schumann_labeling import (
     label_noise_disclosure,
 )
 
-# Fixed NOAA-shaped fixtures (no network).
+# Fixed NOAA-shaped fixtures (no network). The 09:00 row is a 5- (G1) bin in
+# the live feed's shape: the thirds string and estimated_kp carry 4.67 while
+# the filing integer kp_index reads 5 -- a literal "kp_index >= 5" check only
+# caught it by that filing convention, and recorded Kp 5.0 instead of 4.67.
 _KP = [
     {"time_tag": "2026-01-01T00:00:00", "kp_index": 2},  # quiet
-    {"time_tag": "2026-01-01T03:00:00", "kp_index": 6},  # storm (>=5)
+    {"time_tag": "2026-01-01T03:00:00", "kp_index": 6},  # storm (G2)
     {"time_tag": "2026-01-01T06:00:00", "kp_index": 3},  # quiet
+    {"time_tag": "2026-01-01T09:00:00", "kp_index": 5, "estimated_kp": 4.67, "kp": "5M"},  # G1
+    {"time_tag": "2026-01-01T12:00:00", "kp_index": 4, "estimated_kp": 4.33, "kp": "4P"},  # 4+
 ]
 _XRAY = [
     {"time_tag": "2026-01-02T00:00:00Z", "energy": "0.1-0.8nm", "flux": 1.0e-7},  # below M
@@ -40,10 +46,12 @@ def _catalog():
 def test_storm_window_from_high_kp() -> None:
     cat = _catalog()
     storms = [w for w in cat.windows if w.driver == "geomagnetic_storm"]
-    assert len(storms) == 1
-    assert storms[0].magnitude == 6.0
-    # labelled positive at the storm time
+    # the integer-6 bin and the 5- (4.67) bin; the 4+ (4.33) bin is sub-G1
+    assert len(storms) == 2
+    assert sorted(w.magnitude for w in storms) == [4.666666666666667, 6.0]
+    # labelled positive at the storm times
     assert cat.label(datetime(2026, 1, 1, 3, 0, tzinfo=UTC)) == 1
+    assert cat.label(datetime(2026, 1, 1, 9, 0, tzinfo=UTC)) == 1
     # quiet hours far from any driver are negative
     assert cat.label(datetime(2026, 1, 1, 0, 0, tzinfo=UTC)) == 0
 
@@ -60,7 +68,7 @@ def test_flare_windows_m_and_x() -> None:
 
 
 def test_thresholds_are_documented_constants() -> None:
-    assert KP_STORM_THRESHOLD == 5.0
+    assert KP_STORM_THRESHOLD == 14.0 / 3.0  # NOAA G1 onset: Kp 5- (4.67)
     assert FLARE_M_CLASS == 1e-5
     assert FLARE_X_CLASS == 1e-4
 
@@ -72,7 +80,7 @@ def test_provenance_and_license() -> None:
     assert "public domain" in p["license"].lower()
     assert p["thresholds"]["kp_storm"] == KP_STORM_THRESHOLD
     assert p["n_windows"] == len(cat.windows)
-    assert p["n_storm_windows"] == 1
+    assert p["n_storm_windows"] == 2
     assert p["n_flare_windows"] == 2
 
 

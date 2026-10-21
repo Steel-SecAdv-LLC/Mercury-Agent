@@ -27,6 +27,2531 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Mathematical Observatory: verified equation solving, anomaly instruments over mathematical data, mathlib-capable proof checking (branch `steel/version-cov4`)
+
+**Added — `omni_mercury_engine.observatory`, a machine that solves what is
+solvable and observes the rest for clues.** Four components, every output
+measured or refused:
+
+* **`EquationSolver`** takes classroom notation (`x^2 - 5x + 6 = 0`,
+  implicit multiplication `2x`, `e`/`pi` constants, `^` powers), solves
+  symbolically (SymPy) with a deterministic sign-change + `nsolve` scan for
+  transcendental forms, and **verifies every candidate by substitution**
+  (30-digit residual, tolerance 1e-9) before reporting it. Anomalies
+  observed within a solve: `spurious_root_rejected` (a candidate failing
+  its own residual check is never an answer) and `near_multiple_root`
+  (|f'(root)| tiny → ill-conditioned, sensitivity ≈ eps/|f'|). Parametric
+  solutions (`a + b = 1` for `a`) verify symbolically. Domain filter
+  (`real` default for students, `complex` on request) counts rather than
+  hides exclusions. Input is charset-guarded (no underscores, quotes,
+  brackets or letter-adjacent dots, 500-char cap), so Python internals are
+  unspellable. Statuses are honest: a symbolic empty set is `grounded`; an
+  empty numeric scan is `unavailable` with "nonexistence is NOT
+  established"; no SymPy means `unavailable`, never a guess.
+* **`ZetaSpectrumInstrument`** computes genuine zeta zeros
+  (`mpmath.zetazero`), unfolds consecutive gaps by the local mean spacing
+  `2π/log(γ/2π)`, measures the Kolmogorov–Smirnov distance to the GUE
+  Wigner-surmise law (Montgomery 1973 / Odlyzko 1987; the closed-form CDF
+  `erf(2s/√π) − (4s/π)e^(−4s²/π)` is cross-checked in tests against direct
+  numerical integration), and flags unusually close pairs — Lehmer's
+  phenomenon (1956), the place RH is stressed hardest. Fails closed
+  without mpmath.
+* **`GoldbachCometInstrument`** counts unordered Goldbach partitions
+  exhaustively, measures the comet's mod-3 banding raw (the 3|n band is
+  ~2× the others), collapses it with the Hardy–Littlewood (1923) extended
+  conjecture prediction `C₂·∏(p−1)/(p−2)·n/ln²n` — an observed anomaly
+  resolved by a published theory, the method in miniature — and reports
+  the largest residual outliers plus `counterexample_candidates` (even n
+  with no partition; none below 4e18, Oliveira e Silva 2014).
+* **`CollatzRecordsInstrument`** iterates every trajectory exactly,
+  reports stopping-time and excursion record ladders (pinned to the
+  literature: 27 → 111 steps, peak 9,232) with an anomaly score against
+  the heuristic drift average `2/ln(4/3)·ln n` (documented as heuristic),
+  and reports budget-exhausted trajectories as counterexample candidates
+  routable to `MysteryRegistry.submit_collatz`.
+
+**Added — `verify_lean_project` (`verifiers/lean_theorem.py`)**: kernel-
+checks a full Lean project via `lake build` (cwd-pinned, fixed argv,
+timeout), so mathlib-backed proof artifacts — published 2026 results
+included — become *checkable* rather than merely citable. `lake` missing
+is `available=False` (no fake pass); a missing lakefile or directory is a
+loud `ValueError` (caller error ≠ oracle absence); timeouts are reported
+as timeouts, never as acceptance.
+
+**Added — `mercury-agent observatory` CLI** (click group beside the
+existing `physics` group): `solve` / `zeta` / `goldbach` / `collatz`
+subcommands with student/professor ergonomics — classroom notation in,
+readable verdict lines out, `--domain`, `--top`, `--threshold`,
+`--anomalies-only` filters, `--json` for pipelines, refusals exit 2 with
+the reason instead of a traceback.
+
+**Measured.** 76 new tests (solver exactness {2,3} on the quadratic, the
+Dottie number 0.7390851332151607 to 1e-12, the GUE CDF against numeric
+integration, the first zeta gap from the known ordinates, exact partition
+counts r(10)=2/r(12)=1/r(100)=6, the singular series on 12/16/30/50, the
+27-record, fail-closed paths for both missing oracles, every input guard,
+CLI filters and refusal exit codes, and all five `lake` verdict paths by
+subprocess-boundary stubs). The module was mutation-measured on day one:
+full enumeration over its four files (257 sites) scored 61.9% on the first
+pass; the 98 survivors were classified and the behaviorally meaningful
+clusters closed with 22 kill-pin tests (contract boundaries at 500/501
+chars, the tolerance defaults exercised at the exact 1e-6 slope boundary,
+scan geometry at a grid-point root and the final interval, the KS statistic
+against a synthetic sample with the exact known answer 0.5/n, the twin-prime
+constant against its own Euler product to 1e-5, band densities re-derived
+independently to 1e-12, and the exact Collatz budget boundary at n=64),
+raising the full-enumeration rate to **85.2%** (219/257) with every
+remaining survivor classified (scan-geometry resolution tweaks, exact-float
+boundary swaps, parity-guarded branches, unused sieve overrun, and the two
+env-unreachable import fallbacks). The floor is CI-enforced at 75
+(`mutation-testing.yml`, `mutation-floor-observatory` lane). The
+counterexample hooks are architecture, not claims: all candidate lists
+measure empty in tested ranges, as the literature says they must.
+
+### Math-surface integrity round: real zeta zeros, honest UNDECIDABLE semantics, dated 2026 claims (branch `steel/version-cov4`)
+
+**Fixed — the Riemann exploration scored an RNG, not the zeta function
+(`models/simulation.py`).** `explore_conjecture("riemann")` fabricated
+"zeros" at `14.134725 + 10k` with Gaussian noise on the real part and
+reported `viability_score ≈ 0.999` — a measurement of its own noise
+generator. It now computes the first `min(search_space, 100)` genuine
+non-trivial zeros with `mpmath.zetazero` (zeros of the real Riemann–Siegel
+`Z(t)`, exactly on `Re(s) = 1/2`), certifies each by `|ζ|` residual
+(observed ≈ 3×10⁻¹⁵; tolerance 10⁻⁶), and cross-checks the count against
+the Riemann–von Mangoldt strip count (`mpmath.mp.nzeros`) — Turing's
+verification method in miniature: matching counts prove no zero below that
+height hides off the critical line. Without mpmath the path fails closed
+(`oracle: "unavailable"`, zero explored cases, viability 0.0) instead of
+fabricating. Locked by four fail-on-old tests in
+`tests/models/test_simulation.py` (real ordinates 14.134725/21.022040/…,
+strip-count agreement, fail-closed path, empty-search-space path — the old
+code crashed on `search_space=0`).
+
+**Fixed — `UNDECIDABLE` prose claimed open problems were proven
+undecidable (`verifiers/three_state.py`).** The enum and the
+`KNOWN_UNDECIDABLE_IN_GENERAL` catalog said "no decision procedure exists
+in principle" and "no checkable proof object" about the Riemann Hypothesis
+and P vs NP. Both statements were false as written: these problems are
+*open*, not proven independent, and a kernel-accepted Lean proof is exactly
+a checkable proof object. The prose now states the true invariant — the
+claims are beyond an *instance oracle's* reach (finitely many checks can
+never settle a universal claim), and a future proof object grounds them
+through the theorem path. String values, enum members, and all behavior
+unchanged. Locked by a fail-on-old test in
+`tests/test_three_state_contract.py`.
+
+**Changed — Millennium-problem outputs now carry dated, source-attributed
+claim records (`models/simulation.py`).** `_analyze_navier_stokes` keeps
+`status: "unsolved"` (Clay has accepted nothing) but records the September
+2026 OpenAI forced-blow-up announcement under `claimed_results` with
+`status: "claimed_unverified"`; the Riemann insights likewise date the
+claimed `Re(s) > 7/8` zero-free region (2026, unverified) and cite the
+verified frontier correctly (Platt & Trudgian 2021, height 3×10¹²,
+replacing an uncited "10 trillion zeros" line). Locked by a fail-on-old
+test asserting the claim record exists and is marked unverified.
+
+**Documented — the math-named ethical scalars are hand-set priorities, not
+evidence (`core/ethical_config.py`);** evidence-grounded mathematical
+scalars live only in `ScalarGroup.MATHEMATICAL_MYSTERIES`, registered by
+the verifiers. `verifiers/lean_theorem.py` now states its core-Lean-4 scope
+explicitly (no mathlib; a mathlib proof needs a full Lean project) and the
+standard it implements: the kernel's acceptance, not an announcement, is
+the evidence — the same bar by which 2026 machine-generated proofs (e.g.
+AlphaProof's published Lean artifacts) are judged.
+
+**Verification note.** A relayed external review prompted this round; each
+claim was checked against the code before acting. One claim was rejected
+as overstated: `detectors/math_arrest/probes/zeta_harmonic.py` already
+documents honestly that it computes `sin(2πx) + cos(2πx)` as a
+phase-coherence probe — it makes no zeta claim, and was left unchanged.
+
+### Deep-review round: fail-closed input guards, three defect fixes, geological survivor closure 57.9% → 75.1% (branch `steel/version-cov4`)
+
+**Fixed — nine legacy humanitarian paths graded a NaN window as "normal"
+(fail-open; `infrastructure/humanitarian/`).** Every pre-existing detection
+path (temperature, precipitation, yield, price, market, employment,
+achievement, dropout, neural activity, cognition) returned
+`anomaly_detected: False` with severity "low" for windows containing NaN
+or infinity, and precipitation accepted negative rainfall as a drought
+measurement. All now refuse non-finite input with `ValueError`, and the
+physically non-negative quantities (rainfall, yields, prices, unemployment
+rates) refuse negatives — the rule Round 19 established repo-wide
+("detectors refuse unmeasurable input instead of grading it safe").
+25 regression tests; 24 verified failing on the pre-fix code (the 25th
+guards against over-validation: negative temperatures and index returns
+stay valid, and a 0% unemployment rate is measurable, not refused).
+**Breaking change:** callers feeding non-finite windows now get
+`ValueError` instead of a fabricated all-clear.
+
+**Fixed — wildfire resonance `frequency_components` misattribution
+(`detectors/geological/wildfire.py`).** Band scores were zipped against
+band names *by position*, so whenever an earlier band had no FFT bin the
+next band's score was reported under the wrong name and trailing bands
+vanished from the dict (a 1/h-sampled series reported the convective
+band's score as "wind_gust"). Scores are now keyed by band, absent bands
+read 0.0, and the phi-weighted aggregate is unchanged. Regression test
+verified failing on the old code.
+
+**Fixed — a stale volcanic eruption operating point survived a checkpoint
+swap (`detectors/geological/volcanic.py`).** Loading a checkpoint without
+an operating point over one that carried a validation-selected tau kept
+the previous checkpoint's alert threshold in charge of the new weights;
+wildfire and landslide already reset, volcanic did not. It now reverts to
+the legacy fixed rule. Regression test verified failing on the old code.
+
+**Changed — geological survivor-closure pass: 57.9% → 75.1% measured over
+the full enumeration (975/1,299; landslide 77.4%, wildfire 72.8%, volcanic
+76.0%), CI floor raised 50 → 65.** 57 kill-pin tests close the measured
+clusters: exact Poisson-MLE failure-time recovery against Bell, Naylor &
+Main (2013) expected counts (t_f to ±1 ms over 20 bins, likelihood ratio
+pinned), the full `detect_live` USGS alert-state decision ladder over
+stubbed HANS feeds, mid-band probes a tenth past every served threshold
+(thermal intensity, gas degassing, InSAR severity, Angström bands,
+Saffir-Simpson, fire-risk points, FIRMS raster bounds, NFDRS validation
+band edges), deterministic swarm/noisy-OR arithmetic, the adaptive
+optimizer's exact adaptation formulas, operating-point validation across
+all three detectors (invalid tau refused, validated before any state
+mutates), untrained-warning once-per-detector pins, and
+checkpoint-compatibility shape contracts for all five geological networks.
+The humanitarian lane re-measured over its guard-grown surface: 666 sites,
+662 killed (99.4%), the same four classified equivalents, floor 90
+unchanged.
+
+### Humanitarian capabilities instituted on published methods; no-check test triage; per-module mutation floors for the crisis monitor and the enhanced geological detectors (branch `steel/version-cov4`)
+
+**Added — five humanitarian `detect()` capabilities, each on a published
+method with cited thresholds
+(`infrastructure/humanitarian/{neuroscience,climate_resilience,economic_resilience,education_equity,agrifood_security}.py`).**
+The five detection types the dispatchers documented but silently routed to
+their default paths are implemented, and every previously unreachable enum
+member is now reachable and pinned by test:
+
+* `neuroscience` `mental_health` (flagship): scores three validated clinical
+  screening instruments by their published rules — PHQ-9 (Kroenke, Spitzer &
+  Williams 2001: bands 5/10/15/20, cutpoint ≥ 10 at 88%/88%
+  sensitivity/specificity), GAD-7 (Spitzer et al. 2006: bands 5/10/15,
+  cutpoint ≥ 10 at 89%/82%) and ASRS v1.1 Part A (Kessler et al. 2005:
+  per-item shaded thresholds, ≥ 4 positive items at 68.7%/99.5%). Any PHQ-9
+  item-9 endorsement escalates to `MENTAL_HEALTH_CRISIS` with immediate
+  urgency and a structured suicide-risk-assessment action, per the
+  instrument's published guidance (Simon et al. 2013); the crisis
+  recommendations branch is reachable, mis-scored instruments refuse with
+  `ValueError`, and every output carries a verbatim clinical disclaimer
+  deferring to licensed clinical review. A positive ASRS screen reports
+  `ATTENTION_DEFICIT`.
+* `climate` `sea_level`: tide-gauge trend by OLS with annual/semiannual
+  harmonics (Zervas 2009, NOAA CO-OPS 053) plus a quadratic acceleration
+  term (Church & White 2011), detected against the measured global-mean
+  altimetry references (3.4 mm/yr, 0.084 mm/yr²; Nerem et al. 2018).
+  Verified on a recorded NOAA CO-OPS fixture (The Battery, monthly MSL
+  2000-2024, 300 contiguous months): measured trend 6.32 mm/yr, above the
+  global mean, consistent with the documented post-2000 US-Northeast
+  acceleration. `HURRICANE` is reachable through a `wind` branch
+  (NHC/Saffir-Simpson: 64 kt force, 96 kt major) and `WILDFIRE` through a
+  `fire_weather` branch (Angström index, Chandler et al. 1983: < 2.0 very
+  likely, < 2.5 favorable).
+* `economic` `inflation`: the latest annual CPI rate graded on published
+  thresholds — ≥ 10% surge, ≥ 15% the Dornbusch-Fischer (1993) moderate
+  band, ≥ 40% the Bruno-Easterly (1998) crisis threshold — making
+  `INFLATION_SURGE` reachable; verified against the recorded World Bank
+  Türkiye series (72.3% in 2022 grades critical). A `gdp` branch implements
+  the technical-recession rule (two consecutive negative quarters, Shiskin
+  1974; the NBER-differs caveat is carried in the output), making
+  `RECESSION_RISK` reachable.
+* `education` `access`: out-of-school rates against the measured UNESCO UIS
+  world primary rate (10.3%, ROFST.1.CP "SDG: World", recorded fixture) —
+  `ACCESS_BARRIER` reachable at >1x/>2x/>4x the world rate. A `resources`
+  branch applies the UNESCO EFA 40:1 pupil-teacher benchmark
+  (`RESOURCE_INEQUITY`), and a `parity` branch the UIS adjusted
+  gender-parity band [0.97, 1.03] behind SDG 4.5.1 (`BIAS_DETECTED`, with
+  the disadvantaged group named).
+* `agrifood` `soil_health`: the four-indicator vector graded on published
+  thresholds — SOC < 2.0% (Loveland & Webb 2003), pH outside 5.5-7.5 (FAO),
+  bulk density > 1.6 g/cm³ (USDA NRCS), salinity ≥ 4 dS/m (USDA Handbook
+  60) — with two or more breaches a `CROP_FAILURE` risk. A `pest` branch
+  applies the FAO Desert Locust control trigger (≈ 500 hoppers/ha;
+  `PEST_OUTBREAK`), and a `supply` branch the FAO minimum safe cereal
+  stocks-to-use level (17%, with the 17-18% band tight;
+  `SUPPLY_DISRUPTION`).
+
+Recorded fixtures with provenance and sha256 under
+`tests/fixtures/humanitarian/`: NOAA CO-OPS 8518750 monthly MSL, UNESCO UIS
+world out-of-school, World Bank TUR CPI and WLD primary GPI, and the NOAA
+NCEI climatology below. 150+ behavioral boundary tests pin every published
+constant; the full mutation enumeration over the grown surface (666 sites,
+up from 312, including the round-22 fail-closed input guards) measures
+99.4% killed (662/666, the last kills hand-verified), with the four
+survivors individually classified equivalent — the CI floor lane stays
+at 90.
+
+**Changed — the drought grading baseline is the measured NOAA climatology
+(`climate_resilience.py`; owner-approved).** The shipped 100 ± 50 mm
+placeholder put the 2σ deficit at exactly 0 mm, so only a fully rainless
+window could ever grade as drought and the moderate grade was unreachable.
+The baseline is now 66.2 ± 13.5 mm/month — the mean and population std of
+the 360 CONUS monthly totals, 1991-2020, NOAA NCEI Climate at a Glance
+(recorded fixture, recomputed by test) — so every drought grade is
+reachable from positive rainfall (2σ deficit at 39.2 mm, 3σ at 25.8 mm).
+
+**Changed — humanitarian detector type hygiene (owner-approved).** All five
+detectors return `anomaly_detected` as a Python `bool` (previously
+`np.bool_` leaked from bare numpy comparisons, failing `isinstance` checks
+and JSON serialization) and stamp results with timezone-aware UTC
+timestamps (previously naive local `datetime.now()`, against the repo-wide
+UTC convention). The volcanic detector had the same two `np.bool_` leaks
+(`thermal_anomaly_detected`, `deformation_detected`), fixed the same way.
+**Breaking change:** `result["timestamp"]` is now timezone-aware UTC;
+consumers comparing against naive datetimes must use aware datetimes.
+
+**Changed — `DualStudentConfig.alpha` is wired (owner-approved;
+`ml/distillation/dual_student.py`).** Training now minimizes
+`alpha * loss1 + (1 - alpha) * loss2`: `alpha` tilts the distiller between
+the patch-level encoder-decoder student (1.0 trains only it) and the
+semantic encoder-encoder student (0.0), with the default 0.5 reproducing
+the historical unweighted behaviour up to a constant factor Adam absorbs.
+`alpha` outside [0, 1] (or non-finite) is refused at construction.
+Behavioral tests pin both exclusive-training directions, descent of the
+weighted term, and the default. `temperature` is documented as RESERVED
+(owner decision): cosine-feature distillation has no logits and no
+principled place for a temperature; a test pins that changing it changes
+nothing. The wiring grew the module's mutation surface from 92 to 103
+sites; the re-measured kill rate is 95/103 (92.2%, one kill hand-verified),
+the 8 survivors the previously classified equivalents, floor 80 unchanged
+(the CI lane gains `--test-timeout 360`: the suite is seconds idle but
+measured past 150 s under the gate's own 4-way worker contention, inside
+which the 120 s default failed the green-baseline pre-check).
+
+**Fixed — a failed cache write destroyed the previous valid entry
+(`loaders/base.py`).** `json.dump` streamed into an already-truncated file,
+so an unserializable payload wiped the existing good cache entry for that
+key and left corrupt bytes behind. The payload is now serialized before the
+file is opened: a failed serialization writes nothing. Regression tests
+fail on the old code.
+
+**Changed — the no-check test census is closed (118 tests across 44
+files).** Measured by AST census under the repo's pytest collection rules:
+118 collectible tests performed no checks (the handoff's 131 included
+nested, never-collected defs); 47 of them checked through module-level
+helpers and 71 were genuinely vacuous — `try/except: pass` bodies, calls
+swallowed blind, and assertions on APIs that do not exist
+(`GlobalOmniScalarNetwork.forward`, `KnowledgeGraph.query_node`). All are
+upgraded to behavioral assertions against measured contracts; the census
+now reports zero. En route, latent test defects were fixed: the HUMINT
+tests passed `source_reliability` where the processor reads
+`source_rating` (the NATO ladder was never exercised), the COMINT test
+passed `encrypted` for `encryption_detected`, the plateau-scheduler test
+asserted a reduction one epoch before `ReduceLROnPlateau` can fire, and
+the volcanic high/low-risk tests passed `gas_emissions`/`deformation_mm`
+where `predict_eruption` reads `gas_data`/`insar_data`.
+
+**Changed — behavioral rewrites with per-module mutation floors
+(`tests/detectors/test_geological_detectors_3r.py`,
+`tests/infrastructure/humanitarian/test_crisis_monitor.py`).** The
+geological 3R suite (32 of 61 tests trivia-only) is rewritten to pin the
+trigger models' intensity-duration and PGA arithmetic, the geotechnical
+physics stability formula and failure-type ladder, the NFDRS fuel-moisture
+regressions and fuel-interface adjustment (GTR INT-169), the spread-model
+factors, NDVI metrics, brightness-temperature physics, the FIRMS raster
+contract, the HMM forward algorithm against its published matrices, and
+the USGS-style alert ladder — 159 tests. The crisis-monitor suite's 20
+trivia tests now pin the fusion threshold (strict), the severity ladder,
+exposure arithmetic, indicator typing, and group/response logic — 102
+tests; full enumeration measures 83.3% (60/72, every survivor classified
+equivalent), floored at 75 in a new CI lane. A geological floor lane runs
+the seven suites that cover the three modules: the full enumeration over
+all 1,302 sites measures 46.6% before the rewrite and 57.9% after
+(landslide 67.8%, wildfire 52.9%, volcanic 57.3%), floored at 50. The 548
+survivors are measured, not classified — they concentrate in
+constructor-default tables, the neural/live paths and the physics forecast
+internals; their classification and closure is the next ranked item of the
+hardening program.
+
+### Hazard adapters on the engine contract; NHC peak storm surge as a numeric source; a calibrated mean band (branch `steel/version-cov4`)
+
+**Added — seven hazard adapters serve the full `BaseDetector` contract
+(`detectors/hazard_adapter.py`).** The hazard detectors registered in
+`DETECTOR_MANIFEST` without `extract_features`/`predict`, so the registry's
+feature extraction skipped them silently. `tornado_conditions`,
+`hurricane_pressure`, `flood_precipitation`, `financial_stress`,
+`solar_wind_geomag`, `xray_flare` and `gic_minute_series` now wrap their
+domain detectors in named-column batches (units documented per adapter):
+scores are the wrapped detector's own confidence or its cited scale (NOAA
+G/5, NOAA R/5, the Pulkkinen/Meta-R-321 dB/dt tiers over 3), decisions are
+the wrapped detector's own, wrong-width and non-finite batches are refused,
+and `fit` trains nothing (the detectors are physics- or checkpoint-backed).
+The manifest holds 101 entries; the manifest contract test now also holds
+every adapter-tagged entry to the full contract. Not adapted, with reasons
+stated in the module: wildfire (measures thermal rasters; a scalar-row
+adapter would be a constant) and EMP (waveform-level, no honest per-row
+attribution).
+
+**Added — NOAA NHC Peak Storm Surge as a numeric storm-surge source
+(`data_sources/storm_surge.py`, `DataSourceType.STORM_SURGE`).**
+`NHCPeakStormSurgeSource` reads the public ArcGIS service's line and polygon
+layers (US Gulf and Atlantic coasts, Puerto Rico, USVI; no key), and
+`parse_peak_surge_kml` reads the same product's archived per-advisory KML.
+Values stay in NHC's feet with exact-foot metres beside them, and each area
+is graded on the GDACS surge thresholds (Red >= 3 m, Orange >= 1 m) that
+previously had no measured feed. Recorded fixtures: Hurricane Milton
+advisory 17 byte-verbatim (Tampa Bay 10-15 ft -> 3.05-4.57 m -> Red; 27
+forecasts) and the live quiet-state layer answer, which the source reports
+as an empty result, never a zero surge. SURGEDAT (LSU) remains unreachable
+from this environment: surge.climate.lsu.edu serves a broken certificate
+chain and 503, surge.srcc.lsu.edu does not answer, and the Internet Archive
+mirror is denied by the environment's egress policy.
+
+**Changed — the band of the mean of the incidence fit is calibrated
+(`forecasting/incidence_fit.py`).** The NB dispersion MLE runs high at these
+sample sizes (geometric mean 12.7 for a true 10 at 28 observed days, 200
+fits), which quietens every parametric-bootstrap replicate; the band now
+redraws its replicates at a bootstrap bias-corrected dispersion and
+prepivots per day with one inner refit per outer replicate (fast double
+bootstrap: Davidson & MacKinnon 2007; Giacomini, Politis & White 2013), at
+3x the previous fit cost. `IncidenceForecast.mean_nominal` (additive) carries
+the per-day calibrated nominal level. Measured coverage at a 95% target over
+120 simulated R0 = 3 outbreaks with known truth: 92.7% +/- 2.2
+outbreak-clustered (88.0% uncalibrated, 91.3% for calibration without the
+dispersion correction; the estimated correction is size x 0.80) — better,
+documented, and still short of nominal. The ceiling is measured from three
+directions: the full nested double bootstrap (B_inner = 60, ~40x the cost)
+covers 95.7% +/- 2.3 over 40 outbreaks with the shipped fast method at
+95.9% on the same outbreaks (the shortcut loses nothing); B = 500 covers
+91.1% +/- 2.5 over all 120 (resolution is not the constraint); so the
+residual deficit lives in the hard minority of outbreaks whose fitted law
+sits too far from the truth for any within-model resampling calibration to
+repair at these sample sizes.
+
+**Fixed — `fit()` trained nothing on datasets smaller than `batch_size`
+(`ml/distillation/dual_student.py`).** The training loader used
+`drop_last=True` at the configured batch size, so a dataset smaller than one
+batch yielded zero batches and `fit()` marked the model fitted without a
+single optimizer step — `detect()` then served scores from randomly
+initialized students. The batch size is now capped at the dataset size and
+an empty dataset raises `ValueError`. `feature_dim` (additive read-only
+property, mirroring `detectors/visual/base_visual.py`) exposes the
+aggregated teacher channel count previously written to a dead private
+field. Found by the per-module mutation program below.
+
+**Changed — the distillation tests pin behavior instead of shapes
+(`tests/test_distillation.py`; mutation kill rate 45.0% -> 91.3%).** First
+module hardened under the per-module mutation-floor program for trivia-only
+test files: sixteen behavioral tests now pin the exact cosine-distillation
+loss values, bilinear aggregation to (min height, min width) without corner
+alignment, the multiplicative attention gate, the residual second encoder,
+the frozen teacher, shuffled full batches with partial batches dropped, the
+exact per-epoch mean in the epoch-10 log line, and `detect()`'s
+squared-error discrepancy maps. Every surviving mutant is individually
+classified equivalent: seven `nn.ReLU(inplace=True)` flips (memory layout
+only; outputs bit-identical) and `data[:1] -> data[:2]` in network
+initialization (channel inference is batch-size invariant).
+`mutation-testing.yml` gains a path-filtered `distillation-mutation-floor`
+job (floor 80). `DualStudentConfig.temperature` and `alpha` remain
+documented but wired to nothing; their intended semantics cannot be settled
+from the module or its cited papers (there is no reconstruction term for
+`alpha` to weight, and temperature applies to logit, not cosine-feature,
+distillation), so they are reported to the owner rather than guess-wired.
+
+**Fixed — a cold snap is no longer reported as a heatwave, and a rainless
+window is no longer "normal" (`infrastructure/humanitarian/
+climate_resilience.py`).** The extreme-cold branch returned
+`event_type: "heatwave"`, steering heat-emergency guidance (cooling
+centers) during a freeze; `ClimateEvent.COLD_SNAP` (additive) now labels it
+with cold-weather recommendations. Separately, the drought cut was strict
+at `baseline - 2*std`, which the shipped baseline (100 +/- 50 mm) places
+exactly at 0 mm — no non-negative rainfall series could ever reach it, so
+a completely rainless window reported "normal / continue routine
+monitoring" and the `z < -3` severity arm was dead. The drought and flood
+boundaries are now inclusive, a 0 mm window detects as a high-severity
+drought, and both regressions are pinned by tests that fail on the old
+code.
+
+**Changed — the humanitarian detector tests pin behavior instead of
+existence (`tests/infrastructure/test_humanitarian_detectors.py`; mutation
+kill rate 100%).** The file was the weakest in the tree (15 of 15 tests
+trivia-only: instantiation, `callable`, `is not None`). It now holds 58
+behavioral tests pinning every documented threshold of the five detectors
+(agrifood, climate, economic, education, neuroscience) at its exact
+boundary and mid-band, every severity/risk/impact grading, exact
+recommendation lists, division-guard behavior under zero- and sub-unit
+baselines, and the seizure spike definition (3x the series' own sigma,
+risks 0.3/0.5/0.6 constructed exactly). Measured over all 312 enumerated
+mutation sites of the five modules: 312/312 killed — 100%, no equivalents
+left — from 59.9% after the first behavioral pass and effectively zero
+discrimination before it. `mutation-testing.yml` gains a path-filtered
+`humanitarian-mutation-floor` job (floor 90).
+
+### NOAA G1 label alignment and retrain; GDACS rules settled on live data; fabrication-free detectors (branch `steel/version-cov4`)
+
+**Changed — every geomagnetic-storm decision starts at NOAA G1 (Kp 5-), routed through `noaa_g_scale`.**
+Training labels, the physics recall floor and the dual-rule Kp check of the
+solar-storm pipeline, the Schumann disturbed-hour labels, the Schumann
+weak-supervision storm windows, the scintillation and disaster-precursor risk
+levels and the energy loader's bands all used a literal `Kp >= 5.0` (or integer
+ladders), which called every 5- (4.67) hour quiet although NOAA files 5-, 5o
+and 5+ alike under G1. All of them now classify through
+`evaluation.hazard_metrics.noaa_g_scale`. The `solar_storm_geomag` checkpoint
+is retrained on the corrected labels (test-years storm fraction 2.63% → 3.90%)
+through a merit gate whose physics baseline is now forced to the true
+Boyle-index fallback — a default-constructed detector auto-loads the committed
+checkpoint, so once one shipped the "physics" baseline had silently become the
+incumbent network (measured "physics" Kp MAE 0.574, the incumbent's own score,
+against Boyle's real 1.054). Retrained result on 25,846 held-out hours
+(2022-2024): Kp MAE 0.5746 vs physics 1.0537, deployed-rule recall 0.770 vs
+0.611, FAR 0.0363 vs 0.0477, storm AUC 0.966 vs 0.816; every ship constraint
+passes. The stale hazard-domain baseline value (`kp_g_bucket_accuracy` 0.8727,
+which predated the G-scale consistency round) is re-pinned at the measured
+0.8545. The DONKI-based space-weather loader keeps its `Kp >= 5.0` window rule:
+api.nasa.gov served 503 for every attempt this round, so the kpIndex encoding
+could not be checked against the live service.
+
+**Added/Changed — GDACS rules settled against GDACS's own live outputs.**
+A 2018-2026 sweep of the live earthquake alerts (262 events) and all 84
+orange/red tropical cyclones of 2023-2026 (2,302 track points):
+
+- Cross-border earthquakes: reported coefficients are the exposed countries'
+  terms AVERAGED (exact on AFG+PAK, PHL+IDN and the three-country Atacama 2024
+  event: Chile with two global-model neighbours) and the reported coping
+  factor is their factors SUMMED — four of six sums decompose exactly into
+  single-country factors recorded in the same fixture sample. GDACS's final
+  cross-border score is NOT that model times that sum (1544720: 1.86 reported
+  vs 5.24 multiplied), so `apply_coping_capacity` accepts the real
+  zero-exposure factor 0 (only with score 0) and refuses sums with the reason.
+  GDACS keys terms by shaken territory, not event iso3 (a live Taiwan entry
+  absent from the 2017 table, vulnerability −0.56; Kashgar filed under KGZ but
+  scored with China's terms). `EarthquakeCoefficients` accepts numpy numbers.
+- The "EQ parameters" model is unexercised by the live feed: no-final-shakemap
+  events are scored with the shakemap formula on a PRELIMINARY shakemap (event
+  1499045 reproduces to full precision); the published formula on the event's
+  own SUMPOP radii is irreconcilable with the reported scores.
+- Live flood levels do NOT follow the published models_fl thresholds (25 of 56
+  orange/red events of 2024-2026 match against their own Sendai tallies, with
+  Orange at single-digit death tolls); `flood_alert_level` now says it
+  classifies on the published scale and does not reproduce live levels.
+- Cyclones: the table reproduces 2,278 of 2,302 live points with no country
+  population; the 24 others confirm the manual's "(100k or 10% poptot)"
+  reading on small territories (Guam, Northern Marianas, Turks and Caicos,
+  Vanuatu) once census populations are supplied. Storm surge stays
+  manual-only: the public API exposes surge only as map resources.
+- 10 new earthquake fixtures + the previously unrecordable 1511252;
+  `scripts/record_gdacs_fixtures.py` records the set reproducibly. Red
+  1474477 publishes no shakemap at all; the Venezuela pair's getimpact
+  resources time out server-side on every attempt.
+
+**Fixed — detectors refuse unmeasurable input and fabricate no measurements.**
+Each defect reproduced on the previous code, each fix pinned by a test:
+
+- GIC: structurally partial edge minutes are dropped, not passed off as
+  1-minute means (a series starting at :30 misread a steady 60 nT/min ramp as
+  45; the FRD fixture's 17:20 "minute" was one second of data).
+- Solar flare: the class is defined on the GOES long band alone (was
+  `max(short, long)` with a benign-A default); NaN/negative flux is refused
+  (it graded as a quiet A); `predict_live` now requests the integral-protons
+  product so the live S level is measured, never fabricates 0.0 observations,
+  and the flare result carries `radio_blackout_level`/`radiation_storm_level`.
+- USGS geomagnetism: disturbance grades against the fetched window's own
+  median H, not a fixed 20,000 nT reference that called every quiet sample of
+  the real Gannon-storm fixtures STRONG or SEVERE.
+- Tornado: NaN CAPE graded a supercell environment "low", and a pascal
+  pressure series read as a 1300 mb crash — both refused with the unit named.
+- Realtime threat: a NaN row graded "no threat" (failing OPEN); non-finite or
+  wrong-width input is refused with the reason.
+- Financial crisis: empty input reported fabricated measurements (VIX 20, CDS
+  100 bps), a NaN VIX graded "stable", banking stress alone was typed
+  "systemic_crisis", and a randomly-initialised FraudDetector was consulted;
+  absent metrics now come back `None` with `missing_inputs` named, and the
+  fraud network is quarantined until `load_fraud_weights()`.
+- Hurricane: an absent central pressure was served as a measured 1013 hPa /
+  0 kt estimate; the wind-pressure relation is the cited Atkinson & Holliday
+  (1977) form (was labelled "Dvorak" with a drifted 1013 reference).
+- Wildfire spread needs a measured wind speed and never fabricates a due-north
+  direction; flood soil products need the moisture and soil class, and an
+  unknown soil class is refused instead of silently reading as loam.
+- Fusion: 4 of the quantum model's 16 feature columns were constants (the full
+  pure-state entropy is identically 0; three repeated a config value) — they
+  now carry measured per-row quantities (bipartite Schmidt entropy,
+  participation ratio, phase coherence, amplitude entropy). Detectors whose
+  fitted state came from a loaded checkpoint are refit by explicit new
+  training data (a width-8 retrain kept the shipped width-16 spatial fit, so
+  drift reported "incomparable" forever). `default_fusion.pt` regenerated on
+  the fixed pipeline (it predated the round-14 look-ahead fix).
+- Incidence fit: a forecast day whose calibration cannot reach the 95% target
+  inside the 1 − 1e-9 nominal cap falls back to a one-sided interval that
+  covers by construction instead of returning the capped nominal as achieved;
+  the mean band's docstring carries its measured 86-92% coverage (the basic,
+  log-basic, Beran-recycled and log-t variants measure 85.8-87.4%, so no cheap
+  calibration is shipped).
+
+**Docs.** The unbacked "30 detection engines" headline and the "~500 ms / ~50 ms
+RTX 4090" latency tables are replaced by the measured counts (89 detector
+classes, CI-gated; 94 manifest entries; 5 default) and the committed
+fusion-latency measurements; no GPU figure is claimed because none is
+committed. The NAB harness pins its corpus to a commit and stamps run
+provenance.
+
+
+### GDACS tropical cyclones, GDACS's own scores as the test, and faster, better-calibrated detection (branch `steel/version-cov4`)
+
+An adversarial review of the first version reproduced 6 should-fix defects and
+10 nits; all are fixed, with tests, before this push.
+
+**Added — GDACS tropical-cyclone levels (`crisis_monitoring.gdacs`, `CrisisMonitor`).**
+The published GDACS cyclone page gives only a sparse risk matrix (no Category 5,
+no Category 4 at Medium or High vulnerability). The complete table is Table 1 of
+GDACS's MHEWS user manual (JRC141661, 2025; version of 23/09/2026; section 4.7),
+and it is implemented as printed: each track point's level from its
+Saffir-Simpson class, the people in its 34 kt and 64 kt wind buffers and its
+country's vulnerability, with the "100k or 10% of the country" thresholds; the
+storm takes its highest point; a Red more than three days ahead becomes Orange;
+scores 0.5, 1.5 and 2.5. Storm-surge levels (Red >= 3 m, Orange >= 1 m) are
+reported beside the wind level, outside the score, as GDACS does. Country
+classes are GDACS's published 2012 list with the two classes its live feed now
+reports differently (Tanzania Medium, Yemen High); the other 49 countries seen
+in that feed for 2023-2026 storms match. On the 152 track points of five real
+storms (MELISSA-25 twice, CHAMPI-26, DITWAH-25, TAPAH-25, CHOI-WAN-26) the table
+reproduces GDACS's level at every point, including the one Red GDACS lowered to
+Orange for being more than three days ahead (MELISSA-25 over Jamaica).
+`CrisisMonitor` takes `cyclone_points` (or one point on the report) and
+`max_storm_surge_m`; a point with exposure but no country is refused rather than
+assumed Low. The Saffir-Simpson ladder is checked knot by knot against the
+hurricane detector's. GDACS sets volcano, drought and forest-fire levels by
+expert judgement, with no published formula, so those are not implemented.
+
+**Checked against GDACS's own scores (earthquakes).** The module's earthquake
+docstring said its scores "have not been checked against GDACS's own event
+scores". 26 real events (2023-2026, recorded from GDACS's API under
+`tests/fixtures/gdacs`) now check it: given GDACS's own scaled population and
+coping factor, `shakemap_score` reproduces GDACS's score for all 21 scored
+single-country events (to 7e-15), and the 2017 table's intercept and slope are
+GDACS's live ones for each of their countries. Found along the way: GDACS's live
+coping factors use newer INFORM values with the published normalisation (China
+0.821 against the 2017 table's 0.833), which confirms leaving the 2017 column
+out; cross-border events average the countries' coefficients and sum their
+coping factors (3 events, factors up to 2.36, outside the published 0.5-1.5); and
+GDACS's live scaled population is not the published band formula on its own
+band totals (-0.27 to +0.17 in log10; the same level for 19 of 21). New
+`shakemap_score` and the `shakemap_scaled_population` input take GDACS's value.
+
+**Faster — epidemic fit with exact gradients.** `fit_seir_incidence` now
+integrates the forward sensitivity equations with the SEIR system, so each
+likelihood evaluation also gives its exact gradient (matching central
+differences to 1e-4); the negative-binomial log-likelihood is written out in
+closed form. On three simulated outbreaks the estimates and intervals match the
+finite-difference version to 8e-6 (relative) and the prediction bounds to one
+count, about 3.3x faster: 6.8-7.2 s to 2.1 s per fit at B = 200 on one core. The
+amplitude's upper bound is now also capped so that every point of the search box
+starts with S0 > 0: L-BFGS-B's first step goes to the box's corner, which could
+be an invalid state, and the penalty there stopped some bootstrap refits at
+their starting point.
+
+**Added — a training-conditional false-alarm bound.** The split-conformal
+threshold bounds the false-alarm rate only on average over calibrations: with
+300 uniform scores and a 1% target, 43% of single calibrations exceeded 1%.
+`detection_tier.pac_conformal_threshold` (Vovk 2012) picks the order statistic
+whose own rate exceeds the target with probability at most delta (measured 5.0%
+at delta = 10%); `pac_minimum_calibration_size` gives the fewest scores it needs
+(230 for a 1% target at delta = 10%), and fewer raise rather than return a
+weaker threshold. `PathogenDetector` takes it as `false_alarm_confidence`: over
+60 baselines the share above a 1% rate fell from 27% to 2%, at the cost of a
+lower average rate (0.83% to 0.28%), so less sensitivity.
+
+**Faster — importing the humanitarian modules.** `infrastructure/__init__` now
+loads `SpaceExplorationAnalyzer` and the streaming names on first use, through
+module `__getattr__` with the names kept visible to type checkers; importing
+`gdacs` or `CrisisMonitor` fell from 2.37 s to 0.20 s. Every package name still
+resolves.
+
+**Fixed — a reproducible quantum kernel.** The kernel path drew its shots from
+a fresh, unseeded generator per kernel entry, so `QuantumAnomalyDetector`'s
+scores changed run to run (AUROC 0.85-0.96 over 40 runs, as the PR noted).
+`QuantumAnomalyDetector(seed=...)` now seeds the kernel's shots and the QAOA
+initial parameters (VQE keeps its seed 0 unless given one): the same seed gives
+identical scores, and seeds 0-19 span 0.862-0.938. `QuantumKernel` and
+`QuantumFeatureMap` also take `shots=None` for the exact fidelity on the
+built-in statevector simulator, with no shot noise.
+
+**Fixed — radio-blackout and radiation-storm levels on NOAA's scales.** Three
+hand-written ladders now go through `evaluation.hazard_metrics.noaa_r_scale` /
+`noaa_s_scale`, the branch's single definitions. The SWPC X-ray level read M1 as
+Moderate (it is R1, Minor), C flares as Minor (they are below R1), exactly X1 as
+Moderate (R3) and X10/X20 as Strong (R4 Severe, R5 Extreme); DONKI flare classes
+read X10 as Extreme and X5 as Severe (R4 and R3). The SWPC proton ladder already
+matched S1-S5 and now uses the same function. `SolarStormPredictionResult` gains
+`radio_blackout_level` (R 0-5 from the 0.1-0.8 nm flux) and
+`radiation_storm_level` (S 0-5 from a supplied `proton_flux_pfu`); with protons
+supplied, `radiation_storm` follows S1 instead of the flare class, so an M flare
+without a proton event is no longer a radiation storm. `radio_blackout` keeps its
+released meaning, now stated as R3 or stronger. The test that pinned the old
+DONKI ladder pins NOAA's.
+
+**Measured, not adopted.** For the sequential pathogen test, an average of Simple
+Jumpers over jump rates 0.01, 0.1 and 1 found a 0.5 sd shift 29% sooner (median
+264 against 374 snapshots, 80 runs) but 0.75-1 sd shifts about 8% later, at the
+same false-alarm guarantee; the single rate stays the default.
+
+### Public-safety upgrades: sequential pathogen detection, fitted epidemic forecasts, GDACS alert levels (branch `steel/version-cov4`)
+
+Three capabilities on top of the rebuilt components below, each from a published
+method and measured on simulated data with a known truth. An adversarial review
+of the first version reproduced 8 should-fix defects and 6 nits; all are fixed,
+with tests, before this push.
+
+**Added — `core.conformal_martingale.ConformalChangeDetector` and
+`PathogenDetector.monitor`.** A snapshot test at a 1% false-alarm rate cannot see
+a small shift that persists. `monitor()` scores each snapshot as before and also
+feeds its energy to a conformal Shiryaev-Roberts test: smoothed conformal
+p-values against a bag seeded with the held-out baseline energies, the one-sided
+Simple Jumper betting martingale (Vovk et al. 2021), and the statistic
+R_n = Σ S_n/S_k, whose alarm R_n ≥ c restarts the test. Smoothed p-values are
+independent and uniform under exchangeability, ties included, so R_n - n is a
+martingale and alarms on a baseline-like stream average at least
+`mean_snapshots_to_false_alarm` (default 1000) snapshots apart, whatever the
+energy distribution: measured at 1.03-1.08 c for normal, Pareto and heavily tied
+scores. (The review showed that unsmoothed p-values break this proof when scores
+tie.) `seed` seeds the smoothing draws. On 12 correlated channels a shift of one
+channel by 1 sd left the snapshot alarm rate at the null 1.0% and was caught,
+counting from a restart at the onset, in a median of 71.5 snapshots (20 of 20
+runs; 1.5 sd: 33.5, 2 sd: 24.5, 3 sd: 17). A fall in energy alarms no more often
+than the null. The null is exchangeability, so drift or autocorrelation in a
+sensor also raises the statistic; after a confirmed event the baseline should be
+refitted. `BioThreatResult` gains `sequential_alarm` and `change_statistic`
+(log R_n); `detect_pathogen` is unchanged.
+
+**Added — `EpidemicForecaster.fit_to_incidence` and
+`forecasting.fit_seir_incidence`.** Fits β, the initial size and the
+negative-binomial dispersion k to observed daily incidence by maximum
+likelihood: the count on day j is NB with the model's E→I transitions that day
+as its mean, never cumulative counts (Chowell, Bleichrodt & Luo 2024; King et al.
+2015), and the initial state lies on the growth-phase eigenvector at S = N - R,
+so prior immunity (`initial_recovered`) enters as β(N - R)/N (the review found
+the first version ignored it: R0 3.047 with an interval above the true 3 at
+R = N/2; now 2.991). A parametric bootstrap (default B = 200) gives intervals for
+R0, the expected incidence and future counts. Over 120 simulated outbreaks
+(R0 = 3, k = 20, 40 observed days, 14 forecast) β was unbiased (mean 0.3000, sd
+0.012); the 95% R0 interval covered the truth 111 times (92.5%, exact CI
+86-97%) and the band of the mean covered 91.8% of forecast days (CI 87-96%). In
+the first version, prediction intervals drawn from the refits covered 91.1% of
+future counts (cluster-bootstrap CI 89.1-92.9%): k̂ runs high in small samples
+(median 23.5), which narrows the count noise. The prediction interval is now
+the plug-in interval calibrated per day by Beran's (1990) bootstrap method; on
+the same 120 outbreaks it covered 95.9% (CI 94.6-97.2%), at levels averaging
+0.988, and `prediction_level` reports the level each day needed. A
+population no larger than the observed cases plus the immune, non-finite rates
+and non-integer settings raise `ValueError`. A fit takes about 8 s at B = 200 on
+one core (6-10 s over 30 fits).
+
+**Added — `crisis_monitoring.gdacs` and GDACS levels in `CrisisMonitor`.** The
+GDACS earthquake shakemap and "EQ parameters" scores, the INFORM Lack of Coping
+Capacity factor, the Red/Orange/Green levels and the flood levels, implemented
+as published at gdacs.org. The coping-capacity map 0.5 + (LCC - 0.9)/8.4 matches
+all 191 rows of GDACS's 2017 coefficient table exactly, and the 38 countries with
+their own calibration are carried as `COUNTRY_COEFFICIENTS` (© European Union,
+CC BY 4.0); Japan's shakemap vulnerability of -1.0, for example, takes an
+exposure scored Orange by the global model to Green. GDACS's floor ("a score
+above 2 is not lowered below 1") cannot bind with factors in the published
+0.5-1.5 range and is not applied. When a GEOINT report carries a model's inputs
+(`population_by_mmi`, or `magnitude`, `depth_km` and `population_within_km`;
+`deaths`/`displaced` for floods; `inform_lcc`; `country_iso3`), the alert carries
+`gdacs_level` and `gdacs_score`; the hazard follows the inputs when not stated,
+and makes the type `natural_disaster`. Orange or Red counts as a detected
+crisis and raises severity to at least `high` or to `critical` (this module's
+reading of GDACS's "national capacity may need support" and "international
+intervention likely"), so a Red alert gets the national-response steps.
+Incomplete or invalid inputs, including numbers too large for a float, are
+named in the response instead of guessed or raised. The scores have not been
+checked against GDACS's own event scores.
+
+### Four public-safety components rebuilt on published methods (branch `steel/version-cov4`)
+
+Four modules inherited from Omni-AXA (2025-10-15) were still exported with
+their original logic: a terrorism detector that ignored its indicators, a "QBM"
+pathogen detector driven by a random matrix, a crisis monitor that invented
+population figures, and an SEIR forecaster with a wrong R0. Each now rests on a
+published method; every test the new files mark as such fails on the previous
+tree. An adversarial review of the first rebuild (`499c08af`) found 2 blocking
+and 5 should-fix defects; all are fixed below, each with a test that fails on
+that commit.
+
+**Fixed — `medical.pandemic.forecasting.EpidemicForecaster`.** R0 was
+β/(σ+γ), 1.67 for the default rates whose true R0 is 5 (the simulated final
+size implies 5.0001); at β = 0.25 it reported 0.83, "dies out", beside an
+outbreak that infected 89%. R0 is now β/γ, the next-generation-matrix value
+(van den Driessche & Watmough 2002). `chaos_score` is now Λ, the dominant
+eigenvalue of the infection subsystem at the disease-free state: the early
+growth rate per day (0.170 against an observed 0.169) and positive exactly above
+the epidemic threshold, so `bifurcation_detected` no longer depends on
+population size or fires below threshold. `chaos_threshold` is now in Λ's
+units (per day, default 0.0, the threshold); a value set for the released
+unitless score (its default was 1.28) never fires and should be removed.
+Deaths, hospitalisations and cost scale with cumulative infections (993,023 by
+default) instead of peak prevalence (305,010), with the ratios configurable and
+reported under `assumptions`. The grid is daily (`forecast_days + 1` points),
+so `peak_day` is a day, and "rapid intervention" is recommended only above the
+threshold. New `estimate_r0_from_incidence` fits the growth rate by Poisson
+regression and converts it with R = (1 + r/σ)(1 + r/γ) (Wallinga & Lipsitch
+2007, eq. 3.2); it recovers 5.0 within 5% from simulated counts. Non-numeric,
+infinite or out-of-range settings and initial counts raise `ValueError`.
+`simulate_intervention_effect` validates `effectiveness`, restores β even on
+error, and its 0.5 floor no longer raises an R0 that was already below it.
+
+**Fixed — `medical.pandemic.bio_threats.PathogenDetector`.** The released
+detector binarised readings at their own median and scored them with an
+unseeded random coupling matrix: about one fresh detector in six flagged the
+same input, and x, 1000x and x + 500 gave the same energy. It now needs
+`fit(baseline)` (snapshots x channels) and scores E = ½(x-μ)ᵀΛ(x-μ), the energy
+of a Gaussian Markov random field with couplings `J_matrix = -Λ` off the
+diagonal. The covariance is shrunk toward its diagonal and each channel's
+variance gets the same relative ridge, so the fit commutes with a change of
+units: a fluorescent fraction spiked 20 sd high is flagged whether it is
+reported as a fraction or in percent (the first rebuild scaled the ridge to the
+mean variance and missed it beside a channel of particle counts). A channel with
+no variance is named and refused. The threshold is the split-conformal quantile
+of held-out baseline energies (`false_alarm_rate`, default 0.01): the guarantee
+holds on average over the calibration draw (300 recalibrations averaged
+0.0100), while one baseline's realised rate varies (0.45% on the fixed test
+baseline; up to about 3% across 60 baselines). `confidence` is one minus the
+conformal p-value. Refitting recalibrates. A fixed `energy_threshold` is now an
+energy (>= 0, alarm when exceeded); the released -0.5 meant the opposite
+comparison and is refused. Shifts, rescalings, single-channel spikes and
+correlation changes are flagged; signatures name the channels beyond 3 sd. The
+type comes from a MASINT report naming a known agent, otherwise
+`unclassified_anomaly`, and every alarm starts with laboratory confirmation, as
+in the BioWatch process. An unfitted detector, a wrong-length snapshot or a
+baseline too short for the rate raises.
+
+**Fixed — `infrastructure.humanitarian.crisis_monitoring.CrisisMonitor`.** A
+lone score of 0.8 reported 80,000 affected (a default density of 10,000 x
+score x 10). `affected_population` is now the exposure the GEOINT report
+supplies (`affected_population`, or `population_density` x `affected_area_km2`,
+the keys this module's tests already passed) and `None` without it, with a
+response step to obtain it. OSINT indicators now type the crisis, matching is per
+indicator on word boundaries ("outbreak of violence" is not a pandemic),
+`mass_casualty` is reachable, and non-finite, boolean or out-of-range scores are
+clipped or ignored. `CrisisAlert.affected_population` is `int | None`.
+
+**Fixed — `security.anti_terrorism.TerrorismPatternDetector`.** The stage was
+`max(threat_score)` bucketed, with the indicators unread: "school bake sale" at
+0.95 was `imminent_action`. Indicators are now the 42 observable behaviours of
+*US Violent Extremist Mobilization Indicators* (NCTC, FBI and DHS, 2025), as
+codes or booklet numbers, and the stage is the most advanced one reported:
+mobilization is `imminent_action`, preparation `action_planning`, intent-type
+motivation `indoctrination`, other motivation `identification`. The score is
+the source's confidence, combined by noisy-OR across reports, and never sets
+the stage. `threat_detected` needs a preparation or mobilization indicator, or a
+direct threat (#28, #30, #31), and a stated source confidence: the booklet says
+the other motivation indicators "should not serve as the sole basis for any
+investigative activity", so acceptance of violence (#34) alone is staged but
+not alarmed, and an unscored report asks for corroboration instead of urgent
+action. `threat_indicators` lists only recognised codes; other strings go to the
+new `unrecognised_indicators`, and those naming a protected characteristic's
+category (race, age, religion, ...) to `excluded_indicators`, following the
+booklet's caveat that action should never rest solely on such characteristics.
+That screen matches category words, not every identity term, which is why no
+unrecognised string is ever reported as a threat indicator. Every action begins
+with trained human review. Free-text reports must be coded first.
+
+**Documented — three released-module removals (`DEPRECATION.md` §6.13-6.15).**
+This branch removes released public classes from three modules without
+restoring them: `security.counterintelligence.OverwatchNexus` /
+`OverwatchNexusResult` (scored reports it fabricated: the same risk, 0.2766,
+for zeros, noise and x1000 noise), the `truth_decipher.TruthDecipherFramework`
+API and `TruthDecipherResult` (fixed "true" ethics inputs; every resolution
+stored as a success; the name stays as an alias of `StatementVerifier`), and
+`security.quantum_risk_cyber`'s `QuantumRiskCyber`, `PostQuantumMigrationPlanner`,
+`QuantumThreat`, `ThreatLevel` and `CryptoSystem` (ML-DSA-65 and SLH-DSA flagged
+as quantum-vulnerable; SIKE and Rainbow counted as post-quantum). Each defect
+was reproduced on `main`; each entry names its replacement and a test that
+keeps the old surface from returning.
+
+### Performance round: the fusion path, start-up, and drift that per-feature tests miss (branch `steel/version-cov4`)
+
+Found by running the shipped system against a native AMA v5.0.0 build and
+profiling it. Both columns come from `benchmarks/fusion_latency.py` run on the
+same 4-CPU machine, once from the base commit's tree and once from this one
+(medians of three; run-to-run variation on this shared machine was up to about
+a third, so read the ratios, not the last digit; `benchmarks/results/fusion_latency.json`
+holds this tree's 8-feature run):
+
+| Measurement | Before | After |
+|---|---|---|
+| `import omni_mercury_engine.engine` (shap installed) | 8.4 s | 3.0 s |
+| `OmniMercuryEngine(auto_load_checkpoint=True)` | 2.4 s | 0.24 s |
+| `detect_with_fusion`, 64 rows x 8 | 157 ms | 38 ms |
+| `detect_with_fusion`, 1,024 rows x 8 | 2.13 s | 0.18 s |
+| `detect_with_fusion`, 4,096 rows x 8 | 7.89 s | 0.40 s |
+| Domain-model feature stage, 4,096 rows x 8 | 7.53 s | 0.19 s |
+| `detect_with_fusion`, 512 rows x 128 (`--features 128 --sizes 512`) | 2.62 s | 0.19 s |
+| of which `quantum` / `multiverse` / `neural` / `biometric`, same run | 1,706 / 267 / 670 / 54 ms | 8 / 6 / 20 / 4 ms |
+
+**Fixed — a row's score depended on the rows after it (`engine.py`).** The
+engine cleared streaming state (the neural model's hippocampal buffer, the
+directive detector's recursive memory) before `extract_features` but not before
+the `predict`/`detect` pass that follows it, so the second pass scored the first
+rows of a batch against the last rows of the same batch. With only the final 100
+of 300 rows replaced, 99 of the first 100 neural scores moved; they now do not.
+Training-time consensus scores take the same seam and are clean too.
+
+**Fixed — a single spike row discarded the neural model for the whole batch.**
+A spike has a flat spectrum, and `np.histogram` raises "Too many bins for data
+range" on it (float32 spikes of amplitude 1, 3000, 5000 and 1e5 all did); the
+engine then dropped the neural feature group. Such a row now falls in the middle
+bin, where a constant row already fell. On the shipped checkpoint no verdict
+moved, so this cost the neural evidence, not the decisions.
+
+**Performance — per-row Python loops replaced by batched array code.**
+`models/neural.py` (27x), `multiverse.py`, `neurosymbolic.py`, `consciousness.py`,
+`astrophysical.py`, `biometric.py` (harmonic features), `quantum.py` and
+`detectors/temporal.py` (sliding-window trend scores). Each is tested against the
+original implementation, kept in the test as an oracle: float64 and integer
+inputs match to rounding, float32 to single precision, and mutating the new code
+(window off by one, dropped ULP correction, unstable tie sort, wrong threshold)
+is caught. `quantum` previously eigendecomposed a d x d density matrix per row
+(O(d^3)); a pure state has one non-zero eigenvalue, `<psi|psi>`, so it is now a
+dot product. The old value carried single-precision LAPACK noise (up to 2e-6) on
+float32 input; the new one is exact. `SymbolicReasoningLayer.reason_many`
+evaluates the rules once per call, since they see only the context.
+
+**Performance — start-up.** PyTorch Lightning (with torchmetrics and matplotlib),
+sympy, shap and DeepFace (with TensorFlow, 1.8 s of the 2.0 s it took to construct
+an engine) load on first use instead of at import. Every public name still
+resolves, and the module-level `DeepFace`, `SHAP_AVAILABLE`, `LIME_AVAILABLE`,
+`SYMPY_AVAILABLE` and `ml.HAS_PYTORCH_LIGHTNING` keep working; the triton
+preload still runs immediately before the TensorFlow import.
+`models.biometric.DEEPFACE_AVAILABLE` is now resolved when it is read, and
+`QuantumConsciousnessModel._measure_entanglement` still answers for one state;
+nothing public was removed.
+
+**Added — principal-axis drift test (`ml/drift.py`).** Per-feature KS and PSI
+dilute a shift along a low-variance direction of correlated features, and the
+covariance test centres each window on its own mean. `PrincipalAxisDriftDetector`
+runs a KS test on every axis of the reference's PCA basis (Bonferroni, 0.01
+family-wise; the PCA variant of the aggregated univariate tests that Rabanser
+et al., arXiv:1810.11953, section 5, found comparable to multivariate tests).
+Axes come from the even reference rows and the distribution from the odd rows:
+fitting both on the same rows gave 6% / 25% / 100% false alarms (64 features
+with 500 reference rows; 128 with 1,000; 128 with 400) against 0% / 2% / 0%
+split. `benchmarks/drift_power.py` (100 windows per cell over 5 independent
+references) shifts 8 features correlated at 0.9 by one SD along the weakest
+axis (0.11 SD in the most-moved single feature): the ensemble flagged 1% / 8% /
+0% of 64 / 200 / 1,000-row windows before and 100% / 100% / 100% now, with
+false alarms with no drift moving from 0-2% to 1-5%. With 128 features and
+1,000 reference rows, 0% became 57% at one SD and 2% became 100% at two. With
+independent features it adds nothing (the per-feature tests already see the
+shift), and with 128 features at correlation 0.95 and only 400 reference rows
+it flags nothing beyond the other tests. It is on in `EnsembleDriftDetector` by
+default (`principal_axes=False` removes it, and `covariance=False` alone no
+longer gives a marginal-only ensemble). Its statistic is computed against a
+reference sorted once, equal to `scipy.stats.ks_2samp`'s to 1e-16.
+
+**Fixed — operator-facing.**
+- `mercury-agent detect -i data.csv` crashed with `could not convert string to
+  float: 'a'` on any CSV with a header row; the data, label and hazard loaders
+  now skip a header (a numeric first row is never dropped).
+- `mercury-agent detect -o out.json` (and every other CLI command that writes
+  JSON) serialised with `default=str`, which renders an ndarray as numpy's
+  abbreviated repr: the default statistical detector's per-row `scores`,
+  `z_scores` and flags came out as strings like `"[0.12 0.13 ... 0.26]"`, six
+  values per array. Arrays, numpy scalars and tensors now serialise as lists.
+- `scripts/mercury_session_setup.sh` installed `setuptools>=83 / wheel>=0.47 /
+  cmake>=4.4.0`, below the floors AMA v5.0.0's setup rejects (84 / 0.48 /
+  4.4.4), so a fresh container failed at its first AMA build. A test now keeps
+  it, `build_ama_native.sh` and the CI action in lockstep.
+
+**Fixed — repository configuration.** Each item was checked against the tool it
+configures, not read.
+- `.gitleaks.toml` held an allowlist and no `[extend] useDefault = true`, so the
+  CI Gitleaks step loaded zero rules: a file with a GitHub and a Slack token
+  gave "leaks found: 1" under the default config and "no leaks found" under the
+  repo's. It now extends the defaults. The tree, the PR's commit range and all
+  1,045 commits of history scan clean with two exact test sentinels and one history-only
+  type-annotation false positive allowlisted.
+- `.secrets.baseline` listed no plugins, so the pre-commit `detect-secrets` hook
+  printed "No plugins to scan with!" and exited 0 on that same file. Regenerated
+  with detect-secrets 1.4.0 (the hook's version): 22 plugins, 183 findings
+  reviewed line by line and recorded as false positives (placeholders, env-var
+  names, pinned digests, public KAT vectors); digest and NIST-vector JSON is
+  excluded by path. All tracked files pass and the canary file fails.
+- The Safety policy is one working file. `.safety-policy.yml` was a 3.0-format
+  file no gate read (`safety check` aborts on 3.0), carrying eight bookworm-era
+  acceptances whose review had lapsed on 2026-08-02; `.safety-policy-v2.yml`
+  existed only to stop `check` auto-discovering it. They are replaced by one
+  2.0-format `.safety-policy.yml` that both gates pass with `--policy-file`:
+  every severity reported, unscored findings and unpinned requirements
+  included, nothing accepted, and an exception only with a reason and an expiry
+  within 90 days (`tests/security/test_safety_policy.py`). Checked with Safety
+  3.8.1: a vulnerable pin fails (exit 64); an exception with a future expiry
+  removes exactly that advisory and an expired one stops applying; a misspelled
+  key fails the gate (exit 2); an unpinned requirement is scanned (9 findings,
+  0 if unpinned were ignored); a clean pin passes.
+- `/health` stays minimal (`status`, `version`). An earlier commit in this
+  round filled its never-populated `uptime_seconds`, but uptime on an
+  unauthenticated endpoint tells any caller when the service last restarted and
+  is already exported as `omni_mercury_uptime_seconds` on `/metrics`, so that
+  change is reverted. The platform's Caddyfile now answers 404 for `/metrics`
+  instead of proxying it: Prometheus scrapes the API over the compose network,
+  and its security model says `/metrics` must not face the internet (checked
+  with Caddy 2.11.7: `/metrics`, `/metrics/` and `/metrics/x` return 404;
+  `/health` and `/metricsx` proxy).
+- Compose: every published port is bound to `127.0.0.1` (the platform overlay
+  had published the API, an unauthenticated Prometheus and a Grafana on
+  admin/admin on all interfaces, around the TLS edge and the trusted
+  `X-Forwarded-For` hop), the overlay requires `GRAFANA_ADMIN_PASSWORD`, and the
+  stale pins moved: Caddy 2.8.4 to 2.11.7, Prometheus 2.51.2 to 3.13.4 (the LTS
+  line, supported to 2027-07-31; 3.15 is a regular minor whose fixes stop about
+  six weeks after release), Grafana 10.4.2 to 13.2.4 (a supported minor). Each
+  was run against the repo's own config (Caddyfile validates; 33 rules load and
+  reload; the provisioned datasource and all 16 dashboard panels load; Prometheus
+  3 scrapes the live API's `/metrics`). Prometheus 3 can only be downgraded to
+  2.55 and Grafana migrates its database forward-only, so the data volumes are
+  now named for the image's major version (`prometheus-data-v3`,
+  `grafana-data-v13`): a major bump starts on a new volume and the old one stays
+  intact. Tests fail when a volume name stops matching its image's major or
+  Prometheus leaves 3.13, and Dependabot (which gains a `docker-compose`
+  ecosystem, since its `docker` entry reads only the Dockerfile) takes
+  Prometheus patches and Grafana minors but not majors.
+- `.dockerignore` re-includes the two benchmark artefacts `self_model.py` reads;
+  without them the in-image self-description reported no measured limitations.
+- `.coveragerc` and `pyproject.toml` comments claimed `fail_under = 85` and an
+  "enforced" pyproject floor; coverage.py reads `.coveragerc` alone
+  (`coverage debug config`), so the comments now say so.
+- `.mcp.json` removed. `uvx kafka-mcp-server` could not start (its unbounded
+  `mcp>=1.6.0` resolves to mcp 2.x, which dropped `mcp.server.fastmcp`) and has
+  no SASL support, so it could not have authenticated to GCN even running, while
+  receiving the client secret from an unpinned package. `docs/GCN_KAFKA_MCP.md`
+  says what a working server needs; the keep-alive is unchanged.
+- `.flake8` needed no change: it reports nothing over CI's scope.
+- `test_single_image_path_input_finally_works` ran real DeepFace, which fetches
+  about 1.1 GB of weights on first use (and, with OpenCV 5 wheels that no longer
+  ship Haar cascades, the detector from GitHub), so it failed wherever that was
+  blocked. With the cascades supplied it passes against the real library (84 s),
+  so the setup is sound; the unit test now stubs DeepFace and asserts that a
+  pixel array, never the path, reaches it, and the real-library run needs
+  `[face]` and `MERCURY_NETWORK_TESTS=1`. No CI lane installs `[face]` (the old
+  test passed there only because DeepFace was absent and the harmonic fallback
+  ran), so that run is local until a lane adds the extra. `docs/INSTALLATION.md`
+  lists the assets, where they go and a checksum-verified way to pre-seed them.
+
+269 tests added; 16,717 are collected on this tree with the full optional-dependency
+surface. The full local run gave 16,610 passed, 103 skipped, 0 failed (the 103rd
+skip is the real-DeepFace test, which needs `[face]` and `MERCURY_NETWORK_TESTS=1`);
+the four Safety-policy tests added after it pass.
+
+### Audit round: seven parallel reviews of the newest code, every finding reproduced before it was fixed (branch `steel/version-cov4`)
+
+Seven independent reviews covered the roughly 20,000 lines added after the
+third review round (engine concurrency and drift, the fusion decision path and
+counterintelligence screening, the adjudication ledger, statement verification
+and the CIT, contactless vital signs, the API audit trail, and wiring). Every
+finding below was reproduced from the code or by experiment first, and each fix
+comes with tests that fail on the previous code.
+
+**Fixed — intelligence fusion decided from unbounded or unscreened inputs
+(`security/intelligence_fusion.py`, `security/counterintelligence.py`).**
+- One report with `threat_score: 50` forced CRITICAL over every other report,
+  and `-1e6` forced LOW: per-report scores were never bounded. Scores and
+  confidences outside [0, 1] are now excluded and recorded in
+  `evidence_notes`; empty reports no longer count as corroborating sources
+  (a missing confidence was defaulted to 0.5).
+- Once trained weights were admitted, screening no longer reached the
+  decision, and a NaN feature returned LOW. The network now sees only the
+  screened reports, defers to evidence scoring when screening or source grades
+  move a discipline away from the reliability it was trained with, and
+  non-finite values never decide.
+- A hostile report could take over a genuine one by declaring its default
+  `report_id`, or by spoofing its `source_id` with an earlier time. Default ids
+  are reserved, cluster representatives are chosen by origin and reliability
+  before time, and conflicting scores in one cluster raise `CONFLICTING_CLAIMS`.
+- Outcome weights are bounded (`MAX_OUTCOME_WEIGHT = 10`, a chosen cap); a
+  1e308 weight drove adjusted reliability to 1.0 or NaN.
+- Merit gate: exact-duplicate held-out cases count once (five copies of one
+  win used to pass at p = 1/32); attempts are recorded with a held-out
+  fingerprint, and the k-th retry against the same set must beat
+  `alpha * 2^-(k-1)`, which bounds false admission over unlimited retries at
+  `2 * alpha`. The count is per engine instance. List-valued disciplines raise
+  `InputModalityError`; only a missing torch maps the lazy export to `None`.
+
+**Fixed — adjudication ledger provenance and durability
+(`security/adjudication.py`).** A training export loaded silently as held-out
+data; edited exports and records cut from the end of the chain went
+undetected; the same payload could sit in both splits; "Alice" and "alice"
+were two raters; concurrent writers forked the chain; a crash mid-write locked
+the ledger for good. `load_export` now checks the split and, given the ledger,
+re-derives every case at the export's head; `verify(expected_head_digest=)`
+catches truncation; cross-split duplicate payloads are refused; people's ids
+are normalised; writers take a `flock` and append in one write;
+`repair_torn_tail` (CLI `repair`) drops only an unterminated crash fragment;
+exports are atomic and apply the merit gate's distinct-case minimum.
+
+**Fixed — statement verification and the CIT (`truth_decipher.py`).** Two
+one-second sightings inside an eight-hour claim corroborated it (posterior
+0.988): support now requires evidence covering the whole claimed interval
+(overlap still refutes), and untimed evidence does not bear on timed claims. A
+prior already past a threshold can no longer carry a claim across it on its
+own; thresholds compare in log-odds with a 1e-12 tolerance, so a Bayes factor
+of 19 reaches 0.95. The CIT overlap guard now includes the next item's
+pre-onset heart-rate baseline (13 s with the defaults; at 10 s an irrelevant
+item inherited the probe's deceleration). `ConsentRecord.withdrawn_at` blocks
+all further scoring. `benchmarks/cit_calibration.py` replaces two unbacked
+calibration figures with measured ones (see the restoration round below).
+
+**Fixed — engine drift and detector concurrency (`engine.py`, `ml/drift.py`,
+`core/parallel_detectors.py`, `core/detector_registry.py`).** Drift was
+permanently "incomparable" for any model with a constant feature or more than
+64 features (the batch was checked against the projected reference). On the
+served route an auto-fitted detector made the first inference batch its own
+drift reference. A drift error failed the whole detection request. With fewer
+than two parallel-safe tasks the registry timeout was not enforced, and a hung
+detector counted as a success, stranded a thread per call and saturated the
+executor until every healthy detector failed. All fixed; explicit baselines
+survive fits; failed derivations are cached; drift series are pre-created so
+the first detection after a restart alerts. `engine.detect()` now records its
+inference auto-fits too, and any training fit replaces an inference auto-fit
+(it used to keep it). New: `EngineConfig.detector_timeout_s` (default 30 s, the
+registry's budget; `None` disables it) and `MERCURY_FUSION_CHECKPOINT`.
+
+**Fixed — API audit and export (`api/`, `security/secure_audit_logging.py`).**
+A DETECT-only key could export audit logs with IPs and user agents:
+`/export/*` now requires the `export` permission. Anonymous 4xx traffic could
+rotate login evidence out of the hash-chained log: it is counted, not written.
+Session actions were audited as "anonymous". A crash-torn last line made the
+log unverifiable for good; same-second rotations overwrote a segment; workers
+resumed from and pruned each other's segments; `platform audit verify` failed
+whenever the server ran. Alert egress followed redirects with the sink's API
+key and queued deliveries without bound; `tracestate` was echoed unvalidated;
+CSV exports passed spreadsheet formulas through. All fixed.
+
+**Fixed — contactless vital signs reported breathing harmonics as heart rate
+(`biometric/rf_vital_signs.py`).** At 30 breaths/min or faster the breathing
+fundamental fell on the band edge, no harmonic was cancelled, and its second
+harmonic was reported as the heart rate (breathing 30/min with a true 96 bpm
+heart gave 60; 79 of 162 sweep windows were off by more than 5 bpm). The
+fundamental is now searched over a wider band and used for cancellation; when
+it cannot be resolved, or when a heart peak lies within
+`cancellation_guard_bins` (1.25, measured) of a suppressed harmonic, the heart
+rate is withheld as `HARMONIC_AMBIGUITY` (a heart at exactly 2x breathing had
+been reported 1.7 bpm off). The noise gate now uses the effective number of
+independent streams (participation ratio) instead of the raw count: noise
+shared across subcarriers passed it 7-12% of the time against a 1% target.
+Timestamped packets are interpolated at the packet rate and filtered down, so
+an out-of-band interferer no longer aliases into the heart band. Consent
+reuses `truth_decipher`'s `ConsentRecord` and `ConsentRequiredError`. The
+cost is coverage, not accuracy: CSI respiration coverage drops 1-8 points,
+and 10 s windows now never report a heart rate (they reported 17 of 111,
+within 1.6 bpm).
+
+**Fixed — monitoring that could not fire.** The Helm chart's API metrics port
+targeted 9090, where nothing listens; its alert rules were a hand-kept copy
+with eight alerts on metrics nothing emits and none of the drift alerts.
+`scripts/render_prometheus_rules.py` now generates the Helm `PrometheusRule`
+from the same CRD as compose and the raw manifests; the ServiceMonitor
+attaches the `app`/`service`/`job` labels every rule selects; the ethical-gate
+alerts moved into the CRD.
+
+**Fixed — CI.** Two numpy-typing failures on the Python 3.11 lane (in the
+RF module and its tests), and a phantom-token ethical-gate coverage report
+whose tokens named symbols that do not exist (now guarded by a test).
+
+**Changed — breaking for operators.**
+- Default API keys (`read` + `detect`) get 403 on every `/export/*` route;
+  compliance exports need a key with `export` or an admin principal.
+- Unauthenticated 4xx no longer appear in `/export/audit-logs`.
+- Statement verification no longer counts evidence covering part of a claimed
+  interval as support.
+- `load_export` takes a `split` (default `"heldout"`) and refuses the other.
+
+### Restoration round: rebuilt capabilities, two ethical-gate failures closed, drift on by default (branch `steel/version-cov4`)
+
+Every removed symbol from `7ab59916`, `740da10a` and `f07b724e` was loaded
+from history and run against live code. The removals were names, wrappers,
+proven duplicates and measurably broken code; three real needs surfaced, and
+in each the removed code did not meet them. This round rebuilds those, fixes
+what the audit found, and wires capabilities that existed but never ran.
+
+**Added — concurrent detector execution with a real deadline
+(`core/parallel_detectors.py`).** It replaces the removed
+`ParallelDetectorExecutor`, which discarded finished results on timeout and
+then waited for the slow detector anyway. Finished results are kept,
+unfinished tasks are reported as timed out, and the call returns at the
+deadline. A hung detector retires the pool so it cannot starve later calls,
+and abandoned threads are capped. Concurrency is opt-in per detector
+(`parallel_safe`); the five defaults declare it after a bit-identical
+concurrent-versus-sequential check. `EngineConfig.num_workers`, previously
+ignored, sizes the pool. 22 tests; 24 mutants, all killed.
+
+**Added — statement verification and a consent-gated Concealed Information
+Test (`truth_decipher.py`).** It replaces a pipeline whose ethics check passed
+every input and whose "resolution" always reported success. It provides
+Bayesian corroboration over independent evidence clusters, contradiction
+detection (Allen's interval algebra, impossible travel), consistency over
+time, the SUE indicator and verifiability proportions, all with intervals and
+none with a verdict about a person. The CIT detects recognition of event
+details, not deception. It runs only with a consent record and abstains when
+the details were public. Calibration is measured by
+`benchmarks/cit_calibration.py` (results in
+`benchmarks/results/cit_calibration.json`; six questions of five items, three
+repetitions, 2000 simulated sessions, alpha 0.05): null rejection 3.4% for the
+exact rank test and 4.2% for the permutation test, and power 47% / 66% at a
+one-SD probe effect on a single channel. 221 tests.
+
+**Added — counterintelligence screening of fused reports
+(`security/counterintelligence.py`).** It replaces a wrapper that reported
+SUBSTANTIAL threat on 40/40 inputs with constant casualty figures. It covers
+source reliability (Beta posteriors from Admiralty grades), circular and
+derivative reporting, coordinated-reporting scan statistics (a Mecke-equation
+p-value bound, checked against Monte Carlo), digit-based fabrication screens
+and impossible travel. Wired into `IntelligenceFusionEngine`'s evidence path:
+relayed copies carry no weight and corroboration counts independent origins.
+Outputs are unchanged on reports without those fields (pinned over 200
+random report sets). 180 tests; 62 mutants, all killed.
+
+**Added — adjudication ledger for held-out fusion labels
+(`security/adjudication.py`).** `load_trained_weights` admits weights only on
+held-out merit, but nothing produced labels. The ledger records cases and
+outcomes separately, enforces outcome independence from the reports, keeps
+ratings blind, gates on quadratic-weighted kappa, fixes splits by hash, and
+stores a SHA3 hash chain with optional ML-DSA-65 signatures. 271 tests;
+78 mutants, all killed.
+
+**Added — consent-gated contactless respiration and heart rate
+(`biometric/rf_vital_signs.py`).** Respiration and heart rate from Wi-Fi CSI
+or radar, with no contact sensors, identification or imaging, and nothing
+runs without consent. Every estimate reports a rate or abstains with a reason.
+It is a library module with no API, CLI or MCP surface. Its minimum analysis
+window (about 20 s of clean signal) is longer than the CIT's 3 s baseline and
+10 s response windows, so it does not supply per-stimulus CIT channels. The
+real-radar accuracy figures quoted during development (Schellenberger et al.,
+Sci Data 2020) came from an out-of-tree validation script that is not in this
+repository, so they are not reproducible from it. Real Wi-Fi CSI hardware is
+not validated. 154 tests; 44 mutants, all killed.
+
+**Changed — drift detection is on by default.** `enable_drift_detection` had
+no caller, so served engines never tested for drift. When enabled, the first
+inference batch became its own baseline. Now `EngineConfig.drift_detection`
+(default `True`, `MERCURY_DRIFT_DETECTION=0` to disable) tests every
+`detect_with_fusion` batch:
+- Only the rows the model calls normal are tested.
+- They are compared with the training rows the model also calls normal,
+  derived from the fitted spatial detector's training rows after every fit or
+  load. The shipped checkpoint needs no new field.
+- Drift at MEDIUM or above defers the decision.
+
+Filtering the two sides by the same rule matters: a radius-trimmed reference
+flagged 12/12 in-distribution 200-row batches. With the same rule, the
+measured false-defer rate on the shipped checkpoint is 1% for 50-row batches
+and 0% for 200-row batches; +1.0 shifts are detected in 100% of batches.
+Each check costs 25-35 ms. The shipped checkpoint was trained on a synthetic
+mixture, so real data sent to it will usually defer until a model is fitted
+on representative data; see `docs/runbooks/data-drift.md`.
+New series: `omni_drift_checks_total`, `omni_drift_detected_total` and
+`omni_drift_check_duration_seconds`. New alerts: `OmniMercuryDataDrift` and
+`OmniMercuryDriftBaselineMissing`.
+
+**Fixed — drift reporting.**
+- The ensemble reported a sub-test's severity even when the ensemble said "no
+  drift", and the decider deferred on severity alone. Both are fixed.
+- Drift tests compared extra features against reference column 0; a width
+  mismatch now raises `DriftIncomparableError`.
+
+**Fixed — σ_Immutable fail-open above the trained support.** With all 24
+ethical anchors set to 10.0 the gate scored 1.000 and the floor passed.
+ETHICAL registrations outside `[0, 2.0]` are refused atomically, and the floor
+rejects anchors above the ceiling (`check="sigma_immutable_ethical_ceiling"`).
+
+**Fixed — one subagent op could refuse every later detection.** Pan_XXV
+registered its payload into the process-wide GOSNN singleton's ETHICAL group,
+so `{"temperature": 0.2}` became an ethical anchor below the floor. The op now
+scores its payload without registering it.
+
+**Changed — every scalar carries the `omni` prefix.** The two GOSNN defaults
+without it were renamed in place, since σ depends on vector order, not names.
+The baseline was re-harvested: its diff is the two name lists, and σ is
+unchanged at 0.9999216795. The signed corpus has no names and did not change.
+Old names still resolve, and `register_scalars` maps a legacy name to its
+canonical scalar instead of adding a dimension. The neurosymbolic hub's
+counters moved to the metric-only `omni_diag_` channel, where they no longer
+drive σ towards 0. Detector-score scalars, physics scalars and the ethical
+engines' omni-scalar dicts are prefixed too.
+
+**Fixed — the GOSNN latency gate never measured anything.** It imported a
+module that has never existed, and its fallback counted every repeated input
+as a cache hit. It now times `get_enhanced_scalars`, the step every
+detection runs, and claims no cache rate (GOSNN has none).
+
+**Fixed — unmeasured claims.** `three_r` `get_dominance_proof` no longer
+reports an improvement factor and an ethical scaling that the fusion does
+not apply. The MITRE ATT&CK dataset is labelled with its Terms of Use, not
+Apache-2.0.
+
+**Removed — dead engine plumbing.** `_extract_features_parallel`,
+`_get_executor`, `_executor`, `parallel_executor`, `optimization_config` and
+`MAX_WORKERS` had no reader; the new executor supersedes them.
+
+**CI.** `scripts/run_ci_gates.sh` now also runs the capability-inventory,
+doc-lint, neural-coverage, weapons-gate-corpus and Prometheus-render drift
+checks, which previously ran only in CI.
+
+### Review round: gates that measure instead of trust (branch `steel/version-cov4`)
+
+**Added — `security/quantum_risk_cyber.py`, rebuilt as a quantum-risk engine.**
+The module removed in `740da10a` matched algorithms by substring. It rated
+ML-DSA as CRITICAL because "DSA" appeared in it, scored Kyber+Dilithium 0.0
+because of mixed case, and used one fixed ten-year timeline.
+
+The rebuild:
+- **Classification.** Names, OIDs and CycloneDX 1.6 CBOM entries are matched
+  by exact token against a registry:
+  - FIPS 203/204/205, draft FIPS 206, the HQC selection and SP 800-208
+    LMS/XMSS;
+  - SP 800-57 strength bands;
+  - pre-standard Kyber, Dilithium and SPHINCS+ names, which are flagged;
+  - broken SIKE, Rainbow, SHA-1, 3DES and RC4.
+- **Hybrids and composites.** These are as strong as their strongest part.
+- **Composite names.** A hash in `ecdsa-with-SHA256` cannot upgrade the
+  signature.
+- **Deadlines.** NIST IR 8547 dates follow the strength band. CNSA 2.0
+  deadlines and approvals apply per category.
+- **Mosca's `x + y > z`.** It uses a caller-supplied CRQC point or curve, with
+  no default, and treats confidentiality (harvest now, decrypt later)
+  separately from authenticity.
+- **CBOM checks.** Quantum-security levels claimed in a CBOM are checked
+  against the standard.
+- **Urgency order.** Assets are prioritised by a stated rule, not a score.
+
+Mercury's own cryptography is audited by the same rules, and a test pins
+each declared use to its source file. The audit found that the sovereign
+emergency tier verifies Ed25519 (Shor-vulnerable). It also listed what
+CNSA 2.0 would require Mercury to change.
+
+There are 72 tests. A 17-mutant pass over the decision logic kills all 17
+after one gap was closed: password-hashing KDFs are outside CNSA 2.0 scope.
+
+**Fixed — `IntelligenceFusionEngine.load_trained_weights` admitted any
+shape-matching state dict.** A freshly initialised network has matching
+shapes, so random weights were enough to move threat decisions off
+evidence scoring and onto noise. The method now takes labelled held-out
+cases (`heldout`, at least `MIN_HELDOUT_CASES` = 30 pairs of
+`(intel_reports, ThreatLevel value)`) and installs the candidate only when
+it is significantly more accurate than evidence scoring: one-sided exact
+McNemar on the discordant pairs, p < `MERIT_ALPHA` = 0.05. Higher accuracy
+alone is not enough (4 wins, 0 losses gives p = 1/16 and is refused). On
+refusal the engine keeps scoring from evidence, and the measured
+`FusionMerit` is returned and kept on `engine.merit`. **Breaking:**
+`heldout` is a new required argument; there are no production callers. The
+tests pin the decision boundary at 4:0 refused, 5:0 admitted, 6:1 refused
+and 6:0 admitted. A hand-run mutation pass over the gate (ten mutants:
+significance replaced by accuracy, tail off-by-one, α, size and label
+checks, non-strict shape loading, decision takeover) kills all ten.
+
+**Fixed — stale benchmark figures across the README and docs.** The
+committed run is 67 of 76 datasets (Mean AUC 0.8545, Median 0.9052, Mean
+oracle F1 0.6425; ADBench 0.8515 / 0.6415). Ten prose claims in the README
+and five docs still quoted the earlier 66-of-75 run at 0.8251. The README's
+hand-typed "comparable domain" table was also wrong: it had the old ADBench
+row, and it listed three threshold-labelled datasets (ThreatIntel,
+NASA_Exoplanet, SolarDynamics) as independently labelled. That table is now
+a generated block (`<!-- BENCHMARK-DOMAINS -->`) rendered from the results
+JSON by `scripts/update_readme_benchmarks.py`, so `benchmark.yml` refreshes
+it with the headline. `scripts/check_benchmark_integrity.py` now also fails
+when that block differs from a fresh render, and when any README or `docs/`
+prose states a dataset count other than the committed run's ("N of M
+attempted", "N successful / M attempted", "N/M scored" and similar, across
+line breaks and blockquotes). The README's "6 datasets below 0.50 AUC"
+caveat is now 2. `docs/conf.py` declared the docs "Released under MIT"; the
+project is GPL-3.0-or-later.
+
+**Removed — four documents that were one-off logs or self-declared stale.**
+`DOMAIN_PERFORMANCE.md` (an "older illustrative snapshot" whose role the
+generated domain table now fills), `PR335_AI_ALERT_REMEDIATION.md` and
+`WS_F_VERIFICATION.md` (single-PR verification logs; the latter cited AMA
+3.3 against the v5.0.0 pin), and `REPOSITORY_REFINEMENT_AUDIT.md` (a branch
+audit log with no references). Git history keeps all four.
+
+**Restored — removed result fields and modules, computed from cited
+methods.** Earlier commits on this branch removed released fields and modules
+that were never computed or were wrong; each is back under the Preservation
+Principle, and the new contract tests fail on the previous code.
+- Power: GIC averages 1-second data to 1-minute means before dB/dt (the
+  Gannon-storm FRD record read 765 nT/min at 1 s, ~55 at 1 minute) with
+  tiers 90/300/480 nT/min, and a causal geoelectric field. EMP measures a
+  sampled field (peak, 10–90 % rise, FWHM, 90 %-energy band, IEC 61000-2-13
+  class; the DOE 2021 E1 benchmark measures 2.47 / 22.98 ns against
+  2.5 / 23 ns), detects E2 after E1, locates a source by TDOA, and keeps
+  `IntentionalEMIDetector`, trainable and not consulted until weights load.
+  The threat level is at least what the grid impact warrants (a storm with
+  critical grid impact read "benign"); grid impact is graded on its
+  1-minute tiers only for a 1-minute rate (`dbdt_cadence_s`); a record that
+  ends before the pulse falls reports no rise time; the released field
+  order is a prefix again, and `intentional_attack_probability` and
+  `gic_amplitude_a` keep their places with the value `None` (DEPRECATION.md
+  §6.12). The USGS source returns the whole requested window (it kept the
+  last 100 samples, 1.5 minutes of a 1-second fetch), and the solar → GIC
+  cascade takes the GIC moderate tier (90 nT/min) and the NOAA G1 bound
+  (Kp 5-) instead of 100 nT/min and Kp 5.0.
+- Hazard fields: wildfire fuel moisture (NFDRS 1-hour, 1.03 × the EMC at
+  the fuel-atmosphere interface, GTR INT-169 eq. 26 and Table 6; it needs
+  the `nfdrs_state_of_weather` code, without which the spread model keeps
+  its released 10 %), flood peak discharge and time to peak, hurricane
+  intensification rate (≥ 30 kt / 24 h is rapid; Milton 70 → 150 kt in
+  HURDAT2), earthquake IASPEI ML and Reasenberg–Jones aftershock
+  probability, volcanic time to eruption by the failure forecast method
+  (Poisson MLE, Bell et al. 2013; no forecast when the fitted failure time
+  precedes the last sample); `None` where the inputs do not allow a value.
+  `forecast_method` and `detection_method` follow the released fields, so
+  positional construction keeps its order.
+- Space: one NOAA G-scale definition in Kp thirds replaces five ladders that
+  disagreed (5- read no storm, 9- read G5) in the SWPC and DONKI parsers,
+  `SolarStormDetector`, the solar-storm evaluation buckets and the Schumann
+  storm labeller; DONKI reads a storm at its peak Kp, not its onset (the
+  May 2024 storm read G4, not G5); an SWPC fetch failure raises instead of
+  reading as a quiet feed. Still on Kp ≥ 5.0 and due with the retrain of the shipped
+  `solar_storm_geomag` checkpoint: that model's training labels, physics
+  baseline and operating-point rule, and the Schumann training labels. The R
+  and S scales exist in `evaluation/hazard_metrics` but the flare and proton
+  ladders do not use them yet.
+- `security/hive_firewall`: feedback reaches the nodes that voted (a
+  reported false positive had lowered every threshold), once per decision,
+  and workers hold distinct thresholds under trust-weighted supervisors and
+  a queen majority. An allowlisted pattern is allowed without a vote; trust
+  is floored above 0; signatures are exact for every dtype (strings hash as
+  released; large integers and complex values no longer collide); the
+  released `trust_decay=1.0` and `consensus_threshold=0` work again.
+- `quantum_computing`: the VQE detector minimises the encoded training
+  samples' 1 − P(|0…0⟩) (held-out AUROC 0.997, was 0.51–0.58), encodes
+  every feature, scales by the training data and squashes out-of-range
+  values into a window shorter than the encoding's period (a sample two
+  training ranges out had encoded like one in range), and refuses IBM
+  hardware under `MERCURY_OFFLINE`; `cobyla` is SciPy's COBYLA, and every
+  optimizer returns the objective at the point it returns.
+- `slhdsa_sign_internal` stays removed as a security exception, aligned with
+  AMA Cryptography v5 (DEPRECATION.md §6.11).
+
+**Restored — the symbols an earlier cleanup on this branch removed as
+uncalled, each with its defect fixed.** The removals (7ab59916, f498866a,
+f07b724e) are reverted under the Preservation Principle: every symbol is back
+under its released name and signature with a test, and the defect tests fail
+on the released code.
+- `OnlineDriftDetector` is ADWIN0 (Bifet & Gavaldà 2007) with a Bonferroni
+  share per feature and the window's range in the bound, so it gives the
+  same answer in any units: no false drifts on stationary 3-feature streams,
+  where the per-feature KS check raised 12–31 per 2,000 samples; a 1σ shift
+  is found in 80–169 samples (20 seeds).
+- `ParallelDetectorExecutor` runs on `core.parallel_detectors`: a detector
+  past the timeout is reported and the finished results are kept (the
+  released loop raised `TimeoutError` and lost them). Detectors that do not
+  declare `parallel_safe = True`, and all of them at `max_workers=1`, run in
+  the calling thread outside the deadline, the engine's rule.
+- `rate_limit_middleware` returns its 429 with `Retry-After`; raising
+  `HTTPException` from an `http` middleware reached clients as a 500.
+- `load_noaa_tsunami_records` pages HazEL with `itemsPerPage`/`page` (it sent
+  `maxSize`, which HazEL ignores) and raises `OfflineModeError` offline.
+- `memory_efficient_lru_cache` keys arrays by digest: `str()` abbreviates
+  arrays past 1,000 elements, so a changed array was served the old result.
+  Arguments with no exact key (model instances, masked arrays) run uncached.
+- `_LegacyOAEWeightOptimizer` fits F1 without derivatives (SLSQP stopped at
+  the initial weights after one iteration; held-out F1 0.34 → 0.99 on data
+  whose signal is in O). `_LegacyOmniAvaEquation` and
+  `_LegacyRefactoringConfig` keep their released bodies (the live classes
+  drop η^Φ, change the default weights, and reorder the config's fields);
+  the six other `_Legacy*` names alias identical live classes.
+- `_safe_cholesky` doubles its diagonal shift until the factorization
+  succeeds; the single 1e-6 shift failed for any eigenvalue below −1e-6.
+- `_compute_sst_anomaly_proxy` counts the bleaching-susceptible acroporid and
+  pocilloporid genera (Marshall & Baird 2000; Pratchett et al. 2013); the
+  released "first half of the list" counted the tolerant *Porites* and
+  missed *Seriatopora*.
+- `compute_benchmark_metrics` uses `domain`, which it ignored (temporal,
+  spatial and graph; any other domain gets the standard suite, as before);
+  `reliability_pool`, `add_conformal_to_detector` and
+  `MultiScaleFeatureAggregator` reject an unknown mode, method or missing
+  layer instead of substituting a default.
+- `IntelligenceFusionEngine` accepts `golden_ratio_weights` again in its
+  released third position, without effect and with a `DeprecationWarning`;
+  `counterintelligence` and `merit_log` are keyword-only, so a released
+  positional call no longer switches counterintelligence off.
+- Also back: `TextLogAnomalyDetector` (now taking an `adapter`),
+  `optimize_benevolent_detector`, `PatchEmbedding`,
+  `create_enhanced_detector`, `create_enhanced_model`,
+  `RegulatoryIntelligence`, `run_baseline_benchmarks`, `parallel_map`,
+  `get_optimal_batch_size`, `ThresholdDefaults`, `load_configuration`,
+  `AuthProvider`, `optimize_gosnn`, `precision_sqrt`,
+  `create_int_source_registry`, `make_capability`, `operation_for`,
+  `maintenance_disabled_for_tests`, `VQAResult`, `IntegratedPhysicsResult`,
+  `EngineConfig.enable_ci`, `OmniMercuryEngine.MAX_WORKERS` /
+  `optimization_config` / `parallel_executor`, `TIDE_PERIODS_H` in
+  `tsunami_waveform`, and the six `create_omni_*_scalars` tables, documented
+  as hand-set constants rather than optimized ones.
+
+The `anomaly/` package exports the three shipped cross-domain cascades
+(`EqTsunamiCascadeDetector`, `SolarGICCascadeDetector`, `SurgeFloodCascade`),
+so `Dionysus_XIII` binds it again. The TCP transport's two response
+serializers are wired into the send path in place of inline `asdict` calls,
+so the codec is symmetric.
+The `omni_ci_ethical_threshold` / `omni_chaos_lambda_bifurcation` scalars are
+kept for now: the fusion 𝐇 term averages every float `EthicalScalars` field,
+so removing them would move its target (1.2968 → 1.2997).
+
+**Changed — the lattice group is not computed where the fit switched it
+off.** For an aperiodic domain the lattice features carried zero weight but
+were still computed for every image. They are now skipped after fit (and
+after `load`), with constant maps keeping the feature layout. The Ledoit-Wolf
+Gaussians (global and per-position) are now fitted on the active features
+only, so zeroed dimensions no longer shift the shrinkage target. The new
+`benchmarks/vision_latency.py` times the same fitted model both ways: the
+skip saves 82 ms on leather, 48 ms on tile and 110 ms on wood (14–31% per
+image). MVTec accuracy is unchanged to every reported digit. The held-out
+synthetic benchmark moves by one mistyped leather case and a 0.0001 change
+in one pixel AUROC. Tests pin that an aperiodic domain never calls the
+lattice code after fit, that a periodic one still does, and that
+switched-off dimensions have zero mean and zero precision rows.
+
+**Fixed — FINDΩYOU™ evidence-bridge gaps found by mutation testing.** A
+14-mutant pass over `integrations/findoyou_bridge.py` first killed 8 of 14.
+The survivors were real test gaps. The unsigned `algorithm` field of the
+signature block was never tampered in a test. Nothing covered
+non-positive `years_elapsed`, fractional-year rounding, the age-robust
+`baseline_score`, or a sighting the screen cannot assess (which must be
+`unavailable`, not grounded). Tests for each now kill all 14. The pass also
+found an interop bug: `verify_packet` compared the pinned key as a
+case-sensitive string, so a key pinned in upper-case hex rejected every
+valid packet. It now compares case-insensitively after trimming. A
+non-positive `years_elapsed` now reports its value instead of "not
+provided".
+
+**Fixed — the self-model ledger's `verify` raised instead of failing
+closed.** A corrupted line or malformed signature hex raised an exception
+out of `SelfModelLedger.verify`. Each is now reported as a broken record
+with its position. The pinned key is compared case-insensitively, as in the
+bridge. A 12-mutant pass first killed 7. The existing tamper tests only
+asserted that something failed, so with five redundant checks no single
+check was ever observed. New tests play a forger who recomputes every digest
+except the one a given check guards (schema, index, chain link, record
+digest, snapshot digest) and pin each reason. All 12 mutants now die.
+
+**Fixed — the monitoring stack was empty end to end.** Five separate breaks
+meant no alert or dashboard could ever show data:
+- **Series never recorded.** The alert rules query `omni_detection_*` and
+  `omni_model_inference_errors_total`, but nothing incremented them. They are
+  now recorded on every component call in the engine's detection, feature and
+  fusion paths, and on every message the streaming worker scores.
+  `omni_model_roc_auc` / `omni_model_f1_score` are set from the fusion head's
+  validation split at the end of each `fit_fusion`, using the served
+  threshold rule. They are labelled `dataset="fit_validation"` because that
+  split also chose the early-stopping epoch.
+- **Declines counted as failures.** On ordinary tabular input, three domain
+  models refuse the input on every call (measured). Counting that as an error
+  would have kept the inference-error alert firing permanently. A new
+  `InputModalityError` (a `ValueError` subclass, so existing handlers are
+  unchanged) marks these refusals at eight sites. They feed
+  `omni_component_declined_total` and nothing else.
+- **The worker never exported them.** The engine worker's `/metrics` served six
+  hand-written counters only. It now appends the `prometheus_client` registry,
+  as the API already did.
+- **The local Prometheus could not start.** `prometheus.yml` loaded the
+  PrometheusRule CRD as a plain rule file (`promtool`: "field apiVersion not
+  found"). `scripts/render_prometheus_rules.py` now renders the CRD's groups
+  to `rules.yml`, and a test fails when the rendered file drifts from the CRD.
+- **No series could match the rules.** Every rule selects
+  `{app="mercury-agent"}`, and no shipped scrape config attached that label.
+  The compose target now attaches it. New PodMonitors
+  (`monitoring/prometheus/podmonitors.yaml`) attach `app`, `service` and `job`
+  in Kubernetes.
+
+**Fixed — the engine autoscaler waited on a metric that did not exist.** The
+engine HPA scales on `omni_detection_queue_depth`. That series was never
+published, and the HPA's selector used `app.kubernetes.io/*` keys, which are
+not legal Prometheus labels. An HPA with an unavailable metric never scales
+down. Consumers now report real consumer-group backlog:
+- Kafka: log-end offset minus committed offset over every partition;
+- Redis: `XINFO GROUPS` lag plus pending (verified against a live Redis 7);
+- in-memory: unread entries.
+
+The worker refreshes the backlog every 10 s. `-1` means the backend could not
+report it. `monitoring/prometheus/prometheus-adapter-rules.yaml` serves the
+backlog with `max` across workers, filters out the `-1`, and defines the API
+HPA's two custom metrics. Tests pin that every series a rule or HPA queries is
+one the code emits.
+
+**Fixed — the streaming worker hung while its broker circuit was open.** With
+the Kafka or Redis circuit breaker open, `consume()` returns at once without
+awaiting. The worker loop then never suspended: it pinned a core and starved
+the event loop, so `stop()` and SIGTERM could not run until the breaker
+half-opened. An empty consume cycle now sleeps 100 ms. A regression test that
+reproduces the hang (it failed before the fix) pins this.
+
+**Fixed — 500s left no trace.** An unhandled route exception never reached the
+metrics code, so `http_requests_total{status="500"}` under-counted exactly the
+failures the error-rate alert exists for. The request middleware now records
+the 500 before the error handler builds the response.
+
+**Fixed — the audit export was always empty.** `record_audit_log` had no
+caller. `api/request_audit.py` now writes one entry per finished API request.
+Each entry carries:
+- the principal (or `anonymous`);
+- the route template;
+- path parameters, status and duration;
+- the proxy-resolved client IP and the correlation id;
+- the *names* of query parameters, never their values or the request body.
+
+The entry goes to the export store, and to the tamper-evident log when
+`MERCURY_AUDIT_LOG_DIR` is set. That log is one logger instance shared with
+the auth auditor. Probes, docs, unmatched paths and 429 rejections are not
+audited, so a rejected flood cannot push real entries out of the window. The
+export store now uses bounded deques. Trimming a list at its 1M cap copied it
+on every append.
+
+**Fixed — the tamper-evident audit log failed verification after any
+restart.** Each process start began a new hash chain in the same
+`audit.jsonl`. After one restart, `verify_log_integrity` reported "Chain
+broken", the same result tampering gives. The chain now resumes from the last
+event on disk (or from the newest rotated segment after a rotation).
+`mercury serve --workers N` used to interleave N chains in one file. An
+exclusive lock now gives the first process `audit.jsonl` and every other
+process its own `audit-<pid>.jsonl`. Both files verify, and forgery is still
+detected after a resume.
+
+A 19-mutant pass over this work killed all 19. The Kafka-lag mutant needs
+`aiokafka`, which CI's full-extras lane installs.
+
+### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model (branch `steel/version-cov4`)
+
+`BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,
+interpretable image-anomaly capability, and Mercury gains a signed evidence
+bridge to FINDΩYOU™. See [`docs/VISION.md`](docs/VISION.md).
+
+- **`omni_mercury_engine.vision` (new).** It learns normal appearance from
+  defect-free images and uses no pretrained weights.
+  - **Input:** any image type becomes one canonical form, or is refused with a
+    stated reason.
+  - **Features:** 31 named patch features per scale across 9 groups, all exactly
+    invariant to a global gain.
+  - **Normal model:** a PatchCore-style coreset kNN plus a Ledoit-Wolf
+    Mahalanobis model.
+  - **Decision:** split-conformal, with `recalibrate()` for a new session.
+  - **Localisation:** hysteresis with half-maximum extents.
+  - **Classification:** self-supervised prototypes of seven physical types per
+    polarity, simulated on the user's own normals, with an open-set bound.
+  - **Environment:** an envelope check that withholds the decision when capture
+    conditions fall outside it.
+  - **Forensics, kept separate from the conformal decision:** noise
+    inconsistency, JPEG grid phase, copy-move and moiré.
+  - **Operation:** batch and streaming modes, and `save`/`load` (npz, no pickle).
+- **Lattice symmetry for periodic textures.** Each image's two shortest
+  translation vectors are found to sub-pixel precision, and every pixel is
+  compared with its neighbours one period away.
+  - The comparison runs on log-luminance minus an edge-preserving separable
+    median. A lighting step is therefore not a break: the residual offset beside
+    a 0.8 log-unit step is 0.005, against 0.27 for a half-resolution median.
+  - Border and corner comparisons report "no evidence" rather than a false break.
+    Before this fix, every top-scoring *normal* MVTec grid image peaked at a
+    corner at +350σ.
+  - The analyser decides from its normal data whether a domain has a lattice at
+    all, and switches the group off for aperiodic textures. The measured
+    separation: grid 0.05, carpet 0.22–0.27, leather/wood 0.66–0.73, tile 0.83;
+    threshold 0.4.
+- **`AgeProgressionEngine`.**
+  - Geometry: cardioidal-strain craniofacial growth (Todd et al., 1980) with
+    cubic resampling, applied only to children, on a stated, unfitted schedule.
+  - Texture: a deterministic DoG mid-band model that injects no noise.
+  - `assess_progression` flags SSIM, noise and lost-detail failures.
+- **`BiometricAnomalyModel.predict`.**
+  - Image input gets the visual analysis after `fit_normal()`.
+  - Without a fitted model it runs environment, forensic and presentation-attack
+    screening.
+  - Face attributes are reported only as far as DeepFace measured them. The
+    fabricated `age=25` and 0.5 confidences are gone.
+- **FINDΩYOU™ evidence bridge** (`integrations/findoyou_bridge.py`). Each packet
+  carries:
+  - identity, age-robust match, progression audit and sighting-integrity
+    findings in the shared three-state wire values;
+  - SHA3-256 image digests;
+  - an ML-DSA-65 signature through AMA, verified against a pinned producer key.
+
+  Every FINDΩYOU™ import of Mercury resolves on this branch.
+- **Self-model** (`self_model.py`).
+  - Mercury's identity, probed capabilities, safeguards, measured performance
+    and derived limitations.
+  - Kept in a SHA3-256 hash-chained, optionally ML-DSA-65-signed ledger, with
+    `diff_snapshots` and a CLI.
+- **Reproducible benchmarks.**
+  - `benchmarks/mvtec_visual_benchmark.py`: real MVTec AD textures, downloaded
+    at run time under a pinned manifest.
+  - `benchmarks/vision_synthetic_heldout.py`: exact-ground-truth classification
+    on held-out images and independent injectors.
+- **Measured** (`benchmarks/results/`, produced by the committed code; full
+  tables are in `docs/VISION.md`):
+  - **MVTec AD textures (real defects).** Mean image AUROC 0.985, pixel AUROC
+    0.982. Recalibrated detection is 0.955 at a false-alarm rate of 0.068
+    (α 0.1, 10 session normals).
+  - **Lattice effect.** Without the lattice group, mean image AUROC was 0.914
+    and recalibrated detection 0.819. Grid went from 0.656 to 0.996 image
+    AUROC, and "bent" grid defects from 0.00 to 0.83 detected.
+  - **Not controlled by α:** the strict-protocol false-alarm rate is 0.247 at
+    α 0.05, because MVTec's good test images are shifted from its training
+    images. Recalibrating on session normals restores control.
+  - **Held-out synthetic (exact types).** Detection is 100% for all 8
+    independent injectors in both domains. False alarms are 0.033 (woven) and
+    0.050 (leather) at α 0.1, with 0 forensic false positives. Typing:
+    same-definition 99.3% / 95.0%, cross-generator 85.4% / 77.5% (woven /
+    leather).
+  - **Latency** at 256 px on a shared 4-core container
+    (`benchmarks/vision_latency.py`): 250–343 ms median by default,
+    95–117 ms with `AnalyzerConfig.fast()`.
+- **Also fixed:**
+  - a line-length formatting regression from the terminology rename in
+    `essential_workers.py`;
+  - the local gate mirror now checks black over `format.yml`'s wider scope.
+
+### Terminology: civilization-first and Omni Codes everywhere; a repository-wide guard (branch `steel/version-cov4`)
+
+Two injected framings are replaced everywhere they occurred. A mission
+phrasing that put one humanitarian deployment slice ahead of the mission is now
+*civilization-first*, and the alternative code-system name is now *Omni Codes*.
+The retired phrasings are not spelled anywhere in the repository, guards
+included.
+
+- **Identifiers renamed:**
+  - the operational scalar `civilization_first_principle` (global scalar network)
+  - `EthicalConfig.omni_civilization_first_protection`
+  - the essential-worker ethical scalar `civilization_first`
+  - the guardrail principle `civilization_first`
+  - the TranAD ethical weight
+  - the `civilization_first` / `civilization_first_ux` context keys read by `ai_ethics` and the ethics subagent
+- **σ_Immutable baseline:** regenerated with the documented
+  `scripts/harvest_sigma_baseline.py` procedure across the four committed
+  domains. The diff is exactly one name at `names[25]` and `anchor_names[22]`.
+  All 127 values, the anchor index sets and σ = 0.9999216795 are unchanged, and
+  the signed corpus is unaffected because its canonical bytes carry no names.
+- **Guards:**
+  - `tests/test_retired_terminology.py` scans every git-tracked text file for
+    both phrasings, in every case and separator form. It also checks that the
+    scan is non-vacuous and that red-team "survivors" and union-find roots do
+    not match.
+  - The doc-lint ban no longer spells its phrase; a new `BannedPhrase.example`
+    keeps the bite self-test honest.
+  - The subagent-roster guard was renamed to
+    `test_omni_codes_is_the_only_code_terminology_in_subsystem`.
+- **A vacuous test made real:** the crisis-monitor prioritisation test used to
+  assert only `isinstance(..., list)`. It now pins the order: life-critical care
+  first, evacuation naming the vulnerable groups actually identified, and
+  reunification last. A new case pins that pandemic containment precedes all
+  other aid.
+
+### Scoped PQC production gate: AMA-free analytic quickstart, fail-closed agent surfaces (branch `steel/version-cov4`)
+
+Maintainer-directed split of the import-time PQC gate. The quickstart's
+analytic path may run without AMA for fast, real measured results, but it must
+never amount to launching the Mercury agent minus AMA — so the gate moved from
+the package root to every surface that can decide, serve, sign, or encrypt:
+
+- **Gate relocation:** `_enforce_pqc_production_gate()` now runs at import of
+  `omni_mercury_engine.engine` (the CLI and API serve the engine, so both
+  refuse transitively), `omni_mercury_engine.crypto`, and
+  `security/crypto_api.py` — unchanged fail-closed semantics (all three
+  algorithms native, FIPS POST operational, version pinned to 5.0.0, no
+  escape hatch). The package root and the standalone analytic leaves
+  (dataset loaders, individual detectors, metrics) import AMA-free.
+- **Lazy security package (PEP 562):** `security/__init__.py` resolves all
+  re-exports on first access, extending the existing torch-lazy
+  `IntelligenceFusionEngine` precedent. `__all__` is unchanged; AMA-backed
+  names (`MercuryCrypto`, PQC key material, readiness guards) raise the
+  gate's named refusal at first access, while AMA-free primitives
+  (`SafeHTTPClient`, `RateLimiter`, audit logging, `TrustedEndpoints`)
+  import without a native build.
+- **Contract pinned:** `tests/test_pqc_startup_gate.py::TestScopedGateContract`
+  runs six subprocess cases against a stubbed, algorithm-unavailable AMA —
+  quickstart chain imports, security primitives import, and engine / crypto /
+  root-attribute / `MercuryCrypto` access each refuse naming AMA.
+- **Probes retargeted** (a bare `import omni_mercury_engine` no longer proves
+  the gate): tier0-safety's real-AMA positive/negative probes now import
+  `omni_mercury_engine.crypto`; the Dockerfile smoke test imports
+  `omni_mercury_engine.engine` and the container healthcheck invokes the gate
+  directly; INSTALLATION / DEPLOYMENT / README / runbook wording updated to
+  the scoped contract (including a stale `3.3.0` version in the escalation
+  runbook, corrected to `5.0.0`).
+- **Measured consumer path:** clean virtualenv with no AMA installed —
+  `pip install -e .` in 26 s, install-to-printed-result 51 s including the
+  38 MB first-run dataset download, ROC-AUC 0.8613 reproduced exactly;
+  `examples/mercury_quickstart.py --help` and the full demo verified under
+  both an absent and a stubbed-unavailable AMA.
+
+### Scale drift gate: hysteresis cures rounding-boundary flakiness
+
+The README scale gate's stability property ("a handful of added lines must
+not demand a README rewrite") was asserted of a pure rounding function — an
+impossible property at bucket boundaries, and this branch's source LOC landed
+seven lines below one, turning the full-sweep lanes red over a documentation
+integer. Cured in the design, not the test pin: ``--check`` / ``--update``
+now keep a published, bucket-aligned LOC figure while it is within one
+``LOC_BUCKET`` of the measured count (staleness is bounded by one bucket,
+matching the ``~`` order-of-magnitude contract; a hand-typed exact tally is
+never accepted). The property is pinned deterministically at the boundary
+worst case — not against live-tree state — plus a fire test beyond the
+staleness limit and a freshness-rule unit test.
+
+### Final adversarial review: eleven findings triaged, nine fixed, every claim re-tested (branch `steel/version-cov4`)
+
+A hostile machine review of this branch's full diff produced eleven findings;
+each was verified against a traced failure path before acting. Nine were real
+and are fixed; one was a docstring overclaim (corrected to the truth); one —
+re-inserting previously-removed parameters could mis-bind positional callers —
+was verified against every in-repo call site (all keyword or default calls;
+the restored order matches the pre-branch API) and needed no change.
+
+- **Biometric match robustness:** one embedding (the first, labelled when
+  several exist) per image, so multi-face or ragged inputs can never crash the
+  cosine with incomparable vector lengths; the backend label is decided by
+  what *actually produced* the vector, never by what was installed (a DeepFace
+  failure that fell back to harmonic features used to be labelled "FaceNet");
+  non-numeric inputs return the error-dict contract instead of raising; a
+  single image is one harmonic sample (whole-image features, not one
+  "embedding" per pixel row).
+- **Zero-day risk honesty:** the novelty term steers which candidates win the
+  search but no longer inflates the reported 0-1 risk, which is computed from
+  reachability alone — supplying a CVE catalogue cannot raise the same
+  system's risk score by up to 0.25 any more.
+- **DTP diagnostic validity:** each interval re-syncs the clone to the live
+  layer and refits ONLY the inverse, so the recorded value measures the
+  trained projection's invertibility — not a co-adapting autoencoder that
+  trends to zero for any layer.
+- **Degenerate-signal honesty:** an unmeasurable signal (too short, constant,
+  non-finite) returns ``None`` and the explorer keeps caller-supplied
+  characteristics, reporting ``signal_unmeasurable`` instead of overwriting
+  real measurements with 0.5 placeholders flagged as "derived".
+- **Uncertainty sample honesty:** ``sample_values`` attaches only genuinely
+  drawn MC/ensemble stacks; a multi-row batch of caller predictions is no
+  longer returned as if it were samples.
+- **Fingerprint quality chain wired end-to-end:** the recognizer computes its
+  quality map *before* enhancement and passes it in, so the anti-hallucination
+  blend runs in the real recognition path; each minutia now records its
+  measured local quality (previously hardcoded 1.0); and the overall-quality
+  minutiae factor is confidence-weighted, so spurious detections in unreliable
+  regions cannot inflate quality (twenty noise-crossings on a near-flat image
+  no longer read as a good print).
+- **O(n log n) autocorrelation everywhere long inputs live:** the tidal
+  detector and the SETI repeating-pattern detector now use the same
+  zero-padded Wiener–Khinchin transform as the contact-protocol derivation
+  (equal to the direct form at machine epsilon; a one-million-sample capture
+  measures in under a second instead of ~10^12 operations).
+- Also: the documented biometric "path or array" contract is now real (paths
+  load to pixels at every entry; previously a path string became a 0-d array
+  no backend could process), and exposure docstrings state plainly that the
+  fortress scan's own findings are scalar-grade while per-dimension steering
+  is available to callers with localized measurements.
+
+### Depth round: simulators grounded in measured signal, a real biometric match path, and a true DTP training comparison (branch `steel/version-cov4`)
+
+The previous round made ignored parameters *affect* output; this round makes
+the affected modules consume **real upstream signal** instead of caller-fed
+summaries, and cures the two deepest discovered gaps outright.
+
+**Contact-protocol exploration measures the signal it conditions on.**
+`explore_contact_protocols` now accepts the raw received signal and derives
+`snr` / `bandwidth` / `periodicity` itself with the module's own spectral
+machinery (`_derive_signal_characteristics`: peak-over-median-floor SNR on a
+30 dB scale, occupied-bandwidth fraction, strongest normalised
+autocorrelation peak) — measured values override caller claims and are
+reported with a `derived_from_signal` audit flag. The orchestrator defect
+this fixes: `detect_emergent_life` passed a dict that never contained those
+keys, so the previous conditioning always ran on neutral defaults in the real
+call path. It now passes the signal through. A clean tone and white noise
+separate cleanly (SNR 1.0 vs 0.14, bandwidth 0.004 vs 0.96, periodicity 0.97
+vs 0.10).
+
+**Zero-day simulation consumes the fortress scan's measured findings.**
+`fortress_scan` previously computed hash-integrity and traffic-anomaly
+findings and then discarded them before simulating. The checks now run first
+and feed `simulate_zero_day(..., exposure=...)`, where each state dimension's
+reachability distance is discounted by `1/(1 + exposure)` — observed
+tampering or anomalous traffic makes the simulated surface genuinely easier
+to reach. A tampered hash chain measurably raises the simulated risk for the
+identical system state; zero exposure is bit-identical to the baseline.
+
+**Treatment optimization grounded in the published Framingham instrument.**
+When a patient record carries the Framingham covariates, the risk burden
+comes from the in-repo `FraminghamRiskCalculator` (10-year CVD risk,
+normalised against the conventional 20 % high-risk boundary) instead of the
+generic heuristic; the result reports which model produced it
+(`risk_model: framingham_10yr_cvd | heuristic`), and a record missing any
+core covariate falls back explicitly rather than letting population defaults
+masquerade as patient-specific risk.
+
+**Biometric verification is now real.** `predict({"reference", "test"})`
+silently dropped the test image and returned reference-only analysis while
+the docstring promised a `match_score`. The two-image path now computes a
+genuine embedding cosine match (FaceNet via DeepFace when installed,
+otherwise the deterministic harmonic feature path), reports which backend
+graded it (`verification_note` states that the fallback is appearance-level,
+not identity verification), sets the pipeline anomaly to `1 - match`, and
+refuses with a named reason whenever no measurable embedding exists.
+`detect_biometric` regains `enable_age_progression`: seeded age-progressed
+reference variants (the existing `AgeProgressionEngine`) are matched against
+the test image and the best score is reported as `match_score_age_robust`,
+with an explicit `applied: False` + reason record whenever the progression
+path cannot run. No accuracy claims are made for the progression heuristics.
+
+**Fabrication-class fallbacks removed from the multimodal biometric
+engine.** With no embedding backend installed, `MultimodalBiometricEngine`
+silently substituted *random vectors* for face embeddings (three sites), so
+`match_faces` reported noise-vs-noise cosine as a "similarity";
+`analyze_attributes` invented a 30-year-old neutral face, whose fabricated age
+then computed as *perfect* age proximity and inflated the MZSS match score;
+and `fuse_with_symbolic` fused random stand-in features with symbolic data.
+All now fail honestly: embeddings and attributes report unmeasured
+(`None` / `measured: False`), the match pipeline returns its designed
+extraction-failure result, fusion refuses with a named error, and
+`AgeProgressionResult.similarity` is `None` whenever no real backend measured
+it. The unvalidated "10-20% accuracy improvement via quantum variant
+amplification" claims are replaced with truthful descriptions of the seeded
+polynomial heuristics (which are real and now direction-tested: aging darkens
+and adds wrinkle-scale noise, rejuvenation smooths — deterministic per seed).
+
+**A true Difference-Target-Propagation training path, measured against
+backprop.** `OmniFusionModel.compare_head_training_dtp_vs_backprop` A/B-trains
+two identical anomaly-head copies on the model's real frozen-trunk fused
+representations: one by Adam backprop, one by canonical DTP (Lee et al.
+2015 — the only gradient taken is the loss's local gradient at the output
+layer; the hidden target comes from the difference-corrected learned inverse;
+every update is layer-local, with Adam as the local solver, as Lee et al.
+used RMSprop). On a learnable task the DTP arm cuts its loss by ~90 % with no
+error signal crossing layers, and the final DTP-to-backprop loss ratio is
+returned rather than hidden. The `use_dtp` diagnostic from the previous round
+remains the lightweight invertibility instrument.
+
+**Renamed** `examples/maritime_quickstart.py` → `examples/mercury_quickstart.py`
+(it is the product's front door, not a niche demo); README, the Examples
+Parity lane and its deterministic-AUC pin follow.
+
+**Wired — every accepted-but-ignored parameter now carries real behavior,
+with behavioral tests (hand-computed values and direction/magnitude
+properties, not mere acceptance).** A whole-tree sweep (vulture,
+100 %-confidence findings, each verified by hand) found
+accepted-and-documented parameters that no code path read. Rather than
+strip the API down, each is implemented so the surface does what it says:
+
+- `score_function` / `return_samples` (uncertainty): the prediction
+  interval becomes the conformal set `{y : s(y) <= q}`, inverted by
+  geometric expansion then bisection (recovers exact asymmetric
+  boundaries a half-width cannot express); the raw MC/ensemble sample
+  stack is attached as a defensive copy when requested.
+- `expected_period` (`tidal_pattern_detection`): closed-form harmonic
+  least squares `a cos + b sin + c` at the known constituent, reporting
+  amplitude / phase / R² / period-deviation (recovers a known sinusoid to
+  R² ≈ 1; an off-frequency fit explains ~none of the variance).
+- `quality_mask` (`GaborEnhancer.enhance`): per-block quality-weighted
+  blend `q*filtered + (1-q)*original` (`q=1` ≡ unmasked, `q=0` ≡ the
+  normalised input — the standard guard against hallucinating ridges).
+- `input_length` (cardiology ECG net): the contracted window every input
+  is resampled to along the time axis, keeping the net's genuine
+  variable-length acceptance while making the pooled timebase consistent;
+  `num_leads` is the structural channel contract.
+- `actual_score` (`LearnableGOSNN.learn_from_feedback`): error-proportional
+  update scaling the loss by `min(1 + |target - actual|, 10)`.
+- `treatment_idx` (causal sensitivity helper): the VanderWeele–Ding
+  E-value with a treatment-conditional pooled outcome SD, capped at 3.0
+  for the consumer's calibrated probability range.
+- `use_dtp` (`OmniFusionModel.train_with_optimizers`): a
+  Difference-Target-Propagation invertibility diagnostic on a clone of the
+  anomaly head's first projection, recording a scale-free normalised
+  round-trip reconstruction error per log interval — a measurement that
+  never mutates the trained model.
+- `known_vulnerabilities` (`simulate_zero_day`): a novelty term that steers
+  the search toward reachable-but-uncatalogued surfaces instead of
+  rediscovering catalogued signatures.
+- `patient_state` (`optimize_treatment`) and `signal_characteristics`
+  (`explore_contact_protocols`): inputs the fitness functions previously
+  ignored now condition them — patient risk burden weights the safety
+  term for frailer patients, and SNR / bandwidth / periodicity weight
+  error-correction / throughput / universality.
+
+**Also wired — `SchumannHarmonicAnalyzer.spectrum_size`** (from the prior
+sweep): the constructor accepted a spectrum size but the detector sliced a
+hardcoded `[:512]`; it now slices by the stored size.
+
+`enable_age_progression` in `OmniMercuryEngine.detect_biometric` was
+deferred in this round — the two-image path in
+`BiometricAnomalyModel.predict` did not actually compare reference to test
+(the `test` key was dropped and the promised `match_score` never produced),
+so there was no match for age progression to improve — and was then **built
+for real in the depth round above**: a genuine embedding match plus
+age-robust matching over seeded progressed variants. `num_specialties` in
+`MultiSpecialtyNeuralNet` stays removed: the ABMSBoard enum is the single
+source of truth for the 24 heads, so it was a correct redundancy removal,
+not a dead promise.
+
+Kept deliberately (flagged by the sweep, correct on inspection):
+``__exit__(exc_type, exc_val, exc_tb)`` protocol signatures, the
+``fit(X, y=None)`` interface convention in the cross-domain adapters,
+the requests-adapter override signatures in ``safe_http`` (the pinned
+pool ignores proxies by design — honoring one would defeat SSRF
+pinning), and the ``return; yield`` empty-async-generator idiom.
+
+### 67th benchmark dataset: DTU Danish-waters AIS with expert-annotated abnormalities; Mercury at published-SOTA parity (branch `steel/version-cov4`)
+
+**Added — `DTU_AIS_Abnormal`** (`datasets/maritime.py`, category
+`maritime`): the only public, expert-annotated real-AIS anomaly benchmark —
+521 vessel trajectories from Danish waters (2021-12-13, 120 s resampling),
+25 manually labelled abnormal (collision, SAR response, law enforcement,
+forced deviations). CC BY 4.0, DOI 10.11583/DTU.21511815 (Olesen,
+Clemmensen & Christensen, DTU). Trajectories are served as 22 documented
+kinematic/geometric features; `LABEL_SOURCE = "expert_annotated"` keeps it
+in the genuine-label headline pool.
+
+Measured against the published baselines on the identical evaluation set
+(Olesen's DTU thesis Fig. 6.1 and JMSE 11(11):2085): fitting the stock
+`MercuryAnomalyDetector` on the companion June–November unlabelled months
+(106,728 trajectories, benchmark 10k cap, 0.33 s fit) and scoring all 521
+labelled trajectories yields ROC-AUC 0.876 (full-reference variant 0.869,
+95 % bootstrap CI ≈ [0.78, 0.95]) — parity with GeoTrackNet (0.87, the
+field's reference deep model, 50-epoch training) and above RAE 0.86,
+Seq2Seq 0.84/0.83, the contextual detector 0.79 and RVAE 0.72. With only
+25 positives all methods' intervals overlap: the honest claim is parity,
+not superiority. The in-suite row (uniform harness protocol, seed 42)
+reports AUC 0.8613 / oracle-F1 0.6000. The features were written once,
+before any score was seen — no tuning iterations, no label contact.
+
+**Fixed — missing-COG policy made explicit (found by the quickstart).**
+30 of the 521 tracks carry NaN course over ground (real AIS: COG not
+broadcast; some tracks entirely). The first cut of the feature extractor
+let those NaNs through, and the benchmark harness's generic validation
+silently median-imputed them (row read 0.8631) while any other consumer
+would impute differently — two callers, two numbers. Course-derived
+features are now computed over finite values only (documented neutral
+0.0 when none exist), the extractor raises on any other non-finite
+feature instead of emitting NaN, and the demo, the harness and a direct
+loader call now agree bit for bit.
+
+**Added — ten-minute quickstart** (`examples/mercury_quickstart.py`,
+README "Ten minutes to one honest number"): clone →
+`pip install -e ".[pqc]"` → one command prints this dataset's ROC-AUC
+next to the published baselines, with the caveats stated. The full
+stranger path was measured in a clean virtualenv on a stock Linux
+container: 121 s total, no environment variables, no manual build steps
+(pip builds the pinned AMA backend itself; the import-time PQC gate
+passes on the wheel's co-located native library). The Examples Parity
+lane runs the demo end to end and pins the exact deterministic AUC.
+
+Security: the upstream files are pickles; the loader deserialises them
+only through a fail-closed restricted unpickler (numpy-array
+reconstruction allowlist — any other global raises) and pins SHA-256 per
+extracted member, since the figshare zip wrapper is generated per request.
+`ndownloader.figshare.com` joins `TrustedEndpoints.TRUSTED_DOMAINS`. Five
+loader tests cover feature physics, label alignment, the digest gate and
+the malicious-pickle refusal.
+
+### CI wall-clock: cache the shared native build, fix the matrix pip keys, stop the third image rebuild (branch `steel/version-cov4`)
+
+Three structural costs removed without touching any scan scope, severity
+threshold, blocking exit code or test. The Trivy vulnerability database is
+deliberately NOT cached: scanning against a stale CVE feed is a silent
+security regression, so every scan keeps downloading the current DB.
+
+**AMA native build cached across jobs.** Roughly ten jobs per run rebuilt
+the identical AMA-Cryptography C library (the cmake step involves no
+Python). The composite action now caches the built tree keyed exactly on
+the immutable tag, OS/arch, runner-image generation and the action file
+itself — no `restore-keys` fallback, so a near-miss cache can never be
+substituted — and both verification gates (native PQC capability probe,
+engine import-time gate over AMA's signed library digest) still run on
+every job, cache hit or miss, so a stale or tampered entry fails loudly.
+
+**Matrix pip caches actually cache now.** The `pip-quality`/`pip-types`/
+`pip-core` cache keys omitted the Python version, so the four matrix
+entries raced to save one key: the first finisher won, and the other three
+versions re-downloaded torch on every run while their save was skipped as
+"key exists". The version is now part of each key.
+
+**`security.yml` stops rebuilding the image from scratch.** ci.yml's
+docker-build job already writes the buildx layer cache
+(`cache-to: type=gha,mode=max`) and docker.yml reads it; the container-scan
+job was the one plain `docker build` with no cache — ~10 minutes of
+identical apt + venv layers per run. It now reads the same cache through
+the same pinned buildx/build-push actions. The Trivy steps scan the
+assembled image with a fresh DB either way, so cached layers cannot hide a
+newly published CVE.
+
+### Adversarial excavation round: 14 findings root-caused across detectors, gates and egress (branch `steel/version-cov4`)
+
+A line-by-line adversarial review of the unified branch, each finding fixed
+with a regression test that fails on the pre-fix code.
+
+**Fixed — drone ensemble was blind for ticks 20–99.** The kNN density
+stream's benchmark-grade minimum (100 reference rows) silently disabled the
+drone's only ensemble decision stream inside the first history window: a
+total motor collapse plus thermal excursion at tick 50 produced zero faults
+while the identical fault at tick 120 was flagged. The minimum is now
+configurable (`knn_stream_min_reference`, clamped at 3) and the drone
+constructs its ensemble at its own `DEFAULT_FIT_MINIMUM` (20) — the regime
+its validation measured (z-gate 8.0). Re-verified: fault at tick 50 and
+tick 25 both detected, 0 false alarms over 200 clean ticks.
+
+**Fixed — three crash paths on operator-shaped input.**
+`IntelligenceFusionEngine` crashed on a non-numeric or non-finite
+`threat_score`/`confidence` in a report (`float()` ValueError in the
+evidence path, `TypeError` in the source-ranking sort); both now drop the
+malformed value instead of the whole decision. The GDPR checklist raised
+`ValueError` out of `check_gdpr_compliance` on timelines like `"30 days"`
+or `"48h"` instead of reporting the right or the Art. 33 notification as
+unmet — malformed evidence now reads as non-compliance, never as a crash.
+The drone `_assess` memo keyed on payload object identity alone, so a
+telemetry loop reusing one dict got the first tick's faults forever; the
+memo now fingerprints state content.
+
+**Fixed — registry feature cache could serve features without scores.**
+The `|f` and `|s` cache entries evict independently, so a features hit
+after the scores companion was evicted silently returned `scores=None`
+for a detector that does produce scores. A hit now requires both entries
+(else it is a miss and an honest recompute), and the tensor-provenance
+side dict — one key per distinct payload, forever — is replaced by a key
+suffix.
+
+**Fixed — workflow-hardening gate missed compound installs.** The
+editable-install regex anchored at line start, so `cd x && pip install -e .`,
+`AMA_NO_CYTHON=1 pip install -e .[ml]` and `python -m pip install -e .`
+all bypassed the AMA-provisioning check; the regex now matches through
+separators, env prefixes and `python -m` indirection.
+
+**Fixed — four latent defects.** `detect_batch` silently stamped the last
+row's verdict onto overflow rows when fusion returned fewer probabilities
+than batch rows (now loudly logged); `doc_lint` verified only two `::`
+segments of a cited pytest node id, accepting typos in the third (now
+resolves to any depth); `merge_prometheus_exposition` misparsed exposition
+lines carrying a trailing timestamp — the real value folded into the
+series key, so repeats of one series survived the merge (now parses the
+label set properly, quoted `}`/spaces/escapes included);
+`ParetoOptimizer` accepted `mutation_rate` but never forwarded it to the
+NSGA-II search.
+
+**Performance — spatial autocorrelation diagnostic was 89–99 % of
+`SpatialAnomalyDetector.detect`.** The 99-permutation Moran's I / Geary's C
+test ran two sparse quadratic forms per shuffle in a Python loop, and the
+kNN graph build looped per point. Both are vectorised — one sparse product
+covers every permutation of both statistics via
+`sum w_ij (z_i - z_j)^2 = (z^2)'r + (z^2)'c - 2 z'Wz` — with bit-identical
+p-values (pinned by a loop-equivalence test). Warm `detect` at 50 k points:
+1.07 s → 0.50 s; the diagnostic alone at 5 k: 0.109 s → 0.034 s.
+
+**Cleaned — duplicated leave-one-out kNN logic and dead state.** The
+self-match-aware kNN averaging lived twice (`statistical.py` and
+`_LocalDensityDetector`); both now call `ml/knn.py:loo_mean_knn_distance`,
+which also clamps `k` to the reference size — previously a reference
+smaller than `k` padded the average with `inf`. `RealTimeThreatDetector`
+kept a full copy of the training data (`_fit_data`) that nothing read.
+
+**Fixed — container Trivy gate red on anthropic-SDK docstrings.** The
+anthropic PyPI package (≥ 1.14.0) ships Managed Agents type files whose
+docstrings quote the JSON type discriminator of a GCP service-account
+key, which Trivy's `gcp-service-account` rule reports as a CRITICAL
+leaked key in the image scan. A path-scoped secret allowlist
+(`trivy-secret.yaml`, wired into both container-scan steps) suppresses
+secret findings inside the installed `anthropic` package only — verified
+locally against Trivy 0.70.0: the false positive clears while a planted
+service-account marker anywhere else in the image still fails the gate.
+Vulnerabilities are untouched and stay on the expiring `.trivyignore`
+ledger. (The marker itself is spelled out nowhere in the repo: the
+repo-tree scan flags the explanatory text too, which the first cut of
+this fix demonstrated first-hand.)
+
+### Branch unification + intelligence fusion decides from evidence (branch `steel/version-cov4`)
+
+`steel/version-cov4` unifies `steel/version-cov3`, `steel/version-cov02` and
+`steel/kafka_MCP_setup` (their entries follow below) and reconciles their
+seams: the AMA prose pins cov02 wrote against v4.0.0 (`docs/index.md`,
+`CONTRIBUTING.md`, `rust_crypto/README.md`) now state the v5.0.0 pin cov3
+moved to — caught by cov02's own `workflow_version_drift_gate`, which reports
+`ok` on the unified tree — and the two CI-lane fixes both branches made
+independently carry cov3's v5-pinned variants held by cov02's gates.
+
+**Fixed — `IntelligenceFusionEngine` decisions came from an untrained
+network.** `fuse_intelligence` thresholded the random-initialisation logits
+of `AllSourceFusionNetwork`, scaled by golden-ratio constants
+(`confidence × 1.45φ × class/5 > 0.5φ`), so `threat_detected` was noise
+dressed as φ-optimisation. The network now drives decisions only after
+`load_trained_weights` (new; routes through `safe_torch_load`) has installed
+a real checkpoint — the trained-only contract GOSNN already enforces. Until
+then the engine scores from the reported evidence: a reliability-weighted
+mean of per-discipline `threat_score`s, confidence from the reports scaled
+by corroboration (full weight at three reporting disciplines), and
+`threat_detected` at the `SUBSTANTIAL` level of the `ThreatLevel` enum.
+Untrained decisions are deterministic and explainable; five regression tests
+pin the contract. The φ-scaled `omni_intelligence_scalars` dict (one key
+ever read), the `golden_ratio_weights` kwarg and the dead
+`create_omni_intelligence_scalars()` are removed; `_identify_sources` drops
+an `attention_weights` parameter it always ignored.
+
+**Fixed — kNN density stream diluted the ensemble on small fits (PR #376's
+red anomaly regression guard).** The stream's mean distance to `k = 10`
+neighbours only estimates local density when the reference is an order of
+magnitude larger than `k`; on ADBench Lymphography (n_train = 71) the
+neighbourhood spanned a seventh of the sample and the 50/50 fusion dragged
+AUC 0.9836 → 0.9343 / F1 0.8000 → 0.6667, below the pinned floors. The
+stream now requires `_KNN_MIN_REFERENCE_FACTOR (10) × _KNN_K` reference
+rows and stays off below that, exactly like its existing degenerate-
+reference guard. Measured on the deterministic guard subset (seed 42):
+Lymphography back to 0.9836 / 0.8000 with every stream win intact
+(pendigits 0.8741 → 0.9905, glass 0.7681 → 0.8123, Ionosphere
+0.9414 → 0.9692); the guard reports PASS. A regression test pins the
+boundary on both sides. The evidence path also drops non-finite report
+fields fail-honest (a caller-supplied NaN `threat_score` previously
+crashed `fuse_intelligence`; two regression tests).
+
+**Measured — headline benchmark regenerated on the unified detector.**
+The committed headline predated the kNN density stream entirely (its
+glass/pendigits values are the stream-off figures), so it understated the
+shipped detector. Regenerated on this branch's tree (75 attempted / 66
+reproducible / 53 genuine-label headline): mean ROC-AUC 0.8251 → 0.8544
+(+0.0293), median 0.8747 → 0.9095 (+0.0348), mean oracle F1
+0.5998 → 0.6433 (+0.0435). Per-dataset audit: the four sub-100-train sets
+the new gate turns the stream off for are flat-to-up (Lymphography exactly
+reproduces its committed 0.9836/0.8000); the largest gains are
+ADBench-19 +0.19, ADBench-33 +0.19, NAB +0.17, ADRepository +0.16,
+pendigits +0.13; the only >0.02 declines are on two manufactured-label
+datasets excluded from the headline. ADBench-46/47 remain the known
+sub-0.5 stragglers (both marginally improved). README "Latest Benchmark
+Results" synced via `scripts/update_readme_benchmarks.py`;
+`check_benchmark_integrity` and the anomaly regression guard both pass. Also fixed: the two `[no-any-return]` errors (3.11
+numpy stubs) that failed PR #376's Type Checking lane, in
+`tests/ml/test_covariance_and_psi_drift.py` and
+`tests/core/test_registry_feature_cache.py`.
+
+### Unwired code brought into production; five defective modules removed (branch `steel/version-cov3`)
+
+Every orphaned module (no importer in production, CI, scripts, benchmarks or
+research) was read and vetted. What carried real value is now wired, fixed and
+measured; five modules whose output was wrong or fabricated are removed.
+
+**Removed** (`security/quantum_risk_cyber`, `truth_decipher` and
+`security/counterintelligence` were later rebuilt from scratch on
+`steel/version-cov4`, and `security/hive_firewall` and `quantum_computing`
+restored with their defects fixed; see the rounds above):
+`security/quantum_risk_cyber` (flagged ML-DSA, the scheme AMA
+signs with, as quantum-vulnerable; scored SIKE/Rainbow as post-quantum),
+`truth_decipher` (hard-coded "true" ethics inputs; every case recorded as a
+success), `security/counterintelligence` (synthesised intelligence reports and
+casualty figures), `security/hive_firewall` (a false-positive report made it
+block *more*), `quantum_computing` (VQE fit discarded the data; chance AUROC).
+
+**Detection**
+- `StatisticalAnomalyDetector` fuses a kNN density stream (fit-time
+  referenced, single-row valid, leave-one-out reference): 24 ADBench sets x 3
+  seeds, mean AUROC 0.809 -> 0.837 (14 W / 3 L, Wilcoxon p = 0.004); held-out
+  false alarms 0.126 -> 0.084. `knn_stream=False` restores the old ensemble.
+- Labelled-path component weights are refined on the probability simplex
+  (Riemannian Adam): AUROC 0.764 -> 0.777 (p = 0.008), AP 0.385 -> 0.408.
+- Drone detector: a working single-row decision (the 0.70 blend gate was
+  unreachable; motor collapse, thermal and position faults produced no fault).
+  0 false alarms in 5,600 simulated ticks. Faults are attributed to the most
+  deviant telemetry group, rules are typed by field, and the detector is
+  registered (`drone`, new category `UAV`).
+- Registered: `lstm_autoencoder` (trained multivariate reconstruction; AUROC
+  0.851 vs 0.785 for the statistical tier, 0.94 on frequency changes) and
+  `realtime_threat` (kNN self-match fixed: false alarms 0.076 -> 0.051 at a
+  0.05 budget; training-referenced agreement).
+- `EnsembleDriftDetector` adds a covariance-structure test (SPD distance,
+  leave-window-out null). It catches correlation changes with unchanged
+  marginals in 100% of windows (0-2% before) at 0-2% false alarms. PSI uses
+  quantile bins plus a chi-squared gate: drift-free false alarms
+  100%/100%/52% -> 2%/1%/0% on 50/200/500-row windows.
+
+**Operations and compliance**
+- TLP 2.0 marking on every export (headers, per-record label, optional
+  envelope; audit logs AMBER+STRICT or stricter) and a TLP-marked report
+  endpoint. `contains_pii` now escalates AMBER *or weaker*.
+- SIEM / observability alert egress (`MERCURY_ALERT_SINKS`): Splunk HEC,
+  Datadog, Elastic/OpenSearch, Prometheus and OTLP spoken natively, gated per
+  sink by TLP colour.
+- W3C Trace Context propagation; trace ids on request logs and alerts.
+- GDPR Arts. 5-49 processing checklist (`compliance.gdpr_processing`) and the
+  `gdpr_processing_check` tool.
+- Fairness `POST_PROCESSING` via NSGA-II (equalized-odds gap 0.239 -> 0.015
+  on held-out data at lower error); a generic NSGA-II engine; spatial
+  autocorrelation (Moran's I / Geary's C with permutation tests) on
+  `SpatialAnomalyDetector` output.
+- `mercury-agent hazard-viz --format html` (self-contained Plotly page).
+- Opt-in registry feature cache, feeding the previously uncalled cache-hit
+  metrics.
+
+**Defects fixed along the way:** the flagship route could not serialise
+per-row arrays; `BetaCalibration` tied every score outside its fit range; the
+info-geometry OOD test scored the batch mean against a per-row threshold and
+refit its reference on the batch it scored; TranAD's trainer never trained
+`input_projection`; the GUI showed AUC -1.0 for perfect separation; and
+`ReportManager` HTML and reportlab input were unescaped.
+
+### AMA Cryptography v5.0.0 migration + three red CI lanes fixed at root (branch `steel/version-cov3`)
+
+The pinned PQC backend moves v4.0.0 → v5.0.0 in lockstep across every pin
+site (pyproject `[pqc]` git ref, `_pqc_gate._AMA_REQUIRED_VERSION`/`_RELEASE`,
+the `build-ama-cryptography` composite action and all 28 workflow `ama-ref`
+inputs, `Dockerfile` `ARG AMA_REF`, `scripts/build_ama_native.sh`,
+`scripts/mercury_session_setup.sh`, `gf_env.sh`, and the version-pin tests),
+validated against a real v5.0.0 native build: 1174 passed / 0 failed across
+`tests/security/`, the startup-gate, enum-compatibility, integrations and
+secret-sealing suites, with `workflow_version_drift_gate` clean. Build
+toolchain floors rise with AMA's own preflight: setuptools>=84.0.0,
+wheel>=0.48.0, cmake>=4.4.4 (the ci.yml audit-venv floors, previously
+78.1.1/0.47.0/4.3.2, now match). Two v5 breaking changes land in Mercury:
+
+- **`slhdsa_sign_internal` → `slhdsa_sign_addrnd`.** AMA v5 removed the
+  FIPS 205 §9.2 internal interface from its shipped surface (§9 forbids
+  exposing it; upstream INVARIANT-50) and exposed the §10.2 hedged
+  `slhdsa_sign_addrnd` instead, which applies the `M'` ctx wrapper itself.
+  Mercury's wrapper (no in-repo consumers) migrates to the same name and
+  contract.
+- **σ_Immutable corpus re-signed under v5.** AMA v4's Python layer signed
+  ML-DSA through the raw internal interface (`ama_ml_dsa_sign`); v5 routes
+  `dilithium_sign`/`dilithium_verify` through the FIPS 204 ctx interface
+  (`M' = 0x00 || len(ctx) || ctx || M`, empty ctx), so the v4-era committed
+  ML-DSA-65 corpus signature could no longer verify. The corpus is re-signed
+  with `tools.corpus_resigner` (ephemeral keys; manifest trust is the git
+  commit, unchanged) and both mandatory signatures verify under v5. The
+  Kyber real-AMA test now pins v5's stronger secret contract: a wipeable
+  `bytearray` shared secret (upstream glance row 24) equal to its `bytes`
+  image.
+
+**Security — hybrid signature stripping fails closed.**
+`HybridSignatureProvider.verify` initialised `classical_valid = True` and only
+overwrote it when a classical signature was *present*, so a hybrid whose
+Ed25519 half was stripped in transit reported `classical_valid=True` to a
+verifier that supplied the classical public key — a PQC-only forgery would
+pass the full hybrid check, defeating the reason a hybrid exists (each half
+protects against the other's algorithm breaking). Supplying a classical
+public key now demands a verifiable classical half (absent provider, empty
+key or missing signature verify False); `classical_public=None` remains the
+one explicit opt-out. Both directions pinned in
+`tests/security/test_crypto_api.py`.
+
+**Sovereignty — classical Ed25519 moves onto AMA's native backend.**
+Mercury's docs have long said AMA is the sole production crypto backend, but
+`Ed25519Provider` — behind Raft wire authentication, σ_Immutable corpus
+verification, `MercuryCrypto` classical/hybrid signing, tool certificates
+and release bundles — ran on PyCA `cryptography`. With the v5.0.0 pin the
+provider, `tools/_base` certificate signing, the standalone KAT runner and
+the PQC capability probe all route through new `security.pqc_backends`
+wrappers (`generate_ed25519_keypair` / `ed25519_keypair_from_seed` /
+`ed25519_sign` / `ed25519_verify`) over AMA's hardened native Ed25519
+(canonical-encoding rejection, FIPS 140-3 pairwise consistency test at
+keygen, health-tested CSPRNG seeding). The key contract is unchanged
+(32-byte RFC 8032 seed; `sign` also takes AMA's 64-byte form), and RFC 8032
+determinism makes the move invisible to persisted data: the byte-exact
+RFC 8032 KATs now run through the AMA-backed provider, a new interop test
+pins PyCA-era signatures verifying under AMA and vice versa, and the
+committed corpus manifest verifies unchanged. With security/ and tools/
+PyCA-free, `tests/test_pyca_import_boundary.py` tightens its allow-list
+from (`crypto/`, `security/`, `tools/`) to `crypto/` alone — the tiered
+lightweight layer's AEAD/KDF fallback, now the one bounded PyCA surface
+(and its fallback log message no longer mislabels that path "pure Python").
+Validated: 1,487 tests across the security, tools, distributed and
+integrations suites pass on the migrated tree.
+
+**Sovereignty — Mercury gains its own emergency crypto tier; pyca exits the engine entirely.**
+AMA is mandatory at import, but a backend can still fail at *runtime* (AMA
+v5's FIPS error state inhibits output on every surface once tripped), and
+the only fallback in the tree was a third-party one: the crypto/ layer's
+pyca AEAD/KDF tier. Mercury now carries `crypto/sovereign.py` — handwritten,
+stdlib-only, repository-owned implementations of exactly what an emergency
+needs: ChaCha20-Poly1305 (RFC 8439), HKDF-SHA256 (RFC 5869), and
+**verify-only** Ed25519 (RFC 8032, strict: non-canonical encodings and
+`s >= L` rejected, matching AMA v5). Every primitive is pinned to its RFC's
+own vectors and cross-checked against AMA and the pyca oracle
+(`tests/crypto/test_sovereign_backup.py`, 30 tests). The crypto/ layer
+re-tiers to rust -> ama-native -> sovereign-python with governed
+degradation: only an AMA infrastructure exception latches the sovereign
+tier (one CRITICAL log); an authentication failure is a verdict, never a
+degrade trigger; AES-GCM refuses loudly under degradation instead of
+silently switching algorithms (pure-Python AES is a cache-timing hazard);
+`ed25519_verify` degrades to the sovereign verifier so read paths stay
+alive while signing stays fail-closed (pure-Python signing would leak the
+secret through timing — fail-safe reads, fail-closed writes). Continuity is
+proven, not assumed: the `ciphertext || tag` format and deterministic HKDF
+make all tiers byte-interoperable, and legacy pyca-sealed ciphertexts and
+pyca-derived keys verify unchanged in tests. `secure_random` now draws
+through AMA's FIPS 140-3 health-tested DRBG when active. With that, pyca
+`cryptography` has **zero imports in the engine**: the boundary guard
+tightens to an empty allow-list and the package moves from core
+dependencies to the dev extra (test oracle only) — production installs and
+images no longer carry it.
+
+**Benchmark isolation made executable for PyOD.**
+scikit-learn's boundary has an AST-level guard
+(`tests/test_no_sklearn_in_src.py`); PyOD's — documented in pyproject as
+"only the comparison lane imports pyod, lazily" — was documentation only,
+and PyOD wraps sklearn estimators, so a PyOD import in production would pull
+sklearn into an operational path without ever spelling "sklearn".
+`tests/test_pyod_isolation_guard.py` reuses the sklearn guard's detector
+(static + dynamic import forms) to confine PyOD to `benchmarks/`,
+`src/omni_mercury_engine/comparison/` and that lane's tests, and separately
+forbids any production module from importing
+`omni_mercury_engine.comparison` at all, with non-vacuity pins on both
+allow-rules.
+
+Separately, three scheduled lanes that were red on `main` are fixed at root
+cause (reproduced before each fix): `competitive-benchmark.yml` was the one
+engine-importing workflow without the AMA build step, so the PR-#360
+import-time PQC gate failed its first `import omni_mercury_engine`;
+`phase3-governance.yml` invoked `phase3_governance.py` by file path, which
+drops the repo root from `sys.path` and breaks its own
+`research.governed_fusion.*` imports (now `-m`, matching the lane's other
+steps; docs updated); and `scripts/verify_data_credentials.py` classified an
+HTTP 200 with a non-JSON body (NASA DONKI, 2026-10-12) as a credential FAIL
+although no provider in the lane signals a rejected key that way — it now
+lands on UNREACH via `_parse_200_body()` with the preview redacted, while a
+parseable-but-wrong-shape body stays FAIL, both directions pinned by new
+offline tests.
+### Refinement pass (branch `steel/version-cov02`): main's three red scheduled lanes, a gate CI never ran, a PQC wrapper that could not succeed, and a fabricated overhead figure
+
+Every item below was reproduced on `main` before it was fixed. Each new gate
+was run against the pre-fix tree and fails there, and each new regression test
+fails when its fix is reverted. Two of the lane fixes below (Competitive
+Benchmark AMA provisioning, Phase 3 `-m` invocation) were independently made
+on `steel/version-cov3` as well; the unified tree carries the cov3 variants
+(AMA pinned at v5.0.0) with this branch's gates and tests holding them in
+place.
+
+**Fixed — `main`'s red scheduled lanes**
+
+- **Security (Trivy container gate) red since the ncurses acceptance expired
+  on 2026-09-16**, and the vulnerability DB then published five unfixed HIGH
+  findings against Debian 13.7: `util-linux` CVE-2026-76642 / -78408 / -78409
+  / -78410 and `systemd` CVE-2026-16742. The runtime stage's OS layer was
+  rebuilt and scanned with the gate's trivy 0.70.0, which reproduced the CI
+  failure exactly, and every finding was checked against the Debian Security
+  Tracker (all trixie `<no-dsa>`). `mount` is now purged from the image (no
+  reverse dependency; it ships the SUID `mount(8)` entry point of three of the
+  util-linux CVEs). The irreducible remainder — seven CVEs — is accepted in
+  `.trivyignore` to 2026-12-26 with per-entry rationale; CVE-2026-53615 is
+  dropped (fixed in `util-linux 2.41.5-0+deb13u1`) and CVE-2026-54371 dropped
+  (re-scored MEDIUM). The rebuilt layer fails the gate with the old ledger and
+  reports zero unaccepted CRITICAL/HIGH findings with the new one.
+- **Competitive Benchmark red on every weekly run since 2026-08-09**: the lane
+  editable-installed the engine but never built AMA, so the unconditional
+  import-time PQC gate aborted at the first engine import. The lane now uses
+  the `build-ama-cryptography` composite; replayed locally it prefetches 9/9
+  datasets, passes both test steps, completes `--quick`, and the
+  competitive-position guard passes. `scripts/check_workflow_hardening.py`
+  gains a rule that fails any job which editable-installs the engine without
+  that composite (it flags exactly this lane on the old tree; 10 tests).
+- **Phase 3 Governed Self-Improvement red on all 14 `main` runs since it was
+  added (2026-06-22)**: the dormant-revival routing step ran
+  `python research/governed_fusion/phase3_governance.py`, which puts only the
+  script's directory on `sys.path`, so `import research...` failed. The step
+  (and `docs/PHASE3_GOVERNANCE.md`, which documented the same command) now use
+  `python -m research.governed_fusion.phase3_governance`. Replayed end to end:
+  the benchmark and the routing step both exit 0 and record three governed
+  decisions. A test pins the invocation and runs it in a clean interpreter.
+
+**Fixed — correctness**
+
+- `security/pqc_backends.slhdsa_sign_internal` could never return a
+  signature: it checked `addrnd` against the *public-key* length (2n) while
+  FIPS 205 and AMA require n bytes, so a correct 16-byte `addrnd` was refused
+  by Mercury and a 32-byte one by AMA. It had no callers (the KAT-replay path
+  its docstring named does not exist), and AMA 5.0 removes the function it
+  imported, which would have broken `import omni_mercury_engine` at the next
+  pin bump. Removed. (The v5.0.0 migration entry above ships the replacement
+  surface, `slhdsa_sign_addrnd`, built on AMA v5's supported hedged-sign API.)
+- `EWMATimingMonitor.get_overhead_estimate()` returned a hard-coded `0.5`
+  documented as an estimate, surfaced as `omni_crypto_monitoring_overhead`,
+  and two tests asserted that constant was below 2.0. It is now measured
+  (monitor time over observed operation time). On native AMA v4.0.0
+  operations the real figure was ~35%; replacing `np.median` with
+  `statistics.median` in the per-record path (bit-identical over 20,000
+  randomised trials, 94 → 22 µs per record) brings it to ~9%, and the class
+  docstring now states that figure instead of "<2%". `record_timing` also
+  refuses NaN, infinite and negative durations: one NaN became the EWMA mean
+  permanently and silently stopped detection for that operation.
+- The seven-axis runner's Scalability axis timed each workload size once;
+  under CPU contention its score spanned 0.49–1.00 across 12 runs, which is
+  the one failure in the baseline full-suite run on `main`
+  (`test_runner_is_deterministic_for_fixed_seed`). It now takes the minimum
+  of five timings per size: the spread under the same load is 0.09 (idle
+  0.14 → 0.07). Only the Scalability row of `docs/BENCHMARKS.md` changed on
+  regeneration.
+- `tests/api/test_detection_gate.py` annotated `TestClient` responses as
+  `httpx.Response`; Starlette ≥ 1.x types them as `httpx2.Response`, so the
+  tests mypy lane failed in any environment with `[api]` installed. A
+  structural `Protocol` now fits both.
+
+**Fixed — claims nothing enforced**
+
+- `CAPABILITY_MATRIX.md` marks the pillar mutation suite **enforced**
+  ("deleting the control fails CI"), but no workflow ran
+  `scripts/mutate_pillar_controls.py`. It now runs in `ci.yml`'s
+  `neuro-symbolic-tests` job right after the pillar suite (7/7 mutations
+  killed, ~80 s).
+- `scripts/doc_lint.py` gains rule 4, *cited tests exist*: every
+  `tests/…py` path and pytest node id in scanned prose and in test-module
+  docstrings must resolve (functions and classes at the level pytest collects
+  them). It found five stale citations in four files — `ARCHITECTURE.md` (two
+  tests that never existed), `docs/DATASOURCES.md` (a method cited without its
+  class), `tests/test_medical_data_sources.py` (a moved file) and
+  `tests/loaders/test_hail_loader.py`, whose live-endpoint test never
+  existed. That test now exists as `tests/loaders/test_hail_loader_network.py`
+  (`@pytest.mark.network`); it also pins the live SPC archive's Vivian 2010
+  window to the offline fixture's 69 reports / 4 significant / 8.0 in.
+- `CONTRIBUTING.md`, `docs/index.md` and `rust_crypto/README.md` said AMA was
+  pinned to v3.3.0; the pin is v4.0.0. The `workflow_version_drift_gate`
+  operator tool now also holds `_pqc_gate._AMA_REQUIRED_VERSION` and every
+  "pinned to" statement in an AMA paragraph to the `pyproject.toml` ref.
+
+**Changed — dependencies (consolidates Dependabot #367 and #371)**
+
+- `ruff` 0.16.0 → 0.16.4 and `mypy` 2.3.0 → 2.3.1 at every parity site
+  (`pyproject.toml` `[ml]`/`[dev]`, both `ci.yml` install lines, both
+  pre-commit revs). #367 changed only `pyproject.toml` and so failed the
+  pin-parity gate. Every CI mypy lane and `ruff` are clean under the new pins.
+- Ten GitHub Actions bumps from #371, SHA-pinned; each new SHA was checked
+  against its upstream release tag with `git ls-remote`.
+
+**Assessed and not taken.** All 55 remote branches were triaged. Every merged
+branch tip equals its PR's final head except two benchmark-only commits;
+every closed-unmerged branch is either already on `main` in a stronger form
+or would regress a later fix (for example #328's BOCPD tail double-count and
+a `1e15` magnitude cap that clips nanosecond timestamps). #307's golden-ratio
+removal was not taken: no stated score contract is violated and its
+replacement literals would move operating points without validation data.
+AMA #394/#407: no AMA tag newer than v4.0.0 exists, so the pin is unchanged;
+#407's reference-integrity and mutation-evidence practices are what rule 4
+and the pillar mutation step bring over.
+
+### GCN Kafka MCP server + credential keep-alive (branch `steel/kafka_MCP_setup`)
+
+NASA GCN disables a Kafka client credential that has not connected to a broker
+in 30 days, and a disabled credential cannot be revived. Wiring the GCN broker
+to an MCP client therefore needs a scheduled connection behind it, not just a
+configuration entry.
+
+**Added**
+
+- `.mcp.json` — project-scoped `gcn-kafka` MCP server pointed at
+  `kafka.gcn.nasa.gov:9092` over SASL_SSL/OAUTHBEARER. Every credential
+  reference is a `${VAR}` expansion resolved from the launching shell, so the
+  file carries variable names and no values.
+- `scripts/gcn_kafka_keepalive.py` — makes one authenticated metadata request
+  against the broker (what GCN counts as use) and records it in an owner-only
+  state ledger. A failed probe is classified against the OIDC token endpoint
+  before it is reported, so a network outage (`UNREACH`, exit 2) is never
+  reported as a dead credential (`FAIL`, exit 1). The secret is read from the
+  environment or from a mode-600 file the script refuses to read at any looser
+  mode, is never written to the ledger (a truncated SHA-256 fingerprint of the
+  client id stands in for it), and is stripped from any error text before it is
+  printed.
+- `.github/workflows/gcn-keepalive.yml` — daily keep-alive from repository
+  secrets; a missing secret is reported and skipped, so forks are unaffected,
+  and only a rejected credential fails the job.
+- `deploy/systemd/mercury-gcn-keepalive.{service,timer}` — daily user timer with
+  `Persistent=true`, so a machine that was asleep at the scheduled time still
+  connects at next boot.
+- `configs/mcp/gcn-kafka.env.example`, a `.env.example` section, and
+  `docs/GCN_KAFKA_MCP.md` (setup, verdict/exit-status table, scheduling, and
+  the standing gap: the published `kafka-mcp-server` builds on `kafka-python`,
+  which reaches OAUTHBEARER only through a token provider supplied in code, so
+  the MCP connection is best-effort and the keep-alive is what holds the
+  credential open).
+- `tests/scripts/test_gcn_kafka_keepalive.py` — 32 offline tests covering
+  credential resolution and precedence, the mode-600 refusal, verdict
+  classification, ledger durability, and the guarantee that neither the secret
+  nor the client id reaches stdout or the state file.
+- `.gitignore` now blocks `*.env` anywhere in the tree.
+
 ### Deployment renderability, DP soundness, and browser security headers (branch `steel/maint-coverage1`)
 
 Fifteen defects fixed across the deployment manifests, the federated privacy
@@ -1181,7 +3706,7 @@ Full audit trail with measured before/after evidence:
   pins lime out of the extras graph. Validated: full `[all,dev]` install
   resolves and imports.
 - **`[foundation]` made operational.** The extra now composes
-  `mercury-agent[ml]` (every `models/foundation` adapter imports torch at
+  `mercury-agent-global[ml]` (every `models/foundation` adapter imports torch at
   module top, so the extra previously installed an unimportable feature) and
   declares `chronos-forecasting>=1.4` (previously undeclared, so the chronos
   detector could never run). Validated live: `amazon/chronos-t5-tiny` under a
@@ -1792,7 +4317,7 @@ behaviour — and carries tests.
 - **`GET /export/metrics` now serves CSV and JSON-Lines in addition to JSON**,
   and its JSON summary is enriched (score percentiles, per-method breakdowns,
   and time-series buckets via a `bucket` param). The multi-format export is a
-  deliberate capability for the STEM / medical / meteorological / space
+  deliberate capability for the STEAM / medical / meteorological / space
   researchers Mercury serves — collecting event and request data in a tabular
   format is an advantage, not a footgun to reject.
 
@@ -3703,7 +6228,7 @@ fidelity 600/600).
   the mypy overrides but declared in no dependency group, so the designed
   `@jit` lanes (e.g. `detectors/spatial.py` distance scoring) could never
   be engaged by install — dormant in every environment including CI. Now
-  installable via `pip install mercury-agent[performance]`; JIT-vs-numpy
+  installable via `pip install mercury-agent-global[performance]`; JIT-vs-numpy
   parity is pinned by `tests/test_native_acceleration.py` (skipped when
   numba is absent).
 * **Reproducibility:** `benchmarks/orchestration_validation.py` now pins
@@ -6609,7 +9134,7 @@ and regression tests:
   `DimensionalAnalyzer`, and `SpatialAnomalyDetector` no longer import sklearn.
   PCA replaced with numpy SVD; LOF replaced with scipy KDTree implementation.
 - All remaining top-level sklearn imports in `src/` converted to lazy imports.
-  sklearn is now a true optional dependency (`pip install mercury-agent[ml]`).
+  sklearn is now a true optional dependency (`pip install mercury-agent-global[ml]`).
 - Deleted stale benchmark PNG artifacts from `benchmarks/`
 
 ### Fixed

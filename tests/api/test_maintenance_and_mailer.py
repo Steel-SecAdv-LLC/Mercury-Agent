@@ -106,6 +106,8 @@ class TestMailerResilience:
         service.verify_email(mailer.last_token())
         service._mailer = ExplodingMailer()  # SMTP goes down mid-life
         service.request_password_reset("u@b.com")  # must not raise
+        # The account survives the failed send and remains loginable.
+        assert store.get_account_by_email("u@b.com") is not None
 
     def test_emails_carry_html_and_unsubscribe(self) -> None:
         """Transactional mail includes an HTML part and List-Unsubscribe."""

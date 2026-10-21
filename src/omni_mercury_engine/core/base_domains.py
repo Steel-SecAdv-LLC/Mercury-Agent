@@ -13,8 +13,8 @@ Enhancements to base domain detectors:
 
 from __future__ import annotations
 
+import functools
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -535,8 +535,18 @@ class SpatialAutocorrelation:
 class ParallelDetectorExecutor:
     """Parallel execution of multiple detectors for efficiency.
 
-    Uses ThreadPoolExecutor to run detectors concurrently, reducing latency for multi-detector
-    fusion.
+    The released interface over
+    :class:`omni_mercury_engine.core.parallel_detectors.ParallelDetectorExecutor`.
+    ``timeout`` is a wall-clock budget for one :meth:`execute_detectors` call:
+    a detector still running at the deadline is reported as an error and the
+    finished results are kept (the released loop raised ``TimeoutError`` and
+    lost them). A detector runs on the pool only when it declares
+    ``parallel_safe = True``, the rule the engine applies; the others run in
+    the calling thread, in order, outside the deadline, and so does every
+    detector when ``max_workers`` is 1. (The released executor ran every
+    detector on the pool but enforced no deadline either: it raised at the
+    timeout only after waiting for the slow detector, and lost the finished
+    results.)
     """
 
     def __init__(self, max_workers: int = 4, timeout: float = 30.0):
@@ -544,10 +554,15 @@ class ParallelDetectorExecutor:
 
         Args:
             max_workers: Maximum number of parallel workers
-            timeout: Timeout for each detector (seconds)
+            timeout: Wall-clock budget for one call (seconds)
         """
+        from omni_mercury_engine.core.parallel_detectors import (
+            ParallelDetectorExecutor as _Executor,
+        )
+
         self.max_workers = max_workers
         self.timeout = timeout
+        self._executor = _Executor(max_workers=max_workers, timeout_s=timeout)
 
     def execute_detectors(
         self,
@@ -560,29 +575,37 @@ class ParallelDetectorExecutor:
         Args:
             detectors: Dictionary of detector name to detector instance
             data: Input data
-            method: Method to call on each detector
+            method: Method to call on each detector; detectors without it
+                are left out of the result
 
         Returns:
-            Dictionary of detector name to result
+            Dictionary of detector name to result, in ``detectors`` order. A
+            detector that raised or overran the budget maps to
+            ``{"error": message}``.
         """
-        results = {}
+        from omni_mercury_engine.core.parallel_detectors import DetectorTask, OutcomeStatus
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = {}
+        tasks = []
+        for name, detector in detectors.items():
+            func = getattr(detector, method, None)
+            if func is None:
+                continue
+            safe = getattr(detector, "parallel_safe", False) is True and not (
+                method == "detect" and getattr(detector, "thread_bound_state", False) is True
+            )
+            tasks.append(DetectorTask(name, functools.partial(func, data), parallel_safe=safe))
 
-            for name, detector in detectors.items():
-                func = getattr(detector, method, None)
-                if func is not None:
-                    futures[executor.submit(func, data)] = name
-
-            for future in as_completed(futures, timeout=self.timeout):
-                name = futures[future]
-                try:
-                    results[name] = future.result()
-                except Exception as e:
-                    logger.warning(f"Detector {name} failed: {e}")
-                    results[name] = {"error": str(e)}
-
+        results: dict[str, Any] = {}
+        for outcome in self._executor.run(tasks):
+            if outcome.ok:
+                results[outcome.name] = outcome.value
+                continue
+            if outcome.status is OutcomeStatus.TIMEOUT:
+                message = f"timeout after {self.timeout:g} s"
+            else:
+                message = str(outcome.error)
+            logger.warning(f"Detector {outcome.name} failed: {message}")
+            results[outcome.name] = {"error": message}
         return results
 
 

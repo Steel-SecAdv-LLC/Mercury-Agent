@@ -165,10 +165,12 @@ class SimulatedQuantumCircuit:
         """Count parameters."""
         return len(self._parameters)
 
-    def simulate(self, shots: int = 1024) -> dict[str, int]:
-        """Simulate the circuit and return measurement counts.
+    def probabilities(self) -> np.ndarray[Any, Any]:
+        """Exact computational-basis probabilities of the final state.
 
-        Uses statevector simulation with NumPy.
+        Index ``k`` is the basis state ``format(k, f"0{n}b")``, the bitstring
+        :meth:`simulate` reports; index 0 is ``|0...0>``. Measurements are
+        ignored (the state before measurement).
         """
         n = self.num_qubits
         state = np.zeros(2**n, dtype=complex)
@@ -181,9 +183,18 @@ class SimulatedQuantumCircuit:
             state = self._apply_gate(state, gate_name, qubits, params)
 
         probabilities = np.abs(state) ** 2
-        probabilities = probabilities / np.sum(probabilities)
+        return probabilities / np.sum(probabilities)
 
-        outcomes = self._rng.choice(2**n, size=shots, p=probabilities)
+    def simulate(self, shots: int = 1024, rng: np.random.Generator | None = None) -> dict[str, int]:
+        """Simulate the circuit and return measurement counts.
+
+        Uses statevector simulation with NumPy. ``rng`` draws the shots
+        instead of this circuit's own generator.
+        """
+        n = self.num_qubits
+        probabilities = self.probabilities()
+
+        outcomes = (rng or self._rng).choice(2**n, size=shots, p=probabilities)
         counts: dict[str, int] = {}
         for outcome in outcomes:
             bitstring = format(outcome, f"0{n}b")
@@ -379,6 +390,38 @@ class AnomalyEncodingCircuit:
             return self._zz_feature_map_encoding(data)
         else:
             return self._angle_encoding(data)
+
+    def encode_layered(self, data: np.ndarray[Any, Any]) -> Any:
+        """Layered angle encoding of every feature.
+
+        Feature ``j`` rotates qubit ``j % n`` by ``RY(pi * x_j)`` in layer
+        ``j // n``, with a CX chain between layers, so ``d`` features use
+        ``ceil(d / n)`` layers on ``n`` qubits and none is dropped (the
+        one-qubit-per-feature encodings keep only the first ``n``). Inputs
+        are expected in [0, 1] (training-scaled). The probabilities repeat
+        with period 2 in each ``x_j``, so inputs must stay within a window
+        shorter than 2; :class:`~omni_mercury_engine.quantum_computing.detector.QuantumAnomalyDetector`
+        squashes out-of-range values into (-0.45, 1.45).
+
+        Args:
+            data: One sample's features.
+
+        Returns:
+            Quantum circuit with every feature encoded.
+        """
+        values = np.asarray(data, dtype=float).ravel()
+        n = self._num_qubits
+        circuit = self._builder.create_circuit(n)
+        n_layers = max(1, int(np.ceil(values.size / n)))
+        for layer in range(n_layers):
+            for i in range(n):
+                j = layer * n + i
+                if j < values.size:
+                    circuit.ry(float(values[j]) * np.pi, i)
+            if layer < n_layers - 1:
+                for i in range(n - 1):
+                    circuit.cx(i, i + 1)
+        return circuit
 
     def _amplitude_encoding(self, data: np.ndarray[Any, Any]) -> Any:
         """Amplitude encoding - encodes data in state amplitudes.
@@ -665,11 +708,21 @@ class QuantumFeatureMap:
         num_qubits: int,
         reps: int = 2,
         entanglement: str = "full",
+        seed: int | None = None,
     ) -> None:
-        """Initialize the feature map."""
+        """Initialize the feature map.
+
+        Args:
+            num_qubits: Number of qubits.
+            reps: Feature-map repetitions.
+            entanglement: Entanglement structure.
+            seed: Seed for the shots of :meth:`compute_kernel`; ``None`` uses
+                OS entropy.
+        """
         self._num_qubits = num_qubits
         self._reps = reps
         self._entanglement = entanglement
+        self._rng: np.random.Generator = np.random.default_rng(seed)
         self._encoder = AnomalyEncodingCircuit(
             num_qubits,
             EncodingType.ZZ_FEATURE_MAP,
@@ -691,19 +744,24 @@ class QuantumFeatureMap:
         self,
         x1: np.ndarray[Any, Any],
         x2: np.ndarray[Any, Any],
-        shots: int = 1024,
+        shots: int | None = 1024,
     ) -> float:
         """Compute quantum kernel between two data points.
 
-        Uses fidelity estimation: K(x1, x2) = |<phi(x1)|phi(x2)>|^2
+        Uses fidelity estimation: K(x1, x2) = |<phi(x1)|phi(x2)>|^2, the
+        probability that U(x2)† U(x1) returns |0...0⟩.
 
         Args:
             x1: First data point
             x2: Second data point
-            shots: Number of measurement shots
+            shots: Number of measurement shots, or ``None`` for the exact
+                fidelity from the built-in statevector simulator
 
         Returns:
             Kernel value between 0 and 1
+
+        Raises:
+            ValueError: If ``shots`` is ``None`` on a Qiskit circuit.
         """
         circuit1 = self.map(x1)
         circuit2 = self.map(x2)
@@ -711,7 +769,11 @@ class QuantumFeatureMap:
         combined = self._create_kernel_circuit(circuit1, circuit2)
 
         if isinstance(combined, SimulatedQuantumCircuit):
-            counts = combined.simulate(shots)
+            if shots is None:
+                return float(combined.probabilities()[0])
+            counts = combined.simulate(shots, rng=self._rng)
+        elif shots is None:
+            raise ValueError("the exact kernel needs the built-in statevector simulator")
         else:
             counts = self._simulate_qiskit_circuit(combined, shots)
 

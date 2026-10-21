@@ -241,9 +241,10 @@ class TestAdvancedPhysicsIntegratedDetector:
         detector = PhysicsIntegratedDetector()
         scalars = detector.get_gosnn_scalars()
 
-        assert "SPECTRAL_INTEGRITY" in scalars
-        assert "KINEMATIC_PRECISION" in scalars
-        assert "UIUX_FAIRNESS" in scalars
+        assert "omni_spectral_integrity" in scalars
+        assert "omni_kinematic_precision" in scalars
+        assert "omni_uiux_fairness" in scalars
+        assert all(name.startswith("omni_") for name in scalars)
 
     def test_detect_not_fitted_raises(self) -> None:
         """Test that detection before fitting raises exception."""

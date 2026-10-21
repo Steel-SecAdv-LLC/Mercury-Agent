@@ -30,12 +30,13 @@ References:
 from __future__ import annotations
 
 import logging
+import math
+import statistics
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-import numpy as np
 from ama_cryptography.adaptive_posture import (
     CryptoPostureController,
     PostureAction,
@@ -140,8 +141,15 @@ class _TimingAnomaly:
 class EWMATimingMonitor:
     """Exponentially Weighted Moving Average timing monitor.
 
-    Detects timing anomalies in cryptographic operations with <2% overhead.
-    Uses EWMA for mean tracking and MAD for robust variance estimation.
+    Detects timing anomalies in cryptographic operations. Uses EWMA for mean
+    tracking and MAD for robust variance estimation.
+
+    Overhead targets <2% and is measured, not assumed:
+    :meth:`get_overhead_estimate` reports it. Measured 2026-09-27 against the
+    native AMA v4.0.0 backend (ML-DSA-65 sign/verify, ML-KEM-1024
+    encapsulate/decapsulate, 0.14-0.64 ms each): about 22 us per record, i.e.
+    ~9% of operation time -- above target for sub-millisecond native
+    operations, well below it for millisecond-scale ones.
 
     Synapse: Timing anomalies feed into GOSNN ethical gate for security assessment.
     """
@@ -153,9 +161,31 @@ class EWMATimingMonitor:
         self.stats: dict[str, TimingStats] = {}
         self.recent_timings: dict[str, list[float]] = {}
         self.max_history = 100
+        # Measured cost of monitoring: wall-clock spent inside record_timing,
+        # and the operation time it has been handed, for get_overhead_estimate.
+        self._monitor_seconds = 0.0
+        self._observed_ms = 0.0
 
     def record_timing(self, operation: str, duration_ms: float) -> CryptoAnomaly | None:
-        """Record timing and detect anomalies."""
+        """Record timing and detect anomalies.
+
+        Raises:
+            ValueError: ``duration_ms`` is negative or not finite. A single NaN
+                would otherwise become the operation's EWMA mean forever,
+                after which no deviation compares above the threshold and the
+                monitor stops flagging that operation without any signal.
+        """
+        if not math.isfinite(duration_ms) or duration_ms < 0:
+            raise ValueError(f"duration_ms must be finite and >= 0, got {duration_ms!r}")
+        started = time.perf_counter()
+        try:
+            return self._record_timing(operation, duration_ms)
+        finally:
+            self._monitor_seconds += time.perf_counter() - started
+            if duration_ms > 0:
+                self._observed_ms += duration_ms
+
+    def _record_timing(self, operation: str, duration_ms: float) -> CryptoAnomaly | None:
         if operation not in self.stats:
             self.stats[operation] = TimingStats(alpha=self.alpha)
             self.recent_timings[operation] = []
@@ -178,8 +208,11 @@ class EWMATimingMonitor:
             )
 
         if len(timings) >= 10:
-            median = float(np.median(timings))
-            stats.mad = float(np.median(np.abs(np.array(timings) - median)))
+            # stdlib median: bit-identical to np.median on these float lists and
+            # ~6x cheaper at this size, which matters because this runs on every
+            # monitored PQC operation.
+            median = float(statistics.median(timings))
+            stats.mad = float(statistics.median([abs(t - median) for t in timings]))
 
         stats.sample_count += 1
 
@@ -215,8 +248,16 @@ class EWMATimingMonitor:
         return anomaly
 
     def get_overhead_estimate(self) -> float:
-        """Estimate monitoring overhead percentage (target: <2%)."""
-        return 0.5
+        """Return the measured monitoring overhead as a percentage (target: <2%).
+
+        The time spent inside :meth:`record_timing` divided by the total
+        operation time it has observed, times 100. Returns ``0.0`` until a
+        positive duration has been recorded. This replaced a hard-coded
+        ``0.5`` that reported the target as if it were a measurement.
+        """
+        if self._observed_ms <= 0.0:
+            return 0.0
+        return 100.0 * (self._monitor_seconds * 1000.0) / self._observed_ms
 
     def get_security_report(self) -> dict[str, Any]:
         """Generate a security report compatible with AMA PostureEvaluator.

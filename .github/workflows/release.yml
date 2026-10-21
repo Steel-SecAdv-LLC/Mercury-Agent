@@ -97,10 +97,16 @@ jobs:
 
       - name: Determine version
         id: version
+        # Dispatch inputs arrive through env, never spliced into the script:
+        # a template-expanded input is executed as shell.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_PRERELEASE: ${{ github.event.inputs.prerelease }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-            PRERELEASE="${{ github.event.inputs.prerelease }}"
+          if [ "${EVENT_NAME}" == "workflow_dispatch" ]; then
+            VERSION="${INPUT_VERSION}"
+            PRERELEASE="${INPUT_PRERELEASE}"
           else
             # Strip `refs/tags/`, then an OPTIONAL leading `v`. The old form
             # (`${GITHUB_REF#refs/tags/v}`) removes the prefix only when it is
@@ -197,7 +203,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       - name: Run tests
         env:
@@ -465,10 +471,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Log in to Container Registry
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -486,7 +492,7 @@ jobs:
             type=raw,value=latest,enable=${{ needs.validate.outputs.is_prerelease == 'false' }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           push: true
@@ -575,7 +581,9 @@ jobs:
           echo "### Installation" >> CHANGELOG_EXCERPT.md
           echo "" >> CHANGELOG_EXCERPT.md
           echo "\`\`\`bash" >> CHANGELOG_EXCERPT.md
-          echo "pip install mercury-agent==$VERSION" >> CHANGELOG_EXCERPT.md
+          # Direct reference to this repository's tag; works whether or not
+          # the release is also on PyPI.
+          echo "pip install \"mercury-agent-global @ git+https://github.com/${{ github.repository }}.git@v$VERSION\"" >> CHANGELOG_EXCERPT.md
           echo "\`\`\`" >> CHANGELOG_EXCERPT.md
           echo "" >> CHANGELOG_EXCERPT.md
           echo "### Docker" >> CHANGELOG_EXCERPT.md
@@ -587,7 +595,7 @@ jobs:
           cat CHANGELOG_EXCERPT.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           tag_name: v${{ needs.validate.outputs.version }}
           name: Mercury Agent v${{ needs.validate.outputs.version }}
@@ -601,50 +609,97 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================================
-  # Publish to PyPI (Optional - requires PYPI_TOKEN secret)
+  # Publish to PyPI
   # ============================================================================
+  # Credentials only authenticate an upload; PyPI can still refuse it. The
+  # preflight (scripts/check_pypi_publishable.py) runs first and names every
+  # reason PyPI would reject this release: a project name owned by another
+  # project, a direct URL dependency in the metadata (the [pqc] extra's git
+  # pin of AMA), or non-distribution files in the upload directory. It stages
+  # only the wheel and sdist into pypi-dist/, so the SBOM and provenance that
+  # ride along in dist/ never reach twine.
+  #
+  # Authentication: PyPI trusted publishing (OIDC, no stored secret) is the
+  # default once the repository variable PYPI_TRUSTED_PUBLISHING is "true" and
+  # a trusted publisher for this workflow + the `pypi` environment is set up
+  # on PyPI. A PYPI_TOKEN secret is used instead when present.
+  #
+  # Neither configured: the job reports the preflight result and skips.
+  # Configured: a preflight failure fails the job, because publishing was
+  # intended and did not happen.
   publish-pypi:
     name: Publish to PyPI
     needs: [validate, build, release]
     runs-on: ubuntu-latest
     if: needs.validate.outputs.is_prerelease == 'false'
+    permissions:
+      contents: read
+      id-token: write
     environment:
       name: pypi
-      url: https://pypi.org/p/mercury-agent
+      url: https://pypi.org/project/mercury-agent-global/
 
     steps:
+      - name: Checkout code (preflight script)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Download build artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: dist
           path: dist/
 
-      - name: Determine if PyPI publishing is configured
-        # ``pypa/gh-action-pypi-publish`` reads ``PYPI_TOKEN`` (or uses
-        # OIDC trusted publishing).  If neither is wired up, the
-        # publish step would error out.  Rather than swallowing the
-        # failure with ``continue-on-error: true`` (which leaves the
-        # release job green even when no artifact was actually
-        # published — silent dropout), this preflight checks for the
-        # token and sets an explicit ``enabled`` output that gates
-        # the publish step below.  A clear ``notice`` is emitted when
-        # publishing is skipped so the release log shows the reason.
+      - name: Determine whether PyPI publishing is configured
         id: pypi_check
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+          TRUSTED: ${{ vars.PYPI_TRUSTED_PUBLISHING }}
         run: |
           if [ -n "${PYPI_TOKEN:-}" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::PYPI_TOKEN is configured; PyPI publish will run."
+            echo "mode=token" >> "$GITHUB_OUTPUT"
+          elif [ "${TRUSTED:-}" = "true" ]; then
+            echo "mode=oidc" >> "$GITHUB_OUTPUT"
           else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::PYPI_TOKEN is not configured; PyPI publish will be skipped (intentional)."
+            echo "mode=none" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish to PyPI
-        if: steps.pypi_check.outputs.enabled == 'true'
-        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
+      - name: PyPI preflight
+        id: preflight
+        env:
+          MODE: ${{ steps.pypi_check.outputs.mode }}
+        run: |
+          set +e
+          python scripts/check_pypi_publishable.py dist/ --stage pypi-dist/ --github
+          status=$?
+          set -e
+          if [ "${status}" -eq 0 ]; then
+            echo "publishable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publishable=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${MODE}" = "none" ]; then
+            echo "::notice title=PyPI::Publishing not configured (no PYPI_TOKEN, PYPI_TRUSTED_PUBLISHING unset); skipped. Preflight result above."
+            exit 0
+          fi
+          exit "${status}"
+
+      - name: Publish to PyPI (trusted publishing)
+        if: steps.pypi_check.outputs.mode == 'oidc' && steps.preflight.outputs.publishable == 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
+          packages-dir: pypi-dist/
+          skip-existing: true
+
+      - name: Publish to PyPI (API token)
+        if: steps.pypi_check.outputs.mode == 'token' && steps.preflight.outputs.publishable == 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: pypi-dist/
           skip-existing: true
           password: ${{ secrets.PYPI_TOKEN }}
 

@@ -1,0 +1,233 @@
+{
+  "design": {
+    "references": 5,
+    "seed": 20261017,
+    "shifts_sd": [
+      0.0,
+      0.5,
+      1.0,
+      2.0
+    ],
+    "trials": 100
+  },
+  "elapsed_s": 357.7,
+  "host": {
+    "cpus": 4,
+    "numpy": "2.5.2",
+    "python": "3.13.16"
+  },
+  "scenarios": [
+    {
+      "correlation": 0.9,
+      "features": 8,
+      "flagged_pct_by_shift_sd": {
+        "0.0": {
+          "with_principal_axes_pct": 2.0,
+          "without_principal_axes_pct": 0.0
+        },
+        "0.5": {
+          "with_principal_axes_pct": 38.0,
+          "without_principal_axes_pct": 2.0
+        },
+        "1.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 1.0
+        },
+        "2.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 12.0
+        }
+      },
+      "max_single_feature_shift_sd_at_1sd": 0.11431167223035023,
+      "reference_rows": 2000,
+      "window_rows": 64,
+      "windows_per_cell": 100
+    },
+    {
+      "correlation": 0.9,
+      "features": 8,
+      "flagged_pct_by_shift_sd": {
+        "0.0": {
+          "with_principal_axes_pct": 5.0,
+          "without_principal_axes_pct": 2.0
+        },
+        "0.5": {
+          "with_principal_axes_pct": 97.0,
+          "without_principal_axes_pct": 2.0
+        },
+        "1.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 8.0
+        },
+        "2.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 56.0
+        }
+      },
+      "max_single_feature_shift_sd_at_1sd": 0.11431167223035023,
+      "reference_rows": 2000,
+      "window_rows": 200,
+      "windows_per_cell": 100
+    },
+    {
+      "correlation": 0.9,
+      "features": 8,
+      "flagged_pct_by_shift_sd": {
+        "0.0": {
+          "with_principal_axes_pct": 1.0,
+          "without_principal_axes_pct": 0.0
+        },
+        "0.5": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 1.0
+        },
+        "1.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 0.0
+        },
+        "2.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 3.0
+        }
+      },
+      "max_single_feature_shift_sd_at_1sd": 0.11431167223035023,
+      "reference_rows": 2000,
+      "window_rows": 1000,
+      "windows_per_cell": 100
+    },
+    {
+      "correlation": 0.9,
+      "features": 32,
+      "flagged_pct_by_shift_sd": {
+        "0.0": {
+          "with_principal_axes_pct": 4.0,
+          "without_principal_axes_pct": 1.0
+        },
+        "0.5": {
+          "with_principal_axes_pct": 70.0,
+          "without_principal_axes_pct": 0.0
+        },
+        "1.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 1.0
+        },
+        "2.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 11.0
+        }
+      },
+      "max_single_feature_shift_sd_at_1sd": 0.05730652171214819,
+      "reference_rows": 2000,
+      "window_rows": 200,
+      "windows_per_cell": 100
+    },
+    {
+      "correlation": 0.0,
+      "features": 8,
+      "flagged_pct_by_shift_sd": {
+        "0.0": {
+          "with_principal_axes_pct": 2.0,
+          "without_principal_axes_pct": 2.0
+        },
+        "0.5": {
+          "with_principal_axes_pct": 98.0,
+          "without_principal_axes_pct": 97.0
+        },
+        "1.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 100.0
+        },
+        "2.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 100.0
+        }
+      },
+      "max_single_feature_shift_sd_at_1sd": 1.0,
+      "reference_rows": 2000,
+      "window_rows": 200,
+      "windows_per_cell": 100
+    },
+    {
+      "correlation": 0.9,
+      "features": 128,
+      "flagged_pct_by_shift_sd": {
+        "0.0": {
+          "with_principal_axes_pct": 1.0,
+          "without_principal_axes_pct": 0.0
+        },
+        "0.5": {
+          "with_principal_axes_pct": 0.0,
+          "without_principal_axes_pct": 0.0
+        },
+        "1.0": {
+          "with_principal_axes_pct": 57.0,
+          "without_principal_axes_pct": 0.0
+        },
+        "2.0": {
+          "with_principal_axes_pct": 100.0,
+          "without_principal_axes_pct": 2.0
+        }
+      },
+      "max_single_feature_shift_sd_at_1sd": 0.028671065933159975,
+      "reference_rows": 1000,
+      "window_rows": 300,
+      "windows_per_cell": 100
+    },
+    {
+      "correlation": 0.95,
+      "features": 128,
+      "flagged_pct_by_shift_sd": {
+        "0.0": {
+          "with_principal_axes_pct": 2.0,
+          "without_principal_axes_pct": 2.0
+        },
+        "0.5": {
+          "with_principal_axes_pct": 3.0,
+          "without_principal_axes_pct": 3.0
+        },
+        "1.0": {
+          "with_principal_axes_pct": 1.0,
+          "without_principal_axes_pct": 1.0
+        },
+        "2.0": {
+          "with_principal_axes_pct": 3.0,
+          "without_principal_axes_pct": 3.0
+        }
+      },
+      "max_single_feature_shift_sd_at_1sd": 0.020014013425212234,
+      "reference_rows": 400,
+      "window_rows": 300,
+      "windows_per_cell": 100
+    }
+  ],
+  "schema": "mercury.benchmarks.drift_power/v1",
+  "split_check": [
+    {
+      "correlation": 0.9,
+      "false_alarm_pct_same_rows": 6.0,
+      "false_alarm_pct_split": 0.0,
+      "features": 64,
+      "reference_rows": 500,
+      "window_rows": 200,
+      "windows": 100
+    },
+    {
+      "correlation": 0.9,
+      "false_alarm_pct_same_rows": 25.0,
+      "false_alarm_pct_split": 2.0,
+      "features": 128,
+      "reference_rows": 1000,
+      "window_rows": 300,
+      "windows": 100
+    },
+    {
+      "correlation": 0.95,
+      "false_alarm_pct_same_rows": 100.0,
+      "false_alarm_pct_split": 0.0,
+      "features": 128,
+      "reference_rows": 400,
+      "window_rows": 300,
+      "windows": 100
+    }
+  ]
+}

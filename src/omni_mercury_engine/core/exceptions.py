@@ -45,3 +45,32 @@ class SecurityException(OmniAnomalyException):
     """Exception raised for security-related errors."""
 
     pass
+
+
+class InputModalityError(ValueError):
+    """A component declined input of a modality it does not process.
+
+    Raised when, for example, a 1-D signal detector receives a 2-D feature
+    matrix or a mapping-only model receives an array. This is a correct
+    refusal, not a fault: the engine skips the component and the metrics
+    layer counts it as *declined* rather than as an inference error, so an
+    error-rate alert reflects real failures only.
+
+    Subclasses ``ValueError`` and nothing else, so every existing
+    ``except ValueError`` handler and test keeps its behaviour and no
+    ``except OmniAnomalyException`` handler starts catching it.
+    """
+
+
+class InvalidObservationError(ValueError):
+    """A hazard detector refused a physical observation it cannot interpret.
+
+    Raised for a value of the right modality that is not a usable measurement:
+    non-finite, outside the physical range of the quantity, or in a unit other
+    than the one the detector documents. Scoring such a value is how a NaN
+    pressure became a Category 5 hurricane and an empty gauge record a flood
+    warning, so the detector refuses and names the quantity and unit instead.
+
+    Subclasses ``ValueError`` only, for the same reason as
+    :class:`InputModalityError`.
+    """

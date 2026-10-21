@@ -21,6 +21,8 @@ Research References:
 
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -49,24 +51,30 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     nn = None  # type: ignore[assignment, unused-ignore]
 
-# Optional SHAP import
-try:
-    import shap
+_OPTIONAL_MODULES: dict[str, Any] = {}
 
-    SHAP_AVAILABLE = True
-except ImportError:
-    SHAP_AVAILABLE = False
-    shap = None
 
-# Optional LIME import
-try:
-    import lime
-    import lime.lime_tabular
+def _optional_module(name: str) -> Any:
+    """Import an optional library on first use; ``None`` when missing or unusable.
 
-    LIME_AVAILABLE = True
-except ImportError:
-    LIME_AVAILABLE = False
-    lime = None
+    ``shap`` alone costs over a second to import, and only SHAP and LIME
+    explanations use these libraries, so they are not imported with the engine.
+    """
+    if name not in _OPTIONAL_MODULES:
+        try:
+            _OPTIONAL_MODULES[name] = importlib.import_module(name)
+        except ImportError:
+            _OPTIONAL_MODULES[name] = None
+    return _OPTIONAL_MODULES[name]
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve ``SHAP_AVAILABLE`` and ``LIME_AVAILABLE`` when first read."""
+    if name == "SHAP_AVAILABLE":
+        return _optional_module("shap") is not None
+    if name == "LIME_AVAILABLE":
+        return _optional_module("lime.lime_tabular") is not None
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class ExplanationType(Enum):
@@ -188,7 +196,8 @@ class SHAPExplainer(BaseExplainer):
         background: np.ndarray[Any, Any],
     ) -> Any:
         """Create SHAP explainer instance."""
-        if not SHAP_AVAILABLE:
+        shap = _optional_module("shap")
+        if shap is None:
             return None
 
         return shap.KernelExplainer(model, background)
@@ -208,7 +217,7 @@ class SHAPExplainer(BaseExplainer):
         if feature_names is None:
             feature_names = [f"feature_{i}" for i in range(n_features)]
 
-        if SHAP_AVAILABLE and self.background_data is not None:
+        if self.background_data is not None and _optional_module("shap") is not None:
             if self._explainer is None:
                 self._explainer = self._create_explainer(model, self.background_data)
 
@@ -356,10 +365,11 @@ class LIMEExplainer(BaseExplainer):
         feature_names: list[str],
     ) -> Any:
         """Create LIME explainer instance."""
-        if not LIME_AVAILABLE:
+        lime_tabular = _optional_module("lime.lime_tabular")
+        if lime_tabular is None:
             return None
 
-        return lime.lime_tabular.LimeTabularExplainer(
+        return lime_tabular.LimeTabularExplainer(
             training_data,
             feature_names=feature_names,
             mode=self.mode,
@@ -381,7 +391,7 @@ class LIMEExplainer(BaseExplainer):
         if feature_names is None:
             feature_names = [f"feature_{i}" for i in range(n_features)]
 
-        if LIME_AVAILABLE and self.training_data is not None:
+        if self.training_data is not None and _optional_module("lime.lime_tabular") is not None:
             if self._explainer is None:
                 self._explainer = self._create_explainer(self.training_data, feature_names)
 
@@ -941,7 +951,9 @@ class ExplainabilityEngine:
         self.faithfulness_evaluator = FaithfulnessEvaluator()
 
         logger.info(
-            f"ExplainabilityEngine initialized " f"(SHAP={SHAP_AVAILABLE}, LIME={LIME_AVAILABLE})"
+            "ExplainabilityEngine initialized (SHAP=%s, LIME=%s)",
+            importlib.util.find_spec("shap") is not None,
+            importlib.util.find_spec("lime") is not None,
         )
 
     def explain(

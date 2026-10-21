@@ -685,8 +685,11 @@ class ChemistryAnomalyDetector:
 def create_omni_chemistry_scalars() -> dict[str, float]:
     """Create doctorate-level chemistry scalars for truth deciphering.
 
+    The values are a hand-set table, each base weight times phi (1.618).
+    They are fixed constants, not fitted or optimized on data.
+
     Returns:
-        Dictionary of omni-chemistry scalars with golden ratio optimization
+        Dictionary of omni-chemistry scalars
     """
     phi = 1.618
 

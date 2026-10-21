@@ -1,0 +1,42 @@
+{
+  "design": {
+    "features": 8,
+    "model_stage_rows": 4096,
+    "repeats": 3,
+    "seed": 20261017,
+    "sizes": [
+      64,
+      1024,
+      4096
+    ]
+  },
+  "detect_with_fusion_s": {
+    "1024": 0.18162031599968032,
+    "4096": 0.39731581500018365,
+    "64": 0.03784382099911454
+  },
+  "elapsed_s": 17.1,
+  "host": {
+    "cpus": 4,
+    "numpy": "2.5.2",
+    "python": "3.13.16"
+  },
+  "model_stage_s": {
+    "affective": 7.093999920471106e-05,
+    "astrophysical": 0.001751936999426107,
+    "biometric": 0.008943677999923239,
+    "chemistry": 0.00024117300017678645,
+    "consciousness": 0.05024388400124735,
+    "multiverse": 0.009526572999675409,
+    "neural": 0.07397423399925174,
+    "neurosymbolic": 0.040506653998818365,
+    "parapsychology": 4.8379999498138204e-05,
+    "quantum": 0.005355875999157433
+  },
+  "model_stage_total_s": 0.19066332899637928,
+  "schema": "mercury.benchmarks.fusion_latency/v1",
+  "startup": {
+    "construct_s": 0.2389467840002908,
+    "import_s": 2.9841482310002903
+  }
+}

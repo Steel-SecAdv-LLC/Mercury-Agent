@@ -48,6 +48,7 @@ from omni_mercury_engine.tools.migrate_pkl import (
     _build_parser,
     _do_migration,
     _make_restricted_unpickler,
+    _package_root_for_child,
     main,
 )
 
@@ -709,7 +710,11 @@ class TestMainDispatch:
         assert env["PYTHONNOUSERSITE"] == "1"
         assert env["PYTHONDONTWRITEBYTECODE"] == "1"
         assert "LD_PRELOAD" not in env
-        assert "PYTHONPATH" not in env
+        # The inherited PYTHONPATH never reaches the child. The only value the
+        # child may get is the directory the running package was loaded from
+        # (a source checkout), which is not caller-controlled.
+        assert "/tmp/evil" not in env.get("PYTHONPATH", "")
+        assert env.get("PYTHONPATH") == _package_root_for_child()
         assert "PYTHONSTARTUP" not in env
         assert env["PATH"] == os.environ["PATH"]
         assert "LANG" in env
@@ -740,3 +745,25 @@ class TestMainDispatch:
 
         assert main(None) == 0
         assert calls == [cli_args]
+
+
+class TestPackageRootForChild:
+    """The hardened child can import the package it was relaunched from."""
+
+    def test_source_checkout_root_is_forwarded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import sysconfig
+
+        from omni_mercury_engine.tools import migrate_pkl as module
+
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(module.__file__))))
+        monkeypatch.setattr(sysconfig, "get_paths", lambda: {"purelib": "/nonexistent-site"})
+        assert _package_root_for_child() == root
+
+    def test_site_packages_install_forwards_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import sysconfig
+
+        from omni_mercury_engine.tools import migrate_pkl as module
+
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(module.__file__))))
+        monkeypatch.setattr(sysconfig, "get_paths", lambda: {"purelib": root, "platlib": root})
+        assert _package_root_for_child() is None

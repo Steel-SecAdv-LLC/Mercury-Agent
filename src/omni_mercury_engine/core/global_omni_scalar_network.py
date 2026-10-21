@@ -64,7 +64,7 @@ import numpy as np
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Mapping
 
 # P2: Import from centralized constants
 from omni_mercury_engine.core.centralized_constants import (
@@ -1166,8 +1166,11 @@ class GlobalOmniScalarNetwork:
     def _initialize_default_scalars(self) -> None:
         """Initialize default ethical and system scalars with omni- prefix.
 
-        All scalars use the omni- prefix for unified naming convention. Legacy aliases (without
-        omni- prefix) are maintained for backward compatibility and will be deprecated in v2.0.
+        Every built-in scalar name starts with ``omni`` (pinned by
+        ``tests/core/test_gosnn_scalar_naming.py``). The names are opaque keys to
+        GOSNN; what σ_Immutable depends on is the order of the operational vector,
+        so a rename keeps its entry's position. Older names resolve through
+        :meth:`resolve_scalar_name` (see ``_initialize_legacy_aliases``).
         """
         # Core ethical scalars with omni- prefix
         # omnibenevolence uses ETHICAL.OMNIBENEVOLENCE_SCALAR (0.99)
@@ -1198,9 +1201,10 @@ class GlobalOmniScalarNetwork:
             "omniperseverance": 1.25,
             "omnivigilance": 1.20,
             "omnistewardship": 1.25,
-            # Operational scalars
-            "survivor_first_principle": 1.35,
-            "bias_audit_compliance": 1.25,
+            # Operational scalars (renamed in place from civilization_first_principle
+            # and bias_audit_compliance; both old names still resolve)
+            "omni_civilization_first_principle": 1.35,
+            "omni_bias_audit_compliance": 1.25,
         }
 
         self.scalar_groups[ScalarGroup.COSMIC] = {
@@ -1517,6 +1521,8 @@ class GlobalOmniScalarNetwork:
             "explainability_factor": "omniexplainability",
             "benevolence": "omnibenevolence",
             "equity": "omniequity",
+            "civilization_first_principle": "omni_civilization_first_principle",
+            "bias_audit_compliance": "omni_bias_audit_compliance",
             # Cosmic scalars
             "universe_adapt": "omniuniverse_adapt",
             "telos_scalar": "omnitelos",
@@ -1622,7 +1628,27 @@ class GlobalOmniScalarNetwork:
             scalars: Dictionary of scalar name to value
             group: Scalar group classification
             metadata: Optional metadata about the registration
+
+        A legacy name (for example ``benevolence``) is written to its
+        canonical scalar when that scalar exists in ``group``; otherwise it
+        would silently add a second entry and shift the σ_Immutable layout.
+
+        Raises:
+            ValueError: An ETHICAL-group scalar that enters the σ vector is
+                non-finite or outside the gate's trained support
+                ``[0, ETHICAL.SIGMA_TRAINED_SUPPORT_HIGH]``. The batch is
+                validated before any write, so nothing is registered.
         """
+        scalars = {
+            (
+                canonical
+                if (canonical := self.resolve_scalar_name(name)) in self.scalar_groups[group]
+                else name
+            ): value
+            for name, value in scalars.items()
+        }
+        if group is ScalarGroup.ETHICAL:
+            self._check_ethical_support(component_name, scalars)
         registration = ScalarRegistration(
             component_name=component_name,
             scalars=scalars,
@@ -1661,6 +1687,27 @@ class GlobalOmniScalarNetwork:
         self.logger.debug(
             f"Registered {len(scalars)} scalars from {component_name} in group {group.value}"
         )
+
+    def _check_ethical_support(self, component_name: str, scalars: Mapping[str, float]) -> None:
+        """Refuse ETHICAL values the σ_Immutable network was never trained on.
+
+        The gate was trained on ``U[0, 2]``. Above that support it
+        extrapolates: with all 24 anchors set to 10.0 it scored 1.0 and the
+        floor passed, a fail-open. Metric-only names are exempt because they
+        never enter the σ vector.
+        """
+        high = ETHICAL.SIGMA_TRAINED_SUPPORT_HIGH
+        rejected = {
+            name: value
+            for name, value in scalars.items()
+            if not self._is_metric_only_scalar(name)
+            and not (math.isfinite(float(value)) and 0.0 <= float(value) <= high)
+        }
+        if rejected:
+            raise ValueError(
+                f"component {component_name!r} registered ETHICAL scalars outside the "
+                f"σ_Immutable trained support [0, {high}]: {rejected}; nothing was registered"
+            )
 
     def unregister_scalars(self, component_name: str) -> bool:
         """Remove a component's registration and its group contributions.
@@ -1832,13 +1879,27 @@ class GlobalOmniScalarNetwork:
         """
         return self.attention_fusion.fuse(dimensional_states)  # type: ignore[return-value, unused-ignore]
 
-    def compute_global_intelligence_score(self) -> float:
+    def _with_extra(self, extra: Mapping[str, float] | None) -> dict[str, float]:
+        """Operational scalars plus finite, non-diagnostic ``extra`` values (not stored)."""
+        scalars = self._collect_all_scalars()
+        for name, value in (extra or {}).items():
+            number = float(value)
+            if not self._is_metric_only_scalar(name) and math.isfinite(number):
+                scalars[f"extra::{name}"] = number
+        return scalars
+
+    def compute_global_intelligence_score(self, extra: Mapping[str, float] | None = None) -> float:
         """Compute global intelligence score from all registered scalars.
+
+        Args:
+            extra: Additional scalars to score with the registered ones,
+                without registering them (so they cannot reach the ethical
+                floor or the σ vector of later calls).
 
         Returns:
             Global intelligence score (0-1)
         """
-        all_scalars = self._collect_all_scalars()
+        all_scalars = self._with_extra(extra)
 
         if not all_scalars:
             return 0.5
@@ -1865,16 +1926,19 @@ class GlobalOmniScalarNetwork:
 
         return float(np.clip(intelligence_score, 0.0, 1.0))
 
-    def compute_triadic_harmony(self) -> float:
+    def compute_triadic_harmony(self, extra: Mapping[str, float] | None = None) -> float:
         """Compute triadic harmony using golden ratio (φ = 1.618).
 
         Triadic harmony represents the balance between boosts, penalties,
         and neutral scalars, weighted by the golden ratio.
 
+        Args:
+            extra: Additional scalars to include, without registering them.
+
         Returns:
             Triadic harmony score (0-1)
         """
-        all_scalars = self._collect_all_scalars()
+        all_scalars = self._with_extra(extra)
         scalar_values = np.array(list(all_scalars.values()))
         return self._compute_triadic_harmony(scalar_values)
 

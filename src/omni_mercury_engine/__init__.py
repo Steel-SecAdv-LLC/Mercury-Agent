@@ -76,21 +76,27 @@ if TYPE_CHECKING:
     from omni_mercury_engine.engine import OmniMercuryEngine as OmniMercuryEngine
 
 # ---------------------------------------------------------------------------
-# PQC gate.
+# PQC gate - SCOPED to the agent surfaces (maintainer-directed design).
 #
-# Mercury package import refuses to proceed unless the AMA Cryptography
-# native C backend is fully loadable.  There is no AMA-less development,
-# CI, or production mode.
+# The fail-closed AMA requirement is enforced at import time by every
+# surface that constitutes the Mercury Agent: ``omni_mercury_engine.engine``
+# (OmniMercuryEngine - the CLI and API serve it, so they refuse
+# transitively) and ``omni_mercury_engine.crypto``. Constructing or serving
+# the agent without a real AMA Cryptography v5.0.0 native build is
+# impossible, with no development, CI, or production escape hatch.
+#
+# The package ROOT deliberately does not enforce the gate: the standalone
+# analytic leaves (dataset loaders, individual detectors, metrics - what
+# ``examples/mercury_quickstart.py`` uses) are importable without AMA so a
+# consumer reaches a real measured result in minutes. That fast path is a
+# subset of analytics, never the agent: anything that can decide, serve,
+# sign, or encrypt still fails closed above.
 #
 # Implementation lives in ``omni_mercury_engine._pqc_gate`` so it has a
-# stable importable location for unit tests; the function is invoked once
-# here at package-load time and then the local re-binding is deleted to
-# keep the public package surface clean.
+# stable importable location for unit tests; the scoped contract (leaves
+# import AMA-less, agent surfaces refuse) is pinned by
+# ``tests/test_pqc_startup_gate.py::TestScopedGateContract``.
 # ---------------------------------------------------------------------------
-from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
-
-_enforce_pqc_production_gate()
-del _enforce_pqc_production_gate
 
 # Lazy imports to support running without ML dependencies (torch)
 # The OmniMercuryEngine requires torch, but we defer the import to allow

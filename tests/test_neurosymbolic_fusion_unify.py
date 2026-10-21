@@ -119,9 +119,11 @@ class TestReasonSitesDelegate:
 
         from omni_mercury_engine.models import neurosymbolic as m
 
-        src = inspect.getsource(m.SymbolicReasoningLayer.reason)
+        # ``reason`` delegates to ``reason_many``, where the blend lives.
+        src = inspect.getsource(m.SymbolicReasoningLayer.reason_many)
         assert "adaptive_neurosymbolic_fuse" in src
         assert "0.6 * neural_score + 0.4" not in src
+        assert "reason_many" in inspect.getsource(m.SymbolicReasoningLayer.reason)
 
     def test_core_reason_uses_adaptive(self) -> None:
         import inspect

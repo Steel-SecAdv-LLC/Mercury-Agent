@@ -206,7 +206,9 @@ a custom adapter (e.g. Abbott LibreView, Medtronic CareLink).
 
 `omni_mercury_engine.detectors.drone` ships a transport-agnostic drone
 anomaly detector combining rule-based RADD invariants with Mercury
-Agent's first-party ensemble (no sklearn runtime dependency). Full
+Agent's first-party ensemble (no sklearn runtime dependency), judged one
+telemetry row at a time against a rolling window that excludes it. It is
+registered in `DETECTOR_MANIFEST` as `drone` (category `UAV`). Full
 reference lives in [`drone/SETUP.md`](drone/SETUP.md). Quick import:
 
 ```python

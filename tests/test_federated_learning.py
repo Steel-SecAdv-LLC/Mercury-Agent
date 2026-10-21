@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from omni_mercury_engine.federated_learning import (
     CISAFederatedCoordinator,
@@ -81,11 +82,8 @@ class TestFederatedAnomalyDetector:
     def test_no_clients_raises(self) -> None:
         """Test that fit raises when no clients are registered."""
         detector = FederatedAnomalyDetector(model_dim=5)
-        try:
+        with pytest.raises(ValueError):
             detector.fit()
-            raise AssertionError("Should have raised ValueError")
-        except ValueError:
-            pass
 
     def test_seed_makes_full_loop_reproducible(self) -> None:
         """Two runs with the same seed and add_client order must
@@ -184,8 +182,5 @@ class TestCISAFederatedCoordinator:
     def test_unknown_sector_raises(self) -> None:
         """Test that adding to an unknown sector raises."""
         coordinator = CISAFederatedCoordinator(["healthcare"], model_dim=5)
-        try:
+        with pytest.raises(ValueError):
             coordinator.add_sector_client("energy", "x", np.random.randn(10, 5))
-            raise AssertionError("Should have raised ValueError")
-        except ValueError:
-            pass

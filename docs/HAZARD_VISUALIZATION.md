@@ -76,7 +76,7 @@ feature_collection = build_hazard_geojson(
 
 ## Surfaces
 
-* **CLI**: `mercury-agent hazard-viz --input diag.npz --out out.png`
+* **CLI**: `mercury-agent hazard-viz --input diag.npz --output out.png`
   (also `--detector <name> --data <input>` to run a detector with
   `keep_diagnostics=True` and render in one step).
 * **HTTP**: `POST /api/v1/hazard/visualize` — accepts a JSON diagnostics
@@ -85,6 +85,9 @@ feature_collection = build_hazard_geojson(
 * **MCP**: `mercury_hazard_visualize` tool (same payload contract).
 * **Dashboard**: `gui/visualization_dashboard.py` panels read real artifact
   metadata (hazard, array names, shapes) from the diagnostics payloads.
+  `mercury-agent hazard-viz --input diag.npz --format html --output out.html`
+  writes the interactive Plotly panel as one self-contained page (plotly.js
+  inlined, so it opens offline; needs the `[gui]` extra).
 
 ## Tests
 

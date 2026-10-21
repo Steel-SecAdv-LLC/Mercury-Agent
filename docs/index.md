@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `2.1.0` — Steel-SecAdv-LLC. Last updated: 2026-07-24.
+Version `2.1.0` — Steel-SecAdv-LLC. Last updated: 2026-10-14.
 
 Mercury Agent is a standalone **neuro-symbolic AI** with a
 **Civilization-First** mission — a hybrid of deep-learning detectors, an
@@ -23,17 +23,19 @@ attribution to code transferred from its former agent layer.)
   Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
   "σ_Immutable Hard Gate (Wave B, PR #179)".
 - **Sole PQC backend, hard-gated at import.**
-  AMA Cryptography (pinned to **v3.3.0** in
+  AMA Cryptography (pinned to **v5.0.0** in
   `.github/workflows/pqc-production-check.yml` and the `[pqc]` extra
   of `pyproject.toml`) is the only
-  supported post-quantum backend (PR #144). v3.3.0 also exposes the
+  supported post-quantum backend (PR #144). Since v3.3.0 it also exposes the
   native HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings consumed by
   Mercury's `native_jwt` HS256 / HS384 / HS512 signing path (see CHANGELOG
-  `[Unreleased]` § "AMA-routed JWT HMAC signatures"). Package import is
+  `[Unreleased]` § "AMA-routed JWT HMAC signatures"). The agent surfaces are
   hard-gated: `omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`
-  runs from `__init__.py`, imports `ama_cryptography.pqc_backends`,
-  and refuses to start unless ML-DSA-65, Kyber-1024, and SPHINCS+
-  are all backed by the native AMA library. `AMA_REQUIRE_REAL_PQC`
+  runs at import of `omni_mercury_engine.engine` / `.crypto` (and on first
+  access to an AMA-backed `security` export), imports
+  `ama_cryptography.pqc_backends`, and refuses to start unless ML-DSA-65,
+  Kyber-1024, and SPHINCS+ are all backed by the native AMA library; the
+  standalone analytic leaves import AMA-free (quickstart path). `AMA_REQUIRE_REAL_PQC`
   is retained only for legacy workflow readability; it no longer
   creates a dev-mode escape hatch.
   `security/pqc_guards.check_pqc_production_readiness()` remains
@@ -41,13 +43,13 @@ attribution to code transferred from its former agent layer.)
   boundary. See [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) for the full
   contract.
 - **Committed benchmark run.** The README headline is the committed
-  `mercury_benchmark_results.json` run — **66 successful / 75
-  attempted**, Mean AUC **0.8251**, Median **0.8747**, Mean Oracle
-  F1 **0.5998** (2026-06-21) — surfaced in the README "Latest
+  `mercury_benchmark_results.json` run — **67 successful / 76
+  attempted**, Mean AUC **0.8545**, Median **0.9052**, Mean Oracle
+  F1 **0.6425** (2026-10-14) — surfaced in the README "Latest
   Benchmark Results" block. CI's coarse regression-gate floors are
   **ROC-AUC 0.75 / F1 0.55** (`.github/workflows/benchmark.yml`), ~7%
   below the historical **0.803 AUC / 0.589 F1** baseline.
-  Externally-comparable subset: ADBench Mean AUC 0.8251.
+  Externally-comparable subset: ADBench Mean AUC 0.8515.
   See [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Pickle removed from the training-data path; not a blanket ban.**
   PR #166 deleted the `pickle` code path from the training-data
@@ -118,7 +120,6 @@ HAZARD_VISUALIZATION
 :caption: Benchmarks & data
 
 BENCHMARKS
-DOMAIN_PERFORMANCE
 DATASOURCES
 LIVE_DATA_SOURCES
 LIVE_DATA_VALIDATION
@@ -158,6 +159,7 @@ DORMANCY_LEDGER
 
 SUBAGENT_PANTHEON
 capability_vs_vision_matrix
+VISION
 ```
 
 ```{toctree}
@@ -167,7 +169,6 @@ capability_vs_vision_matrix
 EQUATION_RESEARCH_PROTOCOL
 SCHUMANN_PREREGISTRATION
 PARAPSYCH_PREREGISTRATION
-WS_F_VERIFICATION
 ```
 
 ```{toctree}
@@ -176,6 +177,7 @@ WS_F_VERIFICATION
 
 DEPLOYMENT
 OFFLINE_OPERATION
+GCN_KAFKA_MCP
 HARDWARE_HARNESS
 PROFILING
 TOOLS
@@ -196,7 +198,6 @@ drone/SETUP
 
 ROADMAP
 MIGRATION-1.6-to-1.7
-PR335_AI_ALERT_REMEDIATION
 ```
 
 ## See also

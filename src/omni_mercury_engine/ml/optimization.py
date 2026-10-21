@@ -15,6 +15,7 @@ Runtime target: ~50min benchmarks → ~25min with optimizations.
 from __future__ import annotations
 
 import gc
+import hashlib
 import logging
 import os
 import sys
@@ -112,14 +113,14 @@ class MemoryEfficientCache:
         else:
             return sys.getsizeof(obj)
 
-    def get(self, key: str) -> Any | None:
-        """Get item from cache."""
+    def get(self, key: str, default: Any = None) -> Any | None:
+        """Get item from cache, or ``default`` when ``key`` is not cached."""
         if key in self.cache:
             self.cache.move_to_end(key)
             self.hits += 1
             return self.cache[key][0]
         self.misses += 1
-        return None
+        return default
 
     def put(self, key: str, value: Any) -> None:
         """Put item in cache with automatic eviction."""
@@ -154,62 +155,6 @@ class MemoryEfficientCache:
             "size_mb": self.current_size / (1024 * 1024),
             "max_size_mb": self.max_size_bytes / (1024 * 1024),
         }
-
-
-class _CachedCallable(Protocol):
-    """A callable decorated by :func:`memory_efficient_lru_cache`.
-
-    Declares the cache-introspection attributes the decorator attaches, so the
-    wrapper can expose them as a checked structural type instead of forcing an
-    ``attr-defined`` suppression at each assignment.
-    """
-
-    cache: MemoryEfficientCache
-    cache_clear: Callable[[], None]
-    cache_stats: Callable[[], dict[str, Any]]
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
-
-
-def memory_efficient_lru_cache(
-    max_size_mb: float = 128.0,
-    max_entries: int = 128,
-) -> Callable[[F], _CachedCallable]:
-    """Decorator for memory-efficient LRU caching.
-
-    Args:
-        max_size_mb: Maximum cache size in MB
-        max_entries: Maximum number of entries
-
-    Returns:
-        Decorated function with memory-aware caching (a :class:`_CachedCallable`
-        exposing ``.cache`` / ``.cache_clear`` / ``.cache_stats``).
-    """
-    cache = MemoryEfficientCache(max_size_mb, max_entries)
-
-    def decorator(func: F) -> _CachedCallable:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Create cache key
-            key = str((args, tuple(sorted(kwargs.items()))))
-
-            # Check cache
-            result = cache.get(key)
-            if result is not None:
-                return result
-
-            # Compute and cache
-            result = func(*args, **kwargs)
-            cache.put(key, result)
-            return result
-
-        typed_wrapper = cast("_CachedCallable", wrapper)
-        typed_wrapper.cache = cache
-        typed_wrapper.cache_clear = cache.clear
-        typed_wrapper.cache_stats = lambda: cache.stats
-        return typed_wrapper
-
-    return decorator
 
 
 class MemoryManager:
@@ -654,6 +599,106 @@ def apply_all_optimizations(
     )
 
     return components
+
+
+class _CachedCallable(Protocol):
+    """A callable decorated by :func:`memory_efficient_lru_cache`.
+
+    Declares the cache-introspection attributes the decorator attaches, so the
+    wrapper can expose them as a checked structural type instead of forcing an
+    ``attr-defined`` suppression at each assignment.
+    """
+
+    cache: MemoryEfficientCache
+    cache_clear: Callable[[], None]
+    cache_stats: Callable[[], dict[str, Any]]
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+class _UncacheableArgumentError(TypeError):
+    """An argument has no exact cache key; the call bypasses the cache."""
+
+
+#: Marks a cache miss, so a cached ``None`` result is a hit.
+_CACHE_MISS = object()
+
+
+def _exact_cache_key(obj: Any) -> str:
+    """A key equal for two arguments exactly when their values are equal.
+
+    Arrays are keyed by dtype, shape and a SHA-256 digest of their bytes;
+    ``str()`` of an array over 1000 elements is abbreviated, so different
+    arrays shared a key. Scalars carry their type, so ``1``, ``1.0`` and
+    ``True`` stay distinct. Other objects (model instances, tensors, frames,
+    and ndarray subclasses such as masked arrays, whose bytes omit the mask)
+    raise :class:`_UncacheableArgumentError`: their ``repr`` is neither exact
+    nor stable.
+    """
+    if obj is None or isinstance(obj, (bool, int, float, complex, str, bytes)):
+        return f"{type(obj).__name__}:{obj!r}"
+    if isinstance(obj, np.generic):
+        return f"np.{obj.dtype.str}:{obj.item()!r}"
+    if type(obj) is np.ndarray:
+        if obj.dtype.hasobject:
+            raise _UncacheableArgumentError("object-dtype array")
+        digest = hashlib.sha256(np.ascontiguousarray(obj).tobytes()).hexdigest()
+        return f"ndarray:{obj.dtype.str}:{obj.shape}:{digest}"
+    if isinstance(obj, (tuple, list)):
+        inner = ",".join(_exact_cache_key(x) for x in obj)
+        return f"{type(obj).__name__}({inner})"
+    if isinstance(obj, (set, frozenset)):
+        return f"{type(obj).__name__}({','.join(sorted(_exact_cache_key(x) for x in obj))})"
+    if isinstance(obj, dict):
+        items = sorted(f"{_exact_cache_key(k)}={_exact_cache_key(v)}" for k, v in obj.items())
+        return f"dict({','.join(items)})"
+    raise _UncacheableArgumentError(type(obj).__name__)
+
+
+def memory_efficient_lru_cache(
+    max_size_mb: float = 128.0,
+    max_entries: int = 128,
+) -> Callable[[F], _CachedCallable]:
+    """Decorator for memory-efficient LRU caching.
+
+    Calls are keyed by the exact value of their arguments (see
+    :func:`_exact_cache_key`); a call with an argument that has no exact key,
+    such as a model instance, runs uncached. Cached results are returned as
+    stored, so a caller that mutates a returned array mutates the cached copy.
+
+    Args:
+        max_size_mb: Maximum cache size in MB
+        max_entries: Maximum number of entries
+
+    Returns:
+        Decorated function with memory-aware caching (a :class:`_CachedCallable`
+        exposing ``.cache`` / ``.cache_clear`` / ``.cache_stats``).
+    """
+    cache = MemoryEfficientCache(max_size_mb, max_entries)
+
+    def decorator(func: F) -> _CachedCallable:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                key = _exact_cache_key((args, kwargs))
+            except _UncacheableArgumentError:
+                return func(*args, **kwargs)
+
+            result = cache.get(key, _CACHE_MISS)
+            if result is not _CACHE_MISS:
+                return result
+
+            result = func(*args, **kwargs)
+            cache.put(key, result)
+            return result
+
+        typed_wrapper = cast("_CachedCallable", wrapper)
+        typed_wrapper.cache = cache
+        typed_wrapper.cache_clear = cache.clear
+        typed_wrapper.cache_stats = lambda: cache.stats
+        return typed_wrapper
+
+    return decorator
 
 
 # Convenience functions

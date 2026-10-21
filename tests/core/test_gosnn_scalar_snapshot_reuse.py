@@ -27,7 +27,7 @@ def test_enhancement_carries_the_collected_snapshot() -> None:
     net = get_global_scalar_network()
     result = net.get_enhanced_scalars(
         requesting_component="test_snapshot_reuse",
-        base_scalars={"detector_a_score": 0.3, "detector_b_score": 0.7},
+        base_scalars={"omni_detector_a_score": 0.3, "omni_detector_b_score": 0.7},
         context={"domain": None},
     )
     assert result.collected_scalars is not None
@@ -51,7 +51,7 @@ def test_reused_snapshot_matches_a_fresh_collection_order_and_values() -> None:
     net = get_global_scalar_network()
     result = net.get_enhanced_scalars(
         requesting_component="test_snapshot_reuse_vec",
-        base_scalars={"detector_a_score": 0.1},
+        base_scalars={"omni_detector_a_score": 0.1},
         context={"domain": None},
     )
     assert result.collected_scalars is not None

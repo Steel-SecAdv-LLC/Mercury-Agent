@@ -23,9 +23,9 @@ Each checked source lands on one of three verdicts:
     an actionable credential problem. **This is the only verdict that fails the
     lane.**
 ``UNREACH``
-    The upstream could not answer at all (transport failure, 5xx, or a 429 rate
-    limit). This says nothing about the credential, so it is reported and not
-    counted against it.
+    The upstream could not answer at all (transport failure, 5xx, a 429 rate
+    limit, or an HTTP 200 whose body is not JSON). This says nothing about the
+    credential, so it is reported and not counted against it.
 
 The exception: if *every* source with a key present is ``UNREACH``, the run
 verified nothing, and exiting 0 would be a green light with no evidence behind
@@ -180,6 +180,40 @@ def _non_200(status: int, body: bytes) -> tuple[str, str]:
     return FAIL, detail
 
 
+def _parse_200_body(body: bytes) -> tuple[Any, tuple[str, str] | None]:
+    """Parse an HTTP-200 body as JSON, classifying a non-JSON body as an outage.
+
+    Every provider this lane checks answers a *rejected* credential with either
+    a non-200 status (401/403, classified by :func:`_non_200`) or a parseable
+    JSON error body (Alpha Vantage's ``Error Message``). An HTTP 200 whose body
+    is not JSON at all — an empty body, a CDN error page, maintenance HTML —
+    is the upstream failing to answer, and carries no information about the
+    credential; by the same reasoning that sends 5xx/429/transport errors to
+    ``UNREACH``, it must not fail the lane. Measured 2026-10-12 in the
+    scheduled run: NASA DONKI returned HTTP 200 with an unparseable body
+    (``Expecting value: line 1 column 1 (char 0)``) and turned the lane red
+    for a key that had delivered the day before.
+
+    A body that *parses* but lacks the expected shape stays a checker-level
+    ``FAIL``: a parseable-but-unexpected answer can be the provider's own
+    credential error, which is exactly what this lane exists to surface.
+
+    Args:
+        body: The HTTP-200 response body.
+
+    Returns:
+        ``(data, None)`` on a parse success, or ``(None, (UNREACHABLE,
+        detail))`` ready to be returned by the checker, with the detail
+        already redacted.
+    """
+    try:
+        return json.loads(body), None
+    except ValueError as exc:
+        preview = _redact(body.decode(errors="replace").strip())[:120]
+        detail = f"HTTP 200 with non-JSON body: {exc}" + (f"; body: {preview}" if preview else "")
+        return None, (UNREACHABLE, detail)
+
+
 def check_eia(key: str) -> tuple[str, str]:
     """EIA API v2 hourly grid demand for one balancing authority."""
     q = urllib.parse.urlencode(
@@ -198,10 +232,13 @@ def check_eia(key: str) -> tuple[str, str]:
     status, body = _get(f"https://api.eia.gov/v2/electricity/rto/region-data/data/?{q}")
     if status != 200:
         return _non_200(status, body)
+    data, outage = _parse_200_body(body)
+    if outage:
+        return outage
     try:
-        rows = json.loads(body)["response"]["data"]
+        rows = data["response"]["data"]
     except Exception as exc:
-        return FAIL, f"unparseable response: {exc}"
+        return FAIL, f"unexpected response shape: {exc}"
     if not rows:
         return FAIL, "authenticated but zero rows"
     r0 = rows[0]
@@ -225,10 +262,13 @@ def check_fred(key: str) -> tuple[str, str]:
     status, body = _get(f"https://api.stlouisfed.org/fred/series/observations?{q}")
     if status != 200:
         return _non_200(status, body)
+    data, outage = _parse_200_body(body)
+    if outage:
+        return outage
     try:
-        obs = json.loads(body)["observations"]
+        obs = data["observations"]
     except Exception as exc:
-        return FAIL, f"unparseable: {exc}"
+        return FAIL, f"unexpected response shape: {exc}"
     if not obs:
         return FAIL, "authenticated but zero observations"
     return DELIVERS, f"{len(obs)} obs; latest {obs[0]['date']}={obs[0]['value']}"
@@ -239,10 +279,11 @@ def check_nasa(key: str) -> tuple[str, str]:
     status, body = _get(f"https://api.nasa.gov/DONKI/notifications?type=all&api_key={key}")
     if status != 200:
         return _non_200(status, body)
-    try:
-        data = json.loads(body)
-    except Exception as exc:
-        return FAIL, f"unparseable: {exc}"
+    data, outage = _parse_200_body(body)
+    if outage:
+        return outage
+    if not isinstance(data, list):
+        return FAIL, f"unexpected response shape: {str(data)[:120]}"
     return DELIVERS, f"DONKI reachable; {len(data)} notifications"
 
 
@@ -253,10 +294,11 @@ def check_alpha_vantage(key: str) -> tuple[str, str]:
     )
     if status != 200:
         return _non_200(status, body)
-    try:
-        data = json.loads(body)
-    except Exception as exc:
-        return FAIL, f"unparseable: {exc}"
+    data, outage = _parse_200_body(body)
+    if outage:
+        return outage
+    if not isinstance(data, dict):
+        return FAIL, f"unexpected response shape: {str(data)[:120]}"
     if data.get("Global Quote"):
         return DELIVERS, f"SPY quote delivered ({data['Global Quote'].get('05. price')})"
     # A rate-limit / info Note means the KEY was accepted but throttled (free tier
@@ -331,10 +373,11 @@ def check_openweathermap(key: str) -> tuple[str, str]:
     status, body = _get(f"https://api.openweathermap.org/data/2.5/weather?q=London&appid={key}")
     if status != 200:
         return _non_200(status, body)
-    try:
-        data = json.loads(body)
-    except Exception as exc:
-        return FAIL, f"unparseable: {exc}"
+    data, outage = _parse_200_body(body)
+    if outage:
+        return outage
+    if not isinstance(data, dict):
+        return FAIL, f"unexpected response shape: {str(data)[:120]}"
     return DELIVERS, f"London weather delivered (T={data.get('main', {}).get('temp')})"
 
 

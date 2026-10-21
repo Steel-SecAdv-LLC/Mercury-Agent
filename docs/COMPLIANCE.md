@@ -260,6 +260,29 @@ embed TLP metadata in `utils.report_generator` outputs — see the
 `tests/test_report_generator.py` TLP-integration block for the
 expected schema.
 
+### TLP on the export API
+
+Every `/api/v1/export/*` route requires the `export` permission (default
+API keys carry `read` + `detect` only; admin principals hold every
+permission), and every response is marked:
+
+- `X-TLP`, `X-TLP-Color`, `X-TLP-Rank` and `X-TLP-Watermark` headers carry
+  the export's colour: the most restrictive colour of the records it
+  contains (detections, audit logs) or is derived from (metrics). An empty
+  export is `TLP:CLEAR`.
+- Every detection and audit-log record carries a `tlp` label (a JSON key, a
+  CSV column), so the marking survives when the file is saved.
+- `tlp_envelope=true` adds the full `get_export_metadata` block (JSON:
+  `{"tlp": ..., "records": [...]}`; JSONL: a first `{"tlp": ...}` line;
+  CSV: a leading `# <watermark>` line).
+- A detection is classified from its max score, method and
+  `metadata.domain`; `metadata.contains_pii` / `metadata.strict_sharing`
+  are honoured. Audit logs carry IP addresses, user agents and user ids, so
+  they are never weaker than `TLP:AMBER+STRICT`.
+- `/api/v1/export/report?format=html|markdown|json|pdf` renders a detection
+  report through `ReportGenerator` with the TLP banner / watermark (PDF
+  needs the optional `reportlab` package; otherwise 501).
+
 ---
 
 ## Ethical and disclosure considerations
@@ -270,9 +293,10 @@ expected schema.
   from `0` (CLEAR) to `4` (RED), which callers can use to compare or
   clamp classifications. Within a single call, an `AMBER` result is
   escalated to `AMBER+STRICT` (never downgraded) by
-  `TLPHandler._maybe_strict_escalate` when `strict_sharing` /
-  `contains_pii` context is set or when a medical/healthcare domain
-  carries PII/PHI-bearing types.
+  `TLPHandler._maybe_strict_escalate` when `strict_sharing` context is
+  set or when a medical/healthcare domain carries PII/PHI-bearing types;
+  `contains_pii` escalates `AMBER` *or weaker* (a CLEAR or GREEN record
+  carrying personal data never stays freely shareable).
 - The OSHA detector never auto-files compliance reports with any
   external authority; it surfaces hazards locally so a human
   reviewer can act.

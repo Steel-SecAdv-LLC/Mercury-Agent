@@ -178,7 +178,10 @@ class TestEarthquakeDetectorLive:
         assert context is not None
         assert context["event_count"] == 12
         assert context["events_per_day"] > 0
-        assert context["b_value"] is not None and 0.1 < context["b_value"] < 5.0
+        # 12 events are far below the 50 a b-value needs above completeness
+        # (Marzocchi et al. 2020); none is invented.
+        assert context["b_value"] is None
+        assert context["events_above_completeness"] < 50
         assert 0.0 <= context["clustered_fraction"] <= 1.0
         assert context["strongest_event"]["magnitude"] == result.estimated_magnitude
 

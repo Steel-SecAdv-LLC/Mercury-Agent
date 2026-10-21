@@ -175,7 +175,12 @@ class TestWildfireDegenerateRaster:
         return det
 
     def test_proper_raster_runs_neural(self, detector: WildfireDetector) -> None:
-        raster = np.full((3, 32, 32), 300.0, dtype=np.float32)
+        # A wildfire-firms-v1 raster: today's brightness temperature where
+        # FIRMS detected fire (0 elsewhere), log1p FRP and log1p counts.
+        raster = np.zeros((3, 32, 32), dtype=np.float32)
+        raster[0, 15:17, 15:17] = 330.0
+        raster[1, 15:17, 15:17] = np.log1p(25.0)
+        raster[2, 15:17, 15:17] = np.log1p(3.0)
         result = detector._detect_ignition(raster)
         assert result.get("method") != "physics_brightness_temperature"
 

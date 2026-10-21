@@ -20,7 +20,9 @@ hazard community, with the exact textbook definitions:
   USGS volcanic alert levels, VEI, and NOAA flare classes, plus the Brier
   (1950) probabilistic score.
 * Kp skill -- MAE on the 0-9 planetary Kp index and NOAA G-scale bucket
-  accuracy (G1 at Kp 5 ... G5 at Kp 9, per the NOAA Space Weather Scales).
+  accuracy, and the NOAA Space Weather Scales themselves (G from Kp in
+  thirds, R from GOES 0.1-0.8 nm flux, S from >= 10 MeV protons), the one
+  definition the space-weather detectors and data sources use.
 
 Every function is pure numpy, deterministic, and fail-loud: empty, NaN,
 mismatched, or out-of-range inputs raise ``ValueError`` instead of silently
@@ -39,6 +41,7 @@ import numpy as np
 
 __all__ = [
     "EARTH_RADIUS_KM",
+    "G_SCALE_NAMES",
     "G_SCALE_THRESHOLDS",
     "brier_score",
     "contingency_table",
@@ -52,7 +55,11 @@ __all__ = [
     "lead_times",
     "location_error_km",
     "magnitude_error",
+    "noaa_g_scale",
+    "noaa_r_scale",
+    "noaa_s_scale",
     "ordinal_accuracy",
+    "parse_kp",
     "probability_of_detection",
     "vei_accuracy",
 ]
@@ -60,15 +67,77 @@ __all__ = [
 #: IUGG mean Earth radius, km (Moritz, *Geodetic Reference System 1980*).
 EARTH_RADIUS_KM = 6371.0088
 
-#: NOAA Space Weather Scales: G-scale onset thresholds on the planetary Kp
-#: index (G1 = Kp 5, G2 = Kp 6, G3 = Kp 7, G4 = Kp 8, G5 = Kp 9).
+#: NOAA Space Weather Scales (https://www.swpc.noaa.gov/noaa-scales-explanation):
+#: G-scale onset thresholds on the planetary Kp index. Kp is reported in
+#: thirds (5- = 4.67, 5o = 5, 5+ = 5.33) and SWPC files each third under its
+#: integer: G1 "Kp = 5", G2 "Kp = 6", G3 "Kp = 7", G4 "Kp = 8, 9-", G5
+#: "Kp = 9o". Each bound sits halfway between adjacent thirds, so a Kp in
+#: thirds or a continuous estimate lands in the SWPC level (the former
+#: integer bounds read 5- as no storm and 9- as G5).
 G_SCALE_THRESHOLDS: tuple[tuple[float, str], ...] = (
-    (9.0, "G5"),
-    (8.0, "G4"),
-    (7.0, "G3"),
-    (6.0, "G2"),
-    (5.0, "G1"),
+    (8.835, "G5"),
+    (7.5, "G4"),
+    (6.5, "G3"),
+    (5.5, "G2"),
+    (4.5, "G1"),
 )
+
+#: NOAA G-level names, index = level.
+G_SCALE_NAMES = ("none", "minor", "moderate", "strong", "severe", "extreme")
+
+#: GOES 0.1-0.8 nm peak-flux lower bounds (W/m^2) for R1..R5: M1, M5, X1,
+#: X10, X20.
+_R_BOUNDS = ((2e-3, 5), (1e-3, 4), (1e-4, 3), (5e-5, 2), (1e-5, 1))
+
+#: >= 10 MeV integral proton-flux lower bounds (pfu) for S1..S5.
+_S_BOUNDS = ((1e5, 5), (1e4, 4), (1e3, 3), (1e2, 2), (1e1, 1))
+
+#: Kp-thirds suffixes: SWPC/GFZ text ("5-", "5o", "5+") and the SWPC JSON
+#: letters ("5M", "5Z", "5P").
+_KP_THIRDS = {"-": -1.0 / 3.0, "M": -1.0 / 3.0, "o": 0.0, "Z": 0.0, "+": 1.0 / 3.0, "P": 1.0 / 3.0}
+
+
+def parse_kp(value: Any) -> float:
+    """A Kp value as a float, from a number or a thirds string (``"5-"`` = 4.667).
+
+    Raises:
+        ValueError: If the value is not a Kp in [0, 9].
+    """
+    if isinstance(value, str):
+        text = value.strip()
+        if text and text[-1] in _KP_THIRDS:
+            kp = float(text[:-1]) + _KP_THIRDS[text[-1]]
+        else:
+            kp = float(text)
+    else:
+        kp = float(value)
+    if not np.isfinite(kp) or not 0.0 <= kp <= 9.0:
+        raise ValueError(f"Kp {value!r} is outside the Kp scale [0, 9]")
+    return kp
+
+
+def noaa_g_scale(kp: float) -> int:
+    """NOAA G level (0-5) for a Kp in [0, 9] (see :data:`G_SCALE_THRESHOLDS`)."""
+    return int(g_scale_bucket(kp)[1])
+
+
+def _level(value: float, bounds: tuple[tuple[float, int], ...], name: str) -> int:
+    if not np.isfinite(value) or value < 0.0:
+        raise ValueError(f"{name} must be finite and non-negative, got {value}")
+    for bound, level in bounds:
+        if value >= bound:
+            return level
+    return 0
+
+
+def noaa_r_scale(long_flux_wm2: float) -> int:
+    """NOAA R level (0-5) for a GOES 0.1-0.8 nm X-ray flux, W/m^2."""
+    return _level(float(long_flux_wm2), _R_BOUNDS, "0.1-0.8 nm X-ray flux")
+
+
+def noaa_s_scale(proton_flux_pfu: float) -> int:
+    """NOAA S level (0-5) for a >= 10 MeV integral proton flux, pfu."""
+    return _level(float(proton_flux_pfu), _S_BOUNDS, ">= 10 MeV proton flux")
 
 
 def _as_finite_1d(name: str, values: Any) -> np.ndarray[Any, np.dtype[np.float64]]:
@@ -496,8 +565,9 @@ def kp_mae(kp_true: Any, kp_pred: Any) -> float:
 def g_scale_bucket(kp: float) -> str:
     """Map a Kp value to its NOAA geomagnetic-storm G-scale bucket.
 
-    Per the NOAA Space Weather Scales: G1 at Kp 5, G2 at Kp 6, G3 at Kp 7,
-    G4 at Kp 8, G5 at Kp 9; below Kp 5 is ``G0`` (no storm).
+    Per the NOAA Space Weather Scales, in thirds: G1 from 5- (4.67), G2
+    from 6-, G3 from 7-, G4 from 8- (9- included), G5 at 9o; below is
+    ``G0`` (no storm).
 
     Args:
         kp: Kp value in [0, 9].

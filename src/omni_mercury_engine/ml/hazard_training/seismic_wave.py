@@ -393,11 +393,9 @@ def detector_spectrogram(trace: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
 def _peak_sta_lta_parity(trace: np.ndarray[Any, Any]) -> float:
     """Peak STA/LTA trigger ratio (vectorized parity with the detector).
 
-    Mirrors ``EarthquakeDetector._peak_sta_lta`` -- 0.5 s short-term / 5 s
-    long-term sliding means of ``|x|``, ratio maximized over the identical
-    index range -- via cumulative sums (the detector's per-sample ``np.mean``
-    loop costs ~76 ms/trace, ~1000x this). Only floating-point summation
-    order differs (measured <2e-7 relative). Used solely for operating-point
+    Calls the detector's own trace conditioning (detrend + 1-45 Hz band-pass)
+    and cumulative-sum STA/LTA, so the physics operating point is selected
+    on exactly the ratio the deployed detector computes. Used solely for operating-point
     selection on VALIDATION years; the evaluate stage measures physics
     through the public detector API.
 
@@ -408,16 +406,14 @@ def _peak_sta_lta_parity(trace: np.ndarray[Any, Any]) -> float:
         Peak STA/LTA ratio, or 0.0 when the record is shorter than one
         STA+LTA window (the detector's convention).
     """
-    x = np.abs(np.asarray(trace, dtype=np.float64))
-    sta_len = int(0.5 * SAMPLING_RATE_HZ)
-    lta_len = int(5.0 * SAMPLING_RATE_HZ)
-    if len(x) < lta_len + sta_len:
-        return 0.0
-    csum = np.concatenate(([0.0], np.cumsum(x)))
-    idx = np.arange(lta_len, len(x) - sta_len)
-    sta = (csum[idx + sta_len] - csum[idx]) / sta_len
-    lta = (csum[idx] - csum[idx - lta_len]) / lta_len
-    return float(np.max(sta / (lta + 1e-10)))
+    # The detector's own conditioning and ratio, so parity is by construction.
+    from omni_mercury_engine.detectors.geological.disaster_detectors import (
+        condition_trace,
+        sta_lta_ratio,
+    )
+
+    ratio = sta_lta_ratio(condition_trace(trace, SAMPLING_RATE_HZ), SAMPLING_RATE_HZ)
+    return float(ratio.max()) if ratio is not None else 0.0
 
 
 def _resonance_score_parity(trace: np.ndarray[Any, Any]) -> float:

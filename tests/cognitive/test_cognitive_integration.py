@@ -108,7 +108,12 @@ class TestMultiHopReasoner:
         assert stats["total_rules"] > 0  # Core rules initialized
 
     def test_deduction(self) -> None:
-        from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
+        from omni_mercury_engine.cognitive.multi_hop_reasoner import (
+            InferenceRule,
+            MultiHopReasoner,
+            Proposition,
+            ReasoningType,
+        )
 
         reasoner = MultiHopReasoner()
 
@@ -116,9 +121,20 @@ class TestMultiHopReasoner:
             Proposition(prop_id="premise_1", content="It is raining", truth_value=1.0),
         ]
 
-        # Even without matching rules, deduction should complete
-        reasoner.deduce(premises)
-        # May or may not find derivations depending on knowledge base
+        # A matching rule must forward-chain to its conclusion.
+        reasoner.add_rule(
+            InferenceRule(
+                rule_id="rain_wets_ground",
+                premises=["premise_1"],
+                conclusion="ground_is_wet",
+                reasoning_type=ReasoningType.DEDUCTIVE,
+            )
+        )
+        before = reasoner.get_statistics()["deductive_inferences"]
+        chain = reasoner.deduce(premises)
+        assert chain is not None, "matching rule produced no reasoning chain"
+        assert any(step.rule_applied.rule_id == "rain_wets_ground" for step in chain.steps)
+        assert reasoner.get_statistics()["deductive_inferences"] == before + 1
 
     def test_abduction(self) -> None:
         from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
@@ -318,54 +334,3 @@ class TestCognitiveOrchestrator:
         assert stats["analyses_performed"] == 1
         assert "knowledge_graph" in stats
         assert "reasoner" in stats
-
-
-class TestTruthDecipherIntegration:
-    """Tests for Truth Decipher Framework with Cognitive Integration."""
-
-    def test_cognitive_integration_disabled(self) -> None:
-        """Test that framework works with cognitive disabled."""
-        from omni_mercury_engine.truth_decipher import TruthDecipherFramework
-
-        framework = TruthDecipherFramework(enable_cognitive=False)
-        assert framework.cognitive is None
-
-    def test_cognitive_integration_enabled(self) -> None:
-        """Test that cognitive orchestrator is integrated."""
-        from omni_mercury_engine.truth_decipher import TruthDecipherFramework
-
-        framework = TruthDecipherFramework(enable_cognitive=True)
-        assert framework.cognitive is not None
-
-    def test_decipher_truth_with_cognitive(self) -> None:
-        """Test full pipeline with cognitive layer."""
-        from omni_mercury_engine.truth_decipher import TruthDecipherFramework
-
-        framework = TruthDecipherFramework(
-            enable_cognitive=True,
-            enable_novel_discovery=False,  # Speed up test
-        )
-
-        # Create test data that will trigger an anomaly
-        data = np.random.randn(100, 20)
-        # Add some outliers
-        data[0:5, :] = data[0:5, :] * 10
-
-        result = framework.decipher_truth(data, context={"domain": "cyber"})
-
-        assert result is not None
-        # Result should have cognitive fields populated if anomaly was detected
-        if result.anomaly_detected:
-            # These fields come from cognitive analysis
-            assert hasattr(result, "confidence")
-            assert hasattr(result, "is_reliable")
-            assert hasattr(result, "epistemic_uncertainty")
-
-    def test_statistics_include_cognitive(self) -> None:
-        """Test that statistics include cognitive stats."""
-        from omni_mercury_engine.truth_decipher import TruthDecipherFramework
-
-        framework = TruthDecipherFramework(enable_cognitive=True)
-        stats = framework.get_statistics()
-
-        assert "cognitive" in stats

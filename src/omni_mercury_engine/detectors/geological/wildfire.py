@@ -35,6 +35,11 @@ from scipy import ndimage
 from scipy.fft import fft, fftfreq
 from torch import nn
 
+from omni_mercury_engine.detectors._hazard_input import (
+    InvalidObservationError,
+    finite_array,
+    finite_scalar,
+)
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
@@ -47,6 +52,26 @@ HOTSPOT_THRESHOLD_K = 350.0
 # only (see load_neural_weights); the reported confidence always stays the raw
 # sigmoid probability.
 FIRE_PROB_THRESHOLD_DEFAULT = 0.6
+
+
+def _is_firms_raster(raster: np.ndarray[Any, Any]) -> bool:
+    """Whether a ``(3, H, W)`` array has the ``wildfire-firms-v1`` channel meaning.
+
+    Channel 0 is the day's per-cell maximum VIIRS I4 brightness temperature in
+    kelvin, 0 where nothing was detected; channels 1 and 2 are ``log1p`` of the
+    3-day FRP sum (MW) and the 7-day detection count, so both stay below ~15
+    (``log1p`` of 3e6 MW). A brightness-temperature image carries hundreds of
+    kelvin in every band and fails the check.
+    """
+    bt, frp, count = raster[0], raster[1], raster[2]
+    detected = bt[bt != 0.0]
+    return bool(
+        (detected.size == 0 or (float(detected.min()) >= 200.0 and float(detected.max()) <= 700.0))
+        and float(frp.min()) >= 0.0
+        and float(frp.max()) <= 15.0
+        and float(count.min()) >= 0.0
+        and float(count.max()) <= 15.0
+    )
 
 
 class FireRiskLevel(Enum):
@@ -67,10 +92,36 @@ class WildfirePredictionResult:
     centroids of connected hotspot regions in the supplied thermal image. The
     detector has no geotransform, so it never fabricates lat/lon; callers that
     know the image georeferencing map pixels to WGS84 themselves (see
-    ``build_hazard_geojson``). ``fire_perimeter_km2`` is the hotspot-area
-    estimate ``hotspot_pixel_count * pixel_size_km**2`` and is populated only
-    when the caller supplies ``pixel_size_km`` in the wildfire data -- otherwise
-    it stays ``None`` rather than inventing a ground resolution.
+    ``build_hazard_geojson``). ``fire_perimeter_km2`` is the area inside the
+    hotspot perimeter, ``hotspot_pixel_count * pixel_size_km**2`` (km^2), and
+    is populated only when the caller supplies ``pixel_size_km`` in the
+    wildfire data -- otherwise it stays ``None`` rather than inventing a
+    ground resolution.
+
+    ``weather_factors`` holds the supplied weather values the detector used,
+    in their units. When temperature, relative humidity and the NFDRS state
+    of weather (:data:`STATE_OF_WEATHER_KEY`) are all supplied it also holds
+    that code (as a float), the fuel-atmosphere interface temperature and
+    humidity, and the EMC there, ``equilibrium_moisture_pct``
+    (:func:`fuel_interface_moisture`).
+    ``fuel_moisture`` is the 1-hour dead fuel moisture (%): the caller's
+    measured ``fire_data["fuel_moisture_pct"]`` if given, else the NFDRS
+    estimate 1.03 x interface EMC, else ``None``; the spread model receives
+    it. Shelter temperature and humidity without a state of weather do not
+    give the NFDRS value, so the spread model then keeps its fixed 10%.
+
+    ``smoke_detected`` is ``None``: no smoke-sensitive band or smoke product
+    reaches the detector, so it is not assessed (``False`` claimed "no
+    smoke"). ``evacuation_zones`` and ``containment_strategy`` stay empty
+    unless the caller supplies them: zone boundaries and suppression tactics
+    belong to the incident's authorities, and the detector has no
+    geotransform, terrain or fuel model to derive them.
+
+    ``assessment`` says what ``fire_detected``/``confidence`` mean for this
+    input: ``"next_day_forecast"`` when the trained ``wildfire_firms`` model
+    scored a FIRMS-derived raster (probability of a confirmed fire detection
+    in the centre cells tomorrow), ``"active_fire"`` when the
+    brightness-temperature criteria assessed the scene as observed.
     """
 
     fire_detected: bool
@@ -83,7 +134,7 @@ class WildfirePredictionResult:
     spread_direction_deg: float | None = None
 
     thermal_hotspots: int = 0
-    smoke_detected: bool = False
+    smoke_detected: bool | None = None
 
     weather_factors: dict[str, float] = field(default_factory=dict)
     fuel_moisture: float | None = None
@@ -94,6 +145,130 @@ class WildfirePredictionResult:
 
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
+
+    assessment: str = "active_fire"
+
+
+#: NFDRS 1-hour dead fuel moisture at a midafternoon observation, as a
+#: multiple of the equilibrium moisture content at the fuel-atmosphere
+#: interface (Bradshaw et al. 1983, USDA Forest Service GTR INT-169, eq. 26).
+ONE_HOUR_FUEL_MOISTURE_PER_EMC = 1.03
+
+#: ``weather_data`` key of the NFDRS state-of-weather code at the observation:
+#: 0 clear, 1 scattered clouds, 2 broken clouds, 3 overcast.
+STATE_OF_WEATHER_KEY = "nfdrs_state_of_weather"
+
+#: NFDRS state-of-weather code -> (degF added to the shelter dry-bulb
+#: temperature, factor on the shelter relative humidity) for the air at the
+#: fuel-atmosphere interface: GTR INT-169 Table 6 (from Haltiner 1975), whose
+#: columns are clear (sky cover 0.0-0.1), scattered (0.1-0.5), broken
+#: (0.6-0.9) and overcast (0.9-1.0). Cohen & Deeming (1985, GTR PSW-82,
+#: "Fuels: 1-Hour Timelag") list the same temperature corrections by code
+#: 0-3, which assigns each column its code; they print 0.92 for code 2, where
+#: this module follows INT-169, the source of its other NFDRS equations.
+FUEL_INTERFACE_ADJUSTMENT: dict[int, tuple[float, float]] = {
+    0: (25.0, 0.75),
+    1: (19.0, 0.83),
+    2: (12.0, 0.91),
+    3: (5.0, 1.0),
+}
+
+#: Supplied weather values reported in ``weather_factors``: key -> (unit, lo, hi).
+_WEATHER_INPUTS = {
+    "wind_speed_kmh": ("km/h", 0.0, 500.0),
+    "wind_direction_deg": ("deg", 0.0, 360.0),
+    "relative_humidity_pct": ("%", 0.0, 100.0),
+    "temperature_c": ("degC", -90.0, 60.0),
+}
+
+
+def _simard_emc(t_f: float, h: float) -> float:
+    """EMC (%) by GTR INT-169 eqs. C-1 to C-3, for T in degF and h in %."""
+    if h < 10.0:
+        return 0.03299 + 0.281073 * h - 0.000578 * h * t_f
+    if h < 50.0:
+        return 2.22749 + 0.160107 * h - 0.01478 * t_f
+    return 21.0606 + 0.005565 * h**2 - 0.00035 * h * t_f - 0.483199 * h
+
+
+def equilibrium_moisture_content(temperature_c: float, relative_humidity_pct: float) -> float:
+    """Dead-fuel equilibrium moisture content (%), NFDRS (Simard 1968).
+
+    The regressions of GTR INT-169 Appendix C (eqs. C-1 to C-3; T in degF,
+    h in %), split at h = 10 and h = 50 within their published overlapping
+    ranges (h < 11, 10 < h < 51, h > 50).
+
+    Args:
+        temperature_c: Air temperature at the fuel, degC.
+        relative_humidity_pct: Relative humidity, %.
+
+    Returns:
+        EMC, % of oven-dry weight.
+
+    Raises:
+        InvalidObservationError: If either value is not finite or out of range.
+    """
+    t_f = (
+        finite_scalar(temperature_c, "temperature_c", unit="degC", lo=-90.0, hi=60.0) * 9.0 / 5.0
+        + 32.0
+    )
+    h = finite_scalar(relative_humidity_pct, "relative_humidity_pct", unit="%", lo=0.0, hi=100.0)
+    return _simard_emc(t_f, h)
+
+
+def _state_of_weather_code(value: Any) -> int:
+    """An NFDRS state-of-weather code that has a fuel-interface adjustment."""
+    code = finite_scalar(value, STATE_OF_WEATHER_KEY, unit="NFDRS code")
+    if not code.is_integer() or int(code) not in FUEL_INTERFACE_ADJUSTMENT:
+        raise InvalidObservationError(
+            f"{STATE_OF_WEATHER_KEY}={code:g}: only the sky-cover codes 0 (clear) to "
+            "3 (overcast) have a fuel-interface adjustment (GTR INT-169 Table 6)"
+        )
+    return int(code)
+
+
+def fuel_interface_moisture(
+    temperature_c: float, relative_humidity_pct: float, state_of_weather: int
+) -> dict[str, float]:
+    """Equilibrium moisture content at the fuel-atmosphere interface, NFDRS.
+
+    The EMC behind the NFDRS 1-hour fuel moisture (GTR INT-169 eq. 26) is
+    that of the air in contact with the fuel, not of the instrument shelter
+    (4.5 ft): the shelter dry-bulb temperature is raised and the relative
+    humidity scaled by the sky cover the state of weather reports
+    (:data:`FUEL_INTERFACE_ADJUSTMENT`), then the regressions of
+    :func:`equilibrium_moisture_content` apply. The temperature correction
+    is in degF, so it adds ``5/9`` of that in degC; the interface may exceed
+    the 60 degC limit on the shelter reading (up to 25 degF more).
+
+    Args:
+        temperature_c: Shelter air temperature, degC.
+        relative_humidity_pct: Shelter relative humidity, %.
+        state_of_weather: NFDRS state-of-weather code, 0 (clear) to 3
+            (overcast).
+
+    Returns:
+        ``fuel_interface_temperature_c``,
+        ``fuel_interface_relative_humidity_pct`` and
+        ``equilibrium_moisture_pct``, the EMC (%) at the interface.
+
+    Raises:
+        InvalidObservationError: If a weather value is not finite or out of
+            range, or the state of weather is not one of the codes 0-3.
+    """
+    t_f = (
+        finite_scalar(temperature_c, "temperature_c", unit="degC", lo=-90.0, hi=60.0) * 9.0 / 5.0
+        + 32.0
+    )
+    h = finite_scalar(relative_humidity_pct, "relative_humidity_pct", unit="%", lo=0.0, hi=100.0)
+    add_f, humidity_factor = FUEL_INTERFACE_ADJUSTMENT[_state_of_weather_code(state_of_weather)]
+    interface_t_f = t_f + add_f
+    interface_h = h * humidity_factor
+    return {
+        "fuel_interface_temperature_c": (interface_t_f - 32.0) * 5.0 / 9.0,
+        "fuel_interface_relative_humidity_pct": interface_h,
+        "equilibrium_moisture_pct": _simard_emc(interface_t_f, interface_h),
+    }
 
 
 class FireIgnitionDetector(nn.Module):
@@ -169,13 +344,77 @@ class FireSpreadModel:
         Returns:
             Fire spread prediction
         """
-        wind_speed_kmh = weather_data.get("wind_speed_kmh", 10.0)
-        wind_direction_deg = weather_data.get("wind_direction_deg", 0.0)
-        relative_humidity = weather_data.get("relative_humidity_pct", 50.0)
-        temperature_c = weather_data.get("temperature_c", 25.0)
-
-        fuel_load = fire_data.get("fuel_load_tons_ha", 20.0)
-        fuel_moisture = fire_data.get("fuel_moisture_pct", 10.0)
+        # Wind drives the heuristic: without a measured wind speed no spread
+        # is predicted (an empty weather dict used to yield a 0.835 km/h
+        # spread toward due north built entirely from defaults). The other
+        # factors keep their released defaults when absent - the fixed 10%
+        # fuel moisture is a recorded maintainer decision - but a SUPPLIED
+        # value must be a finite physical measurement, and the direction is
+        # only ever the measured wind direction, never a fabricated 0.0.
+        if "wind_speed_kmh" not in weather_data:
+            return {
+                "spread_rate_km_hr": None,
+                "spread_direction_deg": None,
+                "wind_driven": False,
+                "missing_inputs": ["wind_speed_kmh"],
+            }
+        wind_speed_kmh = finite_scalar(
+            weather_data["wind_speed_kmh"], "wind_speed_kmh", unit="km/h", lo=0.0, hi=300.0
+        )
+        missing = [
+            key
+            for source, key in (
+                (weather_data, "wind_direction_deg"),
+                (weather_data, "relative_humidity_pct"),
+                (weather_data, "temperature_c"),
+                (fire_data, "fuel_load_tons_ha"),
+                (fire_data, "fuel_moisture_pct"),
+            )
+            if key not in source
+        ]
+        wind_direction_deg = (
+            finite_scalar(
+                weather_data["wind_direction_deg"],
+                "wind_direction_deg",
+                unit="deg",
+                lo=0.0,
+                hi=360.0,
+            )
+            if "wind_direction_deg" in weather_data
+            else None
+        )
+        relative_humidity = (
+            finite_scalar(
+                weather_data["relative_humidity_pct"],
+                "relative_humidity_pct",
+                unit="%",
+                lo=0.0,
+                hi=100.0,
+            )
+            if "relative_humidity_pct" in weather_data
+            else 50.0
+        )
+        temperature_c = (
+            finite_scalar(
+                weather_data["temperature_c"], "temperature_c", unit="degC", lo=-60.0, hi=60.0
+            )
+            if "temperature_c" in weather_data
+            else 25.0
+        )
+        fuel_load = (
+            finite_scalar(
+                fire_data["fuel_load_tons_ha"], "fuel_load_tons_ha", unit="t/ha", lo=0.0, hi=500.0
+            )
+            if "fuel_load_tons_ha" in fire_data
+            else 20.0
+        )
+        fuel_moisture = (
+            finite_scalar(
+                fire_data["fuel_moisture_pct"], "fuel_moisture_pct", unit="%", lo=0.0, hi=100.0
+            )
+            if "fuel_moisture_pct" in fire_data
+            else 10.0
+        )
 
         base_spread_rate = 0.5  # km/hr
 
@@ -198,8 +437,11 @@ class FireSpreadModel:
 
         return {
             "spread_rate_km_hr": float(spread_rate_km_hr),
-            "spread_direction_deg": float(wind_direction_deg),
+            "spread_direction_deg": (
+                None if wind_direction_deg is None else float(wind_direction_deg)
+            ),
             "wind_driven": wind_speed_kmh > 20.0,
+            "missing_inputs": missing,
         }
 
 
@@ -382,14 +624,24 @@ class ResonanceFrequencyAnalyzer:
         dominant_freq = float(pos_freqs[dominant_idx])
         dominant_power = float(pos_power[dominant_idx])
 
-        # Compute resonance score based on fire behavior frequencies
+        # Compute resonance score based on fire behavior frequencies.
+        # component_scores keys each band's score BY NAME: the previous
+        # zip-by-position reporting attributed a found band's score to the
+        # first band names in dict order whenever an earlier band had no FFT
+        # bin (e.g. a 1/h-sampled series put the convective band's score
+        # under "wind_gust"). The aggregate below is unchanged: only found
+        # bands enter the phi-weighted sum, exactly as before.
         resonance_scores = []
+        component_scores: dict[str, float] = {}
         for name, target_freq in self.fire_frequencies.items():
             # Find power near target frequency
             freq_mask = np.abs(pos_freqs - target_freq) < target_freq * 0.2
+            band_score = 0.0
             if np.any(freq_mask):
                 power_at_freq = float(np.max(pos_power[freq_mask]))
-                resonance_scores.append(power_at_freq / (dominant_power + 1e-10))
+                band_score = power_at_freq / (dominant_power + 1e-10)
+                resonance_scores.append(band_score)
+            component_scores[name] = band_score
 
         # Aggregate resonance score using phi-weighting
         if resonance_scores:
@@ -409,12 +661,7 @@ class ResonanceFrequencyAnalyzer:
             "dominant_frequency": dominant_freq,
             "dominant_power": dominant_power,
             "fire_behavior_detected": fire_behavior_detected,
-            "frequency_components": dict(
-                zip(
-                    self.fire_frequencies.keys(),
-                    resonance_scores[:4] if resonance_scores else [0] * 4,
-                )
-            ),
+            "frequency_components": component_scores,
         }
 
     def analyze_smoke_patterns(
@@ -741,7 +988,13 @@ class WildfireDetector:
         """Comprehensive wildfire prediction.
 
         Args:
-            wildfire_data: Thermal imagery, weather, vegetation data
+            wildfire_data: Thermal imagery, weather, vegetation data.
+                ``weather_data`` takes the shelter ``temperature_c`` and
+                ``relative_humidity_pct``, ``wind_speed_kmh``,
+                ``wind_direction_deg`` and the NFDRS state-of-weather code
+                :data:`STATE_OF_WEATHER_KEY` (0 clear, 1 scattered clouds,
+                2 broken clouds, 3 overcast), which the NFDRS fuel moisture
+                estimate needs.
 
         Returns:
             Wildfire prediction with risk assessment
@@ -753,10 +1006,17 @@ class WildfireDetector:
         )
 
         if self.enable_ignition and "thermal_image" in wildfire_data:
-            ignition_result = self._detect_ignition(wildfire_data["thermal_image"])
+            # Refuse rather than score a raster that is not one: NaN made the
+            # confidence NaN, +inf made every pixel a hotspot, and a plain list
+            # raised AttributeError deep in the CNN path.
+            thermal = finite_array(
+                wildfire_data["thermal_image"], "thermal_image", unit="K", ndim=(1, 2, 3)
+            )
+            ignition_result = self._detect_ignition(thermal)
             result.fire_detected = ignition_result["fire_detected"]
             result.confidence = ignition_result["confidence"]
             result.thermal_hotspots = ignition_result["hotspot_count"]
+            result.assessment = ignition_result.get("assessment", "active_fire")
 
             # Populate the (previously never-filled) ignition fields from the
             # REAL hotspot mask: pixel-space (row, col) component centroids, and
@@ -766,9 +1026,8 @@ class WildfireDetector:
             result.ignition_locations = [(float(r), float(c)) for r, c in centroids]
             pixel_size_km = wildfire_data.get("pixel_size_km")
             if pixel_size_km is not None:
-                result.fire_perimeter_km2 = float(
-                    ignition_result["hotspot_count"] * float(pixel_size_km) ** 2
-                )
+                pixel_km = finite_scalar(pixel_size_km, "pixel_size_km", unit="km", lo=1e-6)
+                result.fire_perimeter_km2 = float(ignition_result["hotspot_count"] * pixel_km**2)
 
             # Capture only when the ignition path actually produced the spatial
             # intermediates; diagnostics stay transparently absent otherwise instead
@@ -793,12 +1052,56 @@ class WildfireDetector:
                     context=context,
                 )
 
-        if self.enable_spread and "weather_data" in wildfire_data and self.spread_model is not None:
-            spread_result = self.spread_model.predict_spread(
-                wildfire_data.get("fire_data", {}), wildfire_data["weather_data"]
+        weather = wildfire_data.get("weather_data", {})
+        result.weather_factors = {
+            name: finite_scalar(weather[name], name, unit=unit, lo=lo, hi=hi)
+            for name, (unit, lo, hi) in _WEATHER_INPUTS.items()
+            if name in weather
+        }
+        if STATE_OF_WEATHER_KEY in weather:
+            state_of_weather = _state_of_weather_code(weather[STATE_OF_WEATHER_KEY])
+            # NFDRS takes the EMC of the air at the fuel, not at the shelter:
+            # without the sky cover there is no interface EMC and no NFDRS
+            # fuel moisture.
+            if "temperature_c" in weather and "relative_humidity_pct" in weather:
+                result.weather_factors[STATE_OF_WEATHER_KEY] = float(state_of_weather)
+                result.weather_factors.update(
+                    fuel_interface_moisture(
+                        weather["temperature_c"], weather["relative_humidity_pct"], state_of_weather
+                    )
+                )
+
+        fire_data = dict(wildfire_data.get("fire_data", {}))
+        if "fuel_moisture_pct" in fire_data:
+            result.fuel_moisture = finite_scalar(
+                fire_data["fuel_moisture_pct"], "fuel_moisture_pct", unit="%", lo=0.0, hi=400.0
             )
-            result.spread_rate_km_hr = spread_result["spread_rate_km_hr"]
-            result.spread_direction_deg = spread_result["spread_direction_deg"]
+        elif "equilibrium_moisture_pct" in result.weather_factors:
+            result.fuel_moisture = (
+                ONE_HOUR_FUEL_MOISTURE_PER_EMC * result.weather_factors["equilibrium_moisture_pct"]
+            )
+            # With no moisture known the spread model keeps its fixed 10%.
+            fire_data["fuel_moisture_pct"] = result.fuel_moisture
+
+        result.evacuation_zones = [str(z) for z in wildfire_data.get("evacuation_zones", [])]
+        result.containment_strategy = [
+            str(s) for s in wildfire_data.get("containment_strategy", [])
+        ]
+
+        # A spread rate describes a fire; with none detected there is nothing
+        # to spread (it used to be computed from weather alone).
+        if (
+            result.fire_detected
+            and self.enable_spread
+            and "weather_data" in wildfire_data
+            and self.spread_model is not None
+        ):
+            spread_result = self.spread_model.predict_spread(
+                fire_data, wildfire_data["weather_data"]
+            )
+            if spread_result["spread_rate_km_hr"] is not None:
+                result.spread_rate_km_hr = spread_result["spread_rate_km_hr"]
+                result.spread_direction_deg = spread_result["spread_direction_deg"]
 
         result.risk_level = self._assess_fire_risk(wildfire_data, result)
         result.early_warning_actions = self._generate_warnings(result)
@@ -857,11 +1160,16 @@ class WildfireDetector:
         # raster -- a degenerate single-row field (e.g. (3, 1, W)) passes the
         # channel check but pools to height 0 and crashes, so off-contract
         # spatial dims fall back to physics too (solar geomag guard pattern).
+        # The channel MEANING is checked as well as the count: a plain 3-band
+        # brightness image (hundreds of kelvin in every band) is not the
+        # FIRMS raster the forecaster was trained on, and scoring it there gave
+        # p=0.078 for a 380 K fire the brightness criteria detect.
         if (
             thermal_image.ndim != 4
             or thermal_image.shape[1] != self.ignition_detector.thermal_cnn[0].in_channels
             or thermal_image.shape[2] < 4
             or thermal_image.shape[3] < 4
+            or not _is_firms_raster(thermal_image[0])
         ):
             return self._detect_ignition_physics(original_thermal)
 
@@ -906,6 +1214,7 @@ class WildfireDetector:
         return {
             "fire_detected": fire_detected,
             "confidence": float(fire_prob[0].item()),
+            "assessment": "next_day_forecast",
             "hotspot_count": hotspot_count,
             "thermal_image_k": thermal_2d,
             "hotspot_mask": hotspot_mask,
@@ -995,6 +1304,7 @@ class WildfireDetector:
         return {
             "fire_detected": fire_detected,
             "confidence": confidence if fire_detected else min(confidence, 0.5),
+            "assessment": "active_fire",
             "hotspot_count": hotspot_count,
             "method": "physics_brightness_temperature",
             "thermal_image_k": thermal_2d,
@@ -1007,30 +1317,40 @@ class WildfireDetector:
     def _assess_fire_risk(
         self, wildfire_data: dict[str, Any], result: WildfirePredictionResult
     ) -> str:
-        """Assess fire risk level."""
-        risk_score = 0.0
+        """Assess fire risk level from a detected fire and three weather factors.
 
-        if result.fire_detected:
-            risk_score += 0.4
+        Integer points (fire 2, each of strong wind, low humidity and heat 1)
+        keep the ladder exact: summed as 0.2 floats, the three weather factors
+        alone came to 0.6000000000000001 > 0.6 and read "very_high" with no
+        fire. Weather values are range-checked in their documented units.
+        """
+        points = 2 if result.fire_detected else 0
 
         weather = wildfire_data.get("weather_data", {})
-        if weather.get("wind_speed_kmh", 0) > 30:
-            risk_score += 0.2
-        if weather.get("relative_humidity_pct", 100) < 20:
-            risk_score += 0.2
-        if weather.get("temperature_c", 0) > 35:
-            risk_score += 0.2
+        wind = finite_scalar(
+            weather.get("wind_speed_kmh", 0), "wind_speed_kmh", unit="km/h", lo=0.0, hi=500.0
+        )
+        humidity = finite_scalar(
+            weather.get("relative_humidity_pct", 100),
+            "relative_humidity_pct",
+            unit="%",
+            lo=0.0,
+            hi=100.0,
+        )
+        temperature = finite_scalar(
+            weather.get("temperature_c", 0), "temperature_c", unit="degC", lo=-90.0, hi=60.0
+        )
+        points += int(wind > 30) + int(humidity < 20) + int(temperature > 35)
 
-        if risk_score > 0.8:
+        if points >= 5:
             return FireRiskLevel.EXTREME.value
-        elif risk_score > 0.6:
+        if points == 4:
             return FireRiskLevel.VERY_HIGH.value
-        elif risk_score > 0.4:
+        if points == 3:
             return FireRiskLevel.HIGH.value
-        elif risk_score > 0.2:
+        if points == 2:
             return FireRiskLevel.MODERATE.value
-        else:
-            return FireRiskLevel.LOW.value
+        return FireRiskLevel.LOW.value
 
     def _generate_warnings(self, result: WildfirePredictionResult) -> list[str]:
         """Generate early warnings."""

@@ -41,6 +41,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.data_sources.base import DataSourceType
 from omni_mercury_engine.data_sources.live_ingestion import (
     LiveDataError,
@@ -48,9 +49,154 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
+from omni_mercury_engine.detectors._hazard_input import (
+    InvalidObservationError,
+    finite_array,
+    finite_scalar,
+)
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+#: Least R^2 of the inverse-rate line before a failure time is reported.
+FFM_MIN_R2 = 0.8
+
+#: Fewest precursor-rate samples the failure forecast method accepts.
+FFM_MIN_POINTS = 5
+
+
+def failure_forecast(times_h: Any, rates: Any) -> dict[str, float] | None:
+    """Failure forecast method, inverse-rate form (Voight 1988, Nature 332).
+
+    A precursor rate that accelerates as dR/dt = A R^2 (alpha = 2, the case
+    most often observed; Cornelius & Voight 1995) has an inverse rate that
+    falls linearly with time and reaches zero at the failure (eruption) time.
+    A least-squares line through 1/R is extrapolated to zero. The method has
+    retrospective skill (e.g. Mount St. Helens 1980-86 dome extrusions) but is
+    uncertain prospectively. For event counts use
+    :func:`failure_forecast_poisson`: least squares on inverse rates is
+    biased and unstable for sparse counts (Bell, Naylor & Main 2013, GJI 194).
+
+    Args:
+        times_h: Increasing sample times, hours.
+        rates: Positive precursor rates at those times (e.g. VT events per
+            day, RSAM), at least :data:`FFM_MIN_POINTS`.
+
+    Returns:
+        ``failure_time_h`` (same clock as ``times_h``),
+        ``time_to_failure_h`` (after the last sample, positive),
+        ``r_squared`` and ``n_points``; None when the inverse rate is not
+        falling (no acceleration), the line fits worse than
+        :data:`FFM_MIN_R2`, or the line reaches zero at or before the last
+        sample, where the observed rate is still finite and so contradicts
+        the fit.
+
+    Raises:
+        InvalidObservationError: On non-finite or non-positive rates,
+            non-increasing times, mismatched lengths or too few samples.
+    """
+    t = finite_array(times_h, "precursor times_h", unit="h", ndim=1, min_size=FFM_MIN_POINTS)
+    r = finite_array(rates, "precursor rate", unit="events per unit time", ndim=1, lo=0.0)
+    if r.shape != t.shape:
+        raise InvalidObservationError(f"{r.size} precursor rates for {t.size} times")
+    if np.any(np.diff(t) <= 0):
+        raise InvalidObservationError("precursor times_h must increase")
+    if np.any(r == 0.0):
+        raise InvalidObservationError("the inverse-rate method needs positive rates")
+    inverse = 1.0 / r
+    slope, intercept = np.polyfit(t, inverse, 1)
+    fitted = slope * t + intercept
+    total = float(np.sum((inverse - inverse.mean()) ** 2))
+    r_squared = 1.0 - float(np.sum((inverse - fitted) ** 2)) / total if total > 0 else 0.0
+    if slope >= 0.0 or r_squared < FFM_MIN_R2:
+        return None
+    failure_time = float(-intercept / slope)
+    if failure_time <= float(t[-1]):
+        # The data still show a finite rate there: no forecast, rather than
+        # the "eruption in 0 h" the clamp used to report.
+        return None
+    return {
+        "failure_time_h": failure_time,
+        "time_to_failure_h": failure_time - float(t[-1]),
+        "r_squared": r_squared,
+        "n_points": float(t.size),
+    }
+
+
+#: Likelihood-ratio statistic above which acceleration is accepted over a
+#: constant rate: the 95% point of chi-squared with one degree of freedom.
+FFM_LR_CRITICAL = 3.841
+
+
+def failure_forecast_poisson(bin_edges_h: Any, counts: Any) -> dict[str, float] | None:
+    """Failure forecast method for event counts by Poisson maximum likelihood.
+
+    For alpha = 2 the rate is ``k / (t_f - t)``, so a bin ``[a, b]`` expects
+    ``k ln((t_f - a) / (t_f - b))`` events. For each ``t_f`` the likelihood
+    is maximised in closed form by ``k = sum(n) / sum(ln(...))``; the profile
+    is searched over ``t_f`` beyond the last bin (Bell, Naylor & Main 2013,
+    GJI 194, who show this removes the bias of least squares on inverse
+    rates). Acceleration must beat a constant rate by a likelihood ratio of
+    :data:`FFM_LR_CRITICAL`.
+
+    Args:
+        bin_edges_h: Increasing bin edges, hours (one more than ``counts``).
+        counts: Non-negative event counts per bin, at least
+            :data:`FFM_MIN_POINTS` bins.
+
+    Returns:
+        ``failure_time_h``, ``time_to_failure_h`` (after the last edge),
+        ``likelihood_ratio`` (against a constant rate) and ``n_bins``; None
+        when no acceleration beats a constant rate.
+
+    Raises:
+        InvalidObservationError: On malformed edges or counts.
+    """
+    from scipy.optimize import minimize_scalar
+
+    edges = finite_array(bin_edges_h, "bin_edges_h", unit="h", ndim=1, min_size=FFM_MIN_POINTS + 1)
+    n = finite_array(counts, "counts", unit="events", ndim=1, lo=0.0)
+    if edges.size != n.size + 1:
+        raise InvalidObservationError(f"{edges.size} bin edges for {n.size} counts")
+    if np.any(np.diff(edges) <= 0):
+        raise InvalidObservationError("bin_edges_h must increase")
+    total = float(n.sum())
+    if total == 0.0:
+        return None
+    lo, hi = edges[:-1], edges[1:]
+    end, span = float(edges[-1]), float(edges[-1] - edges[0])
+    occupied = n > 0
+
+    width = hi - lo
+    constant = total * width / float(width.sum())
+    loglik_constant = float(np.sum(n[occupied] * np.log(constant[occupied]))) - total
+
+    def negative_loglik(offset_h: float) -> float:
+        growth = np.log((end + offset_h - lo) / (end + offset_h - hi))
+        expected = total / float(growth.sum()) * growth
+        return -(float(np.sum(n[occupied] * np.log(expected[occupied]))) - total)
+
+    offsets = np.geomspace(1e-3 * span, 1e3 * span, 400)
+    values = np.array([negative_loglik(float(o)) for o in offsets])
+    best = int(np.argmin(values))
+    if best == offsets.size - 1:
+        return None  # the likelihood keeps rising toward a constant rate
+    fit = minimize_scalar(
+        negative_loglik,
+        bounds=(float(offsets[max(best - 1, 0)]), float(offsets[best + 1])),
+        method="bounded",
+        options={"xatol": 1e-6 * span},
+    )
+    likelihood_ratio = 2.0 * (-float(fit.fun) - loglik_constant)
+    if likelihood_ratio < FFM_LR_CRITICAL:
+        return None
+    return {
+        "failure_time_h": end + float(fit.x),
+        "time_to_failure_h": float(fit.x),
+        "likelihood_ratio": likelihood_ratio,
+        "n_bins": float(n.size),
+    }
+
 
 if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.earth_science import USGSVolcanoSource
@@ -66,9 +212,17 @@ class VolcanicActivityLevel(Enum):
 
 
 class EruptionType(Enum):
-    """Eruption classifications."""
+    """Eruption classifications.
+
+    The detector reports ``no_eruption`` or ``undetermined``: eruption style
+    and size (VEI) are assigned from the erupted deposit, and forecasting them
+    from precursors is an open problem (National Academies 2017,
+    https://nap.nationalacademies.org/24650). The style values are kept for
+    callers that record an observed eruption.
+    """
 
     NO_ERUPTION = "no_eruption"
+    UNDETERMINED = "undetermined"
     PHREATIC = "phreatic_steam"
     STROMBOLIAN = "strombolian"
     VULCANIAN = "vulcanian"
@@ -85,6 +239,11 @@ class VolcanicPredictionResult:
     alert_level: str
     eruption_type: str
 
+    # Time to eruption comes only from the failure forecast method on a
+    # supplied accelerating precursor rate (:func:`failure_forecast`); VEI is
+    # not forecast (None). The former values were 168 * (1 - p) hours and a
+    # VEI read off the strongest precursor, so gas at 5x baseline alone gave
+    # "VEI 6, hawaiian_effusive, eruption in 6 h".
     time_to_eruption_hours: float | None = None
     vei_estimate: int | None = None  # Volcanic Explosivity Index
 
@@ -108,6 +267,16 @@ class VolcanicPredictionResult:
 
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
+
+    # How time_to_eruption_hours was fitted: the failure-forecast output of
+    # :func:`failure_forecast` or :func:`failure_forecast_poisson` plus its
+    # ``method``.
+    time_to_eruption_fit: dict[str, Any] | None = None
+
+    # Which eruption forecast ran: "neural", "physics", or None when the
+    # observations did not call for one. Added after the released fields so
+    # positional construction keeps their order.
+    forecast_method: str | None = None
 
 
 class SeismicSwarmDetector(nn.Module):
@@ -180,10 +349,13 @@ class ThermalHotspotDetector:
         Returns:
             Thermal anomaly detection results
         """
-        brightness_temp_k = thermal_data.get("brightness_temperature_k", np.array([]))
-
-        if len(brightness_temp_k) == 0:
+        raw = thermal_data.get("brightness_temperature_k", np.array([]))
+        if np.size(raw) == 0:
             return {"anomaly_detected": False, "max_temp_k": self.baseline_temp_k}
+        # An inf pixel used to raise a WARNING-level "plinian" forecast.
+        brightness_temp_k = finite_array(
+            raw, "brightness_temperature_k", unit="K", lo=150.0, hi=2000.0
+        ).ravel()
 
         max_temp = np.max(brightness_temp_k)
         mean_temp = np.mean(brightness_temp_k)
@@ -191,11 +363,16 @@ class ThermalHotspotDetector:
 
         anomaly_threshold = self.baseline_temp_k + 20.0  # 20K above baseline
 
-        thermal_anomaly = max_temp > anomaly_threshold
+        # bool(): max_temp is np.float64, so the bare comparison yields
+        # np.bool_, which leaks into the bool-typed result fields (and does
+        # not survive json serialization).
+        thermal_anomaly = bool(max_temp > anomaly_threshold)
 
         hotspot_pixels = np.sum(brightness_temp_k > (mean_temp + 3 * std_temp))
 
-        radiant_heat_mw = thermal_data.get("radiant_heat_mw", 0.0)
+        radiant_heat_mw = finite_scalar(
+            thermal_data.get("radiant_heat_mw", 0.0), "radiant_heat_mw", unit="MW", lo=0.0
+        )
 
         intensity = "low"
         if max_temp > 400:
@@ -237,8 +414,20 @@ class GasEmissionAnalyzer:
         Returns:
             Gas emission anomaly analysis
         """
-        so2_flux = gas_data.get("so2_tons_per_day", self.baseline_so2_tons_day)
-        co2_flux = gas_data.get("co2_tons_per_day", self.baseline_co2_tons_day)
+        if not isinstance(gas_data, dict):
+            raise InputModalityError("gas_data must be a mapping of fluxes in t/day")
+        so2_flux = finite_scalar(
+            gas_data.get("so2_tons_per_day", self.baseline_so2_tons_day),
+            "so2_tons_per_day",
+            unit="t/day",
+            lo=0.0,
+        )
+        co2_flux = finite_scalar(
+            gas_data.get("co2_tons_per_day", self.baseline_co2_tons_day),
+            "co2_tons_per_day",
+            unit="t/day",
+            lo=0.0,
+        )
 
         so2_ratio = so2_flux / self.baseline_so2_tons_day
         co2_ratio = co2_flux / self.baseline_co2_tons_day
@@ -286,16 +475,26 @@ class InSARDeformationDetector:
         Returns:
             Deformation analysis
         """
-        vertical_displacement_cm = insar_data.get("vertical_displacement_cm", 0.0)
-        horizontal_displacement_cm = insar_data.get("horizontal_displacement_cm", 0.0)
+        vertical_displacement_cm = finite_scalar(
+            insar_data.get("vertical_displacement_cm", 0.0), "vertical_displacement_cm", unit="cm"
+        )
+        horizontal_displacement_cm = finite_scalar(
+            insar_data.get("horizontal_displacement_cm", 0.0),
+            "horizontal_displacement_cm",
+            unit="cm",
+        )
 
         total_displacement = np.sqrt(vertical_displacement_cm**2 + horizontal_displacement_cm**2)
 
-        deformation_detected = total_displacement > 5.0  # 5 cm threshold
+        # bool(): np.sqrt yields np.float64, so the bare comparison would
+        # leak np.bool_ into the bool-typed result field.
+        deformation_detected = bool(total_displacement > 5.0)  # 5 cm threshold
 
         deformation_type = "inflation" if vertical_displacement_cm > 0 else "deflation"
 
-        deformation_rate_cm_day = insar_data.get("deformation_rate_cm_day", 0.0)
+        deformation_rate_cm_day = finite_scalar(
+            insar_data.get("deformation_rate_cm_day", 0.0), "deformation_rate_cm_day", unit="cm/day"
+        )
 
         if total_displacement > 20.0:
             severity = "critical"
@@ -765,6 +964,7 @@ class VolcanicEruptionDetector:
         data_source: USGSVolcanoSource | None = None,
         keep_diagnostics: bool = False,
         load_shipped_weights: bool = True,
+        persist_hmm_state: bool = False,
     ):
         """Initialize volcanic eruption detector.
 
@@ -797,8 +997,16 @@ class VolcanicEruptionDetector:
                 False for the pure multi-precursor physics configuration (the
                 honesty-contract tests). Absence of the checkpoint falls open to
                 physics; an invalid checkpoint still fails loud.
+            persist_hmm_state: Carry the activity-state HMM belief from one
+                ``predict_eruption`` call to the next. Off by default: each call
+                then starts from the HMM prior, so the same observation gives
+                the same answer whatever was scored before (the evaluation
+                resets the HMM per case, so that is the behaviour it measured).
+                Turn it on only for one detector instance per volcano, fed in
+                time order.
         """
         self.keep_diagnostics = keep_diagnostics
+        self.persist_hmm_state = persist_hmm_state
         self.enable_seismic = enable_seismic
         self.enable_thermal = enable_thermal
         self.enable_gas = enable_gas
@@ -903,6 +1111,13 @@ class VolcanicEruptionDetector:
                     "probability; refusing a nonsensical eruption-alert rule"
                 )
             self._operating_point = {"eruption_prob_threshold": tau}
+        else:
+            # A checkpoint without an operating point reverts to the legacy
+            # fixed rule. Without this reset, loading such a checkpoint OVER
+            # one that carried a tau kept the previous checkpoint's alert
+            # threshold in charge of the new weights (wildfire and landslide
+            # already reset; volcanic did not).
+            self._operating_point = None
         self._neural_trained = True
         self.logger.info(
             "Volcanic neural weights loaded from %s (feature spec: %s; volcanoes: %s%s); "
@@ -1065,11 +1280,32 @@ class VolcanicEruptionDetector:
                 - gas_data: SO2/CO2 flux measurements
                 - insar_data: Ground deformation data
                 - schumann_elf: Optional Schumann resonance data
+                - precursor_rate: Optional accelerating precursor, either
+                  ``{"bin_edges_h", "counts"}`` event counts
+                  (:func:`failure_forecast_poisson`) or ``{"times_h", "rate"}``
+                  a continuous rate such as RSAM (:func:`failure_forecast`)
                 - metadata: Volcano name, location, history
 
         Returns:
             Volcanic eruption prediction with alert level and recommendations
         """
+        if not isinstance(volcano_data, dict):
+            # A bare array used to return a silent all-clear ("normal").
+            raise InputModalityError(
+                "predict_eruption expects a mapping of monitoring streams "
+                f"(seismic_sequence, thermal_data, gas_data, insar_data, ...), got "
+                f"{type(volcano_data).__name__}"
+            )
+        if "seismic_sequence" in volcano_data:
+            volcano_data = {
+                **volcano_data,
+                "seismic_sequence": finite_array(
+                    volcano_data["seismic_sequence"], "seismic_sequence", unit="counts"
+                ),
+            }
+        if self.state_hmm is not None and not self.persist_hmm_state:
+            self.state_hmm.reset()
+
         result = VolcanicPredictionResult(
             eruption_imminent=False,
             confidence=0.0,
@@ -1090,6 +1326,15 @@ class VolcanicEruptionDetector:
         swarm_probability: float | None = None
         if self.enable_seismic and "seismic_sequence" in volcano_data:
             seismic_result = self._analyze_seismic(volcano_data["seismic_sequence"])
+            # The learned LSTM is trained on the eruption-onset label, not on
+            # swarms, so the swarm flag is always the amplitude rule that the
+            # name describes; the LSTM output stays in the diagnostics.
+            if seismic_result.get("method") != "physics":
+                physics_swarm = self._detect_swarm_physics(volcano_data["seismic_sequence"])
+                seismic_result = {
+                    **seismic_result,
+                    "swarm_detected": physics_swarm["swarm_detected"],
+                }
             result.seismic_swarm_detected = seismic_result["swarm_detected"]
             signals["seismic_confidence"] = seismic_result["confidence"]
             hmm_observations[0] = seismic_result["swarm_detected"]
@@ -1142,12 +1387,24 @@ class VolcanicEruptionDetector:
                 indicators_detected += 1
 
         if self.enable_schumann and "schumann_elf" in volcano_data:
-            schumann_corr = self._correlate_schumann_elf(volcano_data["schumann_elf"])
-            result.schumann_elf_correlation = schumann_corr
-            if schumann_corr > 0.6:
-                # ELF correlation contributes a bounded 0.5 indicator bonus
-                # (exploratory evidence)
-                indicators_detected += 0.5
+            # Reported only. ELF anomalies are not validated eruption
+            # precursors, and the score is a deviation from 7.83 Hz, not a
+            # correlation; it no longer adds to the decision.
+            result.schumann_elf_correlation = self._correlate_schumann_elf(
+                finite_array(volcano_data["schumann_elf"], "schumann_elf", unit="Hz")
+            )
+
+        if "precursor_rate" in volcano_data:
+            rate = volcano_data["precursor_rate"]
+            if "counts" in rate:
+                forecast = failure_forecast_poisson(rate.get("bin_edges_h"), rate["counts"])
+                method = "ffm_poisson_mle"
+            else:
+                forecast = failure_forecast(rate.get("times_h"), rate.get("rate"))
+                method = "ffm_inverse_rate"
+            if forecast is not None:
+                result.time_to_eruption_hours = forecast["time_to_failure_h"]
+                result.time_to_eruption_fit = {"method": method, **forecast}
 
         # Update HMM state belief based on observations
         hmm_state_info: dict[str, Any] = {}
@@ -1175,9 +1432,12 @@ class VolcanicEruptionDetector:
             eruption_forecast = self._forecast_eruption(volcano_data, indicators_detected, signals)
             result.eruption_imminent = eruption_forecast["eruption_imminent"]
             result.confidence = max(result.confidence, eruption_forecast["confidence"])
-            result.time_to_eruption_hours = eruption_forecast["time_to_eruption_hours"]
-            result.vei_estimate = eruption_forecast["vei_estimate"]
-            result.eruption_type = eruption_forecast["eruption_type"]
+            result.forecast_method = eruption_forecast["method"]
+            result.eruption_type = (
+                EruptionType.UNDETERMINED.value
+                if result.eruption_imminent
+                else EruptionType.NO_ERUPTION.value
+            )
 
         # Apply 3R Refactoring adaptive optimization
         if self.enable_refactoring and self.refactoring_optimizer:
@@ -1208,6 +1468,15 @@ class VolcanicEruptionDetector:
             )
 
         result.alert_level = self._determine_alert_level(indicators_detected, result.confidence)
+        # A forecast eruption with an alert of "normal" (120 of 120 learned
+        # "imminent" cases before) is raised to WATCH: USGS "heightened or
+        # escalating unrest with increased potential of eruption, timeframe
+        # uncertain". WARNING stays reserved for the multi-indicator rule.
+        if result.eruption_imminent and result.alert_level in (
+            VolcanicActivityLevel.NORMAL.value,
+            VolcanicActivityLevel.ADVISORY.value,
+        ):
+            result.alert_level = VolcanicActivityLevel.WATCH.value
         result.hazard_zones = self._identify_hazard_zones(result)
         result.early_warning_actions = self._generate_early_warning(result)
         result.evacuation_recommendations = self._generate_evacuation_plan(result)
@@ -1350,18 +1619,11 @@ class VolcanicEruptionDetector:
                 imminent = prob >= self._operating_point["eruption_prob_threshold"]
             else:
                 imminent = prob > 0.7
-            vei_estimate = int(torch.argmax(torch.softmax(vei_logits[0], dim=0)).item())
-            eruption_types = ["strombolian", "vulcanian", "plinian", "hawaiian_effusive"]
-            return {
-                "eruption_imminent": imminent,
-                "confidence": prob,
-                "time_to_eruption_hours": float(time_norm[0].item()) * 168.0,
-                "vei_estimate": vei_estimate,
-                "eruption_type": eruption_types[min(vei_estimate // 2, 3)],
-                "method": "neural",
-            }
+            del vei_logits, time_norm  # heads not trained on size or timing labels
+            return {"eruption_imminent": imminent, "confidence": prob, "method": "neural"}
 
-        self._warn_untrained_once()
+        if not self._neural_trained:
+            self._warn_untrained_once()
         return self._forecast_eruption_physics(signals)
 
     @staticmethod
@@ -1380,7 +1642,10 @@ class VolcanicEruptionDetector:
         output, no RNG.
         """
         seismic = min(max(signals.get("seismic_confidence", 0.0), 0.0), 1.0)
-        gas = min(max(signals.get("degassing_index", 0.0) / 5.0, 0.0), 1.0)
+        # Excess over baseline: index 1 (baseline) is 0, 5x baseline saturates.
+        # Dividing the raw index by 5 made baseline gas, or an empty gas
+        # record, add 0.2 to the noisy-OR.
+        gas = min(max((signals.get("degassing_index", 1.0) - 1.0) / 4.0, 0.0), 1.0)
         deform = min(max(signals.get("total_displacement_cm", 0.0) / 20.0, 0.0), 1.0)
         thermal = min(max(signals.get("radiant_heat_mw", 0.0) / 1000.0, 0.0), 1.0)
         hmm = min(max(signals.get("hmm_eruption_prob", 0.0), 0.0), 1.0)
@@ -1392,19 +1657,9 @@ class VolcanicEruptionDetector:
         eruption_probability = 1.0 - complement
         eruption_imminent = eruption_probability > 0.7
 
-        peak_severity = max(terms)
-        vei_estimate = int(min(max(round(1 + peak_severity * 5), 1), 6)) if eruption_imminent else 0
-        time_hours = float(np.clip(168.0 * (1.0 - eruption_probability), 6.0, 168.0))
-        eruption_types = ["strombolian", "vulcanian", "plinian", "hawaiian_effusive"]
-        eruption_type = (
-            eruption_types[min(vei_estimate // 2, 3)] if vei_estimate > 0 else "no_eruption"
-        )
         return {
             "eruption_imminent": eruption_imminent,
             "confidence": float(eruption_probability),
-            "time_to_eruption_hours": time_hours,
-            "vei_estimate": vei_estimate,
-            "eruption_type": eruption_type,
             "method": "physics",
         }
 
@@ -1440,16 +1695,22 @@ class VolcanicEruptionDetector:
         """Generate early warning actions."""
         actions = []
 
+        # Wording follows the USGS Volcano Alert Level definitions
+        # (https://www.usgs.gov/natural-hazards/volcano-hazards/about-alert-levels);
+        # WATCH used to say "Eruption likely within 24 hours", which it is not.
         if result.alert_level == "warning":
-            actions.append("VOLCANIC WARNING: Eruption imminent or in progress")
+            actions.append("VOLCANIC WARNING: hazardous eruption imminent, underway or suspected")
             actions.append("Activate emergency response protocols")
             actions.append("Close access to volcano")
         elif result.alert_level == "watch":
-            actions.append("VOLCANIC WATCH: Eruption likely within 24 hours")
+            actions.append(
+                "VOLCANIC WATCH: heightened or escalating unrest, increased potential "
+                "of eruption, timeframe uncertain"
+            )
             actions.append("Prepare evacuation plans")
             actions.append("Position emergency resources")
         elif result.alert_level == "advisory":
-            actions.append("Volcanic Advisory: Elevated unrest")
+            actions.append("Volcanic Advisory: elevated unrest above known background")
             actions.append("Increase monitoring frequency")
 
         return actions
@@ -1458,7 +1719,8 @@ class VolcanicEruptionDetector:
         """Generate evacuation recommendations."""
         recs = []
 
-        if result.alert_level in ["warning", "watch"]:
+        # Evacuation is advised only at WARNING; WATCH means preparation.
+        if result.alert_level == "warning":
             recs.append("Evacuate high-risk zones immediately")
             recs.append("Establish emergency shelters outside hazard zones")
             recs.append("Prepare for ashfall, lahars, and pyroclastic flows")

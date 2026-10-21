@@ -694,8 +694,11 @@ class ParapsychologyDetector:
 def create_omni_psi_scalars() -> dict[str, float]:
     """Create doctorate-level parapsychology scalars.
 
+    The values are a hand-set table, each base weight times phi (1.618).
+    They are fixed constants, not fitted or optimized on data.
+
     Returns:
-        Dictionary of omni-psi scalars with golden ratio optimization
+        Dictionary of omni-psi scalars
     """
     phi = 1.618
 

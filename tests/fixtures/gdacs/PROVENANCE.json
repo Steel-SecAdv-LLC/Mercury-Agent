@@ -1,0 +1,437 @@
+{
+  "description": "Recorded real GDACS data. Earthquake files hold the JSON of the named public GDACS API responses, parsed and re-serialised with json.dumps (JSON-equal to the response bodies, not byte-identical); tropical cyclone timelines keep, unedited, the named fields of every track point of the response. Nothing is synthetic.",
+  "source": "Global Disaster Alert and Coordination System (EC Joint Research Centre / UN OCHA), https://www.gdacs.org. Content (c) European Union, reused under CC BY 4.0 (https://commission.europa.eu/legal-notice_en#copyright-notice).",
+  "selection": "Earthquakes: the first 15 Red, 15 Orange and 8 Green events of GDACS's event lists for 2023-01-01 to 2026-10-01 (geteventlist/SEARCH?eventlist=EQ&alertlevel=<level>, recorded 2026-10-19). 30 of the 38 list a 'shakemap' impact; 26 are included. Extended the same day from a 2018-2026 red/orange sweep plus targeted country searches (262 events examined): three more cross-border events (1365556, 1437973, 1492605), five single-country events whose factors decompose the cross-border sums (1511252 - previously unrecordable, now recorded - 1500178, 1478853, 1376865, 1487880), and two territory-keyed events (1338219, 1202436). Still unrecordable: Red 1474477 lists no shakemap impact at all (its sibling event 1474479 is in the sample), and the Venezuela Red pair 1548377/1548473's getimpact resources (764533, 763666) time out server-side on every attempt across sessions. Tropical cyclones: one Red (MELISSA-25, latest episode and episode 12), one Red JTWC (CHAMPI-26), two Orange (DITWAH-25, TAPAH-25) and one Green (CHOI-WAN-26) event, 152 track points.",
+  "content": "eq_event_<id>.json: GDACS event details (country, affected countries, alert level and score). eq_shakemap_alert_<id>.json: GDACS shakemap impact model output, whose 'Alert Parameters' datum carries AlertLevel, AlertScore, ScaledPopulation (log10), CoeffIntersept, CoeffSlope, CountryVuln, LccNormalised and MaxMMI, and whose 'Pop' datum carries population by MMI band (ep3..ep9).",
+  "notes": "Used by tests/infrastructure/humanitarian/test_gdacs.py to check the module against GDACS's own scores. GDACS's CountryVuln field reads 0 even where its score applies the 2017 table's country vulnerability. The tropical cyclone timelines check the GDACS MHEWS user manual's Table 1 (JRC141661, 2025; version of 23/09/2026) per track point.",
+  "fixtures": {
+    "tc_timeline_1001230.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=710233",
+      "recorded_utc": "2026-10-19T16:09:51Z",
+      "method": "GET; from the verbatim response, the listed fields of every channel.item are kept unedited and the rest (geometry, wind radii) dropped for size",
+      "content": "GDACS tropical cyclone track timeline for event 1001230 (MELISSA-25; the timeline's storm_name is empty): 48 track points with 1-min sustained wind (m/s), population in the 34 kt (pop39) and 64 kt (pop74) buffers, point country, GDACS's alert colour and whether it was decreased."
+    },
+    "tc_timeline_1001230_ep12.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=708496",
+      "recorded_utc": "2026-10-19T16:28:51Z",
+      "method": "GET; from the verbatim response, the listed fields of every channel.item are kept unedited and the rest (geometry, wind radii) dropped for size",
+      "content": "GDACS tropical cyclone track timeline for event 1001230 ep12 (MELISSA-25; the timeline's storm_name is empty): 20 track points with 1-min sustained wind (m/s), population in the 34 kt (pop39) and 64 kt (pop74) buffers, point country, GDACS's alert colour and whether it was decreased."
+    },
+    "tc_timeline_1001338.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=812167",
+      "recorded_utc": "2026-10-19T16:09:57Z",
+      "method": "GET; from the verbatim response, the listed fields of every channel.item are kept unedited and the rest (geometry, wind radii) dropped for size",
+      "content": "GDACS tropical cyclone track timeline for event 1001338 (CHAMPI-26; the timeline's storm_name is TWENTYNINE-26): 29 track points with 1-min sustained wind (m/s), population in the 34 kt (pop39) and 64 kt (pop74) buffers, point country, GDACS's alert colour and whether it was decreased."
+    },
+    "tc_timeline_1001238.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=714486",
+      "recorded_utc": "2026-10-19T16:29:17Z",
+      "method": "GET; from the verbatim response, the listed fields of every channel.item are kept unedited and the rest (geometry, wind radii) dropped for size",
+      "content": "GDACS tropical cyclone track timeline for event 1001238 (DITWAH-25; the timeline's storm_name is FIVE-25): 14 track points with 1-min sustained wind (m/s), population in the 34 kt (pop39) and 64 kt (pop74) buffers, point country, GDACS's alert colour and whether it was decreased."
+    },
+    "tc_timeline_1001206.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=697071",
+      "recorded_utc": "2026-10-19T16:21:47Z",
+      "method": "GET; from the verbatim response, the listed fields of every channel.item are kept unedited and the rest (geometry, wind radii) dropped for size",
+      "content": "GDACS tropical cyclone track timeline for event 1001206 (TAPAH-25; the timeline's storm_name is TWENTYTWO-25): 11 track points with 1-min sustained wind (m/s), population in the 34 kt (pop39) and 64 kt (pop74) buffers, point country, GDACS's alert colour and whether it was decreased."
+    },
+    "tc_timeline_1001332.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=806853",
+      "recorded_utc": "2026-10-19T16:21:27Z",
+      "method": "GET; from the verbatim response, the listed fields of every channel.item are kept unedited and the rest (geometry, wind radii) dropped for size",
+      "content": "GDACS tropical cyclone track timeline for event 1001332 (CHOI-WAN-26; the timeline's storm_name is TWENTYSIX-26): 30 track points with 1-min sustained wind (m/s), population in the 34 kt (pop39) and 64 kt (pop74) buffers, point country, GDACS's alert colour and whether it was decreased."
+    },
+    "eq_event_1458084.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1458084",
+      "recorded_utc": "2026-10-19T16:17:34Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1458084.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=649758",
+      "recorded_utc": "2026-10-19T16:17:34Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1461014.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1461014",
+      "recorded_utc": "2026-10-19T16:17:12Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1461014.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=652287",
+      "recorded_utc": "2026-10-19T16:17:31Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1474479.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1474479",
+      "recorded_utc": "2026-10-19T16:12:29Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1474479.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=666599",
+      "recorded_utc": "2026-10-19T16:12:34Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1477002.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1477002",
+      "recorded_utc": "2026-10-19T16:12:24Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1477002.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=668097",
+      "recorded_utc": "2026-10-19T16:12:28Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1481374.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1481374",
+      "recorded_utc": "2026-10-19T16:12:19Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1481374.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=671052",
+      "recorded_utc": "2026-10-19T16:12:22Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1492624.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1492624",
+      "recorded_utc": "2026-10-19T16:11:35Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1492624.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=687518",
+      "recorded_utc": "2026-10-19T16:12:18Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1496100.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1496100",
+      "recorded_utc": "2026-10-19T16:11:26Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1496100.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=691216",
+      "recorded_utc": "2026-10-19T16:11:34Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1498339.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1498339",
+      "recorded_utc": "2026-10-19T16:11:08Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1498339.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=695349",
+      "recorded_utc": "2026-10-19T16:11:10Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1498907.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1498907",
+      "recorded_utc": "2026-10-19T16:10:51Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1498907.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=696577",
+      "recorded_utc": "2026-10-19T16:11:05Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1504796.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1504796",
+      "recorded_utc": "2026-10-19T16:50:48Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1504796.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=707298",
+      "recorded_utc": "2026-10-19T16:51:02Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1507329.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1507329",
+      "recorded_utc": "2026-10-19T16:50:51Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1507329.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=709974",
+      "recorded_utc": "2026-10-19T16:51:14Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1508467.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1508467",
+      "recorded_utc": "2026-10-19T16:10:46Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1508467.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=710752",
+      "recorded_utc": "2026-10-19T16:10:49Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1526507.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1526507",
+      "recorded_utc": "2026-10-19T16:19:08Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1526507.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=737041",
+      "recorded_utc": "2026-10-19T16:23:18Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1536386.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1536386",
+      "recorded_utc": "2026-10-19T16:19:00Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1536386.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=751540",
+      "recorded_utc": "2026-10-19T16:19:06Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1541314.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1541314",
+      "recorded_utc": "2026-10-19T16:18:55Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1541314.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=754508",
+      "recorded_utc": "2026-10-19T16:18:58Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1544720.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1544720",
+      "recorded_utc": "2026-10-19T16:18:30Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1544720.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=758065",
+      "recorded_utc": "2026-10-19T16:18:52Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1546617.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1546617",
+      "recorded_utc": "2026-10-19T16:18:16Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1546617.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=757918",
+      "recorded_utc": "2026-10-19T16:18:27Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1546719.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1546719",
+      "recorded_utc": "2026-10-19T16:18:09Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1546719.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=757919",
+      "recorded_utc": "2026-10-19T16:18:13Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1548668.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1548668",
+      "recorded_utc": "2026-10-19T16:18:04Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1548668.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=760833",
+      "recorded_utc": "2026-10-19T16:18:06Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1552752.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1552752",
+      "recorded_utc": "2026-10-19T16:17:58Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1552752.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=767707",
+      "recorded_utc": "2026-10-19T16:18:01Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1554510.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1554510",
+      "recorded_utc": "2026-10-19T16:17:53Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1554510.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=775045",
+      "recorded_utc": "2026-10-19T16:17:56Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1554552.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1554552",
+      "recorded_utc": "2026-10-19T16:17:46Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1554552.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=771752",
+      "recorded_utc": "2026-10-19T16:17:51Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1556215.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1556215",
+      "recorded_utc": "2026-10-19T16:17:41Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1556215.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=775733",
+      "recorded_utc": "2026-10-19T16:17:43Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1557236.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1557236",
+      "recorded_utc": "2026-10-19T16:01:01Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1557236.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=784176",
+      "recorded_utc": "2026-10-19T16:01:15Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1558059.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1558059",
+      "recorded_utc": "2026-10-19T16:00:40Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1558059.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=781986",
+      "recorded_utc": "2026-10-19T16:01:00Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1568948.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1568948",
+      "recorded_utc": "2026-10-19T16:26:49Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_shakemap_alert_1568948.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=805259",
+      "recorded_utc": "2026-10-19T16:26:54Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps"
+    },
+    "eq_event_1437973.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1437973",
+      "recorded_utc": "2026-10-19T21:11:17Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "three-country cross-border (CHL+BOL+ARG per the averaged coefficients)"
+    },
+    "eq_shakemap_alert_1437973.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=609546",
+      "recorded_utc": "2026-10-19T21:11:29Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "three-country cross-border (CHL+BOL+ARG per the averaged coefficients)"
+    },
+    "eq_event_1365556.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1365556",
+      "recorded_utc": "2026-10-19T21:18:56Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "cross-border ECU+PER"
+    },
+    "eq_shakemap_alert_1365556.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=530697",
+      "recorded_utc": "2026-10-19T21:19:06Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "cross-border ECU+PER"
+    },
+    "eq_event_1492605.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1492605",
+      "recorded_utc": "2026-10-19T21:04:29Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "cross-border GTM+neighbour"
+    },
+    "eq_shakemap_alert_1492605.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=685418",
+      "recorded_utc": "2026-10-19T21:04:31Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "cross-border GTM+neighbour"
+    },
+    "eq_event_1511252.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1511252",
+      "recorded_utc": "2026-10-19T20:57:37Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country BGD (previously unrecordable; completes the BGD+IND sum)"
+    },
+    "eq_shakemap_alert_1511252.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=713281",
+      "recorded_utc": "2026-10-19T20:58:19Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country BGD (previously unrecordable; completes the BGD+IND sum)"
+    },
+    "eq_event_1500178.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1500178",
+      "recorded_utc": "2026-10-19T21:02:19Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country IND 2025 (completes the BGD+IND sum)"
+    },
+    "eq_shakemap_alert_1500178.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=698561",
+      "recorded_utc": "2026-10-19T21:02:21Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country IND 2025 (completes the BGD+IND sum)"
+    },
+    "eq_event_1478853.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1478853",
+      "recorded_utc": "2026-10-19T21:05:13Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country ECU 2025 (completes the ECU+PER sum)"
+    },
+    "eq_shakemap_alert_1478853.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=669517",
+      "recorded_utc": "2026-10-19T21:05:14Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country ECU 2025 (completes the ECU+PER sum)"
+    },
+    "eq_event_1376865.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1376865",
+      "recorded_utc": "2026-10-19T21:18:39Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country PER 2023 (completes the ECU+PER sum)"
+    },
+    "eq_shakemap_alert_1376865.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=542116",
+      "recorded_utc": "2026-10-19T21:18:40Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country PER 2023 (completes the ECU+PER sum)"
+    },
+    "eq_event_1487880.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1487880",
+      "recorded_utc": "2026-10-19T21:28:26Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country PAK 2025 (completes the AFG+PAK sum); zero-exposure Green"
+    },
+    "eq_shakemap_alert_1487880.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=677803",
+      "recorded_utc": "2026-10-19T21:28:28Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "single-country PAK 2025 (completes the AFG+PAK sum); zero-exposure Green"
+    },
+    "eq_event_1338219.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1338219",
+      "recorded_utc": "2026-10-19T20:26:47Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "Taiwan event filed under CHN, scored with the global coefficients"
+    },
+    "eq_shakemap_alert_1338219.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=498578",
+      "recorded_utc": "2026-10-19T20:26:50Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "Taiwan event filed under CHN, scored with the global coefficients"
+    },
+    "eq_event_1202436.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1202436",
+      "recorded_utc": "2026-10-19T20:36:51Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "event filed under KGZ, scored entirely with China's terms and factor"
+    },
+    "eq_shakemap_alert_1202436.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=345425",
+      "recorded_utc": "2026-10-19T20:36:52Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "event filed under KGZ, scored entirely with China's terms and factor"
+    },
+    "eq_event_1499045.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1499045",
+      "recorded_utc": "2026-10-19T22:02:56Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "Orange AFG event with no final shakemap: GDACS scored its PRELIMINARY shakemap with the shakemap model"
+    },
+    "eq_shakemap_prelim_1499045.json": {
+      "url": "https://www.gdacs.org/gdacsapi/api/export/getimpact?id=697760",
+      "recorded_utc": "2026-10-19T22:02:56Z",
+      "method": "GET; the JSON response parsed and re-serialised with json.dumps",
+      "note": "The shake_preliminary impact whose Alert Parameters carry the event's score: the shakemap formula on the preliminary map (reproduced to full precision), not the 'EQ parameters' model"
+    }
+  }
+}

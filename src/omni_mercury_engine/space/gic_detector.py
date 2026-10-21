@@ -5,13 +5,19 @@
 Consumes ground-magnetometer minute data (e.g.
 :class:`omni_mercury_engine.data_sources.geomagnetic.USGSGeomagnetismSource`,
 which serves real per-observatory 1-minute X/Y/Z/F values from the USGS
-Geomagnetism edge web service) and produces:
+Geomagnetism web service, ``/ws/data``) and produces:
 
 * **dB/dt metrics** — per-component and horizontal-magnitude time
-  derivatives in nT/min, peak value + timestamp, and a sustained metric
-  (maximum 10-minute rolling mean). Rapid horizontal-field variation is the
-  primary driver of GIC in transmission networks (Viljanen et al. 2001,
-  Ann. Geophys. 19; Pulkkinen et al. 2013, Space Weather 11).
+  derivatives in nT/min on 1-minute data, peak value + timestamp, and a
+  sustained metric (maximum 10-minute rolling mean). Rapid horizontal-field
+  variation is the primary driver of GIC in transmission networks (Viljanen
+  et al. 2001, Ann. Geophys. 19; Pulkkinen et al. 2013, Space Weather 11).
+  dB/dt grows with sampling rate (on the same two hours of 2024 Gannon-storm
+  data, 17-19Z on 10 May, FRD read 765 nT/min from 1-second differences but
+  55 nT/min from 1-minute means; every 60th sample alone reads 57-84 nT/min,
+  depending on which second is kept), so sub-minute data are averaged to
+  1-minute means first, the cadence of the published thresholds; coarser
+  data are refused because they under-read.
 
 * **Geoelectric-field proxy** — the standard plane-wave (magnetotelluric)
   relation over a uniform half-space (Cagniard 1953, Geophysics 18;
@@ -28,15 +34,16 @@ Geomagnetism edge web service) and produces:
   highest — cf. Boteler 1994, IEEE Trans. Power Delivery 9; Boteler &
   Pirjola 1998, Geophys. J. Int. 132).
 
-* **Risk tiers on dB/dt** — operational alerting tiers at 100 / 300 /
-  500 nT/min (low < 100, moderate 100-300, high 300-500, severe >= 500)
-  following the range of published dB/dt hazard scales (Molinski 2002,
-  J. Atmos. Sol.-Terr. Phys. 64; Marshall et al. 2012, Space Weather 10;
-  Kappenman 2006, Space Weather 4). Context: the March 1989 Hydro-Québec
-  collapse was associated with ~480 nT/min at ground level (Bolduc 2002,
-  J. Atmos. Sol.-Terr. Phys. 64; Boteler 2019, Space Weather 17), while
-  Carrington-class scenarios are benchmarked near ~5000 nT/min (Kappenman
-  2006) — the reference context for NERC TPL-007 benchmark GMD planning.
+* **Risk tiers on dB/dt** (1-minute data), each anchored to a cited level:
+  moderate from 90 nT/min (1.5 nT/s, the highest of the community dB/dt
+  validation thresholds, Pulkkinen et al. 2013); high from 300 nT/min (the
+  lower end of the 300-600 nT/min that accompanied US grid impacts in March
+  1989, Oak Ridge Meta-R-321); severe from 480 nT/min (the regional level at
+  the 1989 Hydro-Québec collapse, Bolduc 2002; Meta-R-321). Meta-R-321 also
+  notes that ~5000 nT/min is possible in an extreme storm. NERC TPL-007 is a
+  geoelectric-field standard (benchmark 8 V/km at 60° geomagnetic latitude,
+  scaled for latitude and ground), not a dB/dt one; the plane-wave proxy here
+  uses a uniform half-space, not a TPL-007 ground model.
 
 Physics-only module: no neural network. Fail-loud on empty/misaligned
 series, naive timestamps, and non-monotonic time; data gaps (None/NaN) are
@@ -50,14 +57,16 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from scipy.signal import fftconvolve
+
+from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from omni_mercury_engine.data_sources.base import DataPoint
 
 logger = logging.getLogger(__name__)
@@ -74,22 +83,33 @@ CONDUCTIVITY_MODELS_S_PER_M: dict[str, float] = {
     "conductive_sediment": 1.0e-1,
 }
 
-#: Operational dB/dt alerting tiers, nT/min (see module docstring).
+#: dB/dt alerting tiers on 1-minute data, nT/min (see module docstring).
 DBDT_RISK_TIERS_NT_PER_MIN: tuple[tuple[float, str], ...] = (
-    (500.0, "severe"),
+    (480.0, "severe"),
     (300.0, "high"),
-    (100.0, "moderate"),
+    (90.0, "moderate"),
 )
 
-#: Rolling window (samples at minute cadence) for the sustained metric.
+#: Cadence (s) at which dB/dt is computed and the tiers are defined.
+DBDT_CADENCE_S: float = 60.0
+
+#: Relative tolerance on :data:`DBDT_CADENCE_S` within which a series counts
+#: as 1-minute data (finer is averaged, coarser refused).
+DBDT_CADENCE_TOLERANCE: float = 0.05
+
+#: Rolling window for the sustained metric: 10 one-minute samples.
 SUSTAINED_WINDOW_SAMPLES: int = 10
+
+#: Largest plausible magnitude of a field component, nT (the main field is
+#: below ~70,000 nT everywhere); larger values are not nT.
+MAX_FIELD_NT: float = 1.0e5
 
 
 def classify_dbdt_risk(peak_dbdt_nt_per_min: float) -> str:
-    """Classify peak horizontal dB/dt against the operational tiers.
+    """Classify peak horizontal 1-minute dB/dt against the cited tiers.
 
-    Tiers: low < 100, moderate 100-300, high 300-500, severe >= 500 nT/min
-    (Molinski 2002; Marshall et al. 2012; Kappenman 2006).
+    Tiers: low < 90, moderate 90-300, high 300-480, severe >= 480 nT/min
+    (Pulkkinen et al. 2013; Oak Ridge Meta-R-321; Bolduc 2002).
 
     Args:
         peak_dbdt_nt_per_min: Peak horizontal dB/dt, nT/min.
@@ -120,13 +140,16 @@ class GICAssessment:
         peak_dbdt_x_nt_per_min: Peak |dBx/dt|, nT/min (None if X absent).
         peak_dbdt_y_nt_per_min: Peak |dBy/dt|, nT/min (None if Y absent).
         sustained_dbdt_nt_per_min: Max 10-minute rolling mean of the
-            horizontal dB/dt (None if the series is too short/gappy).
+            1-minute horizontal dB/dt (None if the series is too short/gappy).
         geoelectric_peak_v_per_km: Peak plane-wave |E| proxy, V/km (None
             when the series has gaps — never interpolated silently).
         conductivity_model: Named ground model used for the proxy.
         sigma_s_per_m: Conductivity value used, S/m.
-        n_samples: Total input samples.
-        n_gaps: Count of non-finite input samples excluded from dB/dt.
+        n_samples: Samples assessed (after averaging sub-minute data to 1 min).
+        n_gaps: Count of non-finite input samples (X and Y each counted),
+            before any averaging. Sub-minute samples are skipped within their
+            minute's mean; minute bins left with no finite sample are counted
+            separately in ``notes``.
         single_component: True when only one horizontal component was
             available (H-only assessment).
         notes: Explicit data-quality / scope notes.
@@ -146,6 +169,102 @@ class GICAssessment:
     n_gaps: int
     single_component: bool = False
     notes: list[str] = field(default_factory=list)
+
+
+def _check_field_units(bx: np.ndarray[Any, Any], by: np.ndarray[Any, Any], single: bool) -> None:
+    """Refuse field values that cannot be nanotesla.
+
+    Raises:
+        InvalidObservationError: When every finite value is below 0.01 in
+            magnitude (tesla: 2e-5 T read "low" with a 3.7e-7 nT/min peak) or
+            any exceeds :data:`MAX_FIELD_NT`.
+    """
+    values = np.concatenate([bx, np.zeros(0) if single else by])
+    finite = values[np.isfinite(values)]
+    if finite.size and (
+        float(np.max(np.abs(finite))) < 1e-2 or float(np.max(np.abs(finite))) > MAX_FIELD_NT
+    ):
+        raise InvalidObservationError(
+            f"magnetic field values span up to {float(np.max(np.abs(finite))):.3g}; "
+            "they must be in nT (|B| between 0.01 and 1e5 nT)"
+        )
+
+
+def _to_minute_cadence(
+    times: list[datetime],
+    bx: np.ndarray[Any, Any],
+    by: np.ndarray[Any, Any],
+    notes: list[str],
+) -> tuple[list[datetime], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Bring a series to the 1-minute cadence the dB/dt tiers are defined on.
+
+    Sub-minute data are averaged into 1-minute bins (gap samples skipped; a
+    bin with no finite sample is a gap); 1-minute data pass through.
+
+    Raises:
+        InvalidObservationError: On a cadence coarser than 1 minute, which
+            under-reads dB/dt.
+    """
+    if len(times) < 2:
+        return times, bx, by
+    for ts in times:
+        if ts.tzinfo is None:
+            raise ValueError(f"Timestamp {ts!r} is naive; must be timezone-aware.")
+    offsets = np.array([(t - times[0]).total_seconds() for t in times], dtype=np.float64)
+    steps = np.diff(offsets)
+    if np.any(steps <= 0.0):
+        raise ValueError("Timestamps must be strictly ascending.")
+    cadence = float(np.median(steps))
+    if cadence > DBDT_CADENCE_S * (1.0 + DBDT_CADENCE_TOLERANCE):
+        raise InvalidObservationError(
+            f"magnetometer cadence is {cadence:g} s; dB/dt and its tiers are defined on "
+            f"{DBDT_CADENCE_S:g} s data and a coarser series under-reads them"
+        )
+    if cadence >= DBDT_CADENCE_S * (1.0 - DBDT_CADENCE_TOLERANCE):
+        return times, bx, by
+    first = times[0]
+    start = first - timedelta(seconds=first.second, microseconds=first.microsecond)
+    bins = ((offsets + (first - start).total_seconds()) // DBDT_CADENCE_S).astype(int)
+    n_bins = int(bins[-1]) + 1
+
+    def _mean(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        ok = np.isfinite(values)
+        total = np.bincount(bins[ok], weights=values[ok], minlength=n_bins)
+        count = np.bincount(bins[ok], minlength=n_bins)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return np.where(count > 0, total / np.maximum(count, 1), np.nan)
+
+    notes.append(
+        f"{cadence:g} s data averaged to 1-minute means before dB/dt "
+        "(the cadence the tiers are defined on)."
+    )
+    minute_times = [start + timedelta(seconds=DBDT_CADENCE_S * k) for k in range(n_bins)]
+    mean_bx, mean_by = _mean(bx), _mean(by)
+
+    # A structurally partial edge bin (the series starts after its first
+    # wall-clock minute begins, or ends before its last one does) is NOT a
+    # 1-minute mean: its centre sits off the minute's middle, so the first
+    # or last dB/dt step spans less than a minute of signal and misreads a
+    # steady ramp by the missing fraction (a series starting at :50 turns a
+    # ramp's r nT/min into 0.58 r across the first step). The tiers are
+    # defined on full 1-minute means, so partial edge bins are dropped.
+    slack = DBDT_CADENCE_S * DBDT_CADENCE_TOLERANCE
+    lead_missing = (first - start).total_seconds()
+    covered_end = lead_missing + float(offsets[-1]) + cadence
+    tail_missing = n_bins * DBDT_CADENCE_S - covered_end
+    trimmed = []
+    if lead_missing > slack:
+        trimmed.append("first")
+        minute_times, mean_bx, mean_by = minute_times[1:], mean_bx[1:], mean_by[1:]
+    if tail_missing > slack and len(minute_times) > 1:
+        trimmed.append("last")
+        minute_times, mean_bx, mean_by = minute_times[:-1], mean_bx[:-1], mean_by[:-1]
+    if trimmed:
+        notes.append(
+            f"partial edge minute(s) dropped ({' and '.join(trimmed)}): a "
+            "partial bin is not a 1-minute mean and would misread dB/dt."
+        )
+    return minute_times, mean_bx, mean_by
 
 
 class GICDetector:
@@ -245,9 +364,20 @@ class GICDetector:
             Z(omega) = sqrt(i omega mu0 / sigma)
             E_x =  Z * B_y / mu0,   E_y = -Z * B_x / mu0
 
-        The input series are linearly detrended before the FFT (removes the
-        static field and secular drift; the zero-frequency bin carries no
-        induced field).
+        Applied in the time domain, where the half-space relation is the
+        causal half-order integral of dB/dt (Pirjola 1982; Viljanen et al.
+        2004)::
+
+            E_x(t) =  (pi mu0 sigma)^(-1/2) * integral (t - u)^(-1/2) dB_y/du du
+
+        For field increments ``dB_k`` over steps of ``dt`` (B linear within a
+        step) this is exactly
+        ``E_N = 2 / sqrt(pi mu0 sigma dt) * sum_k dB_k (sqrt(N-k+1) - sqrt(N-k))``,
+        a finite linear convolution: E at each time depends only on the field
+        up to that time. The previous circular FFT wrapped the end of the
+        record onto its start (a 500 nT step in the last 5 minutes produced
+        1.54 V/km at sample 0) and fitted its detrend on future samples;
+        zero-padding the FFT would still alias the kernel's 1/sqrt(t) tail.
 
         Args:
             bx_nt: Northward field component, nT (gap-free).
@@ -275,21 +405,14 @@ class GICDetector:
         if not math.isfinite(dt_s) or dt_s <= 0.0:
             raise ValueError(f"dt_s must be positive and finite; got {dt_s!r}.")
 
-        def _detrend(series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-            x = np.arange(series.size, dtype=np.float64)
-            slope, intercept = np.polyfit(x, series, 1)
-            return series - (slope * x + intercept)
-
-        bx_t = _detrend(bx) * 1e-9  # nT -> T
-        by_t = _detrend(by) * 1e-9
-
-        n = bx_t.size
-        omega = 2.0 * math.pi * np.fft.rfftfreq(n, dt_s)
-        impedance = np.sqrt(1j * omega * MU0 / self.sigma_s_per_m)  # ohm
-        impedance[0] = 0.0
-
-        e_x = np.fft.irfft(impedance * np.fft.rfft(by_t), n=n) / MU0  # V/m
-        e_y = -np.fft.irfft(impedance * np.fft.rfft(bx_t), n=n) / MU0
+        n = bx.size
+        d_bx = np.diff(bx, prepend=bx[0]) * 1e-9  # nT -> T increments
+        d_by = np.diff(by, prepend=by[0]) * 1e-9
+        lag = np.arange(n, dtype=np.float64)
+        kernel = np.sqrt(lag + 1.0) - np.sqrt(lag)
+        scale = 2.0 / math.sqrt(math.pi * MU0 * self.sigma_s_per_m * dt_s)
+        e_x = scale * fftconvolve(d_by, kernel)[:n]  # V/m
+        e_y = -scale * fftconvolve(d_bx, kernel)[:n]
         return e_x * 1000.0, e_y * 1000.0  # V/km
 
     # ------------------------------------------------------------------
@@ -335,6 +458,21 @@ class GICDetector:
             )
             if by.size != bx.size:
                 raise ValueError(f"bx ({bx.size}) and by ({by.size}) lengths differ.")
+        if len(times) != bx.size:
+            raise ValueError(f"times ({len(times)}) and B ({bx.size}) lengths differ.")
+        _check_field_units(bx, by, single_component)
+
+        def _non_finite(x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> int:
+            return int(
+                np.sum(~np.isfinite(x)) + (0 if single_component else np.sum(~np.isfinite(y)))
+            )
+
+        # Counted on the input, before any averaging to 1-minute means.
+        n_gaps = _non_finite(bx, by)
+        notes: list[str] = []
+        minute_times, bx, by = _to_minute_cadence(times, bx, by, notes)
+        averaged = minute_times is not times  # 1-minute data come back as is
+        times = minute_times
 
         dbdt_x = self.compute_dbdt_nt_per_min(times, bx)
         dbdt_y = self.compute_dbdt_nt_per_min(times, by)
@@ -346,16 +484,23 @@ class GICDetector:
                 f"{observatory or 'series'}: every dB/dt step falls in a data "
                 "gap; refusing to report a risk level from no usable data."
             )
-        n_gaps = int(
-            np.sum(~np.isfinite(bx)) + (0 if single_component else np.sum(~np.isfinite(by)))
-        )
-        notes: list[str] = []
-        if n_gaps:
-            notes.append(f"{n_gaps} non-finite input samples excluded pairwise from dB/dt.")
+        if not averaged:
+            if n_gaps:
+                notes.append(f"{n_gaps} non-finite input samples excluded pairwise from dB/dt.")
+        else:
+            if n_gaps:
+                notes.append(f"{n_gaps} non-finite input samples skipped in the 1-minute means.")
+            empty_bins = _non_finite(bx, by)
+            if empty_bins:
+                notes.append(
+                    f"{empty_bins} minute bins (X and Y each counted) with no finite "
+                    "sample excluded pairwise from dB/dt."
+                )
         if single_component:
             notes.append(
-                "Single-component (H-only) assessment: dB/dt and the "
-                "geoelectric proxy use B_y = 0; |E| is a lower bound."
+                "Single-component (H-only) assessment: dB/dt and the geoelectric proxy "
+                "use B_y = 0, so dB/dt, |E| and the risk level are lower bounds "
+                "(d|H|/dt can be far below the vector dB/dt)."
             )
 
         peak_idx = int(np.nanargmax(np.where(finite, dbdt_h, -np.inf)))

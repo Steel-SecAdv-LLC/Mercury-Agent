@@ -92,6 +92,8 @@ class ClassicalOptimizer:
         """
         if self._method == "cobyla":
             return self._cobyla_minimize(objective, initial_params)
+        elif self._method == "coordinate_search":
+            return self._coordinate_search(objective, initial_params)
         elif self._method == "spsa":
             return self._spsa_minimize(objective, initial_params)
         elif self._method == "gradient_descent":
@@ -104,14 +106,62 @@ class ClassicalOptimizer:
         objective: Callable[[np.ndarray[Any, Any]], float],
         initial_params: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
-        """COBYLA optimization (gradient-free)."""
+        """COBYLA (Powell 1994) via SciPy, gradient-free.
+
+        ``maxiter`` bounds the objective evaluations (at least the
+        ``n + 2`` COBYLA needs to build its first simplex); ``history``
+        records every evaluated value and ends with the value at the
+        returned parameters. (This method ran a coordinate search under the
+        COBYLA name; that search is ``method="coordinate_search"``.)
+        """
+        from scipy.optimize import minimize
+
+        history: list[float] = []
+
+        def recorded(params: np.ndarray[Any, Any]) -> float:
+            value = float(objective(params))
+            history.append(value)
+            return value
+
+        start = np.asarray(initial_params, dtype=float)
+        if self._maxiter == 0 or start.size == 0:
+            # Nothing to optimise: the objective at the start, no history.
+            return start.copy(), float(objective(start)), history
+        result = minimize(
+            recorded,
+            start,
+            method="COBYLA",
+            options={
+                "maxiter": max(self._maxiter, start.size + 2),
+                "rhobeg": 1.0,
+                "tol": self._tol,
+            },
+        )
+        params = np.asarray(result.x, dtype=float)
+        value = recorded(params)
+        return params, value, history
+
+    def _coordinate_search(
+        self,
+        objective: Callable[[np.ndarray[Any, Any]], float],
+        initial_params: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
+        """Coordinate pattern search with a shrinking step (gradient-free).
+
+        ``history`` ends with the value at the returned parameters: when the
+        last sweep moved them, its value is appended (it was dropped, so the
+        returned value predated the final sweep).
+        """
         params = initial_params.copy()
         history = []
         rho = 1.0
+        current_value = 0.0
+        evaluated = params.copy()
 
         for iteration in range(self._maxiter):
             current_value = objective(params)
             history.append(current_value)
+            evaluated = params.copy()
 
             if iteration > 0 and abs(history[-1] - history[-2]) < self._tol:
                 break
@@ -129,9 +179,12 @@ class ClassicalOptimizer:
                     trial_value = objective(trial_params)
                     if trial_value < current_value:
                         params = trial_params
+                        current_value = trial_value
 
             rho *= 0.95
 
+        if history and not np.array_equal(params, evaluated):
+            history.append(current_value)
         return params, history[-1] if history else objective(params), history
 
     def _spsa_minimize(
@@ -174,15 +227,22 @@ class ClassicalOptimizer:
         objective: Callable[[np.ndarray[Any, Any]], float],
         initial_params: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
-        """Gradient descent with finite differences."""
+        """Gradient descent with finite differences.
+
+        ``history`` ends with the value at the returned parameters: when the
+        last step moved them, their value is appended (the update was not
+        evaluated, so the returned value was the objective one step earlier).
+        """
         params = initial_params.copy()
         history = []
         learning_rate = 0.1
         epsilon = 0.01
 
+        evaluated = params.copy()
         for iteration in range(self._maxiter):
             current_value = objective(params)
             history.append(current_value)
+            evaluated = params.copy()
 
             gradient = np.zeros_like(params)
             for i in range(len(params)):
@@ -196,6 +256,8 @@ class ClassicalOptimizer:
             if iteration > 0 and abs(history[-1] - history[-2]) < self._tol:
                 break
 
+        if history and not np.array_equal(params, evaluated):
+            history.append(objective(params))
         return params, history[-1] if history else objective(params), history
 
 
@@ -285,9 +347,10 @@ class QuantumKernel:
         num_qubits: int,
         feature_map_reps: int = 2,
         executor: QuantumExecutor | None = None,
+        seed: int | None = None,
     ) -> None:
-        """Initialize the quantum kernel."""
-        self._feature_map = QuantumFeatureMap(num_qubits, feature_map_reps)
+        """Initialize the quantum kernel; ``seed`` seeds the measurement shots."""
+        self._feature_map = QuantumFeatureMap(num_qubits, feature_map_reps, seed=seed)
         self._executor = executor or QuantumExecutor()
         self._num_qubits = num_qubits
 
@@ -295,14 +358,15 @@ class QuantumKernel:
         self,
         X: np.ndarray[Any, Any],
         Y: np.ndarray[Any, Any] | None = None,
-        shots: int = 1024,
+        shots: int | None = 1024,
     ) -> np.ndarray[Any, Any]:
         """Compute quantum kernel matrix.
 
         Args:
             X: First data matrix (n_samples, n_features)
             Y: Second data matrix (default: X)
-            shots: Number of shots for kernel estimation
+            shots: Number of shots for kernel estimation, or ``None`` for the
+                exact fidelity on the built-in simulator
 
         Returns:
             Kernel matrix K[i,j] = k(X[i], Y[j])
@@ -363,10 +427,25 @@ class QuantumKernel:
 
 
 class VQEAnomalyDetector:
-    """Variational Quantum Eigensolver for anomaly detection.
+    """Variational one-class anomaly detector.
 
-    Uses VQE to find ground state of anomaly Hamiltonian.
+    The variational circuit is trained so that, after each normal training
+    sample is encoded, it maps the state to ``|0...0>``: the loss is the
+    mean of ``1 - P(|0...0>)`` over the training samples, the compression
+    objective of the quantum autoencoder (Romero, Olson & Aspuru-Guzik
+    2017, Quantum Sci. Technol. 2, 045001). A sample's anomaly score is the
+    same ``1 - P(|0...0>)``: samples like the training data compress, others
+    do not. Every feature is encoded (:meth:`AnomalyEncodingCircuit.encode_layered`).
+    On a simulator the probabilities are exact. An executor that returns
+    measured counts is scored from them; the hardware backend submits jobs
+    asynchronously and returns none from ``run``, so fitting or scoring on
+    it raises ``NotImplementedError``. (The former fit computed the training mean, discarded
+    it, and minimised the parity of the bare circuit, so its parameters
+    never saw the data and held-out AUROC sat at chance.)
     """
+
+    #: Training samples used per loss evaluation (a fixed, seeded subset).
+    MAX_TRAINING_BATCH = 64
 
     def __init__(
         self,
@@ -374,13 +453,16 @@ class VQEAnomalyDetector:
         ansatz: VariationalAnsatz = VariationalAnsatz.REAL_AMPLITUDES,
         reps: int = 2,
         executor: QuantumExecutor | None = None,
+        seed: int | None = 0,
     ) -> None:
         """Initialize the VQE detector."""
         self._num_qubits = num_qubits
         self._variational = VariationalCircuit(num_qubits, ansatz, reps)
-        self._optimizer = HybridOptimizer(executor)
+        self._optimizer = HybridOptimizer(executor, seed=seed)
         self._encoding = AnomalyEncodingCircuit(num_qubits, EncodingType.ANGLE)
         self._optimal_params: np.ndarray[Any, Any] | None = None
+        self._training_energy = 0.0
+        self._rng = np.random.default_rng(seed)
 
     def fit(
         self,
@@ -390,31 +472,32 @@ class VQEAnomalyDetector:
         """Train VQE anomaly detector on normal data.
 
         Args:
-            X_train: Training data (normal samples)
-            maxiter: Maximum optimization iterations
+            X_train: Training data (normal samples), scaled to [0, 1]
+            maxiter: Maximum objective evaluations (COBYLA)
 
         Returns:
             self for method chaining
+
+        Raises:
+            ValueError: If the training data is empty or not finite.
         """
-        np.mean(X_train, axis=0)
+        X = np.atleast_2d(np.asarray(X_train, dtype=float))
+        if X.size == 0 or not np.isfinite(X).all():
+            raise ValueError("VQE training data must be non-empty and finite")
+        if X.shape[0] > self.MAX_TRAINING_BATCH:
+            X = X[self._rng.choice(X.shape[0], self.MAX_TRAINING_BATCH, replace=False)]
+        encoded = [self._encoding.encode_layered(sample) for sample in X]
 
-        def cost_function(counts: dict[str, int]) -> float:
-            total = sum(counts.values())
-            energy = 0.0
+        def loss(params: np.ndarray[Any, Any]) -> float:
+            ansatz = self._variational.build(params)
+            return float(np.mean([1.0 - self._zero_probability(enc, ansatz) for enc in encoded]))
 
-            for bitstring, count in counts.items():
-                parity = sum(int(b) for b in bitstring) % 2
-                energy += parity * count / total
+        optimizer = ClassicalOptimizer("cobyla", maxiter=maxiter)
+        initial = self._rng.uniform(-0.1, 0.1, self._variational.num_parameters)
+        params, value, _history = optimizer.minimize(loss, initial)
 
-            return energy
-
-        result = self._optimizer.optimize(
-            self._variational,
-            cost_function,
-        )
-
-        self._optimal_params = result.optimal_parameters
-        self._training_energy = result.optimal_value
+        self._optimal_params = params
+        self._training_energy = value
 
         return self
 
@@ -422,41 +505,54 @@ class VQEAnomalyDetector:
         """Compute anomaly scores for samples.
 
         Args:
-            X: Data to score
+            X: Data to score, scaled with the training statistics
 
         Returns:
-            Anomaly scores (higher = more anomalous)
+            Anomaly scores ``1 - P(|0...0>)`` in [0, 1] (higher = more anomalous)
         """
         if self._optimal_params is None:
             raise ValueError("Model not fitted. Call fit() first.")
 
-        scores = []
+        ansatz = self._variational.build(self._optimal_params)
+        return np.array(
+            [
+                1.0 - self._zero_probability(self._encoding.encode_layered(sample), ansatz)
+                for sample in np.atleast_2d(np.asarray(X, dtype=float))
+            ]
+        )
 
-        for sample in X:
-            encoding_circuit = self._encoding.encode(sample[: self._num_qubits])
-            variational_circuit = self._variational.build(self._optimal_params)
+    def _compose(self, encoding_circuit: Any, variational_circuit: Any) -> Any:
+        """Encoding followed by the variational circuit."""
+        if isinstance(encoding_circuit, SimulatedQuantumCircuit):
+            combined = QuantumCircuitBuilder().create_circuit(self._num_qubits)
+            for gate, qubits, params in encoding_circuit._gates:
+                self._apply_gate(combined, gate, qubits, params)
+            for gate, qubits, params in variational_circuit._gates:
+                self._apply_gate(combined, gate, qubits, params)
+            return combined
+        return encoding_circuit.compose(variational_circuit)
 
-            builder = QuantumCircuitBuilder()
-            combined = builder.create_circuit(self._num_qubits)
+    def _zero_probability(self, encoding_circuit: Any, variational_circuit: Any) -> float:
+        """``P(|0...0>)`` after encoding and the variational circuit."""
+        combined = self._compose(encoding_circuit, variational_circuit)
+        executor = self._optimizer._executor
+        if getattr(executor, "is_simulator", False):
+            if isinstance(combined, SimulatedQuantumCircuit):
+                return float(combined.probabilities()[0])
+            from qiskit.quantum_info import Statevector
 
-            if isinstance(encoding_circuit, SimulatedQuantumCircuit):
-                for gate, qubits, params in encoding_circuit._gates:
-                    self._apply_gate(combined, gate, qubits, params)
-                for gate, qubits, params in variational_circuit._gates:
-                    self._apply_gate(combined, gate, qubits, params)
-            else:
-                combined = encoding_circuit.compose(variational_circuit)
-
-            combined.measure_all()
-            result = self._optimizer._executor.run(combined)
-
-            if isinstance(result, list):
-                result = result[0]
-
-            energy = self._compute_energy(result.counts)
-            scores.append(abs(energy - self._training_energy))
-
-        return np.array(scores)
+            return float(Statevector(combined).probabilities()[0])
+        combined.measure_all()
+        result = executor.run(combined)
+        if isinstance(result, list):
+            if not result:
+                raise NotImplementedError(
+                    "VQE evaluates each circuit synchronously, but this backend runs "
+                    "jobs asynchronously and returned no result; use a simulator"
+                )
+            result = result[0]
+        total = sum(result.counts.values())
+        return result.counts.get("0" * self._num_qubits, 0) / total if total else 0.0
 
     def _apply_gate(
         self,

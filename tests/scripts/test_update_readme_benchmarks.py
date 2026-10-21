@@ -224,3 +224,67 @@ class TestCommittedReadmeMatchesCommittedJSON:
             f"README benchmark block is stale: missing dataset ratio {ratio}. "
             "Regenerate via `python scripts/update_readme_benchmarks.py`."
         )
+
+
+class TestDomainBlock:
+    """``render_domain_block`` tabulates only independently labelled successes."""
+
+    @staticmethod
+    def _record(name: str, category: str, auc: float, f1: float | None, **extra: Any) -> Any:
+        return {
+            "name": name,
+            "category": category,
+            "label_source": "ground_truth",
+            "ensemble_auc": auc,
+            "oracle_f1": f1,
+            **extra,
+        }
+
+    def test_rows_hold_exact_means_largest_domain_first(
+        self, update_readme_benchmarks: Any
+    ) -> None:
+        records = [self._record(f"ADB-{i}", "adbench", 0.5 + i / 10, 0.4) for i in range(4)]
+        records += [
+            self._record("SMD", "timeseries", 0.90, 0.60),
+            self._record("NAB", "timeseries", 0.70, None),
+        ]
+        block = update_readme_benchmarks.render_domain_block({"per_dataset": records})
+        rows = [line for line in block.splitlines() if line.startswith("| ") and "---" not in line]
+        assert rows[1:] == [
+            "| ADBench | 4 | 0.6500 | 0.4000 |",
+            "| Time series (SMD, NAB) | 2 | 0.8000 | 0.6000 |",
+        ]
+        assert "the 6 successful datasets" in block
+        assert "the comparable figure is the\n4-dataset ADBench row" in block
+
+    def test_circular_failed_and_unscored_records_are_excluded(
+        self, update_readme_benchmarks: Any
+    ) -> None:
+        records = [
+            self._record("kept", "security", 0.80, 0.50),
+            self._record("expert", "maritime", 0.70, 0.40, label_source="expert_annotated"),
+            self._record("CIRC-1", "security", 1.00, 1.00, label_source="statistical"),
+            self._record("FAIL-1", "security", 0.10, 0.10, error="unreachable"),
+            self._record("NOSCORE-1", "security", None, None),  # type: ignore[arg-type]
+        ]
+        block = update_readme_benchmarks.render_domain_block({"per_dataset": records})
+        assert "| Security (kept) | 1 | 0.8000 | 0.5000 |" in block
+        assert "| Maritime (expert) | 1 | 0.7000 | 0.4000 |" in block
+        assert all(name not in block for name in ("CIRC-1", "FAIL-1", "NOSCORE-1"))
+        assert "ADBench" not in block  # no ADBench rows, so no ADBench claim
+
+    def test_update_replaces_only_its_own_block(
+        self, update_readme_benchmarks: Any, tmp_path: Path
+    ) -> None:
+        module = update_readme_benchmarks
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            f"keep \\d+\n{module.DOMAINS_START_MARKER}\nold\n{module.DOMAINS_END_MARKER}\nkeep\n",
+            encoding="utf-8",
+        )
+        new_block = f"{module.DOMAINS_START_MARKER}\nnew \\1 \\g<0>\n{module.DOMAINS_END_MARKER}"
+        assert module.update_readme(
+            readme, new_block, module.DOMAINS_START_MARKER, module.DOMAINS_END_MARKER
+        )
+        # Backslashes in the block are literal text, never regex group references.
+        assert readme.read_text(encoding="utf-8") == f"keep \\d+\n{new_block}\nkeep\n"

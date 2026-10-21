@@ -144,6 +144,29 @@ def _banner() -> str:
     )
 
 
+def _package_root_for_child() -> str | None:
+    """Return the directory holding this package when the child could not find it.
+
+    The inherited ``PYTHONPATH`` is dropped (it is an injection vector), so a
+    parent running from a source checkout (``PYTHONPATH=src``, or a test run
+    without an install) would start a child that cannot import
+    ``omni_mercury_engine``. The directory returned here is not taken from the
+    environment: it is where the code already executing in the parent lives,
+    so the child gains no path the parent did not already trust. ``None`` when
+    the interpreter's own ``site-packages`` holds the package, which the child
+    finds by default.
+    """
+    import sysconfig
+
+    root = Path(__file__).resolve().parents[2]
+    defaults = {
+        Path(path).resolve()
+        for key in ("purelib", "platlib")
+        if (path := sysconfig.get_paths().get(key))
+    }
+    return None if root in defaults else str(root)
+
+
 def _relaunch_hardened(argv: Sequence[str]) -> int:
     """Re-exec this module in a fresh subprocess with a scrubbed env.
 
@@ -166,6 +189,9 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
         if value is not None:
             env[name] = value
     env.setdefault("LANG", "C")
+    package_root = _package_root_for_child()
+    if package_root is not None:
+        env["PYTHONPATH"] = package_root
 
     # safe_exec.python_module validates the module name, pins
     # shell=False, and is the only annotated subprocess.run site in

@@ -76,7 +76,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       # 1. Loader-side audit -- the foundation everything else stands on.
       - name: Loader label-provenance audit
@@ -164,7 +164,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       # The score cache is a pure function of (event data, cap, seed, detector),
       # so it is safe to carry between runs and re-warming it on every nightly

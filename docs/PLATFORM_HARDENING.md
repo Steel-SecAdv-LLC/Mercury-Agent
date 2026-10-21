@@ -337,6 +337,8 @@ platform profile of the deployment is one extra `-f`:
 # OpenSSL needed). Review the file afterwards; it now holds key material.
 cp .env.example .env
 python scripts/generate_secret_key.py --all >> .env
+# The overlay refuses to start Grafana on the base file's admin/admin default:
+echo "GRAFANA_ADMIN_PASSWORD=$(python scripts/generate_secret_key.py --bytes 24)" >> .env
 
 # Bring up the platform: API + durable state volume + Caddy TLS edge
 # (+ the base Prometheus/Grafana monitoring stack).
@@ -346,6 +348,13 @@ docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
 curl -fsS http://localhost:8000/health
 docker compose -f docker-compose.yml -f docker-compose.platform.yml ps
 ```
+
+Caddy (80/443) is the only public listener. The API (8000), Prometheus (9090)
+and Grafana (3000) are published on `127.0.0.1` only: Docker publishes on every
+interface and bypasses host firewalls, and a directly reachable API would let a
+client supply the `X-Forwarded-For` hop that `MERCURY_TRUSTED_PROXY_HOPS=1`
+trusts. Reach the monitoring UIs from your workstation with an SSH tunnel
+(`ssh -L 3000:127.0.0.1:3000 <host>`).
 
 What the overlay adds, and why:
 
@@ -378,7 +387,7 @@ different depths:
 
 1. **Import time.** `omni_mercury_engine.agentic` imports torch while
    loading (via `cognitive.orchestrator` → `utils`); on a core-lane install
-   (`pip install "mercury-agent[api]"`, no `[ml]`) the import itself raises
+   (`pip install -e ".[api]"`, no `[ml]`) the import itself raises
    `ImportError`, so there is no partially-agentic mode to misconfigure.
 2. **Decision time (fail-closed σ gate).** Even with the package importable,
    every orchestrated decision boundary runs the σ_Immutable hard gate. When

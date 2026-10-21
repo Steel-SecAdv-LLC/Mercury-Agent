@@ -309,10 +309,12 @@ class TestObservabilityErrorHandling:
         with tempfile.TemporaryDirectory() as tmpdir:
             handler = FileAuditHandler(log_dir=tmpdir)
 
-            # Close it first
+            # Close is idempotent: a second close on the closed handler
+            # must be a silent no-op, and the destructor must tolerate
+            # the already-closed state.
             handler.close()
-
-            # Now the destructor should handle the already-closed state gracefully
+            handler.close()  # idempotent: second close is a silent no-op
+            handler.__del__()  # destructor tolerates the already-closed state
             del handler  # Should not raise
 
 

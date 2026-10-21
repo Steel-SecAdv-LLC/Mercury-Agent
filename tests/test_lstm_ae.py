@@ -319,3 +319,56 @@ class TestLSTMAutoencoderEdgeCases:
             with torch.no_grad():
                 output = model.decode(z, seq_len=seq_len)
             assert output.shape == (4, seq_len, 10)
+
+
+class TestHeldOutCalibrationAndGuards:
+    """Short-input guard, chronological hold-out and the registry adapter."""
+
+    def test_short_input_is_rejected_clearly(self) -> None:
+        detector = AnomalyDetector(input_dim=3, seq_len=20, hidden_dim=8, latent_dim=4)
+        with pytest.raises(ValueError, match="seq_len=20"):
+            detector.fit(np.random.randn(10, 3), epochs=1, verbose=False)
+
+    def test_tiny_series_trains_without_nan(self) -> None:
+        detector = AnomalyDetector(input_dim=2, seq_len=10, hidden_dim=8, latent_dim=4)
+        history = detector.fit(np.random.randn(25, 2), epochs=2, verbose=False)
+        assert all(np.isfinite(history["val_loss"]))
+        assert detector.threshold is not None and np.isfinite(detector.threshold)
+
+    def test_threshold_is_cut_on_held_out_point_scores(self) -> None:
+        torch.manual_seed(0)
+        rng = np.random.default_rng(0)
+        detector = AnomalyDetector(
+            input_dim=2, seq_len=10, hidden_dim=8, latent_dim=4, device="cpu", seed=0
+        )
+        detector.fit(rng.normal(size=(400, 2)).astype(np.float32), epochs=3, verbose=False)
+        assert detector.calibration_scores is not None
+        # 10% tail of 400 rows -> 40 held-out rows, scored point-wise.
+        assert len(detector.calibration_scores) == 40
+        ranked = np.sort(detector.calibration_scores)
+        k = int(np.ceil(41 * 0.95))
+        assert detector.threshold == pytest.approx(float(ranked[k - 1]))
+
+    def test_evaluation_reports_threshold_source(self) -> None:
+        y = np.array([0, 0, 1, 1])
+        s = np.array([0.1, 0.2, 0.8, 0.9])
+        assert evaluate_detector(y, s)["threshold_source"].startswith("oracle")
+        assert evaluate_detector(y, s, threshold=0.5)["threshold_source"] == "provided_threshold"
+
+    def test_registry_adapter(self) -> None:
+        from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+        from omni_mercury_engine.models.lstm_ae import LSTMAutoencoderDetector
+
+        entry = next(e for e in DETECTOR_MANIFEST if e.name == "lstm_autoencoder")
+        assert entry.class_name == "LSTMAutoencoderDetector"
+        rng = np.random.default_rng(1)
+        t = np.arange(400) * 2 * np.pi / 40
+        X = np.column_stack([np.sin(t), np.cos(t)]) + rng.normal(0, 0.05, (400, 2))
+        det = LSTMAutoencoderDetector(seq_len=20, epochs=3)
+        assert not det.is_fitted
+        det.fit(X)
+        out = det.predict(X[:100])
+        assert out["scores"].shape == (100,)
+        assert det.extract_features(X[:100]).shape == (100, 1)
+        with pytest.raises(ValueError, match="seq_len"):
+            det.predict(X[:5])

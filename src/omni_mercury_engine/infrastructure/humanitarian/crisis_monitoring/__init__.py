@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Crisis Monitoring Module for Humanitarian CI.
 
-Integrates GEOINT (Geospatial Intelligence) for natural disaster,
-humanitarian crisis, and essential worker protection monitoring.
+Fuses GEOINT (Geospatial Intelligence) and OSINT reports on natural
+disasters, outbreaks, infrastructure failures and mass-casualty incidents,
+with GDACS alert levels for earthquakes and floods (:mod:`.gdacs`).
 
 Part of Mercury Agent Infrastructure module.
 """

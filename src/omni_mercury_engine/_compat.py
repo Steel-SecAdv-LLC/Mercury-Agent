@@ -20,7 +20,7 @@ from __future__ import annotations
 from importlib.util import find_spec
 
 # ---------------------------------------------------------------------------
-# Core ML stack (mercury-agent[ml])
+# Core ML stack (mercury-agent-global[ml])
 # ---------------------------------------------------------------------------
 HAS_TORCH: bool = find_spec("torch") is not None
 HAS_TORCHVISION: bool = find_spec("torchvision") is not None
@@ -34,48 +34,48 @@ HAS_TIMM: bool = find_spec("timm") is not None
 HAS_CV2: bool = find_spec("cv2") is not None
 
 # ---------------------------------------------------------------------------
-# Visual / VLM extras (mercury-agent[visual], mercury-agent[vlm])
+# Visual / VLM extras (mercury-agent-global[visual], mercury-agent-global[vlm])
 # ---------------------------------------------------------------------------
 HAS_TRANSFORMERS: bool = find_spec("transformers") is not None
 HAS_ACCELERATE: bool = find_spec("accelerate") is not None
 HAS_PIL: bool = find_spec("PIL") is not None
 
 # ---------------------------------------------------------------------------
-# Foundation model extras (mercury-agent[foundation])
+# Foundation model extras (mercury-agent-global[foundation])
 # ---------------------------------------------------------------------------
 HAS_STUMPY: bool = find_spec("stumpy") is not None
 HAS_NIXTLA: bool = find_spec("nixtla") is not None
 
 # ---------------------------------------------------------------------------
-# SOTA model extras (mercury-agent[sota])
+# SOTA model extras (mercury-agent-global[sota])
 # ---------------------------------------------------------------------------
 HAS_EINOPS: bool = find_spec("einops") is not None
 
 # ---------------------------------------------------------------------------
-# Face recognition (mercury-agent[face])
+# Face recognition (mercury-agent-global[face])
 # ---------------------------------------------------------------------------
 HAS_DEEPFACE: bool = find_spec("deepface") is not None
 
 # ---------------------------------------------------------------------------
-# API server (mercury-agent[api])
+# API server (mercury-agent-global[api])
 # ---------------------------------------------------------------------------
 HAS_FASTAPI: bool = find_spec("fastapi") is not None
 HAS_HTTPX: bool = find_spec("httpx") is not None
 HAS_UVICORN: bool = find_spec("uvicorn") is not None
 
 # ---------------------------------------------------------------------------
-# LLM integration (mercury-agent[llm])
+# LLM integration (mercury-agent-global[llm])
 # ---------------------------------------------------------------------------
 HAS_OPENAI: bool = find_spec("openai") is not None
 HAS_ANTHROPIC: bool = find_spec("anthropic") is not None
 
 # ---------------------------------------------------------------------------
-# Fairness (mercury-agent[fairness])
+# Fairness (mercury-agent-global[fairness])
 # ---------------------------------------------------------------------------
 HAS_FAIRLEARN: bool = find_spec("fairlearn") is not None
 
 # ---------------------------------------------------------------------------
-# Streaming (mercury-agent[streaming])
+# Streaming (mercury-agent-global[streaming])
 # ---------------------------------------------------------------------------
 HAS_REDIS: bool = find_spec("redis") is not None
 HAS_AIOKAFKA: bool = find_spec("aiokafka") is not None

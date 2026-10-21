@@ -19,6 +19,9 @@ from typing import Any
 import numpy as np
 import pytest
 
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
+from omni_mercury_engine.space.gic_detector import DBDT_RISK_TIERS_NT_PER_MIN
+
 # The dev venv's editable install may point at a sibling worktree that
 # predates ``solar_gic_cascade``; ``unused-ignore`` keeps a correctly
 # installed tree (CI) clean.
@@ -127,8 +130,8 @@ class TestStageTransitionsOnRealEvent:
         early, late = result.active_arrival_window
         assert early <= datetime(2024, 5, 10, 18, 0, tzinfo=UTC) <= late
         assert result.gic_assessment is not None
-        assert result.gic_assessment.peak_dbdt_nt_per_min < 100.0
-        assert "below the 100 nT/min storm tier" in storm.reason
+        assert result.gic_assessment.peak_dbdt_nt_per_min < 90.0
+        assert "below the 90 nT/min storm tier" in storm.reason
 
     def test_storm_in_progress_at_main_phase(self, gannon_inputs: dict[str, Any]) -> None:
         """2024-05-11T02Z: Kp 9.0 observed and BOU measured 253.9 nT/min ->
@@ -157,6 +160,41 @@ class TestStageTransitionsOnRealEvent:
         storm = result.evidence_chain[2]
         assert "no magnetometer data" in storm.reason
         assert result.gic_assessment is None
+
+
+class TestDefaultThresholds:
+    """The defaults are the GIC detector's tier and the NOAA G scale's G1."""
+
+    def test_storm_threshold_is_the_gic_moderate_tier(self) -> None:
+        moderate = {name: nt for nt, name in DBDT_RISK_TIERS_NT_PER_MIN}["moderate"]
+        assert SolarGICCascadeDetector().dbdt_storm_threshold == moderate
+
+    @pytest.mark.parametrize("kp", [13.0 / 3.0, 14.0 / 3.0, 5.0, 16.0 / 3.0])  # 4+ 5- 5o 5+
+    def test_watch_threshold_agrees_with_noaa_g_scale(self, kp: float) -> None:
+        cascade = SolarGICCascadeDetector()
+        assert (kp >= cascade.kp_watch_threshold) == (noaa_g_scale(kp) >= 1)
+
+    def test_kp_5_minus_arms_warning(self, gannon_inputs: dict[str, Any]) -> None:
+        """Kp 5- (4.67) is G1 as SWPC files it, so it arms WARNING."""
+        now = datetime(2024, 5, 10, 18, 0, tzinfo=UTC)  # arrival windows open
+        inputs = _inputs(gannon_inputs, now, with_mag=False)
+        inputs.kp_series = [(now - timedelta(hours=1), 14.0 / 3.0)]
+        result = SolarGICCascadeDetector().evaluate(inputs)
+        assert result.stage is CascadeStage.WARNING
+        assert "NOAA G1 watch level" in result.evidence_chain[1].reason
+
+    def test_moderate_tier_dbdt_is_a_storm(self, gannon_inputs: dict[str, Any]) -> None:
+        """95 nT/min is GICDetector "moderate", so the storm stage is reached."""
+        now = datetime(2024, 5, 10, 18, 0, tzinfo=UTC)
+        times = [now - timedelta(minutes=29 - k) for k in range(30)]
+        bx = np.full(30, 20000.0)
+        bx[15:] += 95.0  # one 95 nT/min step
+        inputs = _inputs(gannon_inputs, now, with_mag=False)
+        inputs.mag_times, inputs.mag_bx_nt, inputs.mag_by_nt = times, bx, np.full(30, -4000.0)
+        result = SolarGICCascadeDetector().evaluate(inputs)
+        assert result.gic_assessment is not None
+        assert result.gic_assessment.risk_level == "moderate"
+        assert result.stage is CascadeStage.STORM_IN_PROGRESS
 
 
 class TestStrictEscalation:

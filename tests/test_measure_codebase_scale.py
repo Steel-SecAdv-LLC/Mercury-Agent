@@ -22,6 +22,10 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "measure_codebase_scale.py"
@@ -94,20 +98,79 @@ def test_round_loc_buckets_to_nearest_thousand() -> None:
     assert mcs._round_loc(500) == 0
 
 
-def test_render_block_is_stable_under_small_loc_churn() -> None:
-    """Adding a handful of lines must not move the rendered block (no drift-gate
-    churn on unrelated edits); a bucket-sized change must."""
+def test_pure_render_tracks_bucket_sized_growth() -> None:
+    """A bucket of real growth must move the freshly rendered block."""
     stats = mcs.measure()
     base = mcs.render_block(stats)
-
-    nudged = dict(stats)
-    nudged["src_loc"] = int(stats["src_loc"]) + 7
-    nudged["test_loc"] = int(stats["test_loc"]) + 7
-    assert mcs.render_block(nudged) == base, "small churn must not move the block"
-
     grown = dict(stats)
     grown["src_loc"] = int(stats["src_loc"]) + mcs.LOC_BUCKET
     assert mcs.render_block(grown) != base, "bucket-sized growth must move the block"
+
+
+_REAL_STATS: dict[str, Any] = dict(mcs.measure())
+
+
+def _stats_with_loc(src_loc: int, test_loc: int) -> Any:
+    stats = dict(_REAL_STATS)
+    stats["src_loc"] = src_loc
+    stats["test_loc"] = test_loc
+    return stats
+
+
+def test_gate_is_stable_under_small_churn_at_a_rounding_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A handful of added lines must never demand a README rewrite.
+
+    Pinned at the worst case — a measured LOC sitting just below a
+    half-bucket boundary, where pure rounding alone would flip the published
+    figure (the exact live-tree state that first exposed this): the
+    hysteresis in ``--check`` / ``--update`` must keep the published block
+    byte-identical for churn up to half a bucket in either direction.
+    """
+    boundary = 412_000 + mcs.LOC_BUCKET // 2 - 7  # 7 lines below the flip point
+    fake = tmp_path / "README.md"
+    fake.write_text(f"intro\n{mcs.SCALE_START}\nstale\n{mcs.SCALE_END}\ntail\n")
+
+    monkeypatch.setattr(mcs, "measure", lambda: _stats_with_loc(boundary, boundary))
+    assert mcs.main(["--update", str(fake)]) == 0
+    published = mcs._extract_block(fake.read_text())
+    assert "~412,000" in published  # rounded, bucket-aligned figures
+
+    for churn in (7, -7, mcs.LOC_BUCKET // 2):
+        monkeypatch.setattr(
+            mcs, "measure", lambda c=churn: _stats_with_loc(boundary + c, boundary + c)
+        )
+        assert mcs.main(["--check", str(fake)]) == 0, f"churn {churn:+} flagged drift"
+        assert mcs.main(["--update", str(fake)]) == 0
+        assert (
+            mcs._extract_block(fake.read_text()) == published
+        ), f"churn {churn:+} rewrote the published block"
+
+
+def test_gate_fires_once_loc_drift_exceeds_a_full_bucket(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hysteresis bounds staleness: beyond one bucket the gate must fire."""
+    base_loc = 412_000
+    fake = tmp_path / "README.md"
+    fake.write_text(f"intro\n{mcs.SCALE_START}\nstale\n{mcs.SCALE_END}\ntail\n")
+    monkeypatch.setattr(mcs, "measure", lambda: _stats_with_loc(base_loc, base_loc))
+    assert mcs.main(["--update", str(fake)]) == 0
+
+    grown = base_loc + mcs.LOC_STALENESS_LIMIT + 1
+    monkeypatch.setattr(mcs, "measure", lambda: _stats_with_loc(grown, grown))
+    assert mcs.main(["--check", str(fake)]) == 1, "full-bucket drift must be flagged"
+    assert mcs.main(["--update", str(fake)]) == 0
+    assert "~413,000" in mcs._extract_block(fake.read_text())
+    assert mcs.main(["--check", str(fake)]) == 0
+
+
+def test_hand_typed_exact_loc_is_never_accepted_as_fresh() -> None:
+    """Freshness requires bucket alignment — a hand-typed exact tally fails."""
+    assert mcs._loc_figure_fresh(412_000, 412_493) is True
+    assert mcs._loc_figure_fresh(412_493, 412_493) is False  # not bucket-aligned
+    assert mcs._loc_figure_fresh(412_000, 413_001) is False  # beyond the limit
 
 
 def test_check_detects_drift(tmp_path: Path) -> None:

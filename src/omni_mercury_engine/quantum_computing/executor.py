@@ -253,6 +253,13 @@ class SimulatorBackend:
             return {"0" * n_qubits: shots}
 
 
+def _offline_mode_active() -> bool:
+    """Whether ``MERCURY_OFFLINE`` is set (lazy: keeps ``datasets`` off the import path)."""
+    from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+    return offline_mode_active()
+
+
 class IBMQuantumBackend:
     """IBM Quantum hardware backend.
 
@@ -260,12 +267,16 @@ class IBMQuantumBackend:
     """
 
     def __init__(self, config: BackendConfig) -> None:
-        """Initialize the IBM backend."""
+        """Initialize the IBM backend.
+
+        Under ``MERCURY_OFFLINE`` the service is not contacted, and
+        :meth:`run` raises :class:`OfflineModeError` instead of submitting.
+        """
         self._config = config
         self._service: Any = None
         self._backend: Any = None
 
-        if QISKIT_AVAILABLE and config.api_token:
+        if QISKIT_AVAILABLE and config.api_token and not _offline_mode_active():
             self._initialize_service()
 
     def _initialize_service(self) -> None:
@@ -300,6 +311,11 @@ class IBMQuantumBackend:
         Returns:
             QuantumJob for tracking execution
         """
+        if _offline_mode_active():
+            from omni_mercury_engine.datasets.exceptions import OfflineModeError
+
+            raise OfflineModeError(f"{IBM_QUANTUM_URL} (IBM Quantum backend {self._config.name})")
+
         if shots is None:
             shots = self._config.shots
 
@@ -369,6 +385,10 @@ class IBMQuantumBackend:
             return []
 
 
+#: IBM Quantum service endpoint, named when offline mode refuses a submission.
+IBM_QUANTUM_URL = "https://quantum.ibm.com"
+
+
 class QuantumExecutor:
     """Unified quantum execution interface.
 
@@ -419,6 +439,11 @@ class QuantumExecutor:
             self._backend = IBMQuantumBackend(self._config)
         else:
             self._backend = SimulatorBackend(self._config)
+
+    @property
+    def is_simulator(self) -> bool:
+        """Whether circuits run on a local simulator (no network, exact statevectors)."""
+        return self._config.backend_type == BackendType.SIMULATOR
 
     def run(
         self,

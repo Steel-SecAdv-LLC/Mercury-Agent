@@ -1,6 +1,6 @@
 # Mercury-Agent Data Sources
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-09-27.
 
 Last verified: 2026-07-11 (loader catalog refresh; the per-dataset
 tables below still derive from the legacy 2026-02-15 sweep — the
@@ -8,8 +8,8 @@ tables below still derive from the legacy 2026-02-15 sweep — the
 here as the auditable starting point). The canonical public
 benchmarking figure is the committed `mercury_benchmark_results.json`
 run documented in the README "Latest Benchmark Results" section:
-**66 successful / 75 attempted**, Mean AUC **0.8251**, Median
-**0.8747**, Mean Oracle F1 **0.5998** (2026-06-21, commit a7a194b).
+**67 successful / 76 attempted**, Mean AUC **0.8545**, Median
+**0.9052**, Mean Oracle F1 **0.6425** (2026-10-14, commit 27d2293).
 The 11 watch-listed loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR,
 SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA
 HazardMitigation) are tracked by a two-lane reachability harness
@@ -126,6 +126,27 @@ Source: `https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries`
 Auth: None (public domain, US Government)
 Loader: `FEMADisasterLoader` in `src/omni_mercury_engine/datasets/disaster.py`
 Status: Live API. Not included in mercury_benchmark.py suite (API-based, not static dataset).
+
+### DTU AIS Abnormal Behavior (Danish Waters)
+
+Source: `https://ndownloader.figshare.com/articles/21511815/versions/1`
+(DOI 10.11583/DTU.21511815, collection 10.11583/DTU.c.6287841)
+Auth: None. License: CC BY 4.0 — Olesen, K. V., Clemmensen, L. K. H., &
+Christensen, A. N. (2023), Technical University of Denmark.
+Loader: `DTUAISLoader` in `src/omni_mercury_engine/datasets/maritime.py`
+Status: In the mercury_benchmark.py suite (`DTU_AIS_Abnormal`, category
+`maritime`). 521 real AIS trajectories from 2021-12-13 (Danish waters,
+120 s resampling), 25 expert-annotated abnormal (collision, SAR response,
+law enforcement, forced course deviations), served as 22 trajectory-level
+kinematic/geometric features. The only public expert-labelled real-AIS
+anomaly benchmark; published baselines on the identical evaluation set:
+GeoTrackNet 0.87, RAE 0.86, Seq2Seq 0.84, Seq2Seq+attention 0.83,
+RVAE 0.72 (Olesen's DTU thesis, Fig. 6.1) and 0.79 for the contextual
+detector of J. Mar. Sci. Eng. 11(11):2085 (2023). Upstream files are
+pickles: deserialised only through the fail-closed restricted unpickler
+in the loader module (numpy-array reconstruction allowlist), with
+SHA-256 pinned per extracted member; see
+tests/datasets/test_maritime_loader.py::test_malicious_pickle_is_refused.
 
 ### USGS Geochemistry (NURE-HSSR Stream Sediment)
 
@@ -432,7 +453,7 @@ window where the attacker can race the validator.  See:
 
 * `src/omni_mercury_engine/security/safe_http.py:138-155` —
   the `getaddrinfo` failure branch.
-* `tests/security/test_safe_http.py::test_unresolvable_host_rejected`
+* `tests/security/test_safe_http.py::TestPrivateNetworkGate::test_unresolvable_host_rejected`
   (line 166) — the regression test that locks the "DNS failure must
   NOT be classified as non-fatal" contract (patches
   `socket.getaddrinfo`, asserts `UnsafeURLError` match="did not resolve").

@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Anti-Terrorism Pattern Recognition Module.
 
-Detects radicalization patterns using QBM and OSINT anomalies.
-Integrates with existing threat knowledge base.
+Stages reported behaviour against the US Violent Extremist Mobilization
+Indicators (NCTC, FBI, DHS) for referral to trained human review.
 
 Part of Mercury Agent Security module.
 """

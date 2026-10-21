@@ -12,8 +12,13 @@ arrays (not synthesized data), and fails loud on the wrong hazard.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pytest.importorskip("plotly")
 
@@ -209,3 +214,58 @@ class TestDashboardIntegration:
             "Seismic Spectrogram", earthquake_diag
         )
         assert "Seismic Spectrogram" in builder._figures
+
+
+# ---------------------------------------------------------------------------
+# Detector comparison, HTML export and package exports
+# ---------------------------------------------------------------------------
+
+
+def test_perfect_separation_reads_auc_one() -> None:
+    from omni_mercury_engine.gui.visualization_dashboard import AnomalyVisualizer
+
+    labels = np.array([0] * 50 + [1] * 50)
+    scores = np.r_[np.linspace(0.0, 0.4, 50), np.linspace(0.6, 1.0, 50)]
+    outside = scores * 40.0 - 7.0  # same ranking, far outside [0, 1]
+    fig = AnomalyVisualizer().detector_comparison_plot(
+        {"a": scores, "b": outside}, labels=labels, operating_points={"b": 5.0}
+    )
+    names = [t.name for t in fig.data if t.name]
+    assert "a (AUC=1.000)" in names
+    assert "b (AUC=1.000)" in names
+    bars = [t for t in fig.data if t.type == "bar"]
+    assert any(str(x).startswith("b @5") for t in bars for x in t.x)
+
+
+def test_roc_points_run_from_origin_to_one() -> None:
+    from omni_mercury_engine.gui.visualization_dashboard import AnomalyVisualizer
+
+    fpr, tpr = AnomalyVisualizer()._compute_roc(
+        np.array([0, 1, 0, 1]), np.array([0.1, 0.9, 0.4, 0.4])
+    )
+    assert (fpr[0], tpr[0]) == (0.0, 0.0)
+    assert (fpr[-1], tpr[-1]) == (1.0, 1.0)
+    assert np.all(np.diff(fpr) >= 0)
+
+
+def test_export_html_is_self_contained_and_escaped(tmp_path: Path) -> None:
+    from omni_mercury_engine.gui.visualization_dashboard import (
+        DashboardBuilder,
+        DashboardConfig,
+    )
+
+    builder = DashboardBuilder(DashboardConfig(title="<script>alert(1)</script>"))
+    builder.add_distribution("weird name (x/y) </h2>", np.random.default_rng(0).random(50))
+    out = tmp_path / "d.html"
+    builder.export_html(str(out))
+    page = out.read_text(encoding="utf-8")
+    assert "<script>alert(1)</script>" not in page
+    assert "&lt;script&gt;" in page
+    assert "<script src=" not in page
+
+
+def test_gui_package_exports_resolve() -> None:
+    from omni_mercury_engine import gui
+
+    for name in gui.__all__:
+        assert hasattr(gui, name), name

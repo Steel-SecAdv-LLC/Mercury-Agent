@@ -145,6 +145,37 @@ updates:
         patterns:
           - "*"
 
+  # Images pinned in the compose files (Prometheus, Grafana, Caddy). The
+  # "docker" ecosystem above reads only the Dockerfile, so these three sat on
+  # 2024 releases until they were bumped by hand.
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Steel-SecAdv-LLC/security-team"
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "deps(compose)"
+      include: "scope"
+    ignore:
+      # Prometheus: stay on the LTS line and take its patches. Other minors stop
+      # receiving bug fixes about six weeks after release, so an LTS-to-LTS move
+      # (about yearly) is a deliberate change, not a weekly PR.
+      - dependency-name: "prom/prometheus"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # Grafana: minors are supported for nine months and stay on the same data
+      # volume; a major changes the database schema one way, so it needs a new
+      # volume name (docker-compose.yml) and a deliberate PR.
+      - dependency-name: "grafana/grafana"
+        update-types: ["version-update:semver-major"]
+
   # GitHub Actions workflows
   - package-ecosystem: "github-actions"
     directory: "/"

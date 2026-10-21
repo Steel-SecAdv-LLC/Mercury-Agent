@@ -81,6 +81,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.detectors.geological import sea_level as _sea_level
+from omni_mercury_engine.detectors.geological.sea_level import detide
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -106,6 +108,10 @@ HOOK_NAME = "tsunami_dart"
 CHECKPOINT_NAME = "tsunami_dart"
 FEATURE_SPEC_VERSION = "tsunami-dart-v1"
 DETIDE_METHOD = "ols-m2s2k1o1+linear"
+
+#: The tidal constituent periods moved to ``sea_level`` with ``detide``;
+#: the name is kept here for importers of this module.
+TIDE_PERIODS_H = _sea_level.TIDE_PERIODS_H
 
 DART_INDEX_URL = "https://www.ndbc.noaa.gov/data/historical/dart/"
 DART_FILE_URL = "https://www.ndbc.noaa.gov/data/historical/dart/{station}t{year}.txt.gz"
@@ -149,8 +155,6 @@ EVENT_EXCLUSION_DAYS = 3.0
 #: station-table position for the station id parsed from its locationName
 #: (DART moorings redeploy within tens of km; 150 km catches id mixups).
 STATION_COORD_TOLERANCE_KM = 150.0
-#: Tidal constituent periods (hours): M2, S2, K1, O1.
-TIDE_PERIODS_H = (12.4206012, 12.0, 23.9344697, 25.8193417)
 #: Validation recall floor for operating-point selection: a threshold that
 #: merely matches a near-zero physics recall would be technically
 #: non-regressing but operationally useless (see _select_operating_point).
@@ -645,15 +649,11 @@ def detide_window(values: np.ndarray) -> np.ndarray:
     Returns:
         Residual (m), same shape, ``float64``.
     """
-    t = np.arange(WINDOW_SAMPLES, dtype=np.float64) * SAMPLE_PERIOD_S
-    columns = [np.ones_like(t), (t - t.mean()) / t.std()]
-    for period_h in TIDE_PERIODS_H:
-        omega = 2.0 * np.pi / (period_h * 3600.0)
-        columns.append(np.cos(omega * t))
-        columns.append(np.sin(omega * t))
-    design = np.stack(columns, axis=1)
-    coef, *_ = np.linalg.lstsq(design, values, rcond=None)
-    return np.asarray(values - design @ coef, dtype=np.float64)
+    # One definition shared with TsunamiDetector, so the deployed detector
+    # detides exactly as the training set was built (a 24 h window gets the
+    # harmonic design below 12 h of span it would get a cubic).
+    residual, _tide = detide(values, SAMPLE_PERIOD_S)
+    return residual
 
 
 def extract_residual_window(grid_values: np.ndarray, start_slot: int) -> np.ndarray | None:

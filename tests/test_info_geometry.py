@@ -344,3 +344,62 @@ class TestFisherMatrixCorrectness:
         in_dist = np.random.randn(50, 5)
         results = detector.detect_ood(in_dist, threshold=100.0)
         assert not results["is_ood"], "In-distribution data should not be flagged as OOD"
+
+
+class TestInformationGeometryCorrections:
+    """detect_ood units, covariance term, and no self-recalibration."""
+
+    def test_moderate_shift_is_flagged(self) -> None:
+        rng = np.random.default_rng(0)
+        detector = InformationGeometryDetector()
+        detector.fit_reference_distribution(rng.standard_normal((500, 4)))
+        # 2-sigma shift on every feature: each row sits ~4 Mahalanobis units
+        # out, well past the per-row threshold. Scoring the batch mean
+        # against that per-row threshold never fired on this.
+        result = detector.detect_ood(rng.normal(2.0, 1.0, (200, 4)))
+        assert result["is_ood"]
+        assert result["sample_is_ood"].mean() > 0.5
+
+    def test_in_distribution_batch_is_not_flagged(self) -> None:
+        rng = np.random.default_rng(1)
+        detector = InformationGeometryDetector()
+        detector.fit_reference_distribution(rng.standard_normal((500, 4)))
+        result = detector.detect_ood(rng.standard_normal((200, 4)))
+        assert not result["is_ood"]
+        assert result["sample_is_ood"].mean() < 0.05
+
+    def test_threshold_is_scale_invariant(self) -> None:
+        rng = np.random.default_rng(2)
+        data = rng.standard_normal((400, 3))
+        unit = InformationGeometryDetector()
+        unit.fit_reference_distribution(data)
+        scaled = InformationGeometryDetector()
+        scaled.fit_reference_distribution(data * 10.0)
+        # Equal up to the absolute Tikhonov ridge (the old sqrt(trace) term
+        # made the scaled threshold differ by ~10x).
+        assert scaled.detect_ood(data * 10.0)["threshold"] == pytest.approx(
+            unit.detect_ood(data)["threshold"], rel=1e-3
+        )
+
+    def test_scored_batch_never_becomes_the_reference(self) -> None:
+        rng = np.random.default_rng(3)
+        detector = InformationGeometryDetector()
+        detector.fit_reference_distribution(rng.standard_normal((500, 3)))
+        assert detector.reference_distribution is not None
+        mean_before = detector.reference_distribution["mean"].copy()
+        threshold_before = detector.detect_ood(rng.standard_normal((50, 3)))["threshold"]
+        attack = rng.normal(50.0, 100.0, (300, 3))
+        result = detector.detect_ood(attack)
+        assert result["drift_detected"]
+        assert result["recalibrated"] is False
+        np.testing.assert_array_equal(detector.reference_distribution["mean"], mean_before)
+        assert detector.detect_ood(attack)["threshold"] == threshold_before
+        assert detector.detect_ood(attack)["is_ood"]
+
+    def test_distribution_distance_sees_correlation_change(self) -> None:
+        detector = InformationGeometryDetector()
+        detector.fit_reference_distribution(np.random.default_rng(4).standard_normal((300, 2)))
+        base = {"mean": np.zeros(2), "cov": np.array([[1.0, 0.8], [0.8, 1.0]])}
+        flipped = {"mean": np.zeros(2), "cov": np.array([[1.0, -0.8], [-0.8, 1.0]])}
+        assert detector.fisher_rao_distance(base, flipped) > 1.0
+        assert detector.fisher_rao_distance(base, base) == 0.0

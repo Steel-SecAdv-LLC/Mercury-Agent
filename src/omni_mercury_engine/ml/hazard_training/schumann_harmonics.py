@@ -69,6 +69,7 @@ import torch
 from scipy.fft import fft, fftfreq
 
 from omni_mercury_engine.datasets.base import http_get_with_retry
+from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
 from omni_mercury_engine.ml.hazard_training.common import (
     EvaluationOutcome,
     PipelineContext,
@@ -117,8 +118,10 @@ HOUR_FILE_BYTES = 921_600 * 2
 GROUP_GAP_BYTES = 8 * (1 << 20)
 GROUP_SPAN_BYTES = 64 * (1 << 20)
 
-#: Kp class thresholds: disturbed >= 5, quiet <= 2; 2 < Kp < 5 excluded.
-KP_DISTURBED = 5.0
+#: Kp class thresholds: disturbed = NOAA G1 or stronger (Kp 5- and up, via
+#: ``noaa_g_scale``), quiet <= 2; hours between the classes are excluded.
+#: GFZ reports definitive Kp in exact thirds, so the G-scale decision bound
+#: (4.5) admits every 5- (4.667) bin that a literal ``Kp >= 5.0`` dropped.
 KP_QUIET = 2.0
 #: Validation recall floor for operating-point selection: a threshold that
 #: detects almost nothing can be technically non-regressing when physics
@@ -672,11 +675,11 @@ def _label_hour(t0: _dt.datetime, kp_by_bin: dict[int, float]) -> tuple[str, flo
     if any(k is None for k in kps):
         return "missing_kp", float("nan")
     vals = [float(k) for k in kps if k is not None]
-    if all(k >= KP_DISTURBED for k in vals):
+    if all(noaa_g_scale(k) >= 1 for k in vals):
         return "disturbed", max(vals)
     if all(k <= KP_QUIET for k in vals):
         return "quiet", max(vals)
-    if all(k > KP_QUIET for k in vals) or all(k < KP_DISTURBED for k in vals):
+    if all(k > KP_QUIET for k in vals) or all(noaa_g_scale(k) == 0 for k in vals):
         return "intermediate", max(vals)
     return "mixed", max(vals)
 
@@ -1600,14 +1603,12 @@ def _storm_events(t0_iso: list[str], kp: np.ndarray, mask: np.ndarray) -> list[d
 def _noaa_g_scale(peak_kp: float) -> str:
     """NOAA G-scale label from a Kp value (G1=Kp5 .. G5=Kp9).
 
-    Fractional (thirds) Kp is rounded to the nearest integer per the SWPC
-    convention, so Kp 8- (7.667) reads G4 -- matching how documented storms
-    (e.g. the 2015 G4 pair) are named.
+    Kp in thirds is filed under its integer per SWPC, so Kp 8- (7.667) reads
+    G4 -- matching how documented storms (e.g. the 2015 G4 pair) are named --
+    and 9- (8.667) is G4 too ("Kp = 8, including a 9-"), not G5.
     """
-    kp_int = int(np.floor(peak_kp + 0.5))
-    if kp_int >= 9:
-        return "G5"
-    return {5: "G1", 6: "G2", 7: "G3", 8: "G4"}.get(kp_int, "sub-G1")
+    level = noaa_g_scale(peak_kp)
+    return f"G{level}" if level else "sub-G1"
 
 
 def _storm_name(start_iso: str) -> str | None:

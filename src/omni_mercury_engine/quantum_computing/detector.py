@@ -30,6 +30,25 @@ from omni_mercury_engine.quantum_computing.hybrid import (
 
 logger = logging.getLogger(__name__)
 
+#: Out-of-range scaled values are squashed into ``(-W, 1 + W)``. Every
+#: encoding rotates by ``pi * x``, whose measurement probabilities repeat
+#: with period 2 in ``x``: unsquashed, a sample two training ranges out
+#: encoded exactly like one in range (60 of 60 such anomalies scored as
+#: normal). ``W < 0.5`` keeps the window shorter than the period.
+OUT_OF_RANGE_WINDOW = 0.45
+
+
+def _squash_out_of_range(z: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Identity on [0, 1]; beyond it, ``tanh``-compressed into the window.
+
+    Strictly increasing with a continuous slope, so a sample further out
+    still encodes further out, and no two values share an encoding.
+    """
+    w = OUT_OF_RANGE_WINDOW
+    above = 1.0 + w * np.tanh((z - 1.0) / w)
+    below = -w * np.tanh(-z / w)
+    return np.where(z > 1.0, above, np.where(z < 0.0, below, z))
+
 
 @dataclass
 class QuantumDetectionResult:
@@ -93,6 +112,7 @@ class QuantumAnomalyDetector:
         error_mitigation: str | None = "zne",
         optimization_level: int = 3,
         api_token: str | None = None,
+        seed: int | None = None,
     ) -> None:
         """Initialize the quantum anomaly detector.
 
@@ -102,7 +122,11 @@ class QuantumAnomalyDetector:
             error_mitigation: Error mitigation method (None, "zne", "pec")
             optimization_level: Circuit optimization level
             api_token: IBM Quantum API token
+            seed: Seed for the quantum kernel's shots and the VQE and QAOA
+                initial parameters; ``None`` keeps their defaults (VQE seeds
+                with 0, the kernel and QAOA use OS entropy)
         """
+        self._seed = seed
         self._executor = QuantumExecutor(
             backend=backend,
             shots=shots,
@@ -120,6 +144,10 @@ class QuantumAnomalyDetector:
         self._method: str | None = None
         self._num_qubits: int = 4
         self._threshold: float = 0.5
+        self._feature_min: np.ndarray[Any, Any] | None = None
+        self._feature_range: np.ndarray[Any, Any] | None = None
+        #: Kernel path: training mean, principal axes, projected min and range.
+        self._projection: tuple[np.ndarray[Any, Any], ...] | None = None
 
     def fit(
         self,
@@ -131,32 +159,64 @@ class QuantumAnomalyDetector:
     ) -> QuantumAnomalyDetector:
         """Train the quantum anomaly detector.
 
+        The [0, 1] scaling is fitted here and reused by :meth:`detect` (it
+        was refitted on every scored batch, so a batch of anomalies was
+        rescaled to look like the training data). Every feature reaches the
+        VQE path through layered encoding; the kernel path, which encodes
+        one feature per qubit, receives the training data's leading
+        principal components instead of the first ``num_qubits`` features.
+        For ``vqe_anomaly`` the default threshold becomes the
+        ``1 - contamination`` quantile of the training scores.
+
         Args:
             X_train: Training data (for unsupervised: normal samples)
             y_train: Training labels (optional, for supervised methods)
             method: Detection method
             num_qubits: Number of qubits (default: min(4, n_features))
-            **kwargs: Method-specific parameters
+            **kwargs: Method-specific parameters (``contamination``,
+                default 0.05, sets the calibrated threshold)
 
         Returns:
             self for method chaining
         """
-        n_features = X_train.shape[1] if X_train.ndim > 1 else 1
+        X_train = np.asarray(X_train, dtype=float)
+        if X_train.ndim == 1:
+            X_train = X_train.reshape(-1, 1)
+        n_features = X_train.shape[1]
         self._num_qubits = num_qubits or min(4, n_features)
         self._method = method
+        self._threshold = 0.5  # a refit does not inherit the previous method's quantile
 
+        self._feature_min = X_train.min(axis=0)
+        self._feature_range = X_train.max(axis=0) - self._feature_min + 1e-10
+        self._projection = None
+        if method == "quantum_kernel" and n_features > self._num_qubits:
+            self._projection = self._fit_projection(X_train, self._num_qubits)
         X_normalized = self._normalize_data(X_train)
 
         if method == "quantum_kernel":
             self._trained_model = self._fit_quantum_kernel(X_normalized, y_train, **kwargs)
         elif method == "vqe_anomaly":
             self._trained_model = self._fit_vqe(X_normalized, **kwargs)
+            contamination = float(kwargs.get("contamination", 0.05))
+            training_scores = self._trained_model.score(X_normalized)
+            self._threshold = float(np.quantile(training_scores, 1.0 - contamination))
         elif method == "qaoa_anomaly":
             self._trained_model = self._fit_qaoa(X_normalized, **kwargs)
         else:
             self._trained_model = self._fit_vqe(X_normalized, **kwargs)
 
         return self
+
+    @staticmethod
+    def _fit_projection(X: np.ndarray[Any, Any], k: int) -> tuple[np.ndarray[Any, Any], ...]:
+        """Training mean, leading ``k`` principal axes, and the projected range."""
+        mean = X.mean(axis=0)
+        _, _, vt = np.linalg.svd(X - mean, full_matrices=False)
+        axes = vt[:k]
+        projected = (X - mean) @ axes.T
+        low = projected.min(axis=0)
+        return mean, axes, low, projected.max(axis=0) - low + 1e-10
 
     def detect(
         self,
@@ -175,7 +235,13 @@ class QuantumAnomalyDetector:
 
         Returns:
             QuantumDetectionResult with anomaly scores and predictions
+
+        Raises:
+            ValueError: ``data`` holds a non-finite value (a NaN feature
+                scored NaN, which compared as "not anomalous").
         """
+        if not np.all(np.isfinite(np.asarray(data, dtype=float))):
+            raise ValueError("data must be finite")
         method = method or self._method or "vqe_anomaly"
         threshold = self._threshold if threshold is None else threshold
 
@@ -288,15 +354,27 @@ class QuantumAnomalyDetector:
         )
 
     def _normalize_data(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Normalize data to [0, 1] range."""
+        """Scale to [0, 1] by the training range (the batch's own before fit).
+
+        Values outside the training range are squashed into
+        ``(-OUT_OF_RANGE_WINDOW, 1 + OUT_OF_RANGE_WINDOW)`` (see
+        :func:`_squash_out_of_range`); for the kernel path the data are first
+        projected on the training principal axes and rescaled to the
+        projected training range.
+        """
+        X = np.asarray(X, dtype=float)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        X_min = X.min(axis=0)
-        X_max = X.max(axis=0)
-        X_range = X_max - X_min + 1e-10
+        if self._feature_min is None or self._feature_range is None:
+            X_min = X.min(axis=0)
+            X_range = X.max(axis=0) - X_min + 1e-10
+            return (X - X_min) / X_range
 
-        return (X - X_min) / X_range
+        if self._projection is None:
+            return _squash_out_of_range((X - self._feature_min) / self._feature_range)
+        mean, axes, low, span = self._projection
+        return _squash_out_of_range(((X - mean) @ axes.T - low) / span)
 
     def _fit_quantum_kernel(
         self,
@@ -309,6 +387,7 @@ class QuantumAnomalyDetector:
             self._num_qubits,
             feature_map_reps=kwargs.get("reps", 2),
             executor=self._executor,
+            seed=self._seed,
         )
 
         if y_train is None:
@@ -324,6 +403,7 @@ class QuantumAnomalyDetector:
             ansatz=kwargs.get("ansatz", VariationalAnsatz.REAL_AMPLITUDES),
             reps=kwargs.get("reps", 2),
             executor=self._executor,
+            seed=0 if self._seed is None else self._seed,
         )
         detector.fit(X_train, maxiter=kwargs.get("maxiter", 50))
         return detector
@@ -336,6 +416,7 @@ class QuantumAnomalyDetector:
             self._num_qubits,
             p=kwargs.get("p", 2),
             executor=self._executor,
+            seed=self._seed,
         )
         detector.fit(adjacency, maxiter=kwargs.get("maxiter", 50))
         return detector

@@ -373,7 +373,7 @@ class TestShippedVolcanicCheckpoint:
         physics = VolcanicEruptionDetector(load_shipped_weights=False)
         physics_result = physics.predict_eruption({"seismic_sequence": minute})
         assert physics._neural_trained is False
-        assert physics_result.time_to_eruption_hours is None  # forecast never ran
+        assert physics_result.forecast_method is None  # forecast never ran
 
         mean = np.asarray(payload["feature_mean"], dtype=np.float32)
         std = np.asarray(payload["feature_std"], dtype=np.float32)
@@ -391,8 +391,10 @@ class TestShippedVolcanicCheckpoint:
             {"fused_features": ((vec - mean) / std).tolist(), "seismic_sequence": seq}
         )
         assert np.isfinite(result.confidence) and 0.0 <= result.confidence <= 1.0
-        assert result.time_to_eruption_hours is not None  # neural forecast ran
-        assert result.vei_estimate is not None and 0 <= result.vei_estimate <= 7
+        assert result.forecast_method == "neural"
+        # Size and timing are not forecast (no trained head for either).
+        assert result.vei_estimate is None
+        assert result.time_to_eruption_hours is None
 
     def test_corrupt_checkpoint_fails_loud(self, tmp_path: Path) -> None:
         import pickle

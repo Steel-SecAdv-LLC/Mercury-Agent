@@ -18,6 +18,7 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector, DetectorMetrics
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
@@ -200,7 +201,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             images = torch.from_numpy(images).float()
 
         if images.dim() != 4 or (images.shape[1] not in (1, 3) and images.shape[-1] not in (1, 3)):
-            raise ValueError(
+            raise InputModalityError(
                 f"{self._name} expects a batch of images with shape "
                 f"[B, C, H, W] or [B, H, W, C] where C is 1 or 3 channels; "
                 f"got input of shape {tuple(images.shape)}"

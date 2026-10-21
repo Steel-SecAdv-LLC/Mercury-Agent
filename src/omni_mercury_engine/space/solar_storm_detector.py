@@ -16,7 +16,6 @@ Integrations:
 - Solar X-ray flux monitoring
 - Magnetometer networks
 - Energy grid infrastructure (energy_dams.py)
-- Quantum-resistant cyber systems (quantum_risk_cyber.py)
 - Schumann resonance correlation
 
 Research sources:
@@ -25,8 +24,9 @@ Research sources:
 - ESA Space Weather Service
 
 Measured evaluation: on 25,846 held-out OMNI2 hours (test years 2022-2024) the
-shipped solar_storm_geomag checkpoint reaches Kp MAE 0.574 versus 1.054 for the
-physics fallback; see src/omni_mercury_engine/models/checkpoints/
+shipped solar_storm_geomag checkpoint reaches Kp MAE 0.575 versus 1.054 for the
+physics fallback, with G1-onset storm labels per noaa_g_scale (Kp 5- and up);
+see src/omni_mercury_engine/models/checkpoints/
 solar_storm_geomag.provenance.json.
 """
 
@@ -39,6 +39,13 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.evaluation.hazard_metrics import (
+    G_SCALE_NAMES,
+    noaa_g_scale,
+    noaa_r_scale,
+    noaa_s_scale,
+)
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -94,6 +101,14 @@ class GeostormScale(Enum):
     G5 = "extreme"
 
 
+def _flux(value: Any) -> float | None:
+    """A finite, non-negative flux as a float; anything else is ``None`` (not supplied)."""
+    if value is None or isinstance(value, bool) or not isinstance(value, (int, float, np.number)):
+        return None
+    number = float(value)
+    return number if np.isfinite(number) and number >= 0.0 else None
+
+
 @dataclass
 class SolarStormPredictionResult:
     """Solar storm prediction results."""
@@ -114,8 +129,15 @@ class SolarStormPredictionResult:
     dst_index: float | None = None
     geomagnetic_storm_level: str = "G0"
 
+    # NOAA scales: R (radio blackout) from the 0.1-0.8 nm X-ray flux and S
+    # (radiation storm) from the >= 10 MeV proton flux. ``radio_blackout`` is an
+    # R3 or stronger blackout (an X flare); ``radiation_storm`` is S1 or more
+    # when a proton flux is supplied, else an M or X flare (a proxy: flares and
+    # proton events often, but not always, coincide).
     radiation_storm: bool = False
     radio_blackout: bool = False
+    radio_blackout_level: int = 0
+    radiation_storm_level: int | None = None
 
     power_grid_risk: str = "low"
     satellite_risk: str = "low"
@@ -159,6 +181,12 @@ class SolarFlarePredictionResult:
     x_ray_flux: float = 0.0
     proton_flux: float = 0.0
     flux_class_index: int = 0
+
+    # NOAA scales: R (radio blackout) from the supplied 0.1-0.8 nm flux, S
+    # (radiation storm) from the >= 10 MeV proton flux when one is supplied
+    # (None otherwise - never derived from the flare class).
+    radio_blackout_level: int = 0
+    radiation_storm_level: int | None = None
 
     geomagnetic_storm_probability: float | None = None
     kp_index_predicted: float | None = None
@@ -273,16 +301,31 @@ class SolarFlareDetector:
     def detect_solar_flare(self, xray_data: dict[str, Any]) -> dict[str, Any]:
         """Detect solar flares from X-ray flux.
 
+        NOAA defines the flare class on the GOES 0.1-0.8 nm LONG band alone
+        (the short band is spectral context, not the classifying channel), so
+        ``flux_long_wm2`` is required and classification never reads
+        ``flux_short_wm2``. The former ``max(short, long)`` could grade a
+        flare on the wrong channel, and a missing or NaN long flux silently
+        classified as a benign A (max() with a NaN is even order-dependent).
+
         Args:
-            xray_data: X-ray flux measurements (short, long wavelength)
+            xray_data: X-ray flux measurements; ``flux_long_wm2`` (W/m^2)
+                is the classifying channel.
 
         Returns:
-            Solar flare detection results
-        """
-        flux_short = xray_data.get("flux_short_wm2", 1e-9)
-        flux_long = xray_data.get("flux_long_wm2", 1e-9)
+            Solar flare detection results.
 
-        primary_flux = max(flux_short, flux_long)
+        Raises:
+            ValueError: If ``flux_long_wm2`` is missing or not a finite,
+                non-negative number — a flare class cannot be fabricated.
+        """
+        primary_flux = _flux(xray_data.get("flux_long_wm2"))
+        if primary_flux is None:
+            raise ValueError(
+                "detect_solar_flare needs a finite, non-negative 'flux_long_wm2' "
+                "(the GOES 0.1-0.8 nm band NOAA defines the flare class on); "
+                f"got {xray_data.get('flux_long_wm2')!r}"
+            )
 
         flare_class, flare_magnitude = self._classify_flare(primary_flux)
 
@@ -394,13 +437,18 @@ class SolarFlareDetector:
         warnings = self._generate_warnings(flare_detected, flare_class, storm_probability)
         affected = self._identify_affected_systems(flare_class, storm_probability)
 
+        aggregated_protons = self._aggregate_proton_flux(proton_flux)
         return SolarFlarePredictionResult(
             flare_detected=flare_detected,
             confidence=confidence,
             flare_class=flare_class,
             x_ray_flux=current_flux,
-            proton_flux=self._aggregate_proton_flux(proton_flux),
+            proton_flux=aggregated_protons,
             flux_class_index=class_index,
+            radio_blackout_level=noaa_r_scale(current_flux),
+            radiation_storm_level=(
+                noaa_s_scale(aggregated_protons) if proton_flux is not None else None
+            ),
             geomagnetic_storm_probability=storm_probability,
             kp_index_predicted=kp_predicted,
             dst_index_predicted=dst_predicted,
@@ -418,12 +466,14 @@ class SolarFlareDetector:
 
         Raises:
             ValueError: If the array is multi-dimensional (e.g. a generic
-                feature matrix) or empty; a cryptic scalar-conversion crash
-                downstream is not an acceptable failure mode.
+                feature matrix), empty, or carries a non-finite or negative
+                value; a NaN flux previously flowed through classification
+                and came out as a benign A-class, so bad measurements are
+                refused rather than graded.
         """
         if isinstance(x_ray_flux, np.ndarray):
             if x_ray_flux.ndim > 1:
-                raise ValueError(
+                raise InputModalityError(
                     "SolarFlareDetector expects a GOES XRS X-ray flux scalar "
                     "or 1-D time series in W/m^2; got array with shape "
                     f"{x_ray_flux.shape}. Pass one flux channel (e.g. the "
@@ -436,6 +486,15 @@ class SolarFlareDetector:
                     "SolarFlareDetector received an empty X-ray flux series; "
                     "cannot classify a flare without a measurement."
                 )
+            values = np.asarray(x_ray_flux, dtype=np.float64).reshape(-1)
+        else:
+            values = np.asarray([x_ray_flux], dtype=np.float64)
+        if not np.all(np.isfinite(values)) or np.any(values < 0.0):
+            raise ValueError(
+                "SolarFlareDetector received a non-finite or negative X-ray "
+                "flux; a flare class is never fabricated from a bad "
+                "measurement."
+            )
 
     @classmethod
     def _dst_from_kp(cls, kp: float) -> float:
@@ -871,8 +930,8 @@ class SolarStormDetector:
         # (see solar_storm.py _select_operating_point): the storm-probability
         # head drives storm ONSET via a validation-selected threshold, because
         # the MSE-trained Kp point estimate regresses toward the mean and
-        # thresholding it at Kp>=5 halves recall. None until a checkpoint that
-        # declares one is loaded (then the dual rule applies).
+        # thresholding it at G1 onset halves recall. None until a checkpoint
+        # that declares one is loaded (then the dual rule applies).
         self._operating_point: dict[str, float] | None = None
 
         self.logger = logging.getLogger(__name__)
@@ -993,6 +1052,8 @@ class SolarStormDetector:
         Args:
             storm_data: Multi-parameter space weather data including:
                 - xray_data: Solar X-ray flux measurements
+                - proton_flux_pfu: >= 10 MeV integral proton flux (pfu), for
+                  the NOAA S level
                 - cme_data: CME observations from coronagraph
                 - magnetosphere_data: Solar wind, IMF, magnetometer
                 - infrastructure_data: Power grid, satellite locations
@@ -1040,8 +1101,19 @@ class SolarStormDetector:
 
         result.storm_severity = result.geomagnetic_storm_level
 
-        result.radiation_storm = result.flare_class in ["M", "X"]
-        result.radio_blackout = result.flare_class == "X"
+        xray = storm_data.get("xray_data")
+        long_flux = _flux(xray.get("flux_long_wm2")) if isinstance(xray, dict) else None
+        if long_flux is not None:
+            result.radio_blackout_level = noaa_r_scale(long_flux)
+            result.radio_blackout = result.radio_blackout_level >= 3
+        else:
+            result.radio_blackout = result.flare_class == "X"
+        proton = _flux(storm_data.get("proton_flux_pfu"))
+        if proton is not None:
+            result.radiation_storm_level = noaa_s_scale(proton)
+            result.radiation_storm = result.radiation_storm_level >= 1
+        else:
+            result.radiation_storm = result.flare_class in ["M", "X"]
 
         result.power_grid_risk = self._assess_grid_risk(result)
         result.satellite_risk = self._assess_satellite_risk(result)
@@ -1104,16 +1176,24 @@ class SolarStormDetector:
                 SWPCProduct.XRAY_FLUX,
                 SWPCProduct.PROPAGATED_SOLAR_WIND,
                 SWPCProduct.KP_INDEX,
+                SWPCProduct.INTEGRAL_PROTONS,
             ],
         )
 
-        def _latest(product: str) -> Any:
-            points = [dp for dp in fetch.data_points if dp.metadata.get("product") == product]
+        def _latest(product: str, **matches: Any) -> Any:
+            points = [
+                dp
+                for dp in fetch.data_points
+                if dp.metadata.get("product") == product
+                and all(dp.data.get(key) == value for key, value in matches.items())
+            ]
             return max(points, key=lambda dp: dp.timestamp) if points else None
 
         xray = _latest("xray_flux")
         wind = _latest(SWPCProduct.PROPAGATED_SOLAR_WIND.value)
         kp_point = _latest("kp_index")
+        # The S scale is defined on the >= 10 MeV integral channel alone.
+        protons = _latest("integral_protons", energy=">=10 MeV")
 
         if xray is None and wind is None:
             raise LiveDataError(
@@ -1121,18 +1201,36 @@ class SolarStormDetector:
                 f"solar-wind observations; nothing to predict from."
             )
 
+        # Only real, finite observations enter storm_data: a missing flux or
+        # wind component is left absent (the physics path's documented
+        # defaults then apply), never written in as a fabricated 0.0.
         storm_data: dict[str, Any] = {}
         if xray is not None:
-            storm_data["xray_data"] = {
-                "flux_short_wm2": float(xray.data.get("short_flux") or 0.0),
-                "flux_long_wm2": float(xray.data.get("long_flux") or 0.0),
+            xray_data = {
+                key: value
+                for key, source_key in (
+                    ("flux_short_wm2", "short_flux"),
+                    ("flux_long_wm2", "long_flux"),
+                )
+                if (value := _flux(xray.data.get(source_key))) is not None
             }
+            if xray_data:
+                storm_data["xray_data"] = xray_data
         if wind is not None:
-            storm_data["magnetosphere_data"] = {
-                "solar_wind_speed_km_s": float(wind.data.get("speed") or 0.0),
-                "bz_imf_nt": float(wind.data.get("bz") or 0.0),
-                "by_imf_nt": float(wind.data.get("by") or 0.0),
+            magnetosphere = {
+                key: float(value)
+                for key, source_key in (
+                    ("solar_wind_speed_km_s", "speed"),
+                    ("bz_imf_nt", "bz"),
+                    ("by_imf_nt", "by"),
+                )
+                if (value := wind.data.get(source_key)) is not None and np.isfinite(float(value))
             }
+            if magnetosphere:
+                storm_data["magnetosphere_data"] = magnetosphere
+        proton_flux = _flux(protons.data.get("flux")) if protons is not None else None
+        if proton_flux is not None:
+            storm_data["proton_flux_pfu"] = proton_flux
 
         result = self.predict_solar_storm(storm_data)
 
@@ -1148,9 +1246,11 @@ class SolarStormDetector:
         result.live_context = {
             "observed_kp": observed_kp,
             "observed_kp_time": (kp_point.timestamp.isoformat() if kp_point else None),
-            "solar_wind_speed_km_s": (float(wind.data.get("speed") or 0.0) if wind else None),
+            "solar_wind_speed_km_s": (wind.data.get("speed") if wind else None),
             "bz_imf_nt": (wind.data.get("bz") if wind else None),
             "xray_long_flux_wm2": (xray.data.get("long_flux") if xray else None),
+            "proton_flux_10mev_pfu": proton_flux,
+            "proton_flux_time": (protons.timestamp.isoformat() if protons else None),
             "latest_observation_time": (
                 max(dp.timestamp for dp in fetch.data_points).isoformat()
                 if fetch.data_points
@@ -1233,7 +1333,7 @@ class SolarStormDetector:
         ):
             # Dual-rule storm onset: the BCE-trained storm-probability head
             # crossed its validation-selected (owner-ratified) threshold while
-            # the regressed Kp stayed below 5. The LEVEL is an alert decision,
+            # the regressed Kp stayed below G1. The LEVEL is an alert decision,
             # so the onset floor (G1/"minor") comes from the classifier;
             # kp_index remains the honest regression estimate and severity
             # above G1 still requires the regressed Kp to earn it.
@@ -1290,19 +1390,13 @@ class SolarStormDetector:
         }
 
     def _classify_geostorm(self, kp_index: float) -> str:
-        """Classify geomagnetic storm by Kp index."""
-        if kp_index >= 9:
-            return GeostormScale.G5.value
-        elif kp_index >= 8:
-            return GeostormScale.G4.value
-        elif kp_index >= 7:
-            return GeostormScale.G3.value
-        elif kp_index >= 6:
-            return GeostormScale.G2.value
-        elif kp_index >= 5:
-            return GeostormScale.G1.value
-        else:
-            return GeostormScale.G0.value
+        """Classify geomagnetic storm by Kp index (NOAA thirds: 5- is G1, 9- is G4).
+
+        A regressed Kp is held to the [0, 9] scale; NaN is refused.
+        """
+        if not np.isfinite(kp_index):
+            raise ValueError(f"Kp must be finite, got {kp_index}")
+        return G_SCALE_NAMES[noaa_g_scale(float(np.clip(kp_index, 0.0, 9.0)))]
 
     def _assess_grid_risk(self, result: SolarStormPredictionResult) -> str:
         """Assess power grid vulnerability."""

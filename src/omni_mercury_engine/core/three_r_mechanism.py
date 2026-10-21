@@ -20,11 +20,10 @@ import textwrap
 import threading
 import time
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from scipy import fft, optimize, signal
+from scipy import fft
 
 from omni_mercury_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig
 from omni_mercury_engine.core.code_analysis import (
@@ -80,6 +79,19 @@ __all__ = [
 
 # Backward-compatible alias for AvaDominanceEquation
 AvaDominanceEquation: type[OmniAvaEquation] = OmniAvaEquation
+
+# The pre-split copies kept their ``_Legacy*`` names. The enums are identical
+# to the live ones in ``three_r/`` and the engines behave identically on the
+# same inputs, so those names resolve to the live classes. The equation and
+# the refactoring config differ from their live successors (the legacy
+# equation scales by eta**Phi and has other default weights; the legacy
+# config has another field order), so their released bodies are kept below.
+_LegacyRecursionEngine = RecursionEngine
+_LegacyResonanceEngine = ResonanceEngine
+_LegacyAnomalyDetectionMethod = AnomalyDetectionMethod
+_LegacyIssueType = IssueType
+_LegacyIssueSeverity = IssueSeverity
+_LegacyEvolutionStrategy = EvolutionStrategy
 
 
 class _LegacyOmniAvaEquation:
@@ -333,422 +345,6 @@ class _LegacyOmniAvaEquation:
         }
 
 
-# Backward-compatible alias for AvaDominanceEquation
-AvaDominanceEquation = OmniAvaEquation  # type: ignore[misc, unused-ignore]
-
-
-class _LegacyOAEWeightOptimizer:
-    """Optimizer for OAE weights using scipy.optimize.
-
-    Uses constrained optimization to find optimal weights (w_R, w_H, w_O)
-    that maximize F1 score on labeled anomaly detection data while
-    maintaining ethical constraints.
-
-    The optimization respects:
-    - Weight sum constraint: w_R + w_H + w_O = 1.0
-    - Non-negativity: all weights >= 0
-    - Ethical threshold: η_Ethical >= 0.93 (medical) or 0.96 (default)
-
-    Example:
-        optimizer = OAEWeightOptimizer(domain="medical")
-        X_train = [...]  # List of (R, H, O) score tuples
-        y_train = [...]  # Binary labels (1=anomaly, 0=normal)
-        result = optimizer.optimize(X_train, y_train)
-        print(f"Optimal weights: {result['weights']}")
-        print(f"F1 improvement: {result['f1_improvement']:.2%}")
-    """
-
-    # Domain-specific ethical thresholds (sigma_Immutable)
-    DOMAIN_THRESHOLDS: dict[str, float] = {
-        "medical": 0.93,
-        "security": 0.96,
-        "humanitarian": 0.95,
-        "infrastructure": 0.995,
-        "default": 0.96,
-    }
-
-    def __init__(
-        self,
-        domain: str = "default",
-        golden_ratio_init: bool = True,
-        max_iterations: int = 100,
-        tolerance: float = 1e-6,
-    ) -> None:
-        """Initialize OAE weight optimizer.
-
-        Args:
-            domain: Domain for ethical threshold selection
-            golden_ratio_init: If True, initialize with golden ratio weights
-            max_iterations: Maximum optimization iterations
-            tolerance: Convergence tolerance
-        """
-        self.domain = domain
-        self.ethical_threshold = self.DOMAIN_THRESHOLDS.get(
-            domain, self.DOMAIN_THRESHOLDS["default"]
-        )
-        self.golden_ratio = GOLDEN_RATIO_CONSTANT
-        self.max_iterations = max_iterations
-        self.tolerance = tolerance
-        self.logger = logging.getLogger(__name__)
-
-        # Initialize weights
-        if golden_ratio_init:
-            phi_sum = self.golden_ratio + 1.0 + (1.0 / self.golden_ratio)
-            self.initial_weights = np.array(
-                [
-                    self.golden_ratio / phi_sum,  # w_R
-                    1.0 / phi_sum,  # w_H
-                    (1.0 / self.golden_ratio) / phi_sum,  # w_O
-                ]
-            )
-        else:
-            self.initial_weights = np.array([1 / 3, 1 / 3, 1 / 3])
-
-        self.optimized_weights: np.ndarray[Any, Any] | None = None
-        self.optimization_history: list[dict[str, Any]] = []
-
-    def _compute_oae_scores(
-        self,
-        weights: np.ndarray[Any, Any],
-        X: np.ndarray[Any, Any],
-    ) -> np.ndarray[Any, Any]:
-        """Compute OAE scores for given weights and input data.
-
-        Args:
-            weights: Array [w_R, w_H, w_O]
-            X: Array of shape (n_samples, 3) with [R, H, O] scores
-
-        Returns:
-            Array of OAE scores
-        """
-        # A = (w_R * R + w_H * H + w_O * O) * η^Φ
-        weighted_sum = np.dot(X, weights)
-        ethical_scaling = self.ethical_threshold**self.golden_ratio
-        return np.asarray(weighted_sum * ethical_scaling)  # type: ignore[no-any-return, unused-ignore]
-
-    def _objective_function(
-        self,
-        weights: np.ndarray[Any, Any],
-        X: np.ndarray[Any, Any],
-        y: np.ndarray[Any, Any],
-        threshold: float = 0.5,
-    ) -> float:
-        """Objective function to minimize (negative F1 score).
-
-        Args:
-            weights: Array [w_R, w_H, w_O]
-            X: Array of shape (n_samples, 3) with [R, H, O] scores
-            y: Binary labels (1=anomaly, 0=normal)
-            threshold: Classification threshold
-
-        Returns:
-            Negative F1 score (for minimization)
-        """
-        scores = self._compute_oae_scores(weights, X)
-        predictions = (scores >= threshold).astype(int)
-
-        # Compute F1 score
-        tp = np.sum((predictions == 1) & (y == 1))
-        fp = np.sum((predictions == 1) & (y == 0))
-        fn = np.sum((predictions == 0) & (y == 1))
-
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-
-        return -f1  # Negative for minimization
-
-    def optimize(
-        self,
-        X: list[tuple[float, float, float]] | np.ndarray[Any, Any],
-        y: list[int] | np.ndarray[Any, Any],
-        threshold: float = 0.5,
-    ) -> dict[str, Any]:
-        """Optimize OAE weights on labeled data.
-
-        Args:
-            X: Training data - list of (R, H, O) score tuples or array
-            y: Binary labels (1=anomaly, 0=normal)
-            threshold: Classification threshold for F1 computation
-
-        Returns:
-            Dict with optimized weights, metrics, and improvement stats
-        """
-        X_arr = np.array(X)
-        y_arr = np.array(y)
-
-        if X_arr.shape[1] != 3:
-            raise ValueError("X must have 3 columns: [R, H, O] scores")
-
-        # Compute baseline F1 with initial weights
-        baseline_f1 = -self._objective_function(self.initial_weights, X_arr, y_arr, threshold)
-
-        # Constraints: weights sum to 1
-        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
-
-        # Bounds: all weights >= 0 and <= 1
-        bounds = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
-
-        # Optimize using SLSQP (Sequential Least Squares Programming)
-        result = optimize.minimize(
-            self._objective_function,
-            self.initial_weights,
-            args=(X_arr, y_arr, threshold),
-            method="SLSQP",
-            bounds=bounds,
-            constraints=constraints,
-            options={"maxiter": self.max_iterations, "ftol": self.tolerance},
-        )
-
-        self.optimized_weights = result.x
-        optimized_f1 = -result.fun
-
-        # Compute improvement
-        f1_improvement = (optimized_f1 - baseline_f1) / baseline_f1 if baseline_f1 > 0 else 0.0
-
-        # Store optimization result
-        optimization_result = {
-            "weights": {
-                "w_R": float(self.optimized_weights[0]),
-                "w_H": float(self.optimized_weights[1]),
-                "w_O": float(self.optimized_weights[2]),
-            },
-            "initial_weights": {
-                "w_R": float(self.initial_weights[0]),
-                "w_H": float(self.initial_weights[1]),
-                "w_O": float(self.initial_weights[2]),
-            },
-            "baseline_f1": baseline_f1,
-            "optimized_f1": optimized_f1,
-            "f1_improvement": f1_improvement,
-            "domain": self.domain,
-            "ethical_threshold": self.ethical_threshold,
-            "convergence": {
-                "success": result.success,
-                "iterations": result.nit,
-                "message": result.message,
-            },
-        }
-
-        self.optimization_history.append(optimization_result)
-        self.logger.info(
-            f"OAE optimization complete: F1 {baseline_f1:.4f} -> {optimized_f1:.4f} "
-            f"({f1_improvement:+.2%})"
-        )
-
-        return optimization_result
-
-    def get_optimized_equation(self) -> OmniAvaEquation | None:
-        """Get OmniAvaEquation instance with optimized weights.
-
-        Returns:
-            OmniAvaEquation with optimized weights, or None if not optimized
-        """
-        if self.optimized_weights is None:
-            return None
-
-        return OmniAvaEquation(
-            ethical_compliance_threshold=self.ethical_threshold,
-            initial_weights={
-                "w_R": float(self.optimized_weights[0]),
-                "w_H": float(self.optimized_weights[1]),
-                "w_O": float(self.optimized_weights[2]),
-            },
-        )
-
-
-class _LegacyRecursionEngine:
-    """Implements recursive self-referential processing for hierarchical feature extraction and.
-
-    multi-level optimization.
-    """
-
-    def __init__(self, max_depth: int = 5) -> None:
-        """Initialize the instance."""
-        self.max_depth = max_depth
-        self.recursion_cache: dict[str, Any] = {}
-
-    def recursive_transform(
-        self,
-        data: NDArray[Any],
-        transform_fn: Callable[..., Any],
-        depth: int = 0,
-        threshold: float = 0.01,
-    ) -> NDArray[Any]:
-        if depth >= self.max_depth:
-            return data
-
-        transformed = transform_fn(data)
-
-        diff = np.linalg.norm(transformed - data)
-        if diff < threshold:
-            return np.asarray(transformed)  # type: ignore[no-any-return, unused-ignore]
-
-        return self.recursive_transform(transformed, transform_fn, depth + 1, threshold)
-
-    def hierarchical_feature_extraction(
-        self, data: NDArray[Any], num_levels: int = 3
-    ) -> list[NDArray[Any]]:
-        features = []
-        current_data = data
-
-        for level in range(num_levels):
-            level_features = self._extract_level_features(current_data, level)
-            features.append(level_features)
-
-            if level < num_levels - 1:
-                current_data = self._downsample(level_features)
-
-        return features
-
-    def _extract_level_features(self, data: NDArray[Any], level: int) -> NDArray[Any]:
-        if data.ndim == 1:
-            window_size = max(3, len(data) // (2**level))
-            return self._sliding_window_stats(data, window_size)
-        else:
-            return np.asarray(np.mean(data, axis=1, keepdims=True))  # type: ignore[no-any-return, unused-ignore]
-
-    def _sliding_window_stats(self, data: NDArray[Any], window_size: int) -> NDArray[Any]:
-        if len(data) < window_size:
-            return np.array([np.mean(data), np.std(data), np.max(data)])
-
-        features = []
-        for i in range(0, len(data) - window_size + 1, window_size // 2):
-            window = data[i : i + window_size]
-            features.extend([np.mean(window), np.std(window), np.max(window) - np.min(window)])
-
-        return np.array(features)
-
-    def _downsample(self, data: NDArray[Any]) -> NDArray[Any]:
-        if len(data) <= 2:
-            return data
-        return data[::2]
-
-
-class _LegacyResonanceEngine:
-    """Implements frequency-domain signal amplification using Fourier analysis for pattern.
-
-    enhancement and anomaly detection.
-    """
-
-    def __init__(self, sampling_rate: float = 1.0) -> None:
-        """Initialize the instance."""
-        self.sampling_rate = sampling_rate
-
-    def compute_resonance_spectrum(
-        self, signal_data: NDArray[Any]
-    ) -> tuple[NDArray[Any], NDArray[Any]]:
-        if signal_data.ndim > 1:
-            signal_data = signal_data.flatten()
-
-        fft_result = np.array(fft.fft(signal_data))
-        frequencies = np.array(fft.fftfreq(len(signal_data), 1.0 / self.sampling_rate))
-        magnitudes = np.abs(fft_result)
-
-        positive_freq_idx = frequencies >= 0
-        return frequencies[positive_freq_idx], magnitudes[positive_freq_idx]
-
-    def amplify_resonant_frequencies(
-        self,
-        signal_data: NDArray[Any],
-        target_frequencies: list[float] | None = None,
-        amplification_factor: float = 2.0,
-    ) -> NDArray[Any]:
-        if signal_data.ndim > 1:
-            signal_data = signal_data.flatten()
-
-        fft_result = np.array(fft.fft(signal_data))
-        frequencies = np.array(fft.fftfreq(len(signal_data), 1.0 / self.sampling_rate))
-
-        if target_frequencies is None:
-            target_frequencies = self._detect_dominant_frequencies(frequencies, np.abs(fft_result))
-
-        for target_freq in target_frequencies:
-            freq_idx = np.argmin(np.abs(frequencies - target_freq))
-            fft_result[freq_idx] *= amplification_factor
-
-            mirror_idx = len(fft_result) - freq_idx
-            if mirror_idx < len(fft_result):
-                fft_result[mirror_idx] *= amplification_factor
-
-        return np.real(np.array(fft.ifft(fft_result)))
-
-    def _detect_dominant_frequencies(
-        self, frequencies: NDArray[Any], magnitudes: NDArray[Any], num_peaks: int = 5
-    ) -> list[float]:
-        peaks, _ = signal.find_peaks(magnitudes, height=np.max(magnitudes) * 0.1)
-
-        if len(peaks) == 0:
-            return []
-
-        peak_magnitudes = magnitudes[peaks]
-        top_peak_idx = np.argsort(peak_magnitudes)[-num_peaks:]
-
-        return [frequencies[peaks[i]] for i in top_peak_idx]
-
-    def detect_resonance_anomalies(
-        self, signal_data: NDArray[Any], threshold_std: float = 3.0
-    ) -> dict[str, Any]:
-        frequencies, magnitudes = self.compute_resonance_spectrum(signal_data)
-
-        mean_magnitude = np.mean(magnitudes)
-        std_magnitude = np.std(magnitudes)
-        threshold = mean_magnitude + threshold_std * std_magnitude
-
-        anomalous_freq_idx = magnitudes > threshold
-        anomalous_frequencies = frequencies[anomalous_freq_idx]
-        anomalous_magnitudes = magnitudes[anomalous_freq_idx]
-
-        return {
-            "is_anomalous": len(anomalous_frequencies) > 0,
-            "num_anomalies": len(anomalous_frequencies),
-            "anomalous_frequencies": anomalous_frequencies.tolist(),
-            "anomalous_magnitudes": anomalous_magnitudes.tolist(),
-            "threshold": threshold,
-            "max_magnitude": np.max(magnitudes),
-            "mean_magnitude": mean_magnitude,
-        }
-
-
-class _LegacyAnomalyDetectionMethod(Enum):
-    """Methods for detecting code anomalies."""
-
-    STATISTICAL = "statistical"
-    TEMPORAL = "temporal"
-    BEHAVIORAL = "behavioral"
-    MULTI_VARIATE = "multi_variate"
-
-
-class _LegacyIssueType(Enum):
-    """Types of engineering issues in code."""
-
-    BUG = "bug"
-    PERFORMANCE = "performance"
-    SECURITY = "security"
-    CODE_QUALITY = "code_quality"
-    COMPLEXITY = "complexity"
-    LOGIC = "logic"
-
-
-class _LegacyIssueSeverity(Enum):
-    """Severity levels for code issues."""
-
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-    INFO = "info"
-
-
-class _LegacyEvolutionStrategy(Enum):
-    """Evolution strategies for adaptive code improvement."""
-
-    CONSERVATIVE = "conservative"
-    MODERATE = "moderate"
-    AGGRESSIVE = "aggressive"
-    ADAPTIVE = "adaptive"
-
-
 @dataclass
 class _LegacyRefactoringConfig:
     """Configuration for automatic refactoring operations.
@@ -839,6 +435,238 @@ class _LegacyRefactoringConfig:
     chaos_map_type: str = "logistic"
     chaos_alpha: float = 0.8
     chaos_beta: float = 0.2
+
+
+class _LegacyOAEWeightOptimizer:
+    """Supervised optimizer for OAE weights: maximize F1 on labeled data.
+
+    Finds weights (w_R, w_H, w_O) on the simplex (non-negative, summing to 1)
+    that maximize the F1 score of ``(w_R*R + w_H*H + w_O*O) * eta**Phi >=
+    threshold``, with the domain's ethical threshold ``eta``. Unlike
+    :class:`OAEWeightOptimizer`, which regresses continuous targets, this
+    fits binary anomaly labels.
+
+    F1 is piecewise constant in the weights, so its gradient is zero almost
+    everywhere. The released SLSQP fit therefore stopped after one iteration
+    at the initial weights and reported success (F1 0.335 kept where a grid
+    reaches 1.0 on data whose signal is all in ``O``). The fit here is
+    derivative-free: the simplex lattice at step 0.05, then a local search
+    that halves its step down to ``tolerance``. The initial weights are a
+    candidate, so the fit never ends below the baseline.
+
+    Example:
+        optimizer = _LegacyOAEWeightOptimizer(domain="medical")
+        result = optimizer.optimize(X_train, y_train)  # X: (n, 3) [R, H, O]
+        print(result["weights"], result["optimized_f1"])
+    """
+
+    # Domain-specific ethical thresholds (sigma_Immutable)
+    DOMAIN_THRESHOLDS: dict[str, float] = {
+        "medical": 0.93,
+        "security": 0.96,
+        "humanitarian": 0.95,
+        "infrastructure": 0.995,
+        "default": 0.96,
+    }
+
+    #: Step of the coarse simplex lattice.
+    COARSE_STEP = 0.05
+
+    def __init__(
+        self,
+        domain: str = "default",
+        golden_ratio_init: bool = True,
+        max_iterations: int = 100,
+        tolerance: float = 1e-6,
+    ) -> None:
+        """Initialize OAE weight optimizer.
+
+        Args:
+            domain: Domain for ethical threshold selection
+            golden_ratio_init: If True, initialize with golden ratio weights
+            max_iterations: Maximum local-search rounds after the lattice
+            tolerance: Smallest local-search step
+        """
+        self.domain = domain
+        self.ethical_threshold = self.DOMAIN_THRESHOLDS.get(
+            domain, self.DOMAIN_THRESHOLDS["default"]
+        )
+        self.golden_ratio = GOLDEN_RATIO_CONSTANT
+        self.max_iterations = max_iterations
+        self.tolerance = tolerance
+        self.logger = logging.getLogger(__name__)
+
+        if golden_ratio_init:
+            phi_sum = self.golden_ratio + 1.0 + (1.0 / self.golden_ratio)
+            self.initial_weights = np.array(
+                [
+                    self.golden_ratio / phi_sum,  # w_R
+                    1.0 / phi_sum,  # w_H
+                    (1.0 / self.golden_ratio) / phi_sum,  # w_O
+                ]
+            )
+        else:
+            self.initial_weights = np.array([1 / 3, 1 / 3, 1 / 3])
+
+        self.optimized_weights: NDArray[np.float64] | None = None
+        self.optimization_history: list[dict[str, Any]] = []
+
+    def _compute_oae_scores(
+        self,
+        weights: NDArray[np.float64],
+        X: NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        """Compute OAE scores ``A = (w_R*R + w_H*H + w_O*O) * eta**Phi``.
+
+        Args:
+            weights: Array [w_R, w_H, w_O]
+            X: Array of shape (n_samples, 3) with [R, H, O] scores
+
+        Returns:
+            Array of OAE scores
+        """
+        ethical_scaling = self.ethical_threshold**self.golden_ratio
+        return np.asarray(X @ weights * ethical_scaling, dtype=np.float64)
+
+    def _objective_function(
+        self,
+        weights: NDArray[np.float64],
+        X: NDArray[np.float64],
+        y: NDArray[Any],
+        threshold: float = 0.5,
+    ) -> float:
+        """Negative F1 score of the thresholded OAE scores (for minimization).
+
+        Args:
+            weights: Array [w_R, w_H, w_O]
+            X: Array of shape (n_samples, 3) with [R, H, O] scores
+            y: Binary labels (1=anomaly, 0=normal)
+            threshold: Classification threshold
+
+        Returns:
+            Negative F1 score
+        """
+        predictions = self._compute_oae_scores(weights, X) >= threshold
+        positives = y == 1
+        tp = int(np.sum(predictions & positives))
+        fp = int(np.sum(predictions & ~positives))
+        fn = int(np.sum(~predictions & positives))
+        return -(2.0 * tp / (2 * tp + fp + fn)) if tp else 0.0
+
+    def _search(
+        self, X: NDArray[np.float64], y: NDArray[Any], threshold: float
+    ) -> tuple[NDArray[np.float64], float, int]:
+        """Best simplex weights by lattice then local search: (weights, F1, evaluations)."""
+        best_w = self.initial_weights.astype(np.float64)
+        best_f1 = -self._objective_function(best_w, X, y, threshold)
+        evaluations = 1
+
+        def consider(w_r: float, w_h: float) -> None:
+            nonlocal best_w, best_f1, evaluations
+            w = np.array([w_r, w_h, 1.0 - w_r - w_h])
+            if np.any(w < -1e-12):
+                return
+            f1 = -self._objective_function(np.clip(w, 0.0, 1.0), X, y, threshold)
+            evaluations += 1
+            if f1 > best_f1:
+                best_w, best_f1 = np.clip(w, 0.0, 1.0), f1
+
+        lattice = np.round(np.arange(0.0, 1.0 + 1e-9, self.COARSE_STEP), 10)
+        for w_r in lattice:
+            for w_h in lattice[lattice <= 1.0 - w_r + 1e-9]:
+                consider(float(w_r), float(w_h))
+
+        step = self.COARSE_STEP / 2
+        for _ in range(self.max_iterations):
+            if step < self.tolerance:
+                break
+            before = best_f1
+            centre = best_w.copy()
+            for d_r in (-step, 0.0, step):
+                for d_h in (-step, 0.0, step):
+                    consider(float(centre[0] + d_r), float(centre[1] + d_h))
+            if best_f1 <= before:
+                step /= 2
+        return best_w, best_f1, evaluations
+
+    def optimize(
+        self,
+        X: list[tuple[float, float, float]] | NDArray[np.float64],
+        y: list[int] | NDArray[Any],
+        threshold: float = 0.5,
+    ) -> dict[str, Any]:
+        """Optimize OAE weights on labeled data.
+
+        Args:
+            X: Training data - list of (R, H, O) score tuples or array
+            y: Binary labels (1=anomaly, 0=normal)
+            threshold: Classification threshold for F1 computation
+
+        Returns:
+            Dict with optimized weights, metrics, and improvement stats
+
+        Raises:
+            ValueError: ``X`` is not (n, 3), or ``y`` does not match it.
+        """
+        X_arr = np.asarray(X, dtype=np.float64)
+        y_arr = np.asarray(y)
+        if X_arr.ndim != 2 or X_arr.shape[1] != 3:
+            raise ValueError("X must have 3 columns: [R, H, O] scores")
+        if y_arr.shape != (X_arr.shape[0],):
+            raise ValueError(f"y must have shape ({X_arr.shape[0]},), got {y_arr.shape}")
+
+        baseline_f1 = -self._objective_function(self.initial_weights, X_arr, y_arr, threshold)
+        weights, optimized_f1, evaluations = self._search(X_arr, y_arr, threshold)
+        self.optimized_weights = weights
+        f1_improvement = (optimized_f1 - baseline_f1) / baseline_f1 if baseline_f1 > 0 else 0.0
+
+        optimization_result = {
+            "weights": {
+                "w_R": float(weights[0]),
+                "w_H": float(weights[1]),
+                "w_O": float(weights[2]),
+            },
+            "initial_weights": {
+                "w_R": float(self.initial_weights[0]),
+                "w_H": float(self.initial_weights[1]),
+                "w_O": float(self.initial_weights[2]),
+            },
+            "baseline_f1": baseline_f1,
+            "optimized_f1": optimized_f1,
+            "f1_improvement": f1_improvement,
+            "domain": self.domain,
+            "ethical_threshold": self.ethical_threshold,
+            "convergence": {
+                "success": True,
+                "iterations": evaluations,
+                "message": "simplex lattice and local search",
+            },
+        }
+
+        self.optimization_history.append(optimization_result)
+        self.logger.info(
+            f"OAE optimization complete: F1 {baseline_f1:.4f} -> {optimized_f1:.4f} "
+            f"({f1_improvement:+.2%})"
+        )
+        return optimization_result
+
+    def get_optimized_equation(self) -> OmniAvaEquation | None:
+        """Get OmniAvaEquation instance with optimized weights.
+
+        Returns:
+            OmniAvaEquation with optimized weights, or None if not optimized
+        """
+        if self.optimized_weights is None:
+            return None
+
+        return OmniAvaEquation(
+            ethical_compliance_threshold=self.ethical_threshold,
+            initial_weights={
+                "w_R": float(self.optimized_weights[0]),
+                "w_H": float(self.optimized_weights[1]),
+                "w_O": float(self.optimized_weights[2]),
+            },
+        )
 
 
 class CognitiveComplexityVisitor(ast.NodeVisitor):

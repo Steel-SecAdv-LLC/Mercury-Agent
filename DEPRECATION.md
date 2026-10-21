@@ -41,11 +41,12 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 |------------|-------------|--------|
 | `core.self_healing` | `resilience.self_healing` | **Preserved** - Compatibility shim active |
 | `core.neurosymbolic_engine` | `core.code_analysis` / `models.neurosymbolic` | **Preserved** - Compatibility shim active |
-| Legacy scalar names (37) | Omni-prefixed names | **Preserved** - Both naming conventions supported |
+| Legacy scalar names (39) | Omni-prefixed names | **Preserved** - Both naming conventions supported |
 | `sigma_immutable` param | `ethical_compliance_threshold` | **Preserved** - Alias mapping active |
 | `lambda_lyapunov` param | `convergence_rate` | **Preserved** - Alias mapping active |
 | `enable_quantum_terms` | `enable_optimization_terms` | **Preserved** - Alias mapping active |
 | `AnomalyFusionEquation` / `AAFE*` | `OmniAvaEquation` / `OAE*` | **Preserved** - Alias mapping active |
+| `IntelligenceFusionEngine(golden_ratio_weights=...)` | _none needed_ (decisions come from the reported evidence or a measured checkpoint) | **Preserved** - accepted in its released position, no effect, `DeprecationWarning` |
 | `compliance.tlp_handler` (was `security.tlp_handler`) | `omni_mercury_engine.compliance.tlp_handler` | **Relocated** - governance lives in `compliance/`; `security/` is reserved for implementation primitives |
 | `SafeHTTPClient(..., allow_untrusted=True)` | `SafeHTTPClient(..., user_configured=True[, allow_private=True])` | **Removed in v1.7** - security exception (see §6) |
 | `MercuryVoice(enable_llm=True)` (no `llm_provider`) | Explicit `llm_provider=` + `llm_model_name=` (+ `llm_revision=` for remote HF) | **Removed in v1.7** - silent `MockLLMAdapter` fallback removed (see §6) |
@@ -56,6 +57,11 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `load_nasa_fireball_data` / `load_nasa_close_approach_data` / `load_nasa_sentry_data` | `data_sources.jpl_ssd.JPLFireballSource` / `NASANeoWsSource` / `data_sources.jpl_ssd.JPLSentrySource` | **Removed in v2.1** - correctness exception (see §6.8) |
 | `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v2.1** - correctness exception (see §6.9) |
 | `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v2.1** - correctness exception (see §6.10) |
+| `security.pqc_backends.slhdsa_sign_internal` | `slhdsa_sign_addrnd` (FIPS 205 §10.2, caller-supplied `addrnd`); production: `slhdsa_sign` | **Removed in v2.1** - security exception, aligned with AMA Cryptography v5 INVARIANT-50 (see §6.11) |
+| `EMPPredictionResult.intentional_attack_probability` (`0.0` / untrained-network float) and `E3PulseDetector.detect_e3_pulse()["gic_amplitude_a"]` (`0.1 × \|dB/dt\|`) | The trained IEMI network's probability after `EMPDetector.load_neural_weights`; `detect_e3_pulse()["peak_dbdt_nt_per_s"]` / `["grid_impact"]`; `space.gic_detector.GICDetector` for the geoelectric field | **Changed in v2.1** - correctness exception: field and key kept in place, value `None` (no truthful number exists without a trained network or a network model; see §6.12) |
+| `security.counterintelligence.OverwatchNexus` / `OverwatchNexusResult` | `security.counterintelligence.CounterintelligenceAssessor` | **Removed in v2.1** - correctness exception: scored reports it fabricated itself (see §6.13) |
+| `truth_decipher.TruthDecipherFramework.decipher_truth` / `TruthDecipherResult` | `truth_decipher.StatementVerifier` (the `TruthDecipherFramework` name is kept as its alias) | **Removed in v2.1** - correctness exception: fixed ethics inputs, every case recorded as a success (see §6.14) |
+| `security.quantum_risk_cyber.QuantumRiskCyber` / `PostQuantumMigrationPlanner` / `QuantumThreat` / `ThreatLevel` / `CryptoSystem` | `security.quantum_risk_cyber.classify_algorithm` / `assess_asset` / `prioritize` / `read_cbom` / `audit_mercury_posture` | **Removed in v2.1** - security exception: flagged ML-DSA as quantum-vulnerable, counted SIKE and Rainbow as post-quantum (see §6.15) |
 
 ---
 
@@ -169,21 +175,25 @@ engine = OmniMercuryEngine()
 
 ## 2. Scalar Name Aliases (Dual Support)
 
-The Global Omni-Scalar Network (GOSNN) supports **both** legacy and omni-prefixed naming conventions. No migration is required, but new code should prefer the omni-prefixed names.
+The Global Omni-Scalar Network (GOSNN) supports **both** legacy and omni-prefixed naming conventions. No migration is required, but new code should prefer the omni-prefixed names. Every built-in scalar carries the `omni` prefix (pinned by `tests/core/test_gosnn_scalar_naming.py`).
 
 ### Implementation
 
-The GOSNN maintains a bidirectional alias registry:
+GOSNN keeps a legacy-to-canonical alias table (`_initialize_legacy_aliases`). Reads resolve through `resolve_scalar_name`; writes through `register_scalars` resolve a legacy name to its canonical scalar when that scalar exists in the target group, so a legacy write cannot add a second entry and shift the σ_Immutable layout. There is no `set_scalar` method. Resolution logs at DEBUG level and emits no deprecation warning.
 
 ```python
 # Both of these return the same value:
 value = gosnn.get_scalar("morality_scalar")      # Legacy name
 value = gosnn.get_scalar("omnimorality")         # New name
 
-# Both of these set the same scalar:
-gosnn.set_scalar("morality_scalar", 0.95)        # Legacy name
-gosnn.set_scalar("omnimorality", 0.95)           # New name
+# Both of these write the same scalar:
+gosnn.register_scalars("my_component", {"morality_scalar": 0.95})   # Legacy name
+gosnn.register_scalars("my_component", {"omnimorality": 0.95})      # New name
 ```
+
+Values written to the ETHICAL group must be finite and within the σ_Immutable network's trained support `[0, 2.0]` (`ETHICAL.SIGMA_TRAINED_SUPPORT_HIGH`); `register_scalars` raises `ValueError` and writes nothing otherwise. Names under a metric-only prefix such as `omni_diag_` are exempt because they never enter the σ vector.
+
+Renaming a scalar is safe only in place: σ_Immutable depends on the order of the operational vector, not on names. After a rename, regenerate the baseline with `python scripts/harvest_sigma_baseline.py` (its diff should touch only the name lists) and re-run `python scripts/sigma_immutable_discrimination_check.py`. The signed training corpus holds no names and does not change.
 
 ### Ethical Scalars
 
@@ -207,6 +217,8 @@ gosnn.set_scalar("omnimorality", 0.95)           # New name
 | `explainability_factor` | `omniexplainability` | Both supported |
 | `benevolence` | `omnibenevolence` | Both supported |
 | `equity` | `omniequity` | Both supported |
+| `civilization_first_principle` | `omni_civilization_first_principle` | Both supported |
+| `bias_audit_compliance` | `omni_bias_audit_compliance` | Both supported |
 
 ### Cosmic Scalars
 
@@ -356,7 +368,12 @@ silently degrade).  Each entry records the criterion that overrode
 preservation, the replacement surface, and the in-tree regression test
 that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
 development cycle (§6.5 records a relocation, not a removal); §6.6–6.10
-were removed across the v2.1 improvement and live-wiring passes.
+were removed across the v2.1 improvement and live-wiring passes, and §6.11
+with the AMA Cryptography v5 migration. §6.12 records a value change, not a
+removal: the surfaces stay, their fabricated values do not. §6.13-6.15 record
+three modules removed on `steel/version-cov3` and rebuilt from scratch on
+`steel/version-cov4` under their released module paths; the released classes
+are not restored.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 
@@ -536,6 +553,132 @@ added. New code must use the `compliance.` import path.
   gated only the dead attribute).
 * **Regression test:**
   `tests/detectors/test_live_wiring_geological.py::TestFloodDetectorLiveWiring::test_dead_runoff_network_is_gone`
+
+### 6.11 `security.pqc_backends.slhdsa_sign_internal`
+
+* **Removed by:** the AMA Cryptography v4.0.0 -> v5.0.0 pin migration
+  (October 2026)
+* **Override criterion:** §1 (Security Vulnerability). The wrapper called
+  the FIPS 205 §9.2 *internal* signing interface, which signs the raw
+  message: under one key its signatures cross-verified with the §10.2 API,
+  making it a signing oracle for pure signatures on attacker-chosen
+  `(ctx, M)` pairs. FIPS 205 §9 says the internal functions must not be
+  exposed to applications other than for testing. AMA v5 compiles them only
+  under `AMA_TESTING_MODE`, and its INVARIANT-50 names "legacy" and
+  "compatibility" entry points as no exemption, so Mercury keeps no shim
+  under the old name either (AMA's own `pqc_backends` asserts the name is
+  absent).
+* **Replacement:** `slhdsa_sign_addrnd(message, secret_key, addrnd, ctx=b"",
+  param_set=...)`, the §10.2 hedged signature with a caller-supplied
+  `addrnd`; it applies the `M' = 0x00 || len(ctx) || ctx || M` wrapper
+  itself, so callers pass the raw message. Production code uses
+  `slhdsa_sign` (randomness from an approved RBG) or
+  `slhdsa_sign_deterministic`.
+* **Regression test:**
+  `tests/security/test_pqc_guards_smoke.py::test_slhdsa_internal_interface_is_not_exposed`
+
+### 6.12 EMP detector: `intentional_attack_probability` and `gic_amplitude_a` values
+
+* **Changed by:** the v2.1 EMP detector rework (October 2026). The
+  `EMPPredictionResult` field and the `detect_e3_pulse()` key keep their
+  released names and positions; only the value is now `None`, so code that
+  compares it with a number (`> 0.7`) or does arithmetic with it raises
+  `TypeError` instead of acting on a fabricated number.
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine.
+  - `intentional_attack_probability` (released `float = 0.0`): whenever
+    `signature_data` was supplied it was the output of
+    `IntentionalEMIDetector` with random, never-trained weights (given only a
+    1 MHz repetition rate, "critical" in 52 of torch seeds 0-99), and `0.0`
+    otherwise, which states "no attack" although no classifier ran. No
+    public labelled IEMI corpus exists, so no weights ship; without a trained
+    network no probability is truthful, `0.0` included.
+  - `detect_e3_pulse()["gic_amplitude_a"]` (released `float`):
+    `0.1 × |dB/dt|`, labelled amperes. The coefficient has no source and the
+    product no defined unit: a GIC in amperes follows from the geoelectric
+    field through a model of the network and its grounding, not from dB/dt
+    alone.
+* **Replacement:** `intentional_attack_probability` is the trained
+  network's probability once `EMPDetector.load_neural_weights` loads an
+  `iemi-signature-v1` checkpoint (`train_iemi_network`); until then the
+  physics IEMI screen reports through `hpem_environment`, `band_class`,
+  `emp_type` and `threat_level`. For E3/GIC, `detect_e3_pulse()` reports
+  the measured `peak_dbdt_nt_per_s` and the 1-minute-tier `grid_impact`;
+  `space.gic_detector.GICDetector` gives the plane-wave geoelectric field
+  (`geoelectric_peak_v_per_km`).
+* **Regression tests:**
+  `tests/detectors/test_emp_served_contract.py::test_nothing_measured_is_benign`,
+  `::test_untrained_network_is_not_consulted` and
+  `::test_released_e3_key_is_kept_without_a_fabricated_value`
+
+### 6.13 `security.counterintelligence.OverwatchNexus` / `OverwatchNexusResult`
+
+* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+  `steel/version-cov3`); the module path was rebuilt on `steel/version-cov4`.
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine. With `enable_ci=False` (the default)
+  `proactive_ci` returned a fixed "CI module disabled" result. With it on, the
+  class scored intelligence reports it made up itself
+  (`_generate_synthetic_intel`: constant OSINT/SIGINT/CYBINT entries with
+  `threat_score` 0.5 and indicators `"synthetic_indicator_1/2"`), so the risk
+  never depended on the input: zeros, unit noise and x1000 noise all gave
+  `risk=0.2766` on the released code. Its "QBM" bio-threat flag meant
+  `mean(data) > 2.0`, its ethical rollback could not trigger (the purity
+  value is at least 1.055 for any input), and its humanitarian impact was a
+  lookup table of casualty counts. Nothing in the released tree called it,
+  and the maintainer decided it is not coming back.
+* **Replacement:** `security.counterintelligence.CounterintelligenceAssessor`
+  (Admiralty-code source posteriors, MinHash near-duplicate provenance, a scan
+  statistic for coordinated reporting, digit-based fabrication screens). It
+  assesses only the reports it is given and never synthesises one.
+  `EngineConfig.enable_ci` stays as an inert field so existing configurations
+  still load.
+* **Regression tests:**
+  `tests/security/test_counterintelligence.py::test_overwatch_nexus_is_not_restored`
+  and `::TestAssessor::test_empty_input_yields_no_finding`
+
+### 6.14 `truth_decipher.TruthDecipherFramework` API / `TruthDecipherResult`
+
+* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+  `steel/version-cov3`); the module was rebuilt on `steel/version-cov4`.
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine and the ethical gate contract. `determine_ethics`
+  passed the ethics governor a context with `has_rollback`, `has_benchmarks`,
+  `is_transparent`, `is_open_source`, `audit_enabled` and `is_extensible` set
+  to `True` and `test_coverage` 0.85 for every action, so the gate judged fixed
+  claims about the system instead of the action. `resolve_with_measures` set
+  `applied=True` unconditionally, so every resolution was stored for
+  case-based reasoning as `CaseOutcome.SUCCESS` with score 1.0 whatever
+  happened, which trained later decisions on outcomes nobody observed.
+* **Replacement:** `truth_decipher.StatementVerifier` (claim-level
+  corroboration with source reliability and independence clusters, temporal
+  and spatial contradiction checks, consent-gated Concealed Information Test).
+  The name `TruthDecipherFramework` is kept as an alias of `StatementVerifier`;
+  the released `decipher_truth` API and `TruthDecipherResult` are not restored.
+* **Regression tests:**
+  `tests/truth_decipher/test_statement_verification.py::test_alias_and_duplicate_ids`
+  and `::test_released_decipher_api_is_not_restored`
+
+### 6.15 `security.quantum_risk_cyber` released classes (`QuantumRiskCyber`, `PostQuantumMigrationPlanner`, `QuantumThreat`, `ThreatLevel`, `CryptoSystem`)
+
+* **Removed by:** the v2.1 orphan-module vetting pass (October 2026,
+  `steel/version-cov3`); the module path was rebuilt on `steel/version-cov4`.
+* **Override criterion:** §1 (Security Vulnerability): the classes gave wrong
+  cryptographic advice. Vulnerability was a substring match against a list
+  containing `"DSA"`, so `PostQuantumMigrationPlanner.assess_algorithm_vulnerability`
+  reported ML-DSA-65 and SLH-DSA-SHA2-128s, the FIPS 204/205 post-quantum
+  signatures AMA Cryptography signs with, as `vulnerable_to_quantum=True`.
+  `QuantumRiskCyber.post_quantum_readiness_check` counted SIKE and Rainbow,
+  both broken classically in 2022, as post-quantum and returned readiness 1.0
+  for them (all three results reproduced on the released code).
+* **Replacement:** the rebuilt module's `classify_algorithm` (exact names and
+  aliases, broken schemes as `BROKEN`), `assess_asset` / `prioritize` (Mosca
+  inequality against a stated CRQC assumption), `read_cbom` (CycloneDX CBOM)
+  and `audit_mercury_posture`.
+* **Regression tests:**
+  `tests/security/test_quantum_risk_cyber.py::TestClassification::test_ml_dsa_is_never_read_as_dsa`,
+  `::TestClassification::test_exact_names_and_aliases` and
+  `::test_released_classes_are_not_restored`
 
 ---
 

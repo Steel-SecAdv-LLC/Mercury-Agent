@@ -167,12 +167,13 @@ class TestCOMINTProcessor:
         """Test analysis of encrypted communication."""
         data = {
             "communication_type": "digital",
-            "encrypted": True,
+            "encryption_detected": True,
             "content": "encrypted_blob",
         }
         result = self.processor.analyze(data)
 
-        assert result is not None
+        assert result.encryption_detected is True
+        assert result.communication_type == "digital"
 
 
 class TestHUMINTProcessor:
@@ -189,26 +190,29 @@ class TestHUMINTProcessor:
     def test_analyze_basic(self) -> None:
         """Test basic HUMINT analysis."""
         data = {
-            "source_reliability": "B",
-            "information_credibility": "2",
+            "source_rating": "B",
             "report_content": "Asset reports activity in sector.",
         }
         result = self.processor.analyze(data)
 
         assert isinstance(result, HUMINTAnalysisResult)
-        assert hasattr(result, "source_reliability_score")
-        assert hasattr(result, "information_credibility_score")
+        # "B" (usually reliable) maps to the processor's shipped rating.
+        assert result.source_reliability_score == self.processor.source_ratings["B"]
+        assert 0.0 <= result.information_credibility_score <= 1.0
 
     def test_reliability_coding(self) -> None:
         """Test NATO reliability coding."""
         for code in ["A", "B", "C", "D", "E", "F"]:
             data = {
-                "source_reliability": code,
-                "information_credibility": "1",
+                "source_rating": code,
                 "report_content": "Test",
             }
             result = self.processor.analyze(data)
-            assert 0.0 <= result.source_reliability_score <= 1.0
+            # Each NATO code maps to exactly its shipped ladder value.
+            assert result.source_reliability_score == self.processor.source_ratings[code]
+        # An unknown code falls back to the documented 0.40 default.
+        unknown = self.processor.analyze({"source_rating": "Z", "report_content": "Test"})
+        assert unknown.source_reliability_score == 0.40
 
 
 class TestGEOINTProcessor:

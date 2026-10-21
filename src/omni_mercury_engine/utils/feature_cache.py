@@ -157,6 +157,12 @@ class MemoryEfficientFeatureCache:
             )
 
             memory_bytes = self._estimate_memory(processed_data)
+            budget = self.config.max_memory_mb * 1024 * 1024
+
+            if not force and memory_bytes > budget:
+                # Larger than the whole budget: storing it would first evict
+                # every other entry and still exceed the limit. Refuse.
+                return False
 
             if not force:
                 while (

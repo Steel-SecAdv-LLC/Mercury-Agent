@@ -199,6 +199,10 @@ class DimensionalAnalyzer(BaseDetector):
         >>> anomalies = result["is_anomaly"]
     """
 
+    #: Verified free of process-global mutable state at inference (bit-identical
+    #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
+    parallel_safe = True
+
     # Minimum samples required for stable PCA estimation
     MIN_SAMPLES_FOR_PCA = 2
 

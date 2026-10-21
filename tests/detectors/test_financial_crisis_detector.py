@@ -125,14 +125,31 @@ class TestMarketCrashDetector:
         assert result["crash_detected"] is False
         assert result["severity"] == "moderate"
 
-    def test_default_values_handling(self, detector: Any) -> None:
-        """Test handling of missing data fields."""
+    def test_missing_inputs_are_named_not_defaulted(self, detector: Any) -> None:
+        """Absent metrics are reported as None and named, never fabricated.
+
+        Regression: empty input used to come back with vix 20.0 and
+        price_change_pct 0.0 reported as if they had been measured.
+        """
         market_data: dict[str, Any] = {}
         result = detector.detect_market_crash(market_data)
 
         assert result["crash_detected"] is False
-        assert result["vix"] == 20.0
-        assert result["price_change_pct"] == 0.0
+        assert result["vix"] is None
+        assert result["price_change_pct"] is None
+        assert result["severity"] == "unknown"
+        assert set(result["missing_inputs"]) == {
+            "price_change_pct",
+            "vix",
+            "volume_vs_average",
+        }
+
+    def test_bad_supplied_values_are_refused(self, detector: Any) -> None:
+        """A supplied NaN VIX raises instead of grading the market stable."""
+        from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
+
+        with pytest.raises(InvalidObservationError, match="vix"):
+            detector.detect_market_crash({"vix": float("nan"), "price_change_pct": -8.0})
 
 
 class TestBankingStressDetector:
@@ -439,3 +456,59 @@ class TestFinancialCrisisDetector:
         assert result.market_crash_detected is True
         # Should not crash with missing data
         assert result.banking_stress is False
+
+
+class TestHonestyContract:
+    """Fabrication and mislabel regressions on the full predict path."""
+
+    def test_banking_stress_alone_is_a_banking_crisis(self) -> None:
+        """Regression: banking stress with no market crash read 'systemic_crisis'
+        because the former check compared crisis_type against its default string."""
+        detector = FinancialCrisisDetector()
+        result = detector.predict_financial_crisis(
+            {
+                "banking_data": {
+                    "cds_spread_bps": 500.0,
+                    "default_rate_pct": 1.0,
+                    "liquidity_ratio": 1.2,
+                }
+            }
+        )
+        assert result.banking_stress is True
+        assert result.crisis_type == "banking_crisis"
+
+    def test_empty_input_reports_no_fabricated_measurements(self) -> None:
+        """Regression: empty input used to report CDS 100 bps as a measurement."""
+        detector = FinancialCrisisDetector()
+        result = detector.predict_financial_crisis(
+            {"market_data": {}, "banking_data": {}, "network_data": {}}
+        )
+        assert result.vix_level is None
+        assert result.credit_default_swap_spread is None
+        assert result.systemic_risk_score == 0.0  # dataclass default, nothing scored
+        assert result.severity_level == "stable"
+
+    def test_untrained_fraud_network_is_not_consulted(self) -> None:
+        """Regression: a randomly-initialised FraudDetector was run and its noise
+        could append 'Algorithmic manipulation detected' to the result."""
+        detector = FinancialCrisisDetector()
+        fraud = detector._detect_fraud({"volume_anomaly_score": 0.9})
+        assert fraud == {"fraud_detected": False, "fraud_probability": None, "consulted": False}
+        result = detector.predict_financial_crisis({"trading_data": {"volume_anomaly_score": 0.9}})
+        assert result.fraud_indicators == []
+
+    def test_fraud_is_consulted_once_weights_load(self, tmp_path: Any) -> None:
+        import torch
+
+        from omni_mercury_engine.detectors.economic.financial_crisis_detector import (
+            FraudDetector,
+        )
+
+        detector = FinancialCrisisDetector()
+        trained = FraudDetector()
+        path = tmp_path / "fraud.pt"
+        torch.save(trained.state_dict(), path)
+        detector.load_fraud_weights(str(path))
+        fraud = detector._detect_fraud({"volume_anomaly_score": 0.9})
+        assert fraud["consulted"] is True
+        assert isinstance(fraud["fraud_probability"], float)

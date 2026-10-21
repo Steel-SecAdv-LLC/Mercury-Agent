@@ -85,9 +85,13 @@ def test_manifest_provenance_complete() -> None:
 
 def test_scenario_files_match_manifest() -> None:
     """Committed scenario bytes must match their pinned manifest hashes."""
+    verified = 0
     for spec in guard.HAZARD_METRICS.values():
         for name in spec["scenario_files"]:
             scenario_io.verify_file_against_manifest(name)
+            verified += 1
+    # Guard against a silently emptied manifest: the loop must do work.
+    assert verified > 0, "no scenario files were verified"
 
 
 def test_guard_set_is_fixed_and_exclusions_documented() -> None:
@@ -194,20 +198,23 @@ def test_kp_ceiling_beats_climatology_and_zero_predictors() -> None:
 def test_kp_g_bucket_accuracy_is_reported_but_not_gated() -> None:
     """The G-bucket rate is deliberately ungated (vacuous vs. degenerates).
 
-    On the committed quiet-dominated week the always-G0 predictor scores
-    49/55 = 0.891 exact -- above the physics path's own 0.873 -- and on the
-    six Kp>=5 storm windows the Boyle path's exact-bucket skill (1/6) sits
-    below even always-G1 (3/6). A floor here could only certify quietness.
-    kp_mae carries the solar skill gate instead (see
-    ``test_kp_ceiling_beats_climatology_and_zero_predictors``).
+    On the committed quiet-dominated week, counted on the NOAA G scale
+    (noaa_g_scale, so the two 5- windows are G1 storms), the always-G0
+    predictor scores 47/55 = 0.8545 exact -- a tie with the physics path's
+    own 0.8545 -- and on the eight G1+ storm windows the Boyle path's
+    exact-bucket skill (1/8) sits below even always-G1 (3/8). A floor here
+    could only certify quietness. kp_mae carries the solar skill gate
+    instead (see ``test_kp_ceiling_beats_climatology_and_zero_predictors``).
     """
+    from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
+
     payload = json.loads((_SCENARIOS / "solar_kp_windows.json").read_text())
     kp = [w["kp_observed"] for w in payload["windows"]]
-    always_g0_accuracy = sum(k < 5.0 for k in kp) / len(kp)
+    always_g0_accuracy = sum(noaa_g_scale(k) == 0 for k in kp) / len(kp)
     measured = float(_baseline()["domains"]["solar"]["metrics"]["kp_g_bucket_accuracy"])
     # The premise that makes gating vacuous, pinned so a future window
     # re-record that changes it forces this decision to be revisited:
-    assert always_g0_accuracy > measured
+    assert always_g0_accuracy >= measured
     bounds = guard._floors_from(_baseline())["domains"]["solar"]
     assert "kp_g_bucket_accuracy" not in bounds
 

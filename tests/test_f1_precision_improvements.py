@@ -270,26 +270,57 @@ class TestInversionGuard:
 
 
 class TestEnsembleFlip:
-    """Tests for the unsupervised ensemble flip."""
+    """The batch-median ensemble flip is gone; orientation is a fit-time fact.
 
-    def test_high_median_triggers_flip(self) -> None:
-        """If median score > 0.80, scores should be flipped."""
+    The old flip inverted every score whenever a scored batch's median rose
+    above 0.80 ("most points shouldn't be anomalous") — which is exactly
+    wrong in a sustained event or attack flood, and was measured turning a
+    90%-anomalous batch into AUROC 0.0 with only the normal rows flagged.
+    Orientation now comes solely from fit-time validation
+    (``auto_validate`` → ``_score_flip``). These tests pin the corrected
+    behaviour.
+    """
+
+    def test_anomaly_majority_batch_is_not_inverted(self) -> None:
+        """A batch that is mostly anomalous must score HIGH, not flipped low."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
-        # Create data where detector produces very high baseline scores
         rng = np.random.RandomState(42)
         X_train = rng.randn(200, 1)
-        # Use very large shift to push all scores very high (>0.80 median)
+        # Far-shifted batch: every row is a true anomaly, median score > 0.80.
         X_test = rng.randn(100, 1) + 20
 
         detector = MercuryAnomalyDetector()
         detector.fit(X_train)
         result = detector.detect(X_test)
 
-        # Scores should still be valid after potential flip
         scores = result["scores"]
         assert scores.shape == (100,)
         assert np.all(scores >= 0.0) and np.all(scores <= 1.0)
+        # The whole batch sits 20 sigma from training normals: its scores
+        # must stay high (no inversion) and the rows must be flagged.
+        assert float(np.median(scores)) > 0.5
+        assert np.asarray(result["is_anomaly"], dtype=bool).mean() > 0.9
+
+    def test_flood_ranks_true_anomalies_above_normals(self) -> None:
+        """90 shifted rows + 10 normals: the shifted rows outrank the normals.
+
+        Under the old flip this exact scenario measured AUROC 0.0 (all ten
+        normal rows flagged, none of the ninety true anomalies).
+        """
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+        rng = np.random.RandomState(0)
+        detector = MercuryAnomalyDetector()
+        detector.fit(rng.randn(500, 8))
+        X = np.vstack([rng.randn(90, 8) + 6.0, rng.randn(10, 8)])
+        result = detector.detect(X)
+        scores = np.asarray(result["scores"], dtype=float)
+        flags = np.asarray(result["is_anomaly"], dtype=bool)
+        # Every true anomaly must outscore every normal row (AUROC == 1).
+        assert float(scores[:90].min()) > float(scores[90:].max())
+        assert int(flags[:90].sum()) >= 85
+        assert int(flags[90:].sum()) <= 1
 
 
 # -----------------------------------------------------------------------

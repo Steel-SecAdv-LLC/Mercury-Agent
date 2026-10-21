@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from html import escape
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -215,13 +216,20 @@ class ReportGenerator:
         return block
 
     def generate(self, data: dict[str, Any], format: ReportFormat) -> str:
-        """Generate report in specified format."""
+        """Generate report in specified format.
+
+        Raises:
+            ValueError: For :attr:`ReportFormat.PDF`, which is binary; use
+                :meth:`export` (it used to return Markdown text silently).
+        """
         if format == ReportFormat.JSON:
             return self._generate_json(data)
         elif format == ReportFormat.HTML:
             return self._generate_html(data)
-        elif format in (ReportFormat.MARKDOWN, ReportFormat.PDF):
+        elif format == ReportFormat.MARKDOWN:
             return self._generate_markdown(data)
+        elif format == ReportFormat.PDF:
+            raise ValueError("PDF output is binary; use export(data, path, ReportFormat.PDF)")
         return self._generate_json(data)
 
     def _generate_json(self, data: dict[str, Any]) -> str:
@@ -334,15 +342,33 @@ class ReportGenerator:
 
         return "\n".join(lines)
 
-    def export(self, data: dict[str, Any], path: str, format: ReportFormat) -> None:
-        """Export report to file, creating directories if needed."""
+    def export(self, data: dict[str, Any], path: str, format: ReportFormat) -> str:
+        """Export report to file, creating directories if needed.
+
+        :attr:`ReportFormat.PDF` renders the Markdown report through
+        :class:`PDFReportGenerator` with the TLP watermark as its first
+        line; without ``reportlab`` that falls back to a ``.txt`` file next
+        to *path*.
+
+        Returns:
+            The path actually written.
+        """
         parent_dir = os.path.dirname(path)
         if parent_dir:
             os.makedirs(parent_dir, exist_ok=True)
 
+        if format == ReportFormat.PDF:
+            tlp_block = self._tlp_metadata_block()
+            watermark = str(tlp_block["watermark"]) if tlp_block is not None else None
+            pdf = PDFReportGenerator()
+            if pdf.generate_pdf(self._generate_markdown(data), path, watermark=watermark):
+                return path
+            return pdf.fallback_path(path)
+
         content = self.generate(data, format)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
+        return path
 
 
 @dataclass
@@ -571,12 +597,28 @@ class PDFReportGenerator:
         """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
-    def generate_pdf(self, text_report: str, output_path: str) -> bool:
+    @staticmethod
+    def fallback_path(output_path: str) -> str:
+        """Plain-text path used when ``reportlab`` is unavailable.
+
+        Only the extension changes (``report.pdf`` -> ``report.txt``,
+        ``report`` -> ``report.txt``); the former ``str.replace(".pdf",
+        ".txt")`` rewrote matching directory names and, for a path without
+        ``.pdf``, wrote the text over *output_path* itself.
+        """
+        return str(Path(output_path).with_suffix(".txt"))
+
+    def generate_pdf(
+        self, text_report: str, output_path: str, *, watermark: str | None = None
+    ) -> bool:
         """Generate PDF from text report.
 
         Args:
             text_report: Plain text report
             output_path: Output PDF file path
+            watermark: Optional marking (e.g. the TLP watermark) rendered in
+                bold as the first line, and kept as the first line of the
+                plain-text fallback.
 
         Returns:
             Success status
@@ -589,20 +631,27 @@ class PDFReportGenerator:
                 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
             except ImportError:
                 self.logger.warning("reportlab not installed - saving as text instead")
-                with open(output_path.replace(".pdf", ".txt"), "w", encoding="utf-8") as f:
+                with open(self.fallback_path(output_path), "w", encoding="utf-8") as f:
+                    if watermark:
+                        f.write(watermark + "\n\n")
                     f.write(text_report)
                 return False
 
             doc = SimpleDocTemplate(output_path, pagesize=letter)
             styles = getSampleStyleSheet()
             story = []
+            if watermark:
+                story.append(Paragraph(f"<b>{escape(watermark)}</b>", styles["Normal"]))
+                story.append(Spacer(1, 0.2 * inch))
 
             for line in text_report.split("\n"):
                 if line.strip():
                     if line.startswith("="):
                         story.append(Spacer(1, 0.2 * inch))
                     else:
-                        para = Paragraph(line, styles["Normal"])
+                        # Paragraph parses a markup subset: escape so text
+                        # containing "<" or "&" neither crashes nor injects.
+                        para = Paragraph(escape(line), styles["Normal"])
                         story.append(para)
                         story.append(Spacer(1, 0.1 * inch))
 
@@ -766,7 +815,7 @@ class ReportManager:
             </style>
         </head>
         <body>
-            <pre>{text_report}</pre>
+            <pre>{escape(text_report)}</pre>
         </body>
         </html>
         """

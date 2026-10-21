@@ -1,6 +1,8 @@
 # Coverage.py configuration
-# Note: Main configuration is in pyproject.toml [tool.coverage.*]
-# This file exists for tools that don't read pyproject.toml coverage settings
+# Note: coverage.py reads this file *instead of* the ``[tool.coverage.*]``
+# tables in pyproject.toml whenever it exists (``coverage debug config`` lists
+# it as the only file read), so this is the configuration that applies. Keep
+# the two in step; pyproject.toml's copy is read only if this file is removed.
 
 [run]
 source = src/omni_mercury_engine
@@ -25,9 +27,9 @@ skip_covered = false
 # ``.github/workflows/ci.yml`` via ``--cov-fail-under=${{ env.* }}``
 # (currently ``COVERAGE_THRESHOLD_CORE=33`` and
 # ``COVERAGE_THRESHOLD_FULL=62``) so they apply only to the jobs
-# that explicitly opt in.  The ``pyproject.toml
-# [tool.coverage.report] fail_under = 85`` aspirational target
-# remains in place for tools that read pyproject coverage settings.
+# that explicitly opt in.  The ``fail_under`` in pyproject.toml is therefore
+# not applied to runs in this repository, and the 85 % project aspiration is
+# prose (README "Coverage"), not a number any tool reads.
 exclude_lines =
     pragma: no cover
     def __repr__

@@ -84,8 +84,8 @@ class EssentialWorkersMonitor:
         }
 
         self.ethical_scalars = {
-            "survivor_first": (
-                ethical_config.get("survivor_first", 0.95) if ethical_config else 0.95
+            "civilization_first": (
+                ethical_config.get("civilization_first", 0.95) if ethical_config else 0.95
             ),
             "compassion": ethical_config.get("compassion", 0.90) if ethical_config else 0.90,
             "omnibenevolent": (
@@ -229,7 +229,9 @@ class EssentialWorkersMonitor:
         base_priority = category_priorities.get(category, 0.75)
         capacity_factor = 1.0 if current_capacity >= 0.80 else (1.0 + (0.80 - current_capacity))
 
-        return min(1.0, base_priority * capacity_factor * self.ethical_scalars["survivor_first"])
+        return min(
+            1.0, base_priority * capacity_factor * self.ethical_scalars["civilization_first"]
+        )
 
     def _generate_workforce_recommendations(
         self, category: str, capacity: float, absenteeism_high: bool, skill_shortage: bool

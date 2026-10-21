@@ -1,0 +1,822 @@
+{
+ "source_url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=710233",
+ "storm_name": "",
+ "items": [
+  {
+   "advisory_number": "1",
+   "advisory_datetime": "21 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "2",
+   "advisory_datetime": "21 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "3",
+   "advisory_datetime": "22 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "4",
+   "advisory_datetime": "22 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "5",
+   "advisory_datetime": "22 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "6",
+   "advisory_datetime": "22 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "7",
+   "advisory_datetime": "23 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "8",
+   "advisory_datetime": "23 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "9",
+   "advisory_datetime": "23 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "10",
+   "advisory_datetime": "23 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "11",
+   "advisory_datetime": "24 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "89072",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "12",
+   "advisory_datetime": "24 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "13",
+   "advisory_datetime": "24 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "14",
+   "advisory_datetime": "24 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "28.292",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "536153",
+   "pop74": "0",
+   "country": "Haiti",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "15",
+   "advisory_datetime": "25 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "28.292",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "1095643",
+   "pop74": "0",
+   "country": "Haiti",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "16",
+   "advisory_datetime": "25 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "30.864",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "1366279",
+   "pop74": "0",
+   "country": "Haiti",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "17",
+   "advisory_datetime": "25 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "30.864",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "1260080",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "18",
+   "advisory_datetime": "25 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "41.152",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "3908559",
+   "pop74": "0",
+   "country": "Haiti",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "19",
+   "advisory_datetime": "26 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "51.44",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2752958",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "20",
+   "advisory_datetime": "26 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "61.728",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2823198",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "21",
+   "advisory_datetime": "26 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "61.728",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2823198",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "22",
+   "advisory_datetime": "26 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "64.3",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2823198",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "23",
+   "advisory_datetime": "27 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "64.3",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2823198",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "24",
+   "advisory_datetime": "27 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "72.016",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2823198",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "25",
+   "advisory_datetime": "27 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "74.588",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2823198",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "26",
+   "advisory_datetime": "27 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "77.16",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2823813",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "27",
+   "advisory_datetime": "28 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "77.16",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "2937691",
+   "pop74": "0",
+   "country": "Jamaica",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "28",
+   "advisory_datetime": "28 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "77.16",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "4590499",
+   "pop74": "1036954",
+   "country": "Jamaica",
+   "alertscore": "3",
+   "alertcolor": "RED",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "29",
+   "advisory_datetime": "28 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "82.304",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "7461028",
+   "pop74": "1083132",
+   "country": "Jamaica",
+   "alertscore": "3",
+   "alertcolor": "RED",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "30",
+   "advisory_datetime": "28 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "64.3",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "7870540",
+   "pop74": "996963",
+   "country": "Jamaica",
+   "alertscore": "3",
+   "alertcolor": "RED",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "31",
+   "advisory_datetime": "29 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "59.156",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "8572746",
+   "pop74": "1942565",
+   "country": "Cuba",
+   "alertscore": "3",
+   "alertcolor": "RED",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "32",
+   "advisory_datetime": "29 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "51.44",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "7921419",
+   "pop74": "1721785",
+   "country": "Cuba",
+   "alertscore": "2",
+   "alertcolor": "ORANGE",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "33",
+   "advisory_datetime": "29 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "43.724",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "4833452",
+   "pop74": "173183",
+   "country": "Bahamas",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "34",
+   "advisory_datetime": "29 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "41.152",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "1486756",
+   "pop74": "3767",
+   "country": "Bahamas",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "35",
+   "advisory_datetime": "30 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "43.724",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "29064",
+   "pop74": "819",
+   "country": "Bahamas",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "36",
+   "advisory_datetime": "30 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "46.296",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "7211",
+   "pop74": "0",
+   "country": "Bahamas",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "37",
+   "advisory_datetime": "30 Oct 2025 15:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "46.296",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "63777",
+   "pop74": "0",
+   "country": "Bermuda",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "38",
+   "advisory_datetime": "30 Oct 2025 21:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "46.296",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "63777",
+   "pop74": "0",
+   "country": "Bermuda",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "39",
+   "advisory_datetime": "31 Oct 2025 03:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "43.724",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "63777",
+   "pop74": "0",
+   "country": "Bermuda",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "40",
+   "advisory_datetime": "31 Oct 2025 09:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "41.152",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "63783",
+   "pop74": "0",
+   "country": "Bermuda",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "41",
+   "advisory_datetime": "31 Oct 2025 15:00",
+   "actual": "True",
+   "current": "true",
+   "wind_speed": "38.58",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "467699",
+   "pop74": "0",
+   "country": "Canada",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "41",
+   "advisory_datetime": "01 Nov 2025 00:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "36.008",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "656756",
+   "pop74": "1876",
+   "country": "Canada",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "41",
+   "advisory_datetime": "01 Nov 2025 12:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "33.436",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "482461",
+   "pop74": "0",
+   "country": "Canada",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "41",
+   "advisory_datetime": "02 Nov 2025 00:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "30.864",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "Greenland",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "41",
+   "advisory_datetime": "02 Nov 2025 12:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "28.292",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "41",
+   "advisory_datetime": "03 Nov 2025 00:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "25.72",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "41",
+   "advisory_datetime": "03 Nov 2025 12:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "41",
+   "advisory_datetime": "04 Nov 2025 12:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "18.004",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "true"
+  }
+ ]
+}

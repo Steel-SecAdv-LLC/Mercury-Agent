@@ -66,6 +66,18 @@ LOADER_CLASS_RE = re.compile(r"^class\s+\w*Loader\b", re.MULTILINE)
 # rewrite was protecting (e.g. the 512→603 source-file drift).
 LOC_BUCKET = 1000
 
+# Rounding alone cannot make the drift gate churn-stable: at an LOC count
+# sitting just below a half-bucket boundary, a handful of added lines flips
+# the nearest-bucket figure and demands a README rewrite for noise.  The
+# stateful surfaces (``--check`` / ``--update``) therefore apply hysteresis:
+# a stored, bucket-aligned figure stays accepted while it is within
+# ``LOC_STALENESS_LIMIT`` of the actual count.  A stored figure can be stale
+# by at most one bucket before the gate fires — consistent with the ``~``
+# order-of-magnitude contract — and small churn can never oscillate the
+# README, at any starting LOC.  Pure rendering (``render_block`` without
+# stored figures) is unchanged and exact-to-the-bucket.
+LOC_STALENESS_LIMIT = LOC_BUCKET
+
 SCALE_START = "<!-- SCALE:START -->"
 SCALE_END = "<!-- SCALE:END -->"
 # Stamped into the generated block so readers know how to regenerate it.
@@ -175,11 +187,25 @@ def measure() -> ScaleStats:
     }
 
 
-def render_block(stats: ScaleStats) -> str:
-    """Render the deterministic README scale block (between the markers)."""
+def render_block(
+    stats: ScaleStats,
+    *,
+    src_loc_figure: int | None = None,
+    test_loc_figure: int | None = None,
+) -> str:
+    """Render the deterministic README scale block (between the markers).
+
+    ``src_loc_figure`` / ``test_loc_figure`` override the freshly rounded LOC
+    figures with already-published ones — the hysteresis path ``--check`` and
+    ``--update`` use to stay stable under small churn (see
+    :data:`LOC_STALENESS_LIMIT`).  Omitted, the block is rendered from the
+    measured counts, rounded to the nearest :data:`LOC_BUCKET`.
+    """
+    src_loc = _round_loc(int(stats["src_loc"])) if src_loc_figure is None else src_loc_figure
+    test_loc = _round_loc(int(stats["test_loc"])) if test_loc_figure is None else test_loc_figure
     rows = [
         ("Python source files in `src/omni_mercury_engine/`", f"**{stats['src_files']}**"),
-        ("Source lines of code (LOC)", f"**~{_round_loc(int(stats['src_loc'])):,}**"),
+        ("Source lines of code (LOC)", f"**~{src_loc:,}**"),
         (
             "Top-level subpackages (true Python packages with `__init__.py`)",
             f"**{stats['subpackage_count']}**",
@@ -196,7 +222,7 @@ def render_block(stats: ScaleStats) -> str:
         ("Data-loader classes (`class *Loader`) in `loaders/`", f"**{stats['loader_classes']}**"),
         (
             "Test modules (`test_*.py`) / total test LOC",
-            f"**{stats['test_files']} modules / ~{_round_loc(int(stats['test_loc'])):,} LOC**",
+            f"**{stats['test_files']} modules / ~{test_loc:,} LOC**",
         ),
         ("GitHub Actions workflows", f"**{stats['workflow_count']}**"),
     ]
@@ -204,6 +230,47 @@ def render_block(stats: ScaleStats) -> str:
     lines += [f"| {label} | {value} |" for label, value in rows]
     lines += ["", SCALE_PROVENANCE, "", SCALE_END]
     return "\n".join(lines)
+
+
+_LOC_FIGURE_RE = re.compile(r"~(\d{1,3}(?:,\d{3})*|\d+)")
+
+
+def _stored_loc_figures(block: str) -> tuple[int, int] | None:
+    """The (src, test) bucketed LOC figures published in a rendered block.
+
+    ``None`` when the block does not carry exactly the two ``~``-prefixed
+    figures ``render_block`` emits (hand-edited or structurally stale blocks
+    fall back to the exact comparison and are reported as drift).
+    """
+    figures = [int(m.replace(",", "")) for m in _LOC_FIGURE_RE.findall(block)]
+    if len(figures) != 2:
+        return None
+    return figures[0], figures[1]
+
+
+def _loc_figure_fresh(stored: int, actual: int) -> bool:
+    """True while a published, bucket-aligned figure is still truthful.
+
+    Freshness means the figure is a multiple of :data:`LOC_BUCKET` (so a
+    hand-typed exact count never passes) and within
+    :data:`LOC_STALENESS_LIMIT` of the actual measured count.
+    """
+    return stored % LOC_BUCKET == 0 and abs(actual - stored) <= LOC_STALENESS_LIMIT
+
+
+def _accepted_loc_figures(block: str, stats: ScaleStats) -> tuple[int | None, int | None]:
+    """Published LOC figures to keep, per the hysteresis contract.
+
+    Returns ``(src_figure, test_figure)`` where each entry is the stored
+    figure when it is still fresh against the measured count, else ``None``
+    (meaning: re-round from the measurement).
+    """
+    stored = _stored_loc_figures(block)
+    if stored is None:
+        return None, None
+    src_fig = stored[0] if _loc_figure_fresh(stored[0], int(stats["src_loc"])) else None
+    test_fig = stored[1] if _loc_figure_fresh(stored[1], int(stats["test_loc"])) else None
+    return src_fig, test_fig
 
 
 def _splice(readme_text: str, new_block: str) -> str:
@@ -246,12 +313,16 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
-        expected = render_block(stats)
+        # Hysteresis: keep published LOC figures that are still within one
+        # bucket of the measured counts, so small churn never flips the
+        # block — even when the measured LOC sits at a rounding boundary.
+        current = _extract_block(text)
+        src_fig, test_fig = _accepted_loc_figures(current, stats)
+        expected = render_block(stats, src_loc_figure=src_fig, test_loc_figure=test_fig)
         if args.update:
             readme_path.write_text(_splice(text, expected), encoding="utf-8")
             print(f"Updated scale block in {readme_path}.")
             return 0
-        current = _extract_block(text)
         if current.strip() == expected.strip():
             print(f"OK: {readme_path} scale block is up to date.")
             return 0

@@ -38,7 +38,7 @@ from importlib.metadata import (
 from pathlib import Path
 
 #: Distribution name as declared in ``pyproject.toml`` (``[project].name``).
-_DISTRIBUTION_NAME = "mercury-agent"
+_DISTRIBUTION_NAME = "mercury-agent-global"
 
 #: Last-resort literal — reached only when neither installed metadata nor the
 #: source ``pyproject.toml`` is readable. Kept equal to ``[project].version``.

@@ -288,7 +288,41 @@ class TestGDPRCompliance:
                 "restoration_capability": True,
                 "testing_process": True,
             },
+            # Articles 12(3) + 15-21: a request mechanism answered within one
+            # month for every right that applies to consent-based processing
+            "data_subject_rights_config": {
+                right: {"mechanism_exists": True, "response_timeline_days": 30}
+                for right in (
+                    "right_to_access",
+                    "right_to_rectification",
+                    "right_to_erasure",
+                    "right_to_restriction",
+                    "right_to_data_portability",
+                    "right_to_withdraw_consent",
+                )
+            },
+            # Articles 13-14 information and Article 25 by design / by default
+            "privacy_notice_provided": True,
+            "data_protection_by_design": True,
         }
+
+        # The Art. 12-14 and Art. 25 obligations bind every controller: the
+        # same context without that evidence is reported, article by article.
+        partial = {
+            k: v
+            for k, v in compliant_context.items()
+            if k
+            not in (
+                "data_subject_rights_config",
+                "privacy_notice_provided",
+                "data_protection_by_design",
+            )
+        }
+        partial_ok, partial_violations = gdpr.check_gdpr_compliance(partial)
+        assert partial_ok is False
+        assert any(v.startswith("GDPR Art. 12(3)/Art. 15") for v in partial_violations)
+        assert any(v.startswith("GDPR Art. 13-14") for v in partial_violations)
+        assert any(v.startswith("GDPR Art. 25") for v in partial_violations)
 
         # Violation context missing required GDPR compliance elements
         violation_context = {

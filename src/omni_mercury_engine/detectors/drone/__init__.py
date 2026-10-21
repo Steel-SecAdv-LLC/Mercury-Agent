@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Drone single-domain anomaly detector subpackage.
 
-Hosts the RADD + sklearn-ensemble + DronLomaly drone anomaly detector,
+Hosts the RADD + Mercury-ensemble + DronLomaly drone anomaly detector,
 co-located with Mercury's other per-domain detector subpackages
 (``marine``, ``economic``, ``energy``, ``geological``, …).
 

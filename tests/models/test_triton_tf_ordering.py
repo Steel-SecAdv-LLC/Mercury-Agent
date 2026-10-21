@@ -62,5 +62,5 @@ def test_preload_helper_is_exception_safe() -> None:
     """The preload helper must never raise, whatever the environment."""
     from omni_mercury_engine._compat import preload_triton_before_tensorflow
 
-    preload_triton_before_tensorflow()
-    preload_triton_before_tensorflow()  # idempotent
+    preload_triton_before_tensorflow()  # a raise here fails the test
+    preload_triton_before_tensorflow()  # idempotent: second call equally safe

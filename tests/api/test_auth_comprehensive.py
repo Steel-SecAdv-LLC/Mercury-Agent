@@ -285,9 +285,13 @@ class TestAPIKeyStore:
         assert api_key.last_used_at is not None
 
     def test_update_last_used_nonexistent(self) -> None:
-        """Test updating non-existent key is a no-op."""
+        """Updating a non-existent key is a true no-op on the store."""
         store = APIKeyStore()
-        store.update_last_used("nonexistent")  # Should not raise
+        _raw, api_key = store.create_key(user_id="u1", name="probe")
+        store.update_last_used("nonexistent")
+        # Nothing materialized and no other key's timestamp was touched.
+        assert store.get_by_id("nonexistent") is None
+        assert api_key.last_used_at is None
 
 
 # =============================================================================
@@ -345,7 +349,7 @@ class TestAPIKeyAuth:
         auth = APIKeyAuth(auto_error=True)
         request = self._make_request(api_key_header=raw_key)
 
-        user = await auth(request, api_key=raw_key)
+        user = await auth(request)
         assert user is not None
         assert user.id == "test_user_1"
         assert "api_key" in user.metadata.get("auth_method", "")
@@ -360,9 +364,9 @@ class TestAPIKeyAuth:
         store.revoke(api_key.key_id)
 
         auth = APIKeyAuth(auto_error=True)
-        request = self._make_request()
+        request = self._make_request(api_key_header=raw_key)
         with pytest.raises(HTTPException) as exc_info:
-            await auth(request, api_key=raw_key)
+            await auth(request)
         assert exc_info.value.status_code == 401
         assert "revoked" in str(exc_info.value.detail).lower()
 
@@ -379,9 +383,9 @@ class TestAPIKeyAuth:
         api_key.expires_at = datetime.now() - timedelta(hours=1)
 
         auth = APIKeyAuth(auto_error=True)
-        request = self._make_request()
+        request = self._make_request(api_key_header=raw_key)
         with pytest.raises(HTTPException) as exc_info:
-            await auth(request, api_key=raw_key)
+            await auth(request)
         assert exc_info.value.status_code == 401
         assert "expired" in str(exc_info.value.detail).lower()
 

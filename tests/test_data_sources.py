@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for STEM Alert & Anomaly Detection Data Sources.
+"""Tests for STEAM Alert & Anomaly Detection Data Sources.
 
 This test suite covers:
 - Base classes and interfaces
@@ -12,6 +12,8 @@ This test suite covers:
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -323,13 +325,21 @@ class TestNASADONKISource:
         assert source._event_type_to_source_type(DONKIEventType.CME) == DataSourceType.CME
 
     def test_flare_class_parsing(self) -> None:
-        """Test solar flare class parsing."""
+        """Flare classes on the NOAA R scale: R1-R5 start at M1, M5, X1, X10 and X20.
+
+        The previous ladder read X10 as Extreme (R4 is Severe), X5 as Severe
+        (it is R3), M1 as Moderate (R1) and C flares as Minor (below R1).
+        """
         source = NASADONKISource()
-        assert source._parse_flare_class("X10.0") == AlertLevel.EXTREME
-        assert source._parse_flare_class("X5.0") == AlertLevel.SEVERE
+        assert source._parse_flare_class("X20.0") == AlertLevel.EXTREME
+        assert source._parse_flare_class("X10.0") == AlertLevel.SEVERE
+        assert source._parse_flare_class("X5.0") == AlertLevel.STRONG
         assert source._parse_flare_class("X1.0") == AlertLevel.STRONG
         assert source._parse_flare_class("M5.0") == AlertLevel.MODERATE
-        assert source._parse_flare_class("C3.0") == AlertLevel.MINOR
+        assert source._parse_flare_class("M1.5") == AlertLevel.MINOR
+        assert source._parse_flare_class("C3.0") == AlertLevel.NONE
+        assert source._parse_flare_class("X") == AlertLevel.STRONG  # magnitude unreadable: 1
+        assert source._parse_flare_class("Q9") == AlertLevel.NONE
 
     def test_kp_index_parsing(self) -> None:
         """Test Kp index parsing."""
@@ -340,6 +350,36 @@ class TestNASADONKISource:
         assert source._parse_kp_index(6) == AlertLevel.MODERATE
         assert source._parse_kp_index(5) == AlertLevel.MINOR
         assert source._parse_kp_index(4) == AlertLevel.NONE
+
+    def test_storm_level_is_its_peak_kp(self) -> None:
+        """The recorded 2024-05-10 storm opens at Kp 7.67 (G4) and peaks at 9.0 (G5)."""
+        fixture = Path(__file__).parent / "fixtures" / "space_weather" / "donki_gst_2024_05.json"
+        events = {e["gstID"]: e for e in json.loads(fixture.read_text())["data"]}
+        point = NASADONKISource()._parse_event(
+            events["2024-05-10T15:00:00-GST-001"],
+            DONKIEventType.GEOMAGNETIC_STORM,
+            DataSourceType.GEOMAGNETIC_STORM,
+        )
+        assert point is not None
+        assert point.alert_level == AlertLevel.EXTREME
+
+    def test_storm_peak_skips_kp_entries_that_do_not_parse(self) -> None:
+        """Unparsable or off-scale Kp entries are skipped, not read as the storm."""
+        event = {
+            "startTime": "2024-05-10T15:00Z",
+            "allKpIndex": [
+                {"kpIndex": "n/a"},
+                {"kpIndex": None},
+                {"kpIndex": 6.0},
+                {"kpIndex": "8-"},
+                {"kpIndex": 12.0},
+            ],
+        }
+        point = NASADONKISource()._parse_event(
+            event, DONKIEventType.GEOMAGNETIC_STORM, DataSourceType.GEOMAGNETIC_STORM
+        )
+        assert point is not None
+        assert point.alert_level == AlertLevel.SEVERE  # 8- = 7.67, G4
 
 
 class TestNASANeoWsSource:
@@ -369,6 +409,22 @@ class TestNASANeoWsSource:
 
 class TestNOAASWPCSource:
     """Tests for NOAA SWPC data source."""
+
+    @pytest.mark.parametrize(
+        ("flux", "level"),
+        [
+            (9.99e-6, AlertLevel.NONE),  # C9.9: below R1 (was Minor)
+            (1e-5, AlertLevel.MINOR),  # M1 = R1 (was Minor only above it)
+            (4.9e-5, AlertLevel.MINOR),  # M4.9 (was Moderate)
+            (5e-5, AlertLevel.MODERATE),  # M5 = R2
+            (1e-4, AlertLevel.STRONG),  # X1 = R3 (was Moderate at exactly X1)
+            (1e-3, AlertLevel.SEVERE),  # X10 = R4 (was Strong)
+            (2e-3, AlertLevel.EXTREME),  # X20 = R5 (was Strong)
+            (float("nan"), AlertLevel.NONE),
+        ],
+    )
+    def test_xray_flux_is_on_the_noaa_r_scale(self, flux: float, level: AlertLevel) -> None:
+        assert NOAASWPCSource._xray_alert_level(flux) == level
 
     def test_initialization(self) -> None:
         """Test source initialization."""
@@ -582,24 +638,52 @@ class TestUSGSGeomagnetismSource:
         assert USGSObservatory.BOULDER in coords
         assert coords[USGSObservatory.BOULDER] == (40.137, -105.237)
 
-    def test_disturbance_level(self) -> None:
-        """Test magnetic disturbance level calculation."""
+    def test_disturbance_level_is_relative_to_the_window_baseline(self) -> None:
+        """Deviation bands grade against the window's own H baseline.
+
+        Regression: a fixed 20,000 nT reference called every quiet sample
+        SEVERE/STRONG at observatories whose quiet H sits at 20,700 nT
+        (Boulder) or 21,700 nT (Fredericksburg).
+        """
+        source = USGSGeomagnetismSource()
+        baseline = 20700.0
+        assert source._calculate_disturbance_level({"H": 20700}, baseline) == AlertLevel.NONE
+        assert source._calculate_disturbance_level({"H": 19700}, baseline) == AlertLevel.SEVERE
+        assert source._calculate_disturbance_level({"H": 20350}, baseline) == AlertLevel.STRONG
+        assert source._calculate_disturbance_level({"H": 20500}, baseline) == AlertLevel.MODERATE
+        assert source._calculate_disturbance_level({"H": 20625}, baseline) == AlertLevel.MINOR
+        # No baseline, or no finite H: no level is claimed.
+        assert source._calculate_disturbance_level({"H": 19000}, None) == AlertLevel.NONE
+        assert source._calculate_disturbance_level({"H": float("nan")}, baseline) == (
+            AlertLevel.NONE
+        )
+
+    def test_real_quiet_samples_are_not_graded_severe(self) -> None:
+        """On the recorded Gannon-storm fixtures, quiet samples stop reading SEVERE.
+
+        The 2-hour FRD window precedes the storm arrival (quiet): no sample
+        may grade above MINOR. The 12-hour BOU window contains the arrival
+        and main phase: disturbed samples still grade, quiet ones do not.
+        """
+        import json
+        from collections import Counter
+        from pathlib import Path
+
+        fixtures = Path(__file__).parent / "fixtures" / "space_weather"
         source = USGSGeomagnetismSource()
 
-        # Normal conditions (within 50 nT of typical 20000)
-        assert source._calculate_disturbance_level({"H": 20000}) == AlertLevel.NONE
+        payload = json.loads((fixtures / "usgs_geomag_frd_1s_2024_05_10.json").read_text())
+        points = source._parse_response(USGSObservatory.FREDERICKSBURG, payload["data"])
+        levels = Counter(p.alert_level for p in points)
+        assert levels[AlertLevel.SEVERE] == 0 and levels[AlertLevel.STRONG] == 0
+        assert levels[AlertLevel.NONE] > len(points) * 0.9
 
-        # Storm conditions - deviation of 1000 nT triggers SEVERE (>500)
-        assert source._calculate_disturbance_level({"H": 19000}) == AlertLevel.SEVERE
-
-        # Strong storm - deviation around 350 nT (>300)
-        assert source._calculate_disturbance_level({"H": 19650}) == AlertLevel.STRONG
-
-        # Moderate storm - deviation around 200 nT (>150)
-        assert source._calculate_disturbance_level({"H": 19800}) == AlertLevel.MODERATE
-
-        # Minor - deviation around 75 nT (>50)
-        assert source._calculate_disturbance_level({"H": 19925}) == AlertLevel.MINOR
+        payload = json.loads((fixtures / "usgs_geomag_bou_2024_05_10.json").read_text())
+        points = source._parse_response(USGSObservatory.BOULDER, payload["data"])
+        levels = Counter(p.alert_level for p in points)
+        assert levels[AlertLevel.NONE] + levels[AlertLevel.MINOR] > len(points) * 0.5
+        assert levels[AlertLevel.MODERATE] + levels[AlertLevel.STRONG] > 0  # the storm shows
+        assert points and points[0].metadata["format"] == "json"
 
 
 class TestINTERMAGNETSource:
@@ -1362,6 +1446,17 @@ class TestThreadSafety:
             futures = [executor.submit(cache_operation, i) for i in range(20)]
             for future in concurrent.futures.as_completed(futures):
                 future.result()  # Will raise if there was an exception
+
+        # The cache is still coherent after the concurrent storm.
+        point = DataPoint(
+            source_id="test_source",
+            source_type=DataSourceType.EARTHQUAKE,
+            event_id="post_storm_001",
+            timestamp=datetime.now(UTC),
+            data={"magnitude": 1.0},
+        )
+        source._set_cached("post_storm", [point])
+        assert source._get_cached("post_storm") == [point]
 
 
 if __name__ == "__main__":

@@ -51,7 +51,9 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
-    # Custom metric: Request rate (requires Prometheus adapter)
+    # Custom metrics below require prometheus-adapter with
+    # monitoring/prometheus/prometheus-adapter-rules.yaml.
+    # Custom metric: Request rate
     - type: Pods
       pods:
         metric:
@@ -115,15 +117,20 @@ spec:
         target:
           type: Utilization
           averageUtilization: 85
-    # Custom metric: Detection queue depth
+    # Custom metric: streaming consumer-group backlog, published by the
+    # `mercury stream` worker and served through prometheus-adapter
+    # (monitoring/prometheus/prometheus-adapter-rules.yaml). The selector uses
+    # the Prometheus labels monitoring/prometheus/podmonitors.yaml attaches --
+    # a Kubernetes-style key such as app.kubernetes.io/name is not a legal
+    # Prometheus label name and can never match a series.
     - type: External
       external:
         metric:
           name: omni_detection_queue_depth
           selector:
             matchLabels:
-              app.kubernetes.io/name: mercury-agent
-              app.kubernetes.io/component: engine
+              app: mercury-agent
+              service: engine
         target:
           type: Value
           value: "50"

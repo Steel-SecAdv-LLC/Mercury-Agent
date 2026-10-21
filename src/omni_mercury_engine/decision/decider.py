@@ -333,7 +333,7 @@ class DecisionAbstentionResponder:
             )
             return
 
-        if self.policy.drift_is_deferring(ev.drift_severity):
+        if ev.drift_detected and self.policy.drift_is_deferring(ev.drift_severity):
             # Drift is resolved by recalibrating on fresh data -- a data request.
             self._demote(
                 v,

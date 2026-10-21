@@ -1,0 +1,193 @@
+{
+ "source_url": "https://www.gdacs.org/gdacsapi/api/export/gettimeline?id=697071",
+ "storm_name": "TWENTYTWO-25",
+ "items": [
+  {
+   "advisory_number": "1",
+   "advisory_datetime": "06 Sep 2025 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "15.432",
+   "storm_status": [
+    "Tropical Depression",
+    "Tropical Depression"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "2",
+   "advisory_datetime": "06 Sep 2025 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "18.004",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "3",
+   "advisory_datetime": "06 Sep 2025 18:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "20.576",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "4",
+   "advisory_datetime": "07 Sep 2025 00:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "5",
+   "advisory_datetime": "07 Sep 2025 06:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "894761",
+   "pop74": "0",
+   "country": "China",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "6",
+   "advisory_datetime": "07 Sep 2025 12:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "25.72",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "65238352",
+   "pop74": "60936",
+   "country": "China",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "7",
+   "advisory_datetime": "07 Sep 2025 18:00",
+   "actual": "True",
+   "current": "false",
+   "wind_speed": "30.864",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "83131825",
+   "pop74": "0",
+   "country": "China",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "8",
+   "advisory_datetime": "08 Sep 2025 00:00",
+   "actual": "True",
+   "current": "true",
+   "wind_speed": "33.436",
+   "storm_status": [
+    "Hurricane/Typhoon > 74 mph",
+    "Hurricane/Typhoon > 74 mph"
+   ],
+   "pop39": "88300832",
+   "pop74": "9732066",
+   "country": "China",
+   "alertscore": "2",
+   "alertcolor": "ORANGE",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "8",
+   "advisory_datetime": "08 Sep 2025 12:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "23.148",
+   "storm_status": [
+    "Tropical Storm",
+    "Tropical Storm"
+   ],
+   "pop39": "23009628",
+   "pop74": "0",
+   "country": "China",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "8",
+   "advisory_datetime": "09 Sep 2025 00:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "15.432",
+   "storm_status": [
+    "Tropical Depression",
+    "Tropical Depression"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "China",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  },
+  {
+   "advisory_number": "8",
+   "advisory_datetime": "09 Sep 2025 12:00",
+   "actual": "False",
+   "current": "false",
+   "wind_speed": "10.288",
+   "storm_status": [
+    "Tropical Depression",
+    "Tropical Depression"
+   ],
+   "pop39": "0",
+   "pop74": "0",
+   "country": "China",
+   "alertscore": "1",
+   "alertcolor": "GREEN",
+   "alertdecreased": "false"
+  }
+ ]
+}

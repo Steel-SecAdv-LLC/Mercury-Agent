@@ -36,6 +36,7 @@ Research sources:
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -43,6 +44,17 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors._hazard_input import (
+    InvalidObservationError,
+    finite_array,
+    finite_scalar,
+)
+from omni_mercury_engine.detectors.geological.sea_level import (
+    detide,
+    quietest_segment_sigma,
+    remove_isolated_spikes,
+)
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -139,13 +151,24 @@ FEATURE_DIM = 20
 
 
 class TsunamiSeverity(Enum):
-    """Tsunami severity classification based on wave height."""
+    """Observed-height category of a detected tsunami at the recording instrument.
+
+    Heights follow the NWS observed-height criteria (NWSI 10-701 §3.4,
+    https://www.weather.gov/media/directives/010_pdfs/pd01007001curr.pdf):
+    Warning above 1 m, Advisory 0.5-1 m; PTWC's top threat band (> 3 m) is
+    MAJOR, and a detected wave below 0.5 m is INFORMATION ("minor waves at
+    most"). A Watch has no height criterion (an event that may later impact
+    the area), so no height maps to WATCH. These describe the wave at this
+    gauge: a deep-ocean DART amplitude understates the coastal height, which
+    warning centres forecast with propagation models.
+    """
 
     NONE = "none"
-    ADVISORY = "advisory"  # < 0.3m
-    WATCH = "watch"  # 0.3-1m
-    WARNING = "warning"  # 1-3m
-    MAJOR = "major"  # > 3m
+    INFORMATION = "information"  # detected, < 0.5 m
+    ADVISORY = "advisory"  # 0.5-1 m
+    WATCH = "watch"  # no height criterion
+    WARNING = "warning"  # 1-3 m
+    MAJOR = "major"  # > 3 m
 
 
 class EarthquakeMagnitude(Enum):
@@ -203,6 +226,9 @@ class TsunamiPredictionResult:
 
     resonance_score: float = 0.0
     dominant_frequencies: list[float] = field(default_factory=list)
+    # Peak detided residual in noise units (|residual| max / noise scale). It
+    # was the standard deviation of the raw power spectrum: unbounded and in
+    # the square of whatever unit the record used.
     waveform_anomaly_score: float = 0.0
 
     # Diagnostic-only NN wave-height estimate (populated only when a trained
@@ -247,6 +273,7 @@ class EarthquakePredictionResult:
     spectral_anomalies: list[float] = field(default_factory=list)
 
     warning_actions: list[str] = field(default_factory=list)
+    # 0.0 means "not estimated": no calibrated aftershock model exists.
     aftershock_probability: float = 0.0
 
     # Live-ingestion provenance (populated only by detect_live()).
@@ -256,6 +283,11 @@ class EarthquakePredictionResult:
 
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
+
+    # Which path decided: "learned_seismic_stead", "physics_sta_lta", or
+    # "usgs_catalog" (detect_live). Added after the released fields so
+    # positional construction keeps their order.
+    detection_method: str = "physics_sta_lta"
 
 
 @dataclass
@@ -542,6 +574,19 @@ class BayesianMeteorFilter:
         return posterior
 
 
+#: DART bottom-pressure trigger level in the North Pacific (30 mm; Mofjeld,
+#: https://nctr.pmel.noaa.gov/tda_documentation.html): the physics path does
+#: not call a tsunami on a smaller residual.
+DART_TRIGGER_M = 0.03
+
+#: Largest tidal range a record in metres can carry (the largest on Earth,
+#: Bay of Fundy, is about 16 m).
+MAX_TIDE_RANGE_M = 20.0
+
+#: Largest detided residual a record in metres can carry.
+MAX_RESIDUAL_M = 30.0
+
+
 class TsunamiDetector:
     """Tsunami detector using oceanic waveform FFT analysis.
 
@@ -572,7 +617,7 @@ class TsunamiDetector:
 
     def __init__(
         self,
-        sampling_rate: float = 1.0,
+        sampling_rate: float = 1.0 / 900.0,
         detection_threshold: float = 0.96,
         device: str = "cpu",
         data_source: USGSEarthquakeSource | None = None,
@@ -589,7 +634,11 @@ class TsunamiDetector:
         inventing a waveform.
 
         Args:
-            sampling_rate: Waveform sampling rate (Hz).
+            sampling_rate: Waveform sampling rate (Hz). The default is the
+                DART standard-mode rate, one sample per 15 min, which is also
+                the trained checkpoint's contract; pass the record's own rate
+                (NOS tide gauges: 1/360 or 1/60 Hz). The former 1 Hz default
+                matched no sea-level product.
             detection_threshold: Confidence threshold for detection.
             device: Torch device for the (optional) neural analyzer.
             data_source: Optional USGS earthquake-catalog client.
@@ -642,7 +691,12 @@ class TsunamiDetector:
         # path always keeps ``detection_threshold``).
         self._operating_point: dict[str, float] | None = None
 
-        self.tsunami_frequencies = [0.001, 0.005, 0.01, 0.02]
+        if not np.isfinite(sampling_rate) or sampling_rate <= 0.0:
+            raise ValueError(f"sampling_rate must be a positive frequency, got {sampling_rate}")
+        # Resonance targets inside the tsunami band (periods 60, 30, 15 and
+        # 7.5 min; IOC: 5-60 min typical). Three of the former four (3.3 min,
+        # 100 s, 50 s) were shorter than tsunami periods.
+        self.tsunami_frequencies = [1.0 / 3600.0, 1.0 / 1800.0, 1.0 / 900.0, 1.0 / 450.0]
 
         logger.info(f"TsunamiDetector initialized: threshold={detection_threshold}")
 
@@ -732,101 +786,128 @@ class TsunamiDetector:
     ) -> TsunamiPredictionResult:
         """Predict tsunami from oceanic waveform data.
 
+        The record is detided first (:mod:`.sea_level`: harmonic for 12 h or
+        more, cubic below, refused under 30 min), isolated single-sample
+        glitches are removed, and the wave height is the peak of that
+        residual. A pure tide, a constant offset and a lone spike therefore
+        score as no tsunami; each read "watch" or "major" before.
+
         Args:
-            waveform_data: Sea level or pressure waveform [seq_len] or [batch, seq_len]
+            waveform_data: One sea-level or bottom-pressure record in metres,
+                ``[seq_len]`` or ``[1, seq_len]``, sampled at
+                ``self.sampling_rate``.
             source_info: Optional source information (earthquake magnitude, location)
 
         Returns:
-            TsunamiPredictionResult with detection details
+            TsunamiPredictionResult with detection details. ``severity`` and
+            the evacuation zones are set only for a detected tsunami.
+
+        Raises:
+            InvalidObservationError: On non-finite samples, more than one
+                record, a record shorter than 30 min, or values that cannot be
+                metres (tidal range above 20 m or a residual above 30 m).
         """
-        if isinstance(waveform_data, np.ndarray):
-            waveform_data = torch.from_numpy(waveform_data).float()
+        record = finite_array(waveform_data, "waveform_data", unit="m", ndim=(1, 2))
+        if record.ndim == 2:
+            if record.shape[0] != 1:
+                raise InvalidObservationError(
+                    f"predict_tsunami scores one record per call, got {record.shape[0]}; "
+                    "only the first was read before"
+                )
+            record = record[0]
+        period_s = 1.0 / self.sampling_rate
 
-        if waveform_data.dim() == 1:
-            waveform_data = waveform_data.unsqueeze(0)
-
-        waveform_data = waveform_data.to(self.device)
-
-        # Reject non-finite samples up front. A single NaN/Inf makes
-        # ``np.median``/``np.max`` return NaN, and ``_determine_severity(NaN)``
-        # falls through every ``<`` comparison to the most-severe MAJOR bucket --
-        # i.e. corrupt or missing sensor data would fabricate a maximum-severity
-        # tsunami warning ("EVACUATE coastal areas immediately"). Fail loud so the
-        # caller cleans/interpolates the record instead of acting on a phantom
-        # alert.
-        if not np.isfinite(waveform_data.detach().cpu().numpy()).all():
-            raise ValueError(
-                "predict_tsunami received non-finite (NaN/Inf) waveform samples; "
-                "a severity computed from corrupt/missing sensor readings is "
-                "meaningless. Clean or interpolate the record before detection."
+        residual, tide = detide(record, period_s)
+        # The largest tides on Earth span about 16 m and no gauge has recorded
+        # a tsunami residual near 30 m; values beyond either are not metres.
+        tide_range = float(tide.max() - tide.min())
+        if tide_range > MAX_TIDE_RANGE_M:
+            raise InvalidObservationError(
+                f"record's tidal range is {tide_range:.1f}, above {MAX_TIDE_RANGE_M:g} m; "
+                "waveform_data must be in metres"
             )
+        noise_m = quietest_segment_sigma(residual)
+        cleaned, n_spikes = remove_isolated_spikes(residual, noise_m, period_s)
+        if n_spikes:
+            # The tide fit absorbed part of each glitch; refit without them.
+            residual, tide = detide(tide + cleaned, period_s)
+            noise_m = quietest_segment_sigma(residual)
+        wave_height_m = float(np.max(np.abs(residual)))
+        if wave_height_m > MAX_RESIDUAL_M:
+            raise InvalidObservationError(
+                f"detided residual peaks at {wave_height_m:.1f}, above {MAX_RESIDUAL_M:g} m; "
+                "waveform_data must be in metres"
+            )
+        z_peak = wave_height_m / noise_m
 
-        fft_result = fft(waveform_data.cpu().numpy()[0])
-        freqs = fftfreq(len(fft_result), 1.0 / self.sampling_rate)
+        n = residual.size
+        fft_result = fft(residual)
+        freqs = fftfreq(n, period_s)
         power_spectrum = np.abs(fft_result) ** 2
-
+        # Resonance on the residual, excluding the DC bin: on the raw record a
+        # constant 4000 m column snapped every target onto DC and read
+        # resonance 1.0. A target is scored only if it lies below Nyquist and
+        # the record holds at least two of its cycles.
+        resolution_hz = 1.0 / (n * period_s)
+        nyquist_hz = 0.5 / period_s
+        positive = slice(1, n // 2 + 1)
+        global_power = float(power_spectrum[positive].mean()) + 1e-30
         resonance_score = 0.0
         dominant_freqs = []
-
         for target_freq in self.tsunami_frequencies:
-            idx = np.argmin(np.abs(freqs - target_freq))
-            if idx < len(power_spectrum):
-                local_power = power_spectrum[max(0, idx - 2) : idx + 3].mean()  # type: ignore[misc, unused-ignore]
-                global_power = power_spectrum.mean() + 1e-10
-                if local_power / global_power > 2.0:
-                    resonance_score += 0.25
-                    dominant_freqs.append(float(freqs[idx]))
+            if target_freq >= nyquist_hz or target_freq < 2.0 * resolution_hz:
+                continue
+            idx = round(target_freq / resolution_hz)
+            local_power = float(power_spectrum[max(1, idx - 2) : idx + 3].mean())
+            if local_power / global_power > 2.0:
+                resonance_score += 0.25
+                dominant_freqs.append(float(freqs[idx]))
 
-        # The reported wave height is a MEASUREMENT on BOTH paths: the peak
-        # sea-level deviation from the median baseline is what the record
-        # itself shows (what a DART bottom-pressure recorder measures). The
-        # trained network also carries a wave-height regression head, but a
-        # measured quantity is never replaced by a worse model estimate (the
-        # head's held-out MAE is ~4x the measurement's), so the NN estimate
-        # is surfaced as the diagnostic-only ``nn_wave_height_m``.
-        record = waveform_data.cpu().numpy()[0]
-        median = float(np.median(record))
-        wave_height_m = float(np.max(np.abs(record - median)))
+        # The reported wave height is a MEASUREMENT on both paths: the peak
+        # detided residual is what the record itself shows. The trained
+        # network's wave-height head is surfaced only as the diagnostic
+        # ``nn_wave_height_m`` (its held-out MAE is ~4x the measurement's).
         nn_wave_height_m: float | None = None
+        amplitude_severity = float(np.clip((z_peak - 5.0) / 15.0, 0.0, 1.0))
 
         if self._neural_trained:
+            # The network's contract is a detided window, so it receives the
+            # residual (identical to the training preprocessing for a 24 h
+            # DART window; see sea_level).
+            tensor = torch.from_numpy(residual.astype(np.float32)).unsqueeze(0).to(self.device)
             with torch.no_grad():
-                tsunami_prob, nn_wave_height = self.waveform_analyzer(waveform_data)
+                tsunami_prob, nn_wave_height = self.waveform_analyzer(tensor)
             confidence = float(tsunami_prob[0].item())
             confidence = min(1.0, confidence + resonance_score * 0.3)
             nn_wave_height_m = float(nn_wave_height[0].item())
         else:
-            # Physics path: the confidence is a noisy-OR of the robust
-            # amplitude severity with the tsunami-band resonance score.
-            # Deterministic; nothing is fabricated.
+            # Physics path: a noisy-OR of the amplitude severity (z 5, an
+            # ordinary noise extreme, maps to 0; z 20 saturates) with the
+            # tsunami-band resonance score. Deterministic.
             self._warn_untrained_once()
-            # Noise floor from the QUIETEST segment of the record, not the whole
-            # record -- a long-period tsunami excursion would otherwise inflate
-            # its own baseline (self-masking). Deterministic.
-            n_segments = max(1, min(8, len(record) // 64))
-            segment_scales = []
-            for seg in np.array_split(record, n_segments):
-                seg_mad = float(np.median(np.abs(seg - np.median(seg))))
-                if seg_mad > 0:
-                    segment_scales.append(1.4826 * seg_mad)
-            scale = min(segment_scales) if segment_scales else (float(np.std(record)) or 1.0)
-            z_peak = wave_height_m / scale
-            # z 5 (ordinary extreme of noise) → 0; z 20 (unambiguous long-period
-            # excursion) saturates. Resonance compounds via noisy-OR.
-            amplitude_severity = float(np.clip((z_peak - 5.0) / 15.0, 0.0, 1.0))
             confidence = 1.0 - (1.0 - amplitude_severity) * (1.0 - resonance_score)
 
-        # Deployed decision rule: the physics path thresholds at the
-        # constructor's ``detection_threshold``; the learned path uses the
-        # checkpoint's ratified operating point when it carries one (the
-        # validation-selected tau IS part of the deployed rule the merit
-        # gate evaluated -- see tsunami_waveform._select_operating_point).
+        # Deployed decision rule: the learned path uses the checkpoint's
+        # ratified operating point when it carries one (see
+        # tsunami_waveform._select_operating_point). The physics path also
+        # needs amplitude evidence -- resonance alone cannot detect -- and a
+        # residual of at least the DART trigger level.
         if self._neural_trained and self._operating_point is not None:
             tsunami_detected = confidence > self._operating_point["detection_threshold"]
-        else:
+        elif self._neural_trained:
             tsunami_detected = confidence > self.detection_threshold
+        else:
+            tsunami_detected = (
+                confidence > self.detection_threshold
+                and amplitude_severity > 0.0
+                and wave_height_m >= DART_TRIGGER_M
+            )
 
-        severity = self._determine_severity(wave_height_m)
+        severity = (
+            self._determine_severity(wave_height_m)
+            if tsunami_detected
+            else TsunamiSeverity.NONE.value
+        )
 
         arrival_time = None
         if source_info and "distance_km" in source_info:
@@ -834,7 +915,7 @@ class TsunamiDetector:
             arrival_time = source_info["distance_km"] / tsunami_speed_kmh * 60
 
         warnings = self._generate_warnings(tsunami_detected, severity)
-        zones = self._generate_evacuation_zones(severity)
+        zones = self._generate_evacuation_zones(severity) if tsunami_detected else []
 
         diagnostics: HazardDiagnostics | None = None
         if self.keep_diagnostics:
@@ -863,7 +944,7 @@ class TsunamiDetector:
             source_magnitude=source_info.get("magnitude") if source_info else None,
             resonance_score=resonance_score,
             dominant_frequencies=dominant_freqs,
-            waveform_anomaly_score=float(np.std(power_spectrum)),
+            waveform_anomaly_score=float(z_peak),
             nn_wave_height_m=nn_wave_height_m,
             warning_actions=warnings,
             evacuation_zones=zones,
@@ -960,17 +1041,14 @@ class TsunamiDetector:
         return result
 
     def _determine_severity(self, wave_height: float) -> str:
-        """Determine tsunami severity from wave height."""
-        if wave_height < 0.1:
-            return TsunamiSeverity.NONE.value
-        elif wave_height < 0.3:
-            return TsunamiSeverity.ADVISORY.value
-        elif wave_height < 1.0:
-            return TsunamiSeverity.WATCH.value
-        elif wave_height < 3.0:
-            return TsunamiSeverity.WARNING.value
-        else:
+        """Observed-height category of a detected tsunami (see :class:`TsunamiSeverity`)."""
+        if wave_height > 3.0:
             return TsunamiSeverity.MAJOR.value
+        if wave_height > 1.0:
+            return TsunamiSeverity.WARNING.value
+        if wave_height >= 0.5:
+            return TsunamiSeverity.ADVISORY.value
+        return TsunamiSeverity.INFORMATION.value
 
     def _generate_warnings(self, detected: bool, severity: str) -> list[str]:
         """Generate warning actions based on detection."""
@@ -994,6 +1072,13 @@ class TsunamiDetector:
                     "Prepare for possible evacuation",
                     "Stay informed via emergency broadcasts",
                     "Avoid coastal areas",
+                ]
+            )
+        elif severity == TsunamiSeverity.ADVISORY.value:
+            warnings.extend(
+                [
+                    "Strong currents likely: stay out of the water",
+                    "Stay away from beaches, harbors and waterways",
                 ]
             )
 
@@ -1046,6 +1131,190 @@ class TsunamiDetector:
         return features
 
 
+#: STA/LTA trigger band (Hz). STA/LTA runs on filtered traces: the filter
+#: removes the DC offset, which otherwise makes |x| meaningless, and the
+#: microseism (Trnkoczy, NMSOP IS 8.1). A +1000-count offset hid a clear event
+#: from the unfiltered ratio.
+STA_LTA_BAND_HZ = (1.0, 45.0)
+
+#: STA and LTA window lengths (s) of the detector's trigger.
+STA_WINDOW_S = 0.5
+LTA_WINDOW_S = 5.0
+
+
+def local_magnitude(amplitude_nm: float, hypocentral_distance_km: float) -> float:
+    """IASPEI standard local magnitude.
+
+    ``ML = log10(A) + 1.11 log10(R) + 0.00189 R - 2.09`` (IASPEI Working Group
+    on Magnitudes, 2013; Hutton & Boore 1987 with the measured Wood-Anderson
+    gain of 2080), for crustal events with southern-California-like
+    attenuation; other regions need their own calibration.
+
+    Args:
+        amplitude_nm: Maximum horizontal trace amplitude, nm, on a record
+            filtered to the Wood-Anderson response with static magnification 1.
+        hypocentral_distance_km: Hypocentral distance, km (at most 1000).
+
+    Returns:
+        ML.
+
+    Raises:
+        InvalidObservationError: On a non-positive amplitude or a distance
+            outside (0, 1000] km.
+    """
+    amplitude = finite_scalar(amplitude_nm, "wood_anderson_amplitude_nm", unit="nm", lo=0.0)
+    distance = finite_scalar(
+        hypocentral_distance_km, "hypocentral_distance_km", unit="km", lo=0.0, hi=1000.0
+    )
+    if amplitude == 0.0 or distance == 0.0:
+        raise InvalidObservationError("ML needs a positive amplitude and hypocentral distance")
+    return math.log10(amplitude) + 1.11 * math.log10(distance) + 0.00189 * distance - 2.09
+
+
+#: Reasenberg & Jones (1989) generic California aftershock sequence: rate of
+#: M >= M_min aftershocks 10^(a + b (M_main - M_min)) (t + c)^-p per day, t
+#: and c in days (USGS Open-File Report 96-266). Regional: other regions need
+#: their own parameters (Page et al. 2016), so a detector uses them only when
+#: they are passed as ``aftershock_parameters``.
+REASENBERG_JONES_GENERIC_CALIFORNIA: dict[str, float] = {
+    "a": -1.67,
+    "b": 0.91,
+    "p": 1.08,
+    "c": 0.05,
+}
+
+#: Aftershock forecast reported by the detector: at least one M >= 5 within 7 days.
+AFTERSHOCK_MIN_MAGNITUDE = 5.0
+AFTERSHOCK_WINDOW_DAYS = 7.0
+
+
+def reasenberg_jones_probability(
+    mainshock_magnitude: float,
+    parameters: dict[str, float],
+    *,
+    min_magnitude: float = AFTERSHOCK_MIN_MAGNITUDE,
+    start_days: float = 0.0,
+    duration_days: float = AFTERSHOCK_WINDOW_DAYS,
+) -> float:
+    """Probability of at least one aftershock of ``min_magnitude`` or more in a window.
+
+    The expected number is the Reasenberg-Jones rate integrated over
+    ``[start_days, start_days + duration_days]`` after the mainshock, and
+    the probability is ``1 - exp(-N)`` (Poisson).
+
+    Args:
+        mainshock_magnitude: Mainshock magnitude.
+        parameters: ``a``, ``b``, ``p``, ``c`` (c in days).
+        min_magnitude: Smallest aftershock magnitude counted.
+        start_days: Window start, days after the mainshock.
+        duration_days: Window length, days.
+
+    Returns:
+        Probability in [0, 1).
+    """
+    a, b, p, c = (
+        finite_scalar(parameters[k], f"aftershock parameter {k}", unit="-") for k in "abpc"
+    )
+    t1 = finite_scalar(start_days, "start_days", unit="days", lo=0.0)
+    t2 = t1 + finite_scalar(duration_days, "duration_days", unit="days", lo=0.0)
+    if c <= 0.0:
+        raise InvalidObservationError("aftershock parameter c must be positive (days)")
+    if abs(p - 1.0) < 1e-9:
+        decay = math.log((t2 + c) / (t1 + c))
+    else:
+        decay = ((t1 + c) ** (1.0 - p) - (t2 + c) ** (1.0 - p)) / (p - 1.0)
+    expected = 10.0 ** (a + b * (mainshock_magnitude - min_magnitude)) * decay
+    return 1.0 - math.exp(-expected)
+
+
+def gutenberg_richter_b(
+    magnitudes: np.ndarray[Any, Any], bin_width: float = 0.1, min_events: int = 50
+) -> tuple[float | None, tuple[float, float] | None, float | None, int]:
+    """Maximum-likelihood Gutenberg-Richter b-value above the completeness magnitude.
+
+    Completeness ``Mc`` is the maximum-curvature estimate (the mode of the
+    binned frequency-magnitude distribution, Wiemer & Wyss 2000) plus 0.2,
+    the usual correction for its underestimate (Woessner & Wiemer 2005).
+    ``b = log10(e) / (mean(M >= Mc) - (Mc - bin_width / 2))`` (Aki 1965), with
+    the ``(N - 1) / N`` small-sample correction and a 95% interval
+    ``b (1 +/- 1.96 / sqrt(N))``. Fewer than ``min_events`` above ``Mc`` gives
+    no estimate (Marzocchi et al. 2020, GJI 220: N = 50 is the common floor).
+    Taking the smallest observed magnitude as ``Mc`` gave b = 0.37 on a live
+    100-event global feed.
+
+    Returns:
+        ``(b, ci95, Mc, n_above_mc)``; ``b``, ``ci95`` and ``Mc`` are None
+        when there are too few events.
+    """
+    mags = np.asarray(magnitudes, dtype=np.float64)
+    mags = mags[np.isfinite(mags)]
+    if mags.size < min_events:
+        return None, None, None, int(mags.size)
+    binned = np.round(mags / bin_width) * bin_width
+    values, counts = np.unique(np.round(binned, 6), return_counts=True)
+    mc = float(values[int(np.argmax(counts))]) + 0.2
+    above = mags[binned >= mc - 1e-9]
+    n = int(above.size)
+    excess = float(above.mean()) - (mc - bin_width / 2.0) if n else 0.0
+    if n < min_events or excess <= 0.0:
+        return None, None, mc, n
+    b = float(np.log10(np.e) / excess) * (n - 1) / n
+    half = 1.96 / np.sqrt(n)
+    return b, (b * (1.0 - half), b * (1.0 + half)), mc, n
+
+
+def condition_trace(trace: np.ndarray[Any, Any], sampling_rate: float) -> np.ndarray[Any, Any]:
+    """Detrend and band-pass a seismic trace for STA/LTA triggering.
+
+    Linear detrend (which removes the mean), then a zero-phase 4th-order
+    Butterworth band-pass over :data:`STA_LTA_BAND_HZ`, its upper edge capped
+    at 0.45 x the sampling rate. Below about 2.2 Hz sampling there is no band
+    left and only the detrend applies. Shared with the ``seismic_stead``
+    training pipeline, which mirrors the detector's physics.
+
+    Args:
+        trace: 1-D finite waveform.
+        sampling_rate: Sampling rate (Hz).
+
+    Returns:
+        The conditioned trace, ``float64``.
+    """
+    x = signal.detrend(np.asarray(trace, dtype=np.float64), type="linear")
+    low, high = STA_LTA_BAND_HZ[0], min(STA_LTA_BAND_HZ[1], 0.45 * sampling_rate)
+    if high > low:
+        sos = signal.butter(4, [low, high], btype="bandpass", fs=sampling_rate, output="sos")
+        if x.size > 3 * (2 * sos.shape[0] + 1):
+            x = signal.sosfiltfilt(sos, x)
+    return np.asarray(x, dtype=np.float64)
+
+
+def sta_lta_ratio(
+    conditioned: np.ndarray[Any, Any], sampling_rate: float
+) -> np.ndarray[Any, Any] | None:
+    """STA/LTA ratio of ``|x|`` per sample (0 outside the computable span).
+
+    ``STA`` is the mean over the next :data:`STA_WINDOW_S`, ``LTA`` the mean
+    over the previous :data:`LTA_WINDOW_S`, both by cumulative sums (the former
+    per-sample Python loop took 0.84 s per 60,000 samples).
+
+    Returns:
+        The ratio series, or ``None`` when the trace is shorter than one
+        STA + LTA window.
+    """
+    sta_len = int(STA_WINDOW_S * sampling_rate)
+    lta_len = int(LTA_WINDOW_S * sampling_rate)
+    x = np.abs(conditioned)
+    if sta_len < 1 or len(x) < lta_len + sta_len:
+        return None
+    csum = np.concatenate(([0.0], np.cumsum(x)))
+    idx = np.arange(lta_len, len(x) - sta_len)
+    ratio = np.zeros(len(x))
+    sta = (csum[idx + sta_len] - csum[idx]) / sta_len
+    lta = (csum[idx] - csum[idx - lta_len]) / lta_len
+    ratio[idx] = sta / (lta + 1e-10)
+    return ratio
+
+
 class EarthquakeDetector:
     """Earthquake detector using P/S-wave spectrogram analysis.
 
@@ -1068,6 +1337,7 @@ class EarthquakeDetector:
         data_source: USGSEarthquakeSource | None = None,
         keep_diagnostics: bool = False,
         load_shipped_weights: bool = True,
+        aftershock_parameters: dict[str, float] | None = None,
     ):
         """Initialize the instance.
 
@@ -1095,11 +1365,24 @@ class EarthquakeDetector:
                 regression guard's physics lane, and the honesty-contract
                 tests). Absence of the checkpoint falls open to physics; an
                 invalid checkpoint still fails loud.
+            aftershock_parameters: Reasenberg-Jones ``a``, ``b``, ``p``, ``c``
+                for the region monitored (e.g.
+                :data:`REASENBERG_JONES_GENERIC_CALIFORNIA`). With them,
+                ``aftershock_probability`` is the probability of an M >= 5
+                aftershock within 7 days of a known mainshock magnitude;
+                without them it stays 0.0 (not estimated), because generic
+                parameters from one region miscalibrate another.
         """
         if not TORCH_AVAILABLE:
             raise ImportError(
                 "EarthquakeDetector requires PyTorch. Install with: pip install torch"
             )
+        if aftershock_parameters is not None:
+            missing = set("abpc") - set(aftershock_parameters)
+            if missing:
+                raise ValueError(f"aftershock_parameters lacks {sorted(missing)}")
+            reasenberg_jones_probability(6.0, aftershock_parameters)  # validates values
+        self.aftershock_parameters = aftershock_parameters
         self.sampling_rate = sampling_rate
         self.detection_threshold = detection_threshold
         self.device = torch.device(device)
@@ -1134,6 +1417,9 @@ class EarthquakeDetector:
         # confidence. None until a checkpoint that declares one is loaded
         # (the physics path always keeps ``detection_threshold``).
         self._operating_point: dict[str, float] | None = None
+        self._contract_rate_hz: float | None = None
+        self._contract_window: int | None = None
+        self._warned_off_contract = False
 
         self.p_wave_velocity = 6.0
         self.s_wave_velocity = 3.5
@@ -1205,6 +1491,14 @@ class EarthquakeDetector:
                         "positive scale; refusing a nonsensical alert rule"
                     )
         self.seismic_analyzer.load_state_dict(checkpoint["seismic_analyzer"])
+        # Input contract the checkpoint was trained and evaluated on; the
+        # learned path runs only on input that matches it.
+        self._contract_rate_hz = (
+            float(checkpoint["sampling_rate_hz"]) if "sampling_rate_hz" in checkpoint else None
+        )
+        self._contract_window = (
+            int(checkpoint["window_samples"]) if "window_samples" in checkpoint else None
+        )
         if op is not None:
             self._operating_point = {"detection_threshold": float(op["detection_threshold"])}
             if temperature is not None:
@@ -1243,29 +1537,57 @@ class EarthquakeDetector:
         """Predict earthquake from seismic waveform data.
 
         Args:
-            seismic_data: Seismic waveform [seq_len] or [batch, seq_len]
-            station_info: Optional station information
+            seismic_data: One seismic waveform, ``[seq_len]`` or
+                ``[1, seq_len]``, sampled at ``self.sampling_rate``.
+            station_info: Optional station information. With
+                ``wood_anderson_amplitude_nm`` (peak horizontal amplitude on
+                the Wood-Anderson response, magnification 1) and
+                ``hypocentral_distance_km``, the IASPEI local magnitude is
+                reported (:func:`local_magnitude`).
 
         Returns:
-            EarthquakePredictionResult with detection details
+            EarthquakePredictionResult with detection details.
+            ``estimated_magnitude`` comes only from that calibrated amplitude
+            and distance: the learned head reads a per-trace z-normalised
+            spectrogram, which carries no amplitude (on real Alaska events it
+            scored worse than a constant), so the trace alone gives None.
+            ``aftershock_probability`` follows from a magnitude and the
+            constructor's ``aftershock_parameters``. ``detection_method``
+            names the path that ran.
+
+        Raises:
+            InputModalityError: If the input is not a 1-D or 2-D waveform.
+            InvalidObservationError: On non-finite samples, more than one
+                trace, or a trace shorter than one STA + LTA window.
         """
         if isinstance(seismic_data, torch.Tensor):
-            seismic_data = seismic_data.cpu().numpy()
-
-        if seismic_data.ndim == 1:
-            seismic_data = seismic_data.reshape(1, -1)
-        if seismic_data.ndim != 2:
+            seismic_data = seismic_data.detach().cpu().numpy()
+        seismic_data = np.asarray(seismic_data)
+        if seismic_data.ndim not in (1, 2):
             # Fail loud with the documented contract instead of the opaque
-            # downstream crash a 0-d scalar (IndexError on seismic_data[0])
-            # or a rank>=3 stack (scipy "Nx=0 is not a positive integer" on a
-            # 2-D trace slice) used to produce. Unlike the hazard feature
-            # lanes there is no physics fallback for a non-waveform input --
-            # every path below needs a 1-D trace.
-            raise ValueError(
+            # downstream crash a 0-d scalar or a rank>=3 stack used to
+            # produce: every path below needs a 1-D trace.
+            raise InputModalityError(
                 "predict_earthquake expects a seismic waveform shaped "
                 f"[seq_len] or [batch, seq_len]; got ndim={seismic_data.ndim} "
                 f"(shape {seismic_data.shape})"
             )
+        record = finite_array(seismic_data, "seismic_data", unit="counts", ndim=(1, 2))
+        if record.ndim == 2:
+            if record.shape[0] != 1:
+                raise InvalidObservationError(
+                    f"predict_earthquake scores one trace per call, got {record.shape[0]}; "
+                    "only the first was read before"
+                )
+            record = record[0]
+        min_samples = int((STA_WINDOW_S + LTA_WINDOW_S) * self.sampling_rate)
+        if record.size < min_samples:
+            raise InvalidObservationError(
+                f"seismic trace has {record.size} samples; one STA + LTA window "
+                f"({STA_WINDOW_S + LTA_WINDOW_S:g} s at {self.sampling_rate:g} Hz) "
+                f"needs {min_samples}"
+            )
+        seismic_data = record.reshape(1, -1)
 
         f, t, Sxx = signal.spectrogram(
             seismic_data[0],
@@ -1295,8 +1617,26 @@ class EarthquakeDetector:
             s_min_index = (p_arrival + int(self.sampling_rate)) if p_arrival is not None else 0
             s_arrival = self._first_arrival(sta_lta, "s", min_index=s_min_index)
 
+        # The learned path runs only on the input the checkpoint was trained
+        # and evaluated on (rate and window length); a 40 Hz trace used to go
+        # through the 100 Hz CNN with its frequency axis silently rescaled.
+        on_contract = self._neural_trained and (
+            (self._contract_rate_hz is None or self._contract_rate_hz == self.sampling_rate)
+            and (self._contract_window is None or self._contract_window == record.size)
+        )
+        if self._neural_trained and not on_contract and not self._warned_off_contract:
+            logger.warning(
+                "EarthquakeDetector: input (%g Hz, %d samples) is off the checkpoint's "
+                "contract (%s Hz, %s samples); using the STA/LTA physics path",
+                self.sampling_rate,
+                record.size,
+                self._contract_rate_hz,
+                self._contract_window,
+            )
+            self._warned_off_contract = True
+
         estimated_mag: float | None
-        if self._neural_trained:
+        if on_contract:
             spectrogram_tensor = torch.from_numpy(Sxx_norm).float().unsqueeze(0).unsqueeze(0)
             spectrogram_tensor = spectrogram_tensor.to(self.device)
 
@@ -1319,18 +1659,24 @@ class EarthquakeDetector:
                 else:
                     confidence = min(1.0, float(eq_prob[0].item()) + resonance_score * 0.2)
 
-            estimated_mag = float(magnitude[0].item()) * 4 + 2
+            # The magnitude head reads an amplitude-free spectrogram (its output
+            # was the same for a trace scaled by 1 and by 1e6), and the
+            # aftershock "probability" was min(0.9, M / 10): neither is served.
+            del magnitude
+            estimated_mag = None
             p_wave_detected = float(p_prob[0].item()) > 0.5
             s_wave_detected = float(s_prob[0].item()) > 0.5
-            magnitude_class = self._classify_magnitude(estimated_mag)
-            aftershock_probability = min(0.9, estimated_mag / 10)
+            magnitude_class = "undetermined"
+            aftershock_probability = 0.0
+            detection_method = "learned_seismic_stead"
         else:
             # Physics path: detection strength is the peak STA/LTA trigger ratio
             # blended with the seismic-band resonance; P/S detection is the
             # picker itself. No magnitude is fabricated -- an uncalibrated
             # single station has no transparent Richter estimate, so
             # estimated_magnitude stays None ("undetermined").
-            self._warn_untrained_once()
+            if not self._neural_trained:
+                self._warn_untrained_once()
             p_wave_detected = p_arrival is not None
             s_wave_detected = s_arrival is not None and (p_arrival is None or s_arrival > p_arrival)
             peak_ratio = self._peak_sta_lta(seismic_data[0])
@@ -1339,6 +1685,18 @@ class EarthquakeDetector:
             estimated_mag = None
             magnitude_class = "undetermined"
             aftershock_probability = 0.0
+            detection_method = "physics_sta_lta"
+
+        if station_info and station_info.get("wood_anderson_amplitude_nm") is not None:
+            if station_info.get("hypocentral_distance_km") is None:
+                raise InvalidObservationError(
+                    "wood_anderson_amplitude_nm needs hypocentral_distance_km for ML"
+                )
+            estimated_mag = local_magnitude(
+                station_info["wood_anderson_amplitude_nm"],
+                station_info["hypocentral_distance_km"],
+            )
+            magnitude_class = self._classify_magnitude(estimated_mag)
 
         # Deployed alert rule: the physics path thresholds at the
         # constructor's ``detection_threshold``; the learned path uses the
@@ -1346,10 +1704,19 @@ class EarthquakeDetector:
         # validation-selected tau IS part of the deployed rule the merit gate
         # evaluated -- see seismic_wave._select_operating_point). Alert
         # decision only; the confidence estimate above is never altered.
-        if self._neural_trained and self._operating_point is not None:
+        if on_contract and self._operating_point is not None:
             earthquake_detected = confidence > self._operating_point["detection_threshold"]
         else:
             earthquake_detected = confidence > self.detection_threshold
+
+        if (
+            earthquake_detected
+            and estimated_mag is not None
+            and self.aftershock_parameters is not None
+        ):
+            aftershock_probability = reasenberg_jones_probability(
+                estimated_mag, self.aftershock_parameters
+            )
 
         epicenter_distance = None
         if p_arrival is not None and s_arrival is not None and s_arrival > p_arrival:
@@ -1398,6 +1765,7 @@ class EarthquakeDetector:
             spectral_anomalies=self._find_spectral_anomalies(Sxx, f),
             warning_actions=warnings,
             aftershock_probability=aftershock_probability,
+            detection_method=detection_method,
             diagnostics=diagnostics,
         )
 
@@ -1426,6 +1794,7 @@ class EarthquakeDetector:
         station_lat: float | None = None,
         station_lon: float | None = None,
         allow_simulated: bool = False,
+        as_of: datetime | None = None,
         **fetch_kwargs: Any,
     ) -> EarthquakePredictionResult:
         """Assess live seismicity from the USGS event catalog.
@@ -1437,9 +1806,11 @@ class EarthquakeDetector:
         spectral anomalies) are absent/zero here and ``estimated_magnitude``
         is the LARGEST OBSERVED catalog magnitude -- a real USGS measurement,
         not a model estimate (the untrained-network magnitude fabrication was
-        removed in the transparency wave). ``aftershock_probability`` stays 0.0:
-        no calibrated Reasenberg-Jones parameters are available, so no
-        forecast is fabricated. Rate/clustering features (events/day,
+        removed in the transparency wave). ``aftershock_probability`` is the
+        Reasenberg-Jones probability of an M >= 5 aftershock of the largest
+        event in the 7 days after ``as_of`` when the detector was given
+        ``aftershock_parameters`` for the region; otherwise it stays 0.0 (not
+        estimated). Rate/clustering features (events/day,
         maximum-likelihood b-value per Aki 1965, clustered-event fraction)
         are reported in ``live_context``.
 
@@ -1448,6 +1819,7 @@ class EarthquakeDetector:
             station_lat: Optional station latitude for epicentral distance.
             station_lon: Optional station longitude for epicentral distance.
             allow_simulated: Explicit opt-in for simulated sources.
+            as_of: Forecast start for the aftershock window (default: now, UTC).
             **fetch_kwargs: Extra client fetch parameters (e.g. bounds).
 
         Returns:
@@ -1487,15 +1859,7 @@ class EarthquakeDetector:
         )
         events_per_day = len(events) / span_days
 
-        # Maximum-likelihood b-value (Aki 1965): b = log10(e) / (mean(M) -
-        # (Mc - dM/2)) with completeness Mc taken as the smallest observed
-        # magnitude and 0.1-unit binning. Only meaningful with enough events.
-        b_value: float | None = None
-        if len(magnitudes) >= 10:
-            mc = float(magnitudes.min())
-            mean_excess = float(magnitudes.mean()) - (mc - 0.05)
-            if mean_excess > 0:
-                b_value = float(np.log10(np.e) / mean_excess)
+        b_value, b_value_ci95, completeness_mc, n_above_mc = gutenberg_richter_b(magnitudes)
 
         # Clustered fraction: events with a preceding event within 100 km and
         # 72 h (a deterministic space-time clustering measure, not a forecast).
@@ -1523,6 +1887,16 @@ class EarthquakeDetector:
                 station_lat, station_lon, strongest.location[0], strongest.location[1]
             )
 
+        aftershock_probability = 0.0
+        if self.aftershock_parameters is not None:
+            elapsed_days = max(
+                ((as_of or datetime.now(UTC)) - strongest.timestamp).total_seconds() / 86400.0,
+                0.0,
+            )
+            aftershock_probability = reasenberg_jones_probability(
+                max_magnitude, self.aftershock_parameters, start_days=elapsed_days
+            )
+
         magnitude_class = self._classify_magnitude(max_magnitude)
         result = EarthquakePredictionResult(
             earthquake_detected=True,
@@ -1531,7 +1905,13 @@ class EarthquakeDetector:
             magnitude_class=magnitude_class,
             epicenter_distance_km=epicenter_distance,
             depth_km=(strongest.location[2] if strongest.location is not None else None),
-            warning_actions=self._generate_warnings(True, magnitude_class),
+            # A catalog says an earthquake happened, not that the caller will
+            # feel it: protective actions need a location-specific shaking
+            # estimate (ShakeMap), so a global M6 no longer tells everyone to
+            # "Take protective action".
+            warning_actions=["Monitor official earthquake information"],
+            aftershock_probability=aftershock_probability,
+            detection_method="usgs_catalog",
             source_id=fetch.source_id,
             data_provenance=fetch.data_provenance,
             live_context={
@@ -1541,6 +1921,9 @@ class EarthquakeDetector:
                 "max_magnitude": max_magnitude,
                 "mean_magnitude": float(magnitudes.mean()),
                 "b_value": b_value,
+                "b_value_ci95": b_value_ci95,
+                "completeness_magnitude": completeness_mc,
+                "events_above_completeness": n_above_mc,
                 "clustered_fraction": clustered_fraction,
                 "strongest_event": {
                     "event_id": strongest.event_id,
@@ -1554,17 +1937,9 @@ class EarthquakeDetector:
         return result
 
     def _peak_sta_lta(self, data: np.ndarray[Any, Any]) -> float:
-        """Peak STA/LTA trigger ratio over the record (0.0 if too short)."""
-        sta_len = int(0.5 * self.sampling_rate)
-        lta_len = int(5.0 * self.sampling_rate)
-        if len(data) < lta_len + sta_len:
-            return 0.0
-        peak = 0.0
-        for i in range(lta_len, len(data) - sta_len):
-            sta = np.mean(np.abs(data[i : i + sta_len]))
-            lta = np.mean(np.abs(data[i - lta_len : i]))
-            peak = max(peak, float(sta / (lta + 1e-10)))
-        return peak
+        """Peak STA/LTA trigger ratio of the conditioned trace (0.0 if too short)."""
+        ratio = sta_lta_ratio(condition_trace(data, self.sampling_rate), self.sampling_rate)
+        return float(ratio.max()) if ratio is not None else 0.0
 
     def _compute_resonance_score(
         self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]
@@ -1586,7 +1961,13 @@ class EarthquakeDetector:
         return min(1.0, score)
 
     def _classify_magnitude(self, magnitude: float) -> str:
-        """Classify earthquake magnitude."""
+        """Classify earthquake magnitude.
+
+        Raises:
+            InvalidObservationError: If ``magnitude`` is not finite (NaN fell
+                through every ``<`` to "great" before).
+        """
+        magnitude = finite_scalar(magnitude, "magnitude", unit="magnitude units")
         if magnitude < 2.0:
             return EarthquakeMagnitude.MICRO.value
         elif magnitude < 4.0:
@@ -1609,21 +1990,11 @@ class EarthquakeDetector:
             data: 1-D seismic waveform.
 
         Returns:
-            The per-sample short-term/long-term average ratio, or ``None`` when
-            the record is shorter than one STA+LTA window (no ratio exists).
+            The per-sample short-term/long-term average ratio of the
+            conditioned trace (:func:`condition_trace`), or ``None`` when the
+            record is shorter than one STA+LTA window (no ratio exists).
         """
-        sta_len = int(0.5 * self.sampling_rate)
-        lta_len = int(5.0 * self.sampling_rate)
-
-        if len(data) < lta_len + sta_len:
-            return None
-
-        sta_lta = np.zeros(len(data))
-        for i in range(lta_len, len(data) - sta_len):
-            sta = np.mean(np.abs(data[i : i + sta_len]))
-            lta = np.mean(np.abs(data[i - lta_len : i]))
-            sta_lta[i] = sta / (lta + 1e-10)
-        return sta_lta
+        return sta_lta_ratio(condition_trace(data, self.sampling_rate), self.sampling_rate)
 
     @staticmethod
     def _first_arrival(
@@ -2432,46 +2803,6 @@ def load_dart_buoy_data(
         return None
 
 
-def load_noaa_tsunami_records(
-    min_year: int = 2000,
-    max_records: int = 1000,
-) -> list[dict[str, Any]] | None:
-    """Load historical tsunami event records from NOAA NGDC.
-
-    Data source: NOAA National Centers for Environmental Information
-    https://www.ngdc.noaa.gov/hazel/view/hazards/tsunami/event-search
-
-    Args:
-        min_year: Minimum year for historical records
-        max_records: Maximum number of records to fetch
-
-    Returns:
-        List of tsunami event dictionaries or None if API unavailable
-    """
-    circuit_breaker = get_data_loader_breaker("noaa_tsunami")
-
-    def _fetch_tsunami_records() -> list[dict[str, Any]]:
-        data = SafeHTTPClient.get_json(
-            NOAA_TSUNAMI_API_URL,
-            params={"minYear": str(min_year), "maxSize": str(max_records)},
-            headers={"User-Agent": "Mercury-Agent/1.0"},
-            timeout=30,
-        )
-
-        events: list[dict[str, Any]] = data.get("items", [])
-        if not events:
-            raise RuntimeError("NOAA Tsunami API returned no events")
-
-        return events
-
-    try:
-        result: list[dict[str, Any]] = circuit_breaker.call(_fetch_tsunami_records)
-        return result
-    except Exception as e:
-        logger.warning(f"Failed to load NOAA tsunami records: {e}. Using synthetic fallback.")
-        return None
-
-
 def load_usgs_earthquake_catalog(
     days_back: int = 365,
     min_magnitude: float = 4.0,
@@ -2920,3 +3251,66 @@ def train_all_disaster_networks(
     logger.info("All disaster detection networks trained successfully.")
 
     return results
+
+
+def load_noaa_tsunami_records(
+    min_year: int = 2000,
+    max_records: int = 1000,
+) -> list[dict[str, Any]] | None:
+    """Load historical tsunami event records from NOAA NCEI HazEL.
+
+    Data source: NOAA National Centers for Environmental Information
+    https://www.ngdc.noaa.gov/hazel/view/hazards/tsunami/event-search
+
+    HazEL pages its results (``itemsPerPage`` up to 200, ``page`` from 1, with
+    ``totalPages`` in each response) and ignores any other size parameter, so
+    the records are read page by page until ``max_records`` or the last page.
+
+    Args:
+        min_year: Minimum year for historical records
+        max_records: Maximum number of records to fetch
+
+    Returns:
+        Up to ``max_records`` tsunami event dictionaries, or None if the
+        service is unavailable or returned no events.
+
+    Raises:
+        OfflineModeError: ``MERCURY_OFFLINE`` is set. The air-gap refusal is
+            raised, not reported as an unavailable service.
+        ValueError: ``max_records`` is not positive.
+    """
+    from omni_mercury_engine.security.safe_http import enforce_offline_egress
+
+    if max_records < 1:
+        raise ValueError(f"max_records must be positive, got {max_records}")
+    enforce_offline_egress(NOAA_TSUNAMI_API_URL)
+    circuit_breaker = get_data_loader_breaker("noaa_tsunami")
+    per_page = min(200, max_records)
+
+    def _fetch_tsunami_records() -> list[dict[str, Any]]:
+        events: list[dict[str, Any]] = []
+        page, total_pages = 1, 1
+        while page <= total_pages and len(events) < max_records:
+            data = SafeHTTPClient.get_json(
+                NOAA_TSUNAMI_API_URL,
+                params={
+                    "minYear": str(min_year),
+                    "itemsPerPage": str(per_page),
+                    "page": str(page),
+                },
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=30,
+            )
+            events.extend(data.get("items", []))
+            total_pages = int(data.get("totalPages", 0))
+            page += 1
+        if not events:
+            raise RuntimeError("NOAA Tsunami API returned no events")
+        return events[:max_records]
+
+    try:
+        result: list[dict[str, Any]] = circuit_breaker.call(_fetch_tsunami_records)
+        return result
+    except Exception as e:
+        logger.warning(f"Failed to load NOAA tsunami records: {e}; returning None.")
+        return None

@@ -49,6 +49,11 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     fetch_live_datapoints,
     require_live_client,
 )
+from omni_mercury_engine.detectors._hazard_input import (
+    InvalidObservationError,
+    finite_array,
+    finite_scalar,
+)
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
@@ -56,6 +61,12 @@ if TYPE_CHECKING:
         NOAANWPSSource,
         NWSWeatherAlertsSource,
     )
+
+#: NWS products issued when flooding is imminent or occurring (NWSI 10-320
+#: and 10-922); the matching Watch, Advisory and Statement products are not.
+FLOOD_WARNING_EVENTS = frozenset(
+    {"Flood Warning", "Flash Flood Warning", "Coastal Flood Warning", "Lakeshore Flood Warning"}
+)
 
 
 class FloodSeverity(Enum):
@@ -98,15 +109,22 @@ class FloodPredictionResult:
     soil_saturation_pct: float = 0.0
 
     runoff_coefficient: float = 0.0
+    #: Lead time (h) to the crest of the supplied stage forecast; 0.0 when the
+    #: forecast is no higher than the current stage. None without a forecast.
     time_to_peak_hours: float | None = None
-    peak_discharge_cfs: float = 0.0
+    #: Largest supplied discharge (observed, history or forecast), cfs; None
+    #: when no discharge was supplied (0.0 claimed a dry channel).
+    peak_discharge_cfs: float | None = None
 
     refactoring_score: float = 0.0
     model_optimization_iterations: int = 0
     prediction_uncertainty: float = 0.0
 
-    affected_area_sq_mi: float = 0.0
-    population_at_risk: int = 0
+    # Inundated area and exposed population need an inundation map and
+    # census exposure, which no input carries: None means not assessed (the
+    # former 0.0 / 0 read "nothing affected").
+    affected_area_sq_mi: float | None = None
+    population_at_risk: int | None = None
 
     warning_actions: list[str] = field(default_factory=list)
     evacuation_routes: list[str] = field(default_factory=list)
@@ -138,10 +156,36 @@ class PrecipitationAnalyzer:
         Returns:
             Precipitation analysis results
         """
-        precip_1h = precip_data.get("precipitation_1h_inches", 0.0)
-        precip_6h = precip_data.get("precipitation_6h_inches", 0.0)
-        precip_24h = precip_data.get("precipitation_24h_inches", 0.0)
-        forecast_24h = precip_data.get("forecast_24h_inches", 0.0)
+        # Upper bounds sit above the world records (about 12 in in 1 h and 72 in
+        # in 24 h); anything larger is millimetres, not inches.
+        precip_1h = finite_scalar(
+            precip_data.get("precipitation_1h_inches", 0.0),
+            "precipitation_1h_inches",
+            unit="in",
+            lo=0.0,
+            hi=15.0,
+        )
+        precip_6h = finite_scalar(
+            precip_data.get("precipitation_6h_inches", 0.0),
+            "precipitation_6h_inches",
+            unit="in",
+            lo=0.0,
+            hi=50.0,
+        )
+        precip_24h = finite_scalar(
+            precip_data.get("precipitation_24h_inches", 0.0),
+            "precipitation_24h_inches",
+            unit="in",
+            lo=0.0,
+            hi=80.0,
+        )
+        forecast_24h = finite_scalar(
+            precip_data.get("forecast_24h_inches", 0.0),
+            "forecast_24h_inches",
+            unit="in",
+            lo=0.0,
+            hi=80.0,
+        )
 
         flash_flood_risk = precip_1h >= self.flash_flood_threshold_1h
         flood_risk = precip_24h >= self.flood_threshold_24h
@@ -182,20 +226,53 @@ class RiverGaugeMonitor:
     def analyze_river_stage(self, gauge_data: dict[str, Any]) -> dict[str, Any]:
         """Analyze river gauge data for flood conditions.
 
+        NWS defines flood categories per forecast point (NWSM 10-950), and not
+        every point has every category, so the gauge's own stages are used and
+        none are invented: ``current_stage_ft`` and ``flood_stage_ft`` are
+        required, the others optional. The former defaults (action 10, flood
+        15, moderate 20, major 25, record 30 ft) classified an 8 ft creek with
+        a 6 ft flood stage as normal, and an empty record as at flood stage.
+
         Args:
-            gauge_data: River gauge measurements
+            gauge_data: River gauge measurements (feet).
 
         Returns:
-            River stage analysis results
+            River stage analysis results.
+
+        Raises:
+            InvalidObservationError: If the current or flood stage is missing
+                or not finite, or the supplied categories are out of order.
         """
-        current_stage = gauge_data.get("current_stage_ft", 0.0)
-        action_stage = gauge_data.get("action_stage_ft", 10.0)
-        flood_stage = gauge_data.get("flood_stage_ft", 15.0)
-        moderate_stage = gauge_data.get("moderate_flood_stage_ft", 20.0)
-        major_stage = gauge_data.get("major_flood_stage_ft", 25.0)
-        record_stage = gauge_data.get("record_stage_ft", 30.0)
+        if "current_stage_ft" not in gauge_data or "flood_stage_ft" not in gauge_data:
+            raise InvalidObservationError(
+                "gauge_data needs the observed 'current_stage_ft' and the gauge's own "
+                "'flood_stage_ft' (NWS minor-flood stage); categories are never defaulted"
+            )
+        current_stage = finite_scalar(gauge_data["current_stage_ft"], "current_stage_ft", unit="ft")
+        flood_stage = finite_scalar(gauge_data["flood_stage_ft"], "flood_stage_ft", unit="ft")
+        categories = [("minor", flood_stage)]
+        for key, status in (
+            ("moderate_flood_stage_ft", "moderate"),
+            ("major_flood_stage_ft", "major"),
+            ("record_stage_ft", "record"),
+        ):
+            if gauge_data.get(key) is not None:
+                categories.append((status, finite_scalar(gauge_data[key], key, unit="ft")))
+        stages = [stage for _, stage in categories]
+        if stages != sorted(stages):
+            raise InvalidObservationError(
+                f"gauge flood categories are out of order: {dict(categories)}; "
+                "expected flood <= moderate <= major <= record stage"
+            )
+        action_stage = (
+            finite_scalar(gauge_data["action_stage_ft"], "action_stage_ft", unit="ft")
+            if gauge_data.get("action_stage_ft") is not None
+            else None
+        )
 
         stage_history = gauge_data.get("stage_history_ft", [])
+        if len(stage_history):
+            stage_history = finite_array(stage_history, "stage_history_ft", unit="ft", ndim=1)
 
         if len(stage_history) >= 2:
             recent_change = stage_history[-1] - stage_history[0]
@@ -210,18 +287,40 @@ class RiverGaugeMonitor:
         else:
             trend = "unknown"
 
-        if current_stage >= record_stage:
-            flood_status = "record"
-        elif current_stage >= major_stage:
-            flood_status = "major"
-        elif current_stage >= moderate_stage:
-            flood_status = "moderate"
-        elif current_stage >= flood_stage:
-            flood_status = "minor"
-        elif current_stage >= action_stage:
+        discharges = [
+            finite_array(gauge_data[key], key, unit="cfs", ndim=(0, 1), lo=0.0)
+            for key in ("discharge_cfs", "discharge_history_cfs", "forecast_discharge_cfs")
+            if gauge_data.get(key) is not None
+        ]
+        peak_discharge = max(float(np.max(d)) for d in discharges) if discharges else None
+
+        time_to_peak: float | None = None
+        forecast_crest: float | None = None
+        if gauge_data.get("forecast_stage_ft") is not None:
+            forecast = finite_array(
+                gauge_data["forecast_stage_ft"], "forecast_stage_ft", unit="ft", ndim=1
+            )
+            if "forecast_lead_h" not in gauge_data:
+                raise InvalidObservationError(
+                    "forecast_stage_ft needs forecast_lead_h (hours ahead of each value)"
+                )
+            lead = finite_array(
+                gauge_data["forecast_lead_h"], "forecast_lead_h", unit="h", ndim=1, lo=0.0
+            )
+            if lead.shape != forecast.shape or np.any(np.diff(lead) <= 0):
+                raise InvalidObservationError(
+                    "forecast_lead_h must give one increasing lead time per forecast stage"
+                )
+            crest = int(np.argmax(forecast))
+            forecast_crest = float(forecast[crest])
+            time_to_peak = float(lead[crest]) if forecast_crest > current_stage else 0.0
+
+        flood_status = "normal"
+        if action_stage is not None and current_stage >= action_stage:
             flood_status = "action"
-        else:
-            flood_status = "normal"
+        for status, stage in categories:
+            if current_stage >= stage:
+                flood_status = status
 
         return {
             "current_stage_ft": float(current_stage),
@@ -230,6 +329,9 @@ class RiverGaugeMonitor:
             "flood_status": flood_status,
             "stage_trend": trend,
             "at_or_above_flood": current_stage >= flood_stage,
+            "peak_discharge_cfs": peak_discharge,
+            "time_to_peak_hours": time_to_peak,
+            "forecast_crest_ft": forecast_crest,
         }
 
 
@@ -252,11 +354,37 @@ class SoilSaturationModel:
         Returns:
             Soil analysis results
         """
-        soil_moisture_pct = soil_data.get("soil_moisture_pct", 50.0)
-        soil_type = soil_data.get("soil_type", "loam")
+        # A supplied-but-bad value is refused before anything else: a
+        # percentage outside [0, 100] gave a runoff coefficient above 1.
+        supplied_moisture = (
+            finite_scalar(
+                soil_data["soil_moisture_pct"], "soil_moisture_pct", unit="%", lo=0.0, hi=100.0
+            )
+            if "soil_moisture_pct" in soil_data
+            else None
+        )
+        # Both the moisture and the soil class must be supplied: a 50%-moist
+        # loam used to be invented for empty input and served as a measured
+        # 0.8 runoff coefficient.
+        missing = [k for k in ("soil_moisture_pct", "soil_type") if k not in soil_data]
+        if missing:
+            return {
+                "soil_moisture_pct": None,
+                "soil_type": soil_data.get("soil_type"),
+                "infiltration_rate_in_hr": None,
+                "runoff_coefficient": None,
+                "saturation_status": "unknown",
+                "high_runoff_potential": False,
+                "missing_inputs": missing,
+            }
+        soil_moisture_pct = float(supplied_moisture)  # type: ignore[arg-type]
+        soil_type = soil_data["soil_type"]
         # antecedent_moisture used for future soil memory modeling
-        _ = soil_data.get("antecedent_moisture_pct", 40.0)
+        _ = soil_data.get("antecedent_moisture_pct")
 
+        # Basic intake classes consistent with USDA NRCS ranges (in/hr):
+        # sand > 0.75, loam ~ 0.35-0.5, clay < 0.15. An unrecognised class is
+        # refused, not silently read as loam.
         infiltration_rates = {
             "sand": 0.8,
             "sandy_loam": 0.6,
@@ -264,7 +392,11 @@ class SoilSaturationModel:
             "clay_loam": 0.25,
             "clay": 0.1,
         }
-        base_infiltration = infiltration_rates.get(soil_type, 0.4)
+        if soil_type not in infiltration_rates:
+            raise InvalidObservationError(
+                f"soil_type must be one of {sorted(infiltration_rates)}, got {soil_type!r}"
+            )
+        base_infiltration = infiltration_rates[soil_type]
 
         saturation_factor = 1.0 - (soil_moisture_pct / 100.0)
         effective_infiltration = base_infiltration * saturation_factor
@@ -289,6 +421,7 @@ class SoilSaturationModel:
             "runoff_coefficient": float(runoff_coefficient),
             "saturation_status": saturation_status,
             "high_runoff_potential": runoff_coefficient > 0.6,
+            "missing_inputs": [],
         }
 
 
@@ -471,6 +604,7 @@ class FloodDetector:
         )
 
         indicators_detected: float = 0.0
+        gauge_status: str | None = None
 
         if (
             self.enable_precipitation
@@ -496,6 +630,9 @@ class FloodDetector:
             result.river_stage_ft = gauge_result["current_stage_ft"]
             result.flood_stage_ft = gauge_result["flood_stage_ft"]
             result.stage_trend = gauge_result["stage_trend"]
+            result.peak_discharge_cfs = gauge_result["peak_discharge_cfs"]
+            result.time_to_peak_hours = gauge_result["time_to_peak_hours"]
+            gauge_status = gauge_result["flood_status"]
 
             if gauge_result["at_or_above_flood"]:
                 indicators_detected += 2.0
@@ -507,8 +644,9 @@ class FloodDetector:
 
         if self.enable_soil and "soil_data" in flood_data and self.soil_model is not None:
             soil_result = self.soil_model.analyze_soil_conditions(flood_data["soil_data"])
-            result.soil_saturation_pct = soil_result["soil_moisture_pct"]
-            result.runoff_coefficient = soil_result["runoff_coefficient"]
+            if soil_result["soil_moisture_pct"] is not None:
+                result.soil_saturation_pct = soil_result["soil_moisture_pct"]
+                result.runoff_coefficient = soil_result["runoff_coefficient"]
 
             if soil_result["high_runoff_potential"]:
                 indicators_detected += 0.5
@@ -518,10 +656,9 @@ class FloodDetector:
             and "observed_data" in flood_data
             and self.prediction_optimizer is not None
         ):
-            initial_prediction = {
-                "stage_ft": result.river_stage_ft,
-                "discharge_cfs": result.peak_discharge_cfs,
-            }
+            initial_prediction = {"stage_ft": result.river_stage_ft}
+            if result.peak_discharge_cfs is not None:
+                initial_prediction["discharge_cfs"] = result.peak_discharge_cfs
             refactor_result = self.prediction_optimizer.optimize_prediction(
                 initial_prediction, flood_data["observed_data"]
             )
@@ -529,21 +666,9 @@ class FloodDetector:
             result.model_optimization_iterations = refactor_result["iterations"]
             result.prediction_uncertainty = refactor_result["uncertainty"]
 
-        if self.enable_recursion and "signal_data" in flood_data:
-            hierarchical_features = self.recursion_engine.hierarchical_feature_extraction(
-                flood_data["signal_data"], num_levels=3
-            )
-            if len(hierarchical_features) > 0:
-                multi_scale_variance = np.mean([np.var(f) for f in hierarchical_features])
-                if multi_scale_variance > 0.5:
-                    indicators_detected += 0.3
-
-        if self.enable_resonance and "signal_data" in flood_data:
-            resonance_anomalies = self.resonance_engine.detect_resonance_anomalies(
-                flood_data["signal_data"], threshold_std=2.5
-            )
-            if resonance_anomalies["is_anomalous"]:
-                indicators_detected += 0.4
+        # ``signal_data`` no longer carries decision weight: two generic
+        # spectral heuristics on an unspecified signal added 0.7 indicators, so
+        # injected noise flipped ``flood_likely``.
 
         # The refactoring-engine integration happens above via
         # ``prediction_optimizer.optimize_prediction`` (same guard). A second
@@ -554,7 +679,7 @@ class FloodDetector:
 
         result.flood_likely = indicators_detected >= 2
         result.confidence = min(indicators_detected / 5.0, 1.0)
-        result.severity = self._determine_severity(indicators_detected, result)
+        result.severity = self._determine_severity(indicators_detected, result, gauge_status)
 
         result.warning_actions = self._generate_warnings(result)
         result.evacuation_routes = self._identify_evacuation_routes(result)
@@ -629,7 +754,10 @@ class FloodDetector:
                 cat = str(dp.data.get("flood_category") or "").lower()
                 categories[cat or "unknown"] = categories.get(cat or "unknown", 0) + 1
                 rank = category_rank.get(cat, 0)
-                if rank > worst_rank or worst_gauge is None:
+                # Only a gauge at action stage or above is "worst"; with none,
+                # the first gauge used to be reported (a 70 ft reservoir pool
+                # elevation came back as the river stage).
+                if rank > worst_rank:
                     worst_rank = rank
                     worst_gauge = dp.data
             live_context["gauge_count"] = len(fetch.data_points)
@@ -641,6 +769,13 @@ class FloodDetector:
                     "flood_category": worst_gauge.get("flood_category"),
                     "forecast_flood_category": worst_gauge.get("forecast_flood_category"),
                 }
+                # NWPS reports flow as the secondary value, usually in kcfs.
+                flow = worst_gauge.get("observed_secondary")
+                flow_scale = {"kcfs": 1000.0, "cfs": 1.0}.get(
+                    str(worst_gauge.get("observed_secondary_unit", "")).lower()
+                )
+                if flow is not None and flow_scale is not None and float(flow) >= 0.0:
+                    live_context["worst_gauge"]["observed_flow_cfs"] = float(flow) * flow_scale
 
         flood_alerts = 0
         if self._alerts_source is not None:
@@ -651,15 +786,24 @@ class FloodDetector:
             )
             source_ids.append(alert_fetch.source_id)
             provenance.append(alert_fetch.data_provenance)
-            flood_events = [
+            # NWS issues a Warning when flooding is imminent or occurring
+            # (NWSI 10-320); watches, advisories and statements mean possible
+            # or minor flooding and are reported but are not evidence of a
+            # flood. Every alert containing "flood" used to count, so 23
+            # Coastal Flood Advisories made flood_likely True.
+            flood_named = [
                 dp
                 for dp in alert_fetch.data_points
                 if "flood" in str(dp.data.get("event", "")).lower()
             ]
-            flood_alerts = len(flood_events)
+            warnings = [dp for dp in flood_named if dp.data.get("event") in FLOOD_WARNING_EVENTS]
+            flood_alerts = len(warnings)
+            warning_events = {str(dp.data.get("event")) for dp in warnings}
+            live_context["alert_scope"] = alert_fetch.source_id
             live_context["flood_alerts"] = flood_alerts
-            live_context["flood_alert_events"] = sorted(
-                {str(dp.data.get("event", "")) for dp in flood_events}
+            live_context["flood_alert_events"] = sorted(warning_events)
+            live_context["other_flood_products"] = sorted(
+                {str(dp.data.get("event", "")) for dp in flood_named} - warning_events
             )[:10]
 
         if not source_ids:
@@ -669,11 +813,13 @@ class FloodDetector:
                 "optional live path."
             )
 
-        rank_to_severity = {4: "major", 3: "moderate", 2: "minor", 1: "minor", 0: "no_flood"}
+        # Action stage is preparation, not flooding (NWSM 10-950): it no
+        # longer reads "minor".
+        rank_to_severity = {4: "major", 3: "moderate", 2: "minor", 1: "no_flood", 0: "no_flood"}
         severity = rank_to_severity[worst_rank]
         flood_likely = worst_rank >= 2 or flood_alerts > 0
-        if worst_rank == 0 and flood_alerts > 0:
-            severity = "minor"  # Alert-corroborated but no gauge above action stage.
+        if worst_rank < 2 and flood_alerts > 0:
+            severity = "minor"  # A Warning is in effect but no gauge is in flood.
 
         # Confidence reflects observation quality: gauges are direct
         # measurements; alerts are official statements.
@@ -684,16 +830,32 @@ class FloodDetector:
         else:
             confidence = 0.0
 
+        if worst_rank >= 2:
+            flood_type = FloodType.RIVER.value
+        elif any("Flash Flood" in event for event in live_context.get("flood_alert_events", [])):
+            flood_type = FloodType.FLASH.value
+        elif flood_alerts > 0 and all(
+            event.startswith(("Coastal", "Lakeshore"))
+            for event in live_context.get("flood_alert_events", [])
+        ):
+            flood_type = FloodType.COASTAL.value
+        elif flood_alerts > 0:
+            flood_type = FloodType.RIVER.value
+        else:
+            flood_type = FloodType.NO_FLOOD.value
+
         result = FloodPredictionResult(
             flood_likely=flood_likely,
             confidence=confidence,
             severity=severity,
-            flood_type="riverine" if worst_rank >= 1 else "none",
+            flood_type=flood_type,
             source_id="+".join(source_ids),
             data_provenance=("simulated" if any(p == "simulated" for p in provenance) else "live"),
             live_context=live_context,
         )
-        if worst_gauge is not None:
+        # A gauge reporting in another unit (kcfs flow, or a reservoir in
+        # metres) cannot fill a field in feet.
+        if worst_gauge is not None and str(worst_gauge.get("observed_unit", "")).lower() == "ft":
             observed = worst_gauge.get("observed_value")
             forecast = worst_gauge.get("forecast_value")
             if observed is not None:
@@ -705,20 +867,28 @@ class FloodDetector:
                     result.stage_trend = "falling"
         return result
 
-    def _determine_severity(self, indicators: float, result: FloodPredictionResult) -> str:
-        """Determine flood severity."""
-        stage_above_flood = result.river_stage_ft - result.flood_stage_ft
+    def _determine_severity(
+        self,
+        indicators: float,
+        result: FloodPredictionResult,
+        gauge_status: str | None = None,
+    ) -> str:
+        """Determine flood severity.
 
-        if stage_above_flood >= 10 or indicators >= 4:
-            return "record"
-        elif stage_above_flood >= 5 or indicators >= 3:
-            return "major"
-        elif stage_above_flood >= 2 or indicators >= 2:
-            return "moderate"
-        elif stage_above_flood >= 0 or indicators >= 1:
-            return "minor"
-        else:
-            return "no_flood"
+        A gauge at or above its flood stage carries its own NWS category
+        (minor/moderate/major/record), which is reported as measured. Without
+        a gauge in flood, a likely flood (rain/soil evidence) is "moderate" at
+        three or more indicators and "minor" otherwise: rain cannot place it
+        on a river's category ladder. Nothing likely and no gauge in flood is
+        "no_flood". The old rule added generic 10/5/2 ft offsets to an evidence
+        count, so flash-flood rain plus a gauge at exactly minor read "record",
+        and an empty record (stage 0 vs flood stage 0) read "minor".
+        """
+        if gauge_status in {"minor", "moderate", "major", "record"}:
+            return str(gauge_status)
+        if not result.flood_likely:
+            return FloodSeverity.NO_FLOOD.value
+        return FloodSeverity.MODERATE.value if indicators >= 3 else FloodSeverity.MINOR.value
 
     def _generate_warnings(self, result: FloodPredictionResult) -> list[str]:
         """Generate warning actions based on prediction."""

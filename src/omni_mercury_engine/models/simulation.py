@@ -26,13 +26,23 @@ import numpy as np
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
+# Optional high-precision oracle for the Riemann path (same convention as
+# omni_mercury_engine.utils.constants).
+try:
+    import mpmath
+
+    MPMATH_AVAILABLE = True
+except ImportError:  # pragma: no cover - exercised via monkeypatched flag
+    MPMATH_AVAILABLE = False
+
 
 class SimulationModule:
     """Mathematical simulation for paradoxes, conjectures, and theoretical problems.
 
     Features:
     - Paradox simulation: Zeno's, Epimenides (Liar), Russell's, etc.
-    - Conjecture exploration: Twin Prime, Collatz, Goldbach, Riemann Hypothesis
+    - Conjecture exploration: Twin Prime, Collatz, Goldbach (exhaustive
+      instance checks), Riemann Hypothesis (real zeta zeros via mpmath)
     - Millennium Prize Problems: P vs NP, Navier-Stokes, Yang-Mills, etc.
     - Multiverse branching for pathway exploration
     - Ethical alignment via eternal_cycle invariants
@@ -325,38 +335,92 @@ class SimulationModule:
             ],
         }
 
+    #: Hard cap on zeta zeros computed per Riemann call -- ~7s of mpmath work
+    #: at 100 zeros (measured: zetazero(1..100) 7.1s, strip count < 0.1s).
+    MAX_RIEMANN_ZEROS = 100
+
+    #: A computed zero counts as confirmed only when |zeta| at it is below
+    #: this -- mpmath lands around 1e-15 at default precision, so 1e-6 is a
+    #: six-orders-of-magnitude safety margin, never a rubber stamp.
+    RIEMANN_RESIDUAL_TOL = 1e-6
+
     def _explore_riemann_hypothesis(self, search_space: int) -> dict[str, Any]:
-        """Explore Riemann Hypothesis: non-trivial zeros of zeta function have real part 1/2."""
+        """Verify Riemann Hypothesis instances on real zeta zeros (mpmath oracle).
+
+        Computes the first ``min(search_space, MAX_RIEMANN_ZEROS)`` non-trivial
+        zeros of the Riemann zeta function with :func:`mpmath.zetazero` (zeros
+        of the real Riemann-Siegel ``Z(t)``, hence exactly on ``Re(s) = 1/2``
+        by construction), measures ``|zeta|`` at each as the numerical
+        certificate, and cross-checks against the Riemann-von Mangoldt strip
+        count (``mpmath.mp.nzeros``): when the counts agree, *every* zero of
+        the strip up to that height lies on the critical line -- none hide
+        off-line.  This is Turing's verification method in miniature.
+
+        Fails closed: without mpmath there is no oracle, so the result
+        reports zero explored cases and ``viability_score`` 0.0 instead of
+        fabricating zeros (the replaced implementation drew "zeros" from
+        an RNG and scored the RNG's noise).
+        """
         critical_line = 0.5
-        zeros_checked = min(search_space, 100)
-
-        simulated_zeros = []
-        for i in range(zeros_checked):
-            imaginary_part = 14.134725 + i * 10.0
-            real_part = critical_line + self._rng.normal(0, 0.001)
-            deviation = abs(real_part - critical_line)
-            simulated_zeros.append(
-                {
-                    "real": real_part,
-                    "imaginary": imaginary_part,
-                    "deviation": deviation,
-                }
+        zeros_checked = min(int(search_space), self.MAX_RIEMANN_ZEROS)
+        if not MPMATH_AVAILABLE or zeros_checked < 1:
+            reason = (
+                "mpmath is not installed: no zeta oracle, so no zeros were "
+                "checked (refusing to fabricate them)"
+                if not MPMATH_AVAILABLE
+                else f"search_space={search_space} asks for no zeros"
             )
+            return {
+                "conjecture": "riemann_hypothesis",
+                "explored_cases": 0,
+                "zeros_on_critical_line": 0,
+                "max_deviation_from_half": float("nan"),
+                "avg_deviation": float("nan"),
+                "viability_score": 0.0,
+                "oracle": "unavailable" if not MPMATH_AVAILABLE else "mpmath",
+                "insights": [reason],
+            }
 
-        deviations = [float(str(z["deviation"])) for z in simulated_zeros]
-        max_deviation = max(deviations)
-        avg_deviation = float(np.mean(deviations))
+        zeros = [mpmath.zetazero(k) for k in range(1, zeros_checked + 1)]
+        deviations = [abs(float(z.real) - critical_line) for z in zeros]
+        residuals = [float(abs(mpmath.zeta(z))) for z in zeros]
+        # Count ALL zeta zeros in the critical strip up to the top ordinate
+        # (tiny margin so the top zero itself is inside; gaps here are >> 1e-6).
+        strip_zero_count = int(mpmath.mp.nzeros(zeros[-1].imag + 1e-6))
+        confirmed = sum(
+            1
+            for dev, res in zip(deviations, residuals, strict=True)
+            if dev < 1e-12 and res < self.RIEMANN_RESIDUAL_TOL
+        )
+        denominator = max(zeros_checked, strip_zero_count)
+        top_height = float(zeros[-1].imag)
 
         return {
             "conjecture": "riemann_hypothesis",
             "explored_cases": zeros_checked,
-            "zeros_on_critical_line": zeros_checked,
-            "max_deviation_from_half": max_deviation,
-            "avg_deviation": avg_deviation,
-            "viability_score": 1.0 - avg_deviation,
+            "zeros_on_critical_line": confirmed,
+            "max_deviation_from_half": max(deviations),
+            "avg_deviation": float(np.mean(deviations)),
+            "max_zeta_residual": max(residuals),
+            "strip_zero_count": strip_zero_count,
+            "first_zero_ordinates": [float(z.imag) for z in zeros[:10]],
+            "viability_score": confirmed / denominator if denominator else 0.0,
+            "oracle": "mpmath",
             "insights": [
-                f"First {zeros_checked} non-trivial zeros analyzed (simulated)",
-                "First 10 trillion zeros computed to lie on critical line",
+                f"First {zeros_checked} non-trivial zeros computed with "
+                "mpmath.zetazero (zeros of the real Z(t), exactly on Re(s)=1/2)",
+                f"Riemann-von Mangoldt strip count to height {top_height:.3f} is "
+                f"{strip_zero_count}: "
+                + (
+                    "matches -- no off-line zeros below that height"
+                    if strip_zero_count == zeros_checked
+                    else "MISMATCH with zeros checked -- investigate"
+                ),
+                f"Worst |zeta| at a computed zero: {max(residuals):.2e}",
+                "RH verified for all zeros up to height 3x10^12 "
+                "(Platt & Trudgian 2021); the universal claim remains open",
+                "A zero-free region Re(s) > 7/8 was claimed in 2026 (OpenAI); "
+                "not independently verified as of 2026-10",
                 "Millennium Prize Problem: $1M for proof or counterexample",
             ],
         }
@@ -436,17 +500,33 @@ class SimulationModule:
         }
 
     def _analyze_navier_stokes(self) -> dict[str, Any]:
-        """Analyze Navier-Stokes existence and smoothness."""
+        """Analyze Navier-Stokes existence and smoothness.
+
+        ``status`` stays ``unsolved`` until a result is independently
+        verified and Clay-accepted; announced-but-unverified results are
+        recorded under ``claimed_results`` with their source and date so the
+        output never presents a claim as a settled fact.
+        """
         return {
             "problem": "navier_stokes",
             "status": "unsolved",
             "prize_amount": "$1,000,000",
             "analysis": "Existence and smoothness of solutions to Navier-Stokes equations in 3D",
+            "claimed_results": [
+                {
+                    "claim": "Finite-time blow-up for the forced 3D Navier-Stokes equations",
+                    "source": "OpenAI, announced September 2026, with a Lean formalization",
+                    "status": "claimed_unverified",
+                    "note": "Not independently verified or Clay-accepted as of 2026-10",
+                }
+            ],
             "insights": [
                 "Navier-Stokes: Fundamental equations of fluid dynamics",
                 "Question: Do smooth solutions always exist? Can they develop singularities?",
                 "Applications: Weather prediction, aerodynamics, blood flow",
                 "2D case well-understood; 3D case remains open",
+                "A forced-equation blow-up was claimed in Sept 2026 (see "
+                "claimed_results); status stays 'unsolved' pending verification",
             ],
             "applications": ["fluid_dynamics", "weather_modeling", "biomedical"],
         }

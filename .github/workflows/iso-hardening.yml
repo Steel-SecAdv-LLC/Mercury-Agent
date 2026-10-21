@@ -81,7 +81,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       - name: Check Lyapunov λ consistency in docs
         env:
@@ -113,7 +113,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       - name: Run humanitarian_demo end-to-end
         env:
@@ -144,6 +144,19 @@ jobs:
           out=$(python examples/physics_detectors_demo.py --module spectral)
           echo "$out"
           echo "$out" | grep -q "PHYSICS-INSPIRED DETECTORS"
+
+      - name: Run mercury_quickstart end-to-end (real DTU AIS download)
+        # The README's ten-minute path: downloads the digest-pinned DTU
+        # labelled set (~38 MB from figshare) and must reproduce the
+        # committed DTU_AIS_Abnormal benchmark row deterministically.
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
+        run: |
+          set -euo pipefail
+          out=$(python examples/mercury_quickstart.py --data-dir ./data)
+          echo "$out"
+          echo "$out" | grep -q "MERCURY QUICKSTART COMPLETE"
+          echo "$out" | grep -q "Mercury ensemble (this run)  ROC-AUC 0.8613"
 
   load-tests:
     name: Load Tests (smoke)
@@ -185,7 +198,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v4.0.0
+          ama-ref: v5.0.0
 
       - name: Install k6
         run: |

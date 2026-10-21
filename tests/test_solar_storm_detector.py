@@ -99,7 +99,7 @@ class TestSolarFlareDetector:
     def test_detect_b_class_flare(self) -> None:
         """Test B-class flare detection."""
         detector = SolarFlareDetector()
-        xray_data = {"flux_short_wm2": 5e-7, "flux_long_wm2": 1e-9}
+        xray_data = {"flux_short_wm2": 5e-8, "flux_long_wm2": 5e-7}
         result = detector.detect_solar_flare(xray_data)
         assert result["flare_class"] == "B"
         assert result["flare_detected"] is False
@@ -107,7 +107,7 @@ class TestSolarFlareDetector:
     def test_detect_c_class_flare(self) -> None:
         """Test C-class flare detection."""
         detector = SolarFlareDetector()
-        xray_data = {"flux_short_wm2": 5e-6, "flux_long_wm2": 1e-9}
+        xray_data = {"flux_short_wm2": 5e-7, "flux_long_wm2": 5e-6}
         result = detector.detect_solar_flare(xray_data)
         assert result["flare_detected"] is True
         assert result["flare_class"] == "C"
@@ -116,7 +116,7 @@ class TestSolarFlareDetector:
     def test_detect_m_class_flare(self) -> None:
         """Test M-class flare detection."""
         detector = SolarFlareDetector()
-        xray_data = {"flux_short_wm2": 5e-5, "flux_long_wm2": 1e-9}
+        xray_data = {"flux_short_wm2": 5e-6, "flux_long_wm2": 5e-5}
         result = detector.detect_solar_flare(xray_data)
         assert result["flare_detected"] is True
         assert result["flare_class"] == "M"
@@ -125,7 +125,7 @@ class TestSolarFlareDetector:
     def test_detect_x_class_flare(self) -> None:
         """Test X-class flare detection."""
         detector = SolarFlareDetector()
-        xray_data = {"flux_short_wm2": 5e-4, "flux_long_wm2": 1e-9}
+        xray_data = {"flux_short_wm2": 5e-5, "flux_long_wm2": 5e-4}
         result = detector.detect_solar_flare(xray_data)
         assert result["flare_detected"] is True
         assert result["flare_class"] == "X"
@@ -139,6 +139,43 @@ class TestSolarFlareDetector:
         assert detector._classify_flare(1e-6)[0] == "C"
         assert detector._classify_flare(1e-7)[0] == "B"
         assert detector._classify_flare(1e-9)[0] == "A"
+
+    def test_class_is_defined_on_the_long_band_alone(self) -> None:
+        """NOAA defines the flare class on the 0.1-0.8 nm band; short is context.
+
+        Regression: ``max(short, long)`` classified on whichever channel read
+        higher, and a missing long band defaulted to a benign 1e-9.
+        """
+        detector = SolarFlareDetector()
+        result = detector.detect_solar_flare({"flux_short_wm2": 5e-4, "flux_long_wm2": 3e-5})
+        assert result["flare_class"] == "M"  # the long band, not the short's X
+        with pytest.raises(ValueError, match="flux_long_wm2"):
+            detector.detect_solar_flare({"flux_short_wm2": 5e-4})
+
+    def test_bad_flux_is_refused_not_graded_benign(self) -> None:
+        """A NaN or negative flux raises instead of classifying as a quiet A.
+
+        Regression: NaN flowed through classification (every threshold
+        comparison False) and emerged as a benign A-class non-detection.
+        """
+        detector = SolarFlareDetector()
+        for bad in (float("nan"), float("inf"), -1e-6):
+            with pytest.raises(ValueError):
+                detector.detect_solar_flare({"flux_long_wm2": bad})
+            with pytest.raises(ValueError):
+                detector.predict_solar_flare(bad)
+        with pytest.raises(ValueError):
+            detector.predict_solar_flare(np.array([1e-6, float("nan"), 2e-6]))
+
+    def test_r_and_s_levels_on_the_flare_result(self) -> None:
+        """The flare result carries NOAA R and S levels from measurements only."""
+        detector = SolarFlareDetector()
+        result = detector.predict_solar_flare(2e-4, proton_flux=150.0)  # X2 flare, S2 protons
+        assert result.radio_blackout_level == 3  # X1..X10 is R3
+        assert result.radiation_storm_level == 2
+        quiet = detector.predict_solar_flare(1e-7)
+        assert quiet.radio_blackout_level == 0
+        assert quiet.radiation_storm_level is None  # no proton measurement, no level
 
     def test_off_modality_matrix_rejected_cleanly(self) -> None:
         """A generic 2-D feature matrix is not a GOES XRS flux series."""
@@ -326,7 +363,7 @@ class TestSolarStormDetector:
     def test_predict_with_flare(self) -> None:
         """Test prediction with flare data."""
         detector = SolarStormDetector()
-        storm_data = {"xray_data": {"flux_short_wm2": 5e-5, "flux_long_wm2": 1e-9}}
+        storm_data = {"xray_data": {"flux_short_wm2": 5e-6, "flux_long_wm2": 5e-5}}
         result = detector.predict_solar_storm(storm_data)
         assert result.flare_detected is True
         assert result.flare_class == "M"
@@ -362,7 +399,7 @@ class TestSolarStormDetector:
         """Test prediction with full data."""
         detector = SolarStormDetector()
         storm_data = {
-            "xray_data": {"flux_short_wm2": 5e-4, "flux_long_wm2": 1e-9},
+            "xray_data": {"flux_short_wm2": 5e-5, "flux_long_wm2": 5e-4},
             "cme_data": {
                 "speed_km_s": 1500,
                 "angular_width_deg": 180,
@@ -485,3 +522,34 @@ class TestSolarStormDetector:
         alerts = detector._generate_infrastructure_alerts(result)
         assert len(alerts) > 0
         assert any("EXTREME" in alert for alert in alerts)
+
+
+class TestNoaaRadioAndRadiationLevels:
+    """R and S levels from the canonical NOAA scales (evaluation.hazard_metrics)."""
+
+    @pytest.mark.parametrize(
+        ("flux", "level", "blackout"),
+        [(5e-6, 0, False), (1e-5, 1, False), (6e-5, 2, False), (1e-4, 3, True), (2.5e-3, 5, True)],
+    )
+    def test_radio_blackout_level(self, flux: float, level: int, blackout: bool) -> None:
+        result = SolarStormDetector().predict_solar_storm(
+            {"xray_data": {"flux_long_wm2": flux, "flux_short_wm2": flux / 10}}
+        )
+        assert result.radio_blackout_level == level
+        assert result.radio_blackout is blackout  # R3 or stronger, as before (X flares)
+
+    def test_radiation_storm_follows_the_proton_flux(self) -> None:
+        """With protons supplied, an M flare without an S1 event is no radiation storm."""
+        detector = SolarStormDetector()
+        m_flare = {"xray_data": {"flux_long_wm2": 3e-5, "flux_short_wm2": 3e-6}}
+        quiet = detector.predict_solar_storm({**m_flare, "proton_flux_pfu": 2.0})
+        assert quiet.radiation_storm_level == 0 and not quiet.radiation_storm
+        s2 = detector.predict_solar_storm({**m_flare, "proton_flux_pfu": 250.0})
+        assert s2.radiation_storm_level == 2 and s2.radiation_storm
+        proxy = detector.predict_solar_storm(m_flare)
+        assert proxy.radiation_storm_level is None and proxy.radiation_storm  # flare proxy
+
+    @pytest.mark.parametrize("bad", [float("nan"), -1.0, "high", True, None])
+    def test_unusable_proton_flux_is_not_supplied(self, bad: object) -> None:
+        result = SolarStormDetector().predict_solar_storm({"proton_flux_pfu": bad})
+        assert result.radiation_storm_level is None

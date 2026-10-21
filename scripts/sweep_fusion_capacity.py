@@ -188,7 +188,7 @@ def _load_corpus(
     ``source``:
         - ``synthetic``: a single network-free Gaussian mixture (smoke).
         - ``real``: pooled tabular ADBench-classical datasets (the headline
-          medical/STEM benchmark axis).
+          medical/STEAM benchmark axis).
         - ``ucr``: UCR Time Series Archive datasets, reframed as one-vs-rest
           anomaly detection so the same engine.fit_fusion path can train on
           them. The **independent axis** Mercury Agent's dim-choice decision

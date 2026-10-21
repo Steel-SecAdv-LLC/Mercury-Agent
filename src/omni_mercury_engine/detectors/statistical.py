@@ -25,12 +25,14 @@ References:
 
 from __future__ import annotations
 
+import itertools
 import logging
 from typing import Any
 
 import numpy as np
 from scipy import (
     linalg as sp_linalg,
+    special as sp_special,
     stats as sp_stats,
 )
 
@@ -57,6 +59,10 @@ from omni_mercury_engine.core.governed_fusion import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Process-wide fit events: every fit / state restore takes a fresh value, so
+#: a (fit_generation, ...) fingerprint is unique across instances and copies.
+_FIT_EVENTS = itertools.count(1)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -179,6 +185,10 @@ class MercuryAnomalyDetector(BaseDetector):
        compatibility. Use ``MercuryAnomalyDetector`` in new code.
     """
 
+    #: Verified free of process-global mutable state at inference (bit-identical
+    #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
+    parallel_safe = True
+
     def __init__(
         self,
         config: dict[str, Any] | None = None,
@@ -265,6 +275,21 @@ class MercuryAnomalyDetector(BaseDetector):
         # Score flip for ensemble inversion (Task 4, set during fit if auto_validate=True)
         self._score_flip: bool = False
 
+        # Fit-time operating-point reference (sorted ensemble scores of the
+        # training data under the serving pipeline) + the one-class
+        # split-conformal false-alarm budget it is cut at. Anchors the
+        # decision threshold to what NORMAL data scores like, instead of to
+        # the batch being scored -- the batch-relative cut is undefined at
+        # n=1 (single-point streaming) and inverted when a batch is
+        # anomaly-majority (floods / sustained events).
+        self._reference_scores: np.ndarray[Any, Any] | None = None
+        self._reference_alpha: float = (
+            float(config["reference_alpha"])
+            if isinstance(config, dict) and "reference_alpha" in config
+            else 0.05
+        )
+        self._feature_medians: np.ndarray[Any, Any] | None = None
+
         # Adaptive component weights (set during fit)
         self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
         self._weight_source: str = "default"
@@ -324,6 +349,55 @@ class MercuryAnomalyDetector(BaseDetector):
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
         self._oracle_metadata: dict[str, Any] = {"active": False}
+
+        # kNN density stream (default-on; ``knn_stream=False`` restores the
+        # three-component ensemble exactly). Fused after the weighted sum,
+        # each stream standardised against its own fit-time reference
+        # (median, 1.4826*MAD), so the fused score is defined for a single
+        # row. Measured on 24 ADBench datasets x 3 seeds (fit on normals):
+        # mean AUROC 0.809 -> 0.837, 14 wins / 4 losses / 6 ties, Wilcoxon
+        # p = 0.008. State is set by _fit_knn_stream at fit time.
+        self._knn_stream_enabled: bool = bool(self.config.get("knn_stream", True))
+        # Minimum reference rows before the stream fits. The default demands
+        # an order of magnitude more rows than neighbours (see
+        # _KNN_MIN_REFERENCE_FACTOR) because mean-of-k distances only rank
+        # *density* reliably with that much context. A caller whose decision
+        # rule does not depend on ranking quality — e.g. the drone detector,
+        # which gates single-stream excursions at robust z = 8 and validated
+        # that regime fitting from 20-row windows (0 false alarms / 5,600
+        # ticks, every injected fault caught) — may lower it deliberately.
+        self._knn_min_reference: int = max(
+            3,
+            int(
+                self.config.get(
+                    "knn_stream_min_reference",
+                    self._KNN_MIN_REFERENCE_FACTOR * self._KNN_K,
+                )
+            ),
+        )
+        self._knn_tree: Any = None
+        self._knn_tree_index: np.ndarray[Any, Any] | None = None
+        self._knn_center: np.ndarray[Any, Any] | None = None
+        self._knn_scale: np.ndarray[Any, Any] | None = None
+        self._knn_k: int = 0
+        self._knn_ref_stats: tuple[float, float] | None = None
+        # (state key, median, scale) of the ensemble part on the reference
+        # sample; recomputed whenever the key (weights, fitted components)
+        # changes, so the fusion always aligns the current ensemble.
+        self._knn_live_stats: tuple[tuple[Any, ...], float, float] | None = None
+        self._fit_generation: int = 0
+
+        # Labelled-path component weighting: "simplex" refines the AUC-margin
+        # weights by maximising a smooth pairwise-AUC surrogate of the
+        # weighted ensemble on the probability simplex; "margin" keeps the
+        # margin formula alone.
+        _learning = str(self.config.get("weight_learning", "simplex")).strip().lower()
+        if _learning not in ("simplex", "margin"):
+            raise ValueError(
+                "weight_learning must be 'simplex' or 'margin', got "
+                f"{self.config.get('weight_learning')!r}"
+            )
+        self._weight_learning: str = _learning
 
     # =====================================================================
     # fit()
@@ -387,11 +461,20 @@ class MercuryAnomalyDetector(BaseDetector):
                 "Provide data with at least some finite values."
             )
         if not np.all(finite_mask):
+            dropped = int((~finite_mask).sum())
+            logger.warning(
+                "fit: dropping %d of %d training rows containing non-finite "
+                "values; on temporal data this splices the series across the "
+                "gap (kinematic differences will span missing time)",
+                dropped,
+                len(finite_mask),
+            )
             arr = arr[finite_mask]
 
         # --- Distributional statistics ---
         self.mean = np.mean(arr, axis=0)
         self.std = np.std(arr, axis=0) + 1e-8
+        self._feature_medians = np.median(arr, axis=0)
         self.q1 = np.percentile(arr, 25, axis=0)
         self.q3 = np.percentile(arr, 75, axis=0)
 
@@ -408,6 +491,10 @@ class MercuryAnomalyDetector(BaseDetector):
         # Store training data and precompute spectral profiles for resonance
         self._train_data = arr.copy()
         self._precompute_resonance_profiles(arr)
+
+        # --- kNN density stream: reference tree over the training rows ---
+        self._fit_generation = next(_FIT_EVENTS)
+        self._fit_knn_stream(arr)
 
         self._is_fitted = True
 
@@ -482,7 +569,7 @@ class MercuryAnomalyDetector(BaseDetector):
             cal_labels = np.asarray(calibration_labels, dtype=np.int32).ravel()
             if len(cal_labels) == len(arr):
                 # Full labeling: use supervised adaptive weights + threshold
-                self._adaptive_weights = self._compute_adaptive_weights(arr, cal_labels)
+                self._adaptive_weights = self._supervised_weights(arr, cal_labels)
                 self._weight_source = "supervised_calibration"
                 logger.info(
                     "fit: calibration_labels provided (n=%d). "
@@ -548,6 +635,9 @@ class MercuryAnomalyDetector(BaseDetector):
                     len(arr),
                 )
 
+        # --- Operating-point reference distribution (last: weights final) ---
+        self._fit_reference_distribution(arr)
+
         return self
 
     def fit_with_labels(
@@ -609,7 +699,7 @@ class MercuryAnomalyDetector(BaseDetector):
         labels = np.asarray(labels, dtype=np.int32).ravel()
 
         # Compute data-driven component weights before generating scores
-        self._adaptive_weights = self._compute_adaptive_weights(arr, labels)
+        self._adaptive_weights = self._supervised_weights(arr, labels)
 
         import logging as _log_aw
 
@@ -798,6 +888,9 @@ class MercuryAnomalyDetector(BaseDetector):
 
         All 13 core parameters correspond exactly to the attributes set
         during fit(). The resulting detector is ready for detect() calls.
+        The kNN density stream is not reconstructed: it needs training rows,
+        which federation never exports, so the reconstruction scores with
+        the three-component ensemble (as a ``knn_stream=False`` fit would).
 
         Args:
             mean: Feature means, shape (n_features,)
@@ -1090,10 +1183,107 @@ class MercuryAnomalyDetector(BaseDetector):
         u_stat, _ = sp_stats.mannwhitneyu(pos, neg, alternative="greater")
         return float(u_stat / (len(pos) * len(neg)))
 
+    #: Labelled pairs (anomaly, normal) used by the simplex surrogate; more
+    #: pairs than this are subsampled deterministically.
+    _SIMPLEX_MAX_PAIRS: int = 20000
+    #: Minimum labelled anomalies and normals before weights are learned.
+    _SIMPLEX_MIN_PER_CLASS: int = 5
+
+    def _supervised_weights(
+        self,
+        X: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """Labelled-path component weights: AUC margins, then simplex refinement.
+
+        The margin weights (:meth:`_compute_adaptive_weights`) are kept when
+        refinement is off, when they fell back to the default (no component
+        carries signal), or when there are too few labels per class.
+        """
+        components = self._component_score_matrix(X)
+        weights = self._compute_adaptive_weights(X, labels, components=components)
+        if self._weight_learning != "simplex" or self._weight_source != "adaptive":
+            return weights
+        learned = self._learn_simplex_weights(components, labels, initial=weights)
+        if learned is None:
+            return weights
+        self._weight_source = "simplex"
+        return learned
+
+    def _component_score_matrix(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Resonance, kinematic and info-geometry scores as an ``(n, 3)`` matrix."""
+        return np.column_stack(
+            [
+                self._compute_resonance_score(X),
+                self._compute_kinematic_score(X),
+                self._compute_info_geometry_score(X),
+            ]
+        ).astype(np.float64)
+
+    def _learn_simplex_weights(
+        self,
+        components: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+        *,
+        initial: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any] | None:
+        """Maximise a pairwise-AUC surrogate of ``components @ w`` on the simplex.
+
+        The surrogate is the mean of ``sigmoid((s_pos - s_neg) / tau)`` over
+        (anomaly, normal) pairs, optimised with the Fisher-metric Riemannian
+        Adam of :class:`ConstrainedParameterOptimizer`, so the weights stay
+        on the simplex at every step. Returns ``None`` (keep the margin
+        weights) when there are too few labels per class or the result is
+        not finite.
+        """
+        from omni_mercury_engine.core.riemannian_optimization import (
+            ConstrainedParameterOptimizer,
+        )
+
+        y = np.asarray(labels).ravel()
+        pos = components[y == 1]
+        neg = components[y == 0]
+        if min(len(pos), len(neg)) < self._SIMPLEX_MIN_PER_CLASS:
+            return None
+        n_pairs = len(pos) * len(neg)
+        if n_pairs <= self._SIMPLEX_MAX_PAIRS:
+            ip, ineg = np.divmod(np.arange(n_pairs), len(neg))
+        else:
+            rng = np.random.default_rng(0)
+            ip = rng.integers(0, len(pos), self._SIMPLEX_MAX_PAIRS)
+            ineg = rng.integers(0, len(neg), self._SIMPLEX_MAX_PAIRS)
+        diff = pos[ip] - neg[ineg]
+        tau = 0.05 * float(np.std(components.mean(axis=1))) + 1e-9
+
+        def objective(w: np.ndarray[Any, Any]) -> float:
+            return -float(np.mean(sp_special.expit((diff @ w) / tau)))
+
+        def gradient(w: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            sig = sp_special.expit((diff @ w) / tau)
+            grad: np.ndarray[Any, Any] = -((sig * (1.0 - sig))[:, None] * diff).mean(axis=0)
+            return grad / tau
+
+        try:
+            optimizer = ConstrainedParameterOptimizer(
+                optimizer_type="adam", learning_rate=0.05, max_iter=300
+            )
+            result = optimizer.optimize_simplex_weights(
+                np.asarray(initial, dtype=np.float64), objective, gradient
+            )
+        except Exception as exc:
+            logger.warning("simplex weight learning failed, keeping margin weights: %s", exc)
+            return None
+        w = np.clip(np.asarray(result.x, dtype=np.float64), 0.0, None)
+        if not np.all(np.isfinite(w)) or float(w.sum()) <= 0.0:
+            return None
+        return w / w.sum()
+
     def _compute_adaptive_weights(
         self,
         X: np.ndarray[Any, Any],
         labels: np.ndarray[Any, Any],
+        *,
+        components: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
         """Compute per-component ensemble weights proportional to AUC separation.
 
@@ -1107,13 +1297,17 @@ class MercuryAnomalyDetector(BaseDetector):
         Args:
             X: Training data, shape ``(n_samples, n_features)``.
             labels: Binary ground-truth labels.
+            components: Optional precomputed ``(n, 3)`` component scores
+                (:meth:`_component_score_matrix` of ``X``).
 
         Returns:
             Weight array of shape ``(3,)`` summing to 1.
         """
-        resonance_scores = self._compute_resonance_score(X)
-        kinematic_scores = self._compute_kinematic_score(X)
-        infogeo_scores = self._compute_info_geometry_score(X)
+        if components is None:
+            components = self._component_score_matrix(X)
+        resonance_scores = components[:, 0]
+        kinematic_scores = components[:, 1]
+        infogeo_scores = components[:, 2]
 
         aucs = np.array(
             [
@@ -1933,7 +2127,7 @@ class MercuryAnomalyDetector(BaseDetector):
         X_cal = X[cal_indices]
 
         # Compute adaptive weights using labeled subset
-        self._adaptive_weights = self._compute_adaptive_weights(X_cal, cal_labels)
+        self._adaptive_weights = self._supervised_weights(X_cal, cal_labels)
 
         # Score the calibration subset
         detection = self.detect(X_cal)
@@ -2265,58 +2459,34 @@ class MercuryAnomalyDetector(BaseDetector):
     # detect()
     # =====================================================================
 
-    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies using the Mercury original ensemble.
+    def _compute_combined_scores(
+        self,
+        data: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], dict[str, Any]]:
+        """Run the full ensemble scoring pipeline on finite ``data``.
 
-        Computes continuous anomaly scores from three independent methods
-        and combines them via weighted average.  Scores are in [0, 1].
-
-        Ensemble composition:
-          - ResonanceScore  (40%): FFT harmonic spectral anomaly
-          - KinematicScore  (30%): Physics-based jerk/curvature
-          - InfoGeometryScore (30%): Fisher Information OOD
-
-        Auto-Calibration:
-            When ``auto_calibrate=True``, the threshold is automatically
-            calibrated from the score distribution.
-
-        Args:
-            data: Input data array or tensor.
-
-        Returns:
-            Dictionary containing:
-              - is_anomaly: Boolean array of anomaly predictions
-              - scores: Combined continuous anomaly scores [0, 1]
-              - z_scores: Raw z-scores per feature
-              - z_score_continuous: Normalized z-score intensity [0, 1]
-              - iqr_scores: Continuous IQR-based scores [0, 1]
-              - resonance_scores: Harmonic anomaly scores [0, 1]
-              - kinematic_scores: Physics dynamics scores [0, 1]
-              - info_geometry_scores: Fisher OOD scores [0, 1]
-              - iqr_flags: Legacy boolean IQR anomalies
-              - isolation_forest_scores: DEPRECATED alias for scores (backward compat)
-              - isolation_forest_flags: DEPRECATED alias for is_anomaly (backward compat)
-              - detector_type: ``"statistical"``
-              - threshold: Effective threshold (may be calibrated)
-              - calibration_diagnostics: Diagnostics if auto-calibrated
-              - ensemble_components: Dict of individual component scores
-
-        Raises:
-            DetectorException: If detector has not been fitted.
+        Shared by :meth:`detect` and the fit-time reference-distribution
+        computation (:meth:`_fit_reference_distribution`), so the scores the
+        operating point is anchored to are produced by exactly the pipeline
+        that serves inference. Returns ``(combined_scores, parts)`` where
+        ``parts`` carries the per-component scores and oracle metadata that
+        :meth:`detect` surfaces in its result dict. No thresholding happens
+        here.
         """
-        if not self._is_fitted:
-            raise DetectorException("Detector must be fitted before detection")
+        combined_scores, parts = self._ensemble_base_scores(data)
+        combined_scores, knn_scores = self._fuse_knn_stream(data, combined_scores)
+        parts["knn_density"] = knn_scores
+        return self._finish_combined_scores(data, combined_scores, parts)
 
-        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
+    def _ensemble_base_scores(
+        self,
+        data: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], dict[str, Any]]:
+        """Weighted three-component ensemble on finite ``data``, clipped to [0, 1].
 
-        # mypy can't narrow through compound `TORCH_AVAILABLE and isinstance`
-        assert isinstance(data, np.ndarray)
-
-        if data.ndim == 1:
-            data = data.reshape(-1, 1)
-
-        # --- Individual scores ---
+        This is the part of the pipeline the kNN stream is fused with; it
+        stops before the oracle, residual filter, TTA and fit-time flip.
+        """
         z_scores = self._compute_z_scores(data)
         z_score_intensity = np.max(np.abs(z_scores), axis=1) / (self.z_threshold + 1e-8)
         z_score_continuous = np.clip(z_score_intensity, 0, 3.0) / 3.0
@@ -2398,14 +2568,32 @@ class MercuryAnomalyDetector(BaseDetector):
 
         combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
+        return combined_scores, {
+            "z_scores": z_scores,
+            "z_score_continuous": z_score_continuous,
+            "iqr_scores": iqr_scores,
+            "resonance": resonance,
+            "kinematic": kinematic,
+            "info_geometry": info_geo,
+        }
 
-        # Unsupervised ensemble flip (F1 Precision Directive, Phase 2):
-        # If median score > 0.80, scores are likely inverted (most points shouldn't be anomalous).
-        if len(combined_scores) >= 50:
-            median_score = float(np.median(combined_scores))
-            if median_score > 0.80:
-                combined_scores = 1.0 - combined_scores
-                logger.info("Ensemble flip: median=%.3f, inverting scores", median_score)
+    def _finish_combined_scores(
+        self,
+        data: np.ndarray[Any, Any],
+        combined_scores: np.ndarray[Any, Any],
+        parts: dict[str, Any],
+    ) -> tuple[np.ndarray[Any, Any], dict[str, Any]]:
+        """Apply the oracle, residual filter, TTA and fit-time flip."""
+        # NOTE (operating-point correctness): the former batch-median "ensemble
+        # flip" inverted every score whenever the scored batch's median rose
+        # above 0.80 on the assumption that "most points shouldn't be
+        # anomalous". That assumption is exactly wrong in the situations the
+        # detector exists for -- a sustained event, an attack flood, a drifted
+        # feed -- and was measured flipping a 90%-anomalous batch to AUROC 0.0
+        # (0/90 true anomalies flagged, 10/10 normals flagged). Orientation is
+        # a property of the FITTED ensemble, not of a scored batch: fit-time
+        # inversion detection (``validate()`` -> ``self._score_flip``, applied
+        # below) is the sound mechanism and remains.
 
         # --- Oracle spectral influence ---
         oracle_meta: dict[str, Any] = {"active": False}
@@ -2482,7 +2670,94 @@ class MercuryAnomalyDetector(BaseDetector):
         # Score flip for detected ensemble inversion (Task 4)
         if self._score_flip:
             combined_scores = 1.0 - combined_scores
+        parts["oracle_metadata"] = oracle_meta
+        return combined_scores, parts
 
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
+        """Detect anomalies using the Mercury original ensemble.
+
+        Computes continuous anomaly scores from three independent methods
+        and combines them via weighted average.  Scores are in [0, 1].
+
+        Ensemble composition:
+          - ResonanceScore  (40%): FFT harmonic spectral anomaly
+          - KinematicScore  (30%): Physics-based jerk/curvature
+          - InfoGeometryScore (30%): Fisher Information OOD
+
+        Auto-Calibration:
+            When ``auto_calibrate=True``, the threshold is automatically
+            calibrated from the score distribution.
+
+        Args:
+            data: Input data array or tensor.
+
+        Returns:
+            Dictionary containing:
+              - is_anomaly: Boolean array of anomaly predictions
+              - scores: Combined continuous anomaly scores [0, 1]
+              - z_scores: Raw z-scores per feature
+              - z_score_continuous: Normalized z-score intensity [0, 1]
+              - iqr_scores: Continuous IQR-based scores [0, 1]
+              - resonance_scores: Harmonic anomaly scores [0, 1]
+              - kinematic_scores: Physics dynamics scores [0, 1]
+              - info_geometry_scores: Fisher OOD scores [0, 1]
+              - iqr_flags: Legacy boolean IQR anomalies
+              - isolation_forest_scores: DEPRECATED alias for scores (backward compat)
+              - isolation_forest_flags: DEPRECATED alias for is_anomaly (backward compat)
+              - detector_type: ``"statistical"``
+              - threshold: Effective threshold (may be calibrated)
+              - calibration_diagnostics: Diagnostics if auto-calibrated
+              - ensemble_components: Dict of individual component scores
+
+        Raises:
+            DetectorException: If detector has not been fitted.
+        """
+        if not self._is_fitted:
+            raise DetectorException("Detector must be fitted before detection")
+
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+
+        # mypy can't narrow through compound `TORCH_AVAILABLE and isinstance`
+        assert isinstance(data, np.ndarray)
+
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+
+        # --- Non-finite input handling (fail-safe, never fail-blind) ---
+        # A single NaN/Inf cell used to propagate through the kinematic
+        # windows into the combined scores and the batch threshold, turning
+        # the threshold itself NaN and silencing EVERY flag in the batch
+        # (measured: a 50-sigma outlier went unflagged because an unrelated
+        # row carried one NaN). Non-finite cells are imputed with the
+        # fit-time per-feature median (fallback: the fit mean) so the rest
+        # of the batch is scored normally, and the affected rows are
+        # reported in ``nan_rows`` so callers can apply their own policy.
+        data = np.asarray(data, dtype=np.float64)
+        finite_cells = np.isfinite(data)
+        nan_rows = ~finite_cells.all(axis=1)
+        if bool(nan_rows.any()):
+            medians = getattr(self, "_feature_medians", None)
+            if medians is None or np.asarray(medians).shape[0] != data.shape[1]:
+                medians = self.mean
+            fill = np.asarray(medians, dtype=np.float64)
+            data = np.where(finite_cells, data, np.broadcast_to(fill, data.shape))
+            logger.warning(
+                "detect: %d of %d rows contained non-finite values; imputed "
+                "with fit-time feature medians (see result['nan_rows'])",
+                int(nan_rows.sum()),
+                data.shape[0],
+            )
+
+        combined_scores, parts = self._compute_combined_scores(data)
+        z_scores = parts["z_scores"]
+        z_score_continuous = parts["z_score_continuous"]
+        iqr_scores = parts["iqr_scores"]
+        resonance = parts["resonance"]
+        kinematic = parts["kinematic"]
+        info_geo = parts["info_geometry"]
+        oracle_meta = parts["oracle_metadata"]
+        knn_density = parts.get("knn_density")
         # --- Threshold & calibration ---
         # Priority: mondrian conformal > supervised pipeline > auto-calibrate > default
         effective_threshold = self.threshold
@@ -2534,6 +2809,9 @@ class MercuryAnomalyDetector(BaseDetector):
             "resonance_scores": resonance,
             "kinematic_scores": kinematic,
             "info_geometry_scores": info_geo,
+            # Mean distance to the k nearest fit-time rows in robust-scaled
+            # feature space (None when the stream is off or unfitted).
+            "knn_density_scores": knn_density,
             "ensemble_components": {
                 "resonance": resonance,
                 "kinematic": kinematic,
@@ -2549,6 +2827,9 @@ class MercuryAnomalyDetector(BaseDetector):
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
             "oracle_metadata": oracle_meta,
+            # Rows whose input contained non-finite cells (imputed before
+            # scoring); empty mask on clean batches.
+            "nan_rows": nan_rows,
         }
         if self._info_geometry_certificate_enabled:
             certificate = self._info_geometry_certificate_payload(data, info_geo)
@@ -2605,6 +2886,283 @@ class MercuryAnomalyDetector(BaseDetector):
         }
 
     # =====================================================================
+    # kNN density stream
+    # =====================================================================
+
+    #: Neighbours averaged by the kNN density stream.
+    _KNN_K: int = 10
+    #: Minimum reference rows per neighbour for the stream to run. Mean
+    #: distance to ``k`` neighbours estimates *local* density only when the
+    #: reference is an order of magnitude larger than ``k``; below that the
+    #: "neighbourhood" spans a sizeable fraction of the whole sample and the
+    #: 50/50 fusion dilutes the ensemble instead of sharpening it (measured
+    #: on ADBench Lymphography, n_train=71: fused AUC 0.9343 vs 0.9836 with
+    #: the stream off, while every guard dataset with >= 100 training rows
+    #: gained or held — glass 0.7681 -> 0.8123, pendigits 0.8741 -> 0.9905).
+    _KNN_MIN_REFERENCE_FACTOR: int = 10
+    #: Cap on the rows in the kNN reference tree (deterministic, evenly
+    #: spaced subsample) so memory and query cost stay bounded.
+    _KNN_MAX_REFERENCE: int = 4096
+    #: Fused scores at or below this value are reported unchanged; above it
+    #: they are compressed smoothly into (knee, 1). See _saturate_upper.
+    _KNN_SATURATION_KNEE: float = 0.8
+
+    @classmethod
+    def _saturate_upper(cls, values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Map scores into [0, 1) without tying the upper tail.
+
+        Identity on ``[0, knee]``; above the knee ``knee + (1 - knee) *
+        u / (1 + u)`` with ``u = (v - knee) / (1 - knee)``, which is C1 at
+        the knee and strictly increasing. A hard clip at 1.0 would tie every
+        strong anomaly (and the top of the fit-time reference) at 1.0, so the
+        conformal cut could itself become 1.0 and flag nothing.
+        """
+        knee = cls._KNN_SATURATION_KNEE
+        v = np.maximum(np.asarray(values, dtype=np.float64), 0.0)
+        u = np.maximum(v - knee, 0.0) / (1.0 - knee)
+        return np.where(v <= knee, v, knee + (1.0 - knee) * u / (1.0 + u))
+
+    @staticmethod
+    def _robust_location_scale(values: np.ndarray[Any, Any]) -> tuple[float, float] | None:
+        """Median and robust scale (1.4826*MAD, falling back to the std).
+
+        ``None`` when the values have no spread, so a degenerate stream is
+        never standardised by a zero scale.
+        """
+        values = np.asarray(values, dtype=np.float64)
+        values = values[np.isfinite(values)]
+        if values.size < 2:
+            return None
+        med = float(np.median(values))
+        scale = 1.4826 * float(np.median(np.abs(values - med)))
+        if scale <= 1e-12:
+            scale = float(np.std(values))
+        if scale <= 1e-12:
+            return None
+        return med, scale
+
+    def _fit_knn_stream(self, arr: np.ndarray[Any, Any]) -> None:
+        """Build the kNN reference tree and its leave-one-out score reference.
+
+        Features are robust-scaled (median / IQR, falling back to the std,
+        then 1). The reference distances exclude each row's self-match, so
+        the reference describes how an unseen normal row scores. A failure,
+        a degenerate reference, or a reference smaller than
+        ``_KNN_MIN_REFERENCE_FACTOR * _KNN_K`` rows disables the stream for
+        this fit (density needs the reference an order of magnitude larger
+        than the neighbourhood it averages).
+        """
+        self._knn_tree = None
+        self._knn_tree_index = None
+        self._knn_center = None
+        self._knn_scale = None
+        self._knn_k = 0
+        self._knn_ref_stats = None
+        self._knn_live_stats = None
+        if not self._knn_stream_enabled or len(arr) < 3:
+            return
+        try:
+            from scipy.spatial import cKDTree
+
+            n = len(arr)
+            if n > self._KNN_MAX_REFERENCE:
+                index = np.unique(np.linspace(0, n - 1, self._KNN_MAX_REFERENCE).astype(int))
+            else:
+                index = np.arange(n)
+            minimum = self._knn_min_reference
+            if len(index) < minimum:
+                logger.info(
+                    "fit: kNN density stream off (%d reference rows < minimum %d)",
+                    len(index),
+                    minimum,
+                )
+                return
+            center, scale = self._knn_feature_scaling(arr)
+            reference = (arr[index] - center) / scale
+            tree = cKDTree(reference)
+            k = min(self._KNN_K, len(index) - 1)
+            dist, _ = tree.query(reference, k=k + 1)
+            loo = np.asarray(dist, dtype=np.float64).reshape(len(index), k + 1)[:, 1:]
+            ref_stats = self._robust_location_scale(loo.mean(axis=1))
+            if ref_stats is None:
+                logger.info("fit: kNN density stream off (no spread in reference distances)")
+                return
+            self._knn_tree = tree
+            self._knn_tree_index = index
+            self._knn_center = center
+            self._knn_scale = scale
+            self._knn_k = k
+            self._knn_ref_stats = ref_stats
+        except Exception as exc:
+            logger.warning("fit: kNN density stream disabled: %s", exc)
+
+    @staticmethod
+    def _knn_feature_scaling(
+        arr: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Per-feature median and robust scale (IQR, then std, then 1)."""
+        center = np.median(arr, axis=0)
+        q75, q25 = np.percentile(arr, [75, 25], axis=0)
+        iqr = q75 - q25
+        std = np.std(arr, axis=0)
+        scale = np.where(iqr > 1e-12, iqr, np.where(std > 1e-12, std, 1.0))
+        return center, scale
+
+    def _knn_distances(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Mean leave-one-out distance to the ``k`` nearest reference rows.
+
+        Standardizes into the reference frame and delegates the
+        self-match-aware averaging to
+        :func:`omni_mercury_engine.ml.knn.loo_mean_knn_distance`.
+        """
+        from omni_mercury_engine.ml.knn import loo_mean_knn_distance
+
+        assert self._knn_center is not None and self._knn_scale is not None
+        z = (np.asarray(data, dtype=np.float64) - self._knn_center) / self._knn_scale
+        return loo_mean_knn_distance(self._knn_tree, z, self._knn_k)
+
+    def _knn_state_key(self) -> tuple[Any, ...]:
+        """Fingerprint of everything the ensemble part's scores depend on."""
+        cov_inv = self._ig_cov_inv
+        return (
+            self._fit_generation,
+            tuple(np.round(np.asarray(self._adaptive_weights, dtype=np.float64), 12)),
+            getattr(self, "_benchmark_domain", None),
+            self._component_calibration_enabled,
+            id(self._component_calibrators),
+            float(np.trace(cov_inv)) if cov_inv is not None else None,
+        )
+
+    def feature_cache_token(self) -> tuple[Any, ...] | None:
+        """Version of everything this detector's features and scores depend on.
+
+        The detector registry's opt-in feature cache keys entries on this
+        token, so any refit, weight change, calibration or flip change
+        invalidates them; the fit generation comes from a process-wide
+        counter, so two instances (or a copy that refits) never share one.
+        ``None`` (unfitted) disables caching.
+        """
+        if not self._is_fitted:
+            return None
+        return (
+            self._knn_state_key(),
+            self._score_flip,
+            self._multiscale_tta_enabled,
+            self._knn_tree is not None,
+        )
+
+    def _knn_live_reference(self) -> tuple[float, float] | None:
+        """Median/scale of the ensemble part on the fit-time reference sample."""
+        key = self._knn_state_key()
+        cached = self._knn_live_stats
+        if cached is not None and cached[0] == key:
+            return cached[1], cached[2]
+        train = self._train_data
+        if train is None or len(train) < 3:
+            return None
+        sample = train
+        if len(sample) > self._REFERENCE_MAX_SCORES:
+            idx = np.linspace(0, len(sample) - 1, self._REFERENCE_MAX_SCORES).astype(int)
+            sample = sample[idx]
+        base, _ = self._ensemble_base_scores(np.asarray(sample, dtype=np.float64))
+        stats = self._robust_location_scale(base)
+        if stats is None:
+            return None
+        self._knn_live_stats = (key, stats[0], stats[1])
+        return stats
+
+    def _fuse_knn_stream(
+        self,
+        data: np.ndarray[Any, Any],
+        combined_scores: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any] | None]:
+        """Fuse the kNN stream into the ensemble scores.
+
+        Both streams are robust-z standardised against their fit-time
+        references and averaged; the fused z is mapped back into the
+        ensemble's own units (``median + scale * z``), so a normal row keeps
+        the score scale the ensemble had and fixed thresholds below the
+        saturation knee keep their meaning; the upper tail is compressed
+        without ties by :meth:`_saturate_upper`. Returns the scores
+        unchanged (and ``None`` distances) when the stream is off or
+        degenerate.
+        """
+        if self._knn_tree is None or self._knn_ref_stats is None or len(data) == 0:
+            return combined_scores, None
+        try:
+            live = self._knn_live_reference()
+            if live is None:
+                return combined_scores, None
+            knn = self._knn_distances(data)
+        except Exception as exc:
+            logger.warning("kNN density stream skipped for this batch: %s", exc)
+            return combined_scores, None
+        live_med, live_scale = live
+        knn_med, knn_scale = self._knn_ref_stats
+        z_live = (combined_scores - live_med) / live_scale
+        z_knn = (knn - knn_med) / knn_scale
+        fused = live_med + live_scale * 0.5 * (z_live + z_knn)
+        return self._saturate_upper(fused), knn
+
+    #: Cap on the stored reference distribution. 2048 sorted float64 scores
+    #: (16 KiB) bound the detector state while keeping the conformal quantile
+    #: resolution far finer than any alpha this detector is configured with.
+    _REFERENCE_MAX_SCORES: int = 2048
+
+    def _fit_reference_distribution(self, arr: np.ndarray[Any, Any]) -> None:
+        """Score the training data with the serving pipeline and keep the sorted scores.
+
+        This is the fit-time anchor for the operating point: the stored
+        distribution says what NORMAL data scores like under exactly the
+        ensemble (weights, calibration, fit-time flip) that will serve
+        inference. ``_reference_threshold`` cuts it at a one-class
+        split-conformal quantile, which controls the false-alarm rate on
+        exchangeable normal data regardless of the composition of the batch
+        being scored -- including the n=1 streaming case and anomaly-majority
+        floods, where any batch-relative cut is unsound.
+
+        Best-effort by design: a failure leaves ``_reference_scores`` unset
+        and every consumer falls back to the batch-relative behaviour.
+        """
+        try:
+            sample = arr
+            if len(sample) > self._REFERENCE_MAX_SCORES:
+                idx = np.linspace(0, len(sample) - 1, self._REFERENCE_MAX_SCORES).astype(int)
+                sample = sample[idx]
+            scores, _ = self._compute_combined_scores(np.asarray(sample, dtype=np.float64))
+            scores = np.asarray(scores, dtype=np.float64).reshape(-1)
+            scores = scores[np.isfinite(scores)]
+            if scores.size:
+                self._reference_scores = np.sort(scores)
+                logger.info(
+                    "fit: operating-point reference stored (n=%d, q95=%.4f, max=%.4f)",
+                    scores.size,
+                    float(np.percentile(scores, 95)),
+                    float(scores.max()),
+                )
+        except Exception as exc:
+            self._reference_scores = None
+            logger.warning("fit: reference-distribution computation failed: %s", exc)
+
+    def _reference_threshold(self) -> float | None:
+        """One-class split-conformal cut of the fit-time reference scores.
+
+        With ``n`` reference scores and false-alarm budget ``alpha``, the
+        threshold is the ``ceil((n + 1) * (1 - alpha)) / n`` empirical
+        quantile (Vovk's conservative rank), so under exchangeability a
+        normal point exceeds it with probability at most ``alpha``.
+        ``None`` when no reference exists (legacy restored state), in which
+        case callers keep their historical behaviour.
+        """
+        ref = getattr(self, "_reference_scores", None)
+        if ref is None or len(ref) == 0:
+            return None
+        n = len(ref)
+        k = int(np.ceil((n + 1) * (1.0 - self._reference_alpha)))
+        k = min(max(k, 1), n)
+        return float(ref[k - 1])
+
+    # =====================================================================
     # Unsupervised operating-point calibration
     # =====================================================================
 
@@ -2649,12 +3207,39 @@ class MercuryAnomalyDetector(BaseDetector):
         s = np.asarray(scores, float).reshape(-1)
         n = s.size
         rng = float(np.ptp(s)) if n else 0.0
+        ref_thr = self._reference_threshold()
 
-        # Too few points or no spread to calibrate against: fall back to a
-        # conservative high-quantile cut (or the configured default if empty).
+        # Too few points or no spread to calibrate against. With a fit-time
+        # reference the cut needs nothing from the batch at all; the old
+        # batch-95th-percentile fallback made a single point its OWN
+        # threshold, so single-point streaming could never raise a flag.
         if n < 8 or rng < 1e-9:
+            if ref_thr is not None:
+                return ref_thr, {
+                    "method": "reference_conformal",
+                    "regime": "degenerate",
+                    "alpha": self._reference_alpha,
+                    "threshold": ref_thr,
+                }
             thr = float(np.percentile(s, 95)) if n else float(self.threshold)
             return thr, {"method": "adaptive", "regime": "degenerate", "threshold": thr}
+
+        # Anomalous-bulk guard: when the MEDIAN of the batch already exceeds
+        # what normal training data scores at the conformal cut, the batch
+        # bulk itself is abnormal (sustained event / attack flood / drifted
+        # feed) and every batch-relative statistic below -- Otsu's split, the
+        # MAD tail -- describes the anomaly population, not normality. Anchor
+        # the cut to the training reference instead. On normal-bulk batches
+        # (median below the cut) this branch never fires, so the
+        # benchmark-selected adaptive behaviour is unchanged there.
+        if ref_thr is not None and n >= 8 and float(np.median(s)) > ref_thr:
+            return ref_thr, {
+                "method": "reference_conformal",
+                "regime": "anomalous_bulk",
+                "alpha": self._reference_alpha,
+                "threshold": ref_thr,
+                "flagged_fraction": round(float(np.mean(s > ref_thr)), 4),
+            }
 
         t_otsu = self._otsu_threshold(s)
         valley = self._score_valley_depth(s, t_otsu)
@@ -3309,12 +3894,26 @@ class MercuryAnomalyDetector(BaseDetector):
             "adaptive_weights": _arr(self._adaptive_weights),
             "data_type": self._data_type.value,
             "train_data": _arr(self._train_data),
+            "reference_scores": _arr(self._reference_scores),
+            "reference_alpha": float(self._reference_alpha),
+            "feature_medians": _arr(self._feature_medians),
             "supervised_threshold": (
                 float(self._supervised_threshold)
                 if self._supervised_threshold is not None
                 else None
             ),
             "oracle_ref_stats": self.get_oracle_statistics(),
+            "knn_stream": (
+                {
+                    "tree_index": np.asarray(self._knn_tree_index, dtype=np.int64),
+                    "center": _arr(self._knn_center),
+                    "scale": _arr(self._knn_scale),
+                    "k": int(self._knn_k),
+                    "ref_stats": [float(v) for v in self._knn_ref_stats],
+                }
+                if self._knn_tree is not None and self._knn_ref_stats is not None
+                else None
+            ),
         }
 
     def set_fitted_state(self, state: dict[str, Any]) -> None:
@@ -3341,13 +3940,50 @@ class MercuryAnomalyDetector(BaseDetector):
             self._adaptive_weights = weights
         self._data_type = DataCharacteristics(str(state["data_type"]))
         self._train_data = _arr(state["train_data"])
+        # Operating-point reference (absent in legacy states: consumers fall
+        # back to the historical batch-relative behaviour).
+        self._reference_scores = _arr(state.get("reference_scores"))
+        self._reference_alpha = float(state.get("reference_alpha", 0.05))
+        self._feature_medians = _arr(state.get("feature_medians"))
         supervised = state.get("supervised_threshold")
         self._supervised_threshold = float(supervised) if supervised is not None else None
         oracle_ref_stats = state.get("oracle_ref_stats")
         self._restore_oracle_from_ref_stats(
             dict(oracle_ref_stats) if oracle_ref_stats is not None else None
         )
+        self._fit_generation = next(_FIT_EVENTS)
+        self._restore_knn_stream(state.get("knn_stream"))
         self._is_fitted = True
+
+    def _restore_knn_stream(self, knn_state: dict[str, Any] | None) -> None:
+        """Rebuild the kNN reference tree from the restored training data.
+
+        A legacy state without the stream (or without training data)
+        leaves it off, so restored detectors score exactly as they did
+        when saved.
+        """
+        self._knn_tree = None
+        self._knn_ref_stats = None
+        self._knn_live_stats = None
+        if not knn_state or self._train_data is None or not self._knn_stream_enabled:
+            return
+        try:
+            from scipy.spatial import cKDTree
+
+            index = np.asarray(knn_state["tree_index"], dtype=np.int64)
+            center = np.asarray(knn_state["center"], dtype=np.float64)
+            scale = np.asarray(knn_state["scale"], dtype=np.float64)
+            ref_stats = [float(v) for v in knn_state["ref_stats"]]
+            self._knn_tree = cKDTree((self._train_data[index] - center) / scale)
+            self._knn_tree_index = index
+            self._knn_center = center
+            self._knn_scale = scale
+            self._knn_k = int(knn_state["k"])
+            self._knn_ref_stats = (ref_stats[0], ref_stats[1])
+        except Exception as exc:
+            self._knn_tree = None
+            self._knn_ref_stats = None
+            logger.warning("set_fitted_state: kNN density stream not restored: %s", exc)
 
 
 def calibrate_scores(

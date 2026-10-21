@@ -28,16 +28,17 @@ from typing import Any
 from omni_mercury_engine.tools._base import Certificate, run_tool
 
 _SCHEMA = "mercury.tools.ethical_gate_coverage_report/v1"
+#: Names of the real gate entry points. Every token must name something that
+#: exists in the package (``tests/tools/test_new_tools.py`` checks it): a
+#: token for a symbol that does not exist can only ever match itself here.
 _GATE_TOKENS: frozenset[str] = frozenset(
     {
-        "SigmaImmutableGate",
+        "SigmaImmutableGate",  # security/sigma_immutable_gate.py
         "sigma_immutable_gate",
-        "enforce_sigma_immutable",
+        "enforce_dual_ethical_gate",
+        "enforce_ethical_floor",
         "BenevolenceLoss",
-        "benevolence_gate",
-        "evaluate_benevolence",
-        "GOSNNDetector",
-        "gosnn_detect",
+        "EthicalGate",  # the GOSNN ethical gate, core/global_omni_scalar_network.py
     }
 )
 

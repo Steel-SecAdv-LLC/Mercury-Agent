@@ -66,6 +66,11 @@ class USGSObservatory(Enum):
     SAN_JUAN = "SJG"  # San Juan, Puerto Rico
 
 
+#: ``sampling`` names accepted by the source and the service's
+#: ``sampling_period`` (seconds) for each.
+_SAMPLING_PERIOD_S = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
+
+
 class MagneticElement(Enum):
     """Magnetic field elements/channels."""
 
@@ -135,10 +140,21 @@ class USGSGeomagnetismSource(DataSourceBase):
 
         Args:
             observatories: Observatories to fetch from (None = Boulder)
-            elements: Magnetic elements to fetch (None = H, D, Z, F)
-            sampling: Data sampling rate (minute, second, hour, day)
+            elements: Magnetic elements to fetch (None = X, Y, Z, F: the
+                horizontal vector X/Y is what dB/dt and GIC need; the former
+                H, D, Z, F default forced the scalar-H path, which under-reads
+                dB/dt)
+            sampling: Data sampling rate (minute, second, hour, day), sent to
+                the service as ``sampling_period`` in seconds
             config: Optional base configuration
+
+        Raises:
+            ValueError: On an unknown ``sampling`` name.
         """
+        if sampling not in _SAMPLING_PERIOD_S:
+            raise ValueError(
+                f"sampling must be one of {sorted(_SAMPLING_PERIOD_S)}, got {sampling!r}"
+            )
         base_config = config or DataSourceConfig()
         base_config.rate_limit = RateLimitConfig(
             requests_per_hour=0,  # No stated limit
@@ -150,8 +166,8 @@ class USGSGeomagnetismSource(DataSourceBase):
 
         self._observatories = observatories or [USGSObservatory.BOULDER]
         self._elements = elements or [
-            MagneticElement.H,
-            MagneticElement.D,
+            MagneticElement.X,
+            MagneticElement.Y,
             MagneticElement.Z,
             MagneticElement.F,
         ]
@@ -167,30 +183,41 @@ class USGSGeomagnetismSource(DataSourceBase):
         """Default source types."""
         return [DataSourceType.MAGNETOMETER]
 
-    def _calculate_disturbance_level(self, values: dict[str, float]) -> AlertLevel:
-        """Calculate disturbance level from magnetic field values.
-
-        Uses deviation from quiet-time baseline to estimate geomagnetic activity.
-        """
-        # Typical quiet-time ranges (nT)
-        # H variations > 100 nT indicate storm conditions
-        # Dst index approximation: -50 to -100 = moderate, -100 to -200 = strong, < -200 = severe
-
+    @staticmethod
+    def _horizontal_intensity(values: dict[str, float]) -> float | None:
+        """The sample's horizontal field H in nT, from H or from X/Y; ``None`` if absent."""
         h_value = values.get("H")
-        if h_value is not None:
-            # Rough approximation of storm intensity from H variation
-            # Note: Actual storm detection requires baseline comparison
-            h_deviation = abs(h_value - 20000)  # Typical mid-latitude H value
+        if h_value is None and "X" in values and "Y" in values:
+            h_value = float(np.hypot(values["X"], values["Y"]))
+        if h_value is None or not np.isfinite(h_value):
+            return None
+        return float(h_value)
 
-            if h_deviation > 500:
-                return AlertLevel.SEVERE
-            elif h_deviation > 300:
-                return AlertLevel.STRONG
-            elif h_deviation > 150:
-                return AlertLevel.MODERATE
-            elif h_deviation > 50:
-                return AlertLevel.MINOR
+    def _calculate_disturbance_level(
+        self, values: dict[str, float], baseline_h: float | None
+    ) -> AlertLevel:
+        """Disturbance level of one sample against the window's own H baseline.
 
+        The deviation bands (50/150/300/500 nT, Dst-like magnitudes) are
+        graded against ``baseline_h``, the median H of the fetched window.
+        Each observatory's quiet-time H differs by hundreds of nT (about
+        20,700 nT at Boulder, 21,700 nT at Fredericksburg), so the former
+        fixed 20,000 nT reference called every quiet sample of the real
+        Gannon-storm fixtures STRONG or SEVERE. With no baseline (no finite
+        H in the window) no level is claimed.
+        """
+        h_value = self._horizontal_intensity(values)
+        if h_value is None or baseline_h is None:
+            return AlertLevel.NONE
+        h_deviation = abs(h_value - baseline_h)
+        if h_deviation > 500:
+            return AlertLevel.SEVERE
+        elif h_deviation > 300:
+            return AlertLevel.STRONG
+        elif h_deviation > 150:
+            return AlertLevel.MODERATE
+        elif h_deviation > 50:
+            return AlertLevel.MINOR
         return AlertLevel.NONE
 
     async def _fetch_observatory(
@@ -207,26 +234,39 @@ class USGSGeomagnetismSource(DataSourceBase):
             "starttime": start_time.strftime("%Y-%m-%dT%H:%M:%S") + "Z",
             "endtime": end_time.strftime("%Y-%m-%dT%H:%M:%S") + "Z",
             "elements": elements_str,
-            "sampling_period": self._sampling,
+            "sampling_period": str(_SAMPLING_PERIOD_S[self._sampling]),
             "format": "json",
             "type": "variation",
         }
 
-        try:
-            response = await self._http_get("edge/", params=params)
-            data = response.json()
-            return self._parse_response(observatory, data)
-
-        except Exception as e:
-            logger.warning(f"USGS Geomag {observatory.value} fetch failed: {e}")
-            return []
+        # The service is /ws/data/ with a numeric sampling_period (seconds);
+        # /ws/edge/ returns 404 and sampling_period="minute" returns 400. A
+        # failure propagates: it used to be logged and returned as an empty
+        # list with provenance "live", so a dead feed read as a quiet field.
+        response = await self._http_get("data/", params=params)
+        data = response.json()
+        if not isinstance(data, dict) or "times" not in data or "values" not in data:
+            raise DataSourceError(
+                f"USGS Geomag {observatory.value}: response has no times/values "
+                f"(got {type(data).__name__}); endpoint contract drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        return self._parse_response(observatory, data)
 
     def _parse_response(
         self,
         observatory: USGSObservatory,
         data: dict[str, Any],
     ) -> list[DataPoint]:
-        """Parse USGS Geomagnetism response."""
+        """Parse a USGS Geomagnetism response into one DataPoint per sample.
+
+        Every sample of the requested window is returned (samples with no
+        element value are skipped). The former cap at the last 100 kept 100
+        of the 1201 samples of a 20-minute 1-second request, so dB/dt and
+        GIC saw only its last 100 seconds; the caller bounds the volume with
+        the window and ``sampling`` it requests.
+        """
         data_points: list[DataPoint] = []
 
         values = data.get("values", [])
@@ -249,45 +289,50 @@ class USGSGeomagnetismSource(DataSourceBase):
             if elem_id:
                 elements.append(elem_id)
 
-        for i, time_str in enumerate(times[-100:]):  # Last 100 data points
+        parsed: list[tuple[datetime, dict[str, float]]] = []
+        for idx, time_str in enumerate(times):
             try:
-                # Adjust index for slicing
-                idx = len(times) - 100 + i if len(times) > 100 else i
-
                 timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
 
-                # Extract values for each element
+                # Extract values for each element (non-finite samples skipped:
+                # a NaN H would otherwise grade as a disturbance level).
                 point_values: dict[str, float] = {}
                 for j, elem_data in enumerate(values):
                     elem_id = elem_data.get("id", f"elem_{j}")
                     elem_values = elem_data.get("values", [])
                     if idx < len(elem_values) and elem_values[idx] is not None:
-                        point_values[elem_id] = float(elem_values[idx])
+                        value = float(elem_values[idx])
+                        if np.isfinite(value):
+                            point_values[elem_id] = value
 
-                if not point_values:
-                    continue
-
-                data_points.append(
-                    DataPoint(
-                        source_id=self.source_id,
-                        source_type=DataSourceType.MAGNETOMETER,
-                        event_id=f"usgs_{observatory.value}_{timestamp.isoformat()}",
-                        timestamp=timestamp,
-                        data={
-                            "observatory": observatory.value,
-                            "elements": point_values,
-                            "sampling": self._sampling,
-                        },
-                        location=location,
-                        alert_level=self._calculate_disturbance_level(point_values),
-                        confidence=0.95,
-                        metadata={"format": "IAGA2002", "type": "variation"},
-                    )
-                )
-
+                if point_values:
+                    parsed.append((timestamp, point_values))
             except (ValueError, IndexError, KeyError) as e:
                 logger.debug(f"Failed to parse USGS data point: {e}")
                 continue
+
+        # The window's own quiet reference: the median horizontal intensity.
+        h_series = [h for _, pv in parsed if (h := self._horizontal_intensity(pv)) is not None]
+        baseline_h = float(np.median(h_series)) if h_series else None
+
+        for timestamp, point_values in parsed:
+            data_points.append(
+                DataPoint(
+                    source_id=self.source_id,
+                    source_type=DataSourceType.MAGNETOMETER,
+                    event_id=f"usgs_{observatory.value}_{timestamp.isoformat()}",
+                    timestamp=timestamp,
+                    data={
+                        "observatory": observatory.value,
+                        "elements": point_values,
+                        "sampling": self._sampling,
+                    },
+                    location=location,
+                    alert_level=self._calculate_disturbance_level(point_values, baseline_h),
+                    confidence=0.95,
+                    metadata={"format": "json", "type": "variation"},
+                )
+            )
 
         return data_points
 

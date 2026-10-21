@@ -20,7 +20,6 @@ DEFAULT_PATHS = (
     Path(".github/workflows"),
     Path("pyproject.toml"),
     Path(".safety-policy.yml"),
-    Path(".safety-policy-v2.yml"),
 )
 
 TYPE_IGNORE_RE = re.compile(r"^\s*#\s*type:\s*ignore\b(?!\[)")
