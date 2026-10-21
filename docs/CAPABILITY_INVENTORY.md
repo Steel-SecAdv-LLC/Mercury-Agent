@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,993
-- **Capability-bearing classes:** 1,984 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,995
+- **Capability-bearing classes:** 1,986 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 90 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,171 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,173 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1171 |
+| Other capability classes | 1173 |
 | Support types (config / result / enum / error) | 1009 |
 | Detection | 176 |
 | Neural models & layers | 161 |
@@ -930,7 +930,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `data_sources/` — 55 classes (28 capability)
+### `data_sources/` — 57 classes (30 capability)
 
 **Data sources & loaders**
 
@@ -968,6 +968,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `LiveFetch` (`data_sources.live_ingestion`) — Result of a provenance-checked live fetch.
 - `PeakSurgeForecast` (`data_sources.storm_surge`) — One NHC peak-surge statement: an area and its forecast height range.
 - `SentryImpactRisk` (`data_sources.jpl_ssd`) — NASA Sentry impact monitoring data.
+- `SurgeHeight` (`data_sources.storm_surge`) — One SURGEDAT height as the database states it, in feet, metres or both.
+- `SurgeObservation` (`data_sources.storm_surge`) — One SURGEDAT peak-water observation.
 
 <details><summary>Support types (27)</summary>
 

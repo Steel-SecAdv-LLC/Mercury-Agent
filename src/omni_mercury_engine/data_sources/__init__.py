@@ -76,7 +76,10 @@ from omni_mercury_engine.data_sources.space_weather import (
 from omni_mercury_engine.data_sources.storm_surge import (
     NHCPeakStormSurgeSource,
     PeakSurgeForecast,
+    SurgeHeight,
+    SurgeObservation,
     parse_peak_surge_kml,
+    parse_surgedat_csv,
 )
 
 __all__ = [
@@ -124,6 +127,8 @@ __all__ = [
     "SolarSystemOpenDataSource",
     "SourceUnreachableError",
     "SuperMAGSource",
+    "SurgeHeight",
+    "SurgeObservation",
     "USGSEarthquakeSource",
     "USGSGeomagnetismSource",
     "USGSVolcanoSource",
@@ -131,5 +136,6 @@ __all__ = [
     "fetch_live_datapoints",
     "fireball_events_from_datapoints",
     "parse_peak_surge_kml",
+    "parse_surgedat_csv",
     "sentry_risks_from_datapoints",
 ]
