@@ -99,8 +99,12 @@ chars, the tolerance defaults exercised at the exact 1e-6 slope boundary,
 scan geometry at a grid-point root and the final interval, the KS statistic
 against a synthetic sample with the exact known answer 0.5/n, the twin-prime
 constant against its own Euler product to 1e-5, band densities re-derived
-independently to 1e-12, and the exact Collatz budget boundary at n=64); the
-re-measured rate and its CI floor land with the follow-up commit. The
+independently to 1e-12, and the exact Collatz budget boundary at n=64),
+raising the full-enumeration rate to **85.2%** (219/257) with every
+remaining survivor classified (scan-geometry resolution tweaks, exact-float
+boundary swaps, parity-guarded branches, unused sieve overrun, and the two
+env-unreachable import fallbacks). The floor is CI-enforced at 75
+(`mutation-testing.yml`, `mutation-floor-observatory` lane). The
 counterexample hooks are architecture, not claims: all candidate lists
 measure empty in tested ranges, as the literature says they must.
 

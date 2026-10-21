@@ -52,6 +52,7 @@ jobs:
       humanitarian: ${{ steps.detect.outputs.humanitarian }}
       geological: ${{ steps.detect.outputs.geological }}
       crisismonitor: ${{ steps.detect.outputs.crisismonitor }}
+      observatory: ${{ steps.detect.outputs.observatory }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -124,6 +125,14 @@ jobs:
           else
             echo "crisismonitor=false" >> "$GITHUB_OUTPUT"
             echo "crisis-monitor mutation surface unchanged."
+          fi
+          # The mutation-floored Mathematical Observatory surface.
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/observatory/(equation_solver|zeta_spectrum|goldbach_comet|collatz_records)\.py|tests/observatory/.*\.py|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "observatory=true" >> "$GITHUB_OUTPUT"
+            echo "observatory mutation surface changed: observatory floor lane runs."
+          else
+            echo "observatory=false" >> "$GITHUB_OUTPUT"
+            echo "observatory mutation surface unchanged."
           fi
 
   mutation-sample:
@@ -569,4 +578,64 @@ jobs:
         with:
           name: geological-mutation-report
           path: geological_mutation_report.json
+          if-no-files-found: ignore
+
+  mutation-floor-observatory:
+    name: Observatory mutation kill-rate floor
+    needs: changes
+    # Sixth module set hardened under the per-module kill-rate program
+    # (2026-10-21): the Mathematical Observatory shipped mutation-measured.
+    # First full enumeration (257 sites) scored 61.9%; survivor
+    # classification and kill-pins (contract boundaries, tolerance-default
+    # behavior, scan geometry, exact instrument arithmetic re-derived in
+    # tests) brought the measured rate to 85.2% (219/257). The remaining
+    # survivors are classified: scan-geometry resolution tweaks,
+    # exact-float boundary swaps, parity-guarded branches, unused sieve
+    # overrun, and the two env-unreachable import fallbacks.
+    if: github.event_name != 'pull_request' || needs.changes.outputs.observatory == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling + the observatory oracle (sympy/mpmath)
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis sympy
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-21, local, full enumeration): 219/257
+      # killed — 85.2% — with the remaining survivors classified (lane
+      # comment above). The floor sits at 75 so legitimate new mutation
+      # sites don't flake the lane while real weakening fails it.
+      - name: Observatory mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/observatory/equation_solver.py \
+              src/omni_mercury_engine/observatory/zeta_spectrum.py \
+              src/omni_mercury_engine/observatory/goldbach_comet.py \
+              src/omni_mercury_engine/observatory/collatz_records.py \
+            --test-cmd "python -m pytest tests/observatory -q -x" \
+            --jobs 4 \
+            --fail-under 75 \
+            --report observatory_mutation_report.json
+
+      - name: Upload observatory mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: observatory-mutation-report
+          path: observatory_mutation_report.json
           if-no-files-found: ignore

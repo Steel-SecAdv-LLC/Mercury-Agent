@@ -234,3 +234,21 @@ class TestCollatzPins:
         assert 64 in at_five["counterexample_candidates"]
         at_six = CollatzRecordsInstrument().observe(64, step_budget=6)
         assert 64 not in at_six["counterexample_candidates"]
+
+
+class TestSieveAndRangeBounds:
+    """Bound-exactness pins the small-limit tests cannot see."""
+
+    def test_sieve_strikes_perfect_prime_squares(self) -> None:
+        """121 = 11^2 and 169 = 13^2 are composite: the k <= sqrt(limit) bound is exact."""
+        flags_121 = GoldbachCometInstrument._sieve(121)
+        assert flags_121[121] is False
+        assert flags_121[113] is True
+        flags_169 = GoldbachCometInstrument._sieve(169)
+        assert flags_169[169] is False
+
+    def test_collatz_never_checks_beyond_its_limit(self) -> None:
+        """With a tiny budget every candidate stays within 2..limit — 65 never leaks in."""
+        result = CollatzRecordsInstrument().observe(64, step_budget=5)
+        assert all(2 <= n <= 64 for n in result["counterexample_candidates"])
+        assert 65 not in result["counterexample_candidates"]
