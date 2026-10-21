@@ -10,7 +10,10 @@ and flag exactly, across episode boundaries.
 
 from __future__ import annotations
 
+import dataclasses
+import inspect
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -249,3 +252,84 @@ def test_spaces_validate_and_compare() -> None:
     assert Box(-inf, inf) == Box(-inf, inf)
     assert Box(-inf, inf) != Box(np.zeros(2), np.ones(2))
     assert Box(np.zeros(3), np.ones(3)).shape == (3,)
+
+
+# -- pinned constants and edges ----------------------------------------------------------
+
+
+def test_spaces_and_limits_equal_gymnasiums() -> None:
+    """The values Gymnasium 1.4.0 declares (checked against it when recorded)."""
+    cart = CartPoleVecEnv()
+    theta = 12 * 2 * math.pi / 360
+    high = np.array([4.8, np.inf, 2 * theta, np.inf], dtype=np.float32)
+    assert cart.num_envs == 1 and cart.observation_space == Box(-high, high)
+    assert cart.action_space == Discrete(2) and cart.max_episode_steps == 500
+    pend = PendulumVecEnv()
+    speed = np.array([1.0, 1.0, 8.0], dtype=np.float32)
+    assert pend.num_envs == 1 and pend.observation_space == Box(-speed, speed)
+    two = np.array([2.0], dtype=np.float32)
+    assert pend.action_space == Box(-two, two) and pend.max_episode_steps == 200
+    assert inspect.signature(make_vec_env).parameters["num_envs"].default == 1
+
+
+def test_cartpole_runs_500_steps_when_balanced() -> None:
+    env = CartPoleVecEnv(1, seed=0)
+    env.reset()
+    for step in range(1, 501):
+        env._state[:] = 0.0
+        _, _, terminated, truncated, _ = env.step(np.array([step % 2]))
+        assert not terminated[0]
+        assert truncated[0] == (step == 500)
+
+
+@pytest.mark.parametrize(
+    "state",
+    [[2.4, 0.0, 0.0, 0.0], [-2.4, 0.0, 0.0, 0.0], [0.0, 0.0, 12 * 2 * math.pi / 360, 0.0]],
+)
+def test_termination_is_strictly_beyond_the_threshold(state: list[float]) -> None:
+    """Exactly at |x| = 2.4 or |theta| = 12 degrees the episode continues."""
+    env = CartPoleVecEnv(1, seed=0)
+    env.reset()
+    env._state[:] = state
+    env.tau = 0.0  # freeze the state on the threshold for one step
+    _, _, terminated, _, _ = env.step(np.array([0]))
+    assert not terminated[0]
+    env._state[:] = np.array(state) * 1.0001
+    _, _, terminated, _, _ = env.step(np.array([0]))
+    assert terminated[0]
+
+
+def test_pendulum_speed_is_clipped_to_eight() -> None:
+    env = PendulumVecEnv(1, seed=0)
+    env.reset()
+    env._state[:] = [math.pi / 2, 7.99]
+    obs, *_ = env.step(np.array([[2.0]], np.float32))
+    assert obs[0, 2] == 8.0
+
+
+def test_space_edges_and_immutability() -> None:
+    assert Discrete(1).n == 1
+    Box(np.zeros(2), np.zeros(2))  # low == high is a valid (degenerate) box
+    assert Box(np.zeros(2), np.ones(2)) != Box(np.zeros(2), 2 * np.ones(2))
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        Discrete(2).n = 3  # type: ignore[misc]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        Box(np.zeros(1), np.ones(1)).low = np.ones(1)  # type: ignore[misc]
+    for bad in (0, -1):
+        with pytest.raises(ValueError):
+            CartPoleVecEnv(bad)
+
+
+def test_space_comparison_across_kinds() -> None:
+    from omni_mercury_engine.ml.rl_envs import _same_space
+
+    @dataclasses.dataclass(frozen=True)
+    class MultiBinary:
+        n: int = 2
+        shape: tuple[int, ...] = (2,)
+
+    assert _same_space(Discrete(2), Discrete(2))
+    assert not _same_space(Discrete(2), Box(np.zeros(2), np.ones(2)))
+    assert not _same_space(Discrete(2), MultiBinary())
+    assert not _same_space(Box(np.zeros(2), np.ones(2)), Box(np.ones(2), np.ones(2)))
+    assert not _same_space(Box(np.zeros(2), np.ones(2)), Box(np.zeros(2), 2 * np.ones(2)))

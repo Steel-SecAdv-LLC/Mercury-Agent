@@ -12,8 +12,11 @@ point, and learning on CartPole and Pendulum within a CI budget.
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import itertools
+import logging
 import math
+import time
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -786,3 +789,677 @@ def test_learns_pendulum_with_gsde() -> None:
     trainer.learn(16_384)
     after, _ = trainer.evaluate(num_episodes=10)
     assert after > before + 200.0
+
+
+# -- pinned arithmetic and contracts ---------------------------------------------------
+# Each test below closes mutants the first full mutation enumeration of this
+# module left alive: defaults, validation edges and arithmetic no behavioural
+# test above distinguished.
+
+
+def _defaults(fn: Any) -> dict[str, Any]:
+    return {
+        name: p.default
+        for name, p in inspect.signature(fn).parameters.items()
+        if p.default is not inspect.Parameter.empty
+    }
+
+
+def test_every_default_is_pinned() -> None:
+    assert PPOConfig() == PPOConfig(
+        learning_rate=3e-4,
+        n_steps=2048,
+        batch_size=64,
+        n_epochs=10,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        ent_coef=0.01,
+        vf_coef=0.5,
+        max_grad_norm=0.5,
+        target_kl=None,
+        verbose=1,
+        n_envs=1,
+        lr_schedule="constant",
+        clip_range_schedule="constant",
+        clip_range_vf=None,
+        normalize_advantage=True,
+        normalize_observations=False,
+        normalize_rewards=False,
+        clip_observations=10.0,
+        clip_rewards=10.0,
+        net_arch=(64, 64),
+        activation="tanh",
+        ortho_init=True,
+        log_std_init=0.0,
+        use_sde=False,
+        sde_sample_freq=-1,
+        seed=None,
+        device="cpu",
+    )
+    stats = TrainingStats()
+    assert dataclasses.astuple(stats) == (
+        0, 0, 0.0, 0.0, 0.0, 0.0, float("-inf"), 0.0, 0, 0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, None, None,
+    )  # fmt: skip
+    assert _defaults(ActorCritic.__init__) == {
+        "net_arch": (64, 64),
+        "activation": "tanh",
+        "ortho_init": True,
+        "log_std_init": 0.0,
+        "use_sde": False,
+    }
+    assert _defaults(RunningMeanStd.__init__) == {"shape": (), "epsilon": 1e-4}
+    assert RunningMeanStd().count == 1e-4
+    assert _defaults(BaseCallback.__init__) == {"verbose": 0}
+    assert _defaults(ConvergenceMonitor.__init__) == {
+        "convergence_threshold": 0.999,
+        "patience": 10,
+        "verbose": 0,
+        "window": 100,
+    }
+    assert _defaults(CheckpointCallback.__init__) == {
+        "save_freq": 10000,
+        "name_prefix": "ppo_model",
+        "verbose": 0,
+    }
+    assert _defaults(PPOTrainer.pretrain) == {
+        "total_timesteps": 100000,
+        "convergence_threshold": 0.999,
+        "save_checkpoints": True,
+        "patience": 10,
+    }
+    assert _defaults(PPOTrainer.train_online) == {
+        "num_episodes": 100,
+        "update_freq": 10,
+        "callback": None,
+    }
+    assert _defaults(PPOTrainer.evaluate) == {
+        "num_episodes": 10,
+        "deterministic": True,
+        "env": None,
+        "seed": None,
+    }
+    assert _defaults(PPOTrainer.predict) == {"deterministic": True}
+    assert _defaults(MultiEnvPPOTrainer.pretrain_on_benchmarks) == {
+        "timesteps_per_benchmark": 20000,
+        "eval_episodes": 10,
+    }
+    monitor = ConvergenceMonitor()
+    assert monitor.episodes_without_improvement == 0 and monitor.converged is False
+
+
+@pytest.mark.parametrize(
+    "edge",
+    [
+        {"gamma": 0.0},
+        {"gamma": 0.05},
+        {"gamma": 1.0},
+        {"gae_lambda": 0.0},
+        {"gae_lambda": 1.0},
+        {"vf_coef": 0.0},
+        {"vf_coef": 0.05},
+        {"ent_coef": -0.01},
+        {"clip_range": 0.05},
+        {"max_grad_norm": 0.05},
+        {"clip_observations": 0.05},
+        {"clip_rewards": 0.05},
+        {"target_kl": 0.05},
+        {"clip_range_vf": 0.05},
+        {"learning_rate": 0.05},
+        {"seed": 0},
+        {"sde_sample_freq": 0},
+    ],
+)
+def test_config_accepts_its_boundary_values(edge: dict[str, Any]) -> None:
+    PPOConfig(**edge)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"max_grad_norm": 0.0},
+        {"clip_observations": 0.0},
+        {"clip_rewards": 0.0},
+        {"gamma": 1.0000001},
+        {"sde_sample_freq": True},
+        {"sde_sample_freq": 1.5},
+        {"n_envs": 0},
+    ],
+)
+def test_config_rejects_values_just_past_the_boundary(bad: dict[str, Any]) -> None:
+    with pytest.raises(ValueError):
+        PPOConfig(**bad)
+
+
+def test_convergence_monitor_threshold_edges() -> None:
+    ConvergenceMonitor(convergence_threshold=1.0)
+    ConvergenceMonitor(convergence_threshold=0.05)
+    # Threshold 1 means zero tolerance: an exactly flat window never improves.
+    monitor = ConvergenceMonitor(convergence_threshold=1.0, patience=2, window=1)
+    results = []
+    for r in (5.0, 5.0, 5.0):
+        monitor.locals = {"episode": [{"r": r, "l": 1}]}
+        results.append(monitor._on_step())
+    assert results == [True, True, False]
+
+
+def test_convergence_monitor_tolerance_is_relative_to_best() -> None:
+    # Threshold 0.99: a 5% gain is an improvement, a 0.5% gain is not.
+    monitor = ConvergenceMonitor(convergence_threshold=0.99, patience=5, window=1)
+    for r in (10.0, 10.5, 10.55):
+        monitor.locals = {"episode": [{"r": r, "l": 1}]}
+        monitor._on_step()
+    assert monitor.best_mean_reward == 10.5 and monitor.episodes_without_improvement == 1
+
+
+def test_convergence_metric_edges() -> None:
+    monitor = ConvergenceMonitor(window=2)
+    for r in (0.01, 0.0):
+        monitor.reward_history.append(r)
+    monitor.best_mean_reward = 0.01
+    # Exactly a full window counts, and the scale is |best| even when tiny.
+    assert monitor.get_convergence_metric() == pytest.approx(0.5)
+    monitor.reward_history[:] = [-100.0, -100.0]
+    monitor.best_mean_reward = 100.0
+    assert monitor.get_convergence_metric() == 0.0  # clipped at 0
+
+
+def test_reward_window_keeps_the_last_100_episodes() -> None:
+    trainer = PPOTrainer(lambda: CountdownEnv(1), small(n_envs=1, n_steps=150, batch_size=8))
+    trainer.learn(150)
+    assert len(trainer.episode_returns) == 100 and trainer.stats.total_episodes == 150
+
+
+@pytest.mark.parametrize("sde", [False, True])
+def test_gaussian_log_prob_and_entropy_match_torch_distributions(sde: bool) -> None:
+    torch.manual_seed(0)
+    policy = ActorCritic(3, 2, discrete=False, use_sde=sde, log_std_init=-0.7)
+    obs, actions = torch.randn(16, 3), torch.randn(16, 2)
+    with torch.no_grad():
+        log_prob, entropy, values = policy.evaluate_actions(obs, actions)
+        hidden, mean, _ = policy._forward(policy.tensors, obs)
+        std = policy._std(policy.tensors["log_std"], hidden[-1][0], mean)
+    dist = torch.distributions.Normal(mean, std)
+    assert torch.allclose(log_prob, dist.log_prob(actions).sum(-1), atol=1e-5)
+    assert torch.allclose(entropy, dist.entropy().sum(-1), atol=1e-5)
+    metrics = policy.ppo_gradients(
+        obs, actions, log_prob, values, torch.randn(16), torch.randn(16),
+        clip_range=0.2, clip_range_vf=None, ent_coef=0.0, vf_coef=0.5,
+    )  # fmt: skip
+    assert metrics[2].item() == pytest.approx(entropy.mean().item(), rel=1e-5)
+
+
+def test_gsde_standard_deviation_formula() -> None:
+    policy = ActorCritic(2, 1, discrete=False, use_sde=True, net_arch=())
+    with torch.no_grad():
+        policy.tensors["log_std"].copy_(torch.tensor([[0.5], [0.25]]).log())
+    mean = torch.zeros(2, 1)
+    latent = torch.tensor([[1.0, 2.0], [0.0, 0.0]])
+    std = policy._std(policy.tensors["log_std"], latent, mean)
+    # std^2 = latent^2 @ exp(2 log_std) + 1e-6
+    assert std[0, 0].item() == pytest.approx(math.sqrt(0.25 + 4 * 0.0625 + 1e-6), rel=1e-6)
+    assert std[1, 0].item() == pytest.approx(1e-3, rel=1e-4)
+
+
+def test_gsde_noise_scale_and_actions() -> None:
+    torch.manual_seed(0)
+    policy = ActorCritic(3, 1, discrete=False, use_sde=True, log_std_init=math.log(0.1))
+    gen = torch.Generator().manual_seed(0)
+    noise = policy.sample_sde_noise(4000, gen)
+    assert noise.shape == (4000, 64, 1)
+    assert noise.std().item() == pytest.approx(0.1, rel=0.02) and abs(noise.mean().item()) < 0.002
+    obs = torch.randn(5, 3)
+    actions, _, _ = policy.act(obs, deterministic=False, generator=gen, sde_noise=noise[:5])
+    hidden, mean, _ = policy._forward(policy.tensors, obs)
+    expected = mean + torch.bmm(hidden[-1][0].unsqueeze(1), noise[:5]).squeeze(1)
+    assert torch.allclose(actions, expected)
+    drawn, _, _ = policy.act(obs, deterministic=False, generator=gen)  # fresh noise per row
+    assert drawn.shape == (5, 1)
+
+
+def test_gaussian_actions_are_mean_plus_scaled_noise() -> None:
+    torch.manual_seed(0)
+    policy = ActorCritic(3, 2, discrete=False, log_std_init=-1.0)
+    obs = torch.randn(6, 3)
+    actions, _, _ = policy.act(obs, deterministic=False, generator=torch.Generator().manual_seed(4))
+    noise = torch.randn((6, 2), generator=torch.Generator().manual_seed(4))
+    mean = policy._forward(policy.tensors, obs)[1]
+    assert torch.allclose(actions, mean + math.exp(-1.0) * noise)
+
+
+def test_metrics_match_their_definitions() -> None:
+    torch.manual_seed(0)
+    policy = ActorCritic(4, 3, discrete=True)
+    obs, actions = torch.randn(64, 4), torch.randint(0, 3, (64,))
+    with torch.no_grad():
+        log_prob, _, values = policy.evaluate_actions(obs, actions)
+    old = log_prob + torch.linspace(-0.5, 0.5, 64)
+    adv, ret = torch.randn(64), torch.randn(64)
+    metrics = policy.ppo_gradients(
+        obs, actions, old, values, adv, ret,
+        clip_range=0.2, clip_range_vf=None, ent_coef=0.0, vf_coef=0.5,
+    )  # fmt: skip
+    log_ratio = log_prob - old
+    ratio = log_ratio.exp()
+    assert metrics[0].item() == pytest.approx(
+        -torch.min(adv * ratio, adv * ratio.clamp(0.8, 1.2)).mean().item(), rel=1e-5
+    )
+    assert metrics[3].item() == pytest.approx(((ratio - 1) - log_ratio).mean().item(), rel=1e-5)
+    assert metrics[4].item() == ((ratio - 1).abs() > 0.2).float().mean().item()
+    assert 0.0 < metrics[4].item() < 1.0
+
+
+def test_default_initialization_matches_nn_linear_bounds() -> None:
+    torch.manual_seed(0)
+    policy = ActorCritic(4, 2, discrete=True, ortho_init=False)
+    first = policy.tensors["hidden.0.weight"]  # fan-in 4: U(-0.5, 0.5)
+    assert 0.45 < first.abs().max().item() <= 0.5
+    second = policy.tensors["hidden.1.weight"]  # fan-in 64: U(-0.125, 0.125)
+    assert 0.12 < second.abs().max().item() <= 0.125
+    assert policy.tensors["hidden.0.bias"].abs().max().item() <= 0.5
+
+
+# -- the update's arithmetic, observed through a stand-in gradient --------------------
+
+
+class _GradientProbe:
+    """Stands in for ``ActorCritic.ppo_gradients``: records calls, writes a set gradient."""
+
+    def __init__(
+        self, policy: ActorCritic, grad: float = 0.0, metrics: Any = (1, 2, 3, 4, 5)
+    ) -> None:
+        self.policy, self.grad, self.metrics = (
+            policy,
+            grad,
+            torch.tensor(metrics, dtype=torch.float32),
+        )
+        self.calls: list[dict[str, Any]] = []
+
+    def __call__(self, *args: Any, **kwargs: Any) -> torch.Tensor:
+        names = ("obs", "actions", "old_log_probs", "old_values", "advantages", "returns")
+        self.calls.append({**dict(zip(names, args, strict=True)), **kwargs})
+        assert self.policy.flat.grad is not None
+        self.policy.flat.grad.fill_(self.grad)
+        return self.metrics
+
+
+def _probe(trainer: PPOTrainer, **kwargs: Any) -> _GradientProbe:
+    probe = _GradientProbe(trainer.policy, **kwargs)
+    trainer.policy.ppo_gradients = probe  # type: ignore[method-assign]
+    return probe
+
+
+def _steps(trainer: PPOTrainer) -> list[dict[str, float]]:
+    """Record the gradient norm and learning rate at every optimizer step."""
+    seen: list[dict[str, float]] = []
+    step = trainer.optimizer.step
+
+    def recording_step(*args: Any, **kwargs: Any) -> Any:
+        grad = trainer.policy.flat.grad
+        assert grad is not None
+        seen.append({"norm": float(grad.norm()), "lr": trainer.optimizer.param_groups[0]["lr"]})
+        return step(*args, **kwargs)
+
+    trainer.optimizer.step = recording_step  # type: ignore[method-assign]
+    return seen
+
+
+def test_advantages_are_normalized_per_minibatch() -> None:
+    trainer = PPOTrainer("CartPole-v1", small(batch_size=32, n_epochs=1))
+    probe = _probe(trainer)
+    rollout = trainer._collect(16, [])
+    assert rollout is not None
+    trainer._update(rollout, 1.0)
+    adv, _ = compute_gae(
+        rollout.rewards, rollout.values, rollout.dones, rollout.last_values, 0.99, 0.95
+    )
+    flat_adv = torch.as_tensor(adv.reshape(-1))
+    expected = (flat_adv - flat_adv.mean()) / (flat_adv.std() + 1e-8)
+    assert torch.allclose(probe.calls[0]["advantages"], expected)
+    raw = PPOTrainer("CartPole-v1", small(batch_size=32, n_epochs=1, normalize_advantage=False))
+    raw_probe = _probe(raw)
+    raw_rollout = raw._collect(16, [])
+    assert raw_rollout is not None
+    raw._update(raw_rollout, 1.0)
+    raw_adv, _ = compute_gae(
+        raw_rollout.rewards,
+        raw_rollout.values,
+        raw_rollout.dones,
+        raw_rollout.last_values,
+        0.99,
+        0.95,
+    )
+    assert torch.equal(raw_probe.calls[0]["advantages"], torch.as_tensor(raw_adv.reshape(-1)))
+    single = PPOTrainer("CartPole-v1", small(batch_size=1, n_epochs=1, n_steps=2, n_envs=1))
+    single_probe = _probe(single)
+    single.learn(2)
+    assert all(torch.isfinite(c["advantages"]).all() for c in single_probe.calls)
+
+
+def test_minibatches_cover_every_sample_once_per_epoch() -> None:
+    trainer = PPOTrainer("CartPole-v1", small(batch_size=10, n_epochs=3))
+    probe = _probe(trainer)
+    trainer.learn(32)
+    sizes = [c["obs"].shape[0] for c in probe.calls]
+    assert sizes == [10, 10, 10, 2] * 3
+
+
+def test_gradient_norm_clipping() -> None:
+    trainer = PPOTrainer("CartPole-v1", small(max_grad_norm=0.5))
+    _probe(trainer, grad=1.0)
+    seen = _steps(trainer)
+    trainer.learn(32)
+    norm = math.sqrt(trainer.policy.flat.numel())
+    assert seen[0]["norm"] == pytest.approx(0.5 * norm / (norm + 1e-6), rel=1e-5)
+    small_grad = PPOTrainer("CartPole-v1", small(max_grad_norm=0.5))
+    _probe(small_grad, grad=1e-4)
+    seen = _steps(small_grad)
+    small_grad.learn(32)
+    assert seen[0]["norm"] == pytest.approx(
+        1e-4 * math.sqrt(small_grad.policy.flat.numel()), rel=1e-5
+    )
+
+
+@pytest.mark.parametrize(("kl", "steps_taken"), [(0.375, 4), (0.39, 0)])
+def test_kl_stop_is_strictly_above_one_and_a_half_targets(kl: float, steps_taken: int) -> None:
+    trainer = PPOTrainer("CartPole-v1", small(target_kl=0.25))
+    probe = _probe(trainer, metrics=(0.0, 0.0, 0.0, kl, 0.0))
+    seen = _steps(trainer)
+    trainer.learn(32)
+    assert len(seen) == steps_taken
+    assert len(probe.calls) == (4 if steps_taken else 1)  # a stop ends every epoch
+
+
+def test_update_statistics_map_the_metrics() -> None:
+    trainer = PPOTrainer("CartPole-v1", small())
+    _probe(trainer, metrics=(1.0, 2.0, 3.0, 4.0, 5.0))
+    stats = trainer.learn(32)
+    assert (stats.policy_loss, stats.value_loss, stats.entropy, stats.approx_kl, stats.clip_fraction) == (
+        1.0, 2.0, 3.0, 4.0, 5.0,
+    )  # fmt: skip
+
+
+def test_explained_variance_matches_its_definition() -> None:
+    trainer = PPOTrainer("CartPole-v1", small())
+    _probe(trainer)
+    rollout = trainer._collect(16, [])
+    assert rollout is not None
+    trainer._update(rollout, 1.0)
+    _, returns = compute_gae(
+        rollout.rewards, rollout.values, rollout.dones, rollout.last_values, 0.99, 0.95
+    )
+    expected = 1.0 - np.var(returns - rollout.values) / np.var(returns)
+    assert trainer.stats.explained_variance == pytest.approx(float(expected), rel=1e-6)
+
+
+def test_linear_schedule_restarts_with_each_learn_call() -> None:
+    trainer = PPOTrainer("CartPole-v1", small(n_epochs=1, lr_schedule="linear"))
+    seen = _steps(trainer)
+    trainer.learn(64)
+    trainer.learn(64)
+    assert [s["lr"] for s in seen] == pytest.approx([1.5e-4, 1.5e-4, 0.0, 0.0] * 2)
+
+
+def test_train_online_budget_arithmetic() -> None:
+    trainer = PPOTrainer(
+        lambda: CountdownEnv(2),
+        small(n_envs=1, n_steps=64, batch_size=8, n_epochs=1, lr_schedule="linear"),
+    )
+    seen = _steps(trainer)
+    stats = trainer.train_online(num_episodes=10, update_freq=4)
+    assert stats.total_episodes == 10  # rollouts of 4, 4, then exactly 2
+    assert [round(s["lr"] / 3e-4, 6) for s in seen] == [0.6, 0.2, 0.0]
+    trainer.train_online(num_episodes=3, update_freq=4)
+    assert trainer.stats.total_episodes == 13
+
+
+def test_train_online_updates_once_per_rollout() -> None:
+    trainer = PPOTrainer(lambda: CountdownEnv(3), small(n_envs=1, n_steps=64, batch_size=8))
+    stats = trainer.train_online(num_episodes=12, update_freq=4)
+    assert stats.n_updates == 3 * 2 * 2  # 3 rollouts of 12 samples: 2 minibatches, 2 epochs
+
+
+def test_training_time_is_wall_clock() -> None:
+    trainer = PPOTrainer("CartPole-v1", small())
+    started = time.perf_counter()
+    trainer.learn(64)
+    assert 0.0 < trainer.stats.training_time <= time.perf_counter() - started
+
+
+def test_a_plain_callback_does_not_stop_training() -> None:
+    trainer = PPOTrainer("CartPole-v1", small())
+    callback = BaseCallback()
+    trainer.learn(64, callback=callback)
+    assert trainer.num_timesteps == 64 and callback.n_calls == 32
+
+
+def test_observation_normalization_arithmetic() -> None:
+    trainer = PPOTrainer("CartPole-v1", small(normalize_observations=True, clip_observations=5.0))
+    assert trainer.obs_rms is not None
+    trainer.obs_rms.mean = np.array([1.0, -2.0, 0.5, 0.0])
+    trainer.obs_rms.var = np.array([4.0, 0.25, 0.0, 1.0])
+    raw = np.array([[3.0, -1.0, 0.5, 100.0]], np.float32)
+    out = trainer._process_obs(raw, update=False)
+    expected = np.array([[2.0 / math.sqrt(4 + 1e-8), 1.0 / math.sqrt(0.25 + 1e-8), 0.0, 5.0]])
+    assert np.allclose(out, expected, rtol=1e-6)
+    assert trainer.obs_rms.count == 1e-4  # update=False left the statistics alone
+
+
+def test_reward_scaling_arithmetic() -> None:
+    trainer = PPOTrainer("CartPole-v1", small(n_envs=1, normalize_rewards=True, gamma=0.5))
+    assert trainer.ret_rms is not None
+    outputs = []
+    for done in (False, False, True, False):
+        out = trainer._scale_rewards(np.array([1.0]), np.array([done]))
+        outputs.append(float(out[0]))
+    reference = RunningMeanStd(())
+    discounted, expected = 0.0, []
+    for done in (False, False, True, False):
+        discounted = discounted * 0.5 + 1.0
+        reference.update(np.array([discounted]))
+        expected.append(min(1.0 / math.sqrt(reference.var + 1e-8), 10.0))  # clip_rewards
+        if done:
+            discounted = 0.0
+    assert outputs == pytest.approx(expected, rel=1e-6)
+    assert trainer._discounted.tolist() == [1.0]  # restarted after the episode ended
+
+
+def test_reset_updates_and_final_observations_do_not() -> None:
+    trainer = PPOTrainer(
+        "Pendulum-v1", small(n_envs=2, n_steps=200, batch_size=8, normalize_observations=True)
+    )
+    trainer._reset_env()
+    assert trainer.obs_rms is not None and trainer.obs_rms.count == pytest.approx(1e-4 + 2)
+    rollout = trainer._collect(200, [])  # the 200th step truncates both copies
+    assert rollout is not None and rollout.dones[-1].all()
+    assert trainer.obs_rms.count == pytest.approx(1e-4 + 2 + 2 * 200)
+
+
+@pytest.mark.parametrize(("freq", "draws"), [(-1, 1), (0, 1), (4, 3), (1, 10)])
+def test_gsde_noise_is_resampled_every_sde_sample_freq_steps(freq: int, draws: int) -> None:
+    trainer = PPOTrainer(
+        "Pendulum-v1", small(use_sde=True, sde_sample_freq=freq, n_steps=10, batch_size=8)
+    )
+    calls = []
+    sample = trainer.policy.sample_sde_noise
+
+    def counting(n: int, generator: Any) -> torch.Tensor:
+        calls.append(n)
+        return sample(n, generator)
+
+    trainer.policy.sample_sde_noise = counting  # type: ignore[method-assign]
+    trainer._collect(10, [])
+    assert calls == [2] * draws
+
+
+def test_discrete_observation_offset() -> None:
+    @dataclasses.dataclass(frozen=True)
+    class Shifted:
+        n: int = 3
+        start: int = 10
+
+    env = CountdownEnv(3)
+    env.observation_space = Shifted()
+    trainer = PPOTrainer(env, small(n_envs=1))
+    assert trainer._flatten(np.array([12, 10])).tolist() == [[0, 0, 1], [1, 0, 0]]
+
+
+def test_unsupported_spaces_and_objects_are_refused() -> None:
+    @dataclasses.dataclass(frozen=True)
+    class MultiBinary:
+        n: int = 3
+        shape: tuple[int, ...] = (3,)
+
+    @dataclasses.dataclass(frozen=True)
+    class LowOnly:
+        low: float = 0.0
+
+    for space in (MultiBinary(), LowOnly()):
+        env = CountdownEnv()
+        env.action_space = space
+        with pytest.raises(TypeError, match="unsupported space"):
+            PPOTrainer(env, small(n_envs=1))
+
+    class ResetOnly:
+        def reset(self) -> None:
+            return None
+
+    with pytest.raises(TypeError, match="neither"):
+        PPOTrainer(ResetOnly())
+
+
+def test_logging(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO, logger="omni_mercury_engine.ml.ppo_trainer"):
+        PPOTrainer("CartPole-v1", small(n_envs=1, verbose=1))
+        PPOTrainer("CartPole-v1", small(n_envs=2, verbose=1)).learn(32)
+        assert "1 copy," in caplog.text and "2 copies," in caplog.text
+        assert "trained 32 steps" in caplog.text and "steps=32 " not in caplog.text
+        PPOTrainer("CartPole-v1", small(verbose=2)).learn(32)
+        assert "steps=32 " in caplog.text
+
+
+# -- evaluation, persistence, helpers ---------------------------------------------------
+
+
+class RecordingEnv(CountdownEnv):
+    """Records the seeds it is reset with; episode return = its length."""
+
+    def __init__(self, length: int) -> None:
+        super().__init__(length)
+        self.seeds: list[int | None] = []
+
+    def reset(self, seed: int | None = None) -> tuple[np.ndarray, dict[str, Any]]:
+        self.seeds.append(seed)
+        return super().reset(seed)
+
+
+def test_evaluate_seeds_and_episode_split() -> None:
+    trainer = PPOTrainer(CountdownEnv(3), small(n_envs=1, seed=5))
+    env = RecordingEnv(3)
+    trainer.evaluate(num_episodes=1, env=env)
+    trainer.evaluate(num_episodes=1, env=env, seed=123)
+    assert env.seeds[0] == 10_005 and env.seeds[2] == 123
+    # Copy 0 owes 1 episode (return 3), copy 1 owes 2 (return 5 each).
+    mean, _ = trainer.evaluate(
+        num_episodes=3, env=SyncVectorEnv([CountdownEnv(3), CountdownEnv(5)])
+    )
+    assert mean == pytest.approx(13 / 3)
+
+
+def test_evaluate_leaves_training_state_alone_when_it_can() -> None:
+    trainer = PPOTrainer("CartPole-v1", small())
+    trainer.learn(32)
+    obs = trainer._last_obs
+    sizes = []
+    spawn = trainer.env.spawn
+
+    def recording_spawn(num_envs: int, seed: int | None = None) -> Any:
+        sizes.append(num_envs)
+        return spawn(num_envs, seed=seed)
+
+    trainer.env.spawn = recording_spawn
+    trainer.evaluate(num_episodes=40)
+    trainer.evaluate(num_episodes=3)
+    trainer.evaluate(num_episodes=2, env="CartPole-v1")
+    assert sizes == [16, 3] and trainer._last_obs is obs
+
+
+def test_save_creates_directories_and_failures_leave_the_old_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trainer = PPOTrainer("CartPole-v1", small())
+    target = tmp_path / "a" / "b" / "m.pt"
+    trainer.save_model(target)
+    before = target.read_bytes()
+
+    def failing_save(*args: Any, **kwargs: Any) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(torch, "save", failing_save)
+    with pytest.raises(OSError, match="disk full"):
+        trainer.save_model(target)
+    assert target.read_bytes() == before
+    assert [p.name for p in target.parent.iterdir()] == ["m.pt"]
+
+
+def test_checkpoint_format_version_is_checked(tmp_path: Path) -> None:
+    from omni_mercury_engine.security.safe_torch import safe_torch_load
+
+    trainer = PPOTrainer("CartPole-v1", small())
+    trainer.save_model(tmp_path / "m.pt")
+    data = safe_torch_load(tmp_path / "m.pt")
+    assert (data["format"], data["version"]) == ("mercury.ppo", 1)
+    data["version"] = 2
+    torch.save(data, tmp_path / "future.pt")
+    with pytest.raises(ValueError, match="version"):
+        trainer.load_model(tmp_path / "future.pt")
+
+
+def test_load_refuses_a_different_observation_with_the_same_actions(tmp_path: Path) -> None:
+    PPOTrainer(CountdownEnv(), small(n_envs=1)).save_model(tmp_path / "toy.pt")
+    with pytest.raises(ValueError, match="different observation"):
+        PPOTrainer("CartPole-v1", small()).load_model(tmp_path / "toy.pt")
+
+
+def test_action_spec_comparison() -> None:
+    from omni_mercury_engine.ml.ppo_trainer import _same_action_spec
+
+    discrete = {"kind": "discrete", "n": 2, "start": 0}
+    assert _same_action_spec(discrete, dict(discrete))
+    assert not _same_action_spec(discrete, {**discrete, "n": 3})
+    assert not _same_action_spec(discrete, {**discrete, "start": 1})
+    box = {"kind": "box", "low": torch.zeros(1), "high": torch.ones(1)}
+    assert _same_action_spec(box, dict(box))
+    assert not _same_action_spec(box, {**box, "low": -torch.ones(1)})
+    assert not _same_action_spec(box, {**box, "high": 2 * torch.ones(1)})
+    assert not _same_action_spec(box, discrete)
+
+
+def test_summary_reports_not_converged_until_the_monitor_says_so(tmp_path: Path) -> None:
+    trainer = PPOTrainer("CartPole-v1", small(), checkpoint_dir=tmp_path)
+    trainer.pretrain(total_timesteps=32, save_checkpoints=False)
+    assert trainer.convergence_monitor is not None and not trainer.convergence_monitor.converged
+    assert trainer.get_training_summary()["converged"] is False
+    assert trainer.checkpoint_callback is None
+
+
+def test_pretrain_wires_its_callbacks(tmp_path: Path) -> None:
+    trainer = PPOTrainer("CartPole-v1", small(verbose=2), checkpoint_dir=tmp_path)
+    trainer.pretrain(total_timesteps=32)
+    cb = trainer.checkpoint_callback
+    assert cb is not None and (cb.save_freq, cb.name_prefix, cb.verbose) == (
+        10000,
+        "ppo_pretrain",
+        1,
+    )
+    assert trainer.convergence_monitor is not None and trainer.convergence_monitor.verbose == 1
+    quiet = PPOTrainer("CartPole-v1", small(verbose=0), checkpoint_dir=tmp_path)
+    quiet.pretrain(total_timesteps=32)
+    assert quiet.convergence_monitor is not None and quiet.convergence_monitor.verbose == 0
+
+
+def test_checkpoint_callback_reuses_an_existing_directory(tmp_path: Path) -> None:
+    CheckpointCallback(tmp_path / "ckpt")
+    CheckpointCallback(tmp_path / "ckpt")
+    assert (tmp_path / "ckpt").is_dir()

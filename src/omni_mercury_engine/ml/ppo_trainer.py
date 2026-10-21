@@ -1401,10 +1401,10 @@ class PPOTrainer:
         self,
         callback: BaseCallback | Sequence[BaseCallback] | None,
         *,
-        budget_steps: int | None,
-        budget_episodes: int | None,
-        update_episodes: int | None,
+        steps: int | None = None,
+        episodes: tuple[int, int] | None = None,
     ) -> TrainingStats:
+        """Train for ``steps`` steps, or for ``episodes = (budget, update_freq)``."""
         callbacks = [callback] if isinstance(callback, BaseCallback) else list(callback or ())
         for cb in callbacks:
             cb.init_callback(self)
@@ -1412,27 +1412,28 @@ class PPOTrainer:
         started = time.perf_counter()
         try:
             while True:
-                steps_done = self.num_timesteps - start_steps
-                episodes_done = self.stats.total_episodes - start_episodes
-                if budget_steps is not None and steps_done >= budget_steps:
-                    break
-                if budget_episodes is not None and episodes_done >= budget_episodes:
-                    break
-                wanted = None
-                if update_episodes is not None and budget_episodes is not None:
-                    wanted = min(update_episodes, budget_episodes - episodes_done)
+                if episodes is None:
+                    assert steps is not None
+                    if self.num_timesteps - start_steps >= steps:
+                        break
+                    wanted = None
+                else:
+                    budget, update_freq = episodes
+                    remaining = budget - (self.stats.total_episodes - start_episodes)
+                    if remaining <= 0:
+                        break
+                    wanted = min(update_freq, remaining)
                 rollout = self._collect(self.config.n_steps, callbacks, min_episodes=wanted)
                 self._refresh_reward_stats(callbacks)
                 if rollout is None:
                     break
                 for cb in callbacks:
                     cb.on_rollout_end()
-                if budget_steps is not None:
-                    progress = 1.0 - (self.num_timesteps - start_steps) / budget_steps
+                if episodes is None:
+                    assert steps is not None
+                    progress = 1.0 - (self.num_timesteps - start_steps) / steps
                 else:
-                    assert budget_episodes is not None
-                    done = self.stats.total_episodes - start_episodes
-                    progress = 1.0 - done / budget_episodes
+                    progress = 1.0 - (self.stats.total_episodes - start_episodes) / budget
                 self._update(rollout, progress)
                 self._log_rollout()
         finally:
@@ -1469,9 +1470,7 @@ class PPOTrainer:
             :attr:`stats`.
         """
         _positive_int("total_timesteps", total_timesteps)
-        return self._train(
-            callback, budget_steps=total_timesteps, budget_episodes=None, update_episodes=None
-        )
+        return self._train(callback, steps=total_timesteps)
 
     def pretrain(
         self,
@@ -1531,9 +1530,7 @@ class PPOTrainer:
         """
         _positive_int("num_episodes", num_episodes)
         _positive_int("update_freq", update_freq)
-        return self._train(
-            callback, budget_steps=None, budget_episodes=num_episodes, update_episodes=update_freq
-        )
+        return self._train(callback, episodes=(num_episodes, update_freq))
 
     # -- inference and evaluation ---------------------------------------------
 
@@ -1704,9 +1701,11 @@ class PPOTrainer:
         self._build()
         self.policy.load_state_dict(data["policy"])
         self.optimizer.load_state_dict(data["optimizer"])
-        if self.obs_rms is not None and data["obs_rms"] is not None:
+        # The rebuilt trainer has the checkpoint's configuration, so it keeps
+        # running statistics exactly when the checkpoint holds them.
+        if self.obs_rms is not None:
             self.obs_rms.load_state_dict(data["obs_rms"])
-        if self.ret_rms is not None and data["ret_rms"] is not None:
+        if self.ret_rms is not None:
             self.ret_rms.load_state_dict(data["ret_rms"])
         self._generator.set_state(data["generator"].cpu())
         self.num_timesteps = self.stats.total_timesteps = int(data["num_timesteps"])
