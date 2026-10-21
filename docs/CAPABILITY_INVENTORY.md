@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,989
-- **Capability-bearing classes:** 1,982 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,990
+- **Capability-bearing classes:** 1,983 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 89 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,169 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,170 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1169 |
+| Other capability classes | 1170 |
 | Support types (config / result / enum / error) | 1007 |
 | Detection | 176 |
 | Neural models & layers | 161 |
@@ -200,7 +200,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `api/` — 154 classes (55 capability)
+### `api/` — 155 classes (56 capability)
 
 **Adapters & backends**
 
@@ -261,6 +261,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `SecretSealer` (`api.secret_sealer`) — Seals/opens short account secrets with AAD-bound at-rest encryption.
 - `SecurityHeadersMiddleware` (`api.security_headers`) — Attach the security header set to every response that reaches it.
 - `Session` (`api.identity_store`) — A browser login session (only the token hash is stored).
+- `SilentTripwireMiddleware` (`api.routes.decoys`) — Observe-only ASGI middleware for ``not_found`` decoys.
 - `SmtpMailer` (`api.mailer`) — Mailer that delivers over SMTP using environment-supplied credentials.
 - `SqliteCounterStore` (`api.rate_limit_store`) — Durable, cross-worker counter store on the shared SQLite file.
 - `SqliteIdentityStore` (`api.identity_store`) — Durable identity store backed by stdlib ``sqlite3`` (WAL, lock-guarded).

@@ -44,7 +44,8 @@ from omni_mercury_engine.security.secure_audit_logging import (
     AuditEventSeverity,
 )
 
-ALL_METHODS = ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
+#: Includes the methods a route-based tripwire answered with a telltale 405.
+ALL_METHODS = ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "PROPFIND")
 AUTH_DECOYS = [d for d in DEFAULT_DECOYS if d.response == "auth_challenge"]
 SILENT_DECOYS = [d for d in DEFAULT_DECOYS if d.response == "not_found"]
 
@@ -160,19 +161,53 @@ class TestDecoyResponses:
 
     @pytest.mark.parametrize("decoy", SILENT_DECOYS, ids=lambda d: d.path)
     def test_silent_tripwire_matches_a_missing_path(self, harness: Harness, decoy: Any) -> None:
-        """For every method, a silent tripwire answers exactly as a path that does not exist."""
-        for method in ALL_METHODS:
-            decoy_response = harness.client.request(method, decoy.path)
-            missing = harness.client.request(method, "/no-such-path-anywhere")
-            assert decoy_response.status_code == missing.status_code == 404
-            assert decoy_response.content == missing.content
-            assert decoy_response.headers.get("content-type") == missing.headers.get("content-type")
+        """Every method and path variant answers exactly as a path that does not exist.
+
+        Fails on the route-based tripwires this replaced: OPTIONS, TRACE and
+        PROPFIND answered 405, and the trailing-slash form a 307 redirect.
+        """
+        for suffix in ("", "/", "?probe=1"):
+            for method in ALL_METHODS:
+                decoy_response = harness.client.request(
+                    method, decoy.path + suffix, follow_redirects=False
+                )
+                missing = harness.client.request(
+                    method, "/no-such-path-anywhere" + suffix, follow_redirects=False
+                )
+                assert decoy_response.status_code == missing.status_code == 404, (method, suffix)
+                assert decoy_response.content == missing.content
+                assert decoy_response.headers.get("content-type") == missing.headers.get(
+                    "content-type"
+                )
+
+    @pytest.mark.parametrize("decoy", SILENT_DECOYS, ids=lambda d: d.path)
+    def test_silent_tripwire_records_every_variant(self, harness: Harness, decoy: Any) -> None:
+        """Observation covers every method and the trailing-slash form."""
+        harness.client.request("PROPFIND", decoy.path)
+        harness.client.get(decoy.path + "/")
+        harness.client.get(decoy.path + "?probe=1")
+        assert len(harness.sensor.outcomes("203.0.113.9")) == 1
+        assert harness.events[0].method == "PROPFIND"
+        assert harness.events[0].path == decoy.path
+
+    def test_non_decoy_paths_are_never_observed(self, harness: Harness) -> None:
+        """The middleware ignores every path that is not a silent tripwire."""
+        for path in ("/no-such-path-anywhere", "/.envx", "/x/.env", "/.ENV"):
+            harness.client.get(path)
+        assert harness.events == []
+
+    def test_first_touch_has_real_route_latency(self, harness: Harness) -> None:
+        """No delay on first contact: a delayed first answer fingerprints the decoy."""
+        harness.client.get("/api/v1/admin")
+        harness.client.get("/.env")
+        assert harness.sleep.delays == [0.5]
+        assert len(harness.events) == 2
 
     def test_each_touch_is_recorded_and_tarpitted(self, harness: Harness) -> None:
         """Touches escalate the tarpit; the gate holds each scheduled delay."""
         for _ in range(3):
             harness.client.get("/api/v1/admin")
-        assert harness.sleep.delays == [0.5, 1.0, 2.0]
+        assert harness.sleep.delays == [0.5, 1.0]
         assert len(harness.events) == 1
         assert harness.events[0].path == "/api/v1/admin"
 
@@ -228,15 +263,23 @@ class TestUnforgeableKeying:
 class TestFailClosed:
     """An internal failure answers as a missing path -- never a 500, never a leak."""
 
-    @pytest.mark.parametrize("decoy", [AUTH_DECOYS[0], SILENT_DECOYS[0]], ids=lambda d: d.path)
+    @pytest.mark.parametrize(
+        ("decoy", "logged"),
+        [
+            (AUTH_DECOYS[0], "answering as a missing path"),
+            (SILENT_DECOYS[0], "failed to record; passing through"),
+        ],
+        ids=["auth_challenge", "silent"],
+    )
     def test_sensor_failure_answers_not_found(
         self,
         harness: Harness,
         decoy: Any,
+        logged: str,
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """A raising sensor yields the plain 404 of a nonexistent path."""
+        """A raising sensor yields the plain 404 of a nonexistent path, logged."""
 
         def broken(*args: object, **kwargs: object) -> TripwireEvent:
             raise RuntimeError("sensor down")
@@ -247,7 +290,7 @@ class TestFailClosed:
             response = harness.client.get(decoy.path)
         assert response.status_code == 404
         assert response.content == missing.content
-        assert "answering as a missing path" in caplog.text
+        assert logged in caplog.text
 
 
 class TestRegistrationContract:
@@ -312,6 +355,19 @@ class TestLiveApplication:
         assert decoy.headers["www-authenticate"] == real.headers["www-authenticate"]
         assert decoy.headers["content-type"] == real.headers["content-type"]
 
+    def test_decoy_variants_behave_as_a_real_route(
+        self, live_client: TestClient, harness: Harness
+    ) -> None:
+        """Wrong methods and the trailing-slash form answer as a real GET/POST route does."""
+        for method in ("OPTIONS", "PROPFIND", "DELETE"):
+            real = live_client.request(method, "/api/v1/models")
+            decoy = harness.client.request(method, "/api/v1/admin")
+            assert decoy.status_code == real.status_code == 405, method
+            assert decoy.headers["allow"] == real.headers["allow"], method
+        real_slash = live_client.get("/api/v1/models/", follow_redirects=False)
+        decoy_slash = harness.client.get("/api/v1/admin/", follow_redirects=False)
+        assert decoy_slash.status_code == real_slash.status_code == 307
+
 
 class TestSecureAuditSink:
     """Tripwires land on the shared tamper-evident chain, or in structured logs."""
@@ -350,3 +406,94 @@ class TestSecureAuditSink:
             secure_audit_sink(None)(self._event())
         assert "deception tripwire source=203.0.113.9 decoy=/api/v1/admin" in caplog.text
         assert "credential_presented=False" in caplog.text
+
+
+class TestSessionCredential:
+    """A stolen browser session probing a decoy is the highest-value signal."""
+
+    def test_session_cookie_name_matches_the_account_routes(self) -> None:
+        """Pinned, not imported: the decoy surface never loads the account stack."""
+        from omni_mercury_engine.api.routes.accounts import SESSION_COOKIE
+
+        assert decoy_routes._SESSION_COOKIE == SESSION_COOKIE
+
+    @pytest.mark.parametrize(
+        ("cookies", "presented"),
+        [
+            ({"mercury_session": "hijacked"}, True),
+            ({"mercury_csrf": "token-only"}, False),
+            ({"unrelated": "x"}, False),
+        ],
+    )
+    @pytest.mark.parametrize("path", ["/api/v1/admin", "/.env"], ids=["route", "silent"])
+    def test_session_cookie_flagged(
+        self, harness: Harness, path: str, cookies: dict[str, str], presented: bool
+    ) -> None:
+        """Fails on the replaced check, which looked only at headers.
+
+        A session cookie flags the touch on both decoy kinds; a CSRF cookie
+        alone is not a credential. The cookie value is never recorded.
+        """
+        harness.client.cookies.clear()
+        harness.client.get(path, cookies=cookies)
+        event = harness.events[0]
+        assert event.credential_presented is presented
+        assert "hijacked" not in repr(event)
+
+
+class TestCollisionRefusal:
+    """A decoy the application already serves is refused, never registered."""
+
+    @staticmethod
+    def _app_with_real_routes() -> FastAPI:
+        app = FastAPI()
+
+        @app.get("/api/v1/things/{thing_id}")
+        def thing(thing_id: str) -> dict[str, str]:
+            return {"thing": thing_id}
+
+        @app.get("/real/")
+        def real_slash() -> dict[str, str]:
+            return {"ok": "yes"}
+
+        return app
+
+    def test_colliding_decoys_refused_and_logged(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Path-parameter, exact and slash-twin collisions are all refused."""
+        from omni_mercury_engine.security.deception import DecoyRoute
+
+        app = self._app_with_real_routes()
+        events: list[TripwireEvent] = []
+        decoys = (
+            DecoyRoute("/api/v1/things/export", "collides via {thing_id}"),
+            DecoyRoute("/api/v1/things/backup", "collides via {thing_id}", "not_found"),
+            DecoyRoute("/real", "collides via trailing-slash twin"),
+            DecoyRoute("/safe/private", "no collision"),
+        )
+        sensor = DeceptionSensor(decoys=decoys, audit_sink=events.append)
+        with caplog.at_level(logging.ERROR, logger=decoy_routes.__name__):
+            register_decoys(app, enabled=True, sensor=sensor, gate=TarpitGate(4))
+        assert [d.path for d in app.state.deception_decoys] == ["/safe/private"]
+        assert caplog.text.count("served by a real route") == 3
+        client = TestClient(app)
+        assert client.get("/api/v1/things/export").json() == {"thing": "export"}
+        assert client.get("/api/v1/things/backup").json() == {"thing": "backup"}
+        assert events == []
+        assert client.get("/safe/private").status_code == 401
+        assert [e.path for e in events] == ["/safe/private"]
+
+    def test_configured_private_decoys_are_registered(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Private paths from the environment are live alongside the defaults."""
+        monkeypatch.setenv(DECEPTION_ENABLED_ENV, "true")
+        monkeypatch.setenv("MERCURY_DECOY_PATHS", "/api/v1/private/console")
+        monkeypatch.setenv("MERCURY_SILENT_DECOY_PATHS", "/private.bak")
+        monkeypatch.delenv("MERCURY_AUDIT_LOG_DIR", raising=False)
+        app = FastAPI()
+        sensor = register_decoys(app)
+        assert sensor is not None
+        client = TestClient(app, client=("203.0.113.70", 50000))
+        assert client.get("/api/v1/private/console").status_code == 401
+        assert client.get("/private.bak").status_code == 404
+        assert len(sensor.outcomes("203.0.113.70")) == 2

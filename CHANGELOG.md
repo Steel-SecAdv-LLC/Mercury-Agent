@@ -27,6 +27,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Trust surface red-team: four ways around the decoys, closed (branch `steel/version-cov5`)
+
+An adversarial pass against the decoy layer found four ways around it; three
+were measured directly and the fourth is a property of the repository. Each
+fix has fail-on-old tests (13 route tests fail against the replaced code).
+
+**Fixed — the shipped decoys are public.** Mercury is open source, so anyone
+who reads `DEFAULT_DECOYS` can avoid all eight. Deployments now add private,
+unpublished paths with `MERCURY_DECOY_PATHS` (protected-route challenge) and
+`MERCURY_SILENT_DECOY_PATHS` (silent tripwire); a decoy's location is the
+secret, like a key. Invalid or duplicate entries are logged and skipped, never
+fatal. Registration now runs after every real route and refuses any decoy the
+application already serves, checked with each route's own `matches()` — so a
+configured `/api/v1/models/export` that a real `{model_id}` route would serve
+is refused rather than turned into a trap for legitimate users. The site root
+can no longer be a decoy.
+
+**Fixed — timing fingerprinted every decoy on first contact (measured).** A
+real protected route answered in 24 ms; a decoy in 507 ms on its first touch.
+`TarpitPolicy.free_hits` (default 1) answers first contact at real-route
+latency; escalation (0.5, 1, 2, 4, 8 s) starts on the repeat, by which time the
+source is already recorded. Stealth until first contact, friction after.
+
+**Fixed — the silent tripwires were not silent (measured).** As routes, `/.env`
+and `/.git/config` answered `OPTIONS`, `TRACE` and `PROPFIND` with 405 and
+their trailing-slash forms with a 307 redirect, where a missing path answers
+404 to all of them. They are now observe-only ASGI middleware: the touch is
+recorded and the request passes through, so the application's own router
+answers with its genuine 404 — indistinguishable by construction, for every
+method and variant. The differential test against the live application also
+caught a fingerprint on the protected-route decoys: Mercury declares each
+method as a separate route (`POST` then `GET`), so a wrong-method 405 says
+`Allow: POST`, while a decoy declaring both methods on one route said `Allow:
+GET, POST`. Decoys now register one route per method in that order, and the
+test asserts the `Allow` header exactly.
+
+**Fixed — a stolen browser session went unflagged (measured).** A decoy touched
+with the account routes' `mercury_session` cookie recorded
+`credential_presented = False`. The session cookie now counts as a presented
+credential on both decoy kinds (a CSRF cookie alone does not); the name is
+pinned to `accounts.SESSION_COOKIE` by test, and the value is never recorded.
+
+**Measured.** 227 trust-surface tests, all `mypy --strict` clean; the full
+`tests/api` + `tests/security` suites (2,426) pass. Full mutation enumeration
+over the four modules after the fixes: **128/129 killed (99.2%)**, the sole
+survivor the classified tarpit-cap equivalent; the CI floor of 90 holds.
+
 ### Trust surface: a standing notice to autonomous agents, RFC 9116 security.txt, and a containment-only decoy layer (branch `steel/version-cov5`)
 
 **Added — `security/agent_notice.py`, a standing notice to autonomous agents.**

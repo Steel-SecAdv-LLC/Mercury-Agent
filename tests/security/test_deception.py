@@ -18,12 +18,15 @@ from omni_mercury_engine.security.counterintelligence import (
 )
 from omni_mercury_engine.security.deception import (
     DECEPTION_ENABLED_ENV,
+    DECOY_PATHS_ENV,
     DEFAULT_DECOYS,
+    SILENT_DECOY_PATHS_ENV,
     DeceptionSensor,
     DecoyRoute,
     TarpitGate,
     TarpitPolicy,
     TripwireEvent,
+    configured_decoys,
     deception_enabled,
     source_key,
 )
@@ -104,13 +107,14 @@ class TestTarpitPolicy:
     """Bounded, overflow-proof exponential schedule."""
 
     @pytest.mark.parametrize(
-        ("hits", "delay"), [(0, 0.0), (-3, 0.0), (1, 0.5), (2, 1.0), (3, 2.0), (4, 4.0), (5, 8.0)]
+        ("hits", "delay"),
+        [(0, 0.0), (-3, 0.0), (1, 0.0), (2, 0.5), (3, 1.0), (4, 2.0), (5, 4.0), (6, 8.0)],
     )
     def test_default_schedule(self, hits: int, delay: float) -> None:
-        """0.5, 1, 2, 4, 8 seconds."""
+        """First touch free (real-route latency), then 0.5, 1, 2, 4, 8 seconds."""
         assert TarpitPolicy().delay_for(hits) == delay
 
-    @pytest.mark.parametrize("hits", [6, 64, 10**6, 10**18])
+    @pytest.mark.parametrize("hits", [7, 64, 10**6, 10**18])
     def test_capped_without_overflow(self, hits: int) -> None:
         """Any hit count saturates at the cap; none can overflow."""
         assert TarpitPolicy().delay_for(hits) == 8.0
@@ -118,18 +122,18 @@ class TestTarpitPolicy:
     def test_growth_one_is_constant(self) -> None:
         """No growth: every hit waits the base delay."""
         policy = TarpitPolicy(base_delay_s=0.3, growth=1.0, max_delay_s=5.0)
-        assert [policy.delay_for(n) for n in (1, 2, 50)] == [0.3, 0.3, 0.3]
+        assert [policy.delay_for(n) for n in (1, 2, 3, 50)] == [0.0, 0.3, 0.3, 0.3]
 
     def test_cap_equal_to_base(self) -> None:
         """A cap equal to the base pins every hit at it."""
         policy = TarpitPolicy(base_delay_s=2.0, max_delay_s=2.0)
-        assert [policy.delay_for(n) for n in (1, 2, 9)] == [2.0, 2.0, 2.0]
+        assert [policy.delay_for(n) for n in (1, 2, 3, 9)] == [0.0, 2.0, 2.0, 2.0]
 
     def test_just_below_the_cap(self) -> None:
         """The last uncapped step is exact; the next one caps."""
         policy = TarpitPolicy(base_delay_s=1.0, growth=3.0, max_delay_s=10.0)
-        assert policy.delay_for(3) == 9.0
-        assert policy.delay_for(4) == 10.0
+        assert policy.delay_for(4) == 9.0
+        assert policy.delay_for(5) == 10.0
 
     @pytest.mark.parametrize(
         "kwargs",
@@ -179,20 +183,24 @@ class TestDecoyRoute:
             DecoyRoute(**kwargs)  # type: ignore[arg-type]
 
     def test_defaults(self) -> None:
-        """An auth-challenge decoy on GET and POST by default."""
+        """An auth-challenge decoy on POST then GET, the order Mercury's routers use."""
         decoy = DecoyRoute("/ok", "lure")
         assert decoy.response == "auth_challenge"
-        assert decoy.methods == ("GET", "POST")
+        assert decoy.methods == ("POST", "GET")
 
     def test_shipped_decoys(self) -> None:
-        """Unique paths; silent tripwires answer every method (no telltale 405)."""
+        """Unique paths; two silent tripwires (they observe every method)."""
         paths = [d.path for d in DEFAULT_DECOYS]
         assert len(paths) == len(set(paths))
         assert "/api/v1/gate/override" in paths
         silent = [d for d in DEFAULT_DECOYS if d.response == "not_found"]
         assert {d.path for d in silent} == {"/.env", "/.git/config"}
-        for decoy in silent:
-            assert set(decoy.methods) == {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}
+
+    @pytest.mark.parametrize("root", ["/", "//", "///"])
+    def test_site_root_refused(self, root: str) -> None:
+        """Every visitor touches the root; it can never be a decoy."""
+        with pytest.raises(ValueError, match="site root"):
+            DecoyRoute(root, "lure")
 
 
 class TestSensorRecording:
@@ -215,7 +223,7 @@ class TestSensorRecording:
             hits_in_window=1,
             distinct_decoys=1,
             first_touch=True,
-            delay_s=0.5,
+            delay_s=0.0,
             credential_presented=False,
         )
 
@@ -226,7 +234,7 @@ class TestSensorRecording:
         sensor.record("203.0.113.9", ADMIN, "GET")
         event = sensor.record("203.0.113.9", KEYS, "POST")
         assert event.hits_in_window == 3
-        assert event.delay_s == 2.0
+        assert event.delay_s == 1.0
         assert event.distinct_decoys == 2
         assert event.first_touch is True
 
@@ -246,7 +254,7 @@ class TestSensorRecording:
         clock.now += 100.5
         event = sensor.record("203.0.113.9", ADMIN, "GET")
         assert event.hits_in_window == 1
-        assert event.delay_s == 0.5
+        assert event.delay_s == 0.0
 
     def test_sources_are_independent(self) -> None:
         """One prober's escalation never touches another source."""
@@ -295,7 +303,7 @@ class TestSensorRecording:
             "hits_in_window": 1,
             "distinct_decoys": 1,
             "first_touch": True,
-            "tarpit_delay_s": 0.5,
+            "tarpit_delay_s": 0.0,
             "credential_presented": False,
         }
 
@@ -577,4 +585,94 @@ class TestMutationPins:
     def test_audit_delay_rounded_to_milliseconds(self) -> None:
         """The audit record rounds the delay to three decimals."""
         sensor = DeceptionSensor(policy=TarpitPolicy(base_delay_s=0.12345), clock=FakeClock())
+        sensor.record("203.0.113.9", ADMIN, "GET")
         assert sensor.record("203.0.113.9", ADMIN, "GET").audit_details()["tarpit_delay_s"] == 0.123
+
+
+class TestFreeFirstTouch:
+    """Stealth until first contact: a delayed first answer would fingerprint the decoy."""
+
+    def test_first_touch_is_free_by_default(self) -> None:
+        """The first hit is answered at real-route latency."""
+        assert TarpitPolicy().free_hits == 1
+        assert TarpitPolicy().delay_for(1) == 0.0
+
+    def test_zero_free_hits_restores_immediate_escalation(self) -> None:
+        """free_hits=0 delays from the first hit."""
+        assert TarpitPolicy(free_hits=0).delay_for(1) == 0.5
+
+    def test_larger_allowance(self) -> None:
+        """A deployment wanting more stealth can widen the allowance."""
+        policy = TarpitPolicy(free_hits=3)
+        assert [policy.delay_for(n) for n in (1, 2, 3, 4, 5)] == [0.0, 0.0, 0.0, 0.5, 1.0]
+
+    @pytest.mark.parametrize("bad", [-1, 1.5, None])
+    def test_invalid_allowance_refused(self, bad: object) -> None:
+        """free_hits must be a non-negative integer."""
+        with pytest.raises(ValueError, match="free_hits"):
+            TarpitPolicy(free_hits=bad)  # type: ignore[arg-type]
+
+    def test_first_touch_still_recorded(self) -> None:
+        """A free first touch is still a tripwire: recorded and audited."""
+        events: list[TripwireEvent] = []
+        event = DeceptionSensor(audit_sink=events.append, clock=FakeClock()).record(
+            "203.0.113.9", ADMIN, "GET"
+        )
+        assert event.delay_s == 0.0
+        assert events == [event]
+
+
+class TestConfiguredDecoys:
+    """Private, per-deployment decoys: the public defaults can be read and avoided."""
+
+    def test_unset_is_the_shipped_set(self) -> None:
+        """No configuration: exactly the defaults."""
+        assert configured_decoys({}) == DEFAULT_DECOYS
+
+    def test_private_paths_are_added_after_the_defaults(self) -> None:
+        """Both kinds are appended in order, with honest lures."""
+        decoys = configured_decoys(
+            {
+                DECOY_PATHS_ENV: "/api/v1/ops/console, /internal/keys",
+                SILENT_DECOY_PATHS_ENV: "/backup.sql",
+            }
+        )
+        assert decoys[: len(DEFAULT_DECOYS)] == DEFAULT_DECOYS
+        extra = decoys[len(DEFAULT_DECOYS) :]
+        assert [(d.path, d.response) for d in extra] == [
+            ("/api/v1/ops/console", "auth_challenge"),
+            ("/internal/keys", "auth_challenge"),
+            ("/backup.sql", "not_found"),
+        ]
+        assert extra[0].lure == "deployment-configured decoy"
+        assert extra[2].lure == "deployment-configured silent tripwire"
+
+    @pytest.mark.parametrize("bad", ["relative/path", "/has space", "/{param}", "/"])
+    def test_invalid_entries_dropped_not_fatal(
+        self, bad: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A malformed entry is logged and skipped; startup is never blocked."""
+        with caplog.at_level(logging.WARNING, logger=deception.__name__):
+            decoys = configured_decoys({DECOY_PATHS_ENV: f"{bad},/ok/private"})
+        assert decoys[-1].path == "/ok/private"
+        assert len(decoys) == len(DEFAULT_DECOYS) + 1
+        assert "ignoring decoy" in caplog.text
+
+    def test_duplicates_dropped(self, caplog: pytest.LogCaptureFixture) -> None:
+        """A path already defined -- shipped or configured -- is not added twice."""
+        with caplog.at_level(logging.WARNING, logger=deception.__name__):
+            decoys = configured_decoys(
+                {DECOY_PATHS_ENV: "/api/v1/admin,/p,/p", SILENT_DECOY_PATHS_ENV: "/p"}
+            )
+        assert [d.path for d in decoys].count("/p") == 1
+        assert [d.path for d in decoys].count("/api/v1/admin") == 1
+        assert "duplicate" in caplog.text
+
+    def test_blank_entries_ignored(self) -> None:
+        """Empty segments are ignored silently."""
+        assert configured_decoys({DECOY_PATHS_ENV: " , ,"}) == DEFAULT_DECOYS
+
+    def test_reads_process_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The default mapping is the process environment."""
+        monkeypatch.setenv(SILENT_DECOY_PATHS_ENV, "/private.bak")
+        assert configured_decoys()[-1].path == "/private.bak"

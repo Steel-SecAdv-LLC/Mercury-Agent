@@ -1528,16 +1528,6 @@ try:
 except ImportError as e:
     logger.warning(f"Agent notice routes not available: {e}")
 
-# Include the Decoy Surface (opt-in via MERCURY_DECEPTION_ENABLED=true; left
-# off, no decoy route exists and every existing route stays byte-identical).
-# Registered before the frontend so no catch-all mount can shadow a decoy.
-try:
-    from omni_mercury_engine.api.routes.decoys import register_decoys
-
-    if register_decoys(app) is not None:
-        logger.info("Deception decoy surface registered")
-except ImportError as e:
-    logger.warning(f"Deception decoy surface not available: {e}")
 
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)
@@ -1578,6 +1568,18 @@ try:
     logger.info("Prometheus /metrics endpoint registered at root")
 except ImportError as e:
     logger.warning(f"/metrics endpoint not available: {e}")
+
+# Include the Decoy Surface (opt-in via MERCURY_DECEPTION_ENABLED=true; left
+# off, nothing is registered and every existing route stays byte-identical).
+# Registered after every real route so each decoy path can be checked against
+# all of them: a decoy the application already serves is refused.
+try:
+    from omni_mercury_engine.api.routes.decoys import register_decoys
+
+    if register_decoys(app) is not None:
+        logger.info("Deception decoy surface registered")
+except ImportError as e:
+    logger.warning(f"Deception decoy surface not available: {e}")
 
 
 # =============================================================================

@@ -660,7 +660,8 @@ jobs:
     # printable characters and malformed mailto:/tel: contacts were
     # accepted), fixed with fail-on-old tests, and closed the killable test
     # gaps. Re-measured (115 sites, the validator rewrite having changed the
-    # site set): 114 killed, 99.1%. The sole survivor is the classified
+    # site set): 114 killed, 99.1%. After the red-team evasion fixes (129
+    # sites): 128 killed, 99.2%. The sole survivor is the classified
     # equivalent at the tarpit cap, where capped and uncapped delays coincide.
     if: github.event_name != 'pull_request' || needs.changes.outputs.trustsurface == 'true'
     runs-on: ubuntu-latest

@@ -69,13 +69,16 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "DECEPTION_ENABLED_ENV",
+    "DECOY_PATHS_ENV",
     "DEFAULT_DECOYS",
+    "SILENT_DECOY_PATHS_ENV",
     "DeceptionSensor",
     "DecoyResponse",
     "DecoyRoute",
     "TarpitGate",
     "TarpitPolicy",
     "TripwireEvent",
+    "configured_decoys",
     "deception_enabled",
     "source_key",
 ]
@@ -84,13 +87,23 @@ __all__ = [
 #: every existing route stays byte-identical.
 DECEPTION_ENABLED_ENV = "MERCURY_DECEPTION_ENABLED"
 
+#: Comma-separated private decoy paths for this deployment, answered with the
+#: protected-route challenge. The shipped :data:`DEFAULT_DECOYS` are public --
+#: anyone who reads this repository can avoid them -- so a deployment's own
+#: unpublished paths are what catch a prober who has read the code.
+DECOY_PATHS_ENV = "MERCURY_DECOY_PATHS"
+
+#: Comma-separated private silent-tripwire paths for this deployment.
+SILENT_DECOY_PATHS_ENV = "MERCURY_SILENT_DECOY_PATHS"
+
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _HTTP_METHODS = ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
 _IPV6_HOST_BITS = 64
 
-#: How a decoy answers. ``auth_challenge`` mimics a real API-key-protected
-#: route (every credential attempt against it is another tripwire);
-#: ``not_found`` is a silent tripwire indistinguishable from a missing path.
+#: How a decoy answers. ``auth_challenge`` answers as a real protected route
+#: (every credential attempt against it is another tripwire); ``not_found`` is
+#: a silent tripwire that only observes, so the application's own router
+#: answers with its genuine 404 for every method and path variant.
 DecoyResponse = Literal["auth_challenge", "not_found"]
 
 
@@ -113,17 +126,21 @@ class DecoyRoute:
     """One decoy path.
 
     Attributes:
-        path: Exact URL path (no parameters) that no real route serves.
+        path: Exact URL path (no parameters, not the site root) that no real
+            route serves.
         lure: What the decoy impersonates, for the tripwire record.
         response: How the decoy answers (see :data:`DecoyResponse`).
-        methods: HTTP methods the decoy accepts. A ``not_found`` decoy should
-            accept every method so that no method returns a telltale 405.
+        methods: HTTP methods an ``auth_challenge`` decoy routes, one route
+            per method in this order -- the way Mercury's own routers declare
+            them (``POST`` then ``GET``), so a wrong-method 405 carries the
+            same ``Allow`` header a real path does. Ignored for ``not_found``
+            decoys, which observe every method.
     """
 
     path: str
     lure: str
     response: DecoyResponse = "auth_challenge"
-    methods: tuple[str, ...] = ("GET", "POST")
+    methods: tuple[str, ...] = ("POST", "GET")
 
     def __post_init__(self) -> None:
         """Validate the decoy.
@@ -135,6 +152,8 @@ class DecoyRoute:
         """
         if not self.path.startswith("/") or any(c.isspace() for c in self.path):
             raise ValueError(f"decoy path must be an absolute path, got {self.path!r}")
+        if not self.path.strip("/"):
+            raise ValueError("the site root cannot be a decoy: every visitor touches it")
         if "{" in self.path or "}" in self.path:
             raise ValueError(f"decoy path must be exact (no parameters), got {self.path!r}")
         if not self.lure.strip():
@@ -159,9 +178,46 @@ DEFAULT_DECOYS: tuple[DecoyRoute, ...] = (
     DecoyRoute("/api/v1/debug/environment", "environment and secrets dump"),
     DecoyRoute("/api/v1/models/weights/export", "model-weight exfiltration"),
     DecoyRoute("/api/v1/gate/override", "harm-gate override"),
-    DecoyRoute("/.env", "environment-file secrets", "not_found", _HTTP_METHODS),
-    DecoyRoute("/.git/config", "repository credentials", "not_found", _HTTP_METHODS),
+    DecoyRoute("/.env", "environment-file secrets", "not_found"),
+    DecoyRoute("/.git/config", "repository credentials", "not_found"),
 )
+
+
+def configured_decoys(environ: Mapping[str, str] | None = None) -> tuple[DecoyRoute, ...]:
+    """Return the shipped decoys plus this deployment's private ones.
+
+    Args:
+        environ: Environment to read (defaults to :data:`os.environ`).
+
+    Returns:
+        :data:`DEFAULT_DECOYS` followed by the valid, non-duplicate paths of
+        :data:`DECOY_PATHS_ENV` (auth challenges) and
+        :data:`SILENT_DECOY_PATHS_ENV` (silent tripwires). An invalid entry is
+        dropped with a warning; a misconfigured decoy never blocks startup.
+    """
+    env = os.environ if environ is None else environ
+    decoys = list(DEFAULT_DECOYS)
+    seen = {decoy.path for decoy in decoys}
+    sources: tuple[tuple[str, DecoyResponse, str], ...] = (
+        (DECOY_PATHS_ENV, "auth_challenge", "deployment-configured decoy"),
+        (SILENT_DECOY_PATHS_ENV, "not_found", "deployment-configured silent tripwire"),
+    )
+    for env_name, response, lure in sources:
+        for raw in env.get(env_name, "").split(","):
+            path = raw.strip()
+            if not path:
+                continue
+            try:
+                decoy = DecoyRoute(path, lure, response)
+            except ValueError as exc:
+                logger.warning("%s: ignoring decoy %r (%s)", env_name, path, exc)
+                continue
+            if path in seen:
+                logger.warning("%s: ignoring duplicate decoy %r", env_name, path)
+                continue
+            seen.add(path)
+            decoys.append(decoy)
+    return tuple(decoys)
 
 
 def source_key(client_ip: str) -> str:
@@ -196,16 +252,21 @@ def _finite(value: float) -> bool:
 class TarpitPolicy:
     """Bounded exponential delay schedule for decoy responses.
 
-    The ``n``-th hit inside the window waits ``base_delay_s * growth**(n-1)``
-    seconds, capped at ``max_delay_s``: 0.5, 1, 2, 4, 8, 8, ... by default.
+    The first ``free_hits`` hits inside the window are answered without delay,
+    so a source's first contact with a decoy has the latency of a real route
+    -- a delayed first answer would fingerprint every decoy on one request.
+    After that, the ``k``-th delayed hit waits ``base_delay_s * growth**(k-1)``
+    seconds, capped at ``max_delay_s``: 0, 0.5, 1, 2, 4, 8, 8, ... by default.
+    The source is already recorded by the time any delay applies.
 
     Attributes:
-        base_delay_s: Delay for the first hit in the window (> 0).
+        base_delay_s: Delay for the first delayed hit (> 0).
         growth: Multiplier per further hit (>= 1).
         max_delay_s: Hard cap on any single delay (>= ``base_delay_s``).
         window_s: Hits older than this stop counting (> 0).
         max_concurrent: Responses that may be held at once (>= 0); past it,
             responses are answered without delay.
+        free_hits: Hits answered without delay before escalation (>= 0).
     """
 
     base_delay_s: float = 0.5
@@ -213,6 +274,7 @@ class TarpitPolicy:
     max_delay_s: float = 8.0
     window_s: float = 3600.0
     max_concurrent: int = 32
+    free_hits: int = 1
 
     def __post_init__(self) -> None:
         """Validate the policy.
@@ -234,6 +296,8 @@ class TarpitPolicy:
             raise ValueError("window_s must be positive")
         if not isinstance(self.max_concurrent, int) or self.max_concurrent < 0:
             raise ValueError("max_concurrent must be a non-negative integer")
+        if not isinstance(self.free_hits, int) or self.free_hits < 0:
+            raise ValueError("free_hits must be a non-negative integer")
 
     def delay_for(self, hits: int) -> float:
         """Return the delay for the ``hits``-th hit inside the window.
@@ -242,12 +306,12 @@ class TarpitPolicy:
             hits: Hits counted in the window, including this one.
 
         Returns:
-            Seconds to hold the response; 0 for no hits. Computed in log
-            space at the cap, so no hit count can overflow.
+            Seconds to hold the response; 0 within the free allowance.
+            Computed in log space at the cap, so no hit count can overflow.
         """
-        if hits < 1:
+        if hits <= self.free_hits:
             return 0.0
-        steps = hits - 1
+        steps = hits - self.free_hits - 1
         if steps * math.log(self.growth) >= math.log(self.max_delay_s / self.base_delay_s):
             return self.max_delay_s
         return float(self.base_delay_s * self.growth**steps)

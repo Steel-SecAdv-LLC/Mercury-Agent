@@ -582,7 +582,7 @@ The signature innovation providing transparent, auditable AI decision-making:
 - **Lyapunov Stability**: decay-schedule monitor of system convergence (measured, not guaranteed)
 - **Civilization-First Philosophy**: Humanitarian impact prioritized in all design decisions
 - **Agent Notice**: a standing, non-binding request to any autonomous agent directed against Mercury — stop, and say why — under which every channel carries zero authority ([`docs/AGENT_NOTICE.md`](docs/AGENT_NOTICE.md), served at `/agent-notice`, linked from the RFC 9116 `/.well-known/security.txt`)
-- **Containment, not retaliation**: an opt-in decoy surface (`MERCURY_DECEPTION_ENABLED`) of tripwires and a bounded tarpit that feed the counterintelligence reliability model and the tamper-evident audit chain; nothing in it reaches outward
+- **Containment, not retaliation**: an opt-in decoy surface (`MERCURY_DECEPTION_ENABLED`) of tripwires and a bounded tarpit that feed the counterintelligence reliability model and the tamper-evident audit chain, with per-deployment private decoy paths (`MERCURY_DECOY_PATHS`, `MERCURY_SILENT_DECOY_PATHS`) because the shipped ones are public; nothing in it reaches outward
 
 ### Hybrid Fusion Architecture
 
