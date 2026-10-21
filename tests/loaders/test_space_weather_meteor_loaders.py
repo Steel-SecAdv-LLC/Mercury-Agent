@@ -356,3 +356,162 @@ class TestFeedShapeFlipAbsorption:
         with_fields = MeteorLoader._fireball_to_dataframe(payload)
         without_fields = MeteorLoader._fireball_to_dataframe(no_fields)
         pd.testing.assert_frame_equal(with_fields, without_fields)
+
+
+class TestSpaceWeatherBehaviour:
+    """Known-answer pins for the loader's features, request windows and labels."""
+
+    @staticmethod
+    def _frame(x: list[float], y: list[float] | None = None, step_s: float = 60.0) -> Any:
+        import pandas as pd
+
+        n = len(x)
+        return pd.DataFrame(
+            {
+                "time": [1_700_000_000.0 + step_s * i for i in range(n)],
+                "x": x,
+                "y": y if y is not None else [0.0] * n,
+                "z": [0.0] * n,
+                "f": [50_000.0] * n,
+            }
+        )
+
+    def test_ramp_features_have_closed_forms(self, tmp_path: Path) -> None:
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        n = 1500
+        feats = loader.engineer_features(self._frame([100.0 + i for i in range(n)]))
+        # dB/dt is 1 nT/min everywhere (row 0 has no predecessor and takes the column median).
+        assert feats[:, 0] == pytest.approx(np.ones(n))
+        assert feats[:, 1] == pytest.approx(np.zeros(n))
+        assert feats[:, 2] == pytest.approx(np.ones(n))
+        assert feats[:, 3] == pytest.approx(np.ones(n))
+        # 60-minute range of a 1 nT/min ramp: the window spans min(i, 59) minutes;
+        # two samples are needed, so row 1 already reads 1.
+        assert feats[1:70, 4] == pytest.approx([float(min(i, 59)) for i in range(1, 70)])
+        # Deviation from the trailing 24-hour median: half the window, once 30 samples exist.
+        assert feats[29, 5] == pytest.approx(14.5)
+        assert feats[1439, 5] == pytest.approx(719.5)
+        assert feats[1499, 5] == pytest.approx(719.5)
+
+    def test_falling_ramp_pins_the_range_window(self, tmp_path: Path) -> None:
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        feats = loader.engineer_features(self._frame([1000.0 - i for i in range(200)]))
+        # Falling, the window's maximum is its oldest sample: 59 minutes back.
+        assert feats[59:200, 4] == pytest.approx([59.0] * 141)
+
+    def test_sustained_mean_starts_at_the_first_derivative(self, tmp_path: Path) -> None:
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        feats = loader.engineer_features(self._frame([0.0, 10.0] + [10.0] * 20))
+        assert feats[1, 3] == pytest.approx(10.0)  # one derivative is enough
+        assert feats[2, 3] == pytest.approx(5.0)
+
+    def test_derivative_uses_the_real_time_step(self, tmp_path: Path) -> None:
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        feats = loader.engineer_features(self._frame([0.0, 6.0, 12.0, 18.0], step_s=120.0))
+        assert feats[1:, 0] == pytest.approx([3.0, 3.0, 3.0])  # 6 nT per 2 minutes
+
+    def test_sustained_mean_spans_ten_minutes(self, tmp_path: Path) -> None:
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        x = [0.0] * 50 + [100.0] * 30
+        feats = loader.engineer_features(self._frame(x))
+        assert feats[50, 2] == pytest.approx(100.0)  # the step, in one minute
+        assert feats[50:60, 3] == pytest.approx([10.0] * 10)
+        assert feats[60, 3] == pytest.approx(0.0)
+
+    def test_single_row_and_empty_frames(self, tmp_path: Path) -> None:
+        import pandas as pd
+
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        one = loader.engineer_features(self._frame([5.0]))
+        assert one.tolist() == [[0.0] * 6]  # nothing measurable: every column falls back to 0
+        empty = loader.engineer_features(pd.DataFrame(columns=["time", "x", "y", "z", "f"]))
+        assert empty.shape == (0, len(SpaceWeatherLoader.FEATURE_COLUMNS))
+
+    def test_realtime_requests_the_last_two_whole_hours(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from datetime import UTC, datetime
+
+        from omni_mercury_engine.loaders import space_weather_loader as module
+
+        class FixedDatetime(datetime):
+            @classmethod
+            def now(cls, tz: Any = None) -> FixedDatetime:
+                return cls(2024, 5, 10, 18, 30, 45, 123456, tzinfo=UTC)
+
+        monkeypatch.setattr(module, "datetime", FixedDatetime)
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        seen: list[dict[str, Any]] = []
+
+        def fake_fetch_json(url: str, params: dict[str, Any] | None = None) -> Any:
+            seen.append(dict(params or {}))
+            return {"times": [], "values": []}
+
+        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        loader.fetch_realtime()
+        assert (seen[0]["starttime"], seen[0]["endtime"]) == (
+            "2024-05-10T16:30:00Z",
+            "2024-05-10T18:30:00Z",
+        )
+
+    def test_donki_query_pads_the_storm_by_a_day_and_uses_the_given_key(
+        self, tmp_path: Path
+    ) -> None:
+        loader = SpaceWeatherLoader(cache_dir=tmp_path, api_key="operator-key")
+        event_id = loader.list_events()[0]["event_id"]
+        meta = loader._event(event_id)
+        seen: list[dict[str, Any]] = []
+
+        def fake_fetch_json(url: str, params: dict[str, Any] | None = None) -> Any:
+            seen.append(dict(params or {}))
+            return []
+
+        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        assert loader._storm_windows(event_id, meta) == []
+        from datetime import datetime, timedelta
+
+        start = datetime.fromisoformat(meta["start"].replace("Z", "+00:00")) - timedelta(days=1)
+        end = datetime.fromisoformat(meta["end"].replace("Z", "+00:00")) + timedelta(days=1)
+        assert seen[0] == {
+            "startDate": start.strftime("%Y-%m-%d"),
+            "endDate": end.strftime("%Y-%m-%d"),
+            "api_key": "operator-key",
+        }
+
+    def test_label_window_is_the_three_hours_before_the_stamp(self, tmp_path: Path) -> None:
+        from datetime import datetime, timedelta
+
+        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        event_id = loader.list_events()[0]["event_id"]
+        t0 = datetime.fromisoformat(loader._event(event_id)["start"].replace("Z", "+00:00"))
+        stamps = [t0 + timedelta(minutes=m) for m in (0, 1, 180, 181)]
+        stamps.insert(1, t0 + timedelta(seconds=59.9))  # 0.1 s before the window opens
+        window_end = (t0 + timedelta(minutes=181)).strftime("%Y-%m-%dT%H:%MZ")
+
+        def fake_fetch_json(url: str, params: dict[str, Any] | None = None) -> Any:
+            if "DONKI" in url:
+                return [
+                    {
+                        "allKpIndex": [
+                            {"observedTime": window_end, "kpIndex": 7.0},
+                            {"observedTime": None, "kpIndex": 9.0},  # unstamped: skipped
+                            {"observedTime": window_end, "kpIndex": None},
+                        ]
+                    }
+                ]
+            return _geomag_payload(
+                [s.isoformat().replace("+00:00", "Z") for s in stamps], x=[1.0] * 5, y=[1.0] * 5
+            )
+
+        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        # [end - 3 h, end): t0+1 min is the window's first instant, t0+181 min its excluded end.
+        assert loader.get_ground_truth(event_id).tolist() == [0, 0, 1, 1, 0]
+
+    def test_values_without_times_is_an_empty_frame(self) -> None:
+        frame = SpaceWeatherLoader._geomag_to_dataframe({"times": ["2024-05-10T00:00:00Z"]})
+        assert frame.empty
+        frame = SpaceWeatherLoader._geomag_to_dataframe({"values": [{"id": "X", "values": [1]}]})
+        assert frame.empty
+
+    def test_declares_no_api_key_requirement(self) -> None:
+        assert SpaceWeatherLoader.REQUIRES_API_KEY is False  # DEMO_KEY serves DONKI
