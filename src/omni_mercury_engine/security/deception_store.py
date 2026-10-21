@@ -141,6 +141,13 @@ class SqliteTripwireStore:
         with self._lock:
             self._conn.close()
 
+    def __del__(self) -> None:
+        """Close on collection, so a dropped store never leaks its connection."""
+        try:
+            self.close()
+        except Exception:  # pragma: no cover - interpreter-shutdown best effort
+            pass
+
     def _count_scope(self, scope: str, scope_key: str, floor_s: float, max_hits: int) -> int:
         """Prune and cap one (scope, key)'s hits; return its window count."""
         self._conn.execute(

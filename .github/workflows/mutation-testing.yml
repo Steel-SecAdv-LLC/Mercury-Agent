@@ -661,8 +661,17 @@ jobs:
     # accepted), fixed with fail-on-old tests, and closed the killable test
     # gaps. Re-measured (115 sites, the validator rewrite having changed the
     # site set): 114 killed, 99.1%. After the red-team evasion fixes (129
-    # sites): 128 killed, 99.2%. The sole survivor is the classified
-    # equivalent at the tarpit cap, where capped and uncapped delays coincide.
+    # sites): 128 killed, 99.2%. After rotation resistance, the campaign
+    # signal, the audit cap and the cross-worker store joined the surface
+    # (199 sites, deception_store.py now enumerated): first run 160 killed,
+    # 80.4% -- the 39 survivors were classified, the killable gaps closed
+    # (boundary acceptances, pinned defaults, LRU/prune-cadence off-by-ones,
+    # a checkpointed campaign-log test verified by hand-applying its
+    # mutant) -- final 196 killed, 98.5%. The three survivors are classified
+    # equivalents: the tarpit cap, where capped and uncapped delays
+    # coincide; and two in the store's mkdir guard, where Path.parent is
+    # always truthy and exist_ok matters only under a concurrent-creation
+    # race.
     if: github.event_name != 'pull_request' || needs.changes.outputs.trustsurface == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -686,8 +695,8 @@ jobs:
         with:
           ama-ref: v5.0.0
 
-      # Floor calibration (2026-10-21, local, full enumeration): 114/115
-      # killed -- 99.1% -- with the one survivor a classified equivalent.
+      # Floor calibration (2026-10-21, local, full enumeration): 196/199
+      # killed -- 98.5% -- with the three survivors classified equivalents.
       # The floor sits at 90 so legitimate new mutation sites don't flake the
       # lane while real weakening fails it.
       - name: Trust-surface mutation floor
