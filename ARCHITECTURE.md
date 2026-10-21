@@ -1458,4 +1458,4 @@ The Mercury Agent integrates **89 detector classes** (the measured, CI-gated cou
 - **Optimization experiments:** logged under `benchmarks/`
   (3R fusion, ethical scalars, fibring composer, seven-axis matrix)
 
-Mercury Agent bridges classical scientific methodologies with modern deep learning, implements biological defense mechanisms, integrates regenerative design principles, and maintains rigorous scientific standards with full system traceability via Omni-Codes. The system is **ethically aligned and freely accessible** under GPL v3 license for humanitarian impact.
+Mercury Agent bridges classical scientific methodologies with modern deep learning, implements biological defense mechanisms, integrates regenerative design principles, and maintains rigorous scientific standards with full system traceability via Omni-Codes. The system is **ethically aligned and freely accessible** under AGPL v3 license for humanitarian impact.

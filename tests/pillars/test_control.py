@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pillar: control — every decision leaves an immutable, append-only record.
 
 Control means an operator can answer "what did it decide, on what, and why?"

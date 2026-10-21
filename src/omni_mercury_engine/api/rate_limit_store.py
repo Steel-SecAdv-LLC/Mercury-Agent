@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared, persistent rate-limit state + per-action auth throttles.
 
 Two gaps make an in-process rate limiter bypassable in a real deployment:

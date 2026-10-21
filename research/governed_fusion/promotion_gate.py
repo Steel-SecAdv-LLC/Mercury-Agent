@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Governed promotion gate for recursive self-improvement candidates.
 
 Phase 2 turns the Phase 1 transparent fitness substrate into an enforceable

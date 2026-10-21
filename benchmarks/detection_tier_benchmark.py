@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Real-data benchmark for the streaming anomaly-detector tier (NAB).
 
 This evaluates the tier on **real, human-labelled** anomaly data -- the Numenta

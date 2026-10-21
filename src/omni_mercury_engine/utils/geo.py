@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Canonical geospatial kernel: great-circle distances, neighbor counting, clustering.
 
 This module is the single source of truth for latitude/longitude geometry in

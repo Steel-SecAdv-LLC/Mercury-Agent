@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Oracle-validated verifier for a twin-prime MATHEMATICAL_MYSTERIES scalar.
 
 The twin-prime conjecture ("infinitely many primes p with p+2 also prime") is open, so it is a

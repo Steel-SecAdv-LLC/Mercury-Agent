@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Weak-supervision labels for the Schumann sub-net (WS-C).
 
 The prior session claimed no labels could be constructed for the Schumann/ELF

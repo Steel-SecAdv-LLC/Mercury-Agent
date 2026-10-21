@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DEPRECATED: This module is a benchmark harness built on Mercury's mercury_ml.
 
 Mercury's production benchmark is benchmarks/mercury_benchmark.py. Mercury's production detector is

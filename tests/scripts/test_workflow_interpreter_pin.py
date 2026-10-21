@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Every job that runs ``pip install`` must pin its interpreter first.
 
 `scripts/check_workflow_hardening.py` gains a check that a job running a real

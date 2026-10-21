@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration tests for ThresholdCalibrationPipeline wiring into MercuryAnomalyDetector.
 
 Validates that fit_with_labels() resolves the calibration gap (high AUC, low F1)

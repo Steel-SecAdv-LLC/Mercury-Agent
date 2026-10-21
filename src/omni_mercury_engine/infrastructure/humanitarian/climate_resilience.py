@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Climate Resilience Module - Anomaly detection for environmental data.
 
 Supports SDG 13 (Climate Action) by detecting anomalies in:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """A configured JWT signing key must be real key material, not merely present.
 
 ``JWTAuth`` only ever checked whether ``JWT_SECRET_KEY`` was *absent*. Two

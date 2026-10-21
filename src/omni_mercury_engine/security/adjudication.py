@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Adjudicated, non-circular, held-out threat-level labels for the fusion merit gate.
 
 :meth:`~omni_mercury_engine.security.intelligence_fusion.IntelligenceFusionEngine.load_trained_weights`

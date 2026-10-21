@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """End-to-end integration for the streaming / statistical / state-space detector tier.
 
 The detectors added under this tier (spectral-residual, BOCPD, SPOT/DSPOT,

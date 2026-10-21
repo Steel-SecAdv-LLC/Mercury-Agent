@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The seven ratified hazard winners serve by default -- one honesty contract.
 
 Each of these detectors ships a merit-gated checkpoint that beat its physics

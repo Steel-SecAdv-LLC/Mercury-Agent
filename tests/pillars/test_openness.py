@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pillar: openness — the source is licensed, and every file says so.
 
 "Open source" is a claim about the licence a recipient actually receives, so
@@ -21,7 +21,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = REPO_ROOT / "src" / "omni_mercury_engine"
 
-SPDX_LINE = "# SPDX-License-Identifier: GPL-3.0-or-later"
+SPDX_LINE = "# SPDX-License-Identifier: AGPL-3.0-or-later"
 COPYRIGHT_LINE = "# Copyright (C) 2025 Steel Security Advisors LLC"
 
 
@@ -61,15 +61,16 @@ class TestEverySourceFileIsLicensed:
 
 
 class TestTheProjectShipsItsLicence:
-    def test_gpl_licence_file_is_present(self) -> None:
+    def test_agpl_licence_file_is_present(self) -> None:
         licence = REPO_ROOT / "LICENSE"
         assert licence.is_file()
         body = licence.read_text(encoding="utf-8")
-        assert "GNU GENERAL PUBLIC LICENSE" in body.upper()
+        assert "GNU AFFERO GENERAL PUBLIC LICENSE" in body.upper()
+        assert "13. Remote Network Interaction" in body
 
     def test_pyproject_declares_the_same_licence(self) -> None:
         pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        assert "GPL-3.0-or-later" in pyproject
+        assert "AGPL-3.0-or-later" in pyproject
 
 
 class TestCiRunsTheSameChecker:

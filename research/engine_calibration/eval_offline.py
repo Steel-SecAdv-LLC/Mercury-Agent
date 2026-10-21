@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Offline evaluation on cached real events.
 
 Runs the REAL MercuryAnomalyDetector (fit+detect) on cached (X,y) events and

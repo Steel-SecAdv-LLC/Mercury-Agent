@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DDPM-AD: denoising-diffusion reconstruction anomaly detector for time series.
 
 Denoising Diffusion Probabilistic Models (Ho et al., 2020) learn to invert a

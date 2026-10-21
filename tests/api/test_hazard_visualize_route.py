@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for POST /api/v1/hazard/visualize.
 
 Validates the actual artifacts over the HTTP surface: PNG magic bytes and

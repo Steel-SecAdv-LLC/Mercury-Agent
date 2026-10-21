@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Air-gap contract for the LLM chain: MERCURY_OFFLINE constructs no cloud adapter.
 
 Two layers are pinned here:

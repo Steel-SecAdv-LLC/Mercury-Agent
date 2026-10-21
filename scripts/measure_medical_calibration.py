@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Measure calibration + clinical metrics for medical scores (reproducible harness).
 
 Runs Mercury's clinical measurement layer end to end and writes a reproducible

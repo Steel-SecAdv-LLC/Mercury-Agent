@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Behavioural tests for statement verification in :mod:`omni_mercury_engine.truth_decipher`.
 
 Every expected number is either computed by hand (the arithmetic is in the

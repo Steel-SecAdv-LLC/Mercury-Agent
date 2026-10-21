@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Clinical governance scalars (metric-only) under the three-state abstention contract.
 
 ⚠️ NOT FOR CLINICAL USE.  These scalars reproduce published scoring tables/formulae for

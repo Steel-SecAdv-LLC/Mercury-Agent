@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Empirical proof that the conformal coverage guarantee survives the gate.
 
 The decision layer projects the engine's conformal certificate onto the

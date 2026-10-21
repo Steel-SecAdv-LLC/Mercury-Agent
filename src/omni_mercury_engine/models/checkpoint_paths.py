@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Locate and load shipped model checkpoints.
 
 Shipped checkpoints live in ``omni_mercury_engine/models/checkpoints/`` (they

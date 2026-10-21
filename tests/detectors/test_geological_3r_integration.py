@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Comprehensive tests for 3R (Recursion-Resonance-Refactoring) integration in geological detectors: TornadoDetector, HurricaneDetector, FloodDetector.
 
 These tests verify that the core 3R engines (RecursionEngine, ResonanceEngine,

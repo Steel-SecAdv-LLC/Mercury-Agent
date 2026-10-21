@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """ISO 14971 medical-device risk governance scalar (metric-only, abstention-first).
 
 ISO 14971:2019 frames risk as the combination of the *probability of occurrence* of

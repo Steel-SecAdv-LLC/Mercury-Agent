@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Reference-sensor rates and agreement statistics for validating RF vital signs.
 
 Contact references give the ground truth a contactless estimate is scored

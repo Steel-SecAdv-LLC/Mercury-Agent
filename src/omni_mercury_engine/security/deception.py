@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Containment-only deception: decoy tripwires, a bounded tarpit, a reliability bridge.
 
 Everything here protects Mercury's own surface and nothing reaches outward.

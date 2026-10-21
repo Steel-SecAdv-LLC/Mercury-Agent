@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Sequential change detection with a conformal test martingale.
 
 Tests a stream of nonconformity scores (higher is stranger) online for a rise

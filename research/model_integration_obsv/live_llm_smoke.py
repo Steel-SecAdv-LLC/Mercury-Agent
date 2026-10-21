@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """One-command "is Mercury doing real LLM generation right now?" validator.
 
 An operator's live LLM is *their* credential/endpoint to supply — an Anthropic

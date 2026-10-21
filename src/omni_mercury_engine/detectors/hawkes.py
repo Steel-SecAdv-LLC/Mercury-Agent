@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Hawkes-process event-rate / burst detector for count streams.
 
 A Hawkes process is a self-exciting point process: each event transiently

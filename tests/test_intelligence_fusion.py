@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for omni_mercury_engine.security.intelligence_fusion module.
 
 Tests all-source intelligence fusion, the multi-INT report modality contract,

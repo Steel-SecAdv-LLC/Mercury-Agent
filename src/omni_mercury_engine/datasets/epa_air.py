@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """EPA Air Quality System (AQS) — Daily PM2.5 Loader.
 
 Downloads daily PM2.5 monitoring data from EPA's pre-generated files. Anomaly flags are computed

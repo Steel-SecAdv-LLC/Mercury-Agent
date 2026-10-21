@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Multi-Scale Transformer for Time-Series Anomaly Detection.
 
 Addresses the time-series gap (F1 0.15-0.25 → target 0.70+) by:

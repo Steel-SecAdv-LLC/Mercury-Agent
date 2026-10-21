@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """LSTM-Autoencoder for Time-Series Anomaly Detection.
 
 A working anomaly detector that actually trains and detects.

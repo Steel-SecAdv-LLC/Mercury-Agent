@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for tsunami data from NOAA NDBC DART buoys.
 
 Fetches real-time and historical bottom pressure recorder (BPR)

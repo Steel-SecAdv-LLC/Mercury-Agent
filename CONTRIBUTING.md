@@ -14,7 +14,7 @@
 
 ## Overview
 
-This document provides guidelines for contributing to the Mercury Agent neuro-symbolic AI framework. Mercury Agent is released under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later) as free and open-source software, accessible for universal use as a knowledge vault and bridge to AI/ML frontiers.
+This document provides guidelines for contributing to the Mercury Agent neuro-symbolic AI framework. Mercury Agent is released under the GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later) as free and open-source software, accessible for universal use as a knowledge vault and bridge to AI/ML frontiers.
 
 ---
 
@@ -134,7 +134,7 @@ Please **DO NOT** submit pull requests that:
   threat detection, audit logging) and governance frameworks (NIST
   CSF 2.0, TLP 2.0, OSHA / eCFR) live in
   `omni_mercury_engine.compliance`
-- Include proprietary or non-GPL-compatible code
+- Include proprietary or non-AGPL-compatible code
 - Lack proper testing and documentation
 
 ## Development Setup
@@ -207,11 +207,11 @@ Option 3: Install Visual Studio Build Tools
 
 ### File Header Policy
 
-Every Python file under `src/`, `tests/`, `scripts/`, `tools/`, `research/`, `benchmarks/`, `examples/`, and `assets/` must use the single canonical file header below, followed immediately by a real module docstring whose first line is the module summary. The copyright line states ownership; `SPDX-License-Identifier: GPL-3.0-or-later` is the ISO/IEC 5962:2021 machine-readable license tag and keeps the compact header REUSE-compliant. Do not paste the full GPL boilerplate into individual source files; the root `LICENSE` file is the authoritative GPL text. Run `python scripts/normalize_headers.py --apply` before submitting header-touching changes, and CI enforces the same policy with `python scripts/normalize_headers.py --check`.
+Every Python file under `src/`, `tests/`, `scripts/`, `tools/`, `research/`, `benchmarks/`, `examples/`, and `assets/` must use the single canonical file header below, followed immediately by a real module docstring whose first line is the module summary. The copyright line states ownership; `SPDX-License-Identifier: AGPL-3.0-or-later` is the ISO/IEC 5962:2021 machine-readable license tag and keeps the compact header REUSE-compliant. Do not paste the full GPL boilerplate into individual source files; the root `LICENSE` file is the authoritative GPL text. Run `python scripts/normalize_headers.py --apply` before submitting header-touching changes, and CI enforces the same policy with `python scripts/normalize_headers.py --check`.
 
 ```python
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """One-line module summary."""
 ```
 
@@ -219,7 +219,7 @@ Rust sources under `rust_crypto/src/` carry the same canonical pair, expressed w
 
 ```rust
 // Copyright (C) 2025 Steel Security Advisors LLC
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //! One-line crate/module doc.
 ```
 
@@ -686,4 +686,4 @@ Contributors will be recognized in:
 
 ---
 
-Copyright 2025-2026 Steel Security Advisors LLC. Licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later).
+Copyright 2025-2026 Steel Security Advisors LLC. Licensed under the GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later).

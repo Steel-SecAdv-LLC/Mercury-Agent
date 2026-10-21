@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Enumerate every class in ``src/omni_mercury_engine`` straight from source.
 
 This is the auditable source of truth for "what can Mercury do": it walks the
@@ -285,7 +285,7 @@ def render_markdown(inv: dict[str, Any]) -> str:
     lines: list[str] = [
         "<!--",
         "Copyright (C) 2025 Steel Security Advisors LLC",
-        "SPDX-License-Identifier: GPL-3.0-or-later",
+        "SPDX-License-Identifier: AGPL-3.0-or-later",
         "-->",
         "",
         "# Mercury Agent — Capability Inventory",

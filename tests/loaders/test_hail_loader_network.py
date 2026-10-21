@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Live-endpoint smoke tests for :class:`HailLoader` (``@pytest.mark.network``).
 
 ``tests/loaders/test_hail_loader.py`` exercises the loader offline against

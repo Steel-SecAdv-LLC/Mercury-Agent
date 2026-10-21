@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Capability-as-contract envelope for Mercury's general-purpose capabilities.
 
 Mercury's capability layer already enforces three safety invariants, but as

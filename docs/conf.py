@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Sphinx configuration for the Mercury Agent documentation set.
 
 This config renders the project's markdown documentation (the ``.md``
@@ -49,7 +49,7 @@ with (_REPO_ROOT / "pyproject.toml").open("rb") as _f:
     _pyproject = tomllib.load(_f)
 release = str(_pyproject.get("project", {}).get("version", "0.0.0"))
 version = ".".join(release.split(".")[:2])
-copyright = "2025 Steel Security Advisors LLC. Released under GPL-3.0-or-later"
+copyright = "2025 Steel Security Advisors LLC. Released under AGPL-3.0-or-later"
 
 # -----------------------------------------------------------------------------
 # Extensions

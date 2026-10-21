@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Earthquake → Tsunami Cascade Detector — PTWC-style screening + staged state machine.
 
 Composes real signals end to end:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for EMP/energy grid data from NOAA Space Weather and EIA.
 
 Connects to the NOAA Space Weather Prediction Center (SWPC) for real-time and historical

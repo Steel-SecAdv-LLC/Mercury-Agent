@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Measured Rust-vs-Python crypto benchmark — replaces the unbenchmarked "BLAKE3 6.5x faster" README claim with a number you can reproduce.
 
 The Rust PyO3 module (`rust_crypto/`) is opt-in and not built by default, so

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Image forensics: evidence that an image was spliced, duplicated, recompressed or recaptured.
 
 These checks look for manipulation and acquisition traces that content-level

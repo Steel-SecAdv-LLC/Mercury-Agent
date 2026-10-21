@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fail-closed checks for the physical inputs of the domain hazard detectors.
 
 A hazard detector that receives a value it cannot interpret must refuse it

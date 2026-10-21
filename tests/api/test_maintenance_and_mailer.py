@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for maintenance sweeps, mailer resilience, and the audit seam.
 
 Maintenance must prune every kind of expiring/append-only state, apply the

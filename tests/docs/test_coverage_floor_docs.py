@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Coverage-floor doc drift guard: every doc quoting the CI floors must match ci.yml.
 
 ``.github/workflows/ci.yml`` (``COVERAGE_THRESHOLD_CORE`` / ``COVERAGE_THRESHOLD_FULL``)

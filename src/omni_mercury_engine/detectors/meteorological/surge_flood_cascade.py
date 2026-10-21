@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Hurricane -> storm surge -> compound flood cascade.
 
 Composes three REAL upstream signals into a staged state machine, with the

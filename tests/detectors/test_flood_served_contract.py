@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``FloodDetector`` serves, offline and on recorded NWS/NWPS responses.
 
 Each test fails on the detector as it was before: an empty record read as at

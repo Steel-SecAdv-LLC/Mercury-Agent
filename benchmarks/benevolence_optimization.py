@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Benevolence Optimization Module - Ethical Gating Variations.
 
 This module implements 6 mathematical variations for the ethical gating threshold

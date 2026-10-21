@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """VALIDATION REGISTER V1-V8 (synthetic world, Brief Part 1).
 
 Pre-registered: each check states metric + acceptance (kill) criterion before the

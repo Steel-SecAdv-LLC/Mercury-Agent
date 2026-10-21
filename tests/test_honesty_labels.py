@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests pinning the transparency/scope labels (issue #8 cleanup).
 
 These make the "heuristic, not measured" status *executable* so future edits

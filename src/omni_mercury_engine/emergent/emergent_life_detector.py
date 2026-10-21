@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Emergent Life Detector - SETI-like Anomaly Detection for Non-Human Intelligence.
 
 Novel constructions for detecting emergent and non-human life through:

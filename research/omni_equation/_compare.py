@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pure base-vs-current diff for the ADBench transductive harness.
 
 Kept engine-free (stdlib only) so the per-dataset win/tie/loss comparison can be

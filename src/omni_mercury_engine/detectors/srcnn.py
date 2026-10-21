@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """SR-CNN: supervised CNN over Spectral-Residual saliency for time-series anomalies.
 
 SR-CNN (Ren et al., *Time-Series Anomaly Detection Service at Microsoft*, KDD

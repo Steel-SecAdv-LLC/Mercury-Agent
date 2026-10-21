@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The Prometheus series the alert rules and the engine HPA query are emitted.
 
 Each test reads the live ``prometheus_client`` default registry before and

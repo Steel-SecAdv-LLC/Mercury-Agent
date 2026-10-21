@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Every assessment entry point passes the decision gate; none can run ungated.
 
 The gate is replaced by one that always refuses. Each service function that

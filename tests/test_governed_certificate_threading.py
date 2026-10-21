@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Item E: certificates are threaded through return values, not engine state.
 
 The engine used to stash ``self._last_detector_certificates`` during

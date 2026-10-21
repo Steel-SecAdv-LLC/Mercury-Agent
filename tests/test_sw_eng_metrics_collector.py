@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Merit gate for the real self-referential software-engineering metrics.
 
 ``scripts/collect_sw_eng_metrics.py`` computes REAL Halstead / cyclomatic /

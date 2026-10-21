@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Engine detector-registration seam and inference-path robustness.
 
 These tests pin two related contracts introduced to close a real wiring gap:

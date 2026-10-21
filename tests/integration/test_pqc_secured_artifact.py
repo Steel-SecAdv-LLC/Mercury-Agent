@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Post-quantum signing of detection artifacts (real native backend).
 
 This is the test that justifies the integration lane building the native AMA

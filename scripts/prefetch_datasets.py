@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Prefetch real datasets into the local cache for offline (air-gapped) operation.
 
 Run this while online to prime ``MERCURY_DATA_DIR`` (default ``./data``);

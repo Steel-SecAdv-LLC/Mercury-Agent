@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Ethics-enforcement subagent: real IEEE EAD / EU AI Act / fairness checks.
 
 This specialization ports Mercury's genuine AI-ethics enforcement logic into a

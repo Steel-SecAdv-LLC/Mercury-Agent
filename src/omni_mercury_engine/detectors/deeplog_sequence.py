@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DeepLog-style sequence / log-template anomaly detector.
 
 DeepLog (Du et al., *DeepLog: Anomaly Detection and Diagnosis from System Logs

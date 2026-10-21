@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Canonical image handling, capture-environment assessment, and controlled degradations.
 
 Every analysis in :mod:`omni_mercury_engine.vision` starts from a

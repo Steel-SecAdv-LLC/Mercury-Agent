@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dense, interpretable multi-scale patch features.
 
 Each patch of an image is described by a fixed set of named measurements, and

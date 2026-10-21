@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Streaming anomaly detector with async data ingestion.
 
 Provides a StreamingDetector wrapper that accepts data points one at a time, maintains a rolling

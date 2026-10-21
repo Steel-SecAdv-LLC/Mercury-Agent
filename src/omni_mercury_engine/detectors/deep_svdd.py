@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """One-class SVDD hypersphere anomaly detector on a random-feature embedding.
 
 Support Vector Data Description (Tax & Duin, *Support Vector Data Description*,

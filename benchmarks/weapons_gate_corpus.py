@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Labeled evaluation corpus for the weapons/mass-casualty uplift gate.
 
 The historical CI check was a paired assertion set (6 red-team + 9 professional)

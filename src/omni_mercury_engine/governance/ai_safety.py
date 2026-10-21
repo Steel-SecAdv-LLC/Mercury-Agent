@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """AI-assurance governance scalars, each kept or dropped on a per-family **signal vet**.
 
 The three AI-assurance frameworks were treated as genuinely open and vetted against this

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Rotate the at-rest encryption key for stored TOTP secrets.
 
 Mercury seals 2FA (TOTP) secrets at rest under ``MERCURY_DATA_ENC_KEY`` (or a

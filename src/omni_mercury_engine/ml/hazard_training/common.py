@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared infrastructure for the hazard-checkpoint training pipeline.
 
 Everything here enforces the project's transparency rules for shipped neural

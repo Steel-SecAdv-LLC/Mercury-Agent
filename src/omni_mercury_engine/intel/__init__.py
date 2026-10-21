@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury intelligence layer: closed-loop learning + decision geometry.
 
 This package is the *learning and geometry* layer that sits on top of the Tier-0

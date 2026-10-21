@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Phase 2 ITEM 5 — AMA Cryptography Known-Answer Tests (KAT) and deterministic-seed round-trip tests.
 
 Per the May-2026 audit cure, correctness of AMA Cryptography is

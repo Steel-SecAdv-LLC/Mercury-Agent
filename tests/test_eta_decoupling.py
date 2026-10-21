@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The soft ``eta ** Phi`` multiplier is out of the fused-score path, for good.
 
 It used to be removable only via an opt-in ``decouple_ethical_scaling`` flag that

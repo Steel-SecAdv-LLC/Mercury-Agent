@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Root-cause localisation detector over a causal / service graph.
 
 When many correlated signals (service metrics, sensor channels) go anomalous at

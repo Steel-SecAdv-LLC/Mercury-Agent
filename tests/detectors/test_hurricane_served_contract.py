@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``HurricaneDetector.predict_hurricane`` serves, on real ERA5 patches.
 
 Each test fails on the detector as it was before this contract was written:

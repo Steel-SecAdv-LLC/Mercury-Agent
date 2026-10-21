@@ -495,7 +495,7 @@ limits plainly:
   carry that residual.
 
 **Compensating controls — now implemented, not aspirational.** For an autonomous,
-open-web, GPL-shipped, not-externally-audited system, the controls outside the
+open-web, AGPL-shipped, not-externally-audited system, the controls outside the
 classifier carry real weight, and are implemented as concrete controls:
 
 - **Durable decision/refusal audit log** (`cognitive.gate_audit`) — every refusal,

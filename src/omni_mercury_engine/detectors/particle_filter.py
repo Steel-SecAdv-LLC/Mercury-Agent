@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Particle-filter state-space residual detector for streaming series.
 
 A bootstrap particle filter tracks the latent state of a state-space model with

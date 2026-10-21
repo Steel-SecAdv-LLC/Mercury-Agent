@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Solar-to-grid (flare/CME -> Kp -> dB/dt) cascade escalation detector.
 
 Composes real upstream signals into a staged escalation state machine for

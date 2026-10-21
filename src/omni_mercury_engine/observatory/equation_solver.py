@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Verified equation solving: every answer is checked before it is reported.
 
 The solver takes classroom notation (``x^2 - 5x + 6 = 0``, implicit

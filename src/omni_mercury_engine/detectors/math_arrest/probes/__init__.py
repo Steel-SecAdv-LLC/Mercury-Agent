@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Equation probes for the Anomaly Math Arrest ensemble."""
 
 from omni_mercury_engine.detectors.math_arrest.probes.additive import (

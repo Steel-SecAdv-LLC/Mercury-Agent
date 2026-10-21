@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Property-based contract tests for the hardened detector tier.
 
 Hypothesis generates arbitrary finite and non-finite arrays and asserts the tier

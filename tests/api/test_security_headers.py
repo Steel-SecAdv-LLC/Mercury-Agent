@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The API must return browser-security headers on every surface.
 
 Before :mod:`omni_mercury_engine.api.security_headers` existed, ``/health``,

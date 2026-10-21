@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Deterministic construction of the fusion feature path's random components.
 
 Checkpoints persist fitted state (ROADMAP row 16), which makes *loaded*

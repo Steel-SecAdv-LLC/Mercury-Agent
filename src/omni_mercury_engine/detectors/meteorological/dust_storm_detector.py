@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dust-storm detector (physics core, works untrained).
 
 Implements the literature-standard sand-and-dust-storm formulations:

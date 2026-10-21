@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """STFPM: Student-Teacher Feature Pyramid Matching for Anomaly Detection.
 
 Implementation of STFPM from arXiv 2021.

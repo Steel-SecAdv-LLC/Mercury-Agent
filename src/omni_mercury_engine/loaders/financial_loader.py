@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for financial crisis data from FRED and market data.
 
 Connects to the Federal Reserve Economic Data (FRED) API maintained by the Federal Reserve Bank of

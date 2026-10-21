@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regression guard: repository data-source secrets stay wired end-to-end.
 
 This test exists because two real wiring gaps were found and fixed:

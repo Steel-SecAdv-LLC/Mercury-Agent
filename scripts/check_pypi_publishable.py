@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Decide, before any upload, whether a built distribution can go to PyPI.
 
 A ``PYPI_TOKEN`` (or a trusted publisher) only authenticates the upload. PyPI

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Durable storage for user accounts, sessions, email tokens, recovery codes.
 
 This is the persistence layer the self-service auth flows sit on. It mirrors the

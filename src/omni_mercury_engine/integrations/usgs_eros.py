@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """USGS EROS Machine-to-Machine (M2M) API client.
 
 A thin, keyed client for the USGS/EROS Inventory Service M2M API

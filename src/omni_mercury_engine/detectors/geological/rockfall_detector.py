@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Rockfall Detector — triggers-and-precursors physics for rock-slope failure.
 
 Deterministic, literature-anchored analysis of the four observable channels

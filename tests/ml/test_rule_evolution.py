@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for genetic rule evolution (``omni_mercury_engine.ml.rule_evolution``).
 
 Covers the properties the search's transparency rests on:

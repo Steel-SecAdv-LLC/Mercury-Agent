@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """ADBench — Tabular Anomaly Detection Benchmark Datasets.
 
 Loads real-world anomaly detection datasets from the ADBench repository

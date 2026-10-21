@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the hydro-climate meteorological detectors (T4b1).
 
 Drought (SPI/SPEI, McKee 1993 / Vicente-Serrano 2010), heatwave

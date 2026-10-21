@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Repository-wide guard: two retired phrasings must never re-enter Mercury's text.
 
 Mercury is a civilization-first, people-first system, and its code system is the

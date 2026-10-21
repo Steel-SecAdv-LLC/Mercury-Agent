@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """``engine.tune_fusion`` wires Mercury's Bayesian optimizer to fit_fusion.
 
 The AutoML optimizer was reachable only from a gated subagent op with a

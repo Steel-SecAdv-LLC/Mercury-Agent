@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Interstellar Object Anomaly Detection Module.
 
 Specialized detection system for interstellar objects (ISOs) including 'Oumuamua,

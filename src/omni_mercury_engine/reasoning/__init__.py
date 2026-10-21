@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury's pluggable reasoning layer.
 
 Mercury Agent is the agent and the brain of record. This subpackage gives it a

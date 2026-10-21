@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Every finished API request leaves an audit entry; the export serves them.
 
 ``record_audit_log`` used to have no caller, so ``/export/audit-logs`` always

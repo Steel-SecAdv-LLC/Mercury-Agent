@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury Agent — native ML primitives (numpy/scipy only).
 
 Mercury Agent is an original product with its own production-built systems. This module provides

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Smoke + behavior tests for the offline-egress benchmark.
 
 The benchmark measures the air-gapped egress path on-box. These tests run it

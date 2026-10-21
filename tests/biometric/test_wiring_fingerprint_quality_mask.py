@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Behavioral tests for the wired ``quality_mask`` of the Gabor enhancer.
 
 The per-block blend ``q * filtered + (1 - q) * original`` has two exact

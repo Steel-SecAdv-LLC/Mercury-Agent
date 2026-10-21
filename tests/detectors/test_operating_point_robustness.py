@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operating-point robustness: the detector must survive the hard cases.
 
 The decision threshold is anchored to a fit-time reference distribution (the

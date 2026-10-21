@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the ``check_torch_load_safety`` CI gate.
 
 The gate is the breaker that keeps ``safe_torch_load`` un-bypassable: it must

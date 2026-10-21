@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Per-account quota enforcement over the usage ledger.
 
 Turns windowed usage into an allow/deny decision, so a free service throttles

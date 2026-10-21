@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``TsunamiDetector.predict_tsunami`` serves, on real DART 21419 records.
 
 The records are passed raw, tide included, as a caller would pass them. Each

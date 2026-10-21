@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The closed ``identify -> interpret -> decide -> deter -> verify`` loop.
 
 :class:`DecisionLoop` runs a detection result through the decision/abstention

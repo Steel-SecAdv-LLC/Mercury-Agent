@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Contrastive Learning Detector for Anomaly Detection.
 
 Implements SimCLR-style contrastive learning adapted for anomaly detection:

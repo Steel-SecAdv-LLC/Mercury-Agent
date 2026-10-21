@@ -27,6 +27,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Relicensed to AGPL-3.0-or-later (branch `steel/version-cov5`; effective v3.0.0)
+
+Mercury Agent is now licensed under the GNU Affero General Public License
+v3.0 or later. The AGPL closes the one gap the GPL left open for a project
+whose natural deployment is a hosted service: its section 13 extends the
+corresponding-source obligation to anyone offering a **modified** Mercury to
+users over a network, so no proprietary version can exist, distributed or
+hosted. Versions before 3.0.0 were released under GPL-3.0-or-later and remain
+so, irrevocably, for everyone who received them.
+
+The change is complete, not cosmetic: the `LICENSE` file carries the verbatim
+AGPL-3.0 text (sections 0–12 and 14–17 verified equivalent to the previous
+GPL text under the Affero renaming; section 13 and the appendix differ exactly
+as the two licenses do; pre-2017 `http://` FSF links normalized to `https://`
+to match the FSF's current canonical file); all 1,942 SPDX tags flipped to
+`AGPL-3.0-or-later`; packaging metadata (both `pyproject.toml` files,
+`Cargo.toml`, the Docker OCI license label, the Helm artifacthub annotation),
+the OpenAPI license object, `__license__`, the README license statements, the
+agent notice, CONTRIBUTING and the docs all updated; the openness pillar test
+now pins the AGPL file (including section 13) and the pyproject declaration.
+Before the change, every copyright line in the repository was verified to
+name Steel Security Advisors LLC — the sole holder, so the relicense needs no
+third-party consent. Historical records (dated CHANGELOG entries and the
+`tlp_handler` port-provenance note) are left as written: they were true when
+written. AMA Cryptography (Apache-2.0) remains one-way compatible.
+
 ### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
 
 The two gaps the red-team round left open, closed.

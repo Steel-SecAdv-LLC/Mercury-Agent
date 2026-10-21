@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for unifying the neuro-symbolic blend (Issue #5).
 
 The hardcoded ``0.6*neural + 0.4*symbolic`` static blends (previously duplicated

@@ -8,7 +8,7 @@
 
 <div align="center">
 
-![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
+![AGPL v3 Logo](https://www.gnu.org/graphics/agplv3-155x51.png)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
@@ -43,7 +43,7 @@
 **Copyright 2025 Steel Security Advisors LLC**\
 **Author/Inventor:** Andrew E. A.\
 **Contact:** steel.sa.llc@mercuryagent.global (operations & security) · contact@mercuryagent.global (general inquiries & support)\
-**License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)\
+**License:** GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later)\
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛\
 **Version:** v2.1.0\
 **Date:** 2026-10-21
@@ -67,10 +67,10 @@ Beyond the library and CLI, the repository ships an **opt-in self-service platfo
 > - Post-quantum cryptography for Mercury Agent and FINDΩYOU™ is derived from [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
 > - FINDΩYOU™ is a separate, near-future sibling platform whose humanitarian scope — locating the lost, missing, and abducted to reunite families and help bring perpetrators to justice — is served by Mercury under its Civilization-First mission.
 >
-> **This project is licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)**
+> **This project is licensed under the GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later).** Versions before 3.0.0 were released under GPL-3.0-or-later and remain so.
 >
-> Anyone may use, study, modify and share Mercury. Whoever **distributes** Mercury, or a work based on it, must do so under the same license with the complete corresponding source — so no distributed proprietary version can exist, and every copy that is passed on stays free.
-> The GPL's obligations attach to distribution: private modifications that are never distributed carry none, and offering Mercury as a network service is not distribution under the GPL.
+> Anyone may use, study, modify and share Mercury. Whoever **distributes** Mercury, or a work based on it — and whoever offers a **modified** Mercury to users **over a network** (AGPL section 13) — must make the complete corresponding source available under this same license, so no proprietary version can exist, distributed or hosted.
+> Private modifications that are neither distributed nor served to others carry no obligation, and unmodified hosting carries no new one.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
 > **Last Updated:** 2026-10-21
@@ -2448,7 +2448,7 @@ dashboard.export_html("anomaly_report.html")
 
 Copyright 2025 Steel Security Advisors LLC
 
-Licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later). See [LICENSE](LICENSE) file for details.
+Licensed under the GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later). See [LICENSE](LICENSE) file for details. Versions before 3.0.0 were released under GPL-3.0-or-later and remain so.
 
 ```
 Mercury Agent - Multi-Domain Anomaly Detection Framework
@@ -2466,7 +2466,7 @@ the Free Software Foundation, either version 3 of the License, or
 - **Fairlearn**: MIT license
 - **Hypothesis**: MPL 2.0 license
 - **FastAPI**: MIT license
-- **AMA Cryptography**: Apache License 2.0 (pinned to `v5.0.0`; the sole PQC backend, and the source of the native HMAC bindings — ACVP-Server known-answer vectors pass bit-for-bit — consumed by `omni_mercury_engine.security.native_jwt`). Apache-2.0 is compatible with GPL-3.0, so Mercury can depend on it
+- **AMA Cryptography**: Apache License 2.0 (pinned to `v5.0.0`; the sole PQC backend, and the source of the native HMAC bindings — ACVP-Server known-answer vectors pass bit-for-bit — consumed by `omni_mercury_engine.security.native_jwt`). Apache-2.0 is one-way compatible with AGPL-3.0, so Mercury can depend on it
 
 PyJWT was retired from the dependency surface in v1.7.0; Mercury now
 ships a pure-stdlib JOSE implementation

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for hurricane/cyclone data from NOAA IBTrACS (International Best Track Archive for Climate Stewardship).
 
 Connects to the IBTrACS v04r01 CSV archive to provide tropical cyclone track data for Mercury

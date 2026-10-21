@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: reproducible-build probe.
 
 Drives a wheel build twice with ``SOURCE_DATE_EPOCH`` pinned and

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """BOCPD run-length posterior mass-conservation invariant tests.
 
 Asserts the core BOCPD contract that the run-length posterior is a proper

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: probe the AMA Cryptography PQC surface at runtime.
 
 Mercury startup now gates unconditionally on real AMA/PQC, but operators

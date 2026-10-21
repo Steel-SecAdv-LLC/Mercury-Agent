@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the scrypt password KDF upgrade and legacy verification.
 
 Pins the memory-hard KDF migration: new hashes are scrypt with the configured

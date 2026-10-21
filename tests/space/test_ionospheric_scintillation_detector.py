@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the ionospheric scintillation / GNSS-degradation detector.
 
 S4 anchors are hand-computed directly from the Yeh & Liu (1982) definition;

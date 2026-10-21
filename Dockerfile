@@ -165,7 +165,7 @@ LABEL org.opencontainers.image.title="Mercury Agent"
 LABEL org.opencontainers.image.description="Civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
-LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
 LABEL security.hardened="true"
 LABEL security.scan-date="2026-09-27"
 

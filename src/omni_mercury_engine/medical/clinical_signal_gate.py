@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Metric-based signal gate for clinical scores (does the score prove signal?).
 
 A medical ``risk_score`` is only worth surfacing if it *discriminates* outcomes

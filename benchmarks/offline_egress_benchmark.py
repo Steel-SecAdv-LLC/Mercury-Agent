@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Measure the offline / air-gapped egress path (latency + throughput).
 
 Air-gap is functionally proven (``tests/security/test_offline_egress_gate.py``:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """AgriFood Security Module - Crop yield and food supply anomaly detection.
 
 Supports SDG 2 (Zero Hunger) by monitoring:

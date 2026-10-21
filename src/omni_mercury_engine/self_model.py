@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury's durable internal self-model: what it is, what it can do, how well, and where it falls short.
 
 A self-model is only worth having if it is **true** and **durable**.

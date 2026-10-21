@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Public trust documents: the standing agent notice and RFC 9116 security.txt.
 
 Both routes are read-only, unauthenticated and always on: they publish a

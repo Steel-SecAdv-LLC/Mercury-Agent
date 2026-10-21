@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """X2 -- Non-monotonicity guard + repair (failure mode F4, proven real by V8).
 
 PRE-REGISTRATION (R1):

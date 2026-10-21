@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Geographic movement-plausibility detector for (lat, lon, time) trajectories.
 
 Flags physically implausible or statistically extreme movement in a

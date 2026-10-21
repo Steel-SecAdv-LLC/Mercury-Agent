@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """A row's score must not depend on rows that come after it in the batch.
 
 The engine runs two passes over every batch, ``extract_features`` and then

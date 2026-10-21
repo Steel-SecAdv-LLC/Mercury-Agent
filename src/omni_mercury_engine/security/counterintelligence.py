@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Defensive counterintelligence screens for the all-source fusion pipeline.
 
 The fusion engine (``security/intelligence_fusion.py``) weights each

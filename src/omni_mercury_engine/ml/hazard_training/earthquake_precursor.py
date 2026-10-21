@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Train the EarthquakePrecursorAnalyzer as a catalog-based seismicity-rate forecaster.
 
 Spec: ``docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md`` (binding).

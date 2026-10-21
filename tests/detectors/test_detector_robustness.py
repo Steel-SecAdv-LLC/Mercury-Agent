@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Adversarial robustness / contract regression tests for the detector tier.
 
 These lock in the hardening pass that fixed a family of confirmed defects the

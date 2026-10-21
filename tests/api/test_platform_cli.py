@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the ``mercury-agent platform`` operator commands.
 
 Drives every subcommand through Click's CliRunner against real SQLite state

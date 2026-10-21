@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regression guard: no gate removed or disabled ("no weakening").
 
 A single structural + behavioural assertion set that fails CI if any core control

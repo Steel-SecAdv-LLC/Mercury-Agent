@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Competitive head-to-head benchmark: Mercury vs PyOD on the ADBench suite.
 
 Measures Mercury's tier detector (:class:`MercuryAnomalyDetector`, unsupervised

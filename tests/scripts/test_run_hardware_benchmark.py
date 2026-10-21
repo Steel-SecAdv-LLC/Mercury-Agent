@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Smoke tests for ``scripts/run_hardware_benchmark.py``.
 
 These tests verify exit-code semantics and the JSON report schema.

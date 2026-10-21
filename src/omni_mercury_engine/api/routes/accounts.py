@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """HTTP routes for the self-service account flows.
 
 Thin FastAPI wrappers over :class:`~omni_mercury_engine.api.auth_service.AuthService`:

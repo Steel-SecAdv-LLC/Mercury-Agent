@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Behavioral tests for the wired ``known_vulnerabilities`` novelty term.
 
 The multiverse search is seeded deterministically, so the assessment is

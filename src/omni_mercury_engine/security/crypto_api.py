@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Algorithm-Agnostic Cryptographic API for Mercury Agent.
 
 MercuryCrypto is a thin facade over AMA Cryptography's ``AmaCryptography``.

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """PaDiM: Patch Distribution Modeling Framework for Anomaly Detection.
 
 Implementation of PaDiM algorithm from ICPR 2020.

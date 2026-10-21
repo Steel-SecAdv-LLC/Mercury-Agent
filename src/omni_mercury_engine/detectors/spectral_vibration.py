@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Spectral Vibration Analysis Module for Mercury Agent.
 
 Advanced frequency-domain anomaly detection inspired by:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Adapters that close the loop into the engine's existing channels.
 
 The decision layer decides; these thin, lazily-bound adapters carry that

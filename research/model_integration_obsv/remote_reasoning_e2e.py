@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """End-to-end proof of the full Mercury reasoning chain on a cloud model.
 
 Where ``cloud_adapter_wire_proof.py`` proves the adapter in isolation, this proves

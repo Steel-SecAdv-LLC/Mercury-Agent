@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Semantic pinning tests for the σ_Immutable gate hot path.
 
 Written to kill the mutation survivors reported by

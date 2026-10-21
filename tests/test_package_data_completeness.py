@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Every non-Python runtime data file under ``src/omni_mercury_engine`` must be declared in ``pyproject.toml``'s ``[tool.setuptools.package-data]``.
 
 CI installs the package with ``pip install -e .`` (editable), which resolves

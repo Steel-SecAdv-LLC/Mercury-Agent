@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Epidemic Forecasting using an SEIR Model with an Epidemic-Threshold Test.
 
 Implements the Susceptible-Exposed-Infected-Recovered (SEIR) compartmental

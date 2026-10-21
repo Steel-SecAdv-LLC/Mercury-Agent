@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Spiking-neural-network (leaky integrate-and-fire) novelty detector.
 
 Spiking neural networks encode information in the *timing and rate* of discrete

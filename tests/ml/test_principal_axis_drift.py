@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mean-shift drift along principal axes, which per-feature tests dilute.
 
 In correlated data a shift along a low-variance direction moves each column by

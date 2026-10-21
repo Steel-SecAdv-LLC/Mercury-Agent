@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury's own offline meaning-level harm classifier.
 
 The weapons/mass-casualty gate in :mod:`.ethical_bounding` routes on two lexical

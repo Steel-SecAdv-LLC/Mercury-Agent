@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Causal-discovery validation: does the dormant ``causal_discovery`` engine recover known causal structure?
 
 `causal_discovery.py` was orphaned and, judged by the anomaly-AUC lens, looked

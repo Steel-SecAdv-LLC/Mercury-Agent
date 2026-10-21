@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """GeneralAssistant -- Mercury's general-purpose, tool-using capability layer.
 
 Ties the native capabilities into useful workflows: research a question on the

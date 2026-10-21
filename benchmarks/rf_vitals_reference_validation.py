@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Score ``rf_vital_signs`` against contact reference sensors on real recordings.
 
 Default data: Schellenberger et al. (2020), "A dataset of clinically recorded

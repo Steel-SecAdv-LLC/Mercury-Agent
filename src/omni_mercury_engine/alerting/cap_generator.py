@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Common Alerting Protocol (CAP) 1.2 XML message generator.
 
 Generates valid CAP 1.2 XML payloads from Mercury anomaly detections. CAP is the international

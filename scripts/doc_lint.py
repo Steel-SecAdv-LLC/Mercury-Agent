@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Documentation lint: ban claims the code cannot back, require the mission line.
 
 A repository's prose is part of its interface. This gate holds four rules that

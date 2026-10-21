@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The opt-in decoy surface (``MERCURY_DECEPTION_ENABLED``).
 
 Two kinds of decoy, each indistinguishable from the real thing by

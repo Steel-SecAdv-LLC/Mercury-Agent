@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Restored domain symbols removed in 7ab59916 and f07b724e.
 
 Defect tests fail on the released code: the NOAA loader sent ``maxSize``,

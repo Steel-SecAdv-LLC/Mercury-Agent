@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """HTTP wiring for per-account quotas on the metered routes.
 
 The quota engine (:mod:`~omni_mercury_engine.api.quota`) is framework-free;

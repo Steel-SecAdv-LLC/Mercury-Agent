@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Train and persist the shipped default fusion checkpoint.
 
 The checkpoint produced here gives ``mercury-agent detect -d fusion`` (and any

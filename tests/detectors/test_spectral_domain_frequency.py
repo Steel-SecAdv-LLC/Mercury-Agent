@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Contract + behavioural tests for ``SpectralDomainFrequency``.
 
 This detector ships registered in ``DETECTOR_MANIFEST`` (BASE) but previously

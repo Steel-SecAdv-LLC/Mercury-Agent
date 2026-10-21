@@ -36,7 +36,7 @@ keywords:
 
 annotations:
   artifacthub.io/category: machine-learning
-  artifacthub.io/license: GPL-3.0-or-later
+  artifacthub.io/license: AGPL-3.0-or-later
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: "false"

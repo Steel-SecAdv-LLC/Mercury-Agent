@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Every built-in GOSNN scalar carries the ``omni`` prefix, without moving σ.
 
 GOSNN treats scalar names as opaque keys; what σ_Immutable depends on is the

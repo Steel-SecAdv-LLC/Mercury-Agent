@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Cybersecurity threat detection module Enhanced with Banish_Void_Undue threat validity assessment."""
 
 from __future__ import annotations

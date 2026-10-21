@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for online drift recalibration (issue #3).
 
 Drift previously demoted a grounded verdict to DEFER but left the threshold

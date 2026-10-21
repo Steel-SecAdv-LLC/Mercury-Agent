@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Neuro-symbolic ablation: does symbolic co-training beat neural-only?
 
 This is the anti-theater gate for the differentiable symbolic-constraint LTN

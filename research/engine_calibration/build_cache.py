@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fetch real (features, ground_truth) per event ONCE and cache to disk.
 
 Mirrors the transparent-benchmark path: real loaders -> engineer_features ->

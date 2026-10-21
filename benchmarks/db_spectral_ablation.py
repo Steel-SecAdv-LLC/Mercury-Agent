@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""DB spectral-divergence ablation: does giving the dead term real semantics improve the live detector on real labels?
 
 The 2026-06-11 native-acceleration pass disclosed that the

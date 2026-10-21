@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Explicit energy-based-model (EBM) anomaly detector.
 
 An energy-based model defines an unnormalised density ``p(x) ∝ exp(-E(x))`` via

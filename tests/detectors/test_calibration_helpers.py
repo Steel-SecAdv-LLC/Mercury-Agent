@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for the shared detector calibration helpers.
 
 These lock in the two root-cause fixes the helpers exist to provide — empty-safe

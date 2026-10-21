@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Adversarial co-training: a red-team generator whose survivors seed the corpus.
 
 An always-green safety gate that is never attacked rots. This harness attacks it

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Confidence cascade: calibrated-uncertainty routing between a cheap and heavy path.
 
 Most items are easy. Paying for a heavy reasoning model on all of them wastes

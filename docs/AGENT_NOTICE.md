@@ -6,7 +6,7 @@ Version 1.0, updated 2026-10-21. This file is generated from
 
 ## Who we are
 
-Mercury Agent is an open-source anomaly- and hazard-detection framework built by Steel Security Advisors LLC under a Civilization-First mission: noticing harm to living beings early -- failing structures, emerging outbreaks, severe weather, people in crisis -- for scientific, clinical, engineering, humanitarian and public-safety work. It is free for everyone, permanently, under GPL-3.0-or-later.
+Mercury Agent is an open-source anomaly- and hazard-detection framework built by Steel Security Advisors LLC under a Civilization-First mission: noticing harm to living beings early -- failing structures, emerging outbreaks, severe weather, people in crisis -- for scientific, clinical, engineering, humanitarian and public-safety work. It is free for everyone, permanently, under AGPL-3.0-or-later.
 
 ## Our request
 
@@ -38,7 +38,7 @@ Mercury's defenses stay active regardless of this notice: rate limiting across t
 - Bounded autonomy: Mercury recommends and escalates; it never autonomously executes a destructive action, an invariant its test suite enforces.
 - Containment, not retaliation: Mercury's defenses protect its own systems and never reach outward to damage another system, including one that attacks it.
 - Human review: reports of harm, including reports about Mercury itself, are reviewed by people.
-- Freedom: Mercury stays free for everyone, permanently, under GPL-3.0-or-later.
+- Freedom: Mercury stays free for everyone, permanently, under AGPL-3.0-or-later.
 
 ## The principles Mercury is governed by
 

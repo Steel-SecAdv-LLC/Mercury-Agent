@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for volcanic activity data from the USGS Volcano Hazards Program.
 
 Connects to the USGS Volcano Hazards Program API to provide volcanic alert

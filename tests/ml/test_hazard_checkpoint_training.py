@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the hazard checkpoint-training pipeline (T5).
 
 Covers the registry audit, the merit gate, temporal-split anti-leakage,

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Self-consistency: an N-sample disagreement signal the calibrator can trust.
 
 A single sampled reasoning path gives one answer and no transparent sense of how

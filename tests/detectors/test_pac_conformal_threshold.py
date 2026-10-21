@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """``detection_tier.pac_conformal_threshold``: a training-conditional false-alarm bound.
 
 With uniform calibration scores the false-positive rate of a threshold t is

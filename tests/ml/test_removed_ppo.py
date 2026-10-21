@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pin the removal of ``ml.ppo_trainer`` (DEPRECATION.md §6.6).
 
 The module was dead in every supported install profile (stable_baselines3

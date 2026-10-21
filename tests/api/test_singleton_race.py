@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Concurrency tests for the lazily-built process-wide singletons.
 
 A double-checked-locking bug on first build lets two threads each construct a

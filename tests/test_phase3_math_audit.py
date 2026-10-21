@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Comprehensive unit tests for Phase 3 mathematical audit changes: 1. Sigmoid Benevolence Gate 2. Banach Recursion convergence bounds 3. Domain-Adaptive Harmonics 4. Hierarchical Omni-Scalar Aggregation 5. OAE Enhancements (configurable exponent, NaN guard, benevolence)."""
 
 from __future__ import annotations

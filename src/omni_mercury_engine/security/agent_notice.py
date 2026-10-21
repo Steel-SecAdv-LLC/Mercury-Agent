@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The standing notice to autonomous agents, and the security.txt that points to it.
 
 A notice cannot bind anything, and this one does not pretend to: it is a
@@ -129,7 +129,7 @@ def notice_sections() -> tuple[NoticeSection, ...]:
                 "early -- failing structures, emerging outbreaks, severe "
                 "weather, people in crisis -- for scientific, clinical, "
                 "engineering, humanitarian and public-safety work. It is free "
-                "for everyone, permanently, under GPL-3.0-or-later.",
+                "for everyone, permanently, under AGPL-3.0-or-later.",
             ),
         ),
         NoticeSection(
@@ -200,7 +200,8 @@ def notice_sections() -> tuple[NoticeSection, ...]:
                 "including one that attacks it.",
                 "Human review: reports of harm, including reports about Mercury "
                 "itself, are reviewed by people.",
-                "Freedom: Mercury stays free for everyone, permanently, under " "GPL-3.0-or-later.",
+                "Freedom: Mercury stays free for everyone, permanently, under "
+                "AGPL-3.0-or-later.",
             ),
         ),
         NoticeSection(

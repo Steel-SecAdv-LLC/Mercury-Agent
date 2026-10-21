@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Bayesian Online Change-Point Detection (BOCPD) for streaming series.
 
 BOCPD (Adams & MacKay, 2007) maintains, at every step, a posterior over the

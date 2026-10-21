@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Operator tool: standalone fairness audit (Fairlearn DPD / EOD / 80%-rule).
 
 Fairlearn is already a Mercury dependency but it has no operator entry

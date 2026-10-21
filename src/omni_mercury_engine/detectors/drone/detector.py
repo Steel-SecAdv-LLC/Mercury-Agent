@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Drone anomaly detection with RADD and DronLomaly approaches.
 
 Ported from Omni-AXA-Engine's ``drone_anomaly_detector.py``.  Three known

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: emit upstream licence + redistribution terms + SPDX expression for every dataset loader registered under ``omni_mercury_engine.loaders``.
 
 Each loader module is expected to expose a module-level

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Drift counter series exist at 0 from import, before the first increment.
 
 A series created on its first ``.inc()`` gives ``increase()`` a single sample,

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CME arrival-time prediction from coronagraph kinematics (DONKI CMEAnalysis).
 
 Consumes NASA DONKI ``CMEAnalysis`` records (speed, half-angle, direction at

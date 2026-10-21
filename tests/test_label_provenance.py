@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for label-provenance de-leaking (Issue #6: de-leak the loaders at source).
 
 Datasets whose anomaly labels were manufactured by thresholding a

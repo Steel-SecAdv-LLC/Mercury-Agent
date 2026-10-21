@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Hail / severe-convective environment detector (physics core, works untrained).
 
 Assesses the large-hail potential of a supplied sounding-derived convective

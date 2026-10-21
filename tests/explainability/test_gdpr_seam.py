@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The GDPR Article 22 report is produced on the live detection path.
 
 The top-level ``explainability`` package (from-scratch Shapley + scipy

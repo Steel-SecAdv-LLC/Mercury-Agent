@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``EMPDetector`` serves, on sourced reference cases.
 
 E1: the IEC 61000-2-9 benchmark (DOE HEMP memo 2021: 50 kV/m, 2.5 ns rise,

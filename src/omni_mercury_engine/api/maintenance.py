@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Periodic maintenance sweeps for the platform stores.
 
 Append-only and expiring state needs an owner or it grows without bound and
