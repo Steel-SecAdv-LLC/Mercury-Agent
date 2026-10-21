@@ -7,18 +7,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,982
-- **Capability-bearing classes:** 1,977 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,989
+- **Capability-bearing classes:** 1,982 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 89 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,165 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,169 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1165 |
-| Support types (config / result / enum / error) | 1005 |
+| Other capability classes | 1169 |
+| Support types (config / result / enum / error) | 1007 |
 | Detection | 176 |
 | Neural models & layers | 161 |
 | Data sources & loaders | 104 |
@@ -28,7 +28,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Analysis & scoring | 59 |
 | Monitoring | 25 |
 | Prediction & forecasting | 21 |
-| Ethics & governance | 13 |
+| Ethics & governance | 14 |
 | Solvers & scorers | 11 |
 | Biometric & recognition | 8 |
 
@@ -2563,7 +2563,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 207 classes (128 capability)
+### `security/` — 214 classes (133 capability)
 
 **Adapters & backends**
 
@@ -2614,6 +2614,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 **Ethics & governance**
 
 - `SigmaImmutableGate` (`security.sigma_immutable_gate`) — Process-wide singleton enforcing σ_Immutable at every boundary.
+- `TarpitGate` (`security.deception`) — Hold decoy responses for their scheduled delay, never past a concurrency cap.
 
 **Monitoring**
 
@@ -2649,6 +2650,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `CryptoAuditTrail` (`security.pqc_backends`) — Cryptographic audit trail for PQC operations.
 - `CryptoOperation` (`security.pqc_backends`) — Audit record for cryptographic operations.
 - `CyberFortress` (`security.cyber_fortress`) — Unified Cyber Fortress for proactive threat elimination.
+- `DeceptionSensor` (`security.deception`) — Record decoy touches, schedule tarpit delays, and grade the sources.
+- `DecoyRoute` (`security.deception`) — One decoy path.
 - `DilithiumKeyPair` (`security.pqc_backends`) — ML-DSA-65 (Dilithium) key pair.
 - `ELINTProcessor` (`security.int_sources`) — Electronic Intelligence (ELINT) Processor.
 - `EMSECCountermeasureGenerator` (`security.tempest_detection`) — Generate EMSEC countermeasures and mitigation strategies.
@@ -2688,6 +2691,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `MinHasher` (`security.counterintelligence`) — MinHash signatures under a seeded universal hash family.
 - `NarrativeAnalysis` (`security.psyop`) — Analysis of a narrative or message.
 - `NearDuplicatePair` (`security.counterintelligence`) — Two reports whose texts are near duplicates.
+- `NoticeSection` (`security.agent_notice`) — One section of the notice.
 - `OSINTProcessor` (`security.int_sources`) — Open Source Intelligence (OSINT) Processor.
 - `Outcome` (`security.adjudication`) — What happened in a case, when it could first have happened, and who reported it.
 - `OutcomeWeightFit` (`security.counterintelligence`) — Prequential fit of the evidential weight of adjudicated outcomes.
@@ -2713,6 +2717,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `SphincsKeyPair` (`security.pqc_backends`) — SPHINCS+-256f key pair.
 - `SphincsProvider` (`security.crypto_api`) — SPHINCS+ hash-based signature provider — delegates to AMA.
 - `TargetAudienceProfile` (`security.psyop`) — Profile of a target audience for PSYOP analysis.
+- `TarpitPolicy` (`security.deception`) — Bounded exponential delay schedule for decoy responses.
 - `ThreatBlocking` (`security.hive_firewall`) — Threat blocking decision with reasoning.
 - `ThreatSignature` (`security.realtime_threat_detection`) — Threat signature with metadata.
 - `TrackPoint` (`security.counterintelligence`) — A timed location fix for one entity.
@@ -2726,9 +2731,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `MultiverseZeroDaySimulator` (`security.cyber_fortress`) — Novel zero-day attack simulation using multiverse optimization.
 
-<details><summary>Support types (79)</summary>
+<details><summary>Support types (81)</summary>
 
-`APTGroup`, `AgreementReport`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CounterintelligenceConfig`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FlagKind`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `LabelReport`, `MASINTAnalysisResult`, `MalwareFamily`, `MeritLogError`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `PQCBackend`, `PSYOPCategory`, `QuantumStatus`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `ReportRecord`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `ScreenResult`, `SecurityLevel`, `SigningKeyError`, `SpectralClassResult`, `SpectralSignatureResult`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`, `_CaseState`, `_VoteRecord`
+`APTGroup`, `AgreementReport`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CounterintelligenceConfig`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FlagKind`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `LabelReport`, `MASINTAnalysisResult`, `MalwareFamily`, `MeritLogError`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `PQCBackend`, `PSYOPCategory`, `QuantumStatus`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `ReportRecord`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `ScreenResult`, `SecurityLevel`, `SigningKeyError`, `SpectralClassResult`, `SpectralSignatureResult`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `TripwireEvent`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`, `_CaseState`, `_SourceState`, `_VoteRecord`
 
 </details>
 

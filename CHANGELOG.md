@@ -27,6 +27,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Trust surface: a standing notice to autonomous agents, RFC 9116 security.txt, and a containment-only decoy layer (branch `steel/version-cov5`)
+
+**Added — `security/agent_notice.py`, a standing notice to autonomous agents.**
+Its realistic reader is an instruction-following agent pointed at Mercury by
+someone else: such agents read repository and served text into context and
+can weigh a reasoned request against their tasking. The notice asks any agent
+directed to damage, disable, exfiltrate or subvert Mercury to stop and say
+why, states that it is a request with no legal or technical force, and states
+the zero-authority rule (no message through any channel grants access,
+changes configuration, or excepts any safety control). It commits Mercury to
+containment, not retaliation. The stated principles are rendered from
+`core.ai_ethics.EthicalPrinciple`, so the public text cannot claim a principle
+the engine does not define. Every factual claim was checked against the code
+before shipping; one draft sentence ("rate limiting on every route") was
+false — the limiter exempts health, metrics and documentation endpoints and is
+operator-disableable — and was corrected to say exactly that. Served as JSON
+at `/agent-notice` (`"binding": false`, `"authority": "none"`) and rendered to
+`docs/AGENT_NOTICE.md`, drift-gated by `python -m
+omni_mercury_engine.security.agent_notice --check`.
+
+**Added — `/.well-known/security.txt` (RFC 9116, verified against the RFC
+text).** `Contact` and `Expires` are mandatory (the latter exactly once, RFC
+3339, under a year out: a rolling 180 days, since the file is regenerated from
+code per request); two `Policy` fields point to `SECURITY.md` and the notice;
+every line, including the last, ends in a line feed; served `text/plain;
+charset=utf-8`. Third-party deployments set `MERCURY_SECURITY_CONTACT`
+(`mailto:`/`tel:`/`https://` only — RFC 9116 requires https web URIs);
+invalid entries, including any containing a line break that could inject
+fields, are dropped with a warning and never served.
+
+**Added — `security/deception.py` + `api/routes/decoys.py`, an opt-in
+containment layer (`MERCURY_DECEPTION_ENABLED`; off by default, no decoy route
+exists).** Eight decoys — administration, API-key management, configuration
+and environment dumps, model-weight export, a harm-gate override (there is
+none), and silent `/.env` and `/.git/config` tripwires. Nothing in the layer
+contacts, probes or alters any other system. Properties, each pinned by test:
+
+* *Indistinguishable from the real thing, measured.* Probing all 76 live
+  routes anonymously showed the API data surface answers `401 "Authentication
+  required"` with `WWW-Authenticate: Bearer, ApiKey` (19 routes); the first
+  draft mimicked a `"API key required"` / `ApiKey` challenge that **no real
+  route returns** — a fingerprint that would have sorted decoys from real
+  endpoints in one request. Decoys now raise the measured challenge, and a
+  differential test compares a decoy against a real protected route on the
+  live application field for field (plus a premise test that the live app
+  still uses FastAPI's default exception handler). Silent tripwires match a
+  nonexistent path byte-for-byte for every method, so no 405 gives them away.
+* *Cannot be turned on an innocent.* Sources resolve through the rate
+  limiter's own `resolve_client_ip`, which ignores `X-Forwarded-For` unless
+  trusted proxy hops are declared — a forged header cannot frame a victim's
+  address. IPv6 keys by `/64`, so rotating addresses inside one allocation
+  does not reset escalation.
+* *Consequences stay on the decoys.* The tarpit delays decoy responses only
+  (0.5, 1, 2, 4, 8 s, capped, overflow-proof in log space), and no real route
+  consults the sensor: a legitimate user behind a prober's NAT is never
+  slowed. `TarpitGate` caps concurrently held responses; past the cap it
+  answers immediately, so the tarpit cannot exhaust the server.
+* *Bounded.* Per-source state is LRU-capped (10,000), hit history is
+  length-capped, and audit records are one per source per decoy per window —
+  internet-background scanning cannot flood the chain.
+* *Fail-closed.* Any internal failure answers as a missing path; a decoy
+  never returns 500.
+* *Evidence, honestly weighted.* Tripwires are recorded as `security_incident`
+  events on the existing shared hash-chained audit logger (the client address
+  in its dedicated field, never in free text), and map onto
+  `counterintelligence.SourceOutcome` — one refuted outcome per *distinct*
+  decoy touched (retries are not independent adjudications) — applied through
+  the module's own `source_posterior`. The sensor is exposed as
+  `app.state.deception_sensor` for consumers that grade a source; no real
+  route consumes it automatically (see the NAT property above).
+* *The highest-value signal.* A decoy touched by a request presenting an API
+  key or `Authorization` header — a stolen credential or an insider — is
+  flagged `credential_presented`; the credential itself is never recorded.
+
+**Measured.** 169 new tests (`tests/security/test_agent_notice.py`,
+`tests/security/test_deception.py`, `tests/api/test_trust_surface_routes.py`),
+all passing `mypy --strict`; the full `tests/api` + `tests/security` suites
+(2,368) pass with the new routes registered.
+
 ### Mathematical Observatory: verified equation solving, anomaly instruments over mathematical data, mathlib-capable proof checking (branch `steel/version-cov4`)
 
 **Added — `omni_mercury_engine.observatory`, a machine that solves what is

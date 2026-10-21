@@ -1518,6 +1518,27 @@ try:
 except ImportError as e:
     logger.warning(f"Assessment routes not available: {e}")
 
+# Include the Agent Notice and RFC 9116 security.txt (always on: read-only,
+# unauthenticated public documents that accept no input)
+try:
+    from omni_mercury_engine.api.routes.agent_notice import router as agent_notice_router
+
+    app.include_router(agent_notice_router)
+    logger.info("Agent notice routes registered")
+except ImportError as e:
+    logger.warning(f"Agent notice routes not available: {e}")
+
+# Include the Decoy Surface (opt-in via MERCURY_DECEPTION_ENABLED=true; left
+# off, no decoy route exists and every existing route stays byte-identical).
+# Registered before the frontend so no catch-all mount can shadow a decoy.
+try:
+    from omni_mercury_engine.api.routes.decoys import register_decoys
+
+    if register_decoys(app) is not None:
+        logger.info("Deception decoy surface registered")
+except ImportError as e:
+    logger.warning(f"Deception decoy surface not available: {e}")
+
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)
 try:
