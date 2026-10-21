@@ -36,6 +36,7 @@ from omni_mercury_engine.security.deception_store import (
     TRIPWIRE_STORE_PATH_ENV,
     SqliteTripwireStore,
     TouchRecord,
+    TripwireStore,
     build_tripwire_store,
 )
 
@@ -522,8 +523,10 @@ class TestTarpitGate:
             first = asyncio.create_task(gate.hold(2.0))
             await started.wait()
             held = gate.active
-            second = await gate.hold(3.0)
-            release.set()
+            try:  # bounded: a gate that holds past its cap fails here, not by hanging
+                second = await asyncio.wait_for(gate.hold(3.0), timeout=1.0)
+            finally:
+                release.set()
             return await first, second, held
 
         first, second, held = asyncio.run(scenario())
@@ -1008,6 +1011,16 @@ class TestStoreIsBounded:
         for i in range(10):
             sensor.record(f"198.51.{i}.7", ADMIN, "GET")
         assert self._rows(store, "deception_touches") == 3
+
+    def test_store_default_cap_is_the_sensor_default(self) -> None:
+        """A direct caller of the store gets the sensor's own source cap."""
+        import inspect
+
+        sensor_default = inspect.signature(DeceptionSensor).parameters["max_sources"].default
+        assert sensor_default == 10_000
+        for record_touch in (SqliteTripwireStore.record_touch, TripwireStore.record_touch):
+            default = inspect.signature(record_touch).parameters["max_sources"].default
+            assert default == sensor_default, record_touch.__qualname__
 
     def test_max_sources_validated(self, tmp_path: Path) -> None:
         """A non-positive cap is refused."""

@@ -667,11 +667,18 @@ jobs:
     # 80.4% -- the 39 survivors were classified, the killable gaps closed
     # (boundary acceptances, pinned defaults, LRU/prune-cadence off-by-ones,
     # a checkpointed campaign-log test verified by hand-applying its
-    # mutant) -- final 196 killed, 98.5%. The three survivors are classified
-    # equivalents: the tarpit cap, where capped and uncapped delays
-    # coincide; and two in the store's mkdir guard, where Path.parent is
-    # always truthy and exist_ok matters only under a concurrent-creation
-    # race.
+    # mutant) -- final 196 killed, 98.5%. After the bounded store, cluster-
+    # wide grading, innermost silent tripwires and the contact-parser fix
+    # (2026-10-21, 208 sites): first run 202 killed, 97.1%; the two killable
+    # survivors (the store's max_sources defaults, unpinned against the
+    # sensor's cap) closed by a signature pin verified by hand-applying both
+    # mutants, and the one timeout kill (the TarpitGate cap) made a 1 s
+    # failure instead of a 120 s hang -- final 204 killed, 98.1%. The four
+    # survivors are classified equivalents: the tarpit cap, where capped and
+    # uncapped delays coincide; two in the store's mkdir guard, where
+    # Path.parent is always truthy and exist_ok matters only under a
+    # concurrent-creation race; and the eviction guard's excess <= 0, where
+    # excess == 0 selects LIMIT 0 and evicts nothing either way.
     if: github.event_name != 'pull_request' || needs.changes.outputs.trustsurface == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -695,10 +702,11 @@ jobs:
         with:
           ama-ref: v5.0.0
 
-      # Floor calibration (2026-10-21, local, full enumeration): 196/199
-      # killed -- 98.5% -- with the three survivors classified equivalents.
-      # The floor sits at 90 so legitimate new mutation sites don't flake the
-      # lane while real weakening fails it.
+      # Floor calibration (2026-10-21, local, full enumeration): 204/208
+      # killed -- 98.1% -- with the four survivors classified equivalents.
+      # The floor sits at 95: the equivalents cost 1.9 points, and the rest
+      # of the margin (about six mutants) absorbs legitimate new sites while
+      # real weakening fails the lane.
       - name: Trust-surface mutation floor
         run: |
           python scripts/run_sigma_mutation_gate.py \
@@ -710,7 +718,7 @@ jobs:
               src/omni_mercury_engine/api/routes/agent_notice.py \
             --test-cmd "python -m pytest tests/security/test_deception.py tests/security/test_agent_notice.py tests/api/test_trust_surface_routes.py -q -x" \
             --jobs 4 \
-            --fail-under 90 \
+            --fail-under 95 \
             --report trust_surface_mutation_report.json
 
       - name: Upload trust-surface mutation report

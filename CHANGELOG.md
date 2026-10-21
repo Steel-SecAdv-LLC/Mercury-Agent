@@ -154,6 +154,15 @@ deployment served the upstream security contact with nothing prompting the
 operator to change it. All four are now documented and carried, the decoys
 off by default; a test holds each surface to the modules' constants.
 
+**Measured — the trust-surface mutation lane, re-enumerated in full.**
+208 sites across the five modules: first run 202 killed (97.1%). The two
+killable survivors were the store's `max_sources` defaults, unpinned
+against the sensor's cap (now pinned, both mutants verified killed by hand);
+the one timeout kill, the TarpitGate capacity check, now fails its test in
+one second instead of hanging for the harness's 120. Final: 204 killed,
+98.1%, the four survivors classified equivalents in the lane comment. The
+floor rises from 90 to 95.
+
 ### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
 
 The two gaps the red-team round left open, closed.
