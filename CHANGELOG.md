@@ -146,6 +146,17 @@ what DONKI reports; DONKI's own definition and NOAA's archived estimates
 were unreachable (api.nasa.gov 503; CCMC, GFZ and SWPC's FTP mirror reset
 by the egress path).
 
+**Measured — the two modules above are mutation-floored
+(`mutation-testing.yml`: `mutation-floor-hazard-evidence`).** First full
+enumeration of `data_sources/storm_surge.py` and
+`loaders/space_weather_loader.py` (129 sites): 73 killed, 56.6%. The
+SURGEDAT rounding-interval arithmetic, the loader's feature windows, its
+real-time and DONKI request windows and the label window's edges were
+unpinned. Known-answer tests (boundary pairs within micrometres of the
+overlap rule, closed-form ramp features, a fixed clock, a sub-second label
+edge) bring it to 121 killed, 93.8%; the eight survivors are classified
+equivalents in the lane comment. Floor 88.
+
 ### Trust surface: a bounded store, decoys behind the rate limiter, contacts that cannot break security.txt (branch `steel/version-cov5`)
 
 **Fixed — the cross-worker tripwire store grew without bound
@@ -161,7 +172,11 @@ and aggregates at the sensor's `max_sources` (passed through
 its hits and touches -- the in-process LRU rule -- and counts the campaign
 signal from an indexed last-seen table. Same flood: 10,000 touch rows and
 about 1 ms per touch at the cap. A store written before the cap is
-backfilled on open, so its keys are covered too.
+backfilled on open, so its keys are covered too. The key being recorded is
+never an eviction candidate: the store runs on the wall clock, and after a
+backward step a fresh key stamped older than every other evicted itself
+mid-touch, so the touch counted zero hits (no tarpit) and left an orphaned
+touch row.
 
 **Fixed — reliability grading was per-worker (`security/deception.py`).**
 `DeceptionSensor.outcomes()` / `posterior()` read only the process's own

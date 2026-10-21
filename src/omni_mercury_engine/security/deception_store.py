@@ -200,7 +200,12 @@ class SqliteTripwireStore:
         return int(row["n"])
 
     def _touch_key(self, scope: str, scope_key: str, now: float, max_keys: int) -> None:
-        """Mark a key seen now; past ``max_keys`` keys, evict the least recently seen."""
+        """Mark a key seen now; past ``max_keys`` keys, evict the least recently seen.
+
+        The key being recorded is never a candidate: the wall clock can step
+        backwards, and a fresh key stamped earlier than every other must not
+        evict itself (and its just-written hits) mid-touch.
+        """
         known = self._conn.execute(
             "UPDATE deception_keys SET last_s = ? WHERE scope = ? AND scope_key = ?",
             (now, scope, scope_key),
@@ -224,9 +229,9 @@ class SqliteTripwireStore:
         evicted = [
             str(row["scope_key"])
             for row in self._conn.execute(
-                "SELECT scope_key FROM deception_keys WHERE scope = ? "
+                "SELECT scope_key FROM deception_keys WHERE scope = ? AND scope_key != ? "
                 "ORDER BY last_s ASC, scope_key ASC LIMIT ?",
-                (scope, excess),
+                (scope, scope_key, excess),
             ).fetchall()
         ]
         for old in evicted:

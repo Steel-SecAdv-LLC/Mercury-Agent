@@ -1012,6 +1012,30 @@ class TestStoreIsBounded:
             sensor.record(f"198.51.{i}.7", ADMIN, "GET")
         assert self._rows(store, "deception_touches") == 3
 
+    def test_a_backward_clock_step_never_evicts_the_key_being_recorded(
+        self, tmp_path: Path
+    ) -> None:
+        """The wall clock can step back (NTP); the arriving source still counts."""
+        clock = FakeClock(5000.0)
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=clock)
+        for ip in ("198.51.100.1", "198.51.100.2"):
+            clock.now += 1.0
+            store.record_touch(ip, ip + "/32", ADMIN, window_s=3600.0, max_hits=8, max_sources=2)
+        clock.now = 4000.0  # stepped back, older than every key on record
+        rec = store.record_touch(
+            "198.51.100.3", "198.51.100.3/32", ADMIN, window_s=3600.0, max_hits=8, max_sources=2
+        )
+        assert rec.hits == 1 and rec.aggregate_hits == 1
+        assert store.distinct_decoys("198.51.100.3") == 1
+        on_record = {
+            row[0]
+            for row in store._conn.execute(
+                "SELECT scope_key FROM deception_keys WHERE scope = 'src'"
+            ).fetchall()
+        }
+        assert "198.51.100.3" in on_record and len(on_record) == 2
+        assert self._rows(store, "deception_touches") == 2  # no orphaned touch rows
+
     def test_store_default_cap_is_the_sensor_default(self) -> None:
         """A direct caller of the store gets the sensor's own source cap."""
         import inspect

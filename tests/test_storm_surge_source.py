@@ -496,3 +496,92 @@ class TestSurgedatParsing:
         cells[header.split(",").index("Tropical")] = "maybe"
         with pytest.raises(ValueError, match="tropical flag"):
             parse_surgedat_csv((header + "\r" + ",".join(cells) + "\r").encode("mac_roman"))
+
+
+class TestSurgedatPrecisionEdges:
+    """Pairs placed at the exact edges of the rounding-interval rule.
+
+    Each case sits within a few micrometres of the overlap boundary, so a
+    change to the half-width (0.5 of the last stated digit, in the cell's
+    own unit) or to the slack flips it.
+    """
+
+    @pytest.mark.parametrize(
+        ("ft", "m", "conflict"),
+        [
+            # 10 ft spans 2.8956-3.2004 m; 3.21 m spans 3.205-3.215: 4.6 mm apart.
+            ("10", "3.21", True),
+            # 10.0 ft spans 3.03276-3.06324 m; 3.0632 m spans 3.06315-3.06325.
+            ("10.0", "3.0632", False),
+            ("10.0", "3.0634", True),  # 3.06335 m: 0.11 mm past the feet edge
+            # The metres side's own half-width: 3.04 m spans 3.035-3.045 and
+            # 10.0 ft starts at 3.03276; 3.02 m (3.015-3.025) misses it.
+            ("10.0", "3.04", False),
+            ("10.0", "3.02", True),
+            # A conflict narrower than 0.1 m is still a conflict.
+            ("10.0", "3.12", True),
+            # A stated range's upper end carries its own precision.
+            ("9.0-10.0", "3.0632", False),
+            ("9.0-10.0", "3.0634", True),
+            ("9-10", "3.21", True),
+        ],
+    )
+    def test_overlap_boundary(self, ft: str, m: str, conflict: bool) -> None:
+        (row,) = parse_surgedat_csv(_gulf_row(Surge_FT=ft, Surge_M=m))
+        assert row.surge is not None
+        assert row.surge.conflict is conflict
+
+    @pytest.mark.parametrize(
+        ("ft", "m", "conflict"),
+        [
+            # A feet range whose ends differ in precision: 9 ft (+/- 0.1524 m)
+            # starts the interval at 2.5908 m, 10.0 ft (+/- 0.01524 m) ends it
+            # at 3.06324 m; 2.65 m (to 2.655) overlaps the low end only.
+            ("9-10.0", "2.65", False),
+            ("9-10.0", "2.58", True),  # 2.585 m: short of the 2.5908 m start
+            # A metres range: 3 m (+/- 0.5) opens at 2.5, 3.10 m (+/- 0.005)
+            # closes at 3.105; 8 ft ends at 2.5908 m, inside.
+            ("8", "3-3.10", False),
+            ("7", "3-3.10", True),  # 7 ft ends at 2.286 m, below 2.5
+        ],
+    )
+    def test_range_ends_carry_their_own_precision(self, ft: str, m: str, conflict: bool) -> None:
+        (row,) = parse_surgedat_csv(_gulf_row(Surge_FT=ft, Surge_M=m))
+        assert row.surge is not None
+        assert row.surge.conflict is conflict
+
+    def test_range_bounds_in_metres(self) -> None:
+        (row,) = parse_surgedat_csv(_gulf_row(Surge_FT="9.0-10.0"))
+        assert row.surge is not None
+        assert (row.surge.low_m, row.surge.high_m) == pytest.approx((2.7432, 3.048))
+        assert row.surge.metres is None
+
+    def test_records_are_immutable(self, surgedat_gulf: list[SurgeObservation]) -> None:
+        row = surgedat_gulf[0]
+        assert row.surge is not None
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            row.year = 1900  # type: ignore[misc]
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            row.surge.metres = 0.0  # type: ignore[misc]
+
+    @pytest.mark.parametrize(("lat", "lon"), [("90", "180"), ("-90", "-180"), ("90.0", "-180.0")])
+    def test_coordinate_limits_are_inclusive(self, lat: str, lon: str) -> None:
+        (row,) = parse_surgedat_csv(_gulf_row(Lat=lat, Lon=lon))
+        assert (row.latitude, row.longitude) == (float(lat), float(lon))
+
+    @pytest.mark.parametrize(
+        ("cells", "name"), [({"Lat": "90.05"}, "latitude"), ({"Lon": "180.05"}, "longitude")]
+    )
+    def test_just_past_the_limits_refused(self, cells: dict[str, str], name: str) -> None:
+        with pytest.raises(ValueError, match=name):
+            parse_surgedat_csv(_gulf_row(**cells))
+
+    def test_errors_name_the_file_row(self) -> None:
+        # Line 1 is the header, so the second data row is file row 3.
+        short = (_GULF_HEADER + "\rTest,2000,Sep,,,,,,,,,2\rTest,2000\r").encode()
+        with pytest.raises(ValueError, match="SURGEDAT row 3 has 2 cells"):
+            parse_surgedat_csv(short)
+
+    def test_non_tropical_rows_are_flagged(self, surgedat_global: list[SurgeObservation]) -> None:
+        flags = [o.tropical for o in surgedat_global]
+        assert (flags.count(True), flags.count(False)) == (737, 8)

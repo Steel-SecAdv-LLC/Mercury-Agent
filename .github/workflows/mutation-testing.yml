@@ -54,6 +54,7 @@ jobs:
       crisismonitor: ${{ steps.detect.outputs.crisismonitor }}
       observatory: ${{ steps.detect.outputs.observatory }}
       trustsurface: ${{ steps.detect.outputs.trustsurface }}
+      hazardevidence: ${{ steps.detect.outputs.hazardevidence }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -142,6 +143,14 @@ jobs:
           else
             echo "trustsurface=false" >> "$GITHUB_OUTPUT"
             echo "trust-surface mutation surface unchanged."
+          fi
+          # The mutation-floored hazard-evidence surface (SURGEDAT/NHC surge, DONKI labels).
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/data_sources/storm_surge\.py|src/omni_mercury_engine/loaders/space_weather_loader\.py|tests/test_storm_surge_source\.py|tests/loaders/test_space_weather_meteor_loaders\.py|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "hazardevidence=true" >> "$GITHUB_OUTPUT"
+            echo "hazard-evidence mutation surface changed: hazard-evidence floor lane runs."
+          else
+            echo "hazardevidence=false" >> "$GITHUB_OUTPUT"
+            echo "hazard-evidence mutation surface unchanged."
           fi
 
   mutation-sample:
@@ -727,4 +736,68 @@ jobs:
         with:
           name: trust-surface-mutation-report
           path: trust_surface_mutation_report.json
+          if-no-files-found: ignore
+
+  mutation-floor-hazard-evidence:
+    name: Hazard-evidence mutation kill-rate floor
+    needs: changes
+    # Ninth module set under the per-module kill-rate program (2026-10-21):
+    # the storm-surge sources (NHC Peak Storm Surge, SURGEDAT) and the DONKI
+    # space-weather loader. First full enumeration (129 sites): 73 killed,
+    # 56.6% -- the SURGEDAT rounding-interval arithmetic and the loader's
+    # feature windows, request windows and label edges were unpinned.
+    # Known-answer tests (boundary pairs within micrometres of the overlap
+    # rule, closed-form ramp features, a fixed clock, a sub-second label
+    # edge) brought it to 121 killed, 93.8%. The eight survivors are
+    # classified equivalents: the interval comparisons' > vs >= and +/- 1e-9
+    # slack (four; rounding intervals of decimal strings can never touch,
+    # the feet edge ending in an even digit and the metres edge in a 5), the
+    # point-reading index tweaks (two; a point's low and high and their
+    # half-widths are equal), the real-time window's microsecond (dropped by
+    # the request format) and reset_index's drop flag (the index column is
+    # never read).
+    if: github.event_name != 'pull_request' || needs.changes.outputs.hazardevidence == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-21, local, full enumeration): 121/129
+      # killed -- 93.8% -- with the eight survivors classified equivalents.
+      # The floor sits at 88: the equivalents cost 6.2 points, and the rest
+      # of the margin (about seven mutants) absorbs legitimate new sites.
+      - name: Hazard-evidence mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/data_sources/storm_surge.py \
+              src/omni_mercury_engine/loaders/space_weather_loader.py \
+            --test-cmd "python -m pytest tests/test_storm_surge_source.py tests/loaders/test_space_weather_meteor_loaders.py -q -x" \
+            --jobs 4 \
+            --fail-under 88 \
+            --report hazard_evidence_mutation_report.json
+
+      - name: Upload hazard-evidence mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hazard-evidence-mutation-report
+          path: hazard_evidence_mutation_report.json
           if-no-files-found: ignore
