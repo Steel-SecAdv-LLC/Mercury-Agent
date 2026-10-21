@@ -2,7 +2,7 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 1.4 |
+| Document Version | 1.5 |
 | Last Updated | 2026-10-21 |
 | Applies to | Mercury Agent v3.0.x |
 
@@ -52,11 +52,11 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `MercuryVoice(enable_llm=True)` (no `llm_provider`) | Explicit `llm_provider=` + `llm_model_name=` (+ `llm_revision=` for remote HF) | **Removed in v1.7** - silent `MockLLMAdapter` fallback removed (see §6) |
 | `strict_ethics=False` engine flag | _no replacement_ | **Removed in v1.7** - dual hard gates are non-negotiable (see §6) |
 | `result["gosnn_metadata"]["fallback_mode"] is True` path | `EthicalConstraintViolationError(check="gosnn_unavailable")` | **Removed in v1.7** - σ_Immutable second hard gate (see §6) |
-| `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer` / `PPOConfig` / `TrainingStats` / `ConvergenceMonitor` / `CheckpointCallback`) | `agentic.agentic_autonomy.AgenticAutonomy` (RL-style workflow adaptation); `automl.BayesianOptimizer` / `engine.tune_fusion` (hyperparameter search) | **Removed in v2.1** - correctness exception (see §6) |
-| Geological `SolarFlareDetector` duplicate + `GeomagneticHMM` | Canonical `space.solar_storm_detector.SolarFlareDetector` (re-exported from `detectors.geological`) | **Removed in v2.1** - correctness exception (see §6.7) |
-| `load_nasa_fireball_data` / `load_nasa_close_approach_data` / `load_nasa_sentry_data` | `data_sources.jpl_ssd.JPLFireballSource` / `NASANeoWsSource` / `data_sources.jpl_ssd.JPLSentrySource` | **Removed in v2.1** - correctness exception (see §6.8) |
-| `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v2.1** - correctness exception (see §6.9) |
-| `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v2.1** - correctness exception (see §6.10) |
+| `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer` / `PPOConfig` / `TrainingStats` / `ConvergenceMonitor` / `CheckpointCallback`) | `agentic.agentic_autonomy.AgenticAutonomy` (RL-style workflow adaptation); `automl.BayesianOptimizer` / `engine.tune_fusion` (hyperparameter search) | **Removed in v3.0** - correctness exception (see §6) |
+| Geological `SolarFlareDetector` duplicate + `GeomagneticHMM` | Canonical `space.solar_storm_detector.SolarFlareDetector` (re-exported from `detectors.geological`) | **Removed in v3.0** - correctness exception (see §6.7) |
+| `load_nasa_fireball_data` / `load_nasa_close_approach_data` / `load_nasa_sentry_data` | `data_sources.jpl_ssd.JPLFireballSource` / `NASANeoWsSource` / `data_sources.jpl_ssd.JPLSentrySource` | **Removed in v3.0** - correctness exception (see §6.8) |
+| `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v3.0** - correctness exception (see §6.9) |
+| `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v3.0** - correctness exception (see §6.10) |
 | `security.pqc_backends.slhdsa_sign_internal` | `slhdsa_sign_addrnd` (FIPS 205 §10.2, caller-supplied `addrnd`); production: `slhdsa_sign` | **Removed in v3.0** - security exception, aligned with AMA Cryptography v5 INVARIANT-50 (see §6.11) |
 | `EMPPredictionResult.intentional_attack_probability` (`0.0` / untrained-network float) and `E3PulseDetector.detect_e3_pulse()["gic_amplitude_a"]` (`0.1 × \|dB/dt\|`) | The trained IEMI network's probability after `EMPDetector.load_neural_weights`; `detect_e3_pulse()["peak_dbdt_nt_per_s"]` / `["grid_impact"]`; `space.gic_detector.GICDetector` for the geoelectric field | **Changed in v3.0** - correctness exception: field and key kept in place, value `None` (no truthful number exists without a trained network or a network model; see §6.12) |
 | `security.counterintelligence.OverwatchNexus` / `OverwatchNexusResult` | `security.counterintelligence.CounterintelligenceAssessor` | **Removed in v3.0** - correctness exception: scored reports it fabricated itself (see §6.13) |
@@ -367,14 +367,15 @@ correctness doctrine (stub collaborators must hard-fail rather than
 silently degrade).  Each entry records the criterion that overrode
 preservation, the replacement surface, and the in-tree regression test
 that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
-development cycle (§6.5 records a relocation, not a removal); §6.6–6.10
-were removed across the v2.1 improvement and live-wiring passes, and §6.11
-with the AMA Cryptography v5 migration, released in v3.0. §6.12 records a
-value change in v3.0, not a removal: the surfaces stay, their fabricated
-values do not. §6.13-6.15 record three modules removed on
-`steel/version-cov3` and rebuilt from scratch on `steel/version-cov4` under
-their released module paths, released in v3.0; the released classes are not
-restored.
+development cycle (§6.5 records a relocation, not a removal). §6.6–6.15
+ship in v3.0, the first release after 2.0.0 (2.1.0 was prepared but never
+released): §6.6–6.10 were removed across the improvement and live-wiring
+passes and §6.11 with the AMA Cryptography v5 migration. §6.12 records a
+value change, not a removal: the surfaces stay, their fabricated values do
+not. §6.13-6.15 record three modules removed on `steel/version-cov3` and
+rebuilt from scratch on `steel/version-cov4` under their released module
+paths; the released classes are not restored. §7 lists every other 2.0.0
+name that v3.0 renames or removes.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 
@@ -449,7 +450,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.6 `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer`)
 
-* **Removed by:** v2.1 improvement pass (July 2026)
+* **Removed by:** the v3.0 improvement pass (July 2026)
 * **Override criterion:** §2 (Fundamental Incompatibility) + §3 (Zero
   Active Usage). The module was dead in every supported install
   profile: `stable_baselines3` appears in no dependency extra (it was
@@ -475,7 +476,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.7 Geological `SolarFlareDetector` duplicate + `GeomagneticHMM`
 
-* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Removed by:** the v3.0 live-wiring wave (July 2026)
 * **Override criterion:** §2 (Fundamental Incompatibility) with the
   no-fabricated-data doctrine. Two unrelated classes named
   `SolarFlareDetector` existed (space vs geological). The geological
@@ -504,7 +505,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.8 Private NASA CNEOS loaders in `disaster_detectors`
 
-* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Removed by:** the v3.0 live-wiring wave (July 2026)
 * **Override criterion:** §2 (Fundamental Incompatibility) — private
   module-level HTTP loaders (`load_nasa_fireball_data`,
   `load_nasa_close_approach_data`, `load_nasa_sentry_data`) duplicated
@@ -527,7 +528,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.9 `USGSVolcanoSource.US_VOLCANOES` static table
 
-* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Removed by:** the v3.0 live-wiring wave (July 2026)
 * **Override criterion:** §2 (Fundamental Incompatibility) with the
   no-fabricated-data doctrine — the source looped a hardcoded 10-entry
   volcano dict and emitted `alert_level="normal"` /
@@ -540,7 +541,7 @@ added. New code must use the `compliance.` import path.
 
 ### 6.10 `flood_detector.TopographicRunoffPredictor`
 
-* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Removed by:** the v3.0 live-wiring wave (July 2026)
 * **Override criterion:** §2 (Fundamental Incompatibility) with the
   no-fabricated-data doctrine. The class was an untrained neural network
   that `FloodDetector` instantiated (`enable_runoff=True`) but **never
@@ -683,13 +684,95 @@ added. New code must use the `compliance.` import path.
 
 ---
 
+## 7. Renamed and removed in v3.0 (migration from 2.0.0)
+
+v3.0 renames 2.0.0 names that described something the code was not (promotional
+"Advanced/Enhanced" prefixes, mythological terms) and removes components whose
+output was fabricated. A renamed item keeps its behaviour and values; only the
+import changes. There are no aliases: the old names are the inaccurate ones.
+
+### 7.1 Renamed modules (`omni_mercury_engine.` prefix omitted)
+
+| 2.0.0 | v3.0 |
+|-------|------|
+| `cognitive.anomaly_detection_enhanced` | `cognitive.anomaly_detection` |
+| `core.enhanced_base_domains` | `core.base_domains` |
+| `core.enhanced_model_domains` | `core.model_domains` |
+| `detectors.advanced_physics_integration` | `detectors.physics_integration` |
+| `detectors.enhanced_statistical` | `detectors.statistical_extended` |
+| `detectors.vlm.advanced_context_providers` | `detectors.vlm.context_providers_extended` |
+| `ml.advanced_optimizers` | `ml.optimizers` |
+| `models.biometric_advanced` | `models.biometric_multimodal` |
+| `models.neurosymbolic_enhanced` | `models.neurosymbolic_temporal` |
+
+### 7.2 Renamed classes, methods, fields and parameters
+
+| 2.0.0 | v3.0 |
+|-------|------|
+| `EnhancedAnomalyDetector` | `IntegratedAnomalyDetector` |
+| `EnhancedBaseDetector` | `BaseDomainDetector` |
+| `EnhancedQuantumModel` / `EnhancedBiometricModel` / `EnhancedAffectiveModel` | `QuantumFeatureModel` / `MultimodalBiometricModel` / `AffectiveStateModel` |
+| `AdvancedPhysicsConfig` / `AdvancedPhysicsIntegratedDetector` | `PhysicsIntegrationConfig` / `PhysicsIntegratedDetector` |
+| `EnhancedStatisticalDetector` | `ExtendedStatisticalDetector` |
+| `EnhancedCombinedContextProvider` | `CombinedContextProvider` |
+| `harmonics.AdvancedHarmonicAnalyzer` | `harmonics.HarmonicAnalyzer` |
+| `AdvancedBiometricEngine` | `MultimodalBiometricEngine` |
+| `EnhancedLogicTensorNetwork` / `EnhancedNeurosymbolicEngine` | `TemporalLogicTensorNetwork` / `TemporalNeurosymbolicEngine` |
+| `core.stacking_fusion.EthicallyConstrainedFusion` | `ReliabilityWeightedFusion`; `get_ethical_compliance()` -> `get_reliability_report()` (keys `average_reliability`, `reliability_floor`, `floor_met`, `detector_weights`, `detector_reliability_scores`); `benevolence_weight=` -> `reliability_penalty_weight=` |
+| `add_detector(..., ethical_score=)` (`StackingFusion`, `BayesianModelAveraging`, `ReliabilityWeightedFusion`) | `reliability_score=` |
+| `ml.fusion_network.OmniFusionModel.train_with_advanced_optimizers` | `train_with_optimizers` |
+| `ethical.WisdomArchetype` / `ethical_constraint_engine.ArchetypalAnalysis` | `GeometricPattern` / `GeometricPatternAnalysis` (`dominant_archetype` -> `dominant_pattern`, `archetype_scores` -> `pattern_scores`) |
+| `compute_divine_proportion` (`ImmutableGeometryProcessor`, `GeometricPatternProcessor`) | `compute_golden_ratio` |
+| `EthicalScalars`: `omni_ineffable_transcendence`, `omni_seraphic_elevation`, `omni_scribe_precision`, `omni_hermetic_truth`, `omni_lunar_wisdom`, `omni_hieroglyphic_reasoning`, `omni_cosmic_balance`, `omni_isfet_prevention`, `omni_weighing_judgment`, `omni_pharaonic_accountability`, `omni_seasonal_regulation` | `omni_aspirational_excellence`, `omni_benevolent_uplift`, `omni_record_precision`, `omni_truthfulness_integrity`, `omni_reflective_deliberation`, `omni_symbolic_reasoning`, `omni_systemic_equilibrium`, `omni_disorder_prevention`, `omni_proportional_judgment`, `omni_executive_accountability`, `omni_cyclical_regulation` (values unchanged) |
+| `EthicalScalars.omni_survivor_first_protection` | `omni_civilization_first_protection` (value unchanged) | <!-- doc-lint: allow -->
+| `SchumannResonanceDetector(enable_ancient_correlation=)` / `SchumannAnomalyResult.ancient_correlation` | `enable_cycle_correlation=` / `cycle_correlation` |
+| `ChemistryAnomalyDetector(enable_alchemical_correlation=)` / `ChemicalAnomalyResult.ancient_alchemical_correlation` | `enable_classical_metals_correlation=` / `classical_metals_correlation` |
+| `datasets.base.DatasetRegistry.register(name, loader_class=)` | `register(name, loader_factory=)` (positional calls unchanged) |
+| `QuantumResistantEncryption.decrypt_hybrid(..., private_key=)` | `secret_key=` |
+| `EarthquakePrecursorAnalyzer.forward(em_features=)` | `forward(features=)` |
+| `core.neurosymbolic_hub.BENEVOLENCE_THRESHOLD` / `LYAPUNOV_LAMBDA` | `BENEVOLENCE_ADVISORY_LEVEL` (advisory only) / `core.centralized_constants.LYAPUNOV.LAMBDA_CONVERGENCE` |
+
+### 7.3 Removed: the benevolence pass-bar
+
+In 2.0.0 a sample passed the ethics checks when a benevolence score that
+Mercury computed from its own detector output reached 0.99: a control any
+score could satisfy, which screened no harm and refused benign data. v3.0
+enforces the fail-closed harm-uplift gate at every decision surface instead;
+benevolence is reported, never gating. Removed with the pass-bar:
+`benevolence_threshold=` (`SymbolicLogicLayer`, `NeurosymbolicFusionEngine`,
+`ValueExtractor`, `IntegratedAnomalyDetector`, `AdaptiveAnomalyDetector` and the
+`AdversarialAE`/`COPOD`/`GWOEnsemble`/`Contrastive`/`MultiScaleTransformer`
+configs), `sigma_immutable=` (`AdaptiveAnomalyDetector`,
+`MultiScaleTransformerConfig`), `benevolence_weight=` (`BaseDomainDetector`),
+`BenevolenceScorer.BENEVOLENCE_THRESHOLD`, `ThresholdConfig.benevolence_required`,
+`ThresholdDefaults.BENEVOLENCE_IMMUTABLE`, `EthicalConstants.BENEVOLENCE_IMMUTABLE`,
+`core.enhanced_model_domains.BENEVOLENCE_THRESHOLD`, `FusionResult.ethical_gate_passed`
+/ `ethical_score`, `OmniAvaEquation(decouple_ethical_scaling=)`. The dual gate
+`enforce_dual_ethical_gate(benevolence_scorer=, action=, context=, ...)` is now
+`enforce_dual_ethical_gate(subject=, advisory_scorer=, ...)`: the subject is
+screened by the harm-uplift gate and the scorer only advises.
+
+### 7.4 Removed: components with fabricated or no output
+
+| 2.0.0 | Why | Use instead |
+|-------|-----|-------------|
+| `cognitive.cognitive_evolution_engine`: `CognitiveEvolutionEngine`, `ChainOfThoughtReasoner`, `ThoughtChain`, `ReasoningStep`, `CounterfactualSimulator`, `Counterfactual`, `TheoryOfMind`, `IntentInference`, `SelfPlaySimulator`, `SimulationAgent`, `SimulationResult`, `AgentRole`, `RuleMutator`, `Rule`, `MutationResult`, `MutationType` | Canned text and hard-coded confidences; rule fitness was a random walk and mutation reversed strings; `evolve_population([])` never returned; the default safety check failed every cycle | `cognitive.chain_of_thought.ChainOfThoughtEngine`; `cognitive.causal_discovery.CausalDiscoveryEngine.counterfactual_query`; `ml.rule_evolution.EvolvedRuleSearch`; the module's `CuriosityEngine.explore` (its `ExplorationResult` no longer carries `discoveries`, `questions_generated`, `follow_up_actions`) |
+| `HurricanePredictionResult.track_forecast` / `landfall_probability` / `time_to_landfall_hours` | Declared, never computed | none: no track model exists |
+| `SolarFlarePredictionResult.hmm_state` / `transition_probability` | Came from `GeomagneticHMM` (§6.7) | `space.solar_storm_detector.SolarFlareDetector` |
+| `truth_decipher.StatementVerifier(autonomy_level=, enable_cognitive=, enable_novel_discovery=, enable_self_healing=)` | The 2.0.0 framework's switches (§6.14) | `StatementVerifier` defaults |
+| `datasets.adrepository.ODDSDatasetInfo`, `ADRepositoryLoader.ODDS_URLS` / `MIRROR_URLS` | The ODDS host is dead and no dataset routed through it | the DevNet tabular mirror and the dedicated loaders |
+| `security.crypto_api.InvalidSignature` | PyCA left `src` with the move of Ed25519 to AMA | `Ed25519Provider.verify` returns `False` on a bad signature, as before |
+| `security.encryption.SecureDataHandler.qr_encryption` / `public_key` / `private_key` | The 2.0.0 lattice keys were broken (zero-noise LWE); replaced by AMA ML-KEM-1024 + AES-256-GCM | `SecureDataHandler(enable_quantum_resistant=, at_rest_key=)` |
+| `comparison.pyod_integration.PyODComparison.benchmark_against_pyod(omni_engine, test_data, ground_truth, pyod_algorithms)` | Redesigned around precomputed scores | `benchmark_against_pyod(mercury_scores, X_train, X_test, y_test, algorithms=, seed=)` |
+| `cognitive.uncertainty.UncertaintyQuantifier.PHI` | A golden-ratio constant in the confidence formula with no basis; the prior is now parameter-free | none |
+
 ## Support Policy
 
 | Version | Commitment |
 |---------|------------|
 | 1.x | All items fully functional with optional warnings, except the items enumerated in §6.1-§6.4 |
-| 2.x | All items fully functional with optional warnings, except the items removed in v2.1 (§6.6-§6.10) |
-| 3.x | All items fully functional with optional warnings, except the items removed or changed in v3.0 (§6.11-§6.15) |
+| 2.x | All items fully functional with optional warnings |
+| 3.x | All items fully functional with optional warnings, except the items removed, changed or renamed in v3.0 (§6.6-§6.15, §7) |
 | Future | Removal only with documented justification per policy |
 
 ---

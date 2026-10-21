@@ -14,8 +14,8 @@ immediately previous line at the maintainers' discretion.
 | Version | Status               | Security updates |
 | ------- | -------------------- | ---------------- |
 | 3.0.x   | **Current**          | :white_check_mark: |
-| 2.1.x   | Previous (EOL on next minor) | Critical CVEs only |
-| < 2.1   | End-of-life          | :x:              |
+| 2.0.x   | Previous (EOL on next minor) | Critical CVEs only |
+| < 2.0   | End-of-life          | :x:              |
 
 ## Reporting a Vulnerability
 

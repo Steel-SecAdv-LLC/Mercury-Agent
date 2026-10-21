@@ -1,7 +1,7 @@
 # Mercury Agent -- Formal Mathematical Specification
 
 **Version:** 2.1.0
-**Date:** 2026-07-11 (v2.1.0 release; spec content last revised 2026-07-11 — the §4.3 OAE weight-normalization proof was reconciled with the canonical $\Phi:1:1$ derivation used in §2.1.1, Appendix B, and code (`core/three_r/fusion.py`, `core/centralized_constants.py`); no formal surfaces were added or removed)
+**Date:** 2026-07-11 (prepared for v2.1.0, never released; ships in v3.0.0; spec content last revised 2026-07-11 — the §4.3 OAE weight-normalization proof was reconciled with the canonical $\Phi:1:1$ derivation used in §2.1.1, Appendix B, and code (`core/three_r/fusion.py`, `core/centralized_constants.py`); no formal surfaces were added or removed)
 **Status:** Living Document
 **Cross-references:** top-level [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Dual-Gate Hard Ethical Enforcement", [`ROUTING_GUIDE.md`](ROUTING_GUIDE.md)
 

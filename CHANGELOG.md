@@ -29,10 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.0] - 2026-10-21
 
-Upgrading from 2.x: the license is now AGPL-3.0-or-later (first entry below;
-2.x releases stay GPL-3.0-or-later), and the surfaces removed or changed in
-this release for security and correctness are listed, with replacements and
-regression tests, in DEPRECATION.md §6.11-§6.15.
+The first release after 2.0.0; it includes the work prepared as 2.1.0, which
+was never released. Upgrading from 2.0.0: the license is now
+AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
+2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
 
 ### Relicensed to AGPL-3.0-or-later (branch `steel/version-cov5`; effective v3.0.0)
 
@@ -4625,7 +4625,10 @@ tests; no behavior was suppressed or cosmetically patched.
   paths fabricated training results. No runtime caller, no tests. See
   DEPRECATION.md §6.6.
 
-## [2.1.0] - 2026-07-08
+### Prepared as 2.1.0, never released; ships in 3.0.0
+
+Never tagged or published. The "SemVer minor" reading below was wrong: this
+work already removed 2.0.0 public names (DEPRECATION.md §7).
 
 Feature-additive over 2.0.0 — the detector-tier surface below is new public
 API, so this cut is a SemVer **minor**, not a patch. Release hygiene included
@@ -10019,7 +10022,6 @@ and regression tests:
 
 [Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v3.0.0...HEAD
 [3.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/2.0.0...v3.0.0
-[2.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...2.0.0
 [1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
