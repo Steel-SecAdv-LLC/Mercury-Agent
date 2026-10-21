@@ -181,7 +181,7 @@ jobs:
 
       - name: Upload mutation sample report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sigma-mutation-sample-report
           path: mutation_sample_report.json
@@ -246,7 +246,7 @@ jobs:
 
       - name: Upload mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sigma-mutation-report
           path: mutation_report.json
@@ -312,7 +312,7 @@ jobs:
 
       - name: Upload hazard mutation reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hazard-mutation-reports
           path: |
@@ -383,7 +383,7 @@ jobs:
 
       - name: Upload distillation mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: distillation-mutation-report
           path: distillation_mutation_report.json
@@ -451,7 +451,7 @@ jobs:
 
       - name: Upload humanitarian mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: humanitarian-mutation-report
           path: humanitarian_mutation_report.json
@@ -505,7 +505,7 @@ jobs:
 
       - name: Upload crisis-monitor mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: crisis-monitor-mutation-report
           path: crisis_monitor_mutation_report.json
@@ -574,7 +574,7 @@ jobs:
 
       - name: Upload geological mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: geological-mutation-report
           path: geological_mutation_report.json
@@ -634,7 +634,7 @@ jobs:
 
       - name: Upload observatory mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: observatory-mutation-report
           path: observatory_mutation_report.json
