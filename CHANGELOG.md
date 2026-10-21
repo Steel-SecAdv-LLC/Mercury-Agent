@@ -60,6 +60,30 @@ third-party consent. Historical records (dated CHANGELOG entries and the
 `tlp_handler` port-provenance note) are left as written: they were true when
 written. AMA Cryptography (Apache-2.0) remains one-way compatible.
 
+### Additional permission under AGPL section 7: the NVIDIA CUDA libraries (branch `steel/version-cov5`)
+
+**Added — `LICENSE-EXCEPTION`.** Mercury's GPU acceleration runs on NVIDIA's
+CUDA libraries, which are proprietary; the CUDA builds of torch install them
+and the Docker image ships them. As copyright holder, Steel Security Advisors
+LLC grants an additional permission under AGPL section 7 — in the FSF's
+standard form for such libraries — to combine Mercury with the NVIDIA CUDA
+Libraries and convey the result. It is scoped by name (the CUDA runtime,
+cuBLAS, cuFFT, cuRAND, cuSOLVER, cuSPARSE, cuSPARSELt, cuDNN, NCCL, NVRTC,
+nvJitLink, CUPTI, cuFile, NVSHMEM, and NVIDIA's `nvidia-*` distributions of
+them), relaxes no other term — section 13's network source offer included —
+and, as section 7 allows, may be removed from a conveyed copy. `LICENSE` stays
+the FSF's verbatim text (now pinned by sha256); the permission ships beside it
+in every wheel, sdist and image through setuptools' `LICEN[CS]E*` default
+(pinned by test).
+
+**Changed — the license gate learns `permitted`.** A review entry may now cite
+a section 7 grant in the project; the gate checks the named file exists and
+is one, counts those dependencies separately, and reports them without
+warning. The 14 NVIDIA packages move from `flagged` to `permitted`; `regex`
+stays flagged. The gate suite (57 tests) fails 3 against the previous gate;
+three new openness tests pin the grant's scope, the verbatim license and the
+packaging.
+
 ### The AGPL made operable: a source offer and a dependency license gate (branch `steel/version-cov5`)
 
 **Added — `/source`, the corresponding-source offer (AGPL-3.0 section 13).**
@@ -73,7 +97,10 @@ logged — a credential in a refused URL never reaches the log — and the upstr
 location is served instead; a revision that is not a Git object id is omitted.
 38 tests, failing without the new module; full mutation enumeration of the
 offer and its route kills 10 of 10 (the first run's survivor, the URL length
-limit, was a real boundary gap, closed with an exact-limit test).
+limit, was a real boundary gap, closed with an exact-limit test). Both modules
+joined the trust-surface mutation lane, re-enumerated whole: 214 of 218
+killed (98.2%, floor 95), the four survivors the lane's classified
+equivalents.
 
 **Added — dependency license gate** (`scripts/check_dependency_licenses.py`,
 `configs/dependency_license_review.toml`). It walks the runtime requirement
@@ -94,11 +121,11 @@ real `.dist-info` directories.
 
 What it found, reported rather than hidden: the CUDA builds of torch install
 NVIDIA's proprietary runtime libraries (14 packages) into the `[all]` closure
-and the image; `regex`, pulled in by transformers, declares
-`Apache-2.0 AND CNRI-Python`, a license the FSF lists as GPL-incompatible.
-Both are flagged for the owner's decision. `tokenizers` and `namex` ship no
-usable license metadata; both are verified Apache-2.0 from their own license
-files (sha256 recorded).
+and the image — now covered by the section 7 permission below; `regex`, which
+transformers loads on import, declares `Apache-2.0 AND CNRI-Python`, a license
+the FSF lists as GPL-incompatible — flagged for the owner's decision.
+`tokenizers` and `namex` ship no usable license metadata; both are verified
+Apache-2.0 from their own license files (sha256 recorded).
 
 **Fixed — `run_ci_gates.sh` had drifted from ci.yml.** Its shipped-scripts
 mypy list lacked `scripts/record_gdacs_fixtures.py`, which ci.yml checks; the

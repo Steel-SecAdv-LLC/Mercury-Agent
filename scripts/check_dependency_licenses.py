@@ -19,9 +19,12 @@ that ships nothing but its own metadata has nothing to license.
 
 Unknown or incompatible licenses fail the gate unless the exact metadata
 signature is recorded in ``configs/dependency_license_review.toml``:
-``verified`` entries carry the primary evidence the metadata lacks; ``flagged``
-entries are known not to be AGPL-compatible by their metadata, are the owner's
-decision, and are reported as warnings on every run -- never silently passed.
+``verified`` entries carry the primary evidence the metadata lacks;
+``permitted`` entries are covered by an additional permission Mercury's
+copyright holder grants under AGPL section 7, in a file the entry names (which
+must exist and say so); ``flagged`` entries are known not to be AGPL-compatible
+by their metadata, are the owner's decision, and are reported as warnings on
+every run -- never silently passed.
 
 Exit status: 0 clean, 1 an unreviewed unknown or incompatible license, 2 the
 environment or configuration is unusable (a required distribution is not
@@ -189,6 +192,7 @@ class Review:
     status: str
     signatures: tuple[str, ...]
     note: str
+    permission: str | None = None
 
     def matches(self, assessment: Assessment) -> bool:
         """Whether this entry covers the distribution's current metadata."""
@@ -467,11 +471,17 @@ def resolve_closure(requirements: Iterable[Requirement]) -> dict[NormalizedName,
 # --------------------------------------------------------------------------- #
 # review file and report
 # --------------------------------------------------------------------------- #
-def load_reviews(path: Path) -> list[Review]:
+def load_reviews(path: Path, root: Path = REPO_ROOT) -> list[Review]:
     """Load the reviewed entries.
 
+    Args:
+        path: The review file.
+        root: The project root that ``permitted`` entries' permission files
+            are relative to.
+
     Raises:
-        GateError: The file is malformed.
+        GateError: The file is malformed, or a ``permitted`` entry names a
+            permission file that is missing or is not a section 7 grant.
     """
     if not path.is_file():
         return []
@@ -489,13 +499,26 @@ def load_reviews(path: Path) -> list[Review]:
                 status=status,
                 signatures=tuple(entry["signatures"]),
                 note=entry["evidence"] if status == "verified" else entry["reason"],
+                permission=entry["permission"] if status == "permitted" else None,
             )
         except KeyError as exc:
             raise GateError(f"{path.name}: review entry {index} lacks {exc}") from None
-        if review.status not in ("verified", "flagged") or not review.signatures:
+        if review.status not in ("verified", "permitted", "flagged") or not review.signatures:
             raise GateError(
                 f"{path.name}: review entry {index} has an invalid status or signatures"
             )
+        if review.permission is not None:
+            grant = (root / review.permission).resolve()
+            inside = grant.is_relative_to(root.resolve())
+            if (
+                not inside
+                or not grant.is_file()
+                or "section 7" not in grant.read_text(encoding="utf-8")
+            ):
+                raise GateError(
+                    f"{path.name}: review entry {index} names {review.permission!r}, "
+                    "which is not a section 7 permission file in the project"
+                )
         reviews.append(review)
     return reviews
 
@@ -508,11 +531,12 @@ def run(extras: Sequence[str], pyproject: Path, review_path: Path, *, verbose: b
     """
     closure = resolve_closure(declared_requirements(pyproject, extras))
     own = canonicalize_name(tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["name"])
-    reviews = load_reviews(review_path)
+    reviews = load_reviews(review_path, pyproject.parent)
     assessments = [assess(dist) for name, dist in sorted(closure.items()) if name != own]
 
     failed: list[Assessment] = []
     flagged: list[tuple[Assessment, Review]] = []
+    permitted: list[tuple[Assessment, Review]] = []
     verified: list[tuple[Assessment, Review]] = []
     for assessment in assessments:
         if verbose:
@@ -527,16 +551,26 @@ def run(extras: Sequence[str], pyproject: Path, review_path: Path, *, verbose: b
             failed.append(assessment)
         elif review.status == "flagged":
             flagged.append((assessment, review))
+        elif review.status == "permitted":
+            permitted.append((assessment, review))
         else:
             verified.append((assessment, review))
 
-    compatible = len(assessments) - len(failed) - len(flagged) - len(verified)
+    reviewed = len(flagged) + len(permitted) + len(verified)
+    compatible = len(assessments) - len(failed) - reviewed
     print(
         f"Dependency license gate: {len(assessments)} distributions in the runtime "
         f"closure of [{', '.join(extras) or 'core'}] -- compatible {compatible}, "
-        f"verified by review {len(verified)}, flagged {len(flagged)}, failed {len(failed)}"
+        f"verified by review {len(verified)}, permitted by section 7 {len(permitted)}, "
+        f"flagged {len(flagged)}, failed {len(failed)}"
     )
     for review in reviews:
+        granted = [a for a, r in permitted if r is review]
+        if granted:
+            print(
+                f"permitted (AGPL section 7, {review.permission}) -- {review.pattern}: "
+                f"{len(granted)} distribution(s)"
+            )
         hits = [a for a, r in flagged if r is review]
         if hits:
             names = ", ".join(f"{a.name} {a.version}" for a in hits)

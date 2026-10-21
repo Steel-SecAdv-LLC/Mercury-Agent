@@ -10,6 +10,10 @@
 #
 # status = "verified"  The license is established by primary evidence the
 #                      metadata does not carry; `evidence` names it.
+# status = "permitted" Covered by an additional permission Mercury's copyright
+#                      holder grants under AGPL section 7, in the project file
+#                      `permission` names (the gate checks it exists and is a
+#                      section 7 grant).
 # status = "flagged"   The metadata names a license not known to be
 #                      AGPL-compatible. The owner decides; the gate reports a
 #                      warning on every run and never passes it silently.
@@ -42,13 +46,19 @@ signatures = ["License-Expression: Apache-2.0 AND CNRI-Python"]
 reason = """\
 Declared Apache-2.0 AND CNRI-Python (code derived from CPython's re module \
 under the CNRI Python 1.6 license, which the FSF lists as GPL-incompatible \
-for its Virginia choice-of-law clause). Mercury's own code does not import \
-it; it arrives as a dependency of transformers ([vlm], [llm], [foundation]). \
-Owner decision: legal review, or a supported path without transformers."""
+for its Virginia choice-of-law clause). Mercury's own code never imports it, \
+but it is loaded and run whenever Mercury's VLM and LLM detectors import \
+transformers ([vlm], [llm], [foundation] via chronos): transformers refuses to \
+import without it (dependency_versions_check) and its utils import \
+auto_docstring, which imports regex and decorates the BLIP and Qwen2-VL \
+classes Mercury uses (verified against transformers 5.20.2). Owner decision: \
+extend the section 7 permission to it, or a supported path without \
+transformers."""
 
 [[review]]
 name = "nvidia-*"
-status = "flagged"
+status = "permitted"
+permission = "LICENSE-EXCEPTION"
 signatures = [
     "License-Expression: LicenseRef-NVIDIA-Proprietary",
     "License: LicenseRef-NVIDIA-Proprietary",
@@ -57,7 +67,6 @@ signatures = [
 reason = """\
 NVIDIA's proprietary CUDA runtime libraries, installed as dependencies of the \
 CUDA builds of torch from PyPI; Mercury's own code does not link them. They \
-keep the image's documented, opt-in GPU support working. Owner decision: \
-whether they qualify as System Libraries under AGPL section 1, an explicit \
-section 7 permission for them, or a CPU-only image with GPU torch installed \
-by the operator."""
+keep the image's documented, opt-in GPU support working. Combining Mercury \
+with them is permitted by the section 7 additional permission in \
+LICENSE-EXCEPTION (owner decision, 2026-10-21)."""

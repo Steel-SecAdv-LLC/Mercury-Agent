@@ -375,6 +375,59 @@ class TestReviewAndExitCodes:
         )
         assert self._main(tmp_path, "x", review) == 0
 
+    def test_permitted_review_passes_and_says_so(
+        self, site: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A section 7 permission covers the dependency, reported without alarm."""
+        _install(site, "ga", expression="MIT")
+        _install(site, "gp", expression="LicenseRef-Vendor-Proprietary")
+        (tmp_path / "GRANT").write_text("Additional permission under section 7 ...", "utf-8")
+        review = self._review(
+            tmp_path,
+            '[[review]]\nname = "gp"\nstatus = "permitted"\npermission = "GRANT"\n'
+            'signatures = ["License-Expression: LicenseRef-Vendor-Proprietary"]\n'
+            'reason = "vendor GPU runtime"\n',
+        )
+        assert self._main(tmp_path, "x", review) == 0
+        out = capsys.readouterr().out
+        assert "permitted by section 7 1, flagged 0, failed 0" in out
+        assert "permitted (AGPL section 7, GRANT) -- gp: 1 distribution(s)" in out
+        assert "WARNING" not in out
+
+    @pytest.mark.parametrize(
+        "grant",
+        [None, "A permission under section 6, mistakenly."],
+        ids=["missing", "not-section-7"],
+    )
+    def test_permitted_needs_a_real_section_7_grant(
+        self, site: Path, tmp_path: Path, grant: str | None
+    ) -> None:
+        """A permission file that is absent, or is not a section 7 grant, is refused."""
+        _install(site, "ga", expression="MIT")
+        if grant is not None:
+            (tmp_path / "GRANT").write_text(grant, "utf-8")
+        review = self._review(
+            tmp_path,
+            '[[review]]\nname = "gp"\nstatus = "permitted"\npermission = "GRANT"\n'
+            'signatures = ["none"]\nreason = "r"\n',
+        )
+        assert self._main(tmp_path, "", review) == 2
+
+    def test_permission_file_must_be_inside_the_project(self, site: Path, tmp_path: Path) -> None:
+        """A grant outside the project root is refused, even if it says section 7."""
+        _install(site, "ga", expression="MIT")
+        project = tmp_path / "project"
+        project.mkdir()
+        (tmp_path / "OUTSIDE").write_text("permission under section 7", "utf-8")
+        pyproject = self._project(project)
+        review = self._review(
+            project,
+            '[[review]]\nname = "gp"\nstatus = "permitted"\npermission = "../OUTSIDE"\n'
+            'signatures = ["none"]\nreason = "r"\n',
+        )
+        argv = ["--pyproject", str(pyproject), "--review", str(review)]
+        assert gate.main(argv) == 2
+
     def test_changed_metadata_invalidates_the_review(
         self, site: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -397,12 +450,13 @@ class TestReviewAndExitCodes:
             '[[review]]\nname = "gp"\nstatus = "flagged"\nsignatures = []\nreason = "r"\n',
             '[[review]]\nname = "gp"\nstatus = "verified"\nsignatures = ["none"]\nreason = "r"\n',
             '[[review]]\nstatus = "flagged"\nsignatures = ["none"]\nreason = "r"\n',
+            '[[review]]\nname = "gp"\nstatus = "permitted"\nsignatures = ["none"]\nreason = "r"\n',
         ],
     )
     def test_malformed_review_is_a_configuration_error(
         self, site: Path, tmp_path: Path, body: str
     ) -> None:
-        """Unknown status, no signatures, missing evidence or name: exit 2."""
+        """Unknown status, no signatures, missing evidence, name or permission: exit 2."""
         _install(site, "ga", expression="MIT")
         assert self._main(tmp_path, "", self._review(tmp_path, body)) == 2
 
@@ -420,6 +474,14 @@ class TestRepositoryReviewFile:
         reviews = gate.load_reviews(gate.DEFAULT_REVIEW)
         assert reviews
         for review in reviews:
-            assert review.status in ("verified", "flagged")
+            assert review.status in ("verified", "permitted", "flagged")
             assert review.signatures
             assert len(review.note) > 40
+
+    def test_nvidia_libraries_are_permitted_by_the_shipped_exception(self) -> None:
+        """The NVIDIA entry cites LICENSE-EXCEPTION, which exists and is a section 7 grant."""
+        nvidia = [r for r in gate.load_reviews(gate.DEFAULT_REVIEW) if r.pattern == "nvidia-*"]
+        assert len(nvidia) == 1
+        assert nvidia[0].status == "permitted"
+        assert nvidia[0].permission == "LICENSE-EXCEPTION"
+        assert "section 7" in (_REPO_ROOT / "LICENSE-EXCEPTION").read_text(encoding="utf-8")

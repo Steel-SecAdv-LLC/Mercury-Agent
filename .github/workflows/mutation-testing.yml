@@ -137,7 +137,7 @@ jobs:
             echo "observatory mutation surface unchanged."
           fi
           # The mutation-floored trust surface (agent notice, security.txt, decoys).
-          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/security/(deception|deception_store|agent_notice)\.py|src/omni_mercury_engine/api/routes/(decoys|agent_notice)\.py|tests/security/test_(deception|agent_notice)\.py|tests/api/test_trust_surface_routes\.py|\.github/workflows/mutation-testing\.yml)$'; then
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/security/(deception|deception_store|agent_notice|source_offer)\.py|src/omni_mercury_engine/api/routes/(decoys|agent_notice|source)\.py|tests/security/test_(deception|agent_notice|source_offer)\.py|tests/api/test_trust_surface_routes\.py|\.github/workflows/mutation-testing\.yml)$'; then
             echo "trustsurface=true" >> "$GITHUB_OUTPUT"
             echo "trust-surface mutation surface changed: trust-surface floor lane runs."
           else
@@ -687,7 +687,11 @@ jobs:
     # uncapped delays coincide; two in the store's mkdir guard, where
     # Path.parent is always truthy and exist_ok matters only under a
     # concurrent-creation race; and the eviction guard's excess <= 0, where
-    # excess == 0 selects LIMIT 0 and evicts nothing either way.
+    # excess == 0 selects LIMIT 0 and evicts nothing either way. The AGPL
+    # section 13 source offer joined the surface (2026-10-21, 218 sites:
+    # security/source_offer.py and routes/source.py, 10 sites, all killed,
+    # the URL length limit pinned exactly): 214 killed, 98.2%, the same four
+    # classified equivalents surviving.
     if: github.event_name != 'pull_request' || needs.changes.outputs.trustsurface == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -711,9 +715,9 @@ jobs:
         with:
           ama-ref: v5.0.0
 
-      # Floor calibration (2026-10-21, local, full enumeration): 204/208
-      # killed -- 98.1% -- with the four survivors classified equivalents.
-      # The floor sits at 95: the equivalents cost 1.9 points, and the rest
+      # Floor calibration (2026-10-21, local, full enumeration): 214/218
+      # killed -- 98.2% -- with the four survivors classified equivalents.
+      # The floor sits at 95: the equivalents cost 1.8 points, and the rest
       # of the margin (about six mutants) absorbs legitimate new sites while
       # real weakening fails the lane.
       - name: Trust-surface mutation floor
@@ -723,9 +727,11 @@ jobs:
               src/omni_mercury_engine/security/deception.py \
               src/omni_mercury_engine/security/deception_store.py \
               src/omni_mercury_engine/security/agent_notice.py \
+              src/omni_mercury_engine/security/source_offer.py \
               src/omni_mercury_engine/api/routes/decoys.py \
               src/omni_mercury_engine/api/routes/agent_notice.py \
-            --test-cmd "python -m pytest tests/security/test_deception.py tests/security/test_agent_notice.py tests/api/test_trust_surface_routes.py -q -x" \
+              src/omni_mercury_engine/api/routes/source.py \
+            --test-cmd "python -m pytest tests/security/test_deception.py tests/security/test_agent_notice.py tests/security/test_source_offer.py tests/api/test_trust_surface_routes.py -q -x" \
             --jobs 4 \
             --fail-under 95 \
             --report trust_surface_mutation_report.json

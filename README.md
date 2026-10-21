@@ -13,7 +13,7 @@
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-18%2C806%20collected-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-18815%20collected-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -71,6 +71,8 @@ Beyond the library and CLI, the repository ships an **opt-in self-service platfo
 >
 > Anyone may use, study, modify and share Mercury. Whoever **distributes** Mercury, or a work based on it — and whoever offers a **modified** Mercury to users **over a network** (AGPL section 13) — must make the complete corresponding source available under this same license, so no proprietary version can exist, distributed or hosted.
 > Private modifications that are neither distributed nor served to others carry no obligation, and unmodified hosting carries no new one. Every deployment serves its source offer at `/source` — the upstream repository by default; an operator running a modified version points it at their published fork with `MERCURY_SOURCE_URL`.
+>
+> One additional permission is granted under AGPL section 7: Mercury may be combined with NVIDIA's CUDA libraries (needed for GPU acceleration) and the result conveyed. It covers those libraries only and leaves every other term, section 13 included, intact — see [LICENSE-EXCEPTION](LICENSE-EXCEPTION).
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
 > **Last Updated:** 2026-10-21
@@ -645,7 +647,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Multi-Domain Coverage | 89 detector classes across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 18,806 tests collected (2026-10-21) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning, and full-enumeration mutation testing with kill-rate floors enforced in CI on nine module sets |
+| Comprehensive Testing | 18815 tests collected (2026-10-21) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning, and full-enumeration mutation testing with kill-rate floors enforced in CI on nine module sets |
 | Benchmark Coverage | 67 reproducible datasets (of 76 attempted; 47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8545** / Median **0.9052** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8515** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`: a design-time proof certified by `tools/lyapunov_validator.py`, *monitored* at runtime and not enforced by default — `LyapunovRuntimeEnforcer` has `halt_on_violation=False`; see [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
@@ -1494,7 +1496,7 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **18,806 tests collected** (2026-10-21, with the optional `torch` /
+- **18815 tests collected** (2026-10-21, with the optional `torch` /
   `scikit-learn` / `hypothesis` / `fastapi` / `h5py` dependencies
   installed; `plotly` was absent, so one dashboard module skipped at
   collection) across
@@ -2448,7 +2450,7 @@ dashboard.export_html("anomaly_report.html")
 
 Copyright 2025 Steel Security Advisors LLC
 
-Licensed under the GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later). See [LICENSE](LICENSE) file for details. Versions before 3.0.0 were released under GPL-3.0-or-later and remain so.
+Licensed under the GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later). See [LICENSE](LICENSE) file for details. Versions before 3.0.0 were released under GPL-3.0-or-later and remain so. One additional permission, for combining Mercury with NVIDIA's CUDA libraries, is granted under section 7 in [LICENSE-EXCEPTION](LICENSE-EXCEPTION).
 
 ```
 Mercury Agent - Multi-Domain Anomaly Detection Framework
@@ -2565,7 +2567,7 @@ The human architect does not hold formal credentials in machine learning or medi
 ### What We Did Right
 
 - **Measured, not asserted:** headline numbers regenerate from a command. CI rewrites the [Latest Benchmark Results](#latest-benchmark-results) block from a live run, the [Codebase Scale](#codebase-scale-measured-not-estimated) block fails the build if it drifts from disk, and the ten-minute quickstart reproduces the DTU AIS result (ROC-AUC 0.8613) bit for bit. Figures that are still estimates are labelled as estimates.
-- **Tests that are themselves tested:** 18,806 tests collected (2026-10-21) — unit, property-based (Hypothesis), known-answer vectors (RFC 8032, NIST ACVP-Server) and load-test SLOs (k6 + locust) — and nine module sets are mutation-tested by full enumeration, with kill-rate floors enforced in CI, so a suite that stops catching injected defects fails the build.
+- **Tests that are themselves tested:** 18815 tests collected (2026-10-21) — unit, property-based (Hypothesis), known-answer vectors (RFC 8032, NIST ACVP-Server) and load-test SLOs (k6 + locust) — and nine module sets are mutation-tested by full enumeration, with kill-rate floors enforced in CI, so a suite that stops catching injected defects fails the build.
 - **Fail closed, never fabricate:** detectors refuse unmeasurable input rather than grade it safe; a missing oracle reports *unavailable* under the three-state contract instead of guessing; benchmarks skip an unreachable dataset rather than substitute synthetic data.
 - **Ethics that are enforced, and honestly scoped:** a fail-closed harm-uplift gate and the σ_Immutable configuration-integrity gate stand at every gated decision surface; benevolence is reported as an advisory score, never presented as a control it is not — its one enforcing use is the human-subject purpose screen, which scores the caller's own stated purpose and refuses stalking and harassment the weapons-scoped gate does not cover. The autonomy layer recommends and escalates and never executes a destructive action — a test invariant, not a promise.
 - **Evidence that cannot be quietly edited:** authentication events and deception-layer tripwires are written to a hash-linked, tamper-evident audit chain whose verification is itself tested — across process restarts, segment rotation and multi-writer deployments, with tests proving a tampered record is detected, not merely that an intact one verifies.
