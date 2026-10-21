@@ -525,3 +525,56 @@ class TestTarpitGate:
         """A negative cap is refused."""
         with pytest.raises(ValueError, match=">= 0"):
             TarpitGate(-1)
+
+
+class TestMutationPins:
+    """Kill-pins for the measured survivors: immutability, defaults, boundaries."""
+
+    def test_value_objects_are_immutable(self) -> None:
+        """Decoys, policies and events are frozen: safe to share across requests."""
+        import dataclasses
+
+        event = DeceptionSensor().record("203.0.113.9", ADMIN, "GET")
+        for obj, attribute in (
+            (DEFAULT_DECOYS[0], "path"),
+            (TarpitPolicy(), "max_delay_s"),
+            (event, "delay_s"),
+        ):
+            with pytest.raises(dataclasses.FrozenInstanceError):
+                setattr(obj, attribute, 0)
+
+    def test_documented_policy_defaults(self) -> None:
+        """The schedule documented in the CHANGELOG and docstrings."""
+        policy = TarpitPolicy()
+        assert (policy.base_delay_s, policy.growth, policy.max_delay_s) == (0.5, 2.0, 8.0)
+        assert policy.window_s == 3600.0
+        assert policy.max_concurrent == 32
+
+    def test_documented_sensor_capacities(self) -> None:
+        """10,000 sources and 64 hits per source, as documented."""
+        import inspect
+
+        params = inspect.signature(DeceptionSensor.__init__).parameters
+        assert params["max_sources"].default == 10_000
+        assert params["max_hits_tracked"].default == 64
+        assert params["outcome_weight"].default == 1.0
+
+    def test_sub_second_window_is_legal(self) -> None:
+        """Any positive window is accepted, including one under a second."""
+        assert TarpitPolicy(window_s=0.5).window_s == 0.5
+
+    def test_single_hit_history_is_legal(self) -> None:
+        """max_hits_tracked=1 is the smallest legal history."""
+        sensor = DeceptionSensor(max_hits_tracked=1, clock=FakeClock())
+        sensor.record("203.0.113.9", ADMIN, "GET")
+        assert sensor.record("203.0.113.9", ADMIN, "GET").hits_in_window == 1
+
+    def test_event_defaults_to_no_credential(self) -> None:
+        """An event built without the flag records no credential."""
+        event = TripwireEvent("k", "203.0.113.9", ADMIN, "lure", "GET", 1, 1, True, 0.5)
+        assert event.credential_presented is False
+
+    def test_audit_delay_rounded_to_milliseconds(self) -> None:
+        """The audit record rounds the delay to three decimals."""
+        sensor = DeceptionSensor(policy=TarpitPolicy(base_delay_s=0.12345), clock=FakeClock())
+        assert sensor.record("203.0.113.9", ADMIN, "GET").audit_details()["tarpit_delay_s"] == 0.123

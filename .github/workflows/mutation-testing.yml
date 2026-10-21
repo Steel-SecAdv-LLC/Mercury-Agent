@@ -53,6 +53,7 @@ jobs:
       geological: ${{ steps.detect.outputs.geological }}
       crisismonitor: ${{ steps.detect.outputs.crisismonitor }}
       observatory: ${{ steps.detect.outputs.observatory }}
+      trustsurface: ${{ steps.detect.outputs.trustsurface }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -133,6 +134,14 @@ jobs:
           else
             echo "observatory=false" >> "$GITHUB_OUTPUT"
             echo "observatory mutation surface unchanged."
+          fi
+          # The mutation-floored trust surface (agent notice, security.txt, decoys).
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/security/(deception|agent_notice)\.py|src/omni_mercury_engine/api/routes/(decoys|agent_notice)\.py|tests/security/test_(deception|agent_notice)\.py|tests/api/test_trust_surface_routes\.py|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "trustsurface=true" >> "$GITHUB_OUTPUT"
+            echo "trust-surface mutation surface changed: trust-surface floor lane runs."
+          else
+            echo "trustsurface=false" >> "$GITHUB_OUTPUT"
+            echo "trust-surface mutation surface unchanged."
           fi
 
   mutation-sample:
@@ -638,4 +647,64 @@ jobs:
         with:
           name: observatory-mutation-report
           path: observatory_mutation_report.json
+          if-no-files-found: ignore
+
+  mutation-floor-trust-surface:
+    name: Trust-surface mutation kill-rate floor
+    needs: changes
+    # Seventh module set under the per-module kill-rate program (2026-10-21):
+    # the trust surface -- agent notice, RFC 9116 security.txt, and the
+    # containment-only decoy layer -- shipped mutation-measured. First full
+    # enumeration (120 sites): 98 killed, 81.7%, with both route modules at
+    # 100%. Survivor classification found two real validator gaps (non-
+    # printable characters and malformed mailto:/tel: contacts were
+    # accepted), fixed with fail-on-old tests, and closed the killable test
+    # gaps; the one classified equivalent is the tarpit-cap boundary, where
+    # the capped and uncapped delays coincide exactly.
+    if: github.event_name != 'pull_request' || needs.changes.outputs.trustsurface == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml,api] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml,api]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-21, local, full enumeration, first pass):
+      # 98/120 killed -- 81.7% -- before the survivor kill-pins, which only
+      # raise it. The floor sits at 70 so legitimate new mutation sites don't
+      # flake the lane while real weakening fails it.
+      - name: Trust-surface mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/security/deception.py \
+              src/omni_mercury_engine/security/agent_notice.py \
+              src/omni_mercury_engine/api/routes/decoys.py \
+              src/omni_mercury_engine/api/routes/agent_notice.py \
+            --test-cmd "python -m pytest tests/security/test_deception.py tests/security/test_agent_notice.py tests/api/test_trust_surface_routes.py -q -x" \
+            --jobs 4 \
+            --fail-under 70 \
+            --report trust_surface_mutation_report.json
+
+      - name: Upload trust-surface mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trust-surface-mutation-report
+          path: trust_surface_mutation_report.json
           if-no-files-found: ignore

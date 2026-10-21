@@ -280,3 +280,74 @@ class TestConfiguredContacts:
         """Without an explicit mapping the process environment is read."""
         monkeypatch.setenv(SECURITY_CONTACT_ENV, "mailto:env@example.org")
         assert configured_contacts() == ("mailto:env@example.org",)
+
+
+class TestContactValidationHardening:
+    """Survivor-driven hardening: each case was accepted by the replaced validator."""
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "mailto:sec\x7f@example.org",  # DEL: not caught by the old 0x00-0x1F check
+            "mailto:sec\x85@example.org",  # C1 control (NEL)
+            "https://example.org/\x9b",  # C1 control (CSI)
+            "mailto:sec\x07@example.org",  # C0 control (BEL)
+            "mailto:security",  # an operator typo: no @
+            "mailto:@example.org",  # empty local part
+            "mailto:sec@",  # empty domain
+            "tel:abc",  # no digit
+            "tel:+",  # no digit
+        ],
+    )
+    def test_refused(self, bad: str) -> None:
+        """Non-printable characters, @-less mailto and digit-less tel are never served."""
+        assert configured_contacts({SECURITY_CONTACT_ENV: bad}) == (DEFAULT_CONTACT,)
+
+    @pytest.mark.parametrize(
+        "good",
+        ["tel:9", "mailto:a@b", "mailto:a!b@example.org", "https://example.org/report!"],
+    )
+    def test_minimal_valid_forms_accepted(self, good: str) -> None:
+        """Single-character addresses and printable URI punctuation stay legal."""
+        assert configured_contacts({SECURITY_CONTACT_ENV: good}) == (good,)
+
+
+class TestNoticeInvariants:
+    """Immutability, the documented window, and the CLI's description."""
+
+    def test_sections_are_immutable(self) -> None:
+        """A NoticeSection cannot be altered after construction."""
+        import dataclasses
+
+        section = notice_sections()[0]
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            section.heading = "rewritten"  # type: ignore[misc]
+
+    def test_documented_expiry_window(self) -> None:
+        """The rolling window is the documented 180 days."""
+        assert SECURITY_TXT_EXPIRES_DAYS == 180
+        expires = dict(TestSecurityTxt._fields(render_security_txt(NOW, (DEFAULT_CONTACT,))))
+        assert expires["Expires"] == "2027-04-19T03:00:00Z"
+
+    def test_offsetless_tzinfo_refused(self) -> None:
+        """A tzinfo whose utcoffset() is None is as naive as no tzinfo at all."""
+        from datetime import tzinfo
+
+        class NoOffset(tzinfo):
+            def utcoffset(self, dt: datetime | None) -> timedelta | None:
+                return None
+
+            def dst(self, dt: datetime | None) -> timedelta | None:
+                return None
+
+            def tzname(self, dt: datetime | None) -> str | None:
+                return None
+
+        with pytest.raises(ValueError, match="timezone-aware"):
+            render_security_txt(datetime(2026, 10, 21, tzinfo=NoOffset()), (DEFAULT_CONTACT,))
+
+    def test_help_describes_the_tool(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """--help carries the module's own one-line summary."""
+        with pytest.raises(SystemExit):
+            main(["--help"])
+        assert "The standing notice to autonomous agents" in capsys.readouterr().out

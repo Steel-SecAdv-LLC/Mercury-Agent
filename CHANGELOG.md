@@ -101,10 +101,22 @@ contacts, probes or alters any other system. Properties, each pinned by test:
   key or `Authorization` header — a stolen credential or an insider — is
   flagged `credential_presented`; the credential itself is never recorded.
 
-**Measured.** 169 new tests (`tests/security/test_agent_notice.py`,
-`tests/security/test_deception.py`, `tests/api/test_trust_surface_routes.py`),
+**Measured.** 193 tests across `tests/security/test_agent_notice.py`,
+`tests/security/test_deception.py` and `tests/api/test_trust_surface_routes.py`,
 all passing `mypy --strict`; the full `tests/api` + `tests/security` suites
-(2,368) pass with the new routes registered.
+(2,368) pass with the new routes registered. Mutation-measured on day one by
+full enumeration over the four modules: 98/120 killed (81.7%) on the first
+pass, both route modules at 100%. Survivor classification found **two real
+validator gaps**, fixed with fail-on-old tests (7 cases fail on the replaced
+validator): `security.txt` would have served a contact carrying DEL or a C1
+control character — the old check covered only `0x00`–`0x1F`, and URI syntax
+admits none of them — and accepted malformed contacts such as
+`mailto:security` (no `@`) or `tel:abc` (no digit). The killable test gaps
+(immutability, documented defaults, boundary legality, an offset-less
+`tzinfo`, CLI help) are closed by 24 kill-pins; a redundant
+`replace(microsecond=0)` (already dropped by `strftime`) was removed, leaving
+one classified equivalent, the tarpit-cap boundary where capped and uncapped
+delays coincide. CI enforces floor 70 (`mutation-floor-trust-surface`).
 
 ### Mathematical Observatory: verified equation solving, anomaly instruments over mathematical data, mathlib-capable proof checking (branch `steel/version-cov4`)
 
