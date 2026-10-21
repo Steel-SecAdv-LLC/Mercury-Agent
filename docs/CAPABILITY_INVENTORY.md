@@ -7,17 +7,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,978
-- **Capability-bearing classes:** 1,973 (excludes config/result/enum/error support types)
-- **Subsystems (top-level packages):** 49
+- **Total top-level classes:** 2,982
+- **Capability-bearing classes:** 1,977 (excludes config/result/enum/error support types)
+- **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 89 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,162 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,165 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1162 |
+| Other capability classes | 1165 |
 | Support types (config / result / enum / error) | 1005 |
 | Detection | 176 |
 | Neural models & layers | 161 |
@@ -29,7 +29,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 | Monitoring | 25 |
 | Prediction & forecasting | 21 |
 | Ethics & governance | 13 |
-| Solvers & scorers | 10 |
+| Solvers & scorers | 11 |
 | Biometric & recognition | 8 |
 
 ## Classes by subsystem
@@ -2416,6 +2416,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 `AnomalyVisualType`, `AudioAnomalyType`, `CommunicationTone`, `ConfidenceLevel`, `ConversationType`, `ExternalResult`, `ExternalSearchConfig`, `ExternalSourceType`, `InitiativeEvent`, `InitiativeType`, `MemoryRelevance`, `MercuryResponse`, `ModalityType`, `NarrativeResult`, `NarrativeStyle`, `QueryIntent`, `RetrievalResult`, `RetrievalSource`, `SearchResponse`, `SimilarEvent`, `VerbosityLevel`, `VigilanceLevel`, `VoiceResponse`, `WebSearchProvider`
 
 </details>
+
+### `observatory/` — 4 classes (4 capability)
+
+**Other capability classes**
+
+- `CollatzRecordsInstrument` (`observatory.collatz_records`) — Exhaustively measure Collatz trajectories and flag record anomalies.
+- `GoldbachCometInstrument` (`observatory.goldbach_comet`) — Count Goldbach partitions and measure them against Hardy--Littlewood.
+- `ZetaSpectrumInstrument` (`observatory.zeta_spectrum`) — Observe the zeta zero spectrum for GUE agreement and close pairs.
+
+**Solvers & scorers**
+
+- `EquationSolver` (`observatory.equation_solver`) — Solve single-variable equations with substitution-verified answers.
 
 ### `ocean/` — 3 classes (2 capability)
 

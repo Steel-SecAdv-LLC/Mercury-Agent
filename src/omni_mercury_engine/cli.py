@@ -2998,5 +2998,141 @@ def adjudication_rater_view(case_id: str, rater: str) -> None:
     _run_assessment(service.adjudication_rater_view, rater, case_id)
 
 
+@main.group()
+def observatory() -> None:
+    """Mathematical Observatory: verified solving + anomaly instruments."""
+    pass
+
+
+def _emit(result: dict[str, Any], as_json: bool, lines: list[str]) -> None:
+    """Print a result as JSON or as the prepared human-readable lines."""
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=_json_default))
+    else:
+        for line in lines:
+            click.echo(line)
+
+
+@observatory.command("solve")
+@click.argument("equation")
+@click.option("--variable", "-v", default=None, help="Unknown to solve for (auto when single)")
+@click.option(
+    "--domain",
+    "-d",
+    default="real",
+    type=click.Choice(["real", "complex"]),
+    help="Solution filter: real (default) or complex",
+)
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def observatory_solve(equation: str, variable: str | None, domain: str, as_json: bool) -> None:
+    """Solve EQUATION with every answer verified by substitution.
+
+    Classroom notation works: ^ is power, 2x multiplies, e and pi are the
+    constants, and a bare expression means '= 0'.
+
+    Examples:
+        mercury-agent observatory solve "x^2 - 5x + 6 = 0"
+        mercury-agent observatory solve "cos(x) = x" --json
+        mercury-agent observatory solve "x^2 + 1 = 0" --domain complex
+    """
+    from omni_mercury_engine.observatory import EquationSolver
+
+    try:
+        result = EquationSolver().solve(equation, variable, domain=domain)
+    except ValueError as exc:
+        click.echo(f"refused: {exc}")
+        raise SystemExit(2) from exc
+
+    lines = [f"status: {result['status']} (method: {result['method']})"]
+    for sol in result["solutions"]:
+        tag = "exact" if sol["exact"] else f"residual {sol['residual']:.2e}"
+        lines.append(f"  {result['variable']} = {sol['value']}  [{tag}]")
+    if result["excluded_by_domain"]:
+        lines.append(
+            f"  ({result['excluded_by_domain']} complex solution(s) hidden; --domain complex shows them)"
+        )
+    for anomaly in result["anomalies"]:
+        lines.append(f"  anomaly: {anomaly['kind']} at {anomaly['value']}")
+    lines.extend(f"  note: {note}" for note in result["notes"])
+    _emit(result, as_json, lines)
+
+
+@observatory.command("zeta")
+@click.option("--zeros", "-n", default=50, type=int, help="Zeta zeros to compute (2..100)")
+@click.option("--threshold", default=0.5, type=float, help="Close-pair anomaly threshold")
+@click.option("--top", default=5, type=int, help="Closest pairs to show")
+@click.option("--anomalies-only", is_flag=True, help="Show only below-threshold pairs")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def observatory_zeta(
+    zeros: int, threshold: float, top: int, anomalies_only: bool, as_json: bool
+) -> None:
+    """Zeta zero-spacing statistics vs the GUE law; Lehmer close-pair hunting."""
+    from omni_mercury_engine.observatory import ZetaSpectrumInstrument
+
+    result = ZetaSpectrumInstrument().observe(zeros, close_pair_threshold=threshold, top_k=top)
+    lines = [
+        f"status: {result['status']} ({result['num_zeros']} zeros)",
+        f"mean normalized spacing: {result['mean_normalized_spacing']:.4f} (GUE expects 1)",
+        f"KS distance to GUE: {result['ks_distance_to_gue']:.4f}",
+    ]
+    pairs = result["close_pair_anomalies"] if anomalies_only else result["closest_pairs"]
+    label = "close-pair anomaly" if anomalies_only else "closest pair"
+    for pair in pairs:
+        lines.append(
+            f"  {label}: zeros #{pair['lower_zero_index']}-#{pair['upper_zero_index']} "
+            f"(ordinates {pair['lower_ordinate']:.4f}, {pair['upper_ordinate']:.4f}), "
+            f"normalized spacing {pair['normalized_spacing']:.4f}"
+        )
+    if anomalies_only and not pairs:
+        lines.append(f"  no pairs below threshold {threshold}")
+    _emit(result, as_json, lines)
+
+
+@observatory.command("goldbach")
+@click.option("--limit", "-l", default=10000, type=int, help="Check even n up to this bound")
+@click.option("--top", default=5, type=int, help="Largest prediction outliers to show")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def observatory_goldbach(limit: int, top: int, as_json: bool) -> None:
+    """Goldbach comet vs the Hardy-Littlewood prediction; counterexample hunt."""
+    from omni_mercury_engine.observatory import GoldbachCometInstrument
+
+    result = GoldbachCometInstrument().observe(limit, top_k=top)
+    bands = result["band_density_by_mod3"]
+    lines = [
+        f"status: {result['status']} ({result['evens_checked']} even numbers to {limit})",
+        "comet bands, raw density r(n)*ln(n)^2/n by n mod 3: "
+        + ", ".join(f"{k}: {v:.3f}" for k, v in sorted(bands.items())),
+        f"counterexample candidates (r(n)=0): {result['counterexample_candidates'] or 'none'}",
+    ]
+    for outlier in result["ratio_outliers"]:
+        lines.append(
+            f"  outlier: n={outlier['n']} has {outlier['partitions']} partitions vs "
+            f"{outlier['hardy_littlewood_prediction']:.1f} predicted"
+        )
+    _emit(result, as_json, lines)
+
+
+@observatory.command("collatz")
+@click.option("--limit", "-l", default=50000, type=int, help="Check trajectories for n up to this")
+@click.option("--top", default=10, type=int, help="Most recent records to show")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def observatory_collatz(limit: int, top: int, as_json: bool) -> None:
+    """Collatz stopping-time and excursion records; non-terminator hunt."""
+    from omni_mercury_engine.observatory import CollatzRecordsInstrument
+
+    result = CollatzRecordsInstrument().observe(limit)
+    lines = [
+        f"status: {result['status']} (n up to {limit})",
+        f"counterexample candidates (budget exhausted): "
+        f"{result['counterexample_candidates'] or 'none'}",
+    ]
+    for record in result["stopping_time_records"][-top:]:
+        lines.append(
+            f"  record: n={record['n']} takes {record['stopping_time']} steps "
+            f"(peak {record['peak']}, {record['anomaly_score']:.2f}x the heuristic average)"
+        )
+    _emit(result, as_json, lines)
+
+
 if __name__ == "__main__":
     main()

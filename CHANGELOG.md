@@ -27,6 +27,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Mathematical Observatory: verified equation solving, anomaly instruments over mathematical data, mathlib-capable proof checking (branch `steel/version-cov4`)
+
+**Added — `omni_mercury_engine.observatory`, a machine that solves what is
+solvable and observes the rest for clues.** Four components, every output
+measured or refused:
+
+* **`EquationSolver`** takes classroom notation (`x^2 - 5x + 6 = 0`,
+  implicit multiplication `2x`, `e`/`pi` constants, `^` powers), solves
+  symbolically (SymPy) with a deterministic sign-change + `nsolve` scan for
+  transcendental forms, and **verifies every candidate by substitution**
+  (30-digit residual, tolerance 1e-9) before reporting it. Anomalies
+  observed within a solve: `spurious_root_rejected` (a candidate failing
+  its own residual check is never an answer) and `near_multiple_root`
+  (|f'(root)| tiny → ill-conditioned, sensitivity ≈ eps/|f'|). Parametric
+  solutions (`a + b = 1` for `a`) verify symbolically. Domain filter
+  (`real` default for students, `complex` on request) counts rather than
+  hides exclusions. Input is charset-guarded (no underscores, quotes,
+  brackets or letter-adjacent dots, 500-char cap), so Python internals are
+  unspellable. Statuses are honest: a symbolic empty set is `grounded`; an
+  empty numeric scan is `unavailable` with "nonexistence is NOT
+  established"; no SymPy means `unavailable`, never a guess.
+* **`ZetaSpectrumInstrument`** computes genuine zeta zeros
+  (`mpmath.zetazero`), unfolds consecutive gaps by the local mean spacing
+  `2π/log(γ/2π)`, measures the Kolmogorov–Smirnov distance to the GUE
+  Wigner-surmise law (Montgomery 1973 / Odlyzko 1987; the closed-form CDF
+  `erf(2s/√π) − (4s/π)e^(−4s²/π)` is cross-checked in tests against direct
+  numerical integration), and flags unusually close pairs — Lehmer's
+  phenomenon (1956), the place RH is stressed hardest. Fails closed
+  without mpmath.
+* **`GoldbachCometInstrument`** counts unordered Goldbach partitions
+  exhaustively, measures the comet's mod-3 banding raw (the 3|n band is
+  ~2× the others), collapses it with the Hardy–Littlewood (1923) extended
+  conjecture prediction `C₂·∏(p−1)/(p−2)·n/ln²n` — an observed anomaly
+  resolved by a published theory, the method in miniature — and reports
+  the largest residual outliers plus `counterexample_candidates` (even n
+  with no partition; none below 4e18, Oliveira e Silva 2014).
+* **`CollatzRecordsInstrument`** iterates every trajectory exactly,
+  reports stopping-time and excursion record ladders (pinned to the
+  literature: 27 → 111 steps, peak 9,232) with an anomaly score against
+  the heuristic drift average `2/ln(4/3)·ln n` (documented as heuristic),
+  and reports budget-exhausted trajectories as counterexample candidates
+  routable to `MysteryRegistry.submit_collatz`.
+
+**Added — `verify_lean_project` (`verifiers/lean_theorem.py`)**: kernel-
+checks a full Lean project via `lake build` (cwd-pinned, fixed argv,
+timeout), so mathlib-backed proof artifacts — published 2026 results
+included — become *checkable* rather than merely citable. `lake` missing
+is `available=False` (no fake pass); a missing lakefile or directory is a
+loud `ValueError` (caller error ≠ oracle absence); timeouts are reported
+as timeouts, never as acceptance.
+
+**Added — `mercury-agent observatory` CLI** (click group beside the
+existing `physics` group): `solve` / `zeta` / `goldbach` / `collatz`
+subcommands with student/professor ergonomics — classroom notation in,
+readable verdict lines out, `--domain`, `--top`, `--threshold`,
+`--anomalies-only` filters, `--json` for pipelines, refusals exit 2 with
+the reason instead of a traceback.
+
+**Measured.** 76 new tests (solver exactness {2,3} on the quadratic, the
+Dottie number 0.7390851332151607 to 1e-12, the GUE CDF against numeric
+integration, the first zeta gap from the known ordinates, exact partition
+counts r(10)=2/r(12)=1/r(100)=6, the singular series on 12/16/30/50, the
+27-record, fail-closed paths for both missing oracles, every input guard,
+CLI filters and refusal exit codes, and all five `lake` verdict paths by
+subprocess-boundary stubs). The module was mutation-measured on day one:
+full enumeration over its four files (257 sites) scored 61.9% on the first
+pass; the 98 survivors were classified and the behaviorally meaningful
+clusters closed with 22 kill-pin tests (contract boundaries at 500/501
+chars, the tolerance defaults exercised at the exact 1e-6 slope boundary,
+scan geometry at a grid-point root and the final interval, the KS statistic
+against a synthetic sample with the exact known answer 0.5/n, the twin-prime
+constant against its own Euler product to 1e-5, band densities re-derived
+independently to 1e-12, and the exact Collatz budget boundary at n=64); the
+re-measured rate and its CI floor land with the follow-up commit. The
+counterexample hooks are architecture, not claims: all candidate lists
+measure empty in tested ranges, as the literature says they must.
+
 ### Math-surface integrity round: real zeta zeros, honest UNDECIDABLE semantics, dated 2026 claims (branch `steel/version-cov4`)
 
 **Fixed — the Riemann exploration scored an RNG, not the zeta function

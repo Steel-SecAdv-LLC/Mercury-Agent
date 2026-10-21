@@ -96,6 +96,73 @@ def verify_lean_proof(source: str, *, timeout: float = 60.0) -> LeanVerdict:
     return LeanVerdict(False, True, diagnostics[:500] or f"lean exited {result.returncode}")
 
 
+def verify_lean_project(
+    project_dir: str | Path, *, target: str | None = None, timeout: float = 600.0
+) -> LeanVerdict:
+    """Kernel-check a full Lean project (mathlib-backed proofs included) via ``lake``.
+
+    This is the route by which published proof artifacts -- a mathlib-based
+    formalization, AlphaProof's released Erdős-problem proofs -- become
+    checkable rather than merely citable: ``lake build`` compiles the project
+    against its own pinned toolchain and dependencies, and the kernel's
+    acceptance is the verdict.
+
+    Args:
+        project_dir: Root of the Lean project (must contain ``lakefile.lean``
+            or ``lakefile.toml``).
+        target: Optional build target/module; omitted, the whole project
+            builds.
+        timeout: Seconds before the build is abandoned (mathlib builds are
+            large; the default is generous but finite).
+
+    Returns:
+        ``available=False`` when no ``lake`` toolchain is on PATH -- a
+        transparent "no oracle here", never a fabricated pass.  Otherwise
+        ``valid`` reflects whether the build succeeded with no error
+        diagnostics.
+
+    Raises:
+        ValueError: ``project_dir`` does not exist or has no lakefile --
+            caller error, refused loudly rather than mislabelled as an
+            unavailable oracle.
+    """
+    root = Path(project_dir)
+    if not root.is_dir():
+        raise ValueError(f"project_dir {root} is not a directory")
+    if not (root / "lakefile.lean").is_file() and not (root / "lakefile.toml").is_file():
+        raise ValueError(f"{root} has no lakefile.lean/lakefile.toml; not a Lean project")
+
+    lake = shutil.which("lake")
+    if lake is None:
+        return LeanVerdict(
+            False, False, "lake toolchain not available on PATH", checker="lean4+lake"
+        )
+
+    argv = [lake, "build"] + ([target] if target else [])
+    try:
+        result = subprocess.run(  # noqa: S603 - fixed argv, path validated above
+            argv,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return LeanVerdict(
+            False, True, f"lake build timed out after {timeout}s", checker="lean4+lake"
+        )
+
+    diagnostics = (result.stdout + result.stderr).strip()
+    if result.returncode == 0 and "error" not in diagnostics.lower():
+        return LeanVerdict(
+            True, True, "lake build succeeded; kernel accepted the project", checker="lean4+lake"
+        )
+    return LeanVerdict(
+        False, True, diagnostics[:500] or f"lake exited {result.returncode}", checker="lean4+lake"
+    )
+
+
 def register_verified_theorem(
     gosnn: GlobalOmniScalarNetwork,
     source: str,
