@@ -124,12 +124,12 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8545 | 0.8546 | -0.0000 |
-| Median ROC-AUC | 0.9052 | 0.9052 | +0.0000 |
-| Mean Oracle F1 | 0.6425 | 0.6430 | -0.0005 |
+| Mean ROC-AUC | 0.8554 | 0.8545 | +0.0009 |
+| Median ROC-AUC | 0.9031 | 0.9052 | -0.0021 |
+| Mean Oracle F1 | 0.6445 | 0.6425 | +0.0020 |
 | Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
-| Run timestamp (UTC) | 2026-10-14T20:27:14.966442+00:00 | 2026-10-14T20:04:58.109883+00:00 | — |
-| Commit | `27d2293` | `5569e83` | — |
+| Run timestamp (UTC) | 2026-10-21T06:42:48.532560+00:00 | 2026-10-14T20:27:14.966442+00:00 | — |
+| Commit | `8c54010` | `27d2293` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
@@ -268,15 +268,16 @@ against other detectors.
 | Domain | Datasets | Mean AUC | Mean oracle F1 |
 |--------|----------|----------|----------------|
 | ADBench | 47 | 0.8515 | 0.6415 |
-| Time series (SMD, NAB) | 2 | 0.7558 | 0.4580 |
+| Time series (SMD, NAB) | 2 | 0.7563 | 0.4555 |
 | Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
 | General (ADRepository) | 1 | 0.8657 | 0.5150 |
 | Industrial (BATADAL) | 1 | 0.9095 | 0.5548 |
 | Maritime (DTU_AIS_Abnormal) | 1 | 0.8613 | 0.6000 |
+| Medical (MIT-BIH) | 1 | 0.9031 | 0.7578 |
 | Security (NSL-KDD) | 1 | 0.9750 | 0.9567 |
 
 *Generated from `benchmarks/mercury_benchmark_results.json` by
-`scripts/update_readme_benchmarks.py`: the 54 successful datasets whose
+`scripts/update_readme_benchmarks.py`: the 55 successful datasets whose
 labels are `ground_truth` or `expert_annotated`. Threshold-derived
 (`statistical`) labels are excluded as circular. Domains of one to three
 datasets are easy to separate at that size; the comparable figure is the
