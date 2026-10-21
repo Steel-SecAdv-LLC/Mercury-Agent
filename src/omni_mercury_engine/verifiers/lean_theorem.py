@@ -11,6 +11,12 @@ candidate proof -- from a human, a search, or a model -- is real.
 This verifier never fakes a verdict.  If the Lean toolchain is absent it reports
 ``available=False`` and registers no scalar; it returns ``valid=True`` only when Lean's kernel
 accepts the proof.
+
+Scope: proofs checkable by core Lean 4 alone.  A mathlib-backed proof needs a Lean project
+with its own toolchain and dependencies, which this single-file path deliberately does not
+pretend to provide.  The kernel-verdict route here is the same standard by which 2026
+machine-generated mathematics is judged (e.g. DeepMind's AlphaProof Erdős-problem proofs,
+published with Lean artifacts): the kernel's acceptance, not the announcement, is the evidence.
 """
 
 from __future__ import annotations

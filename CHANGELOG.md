@@ -27,6 +27,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Math-surface integrity round: real zeta zeros, honest UNDECIDABLE semantics, dated 2026 claims (branch `steel/version-cov4`)
+
+**Fixed — the Riemann exploration scored an RNG, not the zeta function
+(`models/simulation.py`).** `explore_conjecture("riemann")` fabricated
+"zeros" at `14.134725 + 10k` with Gaussian noise on the real part and
+reported `viability_score ≈ 0.999` — a measurement of its own noise
+generator. It now computes the first `min(search_space, 100)` genuine
+non-trivial zeros with `mpmath.zetazero` (zeros of the real Riemann–Siegel
+`Z(t)`, exactly on `Re(s) = 1/2`), certifies each by `|ζ|` residual
+(observed ≈ 3×10⁻¹⁵; tolerance 10⁻⁶), and cross-checks the count against
+the Riemann–von Mangoldt strip count (`mpmath.mp.nzeros`) — Turing's
+verification method in miniature: matching counts prove no zero below that
+height hides off the critical line. Without mpmath the path fails closed
+(`oracle: "unavailable"`, zero explored cases, viability 0.0) instead of
+fabricating. Locked by four fail-on-old tests in
+`tests/models/test_simulation.py` (real ordinates 14.134725/21.022040/…,
+strip-count agreement, fail-closed path, empty-search-space path — the old
+code crashed on `search_space=0`).
+
+**Fixed — `UNDECIDABLE` prose claimed open problems were proven
+undecidable (`verifiers/three_state.py`).** The enum and the
+`KNOWN_UNDECIDABLE_IN_GENERAL` catalog said "no decision procedure exists
+in principle" and "no checkable proof object" about the Riemann Hypothesis
+and P vs NP. Both statements were false as written: these problems are
+*open*, not proven independent, and a kernel-accepted Lean proof is exactly
+a checkable proof object. The prose now states the true invariant — the
+claims are beyond an *instance oracle's* reach (finitely many checks can
+never settle a universal claim), and a future proof object grounds them
+through the theorem path. String values, enum members, and all behavior
+unchanged. Locked by a fail-on-old test in
+`tests/test_three_state_contract.py`.
+
+**Changed — Millennium-problem outputs now carry dated, source-attributed
+claim records (`models/simulation.py`).** `_analyze_navier_stokes` keeps
+`status: "unsolved"` (Clay has accepted nothing) but records the September
+2026 OpenAI forced-blow-up announcement under `claimed_results` with
+`status: "claimed_unverified"`; the Riemann insights likewise date the
+claimed `Re(s) > 7/8` zero-free region (2026, unverified) and cite the
+verified frontier correctly (Platt & Trudgian 2021, height 3×10¹²,
+replacing an uncited "10 trillion zeros" line). Locked by a fail-on-old
+test asserting the claim record exists and is marked unverified.
+
+**Documented — the math-named ethical scalars are hand-set priorities, not
+evidence (`core/ethical_config.py`);** evidence-grounded mathematical
+scalars live only in `ScalarGroup.MATHEMATICAL_MYSTERIES`, registered by
+the verifiers. `verifiers/lean_theorem.py` now states its core-Lean-4 scope
+explicitly (no mathlib; a mathlib proof needs a full Lean project) and the
+standard it implements: the kernel's acceptance, not an announcement, is
+the evidence — the same bar by which 2026 machine-generated proofs (e.g.
+AlphaProof's published Lean artifacts) are judged.
+
+**Verification note.** A relayed external review prompted this round; each
+claim was checked against the code before acting. One claim was rejected
+as overstated: `detectors/math_arrest/probes/zeta_harmonic.py` already
+documents honestly that it computes `sin(2πx) + cos(2πx)` as a
+phase-coherence probe — it makes no zeta claim, and was left unchanged.
+
 ### Deep-review round: fail-closed input guards, three defect fixes, geological survivor closure 57.9% → 75.1% (branch `steel/version-cov4`)
 
 **Fixed — nine legacy humanitarian paths graded a NaN window as "normal"

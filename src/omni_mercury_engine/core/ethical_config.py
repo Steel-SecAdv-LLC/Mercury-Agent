@@ -73,6 +73,11 @@ class EthicalScalars:
     omni_autonomy_respect: float = 1.40
     omni_biosecurity_guard: float = 1.32
 
+    # Research-priority weights named for open problems. Hand-set like every
+    # scalar in this dataclass: the names honor the problems, the values are
+    # NOT evidence of progress on them. Evidence-grounded mathematical
+    # scalars live in ScalarGroup.MATHEMATICAL_MYSTERIES and are registered
+    # only by the verifiers (omni_mercury_engine.verifiers).
     omni_riemann_conjecture: float = 1.35
     omni_p_vs_np_resolution: float = 1.32
     omni_collatz_verification: float = 1.30

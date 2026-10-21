@@ -20,9 +20,13 @@ citations):
 * ``inconclusive`` / ``unavailable`` are :attr:`ThreeState.UNAVAILABLE`
   *whenever they mean "decidable, but not produced this run"* -- a bounded
   search hit its budget, an input was absent, or a checker was not installed.
-* :attr:`ThreeState.UNDECIDABLE` is reserved for claims with **no decision
-  procedure in principle** -- the universally-quantified open conjectures an
-  instance oracle can never settle.  The verifier family only ever checks
+* :attr:`ThreeState.UNDECIDABLE` is reserved for claims **beyond the
+  instance oracle's reach** -- the universally-quantified open conjectures
+  that checking finitely many instances can never settle.  That is a
+  statement about this oracle family's reach, not a Gödel-style
+  independence claim: such a conjecture is *open*, not proven unprovable,
+  and a checkable proof object (e.g. a kernel-accepted Lean proof) would
+  ground it through the theorem path.  The verifier family only ever checks
   *instances* (all decidable), so it never emits this from the instance
   paths; it is produced by :meth:`MysteryRegistry.submit_undecidable`.
 """
@@ -55,20 +59,25 @@ class ThreeState(Enum):
     #: could decide it.
     UNAVAILABLE = "unavailable"
 
-    #: No decision procedure exists in principle.  The oracle can never
-    #: decide this -- a universally-quantified claim over an infinite domain
-    #: that an instance checker cannot settle (Collatz-in-general, the
-    #: infinitude of twin primes, any Millennium-class open problem).
-    #: Registers nothing, EVER.
+    #: Beyond any instance oracle's reach: a universally-quantified claim
+    #: over an infinite domain that checking finitely many instances can
+    #: never settle (Collatz-in-general, the infinitude of twin primes, the
+    #: Riemann Hypothesis).  These are OPEN problems, not proven undecidable
+    #: in the Gödel sense -- a future checkable proof object (a
+    #: kernel-accepted Lean proof) would ground the claim through the
+    #: theorem path.  The instance paths register nothing for it, ever.
     UNDECIDABLE = "undecidable"
 
 
-#: Canonical problems with no decision procedure available to an instance
-#: oracle -- the universal/general statements behind the instance verifiers.
-#: Used by :meth:`MysteryRegistry.submit_undecidable` so a known-undecidable
-#: claim is recorded as :attr:`ThreeState.UNDECIDABLE` (registers nothing,
-#: ever), never confused with an UNAVAILABLE instance that simply was not
-#: run this time.
+#: Canonical universally-quantified claims beyond an instance oracle's reach
+#: -- the general statements behind the instance verifiers.  All are OPEN,
+#: not proven undecidable: "undecidable" here means "not settlable by
+#: checking instances", the scope of this oracle family, and a checkable
+#: proof object would ground any of them through the theorem path.  Used by
+#: :meth:`MysteryRegistry.submit_undecidable` so such a claim is recorded as
+#: :attr:`ThreeState.UNDECIDABLE` (the instance paths register nothing for
+#: it), never confused with an UNAVAILABLE instance that simply was not run
+#: this time.
 KNOWN_UNDECIDABLE_IN_GENERAL: dict[str, str] = {
     "collatz_general": (
         "Does every positive integer's Collatz trajectory reach 1? Open; an "
@@ -84,9 +93,12 @@ KNOWN_UNDECIDABLE_IN_GENERAL: dict[str, str] = {
     ),
     "riemann_hypothesis": (
         "Do all non-trivial zeros of the Riemann zeta function lie on "
-        "Re(s)=1/2? Millennium Prize problem; no checkable proof object."
+        "Re(s)=1/2? Open Millennium Prize problem; zero-by-zero checks can "
+        "never settle the universal claim."
     ),
-    "p_vs_np": "Does P = NP? Millennium Prize problem; no checkable proof object.",
+    "p_vs_np": (
+        "Does P = NP? Open Millennium Prize problem; no finite set of " "instances can settle it."
+    ),
 }
 
 #: The oracle-side four-word vocabulary mapped onto the invariant.  This is
