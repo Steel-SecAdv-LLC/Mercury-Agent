@@ -149,7 +149,7 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and gated in C
 
 | Measurement | Value |
 |---|---|
-| Python source files in `src/omni_mercury_engine/` | **823** |
+| Python source files in `src/omni_mercury_engine/` | **824** |
 | Source lines of code (LOC) | **~452,000** |
 | Top-level subpackages (true Python packages with `__init__.py`) | **52** |
 | Files importing PyTorch (optional `[ml]` extra) | **173** |
@@ -581,7 +581,7 @@ The signature innovation providing transparent, auditable AI decision-making:
 - **Lyapunov Stability**: decay-schedule monitor of system convergence (measured, not guaranteed)
 - **Civilization-First Philosophy**: Humanitarian impact prioritized in all design decisions
 - **Agent Notice**: a standing, non-binding request to any autonomous agent directed against Mercury — stop, and say why — under which every channel carries zero authority ([`docs/AGENT_NOTICE.md`](docs/AGENT_NOTICE.md), served at `/agent-notice`, linked from the RFC 9116 `/.well-known/security.txt`)
-- **Containment, not retaliation**: an opt-in decoy surface (`MERCURY_DECEPTION_ENABLED`) of tripwires and a bounded tarpit that feed the counterintelligence reliability model and the tamper-evident audit chain, with per-deployment private decoy paths (`MERCURY_DECOY_PATHS`, `MERCURY_SILENT_DECOY_PATHS`) because the shipped ones are public; nothing in it reaches outward
+- **Containment, not retaliation**: an opt-in decoy surface (`MERCURY_DECEPTION_ENABLED`) of tripwires and a bounded tarpit that feed the counterintelligence reliability model and the tamper-evident audit chain, with per-deployment private decoy paths (`MERCURY_DECOY_PATHS`, `MERCURY_SILENT_DECOY_PATHS`) because the shipped ones are public; nothing in it reaches outward. Address rotation is met in depth — per-aggregate escalation (/48 IPv6, /24 IPv4), a distinct-source campaign signal rotation raises rather than hides, and a per-window audit cap so spent addresses cannot flood the chain — and with `MERCURY_KEYSTORE_PATH` set, tripwire state is one picture across all workers
 
 ### Hybrid Fusion Architecture
 

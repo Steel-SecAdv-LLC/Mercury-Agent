@@ -297,7 +297,8 @@ def register_decoys(
             environment).
         sensor: Sensor to use; defaults to :func:`configured_decoys` (the
             shipped decoys plus this deployment's private ones) over the shared
-            tamper-evident audit chain.
+            tamper-evident audit chain, with cross-worker tripwire state when
+            ``MERCURY_KEYSTORE_PATH`` is set.
         gate: Tarpit gate; defaults to the sensor policy's concurrency cap.
 
     Returns:
@@ -310,10 +311,12 @@ def register_decoys(
         return None
     if sensor is None:
         from omni_mercury_engine.api.auth_audit import shared_secure_logger
+        from omni_mercury_engine.security.deception_store import build_tripwire_store
 
         sensor = DeceptionSensor(
             decoys=configured_decoys(),
             audit_sink=secure_audit_sink(shared_secure_logger()),
+            store=build_tripwire_store(),
         )
     if gate is None:
         gate = TarpitGate(sensor.policy.max_concurrent)

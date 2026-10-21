@@ -136,7 +136,7 @@ jobs:
             echo "observatory mutation surface unchanged."
           fi
           # The mutation-floored trust surface (agent notice, security.txt, decoys).
-          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/security/(deception|agent_notice)\.py|src/omni_mercury_engine/api/routes/(decoys|agent_notice)\.py|tests/security/test_(deception|agent_notice)\.py|tests/api/test_trust_surface_routes\.py|\.github/workflows/mutation-testing\.yml)$'; then
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/security/(deception|deception_store|agent_notice)\.py|src/omni_mercury_engine/api/routes/(decoys|agent_notice)\.py|tests/security/test_(deception|agent_notice)\.py|tests/api/test_trust_surface_routes\.py|\.github/workflows/mutation-testing\.yml)$'; then
             echo "trustsurface=true" >> "$GITHUB_OUTPUT"
             echo "trust-surface mutation surface changed: trust-surface floor lane runs."
           else
@@ -695,6 +695,7 @@ jobs:
           python scripts/run_sigma_mutation_gate.py \
             --targets \
               src/omni_mercury_engine/security/deception.py \
+              src/omni_mercury_engine/security/deception_store.py \
               src/omni_mercury_engine/security/agent_notice.py \
               src/omni_mercury_engine/api/routes/decoys.py \
               src/omni_mercury_engine/api/routes/agent_notice.py \

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import itertools
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from fastapi import FastAPI
@@ -39,6 +39,9 @@ from omni_mercury_engine.security.deception import (
     TarpitGate,
     TripwireEvent,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 from omni_mercury_engine.security.secure_audit_logging import (
     AuditEventCategory,
     AuditEventSeverity,
@@ -316,6 +319,25 @@ class TestRegistrationContract:
         assert isinstance(sensor, DeceptionSensor)
         assert app.state.deception_sensor is sensor
         assert sensor.decoys == DEFAULT_DECOYS
+
+    def test_default_sensor_uses_the_shared_store_when_configured(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """MERCURY_KEYSTORE_PATH gives the default sensor cluster-wide state."""
+        monkeypatch.setenv(DECEPTION_ENABLED_ENV, "true")
+        monkeypatch.delenv("MERCURY_AUDIT_LOG_DIR", raising=False)
+        state_db = tmp_path / "state.db"
+        monkeypatch.setenv("MERCURY_KEYSTORE_PATH", str(state_db))
+        sensor = register_decoys(FastAPI())
+        assert sensor is not None
+        # Observable through behaviour, not internals: a second sensor built
+        # the same way sees the first one's touch in its counts.
+        sensor.record("198.51.100.7", DEFAULT_DECOYS[0].path, "GET")
+        monkeypatch.setenv(DECEPTION_ENABLED_ENV, "true")
+        twin = register_decoys(FastAPI())
+        assert twin is not None
+        event = twin.record("198.51.100.7", DEFAULT_DECOYS[0].path, "GET")
+        assert event.hits_in_window == 2
 
     def test_decoys_absent_from_openapi(self, harness: Harness) -> None:
         """No decoy path appears in the published schema."""

@@ -20,7 +20,23 @@ Four properties carry the design:
   ``X-Forwarded-For`` unless the deployment declares trusted proxy hops, so an
   attacker cannot forge a victim's address into a tripwire. IPv6 sources are
   keyed by ``/64`` -- the unit one subscriber controls -- so an attacker cannot
-  reset the tarpit by rotating addresses inside a single allocation.
+  reset the tarpit by rotating addresses inside a single allocation. Rotation
+  *across* addresses is met in depth: hits are also counted per aggregate
+  (``/48`` for IPv6, ``/24`` for IPv4) with its own, larger free allowance, the
+  response delay is the larger of the per-source and per-aggregate schedules,
+  and every audited event carries the window's distinct-source count with a
+  ``campaign`` flag once it crosses the threshold -- the one signal rotation
+  cannot suppress, because rotating is what raises it.
+* **The audit chain cannot be flooded.** Tripwire audits are capped per
+  window; past the cap they are counted, not written, and the first audit of
+  the next window records how many were suppressed. An attacker spending
+  addresses to spam the tamper-evident chain buys one summary line.
+* **One picture across workers.** With the shared platform store configured
+  (``MERCURY_KEYSTORE_PATH``, the same SQLite file the rate limiter and key
+  store use), hit counts, audit dedupe and the campaign signal are cluster-wide
+  (:mod:`omni_mercury_engine.security.deception_store`); unset, state is
+  per-process, exactly as before. A store failure falls back to the in-process
+  view for that request -- the decoys keep answering.
 * **Consequences stay on the decoys.** The tarpit delays decoy responses only,
   and no real route consults this sensor: a legitimate user who shares a NAT
   address with a prober is never slowed or refused.
@@ -48,7 +64,7 @@ import os
 import threading
 import time
 from collections import OrderedDict, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Literal
 
 from omni_mercury_engine.security.counterintelligence import (
@@ -64,6 +80,7 @@ if TYPE_CHECKING:
         CounterintelligenceConfig,
         SourcePosterior,
     )
+    from omni_mercury_engine.security.deception_store import TripwireStore
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +95,7 @@ __all__ = [
     "TarpitGate",
     "TarpitPolicy",
     "TripwireEvent",
+    "aggregate_key",
     "configured_decoys",
     "deception_enabled",
     "source_key",
@@ -99,6 +117,8 @@ SILENT_DECOY_PATHS_ENV = "MERCURY_SILENT_DECOY_PATHS"
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _HTTP_METHODS = ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
 _IPV6_HOST_BITS = 64
+_IPV6_AGGREGATE_PREFIX = 48
+_IPV4_AGGREGATE_PREFIX = 24
 
 #: How a decoy answers. ``auth_challenge`` answers as a real protected route
 #: (every credential attempt against it is another tripwire); ``not_found`` is
@@ -244,6 +264,36 @@ def source_key(client_ip: str) -> str:
     return str(address)
 
 
+def aggregate_key(client_ip: str) -> str:
+    """Return the allocation-level identity a source cannot rotate out of cheaply.
+
+    Args:
+        client_ip: Output of ``resolve_client_ip`` (an IP literal or
+            ``"unknown"``).
+
+    Returns:
+        The ``/24`` network for IPv4 (IPv4-mapped IPv6 collapses first), the
+        ``/48`` network for IPv6 -- the common site allocation above the
+        ``/64`` :func:`source_key` -- and ``"unknown"`` otherwise, so
+        unattributable sources share one aggregate that throttles, never
+        bypasses.
+    """
+    try:
+        address = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return "unknown"
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            address = address.ipv4_mapped
+        else:
+            host_bits = 128 - _IPV6_AGGREGATE_PREFIX
+            prefix = (int(address) >> host_bits) << host_bits
+            return str(ipaddress.IPv6Network((prefix, _IPV6_AGGREGATE_PREFIX)))
+    host_bits = 32 - _IPV4_AGGREGATE_PREFIX
+    prefix = (int(address) >> host_bits) << host_bits
+    return str(ipaddress.IPv4Network((prefix, _IPV4_AGGREGATE_PREFIX)))
+
+
 def _finite(value: float) -> bool:
     return isinstance(value, int | float) and math.isfinite(value)
 
@@ -267,6 +317,11 @@ class TarpitPolicy:
         max_concurrent: Responses that may be held at once (>= 0); past it,
             responses are answered without delay.
         free_hits: Hits answered without delay before escalation (>= 0).
+        aggregate_free_hits: Hits across a whole aggregate (``/48`` IPv6,
+            ``/24`` IPv4) answered without aggregate-schedule delay (>= 0).
+            Larger than ``free_hits`` so a lone prober never reaches the
+            aggregate schedule before its own; a pool of rotating addresses
+            spends this allowance once, together.
     """
 
     base_delay_s: float = 0.5
@@ -275,6 +330,7 @@ class TarpitPolicy:
     window_s: float = 3600.0
     max_concurrent: int = 32
     free_hits: int = 1
+    aggregate_free_hits: int = 8
 
     def __post_init__(self) -> None:
         """Validate the policy.
@@ -298,9 +354,19 @@ class TarpitPolicy:
             raise ValueError("max_concurrent must be a non-negative integer")
         if not isinstance(self.free_hits, int) or self.free_hits < 0:
             raise ValueError("free_hits must be a non-negative integer")
+        if not isinstance(self.aggregate_free_hits, int) or self.aggregate_free_hits < 0:
+            raise ValueError("aggregate_free_hits must be a non-negative integer")
+
+    def _delay(self, hits: int, free: int) -> float:
+        if hits <= free:
+            return 0.0
+        steps = hits - free - 1
+        if steps * math.log(self.growth) >= math.log(self.max_delay_s / self.base_delay_s):
+            return self.max_delay_s
+        return float(self.base_delay_s * self.growth**steps)
 
     def delay_for(self, hits: int) -> float:
-        """Return the delay for the ``hits``-th hit inside the window.
+        """Return the delay for a source's ``hits``-th hit inside the window.
 
         Args:
             hits: Hits counted in the window, including this one.
@@ -309,12 +375,24 @@ class TarpitPolicy:
             Seconds to hold the response; 0 within the free allowance.
             Computed in log space at the cap, so no hit count can overflow.
         """
-        if hits <= self.free_hits:
-            return 0.0
-        steps = hits - self.free_hits - 1
-        if steps * math.log(self.growth) >= math.log(self.max_delay_s / self.base_delay_s):
-            return self.max_delay_s
-        return float(self.base_delay_s * self.growth**steps)
+        return self._delay(hits, self.free_hits)
+
+    def aggregate_delay_for(self, hits: int) -> float:
+        """Return the delay for an aggregate's ``hits``-th hit inside the window.
+
+        The same schedule as :meth:`delay_for` under the larger
+        ``aggregate_free_hits`` allowance. The response is held for the larger
+        of the two schedules, so rotating fresh addresses inside one
+        allocation stops buying fresh free allowances.
+
+        Args:
+            hits: Hits counted across the aggregate in the window, this one
+                included.
+
+        Returns:
+            Seconds to hold the response; 0 within the aggregate allowance.
+        """
+        return self._delay(hits, self.aggregate_free_hits)
 
 
 @dataclass(frozen=True)
@@ -335,6 +413,16 @@ class TripwireEvent:
             ``Authorization`` header. A decoy touched with credentials points
             to a stolen key or an insider -- the highest-value tripwire. The
             credential itself is never recorded.
+        aggregate_key: Allocation-level identity (see :func:`aggregate_key`).
+        aggregate_hits: Hits across the whole aggregate inside the window,
+            this one included.
+        sources_in_window: Distinct sources that touched any decoy inside the
+            window -- the signal address rotation raises instead of hiding.
+        campaign: Whether ``sources_in_window`` has reached the sensor's
+            campaign threshold.
+        audits_suppressed: Audit records suppressed by the per-window cap in
+            the window before this one; carried on the first audited event of
+            the new window so the chain accounts for every suppressed record.
     """
 
     source_key: str
@@ -347,6 +435,11 @@ class TripwireEvent:
     first_touch: bool
     delay_s: float
     credential_presented: bool = False
+    aggregate_key: str = "unknown"
+    aggregate_hits: int = 0
+    sources_in_window: int = 0
+    campaign: bool = False
+    audits_suppressed: int = 0
 
     def audit_details(self) -> dict[str, object]:
         """Return the audit-record details.
@@ -365,6 +458,11 @@ class TripwireEvent:
             "first_touch": self.first_touch,
             "tarpit_delay_s": round(self.delay_s, 3),
             "credential_presented": self.credential_presented,
+            "aggregate": self.aggregate_key,
+            "aggregate_hits": self.aggregate_hits,
+            "sources_in_window": self.sources_in_window,
+            "campaign": self.campaign,
+            "audits_suppressed": self.audits_suppressed,
         }
 
 
@@ -389,9 +487,21 @@ class DeceptionSensor:
             evicted (>= 1).
         max_hits_tracked: Per-source hit history length (>= 1).
         audit_sink: Called with an event on a source's first touch of a decoy
-            and again once per window after that; it must not raise, but if
-            it does the failure is logged and the request proceeds.
+            and again once per window after that, subject to the per-window
+            cap; it must not raise, but if it does the failure is logged and
+            the request proceeds.
         clock: Monotonic clock, injectable for tests.
+        campaign_sources: Distinct sources inside the window at which audited
+            events start carrying ``campaign=True`` (>= 1).
+        max_audits_per_window: Audit-sink calls allowed per window (>= 1);
+            past the cap, audits are counted and the first audit of the next
+            window reports how many were suppressed. Protects the
+            tamper-evident chain from being flooded by spent addresses.
+        store: Optional cross-worker tripwire store
+            (:mod:`omni_mercury_engine.security.deception_store`). When set,
+            hit counts, audit dedupe and the campaign signal come from the
+            shared store; the in-process state keeps running as the fallback
+            for a store failure, which is logged and never blocks the answer.
 
     Raises:
         ValueError: An empty or duplicated decoy set, or an out-of-range
@@ -408,6 +518,9 @@ class DeceptionSensor:
         max_hits_tracked: int = 64,
         audit_sink: Callable[[TripwireEvent], None] | None = None,
         clock: Callable[[], float] = time.monotonic,
+        campaign_sources: int = 8,
+        max_audits_per_window: int = 512,
+        store: TripwireStore | None = None,
     ) -> None:
         """Validate and store the configuration."""
         decoy_tuple = tuple(decoys)
@@ -420,6 +533,8 @@ class DeceptionSensor:
             raise ValueError(f"outcome_weight must be finite and in [0, {MAX_OUTCOME_WEIGHT:g}]")
         if max_sources < 1 or max_hits_tracked < 1:
             raise ValueError("max_sources and max_hits_tracked must be >= 1")
+        if campaign_sources < 1 or max_audits_per_window < 1:
+            raise ValueError("campaign_sources and max_audits_per_window must be >= 1")
         self._decoys = decoy_tuple
         self._by_path = by_path
         self._policy = policy or TarpitPolicy()
@@ -428,8 +543,17 @@ class DeceptionSensor:
         self._max_hits = max_hits_tracked
         self._audit_sink = audit_sink
         self._clock = clock
+        self._campaign_sources = campaign_sources
+        self._max_audits = max_audits_per_window
+        self._store = store
         self._lock = threading.Lock()
         self._sources: OrderedDict[str, _SourceState] = OrderedDict()
+        self._aggregates: OrderedDict[str, deque[float]] = OrderedDict()
+        self._active_sources: OrderedDict[str, float] = OrderedDict()
+        self._audit_window_start = clock()
+        self._audits_in_window = 0
+        self._audits_suppressed = 0
+        self._campaign_logged: float | None = None
 
     @property
     def decoys(self) -> tuple[DecoyRoute, ...]:
@@ -476,6 +600,7 @@ class DeceptionSensor:
         if decoy is None:
             raise ValueError(f"{path!r} is not a registered decoy")
         key = source_key(client_ip)
+        aggregate = aggregate_key(client_ip)
         now = self._clock()
         window = self._policy.window_s
         with self._lock:
@@ -499,6 +624,12 @@ class DeceptionSensor:
             if audit:
                 state.audited[path] = now
             distinct = len(state.touched)
+            agg_hits = self._record_aggregate(aggregate, now, window)
+            sources_in_window = self._record_active_source(key, now, window)
+        shared = self._shared_counts(key, aggregate, path)
+        if shared is not None:
+            hits, agg_hits, distinct, first_touch, audit, sources_in_window = shared
+        campaign = sources_in_window >= self._campaign_sources
         event = TripwireEvent(
             source_key=key,
             client_ip=client_ip,
@@ -508,15 +639,125 @@ class DeceptionSensor:
             hits_in_window=hits,
             distinct_decoys=distinct,
             first_touch=first_touch,
-            delay_s=self._policy.delay_for(hits),
+            delay_s=max(self._policy.delay_for(hits), self._policy.aggregate_delay_for(agg_hits)),
             credential_presented=bool(credential_presented),
+            aggregate_key=aggregate,
+            aggregate_hits=agg_hits,
+            sources_in_window=sources_in_window,
+            campaign=campaign,
         )
-        if audit and self._audit_sink is not None:
-            try:
-                self._audit_sink(event)
-            except Exception:
-                logger.exception("deception audit sink failed for decoy %s", path)
+        if campaign:
+            self._log_campaign_once(sources_in_window, now, window)
+        if audit:
+            emit, carried = self._audit_admission(now, window)
+            if carried:
+                event = replace(event, audits_suppressed=carried)
+            if emit and self._audit_sink is not None:
+                try:
+                    self._audit_sink(event)
+                except Exception:
+                    logger.exception("deception audit sink failed for decoy %s", path)
         return event
+
+    def _record_aggregate(self, aggregate: str, now: float, window: float) -> int:
+        """Count this hit against its aggregate; return the aggregate's window count."""
+        hits = self._aggregates.get(aggregate)
+        if hits is None:
+            hits = deque(maxlen=self._max_hits)
+            self._aggregates[aggregate] = hits
+            while len(self._aggregates) > self._max_sources:
+                self._aggregates.popitem(last=False)
+        else:
+            self._aggregates.move_to_end(aggregate)
+        hits.append(now)
+        while now - hits[0] > window:
+            hits.popleft()
+        return len(hits)
+
+    def _record_active_source(self, key: str, now: float, window: float) -> int:
+        """Mark the source active; return distinct active sources in the window."""
+        self._active_sources[key] = now
+        self._active_sources.move_to_end(key)
+        while self._active_sources:
+            oldest = next(iter(self._active_sources))
+            if now - self._active_sources[oldest] > window:
+                del self._active_sources[oldest]
+            else:
+                break
+        while len(self._active_sources) > self._max_sources:
+            self._active_sources.popitem(last=False)
+        return len(self._active_sources)
+
+    def _shared_counts(
+        self, key: str, aggregate: str, path: str
+    ) -> tuple[int, int, int, bool, bool, int] | None:
+        """Return cluster-wide counts from the store, or ``None`` to stay local.
+
+        A store failure is logged and answered with ``None``: the request is
+        served from the in-process state, never blocked.
+        """
+        if self._store is None:
+            return None
+        try:
+            rec = self._store.record_touch(
+                key,
+                aggregate,
+                path,
+                window_s=self._policy.window_s,
+                max_hits=self._max_hits,
+            )
+        except Exception:
+            logger.exception("deception store failed; serving from in-process state")
+            return None
+        return (
+            rec.hits,
+            rec.aggregate_hits,
+            rec.distinct_decoys,
+            rec.first_touch,
+            rec.audit_due,
+            rec.sources_in_window,
+        )
+
+    def _audit_admission(self, now: float, window: float) -> tuple[bool, int]:
+        """Admit or suppress one audit under the per-window cap.
+
+        Returns:
+            ``(emit, carried)``: whether to call the sink, and the number of
+            audits suppressed since the last emitted one -- non-zero only on
+            the first admitted audit after a capped window, so the chain
+            accounts for every suppressed record.
+        """
+        with self._lock:
+            if now - self._audit_window_start > window:
+                self._audit_window_start = now
+                self._audits_in_window = 0
+            if self._audits_in_window < self._max_audits:
+                self._audits_in_window += 1
+                carried = self._audits_suppressed
+                self._audits_suppressed = 0
+                return True, carried
+            self._audits_suppressed += 1
+            if self._audits_suppressed == 1:
+                logger.warning(
+                    "deception audit cap (%d per window) reached; further audits "
+                    "in this window are counted and reported, not written",
+                    self._max_audits,
+                )
+            return False, 0
+
+    def _log_campaign_once(self, sources: int, now: float, window: float) -> None:
+        """Warn once per window that the distinct-source threshold is crossed."""
+        with self._lock:
+            if self._campaign_logged is not None and now - self._campaign_logged <= window:
+                return
+            self._campaign_logged = now
+        logger.warning(
+            "deception campaign signal: %d distinct sources touched decoys inside "
+            "one window (threshold %d) -- address rotation raises this, it cannot "
+            "suppress it",
+            sources,
+            self._campaign_sources,
+        )
 
     def outcomes(self, key: str) -> tuple[SourceOutcome, ...]:
         """Return the source's tripwires as refuted reliability outcomes.

@@ -7,18 +7,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 2,990
-- **Capability-bearing classes:** 1,983 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 2,993
+- **Capability-bearing classes:** 1,984 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
-- **Refined via base-class analysis:** 89 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,170 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 90 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,171 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1170 |
-| Support types (config / result / enum / error) | 1007 |
+| Other capability classes | 1171 |
+| Support types (config / result / enum / error) | 1009 |
 | Detection | 176 |
 | Neural models & layers | 161 |
 | Data sources & loaders | 104 |
@@ -2564,7 +2564,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 </details>
 
-### `security/` — 214 classes (133 capability)
+### `security/` — 217 classes (134 capability)
 
 **Adapters & backends**
 
@@ -2717,6 +2717,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - `SourcePosterior` (`security.counterintelligence`) — A source's Beta posterior reliability.
 - `SphincsKeyPair` (`security.pqc_backends`) — SPHINCS+-256f key pair.
 - `SphincsProvider` (`security.crypto_api`) — SPHINCS+ hash-based signature provider — delegates to AMA.
+- `SqliteTripwireStore` (`security.deception_store`) — Durable, cross-worker tripwire state on the shared SQLite file.
 - `TargetAudienceProfile` (`security.psyop`) — Profile of a target audience for PSYOP analysis.
 - `TarpitPolicy` (`security.deception`) — Bounded exponential delay schedule for decoy responses.
 - `ThreatBlocking` (`security.hive_firewall`) — Threat blocking decision with reasoning.
@@ -2732,9 +2733,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - `MultiverseZeroDaySimulator` (`security.cyber_fortress`) — Novel zero-day attack simulation using multiverse optimization.
 
-<details><summary>Support types (81)</summary>
+<details><summary>Support types (83)</summary>
 
-`APTGroup`, `AgreementReport`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CounterintelligenceConfig`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FlagKind`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `LabelReport`, `MASINTAnalysisResult`, `MalwareFamily`, `MeritLogError`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `PQCBackend`, `PSYOPCategory`, `QuantumStatus`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `ReportRecord`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `ScreenResult`, `SecurityLevel`, `SigningKeyError`, `SpectralClassResult`, `SpectralSignatureResult`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `TripwireEvent`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`, `_CaseState`, `_SourceState`, `_VoteRecord`
+`APTGroup`, `AgreementReport`, `AlgorithmType`, `AuditEvent`, `AuditEventCategory`, `AuditEventSeverity`, `BanishmentAction`, `COMINTAnalysisResult`, `CYBINTAnalysisResult`, `CYBINTAnalysisResult`, `CognitiveBias`, `CorpusVerificationError`, `CounterintelligenceConfig`, `CryptanalysisResult`, `CryptoBackend`, `CryptoPackageConfig`, `CryptoPackageResult`, `CyberKillChainStage`, `DecodeError`, `ELINTAnalysisResult`, `EmanationType`, `ExpiredSignatureError`, `FININTAnalysisResult`, `FlagKind`, `FortressResult`, `GEOINTAnalysisResult`, `HUMINTAnalysisResult`, `IMINTAnalysisResult`, `ImmatureSignatureError`, `InfluenceVector`, `InformationEnvironmentState`, `IntelligenceDiscipline`, `IntelligenceFusionResult`, `IntelligenceProcessor`, `InvalidAlgorithmError`, `InvalidSignatureError`, `InvalidTokenError`, `LabelReport`, `MASINTAnalysisResult`, `MalwareFamily`, `MeritLogError`, `MeteorologicalIntelResult`, `MissingRequiredClaimError`, `NarrativeType`, `NativeJWTError`, `OSINTAnalysisResult`, `PQCBackend`, `PSYOPCategory`, `QuantumStatus`, `RateLimitAlgorithm`, `RateLimitInfo`, `RefusedCheckpointError`, `ReportRecord`, `RngHealthReport`, `RngHealthVerdict`, `SIGINTAnalysisResult`, `SanitizationLevel`, `ScreenResult`, `SecurityLevel`, `SigningKeyError`, `SpectralClassResult`, `SpectralSignatureResult`, `TEMPESTAnalysisResult`, `TEMPESTThreatLevel`, `TerrorismThreatResult`, `ThreatActorType`, `ThreatLevel`, `TouchRecord`, `TrafficAnalysisResult`, `TrafficAnalysisResult`, `TrafficAnomalyType`, `TripwireEvent`, `TripwireStore`, `UnsafeCheckpointError`, `UnsafeModelError`, `UnsafePayloadError`, `UnsafeSubprocessError`, `UnsafeURLError`, `ValidationError`, `ValidationResult`, `_CaseState`, `_SourceState`, `_VoteRecord`
 
 </details>
 

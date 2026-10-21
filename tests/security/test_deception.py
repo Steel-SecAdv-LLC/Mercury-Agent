@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -26,10 +27,19 @@ from omni_mercury_engine.security.deception import (
     TarpitGate,
     TarpitPolicy,
     TripwireEvent,
+    aggregate_key,
     configured_decoys,
     deception_enabled,
     source_key,
 )
+from omni_mercury_engine.security.deception_store import (
+    TRIPWIRE_STORE_PATH_ENV,
+    SqliteTripwireStore,
+    build_tripwire_store,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 ADMIN = "/api/v1/admin"
 KEYS = "/api/v1/admin/api-keys"
@@ -225,6 +235,11 @@ class TestSensorRecording:
             first_touch=True,
             delay_s=0.0,
             credential_presented=False,
+            aggregate_key="203.0.113.0/24",
+            aggregate_hits=1,
+            sources_in_window=1,
+            campaign=False,
+            audits_suppressed=0,
         )
 
     def test_escalation_across_decoys(self) -> None:
@@ -305,6 +320,11 @@ class TestSensorRecording:
             "first_touch": True,
             "tarpit_delay_s": 0.0,
             "credential_presented": False,
+            "aggregate": "203.0.113.0/24",
+            "aggregate_hits": 1,
+            "sources_in_window": 1,
+            "campaign": False,
+            "audits_suppressed": 0,
         }
 
 
@@ -676,3 +696,513 @@ class TestConfiguredDecoys:
         """The default mapping is the process environment."""
         monkeypatch.setenv(SILENT_DECOY_PATHS_ENV, "/private.bak")
         assert configured_decoys()[-1].path == "/private.bak"
+
+
+class TestAggregateKey:
+    """The allocation-level identity a source cannot rotate out of cheaply."""
+
+    @pytest.mark.parametrize(
+        ("client_ip", "expected"),
+        [
+            ("203.0.113.9", "203.0.113.0/24"),
+            ("203.0.113.255", "203.0.113.0/24"),
+            ("::ffff:203.0.113.9", "203.0.113.0/24"),  # v4-mapped matches its v4 twin
+            ("2001:db8:1:2::5", "2001:db8:1::/48"),
+            ("2001:db8:1:ffff::5", "2001:db8:1::/48"),  # another /64, same /48
+            ("unknown", "unknown"),
+            ("not-an-ip", "unknown"),
+        ],
+    )
+    def test_keys(self, client_ip: str, expected: str) -> None:
+        """Each address lands in its allocation; non-IPs share one identity."""
+        assert aggregate_key(client_ip) == expected
+
+    def test_source_and_aggregate_stay_consistent_for_v4_mapped(self) -> None:
+        """A v4-mapped v6 address and its v4 twin share source and aggregate."""
+        assert source_key("::ffff:203.0.113.9") == source_key("203.0.113.9")
+        assert aggregate_key("::ffff:203.0.113.9") == aggregate_key("203.0.113.9")
+
+
+class TestRotationResistance:
+    """Rotating fresh addresses inside one allocation stops buying free hits."""
+
+    def test_rotation_inside_a_v4_slash24_escalates(self) -> None:
+        """Fresh /24 members get the aggregate schedule once its allowance is spent."""
+        sensor = DeceptionSensor(clock=FakeClock())
+        delays = [sensor.record(f"203.0.113.{i}", ADMIN, "GET").delay_s for i in range(1, 13)]
+        assert delays[:8] == [0.0] * 8  # the aggregate allowance, spent once, together
+        assert delays[8:] == [0.5, 1.0, 2.0, 4.0]
+
+    def test_rotation_across_v6_slash64s_in_one_slash48_escalates(self) -> None:
+        """Rotating /64s inside one /48 shares one aggregate allowance."""
+        sensor = DeceptionSensor(clock=FakeClock())
+        events = [sensor.record(f"2001:db8:1:{i:x}::1", ADMIN, "GET") for i in range(1, 13)]
+        assert all(e.aggregate_key == "2001:db8:1::/48" for e in events)
+        assert [e.delay_s for e in events[8:]] == [0.5, 1.0, 2.0, 4.0]
+
+    def test_single_source_schedule_is_unchanged(self) -> None:
+        """A lone prober sees exactly the pre-aggregate schedule."""
+        sensor = DeceptionSensor(clock=FakeClock())
+        delays = [sensor.record("198.51.100.7", ADMIN, "GET").delay_s for _ in range(6)]
+        assert delays == [0.0, 0.5, 1.0, 2.0, 4.0, 8.0]
+
+    def test_delay_is_the_larger_schedule(self) -> None:
+        """A hot source in a hot aggregate keeps its own, larger delay."""
+        sensor = DeceptionSensor(clock=FakeClock())
+        for _ in range(6):
+            event = sensor.record("198.51.100.7", ADMIN, "GET")
+        assert event.delay_s == 8.0
+        follower = sensor.record("198.51.100.8", ADMIN, "GET")
+        # The follower's own count is 1 (free); only the aggregate schedule
+        # applies to it, and it is never the maximum of the hot source.
+        assert follower.delay_s == pytest.approx(0.0)
+        assert follower.aggregate_hits == 7
+
+    def test_aggregate_window_expires(self) -> None:
+        """Aggregate hits age out of the window like source hits."""
+        clock = FakeClock()
+        sensor = DeceptionSensor(policy=TarpitPolicy(window_s=60.0), clock=clock)
+        for i in range(1, 10):
+            sensor.record(f"203.0.113.{i}", ADMIN, "GET")
+        clock.now += 61.0
+        event = sensor.record("203.0.113.99", ADMIN, "GET")
+        assert event.aggregate_hits == 1
+        assert event.delay_s == 0.0
+
+    def test_aggregate_free_hits_validated(self) -> None:
+        """A negative aggregate allowance is refused."""
+        with pytest.raises(ValueError, match="aggregate_free_hits"):
+            TarpitPolicy(aggregate_free_hits=-1)
+
+
+class TestCampaignSignal:
+    """Distinct sources in the window: the signal rotation raises, not hides."""
+
+    def test_flag_flips_at_the_threshold(self) -> None:
+        """campaign is False below the threshold and True at it."""
+        sensor = DeceptionSensor(clock=FakeClock(), campaign_sources=3)
+        first = sensor.record("203.0.113.1", ADMIN, "GET")
+        second = sensor.record("203.0.113.2", ADMIN, "GET")
+        third = sensor.record("203.0.113.3", ADMIN, "GET")
+        assert (first.campaign, second.campaign, third.campaign) == (False, False, True)
+        assert third.sources_in_window == 3
+
+    def test_sources_age_out_of_the_window(self) -> None:
+        """Quiet sources stop counting toward the campaign signal."""
+        clock = FakeClock()
+        sensor = DeceptionSensor(
+            policy=TarpitPolicy(window_s=60.0), clock=clock, campaign_sources=3
+        )
+        sensor.record("203.0.113.1", ADMIN, "GET")
+        sensor.record("203.0.113.2", ADMIN, "GET")
+        clock.now += 61.0
+        event = sensor.record("203.0.113.3", ADMIN, "GET")
+        assert event.sources_in_window == 1
+        assert event.campaign is False
+
+    def test_threshold_validated(self) -> None:
+        """A zero threshold is refused."""
+        with pytest.raises(ValueError, match="campaign_sources"):
+            DeceptionSensor(campaign_sources=0)
+
+
+class TestAuditCap:
+    """The tamper-evident chain cannot be flooded through the decoys."""
+
+    def test_audits_past_the_cap_are_counted_not_written(self) -> None:
+        """Only the cap's worth of audits reach the sink inside one window."""
+        events: list[TripwireEvent] = []
+        sensor = DeceptionSensor(
+            clock=FakeClock(), max_audits_per_window=2, audit_sink=events.append
+        )
+        for i in range(1, 6):
+            sensor.record(f"192.0.2.{i}", ADMIN, "GET")
+        assert len(events) == 2
+
+    def test_first_audit_of_the_next_window_reports_the_suppressed(self) -> None:
+        """The chain accounts for every suppressed record, as one number."""
+        clock = FakeClock()
+        events: list[TripwireEvent] = []
+        sensor = DeceptionSensor(
+            policy=TarpitPolicy(window_s=60.0),
+            clock=clock,
+            max_audits_per_window=2,
+            audit_sink=events.append,
+        )
+        for i in range(1, 6):
+            sensor.record(f"192.0.2.{i}", ADMIN, "GET")
+        clock.now += 61.0
+        sensor.record("192.0.2.200", ADMIN, "GET")
+        assert len(events) == 3
+        assert events[-1].audits_suppressed == 3
+        assert events[-1].audit_details()["audits_suppressed"] == 3
+        # And the counter does not double-report.
+        sensor.record("192.0.2.201", ADMIN, "GET")
+        assert events[-1].audits_suppressed == 0
+
+    def test_cap_validated(self) -> None:
+        """A zero cap is refused: the chain must always get the first record."""
+        with pytest.raises(ValueError, match="max_audits_per_window"):
+            DeceptionSensor(max_audits_per_window=0)
+
+
+class TestSqliteTripwireStore:
+    """One picture across workers, on the platform's shared SQLite file."""
+
+    @staticmethod
+    def _store(tmp_path: Path, now: float = 5000.0) -> SqliteTripwireStore:
+        clock = FakeClock(now)
+        store = SqliteTripwireStore(tmp_path / "state.db", clock=clock)
+        store.test_clock = clock  # type: ignore[attr-defined]
+        return store
+
+    def test_hits_accumulate_across_sensors(self, tmp_path: Path) -> None:
+        """Two workers' touches land in one count, so escalation sees both."""
+        store = self._store(tmp_path)
+        w1 = DeceptionSensor(clock=FakeClock(), store=store)
+        w2 = DeceptionSensor(clock=FakeClock(), store=store)
+        assert w1.record("198.51.100.7", ADMIN, "GET").hits_in_window == 1
+        event = w2.record("198.51.100.7", ADMIN, "GET")
+        assert event.hits_in_window == 2
+        assert event.delay_s == 0.5
+
+    def test_audit_dedupe_spans_workers(self, tmp_path: Path) -> None:
+        """The same (source, decoy) is audited once per window, cluster-wide."""
+        store = self._store(tmp_path)
+        audits1: list[TripwireEvent] = []
+        audits2: list[TripwireEvent] = []
+        w1 = DeceptionSensor(clock=FakeClock(), store=store, audit_sink=audits1.append)
+        w2 = DeceptionSensor(clock=FakeClock(), store=store, audit_sink=audits2.append)
+        w1.record("198.51.100.7", ADMIN, "GET")
+        w2.record("198.51.100.7", ADMIN, "GET")
+        assert len(audits1) == 1
+        assert len(audits2) == 0
+
+    def test_campaign_counts_sources_across_workers(self, tmp_path: Path) -> None:
+        """Distinct sources are counted cluster-wide."""
+        store = self._store(tmp_path)
+        w1 = DeceptionSensor(clock=FakeClock(), store=store)
+        w2 = DeceptionSensor(clock=FakeClock(), store=store)
+        for i in range(1, 5):
+            w1.record(f"198.51.100.{i}", ADMIN, "GET")
+        for i in range(5, 9):
+            w2.record(f"198.51.100.{i}", ADMIN, "GET")
+        event = w1.record("198.51.100.250", ADMIN, "GET")
+        assert event.sources_in_window == 9
+        assert event.campaign is True
+
+    def test_window_expiry_in_the_store(self, tmp_path: Path) -> None:
+        """Stored hits age out of the window."""
+        store = self._store(tmp_path)
+        clock = store.test_clock  # type: ignore[attr-defined]
+        sensor = DeceptionSensor(policy=TarpitPolicy(window_s=60.0), clock=FakeClock(), store=store)
+        for _ in range(3):
+            sensor.record("198.51.100.7", ADMIN, "GET")
+        clock.now += 61.0
+        event = sensor.record("198.51.100.7", ADMIN, "GET")
+        assert event.hits_in_window == 1
+        assert event.aggregate_hits == 1
+
+    def test_store_failure_falls_back_to_process_state(self, tmp_path: Path) -> None:
+        """A dead store never blocks the answer: local counts serve the request."""
+        store = self._store(tmp_path)
+        sensor = DeceptionSensor(clock=FakeClock(), store=store)
+        sensor.record("198.51.100.7", ADMIN, "GET")
+        store.close()
+        event = sensor.record("198.51.100.7", ADMIN, "GET")
+        assert event.hits_in_window == 2  # the in-process view kept counting
+
+    def test_per_key_hit_history_is_capped(self, tmp_path: Path) -> None:
+        """The stored history per key never exceeds max_hits."""
+        store = self._store(tmp_path)
+        for _ in range(10):
+            rec = store.record_touch(
+                "198.51.100.7", "198.51.100.0/24", ADMIN, window_s=3600.0, max_hits=3
+            )
+        assert rec.hits == 3
+        assert rec.aggregate_hits == 3
+
+    def test_record_touch_validates_inputs(self, tmp_path: Path) -> None:
+        """Out-of-range window or cap is refused, not stored."""
+        store = self._store(tmp_path)
+        with pytest.raises(ValueError, match="window_s"):
+            store.record_touch("k", "a", ADMIN, window_s=0.0, max_hits=3)
+        with pytest.raises(ValueError, match="max_hits"):
+            store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=0)
+
+
+class TestBuildTripwireStore:
+    """The builder follows the platform's shared-state convention."""
+
+    def test_unset_means_in_process(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """No MERCURY_KEYSTORE_PATH: per-process state, exactly as before."""
+        monkeypatch.delenv(TRIPWIRE_STORE_PATH_ENV, raising=False)
+        assert build_tripwire_store() is None
+
+    def test_blank_means_in_process(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A blank value is unset, not a store at path ''."""
+        monkeypatch.setenv(TRIPWIRE_STORE_PATH_ENV, "   ")
+        assert build_tripwire_store() is None
+
+    def test_set_builds_the_store(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        """A path builds the shared store on that file."""
+        monkeypatch.setenv(TRIPWIRE_STORE_PATH_ENV, str(tmp_path / "state.db"))
+        store = build_tripwire_store()
+        assert store is not None
+        store.close()
+
+
+class TestPolicyAndSensorBoundaries:
+    """Each validator admits its boundary value; each default is pinned."""
+
+    def test_zero_aggregate_free_hits_is_valid(self) -> None:
+        """0 is a legal allowance: every aggregate hit is delayed."""
+        policy = TarpitPolicy(aggregate_free_hits=0)
+        assert policy.aggregate_delay_for(1) == 0.5
+
+    def test_campaign_threshold_of_one_is_valid(self) -> None:
+        """campaign_sources=1 flags the very first source."""
+        sensor = DeceptionSensor(clock=FakeClock(), campaign_sources=1)
+        assert sensor.record("203.0.113.9", ADMIN, "GET").campaign is True
+
+    def test_audit_cap_of_one_is_valid(self) -> None:
+        """max_audits_per_window=1 admits exactly one audit."""
+        events: list[TripwireEvent] = []
+        sensor = DeceptionSensor(
+            clock=FakeClock(), max_audits_per_window=1, audit_sink=events.append
+        )
+        sensor.record("203.0.113.1", ADMIN, "GET")
+        sensor.record("203.0.113.2", ADMIN, "GET")
+        assert len(events) == 1
+
+    def test_default_campaign_threshold_is_eight(self) -> None:
+        """The 7th distinct source is below the default threshold; the 8th is at it."""
+        sensor = DeceptionSensor(clock=FakeClock())
+        events = [sensor.record(f"203.0.113.{i}", ADMIN, "GET") for i in range(1, 9)]
+        assert events[6].campaign is False
+        assert events[7].campaign is True
+
+    def test_default_audit_cap_is_512(self) -> None:
+        """The 512th first-touch audit is written; the 513th is suppressed."""
+        events: list[TripwireEvent] = []
+        sensor = DeceptionSensor(clock=FakeClock(), audit_sink=events.append)
+        for i in range(513):
+            sensor.record(f"10.{i // 250}.{i % 250}.1", ADMIN, "GET")
+        assert len(events) == 512
+
+    def test_minimal_event_defaults(self) -> None:
+        """A directly constructed event carries the documented neutral defaults."""
+        event = TripwireEvent(
+            source_key="k",
+            client_ip="203.0.113.9",
+            path=ADMIN,
+            lure="l",
+            method="GET",
+            hits_in_window=1,
+            distinct_decoys=1,
+            first_touch=True,
+            delay_s=0.0,
+        )
+        assert event.credential_presented is False
+        assert event.aggregate_key == "unknown"
+        assert event.aggregate_hits == 0
+        assert event.sources_in_window == 0
+        assert event.campaign is False
+        assert event.audits_suppressed == 0
+
+
+class TestAggregateBookkeeping:
+    """The aggregate structures share the source structures' exact bounds."""
+
+    def test_aggregates_are_lru_capped(self) -> None:
+        """Past max_sources, the least recently seen aggregate is evicted."""
+        sensor = DeceptionSensor(max_sources=2, clock=FakeClock())
+        sensor.record("203.0.113.9", ADMIN, "GET")  # /24 A
+        sensor.record("198.51.100.9", ADMIN, "GET")  # /24 B
+        # A third aggregate evicts A, the least recently seen -- B survives.
+        sensor.record("192.0.2.9", ADMIN, "GET")  # /24 C
+        assert sensor.record("198.51.100.10", ADMIN, "GET").aggregate_hits == 2
+        # A was evicted: its count restarted.
+        assert sensor.record("203.0.113.10", ADMIN, "GET").aggregate_hits == 1
+
+    def test_aggregate_hit_at_exactly_the_window_edge_still_counts(self) -> None:
+        """Ages are pruned strictly past the window, like source hits."""
+        clock = FakeClock()
+        sensor = DeceptionSensor(policy=TarpitPolicy(window_s=60.0), clock=clock)
+        sensor.record("203.0.113.9", ADMIN, "GET")
+        clock.now += 60.0
+        assert sensor.record("203.0.113.10", ADMIN, "GET").aggregate_hits == 2
+
+    def test_active_source_at_exactly_the_window_edge_still_counts(self) -> None:
+        """The campaign count prunes strictly past the window."""
+        clock = FakeClock()
+        sensor = DeceptionSensor(policy=TarpitPolicy(window_s=60.0), clock=clock)
+        sensor.record("203.0.113.9", ADMIN, "GET")
+        clock.now += 60.0
+        assert sensor.record("198.51.100.9", ADMIN, "GET").sources_in_window == 2
+
+    def test_active_sources_are_capped_at_max_sources(self) -> None:
+        """The campaign count never exceeds max_sources, and only by one eviction."""
+        sensor = DeceptionSensor(max_sources=2, clock=FakeClock())
+        for i in range(1, 4):
+            event = sensor.record(f"203.0.113.{i}", ADMIN, "GET")
+        assert event.sources_in_window == 2
+
+    def test_active_source_eviction_drops_the_oldest(self) -> None:
+        """Evicting the newest instead would overcount expiries later."""
+        clock = FakeClock()
+        sensor = DeceptionSensor(policy=TarpitPolicy(window_s=10.0), max_sources=2, clock=clock)
+        sensor.record("203.0.113.1", ADMIN, "GET")  # A @ 1000.0
+        clock.now += 1.0
+        sensor.record("203.0.113.2", ADMIN, "GET")  # B @ 1001.0
+        clock.now += 1.0
+        sensor.record("203.0.113.3", ADMIN, "GET")  # C @ 1002.0 -> evict A
+        clock.now += 9.5  # 1011.5: B (10.5) expired, C (9.5) alive
+        event = sensor.record("203.0.113.4", ADMIN, "GET")
+        # Correct LRU kept {B, C}; B expires -> C + the new source = 2.
+        # Evict-newest would have kept {A, B}; both expire -> 1.
+        assert event.sources_in_window == 2
+
+
+class TestAuditCapBoundaries:
+    """The cap's window, logging and suppressed accounting, at their edges."""
+
+    def test_window_rolls_strictly_past_the_window(self) -> None:
+        """An audit exactly window seconds after the first is still capped."""
+        clock = FakeClock()
+        events: list[TripwireEvent] = []
+        sensor = DeceptionSensor(
+            policy=TarpitPolicy(window_s=60.0),
+            clock=clock,
+            max_audits_per_window=1,
+            audit_sink=events.append,
+        )
+        sensor.record("203.0.113.1", ADMIN, "GET")
+        clock.now += 60.0
+        sensor.record("203.0.113.2", ADMIN, "GET")
+        assert len(events) == 1  # the boundary audit is still inside the window
+
+    def test_cap_warning_logs_exactly_once(self, caplog: pytest.LogCaptureFixture) -> None:
+        """One warning when the cap is first reached, not one per suppression."""
+        sensor = DeceptionSensor(clock=FakeClock(), max_audits_per_window=1)
+        with caplog.at_level(logging.WARNING, logger="omni_mercury_engine.security.deception"):
+            sensor.record("203.0.113.1", ADMIN, "GET")
+            sensor.record("203.0.113.2", ADMIN, "GET")
+        assert sum("audit cap" in r.message for r in caplog.records) == 1
+
+    def test_suppressed_event_reports_zero_suppressed(self) -> None:
+        """The suppressed event itself never claims a carried count."""
+        sensor = DeceptionSensor(clock=FakeClock(), max_audits_per_window=1)
+        sensor.record("203.0.113.1", ADMIN, "GET")
+        event = sensor.record("203.0.113.2", ADMIN, "GET")
+        assert event.audits_suppressed == 0
+
+
+class TestCampaignLogging:
+    """The campaign warning fires once per window, boundary included."""
+
+    def test_logs_once_inside_a_window(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Two campaign events in one window: one warning."""
+        clock = FakeClock()
+        sensor = DeceptionSensor(
+            policy=TarpitPolicy(window_s=60.0), clock=clock, campaign_sources=1
+        )
+        with caplog.at_level(logging.WARNING, logger="omni_mercury_engine.security.deception"):
+            sensor.record("203.0.113.1", ADMIN, "GET")
+            clock.now += 60.0  # exactly the window edge: still the same window
+            sensor.record("203.0.113.2", ADMIN, "GET")
+            clock.now += 0.5  # now strictly past it: a new window
+            sensor.record("203.0.113.3", ADMIN, "GET")
+        assert sum("campaign signal" in r.message for r in caplog.records) == 2
+
+
+class TestStoreBoundaries:
+    """The store's validators, schema invariants and audit boundary, at their edges."""
+
+    def test_touch_record_is_frozen(self, tmp_path: Path) -> None:
+        """Counts handed to the sensor are evidence; evidence is immutable."""
+        import dataclasses
+
+        store = TestSqliteTripwireStore._store(tmp_path)
+        rec = store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=3)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            rec.hits = 99  # type: ignore[misc]
+
+    def test_sub_second_window_is_valid(self, tmp_path: Path) -> None:
+        """Any positive window is legal, not just >= 1 second."""
+        store = TestSqliteTripwireStore._store(tmp_path)
+        assert store.record_touch("k", "a", ADMIN, window_s=0.5, max_hits=3).hits == 1
+
+    def test_max_hits_of_one_is_valid(self, tmp_path: Path) -> None:
+        """A history of one is legal: every count reads 1."""
+        store = TestSqliteTripwireStore._store(tmp_path)
+        store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=1)
+        assert store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=1).hits == 1
+
+    def test_audit_due_boundary_matches_the_sensor(self, tmp_path: Path) -> None:
+        """A re-touch exactly window seconds after the audit is not yet due."""
+        store = TestSqliteTripwireStore._store(tmp_path)
+        clock = store.test_clock  # type: ignore[attr-defined]
+        store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=9)
+        clock.now += 60.0
+        assert store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=9).audit_due is False
+        clock.now += 0.5
+        assert store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=9).audit_due is True
+
+    def test_nested_state_directory_is_created(self, tmp_path: Path) -> None:
+        """A state path under directories that do not exist yet still opens."""
+        store = SqliteTripwireStore(tmp_path / "a" / "b" / "state.db", clock=FakeClock())
+        assert store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=3).hits == 1
+        store.close()
+
+    def test_usable_from_a_second_thread(self, tmp_path: Path) -> None:
+        """Workers serve requests on worker threads; the store must follow."""
+        import threading
+
+        store = TestSqliteTripwireStore._store(tmp_path)
+        results: list[int] = []
+        thread = threading.Thread(
+            target=lambda: results.append(
+                store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=3).hits
+            )
+        )
+        thread.start()
+        thread.join()
+        assert results == [1]
+
+
+class TestStorePruneCadence:
+    """The opportunistic full prune runs exactly every 256 touches."""
+
+    @staticmethod
+    def _stale_rows(db: Path, key: str) -> int:
+        import sqlite3
+
+        with sqlite3.connect(db) as conn:
+            return int(
+                conn.execute(
+                    "SELECT COUNT(*) FROM deception_hits WHERE scope_key = ?", (key,)
+                ).fetchone()[0]
+            )
+
+    def test_stale_rows_of_other_keys_clear_on_the_256th_touch(self, tmp_path: Path) -> None:
+        """255 touches leave a stale stranger; the 256th sweeps it; the cycle repeats."""
+        db = tmp_path / "state.db"
+        clock = FakeClock()
+        store = SqliteTripwireStore(db, clock=clock)
+        store.record_touch("stale", "stale-agg", ADMIN, window_s=60.0, max_hits=500)
+        clock.now += 61.0  # the stranger's rows age out of the window
+        for _ in range(254):  # touches 2..255 since the store opened
+            store.record_touch("active", "active-agg", ADMIN, window_s=60.0, max_hits=500)
+        assert self._stale_rows(db, "stale") == 1
+        store.record_touch("active", "active-agg", ADMIN, window_s=60.0, max_hits=500)
+        assert self._stale_rows(db, "stale") == 0
+        # Second cycle: the counter reset to zero, not one.
+        store.record_touch("stale2", "stale-agg2", ADMIN, window_s=60.0, max_hits=500)
+        clock.now += 61.0
+        for _ in range(254):
+            store.record_touch("active", "active-agg", ADMIN, window_s=60.0, max_hits=500)
+        assert self._stale_rows(db, "stale2") == 1
+        store.record_touch("active", "active-agg", ADMIN, window_s=60.0, max_hits=500)
+        assert self._stale_rows(db, "stale2") == 0
+        store.close()

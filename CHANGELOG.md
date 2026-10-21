@@ -27,6 +27,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
+
+The two gaps the red-team round left open, closed.
+
+**Added — rotating addresses stops paying.** Tripwire hits are now also
+counted per aggregate — the ``/48`` for IPv6, the ``/24`` for IPv4 — with its
+own, larger free allowance (`TarpitPolicy.aggregate_free_hits`, default 8),
+and the response is held for the larger of the per-source and per-aggregate
+schedules. A lone prober sees exactly the old schedule (proven by test); a
+pool of rotating addresses inside one allocation spends one shared allowance
+and then escalates together. Rotation *across* allocations is met by the
+campaign signal: every audited event now carries the window's distinct-source
+count and a ``campaign`` flag once it crosses the threshold
+(``campaign_sources``, default 8) — the one signal rotation raises instead of
+suppressing, because rotating addresses is what drives it up.
+
+**Added — the audit chain cannot be flooded through the decoys.** Tripwire
+audits are capped per window (``max_audits_per_window``, default 512); past
+the cap they are counted, not written, and the first audit of the next window
+carries ``audits_suppressed`` so the tamper-evident chain accounts for every
+suppressed record. An attacker spending addresses to spam the chain buys one
+summary number.
+
+**Added — cross-worker tripwire state** (`security/deception_store.py`).
+With ``MERCURY_KEYSTORE_PATH`` set — the same SQLite file the rate limiter,
+key store and identity store already share — hit counts, audit dedupe and the
+campaign signal are cluster-wide: N workers no longer give a prober N free
+allowances or N duplicate first-touch audit records (both pinned by tests
+driving two sensors over one store). Every ``record_touch`` is one ``BEGIN
+IMMEDIATE`` transaction, rows are pruned and per-key capped like the
+in-process deques, and a store failure falls back to the in-process view for
+that request — logged, never blocking the answer. Unset, behaviour is
+byte-identical to before.
+
+The trust-surface mutation lane now enumerates ``deception_store.py`` too.
+
 ### The scalar detection verdict is now the batch verdict (branch `steel/version-cov5`)
 
 **Fixed — `anomaly_prob` / `is_anomaly` described row 0 only.** On a
