@@ -118,13 +118,73 @@ class TestMarketCrashDetector:
         """Test detection during moderate volatility."""
         market_data = {
             "price_change_pct": -2.0,
-            "vix": 28.0,
+            "vix": 29.0,
             "volume_vs_average": 1.2,
         }
         result = detector.detect_market_crash(market_data)
 
         assert result["crash_detected"] is False
+        # 29.0 sits in the calibrated moderate band (p90 = 28.5 <= VIX < 32.9).
         assert result["severity"] == "moderate"
+
+    def test_vix_below_p90_is_low(self, detector: Any) -> None:
+        """Below the calibrated 90th percentile (28.5) severity is low."""
+        result = detector.detect_market_crash({"price_change_pct": -2.0, "vix": 28.0})
+        assert result["severity"] == "low"
+
+    def test_crash_line_is_the_circuit_breaker_level_1(self, detector: Any) -> None:
+        """The crash bar is the SEC market-wide circuit breaker (7%)."""
+        under = detector.detect_market_crash({"price_change_pct": -6.9, "vix": 40.0})
+        assert under["crash_detected"] is False
+        at = detector.detect_market_crash({"price_change_pct": -7.0, "vix": 40.0})
+        assert at["crash_detected"] is True
+
+    def test_crash_graded_without_a_vix_print(self, detector: Any) -> None:
+        """A 1987-style record with no VIX still grades as a crash.
+
+        The retired rule required a VIX print alongside the -5% line, so
+        Black Monday (-20.5%, VIX not yet published) could never fire.
+        """
+        result = detector.detect_market_crash({"price_change_pct": -20.5})
+        assert result["crash_detected"] is True
+        assert result["severity"] == "unknown"
+        assert "vix" in result["missing_inputs"]
+
+    @pytest.mark.parametrize(
+        ("date", "price_change_pct", "vix", "is_crash", "severity"),
+        [
+            # Dated crisis days: NASDAQ Composite close-to-close change
+            # (FRED NASDAQCOM) with the VIX close (FRED VIXCLS).
+            ("1987-10-19", -11.35, None, True, "unknown"),
+            ("2008-09-29", -9.14, 46.72, True, "extreme"),
+            ("2008-10-15", -8.47, 69.25, True, "extreme"),
+            ("2020-03-12", -9.43, 75.47, True, "extreme"),
+            ("2020-03-16", -12.32, 82.69, True, "extreme"),
+            # Dated stress-but-not-crash days (S&P 500 changes: -6.66% on
+            # 2011-08-08 per the public record; -4.10% per FRED SP500).
+            ("2011-08-08", -6.66, 48.00, False, "extreme"),
+            ("2018-02-05", -4.10, 37.32, False, "high"),
+            # Dated calm days (FRED SP500 changes).
+            ("2017-06-15", -0.22, 10.90, False, "low"),
+            ("2024-05-15", 1.17, 12.45, False, "low"),
+        ],
+    )
+    def test_dated_historical_record(
+        self,
+        detector: Any,
+        date: str,
+        price_change_pct: float,
+        vix: float | None,
+        is_crash: bool,
+        severity: str,
+    ) -> None:
+        """Calibration regression on the dated historical crisis table."""
+        record: dict[str, Any] = {"price_change_pct": price_change_pct}
+        if vix is not None:
+            record["vix"] = vix
+        result = detector.detect_market_crash(record)
+        assert result["crash_detected"] is is_crash, date
+        assert result["severity"] == severity, date
 
     def test_missing_inputs_are_named_not_defaulted(self, detector: Any) -> None:
         """Absent metrics are reported as None and named, never fabricated.
@@ -449,12 +509,29 @@ class TestFinancialCrisisDetector:
 
     def test_partial_data_handling(self, detector: Any) -> None:
         """Test handling of partial financial data."""
-        partial_data = {"market_data": {"price_change_pct": -6.0, "vix": 40.0}}
+        # 2020-03-09 (dated): S&P 500 -7.60%, past the circuit-breaker line.
+        partial_data = {"market_data": {"price_change_pct": -7.6, "vix": 54.46}}
         result = detector.predict_financial_crisis(partial_data)
 
         assert result.market_crash_detected is True
         # Should not crash with missing data
         assert result.banking_stress is False
+
+    def test_panic_selling_reaches_the_verdict(self, detector: Any) -> None:
+        """volume_vs_average must change the outcome, not be discarded.
+
+        A heavy-volume -3.5% day short of the circuit breaker is half a
+        crisis indicator; the same day on normal volume contributes nothing.
+        """
+        heavy = detector.predict_financial_crisis(
+            {"market_data": {"price_change_pct": -3.5, "vix": 30.0, "volume_vs_average": 3.0}}
+        )
+        calm = detector.predict_financial_crisis(
+            {"market_data": {"price_change_pct": -3.5, "vix": 30.0, "volume_vs_average": 1.0}}
+        )
+        assert heavy.panic_selling is True
+        assert calm.panic_selling is False
+        assert heavy.confidence > calm.confidence
 
 
 class TestHonestyContract:

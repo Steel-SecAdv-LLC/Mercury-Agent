@@ -39,6 +39,7 @@ from torch import nn
 
 from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.detectors._hazard_input import InvalidObservationError, finite_scalar
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
@@ -113,6 +114,7 @@ class FinancialCrisisPredictionResult:
     contagion_probability: float = 0.0
 
     market_crash_detected: bool = False
+    panic_selling: bool = False
     banking_stress: bool = False
     currency_instability: bool = False
     liquidity_shortage: bool = False
@@ -128,8 +130,67 @@ class FinancialCrisisPredictionResult:
     affected_sectors: list[str] = field(default_factory=list)
 
 
+#: SEC-approved market-wide circuit breaker Level 1: a 7% decline of the
+#: S&P 500 from the prior close halts all US equity trading (SEC Release
+#: 34-67090, June 2012; NYSE Rule 7.12).  Level 2 is 13%, Level 3 is 20%.
+#: On the 54-year NASDAQ Composite daily record (FRED NASDAQCOM,
+#: 1971-02-05..2026-10-21, n=14,045 trading days) a close-to-close decline
+#: of 7% or more occurred on 16 days (rate 0.11%), all inside recognised
+#: crises: 1987-10 (Black Monday), 1997-10 (Asian crisis), 1998-08 (LTCM),
+#: 2000-04/2000-12/2001-01 (dot-com), 2008-09..12 (GFC), 2020-03 (COVID).
+MARKET_CRASH_DECLINE_PCT: float = -7.0
+
+#: VIX severity ladder calibrated on the full CBOE VIX daily history (FRED
+#: VIXCLS, 1990-01-02..2026-10-21, n=9,300): moderate >= 28.5 (90th
+#: percentile), high >= 32.9 (95th), extreme >= 46.7 (99th).  By
+#: construction the base exceedance rates are 10%, 5% and 1% of trading
+#: days; the extreme band covers only 1997-98, 2001-02, 2008-09, 2011,
+#: 2015, 2018, 2020 stress episodes.
+VIX_SEVERITY_LADDER: tuple[tuple[str, float], ...] = (
+    ("extreme", 46.7),
+    ("high", 32.9),
+    ("moderate", 28.5),
+)
+
+
 class MarketCrashDetector:
-    """Stock market crash detection via volatility and momentum."""
+    """Stock market crash detection via price decline and volatility."""
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "A market crash is a one-day decline of 7% or more, the "
+                "SEC-approved market-wide circuit breaker Level 1 halt line."
+            ),
+            citation=(
+                "SEC Release No. 34-67090 (June 2012) approving the "
+                "market-wide circuit breaker recalibration; NYSE Rule 7.12 "
+                "(Level 1 = 7%, Level 2 = 13%, Level 3 = 20% S&P 500 decline)"
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "VIX severity ladder at the 90th/95th/99th percentiles "
+                "(28.5/32.9/46.7) of the full VIX daily history."
+            ),
+            false_alarm_rate=0.10,
+            calibration_data=(
+                "FRED VIXCLS daily closes 1990-01-02..2026-10-21 (n=9,300); "
+                "band base rates 10%/5%/1% by construction"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "panic_selling pairs a day of -3% or worse (1.9% of NASDAQ "
+                "Composite trading days, FRED NASDAQCOM 1971-2026) with "
+                "volume above twice average; no public long-horizon volume "
+                "baseline was available to calibrate the volume leg."
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""
@@ -155,29 +216,23 @@ class MarketCrashDetector:
             market_data, "volume_vs_average", unit="ratio", lo=0.0, missing=missing
         )
 
-        crash_threshold_pct = -5.0
-        vix_threshold = 30.0
-
         # Each judgment uses only supplied measurements; an absent one is
         # named in missing_inputs, never replaced by a quiet default (a
         # fabricated VIX of 20 used to be reported as the measured level).
+        # The crash line is the SEC market-wide circuit breaker Level 1
+        # (-7%); the retired rule (-5% AND VIX > 30, neither sourced) also
+        # required a VIX print, so 1987-style records with no VIX could
+        # never grade as a crash.
         crash_detected = (
-            price_change_pct is not None
-            and volatility_index is not None
-            and price_change_pct < crash_threshold_pct
-            and volatility_index > vix_threshold
+            price_change_pct is not None and price_change_pct <= MARKET_CRASH_DECLINE_PCT
         )
 
-        if volatility_index is None:
-            severity = "unknown"
-        elif volatility_index > 50:
-            severity = "extreme"
-        elif volatility_index > 35:
-            severity = "high"
-        elif volatility_index > 25:
-            severity = "moderate"
-        else:
-            severity = "low"
+        severity = "unknown" if volatility_index is None else "low"
+        if volatility_index is not None:
+            for band, floor in VIX_SEVERITY_LADDER:
+                if volatility_index >= floor:
+                    severity = band
+                    break
 
         panic_selling = (
             volume_surge is not None
@@ -196,8 +251,65 @@ class MarketCrashDetector:
         }
 
 
+#: Basel III Liquidity Coverage Ratio: banks must hold high-quality liquid
+#: assets covering at least 100% of 30-day stressed net outflows (BCBS 238,
+#: "Basel III: The Liquidity Coverage Ratio and liquidity risk monitoring
+#: tools", January 2013).  The phase-in floor at introduction was 60%
+#: (1 Jan 2015), rising 10 points a year to 100% in 2019; below that floor
+#: is graded a liquidity crisis.
+BASEL_LCR_MINIMUM: float = 1.0
+BASEL_LCR_PHASE_IN_FLOOR: float = 0.6
+
+
 class BankingStressDetector:
     """Banking sector stress detection via credit metrics."""
+
+    decision_source = (
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "Bank 5y senior CDS above 300 bps marks severe distress: calm "
+                "pre-2007 major-bank spreads ran 10-50 bps, while failure "
+                "points printed far above the line (Bear Stearns ~740 bps in "
+                "the weeks before its March 2008 collapse; Lehman 376 bps on "
+                "2008-08-20; Morgan Stanley 796 bps on 2008-09-17).  No "
+                "calm-period observation in the dated table exceeds it."
+            ),
+            false_alarm_rate=0.0,
+            calibration_data=(
+                "dated public CDS record, 2004-2011 (press/Markit figures as "
+                "tabulated in tests/detectors/test_financial_crisis_detector.py)"
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "Loan delinquency at or above 3% marks banking stress: on the "
+                "full quarterly history every exceedance falls inside the S&L "
+                "crisis era (1985Q1-1994Q1) or the GFC and its workout "
+                "(2008Q2-2013Q2); zero exceedances 1994Q2-2008Q1 and after "
+                "2013Q2."
+            ),
+            false_alarm_rate=0.0,
+            calibration_data=(
+                "FRED DRALACBS (delinquency rate on all loans, all US "
+                "commercial banks), 1985Q1..2026Q2, n=166 quarters"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Liquidity ratio below 1.0 is stress (Basel III LCR minimum "
+                "100%); below 0.6 (the Basel phase-in floor) is a liquidity "
+                "crisis."
+            ),
+            citation=(
+                "BCBS 238, 'Basel III: The Liquidity Coverage Ratio and "
+                "liquidity risk monitoring tools', January 2013 (minimum "
+                "100%; 60% phase-in floor at 1 Jan 2015)"
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""
@@ -224,7 +336,7 @@ class BankingStressDetector:
         )
         cds_threshold = 300.0
         default_threshold = 3.0
-        liquidity_threshold = 0.8
+        liquidity_threshold = BASEL_LCR_MINIMUM
 
         # Stress is judged from supplied measurements only; absent metrics
         # are named, never filled with healthy-looking defaults (CDS 100 bps
@@ -238,7 +350,9 @@ class BankingStressDetector:
             stress_score += 0.3
         banking_stress = stress_score > 0.0
 
-        liquidity_crisis = liquidity_ratio is not None and liquidity_ratio < 0.5
+        liquidity_crisis = (
+            liquidity_ratio is not None and liquidity_ratio < BASEL_LCR_PHASE_IN_FLOOR
+        )
 
         return {
             "banking_stress": banking_stress,
@@ -457,6 +571,7 @@ class FinancialCrisisDetector:
         ):
             market_result = self.market_detector.detect_market_crash(financial_data["market_data"])
             result.market_crash_detected = market_result["crash_detected"]
+            result.panic_selling = market_result["panic_selling"]
             result.vix_level = market_result["vix"]
             result.market_volatility_index = market_result["vix"]
 
@@ -464,6 +579,13 @@ class FinancialCrisisDetector:
                 crisis_indicators += 1
                 result.confidence = max(result.confidence, 0.7)
                 result.crisis_type = CrisisType.MARKET_CRASH.value
+            # Panic selling short of the circuit-breaker line is a half
+            # indicator (mirroring fraud): the volume surge used to be
+            # computed and then discarded, so volume_vs_average changed
+            # nothing about the verdict.
+            if market_result["panic_selling"] and not market_result["crash_detected"]:
+                crisis_indicators += 0.5
+                result.confidence = max(result.confidence, 0.5)
 
         if (
             self.enable_banking
