@@ -22,7 +22,7 @@ detectors needing an external service or model backend; ``serves X`` marks
 an adapter entry and names the domain detector behind it.
 
 
-## engine + registry (51)
+## engine + registry (61)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -54,9 +54,19 @@ an adapter entry and names the domain detector behind it.
 | `survival` | `SurvivalHazardDetector` | base | series_1d | -- | Survival / time-to-event hazard detector (Kaplan-Meier baseline + Cox proportional-hazards deviation) for inter-event-time streams |
 | `temporal` | `TemporalAnomalyDetector` | base | series_1d | -- | Time-series patterns and seasonal anomalies |
 | `financial_stress` | `FinancialStressAdapter` | economic | rows | -- | FinancialCrisisDetector over measured market and banking metric rows |
+| `avalanche` | `AvalancheProfileAdapter` | geological | record | serves `AvalancheDetector` | Snowpack stability / SK38 skier-stability avalanche detector |
+| `eq_tsunami_cascade` | `EqTsunamiCascadeAdapter` | geological | event | serves `EqTsunamiCascadeDetector` | Earthquake -> tsunami cascade (PTWC-style screening on real events) |
+| `fire_debris_flow_cascade` | `FireDebrisFlowAdapter` | geological | record | serves `FireDebrisFlowCascadeDetector` | Wildfire -> post-fire debris-flow cascade (USGS Staley 2017 M1 + Cannon I-D) |
 | `flood_precipitation` | `FloodPrecipitationAdapter` | geological | rows | -- | FloodDetector over measured and forecast precipitation depth rows (inches) |
 | `hurricane_pressure` | `HurricanePressureAdapter` | geological | rows | -- | HurricaneDetector over (central_pressure_mb, environmental_pressure_mb, sst_celsius) |
+| `landslide` | `LandslideAdapter` | geological | rows | serves `LandslideDetector` | Landslide prediction |
+| `rockfall` | `RockfallAdapter` | geological | record | serves `RockfallDetector` | Rockfall detector with Fukuzono inverse-velocity failure forecasting |
+| `subsidence` | `SubsidenceAdapter` | geological | record | serves `SubsidenceDetector` | Subsidence/sinkhole detector over InSAR-style displacement series |
 | `tornado_conditions` | `TornadoConditionsAdapter` | geological | rows | -- | TornadoDetector over (cape_j_kg, cin_j_kg, srh_m2_s2, bulk_shear_kt, lcl_m) rows |
+| `volcanic` | `VolcanicAdapter` | geological | record | serves `VolcanicEruptionDetector` | Volcanic eruption prediction |
+| `wildfire` | `WildfireSceneAdapter` | geological | record | serves `WildfireDetector` | Wildfire prediction |
+| `marine_biodiversity` | `MarineEcosystemAdapter` | marine | rows | serves `MarineBiodiversityDetector` | Marine biodiversity threat detection |
+| `surge_flood_cascade` | `SurgeFloodCascadeAdapter` | meteorological | event | serves `SurgeFloodCascade` | Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual) |
 | `acceleration_dynamics` | `AccelerationDynamicsDetector` | physics | series_1d | -- | Kinematic analysis with Lyapunov stability and phase space |
 | `physics_integrated` | `PhysicsIntegratedDetector` | physics | series_1d | fit | Unified physics detector with 3R and GOSNN integration |
 | `spectral_domain_frequency` | `SpectralDomainFrequency` | physics | series_1d | -- | Neuro-symbolic spectral-domain anomaly detection with per-band scoring |
@@ -129,23 +139,13 @@ an adapter entry and names the domain detector behind it.
 | `dimensional` | `DimensionalAnalyzer` | base | series_1d | -- | High-dimensional data anomalies |
 | `anyanomaly` | `AnyAnomalyDetector` | vlm | video_frames | fit, ext | Zero-shot customizable VAD with LVLM (WACV 2026) |
 
-## library-only (domain API) (14)
+## library-only (domain API) (4)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
 | `financial_crisis` | `FinancialCrisisDetector` | economic | record | covered by `financial_stress` | Financial crisis prediction |
 | `emp` | `EMPDetector` | energy | record | -- | Electromagnetic pulse detection |
 | `timegpt` | `TimeGPTAdapter` | foundation | series_1d | ext | Nixtla TimeGPT foundation model adapter |
-| `avalanche` | `AvalancheDetector` | geological | record | -- | Snowpack stability / SK38 skier-stability avalanche detector |
-| `eq_tsunami_cascade` | `EqTsunamiCascadeDetector` | geological | event | -- | Earthquake -> tsunami cascade (PTWC-style screening on real events) |
-| `fire_debris_flow_cascade` | `FireDebrisFlowCascadeDetector` | geological | record | -- | Wildfire -> post-fire debris-flow cascade (USGS Staley 2017 M1 + Cannon I-D) |
-| `landslide` | `LandslideDetector` | geological | record | -- | Landslide prediction |
-| `rockfall` | `RockfallDetector` | geological | record | -- | Rockfall detector with Fukuzono inverse-velocity failure forecasting |
-| `subsidence` | `SubsidenceDetector` | geological | record | -- | Subsidence/sinkhole detector over InSAR-style displacement series |
-| `volcanic` | `VolcanicEruptionDetector` | geological | record | -- | Volcanic eruption prediction |
-| `wildfire` | `WildfireDetector` | geological | record | -- | Wildfire prediction |
-| `marine_biodiversity` | `MarineBiodiversityDetector` | marine | record | -- | Marine biodiversity threat detection |
-| `surge_flood_cascade` | `SurgeFloodCascade` | meteorological | event | -- | Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual) |
 | `threat_detection` | `ThreatDetector` | security | text | -- | Security threat detection |
 
 ## Building blocks and wrappers (importable, deliberately not manifest entries)

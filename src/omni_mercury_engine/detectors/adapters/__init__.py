@@ -8,6 +8,18 @@ one-to-one onto that detector's own entry point; see
 :mod:`omni_mercury_engine.detectors.hazard_adapter` for the contracts.
 """
 
+from omni_mercury_engine.detectors.adapters.earth import (
+    AvalancheProfileAdapter,
+    EqTsunamiCascadeAdapter,
+    FireDebrisFlowAdapter,
+    LandslideAdapter,
+    MarineEcosystemAdapter,
+    RockfallAdapter,
+    SubsidenceAdapter,
+    SurgeFloodCascadeAdapter,
+    VolcanicAdapter,
+    WildfireSceneAdapter,
+)
 from omni_mercury_engine.detectors.adapters.space import (
     CMEArrivalAdapter,
     GICWindowAdapter,
@@ -18,10 +30,20 @@ from omni_mercury_engine.detectors.adapters.space import (
 )
 
 __all__ = [
+    "AvalancheProfileAdapter",
     "CMEArrivalAdapter",
+    "EqTsunamiCascadeAdapter",
+    "FireDebrisFlowAdapter",
     "GICWindowAdapter",
+    "LandslideAdapter",
+    "MarineEcosystemAdapter",
+    "RockfallAdapter",
     "SEPProtonWindowAdapter",
     "ScintillationAdapter",
     "SolarGICCascadeAdapter",
     "SolarStormSnapshotAdapter",
+    "SubsidenceAdapter",
+    "SurgeFloodCascadeAdapter",
+    "VolcanicAdapter",
+    "WildfireSceneAdapter",
 ]

@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,034
-- **Capability-bearing classes:** 2,021 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,044
+- **Capability-bearing classes:** 2,031 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,192 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Neural models & layers | 162 |
 | Data sources & loaders | 104 |
 | Engines & orchestration | 101 |
-| Adapters & backends | 81 |
+| Adapters & backends | 91 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 26 |
@@ -1046,15 +1046,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 437 classes (312 capability)
+### `detectors/` — 447 classes (322 capability)
 
 **Adapters & backends**
 
+- `AvalancheProfileAdapter` (`detectors.adapters.earth`) — Avalanche danger from a snow profile and 24 h of weather.
 - `BLIPCaptionBackend` (`detectors.vlm.lvlm_backends`) — BLIP image-captioning backend (Salesforce, BSD-3-Clause).
 - `BLIPVQABackend` (`detectors.vlm.lvlm_backends`) — BLIP visual-question-answering backend (Salesforce, BSD-3-Clause).
 - `CMEArrivalAdapter` (`detectors.adapters.space`) — Earth arrival of a coronal mass ejection from its cone kinematics.
 - `DynamicThresholdAdapter` (`detectors.statistical_extended`) — Dynamic threshold adaptation for streaming anomaly detection.
+- `EqTsunamiCascadeAdapter` (`detectors.adapters.earth`) — The earthquake-to-tsunami cascade replayed over one event sequence.
 - `FinancialStressAdapter` (`detectors.hazard_adapter`) — Financial crisis risk from measured market and banking metrics.
+- `FireDebrisFlowAdapter` (`detectors.adapters.earth`) — Post-wildfire debris-flow likelihood for a burned basin and a storm.
 - `FloodPrecipitationAdapter` (`detectors.hazard_adapter`) — Flood likelihood from measured and forecast precipitation depths.
 - `GICMinuteSeriesAdapter` (`detectors.hazard_adapter`) — GIC grid risk from a magnetometer minute series.
 - `GICWindowAdapter` (`detectors.adapters.space`) — Geomagnetically induced current risk from a magnetometer window.
@@ -1067,15 +1070,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `HurricanePressureAdapter` (`detectors.hazard_adapter`) — Cyclone intensity from central pressure and sea-surface temperature.
 - `LLaVABackend` (`detectors.vlm.lvlm_backends`) — LLaVA backend for vision-language tasks.
 - `LVLMBackend` (`detectors.vlm.lvlm_backends`) — Abstract base class for LVLM backends.
+- `LandslideAdapter` (`detectors.adapters.earth`) — Landslide likelihood from one site's monitoring row.
+- `MarineEcosystemAdapter` (`detectors.adapters.earth`) — Marine ecosystem threat from coral, chemistry and temperature indicators.
 - `MiniCPMVBackend` (`detectors.vlm.lvlm_backends`) — MiniCPM-V backend - efficient vision-language model.
 - `MockLVLMBackend` (`detectors.vlm.lvlm_backends`) — Mock LVLM backend — hard-fails at construction.
 - `Qwen2VLBackend` (`detectors.vlm.lvlm_backends`) — Qwen2-VL backend for vision-language tasks.
+- `RockfallAdapter` (`detectors.adapters.earth`) — Rockfall hazard from the monitoring channels of one cliff section.
 - `SEPProtonWindowAdapter` (`detectors.adapters.space`) — Solar energetic particle (radiation) storm from a proton-flux window.
 - `ScintillationAdapter` (`detectors.adapters.space`) — GNSS ionospheric scintillation measured from raw receiver samples.
 - `SolarGICCascadeAdapter` (`detectors.adapters.space`) — The solar-to-grid cascade evaluated at one time from its evidence.
 - `SolarStormSnapshotAdapter` (`detectors.adapters.space`) — Space-weather storm snapshot: solar wind/IMF, X-ray flux and protons.
 - `SolarWindGeomagAdapter` (`detectors.hazard_adapter`) — Geomagnetic storm level from solar-wind speed and IMF Bz.
+- `SubsidenceAdapter` (`detectors.adapters.earth`) — Ground subsidence and sinkhole precursors from an InSAR scene.
+- `SurgeFloodCascadeAdapter` (`detectors.adapters.earth`) — The hurricane-to-surge-to-compound-flood cascade from one evidence set.
 - `TornadoConditionsAdapter` (`detectors.hazard_adapter`) — Tornado potential from sounding-derived convective parameters.
+- `VolcanicAdapter` (`detectors.adapters.earth`) — Volcanic eruption forecast from a snapshot of monitoring streams.
+- `WildfireSceneAdapter` (`detectors.adapters.earth`) — Active fire (or next-day ignition) from a thermal scene.
 - `XrayFlareAdapter` (`detectors.hazard_adapter`) — Solar flare class from the GOES long-band X-ray flux.
 
 **Analysis & scoring**

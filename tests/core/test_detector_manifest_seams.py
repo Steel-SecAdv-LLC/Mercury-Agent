@@ -68,6 +68,8 @@ COLUMN_VALUES: dict[str, float] = {
     "longitude_deg": 0.0,
     "half_angle_deg": 30.0,
     "time_21_5_epoch_s": 1.7e9,
+    # marine ecosystem indicators
+    "ph": 8.0,
 }
 
 #: Modalities whose payloads are cheap to synthesize; these seams are
@@ -181,6 +183,72 @@ def _cascade_record() -> dict[str, Any]:
     }
 
 
+def _volcanic_record() -> dict[str, Any]:
+    return {
+        "gas_data": {"so2_tons_per_day": 900.0, "co2_tons_per_day": 1500.0},
+        "insar_data": {"vertical_displacement_cm": 8.0},
+    }
+
+
+def _wildfire_scene() -> dict[str, Any]:
+    scene = np.full((32, 32), 295.0)
+    scene[14:16, 14:16] = 380.0
+    return {"thermal_image": scene, "pixel_size_km": 0.375}
+
+
+def _avalanche_profile() -> dict[str, Any]:
+    return {
+        "layers": [
+            {"thickness_m": 0.4, "density_kg_m3": 200.0, "temperature_c": -6.0},
+            {
+                "thickness_m": 0.02,
+                "density_kg_m3": 250.0,
+                "temperature_c": -5.0,
+                "grain_type": "facets",
+            },
+            {"thickness_m": 0.8, "density_kg_m3": 320.0, "temperature_c": -2.0},
+        ],
+        "weak_layer_index": 1,
+        "new_snow_24h_cm": 30.0,
+    }
+
+
+def _subsidence_scene() -> dict[str, Any]:
+    t = np.linspace(2018.0, 2024.0, 40)
+    return {"displacements_mm": (-20.0 * (t - t[0]))[None, :], "epochs_years": t}
+
+
+def _eq_tsunami_event() -> dict[str, Any]:
+    return {"events": [{"magnitude": 8.0, "depth_km": 25.0}], "offshore": True}
+
+
+def _debris_flow_record() -> dict[str, Any]:
+    return {
+        "t_proportion": 0.6,
+        "dnbr_mean": 0.6,
+        "kf_factor": 0.3,
+        "rain_mm": [0.0, 1.0, 2.0, 8.0, 8.0, 8.0, 2.0, 1.0, 0.0],
+        "step_minutes": 5.0,
+    }
+
+
+def _surge_event() -> dict[str, Any]:
+    def coops(values: list[float], key: str) -> dict[str, Any]:
+        return {
+            key: [{"t": f"2026-07-08 {i:02d}:00", "v": f"{v:.3f}"} for i, v in enumerate(values)]
+        }
+
+    return {
+        "hurricane": {
+            "pressure_data": {"central_pressure_mb": 950.0, "environmental_pressure_mb": 1010.0},
+            "sst_data": {"sst_celsius": 29.0},
+        },
+        "coops_observed": coops([0.2, 0.6, 1.1, 0.9], "data"),
+        "coops_predicted": coops([0.1, 0.2, 0.3, 0.2], "predictions"),
+        "station_id": "8518750",
+    }
+
+
 #: Payload builders for entries whose modality carries an entry-specific
 #: schema (records, windows, events, text).  A driven entry with neither a
 #: builder here nor a generic modality payload fails the suite, so a seam
@@ -190,6 +258,14 @@ ENTRY_PAYLOADS: dict[str, Any] = {
     "gic": _gic_window,
     "ionospheric_scintillation": _scintillation_record,
     "solar_gic_cascade": _cascade_record,
+    "volcanic": _volcanic_record,
+    "wildfire": _wildfire_scene,
+    "avalanche": _avalanche_profile,
+    "rockfall": lambda: {"rain_mm": np.full(24, 6.0)},
+    "subsidence": _subsidence_scene,
+    "eq_tsunami_cascade": _eq_tsunami_event,
+    "fire_debris_flow_cascade": _debris_flow_record,
+    "surge_flood_cascade": _surge_event,
 }
 
 
@@ -271,12 +347,27 @@ class TestBridgesFailClosed:
         info = reg.get("hollow")
         assert info is not None and info.error_count == 1
 
-    def test_enable_detector_refuses_library_only_entry(self) -> None:
+    def test_enable_detector_refuses_library_only_entry(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.core import detector_registry
         from omni_mercury_engine.engine import OmniMercuryEngine
 
+        library_only = DetectorManifestEntry(
+            "library_only_probe",
+            "omni_mercury_engine.detectors.geological.volcanic",
+            "VolcanicEruptionDetector",
+            DetectorCategory.GEOLOGICAL,
+            "library-only entry",
+        )
+        monkeypatch.setattr(
+            detector_registry,
+            "DETECTOR_MANIFEST",
+            [*detector_registry.DETECTOR_MANIFEST, library_only],
+        )
         eng = OmniMercuryEngine(mode="fusion", auto_load_checkpoint=False)
         with pytest.raises(ValueError, match="does not serve the engine seam"):
-            eng.enable_detector("volcanic")
+            eng.enable_detector("library_only_probe")
 
     def test_enable_detector_names_the_covering_adapter(
         self, monkeypatch: pytest.MonkeyPatch

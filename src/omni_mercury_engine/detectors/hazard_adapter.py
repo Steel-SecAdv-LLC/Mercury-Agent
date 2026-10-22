@@ -324,6 +324,10 @@ class HazardRecordAdapter(HazardUnitAdapter):
 
     #: Keys every record must carry.
     REQUIRED_KEYS: ClassVar[frozenset[str]] = frozenset()
+    #: Keys a record may carry; ``None`` accepts any.  Declared where the
+    #: wrapped detector ignores unknown keys, so a misspelt measurement is
+    #: refused instead of silently going unassessed.
+    ALLOWED_KEYS: ClassVar[frozenset[str] | None] = None
 
     def _parse(self, record: Mapping[str, Any]) -> Any:
         """Validate one record; default: the record itself."""
@@ -348,6 +352,13 @@ class HazardRecordAdapter(HazardUnitAdapter):
             missing = sorted(self.REQUIRED_KEYS - set(record))
             if missing:
                 raise InvalidObservationError(f"{self._name}: record {i} is missing {missing}")
+            if self.ALLOWED_KEYS is not None:
+                unknown = sorted(set(record) - self.ALLOWED_KEYS)
+                if unknown:
+                    raise InvalidObservationError(
+                        f"{self._name}: record {i} has unknown keys {unknown}; "
+                        f"accepted: {sorted(self.ALLOWED_KEYS)}"
+                    )
             parsed.append(self._parse(record))
         return parsed
 
