@@ -175,3 +175,30 @@ class TestPersistentCascadeAdapters:
         # The persistent cascade still holds the M8.1 watch; a fresh one only
         # sees the M5 aftershock and grades below watch.
         assert float(follow_up["scores"][0]) > float(fresh["scores"][0])
+
+
+class TestStreamDriftMonitor:
+    """The ADWIN online drift monitor rides the stream session (D16 wiring)."""
+
+    def test_mean_shift_is_detected_and_counted(self, engine: Any) -> None:
+        session = engine.stream_session(
+            detector_types=["statistical"], min_samples=8, window_size=64
+        )
+        rng = np.random.default_rng(21)
+        events = 0
+        for _ in range(150):
+            verdict = session.observe(float(rng.normal(0.0, 0.5)))
+        for _ in range(150):
+            verdict = session.observe(float(rng.normal(8.0, 0.5)))
+            events = verdict["drift"]["events"]
+        assert events >= 1
+        assert set(verdict["drift"]) == {"detected", "events", "message"}
+
+    def test_monitor_can_be_disabled(self, engine: Any) -> None:
+        session = engine.stream_session(
+            detector_types=["statistical"], min_samples=4, window_size=16, monitor_drift=False
+        )
+        verdict = None
+        for value in (0.1, 0.2, 0.1, 0.3, 0.2):
+            verdict = session.observe(value)
+        assert verdict is not None and "drift" not in verdict

@@ -143,8 +143,20 @@ class KolmogorovSmirnovDriftDetector:
 
         Args:
             p_value_threshold: Significance level for drift detection
-            correction: Multiple testing correction method
+            correction: Multiple testing correction across features:
+                ``"bonferroni"`` (family-wise, the default),
+                ``"bh_fdr"`` (Benjamini-Hochberg 1995 false-discovery-rate
+                control -- drift when any feature's p-value survives the BH
+                step-up at this level, with the surviving features named) or
+                ``"none"``.
+
+        Raises:
+            ValueError: On an unknown correction name.
         """
+        if correction not in ("bonferroni", "bh_fdr", "none"):
+            raise ValueError(
+                f"unknown correction {correction!r}; expected bonferroni, bh_fdr or none"
+            )
         self.p_value_threshold = p_value_threshold
         self.correction = correction
         self.reference_data: np.ndarray[Any, Any] | None = None
@@ -205,21 +217,31 @@ class KolmogorovSmirnovDriftDetector:
             feature_drifts[feature_names[i]] = float(statistic)
 
         # Apply multiple testing correction
-        if self.correction == "bonferroni" and n_features > 1:
-            adjusted_threshold = self.p_value_threshold / n_features
-        else:
-            adjusted_threshold = self.p_value_threshold
-
-        # Determine if drift occurred
         min_p_value = min(p_values)
         max_statistic = max(statistics)
-        is_drift = min_p_value < adjusted_threshold
+        if self.correction == "bh_fdr":
+            # Benjamini-Hochberg step-up over the per-feature p-values: less
+            # conservative than Bonferroni when many features drift a little,
+            # with the false-discovery rate held at p_value_threshold.
+            from omni_mercury_engine.utils.multiple_testing import benjamini_hochberg
+
+            reject = benjamini_hochberg([float(p) for p in p_values], self.p_value_threshold)
+            is_drift = any(reject)
+            n_drifting = int(sum(reject))
+            # The effective per-feature bar BH applied: the largest surviving
+            # p-value (reported for diagnostics; the nominal level otherwise).
+            surviving = [p for p, r in zip(p_values, reject) if r]
+            adjusted_threshold = float(max(surviving)) if surviving else self.p_value_threshold
+        else:
+            if self.correction == "bonferroni" and n_features > 1:
+                adjusted_threshold = self.p_value_threshold / n_features
+            else:
+                adjusted_threshold = self.p_value_threshold
+            is_drift = min_p_value < adjusted_threshold
+            n_drifting = sum(1 for p in p_values if p < adjusted_threshold)
 
         # Determine severity
         severity = self._compute_severity(min_p_value, adjusted_threshold)
-
-        # Count drifting features
-        n_drifting = sum(1 for p in p_values if p < adjusted_threshold)
 
         return DriftResult(
             is_drift=is_drift,
@@ -1030,6 +1052,7 @@ class EnsembleDriftDetector:
         voting: str = "majority",
         covariance: bool = True,
         principal_axes: bool = True,
+        categorical_features: list[int] | None = None,
     ):
         """Initialize ensemble drift detector.
 
@@ -1039,8 +1062,17 @@ class EnsembleDriftDetector:
             voting: Voting strategy ('majority', 'any', 'all')
             covariance: Also run the covariance-structure drift test
             principal_axes: Also run the principal-axis mean-shift test
+            categorical_features: Column indices carrying categorical codes.
+                When given, those columns are tested with the chi-squared
+                drift detector (previously built but reachable from nowhere)
+                as a third voter, and excluded from the joint
+                covariance/principal-axis tests, which assume numeric data.
         """
         self.voting = voting
+        self.categorical_features = sorted(set(categorical_features or []))
+        self.chi2_detector: ChiSquaredDriftDetector | None = (
+            ChiSquaredDriftDetector(p_value_threshold) if self.categorical_features else None
+        )
         self.ks_detector = KolmogorovSmirnovDriftDetector(p_value_threshold)
         self.psi_detector = PopulationStabilityIndexDetector(
             psi_threshold_low=psi_threshold, p_value_threshold=p_value_threshold
@@ -1053,6 +1085,13 @@ class EnsembleDriftDetector:
         )
         self.is_fitted = False
 
+    def _numeric_columns(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """``data`` without the declared categorical columns."""
+        if not self.categorical_features:
+            return data
+        keep = [i for i in range(data.shape[1]) if i not in set(self.categorical_features)]
+        return data[:, keep]
+
     def fit(self, reference_data: np.ndarray[Any, Any]) -> EnsembleDriftDetector:
         """Fit all detectors with reference data.
 
@@ -1062,12 +1101,18 @@ class EnsembleDriftDetector:
         Returns:
             Self for method chaining
         """
-        self.ks_detector.fit(reference_data)
-        self.psi_detector.fit(reference_data)
+        reference_data = np.asarray(reference_data)
+        if reference_data.ndim == 1:
+            reference_data = reference_data.reshape(-1, 1)
+        numeric = self._numeric_columns(reference_data)
+        self.ks_detector.fit(numeric)
+        self.psi_detector.fit(numeric)
+        if self.chi2_detector is not None:
+            self.chi2_detector.fit(reference_data[:, self.categorical_features])
         if self.cov_detector is not None:
-            self.cov_detector.fit(reference_data)
+            self.cov_detector.fit(numeric)
         if self.axis_detector is not None:
-            self.axis_detector.fit(reference_data)
+            self.axis_detector.fit(numeric)
         self.is_fitted = True
         logger.info("Ensemble drift detector fitted")
         return self
@@ -1089,11 +1134,30 @@ class EnsembleDriftDetector:
         if not self.is_fitted:
             raise ValueError("Detector not fitted. Call fit() first.")
 
+        current_data = np.asarray(current_data)
+        if current_data.ndim == 1:
+            current_data = current_data.reshape(-1, 1)
+        numeric = self._numeric_columns(current_data)
+        numeric_names = None
+        if feature_names is not None:
+            numeric_names = [
+                n for i, n in enumerate(feature_names) if i not in set(self.categorical_features)
+            ]
+
         # Run all detectors
-        ks_result = self.ks_detector.detect(current_data, feature_names)
-        psi_result = self.psi_detector.detect(current_data, feature_names)
+        ks_result = self.ks_detector.detect(numeric, numeric_names)
+        psi_result = self.psi_detector.detect(numeric, numeric_names)
 
         results = [ks_result, psi_result]
+        if self.chi2_detector is not None:
+            categorical_names = None
+            if feature_names is not None:
+                categorical_names = [feature_names[i] for i in self.categorical_features]
+            results.append(
+                self.chi2_detector.detect(
+                    current_data[:, self.categorical_features], categorical_names
+                )
+            )
         drift_votes = [r.is_drift for r in results]
 
         # Determine final decision based on voting strategy
@@ -1107,12 +1171,12 @@ class EnsembleDriftDetector:
             is_drift = sum(drift_votes) > len(drift_votes) / 2
 
         cov_result = (
-            self.cov_detector.detect(current_data, feature_names)
+            self.cov_detector.detect(numeric, numeric_names)
             if self.cov_detector is not None
             else None
         )
         axis_result = (
-            self.axis_detector.detect(current_data, feature_names)
+            self.axis_detector.detect(numeric, numeric_names)
             if self.axis_detector is not None
             else None
         )

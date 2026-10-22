@@ -65,6 +65,7 @@ class EngineStreamSession:
         window_size: int = 256,
         min_samples: int = 32,
         refit_interval: int = 128,
+        monitor_drift: bool = True,
     ) -> None:
         """Initialize the session.
 
@@ -75,6 +76,11 @@ class EngineStreamSession:
             min_samples: Samples to buffer before the first verdict (>= 2,
                 <= window_size).
             refit_interval: Samples between detector refits (>= 1).
+            monitor_drift: Run the adaptive-windowing (ADWIN, Bifet &
+                Gavalda 2007) online drift monitor over the measured stream;
+                each verdict then carries a ``drift`` record and a detected
+                change is counted and named.  Previously the online drift
+                detector was built but reachable from no live path.
 
         Raises:
             ValueError: If a window/sample/interval parameter is out of range.
@@ -97,6 +103,15 @@ class EngineStreamSession:
         self._samples_since_fit = 0
         self._fitted = False
         self._feature_dim: int | None = None
+        self._drift_monitor: Any = None
+        self._drift_events = 0
+        if monitor_drift:
+            from omni_mercury_engine.detectors.drift import OnlineDriftDetector
+
+            self._drift_monitor = OnlineDriftDetector(
+                max_window_size=max(window_size * 4, 200),
+                min_window_size=max(min_samples, 50),
+            )
 
     @property
     def samples_seen(self) -> int:
@@ -171,6 +186,15 @@ class EngineStreamSession:
 
         self._window.append(array)
         base["window_fill"] = len(self._window)
+        if self._drift_monitor is not None:
+            drift_result = self._drift_monitor.update(array)
+            if drift_result is not None:
+                self._drift_events += 1
+            base["drift"] = {
+                "detected": drift_result is not None,
+                "events": self._drift_events,
+                "message": None if drift_result is None else drift_result.message,
+            }
         if len(self._window) < self._min_samples:
             return {**base, "status": "warming_up", "partial": True, "is_anomaly": None}
 

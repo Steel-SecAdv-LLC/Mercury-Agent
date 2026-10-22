@@ -4346,6 +4346,7 @@ class OmniMercuryEngine(LoggerMixin):
         window_size: int = 256,
         min_samples: int = 32,
         refit_interval: int = 128,
+        monitor_drift: bool = True,
     ) -> Any:
         """Open a one-sample-at-a-time detection session on this engine.
 
@@ -4361,6 +4362,8 @@ class OmniMercuryEngine(LoggerMixin):
             window_size: Rolling-window length scored per sample.
             min_samples: Warm-up samples before the first verdict.
             refit_interval: Samples between detector refits.
+            monitor_drift: Run the ADWIN online drift monitor over the
+                measured stream (verdicts then carry a ``drift`` record).
 
         Returns:
             A new ``EngineStreamSession``.
@@ -4373,6 +4376,7 @@ class OmniMercuryEngine(LoggerMixin):
             window_size=window_size,
             min_samples=min_samples,
             refit_interval=refit_interval,
+            monitor_drift=monitor_drift,
         )
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)

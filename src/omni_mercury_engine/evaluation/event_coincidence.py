@@ -32,6 +32,12 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.utils.multiple_testing import (
+    benjamini_hochberg,
+    bonferroni,
+    correct,
+)
+
 
 @dataclass
 class PreregisteredCoincidenceTest:
@@ -148,44 +154,9 @@ def windows_to_mask(
     return mask
 
 
-def bonferroni(pvalues: list[float], alpha: float = 0.05) -> list[bool]:
-    """Bonferroni: reject p_i if p_i <= alpha / m."""
-    m = len(pvalues)
-    if m == 0:
-        return []
-    thr = alpha / m
-    return [p <= thr for p in pvalues]
-
-
-def benjamini_hochberg(pvalues: list[float], alpha: float = 0.05) -> list[bool]:
-    """Benjamini-Hochberg FDR control. Returns a reject mask in input order."""
-    m = len(pvalues)
-    if m == 0:
-        return []
-    order = sorted(range(m), key=lambda i: pvalues[i])
-    reject = [False] * m
-    max_k = -1
-    for rank, idx in enumerate(order, start=1):
-        if pvalues[idx] <= alpha * rank / m:
-            max_k = rank
-    if max_k >= 0:
-        for rank, idx in enumerate(order, start=1):
-            if rank <= max_k:
-                reject[idx] = True
-    return reject
-
-
-def correct(pvalues: list[float], method: str, alpha: float = 0.05) -> list[bool]:
-    """Apply the pre-registered multiple-comparison correction."""
-    if method == "bonferroni":
-        return bonferroni(pvalues, alpha)
-    if method == "bh_fdr":
-        return benjamini_hochberg(pvalues, alpha)
-    if method == "none":
-        return [p <= alpha for p in pvalues]
-    raise ValueError(f"unknown correction method: {method!r}")
-
-
+# Multiple-comparison control now lives in utils.multiple_testing so the
+# LIVE drift detectors can consume it too; re-exported here unchanged for
+# every released evaluation import.
 @dataclass
 class CoincidenceReport:
     """A full pre-registered run: per-event results + corrected verdict."""
