@@ -34,6 +34,25 @@ was never released. Upgrading from 2.0.0: the license is now
 AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
 2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
 
+### Tier detections recorded and alerted correctly; label-free flags honour `contamination` (branch `steel/version-cov5`)
+
+**Fixed — `/api/v1/detect/tier` recorded every detection as 0 anomalies at
+score 0 (`api/routes/detection.py`).** The route handed the history recorder
+`n_flagged` and `max_score`, but the recorder reads `anomalies` and `scores`,
+so tier detections were stored empty and never reached the SIEM alert sinks
+(which skip records with no anomalies). It now passes the tier's own flags
+and scores.
+
+**Fixed — without labels, the tier flagged 35-53% of a series
+(`detectors/detection_tier.py`, `StreamingScoreEnsemble.fit`).** The
+threshold came from the automatic calibration selector, which read the
+averaged rank scores as bimodal and split them with Otsu near the median: a
+200-point series with one 8-point burst had 106 points flagged (3 members)
+or 69 (all 17) at `contamination=0.05`. The label-free threshold is now the
+`1 - contamination` quantile of the ensemble score, as documented (10 of 200
+flagged); with labels it stays F1-optimal. Benchmarks score with AUC and
+oracle F1, so no recorded result changes.
+
 ### `ml.ppo_trainer` rebuilt natively: PPO with no reinforcement-learning dependency (branch `steel/version-cov5`)
 
 **Rebuilt — `ml.ppo_trainer` under its 2.0.0 names (`ml/ppo_trainer.py`,

@@ -733,11 +733,17 @@ async def detect_tier(
             method="detector_tier",
             data=request.data,
             results={
-                "n_flagged": result["n_flagged"],
-                "n_points": result["n_points"],
-                "threshold": result["threshold"],
-                "combiner": result["method"],
-                "max_score": max(result["scores"]) if result["scores"] else 0.0,
+                # The keys record_detection reads: the history record and the
+                # SIEM alert (which skips records with no anomalies) count
+                # these, so they must be the tier's own flags and scores.
+                "anomalies": result["flags"],
+                "scores": result["scores"],
+                "summary": {
+                    "n_flagged": result["n_flagged"],
+                    "n_points": result["n_points"],
+                    "threshold": result["threshold"],
+                    "combiner": result["method"],
+                },
             },
         )
         return result

@@ -109,3 +109,22 @@ def test_localize_root_cause_rejects_bad_input() -> None:
         localize_root_cause(np.zeros(5))
     with pytest.raises(ValueError, match=r"node_names"):
         localize_root_cause(np.zeros((3, 4)), node_names=["a", "b"])
+
+
+@pytest.mark.parametrize("contamination", [0.05, 0.1])
+@pytest.mark.parametrize("subset", [None, ("spectral_residual", "spot_evt", "bocpd")])
+def test_label_free_flags_honour_contamination(
+    contamination: float, subset: tuple[str, ...] | None
+) -> None:
+    """Without labels the threshold is the (1 - contamination) quantile of the
+    ensemble score. The automatic method selector mistook the averaged rank
+    scores for a bimodal distribution and split them with Otsu, flagging 35-53%
+    of a series with one short burst."""
+    rng = np.random.default_rng(0)
+    series = rng.normal(0, 1, 200)
+    series[100:108] += 7.0
+    result = run_tier_ensemble(series, subset=subset, contamination=contamination)
+    assert result["n_flagged"] <= round(contamination * 200) + 1
+    assert result["threshold"] == pytest.approx(
+        float(np.quantile(result["scores"], 1 - contamination)), abs=1e-9
+    )

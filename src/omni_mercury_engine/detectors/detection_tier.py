@@ -555,7 +555,17 @@ class StreamingScoreEnsemble:
         combined = self._combine_calibrated(calibrated)
         from omni_mercury_engine.core.score_calibration import calibrate_scores
 
-        threshold, _, _ = calibrate_scores(combined, contamination=self.contamination, labels=lab)
+        # Without labels, contamination *is* the operating point: the threshold
+        # is that upper quantile of the score. The automatic selector must not
+        # pick it -- averaged rank scores trip its bimodality heuristic, and
+        # Otsu then splits them near the median, flagging half the series.
+        # With labels it keeps the F1-optimal threshold.
+        threshold, _, _ = calibrate_scores(
+            combined,
+            contamination=self.contamination,
+            method="auto" if lab is not None else "percentile",
+            labels=lab,
+        )
         self._threshold = float(threshold)
         self._fitted = True
         return self
