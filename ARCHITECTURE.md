@@ -1397,7 +1397,7 @@ The authoritative per-capability status (Designed / Stubbed / Functional, with t
 
 ## Conclusion
 
-The Mercury Agent integrates **89 detector classes** (the measured, CI-gated count) with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent integrates **166 detector classes** in 17 subpackages (the measured, CI-gated count of public `class *Detector` definitions; 87 in `detectors/`, the rest in `space/`, `medical/`, `infrastructure/`, `security/` and other domain packages) with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention

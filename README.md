@@ -27,7 +27,7 @@
               | Computational Systems Intelligence - Multi-Domain Anomaly & Hazard Detection  |
               |                                                                               |
               |   Cognitive Orchestrator |   Hybrid Fusion ML      |   Production Security    |
-              |   Neural + Symbolic      |   89 Detector Classes   |   Post-Quantum Crypto    |
+              |   Neural + Symbolic      |  166 Detector Classes   |   Post-Quantum Crypto    |
               |   Ethical Governance     |   Multi-Head Attention  |   OWASP Validation       |
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
@@ -157,6 +157,7 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and gated in C
 | Files importing PyTorch (optional `[ml]` extra) | **174** |
 | Distinct `torch.nn.Module` subclasses | **174** |
 | Detector classes (`class *Detector`) in `detectors/` | **89** |
+| Public detector classes package-wide (`class *Detector`, not `Base*` or `_private`) | **166 in 17 subpackages** |
 | Data-loader classes (`class *Loader`) in `loaders/` | **21** |
 | Test modules (`test_*.py`) / total test LOC | **819 modules / ~239,000 LOC** |
 | GitHub Actions workflows | **24** |
@@ -546,7 +547,7 @@ Modern anomaly detection faces three critical challenges:
 
 Mercury Agent addresses all three challenges through:
 
-- **Unified Framework**: 89 detector classes (the measured, CI-gated count; 101 manifest entries including the 7 hazard adapters, 5 in the engine's default set) under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
+- **Unified Framework**: 166 detector classes in 17 subpackages (the measured, CI-gated count of public `class *Detector` definitions, base classes and private helpers excluded; see [Codebase Scale](#codebase-scale-measured-not-estimated)), 87 of them in `detectors/` and the rest in `space/`, `medical/`, `infrastructure/`, `security/` and other domain packages; 101 detector-manifest entries, including the 7 hazard adapters, with 5 in the engine's default set; under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
 - **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v5.0.0, JWT authentication, rate limiting
 
@@ -571,7 +572,7 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 | Layer | Protection | Components |
 |-------|------------|------------|
 | 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (AMA Cryptography v5.0.0), JWT auth, OWASP validation |
-| 2. ML/AI Pipeline | Detection intelligence | 89 detector classes, hybrid fusion, multi-head attention |
+| 2. ML/AI Pipeline | Detection intelligence | 166 detector classes, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
 ### Ethical AI Governance
@@ -644,7 +645,7 @@ See `examples/decision_abstention_response_demo.py` and
 
 | Achievement | Description |
 |-------------|-------------|
-| Multi-Domain Coverage | 89 detector classes across 12 domains (8 new statistical methods) |
+| Multi-Domain Coverage | 166 detector classes in 17 subpackages: natural hazards (`detectors/geological`, `detectors/meteorological`, `detectors/marine`), space weather (`space/`), energy and critical infrastructure (`detectors/energy`, `infrastructure/`), medical and biometric, security, finance (`detectors/economic`), vision (`detectors/visual`, `detectors/vlm`), and general-purpose time-series and tabular methods |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Comprehensive Testing | 19,066 tests collected (2026-10-21) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning, and full-enumeration mutation testing with kill-rate floors enforced in CI on ten module sets |

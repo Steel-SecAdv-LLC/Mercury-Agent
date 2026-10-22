@@ -63,6 +63,9 @@ def test_measure_counts_are_sane_and_pycache_free() -> None:
     assert stats["subpackage_count"] > 30
     assert stats["test_files"] > 200
     assert stats["detector_classes"] > 0
+    # Detectors live well beyond detectors/ (space/, medical/, security/, ...).
+    assert stats["public_detector_classes"] > stats["detector_classes"]
+    assert stats["detector_subpackages"] > 1
     assert stats["loader_classes"] > 0
     assert stats["workflow_count"] > 0
     # The exact bug that motivated the rewrite: __pycache__ must never appear.
@@ -197,3 +200,23 @@ def test_missing_markers_is_error(tmp_path: Path) -> None:
     fake = tmp_path / "README.md"
     fake.write_text("no markers here\n")
     assert mcs.main(["--check", str(fake)]) == 2
+
+
+def test_public_detector_pattern_skips_bases_and_private_helpers() -> None:
+    text = "class SolarFlareDetector:\nclass BaseVisualDetector:\nclass _LocalDensityDetector:\nclass Detector:\n"
+    assert mcs.PUBLIC_DETECTOR_CLASS_RE.findall(text) == ["class SolarFlareDetector"]
+    assert len(mcs.DETECTOR_CLASS_RE.findall(text)) == 4
+
+
+def test_prose_detector_counts_must_match_the_measurement() -> None:
+    text = (
+        "Intro: 89 detector classes.\n"
+        + mcs.SCALE_START
+        + "\n| Detector classes | **89** |\n"
+        + mcs.SCALE_END
+        + "\nLater: 166 Detector Classes and 166 detector classes.\n"
+    )
+    assert mcs._stale_detector_claims(text, 166) == ["89 detector classes"]
+    fixed = mcs._fix_detector_claims(text, 166)
+    assert mcs._stale_detector_claims(fixed, 166) == []
+    assert "| Detector classes | **89** |" in fixed  # the generated block is left alone
