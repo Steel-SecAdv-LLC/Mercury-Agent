@@ -108,6 +108,75 @@ MAX_TSUNAMIGENIC_DEPTH_KM = 100.0
 DART_DETECTION_THRESHOLD_M = 0.03
 
 
+#: DART tsunami detection algorithm (H. O. Mofjeld, NOAA/PMEL NCTR, "Real-Time
+#: Tsunami Detection in the Open Ocean", nctr.pmel.noaa.gov/tda_documentation.html):
+#: the tide is predicted by a cubic through four 10-minute averages spaced one
+#: hour apart over the past three hours, extrapolated (Newton's forward formula)
+#: to t' = half the averaging interval + one sampling interval ahead of the
+#: newest average; a tsunami is detected where the observation departs from that
+#: prediction by more than the threshold.
+DART_AVERAGING_S = 600.0
+DART_SPACING_S = 3600.0
+DART_N_AVERAGES = 4
+
+
+def dart_prediction_weights(sampling_interval_s: float) -> np.ndarray[Any, Any]:
+    """Cubic forward-extrapolation weights ``w(i)``, newest average first.
+
+    At the DART gauges' 15 s sampling these are NOAA's published
+    coefficients (1.16818457031250, -0.28197558593750, 0.14689746093750,
+    -0.03310644531250); other sampling intervals move ``t'`` accordingly.
+    """
+    s = (DART_AVERAGING_S / 2.0 + sampling_interval_s) / DART_SPACING_S
+    nodes = -np.arange(DART_N_AVERAGES, dtype=float)
+    weights = np.ones(DART_N_AVERAGES)
+    for i, xi in enumerate(nodes):
+        for j, xj in enumerate(nodes):
+            if i != j:
+                weights[i] *= (s - xj) / (xi - xj)
+    return weights
+
+
+def dart_residuals(
+    series: np.ndarray[Any, Any], sampling_interval_s: float
+) -> np.ndarray[Any, Any]:
+    """Observed minus DART tide prediction at every sample with enough history.
+
+    Sample ``k`` is predicted from the 10-minute averages ending one sample
+    before ``k`` and 1, 2 and 3 hours earlier, so the first ``3 h 10 min`` of
+    the series are history only.
+
+    Raises:
+        ValueError: If the sampling interval does not divide 10 minutes and
+            1 hour, or the series holds less than 3 h 10 min plus one sample.
+    """
+    n_avg_f = DART_AVERAGING_S / sampling_interval_s
+    lag_f = DART_SPACING_S / sampling_interval_s
+    if not (
+        np.isclose(n_avg_f, round(n_avg_f), rtol=0.0, atol=1e-9)
+        and np.isclose(lag_f, round(lag_f), rtol=0.0, atol=1e-9)
+        and round(n_avg_f) >= 1
+    ):
+        raise ValueError(
+            f"DART averaging needs a sampling interval that divides 10 minutes and 1 hour; "
+            f"got {sampling_interval_s} s"
+        )
+    n_avg, lag = round(n_avg_f), round(lag_f)
+    first = (DART_N_AVERAGES - 1) * lag + n_avg
+    if series.size <= first:
+        raise ValueError(
+            f"DART tide prediction needs 3 h 10 min of history plus one sample "
+            f"({first + 1} samples at {sampling_interval_s} s); got {series.size}"
+        )
+    cumulative = np.concatenate([[0.0], np.cumsum(series, dtype=float)])
+    k = np.arange(first, series.size)
+    predicted = np.zeros(k.size)
+    for i, w in enumerate(dart_prediction_weights(sampling_interval_s)):
+        end = k - i * lag
+        predicted += w * (cumulative[end] - cumulative[end - n_avg]) / n_avg
+    return np.asarray(series[k] - predicted, dtype=float)
+
+
 class CascadeStage(Enum):
     """Cascade state machine stages."""
 
@@ -168,6 +237,7 @@ class WaterLevelConfirmation:
     threshold_m: float
     n_samples: int
     supplementary_spectral: dict[str, Any] | None = None
+    n_evaluated: int = 0
 
 
 @dataclass
@@ -363,13 +433,22 @@ class EqTsunamiCascadeDetector:
     # ------------------------------------------------------------------
     # State machine
     # ------------------------------------------------------------------
+    def _escalate(self, stage: CascadeStage) -> None:
+        """Move to ``stage`` unless the cascade already stands higher."""
+        order = tuple(CascadeStage)
+        if order.index(stage) > order.index(self._stage):
+            self._stage = stage
+
     def process_event(self, event: dict[str, Any], offshore: bool | None = None) -> CascadeState:
         """Advance the state machine with a new earthquake event.
 
-        QUIET/any → EVALUATING (event at/above the information floor), then
+        QUIET → EVALUATING (event at/above the information floor), then
         immediately to TSUNAMI_WATCH when screening yields a warning-class
         product. THREAT is *never* reached here — it requires water-level
-        confirmation via :meth:`confirm_water_level`.
+        confirmation via :meth:`confirm_water_level`.  Stages only escalate:
+        a later, smaller event never downgrades an active watch or threat
+        (before, any event at the information floor reset the stage to
+        EVALUATING); :meth:`reset` is the explicit all-clear.
 
         Args:
             event: USGS GeoJSON feature or flat event dict.
@@ -393,7 +472,12 @@ class EqTsunamiCascadeDetector:
             )
             return self.state()
 
-        self._stage = CascadeStage.EVALUATING
+        # Stages only escalate: a later event never cancels an active watch
+        # or threat (reset() is the explicit all-clear).  An unconfirmed
+        # water-level check belonged to the earlier event and is dropped.
+        self._escalate(CascadeStage.EVALUATING)
+        if self._stage is not CascadeStage.TSUNAMI_THREAT:
+            self._water_level = None
         self._record(
             "event_intake",
             stage_after=self._stage,
@@ -410,7 +494,7 @@ class EqTsunamiCascadeDetector:
             ScreeningProduct.REGIONAL_FIXED_WARNING,
             ScreeningProduct.REGIONAL_EXPANDING_WARNING,
         ):
-            self._stage = CascadeStage.TSUNAMI_WATCH
+            self._escalate(CascadeStage.TSUNAMI_WATCH)
         self._record(
             "screening",
             stage_after=self._stage,
@@ -430,12 +514,15 @@ class EqTsunamiCascadeDetector:
     ) -> CascadeState:
         """Evaluate a water-level series for tsunami confirmation.
 
-        DART-style deterministic detection: a cubic polynomial (the tide
-        model order of the DART/Mofjeld algorithm) is fitted to the leading
-        75% of the series and extrapolated over the trailing 25% evaluation
-        window; the maximum absolute residual there is compared against the
-        detection threshold. Only this deterministic gate can raise
-        TSUNAMI_THREAT.
+        The DART detection algorithm (Mofjeld, NOAA/PMEL; see
+        :func:`dart_residuals`): every sample with 3 h 10 min of history is
+        compared with the tide predicted from four hourly 10-minute averages,
+        and the threat is confirmed when any departure exceeds the threshold.
+        Only this deterministic gate can raise TSUNAMI_THREAT.  The previous
+        gate fitted one cubic to the first 75% of the whole series and
+        extrapolated it over the last 25% -- hours ahead, not 5.25 minutes --
+        so a pure tide over a 6 h window confirmed a tsunami (residual
+        0.17 m against the 0.03 m threshold).
 
         Args:
             water_level_m: Sea-level/pressure-derived water column series in
@@ -461,24 +548,17 @@ class EqTsunamiCascadeDetector:
                 f"{self._stage.value}); process a warning-class earthquake first."
             )
         series = np.asarray(water_level_m, dtype=float)
-        if series.ndim != 1 or series.size < 40:
-            raise ValueError(
-                f"water-level series must be 1-D with >= 40 samples, got {series.shape}"
-            )
+        if series.ndim != 1:
+            raise ValueError(f"water-level series must be 1-D, got {series.shape}")
         if not np.all(np.isfinite(series)):
             raise ValueError("water-level series contains non-finite values")
-        if sampling_interval_s <= 0:
+        if not np.isfinite(sampling_interval_s) or sampling_interval_s <= 0:
             raise ValueError(f"sampling_interval_s must be > 0, got {sampling_interval_s}")
 
         n = series.size
-        split = int(n * 0.75)
-        t = np.arange(n, dtype=float) * sampling_interval_s
-        # Cubic tide prediction from the leading window (Mofjeld/DART order).
-        coef = np.polyfit(t[:split], series[:split], 3)
-        predicted = np.polyval(coef, t[split:])
-        residual = series[split:] - predicted
+        residual = dart_residuals(series, sampling_interval_s)
         max_residual = float(np.max(np.abs(residual)))
-        confirmed = max_residual >= self.dart_threshold_m
+        confirmed = max_residual > self.dart_threshold_m
 
         supplementary: dict[str, Any] | None = None
         if run_spectral_analysis:
@@ -490,6 +570,7 @@ class EqTsunamiCascadeDetector:
             threshold_m=self.dart_threshold_m,
             n_samples=n,
             supplementary_spectral=supplementary,
+            n_evaluated=int(residual.size),
         )
         if confirmed:
             self._stage = CascadeStage.TSUNAMI_THREAT
@@ -500,8 +581,12 @@ class EqTsunamiCascadeDetector:
                 "confirmed": confirmed,
                 "max_residual_m": max_residual,
                 "threshold_m": self.dart_threshold_m,
-                "method": "cubic detide + residual amplitude (DART-style)",
-                "citation": "Meinig et al. 2005; Mofjeld NOAA/PMEL detection algorithm",
+                "method": (
+                    "DART tide prediction (cubic through four hourly 10-min averages over "
+                    "3 h, forward-extrapolated) + residual threshold"
+                ),
+                "citation": "Mofjeld, NOAA/PMEL NCTR tsunami detection algorithm; Meinig et al. 2005",
+                "n_evaluated": int(residual.size),
                 "supplementary_spectral": supplementary,
             },
         )

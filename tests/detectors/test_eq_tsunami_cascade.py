@@ -317,7 +317,7 @@ class TestFailLoud:
     def test_short_water_level_series_raises(self) -> None:
         detector = EqTsunamiCascadeDetector()
         detector.process_event(_tohoku_feature(), offshore=True)
-        with pytest.raises(ValueError, match=">= 40 samples"):
+        with pytest.raises(ValueError, match="3 h 10 min of history"):
             detector.confirm_water_level(np.zeros(10), 60.0)
 
     def test_nonfinite_water_level_raises(self) -> None:
@@ -333,3 +333,77 @@ class TestFailLoud:
         detector.process_event(_tohoku_feature(), offshore=True)
         with pytest.raises(ValueError, match="sampling_interval_s"):
             detector.confirm_water_level(_tide_series(), 0.0)
+
+
+class TestDARTAlgorithm:
+    """The water-level gate is NOAA's DART algorithm, not a long-range cubic fit.
+
+    Source: H. O. Mofjeld, NOAA/PMEL NCTR, "Real-Time Tsunami Detection in
+    the Open Ocean" (nctr.pmel.noaa.gov/tda_documentation.html).
+    """
+
+    def test_weights_reproduce_noaa_published_coefficients(self) -> None:
+        from omni_mercury_engine.detectors.geological.eq_tsunami_cascade import (
+            dart_prediction_weights,
+        )
+
+        noaa = [1.16818457031250, -0.28197558593750, 0.14689746093750, -0.03310644531250]
+        np.testing.assert_allclose(dart_prediction_weights(15.0), noaa, rtol=0, atol=1e-14)
+
+    @pytest.mark.parametrize("hours", [6, 8, 12, 24])
+    def test_a_pure_tide_never_confirms_a_tsunami(self, hours: int) -> None:
+        """Before, one cubic fitted to the first 75% of a >= 6 h tide window
+        confirmed THREAT (residual 0.17 m at 6 h, 3.9 m at 24 h)."""
+        t = np.arange(hours * 60) * 60.0
+        tide = 0.5 * np.sin(2.0 * np.pi * t / (12.42 * 3600.0))
+        detector = EqTsunamiCascadeDetector()
+        detector.process_event(_tohoku_feature(), offshore=True)
+        state = detector.confirm_water_level(tide, 60.0, run_spectral_analysis=False)
+        assert state.stage == CascadeStage.TSUNAMI_WATCH.value
+        assert state.water_level is not None
+        assert state.water_level.max_residual_m < 0.005  # "within a few millimeters"
+
+    def test_tsunami_arrival_is_detected_on_a_long_tide(self) -> None:
+        t = np.arange(12 * 60) * 60.0
+        series = 0.5 * np.sin(2.0 * np.pi * t / (12.42 * 3600.0))
+        onset = 10 * 60
+        series[onset:] += 0.1 * np.sin(2.0 * np.pi * (t[onset:] - t[onset]) / 1200.0)
+        detector = EqTsunamiCascadeDetector()
+        detector.process_event(_tohoku_feature(), offshore=True)
+        state = detector.confirm_water_level(series, 60.0, run_spectral_analysis=False)
+        assert state.stage == CascadeStage.TSUNAMI_THREAT.value
+
+    def test_sampling_interval_must_divide_the_averaging_grid(self) -> None:
+        detector = EqTsunamiCascadeDetector()
+        detector.process_event(_tohoku_feature(), offshore=True)
+        with pytest.raises(ValueError, match="divides 10 minutes and 1 hour"):
+            detector.confirm_water_level(np.zeros(500), 7.0)
+
+
+class TestEscalationIsMonotone:
+    """A later event never cancels an active watch or threat."""
+
+    def test_aftershock_does_not_downgrade_a_threat(self) -> None:
+        detector = EqTsunamiCascadeDetector()
+        detector.process_event(_tohoku_feature(), offshore=True)
+        detector.confirm_water_level(
+            _tide_series(tsunami_amplitude_m=0.5), 60.0, run_spectral_analysis=False
+        )
+        state = detector.process_event({"magnitude": 7.0, "depth_km": 30.0})
+        assert state.stage == CascadeStage.TSUNAMI_THREAT.value
+        assert state.water_level is not None and state.water_level.confirmed
+
+    def test_unconfirmed_water_level_does_not_outlive_its_event(self) -> None:
+        """Before, a new event left the earlier event's water-level record in place."""
+        detector = EqTsunamiCascadeDetector()
+        detector.process_event(_tohoku_feature(), offshore=True)
+        detector.confirm_water_level(_tide_series(), 60.0, run_spectral_analysis=False)
+        state = detector.process_event({"magnitude": 7.9, "depth_km": 20.0}, offshore=True)
+        assert state.stage == CascadeStage.TSUNAMI_WATCH.value
+        assert state.water_level is None
+
+    def test_reset_is_the_all_clear(self) -> None:
+        detector = EqTsunamiCascadeDetector()
+        detector.process_event(_tohoku_feature(), offshore=True)
+        detector.reset()
+        assert detector.state().stage == CascadeStage.QUIET.value
