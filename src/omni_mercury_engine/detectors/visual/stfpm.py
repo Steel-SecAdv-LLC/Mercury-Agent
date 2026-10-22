@@ -194,6 +194,7 @@ class STFPMDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
+        data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         n_samples = data.shape[0]
         logger.info(f"Training STFPM student on {n_samples} images")
@@ -271,6 +272,7 @@ class STFPMDetector(BaseVisualDetector):
         self.student.eval()
         self._is_fitted = True
         logger.info("STFPM training complete")
+        self._calibrate_threshold(calibration)
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:

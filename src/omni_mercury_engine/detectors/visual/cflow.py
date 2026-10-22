@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -169,6 +169,20 @@ class AffineCoupling(nn.Module):
         Returns:
             Tuple of (output, log_det_jacobian)
         """
+        z, log_det_map = self.forward_pixelwise(x, cond, reverse=reverse)
+        return z, log_det_map.sum(dim=[1, 2])
+
+    def forward_pixelwise(
+        self, x: torch.Tensor, cond: torch.Tensor, reverse: bool = False
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """The coupling with its log-determinant kept per pixel.
+
+        The scale/translate nets are 1x1 convolutions, so every pixel is
+        transformed independently and its log|det J| is exact on its own.
+
+        Returns:
+            Tuple of (output [B, C, H, W], log_det_jacobian map [B, H, W])
+        """
         x1, x2 = x.chunk(2, dim=1)
 
         # Compute scale and translation
@@ -180,14 +194,14 @@ class AffineCoupling(nn.Module):
         if reverse:
             z1 = x1
             z2 = (x2 - translate) * torch.exp(-log_scale)
-            log_det = -log_scale.sum(dim=[1, 2, 3])
+            log_det_map = -log_scale.sum(dim=1)
         else:
             z1 = x1
             z2 = x2 * torch.exp(log_scale) + translate
-            log_det = log_scale.sum(dim=[1, 2, 3])
+            log_det_map = log_scale.sum(dim=1)
 
         z = torch.cat([z1, z2], dim=1)
-        return z, log_det
+        return z, log_det_map
 
 
 class ConditionalNormalizingFlow(nn.Module):
@@ -260,6 +274,22 @@ class ConditionalNormalizingFlow(nn.Module):
             total_log_det = total_log_det + log_det
 
         return x, total_log_det
+
+    def pixel_log_prob(self, x: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
+        """Exact per-pixel log-likelihood of ``x`` under the flow, ``[B, H, W]``.
+
+        ``log p(x) = log N(z; 0, I) + log|det dz/dx|`` at every pixel, the
+        quantity CFlow-AD (Gudovskiy, Ishizaka & Kozuka, WACV 2022) scores.
+        Summed over pixels it equals :meth:`log_prob`, the training objective.
+        """
+        z = x
+        log_det = torch.zeros(x.shape[0], x.shape[2], x.shape[3], device=x.device)
+        for flow in self.flows:
+            z, pixel_log_det = cast("AffineCoupling", flow).forward_pixelwise(z, cond)
+            log_det = log_det + pixel_log_det
+            z = z.flip(dims=[1])
+        log_prior = -0.5 * (z**2 + math.log(2 * math.pi)).sum(dim=1)
+        return log_prior + log_det
 
     def log_prob(self, x: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
         """Compute log probability of x.
@@ -348,6 +378,11 @@ class CFlowDetector(BaseVisualDetector):
 
         self._initialized = True
 
+    def _build_architecture_for_load(self) -> None:
+        """Build the per-layer flows and encodings that ``fit`` creates lazily."""
+        if not self._initialized:
+            self._initialize_flows(self._load_probe())
+
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> CFlowDetector:
         """Train normalizing flows on normal data.
 
@@ -360,6 +395,7 @@ class CFlowDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
+        data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         logger.info(f"Training CFlow on {data.shape[0]} images")
 
@@ -442,6 +478,7 @@ class CFlowDetector(BaseVisualDetector):
 
         self._is_fitted = True
         logger.info("CFlow training complete")
+        self._calibrate_threshold(calibration)
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
@@ -490,12 +527,19 @@ class CFlowDetector(BaseVisualDetector):
 
                 pos_enc = self.position_encodings[layer](h, w).expand(b, -1, -1, -1)
 
-                # Get per-pixel log probability (inference only, no autograd)
+                # Per-pixel negative log-likelihood per feature dimension.  The
+                # full density counts: scoring only the prior term
+                # 0.5 * ||z||^2 (as before) drops log|det J|, so the score was
+                # not the density the flows were trained to model.  Dividing
+                # by the channel count makes layers of different width
+                # comparable (CFlow-AD's per-dimension likelihood), without
+                # CFlow-AD's normalisation by the batch maximum -- a score
+                # that depends on the other images in the batch would break
+                # the exchangeability the split-conformal threshold relies on.
                 with torch.no_grad():
-                    z, _ = self.flows[layer].forward(feat, pos_enc)
-
-                # Anomaly score = sum of squared latent (negative log prior)
-                pixel_scores = 0.5 * (z**2).sum(dim=1)  # [B, H, W]
+                    flow = cast("ConditionalNormalizingFlow", self.flows[layer])
+                    log_p = flow.pixel_log_prob(feat, pos_enc)
+                pixel_scores = -log_p / feat.shape[1]  # [B, H, W]
 
                 # Upsample to original size
                 pixel_scores_up = nn.functional.interpolate(

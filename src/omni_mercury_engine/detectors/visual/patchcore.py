@@ -301,6 +301,7 @@ class PatchCoreDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
+        data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         logger.info(f"Fitting PatchCore on {data.shape[0]} images")
 
@@ -341,6 +342,7 @@ class PatchCoreDetector(BaseVisualDetector):
         self._build_nn_index(self.memory_bank)
 
         self._is_fitted = True
+        self._calibrate_threshold(calibration)
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
@@ -497,6 +499,17 @@ class PatchCoreDetector(BaseVisualDetector):
         features = nn.functional.normalize(features, p=2, dim=1)
 
         return features
+
+    def _fitted_state(self) -> dict[str, Any]:
+        """The coreset memory bank -- PatchCore's whole fitted model."""
+        return {"memory_bank": self.memory_bank}
+
+    def _restore_fitted_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the memory bank and rebuild its nearest-neighbour index."""
+        bank = state.get("memory_bank")
+        if bank is not None:
+            self.memory_bank = bank.to(self.device)
+            self._build_nn_index(self.memory_bank)
 
     def get_memory_bank_size(self) -> int:
         """Get current memory bank size."""

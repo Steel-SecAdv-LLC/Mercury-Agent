@@ -221,6 +221,11 @@ class ReverseDistillationDetector(BaseVisualDetector):
             f"layers={list(self._layer_channels.keys())}"
         )
 
+    def _build_architecture_for_load(self) -> None:
+        """Build the bottleneck and decoder that ``fit`` creates lazily."""
+        if self.bottleneck is None:
+            self._initialize_components(self._load_probe())
+
     def _aggregate_student_features(self, features: dict[str, torch.Tensor]) -> torch.Tensor:
         """Aggregate multi-scale student features for bottleneck.
 
@@ -258,6 +263,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
+        data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         logger.info(f"Training Reverse Distillation on {data.shape[0]} images")
 
@@ -356,6 +362,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         self._is_fitted = True
 
         logger.info("Reverse Distillation training complete")
+        self._calibrate_threshold(calibration)
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
