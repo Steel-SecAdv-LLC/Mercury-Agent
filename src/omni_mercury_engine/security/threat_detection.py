@@ -10,7 +10,7 @@ import os
 import re
 import time
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 # bcrypt is optional - provide fallback using hashlib
 try:
@@ -19,6 +19,123 @@ try:
     BCRYPT_AVAILABLE = True
 except ImportError:
     BCRYPT_AVAILABLE = False
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+# Linear-time matching.  Every released pattern is ``a.*b`` (or a literal) and
+# ``re.search`` retries it from each start, so an adversarial payload -- 20k
+# quotes for ``'.*--`` -- cost quadratic time (0.23 s at 20k characters, 21.9 s
+# at 200k, measured) on the engine's ``detect_security_threat`` surface.  The
+# matchers below decide exactly what ``re.search(pattern, payload,
+# re.IGNORECASE)`` decides (``tests/security/test_threat_detection_linear.py``
+# fuzzes them against it) in one forward pass.  A pattern a caller adds to the
+# lists is still searched with ``re``.
+
+_I = re.IGNORECASE
+
+
+def _in_order(*tokens: str) -> Callable[[str], bool]:
+    """``t0.*t1.*...``: the tokens in order on one line (``.`` stops at a newline).
+
+    Every token is fixed-width, so its leftmost match after a position also
+    ends earliest; chaining leftmost matches is therefore exact.
+    """
+    compiled = [re.compile(t, _I) for t in tokens]
+
+    def match(payload: str) -> bool:
+        for line in payload.split("\n"):
+            pos = 0
+            for token in compiled:
+                m = token.search(line, pos)
+                if m is None:
+                    break
+                pos = m.end()
+            else:
+                return True
+        return False
+
+    return match
+
+
+_SCRIPT_OPEN = re.compile("<script", _I)
+_SCRIPT_CLOSE = re.compile("</script>", _I)
+
+
+def _script_block(payload: str) -> bool:
+    """``<script[^>]*>.*</script>``: a tag end, then ``</script>`` on that end's line.
+
+    ``[^>]*`` stops at the first ">" after an opening, so the candidate tag
+    ends are the first ">" after each "<script" -- increasing with the
+    opening -- and every cursor only moves forward.
+    """
+    tag_end = -1
+    close: re.Match[str] | None = None
+    newline = -1
+    for opening in _SCRIPT_OPEN.finditer(payload):
+        if tag_end >= opening.end():
+            continue  # same tag end as the previous opening
+        tag_end = payload.find(">", opening.end())
+        if tag_end == -1:
+            return False
+        end = tag_end + 1
+        if close is None or close.start() < end:
+            close = _SCRIPT_CLOSE.search(payload, end)
+            if close is None:
+                return False
+        if newline != len(payload) and newline < end:
+            newline = payload.find("\n", end)
+            if newline == -1:
+                newline = len(payload)
+        if close.start() < newline:
+            return True
+    return False
+
+
+_WORD_ASSIGN = re.compile(r"\b(\w+)\s*=")
+_ON_WORD = re.compile(r"on\w", _I)
+
+
+def _event_handler(payload: str) -> bool:
+    """The event-handler pattern: a word run holding "on" plus a word char, then ``=``.
+
+    ``on`` + word chars must reach the end of a word run (the next character
+    is whitespace or ``=``), so the pattern holds exactly when some word run
+    followed by optional whitespace and ``=`` contains "on" before its last
+    character.
+    """
+    return any(_ON_WORD.search(m.group(1)) for m in _WORD_ASSIGN.finditer(payload))
+
+
+def _literal(pattern: str) -> Callable[[str], bool]:
+    compiled = re.compile(pattern, _I)
+    return lambda payload: compiled.search(payload) is not None
+
+
+_LINEAR_MATCHERS: dict[str, Callable[[str], bool]] = {
+    r"(\bUNION\b.*\bSELECT\b)": _in_order(r"\bUNION\b", r"\bSELECT\b"),
+    r"(\bOR\b.*=.*)": _in_order(r"\bOR\b", "="),
+    r"(;.*\bDROP\b.*\bTABLE\b)": _in_order(";", r"\bDROP\b", r"\bTABLE\b"),
+    r"('.*--)": _in_order("'", "--"),
+    r"(\bEXEC\b.*\()": _in_order(r"\bEXEC\b", r"\("),
+    r"<script[^>]*>.*</script>": _script_block,
+    r"javascript:": _literal(r"javascript:"),
+    r"on\w+\s*=": _event_handler,
+    r"<iframe": _literal(r"<iframe"),
+    r"\.\./": _literal(r"\.\./"),
+    r"\.\.\\": _literal(r"\.\.\\"),
+    r"%2e%2e/": _literal(r"%2e%2e/"),
+    r"%2e%2e\\": _literal(r"%2e%2e\\"),
+}
+
+
+def _matches(pattern: str, payload: str) -> bool:
+    """``re.search(pattern, payload, re.IGNORECASE)``, in linear time for the released patterns."""
+    matcher = _LINEAR_MATCHERS.get(pattern)
+    if matcher is not None:
+        return matcher(payload)
+    return re.search(pattern, payload, _I) is not None
 
 
 class BanishmentAction(Enum):
@@ -95,7 +212,7 @@ class ThreatDetector:
         matches = []
 
         for pattern in self.sql_patterns:
-            if re.search(pattern, payload, re.IGNORECASE):
+            if _matches(pattern, payload):
                 matches.append(pattern)
 
         is_threat = len(matches) > 0
@@ -112,7 +229,7 @@ class ThreatDetector:
         matches = []
 
         for pattern in self.xss_patterns:
-            if re.search(pattern, payload, re.IGNORECASE):
+            if _matches(pattern, payload):
                 matches.append(pattern)
 
         is_threat = len(matches) > 0
@@ -129,7 +246,7 @@ class ThreatDetector:
         matches = []
 
         for pattern in self.path_traversal_patterns:
-            if re.search(pattern, payload, re.IGNORECASE):
+            if _matches(pattern, payload):
                 matches.append(pattern)
 
         is_threat = len(matches) > 0
