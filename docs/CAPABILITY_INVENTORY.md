@@ -7,19 +7,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,016
-- **Capability-bearing classes:** 2,004 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,021
+- **Capability-bearing classes:** 2,008 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,187 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,190 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1187 |
-| Support types (config / result / enum / error) | 1012 |
-| Detection | 176 |
+| Other capability classes | 1190 |
+| Support types (config / result / enum / error) | 1013 |
+| Detection | 177 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 104 |
 | Engines & orchestration | 101 |
@@ -1951,7 +1951,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `ml/` — 329 classes (262 capability)
+### `ml/` — 334 classes (266 capability)
 
 **Adapters & backends**
 
@@ -1989,6 +1989,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `OnlineDriftDetector` (`ml.drift`) — Online drift detection with adaptive windowing (ADWIN).
 - `PopulationStabilityIndexDetector` (`ml.drift`) — Population Stability Index (PSI) based drift detector.
 - `PrincipalAxisDriftDetector` (`ml.drift`) — Mean-shift drift along the reference's principal axes.
+- `StreamingAlarmDetector` (`ml.alarm_policy`) — The streaming pipeline's detector: the learned alarm policy, per numeric field.
 
 **Engines & orchestration**
 
@@ -2067,6 +2068,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `ActiveLearner` (`ml.__init__`) — Lazy-loaded ActiveLearner wrapper.
 - `ActiveLearner` (`ml.active_learning`) — Active learning manager for iterative model improvement.
+- `AlarmHistory` (`ml.alarm_policy`) — The policy's memory of its own recent decisions on one stream.
+- `AlarmPolicy` (`ml.alarm_policy`) — A trained policy network, as NumPy arrays (no PyTorch needed).
 - `AnomalyDataset` (`ml.training`) — Dataset for anomaly detection training.
 - `AnomalyExplainer` (`ml.__init__`) — Lazy-loaded AnomalyExplainer wrapper.
 - `AnomalyExplainer` (`ml.explainability`) — Unified anomaly detection explainer.
@@ -2202,6 +2205,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ThresholdAtom` (`ml.symbolic_constraint`) — One soft threshold test over a named score channel.
 - `TornadoRadarDataset` (`ml.hazard_training.tornado_radar`) — Sector windows with labels and physics observables for training.
 - `TrainingStats` (`ml.ppo_trainer`) — Cumulative statistics of a trainer.
+- `TriageEnv` (`ml.alarm_policy`) — Vector environment over candidate points of NAB streams.
 - `TsunamiDataset` (`ml.hazard_training.tsunami_waveform`) — Windowed DART dataset with labels and split metadata.
 - `UncertaintySampler` (`ml.active_learning`) — Uncertainty-based sampling strategies.
 - `VAEPatternLearner` (`ml.vae_pattern_learner`) — Wrapper for VAE-based unsupervised pattern learning.
@@ -2248,9 +2252,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
 
-<details><summary>Support types (67)</summary>
+<details><summary>Support types (68)</summary>
 
-`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
+`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `ValueFeatureState`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
 
 </details>
 

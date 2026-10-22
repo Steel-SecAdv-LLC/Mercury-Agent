@@ -785,13 +785,13 @@ class TestIntegrationInMemory:
         await consumer.disconnect()
 
 
-class TestDefaultDetector:
-    """The streaming worker's built-in EMA z-score detector (``mercury stream``)."""
+class TestZScoreDetector:
+    """The streaming pipeline's EMA z-score detector (``mercury stream --detector zscore``)."""
 
     @staticmethod
     def _run(values: list[dict[str, float]]) -> list[dict[str, Any]]:
         pipeline = StreamingAnomalyPipeline("in", "out")
-        return [pipeline._default_detector(v) for v in values]
+        return [pipeline.zscore_detector(v) for v in values]
 
     def test_a_large_spike_is_flagged(self) -> None:
         """The value is scored against the statistics *before* it is folded in.

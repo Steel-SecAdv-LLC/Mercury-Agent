@@ -1421,7 +1421,10 @@ class StreamingAnomalyPipeline:
             output_topic: Topic anomaly results are published to.
             backend: "kafka", "redis", or "memory".
             config: Optional stream configuration.
-            detector: Callable applied to each message payload.
+            detector: Callable applied to each message payload. Default: the
+                learned alarm policy
+                (:class:`~omni_mercury_engine.ml.alarm_policy.StreamingAlarmDetector`);
+                :meth:`zscore_detector` is the EMA z-score alternative.
             group_id: Consumer group id.
             broker: Memory backend only — isolates this pipeline's topics on
                 its own :class:`InMemoryStreamBroker` instead of the shared
@@ -1429,7 +1432,11 @@ class StreamingAnomalyPipeline:
         """
         self.input_topic = input_topic
         self.output_topic = output_topic
-        self.detector = detector or self._default_detector
+        if detector is None:
+            from omni_mercury_engine.ml.alarm_policy import StreamingAlarmDetector
+
+            detector = StreamingAlarmDetector()
+        self.detector = detector
         self.group_id = group_id
 
         self.config = config or StreamConfig(
@@ -1526,10 +1533,11 @@ class StreamingAnomalyPipeline:
             "ema_alpha": 0.1,  # Exponential moving average decay
         }
 
-    def _default_detector(self, data: dict[str, Any]) -> dict[str, Any]:
+    def zscore_detector(self, data: dict[str, Any]) -> dict[str, Any]:
         """Statistical Z-score anomaly detector with adaptive thresholding.
 
-        This default detector performs real-time statistical anomaly detection
+        The alternative to the default learned alarm policy: it performs
+        real-time statistical anomaly detection
         using exponential moving average (EMA) for mean and variance tracking.
         Anomalies are flagged when values exceed z_threshold standard deviations
         from the running mean.

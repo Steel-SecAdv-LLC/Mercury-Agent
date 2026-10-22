@@ -1840,6 +1840,16 @@ def intel_cascade() -> None:
         "(0 disables). Matches the engine deployment's metrics container port."
     ),
 )
+@click.option(
+    "--detector",
+    default=os.environ.get("MERCURY_STREAM_DETECTOR", "policy"),
+    type=click.Choice(["policy", "zscore"]),
+    help=(
+        "Alarm rule. 'policy' (default): the learned alarm policy (PPO on NAB; "
+        "benchmarks/streaming_alarm_policy_results.json). 'zscore': a fixed "
+        "3-sigma EMA z-score rule."
+    ),
+)
 def stream(
     input_topic: str,
     output_topic: str,
@@ -1847,6 +1857,7 @@ def stream(
     backend: str,
     stats_interval: float,
     metrics_port: int,
+    detector: str,
 ) -> None:
     r"""Run a streaming anomaly-detection worker (consume -> detect -> publish).
 
@@ -1989,6 +2000,8 @@ def stream(
             config=config,
             group_id=consumer_group,
         )
+        if detector == "zscore":
+            pipeline.detector = pipeline.zscore_detector
         metrics_server = _start_metrics_server(pipeline)
 
         stop = asyncio.Event()

@@ -34,6 +34,39 @@ was never released. Upgrading from 2.0.0: the license is now
 AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
 2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
 
+### The streaming worker alarms with a learned policy: PPO on NAB (branch `steel/version-cov5`)
+
+**Added — `ml/alarm_policy.py`, now the default detector of
+`StreamingAnomalyPipeline` and `mercury stream` (`--detector zscore` /
+`MERCURY_STREAM_DETECTOR=zscore` keeps the EMA z-score rule).** The worker's
+decision, alarm or not on each message, is what NAB scores, so it is learned
+against NAB's own reward. Per numeric field, causal features (fast/slow EMA
+z-scores, median/MAD robust z over 100 and 1,000 values, percentile-rank
+extremeness, a first-difference z) gate *candidates* (rank extremeness above
+0.962: 5% of points, 107 of 110 windows reachable), and a policy trained with
+`ml.ppo_trainer` decides at each candidate from the features and its own recent
+alarm history. The training environment's reward is the exact NAB score
+increment of each decision, so an episode's return is the stream's raw NAB
+score plus a constant (tested). Without the gate PPO learned never to alarm.
+Serving is NumPy only: the policy network ships as
+`models/checkpoints/streaming_alarm_policy.npz` (44 KB, loaded with
+`allow_pickle=False` after its sidecar's SHA-256 check), produced by
+`scripts/train_streaming_alarm_policy.py`.
+
+**Measured — leave-one-category-out on the five real NAB categories (47 files,
+321,206 points, 110 windows; NAB standard profile; `benchmarks/streaming_alarm_policy_results.json`).**
+Each category scored by a policy trained on the other four, three PPO seeds:
+mean held-out score 46.0 (44.2, 48.1, 45.7), detecting 82-86 of 110 windows
+with 468-564 false alarms. Baselines on the same folds: the EMA z-score rule
+-188.7 (99 windows, 5,640 false alarms); a threshold plus refractory period
+on one feature, tuned on the training folds, 29.1 with the feature chosen by
+training score, 41.7 with the best feature chosen on the held-out folds. The
+PPO settings and the gate were chosen on the realAWSCloudwatch fold; on the
+other four folds alone the policy scores 43.2 (40.8, 46.6, 42.1) against 39.3
+for the best-on-held-out threshold, and every seed beats it. The shipped
+policy is trained on all 47 files (seed 0, 2,000,000 decisions; each training
+run takes about a minute on one CPU thread).
+
 ### The streaming worker could never raise an alarm (branch `steel/version-cov5`)
 
 **Fixed — `StreamingAnomalyPipeline`'s default detector
