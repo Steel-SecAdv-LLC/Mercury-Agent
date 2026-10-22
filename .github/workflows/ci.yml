@@ -14,7 +14,9 @@ concurrency:
 
 on:
   push:
-    branches: [main, develop, feature/*]
+    # steel/** is this repository's working-branch convention (steel/version-*,
+    # steel/maint-*): without it those branches got zero CI until a PR opened.
+    branches: [main, develop, feature/*, steel/**]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
@@ -1402,6 +1404,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-ml-
 
+      - name: Cache pinned HuggingFace models
+        # Keyed on the SafeHFLoader pin table: the cache rolls over exactly
+        # when a pinned revision changes.  With the models cached, the
+        # image/video real-model tiers (tests/detectors/test_vlm_real_models.py,
+        # test_visual_real_images.py) run instead of skipping.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-models-${{ hashFiles('src/omni_mercury_engine/detectors/vlm/lvlm_backends.py') }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.1"
@@ -1424,6 +1436,13 @@ jobs:
         with:
           ama-ref: v5.0.0
 
+      - name: Prefetch pinned HuggingFace models (image/video tiers)
+        # Populates the cached ~/.cache/huggingface with exactly the
+        # SafeHFLoader-pinned revisions (a cache hit makes this a no-op), so
+        # the real-model image/video tiers run and MERCURY_REQUIRES_HF_MODELS
+        # below can declare them must-run instead of silently skipped.
+        run: python scripts/prefetch_pinned_models.py
+
       - name: Run full test suite with parallelization
         env:
           TORCH_HOME: ~/.cache/torch
@@ -1439,6 +1458,10 @@ jobs:
           # Without this flag a broken install would surface as
           # several thousand "green" skips rather than a CI red.
           MERCURY_REQUIRES_ML: "1"
+          # The prefetch step above provisioned the pinned HF models, so the
+          # image/video real-model tiers must run; a missing model is a red,
+          # not a skip (tests/conftest.py session gate).
+          MERCURY_REQUIRES_HF_MODELS: "1"
         run: |
           # Run tests in parallel with 4 workers, 300s timeout per test
           # Coverage threshold enforced to ensure production readiness
