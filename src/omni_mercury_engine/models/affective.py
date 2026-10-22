@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,20 @@ class AffectiveAnomalyModel:
     checkpoint. A learned extractor requires a real labelled affect corpus
     (see docs/DORMANCY_LEDGER.md).
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "The distress rule (0.4*negative-affect mean + 0.3*temporal "
+            "entropy + 0.3*sustained-negative ratio, alarm above 0.7, in "
+            "core.model_domains.AffectiveStateModel.detect_distress) is a "
+            "documented deterministic heuristic: no published threshold "
+            "exists for this composite and no labelled affect corpus is in "
+            "the repository to calibrate one (docs/DORMANCY_LEDGER.md), so "
+            "its verdicts are experimental; off-modality input yields the "
+            "neutral 0.5 prior, never a fabricated signal."
+        ),
+    )
 
     _quarantine_warned = False
 

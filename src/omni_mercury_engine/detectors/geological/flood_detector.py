@@ -54,6 +54,7 @@ from omni_mercury_engine.detectors._hazard_input import (
     finite_array,
     finite_scalar,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
@@ -139,7 +140,42 @@ class PrecipitationAnalyzer:
     """Precipitation accumulation analysis for flood potential.
 
     Monitors rainfall rates, accumulation, and forecast precipitation.
+    Flash-flood potential is judged against the location's own NWS Flash
+    Flood Guidance (FFG) when the caller supplies it (``ffg_1h_inches``,
+    ``ffg_3h_inches``, ``ffg_6h_inches`` -- the River Forecast Centers'
+    published definition is that flash flooding becomes possible when
+    rainfall over the period exceeds the FFG value for that area); the
+    fixed 2.0 in/h and 4.0 in/24 h lines remain only as a fallback screen
+    and the result labels which basis graded it.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "With per-location NWS Flash Flood Guidance supplied, "
+                "flash_flood_risk fires when any accumulation (1/3/6 h) "
+                "reaches its FFG value -- the published operational "
+                "definition of flash-flood potential."
+            ),
+            citation=(
+                "NOAA/NWS River Forecast Center Flash Flood Guidance: FFG is "
+                "the rain in a given duration needed to bring small streams "
+                "to bankfull; rainfall exceeding FFG indicates flash-flood "
+                "potential (NWS Manual 10-950 / RFC FFG product description)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Without FFG the fixed screen remains: 2.0 in/h flash and "
+                "4.0 in/24 h flood lines with the intensity ladder; no "
+                "published fixed national threshold exists (guidance is "
+                "location-specific), and results carry "
+                "basis='fixed_screen_unsourced'."
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""
@@ -151,10 +187,14 @@ class PrecipitationAnalyzer:
         """Analyze precipitation for flood potential.
 
         Args:
-            precip_data: Precipitation measurements and forecasts
+            precip_data: Precipitation measurements and forecasts.  Optional
+                ``ffg_1h_inches`` / ``ffg_3h_inches`` / ``ffg_6h_inches``
+                carry the location's NWS Flash Flood Guidance; when any is
+                supplied with its matching accumulation, flash-flood risk is
+                graded against the guidance instead of the fixed screen.
 
         Returns:
-            Precipitation analysis results
+            Precipitation analysis results.
         """
         # Upper bounds sit above the world records (about 12 in in 1 h and 72 in
         # in 24 h); anything larger is millimetres, not inches.
@@ -187,7 +227,33 @@ class PrecipitationAnalyzer:
             hi=80.0,
         )
 
-        flash_flood_risk = precip_1h >= self.flash_flood_threshold_1h
+        precip_3h = finite_scalar(
+            precip_data.get("precipitation_3h_inches", 0.0),
+            "precipitation_3h_inches",
+            unit="in",
+            lo=0.0,
+            hi=40.0,
+        )
+        ffg_pairs: list[tuple[float, float]] = []
+        for accumulation, key in (
+            (precip_1h, "ffg_1h_inches"),
+            (precip_3h, "ffg_3h_inches"),
+            (precip_6h, "ffg_6h_inches"),
+        ):
+            guidance = precip_data.get(key)
+            if guidance is not None:
+                ffg_pairs.append(
+                    (accumulation, finite_scalar(guidance, key, unit="in", lo=0.01, hi=30.0))
+                )
+
+        if ffg_pairs:
+            # Published basis: rainfall at or above the location's NWS Flash
+            # Flood Guidance for the matching duration.
+            flash_flood_basis = "nws_flash_flood_guidance"
+            flash_flood_risk = any(acc >= ffg for acc, ffg in ffg_pairs)
+        else:
+            flash_flood_basis = "fixed_screen_unsourced"
+            flash_flood_risk = precip_1h >= self.flash_flood_threshold_1h
         flood_risk = precip_24h >= self.flood_threshold_24h
 
         if precip_1h >= 3.0 or precip_24h >= 8.0:
@@ -207,6 +273,7 @@ class PrecipitationAnalyzer:
             "precipitation_24h_inches": float(precip_24h),
             "forecast_24h_inches": float(forecast_24h),
             "flash_flood_risk": flash_flood_risk,
+            "flash_flood_basis": flash_flood_basis,
             "flood_risk": flood_risk,
             "intensity": intensity,
             "total_expected_inches": float(precip_24h + forecast_24h),

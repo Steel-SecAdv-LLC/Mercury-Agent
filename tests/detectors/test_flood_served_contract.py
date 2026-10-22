@@ -240,3 +240,53 @@ def test_soil_products_are_never_fabricated_from_defaults() -> None:
     assert set(out["missing_inputs"]) == {"soil_moisture_pct", "soil_type"}
     with pytest.raises(InvalidObservationError, match="soil_type"):
         model.analyze_soil_conditions({"soil_moisture_pct": 60.0, "soil_type": "basalt"})
+
+
+class TestPrecipitationFlashFloodGuidance:
+    """Flash-flood gate against per-location NWS Flash Flood Guidance."""
+
+    def _analyzer(self) -> Any:
+        from omni_mercury_engine.detectors.geological.flood_detector import (
+            PrecipitationAnalyzer,
+        )
+
+        return PrecipitationAnalyzer()
+
+    def test_rain_at_or_above_guidance_fires(self) -> None:
+        """1.0 in/h over an 0.8 in/h FFG is flash-flood potential, though the
+        fixed 2.0 in/h screen would have stayed silent."""
+        result = self._analyzer().analyze_precipitation(
+            {"precipitation_1h_inches": 1.0, "ffg_1h_inches": 0.8}
+        )
+        assert result["flash_flood_risk"] is True
+        assert result["flash_flood_basis"] == "nws_flash_flood_guidance"
+
+    def test_rain_below_guidance_holds(self) -> None:
+        """2.2 in/h under a 2.5 in/h FFG is not flash-flood potential, though
+        the fixed screen would have fired."""
+        result = self._analyzer().analyze_precipitation(
+            {"precipitation_1h_inches": 2.2, "ffg_1h_inches": 2.5}
+        )
+        assert result["flash_flood_risk"] is False
+        assert result["flash_flood_basis"] == "nws_flash_flood_guidance"
+
+    def test_longer_window_guidance_is_checked(self) -> None:
+        result = self._analyzer().analyze_precipitation(
+            {
+                "precipitation_1h_inches": 0.4,
+                "precipitation_6h_inches": 3.4,
+                "ffg_6h_inches": 3.0,
+            }
+        )
+        assert result["flash_flood_risk"] is True
+
+    def test_without_guidance_the_fixed_screen_is_labelled(self) -> None:
+        result = self._analyzer().analyze_precipitation({"precipitation_1h_inches": 2.5})
+        assert result["flash_flood_risk"] is True
+        assert result["flash_flood_basis"] == "fixed_screen_unsourced"
+
+    def test_decision_source_declares_both_bases(self) -> None:
+        published, fallback = self._analyzer().decision_source
+        assert published.kind == "published"
+        assert "Flash Flood Guidance" in published.citation
+        assert fallback.kind == "experimental"
