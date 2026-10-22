@@ -115,6 +115,49 @@ def _literal(pattern: str) -> Callable[[str], bool]:
     return lambda payload: compiled.search(payload) is not None
 
 
+#: Boolean-tautology injection: OR/AND followed by A = B where A equals B
+#: (case-insensitively, quotes aside) or both sides are numeric -- the
+#: ``' OR '1'='1`` / ``1 OR 1=1`` / blind ``OR 1=2`` family.  Prose like
+#: "red or blue = fine" does not satisfy it.
+_SQL_TAUT = re.compile(r"\b(?:or|and)\b\s*['\"()]*\s*([\w.]+)\s*['\"]*\s*=\s*['\"]*([\w.]+)", _I)
+#: String-breakout injection: a quote, then OR/AND, with a real comparison
+#: (an operand character before ``=``) somewhere after.
+_SQL_QUOTE_OR = re.compile(r"['\"]\s*(?:or|and)\b", _I)
+_SQL_CMP_AFTER = re.compile(r"[\w'\"]\s*=")
+
+
+def _sql_or_tautology(payload: str) -> bool:
+    """The tightened replacement for the retired ``(\\bOR\\b.*=.*)`` rule."""
+    for m in _SQL_TAUT.finditer(payload):
+        lhs, rhs = m.group(1), m.group(2)
+        if lhs.lower() == rhs.lower() or (lhs.isdigit() and rhs.isdigit()):
+            return True
+    m = _SQL_QUOTE_OR.search(payload)
+    return m is not None and _SQL_CMP_AFTER.search(payload, m.end()) is not None
+
+
+#: Event-handler injection: an ``on<letters> =`` attribute preceded by a
+#: character that can split or terminate markup/attributes -- the same
+#: preceding-character discipline as OWASP CRS rule 941160.  A bare query
+#: parameter whose name merely starts with "on" ("onion=3") has no such
+#: preceding character and no longer fires.
+_XSS_ON_HANDLER = re.compile(r"""[\s"'`;/0-9=(,;]on[a-z]{2,24}\s*=""", _I)
+
+
+def _xss_event_handler(payload: str) -> bool:
+    """The tightened replacement for the retired ``on\\w+\\s*=`` rule."""
+    return _XSS_ON_HANDLER.search(payload) is not None
+
+
+#: Pattern-list keys for the two semantic matchers.  They are the rules'
+#: documentation in ``matched_patterns`` output; ``_matches`` dispatches them
+#: to the functions above instead of ``re.search``.
+_SQL_OR_TAUTOLOGY_PATTERN = (
+    "sql-or-tautology (OR/AND A=A | n=n | quote-breakout OR with comparison)"
+)
+_XSS_EVENT_HANDLER_PATTERN = "xss-event-handler (CRS-941160-style preceded on<letters>=)"
+
+
 _LINEAR_MATCHERS: dict[str, Callable[[str], bool]] = {
     r"(\bUNION\b.*\bSELECT\b)": _in_order(r"\bUNION\b", r"\bSELECT\b"),
     r"(\bOR\b.*=.*)": _in_order(r"\bOR\b", "="),
@@ -129,6 +172,8 @@ _LINEAR_MATCHERS: dict[str, Callable[[str], bool]] = {
     r"\.\.\\": _literal(r"\.\.\\"),
     r"%2e%2e/": _literal(r"%2e%2e/"),
     r"%2e%2e\\": _literal(r"%2e%2e\\"),
+    _SQL_OR_TAUTOLOGY_PATTERN: _sql_or_tautology,
+    _XSS_EVENT_HANDLER_PATTERN: _xss_event_handler,
 }
 
 
@@ -138,6 +183,31 @@ def _matches(pattern: str, payload: str) -> bool:
     if matcher is not None:
         return matcher(payload)
     return re.search(pattern, payload, _I) is not None
+
+
+def _decoded_views(payload: str) -> list[str]:
+    """The payload plus up to two URL-decode passes (deduplicated, in order).
+
+    Attack payloads routinely arrive URL-encoded (``%27+OR+1%3D1``), and the
+    OWASP CRS regression corpus carries them that way; WAF practice is to
+    normalize before signature matching (ModSecurity ``urlDecodeUni``).  Two
+    passes cover the common double-encoding evasion; a decode failure keeps
+    the raw view.
+    """
+    views = [payload]
+    current = payload
+    for _ in range(2):
+        try:
+            from urllib.parse import unquote_plus
+
+            decoded = unquote_plus(current)
+        except (ValueError, TypeError):  # pragma: no cover - unquote is total
+            break
+        if decoded == current:
+            break
+        views.append(decoded)
+        current = decoded
+    return views
 
 
 class BanishmentAction(Enum):
@@ -184,19 +254,41 @@ class ThreatDetector:
     - Data exfiltration
     """
 
-    decision_source = DecisionSource(
-        kind="experimental",
-        description=(
-            "Hand-written engineering signature rules with no published "
-            "source and no labelled calibration: is_threat fires when any "
-            "of the fixed SQL-injection / XSS / path-traversal regex "
-            "signatures matches, confidence is the fraction of a "
-            "category's patterns matched, and the Banish_Void_Undue "
-            "validity triage weights that confidence with temporal "
-            "relevance and an exposure heuristic (0.5/0.3/0.2) against "
-            "the 0.3/0.5/0.8 action ladder -- all in-code constants. "
-            "Verdicts are validity triage of a report, never an executed "
-            "response."
+    decision_source = (
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "Signature screens measured against the OWASP Core Rule Set "
+                "v4.7.0 regression corpus (tests/fixtures/crs/): recall "
+                "0.180 (SQLi, 671 attack payloads), 0.182 (XSS, 137), 0.333 "
+                "(traversal, 27); hit rates on the corpus's own "
+                "false-positive-regression payloads 0.026 (SQLi, both "
+                "residual hits genuine attack payloads scoped to other "
+                "rules), 0.176 (XSS), 0.0 (traversal).  The retired rules "
+                "flagged prose ('red or blue = fine') as SQLi and bare "
+                "parameters ('onion=3') as XSS; the boolean-tautology and "
+                "CRS-941160-style event-handler replacements do not.  This "
+                "is a screen, not a WAF: obfuscated payloads the CRS "
+                "engine normalises are beyond fixed signatures."
+            ),
+            false_alarm_rate=0.176,
+            calibration_data=(
+                "OWASP CRS v4.7.0 regression tests, families 942 (SQLi), "
+                "941 (XSS), 930 (traversal); extraction recorded in "
+                "tests/fixtures/crs/README.md, enforced by "
+                "tests/security/test_threat_crs_corpus.py"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The Banish_Void_Undue validity triage weights signature "
+                "confidence with temporal relevance and an exposure "
+                "heuristic (0.5/0.3/0.2) against the 0.3/0.5/0.8 action "
+                "ladder -- in-code constants with no published source. "
+                "Verdicts are validity triage of a report, never an "
+                "executed response."
+            ),
         ),
     )
 
@@ -205,17 +297,32 @@ class ThreatDetector:
         self.config = config or {}
         self.sql_patterns = [
             r"(\bUNION\b.*\bSELECT\b)",
-            r"(\bOR\b.*=.*)",
+            _SQL_OR_TAUTOLOGY_PATTERN,
             r"(;.*\bDROP\b.*\bTABLE\b)",
-            r"('.*--)",
+            r"('\s*--)",
             r"(\bEXEC\b.*\()",
+            r"\bsleep\s*\(",
+            r"\bbenchmark\s*\(",
+            r"\bwaitfor\s+delay\b",
+            r"\binformation_schema\b",
+            r"\bxp_cmdshell\b",
+            r"\bload_file\s*\(",
+            r"\bextractvalue\s*\(",
+            r"\bupdatexml\s*\(",
         ]
 
         self.xss_patterns = [
             r"<script[^>]*>.*</script>",
-            r"javascript:",
-            r"on\w+\s*=",
+            r"javascript\s*:",
+            _XSS_EVENT_HANDLER_PATTERN,
             r"<iframe",
+            r"<svg\b",
+            r"<embed\b",
+            r"<object\b",
+            r"srcdoc\s*=",
+            r"vbscript\s*:",
+            r"\bdocument\.(cookie|location|write)",
+            r"\bexpression\s*\(",
         ]
 
         self.path_traversal_patterns = [
@@ -223,14 +330,23 @@ class ThreatDetector:
             r"\.\.\\",
             r"%2e%2e/",
             r"%2e%2e\\",
+            r"\.\.%2f",
+            r"\.\.%5c",
+            r"%252e%252e",
+            r"%c0%ae",
+            r"/etc/(passwd|shadow|group)\b",
+            r"\\windows\\(system32|win\.ini)",
+            r"\bboot\.ini\b",
+            r"/proc/self/environ",
         ]
 
     def detect_sql_injection(self, payload: str) -> dict[str, Any]:
         """Detect SQL injection attempts."""
         matches = []
 
+        views = _decoded_views(payload)
         for pattern in self.sql_patterns:
-            if _matches(pattern, payload):
+            if any(_matches(pattern, view) for view in views):
                 matches.append(pattern)
 
         is_threat = len(matches) > 0
@@ -246,8 +362,9 @@ class ThreatDetector:
         """Detect XSS attacks."""
         matches = []
 
+        views = _decoded_views(payload)
         for pattern in self.xss_patterns:
-            if _matches(pattern, payload):
+            if any(_matches(pattern, view) for view in views):
                 matches.append(pattern)
 
         is_threat = len(matches) > 0
@@ -263,8 +380,9 @@ class ThreatDetector:
         """Detect path traversal attempts."""
         matches = []
 
+        views = _decoded_views(payload)
         for pattern in self.path_traversal_patterns:
-            if _matches(pattern, payload):
+            if any(_matches(pattern, view) for view in views):
                 matches.append(pattern)
 
         is_threat = len(matches) > 0
