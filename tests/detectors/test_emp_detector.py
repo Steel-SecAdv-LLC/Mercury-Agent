@@ -13,6 +13,7 @@ pytest.importorskip("torch")
 import pytest
 import torch
 
+from omni_mercury_engine.core.exceptions import InvalidObservationError
 from omni_mercury_engine.detectors.energy.emp_detector import (
     E1PulseDetector,
     E3PulseDetector,
@@ -350,11 +351,9 @@ class TestEMPDetector:
         assert len(result.recovery_actions) >= 0
 
     def test_empty_data_handling(self, detector: Any) -> None:
-        """Test handling of empty EMP data."""
-        result = detector.predict_emp({})
-
-        assert result.emp_detected is False
-        assert result.threat_level == "benign"
+        """Empty EMP data is refused: it used to grade as benign."""
+        with pytest.raises(InvalidObservationError, match="nothing measured"):
+            detector.predict_emp({})
 
     def test_threat_level_assessment(self, detector: Any) -> None:
         """Test threat level assessment function."""

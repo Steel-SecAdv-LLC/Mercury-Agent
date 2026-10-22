@@ -37,7 +37,8 @@ import numpy as np
 import torch
 from torch import nn
 
-from omni_mercury_engine.detectors._hazard_input import finite_scalar
+from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors._hazard_input import InvalidObservationError, finite_scalar
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
@@ -61,6 +62,20 @@ def _supplied(
             missing.append(key)
         return None
     return finite_scalar(data[key], key, unit=unit, lo=lo, hi=hi)
+
+
+#: The keys each section of ``predict_financial_crisis`` reads.  An absent
+#: key is named as missing, never defaulted -- but a misspelt key used to go
+#: unread, so a stressed market graded "stable".
+FINANCIAL_SECTIONS: dict[str, frozenset[str]] = {
+    "market_data": frozenset({"price_change_pct", "vix", "volume_vs_average"}),
+    "banking_data": frozenset({"cds_spread_bps", "default_rate_pct", "liquidity_ratio"}),
+    "network_data": frozenset(
+        {"interconnectedness_score", "concentration_ratio", "cross_border_exposure"}
+    ),
+    "currency_data": frozenset({"volatility"}),
+    "trading_data": frozenset({"trading_features", "volume_anomaly_score"}),
+}
 
 
 class CrisisType(Enum):
@@ -411,13 +426,21 @@ class FinancialCrisisDetector:
             financial_data: Multi-source financial data including:
                 - market_data: Stock indices, volatility, volume
                 - banking_data: Credit spreads, default rates, liquidity
-                - trading_data: Algorithmic trading patterns
+                - trading_data: Algorithmic trading patterns (graded only
+                  once fraud weights are loaded)
                 - network_data: Financial interconnections
-                - economic_indicators: GDP, unemployment, inflation
+                - currency_data: Exchange-rate volatility
 
         Returns:
             Financial crisis prediction with policy recommendations
+
+        Raises:
+            InputModalityError: If the record or a section is not a mapping.
+            InvalidObservationError: If no gradable section is supplied, or a
+                section carries an unknown key or no measurement (see
+                :data:`FINANCIAL_SECTIONS`).
         """
+        self._validate_sections(financial_data)
         result = FinancialCrisisPredictionResult(
             crisis_imminent=False,
             confidence=0.0,
@@ -506,6 +529,41 @@ class FinancialCrisisDetector:
         result.affected_sectors = self._identify_affected_sectors(result, financial_data)
 
         return result
+
+    def _validate_sections(self, financial_data: Any) -> None:
+        """Refuse a record the detector would grade as a silent "stable"."""
+        if not isinstance(financial_data, dict):
+            raise InputModalityError(
+                "predict_financial_crisis expects a mapping of sections "
+                f"(market_data, banking_data, ...), got {type(financial_data).__name__}"
+            )
+        for section, keys in FINANCIAL_SECTIONS.items():
+            if section not in financial_data:
+                continue
+            values = financial_data[section]
+            if not isinstance(values, dict):
+                raise InputModalityError(
+                    f"{section} must be a mapping, got {type(values).__name__}"
+                )
+            unknown = sorted(set(values) - keys)
+            if unknown:
+                raise InvalidObservationError(
+                    f"{section} has unknown keys {unknown}; accepted: {sorted(keys)}"
+                )
+            if all(values.get(key) is None for key in keys):
+                raise InvalidObservationError(
+                    f"{section} carries no measurement; supply at least one of {sorted(keys)}"
+                )
+        gradable = {"market_data", "banking_data", "network_data", "currency_data"}
+        if self._fraud_trained:
+            gradable.add("trading_data")
+        if not gradable & set(financial_data):
+            # Trading data alone feeds only the fraud network, which stays
+            # unconsulted until its weights load.
+            raise InvalidObservationError(
+                f"no gradable section: supply at least one of {sorted(gradable)}; "
+                "an unmeasured economy is not a stable one"
+            )
 
     def _detect_fraud(self, trading_data: dict[str, Any]) -> dict[str, Any]:
         """Detect fraudulent trading patterns (trained network only)."""

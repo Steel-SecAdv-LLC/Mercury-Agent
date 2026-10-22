@@ -29,7 +29,7 @@ pytest.importorskip("torch")
 
 import torch
 
-from omni_mercury_engine.core.exceptions import InvalidObservationError
+from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
 from omni_mercury_engine.detectors.energy import emp_detector as emp
 from omni_mercury_engine.detectors.energy.emp_detector import (
     E3PulseDetector,
@@ -68,8 +68,16 @@ def detector() -> EMPDetector:
     return EMPDetector()
 
 
-def test_nothing_measured_is_benign(detector: EMPDetector) -> None:
-    result = detector.predict_emp({})
+def test_nothing_measured_is_refused(detector: EMPDetector) -> None:
+    """An empty record used to grade "benign": an all-clear on no measurement."""
+    with pytest.raises(InvalidObservationError, match="nothing measured"):
+        detector.predict_emp({})
+    with pytest.raises(InvalidObservationError, match="nothing measured"):
+        detector.predict_emp({"signature_data": {"repetition_rate_hz": 100.0}})
+
+
+def test_quiet_field_is_benign(detector: EMPDetector) -> None:
+    result = detector.predict_emp({"sensor_data": {"field_strength_vm": 5.0}})
     assert (result.emp_detected, result.emp_type, result.threat_level) == (
         False,
         EMPType.NONE.value,
@@ -77,6 +85,36 @@ def test_nothing_measured_is_benign(detector: EMPDetector) -> None:
     )
     assert result.affected_infrastructure == []
     assert result.intentional_attack_probability is None
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {"sensor_data": {"field_strength": 50_000.0}},  # misspelt: read as 0 V/m
+        {"magnetometer_data": {"dbdt_nt_s": 5000.0}},  # misspelt: read as 0 nT/s
+        {"sensor_data": {"rise_time_ns": 2.0}},  # no field measured
+        {"sensor_array": {"positions_m": [[0.0, 0.0, 0.0]]}},  # half an array
+    ],
+)
+def test_misspelt_or_unmeasured_section_is_refused(
+    detector: EMPDetector, record: dict[str, Any]
+) -> None:
+    with pytest.raises(InvalidObservationError, match=r"unknown keys|no measurement"):
+        detector.predict_emp(record)
+
+
+@pytest.mark.parametrize("section", ["sensor_data", "magnetometer_data"])
+def test_non_mapping_section_is_refused(detector: EMPDetector, section: str) -> None:
+    with pytest.raises(InputModalityError, match="mapping"):
+        detector.predict_emp({section: [1.0, 2.0]})
+
+
+def test_unmeasured_rise_time_and_frequency_are_not_fabricated(detector: EMPDetector) -> None:
+    """1000 ns and 1 MHz used to be reported as measured when absent."""
+    result = detector.predict_emp({"sensor_data": {"field_strength_vm": 50_000.0}})
+    assert result.rise_time_ns is None
+    assert result.frequency_mhz is None
+    assert not result.e1_component_detected  # the E1 rule needs both
 
 
 def test_iec_e1_waveform_is_measured_to_the_benchmark() -> None:

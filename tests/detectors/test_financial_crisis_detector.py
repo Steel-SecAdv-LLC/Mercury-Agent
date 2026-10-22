@@ -13,6 +13,7 @@ pytest.importorskip("torch")
 import pytest
 import torch
 
+from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
 from omni_mercury_engine.detectors.economic.financial_crisis_detector import (
     BankingStressDetector,
     CrisisSeverity,
@@ -442,11 +443,9 @@ class TestFinancialCrisisDetector:
         assert result.contagion_probability > 0.0
 
     def test_empty_data_handling(self, detector: Any) -> None:
-        """Test handling of empty financial data."""
-        result = detector.predict_financial_crisis({})
-
-        assert result.crisis_imminent is False
-        assert result.severity_level == "stable"
+        """Empty financial data is refused: it used to grade as stable."""
+        with pytest.raises(InvalidObservationError, match="no gradable section"):
+            detector.predict_financial_crisis({})
 
     def test_partial_data_handling(self, detector: Any) -> None:
         """Test handling of partial financial data."""
@@ -478,15 +477,40 @@ class TestHonestyContract:
         assert result.crisis_type == "banking_crisis"
 
     def test_empty_input_reports_no_fabricated_measurements(self) -> None:
-        """Regression: empty input used to report CDS 100 bps as a measurement."""
+        """Regression: empty input used to report CDS 100 bps as a measurement.
+
+        Empty sections are now refused outright; a partly measured record
+        still reports the unmeasured values as None.
+        """
         detector = FinancialCrisisDetector()
-        result = detector.predict_financial_crisis(
-            {"market_data": {}, "banking_data": {}, "network_data": {}}
-        )
+        with pytest.raises(InvalidObservationError, match="no measurement"):
+            detector.predict_financial_crisis(
+                {"market_data": {}, "banking_data": {}, "network_data": {}}
+            )
+        result = detector.predict_financial_crisis({"market_data": {"price_change_pct": -1.0}})
         assert result.vix_level is None
         assert result.credit_default_swap_spread is None
         assert result.systemic_risk_score == 0.0  # dataclass default, nothing scored
         assert result.severity_level == "stable"
+
+    @pytest.mark.parametrize(
+        "record",
+        [
+            {"market_data": {"VIX": 60.0}},  # misspelt: read as unmeasured
+            {"banking_data": {"cds_bps": 900.0}},
+            {"network_data": {"interconnectedness": 0.95}},
+            {"currency_data": {"vol": 0.4}},
+        ],
+    )
+    def test_misspelt_measurement_is_refused(self, record: dict[str, Any]) -> None:
+        """A misspelt key used to go unread, so a stressed market graded stable."""
+        with pytest.raises(InvalidObservationError, match="unknown keys"):
+            FinancialCrisisDetector().predict_financial_crisis(record)
+
+    @pytest.mark.parametrize("section", ["market_data", "banking_data", "currency_data"])
+    def test_non_mapping_section_is_refused(self, section: str) -> None:
+        with pytest.raises(InputModalityError, match="mapping"):
+            FinancialCrisisDetector().predict_financial_crisis({section: [1.0]})
 
     def test_untrained_fraud_network_is_not_consulted(self) -> None:
         """Regression: a randomly-initialised FraudDetector was run and its noise
@@ -494,7 +518,15 @@ class TestHonestyContract:
         detector = FinancialCrisisDetector()
         fraud = detector._detect_fraud({"volume_anomaly_score": 0.9})
         assert fraud == {"fraud_detected": False, "fraud_probability": None, "consulted": False}
-        result = detector.predict_financial_crisis({"trading_data": {"volume_anomaly_score": 0.9}})
+        # Trading data alone feeds only the unconsulted network: refused.
+        with pytest.raises(InvalidObservationError, match="no gradable section"):
+            detector.predict_financial_crisis({"trading_data": {"volume_anomaly_score": 0.9}})
+        result = detector.predict_financial_crisis(
+            {
+                "market_data": {"price_change_pct": 0.5, "vix": 15.0},
+                "trading_data": {"volume_anomaly_score": 0.9},
+            }
+        )
         assert result.fraud_indicators == []
 
     def test_fraud_is_consulted_once_weights_load(self, tmp_path: Any) -> None:

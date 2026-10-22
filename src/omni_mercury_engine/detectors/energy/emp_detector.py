@@ -65,6 +65,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.detectors._hazard_input import (
     InvalidObservationError,
     finite_array,
@@ -114,6 +115,41 @@ IEMI_FEATURE_SPEC = "iemi-signature-v1"
 IEMI_SPECTRAL_BINS = 60
 IEMI_SPECTRUM_RANGE_HZ = (1e6, 1e10)
 IEMI_FEATURE_DIM = IEMI_SPECTRAL_BINS + 4
+
+
+#: The keys each section of ``predict_emp`` reads, and the measurement sets
+#: of which one must be complete.  The pulse detectors default a missing key
+#: to a quiet value (0 V/m, 0 nT/s), so a misspelt or empty section graded
+#: as a measured all-clear.
+EMP_SECTIONS: dict[str, tuple[frozenset[str], tuple[frozenset[str], ...]]] = {
+    "sensor_data": (
+        frozenset(
+            {
+                "waveform_vm",
+                "sample_rate_hz",
+                "field_strength_vm",
+                "rise_time_ns",
+                "peak_frequency_mhz",
+                "pulse_width_ns",
+                "e2_field_vm",
+                "e2_time_us",
+            }
+        ),
+        (frozenset({"waveform_vm"}), frozenset({"field_strength_vm"})),
+    ),
+    "magnetometer_data": (
+        frozenset({"db_dt_nt_s", "duration_seconds", "dbdt_cadence_s"}),
+        (frozenset({"db_dt_nt_s"}),),
+    ),
+    "signature_data": (
+        frozenset({"repetition_rate_hz", "signature_features"}),
+        (frozenset({"repetition_rate_hz"}), frozenset({"signature_features"})),
+    ),
+    "sensor_array": (
+        frozenset({"positions_m", "arrival_times_s"}),
+        (frozenset({"positions_m", "arrival_times_s"}),),
+    ),
+}
 
 
 class EMPType(Enum):
@@ -471,18 +507,29 @@ class E1PulseDetector:
             field_strength_vm = finite_scalar(
                 sensor_data.get("field_strength_vm", 0.0), "field_strength_vm", unit="V/m", lo=0.0
             )
-            rise_time_ns = finite_scalar(
-                sensor_data.get("rise_time_ns", 1000.0), "rise_time_ns", unit="ns", lo=0.0
+            # An unmeasured rise time or frequency is None, not a fabricated
+            # quiet value (1000 ns and 1 MHz used to be reported as measured);
+            # the E1 rule needs both, so it cannot fire without them.
+            rise_time_ns = (
+                finite_scalar(sensor_data["rise_time_ns"], "rise_time_ns", unit="ns", lo=0.0)
+                if sensor_data.get("rise_time_ns") is not None
+                else None
             )
-            frequency_mhz = finite_scalar(
-                sensor_data.get("peak_frequency_mhz", 1.0), "peak_frequency_mhz", unit="MHz", lo=0.0
+            frequency_mhz = (
+                finite_scalar(
+                    sensor_data["peak_frequency_mhz"], "peak_frequency_mhz", unit="MHz", lo=0.0
+                )
+                if sensor_data.get("peak_frequency_mhz") is not None
+                else None
             )
             pulse_width_ns = (
                 finite_scalar(sensor_data["pulse_width_ns"], "pulse_width_ns", unit="ns", lo=0.0)
                 if "pulse_width_ns" in sensor_data
                 else None
             )
-            band_low = band_high = rule_frequency_mhz = frequency_mhz
+            band_low = band_high = rule_frequency_mhz = (
+                math.nan if frequency_mhz is None else frequency_mhz
+            )
             band_ratio, band_class = None, None
 
         e1_threshold_vm = 10000.0
@@ -502,7 +549,7 @@ class E1PulseDetector:
             "e1_detected": e1_detected,
             "field_strength_vm": float(field_strength_vm),
             "rise_time_ns": None if rise_time_ns is None else float(rise_time_ns),
-            "frequency_mhz": float(frequency_mhz),
+            "frequency_mhz": None if frequency_mhz is None else float(frequency_mhz),
             "pulse_duration_ns": pulse_width_ns,
             "band_low_mhz": float(band_low),
             "band_high_mhz": float(band_high),
@@ -879,8 +926,12 @@ class EMPDetector:
             EMP prediction with threat assessment and protective actions.
 
         Raises:
-            InvalidObservationError: On non-finite or negative measurements.
+            InputModalityError: If the record or a section is not a mapping.
+            InvalidObservationError: On non-finite or negative measurements,
+                a section with an unknown key or no measurement (see
+                :data:`EMP_SECTIONS`), or a record with nothing measured.
         """
+        self._validate_sections(emp_data)
         result = EMPPredictionResult(
             emp_detected=False,
             confidence=0.0,
@@ -981,6 +1032,42 @@ class EMPDetector:
         result.recovery_actions = self._generate_recovery_actions(result)
 
         return result
+
+    def _validate_sections(self, emp_data: Any) -> None:
+        """Refuse a record the detector would grade as a silent "benign"."""
+        if not isinstance(emp_data, dict):
+            raise InputModalityError(
+                "predict_emp expects a mapping of measurements (sensor_data, "
+                f"magnetometer_data, ...), got {type(emp_data).__name__}"
+            )
+        for section, (allowed, complete) in EMP_SECTIONS.items():
+            if section not in emp_data:
+                continue
+            values = emp_data[section]
+            if not isinstance(values, dict):
+                raise InputModalityError(
+                    f"{section} must be a mapping, got {type(values).__name__}"
+                )
+            unknown = sorted(set(values) - allowed)
+            if unknown:
+                raise InvalidObservationError(
+                    f"{section} has unknown keys {unknown}; accepted: {sorted(allowed)}"
+                )
+            if not any(keys <= set(values) for keys in complete):
+                raise InvalidObservationError(
+                    f"{section} carries no measurement; supply one of "
+                    f"{[sorted(keys) for keys in complete]}"
+                )
+        measured = {"sensor_data", "magnetometer_data", "sensor_array"}
+        if self._iemi_trained:
+            measured.add("signature_data")
+        if not measured & set(emp_data):
+            # A repetition rate alone feeds only the IEMI network, which is
+            # unconsulted until its weights load.
+            raise InvalidObservationError(
+                f"nothing measured: supply at least one of {sorted(measured)}; an "
+                "unmeasured environment is not a benign one"
+            )
 
     def _classify_intentional_attack(
         self,

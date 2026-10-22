@@ -635,7 +635,7 @@ added. New code must use the `compliance.` import path.
   `space.gic_detector.GICDetector` gives the plane-wave geoelectric field
   (`geoelectric_peak_v_per_km`).
 * **Regression tests:**
-  `tests/detectors/test_emp_served_contract.py::test_nothing_measured_is_benign`,
+  `tests/detectors/test_emp_served_contract.py::test_quiet_field_is_benign`,
   `::test_untrained_network_is_not_consulted` and
   `::test_released_e3_key_is_kept_without_a_fabricated_value`
 
