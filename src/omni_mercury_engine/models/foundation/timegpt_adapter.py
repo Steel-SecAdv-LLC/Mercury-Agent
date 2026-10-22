@@ -26,12 +26,23 @@ import numpy as np
 import pandas as pd
 import torch
 
+from omni_mercury_engine.core.exceptions import ModelException
 from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _api_level(level: float) -> int | float:
+    """A confidence level as Nixtla takes it: integral levels as int.
+
+    Nixtla names interval columns after the level it was given
+    (``TimeGPT-lo-90``); an integral level is sent as an int so the name is
+    the documented one.
+    """
+    return int(level) if float(level).is_integer() else float(level)
 
 
 @dataclass
@@ -44,6 +55,12 @@ class TimeGPTConfig(FoundationModelConfig):
         freq: Time series frequency (e.g., 'H', 'D', 'M')
         fh: Forecast horizon (alias for prediction_length)
         finetune_steps: Steps for fine-tuning (0 = no fine-tuning)
+        interval_level: Confidence level, in percent (0-100), of the
+            forecast's prediction interval -- Nixtla's ``level`` (the
+            0-1 ``quantiles`` used to be passed there).
+        anomaly_level: Confidence level, in percent, of the interval
+            outside which ``detect_anomalies`` flags a point (Nixtla's
+            default, 99).
     """
 
     api_key: str | None = None
@@ -52,11 +69,17 @@ class TimeGPTConfig(FoundationModelConfig):
     fh: int = 24  # Forecast horizon
     finetune_steps: int = 0
     model_name: str = "timegpt-1"
+    interval_level: float = 90.0
+    anomaly_level: float = 99.0
 
     def __post_init__(self) -> None:
-        """Sync fh with prediction_length."""
+        """Sync fh with prediction_length; check the interval levels."""
         if self.fh != 24:
             self.prediction_length = self.fh
+        for name in ("interval_level", "anomaly_level"):
+            level = getattr(self, name)
+            if not 0.0 < level < 100.0:
+                raise ValueError(f"{name} is a percentage in (0, 100), got {level}")
 
 
 class TimeGPTAdapter(BaseFoundationModel):
@@ -153,7 +176,9 @@ class TimeGPTAdapter(BaseFoundationModel):
             DataFrame with 'ds' and 'y' columns
         """
         if start_time is None:
-            start_time = pd.Timestamp.now()
+            # Whole seconds: the verdict is aligned back to the input by
+            # timestamp, and sub-second stamps need not survive the API.
+            start_time = pd.Timestamp.now().floor("s")
 
         freq_map = {
             "H": "h",
@@ -207,35 +232,30 @@ class TimeGPTAdapter(BaseFoundationModel):
         lowers = []
         uppers = []
 
+        level = _api_level(self.timegpt_config.interval_level)
+        lo_col, hi_col = f"TimeGPT-lo-{level}", f"TimeGPT-hi-{level}"
         for i in range(batch_size):
             df = self._to_dataframe(series[i])
-
-            if self._client is not None:
-                try:
-                    result = self._client.forecast(
-                        df=df,
-                        h=horizon,
-                        model=self.timegpt_config.model,
-                        freq=self.timegpt_config.freq,
-                        finetune_steps=self.timegpt_config.finetune_steps,
-                        level=self.foundation_config.quantiles,
-                    )
-
-                    forecasts.append(result["TimeGPT"].values)
-                    lowers.append(result.get("TimeGPT-lo-90", result["TimeGPT"]).values)
-                    uppers.append(result.get("TimeGPT-hi-90", result["TimeGPT"]).values)
-
-                except Exception as e:
-                    logger.warning(f"TimeGPT forecast failed: {e}")
-                    # Fallback to naive forecast
-                    forecasts.append(np.full(horizon, series[i, -1]))
-                    lowers.append(np.full(horizon, series[i, -1] * 0.9))
-                    uppers.append(np.full(horizon, series[i, -1] * 1.1))
-            else:
-                # Mock mode: simple extrapolation
-                forecasts.append(self._mock_forecast(series[i], horizon))
-                lowers.append(forecasts[-1] * 0.9)
-                uppers.append(forecasts[-1] * 1.1)
+            try:
+                result = self._client.forecast(
+                    df=df,
+                    h=horizon,
+                    model=self.timegpt_config.model,
+                    freq=self.timegpt_config.freq,
+                    finetune_steps=self.timegpt_config.finetune_steps,
+                    level=[level],
+                )
+            except Exception as e:
+                # A naive last-value forecast with +-10 % "bounds" used to be
+                # returned here, indistinguishable from a TimeGPT forecast.
+                raise ModelException(f"TimeGPT forecast failed for series {i}: {e}") from e
+            missing = [c for c in ("TimeGPT", lo_col, hi_col) if c not in result.columns]
+            if missing:
+                # The point forecast used to stand in for an absent bound.
+                raise ModelException(f"TimeGPT forecast response lacks the columns {missing}")
+            forecasts.append(result["TimeGPT"].to_numpy(dtype=np.float64))
+            lowers.append(result[lo_col].to_numpy(dtype=np.float64))
+            uppers.append(result[hi_col].to_numpy(dtype=np.float64))
 
         # For single series input (1D), return just the forecast array for API simplicity
         # For batch input (2D), return the full dict with all bounds
@@ -276,38 +296,21 @@ class TimeGPTAdapter(BaseFoundationModel):
         all_scores = []
         all_anomalies = []
 
+        level = _api_level(self.timegpt_config.anomaly_level)
+        lo_col, hi_col = f"TimeGPT-lo-{level}", f"TimeGPT-hi-{level}"
         for i in range(batch_size):
             df = self._to_dataframe(series[i])
-
-            if self._client is not None:
-                try:
-                    # Use TimeGPT's native anomaly detection
-                    result = self._client.detect_anomalies(
-                        df=df,
-                        freq=self.timegpt_config.freq,
-                    )
-
-                    # Extract anomaly column
-                    is_anomaly = result["anomaly"].values.astype(bool)
-                    scores = result.get("anomaly_score", is_anomaly.astype(float))
-
-                    if hasattr(scores, "values"):
-                        scores = scores.values
-
-                    all_scores.append(scores)
-                    all_anomalies.append(is_anomaly)
-
-                except Exception as e:
-                    logger.warning(f"TimeGPT anomaly detection failed: {e}")
-                    # Fallback to rolling statistics
-                    scores, is_anomaly = self._mock_detect(series[i])
-                    all_scores.append(scores)
-                    all_anomalies.append(is_anomaly)
-            else:
-                # Mock mode
-                scores, is_anomaly = self._mock_detect(series[i])
-                all_scores.append(scores)
-                all_anomalies.append(is_anomaly)
+            try:
+                result = self._client.detect_anomalies(
+                    df=df, freq=self.timegpt_config.freq, level=level
+                )
+            except Exception as e:
+                # A rolling z-score used to be returned here, indistinguishable
+                # from TimeGPT's own verdict.
+                raise ModelException(f"TimeGPT anomaly detection failed for series {i}: {e}") from e
+            scores, is_anomaly = self._align_anomalies(df, result, lo_col, hi_col)
+            all_scores.append(scores)
+            all_anomalies.append(is_anomaly)
 
         return {
             "scores": np.stack(all_scores) if batch_size > 1 else all_scores[0],
@@ -315,62 +318,38 @@ class TimeGPTAdapter(BaseFoundationModel):
             "threshold": self.foundation_config.anomaly_threshold,
         }
 
-    def _mock_forecast(self, series: np.ndarray[Any, Any], horizon: int) -> np.ndarray[Any, Any]:
-        """Simple mock forecast using linear trend.
-
-        Args:
-            series: Input series
-            horizon: Forecast horizon
-
-        Returns:
-            Forecast values
-        """
-        # Linear extrapolation
-        x = np.arange(len(series))
-        coeffs = np.polyfit(x, series, 1)
-        future_x = np.arange(len(series), len(series) + horizon)
-        return np.polyval(coeffs, future_x)
-
-    def _mock_detect(
-        self,
-        series: np.ndarray[Any, Any],
-        window: int = 20,
+    @staticmethod
+    def _align_anomalies(
+        df: pd.DataFrame, result: pd.DataFrame, lo_col: str, hi_col: str
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Mock anomaly detection using rolling statistics.
+        """Per-input-point score and flag from TimeGPT's in-sample verdict.
 
-        Args:
-            series: Input series
-            window: Rolling window size
-
-        Returns:
-            Tuple of (scores, is_anomaly)
+        TimeGPT grades the points it has context for; the rest are NaN
+        (unassessed) with no flag.  The score is the distance outside the
+        prediction interval over its width (0 inside), as documented above;
+        without interval columns it is TimeGPT's own 0/1 flag.
         """
-        # Rolling mean and std
-        scores = np.zeros(len(series))
-
-        for i in range(len(series)):
-            start = max(0, i - window)
-            window_data = series[start : i + 1]
-
-            if len(window_data) < 2:
-                scores[i] = 0.0
-            else:
-                mean = np.mean(window_data[:-1]) if len(window_data) > 1 else window_data[0]
-                std = np.std(window_data[:-1]) if len(window_data) > 1 else 1.0
-                std = max(std, 1e-6)
-
-                # Z-score as anomaly score
-                scores[i] = abs(series[i] - mean) / std
-
-        # Normalize to [0, 1]
-        if scores.max() > 0:
-            scores = scores / scores.max()
-
-        # Threshold
-        threshold = np.percentile(scores, self.foundation_config.anomaly_threshold * 100)
-        is_anomaly = scores > threshold
-
-        return scores, is_anomaly
+        if "anomaly" not in result.columns or "ds" not in result.columns:
+            raise ModelException(
+                "TimeGPT anomaly response lacks the 'ds' / 'anomaly' columns; got "
+                f"{list(result.columns)}"
+            )
+        index = pd.Index(pd.to_datetime(df["ds"]))
+        rows = index.get_indexer(pd.to_datetime(result["ds"]))
+        if (rows < 0).any():
+            raise ModelException("TimeGPT graded timestamps that are not in the input")
+        flags = np.zeros(len(df), dtype=bool)
+        flags[rows] = result["anomaly"].to_numpy(dtype=bool)
+        scores = np.full(len(df), np.nan)
+        if lo_col in result.columns and hi_col in result.columns:
+            y = df["y"].to_numpy(dtype=np.float64)[rows]
+            lo = result[lo_col].to_numpy(dtype=np.float64)
+            hi = result[hi_col].to_numpy(dtype=np.float64)
+            width = np.maximum(hi - lo, 1e-12)
+            scores[rows] = np.maximum.reduce([np.zeros_like(y), y - hi, lo - y]) / width
+        else:
+            scores[rows] = flags[rows].astype(np.float64)
+        return scores, flags
 
     def detect(
         self,
@@ -394,35 +373,23 @@ class TimeGPTAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         steps: int = 100,
     ) -> TimeGPTAdapter:
-        """Fine-tune TimeGPT on domain data.
+        """Fine-tune TimeGPT on each later forecast call.
+
+        TimeGPT fine-tunes server-side on the series of each forecast request
+        (Nixtla's ``finetune_steps``); this sets the number of steps.  The
+        method used to log "Fine-tuned TimeGPT" without sending anything.
 
         Args:
-            series: Training time series
-            steps: Number of fine-tuning steps
+            series: Accepted for the released signature; TimeGPT fine-tunes
+                on the series each forecast call sends, not on this one.
+            steps: Fine-tuning steps per forecast call (>= 0).
 
         Returns:
             Self for method chaining
         """
+        if isinstance(steps, bool) or not isinstance(steps, int) or steps < 0:
+            raise ValueError(f"steps must be a non-negative int, got {steps!r}")
         self._ensure_initialized()
-
-        if self._client is None:
-            logger.warning("Fine-tuning requires valid API key")
-            return self
-
-        if isinstance(series, torch.Tensor):
-            series = series.cpu().numpy()
-
-        if series.ndim == 2:
-            series = series.flatten()
-
-        # Convert to dataframe format for TimeGPT API
-        self._to_dataframe(series)
-
-        try:
-            # Fine-tune (updates internal state)
-            self.timegpt_config.finetune_steps = steps
-            logger.info(f"Fine-tuned TimeGPT for {steps} steps")
-        except Exception as e:
-            logger.error(f"Fine-tuning failed: {e}")
-
+        self.timegpt_config.finetune_steps = steps
+        logger.info("TimeGPT will fine-tune %d steps on each forecast call", steps)
         return self
