@@ -485,3 +485,31 @@ class TestRepositoryReviewFile:
         assert nvidia[0].status == "permitted"
         assert nvidia[0].permission == "LICENSE-EXCEPTION"
         assert "section 7" in (_REPO_ROOT / "LICENSE-EXCEPTION").read_text(encoding="utf-8")
+
+
+MIT_TEXT = (
+    "MIT License\n\nCopyright (c) 2024 Example\n\n"
+    "Permission is hereby granted, free of charge, to any person obtaining a copy "
+    'of this software and associated documentation files (the "Software"), to deal '
+    "in the Software without restriction...\n"
+)
+
+
+class TestFileOnlyMetadata:
+    """PEP 639 file-only metadata (setuptools 77-79): the shipped text decides.
+
+    Regression: setuptools 79.0.1 on the CI runner declares its license only
+    via ``License-File`` -- no expression, no License field, no classifier --
+    and the gate read it as 'unknown [none] no recognisable license', failing
+    the type-checking lane's dependency gate.
+    """
+
+    def test_mit_license_file_only_is_compatible(self, site: Path) -> None:
+        a = gate.assess(_install(site, "ga", license_text=MIT_TEXT))
+        assert a.verdict == "compatible"
+        assert a.signature == "License-File text"
+        assert "MIT" in a.detail
+
+    def test_non_mit_license_file_only_stays_unknown(self, site: Path) -> None:
+        a = gate.assess(_install(site, "gb", license_text="Proprietary. All rights reserved."))
+        assert a.verdict == "unknown"

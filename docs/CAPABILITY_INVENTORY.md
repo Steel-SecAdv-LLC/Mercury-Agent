@@ -7,21 +7,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,047
-- **Capability-bearing classes:** 2,034 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,050
+- **Capability-bearing classes:** 2,037 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,192 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,193 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1192 |
+| Other capability classes | 1193 |
 | Support types (config / result / enum / error) | 1013 |
 | Detection | 177 |
 | Neural models & layers | 162 |
-| Data sources & loaders | 104 |
+| Data sources & loaders | 106 |
 | Engines & orchestration | 101 |
 | Adapters & backends | 94 |
 | Training & optimization | 65 |
@@ -1046,7 +1046,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 450 classes (325 capability)
+### `detectors/` — 452 classes (327 capability)
 
 **Adapters & backends**
 
@@ -1106,6 +1106,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SystemicRiskAnalyzer` (`detectors.economic.financial_crisis_detector`) — Systemic risk assessment via network contagion modeling.
 - `WindPatternAnalyzer` (`detectors.geological.hurricane_detector`) — Wind pattern analyzer for cyclone structure detection.
 
+**Data sources & loaders**
+
+- `DecisionSource` (`detectors.provenance`) — Provenance record for one detector decision rule.
+- `WrappedDecisionSource` (`detectors.provenance`) — Lazy class attribute serving the wrapped detector's provenance.
+
 **Detection**
 
 - `AccelerationDynamicsDetector` (`detectors.acceleration_dynamics`) — Physics-based acceleration dynamics anomaly detector.
@@ -1126,7 +1131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ChiSquaredDriftDetector` (`detectors.drift`) — Chi-squared test based drift detector for categorical features.
 - `ConformalChangeDetector` (`detectors.conformal_martingale`) — Conformal Shiryaev-Roberts test for a rise in a stream of scores.
 - `ContrastiveLearningDetector` (`detectors.advanced.contrastive_detector`) — Contrastive Learning Detector for Anomaly Detection.
-- `CoralBleachingDetector` (`detectors.marine.biodiversity_detector`) — Coral bleaching detection from temperature and stress indicators.
+- `CoralBleachingDetector` (`detectors.marine.biodiversity_detector`) — Coral bleaching detection per NOAA Coral Reef Watch alert levels.
 - `CovarianceAwareDetector` (`detectors.adaptive_detector`) — Solves the batadal problem.
 - `CovarianceDriftDetector` (`detectors.drift`) — Covariance-structure drift via the affine-invariant SPD distance.
 - `DBSCANDetector` (`detectors.statistical_extended`) — DBSCAN-based anomaly detector.
@@ -1176,7 +1181,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MADDetector` (`detectors.statistical_extended`) — Median Absolute Deviation (MAD) based anomaly detector.
 - `MCDDetector` (`detectors.statistical_extended`) — Minimum Covariance Determinant (MCD) based detector.
 - `MarineBiodiversityDetector` (`detectors.marine.biodiversity_detector`) — Comprehensive marine biodiversity monitoring system.
-- `MarketCrashDetector` (`detectors.economic.financial_crisis_detector`) — Stock market crash detection via volatility and momentum.
+- `MarketCrashDetector` (`detectors.economic.financial_crisis_detector`) — Stock market crash detection via price decline and volatility.
 - `MercuryAnomalyDetector` (`detectors.statistical`) — Mercury's original anomaly detection ensemble.
 - `MeteorDetector` (`detectors.geological.disaster_detectors`) — Meteor detector using optical/radar Bayesian filter with NASA/JPL integration.
 - `MultiScaleTransformerDetector` (`detectors.advanced.multi_scale_transformer`) — Multi-Scale Transformer Detector for Time-Series Anomaly Detection.
@@ -2842,11 +2847,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `streaming/` — 1 classes (1 capability)
+### `streaming/` — 2 classes (2 capability)
 
 **Detection**
 
 - `StreamingDetector` (`streaming.streaming_detector`) — Rolling-window anomaly detector for streaming data.
+
+**Other capability classes**
+
+- `EngineStreamSession` (`streaming.engine_stream`) — Stateful one-sample-at-a-time detection over an engine's detectors.
 
 ### `tools/` — 7 classes (5 capability)
 

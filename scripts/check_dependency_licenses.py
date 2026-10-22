@@ -166,6 +166,14 @@ _CLASSIFIERS: dict[str, str] = {
 _LICENSE_FILE = re.compile(r"(^|/)(licen[cs]e|copying|notice)[^/]*$", re.IGNORECASE)
 _BSD_ADVERTISING = re.compile(r"all\s+advertising\s+materials\s+mentioning", re.IGNORECASE)
 _APACHE_2 = re.compile(r"apache\s+license.{0,80}version\s+2\.0", re.IGNORECASE | re.DOTALL)
+#: The MIT/Expat operative clause -- the one sentence every MIT-family text
+#: carries.  Used only for distributions whose metadata declares a license
+#: solely via ``License-File`` (PEP 639 file-only metadata, e.g. setuptools
+#: 77-79), where no expression, field or classifier exists to read.
+_MIT_TEXT = re.compile(
+    r"permission\s+is\s+hereby\s+granted,\s+free\s+of\s+charge,\s+to\s+any\s+person\s+obtaining\s+a\s+copy",
+    re.IGNORECASE,
+)
 _SYMBOL = re.compile(r"\(|\)|[^\s()]+")
 
 COMPATIBLE_VERDICT = "compatible"
@@ -386,6 +394,18 @@ def assess(dist: md.Distribution) -> Assessment:
         signature = "Classifier: " + "; ".join(sorted(tails))
         verdict, detail = _verdict_for(mapped, dist)
         return Assessment(name, version, verdict, signature, detail)
+
+    # PEP 639 file-only metadata (no expression, field or classifier --
+    # setuptools 77-79 ship exactly this): identify the canonical MIT text.
+    texts = _license_texts(dist)
+    if texts and any(_MIT_TEXT.search(text) for text in texts):
+        return Assessment(
+            name,
+            version,
+            COMPATIBLE_VERDICT,
+            "License-File text",
+            "MIT license text (PEP 639 file-only metadata)",
+        )
 
     if _ships_no_code(dist):
         return Assessment(name, version, COMPATIBLE_VERDICT, "none", "ships only its metadata")
