@@ -46,6 +46,11 @@ class _ScriptedLVLM:
     def __init__(self) -> None:
         self.calls: int = 0
 
+    def yes_probability(self, prompt: str) -> float:
+        """LAVAD's frame judgement: the described frame shows the anomaly."""
+        self.calls += 1
+        return 0.9 if "collapsing" in prompt else 0.1
+
     def generate(self, images: list[Any], prompt: str) -> str:
         """Answer a VQA / captioning / text-only reasoning query."""
         self.calls += 1
@@ -280,6 +285,7 @@ class TestLAVADDetector:
         detector = LAVADDetector()
         backend = _ScriptedLVLM()
         detector._caption_model = backend
+        detector._reasoning_model = backend
 
         clip = _synthetic_clip()
         results = detector.detect_video(clip)

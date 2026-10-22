@@ -28,6 +28,9 @@ class LVLMType(Enum):
     CHAT_UNIVI = "chat_univi"
     INTERNVL = "internvl"
     LOCAL_CUSTOM = "local_custom"
+    #: The pinned, CPU-runnable BLIP VQA backend: lets AnyAnomaly run on a
+    #: real model without a multi-GB LVLM download.
+    BLIP_VQA = "blip_vqa"
 
 
 class ContextType(Enum):

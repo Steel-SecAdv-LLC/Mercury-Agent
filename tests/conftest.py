@@ -148,6 +148,11 @@ def pytest_sessionstart(session: pytest.Session) -> None:
       tests silently skip while the job still reports green -- "Lean
       missing" masquerading as "Lean tests passed".
 
+    * ``MERCURY_REQUIRES_HF_MODELS=1`` -- every pinned HuggingFace model
+      the shipped VLM defaults load must be in the local cache.  Covers the
+      real-model tier (``tests/detectors/test_vlm_real_models.py``), which
+      otherwise skips when the weights are absent.
+
     Each gate is unconditional once its flag is set: there is no
     second-chance override that re-enables silent skipping.  The operator
     either provides the dependency the lane declared it needs, or pytest
@@ -208,6 +213,30 @@ def pytest_sessionstart(session: pytest.Session) -> None:
                 "If this lane intentionally does NOT own the theorem tier,\n"
                 "leave MERCURY_REQUIRES_LEAN unset -- the tier then skips\n"
                 "cleanly by design in this thin environment.\n"
+                "===============================================================\n",
+                returncode=2,
+            )
+
+    if os.environ.get("MERCURY_REQUIRES_HF_MODELS") == "1":
+        from tests.hf_model_cache import missing_pinned_models
+
+        missing = missing_pinned_models()
+        if missing:
+            pytest.exit(
+                "\n"
+                "===============================================================\n"
+                "  Mercury Agent real-model tier gate (MERCURY_REQUIRES_HF_MODELS=1)\n"
+                "===============================================================\n"
+                "This pytest session declared the real-model VLM tier as a hard\n"
+                "contract, but these pinned models are not in the local\n"
+                f"HuggingFace cache: {', '.join(missing)}\n"
+                "\n"
+                "Remediation:\n"
+                "  python scripts/prefetch_pinned_models.py\n"
+                "\n"
+                "If this lane intentionally does NOT own the real-model tier,\n"
+                "leave MERCURY_REQUIRES_HF_MODELS unset -- the tier then skips\n"
+                "cleanly by design.\n"
                 "===============================================================\n",
                 returncode=2,
             )

@@ -551,6 +551,120 @@ class BLIPCaptionBackend(LVLMBackend):
         return "; ".join(captions)
 
 
+class HFTextReasoningBackend(LVLMBackend):
+    """Local instruction-tuned language model for text-only reasoning.
+
+    Serves LAVAD's second stage: the frame captions go in as text and the
+    model reasons over them.  This is a *language* model, so it refuses
+    images; a captioning model cannot stand in for it (BLIP captions images
+    and returns nothing for a text-only prompt, which silently scored every
+    LAVAD window as normal).  Decoding is greedy, so the same captions give
+    the same verdict; any load or generation failure raises.
+
+    The shipped default is ``Qwen/Qwen2.5-0.5B-Instruct`` (Apache-2.0,
+    ~1 GB, CPU-runnable), pinned to an immutable revision.  Meta Llama 3 8B
+    Instruct (the LAVAD paper's model family) is allowlisted for operators
+    who pass its revision explicitly.
+    """
+
+    DEFAULT_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+    ALLOWED_MODELS: frozenset[str] = frozenset(
+        {DEFAULT_MODEL, "meta-llama/Meta-Llama-3-8B-Instruct"}
+    )
+    #: Shipped immutable revision pin (Hub state as of 2026-10-22); see
+    #: :class:`BLIPVQABackend` for the bump-in-review contract.
+    DEFAULT_REVISIONS: dict[str, str] = {
+        DEFAULT_MODEL: "7ae557604adf67be50417f59c2c2f167def9a775",
+    }
+
+    def initialize(self) -> None:
+        """Load the language model and its tokenizer through the pinned loader."""
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except ImportError as e:
+            raise ImportError(
+                "transformers is required for the text reasoning backend. "
+                "Install with: pip install 'mercury-agent-global[vlm]'"
+            ) from e
+
+        logger.info(f"Loading text reasoner: {self.model_name}")
+        revision = self.revision or self.DEFAULT_REVISIONS.get(self.model_name)
+        self.processor = SafeHFLoader.load_tokenizer(
+            AutoTokenizer,
+            self.model_name,
+            revision=revision,
+            allowlist=self.ALLOWED_MODELS,
+        )
+        self.model = SafeHFLoader.load_model(
+            AutoModelForCausalLM,
+            self.model_name,
+            revision=revision,
+            allowlist=self.ALLOWED_MODELS,
+            torch_dtype=torch.float32,
+        )
+        self.model.to(self.device)
+        self.model.eval()
+        # First-token ids of the answer spellings scored by yes_probability.
+        self._yes_ids = self._first_token_ids(("Yes", " Yes", "yes", " yes"))
+        self._no_ids = self._first_token_ids(("No", " No", "no", " no"))
+        logger.info("Text reasoner loaded successfully")
+
+    def _first_token_ids(self, spellings: tuple[str, ...]) -> list[int]:
+        return sorted({self.processor.encode(w, add_special_tokens=False)[0] for w in spellings})
+
+    def _chat_encoding(self, prompt: str) -> Any:
+        return self.processor.apply_chat_template(
+            [{"role": "user", "content": prompt}],
+            add_generation_prompt=True,
+            return_tensors="pt",
+            return_dict=True,
+        ).to(self.device)
+
+    def yes_probability(self, prompt: str) -> float:
+        """The model's own probability of answering Yes rather than No.
+
+        Two-candidate likelihood scoring at the first answer token (as
+        :class:`BLIPVQABackend` scores its answers): ``P(Yes) / (P(Yes) +
+        P(No))`` from the next-token distribution after the chat-formatted
+        question, summed over the answer's spellings.  Deterministic, and
+        nothing is parsed from free text, so a small model's formatting
+        cannot decide the verdict.
+        """
+        self._ensure_initialized()
+        with torch.no_grad():
+            logits = self.model(**self._chat_encoding(prompt)).logits[0, -1]
+        log_probs = torch.log_softmax(logits.float(), dim=-1)
+        log_yes = torch.logsumexp(log_probs[self._yes_ids], dim=0)
+        log_no = torch.logsumexp(log_probs[self._no_ids], dim=0)
+        return float(torch.sigmoid(log_yes - log_no))
+
+    def generate(
+        self,
+        images: list[Image.Image] | list[np.ndarray[Any, Any]],
+        prompt: str,
+    ) -> str:
+        """Answer ``prompt`` with the language model (greedy, chat-formatted).
+
+        Raises:
+            ValueError: If images are passed (this backend reads text only).
+        """
+        if images:
+            raise ValueError(
+                "HFTextReasoningBackend is a text-only language model; pass captions, not images"
+            )
+        self._ensure_initialized()
+        encoded = self._chat_encoding(prompt)
+        prompt_length = encoded["input_ids"].shape[1]
+        with torch.no_grad():
+            output = self.model.generate(
+                **encoded,
+                max_new_tokens=self.max_new_tokens,
+                do_sample=False,
+                pad_token_id=self.processor.eos_token_id,
+            )
+        return str(self.processor.decode(output[0, prompt_length:], skip_special_tokens=True))
+
+
 class MockLVLMBackend(LVLMBackend):
     """Mock LVLM backend — hard-fails at construction.
 
@@ -614,6 +728,7 @@ def get_lvlm_backend(
         "llava": LLaVABackend,
         "blip_vqa": BLIPVQABackend,
         "blip_caption": BLIPCaptionBackend,
+        "hf_text": HFTextReasoningBackend,
         "mock": MockLVLMBackend,
     }
 
