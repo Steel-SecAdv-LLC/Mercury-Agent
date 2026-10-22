@@ -22,6 +22,7 @@ Interface Contracts:
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import wraps
@@ -143,6 +144,163 @@ class DetectorMetrics:
         if self.precision + self.recall == 0:
             return 0.0
         return 2 * (self.precision * self.recall) / (self.precision + self.recall)
+
+
+def _finite_sample_mask(data: Any) -> Any:
+    """Per-sample all-finite mask for a float array/tensor, else ``None``.
+
+    Samples are axis-0 entries (rows of a matrix, elements of a series,
+    frames of a stack). Integer and boolean arrays cannot hold NaN and map
+    to ``None`` (nothing to mask); non-array inputs (mappings, lists of
+    records) are left to the detector's own validators.
+    """
+    if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
+        if not data.is_floating_point() or data.ndim == 0 or data.shape[0] == 0:
+            return None
+        flat = data.reshape(data.shape[0], -1)
+        return torch.isfinite(flat).all(dim=1)
+    import numpy as np
+
+    if isinstance(data, np.ndarray):
+        if data.dtype.kind != "f" or data.ndim == 0 or data.shape[0] == 0:
+            return None
+        flat = data.reshape(data.shape[0], -1)
+        return np.isfinite(flat).all(axis=1)
+    return None
+
+
+#: Reinserted per-sample score for an unmeasured position: the maximally
+#: uncertain mid-point, never the confident all-clear 0.0.  Unmeasured
+#: positions are additionally named in ``nan_rows``/``unmeasured`` and the
+#: verdict is marked ``partial``.
+_UNMEASURED_NEUTRAL_SCORE = 0.5
+
+
+def _check_finite_scores(detector: Any, result: dict[str, Any]) -> dict[str, Any]:
+    """Refuse to serve a non-finite anomaly score (B9: never a NaN score)."""
+    import numpy as np
+
+    for key in ("anomaly_score", "anomaly_prob"):
+        value = result.get(key)
+        if value is not None and not math.isfinite(float(value)):
+            raise RuntimeError(
+                f"{type(detector).__name__} produced a non-finite {key}; "
+                "refusing to serve a NaN score"
+            )
+    scores = result.get("scores")
+    if scores is not None:
+        score_array = np.asarray(scores, dtype=np.float64)
+        if score_array.size and not np.all(np.isfinite(score_array)):
+            raise RuntimeError(
+                f"{type(detector).__name__} produced non-finite per-sample "
+                "scores; refusing to serve NaN scores"
+            )
+    return result
+
+
+def _nan_guard(func: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
+    """Treat non-finite samples as unmeasured; never serve a NaN score.
+
+    Pre: non-finite samples (rows) of an array/tensor input are set aside
+    before the wrapped ``detect`` runs, scored as the neutral mid-point at
+    their original positions (alignment is preserved), counted and indexed
+    in the result (``unmeasured`` + the tier's ``nan_rows`` convention),
+    and the verdict is marked ``partial`` so it can never read as a full
+    all-clear. An input with no finite sample at all raises ``ValueError``:
+    an unmeasured stream is not a quiet one. Sanitization is metered
+    through the tier's single entry point
+    (:func:`~omni_mercury_engine.detectors.detection_config.apply_nan_policy`).
+
+    A detector that implements its own non-finite contract declares
+    ``handles_unmeasured = True`` and runs untouched except for the
+    never-serve-a-NaN-score post-check.
+
+    Post: a non-finite headline or per-sample score raises ``RuntimeError``
+    instead of being served.
+    """
+
+    @wraps(func)
+    def guarded(self: Any, data: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        import numpy as np
+
+        if getattr(self, "handles_unmeasured", False):
+            return _check_finite_scores(self, func(self, data, *args, **kwargs))
+
+        mask = _finite_sample_mask(data)
+        unmeasured_indices: list[int] = []
+        cleaned = data
+        total = 0
+        if mask is not None:
+            total = int(mask.shape[0])
+            if TORCH_AVAILABLE and isinstance(mask, torch.Tensor):
+                all_finite = bool(mask.all())
+                unmeasured_indices = (~mask).nonzero(as_tuple=False).reshape(-1).tolist()
+            else:
+                all_finite = bool(np.all(mask))
+                unmeasured_indices = np.flatnonzero(~mask).tolist()
+            if not all_finite:
+                if len(unmeasured_indices) == total:
+                    raise ValueError(
+                        f"{type(self).__name__}: every sample carries a non-finite "
+                        "value; nothing is measurable in this input"
+                    )
+                # Meter through the tier's single sanitization entry point so
+                # the omni_detector_nonfinite_corrected counter stays the one
+                # place operators watch for dirty feeds.
+                from omni_mercury_engine.detectors.detection_config import apply_nan_policy
+
+                apply_nan_policy(
+                    np.asarray(
+                        (
+                            data.detach().cpu().numpy()
+                            if TORCH_AVAILABLE and isinstance(data, torch.Tensor)
+                            else data
+                        ),
+                        dtype=np.float64,
+                    ),
+                    policy="neutral",
+                    detector=getattr(self, "name", type(self).__name__),
+                    field="input",
+                )
+                cleaned = data[mask]
+
+        result = func(self, cleaned, *args, **kwargs)
+
+        if unmeasured_indices:
+            result = dict(result)
+            unmeasured_set = set(unmeasured_indices)
+            measured_indices = [i for i in range(total) if i not in unmeasured_set]
+            # Re-expand per-sample arrays to the input's length so callers'
+            # row alignment survives; unmeasured rows carry the neutral
+            # mid-point and False, and are named below.
+            scores = result.get("scores")
+            if scores is not None and len(scores) == len(measured_indices):
+                expanded = np.full(total, _UNMEASURED_NEUTRAL_SCORE, dtype=np.float64)
+                expanded[measured_indices] = np.asarray(scores, dtype=np.float64).reshape(-1)
+                result["scores"] = expanded if isinstance(scores, np.ndarray) else expanded.tolist()
+            flags = result.get("is_anomaly")
+            if not isinstance(flags, bool) and flags is not None:
+                flag_array = np.asarray(flags).reshape(-1)
+                if flag_array.size == len(measured_indices):
+                    expanded_flags = np.zeros(total, dtype=bool)
+                    expanded_flags[measured_indices] = flag_array.astype(bool)
+                    result["is_anomaly"] = (
+                        expanded_flags if isinstance(flags, np.ndarray) else expanded_flags.tolist()
+                    )
+            nan_rows = np.zeros(total, dtype=bool)
+            nan_rows[unmeasured_indices] = True
+            result["nan_rows"] = nan_rows.tolist()
+            result["partial"] = True
+            result["unmeasured"] = {
+                "count": len(unmeasured_indices),
+                "indices": [int(i) for i in unmeasured_indices],
+                "reason": "non-finite values treated as unmeasured, set aside before scoring",
+            }
+
+        return _check_finite_scores(self, result)
+
+    guarded._nan_guarded = True  # type: ignore[attr-defined]
+    return guarded
 
 
 def validate_detector_result(func: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
@@ -276,6 +434,21 @@ class BaseDetector(ABC):
     #: but plain ``detect()`` calls run it in the caller's thread so the
     #: caller's stream is the one that advances.
     thread_bound_state: bool = False
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Wrap each concrete ``detect`` with the shared non-finite guard.
+
+        Measured over the manifest's engine-seam detectors before this
+        guard: 25 accepted a NaN sample silently (it failed every
+        comparison and biased every statistic it reached) and 6 returned a
+        NaN anomaly score. The guard applies uniformly to every subclass,
+        so no detector built on this base can take a NaN without saying so
+        or serve one as a score.
+        """
+        super().__init_subclass__(**kwargs)
+        detect = cls.__dict__.get("detect")
+        if detect is not None and not getattr(detect, "_nan_guarded", False):
+            cls.detect = _nan_guard(detect)  # type: ignore[method-assign]
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize detector with configuration.

@@ -186,6 +186,12 @@ class MercuryAnomalyDetector(BaseDetector):
        compatibility. Use ``MercuryAnomalyDetector`` in new code.
     """
 
+    #: This detector implements its own non-finite contract (tier NaN policy
+    #: metering / nan_rows reporting / neutral sanitization), pinned by its
+    #: test suite; the shared base guard defers to it and only enforces the
+    #: never-serve-a-NaN-score post-check.
+    handles_unmeasured = True
+
     decision_source = DecisionSource(
         kind="experimental",
         description=(

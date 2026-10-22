@@ -71,6 +71,11 @@ class HazardRowAdapter(BaseDetector):
     :meth:`_analyze_row`.
     """
 
+    #: Adapters define NaN as "this column/field is unmeasured" by contract
+    #: (OPTIONAL_COLUMNS / _measured): the shared base guard defers to that
+    #: contract and only enforces the never-serve-a-NaN-score post-check.
+    handles_unmeasured = True
+
     COLUMNS: ClassVar[tuple[str, ...]] = ()
     FEATURE_NAMES: ClassVar[tuple[str, ...]] = ()
     #: Columns a row may leave unmeasured, as NaN: the wrapped detector is
@@ -215,6 +220,11 @@ class HazardUnitAdapter(BaseDetector):
     payload schema.  ``scores`` / ``flags`` carry one value per unit, so a
     window-level verdict is served once, not repeated over its samples.
     """
+
+    #: Adapters define NaN as "this column/field is unmeasured" by contract
+    #: (OPTIONAL_COLUMNS / _measured): the shared base guard defers to that
+    #: contract and only enforces the never-serve-a-NaN-score post-check.
+    handles_unmeasured = True
 
     FEATURE_NAMES: ClassVar[tuple[str, ...]] = ()
 

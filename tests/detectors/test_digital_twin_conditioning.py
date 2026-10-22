@@ -135,6 +135,11 @@ class TestConditioningProperty:
     def test_any_series_yields_finite_bounded_solution(self, series: np.ndarray) -> None:
         det = DigitalTwinResidualDetector(order=4).fit(series)
         assert det._coef is not None and np.all(np.isfinite(det._coef))
+        if not np.isfinite(series).any():
+            # Nothing measurable: the shared base guard refuses loudly.
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(series)
+            return
         scores = np.asarray(det.detect(series)["scores"])
         assert np.all(np.isfinite(scores))
         assert np.all((scores >= 0.0) & (scores <= 1.0))

@@ -129,6 +129,8 @@ class SpatialAnomalyDetector(BaseDetector):
     - Spatial clustering
     """
 
+
+
     decision_source = DecisionSource(
         kind="published",
         description=(

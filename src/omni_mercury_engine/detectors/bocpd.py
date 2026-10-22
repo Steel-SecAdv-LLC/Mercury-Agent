@@ -50,6 +50,8 @@ class BOCPDDetector(BaseDetector):
     shift and low during a stable regime.
     """
 
+
+
     decision_source = DecisionSource(
         kind="published",
         description=(
