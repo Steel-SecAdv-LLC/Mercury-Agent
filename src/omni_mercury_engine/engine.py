@@ -1317,9 +1317,12 @@ class OmniMercuryEngine(LoggerMixin):
             The constructed and registered detector instance.
 
         Raises:
-            ValueError: If ``name`` is not in the manifest, its manifest
-                ``module_path`` is outside the ``omni_mercury_engine``
-                package, or it is already enabled.
+            ValueError: If ``name`` is not in the manifest, the entry does
+                not declare the ``engine`` seam (library-only detectors are
+                called through their domain APIs, or through the adapter
+                named in the error), its manifest ``module_path`` is outside
+                the ``omni_mercury_engine`` package, or it is already
+                enabled.
             TypeError: If the manifest entry constructs an object that is
                 not a :class:`~omni_mercury_engine.core.base.BaseDetector`.
         """
@@ -1332,6 +1335,17 @@ class OmniMercuryEngine(LoggerMixin):
             available = ", ".join(sorted(e.name for e in DETECTOR_MANIFEST))
             raise ValueError(
                 f"Unknown detector {name!r}. Available manifest detectors: {available}"
+            )
+        if "engine" not in entry.seams:
+            hint = (
+                f" Its numeric surface is served by the {entry.covered_by!r} adapter entry."
+                if entry.covered_by
+                else ""
+            )
+            raise ValueError(
+                f"Detector {name!r} does not serve the engine seam (declared seams: "
+                f"{', '.join(entry.seams) or 'none -- library-only'}; modality: "
+                f"{entry.modality}). Call its domain API directly.{hint}"
             )
         # Defense in depth: the manifest is curated code, but never import from
         # outside the package tree (mirrors DetectorRegistry.auto_discover_detectors).
