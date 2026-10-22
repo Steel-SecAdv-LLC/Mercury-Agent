@@ -77,8 +77,13 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
+      # Recorded format samples are byte-exact third-party files (RINEX is
+      # fixed-column, so its trailing blanks are data); rewriting them would
+      # corrupt the evidence the reader tests check against.
       - id: trailing-whitespace
+        exclude: ^tests/fixtures/format_readers/
       - id: end-of-file-fixer
+        exclude: ^tests/fixtures/format_readers/
       - id: check-yaml
         args: ['--unsafe']  # Allow custom YAML tags
       - id: check-json
