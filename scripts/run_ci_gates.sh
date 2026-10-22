@@ -95,6 +95,9 @@ run_gate "codebase-scale documentation drift (ci.yml: measure_codebase_scale --c
 run_gate "capability inventory drift (pytest: test_committed_inventory_is_fresh)" \
   python scripts/generate_capability_inventory.py --check
 
+run_gate "detector catalog drift (docs/DETECTORS.md vs DETECTOR_MANIFEST)" \
+  python scripts/generate_detector_catalog.py --check
+
 run_gate "documentation lint (ci.yml: doc_lint)" \
   python scripts/doc_lint.py
 
