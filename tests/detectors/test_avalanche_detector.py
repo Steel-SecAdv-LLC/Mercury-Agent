@@ -289,3 +289,57 @@ class TestLandslideCarveOut:
         doc = landslide.__doc__ or ""
         assert "avalanche_detector" in doc
         assert "Snow avalanche forecasting no longer lives here" in doc
+
+
+class TestReleaseTerrainModulation:
+    """B10: the assessed slope's own angle must change the verdict.
+
+    SK38 is defined at the 38 deg reference (Jamieson & Johnston 1998), so
+    25/38/50 deg used to grade identically.  Dry-slab release needs steep
+    enough terrain (Schweizer, Jamieson & Schneebeli 2003): sub-30 deg
+    slopes now cap the danger for the slope itself.
+    """
+
+    UNSTABLE = [
+        SnowLayer(0.3, 150.0, -8.0),
+        SnowLayer(0.02, 150.0, -7.0, grain_type="depth_hoar"),
+        SnowLayer(0.6, 350.0, -2.0),
+    ]
+
+    def _danger(self, angle: float) -> int:
+        result = AvalancheDetector().predict_avalanche(
+            layers=list(self.UNSTABLE),
+            weak_layer_index=1,
+            slope_angle_deg=angle,
+            new_snow_24h_cm=40.0,
+            wind_speed_10m_ms=10.0,
+        )
+        return int(result.danger_level)
+
+    def test_gentle_slope_caps_at_moderate(self) -> None:
+        assert self._danger(20.0) == AvalancheDangerLevel.MODERATE.value
+
+    def test_transitional_slope_caps_at_considerable(self) -> None:
+        assert self._danger(27.0) == AvalancheDangerLevel.CONSIDERABLE.value
+
+    def test_release_terrain_is_uncapped(self) -> None:
+        assert self._danger(38.0) == AvalancheDangerLevel.VERY_HIGH.value
+        assert self._danger(50.0) == AvalancheDangerLevel.VERY_HIGH.value
+
+    def test_angles_no_longer_identical(self) -> None:
+        dangers = {angle: self._danger(angle) for angle in (25.0, 38.0, 50.0)}
+        assert dangers[25.0] < dangers[38.0] == dangers[50.0]
+
+    def test_cap_is_recorded_in_evidence(self) -> None:
+        result = AvalancheDetector().predict_avalanche(
+            layers=list(self.UNSTABLE),
+            weak_layer_index=1,
+            slope_angle_deg=20.0,
+            new_snow_24h_cm=40.0,
+            wind_speed_10m_ms=10.0,
+        )
+        terrain = [e for e in result.evidence if e["criterion"] == "release_terrain"]
+        assert len(terrain) == 1
+        assert terrain[0]["applied"] is True
+        assert "Schweizer" in str(terrain[0]["citation"])
+        assert result.avalanche_likely is False
