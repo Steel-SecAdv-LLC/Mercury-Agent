@@ -35,11 +35,15 @@ from __future__ import annotations
 
 import logging
 import math
+import numbers
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from itertools import pairwise
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +213,16 @@ class SEPStormAssessment:
     notes: list[str] = field(default_factory=list)
 
 
+def _flux_series(label: str, values: Any) -> list[float]:
+    """``values`` as a list of floats; non-numeric entries (bool, str) are refused."""
+    series = []
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, numbers.Real):
+            raise ValueError(f"Non-numeric {label} flux value {value!r}; refusing to assess.")
+        series.append(float(value))
+    return series
+
+
 class SEPStormDetector:
     """NOAA S-scale SEP storm detector over GOES integral proton flux.
 
@@ -251,9 +265,9 @@ class SEPStormDetector:
 
     def assess(
         self,
-        times: list[datetime],
-        flux_ge10mev_pfu: list[float],
-        flux_ge100mev_pfu: list[float] | None = None,
+        times: Iterable[datetime],
+        flux_ge10mev_pfu: Iterable[float],
+        flux_ge100mev_pfu: Iterable[float] | None = None,
         flare: dict[str, Any] | None = None,
     ) -> SEPStormAssessment:
         """Assess an integral proton-flux time series.
@@ -274,17 +288,22 @@ class SEPStormDetector:
             ValueError: On empty series, length mismatch, unsorted or naive
                 timestamps, or negative / non-finite flux values.
         """
-        if not times or not flux_ge10mev_pfu:
+        # Accept any sequence or array: the checks below used list
+        # truthiness, so a NumPy array raised "truth value ... ambiguous".
+        times = list(times)
+        flux10 = _flux_series(">=10 MeV", flux_ge10mev_pfu)
+        flux100 = (
+            None if flux_ge100mev_pfu is None else _flux_series(">=100 MeV", flux_ge100mev_pfu)
+        )
+        if not times or not flux10:
             raise ValueError("Empty proton-flux series: refusing to assess (no data is not S0).")
-        if len(times) != len(flux_ge10mev_pfu):
+        if len(times) != len(flux10):
             raise ValueError(
-                f"times ({len(times)}) and >=10 MeV flux ({len(flux_ge10mev_pfu)}) "
-                "lengths differ."
+                f"times ({len(times)}) and >=10 MeV flux ({len(flux10)}) " "lengths differ."
             )
-        if flux_ge100mev_pfu is not None and len(flux_ge100mev_pfu) != len(times):
+        if flux100 is not None and len(flux100) != len(times):
             raise ValueError(
-                f"times ({len(times)}) and >=100 MeV flux ({len(flux_ge100mev_pfu)}) "
-                "lengths differ."
+                f"times ({len(times)}) and >=100 MeV flux ({len(flux100)}) " "lengths differ."
             )
         for ts in times:
             if ts.tzinfo is None:
@@ -292,8 +311,8 @@ class SEPStormDetector:
         if any(t2 < t1 for t1, t2 in pairwise(times)):
             raise ValueError("Timestamps must be ascending.")
         for label, series in (
-            (">=10 MeV", flux_ge10mev_pfu),
-            (">=100 MeV", flux_ge100mev_pfu or []),
+            (">=10 MeV", flux10),
+            (">=100 MeV", flux100 or []),
         ):
             for value in series:
                 if not math.isfinite(value) or value < 0.0:
@@ -302,20 +321,20 @@ class SEPStormDetector:
                         "refusing to assess corrupted data."
                     )
 
-        peak_idx = max(range(len(flux_ge10mev_pfu)), key=flux_ge10mev_pfu.__getitem__)
-        peak_flux = flux_ge10mev_pfu[peak_idx]
+        peak_idx = max(range(len(flux10)), key=flux10.__getitem__)
+        peak_flux = flux10[peak_idx]
         peak_time = times[peak_idx]
         s_scale = classify_s_scale(peak_flux)
 
-        onset_idx = self._find_onset_index(flux_ge10mev_pfu)
+        onset_idx = self._find_onset_index(flux10)
         onset_detected = onset_idx is not None
         onset_time = times[onset_idx] if onset_idx is not None else None
-        event_active = flux_ge10mev_pfu[-1] >= self.event_threshold_pfu
+        event_active = flux10[-1] >= self.event_threshold_pfu
 
         peak_100: float | None = None
         hundred_event: bool | None = None
-        if flux_ge100mev_pfu is not None:
-            peak_100 = max(flux_ge100mev_pfu)
+        if flux100 is not None:
+            peak_100 = max(flux100)
             hundred_event = peak_100 >= HUNDRED_MEV_EVENT_THRESHOLD_PFU
 
         precursor: dict[str, Any] | None = None

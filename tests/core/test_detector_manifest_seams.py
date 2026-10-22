@@ -55,6 +55,19 @@ COLUMN_VALUES: dict[str, float] = {
     "bz_imf_nt": -3.0,
     "bx_nt": 20000.0,
     "by_nt": 100.0,
+    # solar-storm snapshot (every optional column measured)
+    "by_imf_nt": 2.0,
+    "imf_magnitude_nt": 5.0,
+    "proton_density_p_cm3": 5.0,
+    "proton_temperature_k": 1e5,
+    "flow_pressure_npa": 2.0,
+    "proton_flux_pfu": 0.5,
+    # CME cone kinematics
+    "speed_km_s": 900.0,
+    "latitude_deg": 0.0,
+    "longitude_deg": 0.0,
+    "half_angle_deg": 30.0,
+    "time_21_5_epoch_s": 1.7e9,
 }
 
 #: Modalities whose payloads are cheap to synthesize; these seams are
@@ -69,6 +82,9 @@ DRIVEN_MODALITIES = frozenset(
         "record",
         "windows_3d",
         "image_batch",
+        "window",
+        "event",
+        "text",
     }
 )
 
@@ -127,8 +143,60 @@ def _real_image_batch(n: int = 8, size: int = 64) -> np.ndarray[Any, Any]:
     return np.ascontiguousarray(crops.transpose(0, 3, 1, 2))
 
 
+def _minutes(n: int, start: float = 1.7e9, step: float = 60.0) -> np.ndarray[Any, Any]:
+    return start + step * np.arange(n)
+
+
+def _sep_window() -> np.ndarray[Any, Any]:
+    flux = [0.5] * 4 + [15.0, 40.0, 120.0, 300.0]
+    return np.column_stack([_minutes(len(flux), step=300.0), flux, [np.nan] * len(flux)])
+
+
+def _gic_window() -> np.ndarray[Any, Any]:
+    ramp = np.r_[np.zeros(30), 120.0 * np.arange(1, 31)]
+    return np.column_stack([_minutes(60), 2e4 + ramp, 100.0 + 0.5 * ramp])
+
+
+def _scintillation_record() -> dict[str, Any]:
+    rng = np.random.default_rng(1)
+    return {
+        "intensity": rng.exponential(1.0, 3000),
+        "phase_rad": rng.normal(0.0, 0.5, 3000),
+        "sample_rate_hz": 50.0,
+    }
+
+
+def _cascade_record() -> dict[str, Any]:
+    return {
+        "now": "2024-05-10T23:00:00Z",
+        "flares": [
+            {
+                "flrID": "2024-05-09T08:45:00-FLR-001",
+                "classType": "X2.2",
+                "beginTime": "2024-05-09T08:45Z",
+                "sourceLocation": "S17W45",
+            }
+        ],
+        "kp_series": [["2024-05-10T21:00:00Z", 7.33]],
+    }
+
+
+#: Payload builders for entries whose modality carries an entry-specific
+#: schema (records, windows, events, text).  A driven entry with neither a
+#: builder here nor a generic modality payload fails the suite, so a seam
+#: can never be declared without being driven.
+ENTRY_PAYLOADS: dict[str, Any] = {
+    "sep_storm": _sep_window,
+    "gic": _gic_window,
+    "ionospheric_scintillation": _scintillation_record,
+    "solar_gic_cascade": _cascade_record,
+}
+
+
 def _payload(entry: DetectorManifestEntry) -> Any:
     """The declared modality's example payload for ``entry``."""
+    if entry.name in ENTRY_PAYLOADS:
+        return ENTRY_PAYLOADS[entry.name]()
     rng = np.random.default_rng(7)
     if entry.modality == "series_1d":
         if entry.name == "solar_flare":  # physical flux: positive W/m^2
@@ -210,12 +278,26 @@ class TestBridgesFailClosed:
         with pytest.raises(ValueError, match="does not serve the engine seam"):
             eng.enable_detector("volcanic")
 
-    def test_enable_detector_names_the_covering_adapter(self) -> None:
+    def test_enable_detector_names_the_covering_adapter(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.core import detector_registry
         from omni_mercury_engine.engine import OmniMercuryEngine
 
+        covered = DetectorManifestEntry(
+            "library_only_probe",
+            "omni_mercury_engine.space.gic_detector",
+            "GICDetector",
+            DetectorCategory.SPACE,
+            "library-only entry with a covering adapter",
+            covered_by="gic_minute_series",
+        )
+        monkeypatch.setattr(
+            detector_registry, "DETECTOR_MANIFEST", [*detector_registry.DETECTOR_MANIFEST, covered]
+        )
         eng = OmniMercuryEngine(mode="fusion", auto_load_checkpoint=False)
         with pytest.raises(ValueError, match="gic_minute_series"):
-            eng.enable_detector("gic")
+            eng.enable_detector("library_only_probe")
 
     def test_auto_discover_registers_only_the_registry_seam(self) -> None:
         reg = DetectorRegistry(auto_discover=False)
@@ -225,9 +307,10 @@ class TestBridgesFailClosed:
         undeclared = registered - declared
         assert not undeclared, f"registered without a registry seam: {sorted(undeclared)}"
         assert count == len(registered)
-        # The 19 silent no-ops of the regression are gone from the registry.
-        for name in ("volcanic", "landslide", "wildfire", "gic", "emp", "financial_crisis"):
-            assert name not in registered
+        # No library-only entry is ever registered (19 used to be, as silent
+        # no-ops); entries now served by adapters register as real detectors.
+        library_only = {e.name for e in DETECTOR_MANIFEST if not e.seams}
+        assert not registered & library_only
 
     def test_modality_filter_selects_matching_detectors(self) -> None:
         reg = DetectorRegistry(auto_discover=False)

@@ -47,7 +47,8 @@ drives end to end on every CI run.  **Seams** say how an entry is reached:
 
 **Modality** is the input its seams were measured with.  ``fit`` marks
 detectors whose registry methods require ``fit`` first; ``ext`` marks
-detectors needing an external service or model backend.
+detectors needing an external service or model backend; ``serves X`` marks
+an adapter entry and names the domain detector behind it.
 """
 
 FOOTER = """\
@@ -95,6 +96,7 @@ def _rows() -> dict[str, list[tuple[str, ...]]]:
                 "fit" if e.fit_required else "",
                 "ext" if e.external else "",
                 f"covered by `{e.covered_by}`" if e.covered_by else "",
+                f"serves `{e.wraps.rsplit(':', 1)[1]}`" if e.wraps else "",
             )
             if n
         )

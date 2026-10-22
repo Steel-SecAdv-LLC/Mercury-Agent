@@ -18,10 +18,11 @@ drives end to end on every CI run.  **Seams** say how an entry is reached:
 
 **Modality** is the input its seams were measured with.  ``fit`` marks
 detectors whose registry methods require ``fit`` first; ``ext`` marks
-detectors needing an external service or model backend.
+detectors needing an external service or model backend; ``serves X`` marks
+an adapter entry and names the domain detector behind it.
 
 
-## engine + registry (45)
+## engine + registry (51)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -60,7 +61,13 @@ detectors needing an external service or model backend.
 | `physics_integrated` | `PhysicsIntegratedDetector` | physics | series_1d | fit | Unified physics detector with 3R and GOSNN integration |
 | `spectral_domain_frequency` | `SpectralDomainFrequency` | physics | series_1d | -- | Neuro-symbolic spectral-domain anomaly detection with per-band scoring |
 | `spectral_vibration` | `SpectralVibrationDetector` | physics | series_1d | -- | GNN/CNN spectral analysis with phonon interactions |
+| `cme_arrival` | `CMEArrivalAdapter` | space | rows | serves `CMEArrivalDetector` | CME Earth-arrival forecaster (Gopalswamy ESA + Vrsnak DBM, DONKI-fed) |
+| `gic` | `GICWindowAdapter` | space | window | serves `GICDetector` | Geomagnetically induced current detector (dB/dt + plane-wave geoelectric proxy) |
 | `gic_minute_series` | `GICMinuteSeriesAdapter` | space | rows | -- | GICDetector over a (bx_nt, by_nt) minute series; score is the dB/dt tier over 3 |
+| `ionospheric_scintillation` | `ScintillationAdapter` | space | record | serves `IonosphericScintillationDetector` | GNSS ionospheric scintillation detector (S4 / sigma-phi indices) |
+| `sep_storm` | `SEPProtonWindowAdapter` | space | window | serves `SEPStormDetector` | Solar energetic-particle / NOAA S-scale radiation-storm detector |
+| `solar_gic_cascade` | `SolarGICCascadeAdapter` | space | event | serves `SolarGICCascadeDetector` | Solar eruption -> geomagnetic storm -> GIC grid-impact cascade |
+| `solar_storm` | `SolarStormSnapshotAdapter` | space | rows | serves `SolarStormDetector` | Solar storm prediction |
 | `solar_wind_geomag` | `SolarWindGeomagAdapter` | space | rows | -- | SolarStormDetector over (solar_wind_speed_km_s, bz_imf_nt); score is NOAA G/5 |
 | `xray_flare` | `XrayFlareAdapter` | space | rows | -- | SolarFlareDetector over GOES long-band flux rows; score is NOAA R/5 |
 | `uiux_anomaly` | `UIUXAnomalyDetector` | uiux | series_1d | -- | User interaction and behavior anomaly detection |
@@ -122,7 +129,7 @@ detectors needing an external service or model backend.
 | `dimensional` | `DimensionalAnalyzer` | base | series_1d | -- | High-dimensional data anomalies |
 | `anyanomaly` | `AnyAnomalyDetector` | vlm | video_frames | fit, ext | Zero-shot customizable VAD with LVLM (WACV 2026) |
 
-## library-only (domain API) (20)
+## library-only (domain API) (14)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -140,12 +147,6 @@ detectors needing an external service or model backend.
 | `marine_biodiversity` | `MarineBiodiversityDetector` | marine | record | -- | Marine biodiversity threat detection |
 | `surge_flood_cascade` | `SurgeFloodCascade` | meteorological | event | -- | Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual) |
 | `threat_detection` | `ThreatDetector` | security | text | -- | Security threat detection |
-| `cme_arrival` | `CMEArrivalDetector` | space | record | -- | CME Earth-arrival forecaster (Gopalswamy ESA + Vrsnak DBM, DONKI-fed) |
-| `gic` | `GICDetector` | space | record | covered by `gic_minute_series` | Geomagnetically induced current detector (dB/dt + plane-wave geoelectric proxy) |
-| `ionospheric_scintillation` | `IonosphericScintillationDetector` | space | record | -- | GNSS ionospheric scintillation detector (S4 / sigma-phi indices) |
-| `sep_storm` | `SEPStormDetector` | space | record | -- | Solar energetic-particle / NOAA S-scale radiation-storm detector |
-| `solar_gic_cascade` | `SolarGICCascadeDetector` | space | event | -- | Solar eruption -> geomagnetic storm -> GIC grid-impact cascade |
-| `solar_storm` | `SolarStormDetector` | space | record | covered by `solar_wind_geomag` | Solar storm prediction |
 
 ## Building blocks and wrappers (importable, deliberately not manifest entries)
 

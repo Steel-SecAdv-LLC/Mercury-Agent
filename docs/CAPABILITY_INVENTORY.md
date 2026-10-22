@@ -7,23 +7,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,023
-- **Capability-bearing classes:** 2,010 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,034
+- **Capability-bearing classes:** 2,021 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,191 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,192 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1191 |
+| Other capability classes | 1192 |
 | Support types (config / result / enum / error) | 1013 |
 | Detection | 177 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 104 |
 | Engines & orchestration | 101 |
-| Adapters & backends | 71 |
+| Adapters & backends | 81 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 26 |
@@ -1046,24 +1046,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 426 classes (301 capability)
+### `detectors/` — 437 classes (312 capability)
 
 **Adapters & backends**
 
 - `BLIPCaptionBackend` (`detectors.vlm.lvlm_backends`) — BLIP image-captioning backend (Salesforce, BSD-3-Clause).
 - `BLIPVQABackend` (`detectors.vlm.lvlm_backends`) — BLIP visual-question-answering backend (Salesforce, BSD-3-Clause).
+- `CMEArrivalAdapter` (`detectors.adapters.space`) — Earth arrival of a coronal mass ejection from its cone kinematics.
 - `DynamicThresholdAdapter` (`detectors.statistical_extended`) — Dynamic threshold adaptation for streaming anomaly detection.
 - `FinancialStressAdapter` (`detectors.hazard_adapter`) — Financial crisis risk from measured market and banking metrics.
 - `FloodPrecipitationAdapter` (`detectors.hazard_adapter`) — Flood likelihood from measured and forecast precipitation depths.
 - `GICMinuteSeriesAdapter` (`detectors.hazard_adapter`) — GIC grid risk from a magnetometer minute series.
+- `GICWindowAdapter` (`detectors.adapters.space`) — Geomagnetically induced current risk from a magnetometer window.
 - `HFTextReasoningBackend` (`detectors.vlm.lvlm_backends`) — Local instruction-tuned language model for text-only reasoning.
+- `HazardRecordAdapter` (`detectors.hazard_adapter`) — Records: one mapping, or a sequence of mappings, each assessed alone.
 - `HazardRowAdapter` (`detectors.hazard_adapter`) — Engine contract over a named-column batch, one hazard analysis per row.
+- `HazardTextAdapter` (`detectors.hazard_adapter`) — Text payloads: one string, or a sequence of strings, each assessed alone.
+- `HazardUnitAdapter` (`detectors.hazard_adapter`) — Engine and registry contract over assessed units of a domain detector.
+- `HazardWindowAdapter` (`detectors.hazard_adapter`) — One time-ordered window per payload: rows over declared ``COLUMNS``.
 - `HurricanePressureAdapter` (`detectors.hazard_adapter`) — Cyclone intensity from central pressure and sea-surface temperature.
 - `LLaVABackend` (`detectors.vlm.lvlm_backends`) — LLaVA backend for vision-language tasks.
 - `LVLMBackend` (`detectors.vlm.lvlm_backends`) — Abstract base class for LVLM backends.
 - `MiniCPMVBackend` (`detectors.vlm.lvlm_backends`) — MiniCPM-V backend - efficient vision-language model.
 - `MockLVLMBackend` (`detectors.vlm.lvlm_backends`) — Mock LVLM backend — hard-fails at construction.
 - `Qwen2VLBackend` (`detectors.vlm.lvlm_backends`) — Qwen2-VL backend for vision-language tasks.
+- `SEPProtonWindowAdapter` (`detectors.adapters.space`) — Solar energetic particle (radiation) storm from a proton-flux window.
+- `ScintillationAdapter` (`detectors.adapters.space`) — GNSS ionospheric scintillation measured from raw receiver samples.
+- `SolarGICCascadeAdapter` (`detectors.adapters.space`) — The solar-to-grid cascade evaluated at one time from its evidence.
+- `SolarStormSnapshotAdapter` (`detectors.adapters.space`) — Space-weather storm snapshot: solar wind/IMF, X-ray flux and protons.
 - `SolarWindGeomagAdapter` (`detectors.hazard_adapter`) — Geomagnetic storm level from solar-wind speed and IMF Bz.
 - `TornadoConditionsAdapter` (`detectors.hazard_adapter`) — Tornado potential from sounding-derived convective parameters.
 - `XrayFlareAdapter` (`detectors.hazard_adapter`) — Solar flare class from the GOES long-band X-ray flux.
@@ -1258,6 +1268,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `AnomalyMathArrest` (`detectors.math_arrest.arrest`) — 21-probe Anomaly Math Arrest.
 - `AppearanceContextProvider` (`detectors.vlm.context_providers_extended`) — Appearance context provider for color and texture analysis.
 - `AppearanceFeatures` (`detectors.vlm.context_providers_extended`) — Container for appearance-based features.
+- `Assessment` (`detectors.hazard_adapter`) — One assessed unit: a window, a record, an event sequence or a payload.
 - `BandOverlap` (`detectors.cross_domain_frequency`) — A single overlapping frequency band between two domains.
 - `BaseContextProvider` (`detectors.vlm.context_providers`) — Abstract base class for context providers.
 - `BaseEquationProbe` (`detectors.math_arrest.base_probe`) — Abstract base class for all Anomaly Math Arrest equation probes.

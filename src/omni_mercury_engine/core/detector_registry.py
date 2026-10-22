@@ -272,6 +272,7 @@ MANIFEST_MODALITIES: frozenset[str] = frozenset(
         "series_1d",  # 1-D numeric time series
         "matrix_2d",  # 2-D numeric batch [n, d]
         "rows",  # named physical columns (HazardRowAdapter.COLUMNS)
+        "window",  # one time-ordered window over named columns (HazardWindowAdapter)
         "image_batch",  # [B, C, H, W] / [B, H, W, C] images
         "video_frames",  # [T, C, H, W] / [T, H, W, C] frames
         "graph",  # networkx graph
@@ -303,6 +304,8 @@ class DetectorManifestEntry:
     marks detectors that need an external service or model backend to produce
     output; ``covered_by`` names the manifest adapter entry serving the same
     domain through the numeric seams (see ``detectors/hazard_adapter.py``).
+    ``wraps`` names (``module:Class``) the domain detector an adapter entry
+    serves, so the catalog shows what is behind every seam.
     """
 
     name: str
@@ -317,6 +320,7 @@ class DetectorManifestEntry:
     fit_required: bool = False
     external: bool = False
     covered_by: str | None = None
+    wraps: str | None = None
 
     def __post_init__(self) -> None:
         """Refuse unknown seams or modalities instead of mis-routing later."""
@@ -764,13 +768,13 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     ),
     DetectorManifestEntry(
         "solar_storm",
-        "omni_mercury_engine.space.solar_storm_detector",
-        "SolarStormDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "SolarStormSnapshotAdapter",
         DetectorCategory.SPACE,
         "Solar storm prediction",
-        seams=(),
-        modality="record",
-        covered_by="solar_wind_geomag",
+        seams=("engine", "registry"),
+        modality="rows",
+        wraps="omni_mercury_engine.space.solar_storm_detector:SolarStormDetector",
     ),
     DetectorManifestEntry(
         "solar_flare",
@@ -1035,54 +1039,58 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     # -- Space-weather detectors (T4) ------------------------------------------
     DetectorManifestEntry(
         "cme_arrival",
-        "omni_mercury_engine.space.cme_arrival_detector",
-        "CMEArrivalDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "CMEArrivalAdapter",
         DetectorCategory.SPACE,
         "CME Earth-arrival forecaster (Gopalswamy ESA + Vrsnak DBM, DONKI-fed)",
         tags=["disaster", "space-weather", "cme"],
-        seams=(),
-        modality="record",
+        seams=("engine", "registry"),
+        modality="rows",
+        wraps="omni_mercury_engine.space.cme_arrival_detector:CMEArrivalDetector",
     ),
     DetectorManifestEntry(
         "sep_storm",
-        "omni_mercury_engine.space.sep_storm_detector",
-        "SEPStormDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "SEPProtonWindowAdapter",
         DetectorCategory.SPACE,
         "Solar energetic-particle / NOAA S-scale radiation-storm detector",
         tags=["disaster", "space-weather", "sep", "radiation"],
-        seams=(),
-        modality="record",
+        seams=("engine", "registry"),
+        modality="window",
+        wraps="omni_mercury_engine.space.sep_storm_detector:SEPStormDetector",
     ),
     DetectorManifestEntry(
         "ionospheric_scintillation",
-        "omni_mercury_engine.space.ionospheric_scintillation_detector",
-        "IonosphericScintillationDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "ScintillationAdapter",
         DetectorCategory.SPACE,
         "GNSS ionospheric scintillation detector (S4 / sigma-phi indices)",
         tags=["disaster", "space-weather", "gnss", "scintillation"],
-        seams=(),
+        seams=("engine", "registry"),
         modality="record",
+        wraps="omni_mercury_engine.space.ionospheric_scintillation_detector:IonosphericScintillationDetector",
     ),
     DetectorManifestEntry(
         "gic",
-        "omni_mercury_engine.space.gic_detector",
-        "GICDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "GICWindowAdapter",
         DetectorCategory.SPACE,
         "Geomagnetically induced current detector (dB/dt + plane-wave geoelectric proxy)",
         tags=["disaster", "space-weather", "gic", "grid"],
-        seams=(),
-        modality="record",
-        covered_by="gic_minute_series",
+        seams=("engine", "registry"),
+        modality="window",
+        wraps="omni_mercury_engine.space.gic_detector:GICDetector",
     ),
     DetectorManifestEntry(
         "solar_gic_cascade",
-        "omni_mercury_engine.space.solar_gic_cascade",
-        "SolarGICCascadeDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "SolarGICCascadeAdapter",
         DetectorCategory.SPACE,
         "Solar eruption -> geomagnetic storm -> GIC grid-impact cascade",
         tags=["disaster", "space-weather", "cascade", "gic"],
-        seams=(),
+        seams=("engine", "registry"),
         modality="event",
+        wraps="omni_mercury_engine.space.solar_gic_cascade:SolarGICCascadeDetector",
     ),
     # -- Economic detectors ---------------------------------------------------
     DetectorManifestEntry(
