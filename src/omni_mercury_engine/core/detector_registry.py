@@ -731,12 +731,13 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     # -- Security detectors ---------------------------------------------------
     DetectorManifestEntry(
         "threat_detection",
-        "omni_mercury_engine.security.threat_detection",
-        "ThreatDetector",
+        "omni_mercury_engine.detectors.adapters.society",
+        "ThreatPayloadAdapter",
         DetectorCategory.SECURITY,
         "Security threat detection",
-        seams=(),
+        seams=("engine", "registry"),
         modality="text",
+        wraps="omni_mercury_engine.security.threat_detection:ThreatDetector",
     ),
     DetectorManifestEntry(
         "psyop",
@@ -1104,23 +1105,24 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     # -- Economic detectors ---------------------------------------------------
     DetectorManifestEntry(
         "financial_crisis",
-        "omni_mercury_engine.detectors.economic.financial_crisis_detector",
-        "FinancialCrisisDetector",
+        "omni_mercury_engine.detectors.adapters.society",
+        "FinancialCrisisRecordAdapter",
         DetectorCategory.ECONOMIC,
         "Financial crisis prediction",
-        seams=(),
+        seams=("engine", "registry"),
         modality="record",
-        covered_by="financial_stress",
+        wraps="omni_mercury_engine.detectors.economic.financial_crisis_detector:FinancialCrisisDetector",
     ),
     # -- Energy detectors -----------------------------------------------------
     DetectorManifestEntry(
         "emp",
-        "omni_mercury_engine.detectors.energy.emp_detector",
-        "EMPDetector",
+        "omni_mercury_engine.detectors.adapters.society",
+        "EMPRecordAdapter",
         DetectorCategory.ENERGY,
         "Electromagnetic pulse detection",
-        seams=(),
+        seams=("engine", "registry"),
         modality="record",
+        wraps="omni_mercury_engine.detectors.energy.emp_detector:EMPDetector",
     ),
     # -- Marine detectors -----------------------------------------------------
     DetectorManifestEntry(

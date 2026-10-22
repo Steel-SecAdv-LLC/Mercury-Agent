@@ -266,6 +266,12 @@ ENTRY_PAYLOADS: dict[str, Any] = {
     "eq_tsunami_cascade": _eq_tsunami_event,
     "fire_debris_flow_cascade": _debris_flow_record,
     "surge_flood_cascade": _surge_event,
+    "threat_detection": lambda: ["GET /index.html", "id=1' OR '1'='1", "../../etc/passwd"],
+    "financial_crisis": lambda: {
+        "market_data": {"price_change_pct": -7.0, "vix": 45.0, "volume_vs_average": 2.5},
+        "banking_data": {"cds_spread_bps": 420.0, "default_rate_pct": 4.0, "liquidity_ratio": 0.7},
+    },
+    "emp": lambda: {"magnetometer_data": {"db_dt_nt_s": 8.0, "duration_seconds": 600.0}},
 }
 
 

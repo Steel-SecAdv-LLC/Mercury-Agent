@@ -22,7 +22,7 @@ detectors needing an external service or model backend; ``serves X`` marks
 an adapter entry and names the domain detector behind it.
 
 
-## engine + registry (61)
+## engine + registry (64)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -53,7 +53,9 @@ an adapter entry and names the domain detector behind it.
 | `statistical` | `MercuryAnomalyDetector` | base | series_1d | -- | Z-score, percentile, MAD-based detection |
 | `survival` | `SurvivalHazardDetector` | base | series_1d | -- | Survival / time-to-event hazard detector (Kaplan-Meier baseline + Cox proportional-hazards deviation) for inter-event-time streams |
 | `temporal` | `TemporalAnomalyDetector` | base | series_1d | -- | Time-series patterns and seasonal anomalies |
+| `financial_crisis` | `FinancialCrisisRecordAdapter` | economic | record | serves `FinancialCrisisDetector` | Financial crisis prediction |
 | `financial_stress` | `FinancialStressAdapter` | economic | rows | -- | FinancialCrisisDetector over measured market and banking metric rows |
+| `emp` | `EMPRecordAdapter` | energy | record | serves `EMPDetector` | Electromagnetic pulse detection |
 | `avalanche` | `AvalancheProfileAdapter` | geological | record | serves `AvalancheDetector` | Snowpack stability / SK38 skier-stability avalanche detector |
 | `eq_tsunami_cascade` | `EqTsunamiCascadeAdapter` | geological | event | serves `EqTsunamiCascadeDetector` | Earthquake -> tsunami cascade (PTWC-style screening on real events) |
 | `fire_debris_flow_cascade` | `FireDebrisFlowAdapter` | geological | record | serves `FireDebrisFlowCascadeDetector` | Wildfire -> post-fire debris-flow cascade (USGS Staley 2017 M1 + Cannon I-D) |
@@ -71,6 +73,7 @@ an adapter entry and names the domain detector behind it.
 | `physics_integrated` | `PhysicsIntegratedDetector` | physics | series_1d | fit | Unified physics detector with 3R and GOSNN integration |
 | `spectral_domain_frequency` | `SpectralDomainFrequency` | physics | series_1d | -- | Neuro-symbolic spectral-domain anomaly detection with per-band scoring |
 | `spectral_vibration` | `SpectralVibrationDetector` | physics | series_1d | -- | GNN/CNN spectral analysis with phonon interactions |
+| `threat_detection` | `ThreatPayloadAdapter` | security | text | serves `ThreatDetector` | Security threat detection |
 | `cme_arrival` | `CMEArrivalAdapter` | space | rows | serves `CMEArrivalDetector` | CME Earth-arrival forecaster (Gopalswamy ESA + Vrsnak DBM, DONKI-fed) |
 | `gic` | `GICWindowAdapter` | space | window | serves `GICDetector` | Geomagnetically induced current detector (dB/dt + plane-wave geoelectric proxy) |
 | `gic_minute_series` | `GICMinuteSeriesAdapter` | space | rows | -- | GICDetector over a (bx_nt, by_nt) minute series; score is the dB/dt tier over 3 |
@@ -139,14 +142,11 @@ an adapter entry and names the domain detector behind it.
 | `dimensional` | `DimensionalAnalyzer` | base | series_1d | -- | High-dimensional data anomalies |
 | `anyanomaly` | `AnyAnomalyDetector` | vlm | video_frames | fit, ext | Zero-shot customizable VAD with LVLM (WACV 2026) |
 
-## library-only (domain API) (4)
+## library-only (domain API) (1)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
-| `financial_crisis` | `FinancialCrisisDetector` | economic | record | covered by `financial_stress` | Financial crisis prediction |
-| `emp` | `EMPDetector` | energy | record | -- | Electromagnetic pulse detection |
 | `timegpt` | `TimeGPTAdapter` | foundation | series_1d | ext | Nixtla TimeGPT foundation model adapter |
-| `threat_detection` | `ThreatDetector` | security | text | -- | Security threat detection |
 
 ## Building blocks and wrappers (importable, deliberately not manifest entries)
 

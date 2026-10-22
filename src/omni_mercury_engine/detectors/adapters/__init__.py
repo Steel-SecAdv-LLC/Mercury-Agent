@@ -20,6 +20,11 @@ from omni_mercury_engine.detectors.adapters.earth import (
     VolcanicAdapter,
     WildfireSceneAdapter,
 )
+from omni_mercury_engine.detectors.adapters.society import (
+    EMPRecordAdapter,
+    FinancialCrisisRecordAdapter,
+    ThreatPayloadAdapter,
+)
 from omni_mercury_engine.detectors.adapters.space import (
     CMEArrivalAdapter,
     GICWindowAdapter,
@@ -32,7 +37,9 @@ from omni_mercury_engine.detectors.adapters.space import (
 __all__ = [
     "AvalancheProfileAdapter",
     "CMEArrivalAdapter",
+    "EMPRecordAdapter",
     "EqTsunamiCascadeAdapter",
+    "FinancialCrisisRecordAdapter",
     "FireDebrisFlowAdapter",
     "GICWindowAdapter",
     "LandslideAdapter",
@@ -44,6 +51,7 @@ __all__ = [
     "SolarStormSnapshotAdapter",
     "SubsidenceAdapter",
     "SurgeFloodCascadeAdapter",
+    "ThreatPayloadAdapter",
     "VolcanicAdapter",
     "WildfireSceneAdapter",
 ]

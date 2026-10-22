@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,044
-- **Capability-bearing classes:** 2,031 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,047
+- **Capability-bearing classes:** 2,034 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,192 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Neural models & layers | 162 |
 | Data sources & loaders | 104 |
 | Engines & orchestration | 101 |
-| Adapters & backends | 91 |
+| Adapters & backends | 94 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 26 |
@@ -1046,7 +1046,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 447 classes (322 capability)
+### `detectors/` — 450 classes (325 capability)
 
 **Adapters & backends**
 
@@ -1055,7 +1055,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `BLIPVQABackend` (`detectors.vlm.lvlm_backends`) — BLIP visual-question-answering backend (Salesforce, BSD-3-Clause).
 - `CMEArrivalAdapter` (`detectors.adapters.space`) — Earth arrival of a coronal mass ejection from its cone kinematics.
 - `DynamicThresholdAdapter` (`detectors.statistical_extended`) — Dynamic threshold adaptation for streaming anomaly detection.
+- `EMPRecordAdapter` (`detectors.adapters.society`) — Electromagnetic pulse and geomagnetic threat from field and magnetometer records.
 - `EqTsunamiCascadeAdapter` (`detectors.adapters.earth`) — The earthquake-to-tsunami cascade replayed over one event sequence.
+- `FinancialCrisisRecordAdapter` (`detectors.adapters.society`) — Financial crisis risk from market, banking, network and currency sections.
 - `FinancialStressAdapter` (`detectors.hazard_adapter`) — Financial crisis risk from measured market and banking metrics.
 - `FireDebrisFlowAdapter` (`detectors.adapters.earth`) — Post-wildfire debris-flow likelihood for a burned basin and a storm.
 - `FloodPrecipitationAdapter` (`detectors.hazard_adapter`) — Flood likelihood from measured and forecast precipitation depths.
@@ -1083,6 +1085,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SolarWindGeomagAdapter` (`detectors.hazard_adapter`) — Geomagnetic storm level from solar-wind speed and IMF Bz.
 - `SubsidenceAdapter` (`detectors.adapters.earth`) — Ground subsidence and sinkhole precursors from an InSAR scene.
 - `SurgeFloodCascadeAdapter` (`detectors.adapters.earth`) — The hurricane-to-surge-to-compound-flood cascade from one evidence set.
+- `ThreatPayloadAdapter` (`detectors.adapters.society`) — Injection payloads (SQL injection, XSS, path traversal) in request text.
 - `TornadoConditionsAdapter` (`detectors.hazard_adapter`) — Tornado potential from sounding-derived convective parameters.
 - `VolcanicAdapter` (`detectors.adapters.earth`) — Volcanic eruption forecast from a snapshot of monitoring streams.
 - `WildfireSceneAdapter` (`detectors.adapters.earth`) — Active fire (or next-day ignition) from a thermal scene.
