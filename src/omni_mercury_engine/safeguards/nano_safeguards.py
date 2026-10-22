@@ -51,6 +51,7 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -231,6 +232,18 @@ class NanoSafeguardDetector(BaseDetector):
     - Molecular-level hash integrity checking
     - Quantum-inspired checksum validation
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Micro-anomaly verdicts fire on hand-set cuts "
+            "(PCA-reconstruction convergence < 0.01, micro-score > 0.05 "
+            "across hierarchical scales) from the internal "
+            "PROTECTION_OVERVIEW.md N-term specification: no published "
+            "threshold exists for this composite and no labelled corpus is "
+            "available to calibrate one; verdicts are experimental."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the instance."""

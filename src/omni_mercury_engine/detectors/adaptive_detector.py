@@ -16,6 +16,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial import cKDTree
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 logger = logging.getLogger(__name__)
 
 
@@ -491,6 +493,20 @@ class AdaptiveAnomalyDetector:
     Automatically profiles the dataset and applies appropriate detection strategies.  All detection
     is Mercury-native (no sklearn).
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house adaptive heuristic: profiles the dataset and routes to "
+            "Mercury-native backends (random-projection MAD, local density, "
+            "robust covariance, temporal features); the decision threshold is "
+            "cut at the score percentile of an assumed contamination rate "
+            "(default 5%), optionally adjusted from the score distribution. The "
+            "contamination is an assumption, not a measured operating point: no "
+            "published threshold exists for this rule and no labelled corpus "
+            "calibrates it."
+        ),
+    )
 
     def __init__(
         self,

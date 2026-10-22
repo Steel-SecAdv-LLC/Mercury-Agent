@@ -30,6 +30,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -47,6 +48,24 @@ class DeepSVDDDetector(BaseDetector):
     training data and calibrates the radius. :meth:`detect` scores each point by
     its distance to the centre, squashed into ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Scores each point by its Mahalanobis distance to a one-class SVDD "
+            "hypersphere centre in a fixed random tanh feature embedding, squashed "
+            "monotonically into [0, 1] with the training-distance "
+            "calibration_quantile (default 0.98) anchored at score 0.5. The alarm "
+            "fires at the configured BaseDetector threshold on that normalized "
+            "score (default 0.5); the threshold and quantile are engineering "
+            "defaults, not values taken from the publication."
+        ),
+        citation=(
+            "Tax & Duin (2004), Support Vector Data Description, Machine Learning "
+            "54(1):45-66; one-class principle of Deep SVDD, Ruff et al. (2018), "
+            "ICML (both named in the module docstring)"
+        ),
+    )
 
     def __init__(
         self,

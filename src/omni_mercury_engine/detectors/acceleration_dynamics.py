@@ -61,6 +61,7 @@ from scipy.ndimage import uniform_filter1d
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
 logger = logging.getLogger(__name__)
@@ -499,6 +500,19 @@ class AccelerationDynamicsDetector(BaseDetector):
         >>> result = detector.detect(test_time_series)
         >>> print(result["motion_state"], result["anomaly_score"])
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house physics-metaphor heuristic: kinematic quantities "
+            "(velocity, acceleration, jerk, energy, phase-space and Lyapunov "
+            "summaries) are compared against reference statistics learned in "
+            "fit() and fused into a composite normalized score decided at the "
+            "configured BaseDetector threshold (default 0.5). No published "
+            "threshold exists for this rule and no labelled corpus calibrates "
+            "it."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize acceleration dynamics detector.

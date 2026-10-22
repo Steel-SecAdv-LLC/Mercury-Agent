@@ -32,11 +32,25 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class MultivariateTSDetector:
     """Multivariate time-series anomaly detector using LTG architecture."""
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Statistical baseline with the LTG three-branch shape (per-window "
+            "mean, per-window std, feature-correlation summary -- NOT the "
+            "published LTG architecture; see the module docstring): windows are "
+            "scored by reconstruction error and decided at a mean + 3*std "
+            "threshold of the training errors, an in-house three-sigma "
+            "convention. No published threshold exists for this rule and no "
+            "labelled corpus calibrates it."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize multivariate TS detector.

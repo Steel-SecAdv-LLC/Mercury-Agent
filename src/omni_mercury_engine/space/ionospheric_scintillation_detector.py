@@ -54,6 +54,7 @@ from typing import Any
 import numpy as np
 from scipy.signal import butter, filtfilt
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
 
 logger = logging.getLogger(__name__)
@@ -251,6 +252,49 @@ class IonosphericScintillationDetector:
     is always labelled as climatological — never presented as a
     measurement. No scintillation value is ever fabricated.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Measurement path: S4 from detrended signal intensity (Yeh & "
+                "Liu 1982 definition) and sigma-phi from carrier phase "
+                "detrended by the GISTM-convention 6th-order Butterworth "
+                "high-pass at 0.1 Hz (Van Dierendonck et al. 1993), each "
+                "classed weak / moderate / strong at the standard 0.3 and "
+                "0.6 boundaries used throughout the GNSS scintillation "
+                "literature."
+            ),
+            citation=(
+                "Yeh & Liu (1982), Proc. IEEE 70, 324 (S4; thresholds); Van "
+                "Dierendonck, Klobuchar & Hua (1993), Proc. ION GPS-93 "
+                "(GISTM detrending); Basu et al. (2002), J. Atmos. "
+                "Sol.-Terr. Phys. 64 (0.3 / 0.6 class boundaries)"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Climatological-risk path (risk_basis='climatological', "
+                "is_measurement=False — an occurrence likelihood, never a "
+                "measurement): high-latitude risk fires poleward of the "
+                "Gussenhoven et al. (1983) Kp-driven auroral boundary "
+                "lambda_b = 67.5 - 2.1 Kp deg, escalating at NOAA G1+; "
+                "equatorial risk fires in the post-sunset 19-01 LT "
+                "plasma-bubble window within 20 deg of the magnetic equator "
+                "(Aarons 1982), raised in equinox months (Basu et al. 2002); "
+                "mid-latitude risk requires Kp >= 7 (storm-enhanced density, "
+                "Basu et al. 2005). No S4/sigma-phi value is fabricated."
+            ),
+            citation=(
+                "Gussenhoven, Hardy & Heinemann (1983), JGR 88, 5692 "
+                "(auroral boundary); Aarons (1982), Space Sci. Rev. 32, 169; "
+                "Basu et al. (2002), J. Atmos. Sol.-Terr. Phys. 64; Basu et "
+                "al. (2005), GRL 32, L12S05; Spogli et al. (2009), Ann. "
+                "Geophys. 27 (high-latitude climatology)"
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the detector."""

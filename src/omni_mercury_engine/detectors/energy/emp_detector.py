@@ -71,6 +71,7 @@ from omni_mercury_engine.detectors._hazard_input import (
     finite_array,
     finite_scalar,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.space.gic_detector import (
     DBDT_CADENCE_S,
@@ -854,6 +855,47 @@ class EMPDetector:
     disturbance and intentional EMI from measured fields, and locates the
     source from array arrival times (see the module docstring).
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Component rules are anchored to standards and agency "
+                "documents: E1/E2 screening against the IEC 61000-2-9 HEMP "
+                "benchmark waveforms (E2 reported only after a detected "
+                "E1), the IEMI high-power condition (peak field > 100 V/m) "
+                "and band classes per IEC 61000-2-13 with the 200 MHz-5 "
+                "GHz upset band, and sub-E3 geomagnetic disturbance graded "
+                "on GICDetector's cited 1-minute dB/dt tiers (other "
+                "cadences are 'unassessed', never regraded)."
+            ),
+            citation=(
+                "IEC 61000-2-9 HEMP environment (per the DOE HEMP memo, "
+                "January 2021: E1 50 kV/m double exponential, E2 10-100 "
+                "V/m over 0.01 us-1 ms); IEC 61000-2-13 / Giri & Tesche "
+                "(2004), IEEE Trans. EMC 46(3) (HPEM/IEMI); SUMMA System "
+                "Design and Assessment Note 41 (2014) (band classes); Giri "
+                "(2006), Circuit and EM System Design Note 50 (IEMI band); "
+                "Oak Ridge Meta-R-321 (E3 blast-wave dB/dt)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The screening cuts themselves are this module's own "
+                "separations anchored to those documents, not published "
+                "thresholds: E1 at peak > 10 kV/m (e1_threshold_vm), rise "
+                "< 10 ns and content in 1-1000 MHz, and the E3 floor "
+                "E3_MIN_DBDT_NT_PER_S = 450 nT/s for >= 1 s (chosen "
+                "between Meta-R-321's 450-4500 nT/s example and the "
+                "largest geomagnetic-storm rates). The IEMI attack "
+                "classifier ships no weights (no public labelled IEMI "
+                "corpus exists), its untrained output is never consulted, "
+                "and an HPEM field in the IEMI band is reported only as "
+                "'suspicious'."
+            ),
+        ),
+    )
 
     def __init__(
         self,

@@ -56,6 +56,7 @@ from omni_mercury_engine.detectors._hazard_input import (
     finite_scalar,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -484,6 +485,56 @@ class TornadoDetector:
     - ResonanceEngine: FFT-based frequency-domain anomaly detection
     - RefactoringEngine: Dynamic model optimization and code analysis
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'tornado_nexrad' checkpoint: on-contract radar "
+                "input, mesocyclone detection thresholds the LSTM "
+                "probability at the checkpoint's ratified, "
+                "validation-selected operating point (0.5 only for legacy "
+                "checkpoints that declare none)."
+            ),
+            operating_point=(
+                "shipped checkpoint 'tornado_nexrad' "
+                "(models/checkpoints/tornado_nexrad.pt + provenance "
+                "sidecar): operating_point.meso_prob_threshold selected by "
+                "ml.hazard_training.tornado_radar._select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "The physics fallback flags a mesocyclone when the median "
+                "Doppler velocity-couplet rotational velocity V_rot = "
+                "(Vmax - Vmin)/2 reaches 15 m/s, and the instability leg "
+                "grades tornado potential with the SPC Significant Tornado "
+                "Parameter STP = (CAPE/1500)(SRH/150)(Shear/40)"
+                "((2000-LCL)/1000)."
+            ),
+            citation=(
+                "NOAA/NWS WSR-88D operational mesocyclone recognition "
+                "practice (rotational-velocity couplet, ~15 m/s flag); NOAA "
+                "Storm Prediction Center Significant Tornado Parameter "
+                "formulation (fixed-layer normalizations 1500 J/kg, 150 "
+                "m^2/s^2, 40 kt, 2000 m LCL)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The aggregate alarm is unsourced engineering: "
+                "tornado_likely fires at indicator count >= 2 (mesocyclone "
+                "= 2, moderate/high STP potential = 1, rapid pressure drop "
+                "= 1), the rapid-drop bar is 4 mb in 15 minutes, and the "
+                "physics confidence maps (V_rot - 5)/25 -- in-code "
+                "constants with no published source and no labelled "
+                "calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,

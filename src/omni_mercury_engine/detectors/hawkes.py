@@ -36,6 +36,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -58,6 +59,23 @@ class HawkesBurstDetector(BaseDetector):
     the excitation gain/decay, and a robust residual scale used to squash scores
     into ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Scores are absolute Pearson residuals of observed bin counts "
+            "against the exponential-kernel Hawkes conditional intensity, "
+            "squashed by 1 - exp(-r / scale) with the scale anchored at the "
+            "configured training quantile (default 0.98); the decision "
+            "threshold is the configured operating point, default 0.5 on the "
+            "normalized score. The intensity model is published; the residual "
+            "squash/threshold is the engine's quantile-anchored convention."
+        ),
+        citation=(
+            "Hawkes (1971), 'Spectra of Some Self-Exciting and Mutually "
+            "Exciting Point Processes', Biometrika 58(1):83-90"
+        ),
+    )
 
     def __init__(
         self,

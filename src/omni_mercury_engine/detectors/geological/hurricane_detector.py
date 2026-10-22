@@ -50,6 +50,7 @@ from omni_mercury_engine.detectors._hazard_input import (
     finite_scalar,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -510,6 +511,58 @@ class HurricaneDetector:
     - ResonanceEngine: FFT-based frequency-domain anomaly detection
     - RefactoringEngine: Dynamic model optimization and code analysis
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'hurricane_era5' checkpoint (ERA5 10 m wind "
+                "patches labeled with IBTrACS best-track intensities): on "
+                "the learned path the category head's tropical-cyclone "
+                "probability decides detection on its own at its natural "
+                "0.5 point (held-out AUC 0.988-0.995 per the checkpoint "
+                "record)."
+            ),
+            operating_point=(
+                "shipped checkpoint 'hurricane_era5' "
+                "(models/checkpoints/hurricane_era5.pt + provenance "
+                "sidecar); TC probability >= 0.5"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Published physics rules: maximum wind from central "
+                "pressure via V_max(kt) = 6.7*(1010 - P)**0.644; rapid "
+                "deepening at >= 42 hPa in 24 h; rapid intensification at "
+                ">= 30 kt in 24 h; and Saffir-Simpson categorization of a "
+                "detected cyclone by maximum sustained wind in knots."
+            ),
+            citation=(
+                "Atkinson & Holliday (1977) western North Pacific "
+                "wind-pressure relation; Holliday & Thompson (1979) 42 "
+                "hPa/24 h rapid-deepening definition; NHC glossary and "
+                "Kaplan & DeMaria (2003) (>= 30 kt/24 h rapid "
+                "intensification); NHC Saffir-Simpson Hurricane Wind Scale"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The physics-path detection gate is unsourced engineering: "
+                "cyclone_detected fires at indicator count >= 2 (pressure "
+                "deficit > 20 hPa = 2, > 10 hPa = 1, favorable-formation "
+                "SST >= 26.5 degC = 1, SST >= 28 degC = +0.5, closed "
+                "circulation = 1, relative vorticity > 5e-4 /s = 0.5, "
+                "rapid intensification = 1) with confidence = "
+                "indicators/5; these in-code constants (including the SST "
+                "favorability bars, carried without a named source) have "
+                "no published decision-rule citation and no labelled "
+                "calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,

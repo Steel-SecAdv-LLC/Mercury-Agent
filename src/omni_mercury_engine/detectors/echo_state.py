@@ -30,6 +30,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -48,6 +49,23 @@ class EchoStateDetector(BaseDetector):
     is scored by the standardised one-step prediction residual squashed into
     ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Scores are standardised one-step prediction residuals of a ridge "
+            "readout over a fixed spectral-radius-scaled random reservoir, "
+            "squashed by 1 - exp(-s / scale) with the scale anchored at the "
+            "configured training quantile (default 0.98); the decision "
+            "threshold is the configured operating point, default 0.5 on the "
+            "normalized score. The ESN is published; the residual "
+            "squash/threshold is the engine's quantile-anchored convention."
+        ),
+        citation=(
+            'Jaeger (2001), \'The "echo state" approach to analysing and '
+            "training recurrent neural networks', GMD Report 148"
+        ),
+    )
 
     def __init__(
         self,

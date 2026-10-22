@@ -35,6 +35,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
 )
 from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
 
 __all__ = ["SRCNNDetector"]
@@ -77,6 +78,22 @@ class SRCNNDetector(BaseDetector):
     window; :meth:`detect` scores each point of a new series by the CNN's
     sigmoid output on its saliency window.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "SR-CNN: each point's Spectral-Residual saliency window is scored by "
+            "a 1-D CNN trained self-supervised on a synthetic-anomaly-injected "
+            "copy of the normal series, per the published pipeline; the CNN's "
+            "sigmoid output is the [0, 1] score. The alarm fires at the "
+            "configured BaseDetector threshold on that score (default 0.5), an "
+            "engineering default rather than a value from the paper."
+        ),
+        citation=(
+            "Ren et al. (2019), Time-Series Anomaly Detection Service at "
+            "Microsoft, KDD 2019 (SR and SR-CNN; named in the module docstring)"
+        ),
+    )
 
     def __init__(
         self,

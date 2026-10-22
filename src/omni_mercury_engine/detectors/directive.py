@@ -48,6 +48,7 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 #: Reference rows kept from the fit for the GSIS density score (a deterministic,
 #: evenly spaced subsample). It bounds the score's cost at O(n * m * d) for a
@@ -211,6 +212,19 @@ class SigmaDirectiveDetector(BaseDetector):
         >>> result = detector.detect(test_data)
         >>> anomalies = result["is_anomaly"]
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Deprecated in-house rule set: PCP, GSIS, RMD and EOA protocol "
+            "scores (plus optional quantum/nano/harmonic enhancements) are "
+            "weight-combined into one [0, 1] score; is_anomaly fires when it "
+            "exceeds the configured threshold (default 0.5) or the "
+            "auto-calibrated operating point. No published threshold exists for "
+            "these protocols and no labelled corpus calibrates them; the module "
+            "is retained for reference only."
+        ),
+    )
 
     #: Verified free of process-global mutable state at inference (bit-identical
     #: concurrent vs sequential: tests/core/test_parallel_detectors.py).

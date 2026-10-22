@@ -34,6 +34,7 @@ from omni_mercury_engine.detectors._calibration import (
     squash_scale,
 )
 from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 __all__ = ["DiffusionReconstructionDetector"]
 
@@ -74,6 +75,25 @@ class DiffusionReconstructionDetector(BaseDetector):
     :meth:`detect` scores each point by the mean noise-prediction error of its
     centred window across a set of diffusion timesteps, squashed to ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "DDPM reconstruction-error detection: a denoiser trained on normal "
+            "windows (the Ho et al. 2020 forward/reverse noising process) scores "
+            "each point by its mean noise-prediction error across the eval "
+            "timesteps -- the diffusion-AD signal of AnoDDPM -- squashed into "
+            "[0, 1] with the training calibration_quantile (default 0.98) "
+            "anchored at score 0.5. The alarm fires at the configured "
+            "BaseDetector threshold (default 0.5); the threshold and quantile "
+            "are engineering defaults, not published values."
+        ),
+        citation=(
+            "Ho, Jain & Abbeel (2020), Denoising Diffusion Probabilistic Models, "
+            "NeurIPS 2020; Wyatt et al. (2022), AnoDDPM (both named in the "
+            "module docstring)"
+        ),
+    )
 
     def __init__(
         self,

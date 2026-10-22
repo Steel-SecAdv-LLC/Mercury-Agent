@@ -710,6 +710,46 @@ class LandslideDetector:
     - GOSNN synapse for ethical gating and scalar registration
     """
 
+    decision_source = (
+        # Rainfall trigger: the published intensity-duration rule declared
+        # once on RainfallTriggerModel (Guzzetti 2008 / Caine 1980) and
+        # reused here.
+        RainfallTriggerModel.decision_source,
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'landslide_coolr' checkpoint (real NASA COOLR "
+                "landslide-catalog data, raw 64-dim slope_features "
+                "contract): on the learned path landslide_imminent "
+                "thresholds the slope-failure probability at the "
+                "checkpoint's ratified, validation-selected operating "
+                "point."
+            ),
+            operating_point=(
+                "shipped checkpoint 'landslide_coolr' "
+                "(models/checkpoints/landslide_coolr.pt + provenance "
+                "sidecar): operating_point.detection_threshold selected by "
+                "ml.hazard_training.landslide_stability."
+                "_select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The seismic trigger and the aggregate gate are unsourced "
+                "engineering: the earthquake leg fires at PGA > 0.15 g "
+                "(critical_pga, an in-code constant with no citation) with "
+                "heuristic magnitude/distance factors, and "
+                "landslide_imminent additionally requires at least one "
+                "trigger plus a 0.6 failure-probability bar on the physics "
+                "path and on checkpoints without an operating point -- "
+                "constants with no published source and no labelled "
+                "calibration."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         enable_rainfall_trigger: bool = True,

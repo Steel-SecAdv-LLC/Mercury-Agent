@@ -33,6 +33,7 @@ from omni_mercury_engine.detectors._calibration import (
     squash_scale,
 )
 from omni_mercury_engine.detectors.detection_config import DetectionConfig
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -50,6 +51,24 @@ class DigitalTwinResidualDetector(BaseDetector):
     one-step-ahead residual with a short free-running simulation divergence,
     squashed into ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Follows the published digital-twin monitoring pattern (alarm on "
+            "observed-vs-simulated divergence); the twin is a linear AR forward "
+            "model identified in-house by least squares. Scores combine the "
+            "one-step-ahead residual with short-horizon free-running "
+            "divergence, squashed with a scale anchored at the configured "
+            "training quantile (default 0.98); the decision threshold is the "
+            "configured operating point, default 0.5 on the normalized score."
+        ),
+        citation=(
+            "Grieves & Vickers (2017), 'Digital Twin: Mitigating "
+            "Unpredictable, Undesirable Emergent Behavior in Complex Systems', "
+            "in Transdisciplinary Perspectives on Complex Systems, Springer"
+        ),
+    )
 
     def __init__(
         self,

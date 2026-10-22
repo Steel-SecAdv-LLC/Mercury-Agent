@@ -28,6 +28,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
 
@@ -95,6 +96,32 @@ class LAVADDetector(BaseVLMDetector):
         >>> detector.set_anomaly_description("violent activity")
         >>> results = detector.detect(video_frames)
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Training-free window scoring follows the published LAVAD "
+                "pipeline: a VLM captions each frame and an LLM reasons "
+                "over the caption sequence to score temporal windows."
+            ),
+            citation=(
+                'Zanella et al., "Harnessing Large Language Models for '
+                'Training-free Video Anomaly Detection", CVPR 2024, '
+                "https://lucazanella.github.io/lavad/"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The binary flag cuts the LLM-derived window score at "
+                "vlm_config.confidence_threshold (default 0.5): the paper "
+                "reports ranking metrics rather than an alarm threshold, "
+                "and no labelled corpus here calibrates one, so binary "
+                "verdicts are experimental."
+            ),
+        ),
+    )
 
     def __init__(self, config: LAVADConfig | dict[str, Any] | None = None) -> None:
         """Initialize LAVAD detector.

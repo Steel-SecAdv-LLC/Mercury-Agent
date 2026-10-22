@@ -53,6 +53,8 @@ import numpy as np
 import torch
 from scipy import stats
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 logger = logging.getLogger(__name__)
 
 #: Minimum number of aggregated samples required to fit a distribution for
@@ -601,6 +603,28 @@ class DroughtDetector:
     The detector works untrained (pure distribution fitting) and never
     substitutes fabricated values for missing input.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "drought_detected fires when any aggregation window's latest "
+            "SPI (gamma fit, Thom MLE, mixed zero-mass distribution) or "
+            "SPEI (Thornthwaite PET, L-moment log-logistic fit) reaches a "
+            "US Drought Monitor category; severity is the worst category "
+            "across windows per the published D0-D4 SPI thresholds (D0 "
+            "<= -0.5 ... D4 <= -2.0)."
+        ),
+        citation=(
+            "McKee, Doesken & Kleist (1993), Proc. 8th Conf. Applied "
+            "Climatology, 179-184 (SPI); Thom (1958), Mon. Wea. Rev. "
+            "86:117-122 and Edwards & McKee (1997) (gamma fit); "
+            "Vicente-Serrano, Begueria & Lopez-Moreno (2010), J. Climate "
+            "23:1696-1718 (SPEI); Hosking & Wallis (1997), App. A.7 "
+            "(L-moments); Thornthwaite (1948), Geogr. Rev. 38:55-94 and "
+            "Willmott et al. (1985) (PET); Svoboda et al. (2002), BAMS "
+            "83:1181-1190 (D0-D4 thresholds)"
+        ),
+    )
 
     #: Severity ordering used to pick the worst category across windows.
     _SEVERITY_ORDER: tuple[DroughtCategory, ...] = (

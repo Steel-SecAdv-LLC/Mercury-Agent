@@ -481,6 +481,21 @@ class FinancialCrisisDetector:
     Integrates market, banking, fraud, and systemic risk analysis.
     """
 
+    decision_source = (
+        *MarketCrashDetector.decision_source,
+        *BankingStressDetector.decision_source,
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Aggregation and remaining screens are engineering rules with "
+                "no published source: crisis_imminent at two or more fired "
+                "indicators, currency instability at exchange-rate volatility "
+                "above 0.15, systemic risk at a network score above 0.7, and "
+                "fraud as a half indicator once trained weights load."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         enable_market_detection: bool = True,

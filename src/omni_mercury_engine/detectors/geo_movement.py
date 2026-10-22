@@ -36,6 +36,7 @@ import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.geo import haversine_km
 
 if TYPE_CHECKING:
@@ -104,6 +105,20 @@ class GeoMovementAnomalyDetector(BaseDetector):
         >>> bool(result["is_anomaly"])
         False
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house movement-plausibility heuristic: velocity, jump and "
+            "time-gap channels saturate against configured ceilings (default "
+            "130 km/h feasibility, 6-sigma jump vs fitted step lengths, 4x the "
+            "expected reporting gap) and fuse by noisy-OR; the alarm fires when "
+            "the worst step's fused score exceeds the configured threshold "
+            "(default 0.7) or the auto-calibrated operating point. No published "
+            "threshold exists for these channel ceilings and no labelled "
+            "trajectory corpus calibrates them."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the detector with movement-channel configuration.

@@ -22,6 +22,7 @@ from omni_mercury_engine.detectors.hazard_adapter import (
     nan_if_none,
     ordinal_score,
 )
+from omni_mercury_engine.detectors.provenance import WrappedDecisionSource
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -47,6 +48,10 @@ class ThreatPayloadAdapter(HazardTextAdapter):
     never truncated.  The patterns' known false positives on plain text
     ("red or blue = fine", "onion=3") are served unchanged.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.security.threat_detection:ThreatDetector"
+    )
 
     FEATURE_NAMES = (
         "max_confidence",
@@ -89,6 +94,10 @@ class FinancialCrisisRecordAdapter(HazardRecordAdapter):
     score >= 1/2.  The ``financial_stress`` entry serves the market and
     banking sections as named rows; this adapter serves the whole record.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.economic.financial_crisis_detector:FinancialCrisisDetector"
+    )
 
     ALLOWED_KEYS = frozenset(
         {
@@ -158,6 +167,10 @@ class EMPRecordAdapter(HazardRecordAdapter):
     floor a critical grid impact sets); ``emp_detected`` -- EMP proper, false
     for a geomagnetic storm or an IEMI attack -- is a feature.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.energy.emp_detector:EMPDetector"
+    )
 
     ALLOWED_KEYS = frozenset({"sensor_data", "magnetometer_data", "signature_data", "sensor_array"})
     FEATURE_NAMES = (

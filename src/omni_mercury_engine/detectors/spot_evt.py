@@ -45,6 +45,7 @@ from omni_mercury_engine.detectors.detection_config import (
     DetectionConfig,
     guard_finite_scalar,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -62,6 +63,23 @@ class SPOTDetector(BaseDetector):
     observation, normalised into ``[0, 1]`` against the risk budget so an
     at-threshold point scores ~0.5.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "The threshold is the SPOT/DSPOT data-driven EVT threshold z_q: a "
+            "Generalized Pareto tail fitted to excesses over a high empirical "
+            "quantile maps the configured risk budget q (default 1e-3 "
+            "normal-regime false-positive rate) to z_q. Scores are EVT tail "
+            "probabilities normalised against the risk budget so an "
+            "at-threshold point scores ~0.5, and is_anomaly fires above the "
+            "fixed 0.5 cut (i.e. beyond z_q)."
+        ),
+        citation=(
+            "Siffer, Fouque, Termier & Largouet (2017), 'Anomaly Detection in "
+            "Streams with Extreme Value Theory', KDD 2017"
+        ),
+    )
 
     def __init__(
         self,

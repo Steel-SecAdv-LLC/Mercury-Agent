@@ -66,6 +66,7 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.centralized_constants import get_domain_fundamentals
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
 logger = logging.getLogger(__name__)
@@ -829,6 +830,19 @@ class SpectralVibrationDetector(BaseDetector):
         >>> result = detector.detect(test_vibration_data)
         >>> print(result["anomaly_score"], result["signature_type"])
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house heuristic: FFT/graph-spectral features pass through "
+            "untrained nn.Module random projections (see the module docstring's "
+            "trained-status note) and are compared against statistical reference "
+            "profiles learned in fit(); the composite normalized score is "
+            "decided at the configured BaseDetector threshold (default 0.5). No "
+            "published threshold exists for this rule and no labelled corpus "
+            "calibrates it."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize spectral vibration detector.

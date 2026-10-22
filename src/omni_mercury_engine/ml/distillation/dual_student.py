@@ -35,6 +35,7 @@ from omni_mercury_engine.core.exceptions import (
     InputModalityError,
     InvalidObservationError,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +249,42 @@ class DualStudentDistillation(nn.Module):
         >>> distiller.fit(normal_images)
         >>> anomaly_scores = distiller.detect(test_images)
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "The anomaly score is the teacher-versus-dual-student "
+                "feature discrepancy of the two students trained in fit() "
+                "on normal images (cosine feature-matching loss; no "
+                "decision is made before fit calibrates the threshold)."
+            ),
+            operating_point=(
+                "fit-time record: the student weights trained on the normal "
+                "split plus the threshold record kept in self.calibration "
+                "(method, n_calibration, requested and achieved false-alarm "
+                "bound)"
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The decision threshold is set by split conformal "
+                "prediction on held-out normal images at the configured "
+                "false_alarm_rate (default 0.05); when too few calibration "
+                "images bound that rate, fit() logs the achieved bound "
+                "instead of pretending. A configured fixed threshold "
+                "bypasses calibration and is recorded as such."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold; "
+                "record kept in self.calibration"
+            ),
+        ),
+    )
 
     _norm_mean: torch.Tensor
     _norm_std: torch.Tensor

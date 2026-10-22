@@ -74,6 +74,7 @@ import numpy as np
 import numpy.typing as npt
 
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 if TYPE_CHECKING:
@@ -289,6 +290,38 @@ class DroneAnomalyDetector:
     * **DronLomaly log analysis** -- keyword-based feature extraction over
       structured sensor-log entries.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "RADD mission-phase invariant rules (battery >= 20% in "
+                "takeoff, >= 6 GPS satellites, altitude-rate sign checks, "
+                "geofence distance, ...) are hand-set operational "
+                "thresholds ported from Omni-AXA-Engine: no precisely "
+                "citable published source backs the numbers and no labelled "
+                "fault corpus calibrates them, so rule verdicts are "
+                "experimental."
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "Ensemble faults fire when the kNN-density stream's robust "
+                "z (median / 1.4826*MAD against its leave-one-out "
+                "rolling-window reference, which never contains the judged "
+                "state) reaches z_gate (default 8.0)."
+            ),
+            false_alarm_rate=0.0,
+            calibration_data=(
+                "simulated cruise validation recorded in this module's "
+                "docstring and exercised in tests/test_drone_detector.py: "
+                "20 flights x 280 scored ticks (5,600 normal ticks, 0 false "
+                "alarms at z >= 8; motor, thermal and position-jump faults "
+                "flagged every time)"
+            ),
+        ),
+    )
 
     DEFAULT_HISTORY_WINDOW: Final[int] = 100
     DEFAULT_FIT_MINIMUM: Final[int] = 20

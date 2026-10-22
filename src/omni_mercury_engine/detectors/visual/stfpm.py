@@ -28,6 +28,7 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -133,6 +134,37 @@ class STFPMDetector(BaseVisualDetector):
         >>> detector.fit(normal_images)  # Trains student
         >>> results = detector.detect(test_images)
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The anomaly score is the multi-scale feature-pyramid "
+                "discrepancy between a frozen teacher and a student trained "
+                "on normal images, following the published STFPM method."
+            ),
+            citation=(
+                'Wang et al., "Student-Teacher Feature Pyramid Matching '
+                'for Anomaly Detection", arXiv:2103.04257'
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The binary decision threshold is calibrated in fit() by "
+                "split conformal prediction on held-out normal images at "
+                "visual_config.false_alarm_rate (default 0.05); the record "
+                "is kept in self.calibration and preserved exactly by "
+                "save()/load(). No decision is made before calibration."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold"
+            ),
+        ),
+    )
 
     def __init__(self, config: STFPMConfig | dict[str, Any] | None = None) -> None:
         """Initialize STFPM detector.

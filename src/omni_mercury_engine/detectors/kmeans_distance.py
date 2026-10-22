@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -47,6 +48,20 @@ class KMeansDistanceDetector(BaseDetector):
     ``enable_detector("kmeans_distance")``; it is opt-in, not a default base
     detector, so the calibrated fusion ensemble is unchanged until enabled.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Distance to the nearest learned k-means centroid, squashed by "
+            "1 - exp(-d / scale) with scale set to the median training "
+            "nearest-centroid distance; is_anomaly fires above a fixed 0.5 cut "
+            "(nearest distance beyond ln(2) median distances). The signal's "
+            "ranking is benchmarked on labelled ADBench data (held-out ROC-AUC "
+            "~0.8-0.98, benchmarks/dormant_module_revival.py), but that "
+            "measures ranking only: no published threshold exists for the 0.5 "
+            "cut and no labelled corpus calibrates its false-alarm rate."
+        ),
+    )
 
     def __init__(self, n_clusters: int = 8, config: dict[str, Any] | None = None) -> None:
         """Initialize the detector with the target cluster count.

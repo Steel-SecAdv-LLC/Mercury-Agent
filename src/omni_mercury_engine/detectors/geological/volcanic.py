@@ -55,6 +55,7 @@ from omni_mercury_engine.detectors._hazard_input import (
     finite_scalar,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -982,6 +983,60 @@ class VolcanicEruptionDetector:
     - 3R Refactoring mechanism for adaptive parameter optimization
     - GOSNN synapse for ethical gating and scalar registration
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'volcanic_avo_seismic' checkpoint (real "
+                "held-out AVO data, scoped to the named Alaska/AVO volcano "
+                "set in its provenance record): on the learned path the "
+                "eruption_imminent decision thresholds the eruption-head "
+                "probability at the checkpoint's ratified, "
+                "validation-selected operating point."
+            ),
+            operating_point=(
+                "shipped checkpoint 'volcanic_avo_seismic' "
+                "(models/checkpoints/volcanic_avo_seismic.pt + provenance "
+                "sidecar): operating_point.eruption_prob_threshold selected "
+                "by ml.hazard_training.volcanic_eruption."
+                "_select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Failure-time forecasting uses the inverse-rate failure "
+                "forecast method (reported only when the inverse precursor "
+                "rate falls with R^2 >= 0.8 over >= 5 samples, Poisson form "
+                "for sparse event counts), and detect_live reports the "
+                "official USGS observatory alert level verbatim (WARNING = "
+                "eruption imminent)."
+            ),
+            citation=(
+                "Voight (1988), Nature 332 (inverse-rate FFM, alpha = 2 per "
+                "Cornelius & Voight 1995); Bell, Naylor & Main (2013), GJI "
+                "194 (Poisson count form); USGS Volcano Alert Level "
+                "definitions (usgs.gov/natural-hazards/volcano-hazards/"
+                "about-alert-levels)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The physics-path forecast is unsourced engineering: a "
+                "noisy-OR over precursor severities normalised against "
+                "in-code references (degassing index saturating at 5x "
+                "baseline, 20 cm InSAR displacement, 1000 MW radiant heat, "
+                "robust seismic-swarm exceed fraction with a 0.02 swarm "
+                "bar, HMM belief) thresholded at 0.7, the indicator-count "
+                "alert ladder in _determine_alert_level, and the bounded "
+                "exploratory Schumann/ELF correlation -- constants with no "
+                "published source and no labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,

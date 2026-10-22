@@ -88,6 +88,7 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.core.exceptions import InvalidObservationError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +274,30 @@ class EqTsunamiCascadeDetector:
         max_depth_km: Maximum tsunamigenic depth. Default 100 km.
         dart_threshold_m: Water-level residual threshold. Default 0.03 m.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Every stage transition applies published criteria: screening "
+            "follows the PTWC bulletin table (information bulletin at M >= "
+            "6.5; regional fixed warning at M 7.6-7.8, depth < 100 km, not "
+            "inland; expanding warning at M >= 7.9) with the 100 km "
+            "tsunamigenic depth bound, and TSUNAMI_THREAT requires "
+            "water-level confirmation by the DART algorithm (cubic tide "
+            "prediction from four 10-minute averages an hour apart, "
+            "trigger on a residual >= 0.03 m) or an explicit confirmed "
+            "observation. Neural confidence is never a transition "
+            "criterion."
+        ),
+        citation=(
+            "IOC-UNESCO (2009), Operational Users Guide for the PTWS, IOC "
+            "Technical Series No. 87, sec. 4.3.2 (message criteria table) "
+            "and sec. 3.5.1 (tsunamigenesis depth/sea criteria); Meinig et "
+            "al. (2005), NOAA/PMEL DART II description (30 mm detection "
+            "threshold); Mofjeld, NOAA/PMEL NCTR tsunami detection "
+            "algorithm, nctr.pmel.noaa.gov/tda_documentation.html"
+        ),
+    )
 
     def __init__(
         self,

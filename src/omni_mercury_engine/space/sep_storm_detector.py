@@ -42,6 +42,8 @@ from datetime import UTC, datetime
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -235,6 +237,28 @@ class SEPStormDetector:
         >>> result = detector.assess(times, flux_ge10mev)
         >>> result.s_scale, result.onset_detected
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Radiation-storm grading is the NOAA S scale on the >=10 MeV "
+            "integral proton flux: S1..S5 at 10 / 100 / 1,000 / 10,000 / "
+            "100,000 pfu. Onset is the NOAA proton-event definition — the "
+            "first of three consecutive 5-minute readings at or above 10 pfu "
+            "(threshold and persistence parameterised with those defaults). "
+            "The well-connected-western-flare precursor flag is an advisory "
+            "anchored to the SEP source-longitude organisation of Reames "
+            "(1999) and Cane & Lario (2006); it never fabricates flux."
+        ),
+        citation=(
+            "NOAA Space Weather Scales, 'Solar Radiation Storms' "
+            "(https://www.swpc.noaa.gov/noaa-scales-explanation); SWPC Solar "
+            "Proton Events definition "
+            "(https://www.swpc.noaa.gov/products/goes-proton-flux); Reames "
+            "(1999), Space Sci. Rev. 90, 413; Cane & Lario (2006), Space "
+            "Sci. Rev. 123, 45"
+        ),
+    )
 
     def __init__(
         self,

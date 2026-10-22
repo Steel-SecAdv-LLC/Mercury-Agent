@@ -19,6 +19,8 @@ from typing import Any
 import numpy as np
 from scipy import linalg as sp_linalg
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 __all__ = [
     "FisherInformationMatrix",
     "FisherRaoAdaptiveThreshold",
@@ -613,6 +615,32 @@ class InformationGeometryDetector:
     :class:`FisherRaoAdaptiveThreshold`, which derives the cutoff from
     the Fisher information metric and recalibrates on drift.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Scoring: each row's Fisher-Rao geodesic distance to the fitted "
+                "Gaussian reference on the statistical manifold -- the IGEOOD "
+                "information-geometry OOD score."
+            ),
+            citation=(
+                "IGEOOD: An Information Geometry Approach to Out-of-Distribution "
+                "Detection, ICLR 2022 (openreview.net/pdf?id=mfwdY3U_9ea; named "
+                "in the module docstring)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Decision: the cut tau = mean + k * std of calibration geodesic "
+                "distances (FisherRaoAdaptiveThreshold, confidence_k default "
+                "3.0; fixed fallback 3.0 when adaptive thresholds are off) is "
+                "an in-house convention; no published threshold exists for it "
+                "and no labelled corpus calibrates it."
+            ),
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize information geometry detector.

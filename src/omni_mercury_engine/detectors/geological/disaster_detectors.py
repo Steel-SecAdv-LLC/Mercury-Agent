@@ -55,6 +55,7 @@ from omni_mercury_engine.detectors.geological.sea_level import (
     quietest_segment_sigma,
     remove_isolated_spikes,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -614,6 +615,37 @@ class TsunamiDetector:
     measured peak deviation on both paths; the NN wave-height head is
     surfaced only as the diagnostic ``nn_wave_height_m``.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The physics path cannot call a tsunami unless the detided "
+                "water-column residual reaches the NOAA DART bottom-pressure "
+                "trigger level (DART_TRIGGER_M = 0.03 m), the North Pacific "
+                "amplitude at which the operational DART algorithm triggers."
+            ),
+            citation=(
+                "Mofjeld, NOAA PMEL/NCTR Tsunami Detection Algorithm "
+                "documentation, nctr.pmel.noaa.gov/tda_documentation.html "
+                "(30 mm North Pacific trigger level)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Above that gate the detection confidence is a noisy-OR of an "
+                "amplitude severity mapping (robust-z 5 maps to 0, z 20 "
+                "saturates) with a tsunami-band FFT resonance score (0.25 per "
+                "band with >2x local power), thresholded at the constructor's "
+                "detection_threshold (default 0.96); these constants are "
+                "in-code monitoring defaults with no published source and no "
+                "labelled calibration. No trained leg ships: the 2026-07 "
+                "tsunami_dart checkpoint candidate was refused by the merit "
+                "gate, so the physics path stays in charge."
+            ),
+        ),
+    )
 
     def __init__(
         self,
@@ -1328,6 +1360,58 @@ class EarthquakeDetector:
     the constructor's ``detection_threshold``, and the emitted ``confidence``
     is identical either way.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'seismic_stead' checkpoint (trained on real "
+                "STEAD waveforms); on-contract input the alert decision "
+                "thresholds the (temperature-calibrated) detection head at "
+                "the checkpoint's ratified, validation-selected tau."
+            ),
+            operating_point=(
+                "shipped checkpoint 'seismic_stead' "
+                "(models/checkpoints/seismic_stead.pt + provenance sidecar): "
+                "operating_point.detection_threshold and calibration "
+                "temperature selected by "
+                "ml.hazard_training.seismic_wave._select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "The physics fallback path picks arrivals with an STA/LTA "
+                "trigger (0.5 s / 5 s windows) on a trace band-passed to "
+                "1-45 Hz; ML, when a Wood-Anderson amplitude and hypocentral "
+                "distance are supplied, is the IASPEI standard local "
+                "magnitude, and the aftershock probability integrates the "
+                "Reasenberg-Jones rate with caller-supplied regional "
+                "parameters."
+            ),
+            citation=(
+                "Trnkoczy, NMSOP IS 8.1 (STA/LTA trigger on filtered "
+                "traces); IASPEI Working Group on Magnitudes (2013) and "
+                "Hutton & Boore (1987) (ML = log10(A) + 1.11 log10(R) + "
+                "0.00189 R - 2.09); Reasenberg & Jones (1989), USGS "
+                "Open-File Report 96-266 (aftershock rate); Page et al. "
+                "(2016) (regional parameters)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The physics-path ALERT bar itself is unsourced: confidence "
+                "= clip((peak STA/LTA - 2.5) / 7.5, 0, 1) + 0.2 * "
+                "seismic-band resonance score, thresholded at the "
+                "constructor's detection_threshold (default 0.96) -- the "
+                "2.5/7.5 mapping, the 0.2 resonance bump and the 0.96 bar "
+                "are in-code constants with no published source and no "
+                "labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,
@@ -2135,6 +2219,41 @@ class MeteorDetector:
     ``data_provenance`` / ``live_context`` on the result when live data was
     actually consulted.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Live corroboration legs consume operational NASA/JPL "
+                "products as published: a recent significant fireball from "
+                "the JPL CNEOS Fireball feed, upcoming close approaches from "
+                "NASA NeoWs, and Sentry impact risks whose published "
+                "cumulative impact probability floors the reported "
+                "impact_probability (never understated)."
+            ),
+            citation=(
+                "NASA/JPL CNEOS SSD APIs (ssd-api.jpl.nasa.gov): Fireball "
+                "API, Sentry impact-risk API (cumulative impact probability, "
+                "Palermo/Torino ratings); NASA NeoWs close-approach feed "
+                "(api.nasa.gov)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The detection rule itself is unsourced engineering: a "
+                "Bayesian update over optical/radar detections with assumed "
+                "sensitivities (0.8 optical, 0.9 radar) and false-positive "
+                "rates (0.01/0.005), posterior boosts for NASA corroboration "
+                "(+0.2 fireball, +0.15 close approach), thresholded at the "
+                "constructor's detection_threshold (default 0.7); the Sentry "
+                "screen keeps objects with palermo_scale > -3 and the "
+                "close-approach screen uses < 1 lunar distance within 7 "
+                "days. None of these constants has a published source or a "
+                "labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,

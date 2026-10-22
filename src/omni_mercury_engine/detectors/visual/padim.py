@@ -28,6 +28,7 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -65,6 +66,39 @@ class PaDiMDetector(BaseVisualDetector):
         >>> detector.fit(normal_images)
         >>> results = detector.detect(test_images)
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The anomaly score is the per-position Mahalanobis distance "
+                "of pretrained patch features to position-wise multivariate "
+                "Gaussians fitted on normal images, following the published "
+                "PaDiM method."
+            ),
+            citation=(
+                'Defard et al., "PaDiM: a Patch Distribution Modeling '
+                'Framework for Anomaly Detection and Localization", '
+                "ICPR 2020, arXiv:2011.08785"
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The binary decision threshold is calibrated in fit() by "
+                "split conformal prediction on held-out normal images at "
+                "visual_config.false_alarm_rate (default 0.05); the record "
+                "is kept in self.calibration and preserved exactly by "
+                "save()/load(). No decision is made before calibration."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold"
+            ),
+        ),
+    )
 
     def __init__(self, config: PaDiMConfig | dict[str, Any] | None = None) -> None:
         """Initialize PaDiM detector.

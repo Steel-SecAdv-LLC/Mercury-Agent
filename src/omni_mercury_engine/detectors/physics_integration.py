@@ -39,6 +39,7 @@ from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.spectral_domain_frequency import (
     FrequencyInfluenceVector,
     SpectralDomainFrequency,
@@ -238,6 +239,19 @@ class PhysicsIntegratedDetector(BaseDetector):
         >>> result = detector.detect(test_data)
         >>> print(result.anomaly_score, result.fusion_result)
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house fusion heuristic: combines the spectral-vibration, "
+            "acceleration-dynamics and UI/UX detectors' scores through the "
+            "Omni-Ava Equation (golden-ratio-weighted fusion with 3R/GOSNN "
+            "modulation) and decides at the configured BaseDetector threshold "
+            "(default 0.5) on the fused normalized score. No published threshold "
+            "exists for this fusion rule and no labelled corpus calibrates it; "
+            "the wrapped detectors declare their own provenance on their classes."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize integrated physics detector.

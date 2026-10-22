@@ -28,6 +28,7 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.backbone import FeatureExtractor
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
@@ -150,6 +151,39 @@ class ReverseDistillationDetector(BaseVisualDetector):
         >>> detector.fit(normal_images)
         >>> results = detector.detect(test_images)
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The anomaly score is the multi-scale reconstruction "
+                "discrepancy between frozen teacher features and a decoder "
+                "fed through a one-class-embedding bottleneck (reverse "
+                "information flow), following the published Reverse "
+                "Distillation method."
+            ),
+            citation=(
+                'Deng & Li, "Anomaly Detection via Reverse Distillation '
+                'from One-Class Embedding", CVPR 2022, arXiv:2201.10703'
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The binary decision threshold is calibrated in fit() by "
+                "split conformal prediction on held-out normal images at "
+                "visual_config.false_alarm_rate (default 0.05); the record "
+                "is kept in self.calibration and preserved exactly by "
+                "save()/load(). No decision is made before calibration."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold"
+            ),
+        ),
+    )
 
     def __init__(self, config: ReverseDistillationConfig | dict[str, Any] | None = None) -> None:
         """Initialize detector."""

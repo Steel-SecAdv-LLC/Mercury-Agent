@@ -35,6 +35,7 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -198,6 +199,19 @@ class DimensionalAnalyzer(BaseDetector):
         >>> result = analyzer.detect(test_data)
         >>> anomalies = result["is_anomaly"]
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house combination: PCA reconstruction error, optional "
+            "autoencoder reconstruction error and a Fourier 'DB term' spectral "
+            "score are weight-combined into one [0, 1] score; is_anomaly fires "
+            "when it exceeds the configured threshold (default 0.5) or the "
+            "auto-calibrated operating point at the configured contamination. "
+            "No published threshold exists for the combined score and no "
+            "labelled corpus calibrates the default weights or cut."
+        ),
+    )
 
     #: Verified free of process-global mutable state at inference (bit-identical
     #: concurrent vs sequential: tests/core/test_parallel_detectors.py).

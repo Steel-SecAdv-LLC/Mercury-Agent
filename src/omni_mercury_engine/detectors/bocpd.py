@@ -32,6 +32,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_features,
     finite_scores,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -48,6 +49,21 @@ class BOCPDDetector(BaseDetector):
     length is below ``change_grace`` -- high immediately after a distributional
     shift and low during a stable regime.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "The score is the BOCPD run-length posterior probability that the "
+            "current run is younger than change_grace samples (Gaussian "
+            "observation model, Normal-Inverse-Gamma prior, Student-t "
+            "predictive, constant hazard), already a calibrated probability in "
+            "[0, 1]; the decision threshold is the configured operating point, "
+            "default 0.5 on that probability."
+        ),
+        citation=(
+            "Adams & MacKay (2007), 'Bayesian Online Changepoint Detection', " "arXiv:0710.3742"
+        ),
+    )
 
     def __init__(
         self,

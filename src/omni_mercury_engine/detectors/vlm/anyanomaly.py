@@ -28,6 +28,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 from omni_mercury_engine.detectors.vlm.context_providers import (
     CombinedContextProvider,
@@ -99,6 +100,32 @@ class AnyAnomalyDetector(BaseVLMDetector):
         >>> results = detector.detect(video_frames)
         >>> print(f"Anomaly at frames: {results['anomaly_frames']}")
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Segment-level zero-shot scoring follows the published "
+                "AnyAnomaly method: an LVLM answers visual questions about "
+                "the user's natural-language anomaly definition, with "
+                "position and temporal context providers."
+            ),
+            citation=(
+                'Ahn et al., "AnyAnomaly: Zero-Shot Customizable Video '
+                'Anomaly Detection with LVLM", WACV 2026, arXiv:2503.04504'
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The binary flag cuts the LVLM confidence score at "
+                "vlm_config.confidence_threshold (default 0.5): the paper "
+                "reports ranking metrics rather than an alarm threshold, "
+                "and no labelled corpus here calibrates one, so binary "
+                "verdicts are experimental."
+            ),
+        ),
+    )
 
     def __init__(self, config: AnyAnomalyConfig | dict[str, Any] | None = None) -> None:
         """Initialize AnyAnomaly detector.

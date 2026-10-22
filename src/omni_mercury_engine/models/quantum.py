@@ -10,6 +10,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class ErrorCorrectionCode(Enum):
     """Quantum error correction code types."""
@@ -56,6 +58,17 @@ class DecoherenceConfig:
 
 class QuantumAnomalyModel:
     """Quantum-inspired anomaly detection using quantum state representations."""
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Anomaly score is the mean of three quantum-state heuristics "
+            "(amplitude std, phase std, 1 - 2^-entanglement over an "
+            "amplitude-encoded embedding of the input): a quantum-inspired "
+            "heuristic with no published threshold and no labelled corpus "
+            "to calibrate one; verdicts are experimental."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         """Initialize the instance."""

@@ -30,6 +30,7 @@ from omni_mercury_engine.detectors.hazard_adapter import (
     ordinal_score,
     utc_datetime,
 )
+from omni_mercury_engine.detectors.provenance import WrappedDecisionSource
 
 __all__ = [
     "CMEArrivalAdapter",
@@ -72,6 +73,10 @@ class SolarStormSnapshotAdapter(HazardRowAdapter):
     is the highest of the three over 5; the decision is any scale at level
     1 or above.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.solar_storm_detector:SolarStormDetector"
+    )
 
     COLUMNS = tuple(_SOLAR_WIND_BOUNDS)
     OPTIONAL_COLUMNS = frozenset(COLUMNS) - {"solar_wind_speed_km_s", "bz_imf_nt"}
@@ -139,6 +144,10 @@ class CMEArrivalAdapter(HazardRowAdapter):
     feature, not the score.)
     """
 
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.cme_arrival_detector:CMEArrivalDetector"
+    )
+
     COLUMNS = ("speed_km_s", "latitude_deg", "longitude_deg", "half_angle_deg", "time_21_5_epoch_s")
     FEATURE_NAMES = (
         "angular_separation_deg",
@@ -205,6 +214,10 @@ class SEPProtonWindowAdapter(HazardWindowAdapter):
     S1 but is not an event.
     """
 
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.sep_storm_detector:SEPStormDetector"
+    )
+
     COLUMNS = ("epoch_s", "flux_ge10mev_pfu", "flux_ge100mev_pfu")
     OPTIONAL_COLUMNS = frozenset({"flux_ge100mev_pfu"})
     MIN_SAMPLES = 1
@@ -268,6 +281,8 @@ class GICWindowAdapter(HazardWindowAdapter):
     serves the window's verdict once.
     """
 
+    decision_source = WrappedDecisionSource("omni_mercury_engine.space.gic_detector:GICDetector")
+
     COLUMNS = ("epoch_s", "bx_nt", "by_nt")
     OPTIONAL_COLUMNS = frozenset({"bx_nt", "by_nt"})
     FEATURE_NAMES = (
@@ -326,6 +341,11 @@ class ScintillationAdapter(HazardRecordAdapter):
     (> 0.6); the score is that class over 2 and the decision is >= moderate.
     """
 
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.ionospheric_scintillation_detector:"
+        "IonosphericScintillationDetector"
+    )
+
     FEATURE_NAMES = ("s4", "sigma_phi_rad", "degradation_level")
     _LADDER = ("weak", "moderate", "strong")
 
@@ -377,6 +397,10 @@ class SolarGICCascadeAdapter(HazardRecordAdapter):
     escalation (quiet < watch < warning < storm_in_progress); the score is
     the stage over 3 and the decision is any stage above quiet.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.solar_gic_cascade:SolarGICCascadeDetector"
+    )
 
     REQUIRED_KEYS = frozenset({"now"})
     FEATURE_NAMES = (

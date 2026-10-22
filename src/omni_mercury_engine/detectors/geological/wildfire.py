@@ -42,6 +42,7 @@ from omni_mercury_engine.detectors._hazard_input import (
     finite_scalar,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 # Brightness temperature (Kelvin) above which a pixel counts as a thermal hotspot.
@@ -829,6 +830,54 @@ class WildfireDetector:
     - 3R Resonance mechanism for smoke pattern frequency analysis
     - GOSNN synapse for ethical gating and scalar registration
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'wildfire_firms' checkpoint: on a conforming "
+                "wildfire-firms-v1 raster the alert decision thresholds the "
+                "CNN fire probability at the checkpoint's "
+                "validation-selected operating point "
+                "(FIRE_PROB_THRESHOLD_DEFAULT = 0.6 only for checkpoints "
+                "that declare none); confidence stays the raw probability."
+            ),
+            operating_point=(
+                "shipped checkpoint 'wildfire_firms' "
+                "(models/checkpoints/wildfire_firms.pt + provenance "
+                "sidecar): operating_point.fire_prob_threshold selected by "
+                "ml.hazard_training.wildfire_ignition._select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Fuel-moisture inputs to the spread model follow the NFDRS "
+                "equations: dead-fuel EMC regressions, the fuel-atmosphere "
+                "interface adjustment by state-of-weather code, and the "
+                "1-hour fuel moisture as 1.03x interface EMC."
+            ),
+            citation=(
+                "Bradshaw et al. (1983), USDA Forest Service GTR INT-169 "
+                "(eq. 26, Table 6, Appendix C eqs. C-1..C-3); Simard (1968) "
+                "EMC regressions; Cohen & Deeming (1985), GTR PSW-82"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The physics fallback fire call is VIIRS/MODIS-STYLE but "
+                "unsourced in its constants: fire when brightness "
+                "temperature > 360 K absolutely, or > 330 K and more than "
+                "4 robust sigma above the scene background, with "
+                "HOTSPOT_THRESHOLD_K = 350 K for hotspot pixels and a "
+                "noisy-OR confidence; the NDVI fuel (0.4) and drought "
+                "(0.2) bars are likewise in-code constants with no "
+                "published source and no labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,

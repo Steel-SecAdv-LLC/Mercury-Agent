@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.constants import OmniCodes
 
 # Omni-Code: Omni-Indivisible Guardian (unified protection and integrity)
@@ -16,6 +17,17 @@ _ETHICAL_ANCHOR = OmniCodes.OMNI_INDIVISIBLE.code
 
 class AstrophysicalAnomalyModel:
     """Astrophysical anomaly detection using black hole physics and cosmic event modeling."""
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Anomaly score is the mean of three black-hole-metaphor "
+            "heuristics (inverse event-horizon distance, tanh of the "
+            "synthetic gravitational field, horizon-state grade): a "
+            "physics-inspired heuristic with no published threshold and no "
+            "labelled corpus to calibrate one; verdicts are experimental."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         """Initialize the instance."""

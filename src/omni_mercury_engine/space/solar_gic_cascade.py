@@ -49,6 +49,7 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.evaluation.hazard_metrics import G_SCALE_THRESHOLDS, noaa_g_scale
 from omni_mercury_engine.space.cme_arrival_detector import (
     CMEArrivalDetector,
@@ -184,6 +185,27 @@ class SolarGICCascadeDetector:
         >>> result = cascade.evaluate(inputs)
         >>> result.stage, [e.reason for e in result.evidence_chain]
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Strict-escalation composition of published gates, each requiring "
+            "its REAL upstream signal: WATCH on an observed M/X-class flare "
+            "(GOES classes) and/or an Earth-directed CME (Gopalswamy ESA + "
+            "Vršnak DBM arrival windows via CMEArrivalDetector); WARNING on "
+            "an open predicted arrival window plus observed Kp at the NOAA "
+            "G1 bound (Kp 4.5, so SWPC's 5- = 4.67 is G1); STORM_IN_PROGRESS "
+            "on measured magnetometer dB/dt at GICDetector's moderate tier "
+            "(90 nT/min). The machine never escalates on inference alone; no "
+            "neural network."
+        ),
+        citation=(
+            "NOAA SWPC Space Weather Scales (G scale and GOES flare "
+            "classes); Gopalswamy et al. (2001), JGR 106, 29207; Vršnak et "
+            "al. (2013), Sol. Phys. 285, 295 (arrival windows); Pulkkinen et "
+            "al. (2013), Space Weather 11 (90 nT/min dB/dt tier)"
+        ),
+    )
 
     def __init__(
         self,

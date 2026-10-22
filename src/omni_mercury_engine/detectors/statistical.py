@@ -57,6 +57,7 @@ from omni_mercury_engine.core.governed_fusion import (
     InfoGeometryCertificate,
     mahalanobis_score_to_price_threshold,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +185,23 @@ class MercuryAnomalyDetector(BaseDetector):
        ``StatisticalAnomalyDetector`` is an alias retained for backward
        compatibility. Use ``MercuryAnomalyDetector`` in new code.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house ensemble (resonance FFT, kinematic and Fisher-information "
+            "scores fused by AUC-adaptive weights). The alarm fires when the "
+            "fused [0, 1] score exceeds an operating point chosen, in priority "
+            "order: Mondrian conformal calibration, a supervised calibrated "
+            "threshold, auto-calibration at the configured contamination, or an "
+            "unsupervised distribution-adaptive cut (Otsu valley split, else "
+            "median + 2 * 1.4826 * MAD); an explicitly configured threshold is "
+            "honoured exactly. No published threshold exists for the fused "
+            "score and no labelled corpus ships to calibrate a default "
+            "operating point; conformal/supervised calibration is "
+            "per-deployment."
+        ),
+    )
 
     #: Verified free of process-global mutable state at inference (bit-identical
     #: concurrent vs sequential: tests/core/test_parallel_detectors.py).

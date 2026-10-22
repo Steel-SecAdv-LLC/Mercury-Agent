@@ -17,6 +17,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.logging import LoggerMixin
 
@@ -421,6 +422,26 @@ class LSTMAutoencoderDetector:
         seed: Seed for weight init and window shuffling (deterministic fit).
         device: Torch device (``"cpu"`` by default for reproducibility).
     """
+
+    decision_source = DecisionSource(
+        kind="trained",
+        description=(
+            "Per-row LSTM-autoencoder reconstruction scores decided at a "
+            "threshold selected when the model is trained: the one-class "
+            "conformal 95% cut of point scores on a chronologically held-out "
+            "calibration tail (in-sample, with a logged warning, when the series "
+            "is too short to hold one out)."
+        ),
+        operating_point=(
+            "No fixed shipped checkpoint: the model and its cut are re-derived "
+            "at every fit. Selection record: AnomalyDetector.fit in this module "
+            "(early stopping on held-out loss, best state restored, threshold = "
+            "one-class conformal 95% quantile of held-out point scores, kept in "
+            "calibration_scores), plus the benchmark record in this class "
+            "docstring (AUROC 0.85 vs 0.79 for the statistical tier on injected "
+            "multivariate faults)."
+        ),
+    )
 
     def __init__(
         self,

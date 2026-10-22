@@ -26,6 +26,7 @@ from scipy.spatial import KDTree
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,23 @@ class SpatialAnomalyDetector(BaseDetector):
     - Density-based outliers (LOF via scipy KDTree)
     - Spatial clustering
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "The score is the mean of a min-max-normalised centroid-distance "
+            "channel and a Local Outlier Factor channel computed as published "
+            "(k-nearest-neighbour reachability-density ratio); the decision "
+            "threshold is the configured or auto-calibrated operating point, "
+            "default 0.5 on the normalized combined score. The LOF channel is "
+            "published; the centroid channel and the equal-weight fusion are "
+            "in-house."
+        ),
+        citation=(
+            "Breunig, Kriegel, Ng & Sander (2000), 'LOF: Identifying "
+            "Density-Based Local Outliers', ACM SIGMOD 2000 (the LOF channel)"
+        ),
+    )
 
     #: Verified free of process-global mutable state at inference (bit-identical
     #: concurrent vs sequential: tests/core/test_parallel_detectors.py).

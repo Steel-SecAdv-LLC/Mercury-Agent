@@ -605,6 +605,41 @@ class FloodDetector:
     - CoreRefactoringEngine: Code complexity analysis (from three_r_mechanism)
     """
 
+    decision_source = (
+        # Rainfall legs: the FFG published rule and its unsourced fixed-screen
+        # fallback, declared once on PrecipitationAnalyzer and reused here.
+        *PrecipitationAnalyzer.decision_source,
+        DecisionSource(
+            kind="published",
+            description=(
+                "The river-gauge leg classifies flooding against the gauge's "
+                "own published NWS flood categories (minor/moderate/major/"
+                "record stages per forecast point; none are defaulted), and "
+                "detect_live takes severity from the NWPS flood category of "
+                "the worst gauge, treating an NWS Warning as imminent or "
+                "occurring flooding."
+            ),
+            citation=(
+                "NWS Manual 10-950 (flood categories defined per forecast "
+                "point; action stage is preparation, not flooding); NWPS "
+                "gauge flood categories; NWSI 10-320 (Warning = flooding "
+                "imminent or occurring)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The predict_flood aggregate is unsourced engineering: "
+                "flood_likely fires at indicator count >= 2 (flash-flood "
+                "risk = 2, gauge at/above flood stage = 2, 24 h flood risk "
+                "= 1, stage rising > 2 ft = 1, high runoff potential = "
+                "0.5) with confidence = indicators/5 and the moderate/minor "
+                "severity split at 3 indicators -- in-code constants with "
+                "no published source and no labelled calibration."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         enable_precipitation: bool = True,

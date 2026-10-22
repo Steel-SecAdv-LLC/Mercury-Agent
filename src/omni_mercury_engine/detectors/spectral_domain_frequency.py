@@ -53,6 +53,7 @@ from omni_mercury_engine.core.centralized_constants import (
     MATH,
 )
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -338,6 +339,35 @@ class SpectralDomainFrequency(BaseDetector):
         result = oracle.detect(test_signal) # (T,) array
         iv = result["influence_vector"]     # FrequencyInfluenceVector
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Change-point testing: binary-segmentation CUSUM candidates are "
+                "tested with selective-inference p-values (truncated normal "
+                "conditioning on the selection event) at the configured "
+                "significance_level (default alpha = 0.05), controlling "
+                "post-selection Type I error."
+            ),
+            citation=(
+                "Lee et al. (2016), Exact post-selection inference, with "
+                "application to the lasso, Annals of Statistics 44(3); Takeuchi "
+                "Lab, arXiv:2502.03062 (both named in the module docstring)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Overall alarm: per-band z-scores against fitted reference "
+                "statistics and the phi-weighted five-signal influence "
+                "multiplier are in-house constructions; the normalized anomaly "
+                "score is decided at the configured threshold (default 0.5). No "
+                "published threshold exists for that composite rule and no "
+                "labelled corpus calibrates it."
+            ),
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the instance."""

@@ -54,6 +54,7 @@ from omni_mercury_engine.detectors.meteorological.severe_storm_alerts import (
     parse_max_hail_size_in,
     parse_threat_tag,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +178,39 @@ class HailDetector:
         >>> result.significant_hail_favorable
         True
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "significant_hail_favorable fires at SHIP >= 1, computed "
+                "with the SPC Significant Hail Parameter formulation "
+                "including its component clamps and low-end corrections; "
+                "the tier ladder uses the SPC guidance values (SHIP >= 1.5 "
+                "majority of significant-hail reports, >= 4 very high) and "
+                "the ~18 m/s (35 kt) supercell-capable 0-6 km bulk-shear "
+                "floor; the NWS cross-check applies the 1 in severe "
+                "criterion and 2 in significant-hail threshold."
+            ),
+            citation=(
+                "SPC Mesoanalysis SHIP parameter description, "
+                "spc.noaa.gov/exper/mesoanalysis/help/help_sigh.html; "
+                "Thompson et al. (2003), Wea. Forecasting 18:1243-1261 "
+                "(supercell deep-layer shear); NWS directive 10-511 (1 in "
+                "severe hail criterion)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The lower rungs of the tier ladder are forecaster "
+                "rules-of-thumb carried as in-code constants without a "
+                "specific published threshold: large_hail_possible at "
+                "MUCAPE >= 1000 J/kg with supercell-capable shear, and "
+                "marginal at MUCAPE >= 500 J/kg."
+            ),
+        ),
+    )
 
     #: Fixed fusion feature dimension (see :meth:`extract_features`).
     FEATURE_DIM = 16

@@ -21,6 +21,8 @@ from typing import Any
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -644,6 +646,20 @@ class TopologicalAnomalyDetector:
         detector.fit(reference_data)
         result = detector.score(test_window)
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Persistent-homology profile scoring (Betti-number deviation, "
+            "persistence entropy, landscape norm and Wasserstein distance "
+            "against a reference profile; machinery per Edelsbrunner & Harer "
+            "2010, cited in the module docstring) combined with in-house "
+            "weights; the alarm threshold is auto-calibrated to the 95th "
+            "percentile of reference scores (0.5 fallback) or configured "
+            "explicitly. No published threshold exists for this composite rule "
+            "and no labelled corpus calibrates it."
+        ),
+    )
 
     def __init__(
         self,

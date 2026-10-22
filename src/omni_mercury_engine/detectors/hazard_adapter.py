@@ -41,6 +41,7 @@ import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
+from omni_mercury_engine.detectors.provenance import WrappedDecisionSource
 
 __all__ = [
     "Assessment",
@@ -402,6 +403,10 @@ class TornadoConditionsAdapter(HazardRowAdapter):
     ``tornado_likely`` on the atmospheric path.
     """
 
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.tornado_detector:TornadoDetector"
+    )
+
     COLUMNS = ("cape_j_kg", "cin_j_kg", "srh_m2_s2", "bulk_shear_kt", "lcl_m")
     FEATURE_NAMES = ("confidence", "tornado_likely", "cape_value", "helicity_value")
 
@@ -441,6 +446,10 @@ class HurricanePressureAdapter(HazardRowAdapter):
     ``cyclone_detected``; the wind feature is its Atkinson & Holliday (1977)
     pressure-wind value.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.hurricane_detector:HurricaneDetector"
+    )
 
     COLUMNS = ("central_pressure_mb", "environmental_pressure_mb", "sst_celsius")
     FEATURE_NAMES = ("confidence", "cyclone_detected", "max_wind_speed_kt", "min_pressure_mb")
@@ -488,6 +497,10 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
     ``flood_likely`` on the precipitation path.
     """
 
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.flood_detector:FloodDetector"
+    )
+
     COLUMNS = (
         "precipitation_1h_inches",
         "precipitation_6h_inches",
@@ -531,6 +544,10 @@ class FinancialStressAdapter(HazardRowAdapter):
     ``crisis_imminent``. The untrained fraud network stays unconsulted, as in
     the wrapped detector.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.economic.financial_crisis_detector:FinancialCrisisDetector"
+    )
 
     COLUMNS = (
         "price_change_pct",
@@ -585,6 +602,10 @@ class SolarWindGeomagAdapter(HazardRowAdapter):
     detector but was served as G0, not anomalous.
     """
 
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.solar_storm_detector:SolarStormDetector"
+    )
+
     COLUMNS = ("solar_wind_speed_km_s", "bz_imf_nt")
     FEATURE_NAMES = ("kp_index", "g_level", "confidence")
 
@@ -624,6 +645,10 @@ class XrayFlareAdapter(HazardRowAdapter):
     (an M1 flare, NOAA's Minor radio blackout).
     """
 
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.solar_storm_detector:SolarFlareDetector"
+    )
+
     COLUMNS = ("flux_long_wm2",)
     FEATURE_NAMES = ("flare_intensity", "r_level", "flare_detected")
 
@@ -661,6 +686,8 @@ class GICMinuteSeriesAdapter(HazardRowAdapter):
     The assessment is window-level, so its score and measured features repeat
     on every row of the window.
     """
+
+    decision_source = WrappedDecisionSource("omni_mercury_engine.space.gic_detector:GICDetector")
 
     COLUMNS = ("bx_nt", "by_nt")
     FEATURE_NAMES = ("peak_dbdt_nt_per_min", "sustained_dbdt_nt_per_min", "risk_tier")

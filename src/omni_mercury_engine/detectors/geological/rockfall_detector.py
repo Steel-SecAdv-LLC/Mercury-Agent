@@ -72,6 +72,8 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 logger = logging.getLogger(__name__)
 
 #: Frost-cracking window bounds in °C (Anderson 1998; Hales & Roering 2007).
@@ -206,6 +208,44 @@ class RockfallDetector:
             rock face is considered wet for freeze-thaw counting. Default 24
             (i.e. 24 h at hourly sampling).
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Channel rules are literature-anchored: a valid Fukuzono "
+                "inverse-velocity failure forecast (smoothed velocity, 1/v "
+                "linear fit gated at R^2 >= 0.80, negative slope, future "
+                "forecast) is CRITICAL; the rain trigger fires at mean "
+                "episode intensity > 5 mm/h with the published frequency "
+                "multipliers; freeze-thaw cycles are counted only on a "
+                "moist downward 0 degC crossing, with the -8..-3 degC "
+                "frost-cracking window reported; a microseismic precursory "
+                "ramp follows documented pre-collapse rate acceleration."
+            ),
+            citation=(
+                "Fukuzono (1985), Proc. IVth Int. Conf. Landslides, Tokyo, "
+                "145-150; Carla et al. (2017), Landslides 14(2):517-534 "
+                "(inverse-velocity alarm guidelines); D'Amato et al. "
+                "(2016), NHESS 16:719-735 (5 mm/h episode threshold, "
+                "multipliers); Matsuoka & Murton (2008); Anderson (1998) "
+                "and Hales & Roering (2007) (frost-cracking window); "
+                "Amitrano et al. (2005) (microseismic precursors)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The cross-channel aggregation is unsourced engineering: "
+                "the documented hazard-level mapping (ramp + active trigger "
+                "= CRITICAL, ramp alone or failed-gate acceleration or both "
+                "triggers = HIGH, one trigger = MODERATE), the ramp's rate "
+                "ratio >= 3 with Poisson tail p < 0.01, and the "
+                "mean-activation evidence confidence are in-code choices "
+                "with no published source and no labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,

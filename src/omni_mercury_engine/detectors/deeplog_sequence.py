@@ -33,6 +33,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_features,
     finite_scores,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -49,6 +50,24 @@ class DeepLogSequenceDetector(BaseDetector):
     probability ``1 - P(key | context)`` and reports whether the key fell outside
     the top-``top_g`` predictions.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "DeepLog's detection principle: a position is anomalous when the "
+            "observed key departs from the learned grammar of normal logs, with "
+            "the paper's top-g membership check (top_g, default 3) reported per "
+            "position and the LSTM replaced by a back-off n-gram next-key model. "
+            "The scored alarm is the miss probability 1 - P(key | context) "
+            "compared to the configured BaseDetector threshold (default 0.5), an "
+            "engineering default not taken from the paper."
+        ),
+        citation=(
+            "Du, Li, Zheng & Srikumar (2017), DeepLog: Anomaly Detection and "
+            "Diagnosis from System Logs through Deep Learning, ACM CCS 2017 "
+            "(named in the module docstring)"
+        ),
+    )
 
     def __init__(
         self,

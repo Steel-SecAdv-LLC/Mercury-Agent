@@ -33,6 +33,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class PSYOPCategory(Enum):
     """PSYOP category classifications."""
@@ -203,6 +205,19 @@ class PSYOPAnalyzer:
         ...     "engagement_metrics": {"shares": 1000, "comments": 500}
         ... })
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Influence-campaign and disinformation verdicts come from "
+            "hand-set cue counts and cuts (disinformation indicator count "
+            ">= 2, bot share > 0.3, message synchronization > 0.7, message "
+            "similarity > 0.9, polarization > 0.7): doctrine-inspired but "
+            "simulation-based screening values with no published numeric "
+            "thresholds and no labelled influence-campaign corpus to "
+            "calibrate them; verdicts are experimental."
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize PSYOP analyzer."""

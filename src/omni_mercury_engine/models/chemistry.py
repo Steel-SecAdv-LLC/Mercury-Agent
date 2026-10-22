@@ -48,6 +48,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class ElementGroup(Enum):
     """Periodic table groups."""
@@ -146,6 +148,19 @@ class ChemistryAnomalyDetector:
     Comprehensive chemical anomaly detection across elements, isotopes, reactions, and molecular
     structures using periodic table relationships and nuclear chemistry principles.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Risk verdicts come from hand-set screening rules (isotope "
+            "ratio deviation above 0.1, reaction-rate ratios outside the "
+            "golden-ratio band, abundances outside tabulated common "
+            "ranges): simulation-based heuristics referencing IUPAC/NIST "
+            "data sources, with no published alarm threshold and no "
+            "labelled chemical corpus to calibrate one; verdicts are "
+            "experimental and require laboratory validation."
+        ),
+    )
 
     def __init__(
         self,

@@ -32,6 +32,7 @@ from typing import Any
 import numpy as np
 from scipy.spatial import cKDTree
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 logger = logging.getLogger(__name__)
@@ -183,6 +184,26 @@ class RealTimeThreatDetector(LoggerMixin):
 
     All detection is numpy/scipy only — zero sklearn dependency.
     """
+
+    decision_source = DecisionSource(
+        kind="trained",
+        description=(
+            "A sample is a threat when its standardized ensemble score "
+            "(random-projection, kNN-density and robust-covariance scores, "
+            "each median/1.4826*MAD-standardized against training) exceeds "
+            "the absolute training-referenced threshold at the configured "
+            "contamination; the per-sample anomaly probability is the "
+            "training empirical CDF, so a single sample can be judged and "
+            "an all-normal batch stays near the false-positive budget."
+        ),
+        operating_point=(
+            "fit-time selection record: the (1 - contamination, default "
+            "0.9) quantile of the standardized ensemble scores on the "
+            "fitted training data (self._ref_threshold), plus per-detector "
+            "flag thresholds and the p90/95/99 grading quantiles learned "
+            "in fit()"
+        ),
+    )
 
     def __init__(
         self,

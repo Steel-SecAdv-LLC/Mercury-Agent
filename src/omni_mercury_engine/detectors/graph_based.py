@@ -19,6 +19,7 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 
 class GraphAnomalyDetector(BaseDetector):
@@ -28,6 +29,20 @@ class GraphAnomalyDetector(BaseDetector):
     normalized [0, 1] score thresholds used by other detectors. The threshold
     represents the number of standard deviations from baseline metrics.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house heuristic: the score is 10x the mean relative deviation "
+            "of graph summary metrics (average degree, density, clustering) "
+            "from their fitted baselines, read in z-score-like units; "
+            "is_anomaly fires above the configured threshold (default 3.0, i.e. "
+            "a 30% mean metric shift). No published threshold exists for this "
+            "metric-deviation rule and no labelled graph corpus calibrates it "
+            "(the module is explicitly simulation-based, real-world validation "
+            "required)."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         # Extract z-score threshold before calling super().__init__()

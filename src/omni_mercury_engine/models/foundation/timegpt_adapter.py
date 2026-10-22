@@ -27,6 +27,7 @@ import pandas as pd
 import torch
 
 from omni_mercury_engine.core.exceptions import ModelException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
@@ -99,6 +100,23 @@ class TimeGPTAdapter(BaseFoundationModel):
         >>> results = adapter.detect_anomalies(time_series)
         >>> print(f"Anomalies at: {np.where(results['is_anomaly'])[0]}")
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Anomaly verdicts are served from Nixtla's own "
+            "detect_anomalies API: a point is anomalous when it falls "
+            "outside TimeGPT's level-`anomaly_level` (default 99%) "
+            "prediction interval, and the score is its distance beyond the "
+            "interval over the interval width. The decision rule is the "
+            "external vendor's, not a local threshold."
+        ),
+        citation=(
+            "Nixtla TimeGPT anomaly-detection API, level-99 prediction "
+            "intervals (github.com/Nixtla/nixtla; TimeGEN-1, Microsoft "
+            "Build 2024), as referenced in this module"
+        ),
+    )
 
     def __init__(self, config: TimeGPTConfig | dict[str, Any] | None = None) -> None:
         """Initialize TimeGPT adapter.

@@ -29,6 +29,7 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -320,6 +321,39 @@ class CFlowDetector(BaseVisualDetector):
         >>> detector.fit(normal_images)
         >>> results = detector.detect(test_images)
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The anomaly score is the negative log-likelihood of "
+                "pretrained features under position-conditioned normalizing "
+                "flows fitted on normal images, following the published "
+                "CFLOW-AD method."
+            ),
+            citation=(
+                'Gudovskiy et al., "CFLOW-AD: Real-Time Unsupervised '
+                "Anomaly Detection with Localization via Conditional "
+                'Normalizing Flows", WACV 2022, arXiv:2107.12571'
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The binary decision threshold is calibrated in fit() by "
+                "split conformal prediction on held-out normal images at "
+                "visual_config.false_alarm_rate (default 0.05); the record "
+                "is kept in self.calibration and preserved exactly by "
+                "save()/load(). No decision is made before calibration."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold"
+            ),
+        ),
+    )
 
     def __init__(self, config: CFlowConfig | dict[str, Any] | None = None) -> None:
         """Initialize CFlow detector."""

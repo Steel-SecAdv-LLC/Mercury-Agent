@@ -39,6 +39,7 @@ from scipy import stats
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -1009,6 +1010,40 @@ class ExtendedStatisticalDetector(BaseDetector):
     - Weighted combination
     - Dynamic threshold adaptation
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Component methods are the named canonical algorithms: MAD "
+                "modified z-score (consistency constant 1.4826, cut 3.5 by "
+                "default), LOF, DBSCAN, MCD, CUSUM, Grubbs' test and "
+                "Generalized ESD; Grubbs and GESD decide at their published "
+                "t-based critical values for the configured alpha (default "
+                "0.05)."
+            ),
+            citation=(
+                "Iglewicz & Hoaglin (1993), How to Detect and Handle Outliers "
+                "(MAD modified z-score, 3.5 cut); Breunig et al. (2000), LOF, "
+                "SIGMOD; Ester et al. (1996), DBSCAN, KDD; Rousseeuw (1984), "
+                "MCD; Page (1954), CUSUM, Biometrika; Grubbs (1950), Ann. Math. "
+                "Statist.; Rosner (1983), GESD, Technometrics"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Ensemble decision: the fixed in-house method weights, the "
+                "ensemble strategy (weighted average by default) and the "
+                "dynamic threshold adapter targeting an assumed 5% anomaly rate "
+                "are unpublished engineering choices; the combined normalized "
+                "score is decided at the adapted or configured threshold "
+                "(default 0.5). No published threshold exists for the combined "
+                "rule and no labelled corpus calibrates it. The module is "
+                "deprecated and retained for reference."
+            ),
+        ),
+    )
 
     def __init__(
         self,

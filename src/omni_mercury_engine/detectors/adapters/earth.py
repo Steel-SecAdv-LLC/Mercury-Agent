@@ -25,6 +25,7 @@ from omni_mercury_engine.detectors.hazard_adapter import (
     nan_if_none,
     ordinal_score,
 )
+from omni_mercury_engine.detectors.provenance import WrappedDecisionSource
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -64,6 +65,10 @@ class VolcanicAdapter(HazardRecordAdapter):
     Score and decision are the detector's own ``confidence`` and
     ``eruption_imminent``; its USGS alert level is a feature.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.volcanic:VolcanicEruptionDetector"
+    )
 
     ALLOWED_KEYS = frozenset(
         {
@@ -126,6 +131,10 @@ class LandslideAdapter(HazardRowAdapter):
     slope-failure probability clears its bar); the score is that
     slope-failure probability, the model's own estimate.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.landslide:LandslideDetector"
+    )
 
     _SECTIONS: ClassVar[dict[str, tuple[str, ...]]] = {
         "rainfall_data": ("intensity_mm_hr", "duration_hours", "antecedent_7day_mm"),
@@ -190,6 +199,10 @@ class WildfireSceneAdapter(HazardRecordAdapter):
     detector's own ``confidence`` and ``fire_detected``; ``assessment`` in
     the result names whether that is an active fire or a next-day forecast.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.wildfire:WildfireDetector"
+    )
 
     REQUIRED_KEYS = frozenset({"thermal_image"})
     ALLOWED_KEYS = frozenset(
@@ -257,6 +270,10 @@ class AvalancheProfileAdapter(HazardRecordAdapter):
     ``avalanche_likely`` (EAWS danger >= 3, considerable); the score is the
     EAWS level over the scale, (level - 1) / 4.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.avalanche_detector:AvalancheDetector"
+    )
 
     ALLOWED_KEYS = frozenset(
         {
@@ -333,6 +350,10 @@ class RockfallAdapter(HazardRecordAdapter):
     over 3 and the decision is any level above low (a trigger fired).
     """
 
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.rockfall_detector:RockfallDetector"
+    )
+
     ALLOWED_KEYS = frozenset(
         {
             "rock_temperature_c",
@@ -389,6 +410,10 @@ class SubsidenceAdapter(HazardRecordAdapter):
     ``anomaly_detected``; the stricter ``sinkhole_precursor_detected`` and
     the severity class are features.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.subsidence_detector:SubsidenceDetector"
+    )
 
     REQUIRED_KEYS = frozenset({"displacements_mm", "epochs_years"})
     ALLOWED_KEYS = frozenset({"displacements_mm", "epochs_years", "coordinates_m", "coherence"})
@@ -452,8 +477,14 @@ class EqTsunamiCascadeAdapter(HazardRecordAdapter):
     water level (NOAA's DART algorithm).  A water level supplied without a
     watch-class event is refused: confirmation has no event to confirm.
     The score is the stage on quiet < evaluating < tsunami_watch <
-    tsunami_threat over 3; the decision is any stage above quiet.
+    tsunami_threat over 3; the decision is any stage above quiet.  With
+    ``config={"persistent_cascade": True}`` the cascade persists across
+    records, accumulating an event sequence that spans detect() calls.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.eq_tsunami_cascade:EqTsunamiCascadeDetector"
+    )
 
     REQUIRED_KEYS = frozenset({"events"})
     ALLOWED_KEYS = frozenset({"events", "offshore", "water_level_m", "sampling_interval_s"})
@@ -478,7 +509,15 @@ class EqTsunamiCascadeAdapter(HazardRecordAdapter):
             EqTsunamiCascadeDetector,
         )
 
-        cascade = EqTsunamiCascadeDetector()
+        if self._config.get("persistent_cascade", False):
+            # Live-feed mode: the standing cascade accumulates events across
+            # detect() calls (aftershock sequences span records), mirroring
+            # SurgeFloodCascadeAdapter's persistence contract.
+            if getattr(self, "_cascade", None) is None:
+                self._cascade = EqTsunamiCascadeDetector()
+            cascade = self._cascade
+        else:
+            cascade = EqTsunamiCascadeDetector()
         try:
             for event in unit["events"]:
                 state = cascade.process_event(event, offshore=unit.get("offshore"))
@@ -520,6 +559,11 @@ class FireDebrisFlowAdapter(HazardRecordAdapter):
     ``cannon_region``.  Score and decision are the detector's own M1
     ``likelihood`` and ``threshold_exceeded`` (the USGS p = 0.5 rule).
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.fire_debris_flow_cascade:"
+        "FireDebrisFlowCascadeDetector"
+    )
 
     REQUIRED_KEYS = frozenset({"t_proportion", "dnbr_mean", "kf_factor", "rain_mm", "step_minutes"})
     ALLOWED_KEYS = REQUIRED_KEYS | {"burned_mh_km2", "relief_m"}
@@ -578,8 +622,15 @@ class SurgeFloodCascadeAdapter(HazardRecordAdapter):
     payloads, metres) with ``station_id``, and ``river_gauge`` (an NWPS gauge
     payload).  A fresh ``SurgeFloodCascade`` takes the evidence and awards a
     stage; the score is the stage (quiet 0 ... compound flood 3) over 3 and
-    the decision is any stage above quiet.
+    the decision is any stage above quiet.  With
+    ``config={"persistent_cascade": True}`` the cascade instead persists
+    across records, composing evidence that arrives piecemeal in a live
+    feed (hurricane in one record, surge in a later one).
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.meteorological.surge_flood_cascade:SurgeFloodCascade"
+    )
 
     ALLOWED_KEYS = frozenset(
         {"hurricane", "coops_observed", "coops_predicted", "station_id", "river_gauge"}
@@ -611,7 +662,18 @@ class SurgeFloodCascadeAdapter(HazardRecordAdapter):
             SurgeFloodCascade,
         )
 
-        cascade = SurgeFloodCascade()
+        if self._config.get("persistent_cascade", False):
+            # Live-feed mode: evidence arrives piecemeal across records
+            # (hurricane first, surge hours later), so the standing cascade
+            # keeps its evidence chain between detect() calls instead of
+            # restarting per record. The cascade itself downgrades when
+            # evidence is replaced by non-qualifying data, so persistence
+            # never pins a stale alarm.
+            if getattr(self, "_cascade", None) is None:
+                self._cascade = SurgeFloodCascade()
+            cascade = self._cascade
+        else:
+            cascade = SurgeFloodCascade()
         try:
             if "hurricane" in unit:
                 if self._detector is None:
@@ -657,6 +719,10 @@ class MarineEcosystemAdapter(HazardRowAdapter):
     assessed indicator fires) and the score is its health ladder healthy <
     stressed < critical over 2, so the decision is exactly score >= 1/2.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.marine.biodiversity_detector:MarineBiodiversityDetector"
+    )
 
     COLUMNS = ("sst_anomaly_c", "degree_heating_weeks", "ph", "temperature_anomaly_c")
     OPTIONAL_COLUMNS = frozenset(COLUMNS)

@@ -56,6 +56,8 @@ from typing import Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 logger = logging.getLogger(__name__)
 
 #: Minimum samples required inside each calendar-day percentile window.
@@ -291,6 +293,27 @@ class HeatwaveDetector:
     percentile (T95) and the EHF 85th percentile (EHF85) used for severity
     tiers.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "A heatwave is a run of >= 3 consecutive days with Tmax above "
+            "the calendar-day 90th percentile (CTX90pct, 15-day centred "
+            "baseline window); severity follows the Excess Heat Factor "
+            "tiers (low for 0 < EHF < EHF85, severe >= EHF85, extreme >= "
+            "3*EHF85), with the NWS heat-index regression and its "
+            "adjustments for apparent temperature and active NWS heat "
+            "products mapped onto a HeatRisk-style category labelled as "
+            "alert-derived."
+        ),
+        citation=(
+            "Perkins & Alexander (2013), J. Climate 26:4500-4517 "
+            "(CTX90pct definition); Nairn & Fawcett (2015), Int. J. "
+            "Environ. Res. Public Health 12:227-253 (EHF and severity "
+            "tiers); Rothfusz (1990), NWS SR 90-23 heat-index regression "
+            "(after Steadman 1979)"
+        ),
+    )
 
     def __init__(
         self,

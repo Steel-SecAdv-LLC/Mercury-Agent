@@ -56,6 +56,7 @@ from omni_mercury_engine.detectors.meteorological.severe_storm_alerts import (
     filter_alerts_by_event,
     normalize_alert_records,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,41 @@ class WinterStormDetector:
         ... )
         'snow'
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Published operational rules: precipitation type from "
+                "1000-850 / 850-700 hPa partial thicknesses (1300 m "
+                "rain/snow, 1540/1560 m melting-layer discriminators), the "
+                "Stull wet-bulb approximation within its stated validity "
+                "region, SPIA ice-damage tiers (wind bands against "
+                "radial-ice breakpoints with the published damage legend), "
+                "and the NWS Glossary blizzard criteria (>= 35 mph wind, "
+                "visibility < 1/4 mile, >= 3 h)."
+            ),
+            citation=(
+                "Keeter & Cline (1991), Wea. Forecasting 6:456-469 "
+                "(partial-thickness scheme); Stull (2011), J. Appl. "
+                "Meteor. Climatol. 50:2267-2269 (wet bulb); Sperry-Piltz "
+                "Ice Accumulation Index, spia-index.com; NWS Glossary, "
+                "w1.weather.gov/glossary ('Blizzard')"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The freezing-rain accretion model is FRAM-LIKE only: the "
+                "piecewise-linear ice-to-liquid-ratio constants (mean "
+                "flat-surface ILR ~0.72, reduced near 0 degC wet bulb and "
+                "at heavy rates) encode the structure Sanders & "
+                "Barjenbruch (2016, Wea. Forecasting 31:1041-1060) report, "
+                "but are this module's own approximation -- NOT the FRAM "
+                "nomogram regressions, which are distributed graphically."
+            ),
+        ),
+    )
 
     #: Fixed fusion feature dimension (see :meth:`extract_features`).
     FEATURE_DIM = 16

@@ -20,6 +20,8 @@ try:
 except ImportError:
     BCRYPT_AVAILABLE = False
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -181,6 +183,22 @@ class ThreatDetector:
     - Path traversal
     - Data exfiltration
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Hand-written engineering signature rules with no published "
+            "source and no labelled calibration: is_threat fires when any "
+            "of the fixed SQL-injection / XSS / path-traversal regex "
+            "signatures matches, confidence is the fraction of a "
+            "category's patterns matched, and the Banish_Void_Undue "
+            "validity triage weights that confidence with temporal "
+            "relevance and an exposure heuristic (0.5/0.3/0.2) against "
+            "the 0.3/0.5/0.8 action ladder -- all in-code constants. "
+            "Verdicts are validity triage of a report, never an executed "
+            "response."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the instance."""

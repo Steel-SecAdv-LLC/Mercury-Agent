@@ -26,6 +26,7 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
@@ -74,6 +75,19 @@ class MatrixProfileDetector(BaseFoundationModel):
         >>> discords = results['discord_indices']
         >>> motifs = results['motif_indices']
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Scores are STUMPY matrix-profile discord distances (nearest "
+            "non-trivial subsequence match; stumpy / UCR Matrix Profile, as "
+            "referenced in this module). Points are flagged above the "
+            "batch's own anomaly_threshold (default 0.95) quantile of those "
+            "scores, with discords screened at z >= 2.0: relative cuts with "
+            "no published threshold and no labelled corpus to calibrate "
+            "one, so verdicts are experimental."
+        ),
+    )
 
     def __init__(self, config: MatrixProfileConfig | dict[str, Any] | None = None) -> None:
         """Initialize Matrix Profile detector.

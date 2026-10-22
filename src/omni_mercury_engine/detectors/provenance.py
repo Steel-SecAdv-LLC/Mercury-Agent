@@ -4,9 +4,9 @@
 
 Every detector decision rule (a published threshold, a calibrated operating
 point, a trained model's alert bar) must be traceable to its source.  A
-:class:`DecisionSource` records where the rule comes from; a manifest-driven
-enforcement test fails when a detector class reachable from
-``DETECTOR_MANIFEST`` declares none.
+:class:`DecisionSource` records where the rule comes from, and the
+enforcement test (``tests/core/test_decision_source.py``) fails when a
+detector class reachable from ``DETECTOR_MANIFEST`` declares none.
 
 The three evidentiary kinds, in descending order of external authority:
 
@@ -40,6 +40,41 @@ from dataclasses import dataclass
 DECISION_SOURCE_KINDS: frozenset[str] = frozenset(
     {"published", "calibrated", "trained", "experimental"}
 )
+
+
+class WrappedDecisionSource:
+    """Lazy class attribute serving the wrapped detector's provenance.
+
+    Adapter entries in the manifest wrap a domain detector whose module is
+    deliberately imported lazily (inside methods) to keep adapter import
+    cheap.  Declaring ``decision_source = WrappedDecisionSource("pkg.mod:Cls")``
+    on the adapter keeps that laziness while single-sourcing provenance on
+    the domain class: reading the attribute imports the target and returns
+    its ``decision_source``.
+    """
+
+    def __init__(self, target: str) -> None:
+        """Record the ``module.path:ClassName`` target to delegate to."""
+        if ":" not in target:
+            raise ValueError(f"target must be 'module.path:ClassName', got {target!r}")
+        self._target = target
+
+    def __get__(self, obj: object, objtype: type | None = None) -> object:
+        """Resolve the wrapped class and return its decision_source."""
+        import importlib
+
+        module_path, class_name = self._target.split(":", 1)
+        cls = getattr(importlib.import_module(module_path), class_name)
+        source = getattr(cls, "decision_source", None)
+        if source is None:
+            raise AttributeError(
+                f"{self._target} declares no decision_source to delegate to"
+            )
+        return source
+
+    def __repr__(self) -> str:
+        """Show the delegation target."""
+        return f"WrappedDecisionSource({self._target!r})"
 
 
 @dataclass(frozen=True)

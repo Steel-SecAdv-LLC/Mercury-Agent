@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -202,6 +203,20 @@ class ABMSDisciplineDetector:
     Integrates 24 ABMS boards with 150+ subspecialties for comprehensive medical anomaly detection
     across all major medical specialties.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Specialty verdicts fire when heuristic per-board risk scores "
+            "cross hand-set cuts of 0.5 (phi-scaled to ~0.809 when "
+            "golden_ratio_threshold is on). The specialty patterns follow "
+            "the ABMS Guide 2025 taxonomy, but the alarm thresholds are "
+            "simulation-based: no clinically validated threshold is "
+            "published for this composite and no labelled patient corpus is "
+            "available to calibrate one. Verdicts are experimental and "
+            "require clinical review before any patient-care decision."
+        ),
+    )
 
     def __init__(
         self, enable_neurosymbolic: bool = True, golden_ratio_threshold: bool = True
