@@ -55,6 +55,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 if TYPE_CHECKING:
     from omni_mercury_engine.detectors.geological.hurricane_detector import (
         HurricanePredictionResult,
@@ -209,24 +211,98 @@ def _parse_coops_series(payload: Any, kind: str) -> dict[str, float]:
     return out
 
 
+#: Sweet et al. (2018), NOAA Technical Report NOS CO-OPS 086, Figure 3:
+#: official NOAA/NWS coastal flood thresholds (relative to MLLW) scale
+#: linearly with the great diurnal range GT (= MHHW - MLLW); the derived
+#: minor flood threshold is y = 1.04*GT + 0.50 m above MLLW, equivalently
+#: ~0.50 m (+/-0.19 m RMSE) above MHHW with a 3-4% GT amplification.
+SWEET_2018_MINOR_MLLW_SLOPE: float = 1.04
+SWEET_2018_MINOR_MHHW_SLOPE: float = 0.04
+SWEET_2018_MINOR_INTERCEPT_M: float = 0.50
+
+
+def derived_minor_flood_threshold_m(datum: str, great_diurnal_range_m: float) -> float:
+    """Sweet et al. (2018) derived minor coastal-flood threshold.
+
+    Args:
+        datum: The datum the station's water-level series is referenced to:
+            ``"MLLW"`` or ``"MHHW"``.
+        great_diurnal_range_m: The station's great diurnal range GT
+            (MHHW - MLLW), metres.
+
+    Returns:
+        The derived minor flood threshold in metres above ``datum``.
+
+    Raises:
+        ValueError: On an unsupported datum or non-positive GT.
+    """
+    if great_diurnal_range_m <= 0.0 or not math.isfinite(great_diurnal_range_m):
+        raise ValueError(
+            f"great_diurnal_range_m must be finite and > 0, got {great_diurnal_range_m}"
+        )
+    datum_upper = datum.upper()
+    if datum_upper == "MLLW":
+        return SWEET_2018_MINOR_MLLW_SLOPE * great_diurnal_range_m + SWEET_2018_MINOR_INTERCEPT_M
+    if datum_upper == "MHHW":
+        return SWEET_2018_MINOR_MHHW_SLOPE * great_diurnal_range_m + SWEET_2018_MINOR_INTERCEPT_M
+    raise ValueError(f"unsupported datum {datum!r}; the derived threshold is defined for MLLW/MHHW")
+
+
 class SurgeFloodCascade:
     """Staged hurricane -> surge -> compound-flood cascade detector."""
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "SURGE_OBSERVED qualifies on the station's own coastal flood "
+                "threshold: the official NOAA/NWS per-station threshold when "
+                "supplied (CO-OPS metadata floodlevels), else the Sweet et "
+                "al. (2018) derived minor threshold (1.04*GT + 0.50 m above "
+                "MLLW; 0.04*GT + 0.50 m above MHHW) when the datum and great "
+                "diurnal range are known.  COMPOUND_FLOOD requires an NWS "
+                "gauge at or above its published minor flood category."
+            ),
+            citation=(
+                "Sweet, Dusek, Obeysekera & Marra (2018), 'Patterns and "
+                "Projections of High Tide Flooding Along the U.S. Coastline "
+                "Using a Common Impact Threshold', NOAA Technical Report NOS "
+                "CO-OPS 086, Figure 3; NOAA CO-OPS metadata API floodlevels "
+                "(official NWS thresholds); NWS flood categories per gauge "
+                "(NWPS)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "With no station flood threshold and no datum/GT metadata the "
+                "gate falls back to a storm-surge residual of "
+                "surge_threshold_m (default 0.3 m), a monitoring default with "
+                "no published source; the evidence record labels that basis."
+            ),
+        ),
+    )
 
     def __init__(
         self,
         surge_threshold_m: float = 0.3,
         min_watch_category: str = "tropical_storm",
+        station_flood_thresholds_m: dict[str, float] | None = None,
     ) -> None:
         """Initialize the cascade.
 
         Args:
-            surge_threshold_m: Storm-surge residual (metres) required for
-                the SURGE_OBSERVED gate.  The 0.3 m default is a
-                conservative monitoring threshold - well above CO-OPS
-                verified-water-level noise, well below damaging surge.
+            surge_threshold_m: Storm-surge residual (metres) for the
+                SURGE_OBSERVED gate, used only when no station flood
+                threshold is supplied or derivable.  A monitoring default
+                with no published source - prefer per-station thresholds.
             min_watch_category: Minimum Saffir-Simpson category string
                 (as produced by the hurricane detector) for the WATCH
                 gate.
+            station_flood_thresholds_m: Optional map of station id -> the
+                station's official minor coastal-flood threshold (metres,
+                in the same datum as the fetched water-level series), as
+                published per station by NOAA CO-OPS/NWS.
 
         Raises:
             ValueError: On a non-positive threshold or unknown category.
@@ -239,6 +315,7 @@ class SurgeFloodCascade:
             )
         self.surge_threshold_m = surge_threshold_m
         self.min_watch_category = min_watch_category
+        self.station_flood_thresholds_m = dict(station_flood_thresholds_m or {})
         self.logger = logging.getLogger(__name__)
 
         self._evidence: list[EvidenceRecord] = []
@@ -342,22 +419,59 @@ class SurgeFloodCascade:
         observed_payload: Any,
         predicted_payload: Any,
         station_id: str = "",
+        flood_threshold_m: float | None = None,
+        datum: str | None = None,
+        great_diurnal_range_m: float | None = None,
     ) -> EvidenceRecord:
         """Register CO-OPS observed-vs-predicted water levels as surge evidence.
+
+        The gate prefers the station's own coastal flood threshold, applied
+        to the observed total water level: the official NOAA/NWS value when
+        supplied (``flood_threshold_m`` or the constructor map), else the
+        Sweet et al. (2018) derived minor threshold when ``datum`` and
+        ``great_diurnal_range_m`` are known.  Only when neither is available
+        does the legacy storm-surge-residual gate (``surge_threshold_m``)
+        apply; the evidence record names the basis either way.
 
         Args:
             observed_payload: CO-OPS water_level payload.
             predicted_payload: CO-OPS predictions payload.
             station_id: Station identifier for the evidence chain.
+            flood_threshold_m: The station's official minor coastal-flood
+                threshold (metres, same datum as the series), e.g. from the
+                CO-OPS metadata API floodlevels endpoint.
+            datum: Datum of the observed series ("MLLW" or "MHHW"), for the
+                derived threshold when no official one is supplied.
+            great_diurnal_range_m: The station's great diurnal range GT
+                (MHHW - MLLW), metres, for the derived threshold.
 
         Returns:
             The appended :class:`EvidenceRecord`.
 
         Raises:
-            ValueError: Propagated from :meth:`compute_surge_residual`.
+            ValueError: Propagated from :meth:`compute_surge_residual` or
+                :func:`derived_minor_flood_threshold_m`.
         """
         series = self.compute_surge_residual(observed_payload, predicted_payload)
-        qualifies = series.max_residual_m >= self.surge_threshold_m
+        max_observed_m = float(np.max(series.observed_m))
+        if flood_threshold_m is None:
+            flood_threshold_m = self.station_flood_thresholds_m.get(station_id)
+        if flood_threshold_m is not None:
+            if not math.isfinite(flood_threshold_m) or flood_threshold_m <= 0.0:
+                raise ValueError(
+                    f"flood_threshold_m must be finite and > 0, got {flood_threshold_m}"
+                )
+            basis = "station_flood_threshold"
+            threshold_m = float(flood_threshold_m)
+            qualifies = max_observed_m >= threshold_m
+        elif datum is not None and great_diurnal_range_m is not None:
+            basis = "sweet_2018_derived_minor_threshold"
+            threshold_m = derived_minor_flood_threshold_m(datum, great_diurnal_range_m)
+            qualifies = max_observed_m >= threshold_m
+        else:
+            basis = "residual_monitoring_gate_unsourced"
+            threshold_m = self.surge_threshold_m
+            qualifies = series.max_residual_m >= threshold_m
         record = EvidenceRecord(
             kind="surge",
             source=f"NOAA CO-OPS station {station_id or 'unknown'}",
@@ -365,6 +479,10 @@ class SurgeFloodCascade:
             qualifies=qualifies,
             summary={
                 "max_residual_m": series.max_residual_m,
+                "max_observed_m": max_observed_m,
+                "threshold_basis": basis,
+                "threshold_m": float(threshold_m),
+                "datum": datum,
                 "surge_threshold_m": self.surge_threshold_m,
                 "n_aligned_samples": len(series.timestamps),
                 "window_start": series.timestamps[0],
@@ -376,7 +494,13 @@ class SurgeFloodCascade:
         self._surge_series = series
         return record
 
-    def update_surge_evidence_from_datapoints(self, points: list[Any]) -> EvidenceRecord:
+    def update_surge_evidence_from_datapoints(
+        self,
+        points: list[Any],
+        flood_threshold_m: float | None = None,
+        datum: str | None = None,
+        great_diurnal_range_m: float | None = None,
+    ) -> EvidenceRecord:
         """Register surge evidence from ``NOAACOOPSSource`` data points.
 
         Splits the fetched points by ``data["product"]`` ("water_level" vs
@@ -385,6 +509,12 @@ class SurgeFloodCascade:
         Args:
             points: DataPoint list from
                 ``NOAACOOPSSource(products=[WATER_LEVEL, PREDICTIONS]).fetch()``.
+            flood_threshold_m: The station's official minor coastal-flood
+                threshold (metres above the series datum), e.g. from
+                ``NOAACOOPSSource.fetch_flood_threshold_m``.
+            datum: Series datum ("MLLW"/"MHHW") for the Sweet et al. (2018)
+                derived threshold when no official one is supplied.
+            great_diurnal_range_m: Station great diurnal range GT, metres.
 
         Returns:
             The appended :class:`EvidenceRecord`.
@@ -413,7 +543,14 @@ class SurgeFloodCascade:
                 f"CO-OPS points (got {len(observed)} observed / "
                 f"{len(predicted)} predicted records)"
             )
-        return self.update_surge_evidence(observed, predicted, station_id=station_id)
+        return self.update_surge_evidence(
+            observed,
+            predicted,
+            station_id=station_id,
+            flood_threshold_m=flood_threshold_m,
+            datum=datum,
+            great_diurnal_range_m=great_diurnal_range_m,
+        )
 
     def update_river_evidence(self, gauge_payload: dict[str, Any]) -> EvidenceRecord:
         """Register an NWPS gauge status as river-flood evidence.

@@ -22,6 +22,7 @@ API Documentation:
 from __future__ import annotations
 
 import logging
+import math
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
@@ -667,6 +668,10 @@ class NOAACOOPSSource(DataSourceBase):
 
     DEFAULT_BASE_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/"
 
+    #: CO-OPS metadata API (station datums and official NWS/NOS coastal
+    #: flood thresholds), a sibling host path of the datagetter API.
+    MDAPI_BASE_URL = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"
+
     # Sample NOAA tide stations
     SAMPLE_STATIONS: dict[str, tuple[str, float, float]] = {
         "8454000": ("Providence, RI", 41.807, -71.401),
@@ -710,6 +715,79 @@ class NOAACOOPSSource(DataSourceBase):
     def default_source_types(self) -> list[DataSourceType]:
         """Default source types."""
         return [DataSourceType.TIDE]
+
+    def fetch_flood_threshold_m(self, datum: str = "MLLW") -> float:
+        """Fetch this station's official minor coastal-flood threshold.
+
+        Combines the CO-OPS metadata API ``floodlevels`` record (official
+        NWS thresholds, with the NOS-derived value as fallback; station-datum
+        referenced) with the station's published tidal ``datums`` so the
+        threshold is expressed in metres above the requested series datum --
+        the same datum the ``datagetter`` water-level products use.  This is
+        the per-station gate :class:`~omni_mercury_engine.detectors.
+        meteorological.surge_flood_cascade.SurgeFloodCascade` prefers over
+        any flat residual default.
+
+        Args:
+            datum: Series datum to express the threshold against ("MLLW" or
+                any datum name the station publishes, e.g. "MHHW").
+
+        Returns:
+            Minor coastal-flood threshold in metres above ``datum``.
+
+        Raises:
+            DataSourceError: When the station publishes no flood levels or
+                no value for the requested datum, or the result is not a
+                positive finite height.
+        """
+        original_base_url = self.config.base_url
+        self.config.base_url = self.MDAPI_BASE_URL
+        try:
+            levels = self._http_get_sync(
+                f"stations/{self._station_id}/floodlevels.json",
+                params={"units": "metric"},
+            ).json()
+            datums_payload = self._http_get_sync(
+                f"stations/{self._station_id}/datums.json",
+                params={"units": "metric"},
+            ).json()
+        finally:
+            self.config.base_url = original_base_url
+
+        minor = levels.get("nws_minor")
+        basis = "nws_minor"
+        if minor is None:
+            minor = levels.get("nos_minor")
+            basis = "nos_minor"
+        if minor is None:
+            raise DataSourceError(
+                f"station {self._station_id} publishes no minor coastal-flood "
+                "threshold (neither nws_minor nor nos_minor)",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        reference = None
+        for record in datums_payload.get("datums", []) or []:
+            if isinstance(record, dict) and record.get("name") == datum.upper():
+                reference = record.get("value")
+                break
+        if reference is None:
+            raise DataSourceError(
+                f"station {self._station_id} publishes no {datum.upper()} datum; "
+                "cannot express the flood threshold against the series datum",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        threshold = float(minor) - float(reference)
+        if not math.isfinite(threshold) or threshold <= 0.0:
+            raise DataSourceError(
+                f"station {self._station_id} {basis} ({minor}) minus "
+                f"{datum.upper()} ({reference}) is not a positive height "
+                f"({threshold}); refusing a nonsensical flood threshold",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        return threshold
 
     async def _fetch_product(
         self,
