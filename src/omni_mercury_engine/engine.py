@@ -2808,7 +2808,7 @@ class OmniMercuryEngine(LoggerMixin):
             Float32 tensor ``(n_samples, n_detectors)`` of scores in ``[0, 1]``.
         """
         n_samples = len(X)
-        _, det_scores, _ = self._extract_detector_features(X)
+        _, det_scores, _, _ = self._extract_detector_features(X)
         _, mod_scores = self._extract_model_features(X)
 
         all_scores = {**det_scores, **mod_scores}
@@ -5093,7 +5093,8 @@ class OmniMercuryEngine(LoggerMixin):
             data: Input data for feature extraction.
 
         Returns:
-            Tuple of (detector_features, detector_scores, detector_certificates):
+            Tuple of (detector_features, detector_scores, detector_certificates,
+            detector_uncertainties):
                 - detector_features: Dict mapping detector names to features
                 - detector_scores: Dict mapping detector names to scores
                 - detector_certificates: Dict mapping detector names to their
@@ -5101,6 +5102,13 @@ class OmniMercuryEngine(LoggerMixin):
                   threaded through the return value rather than stashed on the
                   engine so interleaved ``detect()`` calls cannot cross-
                   contaminate certificates).
+                - detector_uncertainties: Dict mapping detector names to the
+                  detector's own reported ``uncertainty`` when its result
+                  carries one, else the margin-based decision uncertainty of
+                  its normalized scores against its effective threshold
+                  (``BaseDetector.uncertainty_from_result``) -- so fusion sees
+                  a real uncertainty for every detector instead of the former
+                  constant zero.
 
         Note:
             Uses parallel processing when available for improved performance.
@@ -5121,6 +5129,7 @@ class OmniMercuryEngine(LoggerMixin):
         detector_features = {}
         detector_scores = {}
         detector_certificates: dict[str, Any] = {}
+        detector_uncertainties: dict[str, float] = {}
 
         # Phase 1 (sequential): fail-loud or legacy auto-fit. Fitting mutates
         # detector state and some fits seed the global torch RNG under
@@ -5170,6 +5179,10 @@ class OmniMercuryEngine(LoggerMixin):
                 detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
+                detector_uncertainties[name] = BaseDetector.uncertainty_from_result(
+                    {**result, "scores": detector_scores[name]},
+                    threshold=self.detectors[name].get_effective_threshold(),
+                )
                 if "info_geometry_certificate" in result:
                     detector_certificates[name] = result["info_geometry_certificate"]
             except (
@@ -5201,7 +5214,7 @@ class OmniMercuryEngine(LoggerMixin):
                     logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
-        return detector_features, detector_scores, detector_certificates
+        return detector_features, detector_scores, detector_certificates, detector_uncertainties
 
     def _detector_budget(self, data: Any) -> float | None:
         """Wall-clock budget for one detector pass over ``data`` (``None``: unbounded).
@@ -5478,7 +5491,9 @@ class OmniMercuryEngine(LoggerMixin):
         elif isinstance(data, torch.Tensor) and data.dim() == 1:
             data = data.unsqueeze(0)
 
-        det_features, det_scores, det_certificates = self._extract_detector_features(data)
+        det_features, det_scores, det_certificates, det_uncertainties = (
+            self._extract_detector_features(data)
+        )
         mod_features, mod_scores = self._extract_model_features(data)
 
         all_features = {**det_features, **mod_features}
@@ -5800,6 +5815,11 @@ class OmniMercuryEngine(LoggerMixin):
             "is_anomaly_rows": (anomaly_probs_all > threshold).tolist(),
             "severity_scores": severity_all.tolist(),
             "detector_importance": fusion_result.get("detector_importance", {}),
+            # Per-detector decision uncertainty: the detector's own reported
+            # value when its result carried one, else the margin-based
+            # uncertainty of its normalized scores against its effective
+            # threshold. Formerly every base detector reported a constant 0.
+            "detector_uncertainties": {k: float(v) for k, v in det_uncertainties.items()},
             "mode": "fusion",
             "threshold_used": float(threshold),
         }
@@ -6153,7 +6173,7 @@ class OmniMercuryEngine(LoggerMixin):
         # For batch data, we need the full probability array
         # The fusion_inference returns probs for all samples
         if self.mode == "fusion":
-            det_features, det_scores, _ = self._extract_detector_features(data)
+            det_features, det_scores, _, _ = self._extract_detector_features(data)
             mod_features, mod_scores = self._extract_model_features(data)
             all_features = {**det_features, **mod_features}
 
@@ -6206,6 +6226,7 @@ class OmniMercuryEngine(LoggerMixin):
             "class_prediction": fusion_result.get("class_prediction", 0),
             "severity": fusion_result.get("severity", 0.0),
             "detector_importance": fusion_result.get("detector_importance", {}),
+            "detector_uncertainties": fusion_result.get("detector_uncertainties", {}),
             "mode": "fusion_calibrated",
         }
 

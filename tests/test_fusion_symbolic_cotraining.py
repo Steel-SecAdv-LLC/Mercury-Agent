@@ -166,8 +166,8 @@ class TestCoTrainingContract:
 
         def empty_detector_features(
             data: Any,
-        ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-            return {}, {}, {}
+        ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+            return {}, {}, {}, {}
 
         def expanded_model_features(data: Any) -> tuple[dict[str, Any], dict[str, Any]]:
             n = len(data)

@@ -416,19 +416,65 @@ class BaseDetector(ABC):
         """
         return self._is_fitted
 
+    @staticmethod
+    def uncertainty_from_result(result: dict[str, Any], threshold: float = 0.5) -> float:
+        """Margin-based decision uncertainty of one ``detect()`` result.
+
+        Uncertainty is maximal (1.0) when the score sits exactly on the
+        decision threshold and falls linearly to 0.0 at the score range's
+        ends -- the standard least-confidence/margin uncertainty of a
+        thresholded score (Settles 2009, Active Learning Literature Survey,
+        Univ. of Wisconsin-Madison CS TR-1648, sec. 3.1).  For a batch
+        result the per-sample margins are averaged.  A result that already
+        carries an explicit ``uncertainty`` (a detector's own probabilistic
+        estimate, e.g. predictive variance) is returned unchanged.
+
+        Args:
+            result: A ``detect()`` result dict.
+            threshold: The decision threshold the scores are compared to.
+
+        Returns:
+            Uncertainty in [0, 1] (higher = closer to the decision boundary).
+        """
+        own = result.get("uncertainty")
+        if own is not None:
+            return float(own)
+        scores = result.get("scores")
+        if scores is None:
+            scores = [result.get("anomaly_score", result.get("anomaly_prob", 0.0))]
+        import numpy as np
+
+        values = np.clip(np.asarray(scores, dtype=np.float64).reshape(-1), 0.0, 1.0)
+        if values.size == 0:
+            return 1.0
+        span = max(threshold, 1.0 - threshold)
+        if span <= 0.0:
+            return 1.0
+        margins = 1.0 - np.abs(values - threshold) / span
+        return float(np.clip(np.mean(margins), 0.0, 1.0))
+
     def get_uncertainty(self, data: np.ndarray[Any, Any] | torch.Tensor) -> float:
         """Estimate uncertainty for fusion weighting.
 
-        Default implementation returns 0 (no uncertainty).
-        Override for uncertainty-aware detectors.
+        The default scores ``data`` and returns the margin-based decision
+        uncertainty of the result (see :meth:`uncertainty_from_result`):
+        1.0 at the decision boundary, 0.0 at the score extremes.  This
+        replaces the former constant 0.0, which told fusion every detector
+        was perfectly certain of every verdict.  Detectors with a genuine
+        probabilistic uncertainty (predictive variance, posterior mass)
+        should override this; detectors whose ``detect`` advances streaming
+        state should prefer ``uncertainty_from_result`` on an already
+        computed result.
 
         Args:
             data: Input data.
 
         Returns:
-            Uncertainty estimate (higher = more uncertain).
+            Uncertainty estimate in [0, 1] (higher = more uncertain).
         """
-        return 0.0
+        return self.uncertainty_from_result(
+            self.detect(data), threshold=self.get_effective_threshold()
+        )
 
     def reset_metrics(self) -> None:
         """Reset performance metrics."""

@@ -590,7 +590,7 @@ class TestEngineDetectorTimeout:
         engine.detectors = detectors
         try:
             start = time.monotonic()
-            features, scores, _ = engine._extract_detector_features(
+            features, scores, _, _ = engine._extract_detector_features(
                 np.random.default_rng(0).normal(size=(4, 3)).astype(np.float32)
             )
             assert time.monotonic() - start < 2.0
