@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from omni_mercury_engine.core.exceptions import InvalidObservationError
 from omni_mercury_engine.detectors.marine.biodiversity_detector import (
     BiodiversityPredictionResult,
     CoralBleachingDetector,
@@ -196,7 +197,8 @@ class TestMarineBiodiversityDetector:
         result = detector.predict_biodiversity_threat(data)
 
         assert result.coral_bleaching_detected is True
-        assert result.confidence == 0.8
+        # The one assessed indicator fires (was a constant 0.8).
+        assert result.confidence == 1.0
         assert result.ecosystem_threatened is True
 
     def test_ocean_acidification_detection(self, detector: Any) -> None:
@@ -240,8 +242,8 @@ class TestMarineBiodiversityDetector:
 
     def test_health_status_levels(self, detector: Any) -> None:
         """Test different health status determinations."""
-        # Healthy - no threats
-        result = detector.predict_biodiversity_threat({})
+        # Healthy - measured, no threats
+        result = detector.predict_biodiversity_threat({"chemistry_data": {"ph": 8.1}})
         assert result.health_status == "healthy"
 
         # Stressed - one threat
@@ -283,14 +285,45 @@ class TestMarineBiodiversityDetector:
         assert any("CO2" in action for action in result.conservation_actions)
 
     def test_empty_data_handling(self, detector: Any) -> None:
-        """Test handling of empty marine data."""
-        result = detector.predict_biodiversity_threat({})
+        """Empty marine data is refused: it used to grade as a healthy ecosystem."""
+        with pytest.raises(InvalidObservationError, match="no indicator measured"):
+            detector.predict_biodiversity_threat({})
 
-        assert result.ecosystem_threatened is False
-        assert result.health_status == "healthy"
-        assert result.coral_bleaching_detected is False
-        assert result.ocean_acidification is False
-        assert result.marine_heatwave is False
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"coral_data": {}},  # coral read as 0 degC / 0 DHW: a measured all-clear
+            {"coral_data": {"sst_anomaly_c": 0.2}},  # DHW defaulted to 0
+            {"chemistry_data": {"pH": 7.5}},  # misspelt: acidification unassessed
+            {"temperature_data": {"anomaly": 3.0}},  # misspelt: heatwave unassessed
+        ],
+    )
+    def test_incomplete_or_misspelt_section_is_refused(self, detector: Any, data: Any) -> None:
+        with pytest.raises(InvalidObservationError, match=r"missing|unknown keys"):
+            detector.predict_biodiversity_threat(data)
+
+    @pytest.mark.parametrize(
+        ("section", "key"),
+        [("chemistry_data", "ph"), ("temperature_data", "anomaly_c")],
+    )
+    def test_non_finite_indicator_is_refused(self, detector: Any, section: str, key: str) -> None:
+        """A NaN failed every threshold comparison and read as healthy."""
+        with pytest.raises(InvalidObservationError):
+            detector.predict_biodiversity_threat({section: {key: float("nan")}})
+
+    def test_chemistry_without_ph_reports_no_fabricated_ph(self, detector: Any) -> None:
+        """A chemistry section without pH used to report pH 8.1 nobody measured."""
+        with pytest.raises(InvalidObservationError, match="missing"):
+            detector.predict_biodiversity_threat({"chemistry_data": {}})
+
+    def test_status_and_decision_agree(self, detector: Any) -> None:
+        """Acidification plus a heatwave was 'critical' yet not threatened."""
+        result = detector.predict_biodiversity_threat(
+            {"chemistry_data": {"ph": 7.7}, "temperature_data": {"anomaly_c": 3.0}}
+        )
+        assert result.health_status == "critical"
+        assert result.ecosystem_threatened is True
+        assert result.confidence == 1.0
 
     def test_partial_data_handling(self, detector: Any) -> None:
         """Test handling of partial marine data."""

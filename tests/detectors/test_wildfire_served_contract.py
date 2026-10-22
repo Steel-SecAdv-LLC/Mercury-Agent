@@ -289,3 +289,24 @@ def test_spread_is_never_fabricated_from_defaults() -> None:
     assert "wind_direction_deg" in out["missing_inputs"]
     with pytest.raises(InvalidObservationError, match="wind_speed_kmh"):
         model.predict_spread({}, {"wind_speed_kmh": float("nan")})
+
+
+def test_misspelt_weather_key_is_refused(served: WildfireDetector) -> None:
+    """``relative_humidity`` used to fall back to 100 % humidity: a silent low risk."""
+    with pytest.raises(InvalidObservationError, match="unknown keys"):
+        served.predict_wildfire({"weather_data": {"relative_humidity": 5.0}})
+
+
+def test_misspelt_fire_key_is_refused(served: WildfireDetector) -> None:
+    with pytest.raises(InvalidObservationError, match="unknown keys"):
+        served.predict_wildfire(
+            {"thermal_image": _brightness_scene(), "fire_data": {"fuel_moisture": 4.0}}
+        )
+
+
+@pytest.mark.parametrize("section", ["weather_data", "fire_data"])
+def test_non_mapping_section_is_refused(served: WildfireDetector, section: str) -> None:
+    from omni_mercury_engine.core.exceptions import InputModalityError
+
+    with pytest.raises(InputModalityError, match="mapping"):
+        served.predict_wildfire({section: [1.0, 2.0]})

@@ -261,3 +261,59 @@ def test_detector_reports_the_failure_forecast() -> None:
     assert counted.time_to_eruption_fit["method"] == "ffm_poisson_mle"
     assert counted.time_to_eruption_hours is not None
     assert 0.0 < counted.time_to_eruption_hours < 40.0
+
+
+@pytest.mark.parametrize(
+    ("section", "values"),
+    [
+        ("gas_data", {"so2_flux_tons_day": 5000.0}),  # misspelt: read as baseline
+        ("insar_data", {"vertical_cm": 30.0}),  # misspelt: read as 0 cm
+        ("thermal_data", {"max_temperature_k": 900.0}),  # misspelt: read as no pixels
+    ],
+)
+def test_misspelt_section_key_is_refused(
+    physics: VolcanicEruptionDetector, section: str, values: dict[str, float]
+) -> None:
+    """A misspelt measurement used to grade as baseline -- a silent all-clear."""
+    with pytest.raises(InvalidObservationError, match="unknown keys"):
+        physics.predict_eruption({section: values})
+
+
+@pytest.mark.parametrize(
+    ("section", "values"),
+    [
+        ("gas_data", {}),
+        ("thermal_data", {"radiant_heat_mw": 50.0}),  # no brightness raster to grade
+        ("insar_data", {"deformation_rate_cm_day": 1.0}),  # rate alone decides nothing
+        ("precursor_rate", {"times_h": [0.0, 1.0, 2.0]}),  # half a series
+    ],
+)
+def test_section_without_a_measurement_is_refused(
+    physics: VolcanicEruptionDetector, section: str, values: dict[str, Any]
+) -> None:
+    with pytest.raises(InvalidObservationError, match="no measurement"):
+        physics.predict_eruption({section: values})
+
+
+def test_one_measured_gas_is_graded(physics: VolcanicEruptionDetector) -> None:
+    """A single measured flux is enough; the other stays at its baseline."""
+    result = physics.predict_eruption({"gas_data": {"so2_tons_per_day": 5000.0}})
+    assert result.gas_flux_anomaly
+
+
+@pytest.mark.parametrize("section", ["thermal_data", "gas_data", "insar_data", "precursor_rate"])
+def test_non_mapping_section_is_refused(physics: VolcanicEruptionDetector, section: str) -> None:
+    """A list section used to fail deep inside with a bare AttributeError."""
+    with pytest.raises(InputModalityError, match="mapping"):
+        physics.predict_eruption({section: [1.0, 2.0]})
+
+
+@pytest.mark.parametrize(
+    "record", [{}, {"schumann_elf": [7.8, 7.9, 7.8]}, {"metadata": {"name": "x"}}]
+)
+def test_record_without_a_deciding_stream_is_refused(
+    physics: VolcanicEruptionDetector, record: dict[str, Any]
+) -> None:
+    """Nothing that decides used to grade as a silent "normal"."""
+    with pytest.raises(InvalidObservationError, match="no monitoring stream"):
+        physics.predict_eruption(record)

@@ -202,6 +202,38 @@ if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.earth_science import USGSVolcanoSource
 
 
+#: Monitoring sections ``predict_eruption`` reads: the keys each may carry,
+#: and the measurement sets of which one must be complete.  The analysers
+#: default a missing key to baseline (gas) or zero (deformation), so a
+#: misspelt or empty section used to grade as a silent all-clear.
+VOLCANIC_SECTIONS: dict[str, tuple[frozenset[str], tuple[frozenset[str], ...]]] = {
+    "thermal_data": (
+        frozenset({"brightness_temperature_k", "radiant_heat_mw"}),
+        (frozenset({"brightness_temperature_k"}),),
+    ),
+    "gas_data": (
+        frozenset({"so2_tons_per_day", "co2_tons_per_day"}),
+        (frozenset({"so2_tons_per_day"}), frozenset({"co2_tons_per_day"})),
+    ),
+    "insar_data": (
+        frozenset(
+            {"vertical_displacement_cm", "horizontal_displacement_cm", "deformation_rate_cm_day"}
+        ),
+        (frozenset({"vertical_displacement_cm"}), frozenset({"horizontal_displacement_cm"})),
+    ),
+    "precursor_rate": (
+        frozenset({"bin_edges_h", "counts", "times_h", "rate"}),
+        (frozenset({"bin_edges_h", "counts"}), frozenset({"times_h", "rate"})),
+    ),
+}
+
+
+#: The streams that can move the decision; ``schumann_elf`` is reported only.
+VOLCANIC_DECISION_STREAMS: frozenset[str] = frozenset(
+    {"seismic_sequence", "fused_features", *VOLCANIC_SECTIONS}
+)
+
+
 class VolcanicActivityLevel(Enum):
     """USGS volcanic alert levels."""
 
@@ -1296,6 +1328,33 @@ class VolcanicEruptionDetector:
                 f"(seismic_sequence, thermal_data, gas_data, insar_data, ...), got "
                 f"{type(volcano_data).__name__}"
             )
+        if not any(stream in volcano_data for stream in VOLCANIC_DECISION_STREAMS):
+            # Nothing that decides was supplied: the result was a silent
+            # "normal" (Schumann ELF is reported only and decides nothing).
+            raise InvalidObservationError(
+                "no monitoring stream: supply at least one of "
+                f"{sorted(VOLCANIC_DECISION_STREAMS)}; an unmonitored volcano is not a quiet one"
+            )
+        for section, (allowed, complete) in VOLCANIC_SECTIONS.items():
+            if section not in volcano_data:
+                continue
+            values = volcano_data[section]
+            # A non-mapping section used to fail deep inside with a bare
+            # AttributeError (gas_data alone was checked).
+            if not isinstance(values, dict):
+                raise InputModalityError(
+                    f"{section} must be a mapping, got {type(values).__name__}"
+                )
+            unknown = sorted(set(values) - allowed)
+            if unknown:
+                raise InvalidObservationError(
+                    f"{section} has unknown keys {unknown}; accepted: {sorted(allowed)}"
+                )
+            if not any(keys <= set(values) for keys in complete):
+                raise InvalidObservationError(
+                    f"{section} carries no measurement; supply one of "
+                    f"{[sorted(keys) for keys in complete]}"
+                )
         if "seismic_sequence" in volcano_data:
             volcano_data = {
                 **volcano_data,

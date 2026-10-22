@@ -35,6 +35,7 @@ from scipy import ndimage
 from scipy.fft import fft, fftfreq
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.detectors._hazard_input import (
     InvalidObservationError,
     finite_array,
@@ -179,6 +180,15 @@ _WEATHER_INPUTS = {
     "wind_direction_deg": ("deg", 0.0, 360.0),
     "relative_humidity_pct": ("%", 0.0, 100.0),
     "temperature_c": ("degC", -90.0, 60.0),
+}
+
+
+#: Keys of the nested sections ``predict_wildfire`` reads.  The risk ladder
+#: defaults a missing weather key to a benign value (humidity 100 %, calm
+#: wind), so a misspelt key used to grade as low risk.
+WILDFIRE_SECTION_KEYS: dict[str, frozenset[str]] = {
+    "weather_data": frozenset(_WEATHER_INPUTS) | {STATE_OF_WEATHER_KEY},
+    "fire_data": frozenset({"fuel_load_tons_ha", "fuel_moisture_pct"}),
 }
 
 
@@ -999,6 +1009,24 @@ class WildfireDetector:
         Returns:
             Wildfire prediction with risk assessment
         """
+        if not isinstance(wildfire_data, dict):
+            raise InputModalityError(
+                "predict_wildfire expects a mapping (thermal_image, weather_data, ...), got "
+                f"{type(wildfire_data).__name__}"
+            )
+        for section, allowed in WILDFIRE_SECTION_KEYS.items():
+            if section not in wildfire_data:
+                continue
+            values = wildfire_data[section]
+            if not isinstance(values, dict):
+                raise InputModalityError(
+                    f"{section} must be a mapping, got {type(values).__name__}"
+                )
+            unknown = sorted(set(values) - allowed)
+            if unknown:
+                raise InvalidObservationError(
+                    f"{section} has unknown keys {unknown}; accepted: {sorted(allowed)}"
+                )
         result = WildfirePredictionResult(
             fire_detected=False,
             confidence=0.0,

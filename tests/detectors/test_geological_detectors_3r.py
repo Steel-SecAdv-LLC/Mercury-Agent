@@ -284,8 +284,14 @@ class TestLandslideDetector:
         )
         assert result.slope_failure_probability == pytest.approx(1.0)
 
-    def test_no_data_is_low_risk_nothing_imputed(self, detector: Any) -> None:
-        result = detector.predict_landslide({})
+    def test_no_data_is_refused_nothing_imputed(self, detector: Any) -> None:
+        """No monitoring data used to grade as "low" risk: an all-clear on nothing."""
+        with pytest.raises(InvalidObservationError, match="no slope measured"):
+            detector.predict_landslide({})
+
+    def test_unmonitored_trigger_is_low_risk_nothing_imputed(self, detector: Any) -> None:
+        """Measured quiet rain on an unmonitored slope: no fabricated warning."""
+        result = detector.predict_landslide({"rainfall_data": {"intensity_mm_hr": 0.0}})
         assert result.slope_failure_probability == 0.0
         assert result.risk_level == "low"
         assert result.landslide_imminent is False

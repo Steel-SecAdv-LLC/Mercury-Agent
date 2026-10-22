@@ -47,6 +47,8 @@ import torch
 from scipy import signal
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
+from omni_mercury_engine.detectors._hazard_input import finite_scalar
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
@@ -70,6 +72,87 @@ class LandslideType(Enum):
     SNOW_AVALANCHE = "snow_avalanche"
     MUD_FLOW = "mud_flow"
     ROTATIONAL_SLIDE = "rotational_slide"
+
+
+#: Every scalar ``predict_landslide`` reads, with its unit and physical range.
+#: Supplied values are checked before any model sees them: without this a NaN
+#: rainfall or PGA failed every comparison and read as a silent all-clear, a
+#: negative duration crashed on a complex square root, and a 500 deg slope was
+#: graded.
+LANDSLIDE_INPUTS: dict[str, dict[str, tuple[str, float, float]]] = {
+    "rainfall_data": {
+        "intensity_mm_hr": ("mm/h", 0.0, 1000.0),
+        "duration_hours": ("h", 0.0, 2160.0),
+        "antecedent_7day_mm": ("mm", 0.0, 10000.0),
+    },
+    "seismic_data": {
+        "pga_g": ("g", 0.0, 10.0),
+        "magnitude": ("Mw", -2.0, 10.0),
+        "distance_km": ("km", 0.0, 20040.0),
+    },
+    "weather_data": {"snowmelt_mm_day": ("mm/day", 0.0, 1000.0)},
+    "sensor_data": {
+        "soil_saturation_pct": ("%", 0.0, 100.0),
+        "displacement_rate_mm_day": ("mm/day", 0.0, 1e6),
+    },
+    "slope_data": {"slope_angle_deg": ("deg", 0.0, 90.0)},
+}
+
+
+def validate_landslide_data(landslide_data: Any) -> None:
+    """Refuse a record ``predict_landslide`` would otherwise grade wrongly.
+
+    Raises:
+        InputModalityError: If the record or one of its sections is not a mapping.
+        InvalidObservationError: If no section is supplied, a section
+            carries an unknown key or no measurement, a supplied value is non-numeric, non-finite or
+            outside its physical range, or ``slope_features`` holds a
+            non-finite value.
+    """
+    if not isinstance(landslide_data, dict):
+        raise InputModalityError(
+            "predict_landslide expects a mapping of monitoring sections "
+            f"(rainfall_data, seismic_data, ...), got {type(landslide_data).__name__}"
+        )
+    if not any(section in landslide_data for section in LANDSLIDE_INPUTS) and (
+        landslide_data.get("slope_features") is None
+    ):
+        # No monitoring section: the physics path graded zeros as "low".
+        raise InvalidObservationError(
+            "no slope measured: supply at least one of "
+            f"{sorted(LANDSLIDE_INPUTS)} or slope_features; an unmonitored slope is not a "
+            "stable one"
+        )
+    for section, fields in LANDSLIDE_INPUTS.items():
+        if section not in landslide_data:
+            continue
+        values = landslide_data[section]
+        if not isinstance(values, dict):
+            raise InputModalityError(f"{section} must be a mapping, got {type(values).__name__}")
+        # The trigger models default a missing key to a quiet value (0 mm/h,
+        # 0 g), so a misspelt or empty section graded as a silent all-clear.
+        unknown = sorted(set(values) - set(fields))
+        if unknown:
+            raise InvalidObservationError(
+                f"{section} has unknown keys {unknown}; accepted: {sorted(fields)}"
+            )
+        if all(values.get(key) is None for key in fields):
+            raise InvalidObservationError(
+                f"{section} carries no measurement; supply at least one of {sorted(fields)}"
+            )
+        for key, (unit, lo, hi) in fields.items():
+            if values.get(key) is not None:
+                finite_scalar(values[key], key, unit=unit, lo=lo, hi=hi)
+    features = landslide_data.get("slope_features")
+    if features is not None:
+        try:
+            array = np.asarray(features, dtype=np.float64)
+        except (TypeError, ValueError) as e:
+            raise InvalidObservationError("slope_features must be a numeric vector") from e
+        if not np.all(np.isfinite(array)):
+            raise InvalidObservationError(
+                "slope_features has non-finite values; clean or interpolate the record first"
+            )
 
 
 @dataclass
@@ -696,7 +779,13 @@ class LandslideDetector:
 
         Returns:
             Landslide prediction with risk level and evacuation recommendations
+
+        Raises:
+            InputModalityError: If the record or a section is not a mapping.
+            InvalidObservationError: On a non-finite or non-physical value
+                (see :data:`LANDSLIDE_INPUTS`).
         """
+        validate_landslide_data(landslide_data)
         result = LandslidePredictionResult(
             landslide_imminent=False,
             confidence=0.0,

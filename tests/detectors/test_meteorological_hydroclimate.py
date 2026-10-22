@@ -542,3 +542,48 @@ class TestSurgeFloodCascade:
         cascade = SurgeFloodCascade()
         with pytest.raises(ValueError, match="no observed stage"):
             cascade.update_river_evidence({"lid": "X", "status": {"observed": {}}})
+
+
+class TestSurgeInputsFailClosed:
+    """Corrupted CO-OPS and NWPS values are refused, never graded."""
+
+    @pytest.mark.parametrize("bad", ["inf", "-inf", "nan"])
+    def test_non_finite_water_level_is_refused(self, bad: str) -> None:
+        """An "inf" level made the residual infinite and escalated the cascade."""
+        observed = _coops_payload([0.1, 0.2, 0.3], "data")
+        observed["data"][1]["v"] = bad  # type: ignore[index]
+        predicted = _coops_payload([0.1, 0.2, 0.3], "predictions")
+        with pytest.raises(ValueError, match="non-finite"):
+            SurgeFloodCascade().update_surge_evidence(observed, predicted, "8518750")
+
+    def test_string_error_payload_is_reported(self) -> None:
+        """A bare-string CO-OPS error used to crash with AttributeError."""
+        with pytest.raises(ValueError, match="No data was found"):
+            SurgeFloodCascade().update_surge_evidence(
+                {"error": "No data was found"}, _coops_payload([0.1], "predictions")
+            )
+
+    @pytest.mark.parametrize(
+        "gauge",
+        [
+            {"lid": "X", "status": {"observed": {"primary": float("inf")}}},
+            {"lid": "X", "status": {"observed": {"primary": float("nan")}}},
+            {
+                "lid": "X",
+                "status": {"observed": {"primary": 3.0}},
+                "flood": {"categories": {"minor": {"stage": float("nan")}}},
+            },
+        ],
+    )
+    def test_non_finite_gauge_is_refused(self, gauge: dict[str, object]) -> None:
+        with pytest.raises(ValueError, match="non-finite"):
+            SurgeFloodCascade().update_river_evidence(gauge)
+
+    def test_null_minor_category_is_tolerated(self) -> None:
+        """NWPS serves ``"minor": null`` for ungauged categories."""
+        gauge = {
+            "lid": "X",
+            "status": {"observed": {"primary": 3.0, "floodCategory": "no_flooding"}},
+            "flood": {"categories": {"minor": None}},
+        }
+        assert SurgeFloodCascade().update_river_evidence(gauge).qualifies is False

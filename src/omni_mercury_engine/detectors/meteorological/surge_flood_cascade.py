@@ -47,6 +47,7 @@ non-qualifying data.  Every ``update_*`` call appends an
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -173,7 +174,8 @@ def _parse_coops_series(payload: Any, kind: str) -> dict[str, float]:
     records: Any
     if isinstance(payload, dict):
         if "error" in payload:
-            message = payload["error"].get("message", str(payload["error"]))
+            error = payload["error"]
+            message = error.get("message", str(error)) if isinstance(error, dict) else str(error)
             raise ValueError(f"CO-OPS returned an error for the {kind} series: {message}")
         records = payload.get("data") or payload.get("predictions")
         if records is None:
@@ -193,9 +195,15 @@ def _parse_coops_series(payload: Any, kind: str) -> dict[str, float]:
         if not t or v in (None, ""):
             continue
         try:
-            out[str(t)] = float(v)
+            value = float(v)
         except (TypeError, ValueError):
             continue
+        if not math.isfinite(value):
+            # Corrupted, not missing: an "inf" level made the max residual
+            # infinite and falsely escalated the cascade; a "nan" one made it
+            # NaN and silently disqualified real surge evidence.
+            raise ValueError(f"CO-OPS {kind} series has a non-finite value {v!r} at {t}")
+        out[str(t)] = value
     if not out:
         raise ValueError(f"CO-OPS {kind} series contained no parseable records")
     return out
@@ -431,9 +439,13 @@ class SurgeFloodCascade:
         if primary is None or primary in ("", -999):
             raise ValueError(f"NWPS gauge {lid} has no observed stage value")
         stage = float(primary)
+        if not math.isfinite(stage):
+            raise ValueError(f"NWPS gauge {lid} has a non-finite observed stage {primary!r}")
         flood_category = str(observed.get("floodCategory", "")).lower()
         categories = (gauge_payload.get("flood", {}) or {}).get("categories", {}) or {}
-        minor_stage = categories.get("minor", {}).get("stage")
+        minor_stage = (categories.get("minor") or {}).get("stage")
+        if minor_stage is not None and not math.isfinite(float(minor_stage)):
+            raise ValueError(f"NWPS gauge {lid} has a non-finite minor flood stage")
 
         in_flood = flood_category in _FLOODING_CATEGORIES
         if not in_flood and minor_stage is not None and float(minor_stage) > 0:
