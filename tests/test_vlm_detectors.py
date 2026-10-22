@@ -12,6 +12,8 @@ from typing import Any, cast
 import numpy as np
 import pytest
 
+from omni_mercury_engine.core.exceptions import InputModalityError
+
 try:
     import torch
 
@@ -129,6 +131,34 @@ class TestAnyAnomalyDetector:
         detector.set_reference_normal(frames)
         assert len(detector.reference_frames) > 0
 
+    def test_anyanomaly_save_load_keeps_definition_and_references(
+        self, sample_image_batch: Any, tmp_path: Any
+    ) -> None:
+        """The anomaly definition and reference frames survive a checkpoint.
+
+        Regression: ``save`` failed outright (``BaseVLMDetector`` bypasses
+        ``BaseDetector.__init__``, so the calibration attributes ``save``
+        reads did not exist), and numpy reference frames cannot pass the
+        ``weights_only=True`` load undecomposed.
+        """
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
+
+        detector = AnyAnomalyDetector()
+        detector.fit(sample_image_batch)
+        detector.set_anomaly_definition("A person falling down")
+        frames = [np.asarray(sample_image_batch[i]) for i in range(sample_image_batch.shape[0])]
+        detector.set_reference_normal(frames)
+        path = tmp_path / "anyanomaly.pt"
+        detector.save(str(path))
+
+        restored = cast("AnyAnomalyDetector", AnyAnomalyDetector().load(str(path)))
+        assert restored.is_fitted()
+        assert restored.anomaly_definition == "A person falling down"
+        assert len(restored.reference_frames) == len(frames)
+        for got, want in zip(restored.reference_frames, frames, strict=True):
+            assert type(got) is type(want)
+            np.testing.assert_array_equal(got, want)
+
     def test_anyanomaly_off_modality_rejected(self) -> None:
         """A generic 2-D feature matrix is rejected with a clean, named error.
 
@@ -138,7 +168,7 @@ class TestAnyAnomalyDetector:
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
         detector = AnyAnomalyDetector()
-        with pytest.raises(ValueError, match=OFF_MODALITY_MSG):
+        with pytest.raises(InputModalityError, match=OFF_MODALITY_MSG):
             detector.extract_features(np.zeros((200, 8), dtype=np.float32))
 
     def test_anyanomaly_rank4_without_channel_axis_rejected(self) -> None:
@@ -146,7 +176,7 @@ class TestAnyAnomalyDetector:
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
         detector = AnyAnomalyDetector()
-        with pytest.raises(ValueError, match=r"1- or 3-channel frames"):
+        with pytest.raises(InputModalityError, match=r"1- or 3-channel frames"):
             detector.detect(np.zeros((4, 8, 8, 8), dtype=np.float32))
 
     def test_anyanomaly_detect_synthetic_clip(self) -> None:
@@ -269,7 +299,7 @@ class TestLAVADDetector:
         from omni_mercury_engine.detectors.vlm import LAVADDetector
 
         detector = LAVADDetector()
-        with pytest.raises(ValueError, match=OFF_MODALITY_MSG):
+        with pytest.raises(InputModalityError, match=OFF_MODALITY_MSG):
             detector.extract_features(np.zeros((200, 8), dtype=np.float32))
 
     def test_lavad_detect_synthetic_clip(self) -> None:

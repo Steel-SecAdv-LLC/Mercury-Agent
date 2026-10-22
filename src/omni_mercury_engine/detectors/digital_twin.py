@@ -52,8 +52,6 @@ class DigitalTwinResidualDetector(BaseDetector):
     squashed into ``[0, 1]``.
     """
 
-
-
     decision_source = DecisionSource(
         kind="published",
         description=(

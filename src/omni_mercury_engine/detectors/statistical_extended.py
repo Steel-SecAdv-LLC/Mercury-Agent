@@ -1143,6 +1143,65 @@ class ExtendedStatisticalDetector(BaseDetector):
         self._is_fitted = True
         return self
 
+    def _learned_state(self) -> dict[str, Any]:
+        """Decompose the fitted sub-detectors into primitive innards.
+
+        Every component (MAD, LOF, DBSCAN, MCD, CUSUM, Grubbs, GESD) is an
+        in-house class whose fitted state is plain floats/arrays, so each is
+        saved as its ``__dict__``, keyed by the method's string value (the
+        :class:`StatisticalMethod` enum itself must not enter the payload).
+        The one exception is the LOF detector's scipy cKDTree, which is
+        rebuilt deterministically from the saved training points on restore.
+        The dynamic-threshold adapter's streaming state rides along so a
+        restored detector resumes at the same operating point.
+        """
+        from omni_mercury_engine.core.base import _serializable_state
+
+        owner = type(self).__name__
+        detectors: dict[str, Any] = {}
+        for method, detector in self._detectors.items():
+            detectors[str(method)] = {
+                key: _serializable_state(value, owner=owner, attr=f"_detectors[{method}].{key}")
+                for key, value in detector.__dict__.items()
+                if key != "_train_tree"  # scipy cKDTree: rebuilt from _train_X
+            }
+        state: dict[str, Any] = {"detectors": detectors}
+        if self._dynamic_threshold is not None:
+            state["dynamic_threshold"] = {
+                key: _serializable_state(value, owner=owner, attr=f"dynamic_threshold.{key}")
+                for key, value in vars(self._dynamic_threshold.state).items()
+            }
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the sub-detector innards captured by :meth:`_learned_state`.
+
+        The fresh instance's ``__init__`` has already constructed the
+        sub-detectors from config; this pours the saved fitted attributes
+        back into them and rebuilds the LOF detector's cKDTree.
+        """
+        from omni_mercury_engine.core.base import _deserialized_state
+
+        state = _deserialized_state(state)
+        detectors_state = state.get("detectors", {})
+        for method, detector in self._detectors.items():
+            inner = detectors_state.get(str(method))
+            if inner is None:
+                continue
+            for key, value in inner.items():
+                setattr(detector, key, value)
+            if (
+                isinstance(detector, LOFDetector)
+                and getattr(detector, "_train_X", None) is not None
+            ):
+                from scipy.spatial import cKDTree
+
+                detector._train_tree = cKDTree(detector._train_X)
+        dynamic_state = state.get("dynamic_threshold")
+        if dynamic_state is not None and self._dynamic_threshold is not None:
+            for key, value in dynamic_state.items():
+                setattr(self._dynamic_threshold.state, key, value)
+
     def detect(self, data: np.ndarray[Any, Any] | Any) -> dict[str, Any]:
         """Detect anomalies using ensemble of methods."""
         if not self._is_fitted:

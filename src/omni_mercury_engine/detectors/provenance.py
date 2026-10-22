@@ -67,9 +67,7 @@ class WrappedDecisionSource:
         cls = getattr(importlib.import_module(module_path), class_name)
         source = getattr(cls, "decision_source", None)
         if source is None:
-            raise AttributeError(
-                f"{self._target} declares no decision_source to delegate to"
-            )
+            raise AttributeError(f"{self._target} declares no decision_source to delegate to")
         return source
 
     def __repr__(self) -> str:

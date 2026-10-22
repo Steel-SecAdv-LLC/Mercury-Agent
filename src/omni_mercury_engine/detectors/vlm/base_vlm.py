@@ -17,6 +17,7 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.core.exceptions import InputModalityError
 
 
 class LVLMType(Enum):
@@ -133,6 +134,16 @@ class BaseVLMDetector(BaseDetector):
         self._name = self.__class__.__name__
         self._metrics = DetectorMetrics()
 
+        # BaseDetector's calibration attributes (its __init__ is bypassed
+        # above, but save()/load() and get_effective_threshold() read them).
+        self._config: dict[str, Any] = self._base_config_dict
+        self._auto_calibrate = False
+        self._calibration_method = "auto"
+        self._contamination = 0.05
+        self._calibration_manager: Any = None
+        self._calibrated_threshold: float | None = None
+        self._last_diagnostics: Any = None
+
         self.device = torch.device(self.vlm_config.device)
         self._model: Any = None
         self._processor: Any = None
@@ -217,6 +228,15 @@ class BaseVLMDetector(BaseDetector):
         """
         ...
 
+    #: ``_base_config_dict`` travels with the constructor (configuration, not
+    #: knowledge); ``_model`` / ``_processor`` are pretrained checkpoints
+    #: loaded lazily by name from the config, never weights learned here.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {
+        "_base_config_dict",
+        "_model",
+        "_processor",
+    }
+
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseVLMDetector:
         """VLM detectors are zero-shot - no fitting required.
 
@@ -282,21 +302,23 @@ class BaseVLMDetector(BaseDetector):
             Frames as a 4-D ``[T, C, H, W]`` numpy array.
 
         Raises:
-            ValueError: If the input is not image/video shaped.
+            InputModalityError: If the input is not image/video shaped (a
+                decline, which ``time_detection`` leaves uncounted).
+            ValueError: If the clip holds no frame.
         """
         name = self.__class__.__name__
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         frames = np.asarray(data)
         if not np.issubdtype(frames.dtype, np.number):
-            raise ValueError(
+            raise InputModalityError(
                 f"{name} expects numeric pixel data (uint8 or float), "
                 f"got dtype {frames.dtype!s}."
             )
         if frames.ndim == 3:
             frames = frames[np.newaxis, ...]
         if frames.ndim != 4:
-            raise ValueError(
+            raise InputModalityError(
                 f"{name} expects video frames with shape [T, C, H, W] or "
                 f"[T, H, W, C] (C = 1 or 3 channels; a single frame "
                 f"[C, H, W] / [H, W, C] is also accepted), got shape "
@@ -311,7 +333,7 @@ class BaseVLMDetector(BaseDetector):
             return frames
         if frames.shape[3] in (1, 3):
             return np.transpose(frames, (0, 3, 1, 2))
-        raise ValueError(
+        raise InputModalityError(
             f"{name} expects 1- or 3-channel frames ([T, C, H, W] or "
             f"[T, H, W, C]), got shape {frames.shape}: neither axis 1 "
             "nor axis 3 is a valid channel axis."

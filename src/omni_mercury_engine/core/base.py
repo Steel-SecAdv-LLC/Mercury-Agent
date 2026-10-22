@@ -146,6 +146,94 @@ class DetectorMetrics:
         return 2 * (self.precision * self.recall) / (self.precision + self.recall)
 
 
+def _serializable_state(value: Any, *, owner: str, attr: str) -> Any:
+    """``value`` as a primitives-only payload, or raise ``NotImplementedError``.
+
+    Accepted: None, bool, int, float, str, bytes, numpy scalars/arrays,
+    torch tensors, and dict/list/tuple/set nests thereof (sets become sorted
+    lists; dict keys must be primitives).  An ``nn.Module`` is captured as
+    ``{"__module_state__": state_dict}``.  Anything else is a sign the
+    detector holds richer learned objects and must override
+    ``_learned_state`` itself -- half-saving silently is worse than failing.
+    """
+    import numpy as np
+
+    # numpy objects are packed as raw bytes + dtype: the weights_only
+    # unpickler refuses numpy's reconstruction globals, so a raw ndarray /
+    # numpy scalar in the payload would make the checkpoint unloadable.
+    if isinstance(value, np.generic):
+        if value.dtype.hasobject:
+            raise NotImplementedError(
+                f"{owner}.{attr} holds an object-dtype numpy scalar, which the "
+                "shared detector checkpoint cannot serialize safely"
+            )
+        return {"__npgeneric__": value.tobytes(), "dtype": value.dtype.str}
+    if value is None or isinstance(value, (bool, int, float, str, bytes)):
+        return value
+    if isinstance(value, np.ndarray):
+        if value.dtype.hasobject or value.dtype.names:
+            raise NotImplementedError(
+                f"{owner}.{attr} holds an object/structured-dtype numpy array, "
+                "which the shared detector checkpoint cannot serialize safely; "
+                "override _learned_state/_restore_learned_state for this detector"
+            )
+        return {
+            "__ndarray__": np.ascontiguousarray(value).tobytes(),
+            "dtype": value.dtype.str,
+            "shape": tuple(int(s) for s in value.shape),
+        }
+    if TORCH_AVAILABLE and isinstance(value, torch.Tensor):
+        return value
+    if TORCH_AVAILABLE and isinstance(value, nn.Module):
+        return {"__module_state__": value.state_dict()}
+    if isinstance(value, dict):
+        return {
+            k: _serializable_state(v, owner=owner, attr=f"{attr}[{k!r}]") for k, v in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        items = [
+            _serializable_state(v, owner=owner, attr=f"{attr}[{i}]") for i, v in enumerate(value)
+        ]
+        return tuple(items) if isinstance(value, tuple) else items
+    if isinstance(value, (set, frozenset)):
+        return sorted(
+            (_serializable_state(v, owner=owner, attr=f"{attr}{{}}") for v in value),
+            key=repr,
+        )
+    raise NotImplementedError(
+        f"{owner}.{attr} holds a {type(value).__name__}, which the shared "
+        "detector checkpoint cannot serialize safely; override _learned_state/"
+        "_restore_learned_state for this detector"
+    )
+
+
+def _deserialized_state(value: Any) -> Any:
+    """Invert :func:`_serializable_state`'s numpy packing on a loaded payload.
+
+    Walks dict/list/tuple nests, turning ``{"__ndarray__": bytes, ...}`` and
+    ``{"__npgeneric__": bytes, ...}`` wrappers back into the numpy objects
+    they were saved from; ``{"__module_state__": ...}`` wrappers are left for
+    :meth:`BaseDetector._restore_learned_state` to feed into ``load_state_dict``.
+    """
+    import numpy as np
+
+    if isinstance(value, dict):
+        keys = set(value)
+        if keys == {"__npgeneric__", "dtype"}:
+            return np.frombuffer(value["__npgeneric__"], dtype=value["dtype"])[0]
+        if keys == {"__ndarray__", "dtype", "shape"}:
+            flat = np.frombuffer(value["__ndarray__"], dtype=value["dtype"])
+            return flat.reshape(tuple(value["shape"])).copy()
+        if "__module_state__" in value:
+            return value
+        return {k: _deserialized_state(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_deserialized_state(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_deserialized_state(v) for v in value)
+    return value
+
+
 def _finite_sample_mask(data: Any) -> Any:
     """Per-sample all-finite mask for a float array/tensor, else ``None``.
 
@@ -157,15 +245,15 @@ def _finite_sample_mask(data: Any) -> Any:
     if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
         if not data.is_floating_point() or data.ndim == 0 or data.shape[0] == 0:
             return None
-        flat = data.reshape(data.shape[0], -1)
-        return torch.isfinite(flat).all(dim=1)
+        flat_tensor = data.reshape(data.shape[0], -1)
+        return torch.isfinite(flat_tensor).all(dim=1)
     import numpy as np
 
     if isinstance(data, np.ndarray):
         if data.dtype.kind != "f" or data.ndim == 0 or data.shape[0] == 0:
             return None
-        flat = data.reshape(data.shape[0], -1)
-        return np.isfinite(flat).all(axis=1)
+        flat_array = data.reshape(data.shape[0], -1)
+        return np.isfinite(flat_array).all(axis=1)
     return None
 
 
@@ -580,6 +668,172 @@ class BaseDetector(ABC):
             Features should be normalized and suitable for neural network input.
         """
         pass
+
+    # =========================================================================
+    # Learned-state persistence (shared save/load)
+    # =========================================================================
+    # 33 manifest detectors learned from data (fit) but could not save what
+    # they learned: every deployment refit from scratch.  The shared
+    # mechanism below serializes the learned instance state as a
+    # primitives-only payload (torch.save), loaded back exclusively through
+    # security.safe_torch.safe_torch_load (weights_only=True), mirroring the
+    # visual detectors' checkpoint convention: no pickle execution surface.
+
+    #: Instance attributes that are infrastructure, never learned state.
+    _UNSAVED_ATTRS: frozenset[str] = frozenset(
+        {
+            "_config",
+            "_metrics",
+            "logger",
+            "_calibration_manager",
+            "_last_diagnostics",
+            "_name",
+        }
+    )
+
+    @staticmethod
+    def _is_unsaved_infrastructure(value: Any) -> bool:
+        """Construction-time infrastructure that never belongs in a checkpoint.
+
+        Configuration objects travel with the constructor (the caller builds
+        the detector with its config, then loads learned state -- the
+        sklearn convention); RNGs, loggers, locks and thread-local storage
+        are process state, not knowledge.
+        """
+        import logging
+        import random
+        import threading
+
+        import numpy as np
+
+        if isinstance(
+            value,
+            (
+                logging.Logger,
+                random.Random,
+                np.random.Generator,
+                np.random.RandomState,
+                threading.local,
+            ),
+        ):
+            return True
+        if isinstance(value, (threading.Lock().__class__, threading.RLock().__class__)):
+            return True
+        # A torch.device is compute placement, decided by the constructor /
+        # deployment config, never knowledge learned from data.
+        if TORCH_AVAILABLE and isinstance(value, torch.device):
+            return True
+        type_name = type(value).__name__
+        return type_name.endswith(("Config", "Configuration"))
+
+    def _learned_state(self) -> dict[str, Any]:
+        """The instance attributes that constitute what this detector learned.
+
+        The default captures every instance attribute except the
+        infrastructure names in :attr:`_UNSAVED_ATTRS`, and refuses (raises
+        ``NotImplementedError``) when an attribute is not safely
+        serializable as primitives / numpy / torch state -- a detector
+        holding richer objects must override ``_learned_state`` /
+        ``_restore_learned_state`` rather than silently half-saving.
+
+        Returns:
+            A primitives-only mapping (nested dict/list/tuple of numbers,
+            strings, booleans, None, numpy arrays, torch tensors; an
+            ``nn.Module`` attribute is stored as its ``state_dict`` under a
+            ``{"__module_state__": ...}`` wrapper).
+        """
+        state: dict[str, Any] = {}
+        for key, value in self.__dict__.items():
+            if key in self._UNSAVED_ATTRS or self._is_unsaved_infrastructure(value):
+                continue
+            state[key] = _serializable_state(value, owner=type(self).__name__, attr=key)
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the attributes captured by :meth:`_learned_state`."""
+        for key, value in state.items():
+            if isinstance(value, dict) and "__module_state__" in value:
+                target = getattr(self, key, None)
+                if not (TORCH_AVAILABLE and isinstance(target, nn.Module)):
+                    raise ValueError(
+                        f"checkpoint carries module weights for {type(self).__name__}.{key}, "
+                        "but this instance has no constructed module there to load them "
+                        "into; the detector must override _restore_learned_state to build it"
+                    )
+                target.load_state_dict(value["__module_state__"])
+                continue
+            setattr(self, key, _deserialized_state(value))
+
+    def save(self, path: str) -> None:
+        """Save the fitted detector's learned state to ``path``.
+
+        The payload is primitives-only so it round-trips under
+        ``weights_only=True`` on load; the detector's class is recorded and
+        checked on load so a checkpoint can never silently restore into a
+        different detector.
+
+        Raises:
+            ImportError: When torch is unavailable (persistence ships with
+                the ``[ml]`` extra, matching the visual checkpoint path).
+            NotImplementedError: When an attribute is not safely
+                serializable and the subclass has not overridden
+                ``_learned_state``.
+        """
+        if not TORCH_AVAILABLE:
+            raise ImportError(
+                "BaseDetector.save requires torch (the [ml] extra): checkpoints "
+                "are torch payloads loaded under weights_only=True"
+            )
+        torch.save(
+            {
+                "detector_class": f"{type(self).__module__}.{type(self).__qualname__}",
+                "schema": 1,
+                "threshold": float(self.threshold),
+                "is_fitted": bool(self._is_fitted),
+                "name": str(self._name),
+                "auto_calibrate": bool(self._auto_calibrate),
+                "calibrated_threshold": self._calibrated_threshold,
+                "learned": self._learned_state(),
+            },
+            path,
+        )
+
+    def load(self, path: str) -> BaseDetector:
+        """Restore a detector saved by :meth:`save` into this instance.
+
+        Loading is hard-pinned to ``weights_only=True`` via
+        ``security.safe_torch.safe_torch_load``; a checkpoint written for a
+        different detector class is refused.
+
+        Args:
+            path: The checkpoint written by :meth:`save`.
+
+        Returns:
+            Self, fitted with the restored state.
+
+        Raises:
+            ValueError: When the checkpoint belongs to another detector
+                class or carries an unknown schema.
+        """
+        from omni_mercury_engine.security.safe_torch import safe_torch_load
+
+        payload = safe_torch_load(path, map_location="cpu")
+        expected = f"{type(self).__module__}.{type(self).__qualname__}"
+        if payload.get("detector_class") != expected:
+            raise ValueError(
+                f"checkpoint at {path!r} was saved by "
+                f"{payload.get('detector_class')!r}, not {expected!r}; refusing "
+                "to restore another detector's state"
+            )
+        if payload.get("schema") != 1:
+            raise ValueError(f"unknown detector checkpoint schema {payload.get('schema')!r}")
+        self._restore_learned_state(payload["learned"])
+        self.threshold = float(payload["threshold"])
+        self._is_fitted = bool(payload["is_fitted"])
+        self._name = payload.get("name", self._name)
+        self._auto_calibrate = bool(payload.get("auto_calibrate", self._auto_calibrate))
+        self._calibrated_threshold = payload.get("calibrated_threshold")
+        return self
 
     def is_fitted(self) -> bool:
         """Check if detector has been fitted.

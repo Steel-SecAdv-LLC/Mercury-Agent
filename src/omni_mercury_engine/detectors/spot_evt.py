@@ -64,8 +64,6 @@ class SPOTDetector(BaseDetector):
     at-threshold point scores ~0.5.
     """
 
-
-
     decision_source = DecisionSource(
         kind="published",
         description=(

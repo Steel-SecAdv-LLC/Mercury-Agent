@@ -519,6 +519,11 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
     )
     FEATURE_NAMES = ("confidence", "flood_likely", "precipitation_24h_inches")
 
+    #: The wrapped FloodDetector is physics-backed and lazily built; it learns
+    #: nothing from the caller's batch, so the adapter's checkpoint carries
+    #: only the trivial fitted flag and base attributes.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_detector"}
+
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize with ``BaseDetector`` config; the detector loads lazily."""
         super().__init__(config)

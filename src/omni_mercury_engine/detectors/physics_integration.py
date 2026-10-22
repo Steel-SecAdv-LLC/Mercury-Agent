@@ -322,6 +322,57 @@ class PhysicsIntegratedDetector(BaseDetector):
             threshold=config.get("threshold", self.threshold),
         )
 
+    #: The wrapped component detectors that learn in :meth:`fit`; their
+    #: learned state is nested under these names in the checkpoint.
+    _CHILD_DETECTOR_ATTRS: tuple[str, ...] = (
+        "_spectral_detector",
+        "_dynamics_detector",
+        "_uiux_detector",
+        "_oracle_detector",
+    )
+
+    #: The 3R engines and GOSNN scalars are built deterministically in
+    #: ``__init__`` from configuration and hold constants, not fitted state;
+    #: the child detectors are decomposed into their own learned state below.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {
+        "_recursion_engine",
+        "_resonance_engine",
+        "_fusion_equation",
+        "_gosnn",
+        *_CHILD_DETECTOR_ATTRS,
+    }
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Own primitives plus each enabled child detector's learned state."""
+        state = super()._learned_state()
+        for attr in self._CHILD_DETECTOR_ATTRS:
+            child = getattr(self, attr)
+            state[attr] = None if child is None else child._learned_state()
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore own primitives, then each child detector's learned state.
+
+        The children are rebuilt by ``__init__`` from configuration, so a
+        checkpoint whose enabled-detector set differs from this instance's
+        configuration is refused instead of silently dropping a child's
+        learned state.
+        """
+        state = dict(state)
+        child_states = {attr: state.pop(attr, None) for attr in self._CHILD_DETECTOR_ATTRS}
+        super()._restore_learned_state(state)
+        for attr, child_state in child_states.items():
+            child = getattr(self, attr)
+            if child_state is None:
+                continue
+            if child is None:
+                raise ValueError(
+                    f"checkpoint carries learned state for {attr}, but this "
+                    "PhysicsIntegratedDetector is configured without that "
+                    "component; construct it with the same enabled_detectors"
+                )
+            child._restore_learned_state(child_state)
+
     def _init_detectors(self) -> None:
         """Initialize component detectors based on configuration."""
         cfg = self._physics_config

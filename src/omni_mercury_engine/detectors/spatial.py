@@ -129,8 +129,6 @@ class SpatialAnomalyDetector(BaseDetector):
     - Spatial clustering
     """
 
-
-
     decision_source = DecisionSource(
         kind="published",
         description=(
@@ -415,3 +413,28 @@ class SpatialAnomalyDetector(BaseDetector):
         self.lof._tree = KDTree(np.asarray(state["lof_points"], dtype=np.float64))
         self.lof._lrd = np.asarray(state["lof_lrd"], dtype=np.float64)
         self._is_fitted = True
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Bridge the shared checkpoint to :meth:`get_fitted_state`.
+
+        The fitted ``_NativeLOF`` holds a scipy KDTree, which the shared
+        primitives-only payload cannot carry; the exported state carries the
+        training points instead and :meth:`set_fitted_state` rebuilds the
+        tree deterministically, so restored scores match exactly.
+        """
+        from omni_mercury_engine.core.base import _serializable_state
+
+        fitted = self.get_fitted_state()
+        if fitted is None:
+            return {}
+        return {
+            key: _serializable_state(value, owner=type(self).__name__, attr=key)
+            for key, value in fitted.items()
+        }
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the state captured by :meth:`_learned_state`."""
+        from omni_mercury_engine.core.base import _deserialized_state
+
+        if state:
+            self.set_fitted_state({key: _deserialized_state(value) for key, value in state.items()})

@@ -51,8 +51,6 @@ class RootCauseGraphDetector(BaseDetector):
     by a reverse personalised random walk seeded from the residual vector.
     """
 
-
-
     decision_source = (
         DecisionSource(
             kind="published",

@@ -7,19 +7,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,050
-- **Capability-bearing classes:** 2,037 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,053
+- **Capability-bearing classes:** 2,040 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,193 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,194 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1193 |
+| Other capability classes | 1194 |
 | Support types (config / result / enum / error) | 1013 |
-| Detection | 177 |
+| Detection | 179 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 106 |
 | Engines & orchestration | 101 |
@@ -1046,7 +1046,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 452 classes (327 capability)
+### `detectors/` — 455 classes (330 capability)
 
 **Adapters & backends**
 
@@ -1188,6 +1188,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MultivariateTSDetector` (`detectors.multivariate_timeseries`) — Multivariate time-series anomaly detector using LTG architecture.
 - `OnlineDriftDetector` (`detectors.drift`) — Online drift detection with adaptive windowing (ADWIN).
 - `PaDiMDetector` (`detectors.visual.padim`) — PaDiM anomaly detector.
+- `PageHinkleyDetector` (`detectors.sequential`) — Page-Hinkley cumulative test for a sustained mean shift.
 - `ParticleFilterDetector` (`detectors.particle_filter`) — Bootstrap particle-filter detector scoring predictive innovations.
 - `PatchCoreDetector` (`detectors.visual.patchcore`) — PatchCore anomaly detector.
 - `PhysicsIntegratedDetector` (`detectors.physics_integration`) — Unified detector integrating all advanced physics-based modules.
@@ -1197,6 +1198,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `RockfallDetector` (`detectors.geological.rockfall_detector`) — Rockfall trigger and precursor detector.
 - `RootCauseGraphDetector` (`detectors.rca`) — Random-walk root-cause localiser over a causal / service graph.
 - `SPOTDetector` (`detectors.spot_evt`) — Streaming EVT detector with a data-driven Peaks-Over-Threshold threshold.
+- `SPRTDetector` (`detectors.sequential`) — Wald Sequential Probability Ratio Test for a Gaussian mean shift.
 - `SRCNNDetector` (`detectors.srcnn`) — Spectral-Residual + CNN discriminator anomaly detector (Ren et al., 2019).
 - `STFPMDetector` (`detectors.visual.stfpm`) — STFPM anomaly detector using teacher-student distillation.
 - `SeismicSwarmDetector` (`detectors.geological.volcanic`) — Volcano-tectonic (VT) earthquake swarm detection.
@@ -1327,6 +1329,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `HazardDiagnostics` (`detectors.hazard_diagnostics`) — Intermediate arrays a hazard detector genuinely computed for one prediction.
 - `HelixMultiplicativeProbe` (`detectors.math_arrest.probes.helix`) — Detect multiplicative shocks via log-ratio analysis.
 - `IQRRobustProbe` (`detectors.math_arrest.probes.iqr_robust`) — Detect distribution tail anomalies using Tukey IQR fences.
+- `InputGrader` (`detectors._hazard_input`) — Grade what is usable; set the rest aside with its reason.
 - `KinematicFeatures` (`detectors.acceleration_dynamics`) — Extracted kinematic features from time-series.
 - `LVLMBackendCache` (`detectors.vlm.lvlm_cache`) — Thread-safe singleton cache for LVLM backends.
 - `LightningCell` (`detectors.meteorological.lightning_detector`) — One spatial cell (grid bin) of flash activity.

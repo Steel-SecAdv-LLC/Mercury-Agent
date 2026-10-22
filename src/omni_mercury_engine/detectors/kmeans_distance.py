@@ -148,6 +148,50 @@ class KMeansDistanceDetector(BaseDetector):
         nearest = dists.min(axis=1, keepdims=True)
         return np.concatenate([dists, nearest], axis=1).astype(np.float32)
 
+    def _learned_state(self) -> dict[str, Any]:
+        """Decompose the fitted ``KMeansClusterer`` into its primitive innards.
+
+        Inference needs only the learned centroids (plus the clamped cluster
+        count); ``_restore_learned_state`` rebuilds the clusterer exactly from
+        them. The standardisation statistics and score scale ride along as
+        plain arrays/floats.
+        """
+        from omni_mercury_engine.core.base import _serializable_state
+
+        state = {
+            key: _serializable_state(value, owner=type(self).__name__, attr=key)
+            for key, value in self.__dict__.items()
+            if key not in self._UNSAVED_ATTRS
+            and key != "_clusterer"
+            and not self._is_unsaved_infrastructure(value)
+        }
+        if self._clusterer is not None:
+            state["_clusterer_state"] = {
+                "n_clusters": int(self._clusterer.n_clusters),
+                "centroids": _serializable_state(
+                    self._clusterer.centroids,
+                    owner=type(self).__name__,
+                    attr="_clusterer.centroids",
+                ),
+            }
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Rebuild the clusterer from its saved centroids, restore the rest."""
+        from omni_mercury_engine.core.base import _deserialized_state
+
+        state = dict(state)
+        clusterer_state = state.pop("_clusterer_state", None)
+        super()._restore_learned_state(state)
+        self._clusterer = None
+        if clusterer_state is not None:
+            from omni_mercury_engine.cognitive.neural_memory_layer import KMeansClusterer
+
+            restored = _deserialized_state(clusterer_state)
+            clusterer = KMeansClusterer(n_clusters=int(restored["n_clusters"]))
+            clusterer.centroids = restored["centroids"]
+            self._clusterer = clusterer
+
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` (the live-inference contract).
 

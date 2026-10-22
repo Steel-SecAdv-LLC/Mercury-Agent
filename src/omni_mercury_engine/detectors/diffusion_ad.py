@@ -161,6 +161,29 @@ class DiffusionReconstructionDetector(BaseDetector):
         """Return ``True`` once the denoiser has been trained."""
         return self._is_fitted
 
+    # ``_model``'s shape travels with the saved window/hidden/n_steps, so a
+    # fresh (unfitted, ``_model is None``) instance rebuilds it before its
+    # weights are restored.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_model"}
+
+    def _learned_state(self) -> dict[str, Any]:
+        """The default primitive state plus the denoiser's weights."""
+        state = super()._learned_state()
+        if self._model is not None:
+            state["_model_weights"] = {"__module_state__": self._model.state_dict()}
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore primitives, then rebuild the denoiser and load its weights."""
+        state = dict(state)
+        model_weights = state.pop("_model_weights", None)
+        super()._restore_learned_state(state)
+        if model_weights is not None:
+            model = _Denoiser(self.window, self.hidden, self.n_steps)
+            model.load_state_dict(model_weights["__module_state__"])
+            model.eval()
+            self._model = model
+
     def _to_1d(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)

@@ -22,7 +22,7 @@ detectors needing an external service or model backend; ``serves X`` marks
 an adapter entry and names the domain detector behind it.
 
 
-## engine + registry (64)
+## engine + registry (66)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -43,12 +43,14 @@ an adapter entry and names the domain detector behind it.
 | `imm` | `IMMDetector` | base | series_1d | -- | Interacting-Multiple-Model switching state-space residual detector (quiet + manoeuvring Kalman bank; Blom & Bar-Shalom, 1988) |
 | `kmeans_distance` | `KMeansDistanceDetector` | base | series_1d | fit | Distance-to-nearest-centroid unsupervised anomaly signal (revived cognitive clusterer; ROC-AUC ~0.8-0.98 on ADBench) |
 | `nano_safeguard` | `NanoSafeguardDetector` | base | series_1d | -- | Nano-safeguard micro-anomaly detection with hierarchical scanning |
+| `page_hinkley` | `PageHinkleyDetector` | base | series_1d | fit | Page-Hinkley cumulative mean-shift test (both one-sided variants; PH_t = m_t - min m_s, alarm at PH_t > lambda; Page, Biometrika 1954) |
 | `particle_filter` | `ParticleFilterDetector` | base | series_1d | -- | Bootstrap particle-filter state-space residual detector scoring normalised one-step-ahead predictive innovations |
 | `rca` | `RootCauseGraphDetector` | base | series_1d | -- | Root-cause localisation detector: propagates per-node residuals over a causal/service graph to rank candidate root causes with attribution |
 | `spatial` | `SpatialAnomalyDetector` | base | matrix_2d | -- | Geographic and spatial relationship anomalies |
 | `spectral_residual` | `SpectralResidualDetector` | base | series_1d | -- | Spectral-Residual saliency detector for streaming time series (training-free FFT saliency; Ren et al., KDD 2019) |
 | `spiking` | `SpikingNetworkDetector` | base | series_1d | -- | Spiking-neural-network (leaky integrate-and-fire) novelty detector scoring spike-rate divergence from the learned normal regime |
 | `spot_evt` | `SPOTDetector` | base | series_1d | fit | SPOT/DSPOT Peaks-Over-Threshold EVT dynamic-threshold detector with risk-budgeted false-positive control (Siffer et al., KDD 2017) |
+| `sprt` | `SPRTDetector` | base | series_1d | fit | Wald Sequential Probability Ratio Test for a Gaussian mean shift, deciding at the exact Wald boundaries A=(1-beta)/alpha, B=beta/(1-alpha) (Wald, Ann. Math. Statist. 1945) |
 | `srcnn` | `SRCNNDetector` | base | series_1d | fit | SR-CNN: CNN discriminator over Spectral-Residual saliency, trained on synthetic-anomaly-augmented series (Ren et al., KDD 2019; requires torch) |
 | `statistical` | `MercuryAnomalyDetector` | base | series_1d | -- | Z-score, percentile, MAD-based detection |
 | `survival` | `SurvivalHazardDetector` | base | series_1d | -- | Survival / time-to-event hazard detector (Kaplan-Meier baseline + Cox proportional-hazards deviation) for inter-event-time streams |

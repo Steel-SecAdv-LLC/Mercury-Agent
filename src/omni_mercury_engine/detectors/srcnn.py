@@ -151,6 +151,33 @@ class SRCNNDetector(BaseDetector):
         """Return ``True`` once the CNN discriminator has been trained."""
         return self._is_fitted
 
+    # ``_sr`` is a nested detector (decomposed into its own learned state
+    # below) and ``_model``'s shape travels with the saved window/hidden, so
+    # it is rebuilt before its weights are restored.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_sr", "_model"}
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Primitives, the SR sub-detector's learned state, and CNN weights."""
+        state = super()._learned_state()
+        state["_sr_state"] = self._sr._learned_state()
+        if self._model is not None:
+            state["_model_weights"] = {"__module_state__": self._model.state_dict()}
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore primitives, then the SR sub-detector, then rebuild the CNN."""
+        state = dict(state)
+        sr_state = state.pop("_sr_state", None)
+        model_weights = state.pop("_model_weights", None)
+        super()._restore_learned_state(state)
+        if sr_state is not None:
+            self._sr._restore_learned_state(sr_state)
+        if model_weights is not None:
+            model = _SRCNN(self.window, self.hidden)
+            model.load_state_dict(model_weights["__module_state__"])
+            model.eval()
+            self._model = model
+
     def _to_1d(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)

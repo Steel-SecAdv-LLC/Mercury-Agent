@@ -143,6 +143,13 @@ class LAVADDetector(BaseVLMDetector):
         # Scene context for test compatibility
         self._scene_context: dict[str, Any] | None = None
 
+    #: The captioning and reasoning models are pretrained checkpoints loaded
+    #: lazily by name from the config, never weights learned here.
+    _UNSAVED_ATTRS = BaseVLMDetector._UNSAVED_ATTRS | {
+        "_caption_model",
+        "_reasoning_model",
+    }
+
     @property
     def scene_context(self) -> dict[str, Any] | None:
         """Get the current scene context."""

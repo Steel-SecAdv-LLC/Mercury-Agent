@@ -167,6 +167,42 @@ class AnyAnomalyDetector(BaseVLMDetector):
         self._anomaly_definition: str | None = None
         self._reference_frames: list[Any] = []
 
+    #: ``context_provider`` is built deterministically in ``__init__`` from
+    #: configuration; ``_backend`` is the lazily-loaded pretrained LVLM.
+    #: ``_reference_frames`` (user-supplied detection context) is decomposed
+    #: below so numpy frames survive the weights_only load.
+    _UNSAVED_ATTRS = BaseVLMDetector._UNSAVED_ATTRS | {
+        "context_provider",
+        "_backend",
+        "_reference_frames",
+    }
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Default state plus reference frames stored as tensors."""
+        state = super()._learned_state()
+        state["_reference_frames_payload"] = [
+            frame if isinstance(frame, torch.Tensor) else torch.from_numpy(np.asarray(frame))
+            for frame in self._reference_frames
+        ]
+        state["_reference_frames_were_tensors"] = [
+            isinstance(frame, torch.Tensor) for frame in self._reference_frames
+        ]
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore default state, then decode the reference frames."""
+        state = dict(state)
+        payload = state.pop("_reference_frames_payload", None)
+        were_tensors = state.pop("_reference_frames_were_tensors", None)
+        super()._restore_learned_state(state)
+        if payload is not None:
+            if were_tensors is None:
+                were_tensors = [True] * len(payload)
+            self._reference_frames = [
+                frame if was_tensor else frame.cpu().numpy()
+                for frame, was_tensor in zip(payload, were_tensors, strict=True)
+            ]
+
     @property
     def anomaly_definition(self) -> str | None:
         """Get the current anomaly definition."""

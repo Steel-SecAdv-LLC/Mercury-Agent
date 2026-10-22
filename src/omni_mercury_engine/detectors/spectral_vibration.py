@@ -891,6 +891,42 @@ class SpectralVibrationDetector(BaseDetector):
             sig_type: [] for sig_type in VibrationSignatureType
         }
 
+    # ``_spectral_graph_cache`` is memoized per spectrum size and rebuilt on
+    # demand; ``_signature_database`` is decomposed below because its enum
+    # keys are not weights_only-loadable.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {
+        "_spectral_graph_cache",
+        "_signature_database",
+    }
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Default state plus the signature database keyed by enum value."""
+        state = super()._learned_state()
+        # Spectra are stored as torch tensors: this entry bypasses the base
+        # packing, and a raw ndarray is not weights_only-loadable.
+        state["_signature_database_by_value"] = {
+            sig_type.value: [
+                torch.from_numpy(np.ascontiguousarray(spectrum)) for spectrum in spectra
+            ]
+            for sig_type, spectra in self._signature_database.items()
+        }
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore default state, then rekey the signature database by enum."""
+        state = dict(state)
+        database = state.pop("_signature_database_by_value", None)
+        super()._restore_learned_state(state)
+        if database is not None:
+            restored: dict[VibrationSignatureType, list[np.ndarray[Any, Any]]] = {
+                sig_type: [] for sig_type in VibrationSignatureType
+            }
+            for value, spectra in database.items():
+                restored[VibrationSignatureType(value)] = [
+                    spectrum.cpu().numpy() for spectrum in spectra
+                ]
+            self._signature_database = restored
+
     def _init_networks(self) -> None:
         """Initialize neural network components."""
         cfg = self._spectral_config

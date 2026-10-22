@@ -450,6 +450,33 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         modality="series_1d",
     ),
     DetectorManifestEntry(
+        "sprt",
+        "omni_mercury_engine.detectors.sequential",
+        "SPRTDetector",
+        DetectorCategory.BASE,
+        "Wald Sequential Probability Ratio Test for a Gaussian mean shift, "
+        "deciding at the exact Wald boundaries A=(1-beta)/alpha, "
+        "B=beta/(1-alpha) (Wald, Ann. Math. Statist. 1945)",
+        feature_dim=1,
+        tags=["streaming", "statistical", "sequential", "hypothesis-test"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "page_hinkley",
+        "omni_mercury_engine.detectors.sequential",
+        "PageHinkleyDetector",
+        DetectorCategory.BASE,
+        "Page-Hinkley cumulative mean-shift test (both one-sided variants; "
+        "PH_t = m_t - min m_s, alarm at PH_t > lambda; Page, Biometrika 1954)",
+        feature_dim=1,
+        tags=["streaming", "statistical", "sequential", "change-point"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
         "spot_evt",
         "omni_mercury_engine.detectors.spot_evt",
         "SPOTDetector",

@@ -132,8 +132,8 @@ def _sql_or_tautology(payload: str) -> bool:
         lhs, rhs = m.group(1), m.group(2)
         if lhs.lower() == rhs.lower() or (lhs.isdigit() and rhs.isdigit()):
             return True
-    m = _SQL_QUOTE_OR.search(payload)
-    return m is not None and _SQL_CMP_AFTER.search(payload, m.end()) is not None
+    quote_or = _SQL_QUOTE_OR.search(payload)
+    return quote_or is not None and _SQL_CMP_AFTER.search(payload, quote_or.end()) is not None
 
 
 #: Event-handler injection: an ``on<letters> =`` attribute preceded by a

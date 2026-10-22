@@ -3979,6 +3979,32 @@ class MercuryAnomalyDetector(BaseDetector):
         self._restore_knn_stream(state.get("knn_stream"))
         self._is_fitted = True
 
+    def _learned_state(self) -> dict[str, Any]:
+        """Bridge the shared checkpoint to :meth:`get_fitted_state`.
+
+        The detector's analyzers, Oracle and kNN stream are richer objects
+        than the primitives-only payload carries; the federation-grade
+        exported state (reference statistics, data-type tag, kNN tree index)
+        is what round-trips, and :meth:`set_fitted_state` rebuilds the rest
+        exactly.
+        """
+        from omni_mercury_engine.core.base import _serializable_state
+
+        fitted = self.get_fitted_state()
+        if fitted is None:
+            return {}
+        return {
+            key: _serializable_state(value, owner=type(self).__name__, attr=key)
+            for key, value in fitted.items()
+        }
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the state captured by :meth:`_learned_state`."""
+        from omni_mercury_engine.core.base import _deserialized_state
+
+        if state:
+            self.set_fitted_state({key: _deserialized_state(value) for key, value in state.items()})
+
     def _restore_knn_stream(self, knn_state: dict[str, Any] | None) -> None:
         """Rebuild the kNN reference tree from the restored training data.
 

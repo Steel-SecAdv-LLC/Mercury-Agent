@@ -265,6 +265,12 @@ class NanoSafeguardDetector(BaseDetector):
         self.memory_buffer: list[np.ndarray[Any, Any]] = []
         self.max_memory = self.config.get("max_memory", 100)
 
+    #: ``resonance_analyzer`` is built deterministically in ``__init__`` and
+    #: holds no fitted state; ``memory_buffer`` is a detect-time rolling
+    #: window (process state, never read back into a verdict), not knowledge
+    #: learned in ``fit``.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"resonance_analyzer", "memory_buffer"}
+
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> NanoSafeguardDetector:
         """Fit nano-safeguard to normal data patterns.
 
