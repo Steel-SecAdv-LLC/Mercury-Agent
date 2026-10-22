@@ -4339,6 +4339,42 @@ class OmniMercuryEngine(LoggerMixin):
         self._checkpoint_fit_detectors.discard(name)
         return True
 
+    def stream_session(
+        self,
+        detector_types: list[str] | None = None,
+        *,
+        window_size: int = 256,
+        min_samples: int = 32,
+        refit_interval: int = 128,
+    ) -> Any:
+        """Open a one-sample-at-a-time detection session on this engine.
+
+        The returned :class:`~omni_mercury_engine.streaming.engine_stream.
+        EngineStreamSession` keeps a rolling window and detector state across
+        ``observe(sample)`` calls: detectors are fitted at warm-up and every
+        ``refit_interval`` samples, never per record, and each sample is
+        scored through :meth:`detect` so the gated boundary applies to
+        streaming verdicts exactly as to batch ones.
+
+        Args:
+            detector_types: Detector names to run (default: all enabled).
+            window_size: Rolling-window length scored per sample.
+            min_samples: Warm-up samples before the first verdict.
+            refit_interval: Samples between detector refits.
+
+        Returns:
+            A new ``EngineStreamSession``.
+        """
+        from omni_mercury_engine.streaming.engine_stream import EngineStreamSession
+
+        return EngineStreamSession(
+            self,
+            detector_types=detector_types,
+            window_size=window_size,
+            min_samples=min_samples,
+            refit_interval=refit_interval,
+        )
+
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
     def detect(
         self,
