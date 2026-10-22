@@ -708,6 +708,23 @@ class AdaptiveAnomalyDetector:
         else:
             return self._detect_generic(X)
 
+    def predict(self, X: NDArray[np.float64]) -> dict[str, Any]:
+        """Registry-contract view of :meth:`detect`: the same real scores.
+
+        Returns:
+            ``anomaly_scores`` / ``predictions`` / ``threshold`` /
+            ``confidence`` straight from the :class:`DetectionResult` that
+            :meth:`detect` computes -- nothing is recomputed or rescaled.
+        """
+        result = self.detect(X)
+        return {
+            "anomaly_scores": result.scores,
+            "predictions": result.predictions,
+            "threshold": result.threshold,
+            "confidence": result.confidence,
+            "profile_used": result.profile_used,
+        }
+
     def _detect_temporal(self, X: NDArray[np.float64]) -> DetectionResult:
         """Detection strategy for temporal data."""
         X_temporal = self._temporal_transformer.transform(X)

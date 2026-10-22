@@ -22,10 +22,13 @@ import pytest
 pytest.importorskip("torch")
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST, DetectorCategory
+from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 from omni_mercury_engine.engine import OmniMercuryEngine
 
-_BASE_ENTRIES = [e for e in DETECTOR_MANIFEST if e.category is DetectorCategory.BASE]
+# The engine contract follows the declared ``engine`` seam, not the BASE
+# category: a BASE-category entry serving only the registry (e.g. the
+# integrated statistical/geometric heads) is a valid non-BaseDetector.
+_ENGINE_ENTRIES = [e for e in DETECTOR_MANIFEST if "engine" in e.seams]
 _ADAPTED_ENTRIES = [e for e in DETECTOR_MANIFEST if "adapter" in e.tags]
 _CONTRACT_METHODS = ("fit", "detect", "extract_features", "is_fitted")
 
@@ -45,9 +48,9 @@ def test_every_manifest_entry_class_resolves() -> None:
         ), f"{entry.name}: {entry.module_path}.{entry.class_name} is missing"
 
 
-@pytest.mark.parametrize("entry", _BASE_ENTRIES, ids=lambda e: e.name)
+@pytest.mark.parametrize("entry", _ENGINE_ENTRIES, ids=lambda e: e.name)
 def test_base_detector_is_basedetector_with_contract(entry: Any) -> None:
-    """Every BASE entry is a BaseDetector subclass exposing the engine's contract.
+    """Every engine-seam entry is a BaseDetector exposing the engine's contract.
 
     This is the lock that would have caught ``kmeans_distance`` (a first-class
     detector that was not a ``BaseDetector`` and was registered nowhere).

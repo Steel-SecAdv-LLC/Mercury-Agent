@@ -58,7 +58,9 @@ COLUMN_VALUES: dict[str, float] = {
 
 #: Modalities whose payloads are cheap to synthesize; these seams are
 #: re-driven end to end on every run.
-DRIVEN_MODALITIES = frozenset({"series_1d", "matrix_2d", "rows", "trajectory", "graph", "record"})
+DRIVEN_MODALITIES = frozenset(
+    {"series_1d", "matrix_2d", "rows", "trajectory", "graph", "record", "windows_3d"}
+)
 
 RECORD_PAYLOADS: dict[str, Any] = {
     "intelligence_fusion": {
@@ -114,6 +116,9 @@ def _payload(entry: DetectorManifestEntry) -> Any:
         return networkx.karate_club_graph()
     if entry.modality == "record":
         return RECORD_PAYLOADS[entry.name]
+    if entry.modality == "windows_3d":
+        # Default MultivariateTSDetector config: window_size=100, num_features=10.
+        return rng.normal(size=(6, 100, 10))
     raise AssertionError(f"no example payload for modality {entry.modality!r}")
 
 

@@ -276,6 +276,7 @@ MANIFEST_MODALITIES: frozenset[str] = frozenset(
         "video_frames",  # [T, C, H, W] / [T, H, W, C] frames
         "graph",  # networkx graph
         "trajectory",  # [n, 3] (lat, lon, epoch_s)
+        "windows_3d",  # [n, window, features] pre-windowed series batches
         "record",  # typed domain mapping/dataclass
         "event",  # discrete domain events fed over time
         "text",  # string payloads
@@ -1428,6 +1429,57 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         tags=["adapter", "gic", "magnetometer"],
         seams=("engine", "registry"),
         modality="rows",
+    ),
+    # -- Statistical / geometric heads integrated from library-only modules --
+    DetectorManifestEntry(
+        "extended_statistical",
+        "omni_mercury_engine.detectors.statistical_extended",
+        "ExtendedStatisticalDetector",
+        DetectorCategory.BASE,
+        "Ensemble over MAD, LOF, DBSCAN, MCD, CUSUM, Grubbs and GESD statistical methods",
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "adaptive_anomaly",
+        "omni_mercury_engine.detectors.adaptive_detector",
+        "AdaptiveAnomalyDetector",
+        DetectorCategory.BASE,
+        "Profile-calibrated detector routing to temporal/covariance/high-dim backends",
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "topological",
+        "omni_mercury_engine.detectors.topological_analysis",
+        "TopologicalAnomalyDetector",
+        DetectorCategory.BASE,
+        "Persistent-homology profile scoring (Betti, entropy, landscapes, Wasserstein)",
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "multivariate_ts",
+        "omni_mercury_engine.detectors.multivariate_timeseries",
+        "MultivariateTSDetector",
+        DetectorCategory.BASE,
+        "LTG multivariate windowed time-series detector (LSTM/temporal-conv/graph features)",
+        seams=("registry",),
+        modality="windows_3d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "info_geometry",
+        "omni_mercury_engine.detectors.info_geometry",
+        "InformationGeometryDetector",
+        DetectorCategory.BASE,
+        "Fisher-Rao information-geometry OOD detector over a fitted reference",
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
     ),
 ]
 

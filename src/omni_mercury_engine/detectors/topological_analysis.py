@@ -781,6 +781,35 @@ class TopologicalAnomalyDetector:
             "method": "topological_persistent_homology",
         }
 
+    def extract_features(self, test_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """The real topological feature vector :meth:`score` computes.
+
+        Returns:
+            1-D array ``[anomaly_score, betti_0, betti_1,
+            persistence_entropy_h0, persistence_entropy_h1,
+            landscape_norm_h0, landscape_norm_h1, wasserstein_h0,
+            wasserstein_h1]`` -- the measured persistent-homology summary of
+            ``test_data`` against the fitted reference, in score() order.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+        """
+        s = self.score(test_data)
+        return np.array(
+            [
+                s["anomaly_score"],
+                s["betti_0"],
+                s["betti_1"],
+                s["persistence_entropy_h0"],
+                s["persistence_entropy_h1"],
+                s["landscape_norm_h0"],
+                s["landscape_norm_h1"],
+                s["wasserstein_h0"],
+                s["wasserstein_h1"],
+            ],
+            dtype=np.float64,
+        )
+
     def predict(self, test_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Return binary anomaly predictions for each row treated as a batch.
 

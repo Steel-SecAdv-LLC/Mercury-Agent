@@ -674,6 +674,24 @@ class InformationGeometryDetector:
         if self._adaptive is not None:
             self._adaptive.calibrate(in_distribution_data)
 
+    def fit(self, in_distribution_data: np.ndarray[Any, Any]) -> InformationGeometryDetector:
+        """Detector-contract alias for :meth:`fit_reference_distribution`."""
+        self.fit_reference_distribution(in_distribution_data)
+        return self
+
+    def predict(self, test_data: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Registry-contract view of :meth:`detect_ood`: the same real scores.
+
+        Returns:
+            The unchanged :meth:`detect_ood` result, with ``anomaly_scores``
+            added as an alias of its ``sample_scores`` (each row's
+            Fisher-Rao distance to the reference) so the registry can
+            harvest them.  Nothing is recomputed or rescaled.
+        """
+        result = self.detect_ood(test_data)
+        result["anomaly_scores"] = result["sample_scores"]
+        return result
+
     def _compute_fisher_matrix(
         self,
         mean: np.ndarray[Any, Any],
