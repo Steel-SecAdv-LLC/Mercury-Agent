@@ -55,3 +55,24 @@ class TestLoadWeights:
         assert det.field_analyzer is None
         with pytest.raises(RuntimeError, match="disabled"):
             det.load_neural_weights({})
+
+
+class TestDecisionSourceDeclarations:
+    """A7: no published threshold exists for psi or 'consciousness' composites."""
+
+    def test_parapsychology_separates_statistics_from_psi_claims(self) -> None:
+        from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
+
+        statistical, fault_model, psi = ParapsychologyDetector.decision_source
+        assert statistical.kind == "published"
+        assert "p < 0.05" in statistical.description
+        assert fault_model.kind == "trained"
+        assert "reg_deviation_gcp" in fault_model.operating_point
+        assert psi.kind == "experimental"
+
+    def test_consciousness_model_is_marked_experimental(self) -> None:
+        from omni_mercury_engine.models.consciousness import ConsciousnessPreservationModel
+
+        source = ConsciousnessPreservationModel.decision_source
+        assert source.kind == "experimental"
+        assert "no labelled corpus" in source.description

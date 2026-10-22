@@ -8,12 +8,33 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 #: Rows whose 16 x 16 state matrices are decomposed in one stacked call.
 _ENTANGLEMENT_BLOCK_ROWS = 16384
 
 
 class ConsciousnessPreservationModel:
-    """Model for consciousness state preservation and anomaly detection."""
+    """Model for consciousness state preservation and anomaly detection.
+
+    EXPERIMENTAL: the decision rule (anomaly when the Fourier-pattern
+    coherence falls below ``coherence_threshold``, default 0.5, else the
+    eigen-entropy "entanglement" scaled by 1/4) is a quantum-inspired
+    engineering heuristic.  No published threshold exists for these
+    composites and no labelled corpus is available to calibrate one, so
+    verdicts from this model are experimental signals, not validated
+    detections (see :attr:`decision_source`).
+    """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Coherence (1 - sum p^2 of FFT amplitude shares) below the "
+            "configured threshold (default 0.5), else eigen-entropy / 4: a "
+            "quantum-inspired heuristic with no published threshold and no "
+            "labelled corpus to calibrate one; verdicts are experimental."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         """Initialize the instance."""
