@@ -796,6 +796,12 @@ module = [
     # and ``audit_log_signer`` surface a ``try/except ImportError`` so
     # the cert body can record the omission reason.
     "pkcs11",
+    # Optional RL environment registry: ``ml.rl_envs`` guards the import
+    # with ``try/except ImportError`` and serves its in-tree environments
+    # without it (the PPO trainer is torch-native; gymnasium only widens
+    # the environment id space when an operator installs it).
+    "gymnasium",
+    "gymnasium.*",
 ]
 ignore_missing_imports = true
 

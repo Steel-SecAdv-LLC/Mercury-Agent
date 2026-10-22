@@ -18,7 +18,150 @@ import numpy as np
 
 from omni_mercury_engine.core.exceptions import InvalidObservationError
 
-__all__ = ["InvalidObservationError", "finite_array", "finite_scalar"]
+__all__ = [
+    "InputGrader",
+    "InvalidObservationError",
+    "finite_array",
+    "finite_scalar",
+]
+
+
+class InputGrader:
+    """Grade what is usable; set the rest aside with its reason.
+
+    The partial-input contract: when anything usable is fed, the detector
+    runs and returns a result; it raises only when nothing usable is fed.
+    Everything that could not be graded -- an unknown key, an empty section,
+    a non-finite or out-of-range value -- is recorded here with the reason,
+    surfaced in the result under ``set_aside``, and the verdict is marked
+    ``partial`` so it can never read as a full all-clear.  (The former
+    behaviour refused the whole record on the first problem, so one bad
+    tide reading rejected a whole surge series.)
+    """
+
+    def __init__(self) -> None:
+        """Start with nothing set aside."""
+        self.set_aside: list[dict[str, Any]] = []
+
+    @property
+    def partial(self) -> bool:
+        """Whether anything was set aside (the verdict must say so)."""
+        return bool(self.set_aside)
+
+    def discard(self, where: str, reason: str, value: Any = None) -> None:
+        """Record one unusable piece of input and why it was set aside.
+
+        Args:
+            where: Dotted location (``"rainfall_data.intensity_mm_hr"``).
+            reason: Why it could not be graded, in the caller's words.
+            value: The offending value; its repr is truncated to 80 chars.
+        """
+        entry: dict[str, Any] = {"where": where, "reason": reason}
+        if value is not None:
+            text = repr(value)
+            entry["value"] = text if len(text) <= 80 else text[:77] + "..."
+        self.set_aside.append(entry)
+
+    def usable_scalar(
+        self,
+        value: Any,
+        where: str,
+        *,
+        unit: str,
+        lo: float | None = None,
+        hi: float | None = None,
+    ) -> float | None:
+        """``finite_scalar`` that sets an unusable value aside instead of raising.
+
+        Args:
+            value: The observation (``None`` means unmeasured: no entry).
+            where: Dotted location recorded with any set-aside.
+            unit: Unit the detector expects.
+            lo: Inclusive physical lower bound, if any.
+            hi: Inclusive physical upper bound, if any.
+
+        Returns:
+            The value as ``float``, or ``None`` when unmeasured or set aside.
+        """
+        if value is None:
+            return None
+        try:
+            return finite_scalar(value, where, unit=unit, lo=lo, hi=hi)
+        except InvalidObservationError as exc:
+            self.discard(where, str(exc), value)
+            return None
+
+    def grade_sections(
+        self,
+        data: dict[str, Any],
+        schema: dict[str, dict[str, tuple[str, float, float]]],
+    ) -> dict[str, dict[str, float]]:
+        """Grade a sectioned record against its input schema.
+
+        Unknown sections and keys, non-mapping sections, and unusable values
+        are set aside with reasons; every usable value is returned.  The
+        caller decides afterwards whether anything usable remains
+        (:meth:`require_usable`).
+
+        Args:
+            data: The record (section name -> mapping of measurements).
+            schema: section -> key -> (unit, lo, hi).
+
+        Returns:
+            section -> key -> graded float, holding only usable values.
+        """
+        graded: dict[str, dict[str, float]] = {}
+        for section, values in data.items():
+            if section not in schema:
+                self.discard(section, f"unknown section; accepted: {sorted(schema)}")
+                continue
+            if not isinstance(values, dict):
+                self.discard(section, f"must be a mapping, got {type(values).__name__}", values)
+                continue
+            fields = schema[section]
+            usable: dict[str, float] = {}
+            for key, value in values.items():
+                if key not in fields:
+                    self.discard(
+                        f"{section}.{key}",
+                        f"unknown key; accepted: {sorted(fields)}",
+                    )
+                    continue
+                unit, lo, hi = fields[key]
+                number = self.usable_scalar(value, f"{section}.{key}", unit=unit, lo=lo, hi=hi)
+                if number is not None:
+                    usable[key] = number
+            if usable:
+                graded[section] = usable
+            elif values:
+                self.discard(section, "no usable measurement in this section")
+            else:
+                self.discard(section, "empty section carries no measurement")
+        return graded
+
+    def require_usable(self, usable: Any, context: str) -> None:
+        """Raise only when nothing usable was fed.
+
+        Args:
+            usable: Whatever the caller graded; falsy means nothing usable.
+            context: What the detector needed, for the error message.
+
+        Raises:
+            InvalidObservationError: When nothing usable remains, naming
+                every set-aside piece and its reason.
+        """
+        if usable:
+            return
+        details = "; ".join(f"{e['where']}: {e['reason']}" for e in self.set_aside[:8])
+        raise InvalidObservationError(
+            f"nothing usable was fed: {context}" + (f" (set aside: {details})" if details else "")
+        )
+
+    def result_fields(self) -> dict[str, Any]:
+        """``{"partial": True, "set_aside": [...]}`` when anything was set aside."""
+        if not self.set_aside:
+            return {}
+        return {"partial": True, "set_aside": list(self.set_aside)}
 
 
 def _range_text(lo: float | None, hi: float | None, unit: str) -> str:
