@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,012
-- **Capability-bearing classes:** 2,001 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,016
+- **Capability-bearing classes:** 2,004 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,184 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,187 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1184 |
-| Support types (config / result / enum / error) | 1011 |
+| Other capability classes | 1187 |
+| Support types (config / result / enum / error) | 1012 |
 | Detection | 176 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 104 |
@@ -1468,19 +1468,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `evaluation/` — 9 classes (5 capability)
+### `evaluation/` — 13 classes (8 capability)
 
 **Other capability classes**
 
 - `AnomalyMetrics` (`evaluation.metrics`) — Container for anomaly detection evaluation metrics.
 - `BaselineComparison` (`evaluation.baselines`) — Container for baseline comparison results.
 - `BenchmarkDiagnostics` (`evaluation.benchmark_diagnostics`) — Main diagnostic tool for benchmarking.
+- `CostProfile` (`evaluation.nab_scoring`) — One NAB application profile (``config/profiles.json``).
 - `MetricDiscrepancy` (`evaluation.benchmark_diagnostics`) — Identifies discrepancy between ranking and binary metrics.
+- `NABStream` (`evaluation.nab_scoring`) — One NAB data file with its labelled anomaly windows.
 - `PreregisteredCoincidenceTest` (`evaluation.event_coincidence`) — A pre-registered coincidence protocol. Fix every field before analysis.
+- `SweepTable` (`evaluation.nab_scoring`) — What an alarm at each point of a file would score.
 
-<details><summary>Support types (4)</summary>
+<details><summary>Support types (5)</summary>
 
-`CoincidenceReport`, `CoincidenceResult`, `ConfoundReport`, `DiagnosticResult`
+`CoincidenceReport`, `CoincidenceResult`, `ConfoundReport`, `DiagnosticResult`, `NABResult`
 
 </details>
 
