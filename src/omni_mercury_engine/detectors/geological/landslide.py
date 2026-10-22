@@ -50,6 +50,7 @@ from torch import nn
 from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
 from omni_mercury_engine.detectors._hazard_input import finite_scalar
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
@@ -189,11 +190,86 @@ class LandslidePredictionResult:
     diagnostics: HazardDiagnostics | None = None
 
 
+#: Published global rainfall intensity-duration (ID) thresholds for the
+#: possible initiation of shallow landslides and debris flows.  Both are of
+#: the form ``I = alpha * D**beta`` with ``I`` the mean rainfall intensity
+#: (mm/h) over the rainfall duration ``D`` (h).  Coefficients and validity
+#: ranges are as reproduced in Table 1 of Brunetti et al. (2010), NHESS
+#: 10:447-458 (doi:10.5194/nhess-10-447-2010):
+#:
+#: * ``GUZZETTI_2008_GLOBAL_ID`` -- Guzzetti, Peruccacci, Rossi & Stark
+#:   (2008), "The rainfall intensity-duration control of shallow landslides
+#:   and debris flows: an update", Landslides 5:3-17
+#:   (doi:10.1007/s10346-007-0112-1).  The global *minimum* ID threshold
+#:   (2,626 catalogued events): below it shallow landslides and debris flows
+#:   are not expected, so it is the alarm bar.
+#: * ``CAINE_1980_ID`` -- Caine (1980), "The rainfall intensity-duration
+#:   control of shallow landslides and debris flows", Geogr. Ann. A 62:23-27.
+#:   The classical global *envelope* above which failures were observed; it
+#:   anchors the top of the severity scale.
+#:
+#: The retired rule (``I*sqrt(D) > 10*sqrt(6)``, no source) sat roughly an
+#: order of magnitude above the published minimum: on the CHIRPS record for
+#: the 2018-08-17 Jodupala (Kerala) landslide day -- 31.5 mm in 24 h after
+#: 454 mm in the prior 7 days -- it read 6.44 against a bar of 24.49 and
+#: stayed off.  Guzzetti's minimum (0.54 mm/h at 24 h) fires on that day,
+#: and on the antecedent week evaluated as its own rainfall condition.
+GUZZETTI_2008_GLOBAL_ID: dict[str, float] = {
+    "alpha": 2.20,
+    "beta": -0.44,
+    "d_min_h": 0.1,
+    "d_max_h": 1000.0,
+}
+CAINE_1980_ID: dict[str, float] = {
+    "alpha": 14.82,
+    "beta": -0.39,
+    "d_min_h": 0.167,
+    "d_max_h": 500.0,
+}
+
+#: Hours covered by the ``antecedent_7day_mm`` field: that record is
+#: evaluated as a (D = 168 h, I = total/168) rainfall condition of its own,
+#: inside the Guzzetti et al. (2008) validity range of 0.1-1000 h.
+ANTECEDENT_WINDOW_H: float = 168.0
+
+
+def _critical_intensity_mm_hr(duration_h: float, curve: dict[str, float]) -> float:
+    """Critical mean intensity of a published ID curve at ``duration_h``.
+
+    Durations outside the curve's published validity range are clamped to
+    its nearest bound, the standard conservative extension.
+    """
+    d = min(max(duration_h, curve["d_min_h"]), curve["d_max_h"])
+    return float(curve["alpha"] * d ** curve["beta"])
+
+
 class RainfallTriggerModel:
     """Rainfall-induced landslide trigger analysis.
 
-    Uses intensity-duration thresholds and antecedent rainfall.
+    The alarm bar is the published global minimum intensity-duration
+    threshold of Guzzetti et al. (2008); severity is graded in log-intensity
+    space up to the Caine (1980) envelope (see the curve constants above).
+    Both the supplied rainfall event and the 7-day antecedent total are
+    evaluated as rainfall conditions; either may trigger.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Rainfall trigger fires when the event's mean intensity, or the "
+            "7-day antecedent window evaluated as its own rainfall condition, "
+            "reaches the global minimum intensity-duration threshold "
+            "I = 2.20*D**-0.44 mm/h (0.1 h < D < 1000 h). Severity grades "
+            "log-linearly from that minimum (0.5) to the Caine (1980) envelope "
+            "I = 14.82*D**-0.39 (1.0)."
+        ),
+        citation=(
+            "Guzzetti, Peruccacci, Rossi & Stark (2008), Landslides 5:3-17, "
+            "doi:10.1007/s10346-007-0112-1 (global minimum ID threshold); "
+            "Caine (1980), Geogr. Ann. A 62:23-27 (envelope); coefficients as "
+            "tabulated in Brunetti et al. (2010), NHESS 10:447-458, Table 1"
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""
@@ -203,25 +279,59 @@ class RainfallTriggerModel:
         """Assess rainfall-induced landslide risk.
 
         Args:
-            rainfall_data: Rainfall intensity, duration, antecedent precipitation
+            rainfall_data: Rainfall intensity (mm/h), duration (h), and
+                antecedent 7-day precipitation (mm).
 
         Returns:
-            Rainfall trigger assessment
+            Rainfall trigger assessment.  ``rainfall_trigger`` is True when
+            any evaluated rainfall condition reaches the Guzzetti et al.
+            (2008) global minimum ID threshold; ``trigger_probability``
+            grades the strongest condition (0.5 at the minimum threshold,
+            1.0 at or above the Caine 1980 envelope); ``conditions`` lists
+            each evaluated window with its critical intensity and exceedance
+            ratio; ``id_threshold`` is the legacy ``I*sqrt(D)`` product,
+            reported for compatibility and no longer part of the decision.
         """
-        intensity_mm_hr = rainfall_data.get("intensity_mm_hr", 0.0)
-        duration_hours = rainfall_data.get("duration_hours", 0.0)
-        antecedent_7day_mm = rainfall_data.get("antecedent_7day_mm", 0.0)
+        intensity_mm_hr = float(rainfall_data.get("intensity_mm_hr", 0.0) or 0.0)
+        duration_hours = float(rainfall_data.get("duration_hours", 0.0) or 0.0)
+        antecedent_7day_mm = float(rainfall_data.get("antecedent_7day_mm", 0.0) or 0.0)
 
-        critical_intensity = 10.0
-        critical_duration = 6.0
+        windows: list[tuple[str, float, float]] = []
+        if intensity_mm_hr > 0.0 and duration_hours > 0.0:
+            windows.append(("event", intensity_mm_hr, duration_hours))
+        if antecedent_7day_mm > 0.0:
+            windows.append(
+                ("antecedent_7day", antecedent_7day_mm / ANTECEDENT_WINDOW_H, ANTECEDENT_WINDOW_H)
+            )
 
-        id_threshold = intensity_mm_hr * (duration_hours**0.5)
-        critical_id = critical_intensity * (critical_duration**0.5)
-
-        rainfall_trigger = id_threshold > critical_id
-
-        saturation_boost = antecedent_7day_mm / 100.0
-        trigger_probability = min((id_threshold / critical_id) * (1 + saturation_boost), 1.0)
+        conditions: list[dict[str, Any]] = []
+        rainfall_trigger = False
+        trigger_probability = 0.0
+        for window, mean_intensity, duration in windows:
+            critical = _critical_intensity_mm_hr(duration, GUZZETTI_2008_GLOBAL_ID)
+            envelope = _critical_intensity_mm_hr(duration, CAINE_1980_ID)
+            ratio = mean_intensity / critical
+            if ratio >= 1.0:
+                # Log-intensity interpolation between the published minimum
+                # (possible: 0.5) and the Caine envelope (expected: 1.0).
+                span = float(np.log(max(envelope / critical, 1.0 + 1e-9)))
+                probability = 0.5 + 0.5 * min(float(np.log(ratio)) / span, 1.0)
+                triggered = True
+            else:
+                probability = 0.5 * ratio
+                triggered = False
+            conditions.append(
+                {
+                    "window": window,
+                    "mean_intensity_mm_hr": float(mean_intensity),
+                    "duration_h": float(duration),
+                    "critical_intensity_mm_hr": float(critical),
+                    "exceedance_ratio": float(ratio),
+                    "triggered": triggered,
+                }
+            )
+            rainfall_trigger = rainfall_trigger or triggered
+            trigger_probability = max(trigger_probability, probability)
 
         if trigger_probability > 0.8:
             severity = "extreme"
@@ -236,7 +346,9 @@ class RainfallTriggerModel:
             "rainfall_trigger": rainfall_trigger,
             "trigger_probability": float(trigger_probability),
             "severity": severity,
-            "id_threshold": float(id_threshold),
+            "id_threshold": float(intensity_mm_hr * (duration_hours**0.5)),
+            "conditions": conditions,
+            "threshold_source": self.decision_source.citation,
         }
 
 
