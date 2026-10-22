@@ -54,6 +54,90 @@ class CoverageResult:
     marginal_coverage_by_class: dict[int, float] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class ConformalThreshold:
+    """A split-conformal anomaly threshold and the false-alarm bound it achieves.
+
+    Attributes:
+        threshold: Flag a score strictly above this.
+        n_calibration: Number of held-out normal scores it was set from.
+        false_alarm_rate: The requested level ``alpha``.
+        false_alarm_bound: The level actually guaranteed,
+            ``(n + 1 - k) / (n + 1)``; larger than ``alpha`` when ``n`` is
+            too small to reach it.
+    """
+
+    threshold: float
+    n_calibration: int
+    false_alarm_rate: float
+    false_alarm_bound: float
+
+    def as_record(self) -> dict[str, Any]:
+        """The calibration record detectors expose and persist."""
+        return {
+            "method": "split_conformal",
+            "threshold": self.threshold,
+            "n_calibration": self.n_calibration,
+            "false_alarm_rate": self.false_alarm_rate,
+            "false_alarm_bound": self.false_alarm_bound,
+        }
+
+
+def split_conformal_threshold(scores: Any, false_alarm_rate: float) -> ConformalThreshold:
+    """Anomaly threshold from held-out normal scores by split conformal prediction.
+
+    With ``n`` calibration scores and level ``alpha`` the threshold is the
+    ``k``-th smallest score, ``k = min(ceil((n + 1)(1 - alpha)), n)``.  For a
+    new normal score exchangeable with the calibration scores,
+    ``P(score > threshold) <= (n + 1 - k)/(n + 1)`` (Vovk, Gammerman & Shafer
+    2005; Angelopoulos & Bates 2021).  The achieved bound is returned rather
+    than silently replacing ``alpha`` (``SplitConformalPredictor`` clamps
+    ``k`` the same way but reports nothing).
+
+    Args:
+        scores: Held-out normal anomaly scores (any array-like, flattened).
+        false_alarm_rate: Requested level ``alpha`` in (0, 1).
+
+    Returns:
+        The threshold and the bound it achieves.
+
+    Raises:
+        ValueError: On an empty or non-finite calibration set, or ``alpha``
+            outside (0, 1).
+    """
+    values = np.sort(np.asarray(scores, dtype=np.float64).reshape(-1))
+    if values.size == 0 or not np.all(np.isfinite(values)):
+        raise ValueError("split conformal calibration needs finite, non-empty scores")
+    alpha = float(false_alarm_rate)
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"false_alarm_rate must lie in (0, 1); got {false_alarm_rate}")
+    n = int(values.size)
+    rank = min(int(np.ceil((n + 1) * (1.0 - alpha))), n)
+    return ConformalThreshold(
+        threshold=float(values[rank - 1]),
+        n_calibration=n,
+        false_alarm_rate=alpha,
+        false_alarm_bound=(n + 1 - rank) / (n + 1),
+    )
+
+
+def split_calibration_indices(
+    n: int, calibration_fraction: float, seed: int
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Seeded ``(train, calibration)`` index split, each side at least one sample.
+
+    Raises:
+        ValueError: If ``n < 2`` or the fraction is outside (0, 1).
+    """
+    if n < 2:
+        raise ValueError(f"a train/calibration split needs at least 2 samples; got {n}")
+    if not 0.0 < calibration_fraction < 1.0:
+        raise ValueError(f"calibration_fraction must lie in (0, 1); got {calibration_fraction}")
+    n_cal = min(n - 1, max(1, round(n * calibration_fraction)))
+    order = np.random.default_rng(seed).permutation(n)
+    return order[n_cal:], order[:n_cal]
+
+
 class SplitConformalPredictor:
     """Split (Inductive) Conformal Prediction.
 

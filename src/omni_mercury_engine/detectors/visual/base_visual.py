@@ -20,6 +20,10 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector, DetectorMetrics
+from omni_mercury_engine.core.conformal_prediction import (
+    split_calibration_indices,
+    split_conformal_threshold,
+)
 from omni_mercury_engine.core.exceptions import DataException, InputModalityError
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
@@ -422,14 +426,15 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             )
         if not 0.0 < cfg.false_alarm_rate < 1.0:
             raise DataException(f"false_alarm_rate must lie in (0, 1); got {cfg.false_alarm_rate}")
-        if not 0.0 < cfg.calibration_fraction < 1.0:
-            raise DataException(
-                f"calibration_fraction must lie in (0, 1); got {cfg.calibration_fraction}"
+        try:
+            fit_idx, cal_idx = split_calibration_indices(
+                n, cfg.calibration_fraction, cfg.calibration_seed
             )
-        n_cal = min(n - 1, max(1, round(n * cfg.calibration_fraction)))
-        order = torch.randperm(n, generator=torch.Generator().manual_seed(cfg.calibration_seed))
-        order = order.to(data.device)
-        return data[order[n_cal:]], data[order[:n_cal]]
+        except ValueError as e:
+            raise DataException(str(e)) from e
+        index = torch.as_tensor(np.concatenate([fit_idx, cal_idx]), device=data.device)
+        n_fit = len(fit_idx)
+        return data[index[:n_fit]], data[index[n_fit:]]
 
     def _calibrate_threshold(self, calibration: torch.Tensor | None) -> None:
         """Set ``threshold`` by split conformal prediction on held-out normals.
@@ -454,28 +459,20 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         # Raw scores only: no decision is made while the threshold is unset.
         self.threshold = math.inf
         scores = np.asarray(self.detect(calibration)["scores"], dtype=np.float64).reshape(-1)
-        if not np.all(np.isfinite(scores)):
-            raise DataException(f"{self._name}: non-finite calibration scores; cannot calibrate")
-        n = int(scores.size)
-        alpha = float(self.visual_config.false_alarm_rate)
-        rank = min(math.ceil((n + 1) * (1.0 - alpha)), n)
-        achieved = (n + 1 - rank) / (n + 1)
-        self.threshold = float(np.sort(scores)[rank - 1])
-        self.calibration = {
-            "method": "split_conformal",
-            "threshold": self.threshold,
-            "n_calibration": n,
-            "false_alarm_rate": alpha,
-            "false_alarm_bound": achieved,
-        }
-        if achieved > alpha:
+        try:
+            result = split_conformal_threshold(scores, self.visual_config.false_alarm_rate)
+        except ValueError as e:
+            raise DataException(f"{self._name}: cannot calibrate: {e}") from e
+        self.threshold = result.threshold
+        self.calibration = result.as_record()
+        if result.false_alarm_bound > result.false_alarm_rate:
             logger.warning(
                 "%s: %d calibration image(s) bound the false-alarm rate by %.3f, above the "
                 "requested %.3f; fit on more normal images to tighten it",
                 self._name,
-                n,
-                achieved,
-                alpha,
+                result.n_calibration,
+                result.false_alarm_bound,
+                result.false_alarm_rate,
             )
 
     def _fitted_state(self) -> dict[str, Any]:

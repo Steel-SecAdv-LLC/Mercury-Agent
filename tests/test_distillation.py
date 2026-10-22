@@ -11,6 +11,7 @@ import importlib.util
 import logging
 from typing import Any
 
+import numpy as np
 import pytest
 
 try:
@@ -440,7 +441,13 @@ class TestMutationClosedGaps:
         base = torch.arange(1.0, 13.0).view(1, 3, 2, 2)
         teacher = _make_stub_teacher(base)
         distiller = DualStudentDistillation(
-            config={"device": "cpu", "num_epochs": 1, "batch_size": 4}
+            config={
+                "device": "cpu",
+                "num_epochs": 1,
+                "batch_size": 4,
+                "threshold": 1.0,
+                "imagenet_normalize": False,
+            }
         )
         distiller.teacher = teacher
         distiller.student1 = EncoderDecoderStudent(3, 8)
@@ -463,7 +470,14 @@ class TestMutationClosedGaps:
         base = torch.arange(1.0, 13.0).view(1, 3, 2, 2)
         teacher = _make_stub_teacher(base)
         distiller = DualStudentDistillation(
-            config={"device": "cpu", "num_epochs": 1, "batch_size": 32, "learning_rate": 1e-2}
+            config={
+                "device": "cpu",
+                "num_epochs": 1,
+                "batch_size": 32,
+                "learning_rate": 1e-2,
+                "threshold": 1.0,
+                "imagenet_normalize": False,
+            }
         )
         distiller.teacher = teacher
         distiller.student1 = EncoderDecoderStudent(3, 8)
@@ -488,7 +502,13 @@ class TestMutationClosedGaps:
         base = torch.arange(1.0, 13.0).view(1, 3, 2, 2)
         teacher = _make_stub_teacher(base)
         distiller = DualStudentDistillation(
-            config={"device": "cpu", "num_epochs": 1, "batch_size": 4}
+            config={
+                "device": "cpu",
+                "num_epochs": 1,
+                "batch_size": 4,
+                "threshold": 1.0,
+                "imagenet_normalize": False,
+            }
         )
         distiller.teacher = teacher
         distiller.student1 = EncoderDecoderStudent(3, 8)
@@ -534,7 +554,13 @@ class TestMutationClosedGaps:
         torch.manual_seed(0)
         base = torch.arange(1.0, 13.0).view(1, 3, 2, 2)
         distiller = DualStudentDistillation(
-            config={"device": "cpu", "num_epochs": 10, "batch_size": 4}
+            config={
+                "device": "cpu",
+                "num_epochs": 10,
+                "batch_size": 4,
+                "threshold": 1.0,
+                "imagenet_normalize": False,
+            }
         )
         distiller.teacher = _make_stub_teacher(base)
         distiller.student1 = EncoderDecoderStudent(3, 8)
@@ -558,7 +584,12 @@ class TestMutationClosedGaps:
         assert epoch_logs == ["Epoch 10/10, Loss: 0.500000"]
 
     def test_detect_pins_discrepancy_values(self) -> None:
-        """detect() returns per-student mean squared teacher discrepancies."""
+        """detect() scores 1 - cos(teacher, student): the discrepancy training minimises.
+
+        Before, it scored the squared error of the raw features, which the
+        cosine loss never constrains (it measured student output norm and
+        ranked real defects below normal images).
+        """
         from omni_mercury_engine.ml.distillation import DualStudentDistillation
 
         base = torch.arange(1.0, 13.0).view(1, 3, 2, 2)
@@ -571,12 +602,24 @@ class TestMutationClosedGaps:
 
         result = distiller.detect(torch.zeros(2, 3, 2, 2))
 
+        teacher = base[0].reshape(3, -1).T.numpy().astype(np.float64)  # [position, channel]
+
+        def one_minus_cos(shift: float) -> np.ndarray[Any, Any]:
+            student = teacher + shift
+            cos = (teacher * student).sum(1) / (
+                np.linalg.norm(teacher, axis=1) * np.linalg.norm(student, axis=1)
+            )
+            return (1.0 - cos).reshape(2, 2)
+
+        expected1, expected2 = one_minus_cos(-2.0), one_minus_cos(1.0)
         assert result["student1_maps"].shape == (2, 2, 2)
-        assert result["student1_maps"] == pytest.approx(4.0)
-        assert result["student2_maps"] == pytest.approx(1.0)
-        assert result["anomaly_maps"] == pytest.approx(4.0)
-        assert result["scores"] == pytest.approx([4.0, 4.0])
-        # Scores equal the mean, and the anomaly cut is strictly greater-than.
+        np.testing.assert_allclose(result["student1_maps"], [expected1] * 2, rtol=1e-5, atol=1e-6)
+        np.testing.assert_allclose(result["student2_maps"], [expected2] * 2, rtol=1e-5, atol=1e-6)
+        anomaly = np.maximum(expected1, expected2)
+        np.testing.assert_allclose(result["anomaly_maps"], [anomaly] * 2, rtol=1e-5, atol=1e-6)
+        np.testing.assert_allclose(result["scores"], [anomaly.max()] * 2, rtol=1e-5, atol=1e-6)
+        # Never fitted, so never calibrated: no decision is made.
+        assert result["threshold"] == float("inf")
         assert not result["is_anomaly"].any()
 
 

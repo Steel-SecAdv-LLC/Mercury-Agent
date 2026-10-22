@@ -1293,8 +1293,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.DISTILLATION,
         "Dual-student knowledge distillation for AD",
         tags=["distillation", "sota", "dual-student"],
-        seams=(),
-        modality="tensor",
+        seams=("registry",),
+        modality="image_batch",
+        fit_required=True,
     ),
     # -- Advanced Physics-Inspired Detectors (v1.4.0) -------------------------
     DetectorManifestEntry(

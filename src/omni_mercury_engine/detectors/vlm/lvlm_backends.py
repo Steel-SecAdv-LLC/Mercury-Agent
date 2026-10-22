@@ -703,6 +703,19 @@ class MockLVLMBackend(LVLMBackend):
         )
 
 
+def pinned_default_models() -> dict[str, str]:
+    """``{model_id: revision}`` for every backend default that ships a revision pin.
+
+    The single source for tooling that must fetch or check exactly the
+    weights the shipped defaults load (``scripts/prefetch_pinned_models.py``,
+    the ``MERCURY_REQUIRES_HF_MODELS`` test gate).
+    """
+    pins: dict[str, str] = {}
+    for backend in (BLIPCaptionBackend, BLIPVQABackend, HFTextReasoningBackend):
+        pins.update(backend.DEFAULT_REVISIONS)
+    return pins
+
+
 def get_lvlm_backend(
     model_type: str,
     model_name: str | None = None,

@@ -21,6 +21,7 @@ and frames by their own suites (``tests/detectors/test_visual_*``,
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -59,8 +60,29 @@ COLUMN_VALUES: dict[str, float] = {
 #: Modalities whose payloads are cheap to synthesize; these seams are
 #: re-driven end to end on every run.
 DRIVEN_MODALITIES = frozenset(
-    {"series_1d", "matrix_2d", "rows", "trajectory", "graph", "record", "windows_3d"}
+    {
+        "series_1d",
+        "matrix_2d",
+        "rows",
+        "trajectory",
+        "graph",
+        "record",
+        "windows_3d",
+        "image_batch",
+    }
 )
+
+#: Seam-suite budgets for detectors that train: the seam is driven with real
+#: images, the detection quality is measured in
+#: ``tests/detectors/test_visual_real_images.py`` at realistic budgets.
+FAST_CONFIG: dict[str, dict[str, Any]] = {
+    "patchcore": {"image_size": (64, 64)},
+    "padim": {"image_size": (64, 64)},
+    "stfpm": {"image_size": (64, 64), "num_epochs": 1},
+    "reverse_distillation": {"image_size": (64, 64), "num_epochs": 1},
+    "cflow": {"image_size": (64, 64), "num_epochs": 1},
+    "dual_student": {"num_epochs": 1, "device": "cpu"},
+}
 
 RECORD_PAYLOADS: dict[str, Any] = {
     "intelligence_fusion": {
@@ -88,7 +110,21 @@ RECORD_PAYLOADS: dict[str, Any] = {
 
 def _construct(entry: DetectorManifestEntry) -> Any:
     module = importlib.import_module(entry.module_path)
-    return getattr(module, entry.class_name)()
+    cls = getattr(module, entry.class_name)
+    return cls(FAST_CONFIG[entry.name]) if entry.name in FAST_CONFIG else cls()
+
+
+def _real_image_batch(n: int = 8, size: int = 64) -> np.ndarray[Any, Any]:
+    """Real CC0 brick-wall crops, channel-first, from tests/fixtures/visual."""
+    from PIL import Image
+
+    path = Path(__file__).resolve().parent.parent / "fixtures" / "visual" / "brick.png"
+    with Image.open(path) as image:
+        brick = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+    rng = np.random.default_rng(3)
+    ys, xs = rng.integers(0, brick.shape[0] - size, size=(2, n))
+    crops = np.stack([brick[y : y + size, x : x + size] for y, x in zip(ys, xs, strict=True)])
+    return np.ascontiguousarray(crops.transpose(0, 3, 1, 2))
 
 
 def _payload(entry: DetectorManifestEntry) -> Any:
@@ -116,6 +152,8 @@ def _payload(entry: DetectorManifestEntry) -> Any:
         return networkx.karate_club_graph()
     if entry.modality == "record":
         return RECORD_PAYLOADS[entry.name]
+    if entry.modality == "image_batch":
+        return _real_image_batch()
     if entry.modality == "windows_3d":
         # Default MultivariateTSDetector config: window_size=100, num_features=10.
         return rng.normal(size=(6, 100, 10))
@@ -268,7 +306,11 @@ class TestSeamTruth:
         ),
     )
     def test_undriven_engine_entries_hold_the_contract(self, name: str) -> None:
-        """Image/video/tensor entries: contract present, wrong modality refused."""
+        """Video entries: contract present, wrong modality refused.
+
+        Their seams need vision-language weights; they are driven end to end
+        on the real pinned models by ``tests/detectors/test_vlm_real_models.py``.
+        """
         entry = ENTRIES[name]
         detector = _construct(entry)
         assert isinstance(detector, BaseDetector)

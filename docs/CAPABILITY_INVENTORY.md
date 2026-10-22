@@ -7,23 +7,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,021
-- **Capability-bearing classes:** 2,008 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,023
+- **Capability-bearing classes:** 2,010 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,190 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,191 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1190 |
+| Other capability classes | 1191 |
 | Support types (config / result / enum / error) | 1013 |
 | Detection | 177 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 104 |
 | Engines & orchestration | 101 |
-| Adapters & backends | 70 |
+| Adapters & backends | 71 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 26 |
@@ -658,7 +658,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 341 classes (212 capability)
+### `core/` — 342 classes (213 capability)
 
 **Adapters & backends**
 
@@ -761,6 +761,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ConfidenceConstants` (`core.centralized_constants`) — Confidence classification thresholds.
 - `ConformalCalibrationBridge` (`core.conformal_prediction`) — Bridge between conformal prediction and the calibration pipeline.
 - `ConformalPredictionSet` (`core.conformal_prediction`) — Result of conformal prediction.
+- `ConformalThreshold` (`core.conformal_prediction`) — A split-conformal anomaly threshold and the false-alarm bound it achieves.
 - `ConstantRegistry` (`core.centralized_constants`) — Registry for accessing and overriding constants.
 - `DIDeprecationWarning` (`core.di`) — Deprecation warning for the ``core.di`` module.
 - `DatasetFingerprint` (`core.calibration_pipeline`) — SHA-256 fingerprint of a dataset's summary statistics.
@@ -1045,7 +1046,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 425 classes (300 capability)
+### `detectors/` — 426 classes (301 capability)
 
 **Adapters & backends**
 
@@ -1055,6 +1056,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `FinancialStressAdapter` (`detectors.hazard_adapter`) — Financial crisis risk from measured market and banking metrics.
 - `FloodPrecipitationAdapter` (`detectors.hazard_adapter`) — Flood likelihood from measured and forecast precipitation depths.
 - `GICMinuteSeriesAdapter` (`detectors.hazard_adapter`) — GIC grid risk from a magnetometer minute series.
+- `HFTextReasoningBackend` (`detectors.vlm.lvlm_backends`) — Local instruction-tuned language model for text-only reasoning.
 - `HazardRowAdapter` (`detectors.hazard_adapter`) — Engine contract over a named-column batch, one hazard analysis per row.
 - `HurricanePressureAdapter` (`detectors.hazard_adapter`) — Cyclone intensity from central pressure and sea-surface temperature.
 - `LLaVABackend` (`detectors.vlm.lvlm_backends`) — LLaVA backend for vision-language tasks.

@@ -44,18 +44,20 @@ from omni_mercury_engine.detectors import visual
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "visual"
 SIZE = 64
-N_TRAIN = 30
+N_TRAIN = 50
 
 #: detector -> (class, config, AUROC bar). Measured on this data at these
-#: settings: PatchCore 0.993, PaDiM 0.993, STFPM 0.986, Reverse Distillation
-#: 0.944, CFlow 0.750.  CFlow is the weakest here and least stable in training
-#: budget (0.674 at 150 epochs); its bar pins what it measurably achieves.
+#: settings (50 normal images: 40 train, 10 calibrate): PatchCore 1.000,
+#: PaDiM 1.000, STFPM 1.000, CFlow 1.000, Reverse Distillation 0.993.  With
+#: 30 images (24 train) CFlow measured only 0.75-0.81 and the 6-image
+#: calibration let half the clean crops through for Reverse Distillation:
+#: both data-starved, not defects.
 DETECTORS: dict[str, tuple[Any, dict[str, Any], float]] = {
     "patchcore": (visual.PatchCoreDetector, {}, 0.95),
     "padim": (visual.PaDiMDetector, {}, 0.95),
-    "reverse_distillation": (visual.ReverseDistillationDetector, {"num_epochs": 20}, 0.90),
-    "stfpm": (visual.STFPMDetector, {"num_epochs": 60}, 0.90),
-    "cflow": (visual.CFlowDetector, {"num_epochs": 100}, 0.70),
+    "reverse_distillation": (visual.ReverseDistillationDetector, {"num_epochs": 20}, 0.95),
+    "stfpm": (visual.STFPMDetector, {"num_epochs": 60}, 0.95),
+    "cflow": (visual.CFlowDetector, {"num_epochs": 100}, 0.90),
 }
 
 
@@ -120,12 +122,16 @@ def test_real_defects_rank_above_held_out_clean_images(
 def test_calibrated_decision_is_informative(
     name: str, data: dict[str, np.ndarray[Any, Any]], fitted: dict[str, Any]
 ) -> None:
-    """Held-out clean images mostly pass; defects are flagged more often."""
+    """Held-out clean images pass, real defects are flagged.
+
+    Measured: clean flag rate <= 0.08 against a split-conformal bound of
+    1/11, defect flag rate 1.00, for every detector.
+    """
     detector = fitted[name]
     clean = np.asarray(detector.detect(data["clean"])["is_anomaly"], bool)
     defect = np.asarray(detector.detect(data["defect"])["is_anomaly"], bool)
-    assert clean.mean() <= 0.5
-    assert defect.mean() > clean.mean()
+    assert clean.mean() <= 0.25
+    assert defect.mean() >= 0.75
 
 
 @pytest.mark.parametrize("name", sorted(set(DETECTORS) - {"cflow"}))
@@ -194,3 +200,74 @@ def test_calibration_needs_two_images_unless_threshold_is_fixed(
         visual.PatchCoreDetector({"image_size": (SIZE, SIZE)}).fit(one)
     fixed = visual.PatchCoreDetector({"image_size": (SIZE, SIZE), "threshold": 3.0}).fit(one)
     assert fixed.threshold == 3.0
+
+
+# ---------------------------------------------------------------------------
+# DualStudentDistillation (tensor detector) on the same real task
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def dual_student(data: dict[str, np.ndarray[Any, Any]]) -> Any:
+    """Fitted on brick only; measured AUROC 1.000 (the old score: 0.444)."""
+    from omni_mercury_engine.ml.distillation.dual_student import (
+        DualStudentConfig,
+        DualStudentDistillation,
+    )
+
+    torch.manual_seed(0)
+    return DualStudentDistillation(DualStudentConfig(num_epochs=100, device="cpu")).fit(
+        data["train"]
+    )
+
+
+def test_dual_student_ranks_real_defects_above_clean(
+    dual_student: Any, data: dict[str, np.ndarray[Any, Any]]
+) -> None:
+    """Scored by the trained cosine discrepancy on ImageNet-normalised input.
+
+    The previous score (squared error of raw features on unnormalised input)
+    measured AUROC 0.444 here -- below chance -- and 0.250 at 60 epochs.
+    """
+    clean, defect = dual_student.detect(data["clean"]), dual_student.detect(data["defect"])
+    assert _auroc(defect["scores"], clean["scores"]) >= 0.95
+
+
+def test_dual_student_decision_is_calibrated(
+    dual_student: Any, data: dict[str, np.ndarray[Any, Any]]
+) -> None:
+    calibration = dual_student.calibration
+    assert calibration["method"] == "split_conformal"
+    assert calibration["false_alarm_bound"] == pytest.approx(1.0 / (round(N_TRAIN * 0.2) + 1))
+    clean = np.asarray(dual_student.detect(data["clean"])["is_anomaly"], bool)
+    defect = np.asarray(dual_student.detect(data["defect"])["is_anomaly"], bool)
+    assert clean.mean() <= 0.25
+    assert defect.mean() >= 0.75
+
+
+def test_dual_student_flags_a_single_defect_image(
+    dual_student: Any, data: dict[str, np.ndarray[Any, Any]]
+) -> None:
+    """The old decision, score > batch mean, could never flag a lone image."""
+    assert bool(dual_student.detect(data["defect"][:1])["is_anomaly"][0])
+
+
+def test_dual_student_serves_the_registry_contract(
+    dual_student: Any, data: dict[str, np.ndarray[Any, Any]]
+) -> None:
+    predicted = dual_student.predict(data["defect"])
+    np.testing.assert_allclose(
+        predicted["anomaly_scores"], dual_student.detect(data["defect"])["scores"]
+    )
+    features = dual_student.extract_features(data["defect"])
+    assert features.shape == (len(data["defect"]), 5)
+    assert np.isfinite(features).all()
+
+
+def test_dual_student_refuses_non_finite_pixels(dual_student: Any) -> None:
+    """NaN pixels used to score NaN and read as not anomalous."""
+    from omni_mercury_engine.core.exceptions import InvalidObservationError
+
+    bad = np.full((1, 3, SIZE, SIZE), np.nan, dtype=np.float32)
+    with pytest.raises(InvalidObservationError, match="non-finite"):
+        dual_student.detect(bad)

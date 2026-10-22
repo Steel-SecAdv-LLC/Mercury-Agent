@@ -71,7 +71,7 @@ detectors needing an external service or model backend.
 | `stfpm` | `STFPMDetector` | visual | image_batch | fit | Student-Teacher Feature Pyramid Matching |
 | `lavad` | `LAVADDetector` | vlm | video_frames | fit | Training-free LLM-based VAD (CVPR 2024) |
 
-## registry only (38)
+## registry only (39)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -79,6 +79,7 @@ detectors needing an external service or model backend.
 | `info_geometry` | `InformationGeometryDetector` | base | matrix_2d | fit | Fisher-Rao information-geometry OOD detector over a fitted reference |
 | `multivariate_ts` | `MultivariateTSDetector` | base | windows_3d | fit | LTG multivariate windowed time-series detector (LSTM/temporal-conv/graph features) |
 | `topological` | `TopologicalAnomalyDetector` | base | matrix_2d | fit | Persistent-homology profile scoring (Betti, entropy, landscapes, Wasserstein) |
+| `dual_student` | `DualStudentDistillation` | distillation | image_batch | fit | Dual-student knowledge distillation for AD |
 | `chronos` | `ChronosAdapter` | foundation | series_1d | -- | Amazon Chronos time-series foundation model |
 | `foundation_ensemble` | `FoundationEnsemble` | foundation | series_1d | -- | Ensemble of foundation model adapters |
 | `matrix_profile` | `MatrixProfileAdapter` | foundation | series_1d | -- | STUMPY Matrix Profile for time-series anomalies |
@@ -121,11 +122,10 @@ detectors needing an external service or model backend.
 | `dimensional` | `DimensionalAnalyzer` | base | series_1d | -- | High-dimensional data anomalies |
 | `anyanomaly` | `AnyAnomalyDetector` | vlm | video_frames | fit, ext | Zero-shot customizable VAD with LVLM (WACV 2026) |
 
-## library-only (domain API) (21)
+## library-only (domain API) (20)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
-| `dual_student` | `DualStudentDistillation` | distillation | tensor | -- | Dual-student knowledge distillation for AD |
 | `financial_crisis` | `FinancialCrisisDetector` | economic | record | covered by `financial_stress` | Financial crisis prediction |
 | `emp` | `EMPDetector` | energy | record | -- | Electromagnetic pulse detection |
 | `timegpt` | `TimeGPTAdapter` | foundation | series_1d | ext | Nixtla TimeGPT foundation model adapter |
