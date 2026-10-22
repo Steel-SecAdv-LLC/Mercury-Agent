@@ -1117,7 +1117,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     # -- Trained sequence / security ensembles --------------------------------
     DetectorManifestEntry(
         "lstm_autoencoder",
-        "omni_mercury_engine.models.lstm_ae",
+        "omni_mercury_engine.detectors.lstm_ae",
         "LSTMAutoencoderDetector",
         DetectorCategory.MODEL,
         "Trained LSTM-autoencoder multivariate sequence reconstruction",

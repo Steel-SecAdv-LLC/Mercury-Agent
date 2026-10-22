@@ -181,13 +181,13 @@ __version__ = _get_version()
 # Core detectors - always imported (lightweight base classes)
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
+
+# Runtime pipeline modules - always imported (required for core functionality)
+from omni_mercury_engine.detectors.drift import DriftIncomparableError, EnsembleDriftDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 from omni_mercury_engine.ml.domain_encoders import DomainEncoderStack
-
-# Runtime pipeline modules - always imported (required for core functionality)
-from omni_mercury_engine.ml.drift import DriftIncomparableError, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
 from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference

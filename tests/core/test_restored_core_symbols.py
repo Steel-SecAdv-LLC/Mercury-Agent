@@ -26,8 +26,8 @@ from omni_mercury_engine.core.base_domains import (
 )
 from omni_mercury_engine.core.domain_metrics import compute_benchmark_metrics
 from omni_mercury_engine.core.governed_fusion import precision_sqrt
-from omni_mercury_engine.core.info_geometry import _safe_cholesky
 from omni_mercury_engine.core.robust_pooling import reliability_pool
+from omni_mercury_engine.detectors.info_geometry import _safe_cholesky
 
 
 class _Detector:

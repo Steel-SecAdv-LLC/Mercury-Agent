@@ -39,12 +39,12 @@ if TYPE_CHECKING:
         RecalibrationGovernance,
     )
 
-from omni_mercury_engine.governance.self_improvement import ProposedRecalibration
-from omni_mercury_engine.ml.drift import (
+from omni_mercury_engine.detectors.drift import (
     DriftResult,
     DriftSeverity,
     EnsembleDriftDetector,
 )
+from omni_mercury_engine.governance.self_improvement import ProposedRecalibration
 
 logger = logging.getLogger(__name__)
 

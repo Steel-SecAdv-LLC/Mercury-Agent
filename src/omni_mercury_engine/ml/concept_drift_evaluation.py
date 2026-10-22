@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 import numpy as np
 from scipy import stats
 
-from omni_mercury_engine.ml.drift import (
+from omni_mercury_engine.detectors.drift import (
     DriftResult,
     DriftSeverity,
     DriftType,

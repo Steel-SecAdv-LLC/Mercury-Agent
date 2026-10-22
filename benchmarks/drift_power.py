@@ -58,7 +58,7 @@ def scenario(
     draw can move every rate in the cell; ``trials`` windows are split across
     ``references`` independent references to average that out.
     """
-    from omni_mercury_engine.ml.drift import EnsembleDriftDetector
+    from omni_mercury_engine.detectors.drift import EnsembleDriftDetector
 
     cov = rho ** np.abs(np.subtract.outer(np.arange(features), np.arange(features)))
     chol = np.linalg.cholesky(cov)
@@ -111,7 +111,7 @@ def split_check(
     """
     from scipy import stats
 
-    from omni_mercury_engine.ml.drift import PrincipalAxisDriftDetector
+    from omni_mercury_engine.detectors.drift import PrincipalAxisDriftDetector
 
     cov = rho ** np.abs(np.subtract.outer(np.arange(features), np.arange(features)))
     chol = np.linalg.cholesky(cov)

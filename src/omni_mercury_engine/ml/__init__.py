@@ -229,7 +229,7 @@ def create_drift_detector(*args: Any, **kwargs: Any) -> Any:
 
     Lazy import to avoid scipy dependency at module load.
     """
-    from omni_mercury_engine.ml.drift import create_drift_detector as _create
+    from omni_mercury_engine.detectors.drift import create_drift_detector as _create
 
     return _create(*args, **kwargs)
 

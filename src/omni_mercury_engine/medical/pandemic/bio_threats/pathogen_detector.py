@@ -26,7 +26,7 @@ Mathematical Foundation:
   rate and so less sensitivity.
 - Sequential test (:meth:`PathogenDetector.monitor`): a conformal
   Shiryaev-Roberts test on the stream of energies
-  (:mod:`omni_mercury_engine.core.conformal_martingale`), seeded with the
+  (:mod:`omni_mercury_engine.detectors.conformal_martingale`), seeded with the
   held-out energies. It alarms on a persistent rise too small for one snapshot
   to cross E_critical; while the stream is like the baseline, its alarms are at
   least ``mean_snapshots_to_false_alarm`` snapshots apart on average. ``seed``
@@ -47,7 +47,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from omni_mercury_engine.core.conformal_martingale import ConformalChangeDetector
+from omni_mercury_engine.detectors.conformal_martingale import ConformalChangeDetector
 from omni_mercury_engine.detectors.detection_tier import (
     conformal_threshold,
     pac_conformal_threshold,

@@ -658,7 +658,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 363 classes (231 capability)
+### `core/` — 341 classes (212 capability)
 
 **Adapters & backends**
 
@@ -674,20 +674,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Detection**
 
-- `AdaptiveAnomalyDetector` (`core.adaptive_detector`) — Main adaptive detector that combines all improvements.
 - `AnomalyDetector` (`core.rigorous_benchmark`) — Protocol for anomaly detectors to benchmark.
 - `BaseDetector` (`core.base`) — Abstract base class for all anomaly detectors.
 - `BaseDetector` (`core.stacking_fusion`) — Protocol for base detectors in ensemble.
 - `BaseDomainDetector` (`core.base_domains`) — Enhanced base detector with adaptive thresholds and domain metrics.
 - `ConformalAnomalyDetector` (`core.conformal_prediction`) — Wrapper for anomaly detectors with conformal prediction.
-- `ConformalChangeDetector` (`core.conformal_martingale`) — Conformal Shiryaev-Roberts test for a rise in a stream of scores.
-- `CovarianceAwareDetector` (`core.adaptive_detector`) — Solves the batadal problem.
-- `InformationGeometryDetector` (`core.info_geometry`) — Information geometry-based OOD detector.
-- `MultivariateTSDetector` (`core.multivariate_timeseries`) — Multivariate time-series anomaly detector using LTG architecture.
-- `TemporalPatternDetector` (`core.adaptive_detector`) — Solves the smd problem.
-- `TopologicalAnomalyDetector` (`core.topological_analysis`) — TDA-based anomaly detector using persistent homology features.
-- `_MercuryLocalDensityDetector` (`core.adaptive_detector`) — KDTree-based local density anomaly detector (LOF-style, no sklearn).
-- `_MercuryRandomProjectionDetector` (`core.adaptive_detector`) — Isolation-style anomaly detector using random projections (no trees/sklearn).
 
 **Engines & orchestration**
 
@@ -761,7 +752,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `CalibrationDiagnostics` (`core.score_calibration`) — Diagnostic information about score distribution and calibration.
 - `CalibrationEnsemble` (`core.adaptive_domain_thresholding`) — Ensemble of calibration methods for robust probability estimation.
 - `CalibrationEnsemble` (`core.calibration`) — Ensemble of calibration methods with automatic selection.
-- `ChaosMultivariateFusion` (`core.multivariate_timeseries`) — Fusion of chaos-evolutionary optimization with multivariate TS detection.
 - `ChaoticMap` (`core.chaos_evolutionary`) — Chaotic map generators for CGO algorithm.
 - `CodeIssue` (`core.three_r.types`) — Represents a detected code issue.
 - `CognitiveComplexityVisitor` (`core.three_r_mechanism`) — AST visitor that calculates cognitive complexity following SonarQube rules.
@@ -774,7 +764,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ConstantRegistry` (`core.centralized_constants`) — Registry for accessing and overriding constants.
 - `DIDeprecationWarning` (`core.di`) — Deprecation warning for the ``core.di`` module.
 - `DatasetFingerprint` (`core.calibration_pipeline`) — SHA-256 fingerprint of a dataset's summary statistics.
-- `DatasetSpecificEnsemble` (`core.adaptive_detector`) — Ensemble detector that uses dataset-specific strategies.
 - `DecisionCurve` (`core.decision_curve`) — A decision curve: net benefit of the model vs the treat-all/none envelopes.
 - `DetectorManifestEntry` (`core.detector_registry`) — Declarative entry describing a discoverable detector.
 - `DetectorMetrics` (`core.base`) — Metrics for detector performance tracking.
@@ -803,8 +792,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `FibringWeights` (`core.fibring_fusion`) — Composed neural/symbolic weights and the diagnostics that produced them.
 - `FinancialDomainConstants` (`core.centralized_constants`) — Financial domain-specific constants.
 - `FinancialFeatureExtractor` (`core.domain_feature_extractors`) — Financial domain feature extractor.
-- `FisherInformationMatrix` (`core.info_geometry`) — Compute and store the Fisher Information Matrix (FIM).
-- `FisherRaoAdaptiveThreshold` (`core.info_geometry`) — Derive and adapt anomaly-detection thresholds from the Fisher metric.
 - `FusionConstants` (`core.centralized_constants`) — Fusion and weighting constants.
 - `FusionInterface` (`core.base`) — Interface specification for fusion-compatible components.
 - `GOSNN3RIntegration` (`core.gosnn_3r_integration`) — Bidirectional integration between GOSNN and 3R mechanism.
@@ -829,7 +816,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MultiHeadAttentionProvider` (`core.gosnn_optimizer`) — Concrete :class:`AttentionProvider` backed by real multi-head attention.
 - `MultiObjectiveLoss` (`core.benevolence_optimization`) — Multi-objective loss combining detection, benevolence, and fairness.
 - `MultiStageFilter` (`core.signal_processing`) — Multi-stage filtering pipeline for comprehensive noise reduction.
-- `NaturalGradient` (`core.info_geometry`) — Compute the natural gradient: ``g_nat = F^{-1} g_euclid``.
 - `NeuralNetConstants` (`core.centralized_constants`) — Neural network architecture constants.
 - `NeurosymbolicEngineDeprecationWarning` (`core.neurosymbolic_engine`) — Custom deprecation warning for neurosymbolic_engine module.
 - `NoOpMetric` (`core.metrics`) — No-op metric implementation when prometheus_client is not available.
@@ -842,7 +828,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ParetoFront` (`core.benevolence_optimization`) — Collection of Pareto-optimal solutions.
 - `ParetoSolution` (`core.benevolence_optimization`) — A single solution on the Pareto front.
 - `PerformanceMetric` (`core.gosnn_integration`) — Single performance measurement.
-- `PersistenceDiagram` (`core.topological_analysis`) — Container for persistence diagram data.
 - `PipelineStage` (`core.system_coherence`) — A single stage in the detection pipeline signal flow.
 - `PlattScaling` (`core.calibration`) — Platt Scaling calibration using logistic regression.
 - `QuantumKernelMachine` (`core.quantum_kernels`) — Quantum-inspired kernel machine for anomaly detection.
@@ -873,7 +858,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SpatialAutocorrelation` (`core.base_domains`) — Spatial autocorrelation metrics for graph and spatial domains.
 - `StabilityMetrics` (`core.model_domains`) — Lyapunov stability metrics for consciousness/state analysis.
 - `StackingFusion` (`core.stacking_fusion`) — Stacking (Stacked Generalization) for detector fusion.
-- `StatisticalManifold` (`core.info_geometry`) — A point on the manifold of probability distributions.
 - `StrictIsotonicCalibration` (`core.calibration`) — Isotonic calibration with a strictly-increasing tie-break (PR #275, X1).
 - `SymbolicRule` (`core.neurosymbolic_hub`) — Enhanced symbolic rule with provenance tracking.
 - `SymbolicRule` (`core.symbolic_reasoning`) — Represents a symbolic reasoning rule.
@@ -889,11 +873,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `TriadicPhiWeighting` (`core.global_omni_scalar_network`) — Triadic phi-weighting layer for harmonic synergy in attention fusion.
 - `USLawPolling` (`core.ethical_risk_matrix`) — Dynamic US-only law compliance polling.
 - `UncertaintyEstimate` (`core.adaptive_fusion`) — Uncertainty quantification result with confidence intervals.
-- `VietorisRipsFiltration` (`core.topological_analysis`) — Build a Vietoris-Rips simplicial complex and compute persistent homology.
 - `_CallTicket` (`core.detector_registry`) — Agreement between a registry call's worker and its caller on who reports it.
 - `_IdentityCalibration` (`core.calibration`) — No-op calibrator (exact-reducing fallback for the accept-gate).
 - `_LegacyOmniAvaEquation` (`core.three_r_mechanism`) — Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
-- `_UnionFind` (`core.topological_analysis`) — Weighted union-find with path compression.
 
 **Prediction & forecasting**
 
@@ -907,7 +889,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Training & optimization**
 
-- `AdaptiveThresholdCalibrator` (`core.adaptive_detector`) — Solves the covtype F1=0 problem.
 - `AdaptiveThresholdOptimizer` (`core.base_domains`) — Adaptive threshold optimization using multiple methods.
 - `AttentionOptimizer` (`core.gosnn_optimizer`) — Optimizer for 32-head triadic φ-weighting attention.
 - `AutoThresholdOptimizer` (`core.score_calibration`) — Automatic threshold optimization using multiple strategies.
@@ -924,9 +905,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
 - `_LegacyOAEWeightOptimizer` (`core.three_r_mechanism`) — Supervised optimizer for OAE weights: maximize F1 on labeled data.
 
-<details><summary>Support types (132)</summary>
+<details><summary>Support types (129)</summary>
 
-`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `ChangeStatus`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DatasetProfile`, `DetectionResult`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
+`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
 
 </details>
 
@@ -1064,7 +1045,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 389 classes (271 capability)
+### `detectors/` — 425 classes (300 capability)
 
 **Adapters & backends**
 
@@ -1103,7 +1084,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Detection**
 
 - `AccelerationDynamicsDetector` (`detectors.acceleration_dynamics`) — Physics-based acceleration dynamics anomaly detector.
+- `AdaptiveAnomalyDetector` (`detectors.adaptive_detector`) — Main adaptive detector that combines all improvements.
 - `AdversarialAutoencoderDetector` (`detectors.advanced.adversarial_ae`) — Adversarial Autoencoder Detector for Industrial Control Systems.
+- `AnomalyDetector` (`detectors.lstm_ae`) — Complete anomaly detection pipeline using LSTM-Autoencoder.
 - `AnyAnomalyDetector` (`detectors.vlm.anyanomaly`) — AnyAnomaly zero-shot customizable anomaly detector.
 - `AtmosphericRiverDetector` (`detectors.meteorological.atmospheric_river_detector`) — Atmospheric-river detector: IVT physics core + Ralph et al. AR scale.
 - `AvalancheDetector` (`detectors.geological.avalanche_detector`) — Dry-slab avalanche hazard detector built on real snow-stability physics.
@@ -1115,8 +1098,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `CFlowDetector` (`detectors.visual.cflow`) — CFlow anomaly detector using conditional normalizing flows.
 - `COPODDetector` (`detectors.advanced.copod_detector`) — COPOD: Copula-Based Outlier Detection.
 - `CUSUMDetector` (`detectors.statistical_extended`) — Cumulative Sum (CUSUM) control chart for sequential anomaly detection.
+- `ChiSquaredDriftDetector` (`detectors.drift`) — Chi-squared test based drift detector for categorical features.
+- `ConformalChangeDetector` (`detectors.conformal_martingale`) — Conformal Shiryaev-Roberts test for a rise in a stream of scores.
 - `ContrastiveLearningDetector` (`detectors.advanced.contrastive_detector`) — Contrastive Learning Detector for Anomaly Detection.
 - `CoralBleachingDetector` (`detectors.marine.biodiversity_detector`) — Coral bleaching detection from temperature and stress indicators.
+- `CovarianceAwareDetector` (`detectors.adaptive_detector`) — Solves the batadal problem.
+- `CovarianceDriftDetector` (`detectors.drift`) — Covariance-structure drift via the affine-invariant SPD distance.
 - `DBSCANDetector` (`detectors.statistical_extended`) — DBSCAN-based anomaly detector.
 - `DeepLogSequenceDetector` (`detectors.deeplog_sequence`) — Back-off n-gram next-key surprisal detector for log/event sequences.
 - `DeepSVDDDetector` (`detectors.deep_svdd`) — One-class SVDD hypersphere detector on a random-feature embedding.
@@ -1133,6 +1120,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `EarthquakeDetector` (`detectors.geological.disaster_detectors`) — Earthquake detector using P/S-wave spectrogram analysis.
 - `EchoStateDetector` (`detectors.echo_state`) — Echo-State-Network one-step-ahead predictive residual detector.
 - `EnergyBasedDetector` (`detectors.energy_based`) — Gaussian-family quadratic energy-based-model detector.
+- `EnsembleDriftDetector` (`detectors.drift`) — Ensemble drift detector combining multiple methods.
 - `EqTsunamiCascadeDetector` (`detectors.geological.eq_tsunami_cascade`) — Earthquake → tsunami cascade with PTWC-style staged escalation.
 - `ExtendedStatisticalDetector` (`detectors.statistical_extended`) — Unified enhanced statistical anomaly detector.
 - `FinancialCrisisDetector` (`detectors.economic.financial_crisis_detector`) — Comprehensive financial crisis detection system.
@@ -1151,10 +1139,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `HurricaneDetector` (`detectors.geological.hurricane_detector`) — Comprehensive hurricane/cyclone/typhoon detection system.
 - `IMMDetector` (`detectors.imm`) — Interacting-Multiple-Model switching state-space residual detector.
 - `InSARDeformationDetector` (`detectors.geological.volcanic`) — InSAR ground deformation detection.
+- `InformationGeometryDetector` (`detectors.info_geometry`) — Information geometry-based OOD detector.
 - `IntentionalEMIDetector` (`detectors.energy.emp_detector`) — Intentional electromagnetic interference (IEMI) detection.
 - `KMeansDistanceDetector` (`detectors.kmeans_distance`) — Unsupervised detector emitting per-centroid distances as fusion features.
+- `KolmogorovSmirnovDriftDetector` (`detectors.drift`) — Kolmogorov-Smirnov test based drift detector.
 - `LAVADDetector` (`detectors.vlm.lavad`) — LAVAD training-free video anomaly detector.
 - `LOFDetector` (`detectors.statistical_extended`) — Local Outlier Factor (LOF) detector.
+- `LSTMAutoencoderDetector` (`detectors.lstm_ae`) — Detector-registry adapter for the LSTM-autoencoder.
 - `LandslideDetector` (`detectors.geological.landslide`) — Comprehensive landslide and avalanche detection system.
 - `LightningDetector` (`detectors.meteorological.lightning_detector`) — Flash-rate anomaly detector implementing the 2-sigma lightning jump.
 - `MADDetector` (`detectors.statistical_extended`) — Median Absolute Deviation (MAD) based anomaly detector.
@@ -1164,10 +1155,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MercuryAnomalyDetector` (`detectors.statistical`) — Mercury's original anomaly detection ensemble.
 - `MeteorDetector` (`detectors.geological.disaster_detectors`) — Meteor detector using optical/radar Bayesian filter with NASA/JPL integration.
 - `MultiScaleTransformerDetector` (`detectors.advanced.multi_scale_transformer`) — Multi-Scale Transformer Detector for Time-Series Anomaly Detection.
+- `MultivariateTSDetector` (`detectors.multivariate_timeseries`) — Multivariate time-series anomaly detector using LTG architecture.
+- `OnlineDriftDetector` (`detectors.drift`) — Online drift detection with adaptive windowing (ADWIN).
 - `PaDiMDetector` (`detectors.visual.padim`) — PaDiM anomaly detector.
 - `ParticleFilterDetector` (`detectors.particle_filter`) — Bootstrap particle-filter detector scoring predictive innovations.
 - `PatchCoreDetector` (`detectors.visual.patchcore`) — PatchCore anomaly detector.
 - `PhysicsIntegratedDetector` (`detectors.physics_integration`) — Unified detector integrating all advanced physics-based modules.
+- `PopulationStabilityIndexDetector` (`detectors.drift`) — Population Stability Index (PSI) based drift detector.
+- `PrincipalAxisDriftDetector` (`detectors.drift`) — Mean-shift drift along the reference's principal axes.
 - `ReverseDistillationDetector` (`detectors.visual.reverse_distillation`) — Reverse Distillation anomaly detector.
 - `RockfallDetector` (`detectors.geological.rockfall_detector`) — Rockfall trigger and precursor detector.
 - `RootCauseGraphDetector` (`detectors.rca`) — Random-walk root-cause localiser over a causal / service graph.
@@ -1184,13 +1179,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SubsidenceDetector` (`detectors.geological.subsidence_detector`) — Subsidence and sinkhole-precursor detector for InSAR-style series.
 - `SurvivalHazardDetector` (`detectors.survival`) — Kaplan-Meier + Cox proportional-hazards inter-event-time detector.
 - `TemporalAnomalyDetector` (`detectors.temporal`) — Time series anomaly detection using:.
+- `TemporalPatternDetector` (`detectors.adaptive_detector`) — Solves the smd problem.
 - `ThermalHotspotDetector` (`detectors.geological.volcanic`) — Thermal infrared (TIR) hotspot detection.
+- `TopologicalAnomalyDetector` (`detectors.topological_analysis`) — TDA-based anomaly detector using persistent homology features.
 - `TornadoDetector` (`detectors.geological.tornado_detector`) — Comprehensive tornado detection system.
 - `TsunamiDetector` (`detectors.geological.disaster_detectors`) — Tsunami detector using oceanic waveform FFT analysis.
 - `UIUXAnomalyDetector` (`detectors.uiux_anomaly`) — Comprehensive UI/UX anomaly detector.
 - `VolcanicEruptionDetector` (`detectors.geological.volcanic`) — Comprehensive volcanic eruption detection system.
 - `WildfireDetector` (`detectors.geological.wildfire`) — Comprehensive wildfire detection and prediction system.
 - `WinterStormDetector` (`detectors.meteorological.winter_storm_detector`) — Winter / ice-storm detector built on cited operational formulations.
+- `_MercuryLocalDensityDetector` (`detectors.adaptive_detector`) — KDTree-based local density anomaly detector (LOF-style, no sklearn).
+- `_MercuryRandomProjectionDetector` (`detectors.adaptive_detector`) — Isolation-style anomaly detector using random projections (no trees/sklearn).
 
 **Monitoring**
 
@@ -1222,6 +1221,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `FeatureProjection` (`detectors.vlm.blip_vlm`) — Projects BLIP features to 128D for fusion pipeline.
 - `FireSpreadModel` (`detectors.geological.wildfire`) — Fire spread rate and direction prediction.
 - `InteractionSequenceEncoder` (`detectors.uiux_anomaly`) — Encoder for sequences of user interactions.
+- `LSTMAutoencoder` (`detectors.lstm_ae`) — LSTM-based Autoencoder for time-series anomaly detection.
 - `MLIPVibrationEncoder` (`detectors.spectral_vibration`) — Machine Learning Interatomic Potential inspired vibrational encoder.
 - `MouseTrajectoryNetwork` (`detectors.uiux_anomaly`) — Neural network for analyzing mouse trajectory patterns.
 - `MultiScaleDecoder` (`detectors.visual.reverse_distillation`) — Multi-scale feature decoder for reconstruction.
@@ -1266,12 +1266,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `CacheStatistics` (`detectors.vlm.lvlm_cache`) — Statistics for the model cache.
 - `CascadeAssessment` (`detectors.meteorological.surge_flood_cascade`) — Output of :meth:`SurgeFloodCascade.evaluate`.
 - `CatalanOptimizedProbe` (`detectors.math_arrest.probes.catalan`) — Detect autocorrelation breaks using a Catalan-constant AR(1) model.
+- `ChaosMultivariateFusion` (`detectors.multivariate_timeseries`) — Fusion of chaos-evolutionary optimization with multivariate TS detection.
 - `ClickAnalysis` (`detectors.uiux_anomaly`) — Analysis results for click patterns.
 - `CombinedContextProvider` (`detectors.vlm.context_providers`) — Combines multiple context providers for rich context.
 - `CombinedContextProvider` (`detectors.vlm.context_providers_extended`) — Enhanced combined context provider with all context types.
 - `CorrelationAwareDecorrelator` (`detectors.math_arrest.fusion`) — Detect redundant probe clusters and reduce their weight contributions.
 - `CrossDomainCorrelation` (`detectors.cross_domain_frequency`) — Result of cross-domain frequency correlation analysis.
 - `CrossDomainFrequencyCorrelator` (`detectors.cross_domain_frequency`) — Detect overlapping significant frequency bands across domains.
+- `DatasetSpecificEnsemble` (`detectors.adaptive_detector`) — Ensemble detector that uses dataset-specific strategies.
 - `DimensionalWeights` (`detectors.dimensional`) — Configurable weights for dimensional score combination.
 - `DirectiveWeights` (`detectors.directive`) — Configurable weights for Sigma Directive score combination.
 - `DroneFault` (`detectors.drone.detector`) — Detected drone fault record.
@@ -1280,6 +1282,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `EnergyMinimizationProbe` (`detectors.math_arrest.probes.energy_minimization`) — Detect energy well escapes via quadratic energy landscape.
 - `EthicalConstrainedProbe` (`detectors.math_arrest.probes.ethical`) — Detect boundary violations using percentile-based envelopes.
 - `ExponentialDecayProbe` (`detectors.math_arrest.probes.exponential`) — Detect signal degradation using optimal-lambda EWMA residuals.
+- `FisherInformationMatrix` (`detectors.info_geometry`) — Compute and store the Fisher Information Matrix (FIM).
+- `FisherRaoAdaptiveThreshold` (`detectors.info_geometry`) — Derive and adapt anomaly-detection thresholds from the Fisher metric.
 - `FractalSelfSimilarityProbe` (`detectors.math_arrest.probes.fractal_similarity`) — Detect scale-invariance loss via cross-scale correlation at phi ratio.
 - `FrequencyContextProvider` (`detectors.vlm.context_providers_extended`) — Frequency-domain context provider for periodic pattern detection.
 - `FrequencyFeatures` (`detectors.vlm.context_providers_extended`) — Container for frequency-domain features.
@@ -1302,7 +1306,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MomentumProbe` (`detectors.math_arrest.probes.momentum`) — Detect sudden acceleration via second-order finite differences.
 - `MovementAssessment` (`detectors.geo_movement`) — Result of a single movement-plausibility evaluation.
 - `NDVIProcessor` (`detectors.geological.wildfire`) — NDVI (Normalized Difference Vegetation Index) processor for fuel load estimation.
+- `NaturalGradient` (`detectors.info_geometry`) — Compute the natural gradient: ``g_nat = F^{-1} g_euclid``.
 - `NavigationAnalysis` (`detectors.uiux_anomaly`) — Analysis results for navigation patterns.
+- `PersistenceDiagram` (`detectors.topological_analysis`) — Container for persistence diagram data.
 - `PhaseSpaceFeatures` (`detectors.acceleration_dynamics`) — Phase space analysis features.
 - `PhiWeightedFusion` (`detectors.math_arrest.fusion`) — Phi-weighted score fusion with confidence modulation and decorrelation.
 - `PhysicsGOSNNScalars` (`detectors.physics_integration`) — GOSNN scalar network for physics-based anomaly detection.
@@ -1325,6 +1331,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SinkholeCluster` (`detectors.geological.subsidence_detector`) — A spatially concentrated cluster of accelerating, subsiding points.
 - `SpectralDomainFrequency` (`detectors.spectral_domain_frequency`) — Full-power neuro-symbolic spectral-domain anomaly detection Oracle.
 - `SpectralFeatures` (`detectors.spectral_vibration`) — Extracted spectral features from analysis.
+- `StatisticalManifold` (`detectors.info_geometry`) — A point on the manifold of probability distributions.
 - `StreamingScoreEnsemble` (`detectors.detection_tier`) — Calibrated stacking / BMA ensemble over tier detectors' per-point scores.
 - `SurgeFloodCascade` (`detectors.meteorological.surge_flood_cascade`) — Staged hurricane -> surge -> compound-flood cascade detector.
 - `SurgeSeries` (`detectors.meteorological.surge_flood_cascade`) — Aligned observed / predicted / residual water-level series (metres).
@@ -1337,12 +1344,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `UserInteraction` (`detectors.uiux_anomaly`) — Single user interaction event.
 - `VarianceAdaptedProbe` (`detectors.math_arrest.probes.variance_adapted`) — Detect volatility anomalies by comparing rolling variance to training.
 - `VibrationDiagnostic` (`detectors.spectral_vibration`) — Diagnostic result for vibration analysis.
+- `VietorisRipsFiltration` (`detectors.topological_analysis`) — Build a Vietoris-Rips simplicial complex and compute persistent homology.
 - `VolcanicStateHMM` (`detectors.geological.volcanic`) — Hidden Markov Model for volcanic activity state transitions.
 - `WaterLevelConfirmation` (`detectors.geological.eq_tsunami_cascade`) — Deterministic DART-style water-level analysis record.
 - `WavePropagationProbe` (`detectors.math_arrest.probes.wave_propagation`) — Detect wave equation violations via smoothed discrete Laplacian.
 - `ZetaHarmonicProbe` (`detectors.math_arrest.probes.zeta_harmonic`) — Detect phase coherence anomalies via sin/cos phase transform.
 - `_NativeLOF` (`detectors.spatial`) — Local Outlier Factor via scipy KDTree (no sklearn dependency).
 - `_NativePCA` (`detectors.dimensional`) — Minimal PCA via truncated SVD (no sklearn dependency).
+- `_UnionFind` (`detectors.topological_analysis`) — Weighted union-find with path compression.
 
 **Solvers & scorers**
 
@@ -1350,6 +1359,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Training & optimization**
 
+- `AdaptiveThresholdCalibrator` (`detectors.adaptive_detector`) — Solves the covtype F1=0 problem.
 - `FloodPredictionOptimizer` (`detectors.geological.flood_detector`) — Dynamic model optimization engine for flood prediction.
 - `GreyWolfOptimizer` (`detectors.advanced.gwo_ensemble`) — Grey Wolf Optimizer for weight optimization.
 - `MultiModalFusionOptimizer` (`detectors.fusion.multimodal_fusion`) — High-level optimizer for multi-modal anomaly detection fusion.
@@ -1361,9 +1371,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `_PlattCalibrator` (`detectors.detection_tier`) — Platt-scaling calibrator: logistic score->P(anomaly) from labels.
 - `_ScoreCalibrator` (`detectors.detection_tier`) — Per-detector monotone map from a raw score column into a calibrated ``[0, 1]``.
 
-<details><summary>Support types (118)</summary>
+<details><summary>Support types (125)</summary>
 
-`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DerechoResult`, `DetectionConfig`, `DetectorProtocol`, `DomainBandInfo`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
+`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
 
 </details>
 
@@ -1951,7 +1961,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `ml/` — 334 classes (266 capability)
+### `ml/` — 323 classes (259 capability)
 
 **Adapters & backends**
 
@@ -1981,14 +1991,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Detection**
 
 - `BiasDetector` (`ml.bias_detection`) — ML Bias Detection using Fairlearn metrics.
-- `ChiSquaredDriftDetector` (`ml.drift`) — Chi-squared test based drift detector for categorical features.
-- `CovarianceDriftDetector` (`ml.drift`) — Covariance-structure drift via the affine-invariant SPD distance.
 - `Detector` (`ml.ensemble_coordinator`) — Protocol for anomaly detectors.
-- `EnsembleDriftDetector` (`ml.drift`) — Ensemble drift detector combining multiple methods.
-- `KolmogorovSmirnovDriftDetector` (`ml.drift`) — Kolmogorov-Smirnov test based drift detector.
-- `OnlineDriftDetector` (`ml.drift`) — Online drift detection with adaptive windowing (ADWIN).
-- `PopulationStabilityIndexDetector` (`ml.drift`) — Population Stability Index (PSI) based drift detector.
-- `PrincipalAxisDriftDetector` (`ml.drift`) — Mean-shift drift along the reference's principal axes.
 - `StreamingAlarmDetector` (`ml.alarm_policy`) — The streaming pipeline's detector: the learned alarm policy, per numeric field.
 
 **Engines & orchestration**
@@ -2252,13 +2255,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
 
-<details><summary>Support types (68)</summary>
+<details><summary>Support types (64)</summary>
 
-`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `ValueFeatureState`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
+`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `ValueFeatureState`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
 
 </details>
 
-### `models/` — 142 classes (105 capability)
+### `models/` — 139 classes (102 capability)
 
 **Adapters & backends**
 
@@ -2290,9 +2293,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Detection**
 
-- `AnomalyDetector` (`models.lstm_ae`) — Complete anomaly detection pipeline using LSTM-Autoencoder.
 - `ChemistryAnomalyDetector` (`models.chemistry`) — Chemistry Discipline Anomaly Detector.
-- `LSTMAutoencoderDetector` (`models.lstm_ae`) — Detector-registry adapter for the LSTM-autoencoder.
 - `MatrixProfileDetector` (`models.foundation.matrix_profile`) — Matrix Profile-based anomaly detector using STUMPY.
 - `ParapsychologyDetector` (`models.parapsychology`) — REG statistical-deviation detector (parapsychology-research tooling).
 - `TextLogAnomalyDetector` (`models.foundation.llm_adapter`) — Specialized detector for text and log anomalies.
@@ -2326,7 +2327,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Discriminator` (`models.sota.tranad`) — Discriminator for TranAD adversarial training.
 - `FocusScoreConditioning` (`models.sota.tranad`) — Focus Score-Based Self-Conditioning Module.
 - `GatedFeatureFusion` (`models.sota.maat`) — Gated Feature Fusion for combining attention and SSM pathways.
-- `LSTMAutoencoder` (`models.lstm_ae`) — LSTM-based Autoencoder for time-series anomaly detection.
 - `LogicTensorNetwork` (`models.neurosymbolic`) — Neuro-symbolic inference head backed by the canonical co-trained module.
 - `MAATEncoderLayer` (`models.sota.maat`) — Single MAAT Encoder Layer.
 - `MAATLoss` (`models.sota.maat`) — Loss function for MAAT training.
