@@ -34,6 +34,22 @@ was never released. Upgrading from 2.0.0: the license is now
 AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
 2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
 
+### The streaming worker could never raise an alarm (branch `steel/version-cov5`)
+
+**Fixed — `StreamingAnomalyPipeline`'s default detector
+(`infrastructure/streaming.py`), which `mercury stream` and the Kubernetes and
+Helm streaming deployments run.** It folded each value into the EMA mean and
+variance *before* scoring it, so a deviation `d` scored
+`z = (1 - a)|d| / sqrt((1 - a) v + a d^2)`, never more than
+`(1 - a) / sqrt(a) = 2.85` at `a = 0.1`: below the 3.0 threshold for every
+input, however extreme. On the 47 real NAB streams it raised no alarm at all.
+The value is now scored against the statistics it has not yet moved, then
+folded in. Measured on the same 47 streams (321,206 points, NAB standard
+profile via `evaluation.nab_scoring`): 99 of 110 anomaly windows detected,
+but 5,640 false alarms (2.1% of points), NAB score -188.7. A fixed
+3-sigma rule fires too often on real, heavy-tailed streams; the learned alarm
+policy below replaces it.
+
 ### Tier detections recorded and alerted correctly; label-free flags honour `contamination` (branch `steel/version-cov5`)
 
 **Fixed — `/api/v1/detect/tier` recorded every detection as 0 anomalies at

@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import importlib.util
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 
 from omni_mercury_engine.infrastructure.streaming import (
@@ -782,3 +783,39 @@ class TestIntegrationInMemory:
 
         await producer.disconnect()
         await consumer.disconnect()
+
+
+class TestDefaultDetector:
+    """The streaming worker's built-in EMA z-score detector (``mercury stream``)."""
+
+    @staticmethod
+    def _run(values: list[dict[str, float]]) -> list[dict[str, Any]]:
+        pipeline = StreamingAnomalyPipeline("in", "out")
+        return [pipeline._default_detector(v) for v in values]
+
+    def test_a_large_spike_is_flagged(self) -> None:
+        """The value is scored against the statistics *before* it is folded in.
+        Scoring after the update bounded z by (1 - a)/sqrt(a) = 2.85 for a = 0.1,
+        below the 3.0 threshold, so no input could ever be flagged."""
+        rng = np.random.default_rng(0)
+        series = rng.normal(0.0, 1.0, 300)
+        for spike in (5.0, 50.0, 5000.0):
+            values = series.copy()
+            values[200] = spike
+            results = self._run([{"value": float(v)} for v in values])
+            assert results[200]["is_anomaly"] is True, spike
+            assert results[200]["anomaly_features"] == ["value"]
+            assert results[200]["score"] > 0.3
+
+    def test_noise_is_rarely_flagged_and_warm_up_never(self) -> None:
+        rng = np.random.default_rng(1)
+        results = self._run([{"value": float(v)} for v in rng.normal(0.0, 1.0, 5000)])
+        assert not any(r["is_anomaly"] for r in results[:11])
+        assert sum(r["is_anomaly"] for r in results) / 5000 < 0.02
+
+    def test_only_the_spiking_feature_is_named(self) -> None:
+        rng = np.random.default_rng(2)
+        rows = [{"a": float(x), "b": float(y)} for x, y in rng.normal(0.0, 1.0, (100, 2))]
+        rows[80]["b"] = 40.0
+        result = self._run(rows)[80]
+        assert result["is_anomaly"] is True and result["anomaly_features"] == ["b"]
