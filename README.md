@@ -152,7 +152,7 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and gated in C
 | Measurement | Value |
 |---|---|
 | Python source files in `src/omni_mercury_engine/` | **852** |
-| Source lines of code (LOC) | **~467,000** |
+| Source lines of code (LOC) | **~468,000** |
 | Top-level subpackages (true Python packages with `__init__.py`) | **52** |
 | Files importing PyTorch (optional `[ml]` extra) | **175** |
 | Distinct `torch.nn.Module` subclasses | **174** |
