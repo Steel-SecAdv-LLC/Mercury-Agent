@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — PatchCore's coreset could not be seeded.** `PatchCoreConfig` had no
+`seed` although the detector read one "if present", so the greedy coreset always
+started from OS entropy: over 60 identical fits the held-out clean-flag count
+ranged from 0 to 5 of 12, which failed CI's `test_calibrated_decision_is_informative`
+(limit 3) about one run in sixty. `PatchCoreConfig.seed` now exists (default
+`None`, unchanged behaviour); the visual-image test fits with `seed=0`.
+
 **Fixed — untrained networks no longer decide alarms (endocrinology, TEMPEST,
 anesthesia, medical imaging and vitals, CYBINT, interstellar objects, BLIP).**
 A freshly built network is a random function of its input. Measured: the CGM

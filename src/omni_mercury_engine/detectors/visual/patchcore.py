@@ -47,6 +47,8 @@ class PatchCoreConfig(VisualDetectorConfig):
         k_nearest: Alias for num_neighbors (for test compatibility)
         faiss_on_gpu: Whether to use GPU for nearest neighbor search
         anomaly_score_num_nn: Number of neighbors for anomaly score computation
+        seed: Seed of the greedy coreset's starting point.  ``None`` draws it
+            from OS entropy (a different memory bank on every fit).
     """
 
     coreset_sampling_ratio: float = 0.1  # Keep 10% of patches
@@ -56,6 +58,7 @@ class PatchCoreConfig(VisualDetectorConfig):
     faiss_on_gpu: bool = True
     anomaly_score_num_nn: int = 1
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
+    seed: int | None = None
 
 
 class PatchCoreDetector(BaseVisualDetector):
@@ -120,10 +123,9 @@ class PatchCoreDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.patchcore_config: PatchCoreConfig = config
-        # ``PatchCoreConfig.seed`` (if present) drives the greedy
-        # coreset-subsampling RNG.  Falls back to the generic ``seed``
-        # config attribute if defined; otherwise OS entropy.
-        self._rng: np.random.Generator = np.random.default_rng(getattr(config, "seed", None))
+        # ``PatchCoreConfig.seed`` drives the greedy coreset-subsampling RNG
+        # (the starting point); ``None`` is OS entropy.
+        self._rng: np.random.Generator = np.random.default_rng(config.seed)
 
         # Initialize backbone
         self._init_backbone()

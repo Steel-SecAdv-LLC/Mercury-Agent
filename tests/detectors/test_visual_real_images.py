@@ -53,7 +53,7 @@ N_TRAIN = 50
 #: calibration let half the clean crops through for Reverse Distillation:
 #: both data-starved, not defects.
 DETECTORS: dict[str, tuple[Any, dict[str, Any], float]] = {
-    "patchcore": (visual.PatchCoreDetector, {}, 0.95),
+    "patchcore": (visual.PatchCoreDetector, {"seed": 0}, 0.95),
     "padim": (visual.PaDiMDetector, {}, 0.95),
     "reverse_distillation": (visual.ReverseDistillationDetector, {"num_epochs": 20}, 0.95),
     "stfpm": (visual.STFPMDetector, {"num_epochs": 60}, 0.95),
@@ -271,3 +271,17 @@ def test_dual_student_refuses_non_finite_pixels(dual_student: Any) -> None:
     bad = np.full((1, 3, SIZE, SIZE), np.nan, dtype=np.float32)
     with pytest.raises(InvalidObservationError, match="non-finite"):
         dual_student.detect(bad)
+
+
+def test_patchcore_memory_bank_is_reproducible_under_a_seed(
+    data: dict[str, np.ndarray[Any, Any]],
+) -> None:
+    """Unseeded, the greedy coreset starts from OS entropy: 60 fits flagged 0 to 5 of 12 clean crops."""
+    first = _fitted("patchcore", data, seed=3)
+    second = _fitted("patchcore", data, seed=3)
+    other = _fitted("patchcore", data, seed=4)
+    np.testing.assert_array_equal(first.memory_bank.cpu().numpy(), second.memory_bank.cpu().numpy())
+    assert not np.array_equal(first.memory_bank.cpu().numpy(), other.memory_bank.cpu().numpy())
+    np.testing.assert_array_equal(
+        first.detect(data["clean"])["scores"], second.detect(data["clean"])["scores"]
+    )
