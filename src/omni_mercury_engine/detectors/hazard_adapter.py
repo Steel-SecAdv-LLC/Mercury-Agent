@@ -390,8 +390,11 @@ class HazardRecordAdapter(HazardUnitAdapter):
     #: Keys every record must carry.
     REQUIRED_KEYS: ClassVar[frozenset[str]] = frozenset()
     #: Keys a record may carry; ``None`` accepts any.  Declared where the
-    #: wrapped detector ignores unknown keys, so a misspelt measurement is
-    #: refused instead of silently going unassessed.
+    #: wrapped detector ignores unknown keys: a misspelt measurement is set
+    #: aside and named (the unit's verdict marked partial) instead of
+    #: silently going unassessed.  A record missing a REQUIRED key is still
+    #: refused -- the adapter serves one verdict per record, so it cannot
+    #: drop one without misaligning every score after it.
     ALLOWED_KEYS: ClassVar[frozenset[str] | None] = None
 
     def _parse(self, record: Mapping[str, Any]) -> Any:
@@ -419,11 +422,20 @@ class HazardRecordAdapter(HazardUnitAdapter):
                 raise InvalidObservationError(f"{self._name}: record {i} is missing {missing}")
             if self.ALLOWED_KEYS is not None:
                 unknown = sorted(set(record) - self.ALLOWED_KEYS)
-                if unknown:
-                    raise InvalidObservationError(
-                        f"{self._name}: record {i} has unknown keys {unknown}; "
-                        f"accepted: {sorted(self.ALLOWED_KEYS)}"
+                for key in unknown:
+                    self._unit_set_aside.setdefault(i, []).append(
+                        {
+                            "where": f"record[{i}].{key}",
+                            "reason": f"unknown key; accepted: {sorted(self.ALLOWED_KEYS)}",
+                        }
                     )
+                if unknown:
+                    record = {k: v for k, v in record.items() if k not in unknown}
+                    if not record:
+                        raise InvalidObservationError(
+                            f"{self._name}: record {i} has nothing usable: unknown keys "
+                            f"{unknown}; accepted: {sorted(self.ALLOWED_KEYS)}"
+                        )
             parsed.append(self._parse(record))
         return parsed
 

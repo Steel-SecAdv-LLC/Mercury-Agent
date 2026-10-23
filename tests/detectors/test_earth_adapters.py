@@ -356,8 +356,20 @@ class TestRockfall:
     def test_no_channel_or_misspelt_channel_is_refused(self) -> None:
         with pytest.raises(InvalidObservationError):
             RockfallAdapter().detect({})
-        with pytest.raises(InvalidObservationError, match="unknown keys"):
+        with pytest.raises(InvalidObservationError, match="nothing usable: unknown keys"):
             RockfallAdapter().detect({"rainfall_mm": np.zeros(24)})
+
+    def test_misspelt_channel_beside_a_measured_one_is_set_aside(self) -> None:
+        """Regression: one unknown key refused a record with a measured rain channel."""
+        out = RockfallAdapter().detect(
+            [{"rain_mm": np.full(24, 8.0), "rainfall_mm": np.zeros(24)}, {"rain_mm": np.zeros(24)}]
+        )
+        assert out["flags"].tolist() == [True, False]  # the rain channel is still graded
+        assert out["partial"] is True
+        assert out["set_aside"] == {
+            0: [{"where": "record[0].rainfall_mm", "reason": out["set_aside"][0][0]["reason"]}]
+        }
+        assert out["set_aside"][0][0]["reason"].startswith("unknown key; accepted:")
 
 
 # ---------------------------------------------------------------------------
