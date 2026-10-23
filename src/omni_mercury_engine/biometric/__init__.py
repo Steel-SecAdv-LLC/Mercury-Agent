@@ -60,6 +60,7 @@ from omni_mercury_engine.biometric.voice_recognition import (
     VoiceMatchResult,
     VoiceRecognizer,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 
 class BiometricModality(Enum):
@@ -136,6 +137,18 @@ class BiometricAnomalyDetector:
             claimed_identity="user_123",
         )
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "anomaly_score = 1 - (0.5 x mean modality quality + 0.5 x mean liveness confidence) "
+            "over the supplied iris, fingerprint and voice modalities; is_anomaly fires above "
+            "anomaly_threshold (default 0.5). Quality and liveness come from signal-processing "
+            "heuristics in the recognisers. No published threshold backs the 0.5 cut and the code "
+            "records no presentation-attack corpus that calibrates it, so it carries no known "
+            "false-accept or false-reject rate."
+        ),
+    )
 
     SUPPORTED_MODALITIES = ["iris", "fingerprint", "voice"]
 

@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,067
-- **Capability-bearing classes:** 2,051 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,068
+- **Capability-bearing classes:** 2,052 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,200 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,201 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1200 |
+| Other capability classes | 1201 |
 | Support types (config / result / enum / error) | 1016 |
 | Detection | 180 |
 | Neural models & layers | 162 |
@@ -659,7 +659,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 343 classes (214 capability)
+### `core/` — 344 classes (215 capability)
 
 **Adapters & backends**
 
@@ -770,6 +770,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DetectorManifestEntry` (`core.detector_registry`) — Declarative entry describing a discoverable detector.
 - `DetectorMetrics` (`core.base`) — Metrics for detector performance tracking.
 - `DetectorRegistry` (`core.detector_registry`) — Central registry for all anomaly detectors and models.
+- `DetectorRole` (`core.detector_roles`) — One detector class's role outside the manifest.
 - `DetectorTask` (`core.parallel_detectors`) — One unit of work.
 - `DomainAdaptiveOAEWeights` (`core.three_r.fusion`) — Domain-adaptive weight profiles for the OAE equation.
 - `DomainFeatureExtractorFactory` (`core.domain_feature_extractors`) — Factory for creating domain-specific feature extractors.

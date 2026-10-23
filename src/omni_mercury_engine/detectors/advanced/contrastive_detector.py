@@ -26,6 +26,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -357,6 +359,19 @@ class ContrastiveLearningDetector:
         >>> detector.fit(X_train)
         >>> scores = detector.predict(X_test)
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Fitted detector: is_anomaly fires above the threshold_percentile (default 95) "
+            "percentile of its own training scores, so about 5% of the training data alarms by "
+            "construction; no published threshold exists and no false-alarm rate is recorded for "
+            "the cut. Ranking on real labelled data is weak: held-out ROC-AUC 0.598 mean over "
+            "five ADBench datasets (Pima 0.550, breastw 0.890, WBC 0.686, cardio 0.403, thyroid "
+            "0.461), below the shipped LOF reference's 0.661 and under 0.5 on two datasets "
+            "(benchmarks/advanced_detector_auc.py)."
+        ),
+    )
 
     def __init__(
         self,

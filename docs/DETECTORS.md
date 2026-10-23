@@ -153,17 +153,137 @@ an adapter entry and names the domain detector behind it.
 |---|---|---|---|---|---|
 | `timegpt` | `TimeGPTAdapter` | foundation | series_1d | ext | Nixtla TimeGPT foundation model adapter |
 
-## Building blocks and wrappers (importable, deliberately not manifest entries)
+## Other detector classes (not manifest entries)
 
-- ``detectors/statistical_extended.py``: ``MADDetector``, ``LOFDetector``,
-  ``DBSCANDetector``, ``MCDDetector``, ``CUSUMDetector``, ``GrubbsTest``,
-  ``GESDTest`` -- served through the ``extended_statistical`` ensemble entry.
-- ``detectors/drift.py``: ``KolmogorovSmirnovDriftDetector``,
-  ``PopulationStabilityIndexDetector``, ``ChiSquaredDriftDetector``,
-  ``CovarianceDriftDetector``, ``PrincipalAxisDriftDetector``,
-  ``OnlineDriftDetector`` -- served through ``EnsembleDriftDetector``, which
-  the engine and ``ml/online_learning.py`` already drive.
-- ``detectors/adaptive_detector.py``: ``CovarianceAwareDetector``,
-  ``TemporalPatternDetector`` -- composed by the ``adaptive_anomaly`` entry.
-- ``core/conformal_prediction.py`` / ``detectors/conformal_martingale.py``:
-  conformal wrappers constructed around a caller's detector.
+The source holds more public ``*Detector`` classes than the manifest lists.
+Each is accounted for in ``core/detector_roles.py``, and
+``tests/core/test_detector_roles.py`` re-derives every claim below from the
+source and fails when a new ``*Detector`` class is in neither place.  A class
+named here is not a numeric seam: it is a part of something else, a base, or a
+detector with its own API that is reached by importing it.
+
+
+### Detectors with their own domain API (import them; no numeric seam) (29)
+
+Each has at least one test and a declared ``decision_source``.
+
+| class | module | what it is |
+|---|---|---|
+| `BiometricAnomalyDetector` | `biometric` | Multi-modal biometric anomaly detection |
+| `OSHAComplianceDetector` | `compliance.osha_anomaly` | OSHA compliance anomaly detector for industry-specific safety monitoring |
+| `ConformalAnomalyDetector` | `core.conformal_prediction` | Wrapper for anomaly detectors with conformal prediction |
+| `AdversarialAutoencoderDetector` | `detectors.advanced.adversarial_ae` | Adversarial Autoencoder Detector for Industrial Control Systems |
+| `ContrastiveLearningDetector` | `detectors.advanced.contrastive_detector` | Contrastive Learning Detector for Anomaly Detection |
+| `COPODDetector` | `detectors.advanced.copod_detector` | COPOD: Copula-Based Outlier Detection |
+| `MultiScaleTransformerDetector` | `detectors.advanced.multi_scale_transformer` | Multi-Scale Transformer Detector for Time-Series Anomaly Detection |
+| `BLIPVLMDetector` | `detectors.vlm.blip_vlm` | BLIP-based zero-shot anomaly detector |
+| `StatisticalVLMDetector` | `detectors.vlm.statistical_vlm` | Offline, deterministic concrete VLM detector (no network, no weights) |
+| `EmergentLifeDetector` | `emergent.emergent_life_detector` | Unified emergent life detector integrating SETI, biosignatures, and contact protocol |
+| `ChemicalNuclearDetector` | `infrastructure.chemical_nuclear` | Anomaly detection for CISA Chemical and Nuclear critical infrastructure |
+| `CommunicationsITDetector` | `infrastructure.communications_it` | Anomaly detection for CISA Communications and Information Technology sectors |
+| `EnergyDamsDetector` | `infrastructure.energy_dams` | Anomaly detection for CISA Energy and Dams critical infrastructure |
+| `AgriFoodSecurityDetector` | `infrastructure.humanitarian.agrifood_security` | Detect agricultural and food security anomalies |
+| `ClimateResilienceDetector` | `infrastructure.humanitarian.climate_resilience` | Detect climate anomalies for disaster prediction and resilience |
+| `EconomicResilienceDetector` | `infrastructure.humanitarian.economic_resilience` | Detect economic anomalies and systemic risks |
+| `EducationEquityDetector` | `infrastructure.humanitarian.education_equity` | Detect educational equity anomalies and learning barriers |
+| `NeuroscienceDetector` | `infrastructure.humanitarian.neuroscience` | Detect neural and cognitive pattern anomalies |
+| `EndocrinologyDetector` | `medical.endocrinology_detector` | Integrated endocrine anomaly detector |
+| `PathogenDetector` | `medical.pandemic.bio_threats.pathogen_detector` | Baseline-calibrated pathogen detector (Medical Interdiction) |
+| `PandemicDetector` | `medical.pandemic.pandemic_detector` | Comprehensive pandemic and outbreak detection system |
+| `BiasDetector` | `ml.bias_detection` | ML Bias Detection using Fairlearn metrics |
+| `TextLogAnomalyDetector` | `models.foundation.llm_adapter` | Specialized detector for text and log anomalies |
+| `QuantumAnomalyDetector` | `quantum_computing.detector` | Quantum-enhanced anomaly detection |
+| `TerrorismPatternDetector` | `security.anti_terrorism.pattern_recognition` | Terrorism Pattern Detector for CI |
+| `TEMPESTDetector` | `security.tempest_detection` | Comprehensive TEMPEST detection system integrating RF spectrum analysis, video emanation |
+| `DisasterPrecursorDetector` | `space.disaster_precursor_detector` | Comprehensive disaster precursor detection system |
+| `InterstellarObjectDetector` | `space.interstellar_objects` | Interstellar Object Anomaly Detector |
+| `StreamingDetector` | `streaming.streaming_detector` | Rolling-window anomaly detector for streaming data |
+
+### Variants of another detector (1)
+
+A subclass, reached by importing it.
+
+| class | module | what it is | built by |
+|---|---|---|---|
+| `AdaptiveThreatDetector` | `security.realtime_threat_detection` | Adaptive threat detector that updates based on new threats | `RealTimeThreatDetector` |
+
+### Deprecated (1)
+
+The module warns on import and names its replacement; kept for compatibility.
+
+| class | module | what it is |
+|---|---|---|
+| `GWOEnsembleDetector` | `detectors.advanced.gwo_ensemble` | GWO-Enhanced Ensemble Detector for Anomaly Detection |
+
+### Components (constructed by another class) (53)
+
+Built and driven by the class(es) in the last column; not seams of their own.
+
+| class | module | what it is | built by |
+|---|---|---|---|
+| `FingerprintLivenessDetector` | `biometric.fingerprint_recognition` | Detect fingerprint presentation attacks | `BiometricAnomalyDetector`, `FingerprintRecognizer` |
+| `IrisLivenessDetector` | `biometric.iris_recognition` | Detect presentation attacks on iris recognition systems | `BiometricAnomalyDetector`, `IrisRecognizer` |
+| `VoiceActivityDetector` | `biometric.voice_recognition` | Detect voice activity in audio signal | `VoiceRecognizer` |
+| `VoiceLivenessDetector` | `biometric.voice_recognition` | Detect voice presentation attacks | `BiometricAnomalyDetector`, `VoiceRecognizer` |
+| `IntegratedAnomalyDetector` | `cognitive.anomaly_detection` | Enhanced Anomaly Detector with memory graph and external integration | `CognitiveOrchestrator` |
+| `PatternDetector` | `cognitive.neural_memory_layer` | Detect patterns from clustered memory embeddings | `NeuralMemoryLayer` |
+| `PredictiveCodingDetector` | `cognitive.predictive_coding` | Anomaly detector based on predictive coding principles | `MercuryPredictiveCoding` |
+| `BaseDomainDetector` | `core.base_domains` | Enhanced base detector with adaptive thresholds and domain metrics | `GOSNNIntegration` |
+| `CovarianceAwareDetector` | `detectors.adaptive_detector` | Solves the batadal problem | `AdaptiveAnomalyDetector` |
+| `TemporalPatternDetector` | `detectors.adaptive_detector` | Solves the smd problem | `AdaptiveAnomalyDetector` |
+| `ConformalChangeDetector` | `detectors.conformal_martingale` | Conformal Shiryaev-Roberts test for a rise in a stream of scores | `PathogenDetector` |
+| `ChiSquaredDriftDetector` | `detectors.drift` | Chi-squared test based drift detector for categorical features | `EnsembleDriftDetector` |
+| `CovarianceDriftDetector` | `detectors.drift` | Covariance-structure drift via the affine-invariant SPD distance | `EnsembleDriftDetector` |
+| `EnsembleDriftDetector` | `detectors.drift` | Ensemble drift detector combining multiple methods | `OmniMercuryEngine` |
+| `KolmogorovSmirnovDriftDetector` | `detectors.drift` | Kolmogorov-Smirnov test based drift detector | `EnsembleDriftDetector` |
+| `OnlineDriftDetector` | `detectors.drift` | Online drift detection with adaptive windowing (ADWIN) | `EngineStreamSession` |
+| `PopulationStabilityIndexDetector` | `detectors.drift` | Population Stability Index (PSI) based drift detector | `EnsembleDriftDetector` |
+| `PrincipalAxisDriftDetector` | `detectors.drift` | Mean-shift drift along the reference's principal axes | `EnsembleDriftDetector` |
+| `BankingStressDetector` | `detectors.economic.financial_crisis_detector` | Banking sector stress detection via credit metrics | `FinancialCrisisDetector` |
+| `FraudDetector` | `detectors.economic.financial_crisis_detector` | Algorithmic trading fraud and market manipulation detection | `FinancialCrisisDetector` |
+| `MarketCrashDetector` | `detectors.economic.financial_crisis_detector` | Stock market crash detection via price decline and volatility | `FinancialCrisisDetector` |
+| `E1PulseDetector` | `detectors.energy.emp_detector` | E1 component detection (prompt gamma ray pulse) | `EMPDetector` |
+| `E2PulseDetector` | `detectors.energy.emp_detector` | E2 component detection (intermediate-time HEMP, lightning-like) | `EMPDetector` |
+| `E3PulseDetector` | `detectors.energy.emp_detector` | E3 component detection (magnetohydrodynamic EMP) | `EMPDetector` |
+| `IntentionalEMIDetector` | `detectors.energy.emp_detector` | Intentional electromagnetic interference (IEMI) detection | `EMPDetector` |
+| `InSARDeformationDetector` | `detectors.geological.volcanic` | InSAR ground deformation detection | `VolcanicEruptionDetector` |
+| `SeismicSwarmDetector` | `detectors.geological.volcanic` | Volcano-tectonic (VT) earthquake swarm detection | `VolcanicEruptionDetector` |
+| `ThermalHotspotDetector` | `detectors.geological.volcanic` | Thermal infrared (TIR) hotspot detection | `VolcanicEruptionDetector` |
+| `FireIgnitionDetector` | `detectors.geological.wildfire` | CNN scoring fire activity from satellite-derived thermal rasters | `WildfireDetector` |
+| `AnomalyDetector` | `detectors.lstm_ae` | Complete anomaly detection pipeline using LSTM-Autoencoder | `LSTMAutoencoderDetector` |
+| `CoralBleachingDetector` | `detectors.marine.biodiversity_detector` | Coral bleaching detection per NOAA Coral Reef Watch alert levels | `MarineBiodiversityDetector` |
+| `CUSUMDetector` | `detectors.statistical_extended` | Cumulative Sum (CUSUM) control chart for sequential anomaly detection | `ExtendedStatisticalDetector` |
+| `DBSCANDetector` | `detectors.statistical_extended` | DBSCAN-based anomaly detector | `ExtendedStatisticalDetector` |
+| `GESDTest` | `detectors.statistical_extended` | Generalized Extreme Studentized Deviate (GESD) test | `ExtendedStatisticalDetector` |
+| `GrubbsTest` | `detectors.statistical_extended` | Grubbs' Test for detecting outliers | `ExtendedStatisticalDetector` |
+| `LOFDetector` | `detectors.statistical_extended` | Local Outlier Factor (LOF) detector | `ExtendedStatisticalDetector` |
+| `MADDetector` | `detectors.statistical_extended` | Median Absolute Deviation (MAD) based anomaly detector | `ExtendedStatisticalDetector` |
+| `MCDDetector` | `detectors.statistical_extended` | Minimum Covariance Determinant (MCD) based detector | `ExtendedStatisticalDetector` |
+| `DistributedAnomalyDetector` | `distributed.cluster` | Distributed anomaly detection across a Mercury Agent cluster | `DistributedMercuryCluster` |
+| `FederatedAnomalyDetector` | `federated_learning.server` | Federated Anomaly Detection system | `CISAFederatedCoordinator` |
+| `HealthcareEmergencyDetector` | `infrastructure.healthcare_emergency` | Anomaly detection for CISA Healthcare and Emergency Services sectors | `TemporalVitalSignsDetector` |
+| `StrokeDetector` | `medical.critical_care.neurocritical_care` | Neural network for stroke detection and classification | `NeurocriticalCarePredictor` |
+| `MedicalImagingAnomalyDetector` | `medical.medical_cure_predictor` | Medical imaging anomaly detection using DeepFace-like approach | `MedicalCurePredictor` |
+| `TemporalVitalSignsDetector` | `medical.medical_cure_predictor` | Temporal vital signs anomaly detector using LSTM | `MedicalCurePredictor` |
+| `StreamingAlarmDetector` | `ml.alarm_policy` | The streaming pipeline's detector: the learned alarm policy, per numeric field | `StreamingAnomalyPipeline` |
+| `ZeroShotAnomalyDetector` | `models.foundation.llm_adapter` | Zero-shot anomaly detector using LLM prompting | `OmniMercuryEngine`, `TextLogAnomalyDetector` |
+| `MatrixProfileDetector` | `models.foundation.matrix_profile` | Matrix Profile-based anomaly detector using STUMPY | `FoundationEnsemble` |
+| `QAOAAnomalyDetector` | `quantum_computing.hybrid` | Quantum Approximate Optimization Algorithm for anomaly detection | `QuantumAnomalyDetector` |
+| `VQEAnomalyDetector` | `quantum_computing.hybrid` | Variational one-class anomaly detector | `QuantumAnomalyDetector` |
+| `C2InfrastructureDetector` | `security.cybint_subprocessor` | Command & Control infrastructure detection | `CYBINTSubProcessor` |
+| `VideoEmanationDetector` | `security.tempest_detection` | Neural network for video display emanation detection | `TEMPESTDetector` |
+| `CovertChannelDetector` | `security.traffic_analysis` | Covert channel detection in network traffic | `TrafficAnalysisEngine` |
+| `IonosphericDisturbanceDetector` | `space.disaster_precursor_detector` | Detect ionospheric disturbances from Schumann data | `DisasterPrecursorDetector` |
+
+### Abstract bases and protocols (6)
+
+Never instantiated on their own.
+
+| class | module | what it is |
+|---|---|---|
+| `BaseDetector` | `core.base` | Abstract base class for all anomaly detectors |
+| `AnomalyDetector` | `core.rigorous_benchmark` | Protocol for anomaly detectors to benchmark |
+| `BaseDetector` | `core.stacking_fusion` | Protocol for base detectors in ensemble |
+| `BaseVisualDetector` | `detectors.visual.base_visual` | Abstract base class for visual anomaly detectors |
+| `BaseVLMDetector` | `detectors.vlm.base_vlm` | Abstract base class for VLM-based anomaly detectors |
+| `Detector` | `ml.ensemble_coordinator` | Protocol for anomaly detectors |

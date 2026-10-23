@@ -27,6 +27,7 @@ import numpy as np
 from scipy import fft
 
 from omni_mercury_engine.core.three_r_mechanism import ResonanceEngine
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.models.multiverse import MultiverseOmniEngine
 from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 
@@ -561,6 +562,19 @@ class EmergentLifeDetector:
 
     exploration.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "SETI path: a technosignature is reported when a hand-weighted confidence over "
+            "narrow-band peaks, repeating patterns, modulation and 4-sigma resonance anomalies "
+            "exceeds 0.5. Biosignature path: confidence = indicators/3 over a 20-28 h or 90-400 "
+            "day periodicity and a channel-mean ratio above 10 or below 0.1; periods are in sample "
+            "units, so the day-length bands hold only at 1 sample per second. No published "
+            "threshold applies and no confirmed technosignature or biosignature corpus exists to "
+            "calibrate these."
+        ),
+    )
 
     def __init__(
         self,

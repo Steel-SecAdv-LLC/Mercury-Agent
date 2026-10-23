@@ -30,6 +30,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.vlm.base_vlm import (
     BaseVLMDetector,
     LVLMType,
@@ -221,6 +222,17 @@ class BLIPVLMDetector(BaseVLMDetector):
         >>> features = detector.extract_features(image_tensor)
         >>> print(f"Feature shape: {features.shape}")  # [1, 128]
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Caption keyword vote: confidence = anomaly-keyword and description-word matches / "
+            "(matches + normal-keyword matches + 1), alarming above confidence_threshold; a "
+            "caption with no keyword scores 0.5 and does not alarm. The caption comes from the "
+            "pinned BLIP captioner; the keyword lists and the cut are hand-set, with no published "
+            "threshold and no recorded calibration."
+        ),
+    )
 
     # Operator-known BLIP variants. SafeHFLoader rejects anything outside.
     ALLOWED_MODELS: frozenset[str] = frozenset(

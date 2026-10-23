@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import WrappedDecisionSource
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,6 +58,10 @@ class StreamingDetector:
         async for point in async_data_source:
             result = await detector.async_ingest(point)
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.statistical:MercuryAnomalyDetector"
+    )
 
     def __init__(
         self,

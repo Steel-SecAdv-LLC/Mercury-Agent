@@ -17,6 +17,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class CISASector(Enum):
     """C i s a sector."""
@@ -35,6 +37,18 @@ class ChemicalNuclearDetector:
     - Insider threat detection
     - Cross-sector impact assessment
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "A reading outside a fixed per-parameter band is a violation (chemical: temperature "
+            "-50..200 C, pressure 0..1000 psi, pH 2..12, leak 0..100 ppm; nuclear: radiation 0..5 "
+            "mrem/h, core temperature 280..330 C, coolant flow 50,000..150,000 gpm, neutron flux "
+            "0.8..1.2); parameters not named in the table are never checked. The bands are generic "
+            "round numbers, not any facility's licensed operating limits, and carry no recorded "
+            "source or calibration."
+        ),
+    )
 
     def __init__(self, sector: CISASector) -> None:
         """Initialize the instance."""

@@ -16,12 +16,6 @@ from __future__ import annotations
 import importlib
 import logging
 
-# Core detectors — no PyTorch dependency; always available.
-from omni_mercury_engine.detectors.statistical import (
-    MercuryAnomalyDetector,
-    StatisticalAnomalyDetector,
-)
-
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -30,6 +24,13 @@ logger = logging.getLogger(__name__)
 # package never crashes when PyTorch is absent.
 # ---------------------------------------------------------------------------
 _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
+    # ``statistical`` imports ``core.base`` and so torch; resolving it on first
+    # use keeps ``detectors.provenance`` (a leaf with no heavy imports) loadable
+    # from modules that must stay torch-free.
+    "omni_mercury_engine.detectors.statistical": (
+        "MercuryAnomalyDetector",
+        "StatisticalAnomalyDetector",
+    ),
     "omni_mercury_engine.detectors.acceleration_dynamics": (
         "AccelerationDynamicsDetector",
         "EnergyState",

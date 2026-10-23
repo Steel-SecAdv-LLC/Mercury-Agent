@@ -53,6 +53,7 @@ from omni_mercury_engine.detectors.detection_tier import (
     pac_conformal_threshold,
     pac_minimum_calibration_size,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 _FIT_FRACTION = 0.7
 _SIGNATURE_SD = 3.0
@@ -89,6 +90,17 @@ class PathogenDetector:
     - Per-channel signatures relative to the baseline
     - MASINT agent reports for classification and escalation
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Energy of a snapshot's deviation from the fitted baseline; an alarm is energy above "
+            "the split-conformal quantile of the baseline energies at false_alarm_rate (or a fixed "
+            "energy_threshold). The guarantee holds only if baseline and monitored snapshots are "
+            "exchangeable, and one baseline's realised rate varies around the target. No labelled "
+            "pathogen corpus is recorded, so detection power is unmeasured."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize pathogen detector.

@@ -13,6 +13,7 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.quantum_computing.circuits import (
     AnomalyEncodingCircuit,
     EncodingType,
@@ -97,6 +98,17 @@ class QuantumAnomalyDetector:
             classical_fallback=True,
         )
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Scores come from the chosen quantum-kernel, VQE, QAOA or amplitude-estimation method "
+            "on a [0, 1]-scaled, qubit-limited encoding of the features; is_anomaly fires above "
+            "0.5, or for vqe_anomaly above the 1 - contamination (default 0.95) quantile of the "
+            "training scores. No published threshold exists and no labelled false-alarm rate is "
+            "recorded."
+        ),
+    )
 
     SUPPORTED_METHODS = [
         "quantum_kernel",

@@ -25,6 +25,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class EconomicThreat(Enum):
     """Economic threat."""
@@ -38,6 +40,31 @@ class EconomicThreat(Enum):
 
 class EconomicResilienceDetector:
     """Detect economic anomalies and systemic risks."""
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Annual CPI inflation of 40% or more is an inflation crisis; 15% opens the "
+                "moderate-inflation band."
+            ),
+            citation=(
+                "Bruno & Easterly 1998, J Monetary Economics 41:3-26 "
+                "(doi:10.1016/S0304-3932(97)00063-9); Dornbusch & Fischer 1993, World Bank "
+                "Economic Review 7:1-44 (doi:10.1093/wber/7.1.1). Bibliographic records checked on "
+                "Crossref; the figures were not re-read in the papers."
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Market and employment anomalies alarm at |z| above 2 or volatility above twice "
+                "the baseline deviation; 10% inflation is a conventional double-digit line; "
+                "recession risk is two consecutive negative GDP quarters (attributed in the code "
+                "to Shiskin 1974, not re-read). Cuts are hand-set."
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""

@@ -70,6 +70,7 @@ import numpy.typing as npt
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.medical.data_sources import (
     CGMDataSource,
     CGMReading,
@@ -488,6 +489,32 @@ class EndocrinologyDetector:
     live feed can instantiate :class:`SmartInsulinPenMonitor`,
     :class:`GLP1TherapyMonitor`, and :class:`InhaledInsulinMonitor` directly.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The CGM glycemic state is the consensus band of the latest reading: below 54 "
+                "mg/dL severe (level 2) hypoglycemia, below 70 hypoglycemia, above 180 "
+                "hyperglycemia."
+            ),
+            citation=(
+                "Battelino et al. 2019, Diabetes Care 42:1593-1603 (doi:10.2337/dci19-0028), "
+                "International Consensus on Time in Range; bibliographic record checked on "
+                "Crossref."
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The monitors' rules are attributed in the module to the FDA Afrezza label (FEV1 "
+                "below 70% contraindicates), FDA/ADA guidance (GLP-1 therapy stops on "
+                "pancreatitis) and ADA Standards of Care (rapid-acting doses at least two hours "
+                "apart) and were not re-read; a bolus above 15 U, a daily total above 50 U and the "
+                "GLP-1 titration steps are hand-set."
+            ),
+        ),
+    )
 
     def __init__(
         self,

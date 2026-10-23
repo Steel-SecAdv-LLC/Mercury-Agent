@@ -43,6 +43,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 try:
     import torch
     from torch import nn
@@ -221,6 +223,18 @@ class InterstellarObjectDetector:
     Analyzes interstellar objects for unusual characteristics that deviate from expectations for
     natural solar system bodies or known interstellar comets/asteroids.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Rule flags use fixed cuts: eccentricity above 1.5, inclination beyond 120 degrees, "
+            "velocity above 40 km/s, non-gravitational acceleration without outgassing, albedo "
+            "below 0.03 or above 0.5, B-V above 1.0, aspect ratio above 6, light-curve amplitude "
+            "above 2.5 mag, rotation under 2 h or over 100 h, tumbling; the natural-explanation "
+            "grade counts the flags. No published source backs the cuts. The learned anomaly score "
+            "abstains until trained weights are loaded; none ship."
+        ),
+    )
 
     def __init__(self, enable_artificial_origin_test: bool = False) -> None:
         """Initialize interstellar object detector.

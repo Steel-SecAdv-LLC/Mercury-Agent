@@ -18,6 +18,8 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 logger = logging.getLogger(__name__)
 
 
@@ -428,6 +430,18 @@ class ConformalAnomalyDetector:
     Provides distribution-free uncertainty quantification for any anomaly detector, with guaranteed
     coverage at specified level.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "The alarm cut is the split-conformal quantile of the base detector's scores on a "
+            "held-out calibration share, at the configured coverage (default 0.95); the "
+            "finite-sample guarantee holds only if calibration and test samples are exchangeable. "
+            "A base detector with no scores falls back to a hand-weighted ensemble (0.4 z-score, "
+            "0.35 kNN density, 0.25 percentile extremity). The code records no measured "
+            "false-alarm rate on named data."
+        ),
+    )
 
     def __init__(
         self,

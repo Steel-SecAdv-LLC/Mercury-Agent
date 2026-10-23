@@ -24,6 +24,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +89,26 @@ class BiasDetector:
         if not report.is_model_fair:
             print(f"Bias detected: {report.recommendations}")
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Disparate impact is flagged when the lowest group's selection rate is below "
+                "four-fifths of the highest group's."
+            ),
+            citation=(
+                "29 CFR 1607.4(D), the 'four-fifths rule'; text checked on eCFR, 2026-10-01."
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Demographic-parity and equalized-odds gaps, and calibration gaps, are flagged "
+                "above 0.1: a common convention, not a published standard."
+            ),
+        ),
+    )
 
     # Standard thresholds from fairness literature
     DEMOGRAPHIC_PARITY_THRESHOLD = 0.1  # Max difference in selection rates

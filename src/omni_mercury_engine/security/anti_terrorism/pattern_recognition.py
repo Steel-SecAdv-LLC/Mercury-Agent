@@ -27,6 +27,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 # code -> (booklet number, booklet stage, indicator type)
 MOBILIZATION_INDICATORS: dict[str, tuple[int, str, str]] = {
     "violent_extremist_travel": (1, "mobilization", "travel"),
@@ -130,6 +132,19 @@ class TerrorismPatternDetector:
     the booklet's numbers 1-42; other strings go to ``unrecognised_indicators``
     and are not scored, so free-text reports must be coded first.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Reports are staged by the most advanced recognised mobilization indicator; the "
+            "indicator table and stage grouping follow the NCTC/FBI/DHS booklet cited in the "
+            "module, which was not re-read. threat_detected needs a preparation or mobilization "
+            "indicator, or a direct threat (#28, #30, #31), from a source with stated reliability; "
+            "confidence is a noisy-OR over source reliabilities. The actionable cut and the "
+            "combination rule are the detector's own, and every result is a referral for human "
+            "review."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the instance."""

@@ -30,6 +30,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class EmanationType(Enum):
     """Electromagnetic emanation types."""
@@ -364,6 +366,17 @@ class TEMPESTDetector:
 
     detection, vulnerability assessment, and countermeasure generation.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "A frequency band is flagged when its signal-to-noise ratio exceeds 20 dB; threat "
+            "level is graded at 0.4 / 0.6 / 0.8 of the compromising-potential or "
+            "reconstruction-feasibility score; shielding scales the risk. The cuts are hand-set "
+            "with no recorded source or calibration. The video-emanation network abstains until "
+            "trained weights are loaded; none ship."
+        ),
+    )
 
     def __init__(
         self,

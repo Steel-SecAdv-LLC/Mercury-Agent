@@ -51,23 +51,72 @@ detectors needing an external service or model backend; ``serves X`` marks
 an adapter entry and names the domain detector behind it.
 """
 
-FOOTER = """\
+FOOTER_INTRO = """\
 
-## Building blocks and wrappers (importable, deliberately not manifest entries)
+## Other detector classes (not manifest entries)
 
-- ``detectors/statistical_extended.py``: ``MADDetector``, ``LOFDetector``,
-  ``DBSCANDetector``, ``MCDDetector``, ``CUSUMDetector``, ``GrubbsTest``,
-  ``GESDTest`` -- served through the ``extended_statistical`` ensemble entry.
-- ``detectors/drift.py``: ``KolmogorovSmirnovDriftDetector``,
-  ``PopulationStabilityIndexDetector``, ``ChiSquaredDriftDetector``,
-  ``CovarianceDriftDetector``, ``PrincipalAxisDriftDetector``,
-  ``OnlineDriftDetector`` -- served through ``EnsembleDriftDetector``, which
-  the engine and ``ml/online_learning.py`` already drive.
-- ``detectors/adaptive_detector.py``: ``CovarianceAwareDetector``,
-  ``TemporalPatternDetector`` -- composed by the ``adaptive_anomaly`` entry.
-- ``core/conformal_prediction.py`` / ``detectors/conformal_martingale.py``:
-  conformal wrappers constructed around a caller's detector.
+The source holds more public ``*Detector`` classes than the manifest lists.
+Each is accounted for in ``core/detector_roles.py``, and
+``tests/core/test_detector_roles.py`` re-derives every claim below from the
+source and fails when a new ``*Detector`` class is in neither place.  A class
+named here is not a numeric seam: it is a part of something else, a base, or a
+detector with its own API that is reached by importing it.
 """
+
+_KIND_TITLES = {
+    "library": (
+        "Detectors with their own domain API (import them; no numeric seam)",
+        "Each has at least one test and a declared ``decision_source``.",
+    ),
+    "variant": ("Variants of another detector", "A subclass, reached by importing it."),
+    "deprecated": (
+        "Deprecated",
+        "The module warns on import and names its replacement; kept for compatibility.",
+    ),
+    "component": (
+        "Components (constructed by another class)",
+        "Built and driven by the class(es) in the last column; not seams of their own.",
+    ),
+    "abstract": (
+        "Abstract bases and protocols",
+        "Never instantiated on their own.",
+    ),
+}
+
+
+def _class_summary(ref: str) -> str:
+    """First docstring line of ``module:Class``, from the source (no import)."""
+    import ast
+
+    module, _, name = ref.partition(":")
+    base = REPO / "src" / Path(*module.split("."))
+    path = base / "__init__.py" if base.is_dir() else base.with_suffix(".py")
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.ClassDef) and node.name == name:
+            doc = ast.get_docstring(node) or ""
+            return doc.splitlines()[0].rstrip(".") if doc else "--"
+    return "--"
+
+
+def _roles_section() -> str:
+    from omni_mercury_engine.core.detector_roles import DETECTOR_ROLES
+
+    out = [FOOTER_INTRO]
+    for kind, (title, blurb) in _KIND_TITLES.items():
+        rows = sorted((ref, r) for ref, r in DETECTOR_ROLES.items() if r.kind == kind)
+        out.append(f"\n### {title} ({len(rows)})\n\n{blurb}\n")
+        built = kind in {"component", "variant"}
+        out.append(f"| class | module | what it is |{' built by |' if built else ''}")
+        out.append(f"|---|---|---|{'---|' if built else ''}")
+        for ref, role in rows:
+            module, _, name = ref.partition(":")
+            short = module.removeprefix("omni_mercury_engine.")
+            extra = ""
+            if built:
+                parts = ", ".join(f"`{p.rsplit(':', 1)[1]}`" for p in role.parts)
+                extra = f" {parts} |"
+            out.append(f"| `{name}` | `{short}` | {_class_summary(ref)} |{extra}")
+    return "\n".join(out) + "\n"
 
 
 def _rows() -> dict[str, list[tuple[str, ...]]]:
@@ -115,7 +164,7 @@ def render() -> str:
         parts.append("|---|---|---|---|---|---|")
         for name, cls, cat, modality, notes, desc in rows:
             parts.append(f"| `{name}` | `{cls}` | {cat} | {modality} | {notes} | {desc} |")
-    parts.append(FOOTER)
+    parts.append(_roles_section())
     return "\n".join(parts)
 
 

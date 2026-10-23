@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 
 if TYPE_CHECKING:
@@ -70,6 +71,16 @@ class StatisticalVLMDetector(BaseVLMDetector):
     surface; production deployments should use a ``transformers``-backed
     backend (see module docstring).
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Frame salience, not a vision-language model: score = sigmoid(8 x (raw - 0.15)) with "
+            "raw = pixel std + 0.5 x (x-gradient + y-gradient) + 0.3 x brightness; is_anomaly at "
+            "confidence_threshold (default 0.5). It measures image texture, not semantic "
+            "anomalies. The constants are unit-pinned, not fitted or calibrated."
+        ),
+    )
 
     def __init__(self, config: VLMConfig | dict[str, Any] | None = None) -> None:
         """Initialize the detector and its (sentinel) statistical model.
