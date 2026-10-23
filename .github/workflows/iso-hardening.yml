@@ -32,7 +32,10 @@ name: ISO Hardening
 
 on:
   push:
-    branches: [main, develop]
+    # steel/** is this repository's working-branch convention (see ci.yml):
+    # without it these gates (Examples Parity, the hardening scans) ran only
+    # once a PR opened.
+    branches: [main, develop, steel/**]
   pull_request:
     branches: [main, develop]
 
