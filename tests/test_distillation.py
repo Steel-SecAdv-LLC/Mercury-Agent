@@ -740,3 +740,108 @@ class TestAlphaWiring:
                 + [p.detach().clone() for p in distiller.student2.parameters()]
             )
         assert all(torch.equal(a, b) for a, b in zip(results[0], results[1], strict=True))
+
+
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
+class TestPreparationDecisionAndFeatures:
+    """Input preparation, the strict decision rule and the served feature columns."""
+
+    @staticmethod
+    def _distiller(**config: Any) -> Any:
+        from omni_mercury_engine.ml.distillation import DualStudentDistillation
+
+        distiller = DualStudentDistillation(config={"device": "cpu", **config})
+        base = torch.arange(1.0, 13.0).view(1, 3, 2, 2)
+        distiller.teacher = _make_stub_teacher(base)
+        distiller.student1 = _make_const_shift(-2.0)
+        distiller.student2 = _make_const_shift(1.0)
+        distiller._is_fitted = True
+        return distiller
+
+    def test_default_config_values_beyond_the_student_settings(self) -> None:
+        from omni_mercury_engine.ml.distillation import DualStudentConfig
+
+        config = DualStudentConfig()
+        assert config.imagenet_normalize is True
+        assert config.threshold is None
+        assert config.false_alarm_rate == 0.05
+        assert config.calibration_fraction == 0.2
+        assert config.calibration_seed == 0
+
+    def test_the_declared_false_alarm_rate_is_the_configured_default(self) -> None:
+        from omni_mercury_engine.ml.distillation import DualStudentConfig, DualStudentDistillation
+
+        calibrated = [r for r in DualStudentDistillation.decision_source if r.kind == "calibrated"]
+        assert [r.false_alarm_rate for r in calibrated] == [DualStudentConfig().false_alarm_rate]
+
+    def test_the_normalisation_constants_are_the_imagenet_statistics(self) -> None:
+        distiller = self._distiller()
+        np.testing.assert_array_equal(
+            distiller._norm_mean.flatten().numpy(), np.float32([0.485, 0.456, 0.406])
+        )
+        np.testing.assert_array_equal(
+            distiller._norm_std.flatten().numpy(), np.float32([0.229, 0.224, 0.225])
+        )
+
+    def test_prepare_subtracts_the_mean_then_divides_by_the_deviation(self) -> None:
+        distiller = self._distiller()
+        pixels = torch.full((1, 3, 2, 2), 0.5)
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
+        np.testing.assert_allclose(
+            distiller._prepare(pixels).numpy(), ((pixels - mean) / std).numpy(), rtol=1e-6
+        )
+
+    def test_prepare_leaves_pixels_alone_when_normalisation_is_off(self) -> None:
+        distiller = self._distiller(imagenet_normalize=False)
+        pixels = torch.full((1, 3, 2, 2), 0.5)
+        np.testing.assert_array_equal(distiller._prepare(pixels).numpy(), pixels.numpy())
+
+    def test_prepare_takes_an_array_and_a_tensor_alike(self) -> None:
+        distiller = self._distiller()
+        array = np.random.default_rng(0).random((2, 3, 2, 2)).astype(np.float32)
+        np.testing.assert_array_equal(
+            distiller._prepare(array).numpy(), distiller._prepare(torch.from_numpy(array)).numpy()
+        )
+
+    @pytest.mark.parametrize(
+        "shape", [(3, 2, 2), (2, 3, 2), (1, 1, 2, 2), (1, 4, 2, 2), (1, 3, 2, 2, 1)]
+    )
+    def test_prepare_refuses_anything_but_a_three_channel_image_batch(
+        self, shape: tuple[int, ...]
+    ) -> None:
+        from omni_mercury_engine.core.exceptions import InputModalityError
+
+        with pytest.raises(InputModalityError, match="image batch"):
+            self._distiller()._prepare(torch.zeros(shape))
+
+    def test_a_score_equal_to_the_threshold_is_not_an_anomaly(self) -> None:
+        distiller = self._distiller()
+        score = float(distiller.detect(torch.zeros(1, 3, 2, 2))["scores"][0])
+        distiller.threshold = score
+        assert not distiller.detect(torch.zeros(1, 3, 2, 2))["is_anomaly"][0]
+        distiller.threshold = score * 0.999
+        assert distiller.detect(torch.zeros(1, 3, 2, 2))["is_anomaly"][0]
+
+    def test_extract_features_serves_the_score_then_each_students_mean_and_max(self) -> None:
+        distiller = self._distiller()
+        images = torch.zeros(2, 3, 2, 2)
+        result = distiller.detect(images)
+        features = distiller.extract_features(images)
+
+        n = 2
+        expected = np.stack(
+            [
+                result["scores"],
+                result["student1_maps"].reshape(n, -1).mean(axis=1),
+                result["student1_maps"].reshape(n, -1).max(axis=1),
+                result["student2_maps"].reshape(n, -1).mean(axis=1),
+                result["student2_maps"].reshape(n, -1).max(axis=1),
+            ],
+            axis=1,
+        )
+        assert features.shape == (2, 5)
+        assert features.dtype == np.float64
+        np.testing.assert_allclose(features, expected, rtol=1e-6)
+        # The mean and the max differ here, so a swapped or merged column shows.
+        assert not np.allclose(features[:, 1], features[:, 2])
