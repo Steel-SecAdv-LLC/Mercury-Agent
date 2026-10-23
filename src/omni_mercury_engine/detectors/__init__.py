@@ -15,6 +15,15 @@ from __future__ import annotations
 
 import importlib
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Resolved lazily at runtime (see ``_LAZY_IMPORTS``); declared here so type
+    # checkers see the classes rather than ``__getattr__``'s ``object``.
+    from omni_mercury_engine.detectors.statistical import (
+        MercuryAnomalyDetector,
+        StatisticalAnomalyDetector,
+    )
 
 logger = logging.getLogger(__name__)
 
