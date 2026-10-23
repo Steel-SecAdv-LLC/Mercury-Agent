@@ -149,9 +149,7 @@ def _pseudonym(value: Any, name: str = "subject_pseudonym") -> str:
 _T = TypeVar("_T")
 
 
-def _wrap(  # noqa: UP047 - PEP 695 type params require Python 3.12+
-    call: Callable[..., _T], *args: Any, **kwargs: Any
-) -> _T:
+def _wrap(call: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
     """Run a library constructor, turning its validation errors into :class:`InputError`."""
     try:
         return call(*args, **kwargs)

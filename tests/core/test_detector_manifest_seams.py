@@ -36,6 +36,7 @@ from omni_mercury_engine.core.detector_registry import (
     DetectorManifestEntry,
     DetectorRegistry,
 )
+from omni_mercury_engine.core.exceptions import InputModalityError
 
 ENTRIES: dict[str, DetectorManifestEntry] = {e.name: e for e in DETECTOR_MANIFEST}
 
@@ -517,7 +518,7 @@ class TestSeamTruth:
         entry = ENTRIES[name]
         detector = _construct(entry)
         assert isinstance(detector, BaseDetector)
-        with pytest.raises(Exception, match=r"expects|shape|channels|frames"):
+        with pytest.raises(InputModalityError, match=r"expects|shape|channels|frames"):
             detector.fit(np.zeros(16)).detect(np.zeros(16))
 
     @pytest.mark.parametrize("name", sorted(e.name for e in DETECTOR_MANIFEST if not e.seams))

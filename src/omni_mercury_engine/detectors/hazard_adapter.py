@@ -80,7 +80,10 @@ class HazardRowAdapter(BaseDetector):
     FEATURE_NAMES: ClassVar[tuple[str, ...]] = ()
     #: Per-call bookkeeping of what each row set aside: process state, never
     #: learned state, so it stays out of the shared checkpoint.
-    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_row_set_aside", "_row_index"}
+    #: ``_detector`` (the wrapped domain detector) is rebuilt lazily from
+    #: config and learns nothing here (``fit`` only validates the schema), so
+    #: it is never checkpointed; the rest is process bookkeeping.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_detector", "_row_set_aside", "_row_index"}
     _row_set_aside: dict[int, list[dict[str, Any]]]
     _row_index: int
     #: Columns a row may leave unmeasured, as NaN: the wrapped detector is
@@ -276,7 +279,8 @@ class HazardUnitAdapter(BaseDetector):
 
     #: Per-call bookkeeping of what ``_units`` set aside per unit: process
     #: state, never learned state, so it stays out of the shared checkpoint.
-    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_unit_set_aside"}
+    #: As for row adapters: the lazily built ``_detector`` learns nothing.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_detector", "_unit_set_aside"}
     _unit_set_aside: dict[int, list[dict[str, Any]]]
 
     def _assessments(self, data: Any) -> list[Assessment]:
@@ -595,11 +599,6 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
         "forecast_24h_inches",
     )
     FEATURE_NAMES = ("confidence", "flood_likely", "precipitation_24h_inches")
-
-    #: The wrapped FloodDetector is physics-backed and lazily built; it learns
-    #: nothing from the caller's batch, so the adapter's checkpoint carries
-    #: only the trivial fitted flag and base attributes.
-    _UNSAVED_ATTRS = HazardRowAdapter._UNSAVED_ATTRS | {"_detector"}
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize with ``BaseDetector`` config; the detector loads lazily."""

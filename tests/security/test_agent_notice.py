@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -369,9 +370,9 @@ class TestNoticeInvariants:
         """A NoticeSection cannot be altered after construction."""
         import dataclasses
 
-        section = notice_sections()[0]
+        section: Any = notice_sections()[0]  # the write below is deliberately illegal
         with pytest.raises(dataclasses.FrozenInstanceError):
-            section.heading = "rewritten"  # type: ignore[misc]
+            section.heading = "rewritten"
 
     def test_documented_expiry_window(self) -> None:
         """The rolling window is the documented 180 days."""

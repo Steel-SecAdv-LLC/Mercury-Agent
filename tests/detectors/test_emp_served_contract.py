@@ -110,8 +110,9 @@ def test_non_mapping_section_is_refused(detector: EMPDetector, section: str) -> 
 
 
 def test_non_mapping_record_is_refused(detector: EMPDetector) -> None:
+    not_a_mapping: Any = [1.0, 2.0]  # deliberately outside the declared type
     with pytest.raises(InputModalityError, match="mapping"):
-        detector.predict_emp([1.0, 2.0])  # type: ignore[arg-type]
+        detector.predict_emp(not_a_mapping)
 
 
 @pytest.mark.parametrize(

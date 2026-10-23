@@ -62,8 +62,9 @@ def test_persisting_hmm_state_is_an_explicit_choice() -> None:
 
 
 def test_bare_array_is_refused(physics: VolcanicEruptionDetector) -> None:
+    bare_array: Any = np.ones((10, 10))  # deliberately outside the declared type
     with pytest.raises(InputModalityError, match="mapping"):
-        physics.predict_eruption(np.ones((10, 10)))  # type: ignore[arg-type]
+        physics.predict_eruption(bare_array)
 
 
 def test_non_finite_thermal_pixel_is_refused(physics: VolcanicEruptionDetector) -> None:
@@ -309,8 +310,9 @@ def test_non_mapping_section_is_refused(physics: VolcanicEruptionDetector, secti
 
 
 def test_non_mapping_record_is_refused(physics: VolcanicEruptionDetector) -> None:
+    not_a_mapping: Any = [1.0, 2.0]  # deliberately outside the declared type
     with pytest.raises(InputModalityError, match="mapping"):
-        physics.predict_eruption([1.0, 2.0])  # type: ignore[arg-type]
+        physics.predict_eruption(not_a_mapping)
 
 
 @pytest.mark.parametrize(

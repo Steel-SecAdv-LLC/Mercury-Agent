@@ -941,7 +941,7 @@ class AdaptiveAnomalyDetector:
         """
         if self._robust_cov_detector is None:
             logger.warning("Robust covariance detector not fitted, falling back to covariance")
-            return self._detect_covariance(X)
+            return self._medical_fallback(X, "robust covariance detector not fitted")
 
         try:
             scores = self._robust_cov_detector.score_samples(X)
@@ -959,9 +959,16 @@ class AdaptiveAnomalyDetector:
                 calibration_method="mad",
                 metadata={"backend": "Mercury.CovarianceAwareDetector"},
             )
-        except Exception as e:
-            logger.warning(f"CovarianceAwareDetector scoring failed: {e}, falling back")
-            return self._detect_covariance(X)
+        except ValueError as e:  # shape mismatch or a singular covariance (LinAlgError)
+            logger.warning("CovarianceAwareDetector scoring failed, falling back", exc_info=True)
+            return self._medical_fallback(X, f"robust covariance scoring failed: {e}")
+
+    def _medical_fallback(self, X: NDArray[np.float64], reason: str) -> DetectionResult:
+        """The covariance strategy, marked as a fallback so the result says so."""
+        result = self._detect_covariance(X)
+        result.metadata["fallback_from"] = DatasetProfile.MEDICAL.value
+        result.metadata["fallback_reason"] = reason
+        return result
 
     def evaluate_detection_quality(self, result: DetectionResult) -> dict[str, Any]:
         """Report the shape of a detection run: how much fired, how spread out.

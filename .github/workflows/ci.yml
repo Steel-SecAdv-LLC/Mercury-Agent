@@ -1793,7 +1793,7 @@ jobs:
           name: performance-benchmark-results
           path: benchmark-results.json
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   # ===========================================================================
   # Stage 8: Docker Build

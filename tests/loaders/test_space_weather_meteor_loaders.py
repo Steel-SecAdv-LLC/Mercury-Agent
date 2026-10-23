@@ -14,22 +14,45 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
 
 from omni_mercury_engine.loaders import label_provenance
-from omni_mercury_engine.loaders.meteor_loader import (  # type: ignore[import-not-found,unused-ignore]
+from omni_mercury_engine.loaders.meteor_loader import (
     FIREBALL_ANOMALY_THRESHOLD_KT,
     MeteorLoader,
 )
-from omni_mercury_engine.loaders.space_weather_loader import (  # type: ignore[import-not-found,unused-ignore]
+from omni_mercury_engine.loaders.space_weather_loader import (
     KP_STORM_THRESHOLD,
     SpaceWeatherLoader,
 )
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "space_weather"
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+class _StubSpaceWeatherLoader(SpaceWeatherLoader):
+    """A ``SpaceWeatherLoader`` whose JSON fetches are answered by ``responder``."""
+
+    responder: Callable[[str, dict[str, Any] | None], Any] | None = None
+
+    def _fetch_json(self, url: str, params: dict[str, str] | None = None) -> Any:
+        assert self.responder is not None, "set responder before fetching"
+        return self.responder(url, params)
+
+
+class _StubMeteorLoader(MeteorLoader):
+    """A ``MeteorLoader`` whose JSON fetches are answered by ``responder``."""
+
+    responder: Callable[[str, dict[str, Any] | None], Any] | None = None
+
+    def _fetch_json(self, url: str, params: dict[str, str] | None = None) -> Any:
+        assert self.responder is not None, "set responder before fetching"
+        return self.responder(url, params)
 
 
 def _fixture(name: str) -> Any:
@@ -53,7 +76,7 @@ def _geomag_payload(times: list[str], x: list[float], y: list[float]) -> dict[st
 
 @pytest.fixture()
 def sw_loader(tmp_path: Path) -> SpaceWeatherLoader:
-    loader = SpaceWeatherLoader(cache_dir=tmp_path)
+    loader = _StubSpaceWeatherLoader(cache_dir=tmp_path)
 
     event = loader.list_events()[0]
     event_id = event["event_id"]
@@ -83,7 +106,7 @@ def sw_loader(tmp_path: Path) -> SpaceWeatherLoader:
             y=[50.0, 51.0, 300.0, 49.0, 50.0, 50.5],
         )
 
-    loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+    loader.responder = fake_fetch_json
     return loader
 
 
@@ -118,8 +141,8 @@ class TestSpaceWeatherLoader:
         assert np.isfinite(feats).all()
 
     def test_empty_geomag_fails_loud(self, tmp_path: Path) -> None:
-        loader = SpaceWeatherLoader(cache_dir=tmp_path)
-        loader._fetch_json = lambda url, params=None: (  # type: ignore[method-assign, unused-ignore]
+        loader = _StubSpaceWeatherLoader(cache_dir=tmp_path)
+        loader.responder = lambda url, params: (
             [] if "DONKI" in url else {"times": [], "values": []}
         )
         with pytest.raises(ValueError, match="refusing to fabricate"):
@@ -143,7 +166,7 @@ class TestDonkiKpThirds:
     def _loader_with_kp(self, tmp_path: Path, kp: Any) -> tuple[SpaceWeatherLoader, str]:
         from datetime import datetime, timedelta
 
-        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        loader = _StubSpaceWeatherLoader(cache_dir=tmp_path)
         event_id = loader.list_events()[0]["event_id"]
         t0 = datetime.fromisoformat(loader._event(event_id)["start"].replace("Z", "+00:00"))
         times = [(t0 + timedelta(minutes=i)).strftime("%Y-%m-%dT%H:%M:%SZ") for i in range(6)]
@@ -154,7 +177,7 @@ class TestDonkiKpThirds:
                 return [{"allKpIndex": [{"observedTime": window_end, "kpIndex": kp}]}]
             return _geomag_payload(times, x=[1.0] * 6, y=[1.0] * 6)
 
-        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        loader.responder = fake_fetch_json
         return loader, event_id
 
     @pytest.mark.parametrize("kp", [4.67, "5-", 5.0, 5.33])
@@ -199,14 +222,14 @@ class TestDonkiKpThirds:
 
 class TestMeteorLoader:
     def _loader(self, tmp_path: Path) -> MeteorLoader:
-        loader = MeteorLoader(cache_dir=tmp_path)
+        loader = _StubMeteorLoader(cache_dir=tmp_path)
 
         def fake_fetch_json(url: str, params: dict[str, Any] | None = None) -> Any:
             if "fireball" in url:
                 return _fixture("jpl_fireball_2012_2013.json")
             return _fixture("neows_feed_2019_07_20.json")
 
-        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        loader.responder = fake_fetch_json
         return loader
 
     def test_catalog_and_contract(self, tmp_path: Path) -> None:
@@ -245,8 +268,8 @@ class TestMeteorLoader:
         assert np.isfinite(feats).all()
 
     def test_empty_archive_fails_loud(self, tmp_path: Path) -> None:
-        loader = MeteorLoader(cache_dir=tmp_path)
-        loader._fetch_json = lambda url, params=None: {  # type: ignore[method-assign, unused-ignore]
+        loader = _StubMeteorLoader(cache_dir=tmp_path)
+        loader.responder = lambda url, params: {
             "signature": {},
             "count": 0,
             "data": [],
@@ -276,7 +299,7 @@ class TestFeedShapeFlipAbsorption:
         """Construct a loader whose DONKI GST payload uses the given shape."""
         from datetime import datetime, timedelta
 
-        loader = SpaceWeatherLoader(cache_dir=tmp_path / ("pos" if positional else "obj"))
+        loader = _StubSpaceWeatherLoader(cache_dir=tmp_path / ("pos" if positional else "obj"))
         event_id = loader.list_events()[0]["event_id"]
         meta = loader._event(event_id)
         t0 = datetime.fromisoformat(meta["start"].replace("Z", "+00:00"))
@@ -316,7 +339,7 @@ class TestFeedShapeFlipAbsorption:
                 y=[50.0, 51.0, 300.0, 49.0, 50.0, 50.5],
             )
 
-        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        loader.responder = fake_fetch_json
         return loader, event_id
 
     def test_donki_gst_labels_identical_across_shapes(self, tmp_path: Path) -> None:
@@ -440,14 +463,14 @@ class TestSpaceWeatherBehaviour:
                 return cls(2024, 5, 10, 18, 30, 45, 123456, tzinfo=UTC)
 
         monkeypatch.setattr(module, "datetime", FixedDatetime)
-        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        loader = _StubSpaceWeatherLoader(cache_dir=tmp_path)
         seen: list[dict[str, Any]] = []
 
         def fake_fetch_json(url: str, params: dict[str, Any] | None = None) -> Any:
             seen.append(dict(params or {}))
             return {"times": [], "values": []}
 
-        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        loader.responder = fake_fetch_json
         loader.fetch_realtime()
         assert (seen[0]["starttime"], seen[0]["endtime"]) == (
             "2024-05-10T16:30:00Z",
@@ -457,7 +480,7 @@ class TestSpaceWeatherBehaviour:
     def test_donki_query_pads_the_storm_by_a_day_and_uses_the_given_key(
         self, tmp_path: Path
     ) -> None:
-        loader = SpaceWeatherLoader(cache_dir=tmp_path, api_key="operator-key")
+        loader = _StubSpaceWeatherLoader(cache_dir=tmp_path, api_key="operator-key")
         event_id = loader.list_events()[0]["event_id"]
         meta = loader._event(event_id)
         seen: list[dict[str, Any]] = []
@@ -466,7 +489,7 @@ class TestSpaceWeatherBehaviour:
             seen.append(dict(params or {}))
             return []
 
-        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        loader.responder = fake_fetch_json
         assert loader._storm_windows(event_id, meta) == []
         from datetime import datetime, timedelta
 
@@ -481,7 +504,7 @@ class TestSpaceWeatherBehaviour:
     def test_label_window_is_the_three_hours_before_the_stamp(self, tmp_path: Path) -> None:
         from datetime import datetime, timedelta
 
-        loader = SpaceWeatherLoader(cache_dir=tmp_path)
+        loader = _StubSpaceWeatherLoader(cache_dir=tmp_path)
         event_id = loader.list_events()[0]["event_id"]
         t0 = datetime.fromisoformat(loader._event(event_id)["start"].replace("Z", "+00:00"))
         stamps = [t0 + timedelta(minutes=m) for m in (0, 1, 180, 181)]
@@ -503,7 +526,7 @@ class TestSpaceWeatherBehaviour:
                 [s.isoformat().replace("+00:00", "Z") for s in stamps], x=[1.0] * 5, y=[1.0] * 5
             )
 
-        loader._fetch_json = fake_fetch_json  # type: ignore[method-assign, unused-ignore]
+        loader.responder = fake_fetch_json
         # [end - 3 h, end): t0+1 min is the window's first instant, t0+181 min its excluded end.
         assert loader.get_ground_truth(event_id).tolist() == [0, 0, 1, 1, 0]
 

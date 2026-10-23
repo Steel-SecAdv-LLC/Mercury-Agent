@@ -433,7 +433,7 @@ class TestLightningJump:
 # =============================================================================
 
 
-def _coops_payload(values: list[float], key: str) -> dict[str, object]:
+def _coops_payload(values: list[float], key: str) -> dict[str, list[dict[str, str]]]:
     """CO-OPS datagetter payload shape (product=water_level / predictions)."""
     rows = [{"t": f"2026-07-08 {i:02d}:00", "v": f"{v:.3f}"} for i, v in enumerate(values)]
     return {key: rows}
@@ -660,7 +660,7 @@ class TestSurgeInputsFailClosed:
     def test_non_finite_water_level_is_refused(self, bad: str) -> None:
         """An "inf" level made the residual infinite and escalated the cascade."""
         observed = _coops_payload([0.1, 0.2, 0.3], "data")
-        observed["data"][1]["v"] = bad  # type: ignore[index]
+        observed["data"][1]["v"] = bad
         predicted = _coops_payload([0.1, 0.2, 0.3], "predictions")
         with pytest.raises(ValueError, match="non-finite"):
             SurgeFloodCascade().update_surge_evidence(observed, predicted, "8518750")

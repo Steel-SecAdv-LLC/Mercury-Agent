@@ -76,12 +76,16 @@ def pm25_aqi(concentration_ug_m3: float) -> tuple[int, str]:
     """
     value = finite_scalar(concentration_ug_m3, "pm25_24h_ug_m3", unit="ug/m3")
     c = max(_truncated(value), Fraction(0))
-    for lo_text, hi_text, i_lo, i_hi, category in PM25_BREAKPOINTS:
-        lo, hi = Fraction(lo_text), Fraction(hi_text)
-        if c <= hi or category == "hazardous":
-            index = Fraction(i_hi - i_lo) / (hi - lo) * (c - lo) + i_lo
-            return math.floor(index + Fraction(1, 2)), category
-    raise AssertionError("unreachable: the hazardous row is open-ended")  # pragma: no cover
+    # The first row whose upper breakpoint holds c; the open-ended hazardous
+    # row (the last) takes everything above, extended past AQI 500.
+    row = next(
+        (r for r in PM25_BREAKPOINTS[:-1] if c <= Fraction(r[1])),
+        PM25_BREAKPOINTS[-1],
+    )
+    lo_text, hi_text, i_lo, i_hi, category = row
+    lo, hi = Fraction(lo_text), Fraction(hi_text)
+    index = Fraction(i_hi - i_lo) / (hi - lo) * (c - lo) + i_lo
+    return math.floor(index + Fraction(1, 2)), category
 
 
 @dataclass(frozen=True)

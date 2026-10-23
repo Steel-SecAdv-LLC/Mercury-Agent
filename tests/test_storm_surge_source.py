@@ -232,8 +232,9 @@ class TestMutationClosedGaps:
     def test_forecast_records_are_immutable(self) -> None:
         forecast = parse_peak_surge_name("Tampa Bay...10-15 ft", "inundation_area")
         assert forecast is not None
+        frozen: Any = forecast  # the write below is deliberately illegal
         with pytest.raises(dataclasses.FrozenInstanceError):
-            forecast.max_surge_ft = 99.0  # type: ignore[misc]
+            frozen.max_surge_ft = 99.0
 
     def test_document_without_data_folders_is_not_this_product(self) -> None:
         kml = (
@@ -557,12 +558,12 @@ class TestSurgedatPrecisionEdges:
         assert row.surge.metres is None
 
     def test_records_are_immutable(self, surgedat_gulf: list[SurgeObservation]) -> None:
-        row = surgedat_gulf[0]
+        row: Any = surgedat_gulf[0]  # the writes below are deliberately illegal
         assert row.surge is not None
         with pytest.raises(dataclasses.FrozenInstanceError):
-            row.year = 1900  # type: ignore[misc]
+            row.year = 1900
         with pytest.raises(dataclasses.FrozenInstanceError):
-            row.surge.metres = 0.0  # type: ignore[misc]
+            row.surge.metres = 0.0
 
     @pytest.mark.parametrize(("lat", "lon"), [("90", "180"), ("-90", "-180"), ("90.0", "-180.0")])
     def test_coordinate_limits_are_inclusive(self, lat: str, lon: str) -> None:

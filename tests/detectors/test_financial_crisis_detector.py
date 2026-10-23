@@ -590,8 +590,9 @@ class TestHonestyContract:
             FinancialCrisisDetector().predict_financial_crisis({section: [1.0]})
 
     def test_non_mapping_record_is_refused(self) -> None:
+        not_a_mapping: Any = [1.0]  # deliberately outside the declared type
         with pytest.raises(InputModalityError, match="mapping"):
-            FinancialCrisisDetector().predict_financial_crisis([1.0])  # type: ignore[arg-type]
+            FinancialCrisisDetector().predict_financial_crisis(not_a_mapping)
 
     @pytest.mark.parametrize(
         ("extra", "where"),

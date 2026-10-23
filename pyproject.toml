@@ -546,7 +546,7 @@ omni_mercury_engine = [
 # =============================================================================
 [tool.black]
 line-length = 100
-target-version = ['py312', 'py313']
+target-version = ['py311', 'py312', 'py313']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -1140,7 +1140,9 @@ skips = ["*_test.py", "test_*.py"]
 # Ruff Configuration (Fast Python Linter)
 # =============================================================================
 [tool.ruff]
-target-version = "py312"
+# The floor of requires-python: a newer target recommends syntax (PEP 695
+# generics) that is a SyntaxError on 3.11, which CI tests.
+target-version = "py311"
 line-length = 100
 # ``ruff check`` must be a pure check. ``fix = true`` made every plain
 # ``ruff check`` invocation auto-mutate the tree, so a file could change

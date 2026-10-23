@@ -23,7 +23,8 @@ Interface Contracts:
 from __future__ import annotations
 
 import math
-from abc import ABC, abstractmethod
+import weakref
+from abc import ABC, ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -361,8 +362,9 @@ def _nan_guard(func: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, A
             # Re-expand per-sample arrays to the input's length so callers'
             # row alignment survives; unmeasured rows carry the neutral
             # mid-point and False, and are named below.
+            # A scalar (whole-input) score has no rows to re-expand.
             scores = result.get("scores")
-            if scores is not None and len(scores) == len(measured_indices):
+            if scores is not None and np.ndim(scores) == 1 and len(scores) == len(measured_indices):
                 expanded = np.full(total, _UNMEASURED_NEUTRAL_SCORE, dtype=np.float64)
                 expanded[measured_indices] = np.asarray(scores, dtype=np.float64).reshape(-1)
                 result["scores"] = expanded if isinstance(scores, np.ndarray) else expanded.tolist()
@@ -387,8 +389,37 @@ def _nan_guard(func: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, A
 
         return _check_finite_scores(self, result)
 
-    guarded._nan_guarded = True  # type: ignore[attr-defined]
+    _NAN_GUARDED.add(guarded)
     return guarded
+
+
+#: Every ``detect`` the guard has produced, so a guarded method inherited into
+#: a subclass namespace is never wrapped twice.
+_NAN_GUARDED: weakref.WeakSet[Callable[..., Any]] = weakref.WeakSet()
+
+
+class _GuardedDetectorMeta(ABCMeta):
+    """Builds each detector class with its own ``detect`` already guarded.
+
+    Wrapping in the class namespace, before the class exists, replaces the
+    former post-hoc ``cls.detect = ...`` reassignment.  ``BaseDetector``'s own
+    ``detect`` (the abstract interface) is left as written: only classes
+    derived from it are wrapped.
+    """
+
+    def __new__(
+        mcs,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        /,
+        **kwargs: Any,
+    ) -> _GuardedDetectorMeta:
+        detect = namespace.get("detect")
+        derived = any(isinstance(base, _GuardedDetectorMeta) for base in bases)
+        if derived and detect is not None and detect not in _NAN_GUARDED:
+            namespace["detect"] = _nan_guard(detect)
+        return super().__new__(mcs, name, bases, namespace, **kwargs)
 
 
 def validate_detector_result(func: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
@@ -461,7 +492,7 @@ def validate_model_result(func: Callable[..., dict[str, Any]]) -> Callable[..., 
     return wrapper
 
 
-class BaseDetector(ABC):
+class BaseDetector(ABC, metaclass=_GuardedDetectorMeta):
     """Abstract base class for all anomaly detectors.
 
     All detectors MUST implement the following interface:
@@ -523,20 +554,13 @@ class BaseDetector(ABC):
     #: caller's stream is the one that advances.
     thread_bound_state: bool = False
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Wrap each concrete ``detect`` with the shared non-finite guard.
-
-        Measured over the manifest's engine-seam detectors before this
-        guard: 25 accepted a NaN sample silently (it failed every
-        comparison and biased every statistic it reached) and 6 returned a
-        NaN anomaly score. The guard applies uniformly to every subclass,
-        so no detector built on this base can take a NaN without saying so
-        or serve one as a score.
-        """
-        super().__init_subclass__(**kwargs)
-        detect = cls.__dict__.get("detect")
-        if detect is not None and not getattr(detect, "_nan_guarded", False):
-            cls.detect = _nan_guard(detect)  # type: ignore[method-assign]
+    # Each concrete ``detect`` is wrapped with the shared non-finite guard by
+    # ``_GuardedDetectorMeta`` as the subclass is built.  Measured over the
+    # manifest's engine-seam detectors before this guard: 25 accepted a NaN
+    # sample silently (it failed every comparison and biased every statistic
+    # it reached) and 6 returned a NaN anomaly score. The guard applies
+    # uniformly to every subclass, so no detector built on this base can take
+    # a NaN without saying so or serve one as a score.
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize detector with configuration.

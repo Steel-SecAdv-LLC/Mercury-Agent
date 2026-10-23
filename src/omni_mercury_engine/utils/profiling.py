@@ -556,7 +556,7 @@ class PerformanceBenchmark(AbstractContextManager["PerformanceBenchmark"]):
         )
 
 
-def benchmark_function(  # noqa: UP047  # Py 3.11-compatible generics
+def benchmark_function(  # Py 3.11-compatible generics
     func: Callable[P, R],
     *args: Any,
     iterations: int = 100,

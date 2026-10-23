@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.exceptions import DetectorException, InputModalityError
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.geo import haversine_km
 
@@ -76,6 +76,14 @@ class MovementAssessment:
     is_anomalous: bool
     channels: dict[str, float] = field(default_factory=dict)
     reason: str = ""
+
+
+class TrajectoryShapeError(InputModalityError, DetectorException):
+    """Input that is not a ``[n, 3]`` (lat, lon, epoch_s) trajectory.
+
+    An ``InputModalityError`` (the typed off-modality refusal) and, as
+    before, a ``DetectorException``.
+    """
 
 
 class GeoMovementAnomalyDetector(BaseDetector):
@@ -170,14 +178,15 @@ class GeoMovementAnomalyDetector(BaseDetector):
             Validated float64 array of shape ``[n, 3]``.
 
         Raises:
-            DetectorException: On wrong shape, non-finite values,
-                out-of-range coordinates, or decreasing timestamps.
+            TrajectoryShapeError: On a wrong shape (also a ``DetectorException``).
+            DetectorException: On non-finite values, out-of-range
+                coordinates, or decreasing timestamps.
         """
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         arr = np.asarray(data, dtype=np.float64)
         if arr.ndim != 2 or arr.shape[1] != 3:
-            raise DetectorException(
+            raise TrajectoryShapeError(
                 f"Trajectory must have shape [n, 3] = (lat, lon, epoch_s), got {arr.shape}"
             )
         if arr.shape[0] < min_points:

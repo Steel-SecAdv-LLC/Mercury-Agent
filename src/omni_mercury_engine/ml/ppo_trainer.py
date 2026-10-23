@@ -140,7 +140,8 @@ class PPOConfig:
             of the discounted return.
         clip_observations: Bound on normalized observations.
         clip_rewards: Bound on normalized rewards.
-        net_arch: Hidden-layer widths, used for both networks.
+        net_arch: Hidden-layer widths, used for both networks (any sequence;
+            stored as a tuple).
         activation: ``"tanh"`` or ``"relu"``.
         ortho_init: Orthogonal initialization (see the module docstring).
         log_std_init: Initial log standard deviation (continuous actions).
@@ -172,7 +173,7 @@ class PPOConfig:
     normalize_rewards: bool = False
     clip_observations: float = 10.0
     clip_rewards: float = 10.0
-    net_arch: tuple[int, ...] = (64, 64)
+    net_arch: Sequence[int] = (64, 64)
     activation: str = "tanh"
     ortho_init: bool = True
     log_std_init: float = 0.0
@@ -466,7 +467,6 @@ class ActorCritic(nn.Module):
         self._shapes = shapes
         self.flat = nn.Parameter(torch.zeros(sum(math.prod(shape) for _, shape in shapes)))
         self.flat.grad = torch.zeros_like(self.flat)
-        self._refresh_views()
         with torch.no_grad():
             self._initialize(ortho_init, log_std_init)
 
@@ -480,19 +480,14 @@ class ActorCritic(nn.Module):
             offset += size
         return views
 
-    def _refresh_views(self) -> None:
-        #: Named views of the parameters (no autograd history).
-        self.tensors = self._views(self.flat.detach())
-        if self.flat.grad is None:
-            self.flat.grad = torch.zeros_like(self.flat)
-        self._grad_source = self.flat.grad
-        self._grads = self._views(self.flat.grad)
+    @property
+    def tensors(self) -> dict[str, torch.Tensor]:
+        """Named views of the parameters (no autograd history).
 
-    def _apply(self, fn: Any, recurse: bool = True) -> ActorCritic:
-        # Moving or casting replaces the storage; the views must follow it.
-        super()._apply(fn, recurse)  # type: ignore[no-untyped-call]
-        self._refresh_views()
-        return self
+        Derived from ``flat`` on every access, so a move or cast (which
+        replaces the storage) can never leave them pointing at the old one.
+        """
+        return self._views(self.flat.detach())
 
     def _initialize(self, ortho_init: bool, log_std_init: float) -> None:
         t = self.tensors
@@ -641,10 +636,11 @@ class ActorCritic(nn.Module):
         Returns:
             ``[policy_loss, value_loss, entropy, approx_kl, clip_fraction]``.
         """
-        if self.flat.grad is not self._grad_source:
-            # Something (an autograd backward, zero_grad) replaced the buffer.
-            self._refresh_views()
-        p, g = self.tensors, self._grads
+        if self.flat.grad is None:  # zero_grad(set_to_none=True) dropped the buffer
+            self.flat.grad = torch.zeros_like(self.flat)
+        # Views of the current buffers: an autograd backward or a move may
+        # have replaced either since the last call.
+        p, g = self.tensors, self._views(self.flat.grad)
         n = obs.shape[0]
         hidden, out, values = self._forward(p, obs)
         latent_pi, latent_vf = hidden[-1][0], hidden[-1][1]

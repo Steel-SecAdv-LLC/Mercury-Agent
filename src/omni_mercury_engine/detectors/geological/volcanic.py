@@ -998,6 +998,13 @@ class EruptionForecastModel(nn.Module):
         return eruption_prob, vei_logits, time_norm
 
 
+def _fit_precursor_rate(rate: dict[str, Any]) -> dict[str, float] | None:
+    """Materials failure forecast from binned counts (Poisson MLE) or a rate series."""
+    if "counts" in rate:
+        return failure_forecast_poisson(rate.get("bin_edges_h"), rate["counts"])
+    return failure_forecast(rate.get("times_h"), rate.get("rate"))
+
+
 class VolcanicEruptionDetector:
     """Comprehensive volcanic eruption detection system.
 
@@ -1513,15 +1520,8 @@ class VolcanicEruptionDetector:
 
         if "precursor_rate" in volcano_data:
             rate = volcano_data["precursor_rate"]
-            if "counts" in rate:
-                fit_rate = lambda r: failure_forecast_poisson(  # noqa: E731
-                    r.get("bin_edges_h"), r["counts"]
-                )
-                method = "ffm_poisson_mle"
-            else:
-                fit_rate = lambda r: failure_forecast(r.get("times_h"), r.get("rate"))  # noqa: E731
-                method = "ffm_inverse_rate"
-            forecast = grader.attempt("precursor_rate", fit_rate, rate)
+            method = "ffm_poisson_mle" if "counts" in rate else "ffm_inverse_rate"
+            forecast = grader.attempt("precursor_rate", _fit_precursor_rate, rate)
             if "precursor_rate" not in {e["where"] for e in grader.set_aside}:
                 assessed_streams.add("precursor_rate")
             if forecast is not None:

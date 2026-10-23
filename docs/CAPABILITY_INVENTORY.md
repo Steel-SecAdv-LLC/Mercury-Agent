@@ -7,22 +7,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,059
-- **Capability-bearing classes:** 2,046 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,063
+- **Capability-bearing classes:** 2,048 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,196 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,197 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1196 |
-| Support types (config / result / enum / error) | 1013 |
+| Other capability classes | 1197 |
+| Support types (config / result / enum / error) | 1015 |
 | Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 106 |
-| Engines & orchestration | 101 |
+| Engines & orchestration | 102 |
 | Adapters & backends | 97 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
@@ -200,7 +200,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 155 classes (56 capability)
+### `api/` — 156 classes (57 capability)
 
 **Adapters & backends**
 
@@ -208,6 +208,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Engines & orchestration**
 
+- `AuditChain` (`api.routes.decoys`) — The one call (by keyword) the tripwire sink makes on the tamper-evident chain.
 - `AuthKeyManager` (`api.auth`) — AMA Key Management integration for Mercury's auth layer.
 
 **Ethics & governance**
@@ -658,7 +659,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 342 classes (213 capability)
+### `core/` — 343 classes (214 capability)
 
 **Adapters & backends**
 
@@ -875,6 +876,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `USLawPolling` (`core.ethical_risk_matrix`) — Dynamic US-only law compliance polling.
 - `UncertaintyEstimate` (`core.adaptive_fusion`) — Uncertainty quantification result with confidence intervals.
 - `_CallTicket` (`core.detector_registry`) — Agreement between a registry call's worker and its caller on who reports it.
+- `_GuardedDetectorMeta` (`core.base`) — Builds each detector class with its own ``detect`` already guarded.
 - `_IdentityCalibration` (`core.calibration`) — No-op calibrator (exact-reducing fallback for the accept-gate).
 - `_LegacyOmniAvaEquation` (`core.three_r_mechanism`) — Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
 
@@ -1046,7 +1048,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 460 classes (335 capability)
+### `detectors/` — 462 classes (335 capability)
 
 **Adapters & backends**
 
@@ -1410,9 +1412,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `_PlattCalibrator` (`detectors.detection_tier`) — Platt-scaling calibrator: logistic score->P(anomaly) from labels.
 - `_ScoreCalibrator` (`detectors.detection_tier`) — Per-detector monotone map from a raw score column into a calibrated ``[0, 1]``.
 
-<details><summary>Support types (125)</summary>
+<details><summary>Support types (127)</summary>
 
-`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
+`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdjacencyShapeError`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TrajectoryShapeError`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
 
 </details>
 

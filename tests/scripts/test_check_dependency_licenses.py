@@ -10,16 +10,13 @@ installed environment.
 from __future__ import annotations
 
 import importlib.metadata as md
-import sys
 from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(_REPO_ROOT) not in sys.path:  # pragma: no cover - import bootstrap
-    sys.path.insert(0, str(_REPO_ROOT))
-
 from scripts import check_dependency_licenses as gate
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 APACHE_2_TEXT = "Apache License\n Version 2.0, January 2004\n http://www.apache.org/licenses/\n"
 APACHE_1_TEXT = "The Apache Software License, Version 1.1\n Copyright (c) 2000 The Apache Group.\n"

@@ -27,12 +27,12 @@ from __future__ import annotations
 import hashlib
 import re
 import struct
-import urllib.request
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
 import pytest
+import requests
 
 from omni_mercury_engine.loaders.format_readers import (
     parse_dnp3_frames,
@@ -240,8 +240,9 @@ _C37_BASE = "https://wiki.wireshark.org/uploads/__moin_import__/attachments/IEEE
 @pytest.mark.network
 @pytest.mark.parametrize("name", sorted(_C37_CAPTURES))
 def test_pmu_frames_from_recorded_captures_obey_power_system_physics(name: str) -> None:
-    with urllib.request.urlopen(_C37_BASE + name, timeout=60) as response:  # noqa: S310
-        capture = response.read()
+    response = requests.get(_C37_BASE + name, timeout=60)
+    response.raise_for_status()
+    capture = response.content
     assert hashlib.sha256(capture).hexdigest() == _C37_CAPTURES[name], "capture changed upstream"
     streams = [
         stream

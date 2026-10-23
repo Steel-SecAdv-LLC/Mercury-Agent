@@ -132,7 +132,9 @@ class TestShapFallbackIsShapley:
         assert self._phi(model, instance) == pytest.approx(phi, abs=1e-9)
 
     def test_efficiency_and_base_value(self) -> None:
-        model: Model = lambda x: 5 + x[:, 0] * x[:, 1] - x[:, 2]  # noqa: E731
+        def model(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            return np.asarray(5 + x[:, 0] * x[:, 1] - x[:, 2], dtype=np.float64)
+
         explanation = SHAPExplainer(seed=0).explain(model, np.array([2.0, 3.0, 4.0]), NAMES)
         assert explanation.base_value == pytest.approx(5.0)  # f(baseline = 0)
         assert explanation.prediction == pytest.approx(7.0)
@@ -146,7 +148,10 @@ class TestShapFallbackIsShapley:
 
         monkeypatch.setattr(explainability, "_optional_module", lambda name: None)
         background = np.array([[1.0, 1.0, 1.0], [3.0, 5.0, 1.0]])  # mean (2, 3, 1)
-        model: Model = lambda x: 2 * x[:, 0] + x[:, 1]  # noqa: E731
+
+        def model(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            return np.asarray(2 * x[:, 0] + x[:, 1], dtype=np.float64)
+
         explanation = SHAPExplainer(background_data=background, seed=0).explain(
             model, np.array([4.0, 4.0, 4.0]), NAMES
         )
@@ -166,7 +171,10 @@ class TestShapFallbackIsShapley:
         from omni_mercury_engine.cognitive.explainability import _EXACT_SHAPLEY_MAX_FEATURES
 
         n = _EXACT_SHAPLEY_MAX_FEATURES + 2
-        model: Model = lambda x: x[:, 0] * x[:, 1] * x[:, 2] + x[:, 3:].sum(axis=1)  # noqa: E731
+
+        def model(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            return np.asarray(x[:, 0] * x[:, 1] * x[:, 2] + x[:, 3:].sum(axis=1), dtype=np.float64)
+
         phi = SHAPExplainer(n_samples=400, seed=0)._approximate_shap(model, np.ones(n))
         assert float(phi.sum()) == pytest.approx(float(n - 3 + 1))
         assert phi[3:] == pytest.approx(np.ones(n - 3))

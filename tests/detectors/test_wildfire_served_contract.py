@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime as dt
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -336,5 +337,6 @@ def test_non_mapping_section_is_refused(served: WildfireDetector, section: str) 
 
     with pytest.raises(InvalidObservationError, match="must be a mapping"):
         served.predict_wildfire({section: [1.0, 2.0]})
+    not_a_mapping: Any = [1.0, 2.0]  # deliberately outside the declared type
     with pytest.raises(InputModalityError, match="mapping"):
-        served.predict_wildfire([1.0, 2.0])  # type: ignore[arg-type]
+        served.predict_wildfire(not_a_mapping)

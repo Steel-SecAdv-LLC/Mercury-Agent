@@ -73,7 +73,9 @@ class CountdownEnv:
 
 @pytest.mark.parametrize("env_id", ["CartPole-v1", "Pendulum-v1"])
 def test_replays_gymnasium_bit_for_bit(recordings: Any, env_id: str) -> None:
-    get = lambda key: recordings[f"{env_id}/{key}"]  # noqa: E731
+    def get(key: str) -> Any:
+        return recordings[f"{env_id}/{key}"]
+
     env = make_vec_env(env_id, num_envs=1)
     obs, _ = env.reset(seed=int(get("seed")))
     resets = iter(get("resets"))
@@ -316,10 +318,13 @@ def test_space_edges_and_immutability() -> None:
     assert Discrete(1).n == 1
     Box(np.zeros(2), np.zeros(2))  # low == high is a valid (degenerate) box
     assert Box(np.zeros(2), np.ones(2)) != Box(np.zeros(2), 2 * np.ones(2))
+    # The writes below are deliberately illegal.
+    discrete: Any = Discrete(2)
+    box: Any = Box(np.zeros(1), np.ones(1))
     with pytest.raises(dataclasses.FrozenInstanceError):
-        Discrete(2).n = 3  # type: ignore[misc]
+        discrete.n = 3
     with pytest.raises(dataclasses.FrozenInstanceError):
-        Box(np.zeros(1), np.ones(1)).low = np.ones(1)  # type: ignore[misc]
+        box.low = np.ones(1)
     for bad in (0, -1):
         with pytest.raises(ValueError):
             CartPoleVecEnv(bad)

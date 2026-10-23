@@ -33,7 +33,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request, Response, status
@@ -44,6 +44,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 # Type alias for ASGI middleware call_next parameter
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
+
+if TYPE_CHECKING:
+    from starlette.types import ASGIApp
 
 # Context variable for request correlation ID - accessible throughout request lifecycle
 correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -302,7 +305,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: FastAPI,
+        app: ASGIApp,
         requests_per_minute: int | None = None,
         burst_size: int | None = None,
     ):
@@ -401,7 +404,7 @@ from omni_mercury_engine.api.quota_middleware import QuotaMiddleware
 app.add_middleware(QuotaMiddleware)  # type: ignore[arg-type, unused-ignore]
 
 # Register rate limiting middleware
-app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type, unused-ignore]
+app.add_middleware(RateLimitMiddleware)
 
 
 from omni_mercury_engine.api.request_audit import audit_request

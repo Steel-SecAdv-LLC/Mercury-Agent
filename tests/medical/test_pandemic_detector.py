@@ -45,7 +45,7 @@ class TestCaseSurgeDetector:
             "serial_interval_days": 5.0,
         }
         result = detector.detect_case_surge(case_data)
-        assert result["surge_detected"] == False  # noqa: E712 - numpy.bool_
+        assert result["surge_detected"] is False
         assert result.get("growth_rate", 0) < 0.1
 
     def test_surge_detected_exponential_growth(self, detector: CaseSurgeDetector) -> None:
@@ -96,7 +96,7 @@ class TestCaseSurgeDetector:
             "serial_interval_days": 5.0,
         }
         result = detector.detect_case_surge(case_data)
-        assert result["surge_detected"] == False  # noqa: E712 - numpy.bool_
+        assert result["surge_detected"] is False
         # R0 estimate should be present
         assert "r0_estimate" in result
 
@@ -293,8 +293,7 @@ class TestPandemicDetector:
             OutbreakSeverity.EPIDEMIC.value,
             OutbreakSeverity.PANDEMIC.value,
         ]
-        # case_surge_detected is numpy bool - verify it's a boolean type
-        assert isinstance(result.case_surge_detected, (bool, type(result.case_surge_detected)))
+        assert type(result.case_surge_detected) is bool
 
     def test_epidemic_detection(self, detector: PandemicDetector) -> None:
         """Test epidemic level detection."""
@@ -605,8 +604,4 @@ class TestPandemicIntegration:
         # Containment shows as R_e below 1 (0.8**5); growth as R_e above it.
         assert contained_result.r0_estimate == pytest.approx(0.8**5)
         assert peak_result.r0_estimate == pytest.approx(1.1**5)
-        # case_surge_detected is numpy bool - verify it's a boolean type
-        assert isinstance(
-            contained_result.case_surge_detected,
-            (bool, type(contained_result.case_surge_detected)),
-        )
+        assert type(contained_result.case_surge_detected) is bool

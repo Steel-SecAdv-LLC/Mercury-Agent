@@ -2332,7 +2332,7 @@ def _require_env_path(name: str, purpose: str) -> str:
 _Closable = TypeVar("_Closable")
 
 
-def _scoped(resource: _Closable) -> _Closable:  # noqa: UP047 - PEP 695 needs Python 3.12+
+def _scoped(resource: _Closable) -> _Closable:
     """Close ``resource`` (a store or enforcer) when the running command ends.
 
     The platform commands open SQLite-backed stores; without this each

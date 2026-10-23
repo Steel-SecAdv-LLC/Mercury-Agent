@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import torch
@@ -286,7 +286,9 @@ class ConditionalNormalizingFlow(nn.Module):
         z = x
         log_det = torch.zeros(x.shape[0], x.shape[2], x.shape[3], device=x.device)
         for flow in self.flows:
-            z, pixel_log_det = cast("AffineCoupling", flow).forward_pixelwise(z, cond)
+            if not isinstance(flow, AffineCoupling):  # nn.ModuleList yields nn.Module
+                raise TypeError(f"flow stack holds {type(flow).__name__}, not AffineCoupling")
+            z, pixel_log_det = flow.forward_pixelwise(z, cond)
             log_det = log_det + pixel_log_det
             z = z.flip(dims=[1])
         log_prior = -0.5 * (z**2 + math.log(2 * math.pi)).sum(dim=1)
@@ -571,7 +573,11 @@ class CFlowDetector(BaseVisualDetector):
                 # that depends on the other images in the batch would break
                 # the exchangeability the split-conformal threshold relies on.
                 with torch.no_grad():
-                    flow = cast("ConditionalNormalizingFlow", self.flows[layer])
+                    flow = self.flows[layer]
+                    if not isinstance(flow, ConditionalNormalizingFlow):
+                        raise TypeError(
+                            f"flows[{layer}] is {type(flow).__name__}, not ConditionalNormalizingFlow"
+                        )
                     log_p = flow.pixel_log_prob(feat, pos_enc)
                 pixel_scores = -log_p / feat.shape[1]  # [B, H, W]
 

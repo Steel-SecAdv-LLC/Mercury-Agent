@@ -11,6 +11,7 @@ import re
 import time
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote_plus
 
 # bcrypt is optional - provide fallback using hashlib
 try:
@@ -191,18 +192,13 @@ def _decoded_views(payload: str) -> list[str]:
     Attack payloads routinely arrive URL-encoded (``%27+OR+1%3D1``), and the
     OWASP CRS regression corpus carries them that way; WAF practice is to
     normalize before signature matching (ModSecurity ``urlDecodeUni``).  Two
-    passes cover the common double-encoding evasion; a decode failure keeps
-    the raw view.
+    passes cover the common double-encoding evasion.
     """
     views = [payload]
     current = payload
     for _ in range(2):
-        try:
-            from urllib.parse import unquote_plus
-
-            decoded = unquote_plus(current)
-        except (ValueError, TypeError):  # pragma: no cover - unquote is total
-            break
+        # Total on str: undecodable escapes become U+FFFD (errors="replace").
+        decoded = unquote_plus(current)
         if decoded == current:
             break
         views.append(decoded)

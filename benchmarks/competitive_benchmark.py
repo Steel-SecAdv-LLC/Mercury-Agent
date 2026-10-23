@@ -402,7 +402,7 @@ def _run_mercury_tier(
     # Same runtime-only domain marker mercury_benchmark plants (category
     # "adbench"), so the tier runs the identical eval path (see
     # _benchmark_single).
-    detector._benchmark_domain = "adbench"  # type: ignore[attr-defined]
+    detector._benchmark_domain = "adbench"
     fit_s = time.perf_counter() - t0
     t0 = time.perf_counter()
     scores = np.asarray(detector.detect(X_test)["scores"], dtype=np.float64).ravel()

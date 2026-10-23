@@ -35,13 +35,13 @@ import json
 import platform
 import sys
 import time
-import urllib.request
 from concurrent.futures import ProcessPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -81,8 +81,9 @@ def download_nab(dest: Path) -> None:
             continue
         out.parent.mkdir(parents=True, exist_ok=True)
         url = base + rel
-        with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310 - fixed https host
-            out.write_bytes(response.read())
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+        out.write_bytes(response.content)
 
 
 def corpus_hashes(root: Path) -> dict[str, str]:

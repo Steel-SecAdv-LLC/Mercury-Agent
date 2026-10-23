@@ -419,7 +419,7 @@ class TestSecureAuditSink:
                 return "AE-1"
 
         event = self._event()
-        secure_audit_sink(FakeLogger())(event)  # type: ignore[arg-type]
+        secure_audit_sink(FakeLogger())(event)
         assert calls == [
             {
                 "category": AuditEventCategory.SECURITY_INCIDENT,
@@ -646,7 +646,7 @@ class TestSilentTripwireSitsInsideTheStack:
         monkeypatch.delenv("MERCURY_KEYSTORE_PATH", raising=False)
         app = FastAPI()
         app.add_middleware(
-            RateLimitMiddleware,  # type: ignore[arg-type, unused-ignore]
+            RateLimitMiddleware,
             requests_per_minute=60,
             burst_size=3,
         )

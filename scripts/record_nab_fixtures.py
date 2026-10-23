@@ -32,12 +32,12 @@ import importlib.util
 import json
 import sys
 import tempfile
-import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import requests
 
 NAB_COMMIT = "ea702d75cc2258d9d7dd35ca8e5e2539d71f3140"
 BASE = f"https://raw.githubusercontent.com/numenta/NAB/{NAB_COMMIT}/"
@@ -54,8 +54,9 @@ DENSITIES = (0.002, 0.01, 0.05, 0.2)
 
 def _get(path: str) -> bytes:
     url = BASE + path
-    with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310 - fixed https host
-        return bytes(response.read())
+    response = requests.get(url, timeout=60)
+    response.raise_for_status()
+    return response.content
 
 
 def _load_sweeper(source: bytes) -> Any:

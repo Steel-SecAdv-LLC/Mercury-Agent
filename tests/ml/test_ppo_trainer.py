@@ -12,6 +12,7 @@ point, and learning on CartPole and Pendulum within a CI budget.
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 import inspect
 import itertools
 import logging
@@ -380,7 +381,7 @@ def test_config_rejects_bad_values(bad: dict[str, Any]) -> None:
 
 
 def test_config_round_trips_through_primitives() -> None:
-    cfg = PPOConfig(net_arch=[32, 16], use_sde=True, seed=3)  # type: ignore[arg-type]
+    cfg = PPOConfig(net_arch=[32, 16], use_sde=True, seed=3)
     assert cfg.net_arch == (32, 16)
     assert PPOConfig.from_dict(cfg.to_dict()) == cfg
     with pytest.raises(ValueError, match="unknown"):
@@ -744,9 +745,7 @@ def test_factory_and_package_exports() -> None:
 
 
 def test_tensorboard_log_needs_tensorboard(tmp_path: Path) -> None:
-    try:
-        import tensorboard  # noqa: F401
-    except ImportError:
+    if importlib.util.find_spec("tensorboard") is None:
         with pytest.raises(ImportError, match="tensorboard"):
             PPOTrainer("CartPole-v1", small(), tensorboard_log=tmp_path)
         return
@@ -1055,7 +1054,7 @@ def test_metrics_match_their_definitions() -> None:
     assert 0.0 < metrics[4].item() < 1.0
 
 
-def test_default_initialization_matches_nn_linear_bounds() -> None:
+def test_default_initialization_matches_nn_linear_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
     torch.manual_seed(0)
     policy = ActorCritic(4, 2, discrete=True, ortho_init=False)
     first = policy.tensors["hidden.0.weight"]  # fan-in 4: U(-0.5, 0.5)
@@ -1089,13 +1088,13 @@ class _GradientProbe:
         return self.metrics
 
 
-def _probe(trainer: PPOTrainer, **kwargs: Any) -> _GradientProbe:
+def _probe(monkeypatch: pytest.MonkeyPatch, trainer: PPOTrainer, **kwargs: Any) -> _GradientProbe:
     probe = _GradientProbe(trainer.policy, **kwargs)
-    trainer.policy.ppo_gradients = probe  # type: ignore[method-assign]
+    monkeypatch.setattr(trainer.policy, "ppo_gradients", probe)
     return probe
 
 
-def _steps(trainer: PPOTrainer) -> list[dict[str, float]]:
+def _steps(monkeypatch: pytest.MonkeyPatch, trainer: PPOTrainer) -> list[dict[str, float]]:
     """Record the gradient norm and learning rate at every optimizer step."""
     seen: list[dict[str, float]] = []
     step = trainer.optimizer.step
@@ -1106,13 +1105,13 @@ def _steps(trainer: PPOTrainer) -> list[dict[str, float]]:
         seen.append({"norm": float(grad.norm()), "lr": trainer.optimizer.param_groups[0]["lr"]})
         return step(*args, **kwargs)
 
-    trainer.optimizer.step = recording_step  # type: ignore[method-assign]
+    monkeypatch.setattr(trainer.optimizer, "step", recording_step)
     return seen
 
 
-def test_advantages_are_normalized_per_minibatch() -> None:
+def test_advantages_are_normalized_per_minibatch(monkeypatch: pytest.MonkeyPatch) -> None:
     trainer = PPOTrainer("CartPole-v1", small(batch_size=32, n_epochs=1))
-    probe = _probe(trainer)
+    probe = _probe(monkeypatch, trainer)
     rollout = trainer._collect(16, [])
     assert rollout is not None
     trainer._update(rollout, 1.0)
@@ -1123,7 +1122,7 @@ def test_advantages_are_normalized_per_minibatch() -> None:
     expected = (flat_adv - flat_adv.mean()) / (flat_adv.std() + 1e-8)
     assert torch.allclose(probe.calls[0]["advantages"], expected)
     raw = PPOTrainer("CartPole-v1", small(batch_size=32, n_epochs=1, normalize_advantage=False))
-    raw_probe = _probe(raw)
+    raw_probe = _probe(monkeypatch, raw)
     raw_rollout = raw._collect(16, [])
     assert raw_rollout is not None
     raw._update(raw_rollout, 1.0)
@@ -1137,35 +1136,35 @@ def test_advantages_are_normalized_per_minibatch() -> None:
     )
     assert torch.equal(raw_probe.calls[0]["advantages"], torch.as_tensor(raw_adv.reshape(-1)))
     single = PPOTrainer("CartPole-v1", small(batch_size=1, n_epochs=1, n_steps=2, n_envs=1))
-    single_probe = _probe(single)
+    single_probe = _probe(monkeypatch, single)
     single.learn(2)
     assert all(torch.isfinite(c["advantages"]).all() for c in single_probe.calls)
     pairs = PPOTrainer("CartPole-v1", small(batch_size=2, n_epochs=1, n_steps=2, n_envs=1))
-    pair_probe = _probe(pairs)
+    pair_probe = _probe(monkeypatch, pairs)
     pairs.learn(2)
     assert pair_probe.calls[0]["advantages"].abs().tolist() == pytest.approx(
         [2**-0.5] * 2, rel=1e-4
     )
 
 
-def test_minibatches_cover_every_sample_once_per_epoch() -> None:
+def test_minibatches_cover_every_sample_once_per_epoch(monkeypatch: pytest.MonkeyPatch) -> None:
     trainer = PPOTrainer("CartPole-v1", small(batch_size=10, n_epochs=3))
-    probe = _probe(trainer)
+    probe = _probe(monkeypatch, trainer)
     trainer.learn(32)
     sizes = [c["obs"].shape[0] for c in probe.calls]
     assert sizes == [10, 10, 10, 2] * 3
 
 
-def test_gradient_norm_clipping() -> None:
+def test_gradient_norm_clipping(monkeypatch: pytest.MonkeyPatch) -> None:
     trainer = PPOTrainer("CartPole-v1", small(max_grad_norm=0.5))
-    _probe(trainer, grad=1.0)
-    seen = _steps(trainer)
+    _probe(monkeypatch, trainer, grad=1.0)
+    seen = _steps(monkeypatch, trainer)
     trainer.learn(32)
     norm = math.sqrt(trainer.policy.flat.numel())
     assert seen[0]["norm"] == pytest.approx(0.5 * norm / (norm + 1e-6), rel=1e-5)
     small_grad = PPOTrainer("CartPole-v1", small(max_grad_norm=0.5))
-    _probe(small_grad, grad=1e-4)
-    seen = _steps(small_grad)
+    _probe(monkeypatch, small_grad, grad=1e-4)
+    seen = _steps(monkeypatch, small_grad)
     small_grad.learn(32)
     assert seen[0]["norm"] == pytest.approx(
         1e-4 * math.sqrt(small_grad.policy.flat.numel()), rel=1e-5
@@ -1173,27 +1172,29 @@ def test_gradient_norm_clipping() -> None:
 
 
 @pytest.mark.parametrize(("kl", "steps_taken"), [(0.375, 4), (0.39, 0)])
-def test_kl_stop_is_strictly_above_one_and_a_half_targets(kl: float, steps_taken: int) -> None:
+def test_kl_stop_is_strictly_above_one_and_a_half_targets(
+    kl: float, steps_taken: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
     trainer = PPOTrainer("CartPole-v1", small(target_kl=0.25))
-    probe = _probe(trainer, metrics=(0.0, 0.0, 0.0, kl, 0.0))
-    seen = _steps(trainer)
+    probe = _probe(monkeypatch, trainer, metrics=(0.0, 0.0, 0.0, kl, 0.0))
+    seen = _steps(monkeypatch, trainer)
     trainer.learn(32)
     assert len(seen) == steps_taken
     assert len(probe.calls) == (4 if steps_taken else 1)  # a stop ends every epoch
 
 
-def test_update_statistics_map_the_metrics() -> None:
+def test_update_statistics_map_the_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     trainer = PPOTrainer("CartPole-v1", small())
-    _probe(trainer, metrics=(1.0, 2.0, 3.0, 4.0, 5.0))
+    _probe(monkeypatch, trainer, metrics=(1.0, 2.0, 3.0, 4.0, 5.0))
     stats = trainer.learn(32)
     assert (stats.policy_loss, stats.value_loss, stats.entropy, stats.approx_kl, stats.clip_fraction) == (
         1.0, 2.0, 3.0, 4.0, 5.0,
     )  # fmt: skip
 
 
-def test_explained_variance_matches_its_definition() -> None:
+def test_explained_variance_matches_its_definition(monkeypatch: pytest.MonkeyPatch) -> None:
     trainer = PPOTrainer("CartPole-v1", small())
-    _probe(trainer)
+    _probe(monkeypatch, trainer)
     rollout = trainer._collect(16, [])
     assert rollout is not None
     trainer._update(rollout, 1.0)
@@ -1204,20 +1205,20 @@ def test_explained_variance_matches_its_definition() -> None:
     assert trainer.stats.explained_variance == pytest.approx(float(expected), rel=1e-6)
 
 
-def test_linear_schedule_restarts_with_each_learn_call() -> None:
+def test_linear_schedule_restarts_with_each_learn_call(monkeypatch: pytest.MonkeyPatch) -> None:
     trainer = PPOTrainer("CartPole-v1", small(n_epochs=1, lr_schedule="linear"))
-    seen = _steps(trainer)
+    seen = _steps(monkeypatch, trainer)
     trainer.learn(64)
     trainer.learn(64)
     assert [s["lr"] for s in seen] == pytest.approx([1.5e-4, 1.5e-4, 0.0, 0.0] * 2)
 
 
-def test_train_online_budget_arithmetic() -> None:
+def test_train_online_budget_arithmetic(monkeypatch: pytest.MonkeyPatch) -> None:
     trainer = PPOTrainer(
         lambda: CountdownEnv(2),
         small(n_envs=1, n_steps=64, batch_size=8, n_epochs=1, lr_schedule="linear"),
     )
-    seen = _steps(trainer)
+    seen = _steps(monkeypatch, trainer)
     stats = trainer.train_online(num_episodes=10, update_freq=4)
     assert stats.total_episodes == 10  # rollouts of 4, 4, then exactly 2
     assert [round(s["lr"] / 3e-4, 6) for s in seen] == [0.6, 0.2, 0.0]
@@ -1293,7 +1294,9 @@ def test_reset_updates_and_final_observations_do_not() -> None:
 
 
 @pytest.mark.parametrize(("freq", "draws"), [(-1, 1), (0, 1), (4, 3), (1, 10)])
-def test_gsde_noise_is_resampled_every_sde_sample_freq_steps(freq: int, draws: int) -> None:
+def test_gsde_noise_is_resampled_every_sde_sample_freq_steps(
+    freq: int, draws: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
     trainer = PPOTrainer(
         "Pendulum-v1", small(use_sde=True, sde_sample_freq=freq, n_steps=10, batch_size=8)
     )
@@ -1304,7 +1307,7 @@ def test_gsde_noise_is_resampled_every_sde_sample_freq_steps(freq: int, draws: i
         calls.append(n)
         return sample(n, generator)
 
-    trainer.policy.sample_sde_noise = counting  # type: ignore[method-assign]
+    monkeypatch.setattr(trainer.policy, "sample_sde_noise", counting)
     trainer._collect(10, [])
     assert calls == [2] * draws
 

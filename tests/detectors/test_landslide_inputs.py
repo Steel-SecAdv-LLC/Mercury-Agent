@@ -85,8 +85,9 @@ def test_empty_section_is_refused(detector: LandslideDetector) -> None:
 
 
 def test_non_mapping_record_is_refused(detector: LandslideDetector) -> None:
+    not_a_mapping: Any = [1.0, 2.0]  # deliberately outside the declared type
     with pytest.raises(InputModalityError, match="mapping"):
-        detector.predict_landslide([1.0, 2.0])  # type: ignore[arg-type]
+        detector.predict_landslide(not_a_mapping)
 
 
 def test_record_whose_only_section_is_not_a_mapping_is_refused(

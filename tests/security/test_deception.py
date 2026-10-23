@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -161,10 +161,10 @@ class TestTarpitPolicy:
             {"window_s": math.inf},
         ],
     )
-    def test_invalid_refused(self, kwargs: dict[str, float]) -> None:
+    def test_invalid_refused(self, kwargs: dict[str, Any]) -> None:
         """Out-of-range or non-finite parameters are refused."""
         with pytest.raises(ValueError):
-            TarpitPolicy(**kwargs)  # type: ignore[arg-type]
+            TarpitPolicy(**kwargs)
 
     def test_zero_concurrency_is_legal(self) -> None:
         """max_concurrent=0 disables holding without disabling the tripwire."""
@@ -189,10 +189,10 @@ class TestDecoyRoute:
             {"path": "/ok", "lure": "x", "methods": ("get",)},
         ],
     )
-    def test_invalid_refused(self, kwargs: dict[str, object]) -> None:
+    def test_invalid_refused(self, kwargs: dict[str, Any]) -> None:
         """Every malformed decoy is refused at construction."""
         with pytest.raises(ValueError):
-            DecoyRoute(**kwargs)  # type: ignore[arg-type]
+            DecoyRoute(**kwargs)
 
     def test_defaults(self) -> None:
         """An auth-challenge decoy on POST then GET, the order Mercury's routers use."""
@@ -469,10 +469,10 @@ class TestSensorConstruction:
             DeceptionSensor(decoys=(DecoyRoute("/a", "x"), DecoyRoute("/a", "y")))
 
     @pytest.mark.parametrize("kwargs", [{"max_sources": 0}, {"max_hits_tracked": 0}])
-    def test_capacities_must_be_positive(self, kwargs: dict[str, int]) -> None:
+    def test_capacities_must_be_positive(self, kwargs: dict[str, Any]) -> None:
         """Capacities of zero are refused."""
         with pytest.raises(ValueError, match=">= 1"):
-            DeceptionSensor(**kwargs)  # type: ignore[arg-type]
+            DeceptionSensor(**kwargs)
 
     def test_exposes_configuration(self) -> None:
         """Decoys and policy are readable."""
@@ -631,10 +631,10 @@ class TestFreeFirstTouch:
         assert [policy.delay_for(n) for n in (1, 2, 3, 4, 5)] == [0.0, 0.0, 0.0, 0.5, 1.0]
 
     @pytest.mark.parametrize("bad", [-1, 1.5, None])
-    def test_invalid_allowance_refused(self, bad: object) -> None:
+    def test_invalid_allowance_refused(self, bad: Any) -> None:
         """free_hits must be a non-negative integer."""
         with pytest.raises(ValueError, match="free_hits"):
-            TarpitPolicy(free_hits=bad)  # type: ignore[arg-type]
+            TarpitPolicy(free_hits=bad)
 
     def test_first_touch_still_recorded(self) -> None:
         """A free first touch is still a tripwire: recorded and audited."""
@@ -854,11 +854,15 @@ class TestSqliteTripwireStore:
     """One picture across workers, on the platform's shared SQLite file."""
 
     @staticmethod
-    def _store(tmp_path: Path, now: float = 5000.0) -> SqliteTripwireStore:
+    def _store_and_clock(
+        tmp_path: Path, now: float = 5000.0
+    ) -> tuple[SqliteTripwireStore, FakeClock]:
         clock = FakeClock(now)
-        store = SqliteTripwireStore(tmp_path / "state.db", clock=clock)
-        store.test_clock = clock  # type: ignore[attr-defined]
-        return store
+        return SqliteTripwireStore(tmp_path / "state.db", clock=clock), clock
+
+    @staticmethod
+    def _store(tmp_path: Path, now: float = 5000.0) -> SqliteTripwireStore:
+        return TestSqliteTripwireStore._store_and_clock(tmp_path, now)[0]
 
     def test_hits_accumulate_across_sensors(self, tmp_path: Path) -> None:
         """Two workers' touches land in one count, so escalation sees both."""
@@ -897,8 +901,7 @@ class TestSqliteTripwireStore:
 
     def test_window_expiry_in_the_store(self, tmp_path: Path) -> None:
         """Stored hits age out of the window."""
-        store = self._store(tmp_path)
-        clock = store.test_clock  # type: ignore[attr-defined]
+        store, clock = self._store_and_clock(tmp_path)
         sensor = DeceptionSensor(policy=TarpitPolicy(window_s=60.0), clock=FakeClock(), store=store)
         for _ in range(3):
             sensor.record("198.51.100.7", ADMIN, "GET")
@@ -1299,8 +1302,9 @@ class TestStoreBoundaries:
 
         store = TestSqliteTripwireStore._store(tmp_path)
         rec = store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=3)
+        frozen: Any = rec  # the write below is deliberately illegal
         with pytest.raises(dataclasses.FrozenInstanceError):
-            rec.hits = 99  # type: ignore[misc]
+            frozen.hits = 99
 
     def test_sub_second_window_is_valid(self, tmp_path: Path) -> None:
         """Any positive window is legal, not just >= 1 second."""
@@ -1315,8 +1319,7 @@ class TestStoreBoundaries:
 
     def test_audit_due_boundary_matches_the_sensor(self, tmp_path: Path) -> None:
         """A re-touch exactly window seconds after the audit is not yet due."""
-        store = TestSqliteTripwireStore._store(tmp_path)
-        clock = store.test_clock  # type: ignore[attr-defined]
+        store, clock = TestSqliteTripwireStore._store_and_clock(tmp_path)
         store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=9)
         clock.now += 60.0
         assert store.record_touch("k", "a", ADMIN, window_s=60.0, max_hits=9).audit_due is False
@@ -1384,3 +1387,40 @@ class TestStorePruneCadence:
         store.record_touch("active", "active-agg", ADMIN, window_s=60.0, max_hits=500)
         assert self._stale_rows(db, "stale2") == 0
         store.close()
+
+
+def test_store_whose_connect_failed_collects_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``__del__`` swallowed every exception; one it hid was a real defect.
+
+    When ``sqlite3.connect`` failed inside ``__init__``, collecting the
+    half-built store called ``close()``, which raised ``AttributeError`` (no
+    ``_conn``) -- silenced by a broad ``except``.  ``close()`` now has nothing
+    to close in that case, and ``__del__`` no longer catches anything.
+    """
+    import gc
+    import sqlite3
+    import sys
+
+    from omni_mercury_engine.security.deception_store import SqliteTripwireStore
+
+    unraisable: list[BaseException | None] = []
+    monkeypatch.setattr(sys, "unraisablehook", lambda info: unraisable.append(info.exc_value))
+
+    def refuse(*args: Any, **kwargs: Any) -> sqlite3.Connection:
+        raise sqlite3.OperationalError("unable to open database file")
+
+    monkeypatch.setattr(sqlite3, "connect", refuse)
+    with pytest.raises(sqlite3.OperationalError):
+        SqliteTripwireStore(tmp_path / "tripwire.db")
+    gc.collect()
+    assert unraisable == []
+
+
+def test_store_close_is_idempotent(tmp_path: Path) -> None:
+    from omni_mercury_engine.security.deception_store import SqliteTripwireStore
+
+    store = SqliteTripwireStore(tmp_path / "tripwire.db")
+    store.close()
+    store.close()

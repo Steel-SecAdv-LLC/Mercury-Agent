@@ -192,6 +192,11 @@ class MercuryAnomalyDetector(BaseDetector):
     #: never-serve-a-NaN-score post-check.
     handles_unmeasured = True
 
+    #: Dataset domain whose weight preset ``detect`` blends into the adaptive
+    #: weights (``core.domain_weight_presets``); ``None`` blends none.  The
+    #: benchmark harnesses set it after ``fit``.
+    _benchmark_domain: str | None = None
+
     decision_source = DecisionSource(
         kind="experimental",
         description=(
@@ -2536,7 +2541,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # Domain preset blending (F1 Precision Directive, Phase 3):
         # Blend adaptive weights with domain prior (60% data-driven, 40% domain)
-        domain = getattr(self, "_benchmark_domain", None)
+        domain = self._benchmark_domain
         if domain:
             from omni_mercury_engine.core.domain_weight_presets import get_domain_preset
 
@@ -3051,7 +3056,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return (
             self._fit_generation,
             tuple(np.round(np.asarray(self._adaptive_weights, dtype=np.float64), 12)),
-            getattr(self, "_benchmark_domain", None),
+            self._benchmark_domain,
             self._component_calibration_enabled,
             id(self._component_calibrators),
             float(np.trace(cov_inv)) if cov_inv is not None else None,

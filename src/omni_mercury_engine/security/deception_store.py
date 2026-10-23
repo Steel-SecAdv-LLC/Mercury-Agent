@@ -96,15 +96,15 @@ class TripwireStore(Protocol):
         max_sources: int = 10_000,
     ) -> TouchRecord:
         """Record one touch and return the cluster-wide counts."""
-        ...  # pragma: no cover - protocol signature
+        ...
 
     def distinct_decoys(self, key: str) -> int:
         """Return the distinct decoys the source has touched on record."""
-        ...  # pragma: no cover - protocol signature
+        ...
 
     def close(self) -> None:
         """Release the backing resources."""
-        ...  # pragma: no cover - protocol signature
+        ...
 
 
 class SqliteTripwireStore:
@@ -170,16 +170,20 @@ class SqliteTripwireStore:
             self._conn.executescript(self._BACKFILL)
 
     def close(self) -> None:
-        """Close the underlying connection."""
+        """Close the underlying connection (idempotent).
+
+        A store whose ``__init__`` failed before connecting has nothing to
+        close; collection then reaches here through ``__del__``.
+        """
+        conn: sqlite3.Connection | None = vars(self).get("_conn")
+        if conn is None:
+            return
         with self._lock:
-            self._conn.close()
+            conn.close()
 
     def __del__(self) -> None:
         """Close on collection, so a dropped store never leaks its connection."""
-        try:
-            self.close()
-        except Exception:  # pragma: no cover - interpreter-shutdown best effort
-            pass
+        self.close()
 
     def _count_scope(self, scope: str, scope_key: str, floor_s: float, max_hits: int) -> int:
         """Prune and cap one (scope, key)'s hits; return its window count."""

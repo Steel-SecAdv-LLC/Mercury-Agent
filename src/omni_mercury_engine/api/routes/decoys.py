@@ -34,7 +34,7 @@ Left disabled, nothing is registered at all.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from starlette.middleware import Middleware
@@ -57,9 +57,37 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from starlette.types import ASGIApp, Receive, Scope, Send
 
-    from omni_mercury_engine.security.secure_audit_logging import SecureAuditLogger
+    from omni_mercury_engine.security.secure_audit_logging import (
+        AuditEventCategory,
+        AuditEventSeverity,
+    )
 
 logger = logging.getLogger(__name__)
+
+
+class AuditChain(Protocol):
+    """The one call (by keyword) the tripwire sink makes on the tamper-evident chain.
+
+    :class:`~omni_mercury_engine.security.secure_audit_logging.SecureAuditLogger`
+    satisfies it.
+    """
+
+    def log(
+        self,
+        *,
+        category: AuditEventCategory,
+        action: str,
+        outcome: str = ...,
+        severity: AuditEventSeverity = ...,
+        actor: str | None = ...,
+        resource: str | None = ...,
+        details: dict[str, Any] | None = ...,
+        session_id: str | None = ...,
+        client_ip: str | None = ...,
+    ) -> str:
+        """Append one event to the chain; return its event id."""
+        ...
+
 
 __all__ = [
     "SilentTripwireMiddleware",
@@ -101,7 +129,7 @@ def _silent_key(path: str) -> str:
 
 
 def secure_audit_sink(
-    secure_logger: SecureAuditLogger | None,
+    secure_logger: AuditChain | None,
 ) -> Callable[[TripwireEvent], None]:
     """Build the tripwire sink over the process's tamper-evident audit chain.
 

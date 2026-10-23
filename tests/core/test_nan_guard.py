@@ -14,7 +14,6 @@ detector by detector.
 from __future__ import annotations
 
 import importlib
-import warnings
 from typing import Any
 
 import numpy as np
@@ -46,15 +45,14 @@ def test_nan_sample_is_never_silent_and_never_a_nan_score(entry: Any) -> None:
     """One NaN sample: reported (partial/nan_rows) or refused -- never silent."""
     cls = getattr(importlib.import_module(entry.module_path), entry.class_name)
     detector = cls()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        try:
-            detector.fit(TRAIN)
-            result = detector.detect(PROBE_NAN)
-        except Exception:
-            # A loud refusal of the whole input satisfies "never silent"
-            # (the per-detector fit/modality contracts stay theirs).
-            return
+    try:
+        detector.fit(TRAIN)
+        result = detector.detect(PROBE_NAN)
+    except ValueError:
+        # A typed refusal of the whole input (InvalidObservationError and
+        # InputModalityError are ValueErrors) satisfies "never silent"; any
+        # other exception is a defect and fails the test.
+        return
 
     score = result.get("anomaly_score", result.get("anomaly_prob"))
     if score is not None:

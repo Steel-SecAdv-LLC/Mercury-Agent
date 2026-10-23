@@ -7,7 +7,7 @@ Tests AnyAnomaly and LAVAD zero-shot/training-free detectors.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pytest
@@ -109,7 +109,8 @@ class TestAnyAnomalyDetector:
             enable_temporal_context=False,
         )
         detector = AnyAnomalyDetector(config=config)
-        cfg = cast("AnyAnomalyConfig", detector.config)
+        cfg = detector.config
+        assert isinstance(cfg, AnyAnomalyConfig)
         assert cfg.context_window == 4
         assert cfg.enable_positional_context is True
 
@@ -151,7 +152,8 @@ class TestAnyAnomalyDetector:
         path = tmp_path / "anyanomaly.pt"
         detector.save(str(path))
 
-        restored = cast("AnyAnomalyDetector", AnyAnomalyDetector().load(str(path)))
+        restored = AnyAnomalyDetector().load(str(path))
+        assert isinstance(restored, AnyAnomalyDetector)
         assert restored.is_fitted()
         assert restored.anomaly_definition == "A person falling down"
         assert len(restored.reference_frames) == len(frames)
@@ -274,9 +276,33 @@ class TestLAVADDetector:
             temporal_window=8,
         )
         detector = LAVADDetector(config=config)
-        cfg = cast("LAVADConfig", detector.config)
+        cfg = detector.config
+        assert isinstance(cfg, LAVADConfig)
         assert cfg.sampling_fps == 1.0
         assert cfg.temporal_window == 8
+
+    def test_lavad_save_load_keeps_scene_context(
+        self, sample_image_batch: Any, tmp_path: Any
+    ) -> None:
+        """The fitted flag and the scene context survive a checkpoint.
+
+        (Its captioning and reasoning models are pretrained, loaded by name,
+        and deliberately not checkpointed.)
+        """
+        from omni_mercury_engine.detectors.vlm import LAVADDetector
+
+        detector = LAVADDetector()
+        detector.fit(sample_image_batch)
+        detector.set_scene_context(
+            "Parking lot", expected_activities=["walking"], anomaly_types=["fighting"]
+        )
+        path = tmp_path / "lavad.pt"
+        detector.save(str(path))
+
+        restored = LAVADDetector().load(str(path))
+        assert isinstance(restored, LAVADDetector)
+        assert restored.is_fitted()
+        assert restored.scene_context == detector.scene_context
 
     def test_lavad_set_scene_context(self) -> None:
         """Test setting scene context."""

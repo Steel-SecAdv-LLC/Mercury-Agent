@@ -212,7 +212,7 @@ jobs:
         with:
           name: sigma-mutation-sample-report
           path: mutation_sample_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-gate-full:
     name: Sigma hot-path mutation kill-rate floor
@@ -277,7 +277,7 @@ jobs:
         with:
           name: sigma-mutation-report
           path: mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   hazard-mutation-floor:
     name: Hazard adapter/surge mutation kill-rate floor
@@ -345,7 +345,7 @@ jobs:
           path: |
             hazard_adapter_mutation_report.json
             storm_surge_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   distillation-mutation-floor:
     name: Distillation mutation kill-rate floor
@@ -414,7 +414,7 @@ jobs:
         with:
           name: distillation-mutation-report
           path: distillation_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   humanitarian-mutation-floor:
     name: Humanitarian detectors mutation kill-rate floor
@@ -482,7 +482,7 @@ jobs:
         with:
           name: humanitarian-mutation-report
           path: humanitarian_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-crisis-monitor:
     name: Crisis-monitor mutation kill-rate floor
@@ -536,7 +536,7 @@ jobs:
         with:
           name: crisis-monitor-mutation-report
           path: crisis_monitor_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-geological:
     name: Geological detectors mutation kill-rate floor
@@ -605,7 +605,7 @@ jobs:
         with:
           name: geological-mutation-report
           path: geological_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-observatory:
     name: Observatory mutation kill-rate floor
@@ -665,7 +665,7 @@ jobs:
         with:
           name: observatory-mutation-report
           path: observatory_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-trust-surface:
     name: Trust-surface mutation kill-rate floor
@@ -751,7 +751,7 @@ jobs:
         with:
           name: trust-surface-mutation-report
           path: trust_surface_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-hazard-evidence:
     name: Hazard-evidence mutation kill-rate floor
@@ -815,7 +815,7 @@ jobs:
         with:
           name: hazard-evidence-mutation-report
           path: hazard_evidence_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-rl-trainer:
     name: PPO trainer mutation kill-rate floor
@@ -888,4 +888,4 @@ jobs:
         with:
           name: rl-trainer-mutation-report
           path: rl_trainer_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error

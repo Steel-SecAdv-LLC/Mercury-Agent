@@ -316,8 +316,8 @@ class SpaceWeatherLoader(BaseDomainLoader):
             col = features[:, col_idx]
             mask = np.isnan(col)
             if mask.any():
-                median_val = np.nanmedian(col)
-                col[mask] = median_val if np.isfinite(median_val) else 0.0
+                # Median of the measured values; a column with none falls back to 0.
+                col[mask] = float(np.median(col[~mask])) if (~mask).any() else 0.0
         return features
 
     # ------------------------------------------------------------------

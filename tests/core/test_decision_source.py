@@ -25,8 +25,9 @@ from omni_mercury_engine.detectors.provenance import DecisionSource
 
 
 def _resolve(entry: Any) -> type:
-    module = importlib.import_module(entry.module_path)
-    return getattr(module, entry.class_name)  # type: ignore[no-any-return]
+    cls = getattr(importlib.import_module(entry.module_path), entry.class_name)
+    assert isinstance(cls, type), f"{entry.name}: {entry.class_name} is not a class"
+    return cls
 
 
 def _flatten(source: Any) -> list[Any]:

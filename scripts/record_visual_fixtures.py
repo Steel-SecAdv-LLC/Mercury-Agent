@@ -31,9 +31,10 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
-import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
+
+import requests
 
 #: scikit-image v0.24.0 (annotated tag 8be71b82) dereferenced to its commit.
 SKIMAGE_COMMIT = "a160f384523ac70173d069954b7084bee79fb68e"
@@ -63,8 +64,9 @@ IMAGES: dict[str, tuple[str, str]] = {
 
 def _get(name: str) -> bytes:
     url = BASE + name
-    with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310 - fixed https host
-        return bytes(response.read())
+    response = requests.get(url, timeout=60)
+    response.raise_for_status()
+    return response.content
 
 
 def main() -> int:

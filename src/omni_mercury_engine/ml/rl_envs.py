@@ -118,7 +118,7 @@ class VectorEnv(Protocol):
 
     def reset(self, seed: int | None = None) -> tuple[np.ndarray[Any, Any], dict[str, Any]]:
         """Reset every copy; return ``(obs[num_envs, ...], info)``."""
-        ...  # pragma: no cover - protocol signature
+        ...
 
     def step(self, actions: np.ndarray[Any, Any]) -> tuple[
         np.ndarray[Any, Any],
@@ -128,7 +128,7 @@ class VectorEnv(Protocol):
         dict[str, Any],
     ]:
         """Step every copy; finished copies reset in place (see module docstring)."""
-        ...  # pragma: no cover - protocol signature
+        ...
 
 
 class _BatchedEnv:
@@ -265,7 +265,7 @@ class CartPoleVecEnv(_BatchedEnv):
 class PendulumVecEnv(_BatchedEnv):
     """Gymnasium ``Pendulum-v1``, batched: swing a pendulum up and hold it.
 
-    Gymnasium's constants (g = 10, m = l = 1, dt = 0.05 s, |torque| <= 2,
+    Gymnasium's constants (g = 10, mass = length = 1, dt = 0.05 s, |torque| <= 2,
     |angular velocity| <= 8); cost ``theta^2 + 0.1 theta_dot^2 + 0.001 u^2``
     with theta wrapped to [-pi, pi); observation ``(cos theta, sin theta,
     theta_dot)``; never terminates, truncates at 200 steps; initial theta
@@ -282,7 +282,7 @@ class PendulumVecEnv(_BatchedEnv):
     dt = 0.05
     g = 10.0
     m = 1.0
-    l = 1.0  # noqa: E741 - Gymnasium's name for the pendulum length
+    length = 1.0  # Gymnasium calls it ``l``
 
     def __init__(self, num_envs: int = 1, seed: int | None = None) -> None:
         """Create the batch (call :meth:`reset` before stepping)."""
@@ -345,7 +345,8 @@ class PendulumVecEnv(_BatchedEnv):
         costs = ((th + np.pi) % (2 * np.pi) - np.pi) ** 2 + 0.1 * thdot**2 + 0.001 * (u**2)
         newthdot = (
             thdot
-            + (3 * self.g / (2 * self.l) * np.sin(th) + 3.0 / (self.m * self.l**2) * u) * self.dt
+            + (3 * self.g / (2 * self.length) * np.sin(th) + 3.0 / (self.m * self.length**2) * u)
+            * self.dt
         )
         newthdot = np.clip(newthdot, -self.max_speed, self.max_speed)
         newth = th + newthdot * self.dt
