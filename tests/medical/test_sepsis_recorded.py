@@ -130,6 +130,25 @@ class TestRecordedStays:
         assert "partial" not in out
 
 
+class TestAdapterScore:
+    def test_score_agrees_with_the_screen(self, detector: SepsisDetector) -> None:
+        """The score was risk_score (SOFA / 24): a qSOFA-positive screen scored 0."""
+        records = [
+            r
+            for name in ("p000001", "p000011")
+            for r in map(physionet_2019_record, _rows(name))
+            if r
+        ]
+        records += [
+            {"vital_signs": {"respiratory_rate_bpm": 24.0, "systolic_bp_mmhg": 95.0}},
+            {"laboratory_values": {"creatinine_mg_dl": 2.4}},
+        ]
+        out = SepsisRecordAdapter().detect(records)
+        assert out["flags"].tolist()[-2:] == [True, True]
+        assert np.array_equal(out["scores"] >= 0.5, out["flags"])
+        assert out["scores"][-2] == pytest.approx(0.5)  # qSOFA 2, SOFA unassessed
+
+
 class TestInputDefects:
     """Regressions for what recorded data exposed."""
 

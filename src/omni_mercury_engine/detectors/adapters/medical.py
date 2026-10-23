@@ -91,9 +91,13 @@ class SepsisRecordAdapter(HazardRecordAdapter):
     Each record is ``SepsisDetector.detect_sepsis``'s own input:
     ``vital_signs`` (qSOFA) and ``laboratory_values`` (SOFA).  The decision
     is the detector's ``sepsis_detected`` (qSOFA >= 2 or SOFA >= 2 with a
-    zero baseline); the score is its ``risk_score``.  The trained
-    progression model is not consulted here (it ships untrained and
-    abstains), so ``temporal_sequence`` is not accepted.
+    zero baseline).  The score is ``x / (x + 1)`` for ``x = max(qSOFA,
+    SOFA) / 2`` (an unassessed instrument contributes nothing): monotone in
+    both and exactly 1/2 where either reaches 2, so the decision is score
+    >= 1/2.  (The detector's ``risk_score`` is SOFA / 24 without the model,
+    which scored a qSOFA-positive screen 0.)  The trained progression model
+    is not consulted here (it ships untrained and abstains), so
+    ``temporal_sequence`` is not accepted.
     """
 
     decision_source = WrappedDecisionSource(
@@ -122,8 +126,9 @@ class SepsisRecordAdapter(HazardRecordAdapter):
             r = self._detector.detect_sepsis(unit)
         except ValueError as e:
             raise _domain_refusal(e) from e
+        points = max(r.qsofa_score or 0, r.sofa_score or 0) / 2.0
         return Assessment(
-            score=float(min(max(r.risk_score, 0.0), 1.0)),
+            score=points / (points + 1.0),
             flag=bool(r.sepsis_detected),
             features=(
                 float(r.risk_score),
