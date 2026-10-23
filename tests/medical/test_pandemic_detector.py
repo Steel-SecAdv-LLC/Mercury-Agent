@@ -15,6 +15,7 @@ import pytest
 
 pytest.importorskip("torch")
 
+import numpy as np
 import pytest
 import torch
 
@@ -74,15 +75,19 @@ class TestCaseSurgeDetector:
             assert result["doubling_time_days"] > 0
 
     def test_r0_estimation(self, detector: CaseSurgeDetector) -> None:
-        """Test R0 estimation from case growth."""
+        """Growth-implied R_e from two weeks of 30 %/day growth.
+
+        Week means grow by 1.3**7, so r = ln 1.3 per day and, with a 5-day
+        delta serial interval, R_e = exp(5 ln 1.3) = 1.3**5.
+        """
         case_data = {
-            "daily_cases": [100, 130, 169, 220, 286, 372, 484],
+            "daily_cases": [100 * 1.3**day for day in range(14)],
             "serial_interval_days": 5.0,
         }
         result = detector.detect_case_surge(case_data)
-        assert "r0_estimate" in result
-        # R0 estimate should be a positive number
-        assert result["r0_estimate"] >= 1.0
+        assert result["re_estimate"] == pytest.approx(1.3**5)
+        assert result["r0_estimate"] == result["re_estimate"]  # back-compatible alias
+        assert result["doubling_time_days"] == pytest.approx(np.log(2) / np.log(1.3))
 
     def test_declining_cases(self, detector: CaseSurgeDetector) -> None:
         """Test detection with declining case counts."""
@@ -327,7 +332,8 @@ class TestPandemicDetector:
         """Test pandemic level detection."""
         pandemic_data = {
             "case_data": {
-                "daily_cases": [10000, 15000, 22500, 33750, 50625, 75938, 113907],
+                # Two weeks of 50 %/day growth, ending at 10000 * 1.5**6.
+                "daily_cases": [10000 * 1.5 ** (day - 7) for day in range(14)],
                 "serial_interval_days": 5.0,
             },
             "genomic_data": {
@@ -346,17 +352,9 @@ class TestPandemicDetector:
             },
         }
         result = detector.predict_pandemic(pandemic_data)
-        # Severity level should be a valid value
-        assert result.severity_level in [
-            OutbreakSeverity.SPORADIC.value,
-            OutbreakSeverity.CLUSTER.value,
-            OutbreakSeverity.OUTBREAK.value,
-            OutbreakSeverity.EPIDEMIC.value,
-            OutbreakSeverity.PANDEMIC.value,
-        ]
-        # R0 estimate should be positive
-        assert result.r0_estimate is not None
-        assert result.r0_estimate >= 1.0
+        assert result.severity_level == OutbreakSeverity.PANDEMIC.value
+        assert result.case_surge_detected is True
+        assert result.r0_estimate == pytest.approx(1.5**5)
         # Public health actions and containment measures should be lists
         assert isinstance(result.public_health_actions, list)
         assert isinstance(result.containment_measures, list)
@@ -485,15 +483,17 @@ class TestPandemicEdgeCases:
         ]
 
     def test_missing_optional_data(self, detector: PandemicDetector) -> None:
-        """Test with minimal required data."""
+        """Two weeks of counts alone are enough; nothing else is required."""
         pandemic_data = {
             "case_data": {
-                "daily_cases": [100, 150, 225, 338, 507, 760, 1140],
+                "daily_cases": [100 * 1.5 ** (day - 7) for day in range(14)],
                 "serial_interval_days": 5.0,
             },
         }
         result = detector.predict_pandemic(pandemic_data)
         assert isinstance(result, PandemicPredictionResult)
+        assert result.case_surge_detected is True
+        assert result.partial is False
 
     def test_very_long_time_series(self, detector: PandemicDetector) -> None:
         """Test with extended time series data."""
@@ -572,10 +572,10 @@ class TestPandemicIntegration:
         """Test detection of successful containment."""
         detector = PandemicDetector()
 
-        # Peak outbreak
+        # Peak outbreak: two weeks of 10 %/day growth.
         peak_data = {
             "case_data": {
-                "daily_cases": [1000, 1200, 1400, 1500, 1450, 1300, 1100],
+                "daily_cases": [1000 * 1.1**day for day in range(14)],
                 "serial_interval_days": 5.0,
             },
             "genomic_data": {
@@ -587,10 +587,10 @@ class TestPandemicIntegration:
         }
         peak_result = detector.predict_pandemic(peak_data)
 
-        # Post-containment
+        # Post-containment: two weeks of 20 %/day decline.
         contained_data = {
             "case_data": {
-                "daily_cases": [500, 400, 320, 256, 205, 164, 131],
+                "daily_cases": [500 * 0.8**day for day in range(14)],
                 "serial_interval_days": 5.0,
             },
             "genomic_data": {
@@ -602,11 +602,9 @@ class TestPandemicIntegration:
         }
         contained_result = detector.predict_pandemic(contained_data)
 
-        # Should show declining outbreak - R0 estimates should be positive
-        assert contained_result.r0_estimate is not None
-        assert contained_result.r0_estimate >= 1.0
-        assert peak_result.r0_estimate is not None
-        assert peak_result.r0_estimate >= 1.0
+        # Containment shows as R_e below 1 (0.8**5); growth as R_e above it.
+        assert contained_result.r0_estimate == pytest.approx(0.8**5)
+        assert peak_result.r0_estimate == pytest.approx(1.1**5)
         # case_surge_detected is numpy bool - verify it's a boolean type
         assert isinstance(
             contained_result.case_surge_detected,

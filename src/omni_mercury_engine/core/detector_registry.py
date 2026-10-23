@@ -835,6 +835,17 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         modality="record",
         wraps="omni_mercury_engine.medical.critical_care.sepsis_detector:SepsisDetector",
     ),
+    DetectorManifestEntry(
+        "case_surge",
+        "omni_mercury_engine.detectors.adapters.medical",
+        "CaseSurgeWindowAdapter",
+        DetectorCategory.MEDICAL,
+        "Disease-surveillance case surge: week-on-week rise in daily counts, growth-implied R_e",
+        tags=["surveillance", "epidemiology", "outbreak"],
+        seams=("engine", "registry"),
+        modality="window",
+        wraps="omni_mercury_engine.medical.pandemic.pandemic_detector:CaseSurgeDetector",
+    ),
     # -- Geological detectors -------------------------------------------------
     DetectorManifestEntry(
         "volcanic",

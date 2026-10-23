@@ -256,6 +256,7 @@ def _surge_event() -> dict[str, Any]:
 ENTRY_PAYLOADS: dict[str, Any] = {
     "sep_storm": _sep_window,
     "gic": _gic_window,
+    "case_surge": lambda: (100.0 * 1.3 ** np.arange(14.0)).reshape(-1, 1),
     "ionospheric_scintillation": _scintillation_record,
     "solar_gic_cascade": _cascade_record,
     "volcanic": _volcanic_record,

@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,055
-- **Capability-bearing classes:** 2,042 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,056
+- **Capability-bearing classes:** 2,043 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,195 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Neural models & layers | 162 |
 | Data sources & loaders | 106 |
 | Engines & orchestration | 101 |
-| Adapters & backends | 95 |
+| Adapters & backends | 96 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 26 |
@@ -1046,7 +1046,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 456 classes (331 capability)
+### `detectors/` — 457 classes (332 capability)
 
 **Adapters & backends**
 
@@ -1054,6 +1054,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `BLIPCaptionBackend` (`detectors.vlm.lvlm_backends`) — BLIP image-captioning backend (Salesforce, BSD-3-Clause).
 - `BLIPVQABackend` (`detectors.vlm.lvlm_backends`) — BLIP visual-question-answering backend (Salesforce, BSD-3-Clause).
 - `CMEArrivalAdapter` (`detectors.adapters.space`) — Earth arrival of a coronal mass ejection from its cone kinematics.
+- `CaseSurgeWindowAdapter` (`detectors.adapters.medical`) — Disease-surveillance case surge over one window of daily counts.
 - `DynamicThresholdAdapter` (`detectors.statistical_extended`) — Dynamic threshold adaptation for streaming anomaly detection.
 - `EMPRecordAdapter` (`detectors.adapters.society`) — Electromagnetic pulse and geomagnetic threat from field and magnetometer records.
 - `EqTsunamiCascadeAdapter` (`detectors.adapters.earth`) — The earthquake-to-tsunami cascade replayed over one event sequence.
