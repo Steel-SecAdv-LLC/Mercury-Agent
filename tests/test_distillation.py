@@ -777,10 +777,11 @@ class TestPreparationDecisionAndFeatures:
     def test_the_normalisation_constants_are_the_imagenet_statistics(self) -> None:
         distiller = self._distiller()
         np.testing.assert_array_equal(
-            distiller._norm_mean.flatten().numpy(), np.float32([0.485, 0.456, 0.406])
+            distiller._norm_mean.flatten().numpy(),
+            np.array([0.485, 0.456, 0.406], dtype=np.float32),
         )
         np.testing.assert_array_equal(
-            distiller._norm_std.flatten().numpy(), np.float32([0.229, 0.224, 0.225])
+            distiller._norm_std.flatten().numpy(), np.array([0.229, 0.224, 0.225], dtype=np.float32)
         )
 
     def test_prepare_subtracts_the_mean_then_divides_by_the_deviation(self) -> None:
