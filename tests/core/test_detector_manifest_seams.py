@@ -292,6 +292,9 @@ def _payload(entry: DetectorManifestEntry) -> Any:
             return np.abs(rng.lognormal(-14.0, 1.0, 200))
         if entry.name == "earthquake":  # one STA + LTA window at 100 Hz needs 550 samples
             return rng.normal(size=1200)
+        # One vibration signal's spread needs 8 blocks of two 32-sample frames: 384.
+        if entry.name in {"spectral_vibration", "physics_integrated"}:
+            return rng.normal(size=1000)
         return rng.normal(size=200)
     if entry.modality == "matrix_2d":
         return rng.normal(size=(60, 8))
