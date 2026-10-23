@@ -182,7 +182,7 @@ FUEL_INTERFACE_ADJUSTMENT: dict[int, tuple[float, float]] = {
 }
 
 #: Supplied weather values reported in ``weather_factors``: key -> (unit, lo, hi).
-_WEATHER_INPUTS = {
+_WEATHER_INPUTS: dict[str, tuple[str, float | None, float | None]] = {
     "wind_speed_kmh": ("km/h", 0.0, 500.0),
     "wind_direction_deg": ("deg", 0.0, 360.0),
     "relative_humidity_pct": ("%", 0.0, 100.0),
