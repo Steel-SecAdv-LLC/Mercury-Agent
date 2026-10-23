@@ -59,6 +59,7 @@ class TestMassConservation:
 
 hyp = pytest.importorskip("hypothesis")
 from hypothesis import (
+    example,
     given,
     settings,
     strategies as st,
@@ -90,11 +91,17 @@ class TestMassConservationProperty:
             elements=st.floats(allow_nan=True, allow_infinity=True, width=64),
         )
     )
+    @example(np.full(12, np.inf))
     def test_arbitrary_nonfinite_series_conserve_mass(self, series: np.ndarray) -> None:
         det = BOCPDDetector(max_run_length=30).fit(series)
         post = det.run_length_posteriors(series)
         assert np.all(np.isfinite(post))
         assert np.allclose(post.sum(axis=1), 1.0, atol=1e-8)
-        # And the emitted scores remain valid probabilities.
+        if not np.isfinite(series).any():
+            # Nothing measurable: detect refuses rather than score it.
+            with pytest.raises(ValueError, match="nothing is measurable"):
+                det.detect(series)
+            return
+        # Otherwise the emitted scores remain valid probabilities.
         scores = np.asarray(det.detect(series)["scores"])
         assert np.all((scores >= 0.0) & (scores <= 1.0))

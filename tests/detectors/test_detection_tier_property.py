@@ -23,6 +23,7 @@ import pytest
 hyp = pytest.importorskip("hypothesis")
 from hypothesis import (
     HealthCheck,
+    example,
     given,
     settings,
     strategies as st,
@@ -70,8 +71,13 @@ _SETTINGS = settings(
 class TestScoreVectorContract:
     @_SETTINGS
     @given(_train, _series)
+    @example(np.linspace(-1.0, 1.0, 40), np.full(12, np.nan))
     def test_spot_scores_finite_bounded(self, train: np.ndarray, probe: np.ndarray) -> None:
         det = SPOTDetector().fit(train)
+        if not np.isfinite(probe).any():
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(probe)
+            return
         result = det.detect(probe)
         _assert_scores_contract(result)
         _assert_metadata_finite(result)
@@ -137,8 +143,13 @@ class TestMetadataInvariants:
 
     @_SETTINGS
     @given(_train, _series, st.sampled_from(["neutral", "impute", "flag"]))
+    @example(np.linspace(-1.0, 1.0, 40), np.full(12, np.inf), "impute")
     def test_scores_finite_under_all_policies(
         self, train: np.ndarray, probe: np.ndarray, policy: str
     ) -> None:
         det = SPOTDetector(config={"nan_policy": policy}).fit(train)
+        if not np.isfinite(probe).any():
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(probe)
+            return
         _assert_scores_contract(det.detect(probe))
