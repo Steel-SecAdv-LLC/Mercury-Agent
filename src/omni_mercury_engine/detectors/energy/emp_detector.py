@@ -67,6 +67,7 @@ from torch import nn
 
 from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.detectors._hazard_input import (
+    InputGrader,
     InvalidObservationError,
     finite_array,
     finite_scalar,
@@ -153,6 +154,25 @@ EMP_SECTIONS: dict[str, tuple[frozenset[str], tuple[frozenset[str], ...]]] = {
 }
 
 
+#: Scalar fields of the EMP sections, with the unit and bounds the pulse
+#: detectors apply when they read them; the array fields (waveform,
+#: signature features, sensor positions and arrival times) are checked by
+#: the analyzers, and a section an analyzer refuses is set aside whole.
+EMP_SCALARS: dict[str, tuple[str, float | None, float | None]] = {
+    "sample_rate_hz": ("Hz", 0.0, None),
+    "field_strength_vm": ("V/m", 0.0, None),
+    "rise_time_ns": ("ns", 0.0, None),
+    "peak_frequency_mhz": ("MHz", 0.0, None),
+    "pulse_width_ns": ("ns", 0.0, None),
+    "e2_field_vm": ("V/m", 0.0, None),
+    "e2_time_us": ("us", 0.0, None),
+    "db_dt_nt_s": ("nT/s", None, None),
+    "duration_seconds": ("s", 0.0, None),
+    "dbdt_cadence_s": ("s", 0.0, None),
+    "repetition_rate_hz": ("Hz", 0.0, None),
+}
+
+
 class EMPType(Enum):
     """EMP classifications."""
 
@@ -220,6 +240,11 @@ class EMPPredictionResult:
     hpem_environment: bool = False
     band_ratio: float | None = None
     band_class: str | None = None
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
 
 
 def classify_band_ratio(band_ratio: float) -> str:
@@ -967,13 +992,18 @@ class EMPDetector:
         Returns:
             EMP prediction with threat assessment and protective actions.
 
+        Unusable pieces -- an unknown key or section, an empty or
+        non-mapping section, a non-finite or negative scalar (see
+        :data:`EMP_SCALARS`), a section its analyzer refuses -- are set aside
+        and reported on the result (``partial``, ``set_aside``); the rest is
+        graded.
+
         Raises:
-            InputModalityError: If the record or a section is not a mapping.
-            InvalidObservationError: On non-finite or negative measurements,
-                a section with an unknown key or no measurement (see
-                :data:`EMP_SECTIONS`), or a record with nothing measured.
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: When nothing measured remains.
         """
-        self._validate_sections(emp_data)
+        emp_data, grader = self._grade_sections(emp_data)
+        assessed: set[str] = set()
         result = EMPPredictionResult(
             emp_detected=False,
             confidence=0.0,
@@ -989,7 +1019,11 @@ class EMPDetector:
         )
 
         if self.enable_e1 and "sensor_data" in emp_data and self.e1_detector is not None:
-            e1_result = self.e1_detector.detect_e1_pulse(emp_data["sensor_data"])
+            e1_result = grader.attempt(
+                "sensor_data", self.e1_detector.detect_e1_pulse, emp_data["sensor_data"]
+            )
+        if e1_result is not None:
+            assessed.add("sensor_data")
             result.e1_component_detected = e1_result["e1_detected"]
             result.field_strength_vm = e1_result["field_strength_vm"]
             result.rise_time_ns = e1_result["rise_time_ns"]
@@ -1003,16 +1037,28 @@ class EMPDetector:
                 result.confidence = max(result.confidence, 0.9)
                 result.emp_detected = True
 
-            assert self.e2_detector is not None
-            e2_result = self.e2_detector.detect_e2_pulse(
-                emp_data["sensor_data"], e1_detected=result.e1_component_detected
+            e2_detector = self.e2_detector
+            assert e2_detector is not None
+            e1_detected = result.e1_component_detected
+            e2_result = grader.attempt(
+                "sensor_data.e2",
+                lambda data: e2_detector.detect_e2_pulse(data, e1_detected=e1_detected),
+                emp_data["sensor_data"],
             )
-            result.e2_component_detected = e2_result["e2_detected"]
-            if e2_result["e2_detected"]:
-                components_detected += 1
+            if e2_result is not None:
+                result.e2_component_detected = e2_result["e2_detected"]
+                if e2_result["e2_detected"]:
+                    components_detected += 1
 
+        e3_result = None
         if self.enable_e3 and "magnetometer_data" in emp_data and self.e3_detector is not None:
-            e3_result = self.e3_detector.detect_e3_pulse(emp_data["magnetometer_data"])
+            e3_result = grader.attempt(
+                "magnetometer_data",
+                self.e3_detector.detect_e3_pulse,
+                emp_data["magnetometer_data"],
+            )
+        if e3_result is not None:
+            assessed.add("magnetometer_data")
             result.e3_component_detected = e3_result["e3_detected"]
             result.grid_impact_assessment = e3_result["grid_impact"]
             result.peak_dbdt_nt_per_s = e3_result["peak_dbdt_nt_per_s"]
@@ -1049,10 +1095,20 @@ class EMPDetector:
                 result.confidence = max(result.confidence, iemi["indicator_fraction"])
 
         attack_confirmed = False
+        attack_result = None
         if self.enable_attack:
-            attack_result = self._classify_intentional_attack(
-                signature_data, emp_data.get("sensor_data"), repetition_rate
+            attack_result = grader.attempt(
+                "signature_data",
+                lambda signatures: self._classify_intentional_attack(
+                    signatures, emp_data.get("sensor_data"), repetition_rate
+                ),
+                signature_data,
             )
+        if attack_result is not None:
+            # attack_probability is None exactly when the network was not
+            # consulted (untrained, or no signature to read).
+            if attack_result["attack_probability"] is not None:
+                assessed.add("signature_data")
             result.intentional_attack_probability = attack_result["attack_probability"]
             attack_confirmed = attack_result["attack_detected"] and not result.emp_detected
             if attack_confirmed:
@@ -1060,10 +1116,23 @@ class EMPDetector:
                 result.confidence = max(result.confidence, attack_result["attack_probability"])
 
         if "sensor_array" in emp_data:
-            array = emp_data["sensor_array"]
-            result.source_localization = localize_tdoa(
-                array.get("positions_m"), array.get("arrival_times_s")
+            located = grader.attempt(
+                "sensor_array",
+                lambda array: (
+                    localize_tdoa(array.get("positions_m"), array.get("arrival_times_s")),
+                ),
+                emp_data["sensor_array"],
             )
+            if located is not None:
+                assessed.add("sensor_array")
+                result.source_localization = located[0]
+
+        # Nothing measured could be assessed: the verdict would be a silent
+        # "benign".
+        grader.require_usable(
+            assessed,
+            "nothing measured could be assessed; an unmeasured environment is not a benign one",
+        )
 
         result.threat_level = self._assess_threat_level(
             result, components_detected, iemi_suspected=iemi_suspected, attack=attack_confirmed
@@ -1073,43 +1142,49 @@ class EMPDetector:
         result.protective_actions = self._generate_protective_actions(result)
         result.recovery_actions = self._generate_recovery_actions(result)
 
+        result.partial = grader.partial
+        result.set_aside = list(grader.set_aside)
         return result
 
-    def _validate_sections(self, emp_data: Any) -> None:
-        """Refuse a record the detector would grade as a silent "benign"."""
+    def _grade_sections(self, emp_data: Any) -> tuple[dict[str, Any], InputGrader]:
+        """Keep every usable section and field; set the rest aside with its reason.
+
+        The pulse detectors default a missing key to a quiet value (0 V/m,
+        0 nT/s), so a section that holds none of its measurement sets is set
+        aside rather than graded as a measured all-clear.
+        """
         if not isinstance(emp_data, dict):
             raise InputModalityError(
                 "predict_emp expects a mapping of measurements (sensor_data, "
                 f"magnetometer_data, ...), got {type(emp_data).__name__}"
             )
-        for section, (allowed, complete) in EMP_SECTIONS.items():
-            if section not in emp_data:
+        grader = InputGrader()
+        record: dict[str, Any] = {}
+        for section, values in emp_data.items():
+            if section not in EMP_SECTIONS:
+                grader.discard(section, f"unknown section; accepted: {sorted(EMP_SECTIONS)}")
                 continue
-            values = emp_data[section]
-            if not isinstance(values, dict):
-                raise InputModalityError(
-                    f"{section} must be a mapping, got {type(values).__name__}"
-                )
-            unknown = sorted(set(values) - allowed)
-            if unknown:
-                raise InvalidObservationError(
-                    f"{section} has unknown keys {unknown}; accepted: {sorted(allowed)}"
-                )
-            if not any(keys <= set(values) for keys in complete):
-                raise InvalidObservationError(
-                    f"{section} carries no measurement; supply one of "
-                    f"{[sorted(keys) for keys in complete]}"
-                )
+            allowed, complete = EMP_SECTIONS[section]
+            graded = grader.grade_section(
+                section,
+                values,
+                scalars={k: EMP_SCALARS[k] for k in allowed if k in EMP_SCALARS},
+                others=frozenset(k for k in allowed if k not in EMP_SCALARS),
+                complete=complete,
+            )
+            if graded is not None:
+                record[section] = graded
         measured = {"sensor_data", "magnetometer_data", "sensor_array"}
         if self._iemi_trained:
             measured.add("signature_data")
-        if not measured & set(emp_data):
-            # A repetition rate alone feeds only the IEMI network, which is
-            # unconsulted until its weights load.
-            raise InvalidObservationError(
-                f"nothing measured: supply at least one of {sorted(measured)}; an "
-                "unmeasured environment is not a benign one"
-            )
+        # A repetition rate alone feeds only the IEMI network, which is
+        # unconsulted until its weights load.
+        grader.require_usable(
+            measured & set(record),
+            f"nothing measured: supply at least one of {sorted(measured)}; an "
+            "unmeasured environment is not a benign one",
+        )
+        return record, grader
 
     def _classify_intentional_attack(
         self,

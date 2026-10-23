@@ -105,8 +105,41 @@ def test_misspelt_or_unmeasured_section_is_refused(
 
 @pytest.mark.parametrize("section", ["sensor_data", "magnetometer_data"])
 def test_non_mapping_section_is_refused(detector: EMPDetector, section: str) -> None:
-    with pytest.raises(InputModalityError, match="mapping"):
+    with pytest.raises(InvalidObservationError, match="must be a mapping"):
         detector.predict_emp({section: [1.0, 2.0]})
+
+
+def test_non_mapping_record_is_refused(detector: EMPDetector) -> None:
+    with pytest.raises(InputModalityError, match="mapping"):
+        detector.predict_emp([1.0, 2.0])  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("extra", "where"),
+    [
+        ({"magnetometer_data": {"db_dt_nt_s": float("nan")}}, "magnetometer_data.db_dt_nt_s"),
+        ({"magnetometer_data": {"dbdt": 900.0}}, "magnetometer_data.dbdt"),
+        ({"magnetometer_data": [1.0]}, "magnetometer_data"),
+        ({"radar_data": {"x": 1.0}}, "radar_data"),
+        (
+            {"sensor_array": {"positions_m": [[0.0, 0.0]], "arrival_times_s": [0.0, 1.0]}},
+            "sensor_array",
+        ),
+    ],
+)
+def test_measured_e1_is_graded_beside_an_unusable_section(
+    detector: EMPDetector, extra: dict[str, Any], where: str
+) -> None:
+    """Regression: one unusable section refused a measured IEC E1 pulse."""
+    result = detector.predict_emp({"sensor_data": IEC_E1, **extra})
+    assert result.e1_component_detected is True
+    assert result.partial is True
+    assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
+
+
+def test_clean_record_is_not_partial(detector: EMPDetector) -> None:
+    result = detector.predict_emp({"sensor_data": IEC_E1})
+    assert result.partial is False and result.set_aside == []
 
 
 def test_unmeasured_rise_time_and_frequency_are_not_fabricated(detector: EMPDetector) -> None:
@@ -156,9 +189,16 @@ def test_e2_is_reported_after_e1(detector: EMPDetector) -> None:
     assert late.e2_component_detected is False
 
 
-def test_e2_field_without_its_time_is_refused(detector: EMPDetector) -> None:
-    with pytest.raises(InvalidObservationError, match="e2_time_us"):
-        detector.predict_emp({"sensor_data": {**IEC_E1, "e2_field_vm": 100.0}})
+def test_e2_field_without_its_time_is_set_aside_and_e1_still_graded(
+    detector: EMPDetector,
+) -> None:
+    """An E2 field with no time cannot be placed in the E2 window; E1 still decides."""
+    result = detector.predict_emp({"sensor_data": {**IEC_E1, "e2_field_vm": 100.0}})
+    assert result.e1_component_detected is True
+    assert result.e2_component_detected is False
+    (entry,) = result.set_aside
+    assert entry["where"] == "sensor_data.e2"
+    assert "e2_time_us" in entry["reason"]
 
 
 def test_meta_r_321_blast_wave_is_e3(detector: EMPDetector) -> None:

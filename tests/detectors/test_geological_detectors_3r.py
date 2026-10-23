@@ -2985,8 +2985,11 @@ class TestCheckpointAndIntegrationPins:
         # Without a pixel size there is no ground-area estimate.
         bare = detector.predict_wildfire({"thermal_image": image})
         assert bare.fire_perimeter_km2 is None
-        with pytest.raises(InvalidObservationError):
-            detector.predict_wildfire({"thermal_image": image, "pixel_size_km": 0.0})
+        # A zero pixel size is not a ground resolution: it is set aside and
+        # no area is claimed, while the scene is still graded.
+        zero = detector.predict_wildfire({"thermal_image": image, "pixel_size_km": 0.0})
+        assert zero.fire_perimeter_km2 is None
+        assert zero.partial is True and zero.set_aside[0]["where"] == "pixel_size_km"
 
     def test_interface_moisture_needs_temperature_and_humidity_jointly(self) -> None:
         from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector

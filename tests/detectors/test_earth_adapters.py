@@ -257,10 +257,12 @@ class TestWildfire:
     def test_weather_only_or_misspelt_scene_is_refused(self) -> None:
         with pytest.raises(InvalidObservationError, match="missing"):
             WildfireSceneAdapter().detect({"weather_data": {"wind_speed_kmh": 40.0}})
-        with pytest.raises(InvalidObservationError, match="unknown keys"):
-            WildfireSceneAdapter().detect(
-                {"thermal_image": self._scene(None), "weather_data": {"humidity": 5.0}}
-            )
+        # A misspelt weather key beside a scene is set aside; the scene is graded.
+        out = WildfireSceneAdapter().detect(
+            {"thermal_image": self._scene(None), "weather_data": {"humidity": 5.0}}
+        )
+        assert out["partial"] is True
+        assert out["set_aside"][0][0]["where"] == "weather_data.humidity"
         with pytest.raises(InputModalityError):
             WildfireSceneAdapter().detect({"thermal_image": "not a raster"})
 
