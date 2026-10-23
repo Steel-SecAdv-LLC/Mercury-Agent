@@ -87,3 +87,46 @@ def test_published_baselines_are_the_all_track_figures(quickstart: ModuleType) -
         "Two-step clustering": 0.73,
         "RVAE": 0.72,
     }
+
+
+def test_published_protocol_fits_on_training_rows_only(
+    quickstart: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The paper's training file is the fit; the labelled tracks only scored."""
+    train, labelled = np.full((40, 2), 7.0), np.arange(20.0).reshape(-1, 2)
+    labels = np.array([0] * 7 + [1] * 3)
+    seen: list[tuple[np.ndarray, np.ndarray]] = []
+
+    def recording_fit(X_train: np.ndarray, X_test: np.ndarray) -> np.ndarray:
+        seen.append((X_train, X_test))
+        return X_test[:, 0]
+
+    monkeypatch.setattr(quickstart, "fit_and_score", recording_fit)
+    auc, (low, high), ap = quickstart.published_protocol(train, labelled, labels)
+
+    assert len(seen) == 1
+    assert seen[0][0] is train and seen[0][1] is labelled
+    assert auc == pytest.approx(1.0)  # scores rise with the row; positives last
+    assert ap == pytest.approx(1.0)  # a float sum over the ranks
+    assert low <= auc <= high
+
+
+def test_each_protocol_is_compared_with_its_own_papers_rows(quickstart: ModuleType) -> None:
+    """Thesis Fig. 6.1 (June-November training) and JMSE Fig. 12a (December)."""
+    protocols = {title: (period, dict(rows)) for title, period, rows in quickstart.PROTOCOLS}
+    assert protocols == {
+        "Thesis Fig. 6.1": (
+            "june_november",
+            {
+                "GeoTrackNet": 0.87,
+                "RAE": 0.86,
+                "Seq-2-Seq": 0.84,
+                "Seq-2-Seq with attention": 0.83,
+                "RVAE": 0.72,
+            },
+        ),
+        "JMSE Fig. 12a": (
+            "december",
+            {"VRNN (GeoTrackNet arch.)": 0.87, "Two-step clustering": 0.73, "RVAE": 0.72},
+        ),
+    }

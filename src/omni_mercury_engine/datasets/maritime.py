@@ -21,6 +21,11 @@ on the same tracks, from models trained on 1 June to 30 November traffic.
 Dataset DOI: 10.11583/DTU.21511815 (collection 10.11583/DTU.c.6287841).
 License: CC BY 4.0 — attribution is carried in :attr:`DTUAISLoader.CITATION`.
 
+``DTUAISTrainingSet`` serves the unlabelled training files of the same
+collection (DOI 10.11583/DTU.21511842) that the published models were
+trained on: June to November 2021 for the thesis, December 2021 without the
+13th for the JMSE paper.
+
 Each trajectory is converted to a fixed vector of 22 kinematic/geometric
 features (:data:`FEATURE_NAMES`); the benchmark harness consumes the
 resulting ``(521, 22)`` matrix like any other tabular dataset.
@@ -41,19 +46,31 @@ import io
 import logging
 import pickle
 import zipfile
+from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
 import numpy as np
 
-from omni_mercury_engine.datasets.base import DatasetLoader, http_get_with_retry
+from omni_mercury_engine.datasets.base import (
+    _DEFAULT_DATASET_UA,
+    DatasetLoader,
+    http_get_with_retry,
+)
+from omni_mercury_engine.datasets.zip_stream import extract_stored_members
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-    from pathlib import Path
+    from collections.abc import Iterable, Iterator
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["FEATURE_NAMES", "DTUAISLoader", "restricted_pickle_load", "track_features"]
+__all__ = [
+    "FEATURE_NAMES",
+    "DTUAISLoader",
+    "DTUAISTrainingSet",
+    "restricted_pickle_load",
+    "track_features",
+]
 
 _EARTH_RADIUS_KM = 6371.0
 
@@ -326,3 +343,167 @@ class DTUAISLoader(DatasetLoader):
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Features are consumed as-is; scaling is the harness's concern."""
         return data
+
+
+@dataclass(frozen=True)
+class _TrainingPeriod:
+    """One unlabelled training file of the DTU AIS collection."""
+
+    member: str
+    #: SHA-256 over the member bytes, pinned from a copy whose MD5 equals
+    #: figshare's published one (``md5``).
+    sha256: str
+    md5: str
+    n_tracks: int
+
+
+class DTUAISTrainingSet:
+    """Unlabelled DTU AIS training trajectories for the published protocols.
+
+    Companion files of :class:`DTUAISLoader`'s labelled set, same region and
+    preprocessing (moving updates, eight ship types, 10 min to 12 h tracks,
+    120 s resampling); no labels, so this is not a :class:`DatasetLoader`
+    and never enters the labelled benchmark pool. Two periods:
+
+    * ``"june_november"`` -- 1 June to 30 November 2021, 106,728 tracks:
+      the training data of the models in Figure 6.1 of Olesen's DTU PhD
+      thesis (2023, p. 48).
+    * ``"december"`` -- December 2021 without the 13th (the file holds no
+      point between 2021-12-13 00:00 and 2021-12-14 00:00 UTC), 12,591
+      tracks: the training data of J. Mar. Sci. Eng. 11(11):2085 (2023),
+      section 4.7, Figure 12a.
+
+    figshare's per-file links redirect to DTU object storage
+    (``s3q.ait.dtu.dk:9000``), which some networks cannot reach. The
+    whole-article archive is served by figshare itself on port 443 but is
+    6.5 GB, so it is streamed and closed once the period's member is written
+    and matches its pinned SHA-256 (680 MB in for June-November, the first
+    member; 1.1 GB for December, the fourth).
+    """
+
+    DATASET_URL = "https://doi.org/10.11583/DTU.21511842"
+    LICENSE = "CC BY 4.0"
+    CITATION = (
+        "Olesen, K. V., Clemmensen, L. K. H., & Christensen, A. N. (2023). "
+        "Unlabelled training datasets of AIS Trajectories from Danish Waters "
+        "for Abnormal Behavior Detection. Technical University of Denmark. "
+        "https://doi.org/10.11583/DTU.21511842"
+    )
+    ARCHIVE_URL = "https://ndownloader.figshare.com/articles/21511842/versions/1"
+    PERIODS: dict[str, _TrainingPeriod] = {
+        "june_november": _TrainingPeriod(
+            member="data_AIS_Custom_01062021_30112021_CarFisHigMilPasPleSaiTan_600_43200_120.pkl",
+            sha256="801b94417724928d4d872da876704d8b01607725c9df0b97f5bb1f69e31fc16b",
+            md5="b7fa03df6c9e3d9abd830fbe72d83075",
+            n_tracks=106_728,
+        ),
+        "december": _TrainingPeriod(
+            member="data_AIS_Custom_01122021_31122021_CarFisHigMilPasPleSaiTan_600_43200_120.pkl",
+            sha256="8daf08d1868512b163b16640553c9047e9dfd471bac43803874d688cec5a272f",
+            md5="d7bd2d763d39473a8d824daeb67d3395",
+            n_tracks=12_591,
+        ),
+    }
+
+    def __init__(self, data_dir: str | Path, period: str = "june_november") -> None:
+        """Cache under ``data_dir/dtu_ais_training``.
+
+        Raises:
+            ValueError: ``period`` is not one of :attr:`PERIODS`.
+        """
+        if period not in self.PERIODS:
+            raise ValueError(f"unknown period {period!r}; one of {sorted(self.PERIODS)}")
+        self._period_name = period
+        self.period = self.PERIODS[period]
+        self.data_path = Path(data_dir) / "dtu_ais_training"
+
+    @property
+    def member_path(self) -> Path:
+        """Where the period's member is cached."""
+        return self.data_path / self.period.member
+
+    def is_cached(self) -> bool:
+        """Whether the cached member exists and matches its pinned SHA-256."""
+        if not self.member_path.is_file():
+            return False
+        digest = hashlib.sha256()
+        with self.member_path.open("rb") as fh:
+            for block in iter(lambda: fh.read(1 << 20), b""):
+                digest.update(block)
+        return digest.hexdigest() == self.period.sha256
+
+    def download(self, timeout: float = 300.0) -> None:
+        """Stream the archive until the period's member is cached and verified.
+
+        Args:
+            timeout: Seconds to wait for each read of the stream.
+
+        Raises:
+            OfflineModeError: Network access is disabled.
+            ZipStreamError: The member is absent, corrupt or not the pinned bytes.
+            requests.HTTPError: figshare answered with an error status.
+        """
+        self.download_periods(self.data_path.parent, [self._period_name], timeout=timeout)
+
+    @classmethod
+    def download_periods(
+        cls, data_dir: str | Path, periods: Iterable[str], timeout: float = 300.0
+    ) -> None:
+        """Cache several periods from one pass over the archive.
+
+        The members lie in one stream, so fetching them together reads each
+        byte once (December alone would stream past June-November anyway).
+
+        Args:
+            data_dir: As for the constructor.
+            periods: Names from :attr:`PERIODS`.
+            timeout: Seconds to wait for each read of the stream.
+
+        Raises:
+            ValueError: An unknown period.
+            OfflineModeError: Network access is disabled.
+            ZipStreamError: A member is absent, corrupt or not the pinned bytes.
+            requests.HTTPError: figshare answered with an error status.
+        """
+        sets = [cls(data_dir, name) for name in periods]
+        wanted = {t.period.member: t.period.sha256 for t in sets if not t.is_cached()}
+        if not wanted:
+            return
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError, offline_mode_active
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        if offline_mode_active():
+            raise OfflineModeError(cls.ARCHIVE_URL)
+        target = sets[0].data_path
+        target.mkdir(parents=True, exist_ok=True)
+        with SafeHTTPClient.get(
+            cls.ARCHIVE_URL,
+            headers={"User-Agent": _DEFAULT_DATASET_UA},
+            timeout=timeout,
+            stream=True,
+        ) as response:
+            response.raise_for_status()
+            extract_stored_members(response.iter_content(1 << 20), wanted, target)
+
+    def iter_tracks(self) -> Iterator[dict[str, Any]]:
+        """Yield the trajectory records in file order (one pickle each)."""
+        with self.member_path.open("rb") as fh:
+            while True:
+                try:
+                    yield restricted_pickle_load(fh)
+                except EOFError:
+                    return
+
+    def features(self) -> np.ndarray[Any, Any]:
+        """The ``(n_tracks, 22)`` matrix of :data:`FEATURE_NAMES`.
+
+        Raises:
+            ValueError: The file does not hold the period's ``n_tracks``.
+        """
+        rows = [track_features(track) for track in self.iter_tracks()]
+        if len(rows) != self.period.n_tracks:
+            raise ValueError(
+                f"{self.period.member}: {len(rows)} trajectories, "
+                f"expected {self.period.n_tracks}"
+            )
+        return np.vstack(rows)

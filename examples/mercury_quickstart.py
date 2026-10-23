@@ -60,7 +60,11 @@ import time
 import numpy as np
 
 from omni_mercury_engine.datasets.base import DatasetConfig
-from omni_mercury_engine.datasets.maritime import FEATURE_NAMES, DTUAISLoader
+from omni_mercury_engine.datasets.maritime import (
+    FEATURE_NAMES,
+    DTUAISLoader,
+    DTUAISTrainingSet,
+)
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.ml.mercury_ml import (
     StandardScaler,
@@ -79,6 +83,33 @@ PUBLISHED_BASELINES: tuple[tuple[str, float, str], ...] = (
     ("Seq-2-Seq with attention", 0.83, "thesis 2023 Fig. 6.1"),
     ("Two-step clustering", 0.73, "JMSE 2023 Fig. 12a (0.79 w/o stationary)"),
     ("RVAE", 0.72, "JMSE 2023 Fig. 12a"),
+)
+
+PERIOD_LABELS = {
+    "june_november": "June-November 2021",
+    "december": "December 2021 (no 13th)",
+}
+
+#: Each paper's own rows, for ``--published-protocols``: the period of
+#: :class:`DTUAISTrainingSet` its models were trained on, and their ROC-AUC
+#: on all 521 labelled tracks.
+PROTOCOLS: tuple[tuple[str, str, tuple[tuple[str, float], ...]], ...] = (
+    (
+        "Thesis Fig. 6.1",
+        "june_november",
+        (
+            ("GeoTrackNet", 0.87),
+            ("RAE", 0.86),
+            ("Seq-2-Seq", 0.84),
+            ("Seq-2-Seq with attention", 0.83),
+            ("RVAE", 0.72),
+        ),
+    ),
+    (
+        "JMSE Fig. 12a",
+        "december",
+        (("VRNN (GeoTrackNet arch.)", 0.87), ("Two-step clustering", 0.73), ("RVAE", 0.72)),
+    ),
 )
 
 
@@ -132,6 +163,22 @@ def fit_and_score(X_train: np.ndarray, X_test: np.ndarray) -> np.ndarray:
     return np.asarray(detector.detect(scaler.transform(X_test))["scores"], dtype=float)
 
 
+def published_protocol(
+    train_features: np.ndarray, eval_features: np.ndarray, labels: np.ndarray
+) -> tuple[float, tuple[float, float], float]:
+    """Fit on a paper's own unlabelled training tracks; score the labelled ones.
+
+    Returns:
+        ``(ROC-AUC, 95% bootstrap interval, average precision)``.
+    """
+    scores = fit_and_score(train_features, eval_features)
+    return (
+        roc_auc_score(labels, scores),
+        bootstrap_auc_ci(labels, scores),
+        average_precision_score(labels, scores),
+    )
+
+
 def label_free_cross_fit(
     features: np.ndarray, n_folds: int = CROSS_FIT_FOLDS, seed: int = 42
 ) -> np.ndarray:
@@ -180,6 +227,14 @@ def main(argv: list[str] | None = None) -> int:
         "--data-dir",
         default="./data",
         help="Download/cache directory (default: ./data; ~38 MB on first run)",
+    )
+    parser.add_argument(
+        "--published-protocols",
+        action="store_true",
+        help=(
+            "Also fit on each paper's own unlabelled training data (DOI "
+            "10.11583/DTU.21511842; ~1.1 GB streamed once, ~800 MB cached)"
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -258,6 +313,33 @@ def main(argv: list[str] | None = None) -> int:
         "521 tracks after fitting on label-selected normals, so it is not\n"
         "comparable to the published figures."
     )
+    if args.published_protocols:
+        print(
+            "\nPublished protocols: fit on the paper's own unlabelled training file\n"
+            "(Olesen, Clemmensen & Christensen 2023, https://doi.org/10.11583/DTU.21511842),\n"
+            "score all 521 labelled tracks, compare with that paper's rows only."
+        )
+        t4 = time.perf_counter()
+        DTUAISTrainingSet.download_periods(args.data_dir, [p for _, p, _ in PROTOCOLS])
+        print(f"  training files verified in {time.perf_counter() - t4:.1f}s")
+        for title, period, rows_published in PROTOCOLS:
+            t4 = time.perf_counter()
+            train_features = DTUAISTrainingSet(args.data_dir, period).features()
+            auc, ci, ap = published_protocol(train_features, features, labels)
+            print(
+                f"\n  {title}: fit on {len(train_features):,} {PERIOD_LABELS[period]} "
+                f"tracks: ROC-AUC {auc:.4f} [95% CI {ci[0]:.3f}-{ci[1]:.3f}], "
+                f"AP {ap:.4f} ({time.perf_counter() - t4:.1f}s)"
+            )
+            for name, value in rows_published:
+                inside = "inside" if ci[0] <= value <= ci[1] else "outside"
+                print(f"    {name:<26s} ROC-AUC {value:.2f}   {inside} Mercury's interval")
+        print(
+            "\n  Same training file and test tracks as each paper; the models still\n"
+            "  differ (22 track-level features here, sequence models there), and\n"
+            "  with 25 positives a published figure inside the interval is parity."
+        )
+
     print("\nThis run is deterministic (seed 42); the harness ROC-AUC reproduces")
     print("the DTU_AIS_Abnormal row of benchmarks/mercury_benchmark_results.json.")
     print("\nMERCURY QUICKSTART COMPLETE")

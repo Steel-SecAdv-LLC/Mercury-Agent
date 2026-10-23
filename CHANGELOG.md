@@ -2599,18 +2599,21 @@ Clemmensen & Christensen, DTU). Trajectories are served as 22 documented
 kinematic/geometric features; `LABEL_SOURCE = "expert_annotated"` keeps it
 in the genuine-label headline pool.
 
-Measured against the published baselines on the identical evaluation set
-(Kristoffer Vinther Olesen's DTU PhD thesis, 2023, Fig. 6.1, models trained on
-the same June–November months; and JMSE 11(11):2085 Fig. 12a): fitting the stock
-`MercuryAnomalyDetector` on the companion June–November unlabelled months
-(106,728 trajectories, benchmark 10k cap, 0.33 s fit) and scoring all 521
-labelled trajectories yields ROC-AUC 0.876 (full-reference variant 0.869,
-95 % bootstrap CI ≈ [0.78, 0.95]) — parity with GeoTrackNet (0.87, the
-field's reference deep model, 50-epoch training) and above RAE 0.86,
-Seq-2-Seq 0.84/0.83, the JMSE two-step clustering 0.73 (its 0.79 is Fig. 12b,
-with stationary tracks removed) and RVAE 0.72. With only
-25 positives all methods' intervals overlap: the honest claim is parity,
-not superiority. The in-suite row (uniform harness protocol, seed 42)
+Measured on each paper's own protocol, the stock `MercuryAnomalyDetector`
+fitted on that paper's unlabelled training file (DOI 10.11583/DTU.21511842,
+`DTUAISTrainingSet`) and scoring all 521 labelled trajectories:
+June–November 2021 (106,728 tracks; Kristoffer Vinther Olesen's DTU PhD
+thesis, 2023, Fig. 6.1) ROC-AUC 0.8785 (95 % stratified bootstrap CI
+0.788–0.951, AP 0.364; 0.875–0.879 when fitted on 10,000-track random
+subsets); December 2021 without the 13th (12,591 tracks; JMSE 11(11):2085
+Fig. 12a) 0.8615 (0.778–0.933, AP 0.248). Both are reproduced by
+`examples/mercury_quickstart.py --published-protocols`. GeoTrackNet / VRNN
+(0.87), RAE (0.86) and both Seq-2-Seq models (0.84, 0.83) lie inside
+Mercury's intervals: parity, not superiority. RVAE (0.72) and the JMSE
+two-step clustering (0.73; its 0.79 is Fig. 12b, with stationary tracks
+removed) lie below them. An earlier draft of this entry gave 0.876 and a
+"full-reference" 0.869 from code that was never committed; the full fit
+now gives 0.8785. The in-suite row (uniform harness protocol, seed 42)
 reports AUC 0.8613 / oracle-F1 0.6000. The features were written once,
 before any score was seen — no tuning iterations, no label contact.
 

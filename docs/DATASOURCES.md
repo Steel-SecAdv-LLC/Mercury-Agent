@@ -149,10 +149,32 @@ same region, p. 48) adds RAE 0.86, Seq-2-Seq 0.84 and Seq-2-Seq with
 attention 0.83 on the same 521 tracks. The suite's harness row scores
 273 of the 521 tracks after fitting on label-selected normals, so it is
 not comparable to those figures; `examples/mercury_quickstart.py` also
-reports a label-free cross-fit over all 521. Upstream files are pickles: deserialised only through the fail-closed restricted unpickler
-in the loader module (numpy-array reconstruction allowlist), with
-SHA-256 pinned per extracted member; see
+reports a label-free cross-fit over all 521, and with
+`--published-protocols` fits on each paper's own training data (below).
+Upstream files are pickles: deserialised only through the fail-closed
+restricted unpickler in the loader module (numpy-array reconstruction
+allowlist), with SHA-256 pinned per extracted member; see
 tests/datasets/test_maritime_loader.py::test_malicious_pickle_is_refused.
+
+### DTU AIS unlabelled training sets (Danish waters, 2021)
+
+Source: `https://ndownloader.figshare.com/articles/21511842/versions/1`
+(DOI 10.11583/DTU.21511842, same collection)
+Auth: None. License: CC BY 4.0 — same authors.
+Loader: `DTUAISTrainingSet` in `src/omni_mercury_engine/datasets/maritime.py`
+Status: Used by `examples/mercury_quickstart.py --published-protocols`;
+not in the labelled benchmark pool (no labels). Two files, same region and
+preprocessing as the labelled set: 1 June to 30 November 2021 (106,728
+tracks; the thesis's Figure 6.1 training data) and December 2021 without
+the 13th (12,591 tracks; no point between 2021-12-13 00:00 and
+2021-12-14 00:00 UTC; the JMSE paper's training data). figshare's
+per-file links redirect to DTU object storage on port 9000
+(`s3q.ait.dtu.dk`), which some networks cannot reach; the whole-article
+archive (6.5 GB) is served by figshare on port 443, so it is streamed and
+closed once the needed member is written (680 MB in for June-November,
+1.1 GB for December). Each member is CRC-32 checked and SHA-256 pinned;
+the pins were taken from copies whose MD5 equals figshare's published
+value. Records go through the same restricted unpickler.
 
 ### USGS Geochemistry (NURE-HSSR Stream Sediment)
 

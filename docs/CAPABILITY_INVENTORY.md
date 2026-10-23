@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,063
-- **Capability-bearing classes:** 2,048 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,067
+- **Capability-bearing classes:** 2,051 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,197 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,200 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1197 |
-| Support types (config / result / enum / error) | 1015 |
+| Other capability classes | 1200 |
+| Support types (config / result / enum / error) | 1016 |
 | Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 106 |
@@ -961,7 +961,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `datasets/` — 66 classes (54 capability)
+### `datasets/` — 70 classes (57 capability)
 
 **Data sources & loaders**
 
@@ -1012,6 +1012,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `BaseVideoDataset` (`datasets.benchmarks.base_dataset`) — Abstract base class for video anomaly detection datasets.
 - `BenchmarkComparison` (`datasets.benchmarks.suite`) — Comparison between multiple benchmark results.
 - `CardiologyDataset` (`datasets.medical`) — Specialized loader for cardiology data (ECG + vitals).
+- `DTUAISTrainingSet` (`datasets.maritime`) — Unlabelled DTU AIS training trajectories for the published protocols.
 - `DatasetRegistry` (`datasets.base`) — Registry of available dataset loaders.
 - `LoaderDataset` (`datasets.metadata`) — Standardized dataset returned by every loader.
 - `MVTecADDataset` (`datasets.benchmarks.mvtec`) — MVTec Anomaly Detection Dataset.
@@ -1021,11 +1022,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ShanghaiTechDataset` (`datasets.benchmarks.shanghai_tech`) — Shanghai Tech Campus Video Anomaly Detection Dataset.
 - `UCFCrimeDataset` (`datasets.benchmarks.ucf_crime`) — UCF-Crime Video Anomaly Detection Dataset.
 - `_DynamicSyntheticFlag` (`datasets.exceptions`) — Bool-like flag that reads MERCURY_ALLOW_SYNTHETIC from env dynamically.
+- `_Reader` (`datasets.zip_stream`) — Exact-length reads over an iterable of byte chunks.
 - `_RestrictedUnpickler` (`datasets.maritime`) — Fail-closed unpickler for third-party dataset pickles.
+- `_TrainingPeriod` (`datasets.maritime`) — One unlabelled training file of the DTU AIS collection.
 
-<details><summary>Support types (12)</summary>
+<details><summary>Support types (13)</summary>
 
-`BaseDatasetConfig`, `BenchmarkResult`, `DataSourceUnavailableError`, `DatasetConfig`, `DatasetMetadata`, `DatasetMetadata`, `DatasetSplit`, `LoaderDatasetMetadata`, `MVTecADConfig`, `OfflineModeError`, `ShanghaiTechConfig`, `UCFCrimeConfig`
+`BaseDatasetConfig`, `BenchmarkResult`, `DataSourceUnavailableError`, `DatasetConfig`, `DatasetMetadata`, `DatasetMetadata`, `DatasetSplit`, `LoaderDatasetMetadata`, `MVTecADConfig`, `OfflineModeError`, `ShanghaiTechConfig`, `UCFCrimeConfig`, `ZipStreamError`
 
 </details>
 
