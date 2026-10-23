@@ -274,7 +274,13 @@ class HazardUnitAdapter(BaseDetector):
         """The wrapped detector's assessment of one unit."""
         raise NotImplementedError
 
+    #: Per-call bookkeeping of what ``_units`` set aside per unit: process
+    #: state, never learned state, so it stays out of the shared checkpoint.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_unit_set_aside"}
+    _unit_set_aside: dict[int, list[dict[str, Any]]]
+
     def _assessments(self, data: Any) -> list[Assessment]:
+        self._unit_set_aside = {}
         assessments = [self._assess(unit) for unit in self._units(data)]
         for a in assessments:
             if len(a.features) != len(self.FEATURE_NAMES) or not 0.0 <= a.score <= 1.0:
@@ -283,6 +289,7 @@ class HazardUnitAdapter(BaseDetector):
 
     def fit(self, data: Any) -> HazardUnitAdapter:
         """Validate the payload schema on reference data; no training occurs."""
+        self._unit_set_aside = {}
         self._units(data)
         self._is_fitted = True
         return self
@@ -317,11 +324,14 @@ class HazardUnitAdapter(BaseDetector):
         }
         # Partial-input contract: a unit whose wrapped result set part of its
         # input aside makes the served verdict partial, unit by unit.
-        set_aside = {
-            i: list(entries)
-            for i, a in enumerate(assessments)
-            if (entries := a.set_aside or getattr(a.result, "set_aside", None))
-        }
+        set_aside: dict[int, list[dict[str, Any]]] = {}
+        for i, a in enumerate(assessments):
+            entries = [
+                *self._unit_set_aside.get(i, ()),
+                *(a.set_aside or getattr(a.result, "set_aside", None) or ()),
+            ]
+            if entries:
+                set_aside[i] = entries
         if set_aside:
             out["partial"] = True
             out["set_aside"] = set_aside
@@ -421,8 +431,10 @@ class HazardRecordAdapter(HazardUnitAdapter):
 class HazardTextAdapter(HazardUnitAdapter):
     """Text payloads: one string, or a sequence of strings, each assessed alone."""
 
-    #: Longest payload graded, in characters; longer ones are refused, never
-    #: truncated (a truncated payload would be graded on text it does not hold).
+    #: Longest stretch of a payload graded, in characters (it bounds the work
+    #: one call can demand).  Beyond it the payload's first ``MAX_CHARS``
+    #: characters are graded and the rest is set aside, with its length, and
+    #: the verdict is marked partial -- never graded as if it were the whole.
     MAX_CHARS: ClassVar[int] = 65536
 
     def _units(self, data: Any) -> list[Any]:
@@ -441,10 +453,17 @@ class HazardTextAdapter(HazardUnitAdapter):
                     f"{self._name}: payload {i} is a {type(payload).__name__}, not text"
                 )
             if len(payload) > self.MAX_CHARS:
-                raise InvalidObservationError(
-                    f"{self._name}: payload {i} has {len(payload)} characters, above the "
-                    f"{self.MAX_CHARS}-character analysis limit; split it"
+                self._unit_set_aside.setdefault(i, []).append(
+                    {
+                        "where": f"payload[{i}][{self.MAX_CHARS}:]",
+                        "reason": (
+                            f"{len(payload) - self.MAX_CHARS} of {len(payload)} characters "
+                            f"lie beyond the {self.MAX_CHARS}-character analysis limit and "
+                            "were not graded; split the payload to grade them"
+                        ),
+                    }
                 )
+                payloads[i] = payload[: self.MAX_CHARS]
         return payloads
 
 

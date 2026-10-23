@@ -44,9 +44,9 @@ class ThreatPayloadAdapter(HazardTextAdapter):
     The decision is the detector's own ``is_threat`` (any category's pattern
     matched); the score is the highest category ``confidence`` -- the
     detector's own fraction of that category's patterns matched -- so the
-    decision is exactly score > 0.  Payloads above ``MAX_CHARS`` are refused,
-    never truncated.  The patterns' known false positives on plain text
-    ("red or blue = fine", "onion=3") are served unchanged.
+    decision is exactly score > 0.  A payload above ``MAX_CHARS`` is graded
+    on its first ``MAX_CHARS`` characters and the verdict is marked partial,
+    naming the characters set aside.
     """
 
     decision_source = WrappedDecisionSource(

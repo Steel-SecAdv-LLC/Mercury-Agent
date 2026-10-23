@@ -451,18 +451,48 @@ class TestEqTsunamiCascade:
         out = EqTsunamiCascadeAdapter().detect([{"events": [_tohoku()], "offshore": True}, small])
         assert out["flags"].tolist() == [True, False]
 
-    def test_water_level_without_a_watch_is_refused(self) -> None:
+    def test_water_level_without_a_watch_is_set_aside_and_the_events_graded(self) -> None:
+        """Regression: a tide reading with no watch refused the whole record.
+
+        The earthquake is still graded; the water level, which has no watch
+        to confirm, is set aside with that reason and the verdict is partial.
+        """
         record = {
             "events": [{"magnitude": 5.0, "depth_km": 10.0}],
             "water_level_m": _tide(),
             "sampling_interval_s": 60.0,
         }
-        with pytest.raises(InvalidObservationError, match="no watch to confirm"):
-            EqTsunamiCascadeAdapter().detect(record)
+        out = EqTsunamiCascadeAdapter().detect(record)
+        assert out["metadata"]["results"][0].stage != "tsunami_watch"
+        assert out["partial"] is True
+        (entry,) = out["set_aside"][0]
+        assert entry["where"] == "water_level_m"
+        assert "no watch to confirm" in entry["reason"]
 
-    def test_half_a_gauge_series_or_bad_events_are_refused(self) -> None:
-        with pytest.raises(InvalidObservationError, match="come together"):
-            EqTsunamiCascadeAdapter().detect({"events": [_tohoku()], "water_level_m": _tide()})
+    def test_half_a_gauge_series_is_set_aside_and_the_watch_still_served(self) -> None:
+        out = EqTsunamiCascadeAdapter().detect(
+            {"events": [_tohoku()], "offshore": True, "water_level_m": _tide()}
+        )
+        assert out["metadata"]["results"][0].stage == "tsunami_watch"
+        (entry,) = out["set_aside"][0]
+        assert entry["where"] == "water_level_m" and "come together" in entry["reason"]
+
+    def test_unusable_gauge_series_is_set_aside_and_the_watch_still_served(self) -> None:
+        tide = _tide()
+        tide[5] = float("nan")
+        out = EqTsunamiCascadeAdapter().detect(
+            {
+                "events": [_tohoku()],
+                "offshore": True,
+                "water_level_m": tide,
+                "sampling_interval_s": 60.0,
+            }
+        )
+        assert out["metadata"]["results"][0].stage == "tsunami_watch"
+        assert out["partial"] is True
+        assert out["set_aside"][0][0]["where"] == "water_level_m"
+
+    def test_bad_events_are_refused(self) -> None:
         with pytest.raises(InputModalityError):
             EqTsunamiCascadeAdapter().detect({"events": []})
         with pytest.raises(InvalidObservationError, match="offshore"):

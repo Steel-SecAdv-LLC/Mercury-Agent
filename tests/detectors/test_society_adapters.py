@@ -70,9 +70,27 @@ class TestThreatPayload:
         assert named["sql_injection"] == named["xss"] == 0.0
         assert named["threat_count"] == 1.0
 
-    def test_oversized_or_non_text_payload_is_refused(self) -> None:
-        with pytest.raises(InvalidObservationError, match="analysis limit"):
-            ThreatPayloadAdapter().detect("x" * (ThreatPayloadAdapter.MAX_CHARS + 1))
+    def test_oversized_payload_is_graded_up_to_the_limit_and_marked_partial(self) -> None:
+        """Regression: one character over the limit refused the whole payload.
+
+        The payload's first MAX_CHARS characters are graded; the rest is set
+        aside with its length and the verdict is marked partial, so an attack
+        inside the graded stretch is still caught and padding past the limit
+        can never read as a full all-clear.
+        """
+        limit = ThreatPayloadAdapter.MAX_CHARS
+        attack = "x' OR 1=1 --" + "a" * limit
+        out = ThreatPayloadAdapter().detect([attack, "plain text"])
+        assert out["flags"].tolist() == [True, False]
+        assert out["partial"] is True
+        assert set(out["set_aside"]) == {0}
+        (entry,) = out["set_aside"][0]
+        assert entry["where"] == f"payload[0][{limit}:]"
+        assert entry["reason"].startswith(f"{len(attack) - limit} of {len(attack)} characters")
+        within = ThreatPayloadAdapter().detect("x" * limit)
+        assert "partial" not in within
+
+    def test_non_text_payload_is_refused(self) -> None:
         with pytest.raises(InputModalityError):
             ThreatPayloadAdapter().detect(b"' OR 1=1")
         with pytest.raises(InputModalityError):

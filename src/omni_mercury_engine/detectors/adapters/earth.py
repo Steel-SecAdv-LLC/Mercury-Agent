@@ -475,9 +475,11 @@ class EqTsunamiCascadeAdapter(HazardRecordAdapter):
     ``water_level_m`` + ``sampling_interval_s`` (a DART or coastal gauge
     series).  A fresh ``EqTsunamiCascadeDetector`` processes the events in
     order and, when the stage reaches TSUNAMI_WATCH, confirms against the
-    water level (NOAA's DART algorithm).  A water level supplied without a
-    watch-class event is refused: confirmation has no event to confirm.
-    The score is the stage on quiet < evaluating < tsunami_watch <
+    water level (NOAA's DART algorithm).  A water level that cannot be used
+    -- supplied without a watch-class event (confirmation has nothing to
+    confirm), without its sampling interval, or refused by the confirmation
+    -- is set aside with its reason and the verdict is marked partial; the
+    events are still graded.  The score is the stage on quiet < evaluating < tsunami_watch <
     tsunami_threat over 3; the decision is any stage above quiet.  With
     ``config={"persistent_cascade": True}`` the cascade persists across
     records, accumulating an event sequence that spans detect() calls.
@@ -498,8 +500,6 @@ class EqTsunamiCascadeAdapter(HazardRecordAdapter):
             raise InputModalityError("events must be a non-empty list of earthquake events")
         if not all(isinstance(e, dict) for e in events):
             raise InputModalityError("each event must be a mapping")
-        if ("water_level_m" in record) != ("sampling_interval_s" in record):
-            raise InvalidObservationError("water_level_m and sampling_interval_s come together")
         offshore = record.get("offshore")
         if offshore is not None and not isinstance(offshore, bool):
             raise InvalidObservationError("offshore must be True, False or None")
@@ -522,19 +522,37 @@ class EqTsunamiCascadeAdapter(HazardRecordAdapter):
         try:
             for event in unit["events"]:
                 state = cascade.process_event(event, offshore=unit.get("offshore"))
-            if "water_level_m" in unit:
-                if state.stage != "tsunami_watch":
-                    raise InvalidObservationError(
-                        "a water level was supplied but no event reached TSUNAMI_WATCH "
-                        f"(stage {state.stage}); there is no watch to confirm"
-                    )
-                state = cascade.confirm_water_level(
-                    np.asarray(unit["water_level_m"], dtype=np.float64),
-                    float(unit["sampling_interval_s"]),
-                    run_spectral_analysis=False,
-                )
         except ValueError as e:
             raise _domain_refusal(e) from e
+        set_aside: list[dict[str, Any]] = []
+        level_keys = {"water_level_m", "sampling_interval_s"} & set(unit)
+        if level_keys == {"water_level_m", "sampling_interval_s"}:
+            if state.stage != "tsunami_watch":
+                set_aside.append(
+                    {
+                        "where": "water_level_m",
+                        "reason": "no event reached TSUNAMI_WATCH "
+                        f"(stage {state.stage}); there is no watch to confirm",
+                    }
+                )
+            else:
+                try:
+                    state = cascade.confirm_water_level(
+                        np.asarray(unit["water_level_m"], dtype=np.float64),
+                        float(unit["sampling_interval_s"]),
+                        run_spectral_analysis=False,
+                    )
+                except (TypeError, ValueError) as e:
+                    set_aside.append({"where": "water_level_m", "reason": str(e)})
+        elif level_keys:
+            (present,) = level_keys
+            set_aside.append(
+                {
+                    "where": present,
+                    "reason": "water_level_m and sampling_interval_s come together; "
+                    "one without the other cannot confirm a watch",
+                }
+            )
         screening = state.screening
         return Assessment(
             score=ordinal_score(state.stage, self._STAGES),
@@ -546,6 +564,7 @@ class EqTsunamiCascadeAdapter(HazardRecordAdapter):
                 float("nan") if state.water_level is None else state.water_level.max_residual_m,
             ),
             result=state,
+            set_aside=tuple(set_aside),
         )
 
 
