@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "PROMETHEUS_AVAILABLE",
+    "record_deception_failure",
     "record_email",
     "record_login",
     "record_maintenance_sweep",
@@ -114,6 +115,26 @@ def record_login(outcome: str) -> None:
         "mercury_platform_logins_total",
         "Login attempts by outcome (ok / fail / 2fa_challenged)",
         {"outcome": outcome},
+    )
+
+
+def record_deception_failure(kind: str) -> None:
+    """Count one failure the decoy surface survived by design.
+
+    The decoys never block or break an answer (an internal failure answers
+    as a missing path, or lets the request through), so a degraded sensor --
+    audit chain refusing records, shared store down -- is invisible to the
+    caller; this counter is how an operator sees it.
+
+    Args:
+        kind: One of ``security.deception.FAILURE_KINDS`` -- a closed set, so
+            cardinality is bounded.
+    """
+    _inc(
+        "mercury_deception_failures_total",
+        "Decoy-surface failures survived (audit_sink, store_record, "
+        "store_outcomes, handler, tripwire)",
+        {"kind": kind},
     )
 
 

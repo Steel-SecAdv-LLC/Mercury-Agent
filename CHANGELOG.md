@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — decoy failures were visible only in logs.** When the audit chain refused
+a tripwire record, the shared store failed, or a decoy route failed, the sensor
+kept answering (by design) but left nothing an operator or the chain could act
+on. `TripwireEvent` gains `audits_failed` (lost audit records, carried on the
+next audited event) and `degraded` (failures hit while recording the touch);
+both appear in the audit details. `DeceptionSensor` gains `failure_counts()`,
+`note_failure()` and an optional `failure_hook`; the API exports
+`mercury_deception_failures_total{kind}` on `/metrics`.
+
 ## [3.0.0] - 2026-10-21
 
 The first release after 2.0.0; it includes the work prepared as 2.1.0, which

@@ -327,6 +327,8 @@ class TestSensorRecording:
             "sources_in_window": 1,
             "campaign": False,
             "audits_suppressed": 0,
+            "audits_failed": 0,
+            "degraded": [],
         }
 
 
@@ -378,6 +380,90 @@ class TestAuditVolume:
             event = sensor.record("203.0.113.9", ADMIN, "GET")
         assert event.hits_in_window == 1
         assert "audit sink failed" in caplog.text
+
+    def test_a_lost_audit_is_counted_flagged_and_carried(self) -> None:
+        """A sink that raised leaves evidence: the event, the counter and the chain.
+
+        Before, the failure existed only as a log line, so a record the
+        tamper-evident chain never received was unaccounted for.
+        """
+        calls: list[TripwireEvent] = []
+        refuse = [True]
+        hooked: list[str] = []
+
+        def sink(event: TripwireEvent) -> None:
+            if refuse[0]:
+                raise RuntimeError("audit store down")
+            calls.append(event)
+
+        clock = FakeClock()
+        sensor = DeceptionSensor(
+            policy=TarpitPolicy(window_s=60.0),
+            audit_sink=sink,
+            clock=clock,
+            failure_hook=hooked.append,
+        )
+        lost = sensor.record("203.0.113.9", ADMIN, "GET")
+        assert lost.degraded == ("audit_sink",)
+        assert sensor.failure_counts()["audit_sink"] == 1
+        assert hooked == ["audit_sink"]
+
+        refuse[0] = False
+        clock.now += 61.0  # next audited touch
+        accounted = sensor.record("203.0.113.9", ADMIN, "GET")
+        assert accounted.degraded == ()
+        assert calls == [accounted]
+        assert accounted.audits_failed == 1
+        assert accounted.audit_details()["audits_failed"] == 1
+
+        clock.now += 61.0
+        later = sensor.record("203.0.113.9", ADMIN, "GET")
+        assert later.audits_failed == 0  # reported once, not forever
+
+    def test_audits_lost_twice_in_a_row_are_both_carried(self) -> None:
+        """A failed retry keeps the debt: nothing is forgotten between failures."""
+        delivered: list[TripwireEvent] = []
+        fail = [True]
+
+        def sink(event: TripwireEvent) -> None:
+            if fail[0]:
+                raise RuntimeError("down")
+            delivered.append(event)
+
+        clock = FakeClock()
+        sensor = DeceptionSensor(policy=TarpitPolicy(window_s=60.0), audit_sink=sink, clock=clock)
+        for _ in range(2):
+            sensor.record("203.0.113.9", ADMIN, "GET")
+            clock.now += 61.0
+        fail[0] = False
+        sensor.record("203.0.113.9", ADMIN, "GET")
+        assert delivered[0].audits_failed == 2
+        assert sensor.failure_counts()["audit_sink"] == 2
+
+    def test_a_raising_failure_hook_never_breaks_recording(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The metrics hook is observability: its own failure is logged, ignored."""
+
+        def sink(event: TripwireEvent) -> None:
+            raise RuntimeError("down")
+
+        def hook(kind: str) -> None:
+            raise RuntimeError("metrics down")
+
+        sensor = DeceptionSensor(audit_sink=sink, clock=FakeClock(), failure_hook=hook)
+        with caplog.at_level(logging.ERROR, logger=deception.__name__):
+            event = sensor.record("203.0.113.9", ADMIN, "GET")
+        assert event.hits_in_window == 1
+        assert "failure hook failed" in caplog.text
+        assert sensor.failure_counts()["audit_sink"] == 1
+
+    def test_unknown_failure_kind_is_refused(self) -> None:
+        """The label set is closed (bounded metric cardinality)."""
+        sensor = DeceptionSensor(clock=FakeClock())
+        with pytest.raises(ValueError, match="unknown failure kind"):
+            sensor.note_failure("anything")
+        assert set(sensor.failure_counts()) == set(deception.FAILURE_KINDS)
 
 
 class TestBoundedState:
@@ -918,6 +1004,10 @@ class TestSqliteTripwireStore:
         store.close()
         event = sensor.record("198.51.100.7", ADMIN, "GET")
         assert event.hits_in_window == 2  # the in-process view kept counting
+        assert event.degraded == ("store_record",)  # ... and says it was serving locally
+        assert sensor.failure_counts()["store_record"] == 1
+        assert len(sensor.outcomes("198.51.100.7")) == 1  # local view, still graded
+        assert sensor.failure_counts()["store_outcomes"] == 1
 
     def test_per_key_hit_history_is_capped(self, tmp_path: Path) -> None:
         """The stored history per key never exceeds max_hits."""

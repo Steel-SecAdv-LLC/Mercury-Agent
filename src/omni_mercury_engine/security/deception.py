@@ -89,6 +89,7 @@ __all__ = [
     "DECEPTION_ENABLED_ENV",
     "DECOY_PATHS_ENV",
     "DEFAULT_DECOYS",
+    "FAILURE_KINDS",
     "SILENT_DECOY_PATHS_ENV",
     "DeceptionSensor",
     "DecoyResponse",
@@ -101,6 +102,21 @@ __all__ = [
     "deception_enabled",
     "source_key",
 ]
+
+#: The closed set of failures the decoy surface survives by design (never
+#: blocking or breaking an answer), each counted and exported so a degraded
+#: sensor is visible, not only logged: ``audit_sink`` (the tamper-evident
+#: chain refused a record), ``store_record`` and ``store_outcomes`` (the
+#: shared store failed; the in-process state served), ``handler`` (an
+#: ``auth_challenge`` decoy failed and answered as a missing path) and
+#: ``tripwire`` (a silent tripwire failed and let the request through).
+FAILURE_KINDS: tuple[str, ...] = (
+    "audit_sink",
+    "store_record",
+    "store_outcomes",
+    "handler",
+    "tripwire",
+)
 
 #: Opt-in switch for the decoy surface. Left unset, no decoy route exists and
 #: every existing route stays byte-identical.
@@ -424,6 +440,11 @@ class TripwireEvent:
         audits_suppressed: Audit records suppressed by the per-window cap in
             the window before this one; carried on the first audited event of
             the new window so the chain accounts for every suppressed record.
+        audits_failed: Audit-sink calls that raised since the last audited
+            event; carried on the next audited event, so a record the chain
+            never received is still accounted for in it.
+        degraded: Failure kinds (:data:`FAILURE_KINDS`) hit while recording
+            this touch -- the answer was served from the in-process state.
     """
 
     source_key: str
@@ -441,6 +462,8 @@ class TripwireEvent:
     sources_in_window: int = 0
     campaign: bool = False
     audits_suppressed: int = 0
+    audits_failed: int = 0
+    degraded: tuple[str, ...] = ()
 
     def audit_details(self) -> dict[str, object]:
         """Return the audit-record details.
@@ -464,6 +487,8 @@ class TripwireEvent:
             "sources_in_window": self.sources_in_window,
             "campaign": self.campaign,
             "audits_suppressed": self.audits_suppressed,
+            "audits_failed": self.audits_failed,
+            "degraded": list(self.degraded),
         }
 
 
@@ -498,6 +523,9 @@ class DeceptionSensor:
             past the cap, audits are counted and the first audit of the next
             window reports how many were suppressed. Protects the
             tamper-evident chain from being flooded by spent addresses.
+        failure_hook: Called with a :data:`FAILURE_KINDS` name each time the
+            sensor survives a failure (the deployment's metrics); it must not
+            raise, but if it does the failure is logged and ignored.
         store: Optional cross-worker tripwire store
             (:mod:`omni_mercury_engine.security.deception_store`). When set,
             hit counts, audit dedupe, the campaign signal and
@@ -524,6 +552,7 @@ class DeceptionSensor:
         campaign_sources: int = 8,
         max_audits_per_window: int = 512,
         store: TripwireStore | None = None,
+        failure_hook: Callable[[str], None] | None = None,
     ) -> None:
         """Validate and store the configuration."""
         decoy_tuple = tuple(decoys)
@@ -549,6 +578,9 @@ class DeceptionSensor:
         self._campaign_sources = campaign_sources
         self._max_audits = max_audits_per_window
         self._store = store
+        self._failure_hook = failure_hook
+        self._failures = dict.fromkeys(FAILURE_KINDS, 0)
+        self._audits_failed = 0
         self._lock = threading.Lock()
         self._sources: OrderedDict[str, _SourceState] = OrderedDict()
         self._aggregates: OrderedDict[str, deque[float]] = OrderedDict()
@@ -567,6 +599,31 @@ class DeceptionSensor:
     def policy(self) -> TarpitPolicy:
         """The tarpit schedule."""
         return self._policy
+
+    def note_failure(self, kind: str) -> None:
+        """Count one survived failure and tell the deployment's metrics.
+
+        Args:
+            kind: One of :data:`FAILURE_KINDS`.
+
+        Raises:
+            ValueError: ``kind`` is not one of :data:`FAILURE_KINDS`.
+        """
+        with self._lock:
+            if kind not in self._failures:
+                raise ValueError(f"unknown failure kind {kind!r}; one of {FAILURE_KINDS}")
+            self._failures[kind] += 1
+        hook = self._failure_hook
+        if hook is not None:
+            try:
+                hook(kind)
+            except Exception:
+                logger.exception("deception failure hook failed for %r", kind)
+
+    def failure_counts(self) -> dict[str, int]:
+        """Failures survived since start, by :data:`FAILURE_KINDS` name."""
+        with self._lock:
+            return dict(self._failures)
 
     def tracked_sources(self) -> int:
         """Return the number of sources currently tracked.
@@ -629,7 +686,7 @@ class DeceptionSensor:
             distinct = len(state.touched)
             agg_hits = self._record_aggregate(aggregate, now, window)
             sources_in_window = self._record_active_source(key, now, window)
-        shared = self._shared_counts(key, aggregate, path)
+        shared, store_failed = self._shared_counts(key, aggregate, path)
         if shared is not None:
             hits, agg_hits, distinct, first_touch, audit, sources_in_window = shared
         campaign = sources_in_window >= self._campaign_sources
@@ -648,6 +705,7 @@ class DeceptionSensor:
             aggregate_hits=agg_hits,
             sources_in_window=sources_in_window,
             campaign=campaign,
+            degraded=("store_record",) if store_failed else (),
         )
         if campaign:
             self._log_campaign_once(sources_in_window, now, window)
@@ -656,10 +714,18 @@ class DeceptionSensor:
             if carried:
                 event = replace(event, audits_suppressed=carried)
             if emit and self._audit_sink is not None:
+                with self._lock:
+                    owed, self._audits_failed = self._audits_failed, 0
+                if owed:
+                    event = replace(event, audits_failed=owed)
                 try:
                     self._audit_sink(event)
                 except Exception:
                     logger.exception("deception audit sink failed for decoy %s", path)
+                    with self._lock:
+                        self._audits_failed += owed + 1
+                    self.note_failure("audit_sink")
+                    event = replace(event, degraded=(*event.degraded, "audit_sink"))
         return event
 
     def _record_aggregate(self, aggregate: str, now: float, window: float) -> int:
@@ -693,14 +759,18 @@ class DeceptionSensor:
 
     def _shared_counts(
         self, key: str, aggregate: str, path: str
-    ) -> tuple[int, int, int, bool, bool, int] | None:
+    ) -> tuple[tuple[int, int, int, bool, bool, int] | None, bool]:
         """Return cluster-wide counts from the store, or ``None`` to stay local.
 
-        A store failure is logged and answered with ``None``: the request is
-        served from the in-process state, never blocked.
+        A store failure is logged, counted and answered with ``None``: the
+        request is served from the in-process state, never blocked.
+
+        Returns:
+            ``(counts, failed)``: the store's counts (``None`` without a store
+            or on failure) and whether the store failed.
         """
         if self._store is None:
-            return None
+            return None, False
         try:
             rec = self._store.record_touch(
                 key,
@@ -712,7 +782,8 @@ class DeceptionSensor:
             )
         except Exception:
             logger.exception("deception store failed; serving from in-process state")
-            return None
+            self.note_failure("store_record")
+            return None, True
         return (
             rec.hits,
             rec.aggregate_hits,
@@ -720,7 +791,7 @@ class DeceptionSensor:
             rec.first_touch,
             rec.audit_due,
             rec.sources_in_window,
-        )
+        ), False
 
     def _audit_admission(self, now: float, window: float) -> tuple[bool, int]:
         """Admit or suppress one audit under the per-window cap.
@@ -783,6 +854,7 @@ class DeceptionSensor:
                 touched = self._store.distinct_decoys(key)
             except Exception:
                 logger.exception("deception store failed; grading from in-process state")
+                self.note_failure("store_outcomes")
         return tuple(
             SourceOutcome(confirmed=False, weight=self._outcome_weight) for _ in range(touched)
         )

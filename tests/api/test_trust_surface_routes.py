@@ -305,6 +305,9 @@ class TestFailClosed:
         assert response.status_code == 404
         assert response.content == missing.content
         assert logged in caplog.text
+        # The caller sees nothing; the operator does: counted per kind.
+        expected = "handler" if decoy in AUTH_DECOYS else "tripwire"
+        assert harness.sensor.failure_counts()[expected] == 1
 
 
 class TestRegistrationContract:

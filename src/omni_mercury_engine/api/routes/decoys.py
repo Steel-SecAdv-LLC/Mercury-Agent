@@ -28,7 +28,10 @@ real route -- including one reached through a path parameter -- or record
 legitimate traffic as probing. Fail closed: an internal failure in an
 ``auth_challenge`` decoy answers with the plain 404 of a missing path, and in
 a silent tripwire simply lets the request through; neither ever answers 500.
-Left disabled, nothing is registered at all.
+Each survived failure is counted on the sensor and exported as
+``mercury_deception_failures_total{kind}``, so a degraded sensor is visible
+to an operator even though the attacker sees nothing different. Left
+disabled, nothing is registered at all.
 """
 
 from __future__ import annotations
@@ -188,6 +191,7 @@ def _decoy_handler(
             await gate.hold(event.delay_s)
         except Exception:
             logger.exception("decoy %s failed; answering as a missing path", decoy.path)
+            sensor.note_failure("handler")
             raise HTTPException(status_code=404) from None
         raise HTTPException(
             status_code=401,
@@ -285,6 +289,7 @@ class SilentTripwireMiddleware:
             await self._gate.hold(event.delay_s)
         except Exception:
             logger.exception("silent tripwire %s failed to record; passing through", decoy.path)
+            self._sensor.note_failure("tripwire")
 
 
 def _served_by_app(app: FastAPI, path: str) -> bool:
@@ -348,6 +353,7 @@ def register_decoys(
     if app.middleware_stack is not None:
         raise RuntimeError("Cannot add middleware after an application has started")
     if sensor is None:
+        from omni_mercury_engine.api import platform_metrics
         from omni_mercury_engine.api.auth_audit import shared_secure_logger
         from omni_mercury_engine.security.deception_store import build_tripwire_store
 
@@ -355,6 +361,7 @@ def register_decoys(
             decoys=configured_decoys(),
             audit_sink=secure_audit_sink(shared_secure_logger()),
             store=build_tripwire_store(),
+            failure_hook=platform_metrics.record_deception_failure,
         )
     if gate is None:
         gate = TarpitGate(sensor.policy.max_concurrent)
