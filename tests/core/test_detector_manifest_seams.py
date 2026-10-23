@@ -450,12 +450,29 @@ def _driven(seam: str) -> list[str]:
     )
 
 
+#: Detectors whose backend ships in the optional ``[foundation]`` extra
+#: (pyproject), mapped to the module that extra provides.  Without it they
+#: refuse loudly ("silent mock degradation is not permitted"), which is the
+#: correct behaviour but not the seam under test, so the seam is driven only
+#: where the extra is installed.
+_FOUNDATION_EXTRA_MODULE: dict[str, str] = {
+    "chronos": "chronos",
+    "matrix_profile": "stumpy",
+    "foundation_ensemble": "stumpy",
+}
+
+
 class TestSeamTruth:
     """Every declared seam is re-driven with its declared modality."""
 
     @pytest.mark.parametrize("name", _driven("registry"))
     def test_registry_seam_yields_output(self, name: str) -> None:
         entry = ENTRIES[name]
+        if name in _FOUNDATION_EXTRA_MODULE:
+            pytest.importorskip(
+                _FOUNDATION_EXTRA_MODULE[name],
+                reason=f"{name} needs the [foundation] extra, not installed in this lane",
+            )
         detector = _construct(entry)
         payload = _payload(entry)
         if entry.fit_required:
