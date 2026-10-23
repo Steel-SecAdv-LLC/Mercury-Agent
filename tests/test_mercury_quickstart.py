@@ -75,11 +75,15 @@ def test_bootstrap_interval_is_deterministic_and_brackets_the_auc(
     assert 0.0 <= low < high <= 1.0
 
 
-def test_published_baselines_are_the_papers_all_track_figures(quickstart: ModuleType) -> None:
-    """JMSE 11(11):2085 Figure 12a; the 0.79 is the stationary-removed variant."""
+def test_published_baselines_are_the_all_track_figures(quickstart: ModuleType) -> None:
+    """JMSE 11(11):2085 Figure 12a (the 0.79 is the stationary-removed
+    variant) and Olesen's thesis Figure 6.1, both on all 521 tracks."""
     figures = {name: value for name, value, _ in quickstart.PUBLISHED_BASELINES}
     assert figures == {
         "VRNN (GeoTrackNet arch.)": 0.87,
+        "RAE": 0.86,
+        "Seq-2-Seq": 0.84,
+        "Seq-2-Seq with attention": 0.83,
         "Two-step clustering": 0.73,
         "RVAE": 0.72,
     }

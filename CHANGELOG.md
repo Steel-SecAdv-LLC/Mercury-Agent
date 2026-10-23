@@ -2600,13 +2600,15 @@ kinematic/geometric features; `LABEL_SOURCE = "expert_annotated"` keeps it
 in the genuine-label headline pool.
 
 Measured against the published baselines on the identical evaluation set
-(Olesen's DTU thesis Fig. 6.1 and JMSE 11(11):2085): fitting the stock
+(Kristoffer Vinther Olesen's DTU PhD thesis, 2023, Fig. 6.1, models trained on
+the same June–November months; and JMSE 11(11):2085 Fig. 12a): fitting the stock
 `MercuryAnomalyDetector` on the companion June–November unlabelled months
 (106,728 trajectories, benchmark 10k cap, 0.33 s fit) and scoring all 521
 labelled trajectories yields ROC-AUC 0.876 (full-reference variant 0.869,
 95 % bootstrap CI ≈ [0.78, 0.95]) — parity with GeoTrackNet (0.87, the
 field's reference deep model, 50-epoch training) and above RAE 0.86,
-Seq2Seq 0.84/0.83, the contextual detector 0.79 and RVAE 0.72. With only
+Seq-2-Seq 0.84/0.83, the JMSE two-step clustering 0.73 (its 0.79 is Fig. 12b,
+with stationary tracks removed) and RVAE 0.72. With only
 25 positives all methods' intervals overlap: the honest claim is parity,
 not superiority. The in-suite row (uniform harness protocol, seed 42)
 reports AUC 0.8613 / oracle-F1 0.6000. The features were written once,

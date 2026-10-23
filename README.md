@@ -818,6 +818,9 @@ python examples/mercury_quickstart.py
       All 521 labelled tracks, ROC-AUC (protocols differ; see caveats):
       VRNN (GeoTrackNet arch.)     ROC-AUC 0.8700   JMSE 2023 Fig. 12a
       Mercury label-free cross-fit ROC-AUC 0.8617   this run, no labels <-- you
+      RAE                          ROC-AUC 0.8600   thesis 2023 Fig. 6.1
+      Seq-2-Seq                    ROC-AUC 0.8400   thesis 2023 Fig. 6.1
+      Seq-2-Seq with attention     ROC-AUC 0.8300   thesis 2023 Fig. 6.1
       Two-step clustering          ROC-AUC 0.7300   JMSE 2023 Fig. 12a (0.79 w/o stationary)
       RVAE                         ROC-AUC 0.7200   JMSE 2023 Fig. 12a
 ```
@@ -832,16 +835,18 @@ Two protocols, both seed-pinned and reproduced exactly in CI:
   fitted without labels on the other four of five folds. This is the number
   to read beside the published ones, with two cautions. The protocols still
   differ: Olesen et al. (J. Mar. Sci. Eng. 11(11):2085, 2023, section 4.7)
-  trained every model on Bornholm December 2021 *except* the 13th, while the
-  cross-fit trains on the 13th's own unlabelled traffic. And with 25 positives
+  trained every model on Bornholm December 2021 *except* the 13th, and the
+  thesis models were trained on 1 June to 30 November traffic in the same
+  region, while the cross-fit trains on the 13th's own unlabelled traffic. And with 25 positives
   the 95 % interval spans 0.16 of AUC: no ranking follows, only that the
   result falls within the span of the published figures (0.72–0.87).
 
-The published figures are those of the paper's Figure 12a (all 521 tracks);
-its two-step clustering scores 0.79 only after stationary tracks are removed
-(Figure 12b). RAE 0.86, Seq2Seq 0.84 and Seq2Seq+attention 0.83, cited from
-Olesen's DTU thesis (Fig. 6.1), are not in that paper and are omitted until
-checked against the thesis. The run downloads ~38 MB of digest-pinned AIS
+The published figures are the paper's Figure 12a and Figure 6.1 of
+Kristoffer Vinther Olesen's DTU PhD thesis (2023, p. 86), both on all 521
+tracks; the paper's two-step clustering scores 0.79 only after stationary
+tracks are removed (Figure 12b). By the thesis's Hanley–McNeil test, only
+RVAE differs significantly from GeoTrackNet (p = 0.02; RAE 0.41, Seq-2-Seq
+0.34, with attention 0.28). The run downloads ~38 MB of digest-pinned AIS
 data on first use. Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md),
 [docs/DATASOURCES.md](docs/DATASOURCES.md).
 

@@ -24,11 +24,13 @@ Sci. Eng. 11(11):2085, 2023, Figure 12a): VRNN (the GeoTrackNet
 architecture) 0.87, the paper's two-step clustering 0.73 (0.79 only after
 removing stationary tracks, Figure 12b), RVAE 0.72.  The authors trained
 every model on the Bornholm December 2021 unlabelled data except 13
-December and tested on that day (section 4.7), so neither protocol here
-is theirs: the cross-fit trains on the test day's own unlabelled traffic.
-Olesen's DTU thesis (Fig. 6.1) is cited elsewhere for RAE 0.86, Seq2Seq
-0.84 and Seq2Seq+attention 0.83; those are not in the JMSE paper and are
-not shown until checked against the thesis.
+December and tested on that day (section 4.7).  Olesen's DTU PhD thesis
+(2023, Figure 6.1, p. 86) adds, on the same 521 tracks, RAE 0.86, Seq-2-Seq
+0.84 and Seq-2-Seq with attention 0.83 (GeoTrackNet 0.87, RVAE 0.72 there
+too), from models trained on 1 June to 30 November traffic in the same
+region (p. 48); by its Hanley-McNeil test only RVAE differs significantly
+from GeoTrackNet (p = 0.02).  Neither protocol here is theirs: the
+cross-fit trains on the test day's own unlabelled traffic.
 
 Data: Olesen, K. V., Clemmensen, L. K. H., & Christensen, A. N. (2023),
 Technical University of Denmark, CC BY 4.0,
@@ -66,10 +68,15 @@ from omni_mercury_engine.ml.mercury_ml import (
     roc_auc_score,
 )
 
-#: ROC-AUC on all 521 labelled tracks, JMSE 11(11):2085 Figure 12a; each
+#: ROC-AUC on all 521 labelled tracks.  JMSE 11(11):2085 Figure 12a: each
 #: model trained on Bornholm December 2021 except the 13th (section 4.7).
+#: Olesen's DTU PhD thesis (2023) Figure 6.1: trained on 1 June to 30
+#: November traffic in the same region (p. 48).
 PUBLISHED_BASELINES: tuple[tuple[str, float, str], ...] = (
     ("VRNN (GeoTrackNet arch.)", 0.87, "JMSE 2023 Fig. 12a"),
+    ("RAE", 0.86, "thesis 2023 Fig. 6.1"),
+    ("Seq-2-Seq", 0.84, "thesis 2023 Fig. 6.1"),
+    ("Seq-2-Seq with attention", 0.83, "thesis 2023 Fig. 6.1"),
     ("Two-step clustering", 0.73, "JMSE 2023 Fig. 12a (0.79 w/o stationary)"),
     ("RVAE", 0.72, "JMSE 2023 Fig. 12a"),
 )
@@ -244,8 +251,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"({', '.join(outside)} fall outside it).", end=" ")
     print(
         "No ranking follows: the protocols differ.\n"
-        "The published models were trained on Bornholm December 2021 except the\n"
-        "13th; the cross-fit trains on the 13th's own (unlabelled) traffic and\n"
+        "The JMSE models were trained on Bornholm December 2021 except the 13th,\n"
+        "the thesis models on 1 June to 30 November traffic in the same region;\n"
+        "the cross-fit trains on the 13th's own (unlabelled) traffic and\n"
         "scores 22 trajectory-level features. The harness row scores 273 of the\n"
         "521 tracks after fitting on label-selected normals, so it is not\n"
         "comparable to the published figures."

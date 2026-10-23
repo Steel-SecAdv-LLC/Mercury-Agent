@@ -14,8 +14,9 @@ Bornholm December 2021 unlabelled data except the 13th and report ROC-AUC
 on all 521 tracks: VRNN (the GeoTrackNet architecture) 0.87, their two-step
 clustering 0.73 (0.79 with stationary tracks removed) and RVAE 0.72 —
 making it the only public, expert-annotated real-AIS benchmark with
-published baselines.  (RAE, Seq2Seq and Seq2Seq+attention figures cited
-from Olesen's DTU thesis are not in that paper and are unverified here.)
+published baselines.  Kristoffer Vinther Olesen's DTU PhD thesis (2023,
+Figure 6.1) adds RAE 0.86, Seq-2-Seq 0.84 and Seq-2-Seq with attention 0.83
+on the same tracks, from models trained on 1 June to 30 November traffic.
 
 Dataset DOI: 10.11583/DTU.21511815 (collection 10.11583/DTU.c.6287841).
 License: CC BY 4.0 — attribution is carried in :attr:`DTUAISLoader.CITATION`.
