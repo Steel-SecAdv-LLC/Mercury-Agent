@@ -1,0 +1,240 @@
+{
+ "object": {
+  "des": "2017 U1",
+  "fullname": "'Oumuamua (A/2017 U1)",
+  "kind": "au",
+  "neo": false,
+  "orbit_class": {
+   "code": "HYA",
+   "name": "Hyperbolic Asteroid"
+  },
+  "orbit_id": "16",
+  "pha": false,
+  "prefix": "A",
+  "spkid": "50788063"
+ },
+ "orbit": {
+  "comment": "Sol. 7c, Micheli et al. 2018",
+  "condition_code": null,
+  "cov_epoch": "2458080.5",
+  "data_arc": "80",
+  "elements": [
+   {
+    "label": "e",
+    "name": "e",
+    "sigma": "2.1064E-5",
+    "title": "eccentricity",
+    "units": null,
+    "value": "1.201133796102373"
+   },
+   {
+    "label": "a",
+    "name": "a",
+    "sigma": ".00010015",
+    "title": "semi-major axis",
+    "units": "au",
+    "value": "-1.27234500742808"
+   },
+   {
+    "label": "q",
+    "name": "q",
+    "sigma": "6.6635E-6",
+    "title": "perihelion distance",
+    "units": "au",
+    "value": ".2559115812959116"
+   },
+   {
+    "label": "i",
+    "name": "i",
+    "sigma": ".00028826",
+    "title": "inclination; angle with respect to x-y ecliptic plane",
+    "units": "deg",
+    "value": "122.7417062847286"
+   },
+   {
+    "label": "node",
+    "name": "om",
+    "sigma": ".00025422",
+    "title": "longitude of the ascending node",
+    "units": "deg",
+    "value": "24.59690955523242"
+   },
+   {
+    "label": "peri",
+    "name": "w",
+    "sigma": ".0012495",
+    "title": "argument of perihelion",
+    "units": "deg",
+    "value": "241.8105360304898"
+   },
+   {
+    "label": "M",
+    "name": "ma",
+    "sigma": ".0061155",
+    "title": "mean anomaly",
+    "units": "deg",
+    "value": "51.1576197938249"
+   },
+   {
+    "label": "tp",
+    "name": "tp",
+    "sigma": ".00026424",
+    "title": "time of perihelion passage",
+    "units": "TDB",
+    "value": "2458006.007321375231"
+   },
+   {
+    "label": "period",
+    "name": "per",
+    "sigma": null,
+    "title": "sidereal orbital period",
+    "units": "d",
+    "value": null
+   },
+   {
+    "label": "n",
+    "name": "n",
+    "sigma": "8.1084E-5",
+    "title": "mean motion",
+    "units": "deg/d",
+    "value": ".6867469493413392"
+   },
+   {
+    "label": "Q",
+    "name": "ad",
+    "sigma": null,
+    "title": "aphelion distance",
+    "units": "au",
+    "value": null
+   }
+  ],
+  "epoch": "2458080.5",
+  "equinox": "J2000",
+  "first_obs": "2017-10-14",
+  "last_obs": "2018-01-02",
+  "model_pars": [
+   {
+    "desc": "non-gravitational radial acceleration parameter",
+    "kind": "EST",
+    "n": 1,
+    "name": "A1",
+    "sigma": "3.574E-8",
+    "title": "non-grav. radial accel.",
+    "units": "au/d^2",
+    "value": "2.790193364334668E-7"
+   },
+   {
+    "desc": "non-gravitational transverse acceleration parameter",
+    "kind": "EST",
+    "n": 2,
+    "name": "A2",
+    "sigma": "2.445E-8",
+    "title": "non-grav. transverse accel.",
+    "units": "au/d^2",
+    "value": "1.441264159911234E-8"
+   },
+   {
+    "desc": "non-gravitational normal acceleration parameter",
+    "kind": "EST",
+    "n": 3,
+    "name": "A3",
+    "sigma": "2.249E-8",
+    "title": "non-grav. normal accel.",
+    "units": "au/d^2",
+    "value": "1.57392261588653E-8"
+   },
+   {
+    "desc": "normalizing factor [default 0.1112620426]",
+    "kind": "SET",
+    "n": 0,
+    "name": "ALN",
+    "sigma": null,
+    "title": "normalizing factor",
+    "units": null,
+    "value": ".0408373333128795"
+   },
+   {
+    "desc": "non-grav. model constant, exponent k [default 4.6142]",
+    "kind": "SET",
+    "n": 0,
+    "name": "NK",
+    "sigma": null,
+    "title": "non-grav. model exp. k",
+    "units": null,
+    "value": "2.6"
+   },
+   {
+    "desc": "non-grav. model constant, exponent m [default 2.15]",
+    "kind": "SET",
+    "n": 0,
+    "name": "NM",
+    "sigma": null,
+    "title": "non-grav. model exp. m",
+    "units": null,
+    "value": "2."
+   },
+   {
+    "desc": "non-grav. model constant, exponent n [default 5.093]",
+    "kind": "SET",
+    "n": 0,
+    "name": "NN",
+    "sigma": null,
+    "title": "non-grav. model exp. n",
+    "units": null,
+    "value": "3."
+   },
+   {
+    "desc": "normalizing distance, au [default 2.808 au]",
+    "kind": "SET",
+    "n": 0,
+    "name": "R0",
+    "sigma": null,
+    "title": "normalizing distance",
+    "units": "au",
+    "value": "5."
+   }
+  ],
+  "moid": ".0958212",
+  "moid_jup": "1.45424",
+  "n_del_obs_used": null,
+  "n_dop_obs_used": null,
+  "n_obs_used": 207,
+  "not_valid_after": null,
+  "not_valid_before": null,
+  "orbit_id": "16",
+  "pe_used": "DE431",
+  "producer": "Davide Farnocchia",
+  "rms": ".43612",
+  "sb_used": "SB431-N16",
+  "soln_date": "2018-06-26 12:17:57",
+  "source": "JPL",
+  "t_jup": null,
+  "two_body": null
+ },
+ "phys_par": [
+  {
+   "desc": "absolute magnitude (magnitude at 1 au from Sun and observer)",
+   "name": "H",
+   "notes": "autocmod 2.6k",
+   "ref": "2",
+   "sigma": ".44525",
+   "title": "absolute magnitude",
+   "units": null,
+   "value": "22.08"
+  },
+  {
+   "desc": "body rotation period (synodic)",
+   "name": "rot_per",
+   "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Bannister, M.T.; Schwamb, M.E.; Fraser, W.C.; Marsset, M.; et al. (2017) Astrophys. J. Letters 851, L38. arXiv1711.06214], [Bolin, B.T.; Weaver, H.A.; Fernandez, Y.R.; Lisse, C.M.; et al. (2017) Astrophys. J. Letters 852, L2. arXiv:1711.04927], [Drahus, M.; Guzik, P.; Waniak, W.; Handzlik, B.; et al. (2017) ArXiv:171200437], [Fraser, W.C.; Pravec, P.; Fitzsimmons, A.; Lacerda, P.; et al. (2017) Nature Astronomy 2, 383-386. arXiv:1711.11530], [Jewitt, D.; Luu, J.; Rajagopal, J.; Kotulla, R.; et al. (2017) Astrophys. J. Letters 850, L36.]",
+   "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+   "sigma": null,
+   "title": "rotation period",
+   "units": "h",
+   "value": "7.937"
+  }
+ ],
+ "signature": {
+  "source": "NASA/JPL Small-Body Database (SBDB) API",
+  "version": "1.3"
+ }
+}

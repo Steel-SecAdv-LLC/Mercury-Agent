@@ -430,3 +430,29 @@ class TestOSHAHazardDataclass:
             assert h.osha_standard
             assert h.recommendations
             assert h.severity >= 0.0
+
+
+class TestPublishedBoundaries:
+    """29 CFR 1910.303(g)(2)(i) says "50 volts or more"; 1910.95(c)(1) "equal or exceed ... 85"."""
+
+    @pytest.mark.parametrize(("volts", "flagged"), [(49.9, False), (50.0, True), (50.1, True)])
+    def test_electrical_boundary_is_50_volts_or_more(self, volts: float, flagged: bool) -> None:
+        detector = OSHAComplianceDetector(sector=OSHASector.CONSTRUCTION)
+        hazards = detector.detect_hazards(
+            {"electrical_voltage": volts, "electrical_protection": False}
+        )
+        assert any(h.category is HazardCategory.ELECTRICAL for h in hazards) is flagged
+
+    @pytest.mark.parametrize(("db", "flagged"), [(84.9, False), (85.0, True), (85.1, True)])
+    def test_noise_boundary_is_85_dba_or_more(self, db: float, flagged: bool) -> None:
+        detector = OSHAComplianceDetector(sector=OSHASector.MANUFACTURING)
+        hazards = detector.detect_hazards({"noise_level_db": db})
+        assert any(h.category is HazardCategory.NOISE for h in hazards) is flagged
+
+    @pytest.mark.parametrize(("feet", "flagged"), [(5.9, False), (6.0, True)])
+    def test_fall_boundary_is_6_feet_or_more(self, feet: float, flagged: bool) -> None:
+        detector = OSHAComplianceDetector(sector=OSHASector.CONSTRUCTION)
+        hazards = detector.detect_hazards(
+            {"height_above_ground": feet, "fall_protection_active": False}
+        )
+        assert any(h.category is HazardCategory.FALL for h in hazards) is flagged

@@ -100,6 +100,11 @@ class InterstellarObjectResult:
     follow_up_observations_recommended: list[str] = field(default_factory=list)
     comparative_analysis: dict[str, Any] | None = None
     scientific_significance: float = 0.0
+    #: Whether a trained network scored the object.  ``False`` means
+    #: ``anomaly_type`` is ``"unassessed"`` and the score, confidence and
+    #: ``anomaly_detected`` are defaults; the rule-based anomaly lists above are
+    #: still reported.
+    ml_available: bool = False
 
 
 class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
@@ -117,6 +122,9 @@ class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
                 "Install it with: pip install torch"
             )
         super().__init__()
+
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
 
         phi = 1.618
         hidden_1 = int(input_dim * phi)
@@ -200,6 +208,11 @@ class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
         confidence = self.confidence_head(attended)
 
         return anomaly_logits, confidence
+
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
 
 
 class InterstellarObjectDetector:
@@ -303,26 +316,35 @@ class InterstellarObjectDetector:
         """
         designation = iso_data.get("designation", "Unknown ISO")
 
-        orbital_features, spectro_features, physical_features = self._extract_features(iso_data)
+        ml_available = self.model.is_fitted
+        if ml_available:
+            orbital_features, spectro_features, physical_features = self._extract_features(iso_data)
+            orbital_t = torch.tensor(orbital_features, dtype=torch.float32).unsqueeze(0)
+            spectro_t = torch.tensor(spectro_features, dtype=torch.float32).unsqueeze(0)
+            physical_t = torch.tensor(physical_features, dtype=torch.float32).unsqueeze(0)
 
-        orbital_t = torch.tensor(orbital_features, dtype=torch.float32).unsqueeze(0)
-        spectro_t = torch.tensor(spectro_features, dtype=torch.float32).unsqueeze(0)
-        physical_t = torch.tensor(physical_features, dtype=torch.float32).unsqueeze(0)
+            self.model.eval()
+            with torch.no_grad():
+                anomaly_logits, confidence = self.model(orbital_t, spectro_t, physical_t)
 
-        self.model.eval()
-        with torch.no_grad():
-            anomaly_logits, confidence = self.model(orbital_t, spectro_t, physical_t)
+            anomaly_probs = torch.softmax(anomaly_logits[0], dim=0)
+            anomaly_class = torch.argmax(anomaly_probs).item()
+            confidence_score = float(confidence[0].item())
 
-        anomaly_probs = torch.softmax(anomaly_logits[0], dim=0)
-        anomaly_class = torch.argmax(anomaly_probs).item()
-        confidence_score = float(confidence[0].item())
+            anomaly_types = [t.value for t in ISOAnomalyType]
+            anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index, unused-ignore]
 
-        anomaly_types = [t.value for t in ISOAnomalyType]
-        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index, unused-ignore]
+            anomaly_score = (
+                confidence_score * self.omni_interstellar_scalars["omni_orbital_precision"]
+            )
 
-        anomaly_score = confidence_score * self.omni_interstellar_scalars["omni_orbital_precision"]
-
-        anomaly_detected = anomaly_score > (0.4 * self.golden_ratio)
+            anomaly_detected = anomaly_score > (0.4 * self.golden_ratio)
+        else:
+            # Fail-closed: an untrained network's class and score are noise.
+            anomaly_type = "unassessed"
+            confidence_score = 0.0
+            anomaly_score = 0.0
+            anomaly_detected = False
 
         orbital_anomalies = self._analyze_orbital_anomalies(iso_data)
 
@@ -335,7 +357,7 @@ class InterstellarObjectDetector:
         )
 
         hypotheses = self._generate_alternative_hypotheses(
-            iso_data, natural_explanation, anomaly_score
+            orbital_anomalies, natural_explanation, anomaly_score
         )
 
         follow_ups = self._recommend_follow_up_observations(iso_data, anomaly_type)
@@ -360,6 +382,7 @@ class InterstellarObjectDetector:
             follow_up_observations_recommended=follow_ups,
             comparative_analysis=comparative,
             scientific_significance=significance,
+            ml_available=ml_available,
         )
 
         self.logger.info(
@@ -558,7 +581,7 @@ class InterstellarObjectDetector:
             return NaturalExplanationConfidence.HIGHLY_ANOMALOUS.value
 
     def _generate_alternative_hypotheses(
-        self, iso_data: dict[str, Any], natural_explanation: str, anomaly_score: float
+        self, orbital_anomalies: list[str], natural_explanation: str, anomaly_score: float
     ) -> list[str]:
         """Generate alternative hypotheses for unusual observations."""
         hypotheses = []
@@ -566,9 +589,7 @@ class InterstellarObjectDetector:
         hypotheses.append("Natural interstellar comet (pristine composition)")
         hypotheses.append("Natural interstellar asteroid (ejected from planetary system)")
 
-        if "non_gravitational_acceleration_without_outgassing" in iso_data.get(
-            "orbital_anomalies", []
-        ):
+        if "non_gravitational_acceleration_without_outgassing" in orbital_anomalies:
             hypotheses.append("Sublimation of supervolatiles (H2, N2)")
             hypotheses.append("Anisotropic thermal radiation (Yarkovsky-like effect)")
 

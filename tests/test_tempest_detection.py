@@ -360,3 +360,55 @@ class TestTEMPESTDetector:
             "critical_risk",
         ]
         assert len(result.countermeasures) > 0
+
+
+class TestUntrainedVideoNetworkAbstains:
+    """An untrained network once set the threat level from its initial weights."""
+
+    @staticmethod
+    def _assess(seed: int, scale: float) -> TEMPESTAnalysisResult:
+        torch.manual_seed(seed)
+        detector = TEMPESTDetector(enable_rf_analysis=False, enable_vulnerability_assessment=False)
+        features = np.full(128, scale, dtype=np.float32)
+        return detector.detect_tempest_threats({"video_emanation_features": features})
+
+    def test_the_verdict_does_not_depend_on_the_network_initialisation(self) -> None:
+        verdicts = {
+            (r.threat_level, r.emanation_detected, r.reconstruction_feasibility)
+            for r in (self._assess(seed, scale) for seed in range(5) for scale in (0.0, 1.0, 10.0))
+        }
+        assert verdicts == {("no_threat", False, 0.0)}
+
+    def test_the_abstention_is_visible_in_the_result(self) -> None:
+        assert self._assess(0, 1.0).ml_video_available is False
+
+    def test_a_network_is_unfitted_until_trained_weights_are_loaded(self) -> None:
+        network = VideoEmanationDetector()
+        assert network.is_fitted is False
+        network.load_trained_weights(VideoEmanationDetector().state_dict())
+        assert network.is_fitted is True
+
+    def test_loaded_weights_are_scored_and_reported_available(self) -> None:
+        torch.manual_seed(0)
+        detector = TEMPESTDetector(enable_rf_analysis=False, enable_vulnerability_assessment=False)
+        assert detector.video_detector is not None
+        detector.video_detector.load_trained_weights(detector.video_detector.state_dict())
+        features = np.zeros(128, dtype=np.float32)
+
+        result = detector.detect_tempest_threats({"video_emanation_features": features})
+
+        assert result.ml_video_available is True
+        with torch.no_grad():
+            expected, _ = detector.video_detector.eval()(torch.tensor(features).unsqueeze(0))
+        assert result.reconstruction_feasibility == pytest.approx(float(expected[0]))
+
+    def test_other_inputs_are_still_scored_beside_the_video_features(self) -> None:
+        detector = TEMPESTDetector(enable_rf_analysis=False)
+        result = detector.detect_tempest_threats(
+            {
+                "video_emanation_features": np.zeros(128, dtype=np.float32),
+                "equipment_data": {"em_shielding_db": 0.0, "cable_shielding": False},
+            }
+        )
+        assert result.vulnerable_equipment
+        assert result.ml_video_available is False

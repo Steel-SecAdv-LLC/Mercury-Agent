@@ -74,6 +74,9 @@ class TEMPESTAnalysisResult:
 
     countermeasures: list[str] = field(default_factory=list)
     compliance_status: dict[str, bool] = field(default_factory=dict)
+    #: Whether a trained video network scored the features; ``False`` means
+    #: ``video_emanation_features`` (if supplied) were not assessed.
+    ml_video_available: bool = False
 
 
 class RFSpectrumAnalyzer:
@@ -177,6 +180,9 @@ class VideoEmanationDetector(nn.Module):
         """Initialize the instance."""
         super().__init__()
 
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
+
         self.emanation_encoder = nn.Sequential(
             nn.Linear(input_dim, 256),
             nn.BatchNorm1d(256),
@@ -216,6 +222,11 @@ class VideoEmanationDetector(nn.Module):
         resolution_probs = self.resolution_estimator(encoded)
 
         return reconstruction_score, resolution_probs
+
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
 
 
 class SideChannelVulnerabilityAssessor:
@@ -419,6 +430,7 @@ class TEMPESTDetector:
             and self.video_detector is not None
         ):
             video_result = self._analyze_video_emanation(tempest_data["video_emanation_features"])
+            result.ml_video_available = video_result["available"]
             result.reconstruction_feasibility = video_result["reconstruction_feasibility"]
 
             if video_result["reconstruction_feasibility"] > 0.5:
@@ -463,9 +475,14 @@ class TEMPESTDetector:
         return result
 
     def _analyze_video_emanation(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze video emanation for reconstruction feasibility."""
-        if self.video_detector is None:
-            return {"reconstruction_feasibility": 0.0, "estimated_resolution": "low"}
+        """Analyze video emanation for reconstruction feasibility, or abstain if untrained."""
+        if self.video_detector is None or not self.video_detector.is_fitted:
+            # Fail-closed: an untrained network's feasibility score is noise.
+            return {
+                "available": False,
+                "reconstruction_feasibility": 0.0,
+                "estimated_resolution": "low",
+            }
 
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
@@ -480,6 +497,7 @@ class TEMPESTDetector:
         estimated_resolution = resolution_categories[resolution_class]
 
         return {
+            "available": True,
             "reconstruction_feasibility": reconstruction_feasibility,
             "estimated_resolution": estimated_resolution,
         }

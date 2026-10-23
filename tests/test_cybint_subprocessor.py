@@ -414,3 +414,58 @@ class TestCYBINTSubProcessor:
         assert len(result.c2_indicators) > 0
         assert result.zero_day_likelihood > 0
         assert len(result.defensive_measures) > 0
+
+
+class TestUntrainedNetworksNameNoActorOrFamily:
+    """Random weights once named an APT group and a malware family from noise."""
+
+    @staticmethod
+    def _process(seed: int) -> CYBINTAnalysisResult:
+        torch.manual_seed(seed)
+        rng = np.random.default_rng(seed)
+        return CYBINTSubProcessor(
+            enable_c2_detection=False, enable_zero_day_analysis=False
+        ).process_cybint(
+            {
+                "threat_features": rng.standard_normal(256).astype(np.float32),
+                "malware_features": rng.standard_normal(128).astype(np.float32),
+            }
+        )
+
+    def test_no_actor_or_family_is_named_whatever_the_initialisation(self) -> None:
+        outcomes = {
+            (r.apt_group, r.malware_family, r.threat_detected, r.confidence)
+            for r in (self._process(seed) for seed in range(8))
+        }
+        assert outcomes == {("unknown_apt", "unknown_malware", False, 0.0)}
+
+    def test_the_abstention_is_visible_in_the_result(self) -> None:
+        result = self._process(0)
+        assert result.ml_apt_available is False
+        assert result.ml_malware_available is False
+
+    def test_loaded_weights_attribute_and_classify(self) -> None:
+        torch.manual_seed(0)
+        processor = CYBINTSubProcessor(enable_c2_detection=False, enable_zero_day_analysis=False)
+        assert processor.apt_recognizer is not None
+        assert processor.malware_classifier is not None
+        for network in (processor.apt_recognizer, processor.malware_classifier):
+            assert network.is_fitted is False
+            network.load_trained_weights(network.state_dict())
+            assert network.is_fitted is True
+        rng = np.random.default_rng(0)
+        threat = rng.standard_normal(256).astype(np.float32)
+        malware = rng.standard_normal(128).astype(np.float32)
+
+        result = processor.process_cybint({"threat_features": threat, "malware_features": malware})
+
+        assert result.ml_apt_available is True
+        assert result.ml_malware_available is True
+        with torch.no_grad():
+            apt_logits, _ = processor.apt_recognizer.eval()(torch.tensor(threat).unsqueeze(0))
+            family_logits = processor.malware_classifier.eval()(torch.tensor(malware).unsqueeze(0))
+        assert result.apt_group == [g.value for g in APTGroup][int(apt_logits[0].argmax())]
+        assert (
+            result.malware_family
+            == [f.value for f in MalwareFamily][int(family_logits[0].argmax())]
+        )

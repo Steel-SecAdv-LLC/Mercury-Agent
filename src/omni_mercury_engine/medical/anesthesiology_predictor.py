@@ -119,6 +119,9 @@ class AnesthesiaPredictionResult:
     intervention_needed: bool = False
     vitals_source: str | None = None
     vitals_snapshot_count: int = 0
+    #: Whether a trained TIVA network scored ``anesthesia_sequence``; ``False``
+    #: means the depth, risk type and confidence are defaults, not estimates.
+    ml_tiva_available: bool = False
 
 
 _RISK_TYPES: Final[tuple[str, ...]] = (
@@ -144,6 +147,8 @@ class TIVAMonitoringSystem(nn.Module):
     def __init__(self, input_dim: int = 8, hidden_dim: int = 64, num_layers: int = 2) -> None:
         """Initialise the TIVA monitor."""
         super().__init__()
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
         self.lstm = nn.LSTM(
             input_dim,
             hidden_dim,
@@ -190,6 +195,11 @@ class TIVAMonitoringSystem(nn.Module):
         depth = self.depth_predictor(context)
         risks = self.risk_classifier(context)
         return depth, risks, attention_weights.squeeze(-1)
+
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
 
 
 class SmartInfusionController:
@@ -595,11 +605,13 @@ class AnesthesiologyPredictor:
             tiva_result = self._analyze_tiva(
                 np.asarray(anesthesia_data["anesthesia_sequence"], dtype=np.float64)
             )
-            result.depth_of_anesthesia = float(tiva_result["depth_of_anesthesia"])
-            result.risk_type = str(tiva_result["risk_type"])
-            result.confidence = float(tiva_result["confidence"])
-            if result.risk_type != "none":
-                result.risk_detected = True
+            result.ml_tiva_available = tiva_result["available"]
+            if tiva_result["available"]:
+                result.depth_of_anesthesia = float(tiva_result["depth_of_anesthesia"])
+                result.risk_type = str(tiva_result["risk_type"])
+                result.confidence = float(tiva_result["confidence"])
+                if result.risk_type != "none":
+                    result.risk_detected = True
 
         if (
             self.enable_pid
@@ -669,13 +681,16 @@ class AnesthesiologyPredictor:
         return None, None, 0
 
     def _analyze_tiva(self, sequence: np.ndarray[Any, np.dtype[np.float64]]) -> dict[str, Any]:
-        """Run the TIVA Bi-LSTM in inference mode."""
+        """Run the TIVA Bi-LSTM in inference mode, or abstain if untrained."""
         if self.tiva_monitor is None:
             raise RuntimeError("TIVA monitor is not enabled")
         if sequence.ndim != 2 or sequence.shape[-1] != 8:
             raise ValueError(
                 "anesthesia_sequence must have shape (time, 8); got " f"{sequence.shape}"
             )
+        if not self.tiva_monitor.is_fitted:
+            # Fail-closed: an untrained network's depth and risk class are noise.
+            return {"available": False}
         x = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
         self.tiva_monitor.eval()
         with torch.no_grad():
@@ -684,6 +699,7 @@ class AnesthesiologyPredictor:
         risk_idx = int(np.argmax(risk_probs))
         risk_label = _RISK_TYPES[risk_idx] if risk_probs[risk_idx] > 0.5 else "none"
         return {
+            "available": True,
             "depth_of_anesthesia": float(depth.item()),
             "risk_type": risk_label,
             "confidence": float(risk_probs[risk_idx]),

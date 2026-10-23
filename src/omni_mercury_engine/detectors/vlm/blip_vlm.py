@@ -84,6 +84,13 @@ except ImportError:
 # Feature dimension for fusion pipeline normalization
 FEATURE_DIM = 128
 
+#: Seed of the fixed feature projection.  No trained weights exist for it, so it
+#: is a fixed random map of BLIP's pooled embedding; unseeded, every detector
+#: instance drew a different map (the same image gave unit vectors up to 0.39
+#: apart per component), so features fused or compared across instances or
+#: processes were not comparable.
+FEATURE_PROJECTION_SEED = 20260723
+
 
 @dataclass
 class BLIPConfig(VLMConfig):
@@ -285,11 +292,15 @@ class BLIPVLMDetector(BaseVLMDetector):
             ).to(self.device)
             self._model.eval()
 
-            # Initialize feature projection
-            self._feature_projection = FeatureProjection(
-                input_dim=self._hidden_dim,
-                output_dim=self.blip_config.feature_dim,
-            ).to(self.device)
+            # Initialize feature projection (a fixed, seeded random map; see
+            # FEATURE_PROJECTION_SEED).  The global RNG is left untouched.
+            with torch.random.fork_rng(devices=[]):
+                torch.manual_seed(FEATURE_PROJECTION_SEED)
+                projection = FeatureProjection(
+                    input_dim=self._hidden_dim,
+                    output_dim=self.blip_config.feature_dim,
+                )
+            self._feature_projection = projection.to(self.device).eval()
 
             logger.info(f"BLIP model loaded successfully on {self.device}")
 
@@ -521,11 +532,9 @@ class BLIPVLMDetector(BaseVLMDetector):
                         features_list.append(feat)
 
                 except Exception as e:
-                    logger.warning(f"Feature extraction failed: {e}")
-                    # Return zero features on error
-                    features_list.append(
-                        torch.zeros(1, self.blip_config.feature_dim, device=self.device)
-                    )
+                    # A zero vector is indistinguishable from a real feature
+                    # downstream; surface the failure instead of fabricating one.
+                    raise RuntimeError(f"BLIP feature extraction failed: {e}") from e
 
             features = torch.cat(features_list, dim=0)
 

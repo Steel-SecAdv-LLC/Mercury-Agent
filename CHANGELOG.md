@@ -27,6 +27,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — untrained networks no longer decide alarms (endocrinology, TEMPEST,
+anesthesia, medical imaging and vitals, CYBINT, interstellar objects, BLIP).**
+A freshly built network is a random function of its input. Measured: the CGM
+analyser labelled 500 mg/dL "severe hypoglycemia" under one seed and "normal"
+under another; a blank X-ray was "anomalous" under three of five seeds; the TEMPEST
+video network graded an all-zero feature vector "moderate risk" or "high risk"
+by seed; CYBINT named an APT group and malware family from noise. Each now
+follows the repository's existing fail-closed pattern (`is_fitted`,
+`load_trained_weights`, `ml_*_available` on the result) and abstains until trained
+weights are loaded; none ship. The endocrinology glycemic state is instead the
+consensus glucose band of the latest reading (<54, <70, >180 mg/dL; Battelino et
+al. 2019) and a non-finite reading is refused. The interstellar detector's
+non-gravitational hypotheses read a key nothing set and never appeared. BLIP's
+128-D fusion features came from an unseeded projection left in training mode
+(dropout on): the same image gave different features on every call; the
+projection is now seeded, in eval mode, and an extraction failure raises instead
+of returning a zero vector. OSHA: the 50 V and 85 dBA lines are "or more" in the
+regulations (29 CFR 1910.303(g)(2)(i), 1910.95(c)(1)); the code used strict
+`>`. The unused network classes and attributes are kept (released API).
+
 **Fixed — spectral vibration detector, its fusion score and its CLI.**
 A detector fitted on 1,024-sample signals scored every normal 1,025-sample
 signal 1.000 (the longer path was Hann-windowed, the shorter was not); every

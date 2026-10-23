@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Endocrinology detector with CGM Bi-LSTM and FDA-accurate rule set.
+"""Endocrinology detector: consensus glucose bands and FDA-accurate rule set.
 
 version.
 
@@ -128,6 +128,12 @@ class EndocrinologyPredictionResult:
 
 _GLYCEMIC_STATES: Final[tuple[str, ...]] = tuple(e.value for e in GlycemicState)
 
+#: Glucose below this is level 2 (clinically significant) hypoglycemia; the
+#: level 1 edge, 70 mg/dL, is the low end of ``EndocrinologyDetector.target_range``
+#: (International Consensus on Time in Range, Battelino et al. 2019, Diabetes
+#: Care 42:1593-1603).
+LEVEL_2_HYPOGLYCEMIA_MG_DL: Final[float] = 54.0
+
 
 class CGMAnalyzer(nn.Module):
     """Bi-LSTM CGM analyser predicting glycemic state and trend.
@@ -144,6 +150,11 @@ class CGMAnalyzer(nn.Module):
     weights would need to be re-trained for this layout.  The guard test
     :func:`tests.test_endocrinology_detector.test_cgm_analyzer_parameter_count_is_approximately_155k`
     pins the count window.
+
+    No trained weights exist for this layout, so a freshly constructed
+    analyser is a random function of its input: its output must not drive any
+    alarm.  :class:`EndocrinologyDetector` grades the glycemic state from the
+    consensus glucose bands instead (see ``_analyze_cgm``).
     """
 
     def __init__(
@@ -494,7 +505,7 @@ class EndocrinologyDetector:
                 :class:`~omni_mercury_engine.medical.data_sources.DexcomV3DataSource`
                 or a custom subclass of :class:`CGMDataSource`).  Required
                 whenever ``enable_cgm`` is true.
-            enable_cgm: Enable the CGM Bi-LSTM.
+            enable_cgm: Enable CGM analysis (consensus glucose bands).
             enable_smart_pen: Enable the smart insulin pen monitor.
             enable_glp1: Enable the GLP-1 therapy monitor.
             enable_inhaled_insulin: Enable the inhaled insulin monitor.
@@ -678,47 +689,60 @@ class EndocrinologyDetector:
         return np.asarray(raw, dtype=np.float64), "preloaded"
 
     def _analyze_cgm(self, cgm_sequence: npt.NDArray[np.float64]) -> dict[str, Any]:
-        """Run the CGM Bi-LSTM in inference mode."""
+        """Grade a CGM window against the consensus glucose bands.
+
+        The glycemic state is the band of the latest reading: below
+        :data:`LEVEL_2_HYPOGLYCEMIA_MG_DL` severe hypoglycemia, below the low
+        edge of ``target_range`` hypoglycemia, above its high edge
+        hyperglycemia (International Consensus on Time in Range, Battelino et
+        al. 2019, Diabetes Care 42:1593-1603).  The risks are the share of the
+        window below and above range, and ``confidence`` the share of readings
+        in the latest reading's band.  Ketoacidosis needs ketones, which a
+        glucose trace does not carry, so this path never reports it.
+
+        Raises:
+            ValueError: A non-finite reading; a missing value must never read
+                as a normal glucose.
+        """
         if self.cgm_analyzer is None:
-            raise RuntimeError("CGM analyser is not enabled")
-        x = torch.tensor(cgm_sequence, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
-        self.cgm_analyzer.eval()
-        with torch.no_grad():
-            glycemic_logits, _trend, _attention = self.cgm_analyzer(x)
-        state_probs = torch.softmax(glycemic_logits[0], dim=0).cpu().numpy()
-        state_idx = int(np.argmax(state_probs))
-        detected_state = _GLYCEMIC_STATES[state_idx]
+            raise RuntimeError("CGM analysis is not enabled")
+        glucose_values = np.asarray(cgm_sequence, dtype=np.float64).ravel()
+        if not np.all(np.isfinite(glucose_values)):
+            raise ValueError("cgm readings contain non-finite values")
 
-        anomalies: list[str] = []
-        if detected_state == GlycemicState.HYPOGLYCEMIA.value:
-            anomalies.append("Hypoglycemia detected")
-            anomalies.append("Treat with 15g fast-acting carbohydrates")
-        elif detected_state == GlycemicState.SEVERE_HYPOGLYCEMIA.value:
-            anomalies.append("ALERT: Severe hypoglycemia")
-            anomalies.append("Administer glucagon immediately")
-        elif detected_state == GlycemicState.HYPERGLYCEMIA.value:
-            anomalies.append("Hyperglycemia detected")
-            anomalies.append("Check ketones and consider correction dose")
-        elif detected_state == GlycemicState.DKA.value:
-            anomalies.append("ALERT: DKA suspected")
-            anomalies.append("Emergency department evaluation required")
+        low, high = self.target_range
+        below, above = glucose_values < low, glucose_values > high
+        latest = float(glucose_values[-1])
+        if latest < LEVEL_2_HYPOGLYCEMIA_MG_DL:
+            detected_state = GlycemicState.SEVERE_HYPOGLYCEMIA.value
+            same_band = glucose_values < LEVEL_2_HYPOGLYCEMIA_MG_DL
+            anomalies = [
+                f"ALERT: glucose {latest:.0f} mg/dL, below {LEVEL_2_HYPOGLYCEMIA_MG_DL:.0f} "
+                "(level 2 hypoglycemia)",
+                "Treat with 15g fast-acting carbohydrates; give glucagon if the person "
+                "cannot swallow or is unresponsive",
+            ]
+        elif latest < low:
+            detected_state = GlycemicState.HYPOGLYCEMIA.value
+            same_band = below & (glucose_values >= LEVEL_2_HYPOGLYCEMIA_MG_DL)
+            anomalies = ["Hypoglycemia detected", "Treat with 15g fast-acting carbohydrates"]
+        elif latest > high:
+            detected_state = GlycemicState.HYPERGLYCEMIA.value
+            same_band = above
+            anomalies = ["Hyperglycemia detected", "Check ketones and consider correction dose"]
+        else:
+            detected_state = GlycemicState.NORMAL.value
+            same_band = ~below & ~above
+            anomalies = []
 
-        glucose_values = cgm_sequence.flatten()
-        time_in_range = float(
-            np.mean(
-                (glucose_values >= self.target_range[0]) & (glucose_values <= self.target_range[1])
-            )
-            * 100
-        )
-        variability = float(np.std(glucose_values))
         return {
             "glycemic_state": detected_state,
-            "hypoglycemia_risk": float(state_probs[1] + state_probs[3]),
-            "hyperglycemia_risk": float(state_probs[2] + state_probs[4]),
-            "confidence": float(state_probs[state_idx]),
+            "hypoglycemia_risk": float(np.mean(below)),
+            "hyperglycemia_risk": float(np.mean(above)),
+            "confidence": float(np.mean(same_band)),
             "anomalies": anomalies,
-            "time_in_range": time_in_range,
-            "variability": variability,
+            "time_in_range": float(np.mean(~below & ~above) * 100),
+            "variability": float(np.std(glucose_values)),
         }
 
     @staticmethod

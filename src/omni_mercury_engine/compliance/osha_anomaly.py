@@ -719,7 +719,7 @@ class OSHAComplianceDetector:
                 )
             )
         voltage = float(sensor_data.get("electrical_voltage", 0.0))
-        if voltage > 50.0 and not bool(sensor_data.get("electrical_protection", False)):
+        if voltage >= 50.0 and not bool(sensor_data.get("electrical_protection", False)):
             severity = min(0.75 + (voltage / 1000.0), 1.0)
             hazards.append(
                 self._build_hazard(
@@ -839,7 +839,7 @@ class OSHAComplianceDetector:
         del context
         hazards: list[OSHAHazard] = []
         noise = float(sensor_data.get("noise_level_db", 0.0))
-        if noise > 85.0:
+        if noise >= 85.0:
             severity = min(0.70 + (noise - 85.0) / 30.0, 1.0)
             hazards.append(
                 self._build_hazard(

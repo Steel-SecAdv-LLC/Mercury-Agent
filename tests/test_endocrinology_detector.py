@@ -594,3 +594,83 @@ class TestDetectorPipeline:
         )
         result = detector.detect_endocrine_anomaly({"cgm_readings": mixed})
         assert result.cgm_source == "mixed"
+
+
+# --------------------------------------------------------------------------- #
+# Glycemic state: consensus bands, not network weights
+# --------------------------------------------------------------------------- #
+
+
+def _graded(sequence: list[float] | np.ndarray) -> EndocrinologyPredictionResult:
+    detector = EndocrinologyDetector(
+        _StaticCGMSource([]),
+        enable_smart_pen=False,
+        enable_glp1=False,
+        enable_inhaled_insulin=False,
+    )
+    return detector.detect_endocrine_anomaly({"cgm_sequence": np.asarray(sequence, dtype=float)})
+
+
+class TestGlycemicBands:
+    """International Consensus on Time in Range: <54, <70, 70-180, >180 mg/dL."""
+
+    @pytest.mark.parametrize(
+        ("glucose", "state"),
+        [
+            (30.0, GlycemicState.SEVERE_HYPOGLYCEMIA),
+            (53.9, GlycemicState.SEVERE_HYPOGLYCEMIA),
+            (54.0, GlycemicState.HYPOGLYCEMIA),
+            (69.9, GlycemicState.HYPOGLYCEMIA),
+            (70.0, GlycemicState.NORMAL),
+            (120.0, GlycemicState.NORMAL),
+            (180.0, GlycemicState.NORMAL),
+            (180.1, GlycemicState.HYPERGLYCEMIA),
+            (500.0, GlycemicState.HYPERGLYCEMIA),
+        ],
+    )
+    def test_state_is_the_band_of_the_latest_reading(
+        self, glucose: float, state: GlycemicState
+    ) -> None:
+        assert _graded([120.0] * 5 + [glucose]).glycemic_state == state.value
+
+    def test_the_state_does_not_depend_on_network_initialisation(self) -> None:
+        """A random-weight LSTM labelled 500 mg/dL 'severe hypoglycemia' under one seed."""
+        import torch
+
+        states = set()
+        for seed in range(6):
+            torch.manual_seed(seed)
+            states.add(_graded([500.0] * 36).glycemic_state)
+        assert states == {GlycemicState.HYPERGLYCEMIA.value}
+
+    def test_only_the_latest_reading_sets_the_state(self) -> None:
+        assert _graded([40.0] * 10 + [110.0]).glycemic_state == GlycemicState.NORMAL.value
+        assert _graded([110.0] * 10 + [40.0]).glycemic_state == (
+            GlycemicState.SEVERE_HYPOGLYCEMIA.value
+        )
+
+    def test_risks_are_the_time_below_and_above_range(self) -> None:
+        result = _graded([60.0] * 2 + [100.0] * 5 + [200.0] * 3)
+        assert result.hypoglycemia_risk == pytest.approx(0.2)
+        assert result.hyperglycemia_risk == pytest.approx(0.3)
+        assert result.time_in_range_percent == pytest.approx(50.0)
+
+    def test_confidence_is_the_share_of_readings_in_the_latest_band(self) -> None:
+        assert _graded([100.0] * 3 + [200.0]).confidence == pytest.approx(0.25)
+        assert _graded([100.0] * 4).confidence == pytest.approx(1.0)
+
+    def test_ketoacidosis_is_never_claimed_from_glucose_alone(self) -> None:
+        result = _graded([600.0] * 12)
+        assert result.glycemic_state == GlycemicState.HYPERGLYCEMIA.value
+        assert result.dka_risk == 0.0
+        assert not any("DKA" in line for line in result.glucose_anomalies)
+
+    def test_level_2_alert_names_the_reading(self) -> None:
+        result = _graded([100.0, 48.0])
+        assert any("48" in line and "level 2" in line for line in result.glucose_anomalies)
+        assert result.anomaly_detected is True
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_a_non_finite_reading_is_refused_not_read_as_normal(self, bad: float) -> None:
+        with pytest.raises(ValueError, match="non-finite"):
+            _graded([100.0, bad, 110.0])
