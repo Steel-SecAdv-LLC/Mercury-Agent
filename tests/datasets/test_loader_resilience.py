@@ -185,10 +185,12 @@ class TestFEMADisasterPagination:
 
 
 def _build_epa_zip(year: int) -> bytes:
+    # AirData's own columns (a subset): one 24-hour standard row per day.
     csv_text = (
-        "State Code,County Code,Latitude,Longitude,Date Local,Arithmetic Mean,Observation Count\n"
-        f"06,037,34.05,-118.25,{year}-06-15,42.5,24\n"
-        f"06,037,34.05,-118.25,{year}-06-16,18.0,24\n"
+        "State Code,County Code,Latitude,Longitude,Sample Duration,Pollutant Standard,"
+        "Date Local,Event Type,Arithmetic Mean,Observation Count\n"
+        f"06,037,34.05,-118.25,24-HR BLK AVG,PM25 24-hour 2012,{year}-06-15,None,42.5,24\n"
+        f"06,037,34.05,-118.25,24-HR BLK AVG,PM25 24-hour 2012,{year}-06-16,None,18.0,24\n"
     )
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:

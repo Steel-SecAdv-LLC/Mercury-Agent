@@ -7,12 +7,17 @@ climatology + Excess Heat Factor), atmospheric rivers (IVT + Ralph et al.
 AR scale), lightning (Schultz et al. 2-sigma lightning jump), the
 hurricane -> surge -> compound-flood cascade, and the severe-storm
 cluster (hail/SHIP, winter and ice storms, derecho criteria, dust
-storms).  All detectors work untrained, carry literature citations, and
+storms), and the EPA PM2.5 Air Quality Index.  All detectors work untrained, carry literature citations, and
 fail loudly on inadequate input; none carries a neural network.
 """
 
 from __future__ import annotations
 
+from omni_mercury_engine.detectors.meteorological.air_quality import (
+    AirQualityAssessment,
+    AirQualityDetector,
+    pm25_aqi,
+)
 from omni_mercury_engine.detectors.meteorological.atmospheric_river_detector import (
     ARAssessmentResult,
     AREpisode,
@@ -59,6 +64,8 @@ from omni_mercury_engine.detectors.meteorological.winter_storm_detector import W
 __all__ = [
     "ARAssessmentResult",
     "AREpisode",
+    "AirQualityAssessment",
+    "AirQualityDetector",
     "AtmosphericRiverDetector",
     "CascadeAssessment",
     "CascadeStage",
@@ -88,5 +95,6 @@ __all__ = [
     "compute_spi",
     "heat_alert_category",
     "heat_index_f",
+    "pm25_aqi",
     "thornthwaite_pet",
 ]

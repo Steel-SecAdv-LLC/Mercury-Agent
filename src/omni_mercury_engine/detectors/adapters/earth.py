@@ -36,6 +36,7 @@ __all__ = [
     "FireDebrisFlowAdapter",
     "LandslideAdapter",
     "MarineEcosystemAdapter",
+    "PM25AirQualityAdapter",
     "RockfallAdapter",
     "SubsidenceAdapter",
     "SurgeFloodCascadeAdapter",
@@ -802,4 +803,43 @@ class MarineEcosystemAdapter(HazardRowAdapter):
                 float(r.ocean_acidification),
                 float(r.marine_heatwave),
             ],
+        )
+
+
+class PM25AirQualityAdapter(HazardRowAdapter):
+    """EPA Air Quality Index from 24-hour PM2.5 means.
+
+    Column: ``pm25_24h_ug_m3`` (24-hour mean PM2.5, ug/m3, one monitor-day
+    per row).  ``AirQualityDetector`` applies 40 CFR Part 58 Appendix G; the
+    score is the AQI category (good < moderate < unhealthy for sensitive
+    groups < unhealthy < very unhealthy < hazardous) over 5 and the decision
+    is AQI >= 101, so the decision is exactly score >= 2/5.
+    """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.meteorological.air_quality:AirQualityDetector"
+    )
+
+    COLUMNS = ("pm25_24h_ug_m3",)
+    FEATURE_NAMES = ("aqi", "category_level", "unhealthy_for_sensitive_groups")
+
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize with ``BaseDetector`` config; the detector loads lazily."""
+        super().__init__(config)
+        self._detector: Any = None
+
+    def _analyze_row(self, row: np.ndarray[Any, Any]) -> tuple[float, bool, list[float]]:
+        from omni_mercury_engine.detectors.meteorological.air_quality import (
+            AQI_CATEGORIES,
+            AirQualityDetector,
+        )
+
+        if self._detector is None:
+            self._detector = AirQualityDetector()
+        a = self._detector.assess(float(row[0]))
+        level = AQI_CATEGORIES.index(a.category)
+        return (
+            ordinal_score(a.category, AQI_CATEGORIES),
+            bool(a.unhealthy_for_sensitive_groups),
+            [float(a.aqi), float(level), float(a.unhealthy_for_sensitive_groups)],
         )

@@ -942,6 +942,17 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     ),
     # -- Meteorological / hydro-climate detectors -----------------------------
     DetectorManifestEntry(
+        "pm25_air_quality",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "PM25AirQualityAdapter",
+        DetectorCategory.METEOROLOGICAL,
+        "EPA PM2.5 Air Quality Index (40 CFR Part 58 Appendix G, 2024 breakpoints)",
+        tags=["air-quality", "pm2.5", "aqi", "wildfire-smoke"],
+        seams=("engine", "registry"),
+        modality="rows",
+        wraps="omni_mercury_engine.detectors.meteorological.air_quality:AirQualityDetector",
+    ),
+    DetectorManifestEntry(
         "drought",
         "omni_mercury_engine.detectors.meteorological.drought_detector",
         "DroughtDetector",

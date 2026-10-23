@@ -1156,7 +1156,13 @@ class EPAAirNowSource(DataSourceBase):
         return AlertLevel.NONE  # Good
 
     def _get_aqi_category(self, aqi: int) -> str:
-        """Get AQI category name."""
+        """Get AQI category name.
+
+        Above 500 is still Hazardous: EPA extends the top segment (40 CFR
+        Part 58 Appendix G, Table 2 footnote 4).
+        """
+        if aqi > AQICategory.HAZARDOUS.value[1]:
+            return AQICategory.HAZARDOUS.value[2]
         for category in AQICategory:
             min_val, max_val, name = category.value
             if min_val <= aqi <= max_val:
@@ -1199,7 +1205,13 @@ class EPAAirNowSource(DataSourceBase):
 
             for obs in data:
                 try:
-                    aqi = int(obs.get("AQI", 0) or 0)
+                    # A missing or negative AQI is not a reading: it used to
+                    # become AQI 0, a "Good" observation with no alert.
+                    raw_aqi = obs.get("AQI")
+                    if raw_aqi is None or raw_aqi == "" or int(raw_aqi) < 0:
+                        logger.debug("AirNow observation without an AQI reading skipped")
+                        continue
+                    aqi = int(raw_aqi)
                     parameter = obs.get("ParameterName", "")
                     reporting_area = obs.get("ReportingArea", "")
 
@@ -1214,9 +1226,15 @@ class EPAAirNowSource(DataSourceBase):
                     else:
                         timestamp = datetime.now(UTC)
 
-                    # Get location
-                    lat = obs.get("Latitude", self._latitude or 0)
-                    lon = obs.get("Longitude", self._longitude or 0)
+                    # Location: the observation's, else the configured query
+                    # point; never (0, 0) when neither is known.
+                    lat = obs.get("Latitude", self._latitude)
+                    lon = obs.get("Longitude", self._longitude)
+                    location = (
+                        (float(lat), float(lon), 0.0)
+                        if lat is not None and lon is not None
+                        else None
+                    )
 
                     data_points.append(
                         DataPoint(
@@ -1234,7 +1252,7 @@ class EPAAirNowSource(DataSourceBase):
                                 "date_observed": date_observed,
                                 "hour_observed": hour_observed,
                             },
-                            location=(float(lat), float(lon), 0.0),
+                            location=location,
                             alert_level=self._aqi_to_alert_level(aqi),
                             confidence=0.9,
                             metadata={"api_version": "AirNow API"},

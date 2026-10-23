@@ -7,23 +7,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,056
-- **Capability-bearing classes:** 2,043 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,059
+- **Capability-bearing classes:** 2,046 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,195 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,196 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1195 |
+| Other capability classes | 1196 |
 | Support types (config / result / enum / error) | 1013 |
-| Detection | 179 |
+| Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 106 |
 | Engines & orchestration | 101 |
-| Adapters & backends | 96 |
+| Adapters & backends | 97 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 26 |
@@ -1046,7 +1046,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 457 classes (332 capability)
+### `detectors/` — 460 classes (335 capability)
 
 **Adapters & backends**
 
@@ -1077,6 +1077,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MarineEcosystemAdapter` (`detectors.adapters.earth`) — Marine ecosystem threat from coral, chemistry and temperature indicators.
 - `MiniCPMVBackend` (`detectors.vlm.lvlm_backends`) — MiniCPM-V backend - efficient vision-language model.
 - `MockLVLMBackend` (`detectors.vlm.lvlm_backends`) — Mock LVLM backend — hard-fails at construction.
+- `PM25AirQualityAdapter` (`detectors.adapters.earth`) — EPA Air Quality Index from 24-hour PM2.5 means.
 - `Qwen2VLBackend` (`detectors.vlm.lvlm_backends`) — Qwen2-VL backend for vision-language tasks.
 - `RockfallAdapter` (`detectors.adapters.earth`) — Rockfall hazard from the monitoring channels of one cliff section.
 - `SEPProtonWindowAdapter` (`detectors.adapters.space`) — Solar energetic particle (radiation) storm from a proton-flux window.
@@ -1118,6 +1119,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `AccelerationDynamicsDetector` (`detectors.acceleration_dynamics`) — Physics-based acceleration dynamics anomaly detector.
 - `AdaptiveAnomalyDetector` (`detectors.adaptive_detector`) — Main adaptive detector that combines all improvements.
 - `AdversarialAutoencoderDetector` (`detectors.advanced.adversarial_ae`) — Adversarial Autoencoder Detector for Industrial Control Systems.
+- `AirQualityDetector` (`detectors.meteorological.air_quality`) — EPA PM2.5 Air Quality Index from a 24-hour mean concentration.
 - `AnomalyDetector` (`detectors.lstm_ae`) — Complete anomaly detection pipeline using LSTM-Autoencoder.
 - `AnyAnomalyDetector` (`detectors.vlm.anyanomaly`) — AnyAnomaly zero-shot customizable anomaly detector.
 - `AtmosphericRiverDetector` (`detectors.meteorological.atmospheric_river_detector`) — Atmospheric-river detector: IVT physics core + Ralph et al. AR scale.
@@ -1287,6 +1289,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `AREpisode` (`detectors.meteorological.atmospheric_river_detector`) — One contiguous period of AR conditions (IVT >= 250 kg m^-1 s^-1).
 - `AdditiveProbe` (`detectors.math_arrest.probes.additive`) — Detect level shifts and trend breaks via a linear fit.
+- `AirQualityAssessment` (`detectors.meteorological.air_quality`) — One graded PM2.5 day.
 - `AnomalyMathArrest` (`detectors.math_arrest.arrest`) — 21-probe Anomaly Math Arrest.
 - `AppearanceContextProvider` (`detectors.vlm.context_providers_extended`) — Appearance context provider for color and texture analysis.
 - `AppearanceFeatures` (`detectors.vlm.context_providers_extended`) — Container for appearance-based features.

@@ -22,7 +22,7 @@ detectors needing an external service or model backend; ``serves X`` marks
 an adapter entry and names the domain detector behind it.
 
 
-## engine + registry (68)
+## engine + registry (69)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -72,6 +72,7 @@ an adapter entry and names the domain detector behind it.
 | `marine_biodiversity` | `MarineEcosystemAdapter` | marine | rows | serves `MarineBiodiversityDetector` | Marine biodiversity threat detection |
 | `case_surge` | `CaseSurgeWindowAdapter` | medical | window | serves `CaseSurgeDetector` | Disease-surveillance case surge: week-on-week rise in daily counts, growth-implied R_e |
 | `sepsis` | `SepsisRecordAdapter` | medical | record | serves `SepsisDetector` | Possible-sepsis screen: Sepsis-3 qSOFA and SOFA (Singer et al., JAMA 2016) |
+| `pm25_air_quality` | `PM25AirQualityAdapter` | meteorological | rows | serves `AirQualityDetector` | EPA PM2.5 Air Quality Index (40 CFR Part 58 Appendix G, 2024 breakpoints) |
 | `surge_flood_cascade` | `SurgeFloodCascadeAdapter` | meteorological | event | serves `SurgeFloodCascade` | Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual) |
 | `acceleration_dynamics` | `AccelerationDynamicsDetector` | physics | series_1d | -- | Kinematic analysis with Lyapunov stability and phase space |
 | `physics_integrated` | `PhysicsIntegratedDetector` | physics | series_1d | fit | Unified physics detector with 3R and GOSNN integration |

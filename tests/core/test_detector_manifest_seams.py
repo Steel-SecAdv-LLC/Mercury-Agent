@@ -42,6 +42,7 @@ ENTRIES: dict[str, DetectorManifestEntry] = {e.name: e for e in DETECTOR_MANIFES
 #: Physically valid values for the row adapters' declared columns; anything
 #: not named here passes its adapter's validation at 1.0.
 COLUMN_VALUES: dict[str, float] = {
+    "pm25_24h_ug_m3": 42.0,  # a smoke day: AQI 117, unhealthy for sensitive groups
     "cape_j_kg": 1500.0,
     "cin_j_kg": -50.0,
     "srh_m2_s2": 150.0,
