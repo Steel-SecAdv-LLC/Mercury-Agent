@@ -78,6 +78,11 @@ class HazardRowAdapter(BaseDetector):
 
     COLUMNS: ClassVar[tuple[str, ...]] = ()
     FEATURE_NAMES: ClassVar[tuple[str, ...]] = ()
+    #: Per-call bookkeeping of what each row set aside: process state, never
+    #: learned state, so it stays out of the shared checkpoint.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_row_set_aside", "_row_index"}
+    _row_set_aside: dict[int, list[dict[str, Any]]]
+    _row_index: int
     #: Columns a row may leave unmeasured, as NaN: the wrapped detector is
     #: then called without that measurement (never with a substitute).
     #: Infinities are refused in every column.
@@ -86,6 +91,21 @@ class HazardRowAdapter(BaseDetector):
     def _analyze_row(self, row: np.ndarray[Any, Any]) -> tuple[float, bool, list[float]]:
         """One row's (score in [0, 1], detector decision, measured features)."""
         raise NotImplementedError
+
+    def _note_set_aside(self, result: Any) -> None:
+        """Record what the wrapped detector set aside for the row being analyzed.
+
+        The partial-input contract marks a verdict partial when part of its
+        input was set aside; without this the row adapter served the wrapped
+        detector's partial verdict as a full one.
+        """
+        entries = getattr(result, "set_aside", None)
+        if entries:
+            # ``_analyze`` resets both per call; a direct ``_analyze_row`` call
+            # outside it records under row 0 of a fresh bookkeeping dict.
+            if not hasattr(self, "_row_set_aside"):
+                self._row_set_aside = {}
+            self._row_set_aside[getattr(self, "_row_index", 0)] = list(entries)
 
     def _measured(self, row: np.ndarray[Any, Any]) -> dict[str, float]:
         """``{column: value}`` for the row's measured (non-NaN) columns."""
@@ -120,7 +140,9 @@ class HazardRowAdapter(BaseDetector):
         scores = np.empty(batch.shape[0])
         flags = np.empty(batch.shape[0], dtype=bool)
         features = np.empty((batch.shape[0], len(self.FEATURE_NAMES)))
+        self._row_set_aside = {}
         for i, row in enumerate(batch):
+            self._row_index = i
             score, flag, row_features = self._analyze_row(row)
             scores[i], flags[i], features[i] = score, flag, row_features
         return scores, flags, features
@@ -142,14 +164,21 @@ class HazardRowAdapter(BaseDetector):
 
     def detect(self, data: Any) -> dict[str, Any]:
         """Batch decision: the worst row decides, each row's score is served."""
+        # Reset here as well as in ``_analyze``: a subclass that overrides
+        # ``_analyze`` must not serve a previous call's set-aside entries.
+        self._row_set_aside = {}
         scores, flags, _ = self._analyze(data)
-        return {
+        out: dict[str, Any] = {
             "anomaly_score": float(scores.max()),
             "is_anomaly": bool(flags.any()),
             "scores": scores,
             "flags": flags,
             "metadata": {"columns": self.COLUMNS, "rows": int(scores.size)},
         }
+        if self._row_set_aside:
+            out["partial"] = True
+            out["set_aside"] = dict(self._row_set_aside)
+        return out
 
 
 @dataclass(frozen=True)
@@ -164,12 +193,16 @@ class Assessment:
         features: Measured outputs, in the adapter's ``FEATURE_NAMES`` order;
             NaN marks a quantity the detector reported as unmeasured.
         result: The wrapped detector's full result object, unchanged.
+        set_aside: Input the wrapped detectors set aside, for an adapter
+            whose ``result`` does not carry it itself (a cascade wrapping a
+            domain detector); otherwise read from ``result.set_aside``.
     """
 
     score: float
     flag: bool
     features: tuple[float, ...]
     result: Any
+    set_aside: tuple[dict[str, Any], ...] = ()
 
 
 def ordinal_score(level: str, ladder: tuple[str, ...]) -> float:
@@ -271,7 +304,7 @@ class HazardUnitAdapter(BaseDetector):
         assessments = self._assessments(data)
         scores = np.array([a.score for a in assessments])
         flags = np.array([a.flag for a in assessments], dtype=bool)
-        return {
+        out: dict[str, Any] = {
             "anomaly_score": float(scores.max()),
             "is_anomaly": bool(flags.any()),
             "scores": scores,
@@ -282,6 +315,17 @@ class HazardUnitAdapter(BaseDetector):
                 "results": [a.result for a in assessments],
             },
         }
+        # Partial-input contract: a unit whose wrapped result set part of its
+        # input aside makes the served verdict partial, unit by unit.
+        set_aside = {
+            i: list(entries)
+            for i, a in enumerate(assessments)
+            if (entries := a.set_aside or getattr(a.result, "set_aside", None))
+        }
+        if set_aside:
+            out["partial"] = True
+            out["set_aside"] = set_aside
+        return out
 
 
 class HazardWindowAdapter(HazardUnitAdapter):
@@ -435,6 +479,7 @@ class TornadoConditionsAdapter(HazardRowAdapter):
         result = self._detector.predict_tornado(
             {"atmospheric_data": dict(zip(self.COLUMNS, (float(v) for v in row)))}
         )
+        self._note_set_aside(result)
         return (
             float(result.confidence),
             bool(result.tornado_likely),
@@ -486,6 +531,7 @@ class HurricanePressureAdapter(HazardRowAdapter):
                 "sst_data": {"sst_celsius": sst},
             }
         )
+        self._note_set_aside(result)
         return (
             float(result.confidence),
             bool(result.cyclone_detected),
@@ -522,7 +568,7 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
     #: The wrapped FloodDetector is physics-backed and lazily built; it learns
     #: nothing from the caller's batch, so the adapter's checkpoint carries
     #: only the trivial fitted flag and base attributes.
-    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_detector"}
+    _UNSAVED_ATTRS = HazardRowAdapter._UNSAVED_ATTRS | {"_detector"}
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize with ``BaseDetector`` config; the detector loads lazily."""
@@ -537,6 +583,7 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
         result = self._detector.predict_flood(
             {"precip_data": dict(zip(self.COLUMNS, (float(v) for v in row)))}
         )
+        self._note_set_aside(result)
         return (
             float(result.confidence),
             bool(result.flood_likely),
@@ -593,6 +640,7 @@ class FinancialStressAdapter(HazardRowAdapter):
                 "banking_data": dict(zip(self.COLUMNS[3:], values[3:])),
             }
         )
+        self._note_set_aside(result)
         return (
             float(result.confidence),
             bool(result.crisis_imminent),

@@ -38,7 +38,10 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.exceptions import InputModalityError
-from omni_mercury_engine.detectors._hazard_input import InvalidObservationError, finite_scalar
+from omni_mercury_engine.detectors._hazard_input import (
+    InputGrader,
+    finite_scalar,
+)
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
@@ -76,6 +79,31 @@ FINANCIAL_SECTIONS: dict[str, frozenset[str]] = {
     ),
     "currency_data": frozenset({"volatility"}),
     "trading_data": frozenset({"trading_features", "volume_anomaly_score"}),
+}
+
+_UNBOUNDED = float("inf")
+
+#: Unit and physical range of every scalar ``predict_financial_crisis`` grades
+#: -- the same bounds the section detectors apply when they read a value, so
+#: a value set aside here would have been refused there.  ``trading_data``
+#: carries a feature vector and is graded separately.
+FINANCIAL_INPUTS: dict[str, dict[str, tuple[str, float, float]]] = {
+    "market_data": {
+        "price_change_pct": ("%", -100.0, 100.0),
+        "vix": ("index", 0.0, 200.0),
+        "volume_vs_average": ("ratio", 0.0, _UNBOUNDED),
+    },
+    "banking_data": {
+        "cds_spread_bps": ("bps", 0.0, _UNBOUNDED),
+        "default_rate_pct": ("%", 0.0, 100.0),
+        "liquidity_ratio": ("ratio", 0.0, _UNBOUNDED),
+    },
+    "network_data": {
+        "interconnectedness_score": ("[0, 1]", 0.0, 1.0),
+        "concentration_ratio": ("[0, 1]", 0.0, 1.0),
+        "cross_border_exposure": ("[0, 1]", 0.0, 1.0),
+    },
+    "currency_data": {"volatility": ("fraction", 0.0, _UNBOUNDED)},
 }
 
 
@@ -128,6 +156,11 @@ class FinancialCrisisPredictionResult:
     policy_recommendations: list[str] = field(default_factory=list)
     intervention_actions: list[str] = field(default_factory=list)
     affected_sectors: list[str] = field(default_factory=list)
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
 
 
 #: SEC-approved market-wide circuit breaker Level 1: a 7% decline of the
@@ -563,18 +596,23 @@ class FinancialCrisisDetector:
         Returns:
             Financial crisis prediction with policy recommendations
 
+        Unusable pieces -- an unknown key or section, an empty or
+        non-mapping section, a non-finite or out-of-range value (see
+        :data:`FINANCIAL_INPUTS`) -- are set aside and reported on the
+        result (``partial``, ``set_aside``); the usable rest is graded.
+
         Raises:
-            InputModalityError: If the record or a section is not a mapping.
-            InvalidObservationError: If no gradable section is supplied, or a
-                section carries an unknown key or no measurement (see
-                :data:`FINANCIAL_SECTIONS`).
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: If no gradable section remains.
         """
-        self._validate_sections(financial_data)
+        financial_data, grader = self._grade_sections(financial_data)
         result = FinancialCrisisPredictionResult(
             crisis_imminent=False,
             confidence=0.0,
             crisis_type="market_crash",
             severity_level="stable",
+            partial=grader.partial,
+            set_aside=list(grader.set_aside),
         )
 
         crisis_indicators: float = 0
@@ -667,40 +705,74 @@ class FinancialCrisisDetector:
 
         return result
 
-    def _validate_sections(self, financial_data: Any) -> None:
-        """Refuse a record the detector would grade as a silent "stable"."""
+    def _grade_sections(self, financial_data: Any) -> tuple[dict[str, Any], InputGrader]:
+        """Keep every usable measurement; set the rest aside with its reason.
+
+        A misspelt key used to go unread, so a stressed market graded
+        "stable"; it is now set aside and named, and the rest is graded.
+        """
         if not isinstance(financial_data, dict):
             raise InputModalityError(
                 "predict_financial_crisis expects a mapping of sections "
                 f"(market_data, banking_data, ...), got {type(financial_data).__name__}"
             )
-        for section, keys in FINANCIAL_SECTIONS.items():
-            if section not in financial_data:
-                continue
-            values = financial_data[section]
-            if not isinstance(values, dict):
-                raise InputModalityError(
-                    f"{section} must be a mapping, got {type(values).__name__}"
-                )
-            unknown = sorted(set(values) - keys)
-            if unknown:
-                raise InvalidObservationError(
-                    f"{section} has unknown keys {unknown}; accepted: {sorted(keys)}"
-                )
-            if all(values.get(key) is None for key in keys):
-                raise InvalidObservationError(
-                    f"{section} carries no measurement; supply at least one of {sorted(keys)}"
-                )
+        grader = InputGrader()
+        graded: dict[str, Any] = dict(
+            grader.grade_sections(
+                {k: v for k, v in financial_data.items() if k != "trading_data"},
+                FINANCIAL_INPUTS,
+            )
+        )
+        if "trading_data" in financial_data:
+            trading = self._grade_trading(financial_data["trading_data"], grader)
+            if trading:
+                graded["trading_data"] = trading
         gradable = {"market_data", "banking_data", "network_data", "currency_data"}
         if self._fraud_trained:
             gradable.add("trading_data")
-        if not gradable & set(financial_data):
-            # Trading data alone feeds only the fraud network, which stays
-            # unconsulted until its weights load.
-            raise InvalidObservationError(
-                f"no gradable section: supply at least one of {sorted(gradable)}; "
-                "an unmeasured economy is not a stable one"
+        # Trading data alone feeds only the fraud network, which stays
+        # unconsulted until its weights load.
+        grader.require_usable(
+            gradable & set(graded),
+            f"no gradable section: supply at least one of {sorted(gradable)}; "
+            "an unmeasured economy is not a stable one",
+        )
+        return graded, grader
+
+    @staticmethod
+    def _grade_trading(trading: Any, grader: InputGrader) -> dict[str, Any]:
+        """Usable ``trading_data``: a finite feature vector and/or a finite score."""
+        if not isinstance(trading, dict):
+            grader.discard(
+                "trading_data", f"must be a mapping, got {type(trading).__name__}", trading
             )
+            return {}
+        accepted = FINANCIAL_SECTIONS["trading_data"]
+        usable: dict[str, Any] = {}
+        for key, value in trading.items():
+            where = f"trading_data.{key}"
+            if key not in accepted:
+                grader.discard(where, f"unknown key; accepted: {sorted(accepted)}")
+            elif key == "trading_features":
+                try:
+                    array = np.asarray(value, dtype=np.float64)
+                except (TypeError, ValueError):
+                    grader.discard(where, "must be a numeric vector", value)
+                    continue
+                if array.size and np.all(np.isfinite(array)):
+                    usable[key] = value
+                else:
+                    grader.discard(where, "must be a non-empty vector of finite values")
+            else:
+                number = grader.usable_scalar(value, where, unit="score")
+                if number is not None:
+                    usable[key] = number
+        if not usable:
+            grader.discard(
+                "trading_data",
+                "no usable measurement in this section" if trading else "empty section",
+            )
+        return usable
 
     def _detect_fraud(self, trading_data: dict[str, Any]) -> dict[str, Any]:
         """Detect fraudulent trading patterns (trained network only)."""

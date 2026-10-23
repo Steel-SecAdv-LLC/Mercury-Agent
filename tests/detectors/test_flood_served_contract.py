@@ -57,11 +57,30 @@ def recorded_alerts() -> dict[str, Any]:
     return payload
 
 
-def test_empty_record_is_no_flood() -> None:
-    result = FloodDetector().predict_flood({})
-    assert result.flood_likely is False
-    assert result.severity == "no_flood"
-    assert result.warning_actions == []
+def test_empty_record_is_refused() -> None:
+    """An empty record used to grade as a silent "no_flood" with no warnings."""
+    with pytest.raises(InvalidObservationError, match="nothing usable"):
+        FloodDetector().predict_flood({})
+
+
+@pytest.mark.parametrize(
+    ("extra", "where"),
+    [
+        ({"precip_data": {"precip_1h": 3.0}}, "precip_data.precip_1h"),  # misspelt: read as 0
+        ({"precip_data": {"ffg_1h_inches": 1.5}}, "precip_data"),  # guidance, no accumulation
+        ({"soil_data": {"soil_moisture_pct": 140.0}}, "soil_data"),
+        ({"radar_data": [1.0]}, "radar_data"),
+    ],
+)
+def test_usable_gauge_is_graded_beside_an_unusable_stream(
+    extra: dict[str, object], where: str
+) -> None:
+    """Regression: one unusable stream refused a gauge measured above flood stage."""
+    record = {"gauge_data": {"current_stage_ft": 18.0, "flood_stage_ft": 15.0}, **extra}
+    result = FloodDetector().predict_flood(record)
+    assert result.flood_likely is True
+    assert result.partial is True
+    assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
 
 
 def test_gauge_needs_its_own_flood_stage() -> None:

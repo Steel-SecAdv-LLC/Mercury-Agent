@@ -33,8 +33,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
-from omni_mercury_engine.detectors._hazard_input import finite_scalar
+from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors._hazard_input import InputGrader
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 #: Every value ``predict_biodiversity_threat`` reads: section -> key -> (unit,
@@ -145,6 +145,11 @@ class BiodiversityPredictionResult:
 
     threatened_species: list[str] = field(default_factory=list)
     conservation_actions: list[str] = field(default_factory=list)
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
 
 
 class CoralBleachingDetector:
@@ -272,49 +277,48 @@ class MarineBiodiversityDetector:
         is threatened when any assessed indicator fires, and ``confidence`` is
         the fraction of assessed indicators that fire.
 
+        Unusable pieces are set aside and reported on the result
+        (``partial``, ``set_aside``): an unknown key or section, a non-finite
+        or non-physical value (see :data:`MARINE_INPUTS`), and a section
+        missing a required field -- its indicator cannot be graded (the coral
+        model read a missing value as 0, so ``{}`` or a misspelt key graded as
+        a measured all-clear).  The other indicators are still assessed.
+
         Raises:
-            InputModalityError: If the record or a section is not a mapping.
-            InvalidObservationError: When no indicator is measured, a section
-                has an unknown or missing field, or a value is non-finite or
-                non-physical (see :data:`MARINE_INPUTS`).
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: When no indicator can be assessed.
         """
         if not isinstance(marine_data, dict):
             raise InputModalityError(
                 f"predict_biodiversity_threat expects a mapping, got {type(marine_data).__name__}"
             )
-        for section, fields in MARINE_INPUTS.items():
-            if section not in marine_data:
-                continue
-            values = marine_data[section]
-            if not isinstance(values, dict):
-                raise InputModalityError(
-                    f"{section} must be a mapping, got {type(values).__name__}"
-                )
-            # Every field of a supplied section is required: the coral model
-            # read a missing value as 0, so ``{}`` or a misspelt key graded as
-            # a measured all-clear.
-            unknown = sorted(set(values) - set(fields))
-            if unknown:
-                raise InvalidObservationError(
-                    f"{section} has unknown keys {unknown}; accepted: {sorted(fields)}"
-                )
+        grader = InputGrader()
+        graded = grader.grade_sections(marine_data, MARINE_INPUTS)
+        for section in list(graded):
             optional = MARINE_OPTIONAL_INPUTS.get(section, frozenset())
             missing = sorted(
-                key for key in fields if key not in optional and values.get(key) is None
+                key
+                for key in MARINE_INPUTS[section]
+                if key not in optional and key not in graded[section]
             )
             if missing:
-                raise InvalidObservationError(f"{section} is missing {missing}")
-            for key, (unit, lo, hi) in fields.items():
-                if values.get(key) is not None:
-                    finite_scalar(values[key], key, unit=unit, lo=lo, hi=hi)
-        if not any(section in marine_data for section in MARINE_INPUTS):
-            raise InvalidObservationError(
-                "no indicator measured: supply at least one of "
-                f"{sorted(MARINE_INPUTS)}; an unassessed ecosystem is not a healthy one"
-            )
+                grader.discard(
+                    section, f"missing required {missing}; this indicator cannot be graded"
+                )
+                del graded[section]
+        grader.require_usable(
+            graded,
+            "no indicator measured: supply at least one of "
+            f"{sorted(MARINE_INPUTS)}; an unassessed ecosystem is not a healthy one",
+        )
+        marine_data = graded
 
         result = BiodiversityPredictionResult(
-            ecosystem_threatened=False, confidence=0.0, health_status="healthy"
+            ecosystem_threatened=False,
+            confidence=0.0,
+            health_status="healthy",
+            partial=grader.partial,
+            set_aside=list(grader.set_aside),
         )
         assessed = 0
 

@@ -12,11 +12,14 @@ caller can correct the input. Pure NumPy.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from omni_mercury_engine.core.exceptions import InvalidObservationError
+from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 __all__ = [
     "InputGrader",
@@ -138,6 +141,76 @@ class InputGrader:
             else:
                 self.discard(section, "empty section carries no measurement")
         return graded
+
+    def grade_section(
+        self,
+        section: str,
+        values: Any,
+        *,
+        scalars: dict[str, tuple[str, float | None, float | None]],
+        others: frozenset[str] = frozenset(),
+        complete: tuple[frozenset[str], ...] = (),
+    ) -> dict[str, Any] | None:
+        """One section's usable fields, or ``None`` when no measurement remains.
+
+        Scalars are graded value by value; ``others`` (arrays, labels) pass
+        through for the section's analyzer to check.  ``complete`` lists the
+        key sets that each make a measurement; when given, a section holding
+        none of them is set aside (an absent key must never read as a quiet
+        default).
+
+        Args:
+            section: The section's name.
+            values: The supplied section.
+            scalars: key -> (unit, lo, hi) for the scalar fields.
+            others: Accepted non-scalar keys.
+            complete: Key sets of which at least one must be fully present.
+
+        Returns:
+            The usable fields, or ``None`` when the section was set aside.
+        """
+        if not isinstance(values, dict):
+            self.discard(section, f"must be a mapping, got {type(values).__name__}", values)
+            return None
+        accepted = set(scalars) | set(others)
+        usable: dict[str, Any] = {}
+        for key, value in values.items():
+            where = f"{section}.{key}"
+            if key not in accepted:
+                self.discard(where, f"unknown key; accepted: {sorted(accepted)}")
+            elif key in scalars:
+                unit, lo, hi = scalars[key]
+                number = self.usable_scalar(value, where, unit=unit, lo=lo, hi=hi)
+                if number is not None:
+                    usable[key] = number
+            elif value is not None:
+                usable[key] = value
+        if not values:
+            self.discard(section, "empty section carries no measurement")
+            return None
+        if complete and not any(keys <= set(usable) for keys in complete):
+            self.discard(
+                section,
+                f"carries no measurement; supply one of {[sorted(k) for k in complete]}",
+            )
+            return None
+        if not usable:
+            self.discard(section, "no usable measurement in this section")
+            return None
+        return usable
+
+    def attempt(self, where: str, analyze: Callable[[Any], Any], value: Any) -> Any:
+        """Run one stream's analyzer; a stream it refuses is set aside, not fatal.
+
+        Returns:
+            The analyzer's result, or ``None`` when it refused the stream
+            (``InvalidObservationError`` / ``InputModalityError``).
+        """
+        try:
+            return analyze(value)
+        except (InvalidObservationError, InputModalityError) as exc:
+            self.discard(where, str(exc))
+            return None
 
     def require_usable(self, usable: Any, context: str) -> None:
         """Raise only when nothing usable was fed.

@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.core.three_r_mechanism import (
     RecursionEngine,
     RefactoringEngine as CoreRefactoringEngine,
@@ -50,6 +51,7 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     require_live_client,
 )
 from omni_mercury_engine.detectors._hazard_input import (
+    InputGrader,
     InvalidObservationError,
     finite_array,
     finite_scalar,
@@ -134,6 +136,70 @@ class FloodPredictionResult:
     source_id: str | None = None
     data_provenance: str | None = None
     live_context: dict[str, Any] | None = None
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
+
+
+#: ``precip_data`` fields, with the unit and bounds the precipitation
+#: analyzer applies when it reads them.  The analyzer reads an absent
+#: accumulation as 0 in, so a section carrying no accumulation (``{}``, a
+#: misspelt key, guidance alone) is set aside rather than graded as dry.
+FLOOD_PRECIP: dict[str, tuple[str, float | None, float | None]] = {
+    "precipitation_1h_inches": ("in", 0.0, 15.0),
+    "precipitation_3h_inches": ("in", 0.0, 40.0),
+    "precipitation_6h_inches": ("in", 0.0, 50.0),
+    "precipitation_24h_inches": ("in", 0.0, 80.0),
+    "forecast_24h_inches": ("in", 0.0, 80.0),
+    "ffg_1h_inches": ("in", 0.01, 30.0),
+    "ffg_3h_inches": ("in", 0.01, 30.0),
+    "ffg_6h_inches": ("in", 0.01, 30.0),
+}
+
+#: Streams that can move the decision.
+FLOOD_DECISION_STREAMS: frozenset[str] = frozenset({"precip_data", "gauge_data", "soil_data"})
+
+#: Other top-level keys ``predict_flood`` reads (gauge and soil sections are
+#: checked by their own analyzers; a refused one is set aside whole).
+FLOOD_PASS_THROUGH: frozenset[str] = frozenset(
+    {"gauge_data", "soil_data", "observed_data", "metadata"}
+)
+
+
+def grade_flood_data(flood_data: Any) -> tuple[dict[str, Any], InputGrader]:
+    """Keep every usable stream and field; set the rest aside with its reason.
+
+    Raises:
+        InputModalityError: If the record is not a mapping.
+        InvalidObservationError: If no decision stream remains.
+    """
+    if not isinstance(flood_data, dict):
+        raise InputModalityError(
+            "predict_flood expects a mapping of monitoring streams "
+            f"(precip_data, gauge_data, soil_data, ...), got {type(flood_data).__name__}"
+        )
+    grader = InputGrader()
+    record: dict[str, Any] = {}
+    accumulations = tuple(frozenset({k}) for k in FLOOD_PRECIP if not k.startswith("ffg_"))
+    for key, value in flood_data.items():
+        if key == "precip_data":
+            section = grader.grade_section(key, value, scalars=FLOOD_PRECIP, complete=accumulations)
+            if section is not None:
+                record[key] = section
+        elif key in FLOOD_PASS_THROUGH:
+            record[key] = value
+        else:
+            accepted = sorted(FLOOD_PASS_THROUGH | {"precip_data"})
+            grader.discard(key, f"unknown stream; accepted: {accepted}")
+    # An empty record used to grade as a silent "no_flood".
+    grader.require_usable(
+        FLOOD_DECISION_STREAMS & set(record),
+        "no monitoring stream: supply at least one of "
+        f"{sorted(FLOOD_DECISION_STREAMS)}; an ungauged basin is not a dry one",
+    )
+    return record, grader
 
 
 class PrecipitationAnalyzer:
@@ -696,14 +762,22 @@ class FloodDetector:
                 - metadata: Location info, timestamps
 
         Returns:
-            Flood prediction with severity and recommendations
+            Flood prediction with severity and recommendations.  Unusable
+            pieces are set aside and reported on the result (``partial``,
+            ``set_aside``); the rest is graded.
+
+        Raises:
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: When nothing usable was fed.
         """
+        flood_data, grader = grade_flood_data(flood_data)
         result = FloodPredictionResult(
             flood_likely=False,
             confidence=0.0,
             severity="no_flood",
             flood_type="no_flood",
         )
+        assessed: set[str] = set()
 
         indicators_detected: float = 0.0
         gauge_status: str | None = None
@@ -714,6 +788,7 @@ class FloodDetector:
             and self.precip_analyzer is not None
         ):
             precip_result = self.precip_analyzer.analyze_precipitation(flood_data["precip_data"])
+            assessed.add("precip_data")
             result.precipitation_24h_inches = precip_result["precipitation_24h_inches"]
             result.precipitation_forecast_inches = precip_result["forecast_24h_inches"]
 
@@ -728,7 +803,13 @@ class FloodDetector:
             and "gauge_data" in flood_data
             and self.gauge_monitor is not None
         ):
-            gauge_result = self.gauge_monitor.analyze_river_stage(flood_data["gauge_data"])
+            gauge_result = grader.attempt(
+                "gauge_data", self.gauge_monitor.analyze_river_stage, flood_data["gauge_data"]
+            )
+        else:
+            gauge_result = None
+        if gauge_result is not None:
+            assessed.add("gauge_data")
             result.river_stage_ft = gauge_result["current_stage_ft"]
             result.flood_stage_ft = gauge_result["flood_stage_ft"]
             result.stage_trend = gauge_result["stage_trend"]
@@ -744,8 +825,13 @@ class FloodDetector:
             if gauge_result["stage_trend"] == "rising_rapidly":
                 indicators_detected += 1.0
 
+        soil_result = None
         if self.enable_soil and "soil_data" in flood_data and self.soil_model is not None:
-            soil_result = self.soil_model.analyze_soil_conditions(flood_data["soil_data"])
+            soil_result = grader.attempt(
+                "soil_data", self.soil_model.analyze_soil_conditions, flood_data["soil_data"]
+            )
+        if soil_result is not None:
+            assessed.add("soil_data")
             if soil_result["soil_moisture_pct"] is not None:
                 result.soil_saturation_pct = soil_result["soil_moisture_pct"]
                 result.runoff_coefficient = soil_result["runoff_coefficient"]
@@ -761,12 +847,24 @@ class FloodDetector:
             initial_prediction = {"stage_ft": result.river_stage_ft}
             if result.peak_discharge_cfs is not None:
                 initial_prediction["discharge_cfs"] = result.peak_discharge_cfs
-            refactor_result = self.prediction_optimizer.optimize_prediction(
-                initial_prediction, flood_data["observed_data"]
+            optimizer = self.prediction_optimizer
+            refactor_result = grader.attempt(
+                "observed_data",
+                lambda observed: optimizer.optimize_prediction(initial_prediction, observed),
+                flood_data["observed_data"],
             )
-            result.refactoring_score = 1.0 - refactor_result["final_error"]
-            result.model_optimization_iterations = refactor_result["iterations"]
-            result.prediction_uncertainty = refactor_result["uncertainty"]
+            if refactor_result is not None:
+                result.refactoring_score = 1.0 - refactor_result["final_error"]
+                result.model_optimization_iterations = refactor_result["iterations"]
+                result.prediction_uncertainty = refactor_result["uncertainty"]
+
+        # Nothing that decides could be assessed: the verdict would be a
+        # silent "no_flood".
+        grader.require_usable(
+            assessed,
+            "no monitoring stream could be assessed: supply at least one of "
+            f"{sorted(FLOOD_DECISION_STREAMS)}; an ungauged basin is not a dry one",
+        )
 
         # ``signal_data`` no longer carries decision weight: two generic
         # spectral heuristics on an unspecified signal added 0.7 indicators, so
@@ -792,6 +890,8 @@ class FloodDetector:
             f"stage={result.river_stage_ft:.1f}ft, confidence={result.confidence:.2f}"
         )
 
+        result.partial = grader.partial
+        result.set_aside = list(grader.set_aside)
         return result
 
     def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:

@@ -182,15 +182,27 @@ class TestLandslide:
         assert flag is direct.landslide_imminent
         assert features["rainfall_trigger"] == float(direct.rainfall_trigger)
 
-    def test_unmeasured_row_and_non_physical_values_are_refused(self) -> None:
+    def test_unmeasured_row_and_non_finite_values_are_refused(self) -> None:
         with pytest.raises(InvalidObservationError, match="no slope measured"):
             LandslideAdapter().detect(np.array([[NAN] * 10]))
-        bad = list(self.STORM)
-        bad[LandslideAdapter.COLUMNS.index("slope_angle_deg")] = 500.0
-        with pytest.raises(InvalidObservationError, match="slope_angle_deg"):
-            LandslideAdapter().detect(np.array([bad]))
         with pytest.raises(InvalidObservationError):
             LandslideAdapter().detect(np.array([[np.inf] + self.STORM[1:]]))
+
+    def test_non_physical_value_is_set_aside_and_the_verdict_is_partial(self) -> None:
+        """Regression: the adapter dropped the domain detector's partial marker.
+
+        A 500 deg slope beside a measured storm is set aside by the domain
+        detector and the storm is still graded; the served verdict must say
+        it is partial, row by row.
+        """
+        bad = list(self.STORM)
+        bad[LandslideAdapter.COLUMNS.index("slope_angle_deg")] = 500.0
+        out = LandslideAdapter().detect(np.array([self.STORM, bad]))
+        assert out["partial"] is True
+        assert set(out["set_aside"]) == {1}
+        assert out["set_aside"][1][0]["where"] == "slope_data.slope_angle_deg"
+        clean = LandslideAdapter().detect(np.array([self.STORM]))
+        assert "partial" not in clean and "set_aside" not in clean
 
 
 # ---------------------------------------------------------------------------
@@ -522,6 +534,19 @@ class TestSurgeFloodCascade:
         # stays shut; without the hurricane the chain never leaves QUIET.
         assert out["scores"].tolist() == pytest.approx([1 / 3, 0.0])
         assert out["flags"].tolist() == [True, False]
+
+    def test_partial_hurricane_evidence_keeps_the_cascade_verdict_partial(
+        self, battery: Any
+    ) -> None:
+        """Regression: the cascade's served result dropped the hurricane's set-aside input."""
+        observed, predicted = battery
+        surge = {"coops_observed": observed, "coops_predicted": predicted, "station_id": "8518750"}
+        kelvin_sst = {**self.HURRICANE, "sst_data": {"sst_celsius": 302.15}}
+        out = SurgeFloodCascadeAdapter().detect([{**surge, "hurricane": kelvin_sst}, surge])
+        assert out["flags"].tolist() == [True, False]  # the pressure deficit still decides
+        assert out["partial"] is True
+        assert set(out["set_aside"]) == {0}
+        assert out["set_aside"][0][0]["where"] == "hurricane.sst_data.sst_celsius"
 
     def test_matches_a_direct_cascade(self, battery: Any) -> None:
         from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector

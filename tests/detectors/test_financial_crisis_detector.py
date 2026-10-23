@@ -581,13 +581,42 @@ class TestHonestyContract:
     )
     def test_misspelt_measurement_is_refused(self, record: dict[str, Any]) -> None:
         """A misspelt key used to go unread, so a stressed market graded stable."""
-        with pytest.raises(InvalidObservationError, match="unknown keys"):
+        with pytest.raises(InvalidObservationError, match=r"nothing usable.*unknown key"):
             FinancialCrisisDetector().predict_financial_crisis(record)
 
     @pytest.mark.parametrize("section", ["market_data", "banking_data", "currency_data"])
     def test_non_mapping_section_is_refused(self, section: str) -> None:
-        with pytest.raises(InputModalityError, match="mapping"):
+        with pytest.raises(InvalidObservationError, match="must be a mapping"):
             FinancialCrisisDetector().predict_financial_crisis({section: [1.0]})
+
+    def test_non_mapping_record_is_refused(self) -> None:
+        with pytest.raises(InputModalityError, match="mapping"):
+            FinancialCrisisDetector().predict_financial_crisis([1.0])  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(
+        ("extra", "where"),
+        [
+            ({"market_data": {"price_change_pct": -12.0, "VIX": 60.0}}, "market_data.VIX"),
+            ({"market_data": {"price_change_pct": -12.0, "vix": float("nan")}}, "market_data.vix"),
+            ({"market_data": {"price_change_pct": -12.0}, "currency_data": [0.4]}, "currency_data"),
+            ({"market_data": {"price_change_pct": -12.0}, "forex_data": {"x": 1}}, "forex_data"),
+            ({"market_data": {"price_change_pct": -12.0}, "banking_data": {}}, "banking_data"),
+        ],
+    )
+    def test_usable_rest_is_graded_and_the_verdict_is_partial(
+        self, extra: dict[str, Any], where: str
+    ) -> None:
+        """Regression: one unusable piece refused a measured -12% crash."""
+        result = FinancialCrisisDetector().predict_financial_crisis(extra)
+        assert result.market_crash_detected is True
+        assert result.partial is True
+        assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
+
+    def test_clean_record_is_not_partial(self) -> None:
+        result = FinancialCrisisDetector().predict_financial_crisis(
+            {"market_data": {"price_change_pct": -1.0, "vix": 15.0}}
+        )
+        assert result.partial is False and result.set_aside == []
 
     def test_untrained_fraud_network_is_not_consulted(self) -> None:
         """Regression: a randomly-initialised FraudDetector was run and its noise

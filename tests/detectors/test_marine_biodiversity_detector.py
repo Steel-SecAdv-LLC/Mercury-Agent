@@ -369,8 +369,33 @@ class TestMarineBiodiversityDetector:
         ],
     )
     def test_incomplete_or_misspelt_section_is_refused(self, detector: Any, data: Any) -> None:
-        with pytest.raises(InvalidObservationError, match=r"missing|unknown keys"):
+        with pytest.raises(
+            InvalidObservationError, match=r"nothing usable.*(missing|unknown key|empty section)"
+        ):
             detector.predict_biodiversity_threat(data)
+
+    @pytest.mark.parametrize(
+        ("broken", "where"),
+        [
+            ({"coral_data": {"sst_anomaly_c": 0.2}}, "coral_data"),  # DHW missing
+            ({"coral_data": {"sst_anomaly_c": 0.2, "dhw": 9.0}}, "coral_data.dhw"),
+            ({"temperature_data": {"anomaly_c": float("nan")}}, "temperature_data.anomaly_c"),
+            ({"salinity_data": {"psu": 35.0}}, "salinity_data"),
+        ],
+    )
+    def test_usable_indicator_is_graded_beside_an_unusable_one(
+        self, detector: Any, broken: dict[str, Any], where: str
+    ) -> None:
+        """Regression: one incomplete section refused a measured acidification event."""
+        result = detector.predict_biodiversity_threat({"chemistry_data": {"ph": 7.7}, **broken})
+        assert result.ocean_acidification is True
+        assert result.ecosystem_threatened is True
+        assert result.partial is True
+        assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
+
+    def test_complete_record_is_not_partial(self, detector: Any) -> None:
+        result = detector.predict_biodiversity_threat({"chemistry_data": {"ph": 8.05}})
+        assert result.partial is False and result.set_aside == []
 
     @pytest.mark.parametrize(
         ("section", "key"),
@@ -383,7 +408,7 @@ class TestMarineBiodiversityDetector:
 
     def test_chemistry_without_ph_reports_no_fabricated_ph(self, detector: Any) -> None:
         """A chemistry section without pH used to report pH 8.1 nobody measured."""
-        with pytest.raises(InvalidObservationError, match="missing"):
+        with pytest.raises(InvalidObservationError, match=r"nothing usable.*empty section"):
             detector.predict_biodiversity_threat({"chemistry_data": {}})
 
     def test_status_and_decision_agree(self, detector: Any) -> None:

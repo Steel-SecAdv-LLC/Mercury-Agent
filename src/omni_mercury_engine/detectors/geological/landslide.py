@@ -48,7 +48,7 @@ from scipy import signal
 from torch import nn
 
 from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
-from omni_mercury_engine.detectors._hazard_input import finite_scalar
+from omni_mercury_engine.detectors._hazard_input import InputGrader, finite_scalar
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
@@ -156,6 +156,72 @@ def validate_landslide_data(landslide_data: Any) -> None:
             )
 
 
+#: Top-level keys ``predict_landslide`` reads besides the monitoring
+#: sections: the opaque feature vector and the cascade-assessment context.
+LANDSLIDE_PASS_THROUGH: frozenset[str] = frozenset(
+    {"slope_features", "infrastructure_data", "population_data"}
+)
+
+
+def grade_landslide_data(landslide_data: Any) -> tuple[dict[str, Any], InputGrader]:
+    """Keep every usable measurement; set the rest aside with its reason.
+
+    The partial-input contract (:class:`InputGrader`): a misspelt key or
+    section, an empty or non-mapping section, or a non-finite / non-physical
+    value is set aside and reported, and the rest of the record is graded.
+    Only a record with nothing usable is refused.
+
+    Returns:
+        ``(record, grader)``: the record holding only usable values, and the
+        grader carrying what was set aside.
+
+    Raises:
+        InputModalityError: If the record itself is not a mapping.
+        InvalidObservationError: If nothing usable remains.
+    """
+    if not isinstance(landslide_data, dict):
+        raise InputModalityError(
+            "predict_landslide expects a mapping of monitoring sections "
+            f"(rainfall_data, seismic_data, ...), got {type(landslide_data).__name__}"
+        )
+    grader = InputGrader()
+    record: dict[str, Any] = dict(
+        grader.grade_sections(
+            {k: v for k, v in landslide_data.items() if k not in LANDSLIDE_PASS_THROUGH},
+            LANDSLIDE_INPUTS,
+        )
+    )
+    features = landslide_data.get("slope_features")
+    if features is not None:
+        try:
+            array = np.asarray(features, dtype=np.float64)
+        except (TypeError, ValueError):
+            grader.discard("slope_features", "must be a numeric vector", features)
+        else:
+            if np.all(np.isfinite(array)):
+                record["slope_features"] = features
+            else:
+                grader.discard(
+                    "slope_features",
+                    f"{int(array.size - np.isfinite(array).sum())} non-finite value(s); "
+                    "the stability model cannot read a vector with gaps",
+                )
+    grader.require_usable(
+        record,
+        f"no slope measured: supply at least one of {sorted(LANDSLIDE_INPUTS)} or "
+        "slope_features; an unmonitored slope is not a stable one",
+    )
+    for key in ("infrastructure_data", "population_data"):
+        context = landslide_data.get(key)
+        if context is None:
+            continue
+        if isinstance(context, dict):
+            record[key] = context
+        else:
+            grader.discard(key, f"must be a mapping, got {type(context).__name__}", context)
+    return record, grader
+
+
 @dataclass
 class LandslidePredictionResult:
     """Landslide prediction results."""
@@ -182,6 +248,12 @@ class LandslidePredictionResult:
     evacuation_zones: list[str] = field(default_factory=list)
     early_warning_actions: list[str] = field(default_factory=list)
     cascade_risks: list[str] = field(default_factory=list)
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why, so a partial verdict never
+    # reads as a full all-clear.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
 
     # Populated only when the detector was built with keep_diagnostics=True.
     # NOTE: the landslide detector computes no zonal/geographic output (its
@@ -932,17 +1004,22 @@ class LandslideDetector:
         Returns:
             Landslide prediction with risk level and evacuation recommendations
 
+        Unusable pieces (see :data:`LANDSLIDE_INPUTS`) are set aside and
+        reported on the result (``partial``, ``set_aside``); the usable rest
+        is graded.
+
         Raises:
-            InputModalityError: If the record or a section is not a mapping.
-            InvalidObservationError: On a non-finite or non-physical value
-                (see :data:`LANDSLIDE_INPUTS`).
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: When nothing usable was fed.
         """
-        validate_landslide_data(landslide_data)
+        landslide_data, grader = grade_landslide_data(landslide_data)
         result = LandslidePredictionResult(
             landslide_imminent=False,
             confidence=0.0,
             risk_level="low",
             landslide_type="debris_flow",
+            partial=grader.partial,
+            set_aside=list(grader.set_aside),
         )
 
         triggers_detected: float = 0

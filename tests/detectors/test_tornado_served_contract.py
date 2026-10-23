@@ -70,7 +70,9 @@ def test_confidence_is_the_trained_mesocyclone_probability(
 
 
 def test_non_evidence_inputs_carry_no_decision_weight(served: td.TornadoDetector) -> None:
-    base = {"atmospheric_data": {"cape": 500.0}}
+    # ``cape`` (not ``cape_j_kg``) used to be read silently as CAPE 0; it is
+    # now set aside, so the base record names the real field.
+    base = {"atmospheric_data": {"cape_j_kg": 500.0}}
     extras = {
         **base,
         "location": {"state": "OK"},

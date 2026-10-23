@@ -275,7 +275,7 @@ def test_misspelt_section_key_is_refused(
     physics: VolcanicEruptionDetector, section: str, values: dict[str, float]
 ) -> None:
     """A misspelt measurement used to grade as baseline -- a silent all-clear."""
-    with pytest.raises(InvalidObservationError, match="unknown keys"):
+    with pytest.raises(InvalidObservationError, match=r"nothing usable.*unknown key"):
         physics.predict_eruption({section: values})
 
 
@@ -304,8 +304,43 @@ def test_one_measured_gas_is_graded(physics: VolcanicEruptionDetector) -> None:
 @pytest.mark.parametrize("section", ["thermal_data", "gas_data", "insar_data", "precursor_rate"])
 def test_non_mapping_section_is_refused(physics: VolcanicEruptionDetector, section: str) -> None:
     """A list section used to fail deep inside with a bare AttributeError."""
-    with pytest.raises(InputModalityError, match="mapping"):
+    with pytest.raises(InvalidObservationError, match="must be a mapping"):
         physics.predict_eruption({section: [1.0, 2.0]})
+
+
+def test_non_mapping_record_is_refused(physics: VolcanicEruptionDetector) -> None:
+    with pytest.raises(InputModalityError, match="mapping"):
+        physics.predict_eruption([1.0, 2.0])  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("extra", "where"),
+    [
+        ({"insar_data": {"vertical_cm": 30.0}}, "insar_data.vertical_cm"),
+        ({"insar_data": {"vertical_displacement_cm": float("nan")}}, "insar_data"),
+        ({"thermal_data": {"brightness_temperature_k": [300.0, 9000.0]}}, "thermal_data"),
+        ({"seismic_sequence": [1.0, float("nan"), 3.0]}, "seismic_sequence"),
+        ({"insar_data": [1.0]}, "insar_data"),
+        ({"radon_data": {"bq": 3.0}}, "radon_data"),
+        (
+            {"precursor_rate": {"times_h": [1.0, 2.0, 3.0, 4.0, 5.0], "rate": [1.0, -1.0]}},
+            "precursor_rate",
+        ),
+    ],
+)
+def test_usable_streams_are_graded_beside_an_unusable_one(
+    physics: VolcanicEruptionDetector, extra: dict[str, Any], where: str
+) -> None:
+    """Regression: one unusable stream refused a measured gas anomaly."""
+    result = physics.predict_eruption({"gas_data": {"so2_tons_per_day": 5000.0}, **extra})
+    assert result.gas_flux_anomaly
+    assert result.partial is True
+    assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
+
+
+def test_clean_record_is_not_partial(physics: VolcanicEruptionDetector) -> None:
+    result = physics.predict_eruption({"gas_data": {"so2_tons_per_day": 5000.0}})
+    assert result.partial is False and result.set_aside == []
 
 
 @pytest.mark.parametrize(

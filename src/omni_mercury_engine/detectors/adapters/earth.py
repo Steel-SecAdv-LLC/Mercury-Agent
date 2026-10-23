@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
 from omni_mercury_engine.detectors.hazard_adapter import (
     Assessment,
@@ -175,6 +174,7 @@ class LandslideAdapter(HazardRowAdapter):
             r = self._detector.predict_landslide(record)
         except ValueError as e:
             raise _domain_refusal(e) from e
+        self._note_set_aside(r)
         return (
             float(r.slope_failure_probability),
             bool(r.landslide_imminent),
@@ -675,13 +675,19 @@ class SurgeFloodCascadeAdapter(HazardRecordAdapter):
             cascade = self._cascade
         else:
             cascade = SurgeFloodCascade()
+        set_aside: tuple[dict[str, Any], ...] = ()
         try:
             if "hurricane" in unit:
                 if self._detector is None:
                     self._detector = HurricaneDetector()
-                cascade.update_hurricane_evidence(
-                    self._detector.predict_hurricane(unit["hurricane"])
+                hurricane = self._detector.predict_hurricane(unit["hurricane"])
+                # The served result is the cascade's; carry what the
+                # hurricane detector set aside so the verdict stays partial.
+                set_aside = tuple(
+                    {**entry, "where": f"hurricane.{entry['where']}"}
+                    for entry in hurricane.set_aside
                 )
+                cascade.update_hurricane_evidence(hurricane)
             if "coops_observed" in unit:
                 cascade.update_surge_evidence(
                     unit["coops_observed"],
@@ -705,6 +711,7 @@ class SurgeFloodCascadeAdapter(HazardRecordAdapter):
                 float("nan") if a.surge is None else float(a.surge.max_residual_m),
             ),
             result=a,
+            set_aside=set_aside,
         )
 
 
@@ -738,7 +745,7 @@ class MarineEcosystemAdapter(HazardRowAdapter):
     #: The wrapped MarineBiodiversityDetector is lazily built and learns
     #: nothing from the caller's batch, so the adapter's checkpoint carries
     #: only the trivial fitted flag and base attributes.
-    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_detector"}
+    _UNSAVED_ATTRS = HazardRowAdapter._UNSAVED_ATTRS | {"_detector"}
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize with ``BaseDetector`` config; the detector loads lazily."""
@@ -766,6 +773,7 @@ class MarineEcosystemAdapter(HazardRowAdapter):
             r = self._detector.predict_biodiversity_threat(record)
         except ValueError as e:
             raise _domain_refusal(e) from e
+        self._note_set_aside(r)
         return (
             ordinal_score(r.health_status, self._HEALTH),
             bool(r.ecosystem_threatened),
