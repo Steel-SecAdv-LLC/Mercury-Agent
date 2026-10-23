@@ -10,7 +10,9 @@ must reach the audit sink without ever raising into the request.
 
 from __future__ import annotations
 
+import gc
 import re
+import warnings
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -173,6 +175,24 @@ class TestAuditSeam:
 
 class TestMaintenanceSweep:
     """The sweep prunes every store and applies the sealing migration."""
+
+    def test_sweep_closes_every_store_it_opens(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: each sweep leaked four SQLite connections.
+
+        The periodic loop runs the sweep in the long-lived API process, so the
+        identity store, usage ledger and both rate-limit stores it opened were
+        file descriptors leaked per sweep, without bound.
+        """
+        # One file backs the identity store, ledger and both rate-limit stores.
+        monkeypatch.setenv("MERCURY_KEYSTORE_PATH", str(tmp_path / "platform.db"))
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            run_maintenance_sweep(now=datetime(2026, 6, 1, tzinfo=UTC))
+            gc.collect()
+        leaked = [str(w.message) for w in caught if "unclosed database" in str(w.message)]
+        assert leaked == [], leaked
 
     def test_prunes_expired_sessions_and_tokens(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

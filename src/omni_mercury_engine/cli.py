@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import click
 import numpy as np
@@ -2329,11 +2329,27 @@ def _require_env_path(name: str, purpose: str) -> str:
     return value
 
 
+_Closable = TypeVar("_Closable")
+
+
+def _scoped(resource: _Closable) -> _Closable:  # noqa: UP047 - PEP 695 needs Python 3.12+
+    """Close ``resource`` (a store or enforcer) when the running command ends.
+
+    The platform commands open SQLite-backed stores; without this each
+    command left its connections open until the interpreter exited, which
+    leaks them in any in-process caller (the maintenance runner, tests).
+    """
+    close = getattr(resource, "close", None)
+    if callable(close):
+        click.get_current_context().call_on_close(close)
+    return resource
+
+
 def _resolve_account(identifier: str) -> Any:
     """Resolve an account by email (preferred) or id, or exit 1."""
     from omni_mercury_engine.api.identity_store import build_identity_store
 
-    store = build_identity_store()
+    store = _scoped(build_identity_store())
     account = store.get_account_by_email(identifier) or store.get_account_by_id(identifier)
     if account is None:
         click.echo(f"Error: no account matches {identifier!r} (by email or id).", err=True)
@@ -2358,7 +2374,7 @@ def _effective_quota(account: Any) -> dict[str, Any]:
     """The account's resolved quota config (override > tier > default)."""
     from omni_mercury_engine.api.quota import build_quota_enforcer
 
-    config = build_quota_enforcer().config_for(account.id, account.tier)
+    config = _scoped(build_quota_enforcer()).config_for(account.id, account.tier)
     return {
         "window_seconds": config.window_seconds,
         "max_requests": config.max_requests,
@@ -2388,7 +2404,9 @@ def platform_account_list() -> None:
     _require_env_path("MERCURY_KEYSTORE_PATH", "accounts live in the shared SQLite store")
     from omni_mercury_engine.api.identity_store import build_identity_store
 
-    accounts = [_account_view(account) for account in build_identity_store().iter_accounts()]
+    accounts = [
+        _account_view(account) for account in _scoped(build_identity_store()).iter_accounts()
+    ]
     click.echo(json.dumps(accounts, indent=2))
 
 
@@ -2407,7 +2425,7 @@ def platform_account_set_tier(identifier: str, tier: str) -> None:
 
     account = _resolve_account(identifier)
     account.tier = tier.strip().lower()
-    build_identity_store().update_account(account)
+    _scoped(build_identity_store()).update_account(account)
     payload = _account_view(account)
     payload["effective_quota"] = _effective_quota(account)
     click.echo(json.dumps(payload, indent=2))
@@ -2418,7 +2436,7 @@ def _set_account_active(identifier: str, active: bool) -> None:
     _require_env_path("MERCURY_KEYSTORE_PATH", "accounts live in the shared SQLite store")
     from omni_mercury_engine.api.identity_store import build_identity_store
 
-    store = build_identity_store()
+    store = _scoped(build_identity_store())
     account = _resolve_account(identifier)
     account.is_active = active
     store.update_account(account)
@@ -2476,7 +2494,7 @@ def platform_quota_override_set(
     from omni_mercury_engine.api.quota import QuotaConfig, build_quota_enforcer
 
     account = _resolve_account(identifier)
-    enforcer = build_quota_enforcer()
+    enforcer = _scoped(build_quota_enforcer())
     config = QuotaConfig(
         window_seconds=(
             window_seconds if window_seconds is not None else QuotaConfig.from_env().window_seconds
@@ -2498,7 +2516,7 @@ def platform_quota_override_clear(identifier: str) -> None:
     from omni_mercury_engine.api.quota import build_quota_enforcer
 
     account = _resolve_account(identifier)
-    build_quota_enforcer().override_store.set_override(account.id, None)
+    _scoped(build_quota_enforcer()).override_store.set_override(account.id, None)
     payload = _account_view(account)
     payload["effective_quota"] = _effective_quota(account)
     click.echo(json.dumps(payload, indent=2))
@@ -2512,7 +2530,7 @@ def platform_quota_override_show(identifier: str) -> None:
     from omni_mercury_engine.api.quota import build_quota_enforcer
 
     account = _resolve_account(identifier)
-    override = build_quota_enforcer().override_store.get_override(account.id)
+    override = _scoped(build_quota_enforcer()).override_store.get_override(account.id)
     payload = _account_view(account)
     payload["override"] = (
         {
@@ -2556,7 +2574,7 @@ def platform_usage_report(identifier: str | None, top_n: int, window_seconds: in
 
     window = window_seconds if window_seconds is not None else QuotaConfig.from_env().window_seconds
     since = datetime.now(UTC) - timedelta(seconds=window)
-    ledger = build_usage_ledger()
+    ledger = _scoped(build_usage_ledger())
 
     def _row(account: Any) -> dict[str, Any]:
         summary = ledger.summary_since(account.id, since)
@@ -2572,7 +2590,7 @@ def platform_usage_report(identifier: str | None, top_n: int, window_seconds: in
         rows = [_row(_resolve_account(identifier))]
     else:
         rows = sorted(
-            (_row(account) for account in build_identity_store().iter_accounts()),
+            (_row(account) for account in _scoped(build_identity_store()).iter_accounts()),
             key=lambda row: (-int(row["requests"]), str(row["email"])),
         )[:top_n]
     click.echo(json.dumps({"window_seconds": window, "accounts": rows}, indent=2))

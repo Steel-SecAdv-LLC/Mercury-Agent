@@ -281,6 +281,18 @@ class QuotaEnforcer:
         """The per-account override store (operator tooling hooks in here)."""
         return self._overrides
 
+    def close(self) -> None:
+        """Close the ledger and override store when they hold a connection.
+
+        :func:`build_quota_enforcer` opens both on the shared SQLite file;
+        a caller that builds an enforcer for one task must close it, or each
+        build leaks two connections.
+        """
+        for resource in (self._ledger, self._overrides):
+            close = getattr(resource, "close", None)
+            if callable(close):
+                close()
+
     def config_for(self, account_id: str, tier: str = "free") -> QuotaConfig:
         """Resolve the effective config: override > tier > default.
 

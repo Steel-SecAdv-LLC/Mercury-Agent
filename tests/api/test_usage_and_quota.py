@@ -112,7 +112,9 @@ def test_build_usage_ledger_selects_backend(
     monkeypatch.delenv("MERCURY_KEYSTORE_PATH", raising=False)
     assert isinstance(build_usage_ledger(), InMemoryUsageLedger)
     monkeypatch.setenv("MERCURY_KEYSTORE_PATH", str(tmp_path / "u.db"))
-    assert isinstance(build_usage_ledger(), SqliteUsageLedger)
+    durable = build_usage_ledger()
+    assert isinstance(durable, SqliteUsageLedger)
+    durable.close()
 
 
 # --------------------------------------------------------------------------- #
