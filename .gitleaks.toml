@@ -42,4 +42,15 @@ useDefault = true
     # security/crypto_api.py (commits 5dce8170 and c5a0d4f2) is a type
     # annotation; the rule reads the annotation as the value.
     '''Ed25519PrivateKey''',
+    # tests/security/test_source_offer.py: a made-up token the test proves is
+    # never written to the log.
+    '''ghp_s3cr3tT0k3n''',
+    # SHA-256 pin of the NAB file realKnownCause/rogue_agent_key_hold.csv, a
+    # public dataset checksum; the rule reads "key" in the file name as the key
+    # name (tests/fixtures/nab/PROVENANCE.json, the streaming alarm policy
+    # provenance and results).
+    '''47b110baa8e3636574c1033dda1cce780873647fab58223d159d4fee6f180e86''',
+    # tests/fixtures/crs/crs_v470_payloads.json: the jwt.io documentation sample
+    # token (sub 1234567890, "John Doe") inside an OWASP CRS v4.7.0 test payload.
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ''',
   ]
