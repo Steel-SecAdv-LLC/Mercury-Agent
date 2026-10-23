@@ -108,11 +108,9 @@ def test_fitted_state_round_trips_exactly(entry: Any, tmp_path: Path) -> None:
         restored.get("scores", [restored.get("anomaly_score", restored.get("anomaly_prob"))]),
         dtype=np.float64,
     )
-    np.testing.assert_allclose(
+    np.testing.assert_array_equal(
         restored_scores,
         original_scores,
-        rtol=1e-6,
-        atol=1e-9,
         err_msg=f"{entry.name}: restored detector scores differ from the fitted original",
     )
 

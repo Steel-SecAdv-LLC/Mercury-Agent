@@ -103,6 +103,4 @@ def test_reduced_fft_size_survives_save_and_load(tmp_path: Path) -> None:
     restored.load(str(path))
 
     assert restored._spectral_config.fft_size == 64
-    np.testing.assert_allclose(
-        restored.detect(probe)["scores"], fitted.detect(probe)["scores"], rtol=1e-6
-    )
+    np.testing.assert_array_equal(restored.detect(probe)["scores"], fitted.detect(probe)["scores"])

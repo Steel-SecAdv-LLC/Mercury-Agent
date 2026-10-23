@@ -27,7 +27,9 @@ The ``nn.Module`` subclasses here (``SpectralGNN``, ``SpectralCNN``,
 training script fits them, no checkpoint is loaded, and none exists in this
 repository. They run in ``eval()`` under ``no_grad`` at their initialisation
 weights, which makes them a deterministic **random projection** of the spectrum
-— a real, reproducible feature transform, but not a learned model.
+— a real, reproducible feature transform (the weights are drawn from a fixed
+seed, ``config["network_seed"]``, so every instance is bit-identical), but not
+a learned model.
 
 That is not fatal to the detector, because ``fit()`` computes its reference
 statistics through the *same* projection, so the anomaly score compares like
@@ -74,6 +76,12 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Constants and Enumerations
 # =============================================================================
+
+#: Seed of the untrained network weights (``config["network_seed"]`` overrides).
+#: Constructed under a forked RNG, as the repository's other untrained
+#: projections are, so every instance is bit-identical and the caller's global
+#: RNG stream is untouched.
+_NETWORK_INIT_SEED = 20260723
 
 # Golden ratio for harmonic weighting (from 3R mechanism)
 PHI = MathematicalConstants.GOLDEN_RATIO.value  # 1.618033988749895
@@ -946,36 +954,45 @@ class SpectralVibrationDetector(BaseDetector):
     def _init_networks(self) -> None:
         """Initialize neural network components."""
         cfg = self._spectral_config
+        seed = int(self.config.get("network_seed", _NETWORK_INIT_SEED))
 
-        # GNN for spectral graph analysis
-        self._gnn = SpectralGNN(
-            input_dim=2,  # magnitude + phase or magnitude + derivative
-            hidden_dim=cfg.gnn_hidden_dim,
-            output_dim=32,
-            num_layers=cfg.gnn_num_layers,
-        ).to(self.device)
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(seed)
 
-        # CNN for spectral patterns
-        self._cnn = SpectralCNN(
-            input_channels=1,
-            num_filters=cfg.cnn_filters,
-            output_dim=32,
-        ).to(self.device)
+            # GNN for spectral graph analysis
+            gnn = SpectralGNN(
+                input_dim=2,  # magnitude + phase or magnitude + derivative
+                hidden_dim=cfg.gnn_hidden_dim,
+                output_dim=32,
+                num_layers=cfg.gnn_num_layers,
+            )
 
-        # Phonon interaction network
-        num_modes = cfg.fft_size // 2
-        self._phonon_net = PhononInteractionNetwork(
-            num_modes=min(num_modes, 128),  # Cap for efficiency
-            hidden_dim=32,
-            interaction_order=3,
-        ).to(self.device)
+            # CNN for spectral patterns
+            cnn = SpectralCNN(
+                input_channels=1,
+                num_filters=cfg.cnn_filters,
+                output_dim=32,
+            )
 
-        # MLIP encoder
-        self._mlip_encoder = MLIPVibrationEncoder(
-            num_freq_bins=cfg.fft_size // 2,
-            descriptor_dim=64,
-            output_dim=32,
-        ).to(self.device)
+            # Phonon interaction network
+            num_modes = cfg.fft_size // 2
+            phonon_net = PhononInteractionNetwork(
+                num_modes=min(num_modes, 128),  # Cap for efficiency
+                hidden_dim=32,
+                interaction_order=3,
+            )
+
+            # MLIP encoder
+            mlip_encoder = MLIPVibrationEncoder(
+                num_freq_bins=cfg.fft_size // 2,
+                descriptor_dim=64,
+                output_dim=32,
+            )
+
+        self._gnn = gnn.to(self.device)
+        self._cnn = cnn.to(self.device)
+        self._phonon_net = phonon_net.to(self.device)
+        self._mlip_encoder = mlip_encoder.to(self.device)
 
         # Set to eval mode (no training in detector)
         self._gnn.eval()
@@ -1290,29 +1307,32 @@ class SpectralVibrationDetector(BaseDetector):
             Power spectrum (magnitude squared of FFT)
         """
         cfg = self._spectral_config
+        half = cfg.fft_size // 2
+        window = np.hanning(cfg.fft_size)
 
-        # Zero-pad or truncate to FFT size
-        if len(signal) < cfg.fft_size:
-            signal = np.pad(signal, (0, cfg.fft_size - len(signal)))
-        elif len(signal) > cfg.fft_size:
-            # Use windowed average for long signals.
+        if len(signal) > cfg.fft_size:
+            # Welch: the mean spectrum of Hann-windowed, overlapping frames.
             hop = self._hop(cfg.fft_size)
             num_frames = (len(signal) - cfg.fft_size) // hop + 1
-
             spectra = []
-            window = np.hanning(cfg.fft_size)
-
             for i in range(num_frames):
                 start = i * hop
                 frame = signal[start : start + cfg.fft_size] * window
-                spectrum = np.abs(fft(frame)[: cfg.fft_size // 2]) ** 2
-                spectra.append(spectrum)
-
+                spectra.append(np.abs(fft(frame)[:half]) ** 2)
             return np.mean(spectra, axis=0)
 
-        # Single FFT for short signals
-        spectrum = np.abs(fft(signal)[: cfg.fft_size // 2]) ** 2
-        return spectrum
+        # One frame: the signal itself. It is Hann-windowed over its own length
+        # (as the frames above are) and zero-padded, and scaled so its broadband
+        # level equals a full frame's -- the same estimator at every length. An
+        # unwindowed single FFT here made a signal one sample over ``fft_size``
+        # read as a different statistic from one at ``fft_size``.
+        n = len(signal)
+        if n == 0:
+            return np.zeros(half)
+        own = np.hanning(n) if n >= 3 else np.ones(n)
+        level = float(np.sum(window**2) / np.sum(own**2))
+        spectrum: np.ndarray[Any, Any] = np.abs(fft(signal * own, n=cfg.fft_size)[:half]) ** 2
+        return spectrum * level
 
     def _extract_spectral_features(self, signal: np.ndarray[Any, Any]) -> SpectralFeatures:
         """Extract comprehensive spectral features.
@@ -1526,7 +1546,11 @@ class SpectralVibrationDetector(BaseDetector):
             flipped = diags(np.full(n, 2.0)) - laplacian
             # Only the eigenvalues are consumed; skipping eigenvector
             # extraction halves the ARPACK cost.
-            top = eigsh(flipped, k=k, which="LM", return_eigenvectors=False)
+            # ARPACK starts from a random vector unless given one, which made
+            # the eigenvalues (and the score) differ by ~1e-14 / ~1e-9 between
+            # identical calls; a fixed generic start makes every call identical.
+            v0 = np.random.default_rng(0).standard_normal(n)
+            top = eigsh(flipped, k=k, which="LM", return_eigenvectors=False, v0=v0)
             eigenvalues = np.sort(2.0 - np.real(top))
         except Exception:
             eigenvalues = np.zeros(k)
@@ -1963,6 +1987,57 @@ class SpectralVibrationDetector(BaseDetector):
 # =============================================================================
 # Utility Functions
 # =============================================================================
+
+
+def spectral_entropy(power_spectrum: np.ndarray[Any, Any]) -> float:
+    """Normalised Shannon entropy of a power spectrum.
+
+    Args:
+        power_spectrum: One-sided power spectrum (non-negative).
+
+    Returns:
+        ``H / log(N)`` of the spectrum treated as a probability distribution
+        over its ``N`` bins: near 0 for one tone (window leakage keeps a
+        Hann-windowed tone at about 0.1), near 1 for a flat (white) spectrum;
+        0 for an empty or all-zero spectrum.
+    """
+    spectrum = np.asarray(power_spectrum, dtype=float)
+    total = float(spectrum.sum())
+    if spectrum.size < 2 or total <= 0.0:
+        return 0.0
+    p = spectrum[spectrum > 0.0] / total
+    return float(-np.sum(p * np.log(p)) / np.log(spectrum.size))
+
+
+def total_harmonic_distortion(power_spectrum: np.ndarray[Any, Any], max_harmonic: int = 8) -> float:
+    """Total harmonic distortion of a power spectrum (IEEE 519 definition).
+
+    ``THD = sqrt(sum_{h=2..H} P_h / P_1)``: the power at integer multiples of
+    the strongest non-DC component (its fundamental), over the fundamental's,
+    each taken as the largest of the bin and its two neighbours (window
+    leakage); on a power spectrum ``P`` is proportional to amplitude squared,
+    so this equals the amplitude ratio.
+
+    Args:
+        power_spectrum: One-sided power spectrum.
+        max_harmonic: Highest harmonic included (>= 2).
+
+    Returns:
+        The distortion ratio (0 for a pure tone); 0 for a spectrum with no
+        non-DC power or whose harmonics lie beyond the spectrum.
+    """
+    spectrum = np.asarray(power_spectrum, dtype=float)
+    if spectrum.size < 3 or float(spectrum[1:].max()) <= 0.0:
+        return 0.0
+    fundamental = int(np.argmax(spectrum[1:])) + 1
+    p1 = float(spectrum[fundamental])
+    harmonics = 0.0
+    for h in range(2, max(2, max_harmonic) + 1):
+        centre = h * fundamental
+        if centre >= spectrum.size:
+            break
+        harmonics += float(spectrum[max(centre - 1, 1) : centre + 2].max())
+    return float(np.sqrt(harmonics / p1))
 
 
 def compute_short_time_fourier_transform(

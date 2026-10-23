@@ -934,8 +934,22 @@ def physics() -> None:
     help="Analysis mode",
 )
 @click.option("--sample-rate", "-s", default=1000.0, type=float, help="Signal sample rate (Hz)")
+@click.option(
+    "--reference",
+    "-r",
+    help=(
+        "Known-good recording(s) (CSV/JSON/NPY; one recording per row) to score the input "
+        "against. Without it the input is scored against its own spectrum, which cannot "
+        "show a fault."
+    ),
+)
 def physics_spectral(
-    input: str, output: str, threshold: float, mode: str, sample_rate: float
+    input: str,
+    output: str,
+    threshold: float,
+    mode: str,
+    sample_rate: float,
+    reference: str | None,
 ) -> None:
     """Spectral vibration analysis using GNN and CNN.
 
@@ -943,15 +957,24 @@ def physics_spectral(
     physics-inspired techniques including phonon interaction modeling,
     harmonic analysis, and predictive maintenance signatures.
 
+    The anomaly verdict compares the input with a baseline of normal
+    behaviour: pass a known-good recording (or several, one per row) with
+    ``--reference``. With no reference the input is fitted on and scored
+    against itself, so its verdict is not meaningful and the output says so;
+    the descriptors (dominant frequencies, spectral entropy, harmonic
+    distortion, signature) are the input's own either way.
+
     Examples:
-        mercury physics spectral -i vibration_data.csv
-        mercury physics spectral -i sensor.json -m phonon -t 0.6
-        mercury physics spectral -i machine.csv -m predictive -o results.json
+        mercury physics spectral -i machine.csv --reference healthy.csv
+        mercury physics spectral -i sensor.json -r healthy.json -m phonon -t 0.6
+        mercury physics spectral -i machine.csv -r healthy.csv -o results.json
     """
     try:
         from omni_mercury_engine.detectors.spectral_vibration import (
             SpectralAnalysisMode,
             SpectralVibrationDetector,
+            spectral_entropy,
+            total_harmonic_distortion,
         )
 
         # Map mode string to enum
@@ -971,24 +994,38 @@ def physics_spectral(
 
         detector = SpectralVibrationDetector(config)
         data = _load_data(input)
+        signal = data.flatten() if data.ndim > 1 else data
 
-        # Fit on the data (self-supervised for single-sample analysis)
-        detector.fit(data.flatten() if data.ndim > 1 else data)
+        if reference is not None:
+            # A baseline of known-good recordings: a CSV's rows are separate
+            # recordings (so the spread comes from between them), a flat
+            # series is one.
+            detector.fit(_load_data(reference))
+            baseline = "reference"
+        else:
+            detector.fit(signal)
+            baseline = "input_itself"
 
-        # Detect anomalies
-        result = detector.detect(data.flatten() if data.ndim > 1 else data)
+        result = detector.detect(signal)
 
-        # Format output
+        power_spectrum = result["spectral_features"].power_spectrum
         output_data = {
             "detector": "SpectralVibrationDetector",
             "mode": mode,
+            "baseline": baseline,
             "is_anomaly": result.get("is_anomaly", False),
             "anomaly_score": float(result.get("anomaly_score", 0.0)),
             "dominant_frequencies": result.get("dominant_frequencies", []),
-            "spectral_entropy": result.get("spectral_entropy", 0.0),
-            "harmonic_distortion": result.get("harmonic_distortion", 0.0),
-            "vibration_signature": result.get("vibration_signature", "unknown"),
+            "spectral_entropy": spectral_entropy(power_spectrum),
+            "harmonic_distortion": total_harmonic_distortion(power_spectrum),
+            "vibration_signature": result["signature_type"],
         }
+        if baseline == "input_itself":
+            output_data["warning"] = (
+                "no --reference given: the input was scored against its own spectrum, so "
+                "is_anomaly and anomaly_score do not measure a fault; pass --reference "
+                "with a known-good recording"
+            )
 
         if output:
             with open(output, "w") as f:

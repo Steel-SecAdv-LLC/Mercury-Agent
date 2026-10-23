@@ -27,6 +27,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — spectral vibration detector, its fusion score and its CLI.**
+A detector fitted on 1,024-sample signals scored every normal 1,025-sample
+signal 1.000 (the longer path was Hann-windowed, the shorter was not); every
+length now takes one windowed estimator, with a single frame scaled to the
+broadband level of a full one (long-signal values are unchanged). Its
+untrained networks are now drawn from a fixed seed (`network_seed`), so
+instances agree bit for bit, and its graph-Laplacian eigenvalues start from a
+fixed vector, which removes a ~1e-9 run-to-run score difference. The
+`/detect/fusion` spectral score was `max|FFT| / N` of the raw data (a series
+offset by 1000 scored 1000 and was always an anomaly); it is now Fisher's
+dominant-frequency test as a z-score, like the other scores.
+`mercury physics spectral` gains `--reference`, reports the input's own
+spectral entropy, harmonic distortion and signature in place of constant
+placeholders, and says when no reference was given.
+
 **Fixed — decoy failures were visible only in logs.** When the audit chain refused
 a tripwire record, the shared store failed, or a decoy route failed, the sensor
 kept answering (by design) but left nothing an operator or the chain could act
