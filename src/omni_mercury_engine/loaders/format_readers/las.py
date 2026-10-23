@@ -197,9 +197,11 @@ def read_las_points(path: str | Path, max_points: int | None = None) -> dict[str
     else:
         result["classification"] = records["classification"].copy()
         result["classification_flags"] = (records["flags_byte"] & 0x0F).astype(np.uint8)
-    if "gps_time" in dtype.names:
+    # A structured dtype always has field names; ``or ()`` narrows the stub's Optional.
+    field_names = dtype.names or ()
+    if "gps_time" in field_names:
         result["gps_time"] = records["gps_time"].copy()
-    if "red" in dtype.names:
+    if "red" in field_names:
         result["red"] = records["red"].copy()
         result["green"] = records["green"].copy()
         result["blue"] = records["blue"].copy()
