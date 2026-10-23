@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,054
-- **Capability-bearing classes:** 2,041 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,055
+- **Capability-bearing classes:** 2,042 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,195 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Neural models & layers | 162 |
 | Data sources & loaders | 106 |
 | Engines & orchestration | 101 |
-| Adapters & backends | 94 |
+| Adapters & backends | 95 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 26 |
@@ -1046,7 +1046,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 455 classes (330 capability)
+### `detectors/` — 456 classes (331 capability)
 
 **Adapters & backends**
 
@@ -1080,6 +1080,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `RockfallAdapter` (`detectors.adapters.earth`) — Rockfall hazard from the monitoring channels of one cliff section.
 - `SEPProtonWindowAdapter` (`detectors.adapters.space`) — Solar energetic particle (radiation) storm from a proton-flux window.
 - `ScintillationAdapter` (`detectors.adapters.space`) — GNSS ionospheric scintillation measured from raw receiver samples.
+- `SepsisRecordAdapter` (`detectors.adapters.medical`) — Possible-sepsis screening from vital signs and laboratory values.
 - `SolarGICCascadeAdapter` (`detectors.adapters.space`) — The solar-to-grid cascade evaluated at one time from its evidence.
 - `SolarStormSnapshotAdapter` (`detectors.adapters.space`) — Space-weather storm snapshot: solar wind/IMF, X-ray flux and protons.
 - `SolarWindGeomagAdapter` (`detectors.hazard_adapter`) — Geomagnetic storm level from solar-wind speed and IMF Bz.

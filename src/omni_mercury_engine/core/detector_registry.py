@@ -825,6 +825,16 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         seams=("registry",),
         modality="record",
     ),
+    DetectorManifestEntry(
+        "sepsis",
+        "omni_mercury_engine.detectors.adapters.medical",
+        "SepsisRecordAdapter",
+        DetectorCategory.MEDICAL,
+        "Possible-sepsis screen: Sepsis-3 qSOFA and SOFA (Singer et al., JAMA 2016)",
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.medical.critical_care.sepsis_detector:SepsisDetector",
+    ),
     # -- Geological detectors -------------------------------------------------
     DetectorManifestEntry(
         "volcanic",

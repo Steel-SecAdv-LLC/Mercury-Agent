@@ -272,6 +272,10 @@ ENTRY_PAYLOADS: dict[str, Any] = {
         "banking_data": {"cds_spread_bps": 420.0, "default_rate_pct": 4.0, "liquidity_ratio": 0.7},
     },
     "emp": lambda: {"magnetometer_data": {"db_dt_nt_s": 8.0, "duration_seconds": 600.0}},
+    "sepsis": lambda: {
+        "vital_signs": {"respiratory_rate_bpm": 24.0, "systolic_bp_mmhg": 96.0},
+        "laboratory_values": {"platelets_k_ul": 90.0, "creatinine_mg_dl": 2.1},
+    },
 }
 
 

@@ -22,7 +22,7 @@ detectors needing an external service or model backend; ``serves X`` marks
 an adapter entry and names the domain detector behind it.
 
 
-## engine + registry (66)
+## engine + registry (67)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -70,6 +70,7 @@ an adapter entry and names the domain detector behind it.
 | `volcanic` | `VolcanicAdapter` | geological | record | serves `VolcanicEruptionDetector` | Volcanic eruption prediction |
 | `wildfire` | `WildfireSceneAdapter` | geological | record | serves `WildfireDetector` | Wildfire prediction |
 | `marine_biodiversity` | `MarineEcosystemAdapter` | marine | rows | serves `MarineBiodiversityDetector` | Marine biodiversity threat detection |
+| `sepsis` | `SepsisRecordAdapter` | medical | record | serves `SepsisDetector` | Possible-sepsis screen: Sepsis-3 qSOFA and SOFA (Singer et al., JAMA 2016) |
 | `surge_flood_cascade` | `SurgeFloodCascadeAdapter` | meteorological | event | serves `SurgeFloodCascade` | Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual) |
 | `acceleration_dynamics` | `AccelerationDynamicsDetector` | physics | series_1d | -- | Kinematic analysis with Lyapunov stability and phase space |
 | `physics_integrated` | `PhysicsIntegratedDetector` | physics | series_1d | fit | Unified physics detector with 3R and GOSNN integration |

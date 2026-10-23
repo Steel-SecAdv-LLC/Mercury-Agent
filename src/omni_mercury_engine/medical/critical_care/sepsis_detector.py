@@ -36,6 +36,9 @@ from typing import TYPE_CHECKING, Any
 import torch
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors._hazard_input import InputGrader
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.medical.safety import (
     ClinicalSafetyEnvelope,
     build_provenance,
@@ -81,6 +84,85 @@ class SepsisPredictionResult:
     sofa_is_lower_bound: bool = False
     unassessed_organs: list[str] = field(default_factory=list)
     safety: ClinicalSafetyEnvelope = field(default_factory=ClinicalSafetyEnvelope)
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
+
+
+#: Every scalar the qSOFA and SOFA instruments read, with its unit and a
+#: physiological plausibility range.  The ranges are unit-error screens
+#: (platelets per uL instead of 10^3/uL, a pressure in kPa), not clinical
+#: cut-offs; GCS is bounded by the scale's own definition (3-15).  A value
+#: outside its range, NaN (PhysioNet's encoding of "not measured") or a
+#: misspelt key is set aside and its organ reported unassessed: NaN used to
+#: fall through the SOFA ladders to their worst band, so an unmeasured
+#: platelet count read as organ failure.
+SEPSIS_INPUTS: dict[str, dict[str, tuple[str, float, float]]] = {
+    "vital_signs": {
+        "respiratory_rate_bpm": ("breaths/min", 0.0, 100.0),
+        "systolic_bp_mmhg": ("mmHg", 0.0, 350.0),
+        "gcs_score": ("GCS points", 3.0, 15.0),
+    },
+    "laboratory_values": {
+        "pao2_fio2_ratio": ("mmHg", 0.0, 800.0),
+        "platelets_k_ul": ("10^3/uL", 0.0, 5000.0),
+        "bilirubin_mg_dl": ("mg/dL", 0.0, 100.0),
+        "mean_arterial_pressure": ("mmHg", 0.0, 300.0),
+        "dopamine_mcg_kg_min": ("mcg/kg/min", 0.0, 100.0),
+        "norepinephrine_mcg_kg_min": ("mcg/kg/min", 0.0, 10.0),
+        "gcs_score": ("GCS points", 3.0, 15.0),
+        "creatinine_mg_dl": ("mg/dL", 0.0, 50.0),
+        "urine_output_ml_day": ("mL/day", 0.0, 50000.0),
+    },
+}
+
+
+def grade_patient_data(patient_data: Any) -> tuple[dict[str, Any], InputGrader]:
+    """Keep every usable measurement; set the rest aside with its reason.
+
+    Raises:
+        InputModalityError: If the record is not a mapping.
+        InvalidObservationError: If nothing usable remains.
+    """
+    if not isinstance(patient_data, dict):
+        raise InputModalityError(
+            "detect_sepsis expects a mapping (vital_signs, laboratory_values, "
+            f"temporal_sequence), got {type(patient_data).__name__}"
+        )
+    grader = InputGrader()
+    sections = {k: v for k, v in patient_data.items() if k in SEPSIS_INPUTS}
+    # mechanical_ventilation is a flag, not a measurement on a scale.
+    labs = sections.get("laboratory_values")
+    ventilation = None
+    if isinstance(labs, dict) and "mechanical_ventilation" in labs:
+        labs = dict(labs)
+        ventilation = labs.pop("mechanical_ventilation")
+        sections["laboratory_values"] = labs
+    record: dict[str, Any] = dict(grader.grade_sections(sections, SEPSIS_INPUTS))
+    if ventilation is not None:
+        if isinstance(ventilation, bool):
+            record.setdefault("laboratory_values", {})["mechanical_ventilation"] = ventilation
+        else:
+            grader.discard(
+                "laboratory_values.mechanical_ventilation",
+                f"must be True or False, got {type(ventilation).__name__}",
+                ventilation,
+            )
+    for key, value in patient_data.items():
+        if key == "temporal_sequence":
+            record[key] = value
+        elif key not in SEPSIS_INPUTS:
+            accepted = sorted({*SEPSIS_INPUTS, "temporal_sequence"})
+            grader.discard(key, f"unknown section; accepted: {accepted}")
+    # An empty record used to grade as a silent "no_sepsis".
+    grader.require_usable(
+        record,
+        "no patient measurement: supply vital_signs, laboratory_values or "
+        "temporal_sequence; an unassessed patient is not a well one",
+    )
+    return record, grader
 
 
 class SOFACalculator:
@@ -439,6 +521,37 @@ class SepsisDetector:
     prediction.
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Screening flag: qSOFA >= 2 (respiratory rate >= 22/min, systolic "
+                "BP <= 100 mmHg, GCS < 15) or SOFA >= 2 with the baseline assumed "
+                "zero (Sepsis-3's rule for patients without known pre-existing "
+                "organ dysfunction). Suspected infection, which Sepsis-3 also "
+                "requires, is not assessed, so a flag means possible sepsis, not "
+                "a Sepsis-3 diagnosis. The 'severe_sepsis' stage (>= 2 organs at "
+                "SOFA >= 2) is the retired Sepsis-2 category, kept for the "
+                "released result vocabulary."
+            ),
+            citation=(
+                "Singer et al. (2016), 'The Third International Consensus "
+                "Definitions for Sepsis and Septic Shock (Sepsis-3)', JAMA "
+                "315(8):801-810; Seymour et al. (2016), JAMA 315(8):762-774 "
+                "(qSOFA); Vincent et al. (1996), Intensive Care Med 22:707-710 "
+                "(SOFA)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The SepsisProgressionPredictor (stage, shock and mortality risk) "
+                "ships untrained and abstains until trained weights are loaded; no "
+                "operating point has been selected for it."
+            ),
+        ),
+    )
+
     def __init__(self, enable_ml_prediction: bool = True) -> None:
         """Initialize the instance."""
         self.enable_ml_prediction = enable_ml_prediction
@@ -459,13 +572,23 @@ class SepsisDetector:
                 - temporal_sequence: Time-series clinical data
 
         Returns:
-            Sepsis prediction with stage and recommendations
+            Sepsis prediction with stage and recommendations.  Unusable
+            measurements (see :data:`SEPSIS_INPUTS`) are set aside and
+            reported on the result (``partial``, ``set_aside``); their organs
+            and criteria are reported unassessed.
+
+        Raises:
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: When nothing usable was fed.
         """
+        patient_data, grader = grade_patient_data(patient_data)
         result = SepsisPredictionResult(
             sepsis_detected=False,
             confidence=0.0,
             sepsis_stage="no_sepsis",
             risk_score=0.0,
+            partial=grader.partial,
+            set_aside=list(grader.set_aside),
         )
         safety = result.safety
 
