@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
+from typing import Any
 
 import numpy as np
 import pytest
@@ -630,7 +631,7 @@ class TestSurgeFloodCascade:
             "datums": _json.loads((fixtures / "datums_8518750.json").read_text()),
         }
 
-        def fake_get(endpoint: str, params: dict | None = None) -> mock.Mock:
+        def fake_get(endpoint: str, params: dict[str, Any] | None = None) -> mock.Mock:
             key = "floodlevels" if "floodlevels" in endpoint else "datums"
             return mock.Mock(json=lambda: payloads[key])
 
@@ -642,6 +643,7 @@ class TestSurgeFloodCascade:
     def test_decision_source_names_the_published_threshold(self) -> None:
         published, fallback = SurgeFloodCascade.decision_source
         assert published.kind == "published"
+        assert published.citation is not None
         assert "NOS CO-OPS 086" in published.citation
         assert fallback.kind == "experimental"
 

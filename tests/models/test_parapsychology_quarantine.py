@@ -67,6 +67,7 @@ class TestDecisionSourceDeclarations:
         assert statistical.kind == "published"
         assert "p < 0.05" in statistical.description
         assert fault_model.kind == "trained"
+        assert fault_model.operating_point is not None
         assert "reg_deviation_gcp" in fault_model.operating_point
         assert psi.kind == "experimental"
 

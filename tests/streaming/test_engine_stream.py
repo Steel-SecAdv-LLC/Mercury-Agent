@@ -83,13 +83,13 @@ class TestEngineStreamSession:
             fits += 1
             return original_fit(self, data)
 
-        type(detector).fit = counting_fit  # type: ignore[method-assign]
+        type(detector).fit = counting_fit
         try:
             rng = np.random.default_rng(11)
             for _ in range(24):
                 session.observe(float(rng.standard_normal()))
         finally:
-            type(detector).fit = original_fit  # type: ignore[method-assign]
+            type(detector).fit = original_fit
         # One warm-up fit plus interval refits -- never one per sample.
         assert 1 <= fits <= 3
 

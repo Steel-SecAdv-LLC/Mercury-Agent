@@ -1351,8 +1351,12 @@ class TestStorePruneCadence:
     @staticmethod
     def _stale_rows(db: Path, key: str) -> int:
         import sqlite3
+        from contextlib import closing
 
-        with sqlite3.connect(db) as conn:
+        # ``with sqlite3.connect(...)`` only commits; it never closes, and the
+        # leaked handle surfaced as an unraisable ResourceWarning in whichever
+        # later test ran under ``filterwarnings("error")``.
+        with closing(sqlite3.connect(db)) as conn:
             return int(
                 conn.execute(
                     "SELECT COUNT(*) FROM deception_hits WHERE scope_key = ?", (key,)

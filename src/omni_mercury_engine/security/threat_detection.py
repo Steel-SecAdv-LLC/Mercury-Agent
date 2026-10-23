@@ -127,7 +127,7 @@ _SQL_CMP_AFTER = re.compile(r"[\w'\"]\s*=")
 
 
 def _sql_or_tautology(payload: str) -> bool:
-    """The tightened replacement for the retired ``(\\bOR\\b.*=.*)`` rule."""
+    r"""The tightened replacement for the retired ``(\bOR\b.*=.*)`` rule."""
     for m in _SQL_TAUT.finditer(payload):
         lhs, rhs = m.group(1), m.group(2)
         if lhs.lower() == rhs.lower() or (lhs.isdigit() and rhs.isdigit()):
@@ -145,7 +145,7 @@ _XSS_ON_HANDLER = re.compile(r"""[\s"'`;/0-9=(,;]on[a-z]{2,24}\s*=""", _I)
 
 
 def _xss_event_handler(payload: str) -> bool:
-    """The tightened replacement for the retired ``on\\w+\\s*=`` rule."""
+    r"""The tightened replacement for the retired ``on\w+\s*=`` rule."""
     return _XSS_ON_HANDLER.search(payload) is not None
 
 

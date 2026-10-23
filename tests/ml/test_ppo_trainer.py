@@ -443,7 +443,9 @@ def test_training_is_reproducible_and_leaves_global_rng_alone() -> None:
     c.learn(96)
     assert not torch.equal(_flat(a), _flat(c))
     assert torch.equal(torch.get_rng_state(), torch_state)
-    assert np.random.get_state()[1].tolist() == np_state[1].tolist()
+    restored = np.random.get_state()
+    assert isinstance(restored, tuple) and isinstance(np_state, tuple)
+    assert restored[1].tolist() == np_state[1].tolist()
 
 
 def test_learn_counts_steps_episodes_and_updates() -> None:

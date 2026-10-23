@@ -609,7 +609,8 @@ class TestMutationClosedGaps:
             cos = (teacher * student).sum(1) / (
                 np.linalg.norm(teacher, axis=1) * np.linalg.norm(student, axis=1)
             )
-            return (1.0 - cos).reshape(2, 2)
+            out: np.ndarray[Any, Any] = (1.0 - cos).reshape(2, 2)
+            return out
 
         expected1, expected2 = one_minus_cos(-2.0), one_minus_cos(1.0)
         assert result["student1_maps"].shape == (2, 2, 2)
