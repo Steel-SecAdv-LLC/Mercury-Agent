@@ -187,8 +187,8 @@ def test_get_api_key_store_honours_env_and_caches(
 
     store_a = auth.get_api_key_store()
     store_b = auth.get_api_key_store()
+    assert isinstance(store_a, SqliteKeyStore)
     try:
-        assert isinstance(store_a, SqliteKeyStore)
         assert store_a is store_b  # cached singleton, not rebuilt per call
     finally:
         # monkeypatch drops the singleton after the test; close its connection.
