@@ -280,12 +280,30 @@ class TestMeteorDetectorConsolidated:
 
     def test_offline_detector_makes_no_live_claims(self) -> None:
         detector = MeteorDetector(use_nasa_data=False)
-        result = detector.predict_meteor()
+        result = detector.predict_meteor(optical_data=np.linspace(0.0, 1.0, 64))
         assert result.source_id is None
         assert result.data_provenance is None
         assert detector.get_recent_fireballs() == []
         assert detector.get_upcoming_close_approaches() == []
         assert detector.get_impact_risks() == []
+
+    def test_offline_detector_with_no_observation_is_refused(self) -> None:
+        """No sensor data and no live feed used to read as a silent "no meteor"."""
+        from omni_mercury_engine.core.exceptions import InvalidObservationError
+
+        with pytest.raises(InvalidObservationError, match="nothing usable"):
+            MeteorDetector(use_nasa_data=False).predict_meteor()
+
+    def test_nan_radar_sample_is_a_gap_not_a_silent_all_clear(self) -> None:
+        """A NaN made the percentile NaN and every comparison False."""
+        radar = np.ones(64)
+        radar[40] = 50.0  # a real return spike
+        radar[5] = np.nan
+        result = MeteorDetector(use_nasa_data=False).predict_meteor(radar_data=radar)
+        assert result.radar_detection is True
+        assert result.partial is True
+        assert result.set_aside[0]["where"] == "radar_data"
+        assert "[6, 64)" in result.set_aside[0]["reason"]
 
     def test_predict_meteor_stamps_provenance_from_all_clients(self) -> None:
         detector = make_meteor_detector()

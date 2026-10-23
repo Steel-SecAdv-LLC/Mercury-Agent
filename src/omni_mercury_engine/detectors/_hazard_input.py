@@ -212,6 +212,72 @@ class InputGrader:
             self.discard(where, str(exc))
             return None
 
+    def usable_run(
+        self,
+        values: Any,
+        where: str,
+        *,
+        unit: str,
+        ndim: int | tuple[int, ...] = 1,
+    ) -> np.ndarray[Any, Any]:
+        """The longest gap-free run of a sampled series; the gaps are set aside.
+
+        A non-finite sample in a time series is a gap, not a measurement.
+        Filling it would fabricate data and dropping it would shift every
+        later sample in time, so the longest contiguous finite run is graded
+        and the rest is set aside, naming the sample range kept.  A ``[1, n]``
+        record is read as ``[n]``.
+
+        Args:
+            values: Array-like series (a torch tensor is detached first).
+            where: Location recorded with the set-aside entry.
+            unit: Unit the detector expects.
+            ndim: Accepted dimensionality before the ``[1, n]`` squeeze.
+
+        Returns:
+            A ``float64`` 1-D copy of the graded run.
+
+        Raises:
+            InvalidObservationError: On non-numeric data, a wrong shape, or a
+                series with no finite sample at all.
+        """
+        detach = getattr(values, "detach", None)
+        if callable(detach):
+            values = detach().cpu().numpy()
+        try:
+            series = np.array(values, dtype=np.float64)
+        except (TypeError, ValueError) as exc:
+            raise InvalidObservationError(
+                f"{where} must be a numeric array in {unit}, got {type(values).__name__}"
+            ) from exc
+        allowed = (ndim,) if isinstance(ndim, int) else ndim
+        if series.ndim not in allowed:
+            raise InvalidObservationError(
+                f"{where} must have {' or '.join(str(d) for d in allowed)} dimension(s), "
+                f"got shape {series.shape}"
+            )
+        if series.ndim == 2 and series.shape[0] == 1:
+            series = series[0]
+        if series.ndim != 1:
+            return series
+        finite = np.isfinite(series)
+        if finite.all():
+            return series
+        if not finite.any():
+            raise InvalidObservationError(f"{where} has no finite sample")
+        # Longest run of consecutive finite samples.
+        edges = np.diff(np.concatenate(([0], finite.astype(np.int8), [0])))
+        starts, stops = np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)
+        longest = int(np.argmax(stops - starts))
+        start, stop = int(starts[longest]), int(stops[longest])
+        self.discard(
+            where,
+            f"{int(series.size - finite.sum())} non-finite sample(s) are gaps, not "
+            f"measurements; graded the longest gap-free run, samples [{start}, {stop}) "
+            f"of {series.size}",
+        )
+        return series[start:stop].copy()
+
     def require_usable(self, usable: Any, context: str) -> None:
         """Raise only when nothing usable was fed.
 
