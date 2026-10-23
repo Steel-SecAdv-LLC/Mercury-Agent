@@ -148,7 +148,8 @@ jobs:
       - name: Run mercury_quickstart end-to-end (real DTU AIS download)
         # The README's ten-minute path: downloads the digest-pinned DTU
         # labelled set (~38 MB from figshare) and must reproduce the
-        # committed DTU_AIS_Abnormal benchmark row deterministically.
+        # committed DTU_AIS_Abnormal benchmark row (harness protocol) and the
+        # label-free cross-fit over all 521 tracks, both deterministically.
         env:
           AMA_REQUIRE_REAL_PQC: "true"
         run: |
@@ -156,7 +157,8 @@ jobs:
           out=$(python examples/mercury_quickstart.py --data-dir ./data)
           echo "$out"
           echo "$out" | grep -q "MERCURY QUICKSTART COMPLETE"
-          echo "$out" | grep -q "Mercury ensemble (this run)  ROC-AUC 0.8613"
+          echo "$out" | grep -q "incl. all 25 abnormal: ROC-AUC 0.8613 "
+          echo "$out" | grep -q "Mercury label-free cross-fit ROC-AUC 0.8617"
 
   load-tests:
     name: Load Tests (smoke)

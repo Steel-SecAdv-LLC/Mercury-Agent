@@ -139,10 +139,16 @@ Status: In the mercury_benchmark.py suite (`DTU_AIS_Abnormal`, category
 120 s resampling), 25 expert-annotated abnormal (collision, SAR response,
 law enforcement, forced course deviations), served as 22 trajectory-level
 kinematic/geometric features. The only public expert-labelled real-AIS
-anomaly benchmark; published baselines on the identical evaluation set:
-GeoTrackNet 0.87, RAE 0.86, Seq2Seq 0.84, Seq2Seq+attention 0.83,
-RVAE 0.72 (Olesen's DTU thesis, Fig. 6.1) and 0.79 for the contextual
-detector of J. Mar. Sci. Eng. 11(11):2085 (2023). Upstream files are
+anomaly benchmark. Published baselines on all 521 tracks (J. Mar. Sci.
+Eng. 11(11):2085, 2023, Figure 12a; each model trained on Bornholm
+December 2021 except the 13th, section 4.7): VRNN (GeoTrackNet
+architecture) 0.87, two-step clustering 0.73 (0.79 with stationary tracks
+removed), RVAE 0.72. RAE 0.86, Seq2Seq 0.84 and Seq2Seq+attention 0.83 are
+cited from Olesen's DTU thesis (Fig. 6.1), not in that paper, and
+unverified here. The suite's harness row scores 273 of the 521 tracks
+after fitting on label-selected normals, so it is not comparable to those
+figures; `examples/mercury_quickstart.py` also reports a label-free
+cross-fit over all 521. Upstream files are
 pickles: deserialised only through the fail-closed restricted unpickler
 in the loader module (numpy-array reconstruction allowlist), with
 SHA-256 pinned per extracted member; see

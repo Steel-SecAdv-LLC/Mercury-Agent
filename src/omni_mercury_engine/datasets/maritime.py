@@ -8,12 +8,14 @@ Christensen, Technical University of Denmark): 521 real vessel
 trajectories from 2021-12-13 in Danish waters (ROI 54.5-56N, 13-16E,
 120 s resampling), of which 25 are manually labelled abnormal — colliding
 vessels, Search-and-Rescue responders, law enforcement, and commercial
-traffic forced off its normal course by the accident. The same evaluation
-set underlies the published ROC-AUC figures for GeoTrackNet (0.87), RAE
-(0.86), Seq2Seq (0.84), Seq2Seq+attention (0.83) and RVAE (0.72) in
-Olesen's DTU thesis, and 0.79 for the contextual detector in J. Mar. Sci.
-Eng. 11(11):2085 (2023) — making it the only public, expert-annotated
-real-AIS benchmark with published state-of-the-art baselines.
+traffic forced off its normal course by the accident. Olesen et al. (J.
+Mar. Sci. Eng. 11(11):2085, 2023, section 4.7 and Figure 12a) train on the
+Bornholm December 2021 unlabelled data except the 13th and report ROC-AUC
+on all 521 tracks: VRNN (the GeoTrackNet architecture) 0.87, their two-step
+clustering 0.73 (0.79 with stationary tracks removed) and RVAE 0.72 —
+making it the only public, expert-annotated real-AIS benchmark with
+published baselines.  (RAE, Seq2Seq and Seq2Seq+attention figures cited
+from Olesen's DTU thesis are not in that paper and are unverified here.)
 
 Dataset DOI: 10.11583/DTU.21511815 (collection 10.11583/DTU.c.6287841).
 License: CC BY 4.0 — attribution is carried in :attr:`DTUAISLoader.CITATION`.
