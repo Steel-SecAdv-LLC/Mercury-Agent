@@ -33,7 +33,7 @@ torch = pytest.importorskip("torch")
 from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 from omni_mercury_engine.detectors.topological_analysis import TopologicalAnomalyDetector
 from tests.core.test_detector_manifest_seams import FAST_CONFIG
-from tests.recorded_data import ADBENCH_NAMES, adbench, auroc
+from tests.recorded_data import ADBENCH_NAMES, adbench, auroc, stratified_split
 
 ENTRIES = {e.name: e for e in DETECTOR_MANIFEST}
 SEEDS = (0, 1, 2)
@@ -63,19 +63,6 @@ def _scores(name: str, detector: Any, rows: np.ndarray[Any, Any]) -> np.ndarray[
     return np.asarray(detector.detect(rows)["scores"], dtype=float)
 
 
-def _split(labels: np.ndarray[Any, Any], seed: int) -> tuple[Any, Any]:
-    """Stratified 70/30 split, the protocol of the dormant-module benchmark."""
-    rng = np.random.RandomState(seed)
-    held: list[int] = []
-    for cls in (0, 1):
-        rows = np.where(labels == cls)[0]
-        rng.shuffle(rows)
-        held.extend(rows[: max(1, int(len(rows) * 0.3))])
-    mask = np.zeros(len(labels), dtype=bool)
-    mask[sorted(held)] = True
-    return np.where(~mask)[0], np.where(mask)[0]
-
-
 def measure_tabular(name: str, table: str) -> float:
     """Mean held-out AUROC of one manifest entry on one table."""
     entry = ENTRIES[name]
@@ -83,7 +70,7 @@ def measure_tabular(name: str, table: str) -> float:
     features, labels = adbench(table)
     values = []
     for seed in SEEDS:
-        train, test = _split(labels, seed)
+        train, test = stratified_split(labels, seed)
         mean = features[train].mean(axis=0)
         spread = features[train].std(axis=0)
         spread[spread < 1e-8] = 1.0

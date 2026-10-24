@@ -97,3 +97,18 @@ def auroc(positive_scores: np.ndarray[Any, Any], negative_scores: np.ndarray[Any
         start = stop + 1
     u = ranks[: pos.size].sum() - pos.size * (pos.size + 1) / 2.0
     return float(u / (pos.size * neg.size))
+
+
+def stratified_split(
+    labels: np.ndarray[Any, Any], seed: int, held_out: float = 0.3
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Train and held-out row indices, each class split alike (``benchmarks/dormant_module_revival.py``)."""
+    rng = np.random.RandomState(seed)
+    held: list[int] = []
+    for cls in (0, 1):
+        rows = np.where(labels == cls)[0]
+        rng.shuffle(rows)
+        held.extend(rows[: max(1, int(len(rows) * held_out))])
+    mask = np.zeros(len(labels), dtype=bool)
+    mask[sorted(held)] = True
+    return np.where(~mask)[0], np.where(mask)[0]
