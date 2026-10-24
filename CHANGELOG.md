@@ -27,6 +27,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Recorded — SR-CNN's score is not a calibrated probability, and 0.5 is not its midpoint.**
+The BCE objective weights the rare positive class by
+`pos_weight = (1 - inject_ratio) / inject_ratio` (19 at the defaults), which is sound for
+training a classifier on a 5%-positive set but shifts what the sigmoid means: at the optimum
+`w * p * (1 - s) = (1 - p) * s`, so `logit(s) = log(w) + logit(p)` and the trained logit
+carries a constant `+log(w)`. A cut at 0.5 on that output is therefore a cut at
+`sigmoid(log w) = w / (1 + w) = 0.95` on the prior-calibrated probability — which the
+provenance, describing "the CNN's sigmoid output" and a 0.5 threshold, did not say. Measured
+consequence: on a stationary AR(1) series fitted on 400 samples and scored on the next 400
+from the same process, the default cut flags **0.2725** of a held-out half with no anomaly
+in it.
+
+**No behaviour change**, on evidence rather than preference. Subtracting `log(w)` from the
+logit restores calibration and takes that 0.2725 to **0.0000**, and being a monotone shift it
+cannot change the ranking — mean AUROC on the four recorded NAB files is 0.683 either way —
+but it also suppresses true detections there: NAB's standard-profile score goes
+**12.2 -> 9.0**. The trade is real in both directions and nothing in the published pipeline
+fixes the operating point, so the shipped default stays. The relationship, the arithmetic and
+both measurements are now in the class docstring and the `decision_source`, and pinned in
+`tests/detectors/test_srcnn.py` for whoever revisits the choice.
+
 **Removed the three `# type: ignore` markers this branch had added.** Two were on the
 duplicated `self._oracle_detector.detect(...)` calls in `PhysicsIntegratedDetector.detect`
 and went with the `_run_oracle` helper that replaced them; the third, on

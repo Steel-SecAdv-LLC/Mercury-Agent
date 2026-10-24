@@ -77,6 +77,28 @@ class SRCNNDetector(BaseDetector):
     the training series and trains a 1-D CNN to classify each point's saliency
     window; :meth:`detect` scores each point of a new series by the CNN's
     sigmoid output on its saliency window.
+
+    **The score is not a calibrated probability, and 0.5 is not its midpoint.**
+    The BCE objective weights the rare positive class by
+    ``pos_weight = (1 - inject_ratio) / inject_ratio`` (19 at the defaults),
+    which is sound for training a classifier on a 5%-positive set but shifts
+    what the sigmoid means. At the optimum
+    ``w * p * (1 - s) = (1 - p) * s``, so ``logit(s) = log(w) + logit(p)``: the
+    trained logit carries a constant ``+log(w)`` offset, and a cut at 0.5 on
+    ``s`` is a cut at ``sigmoid(log w) = w / (1 + w) = 0.95`` on the
+    prior-calibrated probability. The consequence is measured: on a stationary
+    AR(1) series fitted on 400 samples and scored on the next 400 from the same
+    process, the default cut flags **0.2725** of a held-out half that contains
+    no anomaly at all, where subtracting ``log(w)`` from the logit flags 0.0000.
+
+    That subtraction is **not** applied, on evidence rather than preference.
+    It is a monotone shift, so it cannot change the ranking -- mean AUROC on
+    the four recorded NAB files is 0.683 either way -- but it also suppresses
+    true detections there: NAB's standard-profile score goes 12.2 -> 9.0. The
+    trade is a real one in both directions, and nothing in the published
+    pipeline fixes the operating point, so the shipped default stays and both
+    numbers are pinned (``tests/detectors/test_srcnn.py``) for whoever revisits
+    it.
     """
 
     decision_source = DecisionSource(
@@ -87,7 +109,12 @@ class SRCNNDetector(BaseDetector):
             "copy of the normal series, per the published pipeline; the CNN's "
             "sigmoid output is the [0, 1] score. The alarm fires at the "
             "configured BaseDetector threshold on that score (default 0.5), an "
-            "engineering default rather than a value from the paper."
+            "engineering default rather than a value from the paper. The score "
+            "is not a calibrated probability: the BCE objective weights the "
+            "positive class by (1 - inject_ratio) / inject_ratio = 19, which "
+            "offsets the trained logit by +log(19), so a 0.5 cut here is a 0.95 "
+            "cut on the prior-calibrated probability. Measured consequence: "
+            "0.2725 of a stationary, anomaly-free held-out half is flagged."
         ),
         citation=(
             "Ren et al. (2019), Time-Series Anomaly Detection Service at "
