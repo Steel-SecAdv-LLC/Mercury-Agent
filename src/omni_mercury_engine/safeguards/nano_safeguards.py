@@ -66,9 +66,18 @@ class NanoSafeguardResult:
 
     convergence_score: float = 0.0
     dimensional_residual: float = 0.0
+    #: Whether the dimensional term measured anything. False means
+    #: ``dimensional_residual`` is a placeholder and the term was omitted from
+    #: the composite rather than summed in as a 0.0.
+    dimensional_measured: bool = False
     hierarchical_scores: list[float] = field(default_factory=list)
 
     bit_level_anomalies: int = 0
+    #: Share of byte transitions that exceeded the step threshold, which is
+    #: what the composite score reads. The count above scales with the input's
+    #: length (one transition per byte, eight bytes per float64 sample), so a
+    #: count is not comparable between signals of different length.
+    bit_anomaly_rate: float = 0.0
     molecular_entropy: float = 0.0
     quantum_checksum: float = 0.0
 
@@ -243,12 +252,16 @@ class NanoSafeguardDetector(BaseDetector):
             "threshold exists for this composite and no labelled corpus is "
             "available to calibrate one; verdicts are experimental and carry "
             "'threshold_calibrated': False unless the caller sets "
-            "'micro_threshold'. Measured: the composite's normal regime on a "
-            "stationary AR(1) series is 0.40 to 0.44, about eight times the "
-            "0.05 cut, so it calls normal input anomalous. The cut cannot be "
-            "calibrated on windows of the training signal the way "
-            "AccelerationDynamicsDetector's is, because this score rises with "
-            "signal length (0.3757 to 0.4215 at lengths 50 to 400)."
+            "'micro_threshold'. Measured: the composite's normal regime on "
+            "stationary AR(1) input is 0.49 to 0.55, an order of magnitude "
+            "above the 0.05 cut, so it calls normal input anomalous. The "
+            "composite is invariant in signal length, so a cut taken on "
+            "training windows would transfer; it is not taken because two "
+            "terms lack the needed direction -- the hierarchical scan falls "
+            "when a localised burst dominates the variance spread (0.8850 "
+            "normal against 0.4505 for a +8-sigma burst), cancelling the "
+            "convergence term, and the resonance term measured 0.9555 to "
+            "0.9997 across every case tried."
         ),
     )
 
@@ -301,23 +314,43 @@ class NanoSafeguardDetector(BaseDetector):
         self._is_fitted = True
         # The micro-anomaly cut is hand-set (0.05) and fit() does not move it:
         # the baseline statistics above describe the data but no labelled
-        # corpus maps this composite onto a rate. Measured on a stationary
-        # AR(1) series, the composite's normal regime is 0.40 to 0.44 -- about
-        # eight times the cut -- so an uncalibrated verdict reads "anomalous"
-        # on normal input. Say so at fit time instead of leaving the caller to
-        # discover it from the verdict.
+        # corpus maps this composite onto a rate. Measured over the five
+        # stationary AR(1) seeds of the false-alarm gate, the composite's
+        # normal regime is 0.49 to 0.55 -- an order of magnitude above the cut
+        # -- so an uncalibrated verdict reads "anomalous" on normal input. Say
+        # so at fit time instead of leaving the caller to discover it from the
+        # verdict.
         #
-        # Calibrating the cut on windows of the training signal, which is what
-        # AccelerationDynamicsDetector does, is not sound here: this score
-        # rises with the signal's length (0.3757, 0.3915, 0.4049, 0.4125,
-        # 0.4216, 0.4215 at lengths 50 to 400 on one process), so a cut taken
-        # on shorter windows does not transfer to a longer signal. Closing
-        # this needs labelled micro-anomalies at a known rate.
+        # The composite is now invariant in the signal's length (0.4924,
+        # 0.5092 and 0.5048 at lengths 50, 200 and 400 on one process), so
+        # calibrating the cut on windows of the training signal -- which is
+        # what AccelerationDynamicsDetector does -- would transfer. It is
+        # still not done, because two of the five terms do not carry the
+        # direction a cut would need:
+        #
+        # * ``_scan_at_scale`` returns ``mean|dvar| / std(var)``, which is
+        #   near 1.0 for homogeneous noise *and* for a random walk but falls
+        #   when one window dominates the variance spread: measured 0.8850 on
+        #   a normal series against 0.4505 for an injected +8-sigma burst and
+        #   0.2888 for a five-fold volatility burst. At weight 0.20 that
+        #   cancels the convergence term, which does respond correctly
+        #   (0.0117 normal, 0.3466 burst, 1.0000 random walk), so the
+        #   composite moves 0.5195 -> 0.5140 for the burst. No sign
+        #   convention repairs it: ``1 - x`` would raise the burst and
+        #   volatility cases and wrongly drop the random walk to 0.0847.
+        # * ``resonance_score`` measured 0.9555 to 0.9997 across all four
+        #   cases -- weight 0.15 carrying no usable direction.
+        #
+        # Calibrating the cut on top of those would stop the false alarms at
+        # the price of missing bursts and volatility changes, trading false
+        # positives for false negatives. Closing this needs the N-term
+        # specification the module cites (PROTECTION_OVERVIEW.md, not present
+        # in this repository) or a labelled micro-anomaly corpus.
         if "micro_threshold" not in self.config:
             logger.warning(
                 "NanoSafeguardDetector keeps its hand-set micro-anomaly cut of %.2f, "
                 "which fit() cannot calibrate: the composite's normal regime measures "
-                "0.40 to 0.44 on stationary input, so verdicts are experimental and "
+                "0.49 to 0.55 on stationary input, so verdicts are experimental and "
                 "carry no false-alarm bound. Set 'micro_threshold' in config to a value "
                 "measured on your own normal data.",
                 self.micro_threshold,
@@ -384,7 +417,10 @@ class NanoSafeguardDetector(BaseDetector):
             )
 
         dimensional_residual = self._dimensional_downsampling_detection(data)
-        result.dimensional_residual = dimensional_residual
+        result.dimensional_measured = dimensional_residual is not None
+        result.dimensional_residual = (
+            float(dimensional_residual) if dimensional_residual is not None else 0.0
+        )
 
         hierarchical_scores = self._hierarchical_scan(data)
         result.hierarchical_scores = hierarchical_scores
@@ -398,6 +434,7 @@ class NanoSafeguardDetector(BaseDetector):
             result.molecular_entropy = molecular_result["entropy"]
             result.quantum_checksum = molecular_result["checksum"]
             result.bit_level_anomalies = molecular_result["bit_anomalies"]
+            result.bit_anomaly_rate = molecular_result["bit_anomaly_rate"]
 
         combined_score = self._compute_combined_score(result)
         result.confidence = combined_score
@@ -429,7 +466,12 @@ class NanoSafeguardDetector(BaseDetector):
             self.fit(data_np)
 
         convergence = self._compute_convergence(data_np)
-        dimensional = self._dimensional_downsampling_detection(data_np)
+        # One slot of a fixed-length feature vector, so an abstaining term
+        # has to be filled: 0.0 keeps the vector's width and position stable
+        # for the consumer. The *score* path omits it instead and renormalises
+        # (see _compute_combined_score), which a fixed vector cannot do.
+        dimensional_or_none = self._dimensional_downsampling_detection(data_np)
+        dimensional = 0.0 if dimensional_or_none is None else float(dimensional_or_none)
         hierarchical = self._hierarchical_scan(data_np)
 
         resonance_result = self.resonance_analyzer.analyze(data_np)
@@ -469,22 +511,38 @@ class NanoSafeguardDetector(BaseDetector):
 
         return float(convergence)
 
-    def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float:
+    def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float | None:
         """Dimensional downsampling for micro-anomaly detection.
 
         Implements the N term enhancement from PROTECTION_OVERVIEW.md.
+
+        Returns:
+            The sub-score, or ``None`` when this term could not measure
+            anything -- a single-column signal leaves nothing for the
+            projection to reduce, and a degenerate input breaks the
+            decomposition. ``None`` is the convention
+            :meth:`~omni_mercury_engine.detectors.directive.SigmaDirectiveDetector._dimensional_downsampling_detection`
+            already uses for the same term: a term that measured nothing is
+            omitted from the composite and the remaining weights are
+            renormalised, rather than summed in as a 0.0 that dilutes the
+            blend downward and costs detections.
+
+            This matters for every 1-D signal, which is this detector's
+            declared modality: a 1-D array reshapes to ``(n, 1)``, so the
+            single-column guard below was taken every time and a quarter of
+            the composite's weight was inert.
         """
         data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
 
         if data_2d.shape[0] < self.target_dim or data_2d.shape[1] < 2:
-            return 0.0
+            return None
 
         try:
             from omni_mercury_engine.ml.mercury_ml import PCA
 
             target_dim = min(self.target_dim, data_2d.shape[1] - 1, data_2d.shape[0] - 1)
             if target_dim < 1:
-                return 0.0
+                return None
 
             pca = PCA(n_components=target_dim)
             downsampled = pca.fit_transform(data_2d)
@@ -506,12 +564,14 @@ class NanoSafeguardDetector(BaseDetector):
             return float(min(final_score, 1.0))
 
         except Exception as e:
-            # This score is one slot of a fixed-length feature vector, so it
-            # cannot be dropped; return the neutral 0.0 but warn — a persistent
-            # failure silently zeroing a feature must be visible, not a DEBUG
-            # line below the default level.
-            logger.warning("Dimensional downsampling failed; using neutral 0.0: %s", e)
-            return 0.0
+            # A failure measured nothing, so the term abstains and the
+            # composite renormalises over the rest. Returning 0.0 here diluted
+            # the blend downward on every call and cost detections, which is
+            # the regression already fixed for the directive detector's copy
+            # of this term. Warned, not DEBUG: a persistent failure must be
+            # visible above the default level.
+            logger.warning("Dimensional downsampling failed; the term abstains: %s", e)
+            return None
 
     def _hierarchical_scan(self, data: np.ndarray[Any, Any]) -> list[float]:
         """Perform hierarchical multi-scale scanning."""
@@ -571,46 +631,77 @@ class NanoSafeguardDetector(BaseDetector):
             byte_array = np.frombuffer(data_bytes, dtype=np.uint8)
             transitions = np.abs(np.diff(byte_array.astype(int)))
             bit_anomalies = int(np.sum(transitions > 200))
+            # The rate, not the count, is what the composite can use: the
+            # count rises linearly with the input's length (measured 18.5,
+            # 37.5, 74.2, 110.1 and 148.6 transitions over a stationary
+            # AR(1) series of 50, 100, 200, 300 and 400 samples), so the
+            # previous ``min(count / 100.0, 1.0)`` term grew with length and
+            # saturated at 1.0 from about 270 samples on. A share is
+            # comparable between signals of any length and needs no constant.
+            bit_anomaly_rate = float(np.mean(transitions > 200))
         else:
             bit_anomalies = 0
+            bit_anomaly_rate = 0.0
 
         return {
             "entropy": float(normalized_entropy),
             "checksum": float(checksum),
             "bit_anomalies": bit_anomalies,
+            "bit_anomaly_rate": bit_anomaly_rate,
         }
+
+    #: Weight of each term of the composite micro-anomaly score. A term that
+    #: abstains is dropped and the rest are renormalised, so the composite
+    #: stays on one scale -- see :meth:`_compute_combined_score`.
+    _SCORE_WEIGHTS = {
+        "convergence": 0.25,
+        "dimensional": 0.25,
+        "hierarchical": 0.20,
+        "resonance": 0.15,
+        "molecular": 0.15,
+    }
 
     def _compute_combined_score(self, result: NanoSafeguardResult) -> float:
-        """Compute combined micro-anomaly score."""
-        weights = {
-            "convergence": 0.25,
-            "dimensional": 0.25,
-            "hierarchical": 0.20,
-            "resonance": 0.15,
-            "molecular": 0.15,
+        """Combine the micro-anomaly terms that produced a value.
+
+        Terms that abstain are dropped and the remaining weights are
+        renormalised. Before, an abstaining term was summed in as a hard 0.0
+        while keeping its weight, which shifted the composite's scale by that
+        weight without any term having measured anything -- so the same
+        hand-set cut meant different things for different input. The
+        ``dimensional`` term abstains for every 1-D signal, which is this
+        detector's declared modality: ``_dimensional_downsampling_detection``
+        reshapes a 1-D array to ``(n, 1)`` and returns 0.0 whenever
+        ``shape[1] < 2``, so a quarter of the weight was inert and silently
+        held the composite a quarter lower.
+
+        The molecular term reads ``bit_anomaly_rate`` rather than a count over
+        a fixed constant, so it does not grow with the signal's length.
+
+        Returns:
+            The weighted mean of the contributing terms, in ``[0, 1]``.
+        """
+        terms: dict[str, float] = {
+            "convergence": 1.0 - result.convergence_score,
+            "resonance": result.resonance_score,
+            "molecular": (
+                result.molecular_entropy * 0.4
+                + (1.0 - result.quantum_checksum) * 0.3
+                + result.bit_anomaly_rate * 0.3
+            ),
         }
+        if result.hierarchical_scores:
+            terms["hierarchical"] = float(np.mean(result.hierarchical_scores))
+        if result.dimensional_measured:
+            terms["dimensional"] = result.dimensional_residual
 
-        convergence_anomaly = 1.0 - result.convergence_score
-
-        hierarchical_avg = (
-            np.mean(result.hierarchical_scores) if result.hierarchical_scores else 0.0
-        )
-
-        molecular_score = (
-            result.molecular_entropy * 0.4
-            + (1.0 - result.quantum_checksum) * 0.3
-            + min(result.bit_level_anomalies / 100.0, 1.0) * 0.3
-        )
-
+        total_weight = sum(self._SCORE_WEIGHTS[name] for name in terms)
+        if total_weight <= 0.0:
+            return 0.0
         combined = (
-            weights["convergence"] * convergence_anomaly
-            + weights["dimensional"] * result.dimensional_residual
-            + weights["hierarchical"] * hierarchical_avg
-            + weights["resonance"] * result.resonance_score
-            + weights["molecular"] * molecular_score
+            sum(self._SCORE_WEIGHTS[name] * value for name, value in terms.items()) / total_weight
         )
-
-        return float(min(combined, 1.0))
+        return float(np.clip(combined, 0.0, 1.0))
 
     def _determine_alert_level(self, score: float) -> str:
         """Determine alert level based on combined score."""

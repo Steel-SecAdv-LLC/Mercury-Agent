@@ -17,9 +17,18 @@ a training signal are the only source of repeated scores when the caller
 supplies one series, so a cut taken on them is only valid if it transfers.
 
 It does for the kinematic score, which is flat in length, so that detector
-now calibrates. It does not for the nano composite, which rises with length,
-so that one keeps its hand-set cut and says so rather than implying a bound
-it does not have.
+now calibrates.
+
+The nano composite used to rise with length, which blocked the same cure.
+That is fixed here -- its molecular term read a byte-transition *count* over
+a fixed constant, and its dimensional term contributed a weighted 0.0 it had
+never measured -- so the composite now holds one scale. It still keeps its
+hand-set cut, because two of its five terms do not carry the direction a cut
+would need: ``_scan_at_scale`` falls when a localised burst dominates the
+variance spread, cancelling the convergence term, and ``resonance_score`` is
+near-constant across every case tried. Calibrating on top of that would stop
+the false alarms by trading them for missed bursts. The detector says so
+instead, via ``threshold_calibrated``.
 """
 
 from __future__ import annotations
@@ -124,10 +133,11 @@ class TestNanoSafeguardDeclaresItsCutUncalibrated:
         assert result["threshold_calibrated"] is False
 
     def test_a_caller_supplied_cut_is_reported_as_calibrated(self) -> None:
+        """0.60 sits above the measured normal regime of 0.49 to 0.55."""
         series = stationary_ar1(7)
 
         result = (
-            NanoSafeguardDetector(config={"micro_threshold": 0.45})
+            NanoSafeguardDetector(config={"micro_threshold": 0.60})
             .fit(series[:FIT])
             .detect(series[FIT:])
         )
@@ -135,13 +145,17 @@ class TestNanoSafeguardDeclaresItsCutUncalibrated:
         assert result["threshold_calibrated"] is True
         assert result["is_anomaly"] is False
 
-    def test_the_score_rises_with_signal_length(self) -> None:
-        """Why windows are not a sound calibration set for this detector.
+    def test_the_composite_is_invariant_in_signal_length(self) -> None:
+        """The property that makes a window-taken cut transferable at all.
 
-        Measured 0.3757 to 0.4215 across lengths 50 to 400 on one process. A
-        cut taken on shorter windows therefore sits below where a longer
-        signal scores, which is what left two of the five seeds flagged when
-        window calibration was tried here.
+        The composite used to rise monotonically with length -- 0.3757,
+        0.3915, 0.4049, 0.4125, 0.4216, 0.4215 at lengths 50 to 400 -- because
+        the molecular term counted byte transitions and divided by a fixed
+        100. A count scales with the input (one transition per byte, eight
+        bytes per float64 sample), so it saturated from about 270 samples on.
+        The term now reads a *rate*, and the abstaining dimensional term no
+        longer contributes a weighted 0.0, so the composite holds one scale:
+        measured 0.4924, 0.5092 and 0.5048 at lengths 50, 200 and 400.
         """
         series = stationary_ar1(7)
         detector = NanoSafeguardDetector().fit(series[:FIT])
@@ -153,5 +167,34 @@ class TestNanoSafeguardDeclaresItsCutUncalibrated:
                 float(np.mean([detector.detect_micro_anomalies(w).confidence for w in windows]))
             )
 
-        assert means == sorted(means)
-        assert means[-1] - means[0] > 0.02
+        assert max(means) - min(means) < 0.03
+
+    def test_the_molecular_term_reads_a_rate_not_a_count(self) -> None:
+        """The count is still reported; the score reads the rate."""
+        series = stationary_ar1(7)
+        detector = NanoSafeguardDetector().fit(series[:FIT])
+
+        short = detector.detect_micro_anomalies(series[FIT : FIT + 100])
+        long = detector.detect_micro_anomalies(series[FIT : FIT + 400])
+
+        # The count scales with the input, which is why it cannot be scored.
+        assert long.bit_level_anomalies > 2 * short.bit_level_anomalies
+        # The rate does not.
+        assert long.bit_anomaly_rate == pytest.approx(short.bit_anomaly_rate, abs=0.02)
+
+    def test_the_dimensional_term_abstains_on_a_one_dimensional_signal(self) -> None:
+        """It measured nothing, so it is omitted rather than scored as 0.0.
+
+        A 1-D array reshapes to ``(n, 1)`` and the projection has nothing to
+        reduce, so this term can never fire for the detector's declared
+        modality. Keeping its weight while summing a hard 0.0 held the
+        composite a quarter lower and made the same cut mean different things
+        for 1-D and 2-D input.
+        """
+        series = stationary_ar1(7)
+        detector = NanoSafeguardDetector().fit(series[:FIT])
+
+        result = detector.detect_micro_anomalies(series[FIT:])
+
+        assert result.dimensional_measured is False
+        assert detector._dimensional_downsampling_detection(series[FIT:]) is None
