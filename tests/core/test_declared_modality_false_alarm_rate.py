@@ -126,7 +126,7 @@ def _verdicts(name: str) -> tuple[np.ndarray[Any, Any], ...]:
         score = getattr(detector, "detect", None) or detector.predict
         result = score(held_out)
         out.append(np.asarray(result["is_anomaly"], dtype=bool).reshape(-1))
-    return out
+    return tuple(out)
 
 
 @pytest.mark.parametrize("name", sorted(MEASURED_RATE))

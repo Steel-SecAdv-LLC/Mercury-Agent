@@ -1728,6 +1728,7 @@ jobs:
           AMA_REQUIRE_REAL_PQC: "true"
         run: |
           python -c "
+          import json
           import time
           import numpy as np
           from omni_mercury_engine.core.gosnn_integration import (
@@ -1775,6 +1776,20 @@ jobs:
           grad_stats = get_gradient_cache().stats
           print(f'SyntheticGradient (100 ops): {grad_time:.2f}ms')
           print(f'Gradient Cache Hit Rate: {grad_stats[\"hit_rate\"]*100:.1f}%')
+
+          # Record the measurements before asserting: the upload step runs
+          # with if: always() and requires this file, so it must exist even
+          # when a threshold below fails.
+          results = {
+              \"ttl_cache_write_ms\": write_time,
+              \"ttl_cache_read_ms\": read_time,
+              \"ttl_cache_hit_rate\": hits / 1000,
+              \"synthetic_gradient_ms\": grad_time,
+              \"gradient_cache_hit_rate\": grad_stats[\"hit_rate\"],
+              \"thresholds_ms\": {\"ttl_write\": 500, \"ttl_read\": 100, \"gradient\": 1000},
+          }
+          with open(\"benchmark-results.json\", \"w\") as fh:
+              json.dump(results, fh, indent=2, sort_keys=True)
 
           # Performance assertions
           assert write_time < 500, f'TTLCache write too slow: {write_time}ms'

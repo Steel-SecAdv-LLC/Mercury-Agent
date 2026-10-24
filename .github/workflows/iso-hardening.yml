@@ -247,13 +247,31 @@ jobs:
           }
           # Use the official Grafana repository (signed package);
           # avoids downloading arbitrary binaries from GitHub releases.
-          sudo gpg -k
-          # Keyserver fetch is network-bound (hkp keyserver.ubuntu.com) and a
-          # known CI hang vector -- bound it the same way as the apt calls.
-          run_net 90 gpg --no-default-keyring \
-            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 \
-            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          #
+          # The signing key comes from the repository's own origin, not a
+          # keyserver. Two defects the keyserver path had, both observed on
+          # run 40123771384: the keyserver fetch hung in the past (a known CI
+          # hang vector), and ``gpg --keyring`` wrote a keybox file, which apt
+          # ignores as an "unsupported filetype", so every signature check
+          # failed with NO_PUBKEY even though the key was present. apt needs a
+          # binary OpenPGP keyring, so the armored key is dearmored.
+          #
+          # The primary fingerprint is pinned and checked before anything is
+          # installed. The repository now signs with subkey C780D0BDB1A69C86,
+          # which is a subkey of that primary, so the chain holds. A rotation
+          # of the primary itself fails this step loudly, by design.
+          K6_KEY_FPR=C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          k6_key_tmp="$(mktemp)"
+          run_net 90 curl -fsSL -o "${k6_key_tmp}" https://dl.k6.io/key.gpg
+          got_fpr="$(gpg --show-keys --with-colons "${k6_key_tmp}" \
+            | awk -F: '/^fpr/{print $10; exit}')"
+          if [ "${got_fpr}" != "${K6_KEY_FPR}" ]; then
+            echo "k6 signing key primary fingerprint '${got_fpr:-<none>}' does not match pinned '${K6_KEY_FPR}'" >&2
+            exit 1
+          fi
+          sudo gpg --batch --yes --dearmor \
+            -o /usr/share/keyrings/k6-archive-keyring.gpg "${k6_key_tmp}"
+          rm -f "${k6_key_tmp}"
           echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
             | sudo tee /etc/apt/sources.list.d/k6.list
           # Drop the runner's preinstalled Microsoft apt repos

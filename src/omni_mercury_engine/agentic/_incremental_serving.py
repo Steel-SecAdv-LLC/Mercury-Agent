@@ -137,8 +137,12 @@ class _DirectiveServingCache(_ServingCache):
         self._batch = np.empty((n + 1, d), dtype=np.float64)
         self._batch[:n] = reference
         self._baseline_ref = detector.baseline_pattern
-        # EOA: np.max over the batch magnitudes == max(reference max, |x|)
-        # exactly (comparison-based, no rounding).
+        # EOA: the detector scores against a fit-time absolute scale when it
+        # has one (see SigmaDirectiveDetector._ethical_oversight_amplifier).
+        # Only a checkpoint from before that scale existed falls back to the
+        # batch-relative form, whose maximum over [R; x] is max(reference
+        # maximum, |x|) -- comparison-based, so exact.
+        self._eoa_scale_ref: float | None = getattr(detector, "_eoa_scale", None)
         self._ref_magnitude_max = float(np.max(np.linalg.norm(reference, axis=1)))
         # RMD: buffer contents after a reset and a full pass over R — the
         # loop appends `row.astype(np.float64)` (a copy) per row.
@@ -152,6 +156,7 @@ class _DirectiveServingCache(_ServingCache):
             det._is_fitted
             and not det._auto_calibrate
             and det.baseline_pattern is self._baseline_ref
+            and getattr(det, "_eoa_scale", None) == self._eoa_scale_ref
             and len(self._rmd_tail) == min(int(det.memory_depth), self._reference.shape[0])
         )
 
@@ -181,9 +186,15 @@ class _DirectiveServingCache(_ServingCache):
         else:
             rmd = 0.0
 
-        # --- EOA (cached reference maximum) --------------------------------
-        magnitude = float(np.linalg.norm(row[np.newaxis, :], axis=1)[0])
-        eoa = magnitude / (max(self._ref_magnitude_max, magnitude) + 1e-6)
+        # --- EOA ----------------------------------------------------------
+        # The detector's own method on this row, so the replica and the full
+        # path run one implementation. The squash is elementwise, so one row
+        # yields the same value the batch does at that row.
+        if self._eoa_scale_ref is not None:
+            eoa = float(det._ethical_oversight_amplifier(row[np.newaxis, :])[0])
+        else:
+            magnitude = float(np.linalg.norm(row[np.newaxis, :], axis=1)[0])
+            eoa = magnitude / (max(self._ref_magnitude_max, magnitude) + 1e-6)
 
         weights = det.weights
         combined = (
