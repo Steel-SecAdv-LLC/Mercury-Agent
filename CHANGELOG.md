@@ -27,6 +27,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Measured, not fixed — the LSTM autoencoder's conformal threshold, and two candidate fixes
+rejected.** `lstm_autoencoder` still floods: it flags 0.6265 of a stationary held-out half at
+the manifest's default configuration (`tests/detectors/test_stationary_false_alarm_rate.py`),
+against the 0.05 its one-class conformal 95% cut is documented to deliver. The cause was
+root-caused far enough to rule out the two obvious fixes, both of which were implemented and
+measured on five seeds of a stationary AR(1) series with `AnomalyDetector(input_dim=1,
+seq_len=10)`:
+
+* **Not model-selection leakage.** The held-out tail drives early stopping *and* carries the
+  conformal calibration, so the restored `best_state` is the epoch that reconstructed exactly
+  those rows best — which looked like the echo-state defect one level up. It is not: the ratio
+  of the median held-out score to the median calibration score is **0.96**, so the calibration
+  scores are not systematically optimistic. Splitting the tail so early stopping and
+  calibration see disjoint rows makes it **worse**, not better — 0.2265 -> 0.2825 at
+  `val_split=0.1` — because it halves the calibration set. Rejected.
+* **Not simply too few calibration points, though that is part of it.** At `val_split=0.1` a
+  400-row fit leaves 40 calibration points, and `k = ceil(41 * 0.95) = 39` makes the threshold
+  the 39th of 40 ranked scores. Raising `val_split` to 0.30 (120 points) brings the mean rate
+  to 0.0705, close to nominal — but one of the five seeds still sits at 0.188, far outside the
+  spread quantile-estimation variance alone predicts (about 2% at n=120). Raising a public
+  default on that evidence would be a guess, and it costs 20% of the training rows. Not taken.
+
+What the spread points to instead is **exchangeability**: a single contiguous tail of a random
+walk is not exchangeable with a later stretch of the same walk, so the conformal coverage
+guarantee does not apply, and more calibration data only partly compensates. Closing this needs
+a calibration scheme that does not assume exchangeability across a drifting level -- a block
+bootstrap, or one of the drift-adaptive conformal methods -- validated on labelled data rather
+than on this synthetic series. That is the evidence this round could not produce, and no change
+was made.
+
 **Fixed — `RealTimeThreatDetector` failed OPEN when a sub-detector's training score was not
 finite.** `_validated_input` already refuses a non-finite *input* row, with the reason stated
 in its own docstring: "a security detector failing OPEN on an unmeasurable input". The same
