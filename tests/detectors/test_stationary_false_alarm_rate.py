@@ -65,9 +65,8 @@ MEASURED_RATE: dict[str, float] = {
     # Conformal tier: the detector's own 0.05 nominal, met on pooled
     # out-of-fold calibration scores.
     "lstm_autoencoder": 0.0670,
-    # Flooding at the default threshold -- recorded, not accepted.
-    "srcnn": 0.2725,
     # Above the 0.02 the squash anchor targets, but bounded.
+    "srcnn": 0.1020,
     "statistical": 0.0980,
     "energy_based": 0.0755,
     "deep_svdd": 0.0470,

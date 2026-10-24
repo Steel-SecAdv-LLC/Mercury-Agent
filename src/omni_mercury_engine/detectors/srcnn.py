@@ -86,19 +86,37 @@ class SRCNNDetector(BaseDetector):
     ``w * p * (1 - s) = (1 - p) * s``, so ``logit(s) = log(w) + logit(p)``: the
     trained logit carries a constant ``+log(w)`` offset, and a cut at 0.5 on
     ``s`` is a cut at ``sigmoid(log w) = w / (1 + w) = 0.95`` on the
-    prior-calibrated probability. The consequence is measured: on a stationary
-    AR(1) series fitted on 400 samples and scored on the next 400 from the same
-    process, the default cut flags **0.2725** of a held-out half that contains
-    no anomaly at all, where subtracting ``log(w)`` from the logit flags 0.0000.
+    prior-calibrated probability.
 
-    That subtraction is **not** applied, on evidence rather than preference.
-    It is a monotone shift, so it cannot change the ranking -- mean AUROC on
-    the four recorded NAB files is 0.683 either way -- but it also suppresses
-    true detections there: NAB's standard-profile score goes 12.2 -> 9.0. The
-    trade is a real one in both directions, and nothing in the published
-    pipeline fixes the operating point, so the shipped default stays and both
-    numbers are pinned (``tests/detectors/test_srcnn.py``) for whoever revisits
-    it.
+    :meth:`fit` therefore does not leave the threshold at 0.5. It installs the
+    ``calibration_quantile`` (0.95) of the *unaugmented* training series' own
+    scores, so the cut is a stated position in this detector's score
+    distribution instead of a fixed value the ``+log(w)`` offset has already
+    moved. An explicitly configured ``threshold`` is the caller's decision and
+    is left alone.
+
+    All of these cuts sit on one ROC curve -- mean AUROC over the four recorded
+    NAB files is 0.683 for every one of them -- so the operating point is the
+    only thing in question. Measured over five seeds of a stationary AR(1)
+    series fitted on 400 samples and scored on the next 400 from the same
+    process, which contains no anomaly at all, against NAB's standard-profile
+    score on the recorded files:
+
+    =========================================  =============  ====
+    operating point                             clean-data FPR  NAB
+    =========================================  =============  ====
+    fixed 0.5 (previous default)                      0.2725  12.2
+    logit minus ``log(w)``                            0.0000   9.0
+    **0.95 quantile of training scores**              0.1020  13.2
+    =========================================  =============  ====
+
+    The calibrated cut is better than the fixed one on *both* axes, so this is
+    not a sensitivity trade. Subtracting ``log(w)`` eliminates the false alarms
+    but costs true detections, which is why it is not what is applied. The
+    0.90 quantile scores NAB 42.7 at an FPR of 0.1940; it is not the default
+    because choosing it would be tuning the threshold on the evaluation
+    corpus. Both numbers are pinned (``tests/detectors/test_srcnn.py``,
+    ``tests/detectors/test_recorded_nab_series.py``).
     """
 
     decision_source = DecisionSource(
@@ -108,13 +126,16 @@ class SRCNNDetector(BaseDetector):
             "a 1-D CNN trained self-supervised on a synthetic-anomaly-injected "
             "copy of the normal series, per the published pipeline; the CNN's "
             "sigmoid output is the [0, 1] score. The alarm fires at the "
-            "configured BaseDetector threshold on that score (default 0.5), an "
-            "engineering default rather than a value from the paper. The score "
-            "is not a calibrated probability: the BCE objective weights the "
-            "positive class by (1 - inject_ratio) / inject_ratio = 19, which "
-            "offsets the trained logit by +log(19), so a 0.5 cut here is a 0.95 "
-            "cut on the prior-calibrated probability. Measured consequence: "
-            "0.2725 of a stationary, anomaly-free held-out half is flagged."
+            "threshold fit() calibrates to the 0.95 quantile of the "
+            "unaugmented training series' own scores, an engineering choice "
+            "rather than a value from the paper. The score is not a "
+            "calibrated probability: the BCE objective weights the positive "
+            "class by (1 - inject_ratio) / inject_ratio = 19, which offsets "
+            "the trained logit by +log(19), so the fixed 0.5 this replaced "
+            "was a 0.95 cut on the prior-calibrated probability and flagged "
+            "0.2725 of a stationary, anomaly-free held-out half. The "
+            "calibrated cut flags 0.1020 of it and scores higher on NAB "
+            "(13.2 against 12.2); mean AUROC is 0.683 for either cut."
         ),
         citation=(
             "Ren et al. (2019), Time-Series Anomaly Detection Service at "
@@ -130,6 +151,7 @@ class SRCNNDetector(BaseDetector):
         lr: float = 1e-2,
         inject_ratio: float = 0.05,
         inject_scale: float = 6.0,
+        calibration_quantile: float = 0.95,
         seed: int = 0,
         config: dict[str, Any] | None = None,
     ) -> None:
@@ -145,6 +167,12 @@ class SRCNNDetector(BaseDetector):
                 during self-supervised training. Must be in ``(0, 1)``.
             inject_scale: Std-multiple magnitude of injected synthetic spikes.
                 Must be > 0.
+            calibration_quantile: Quantile of the *unaugmented* training
+                series' own scores that :meth:`fit` installs as the decision
+                threshold, so the cut is a position in this detector's score
+                distribution rather than a fixed 0.5 the trained logit's
+                ``+log(pos_weight)`` offset has already moved. Must be in
+                ``(0, 1)``. Ignored when ``config`` sets ``threshold``.
             seed: Torch/NumPy seed for deterministic training.
             config: Optional ``BaseDetector`` config (``threshold`` ...).
 
@@ -164,12 +192,18 @@ class SRCNNDetector(BaseDetector):
             raise ValueError(f"inject_ratio must be in (0, 1), got {inject_ratio}")
         if inject_scale <= 0.0:
             raise ValueError(f"inject_scale must be > 0, got {inject_scale}")
+        if not 0.0 < calibration_quantile < 1.0:
+            raise ValueError(f"calibration_quantile must be in (0, 1), got {calibration_quantile}")
         self.window = int(window) | 1  # force odd so the window has a centre
         self.hidden = int(hidden)
         self.epochs = int(epochs)
         self.lr = float(lr)
         self.inject_ratio = float(inject_ratio)
         self.inject_scale = float(inject_scale)
+        self.calibration_quantile = float(calibration_quantile)
+        # An explicitly configured threshold is the caller's decision and
+        # survives fit; only the default is calibrated.
+        self._threshold_is_configured = config is not None and "threshold" in config
         self.seed = int(seed)
         self._sr = SpectralResidualDetector()
         self._model: _SRCNN | None = None
@@ -274,6 +308,16 @@ class SRCNNDetector(BaseDetector):
         model.eval()
         self._model = model
         self._is_fitted = True
+
+        if not self._threshold_is_configured:
+            # Cut at a position in this detector's own score distribution,
+            # measured on the series without the injected anomalies. A fixed
+            # 0.5 is not the midpoint of that distribution: the BCE
+            # pos_weight offsets every trained logit by +log(w), so 0.5 on
+            # the sigmoid is a 0.95 cut on the prior-calibrated probability.
+            self.threshold = float(
+                np.quantile(self._point_scores(series), self.calibration_quantile)
+            )
         return self
 
     def _point_scores(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

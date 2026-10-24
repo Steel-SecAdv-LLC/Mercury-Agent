@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Recorded — SR-CNN's score is not a calibrated probability, and 0.5 is not its midpoint.**
+**Fixed — SR-CNN's operating point is calibrated instead of fixed at 0.5.**
 The BCE objective weights the rare positive class by
 `pos_weight = (1 - inject_ratio) / inject_ratio` (19 at the defaults), which is sound for
 training a classifier on a 5%-positive set but shifts what the sigmoid means: at the optimum
@@ -36,17 +36,29 @@ carries a constant `+log(w)`. A cut at 0.5 on that output is therefore a cut at
 `sigmoid(log w) = w / (1 + w) = 0.95` on the prior-calibrated probability — which the
 provenance, describing "the CNN's sigmoid output" and a 0.5 threshold, did not say. Measured
 consequence: on a stationary AR(1) series fitted on 400 samples and scored on the next 400
-from the same process, the default cut flags **0.2725** of a held-out half with no anomaly
+from the same process, the fixed cut flagged **0.2725** of a held-out half with no anomaly
 in it.
 
-**No behaviour change**, on evidence rather than preference. Subtracting `log(w)` from the
-logit restores calibration and takes that 0.2725 to **0.0000**, and being a monotone shift it
-cannot change the ranking — mean AUROC on the four recorded NAB files is 0.683 either way —
-but it also suppresses true detections there: NAB's standard-profile score goes
-**12.2 -> 9.0**. The trade is real in both directions and nothing in the published pipeline
-fixes the operating point, so the shipped default stays. The relationship, the arithmetic and
-both measurements are now in the class docstring and the `decision_source`, and pinned in
-`tests/detectors/test_srcnn.py` for whoever revisits the choice.
+`fit` now installs the `calibration_quantile` (0.95) of the *unaugmented* training series'
+own scores as the threshold, so the cut is a stated position in this detector's score
+distribution rather than a fixed value the `+log(w)` offset has already moved. An explicitly
+configured `threshold` is the caller's decision and survives `fit`.
+
+Every candidate cut sits on one ROC curve — mean AUROC over the four recorded NAB files is
+0.683 for all of them — so only the operating point was ever in question:
+
+| operating point | clean-data FPR | NAB |
+| --- | --- | --- |
+| fixed 0.5 (previous) | 0.2725 | 12.2 |
+| logit minus `log(w)` | 0.0000 | 9.0 |
+| **0.95 quantile of training scores** | **0.1020** | **13.2** |
+
+The calibrated cut is better than the fixed one on *both* axes, so this is not a sensitivity
+trade — it was simply a worse point on the curve. Subtracting `log(w)` removes the false
+alarms outright but costs true detections, which is why that is not what is applied. The 0.90
+quantile scores NAB 42.7 at an FPR of 0.1940 and is not the default, because choosing it
+would be tuning a threshold on the evaluation corpus. The stationary gate's pin moves from
+0.2725 to 0.1020; the NAB pin (12.2) is unchanged within its tolerance.
 
 **Removed the three `# type: ignore` markers this branch had added.** Two were on the
 duplicated `self._oracle_detector.detect(...)` calls in `PhysicsIntegratedDetector.detect`
@@ -283,8 +295,8 @@ The measurement also puts numbers on calibration gaps that were previously descr
 against drifting NAB files, where drift could be blamed. It is pinned in two groups, because
 a single number does not mean the same thing for both kinds of detector under `series_1d`.
 **Per-sample** detectors return one verdict per held-out sample, so the number is a
-false-alarm rate: flooding, `srcnn` 0.2725; above the 0.02 the
-squash anchor targets but bounded, `statistical` 0.0980, `energy_based` 0.0755, `deep_svdd`
+false-alarm rate: above the 0.02 the
+squash anchor targets but bounded, `srcnn` 0.1020, `statistical` 0.0980, `energy_based` 0.0755, `deep_svdd`
 0.0470, `extended_statistical` 0.0460; meeting its own 0.05 conformal nominal,
 `lstm_autoencoder` 0.0670 (see the out-of-fold calibration fix above, which moved it from
 0.6265); at or under contract, the other 15 down to `page_hinkley` 0.0025. **Set-level** detectors reduce the whole series to *one* verdict, so
