@@ -1166,10 +1166,16 @@ class TestSpectralFlux:
 
 
 class TestPhaseCoherence:
-    """Verify phase coherence detects inter-band relationship breakdown."""
+    """Verify the inter-band quadratic phase-coupling term.
 
-    def test_coherence_high_for_correlated_bands(self) -> None:
-        """Coherent signal should produce coherence near 1.0."""
+    The term is mean squared bicoherence: higher means more inter-band phase
+    coupling, so more anomalous. It replaced a magnitude-squared coherence
+    between disjoint band-limited copies of one signal, which was ill-posed
+    and returned exactly 1.0 for every input.
+    """
+
+    def test_coupling_is_positive_for_a_structured_signal(self) -> None:
+        """A harmonically related signal has inter-band phase structure."""
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
         )
@@ -1188,19 +1194,27 @@ class TestPhaseCoherence:
 
         assert coh > 0.0, f"Coherence should be positive, got {coh}"
 
-    def test_coherence_returns_1_with_insufficient_bands(self) -> None:
-        """Should return 1.0 (neutral) with < 2 valid bands."""
+    def test_coupling_abstains_at_zero_when_the_signal_is_too_short(self) -> None:
+        """0.0 is the neutral value under the coupling polarity.
+
+        The uncoupled expectation of squared bicoherence is ``1 / K`` for
+        ``K`` segments, so too few segments is a noise floor rather than a
+        measurement. Abstaining at 0.0 makes the influence multiplier's
+        coupling term exactly 1.0. The previous term's neutral value was 1.0
+        because its polarity was the reverse -- it read the value as
+        coherence, where *low* was anomalous.
+        """
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
+            SpectralDomainFrequency,
             SpectralDomainOracle,
         )
 
         oracle = SpectralDomainOracle(
             {"domain": "humanitarian", "sample_rate": 0.5},
         )
-        # At 0.5 Hz sample rate, Nyquist = 0.25 Hz -> very few bands.
-        # Signal too short for nperseg>=4 → early return 1.0.
-        empty_signal = np.array([1.0, 2.0])
-        assert oracle._compute_phase_coherence(empty_signal) == 1.0
+
+        assert oracle._compute_phase_coherence(np.array([1.0, 2.0])) == 0.0
+        assert SpectralDomainFrequency.PHASE_COUPLING_NOT_MEASURED == 0.0
 
 
 class TestCepstralCoefficients:
