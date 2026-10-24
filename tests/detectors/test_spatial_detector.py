@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 import torch
 
-from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.exceptions import DetectorException, InputModalityError
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector, _NativeLOF
 
 
@@ -84,13 +84,32 @@ class TestSpatialAnomalyDetector:
 
         assert abs(detector.radius_threshold - expected_threshold) < 1e-6
 
-    def test_fit_insufficient_dimensions_raises(self) -> None:
-        """Test that 1D data raises exception."""
-        data = np.random.randn(100, 1)
+    @pytest.mark.parametrize("shape", [(100, 1), (100,)])
+    def test_fit_insufficient_dimensions_declines(self, shape: tuple[int, ...]) -> None:
+        """Too few coordinate axes is declined as the wrong modality.
+
+        ``InputModalityError`` is the convention for a component refusing a
+        modality it does not process, so the engine skips the detector and the
+        metrics layer counts it as *declined* rather than as an inference
+        error. The bare 1-D case is covered here because ``fit`` used to index
+        ``shape[1]`` before checking ``ndim`` and raised an opaque
+        ``IndexError`` instead of this refusal.
+        """
+        data = np.random.randn(*shape)
         detector = SpatialAnomalyDetector()
 
-        with pytest.raises(DetectorException, match="at least 2 dimensions"):
+        with pytest.raises(InputModalityError, match="at least 2 dimensions"):
             detector.fit(data)
+
+    @pytest.mark.parametrize("shape", [(100, 1), (100,)])
+    def test_detect_insufficient_dimensions_declines(
+        self, spatial_data: Any, shape: tuple[int, ...]
+    ) -> None:
+        """A fitted detector declines a later batch that lost its axes."""
+        detector = SpatialAnomalyDetector().fit(spatial_data)
+
+        with pytest.raises(InputModalityError, match="at least 2 dimensions"):
+            detector.detect(np.random.randn(*shape))
 
     def test_detect_unfitted_raises(self, spatial_data: Any) -> None:
         """Test detection on unfitted detector raises exception."""

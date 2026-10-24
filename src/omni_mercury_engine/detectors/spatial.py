@@ -25,7 +25,7 @@ except ImportError:
 from scipy.spatial import KDTree
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.exceptions import DetectorException, InputModalityError
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
@@ -170,14 +170,40 @@ class SpatialAnomalyDetector(BaseDetector):
         self.center: np.ndarray[Any, Any] | None = None
         self.radius_threshold: float | None = None
 
+    @staticmethod
+    def _require_spatial_matrix(data: np.ndarray[Any, Any]) -> None:
+        """Refuse input that is not a spatial coordinate matrix.
+
+        This detector places points in a metric space: the centroid radius and
+        the LOF neighbourhood are only defined over two or more coordinate
+        axes. A 1-D series, or a single-column matrix, carries no such space,
+        so it is declined as the wrong modality rather than scored.
+
+        ``InputModalityError`` is the convention for a component declining a
+        modality it does not process (see
+        :class:`~omni_mercury_engine.core.exceptions.InputModalityError`): the
+        engine skips the detector and the metrics layer counts it as
+        *declined* rather than as an inference error. Checking ``ndim`` first
+        keeps a 1-D array from indexing ``shape[1]`` and surfacing an opaque
+        ``IndexError`` in place of this refusal.
+
+        Raises:
+            InputModalityError: when ``data`` has fewer than two columns.
+        """
+        if data.ndim < 2 or data.shape[1] < 2:
+            raise InputModalityError(
+                "Spatial data must have at least 2 dimensions; got shape "
+                f"{tuple(data.shape)}. This detector scores points in a metric "
+                "space and declines univariate input."
+            )
+
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> SpatialAnomalyDetector:
         """Fit detector to normal spatial data."""
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         assert isinstance(data, np.ndarray)
 
-        if data.shape[1] < 2:
-            raise DetectorException("Spatial data must have at least 2 dimensions")
+        self._require_spatial_matrix(data)
 
         self.center = np.mean(data, axis=0)
 
@@ -220,6 +246,7 @@ class SpatialAnomalyDetector(BaseDetector):
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         assert isinstance(data, np.ndarray)
+        self._require_spatial_matrix(data)
         data_np: np.ndarray[Any, Any] = data
 
         # Sanitise non-finite inputs at the boundary (mirrors the temporal

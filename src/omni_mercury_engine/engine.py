@@ -1071,6 +1071,13 @@ class OmniMercuryEngine(LoggerMixin):
         # width-8 retrain still carried the shipped checkpoint's width-16
         # rows and every later drift check reported "incomparable".
         self._checkpoint_fit_detectors: set[str] = set()
+        # Detectors that declined the training data's modality (raised
+        # InputModalityError from fit). A decline is a correct refusal, not a
+        # fault: such a detector can never become fitted on this corpus, so
+        # the fail-loud unfit check at inference must skip it instead of
+        # demanding a fit_fusion call that has already happened. Keyed strictly
+        # on InputModalityError so a genuine fit failure still fails loudly.
+        self._modality_declined_detectors: set[str] = set()
         # Fail-loud on an unfit detector at inference instead of leaking the
         # first batch as its reference distribution (see __init__ docstring).
         self._require_explicit_fit: bool = require_explicit_fit
@@ -1723,6 +1730,21 @@ class OmniMercuryEngine(LoggerMixin):
         # resolution below is correct -- np.asarray on a live tensor is unreliable.
         if isinstance(y, torch.Tensor):
             y = y.detach().cpu().numpy()
+
+        X = np.asarray(X)
+        if X.ndim != 2:
+            # The documented contract is ``X: (n_samples, n_features)``. A 1-D
+            # array used to be accepted here and then failed deep inside
+            # feature extraction, because the base detectors disagree on what
+            # a bare 1-D array means: some read it as one feature column and
+            # others as a single sample. Refuse at the boundary and name the
+            # fix, rather than training on whichever feature groups happened
+            # to survive.
+            raise ValueError(
+                "fit_fusion expects X with shape (n_samples, n_features); got "
+                f"shape {tuple(X.shape)}. For a single series pass "
+                "X.reshape(-1, 1)."
+            )
 
         n_samples = len(X)
         logger.info(f"Starting fusion training on {n_samples} samples...")
@@ -2699,7 +2721,17 @@ class OmniMercuryEngine(LoggerMixin):
                 try:
                     if self._fit_for_training(name, detector, X):
                         logger.debug(f"Fitted detector: {name}")
+                    self._modality_declined_detectors.discard(name)
+                except InputModalityError as e:
+                    # A correct refusal: this detector does not process this
+                    # modality (e.g. the spatial detector on a univariate
+                    # column). Recorded so inference skips it rather than
+                    # reporting it to the caller as an unfitted detector.
+                    self._modality_declined_detectors.add(name)
+                    record_component_declined(name)
+                    logger.info(f"Detector {name} declined the training modality: {e}")
                 except Exception as e:
+                    self._modality_declined_detectors.discard(name)
                     logger.warning(f"Failed to fit detector {name}: {e}")
 
         logger.info("Extracting fusion features (detectors + domain models)...")
@@ -4432,6 +4464,7 @@ class OmniMercuryEngine(LoggerMixin):
         # detector executor. A failure is re-raised after every detector has
         # finished, as the first failure in ``detector_types`` order.
         runnable: list[tuple[str, Any]] = []
+        declined: list[str] = []
         for detector_name in dict.fromkeys(detector_types):
             if detector_name in self.detectors:
                 detector = self.detectors[detector_name]
@@ -4439,7 +4472,26 @@ class OmniMercuryEngine(LoggerMixin):
                 if not detector.is_fitted():
                     if isinstance(data, dict):
                         continue
-                    self._auto_fit_on_inference(detector_name, detector, data)
+                    try:
+                        self._auto_fit_on_inference(detector_name, detector, data)
+                    except InputModalityError as e:
+                        # Correct refusal, not a fault: skip the detector and
+                        # count it as declined, the contract documented on
+                        # InputModalityError and already honoured by
+                        # detect_with_fusion. Raising here would let one
+                        # inapplicable detector crash the whole call.
+                        #
+                        # Deliberately NOT recorded in
+                        # ``_modality_declined_detectors``: that set means
+                        # "declined the training corpus" and is what lets the
+                        # fusion path skip its fail-loud unfit check. Writing
+                        # it from an inference call would silence that
+                        # leakage guard for a detector the caller never
+                        # trained.
+                        record_component_declined(detector_name)
+                        declined.append(detector_name)
+                        logger.info(f"Detector {detector_name} declined this input: {e}")
+                        continue
 
                 if isinstance(data, dict):
                     continue
@@ -4462,12 +4514,27 @@ class OmniMercuryEngine(LoggerMixin):
                 results[outcome.name] = outcome.value
                 continue
             if outcome.status is OutcomeStatus.DECLINED:
+                # Declining a modality is a correct refusal: skip the
+                # detector rather than failing the call, so one inapplicable
+                # detector cannot crash detect() for the applicable ones.
                 record_component_declined(outcome.name)
-            else:
-                record_inference_error(outcome.name)
+                declined.append(outcome.name)
+                logger.info(f"Detector {outcome.name} declined this input: {outcome.error}")
+                continue
+            record_inference_error(outcome.name)
             failure = failure or outcome
         if failure is not None:
             reraise(failure)
+
+        if declined and not results:
+            # Every detector refused this input, so there is no evidence to
+            # report. Returning is_anomaly=False here would be a fail-open:
+            # "nothing could score this" is not "nothing is wrong".
+            raise InputModalityError(
+                "No detector could process this input; all declined: "
+                f"{sorted(set(declined))}. Check the input's shape and modality "
+                "against the detectors requested in detector_types."
+            )
 
         output: dict[str, Any] = {
             "detectors": results,
@@ -4482,6 +4549,10 @@ class OmniMercuryEngine(LoggerMixin):
         }
         if self._inference_auto_fit_detectors:
             output["inference_auto_fit_detectors"] = sorted(self._inference_auto_fit_detectors)
+        if declined:
+            # Surfaced so a caller can see which detectors did not contribute
+            # and why the verdict rests on the remainder.
+            output["declined_detectors"] = sorted(set(declined))
         return output
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_batch_subject)
@@ -5179,6 +5250,14 @@ class OmniMercuryEngine(LoggerMixin):
             # Fail-loud (or legacy auto-fit) on an unfit detector. This runs
             # OUTSIDE the graceful per-detector skip handler below so the
             # fail-loud RuntimeError is not swallowed.
+            if not detector.is_fitted() and name in self._modality_declined_detectors:
+                # Declined this modality at training time; it cannot be fitted
+                # on this corpus, so skip it instead of raising the unfit
+                # error, which would blame the caller for a refusal that is
+                # correct and already recorded.
+                record_component_declined(name)
+                continue
+
             if not detector.is_fitted() and not isinstance(data, dict):
                 if self._require_explicit_fit:
                     raise RuntimeError(
