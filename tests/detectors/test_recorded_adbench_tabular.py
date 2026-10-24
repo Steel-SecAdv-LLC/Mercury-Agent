@@ -53,7 +53,7 @@ MEASURED: dict[str, tuple[float, ...]] = {
 }
 
 #: topological: window AUROC per table (``pima_real``, ``cardio``, ``breastw``, ``thyroid``).
-MEASURED_WINDOWS: tuple[float, ...] = (0.461, 0.965, 0.859, 0.999)
+MEASURED_WINDOWS: tuple[float, ...] = (0.599, 0.961, 0.999, 1.000)
 
 #: biometric (tabular route): window AUROC per table, same order.
 MEASURED_BIOMETRIC_WINDOWS: tuple[float, ...] = (0.997, 1.000, 1.000, 1.000)

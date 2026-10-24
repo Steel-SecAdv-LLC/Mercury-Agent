@@ -27,6 +27,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the topological detector scored windows against a profile of a different size.**
+`TopologicalAnomalyDetector.fit` built `_reference_features` from the whole reference point
+cloud (80 points under the `n_reference_samples=80` cap used by the pinned ADBench window
+protocol) while every window `score` is asked about holds 25. Betti numbers, persistence
+entropies, landscape norms and lifetime counts all scale with the number of points — the
+reference's `n_features_h0` was 60 against a window's 20 at a cap of 60 — so each of the 14
+feature deviations carried a constant size bias, the bias dominated their unweighted mean,
+and the signal was diluted. Clean reference windows scored 0.92, up against the ceiling of
+the score's sigmoid. The baseline `_aggregate_score` measures from is now the mean feature
+vector of the reference *sub-samples*, which carry the same number of points as the windows
+being scored (the same discipline `SpectralVibrationDetector` already used for its
+per-window `_reference_features_mean`); the whole-reference profile remains as the fallback
+when fewer than four rows make windows impossible. Measured window AUROC on the pinned
+ADBench protocol (four tables, three seeds): Pima 0.461 -> 0.599, cardio 0.965 -> 0.961,
+breastw 0.859 -> 0.999, thyroid 0.999 -> 1.000; mean **0.821 -> 0.890**. Over six seeds,
+0.839 -> 0.883. The calibrated threshold drops from 0.920 to 0.311, out of the saturating
+region. The Wasserstein distances `score` reports stay a diagnostic and out of the
+aggregate: adding them measured 0.883 against 0.890.
+
+**Fixed — a configured `anomaly_threshold` silently changed the topological score itself.**
+`anomaly_threshold` is documented as the decision cut, but supplying it skipped calibration
+entirely, so `_feature_stds` stayed empty and `_aggregate_score` fell through to its
+near-zero-variance branch: the same clean window scored 0.918 with an auto threshold and
+0.085 with `anomaly_threshold=0.5`. The window baseline and feature spreads are now measured
+whenever `fit` has enough rows, and only the threshold is left alone when one was given.
+Cost of always measuring them: an uncapped `fit` on 300 rows with a configured threshold
+goes 1.47 s -> 1.89 s, a capped one 0.027 s -> 0.050 s. Four tests fail on the old code.
+
+**Fixed — refitting the topological detector kept the first fit's threshold.** The
+auto-calibration guard was `if self.anomaly_threshold is None`, which is false after any
+auto-calibration, so a second `fit` on different reference data moved the window baseline
+and feature spreads to the new data but left the old cut point in place: fitting on
+scale-0.05 rows then on scale-5.0 rows held the threshold at 0.3155 where a fresh fit on
+the same rows gives 0.2798. Whether the threshold was *configured by the caller* is now
+recorded at construction, so an auto threshold recalibrates on every `fit` and a configured
+one is still never overwritten. Two tests fail on the old code.
+
 **Fixed — Page–Hinkley's `delta` and `lambda` were in the series' own unit.** The same test
 on the same shape of data alarmed from the first sample when the unit was large and never
 when it was small: on four recorded NAB files (standard deviation 8.5e6, 4.8, 0.09 and
@@ -34,10 +71,28 @@ when it was small: on four recorded NAB files (standard deviation 8.5e6, 4.8, 0.
 After `fit`, the series is now measured in units of the reference standard deviation (1 for
 a constant reference; an unfitted detector keeps the series' unit), so `delta` and `lambda`
 mean the same for any unit, and the scale is saved with the detector and reported in
-`metadata['scale']`. The class has not been released. This makes the verdicts consistent,
-not good: a sustained-shift test with the default `delta=0.005`, `lambda=50` now alarms on
-the level drift of every one of the four files (NAB standard score -792 -> -1785; the
-operating values need the application's own tolerable shift).
+`metadata['scale']`. The class has not been released. On its own this made the verdicts
+consistent, not good — at the default `delta=0.005`, `lambda=50` it then alarmed on the
+level drift of every one of the four files (NAB standard score -792 -> -1785) — which
+exposed the missing restart fixed in the next entry.
+
+**Fixed — Page–Hinkley never restarted, so one shift alarmed to the end of the series.**
+`PH_t = m_t - min_{s<=t} m_s` grows monotonically while a shift is sustained, so once it
+crossed `lambda` it stayed there: on a synthetic +3σ shift held for 700 samples the
+detector alarmed on 685 of them, and on the four recorded NAB files it alarmed on 798 of
+1057, 1138 of 1308, 1542 of 1600 and 695 of 958 post-probation points. The Page–Hinkley
+change detector clears its accumulators on the sample following an alarm (as the reference
+implementation in `river.drift.PageHinkley` does, and as `SPRTDetector` in the same module
+already did after each Wald decision); Mercury's did not. Both one-sided accumulators and
+their running minima now restart after an alarm. Measured on the same four NAB files, same
+defaults: alarms 798/1138/1542/695 -> 4/10/19/9, NAB standard-profile score **-1785.3 ->
++26.6**, mean ranking AUROC 0.332 -> 0.534. Because `x_bar` is fixed by `fit`, a shift that
+persists re-alarms every `lambda / (shift - delta)` samples (measured 14-20 for a +3σ shift
+at the defaults, predicted 16.7) rather than alarming once: a fixed-reference CUSUM reports
+that the series is still away from the reference it was fitted on. Cost: the restart makes
+the scan sequential, so `page_hinkley_statistics` runs at 1.7 Msample/s against 11 Msample/s
+for the previous cumulative form (90 ms -> 580 ms per 10^6 samples). Three tests fail on the
+old code, including the hand-computed seven-point table, which now shows the restart.
 
 **Fixed — `PhysicsIntegratedDetector` flagged every normal signal.** Its fused score of a
 healthy bearing-vibration window (CWRU Bearing Data Center, 12 kHz) is 0.89-0.99, and the

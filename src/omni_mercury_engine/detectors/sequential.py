@@ -62,6 +62,71 @@ def _to_1d_f64(detector: Any, data: np.ndarray[Any, Any] | torch.Tensor) -> np.n
     return bound_finite_config(detector, np.asarray(data, dtype=np.float64)).ravel()
 
 
+def _page_hinkley_scan(
+    deviations: np.ndarray[Any, Any], delta: float, lambda_threshold: float
+) -> tuple[
+    np.ndarray[Any, Any],
+    np.ndarray[Any, Any],
+    np.ndarray[Any, Any],
+    np.ndarray[Any, Any],
+    np.ndarray[Any, Any],
+]:
+    """Both one-sided Page-Hinkley trajectories, restarted after each alarm.
+
+    ``m_t = sum(x_i - delta)`` with ``PH_t = m_t - min_{s<=t} m_s`` grows
+    monotonically once a shift is sustained, so without a restart one change
+    point alarms at that sample *and at every sample after it*: a cumulative
+    test with no reset reports the same change for the rest of the series.  The
+    Page-Hinkley change detector therefore clears its accumulators on the
+    sample following an alarm, the same discipline
+    :class:`SPRTDetector` already applies after each Wald decision.
+
+    Because the reference mean is fixed by ``fit`` rather than tracked, a shift
+    that persists re-alarms roughly every ``lambda / (shift - delta)`` samples
+    instead of exactly once: a fixed-reference CUSUM reports that the series is
+    still away from the reference it was fitted on.
+
+    Args:
+        deviations: Series minus the reference mean, in reference standard
+            deviations.
+        delta: Per-sample tolerance.
+        lambda_threshold: Alarm threshold on the PH statistic.
+
+    Returns:
+        ``(m_increase, ph_increase, m_decrease, ph_decrease, ph)``, each of the
+        same length as ``deviations``; ``ph`` is the per-sample maximum of the
+        two one-sided statistics.
+    """
+    n = deviations.size
+    m_inc = np.empty(n, dtype=np.float64)
+    m_dec = np.empty(n, dtype=np.float64)
+    ph_inc = np.empty(n, dtype=np.float64)
+    ph_dec = np.empty(n, dtype=np.float64)
+    run_inc = run_dec = 0.0
+    # The running minima start unbounded so that, exactly as
+    # ``np.minimum.accumulate`` does over a whole series, the first sample of
+    # every run is its own minimum and PH is 0 there.
+    min_inc = min_dec = math.inf
+    restart = False
+    for i in range(n):
+        if restart:
+            run_inc = run_dec = 0.0
+            min_inc = min_dec = math.inf
+            restart = False
+        deviation = float(deviations[i])
+        run_inc += deviation - delta
+        run_dec += -deviation - delta
+        min_inc = min(min_inc, run_inc)
+        min_dec = min(min_dec, run_dec)
+        m_inc[i] = run_inc
+        m_dec[i] = run_dec
+        ph_inc[i] = run_inc - min_inc
+        ph_dec[i] = run_dec - min_dec
+        if max(ph_inc[i], ph_dec[i]) > lambda_threshold:
+            restart = True
+    return m_inc, ph_inc, m_dec, ph_dec, np.maximum(ph_inc, ph_dec)
+
+
 class SPRTDetector(BaseDetector):
     """Wald Sequential Probability Ratio Test for a Gaussian mean shift.
 
@@ -313,7 +378,11 @@ class PageHinkleyDetector(BaseDetector):
     watched.  Once ``fit`` has seen the reference series, ``x_i`` is measured in
     units of its standard deviation, so ``delta`` and ``lambda`` mean the same
     thing for a series in any unit (an unfitted detector keeps the series'
-    own unit).  The per-sample anomaly score is ``1 - 2^(-PH_t / lambda)`` on
+    own unit).  Both accumulators restart on the sample after an alarm -- the
+    same discipline :class:`SPRTDetector` applies after each Wald decision --
+    so a sustained shift re-alarms roughly every ``lambda / (shift - delta)``
+    samples against the fitted reference instead of at every sample from its
+    onset onward.  The per-sample anomaly score is ``1 - 2^(-PH_t / lambda)`` on
     the larger of the two statistics -- a bounded monotone transform equal to
     0.5 exactly at the alarm threshold.
     """
@@ -323,7 +392,8 @@ class PageHinkleyDetector(BaseDetector):
         description=(
             "The alarm rule is the Page-Hinkley cumulative test: PH_t = m_t - "
             "min_{s<=t} m_s with m_t = sum(x_i - x_bar - delta), alarming when "
-            "PH_t exceeds lambda, run in both one-sided variants; the tolerance "
+            "PH_t exceeds lambda, run in both one-sided variants and restarted "
+            "on the sample after each alarm; the tolerance "
             "delta and threshold lambda are caller-configured operating values, "
             "not published constants. Scores map PH_t through the bounded "
             "monotone transform 1 - 2^(-PH/lambda), which equals 0.5 exactly at "
@@ -396,14 +466,17 @@ class PageHinkleyDetector(BaseDetector):
             per-sample maximum of the two sides), ``alarms`` (indices where
             ``ph > lambda``), ``x_bar``, ``scale`` (the unit of the statistics),
             ``delta`` and ``lambda``.
+
+            The statistics restart on the sample after an alarm, so a
+            sustained shift re-alarms at intervals of about
+            ``lambda / (shift - delta)`` samples rather than at every sample
+            from its onset to the end of the series.
         """
         series = _to_1d_f64(self, data)
         deviations = (series - self._xbar) / self._scale
-        m_inc = np.cumsum(deviations - self.delta)
-        m_dec = np.cumsum(-deviations - self.delta)
-        ph_inc = m_inc - np.minimum.accumulate(m_inc)
-        ph_dec = m_dec - np.minimum.accumulate(m_dec)
-        ph = np.maximum(ph_inc, ph_dec)
+        m_inc, ph_inc, m_dec, ph_dec, ph = _page_hinkley_scan(
+            deviations, self.delta, self.lambda_threshold
+        )
         return {
             "m_increase": m_inc,
             "ph_increase": ph_inc,

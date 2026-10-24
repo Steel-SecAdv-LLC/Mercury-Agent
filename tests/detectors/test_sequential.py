@@ -194,21 +194,23 @@ class TestPageHinkley:
     def test_statistic_matches_hand_computed_example_exactly(self) -> None:
         """Seven-point example computed by hand with x_bar=4, delta=0.5, lambda=2.
 
-        Increase side, m_t = sum(x_i - 4 - 0.5), PH_t = m_t - min_{s<=t} m_s:
+        Increase side, m_t = sum(x_i - 4 - 0.5), PH_t = m_t - min_{s<=t} m_s,
+        with both accumulators cleared on the sample after an alarm (t=5 below
+        starts a fresh run, so its own m_t is its own minimum and PH_t is 0):
 
-        ====  ====  =====  =====  =====  ====
-         t     x    incr   m_t    min    PH_t
-        ====  ====  =====  =====  =====  ====
+        ====  ====  =====  =====  =====  ====  ======
+         t     x    incr   m_t    min    PH_t  alarm
+        ====  ====  =====  =====  =====  ====  ======
          1     4    -0.5   -0.5   -0.5   0.0
          2     5    +0.5    0.0   -0.5   0.5
          3     4    -0.5   -0.5   -0.5   0.0
          4     3    -1.5   -2.0   -2.0   0.0
-         5     9    +4.5    2.5   -2.0   4.5
-         6    10    +5.5    8.0   -2.0  10.0
-         7     9    +4.5   12.5   -2.0  14.5
-        ====  ====  =====  =====  =====  ====
+         5     9    +4.5    2.5   -2.0   4.5  alarm
+         6    10    +5.5    5.5    5.5   0.0  restart
+         7     9    +4.5   10.0    5.5   4.5  alarm
+        ====  ====  =====  =====  =====  ====  ======
 
-        Decrease side, m_t = sum(4 - x_i - 0.5):
+        Decrease side, m_t = sum(4 - x_i - 0.5), cleared at the same samples:
 
         ====  ====  =====  =====  =====  ====
          t     x    incr   m_t    min    PH_t
@@ -218,32 +220,75 @@ class TestPageHinkley:
          3     4    -0.5   -2.5   -2.5   0.0
          4     3    +0.5   -2.0   -2.5   0.5
          5     9    -5.5   -7.5   -7.5   0.0
-         6    10    -6.5  -14.0  -14.0   0.0
-         7     9    -5.5  -19.5  -19.5   0.0
+         6    10    -6.5   -6.5   -6.5   0.0
+         7     9    -5.5  -12.0  -12.0   0.0
         ====  ====  =====  =====  =====  ====
 
-        Every value is an exact binary fraction, so equality is exact.
+        Without the restart the increase side would run on to 8.0 and 12.5 and
+        alarm at t=5, 6 *and* 7: one shift reported three times.  Every value
+        is an exact binary fraction, so equality is exact.
         """
         detector = PageHinkleyDetector(delta=0.5, lambda_threshold=2.0)
         detector.fit(np.array([4.0, 4.0, 4.0, 4.0]))  # x_bar = 4.0 exactly
         series = np.array([4.0, 5.0, 4.0, 3.0, 9.0, 10.0, 9.0])
         stats = detector.page_hinkley_statistics(series)
         assert stats["x_bar"] == 4.0
-        expected_m_inc = np.array([-0.5, 0.0, -0.5, -2.0, 2.5, 8.0, 12.5])
-        expected_ph_inc = np.array([0.0, 0.5, 0.0, 0.0, 4.5, 10.0, 14.5])
-        expected_m_dec = np.array([-0.5, -2.0, -2.5, -2.0, -7.5, -14.0, -19.5])
+        expected_m_inc = np.array([-0.5, 0.0, -0.5, -2.0, 2.5, 5.5, 10.0])
+        expected_ph_inc = np.array([0.0, 0.5, 0.0, 0.0, 4.5, 0.0, 4.5])
+        expected_m_dec = np.array([-0.5, -2.0, -2.5, -2.0, -7.5, -6.5, -12.0])
         expected_ph_dec = np.array([0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0])
         assert np.array_equal(stats["m_increase"], expected_m_inc)
         assert np.array_equal(stats["ph_increase"], expected_ph_inc)
         assert np.array_equal(stats["m_decrease"], expected_m_dec)
         assert np.array_equal(stats["ph_decrease"], expected_ph_dec)
         # Alarms exactly where max(PH_inc, PH_dec) > lambda = 2.
-        assert stats["alarms"] == [4, 5, 6]
+        assert stats["alarms"] == [4, 6]
         # detect() reports the same trajectories and alarms.
         meta = detector.detect(series)["metadata"]
         assert meta["ph_increase"] == expected_ph_inc.tolist()
         assert meta["ph_decrease"] == expected_ph_dec.tolist()
-        assert meta["alarms"] == [4, 5, 6]
+        assert meta["alarms"] == [4, 6]
+
+    def test_a_sustained_shift_alarms_periodically_not_at_every_sample(self) -> None:
+        """Without the restart one shift alarmed at every sample to the series' end.
+
+        300 samples of the reference regime then 700 at +3 sigma.  The
+        statistic only grows while the shift is sustained, so with no restart it
+        never fell back under lambda: 685 alarms, samples 315 to 999.  Restarted,
+        the same shift alarms 39 times.  It re-alarms rather than alarming once
+        because ``x_bar`` is fixed by ``fit``: each fresh run still sees a
+        +3 sigma deviation and needs ``lambda / (shift - delta)`` =
+        50 / 2.995 = 16.7 samples to cross lambda again, which is the measured
+        14-20 sample spacing.  That is a fixed-reference CUSUM reporting "still
+        away from the reference it was fitted on", not a detector flooding on
+        noise.
+        """
+        rng = np.random.default_rng(14)
+        detector = PageHinkleyDetector().fit(rng.normal(0.0, 1.0, 2000))
+        series = np.concatenate([rng.normal(0.0, 1.0, 300), rng.normal(3.0, 1.0, 700)])
+
+        alarms = detector.detect(series)["metadata"]["alarms"]
+
+        assert len(alarms) == 39
+        assert min(alarms) == 315
+        gaps = np.diff(alarms)
+        assert gaps.min() >= 14 and gaps.max() <= 20
+
+    def test_each_run_restarts_from_zero_after_an_alarm(self) -> None:
+        """The sample after an alarm is its own minimum, so its PH is exactly 0.
+
+        ``x_bar`` is 0 and the unit is 1 (a constant reference), delta is 0 and
+        lambda is 1, so every sample contributes exactly +2 to ``m_increase``:
+        t=0 opens a run (its own minimum, PH 0), t=1 reaches PH 2 and alarms,
+        t=2 opens the next run, t=3 alarms.  ``m_increase`` returns to 2 at t=2
+        rather than running on to 6, which is the restart.
+        """
+        detector = PageHinkleyDetector(delta=0.0, lambda_threshold=1.0).fit(np.zeros(4))
+        stats = detector.page_hinkley_statistics(np.array([2.0, 2.0, 2.0, 2.0]))
+
+        assert stats["alarms"] == [1, 3]
+        np.testing.assert_array_equal(stats["ph_increase"], [0.0, 2.0, 0.0, 2.0])
+        np.testing.assert_array_equal(stats["m_increase"], [2.0, 4.0, 2.0, 4.0])
 
     def test_score_is_half_exactly_at_the_alarm_boundary(self) -> None:
         detector = PageHinkleyDetector(delta=0.0, lambda_threshold=4.0)
