@@ -27,6 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — Page–Hinkley's `delta` and `lambda` were in the series' own unit.** The same test
+on the same shape of data alarmed from the first sample when the unit was large and never
+when it was small: on four recorded NAB files (standard deviation 8.5e6, 4.8, 0.09 and
+0.05) it alarmed on 1056 of 1057 and 937 of 958 points, and on none of 1308 and 1600.
+After `fit`, the series is now measured in units of the reference standard deviation (1 for
+a constant reference; an unfitted detector keeps the series' unit), so `delta` and `lambda`
+mean the same for any unit, and the scale is saved with the detector and reported in
+`metadata['scale']`. The class has not been released. This makes the verdicts consistent,
+not good: a sustained-shift test with the default `delta=0.005`, `lambda=50` now alarms on
+the level drift of every one of the four files (NAB standard score -792 -> -1785; the
+operating values need the application's own tolerable shift).
+
 **Fixed — `PhysicsIntegratedDetector` flagged every normal signal.** Its fused score of a
 healthy bearing-vibration window (CWRU Bearing Data Center, 12 kHz) is 0.89-0.99, and the
 alarm threshold stayed at the 0.5 default whatever `fit` saw: it ranked fault windows above

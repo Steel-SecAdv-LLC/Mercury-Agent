@@ -51,7 +51,7 @@ MEASURED: dict[str, tuple[float, float]] = {
     "hawkes": (0.533, 46.1),
     "imm": (0.510, 43.6),
     "lstm_autoencoder": (0.829, -88.5),
-    "page_hinkley": (0.446, -792.3),
+    "page_hinkley": (0.332, -1785.3),
     "particle_filter": (0.582, 39.6),
     "spectral_residual": (0.489, 45.3),
     "spiking": (0.583, -318.7),

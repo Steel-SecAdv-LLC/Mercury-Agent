@@ -310,7 +310,10 @@ class PageHinkleyDetector(BaseDetector):
     ``PH_t = m_t - min_{s<=t} m_s``; an alarm is raised when
     ``PH_t > lambda``.  The downward variant mirrors it
     (``m_t = sum_{i<=t}(x_bar - x_i - delta)``), so both one-sided shifts are
-    watched.  The per-sample anomaly score is ``1 - 2^(-PH_t / lambda)`` on
+    watched.  Once ``fit`` has seen the reference series, ``x_i`` is measured in
+    units of its standard deviation, so ``delta`` and ``lambda`` mean the same
+    thing for a series in any unit (an unfitted detector keeps the series'
+    own unit).  The per-sample anomaly score is ``1 - 2^(-PH_t / lambda)`` on
     the larger of the two statistics -- a bounded monotone transform equal to
     0.5 exactly at the alarm threshold.
     """
@@ -324,7 +327,9 @@ class PageHinkleyDetector(BaseDetector):
             "delta and threshold lambda are caller-configured operating values, "
             "not published constants. Scores map PH_t through the bounded "
             "monotone transform 1 - 2^(-PH/lambda), which equals 0.5 exactly at "
-            "the alarm boundary."
+            "the alarm boundary. After fit() the series is measured in units of "
+            "the reference standard deviation, so the same delta and lambda "
+            "apply whatever the series' unit."
         ),
         citation=("Page (1954), 'Continuous Inspection Schemes', Biometrika 41(1/2):100-115"),
     )
@@ -338,10 +343,10 @@ class PageHinkleyDetector(BaseDetector):
         """Initialize the Page-Hinkley detector.
 
         Args:
-            delta: Tolerance (magnitude of mean drift ignored per sample).
-                Must be >= 0.
-            lambda_threshold: Alarm threshold ``lambda`` on the PH statistic.
-                Must be > 0.
+            delta: Tolerance (magnitude of mean drift ignored per sample), in
+                reference standard deviations once fitted. Must be >= 0.
+            lambda_threshold: Alarm threshold ``lambda`` on the PH statistic,
+                in reference standard deviations once fitted. Must be > 0.
             config: Optional ``BaseDetector`` config.
 
         Raises:
@@ -355,15 +360,18 @@ class PageHinkleyDetector(BaseDetector):
             raise ValueError(f"lambda_threshold must be > 0, got {lambda_threshold}")
         self.delta = float(delta)
         self.lambda_threshold = float(lambda_threshold)
-        # Reference mean; refined from data in ``fit``.
+        # Reference mean and spread; refined from data in ``fit``.
         self._xbar = 0.0
+        self._scale = 1.0
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> PageHinkleyDetector:
-        """Estimate the reference mean ``x_bar`` from normal-regime data.
+        """Estimate the reference mean ``x_bar`` and spread from normal-regime data.
 
         Args:
             data: Reference series (flattened to 1-D); its mean becomes
-                ``x_bar``.
+                ``x_bar`` and its standard deviation the unit ``delta`` and
+                ``lambda`` are measured in (1 for a constant or one-sample
+                series).
 
         Returns:
             ``self``.
@@ -371,6 +379,8 @@ class PageHinkleyDetector(BaseDetector):
         series = _to_1d_f64(self, data)
         if series.size >= 1:
             self._xbar = float(np.mean(series))
+            spread = float(np.std(series)) if series.size >= 2 else 0.0
+            self._scale = spread if spread > 1e-12 else 1.0
         self._is_fitted = True
         return self
 
@@ -384,10 +394,11 @@ class PageHinkleyDetector(BaseDetector):
             Dict with ``m_increase``/``ph_increase`` (upward shift),
             ``m_decrease``/``ph_decrease`` (downward shift), ``ph`` (the
             per-sample maximum of the two sides), ``alarms`` (indices where
-            ``ph > lambda``), ``x_bar``, ``delta`` and ``lambda``.
+            ``ph > lambda``), ``x_bar``, ``scale`` (the unit of the statistics),
+            ``delta`` and ``lambda``.
         """
         series = _to_1d_f64(self, data)
-        deviations = series - self._xbar
+        deviations = (series - self._xbar) / self._scale
         m_inc = np.cumsum(deviations - self.delta)
         m_dec = np.cumsum(-deviations - self.delta)
         ph_inc = m_inc - np.minimum.accumulate(m_inc)
@@ -401,6 +412,7 @@ class PageHinkleyDetector(BaseDetector):
             "ph": ph,
             "alarms": np.flatnonzero(ph > self.lambda_threshold).tolist(),
             "x_bar": self._xbar,
+            "scale": self._scale,
             "delta": self.delta,
             "lambda": self.lambda_threshold,
         }
@@ -447,5 +459,6 @@ class PageHinkleyDetector(BaseDetector):
                 "delta": self.delta,
                 "lambda": self.lambda_threshold,
                 "x_bar": self._xbar,
+                "scale": self._scale,
             },
         }

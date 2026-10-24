@@ -15,12 +15,15 @@ statistic must match a hand-computed small example exactly.
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
 
 from omni_mercury_engine.detectors.sequential import PageHinkleyDetector, SPRTDetector
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestSPRTBoundaries:
@@ -252,6 +255,36 @@ class TestPageHinkley:
         assert scores[0] < 0.5 < scores[2]
         # PH == lambda is not yet an alarm (strict inequality per Page's rule).
         assert result["metadata"]["alarms"] == [2]
+
+    @pytest.mark.parametrize(("gain", "offset"), [(1e6, 5e6), (1e-3, 0.0), (-7.0, 3.0)])
+    def test_verdicts_do_not_depend_on_the_unit_of_the_series(
+        self, gain: float, offset: float
+    ) -> None:
+        """delta and lambda are in reference standard deviations, so a rescaled series agrees."""
+        rng = np.random.default_rng(12)
+        reference = rng.normal(0.0, 1.0, 2000)
+        series = np.concatenate([rng.normal(0.0, 1.0, 300), rng.normal(2.0, 1.0, 200)])
+        base = PageHinkleyDetector().fit(reference).detect(series)
+        scaled = PageHinkleyDetector().fit(gain * reference + offset).detect(gain * series + offset)
+        assert scaled["metadata"]["alarms"] == base["metadata"]["alarms"]
+        assert base["metadata"]["alarms"], "the 2-sigma shift must alarm"
+        np.testing.assert_allclose(scaled["scores"], base["scores"], atol=1e-5)
+
+    def test_constant_reference_keeps_the_series_unit(self) -> None:
+        detector = PageHinkleyDetector().fit(np.full(10, 3.0))
+        assert detector.detect(np.array([3.0, 4.0]))["metadata"]["scale"] == 1.0
+
+    def test_fitted_unit_survives_save_and_load(self, tmp_path: Path) -> None:
+        rng = np.random.default_rng(13)
+        fitted = PageHinkleyDetector().fit(rng.normal(100.0, 25.0, 500))
+        path = str(tmp_path / "ph.pt")
+        fitted.save(path)
+        restored = PageHinkleyDetector()
+        restored.load(path)
+        series = rng.normal(130.0, 25.0, 100)
+        before, after = fitted.detect(series), restored.detect(series)
+        assert after["metadata"]["scale"] == before["metadata"]["scale"] != 1.0
+        assert after["metadata"]["alarms"] == before["metadata"]["alarms"]
 
     def test_invalid_parameters_are_refused(self) -> None:
         with pytest.raises(ValueError, match="delta"):
