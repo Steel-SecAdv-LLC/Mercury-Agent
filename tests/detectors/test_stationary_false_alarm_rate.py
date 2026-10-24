@@ -93,8 +93,8 @@ MEASURED_RATE: dict[str, float] = {
 #: came back anomalous.  1.0 means it calls a stationary normal series
 #: anomalous on every seed; 0.0 means it never does.
 MEASURED_VERDICT: dict[str, float] = {
-    "acceleration_dynamics": 1.0,
     "nano_safeguard": 1.0,
+    "acceleration_dynamics": 0.0,
     "frequent_pattern": 0.0,
     "spectral_domain_frequency": 0.0,
     "spectral_vibration": 0.0,

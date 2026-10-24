@@ -119,6 +119,9 @@ class AccelerationDynamicsConfig:
         phase_space_neighbors: k-nearest neighbors for phase space analysis
         chaos_threshold: Threshold for chaos detection
         threshold: Anomaly detection threshold
+        calibration_quantile: Quantile of the training windows' own fused
+            scores that fit() installs as the threshold. Ignored when
+            ``threshold`` is configured or auto-calibration is enabled.
     """
 
     time_step: float = 1.0
@@ -132,6 +135,7 @@ class AccelerationDynamicsConfig:
     phase_space_neighbors: int = 5
     chaos_threshold: float = 0.1
     threshold: float = 0.5
+    calibration_quantile: float = 0.95
     extra_params: dict[str, Any] = field(default_factory=dict)
 
 
@@ -507,10 +511,16 @@ class AccelerationDynamicsDetector(BaseDetector):
             "In-house physics-metaphor heuristic: kinematic quantities "
             "(velocity, acceleration, jerk, energy, phase-space and Lyapunov "
             "summaries) are compared against reference statistics learned in "
-            "fit() and fused into a composite normalized score decided at the "
-            "configured BaseDetector threshold (default 0.5). No published "
-            "threshold exists for this rule and no labelled corpus calibrates "
-            "it."
+            "fit() and fused into a composite normalized score. No published "
+            "threshold exists for this rule, so fit() cuts one at the 0.95 "
+            "quantile of the fused scores of windows of the training signals, "
+            "which is sound because the score is stable in signal length "
+            "(0.7986, 0.8078 and 0.8018 at lengths 100, 200 and 400 on one "
+            "process). The 0.5 default it replaced sat below the normal "
+            "regime of its own score, 0.79 to 0.83 on a stationary series, so "
+            "it called every normal series anomalous. A configured threshold "
+            "is left alone and every verdict carries "
+            "'threshold_calibrated'."
         ),
     )
 
@@ -538,7 +548,16 @@ class AccelerationDynamicsDetector(BaseDetector):
             phase_space_neighbors=self.config.get("phase_space_neighbors", 5),
             chaos_threshold=self.config.get("chaos_threshold", 0.1),
             threshold=self.threshold,
+            calibration_quantile=self.config.get("calibration_quantile", 0.95),
         )
+        if not 0.0 < self._dynamics_config.calibration_quantile < 1.0:
+            raise DetectorException(
+                "calibration_quantile must be in (0, 1), got "
+                f"{self._dynamics_config.calibration_quantile}"
+            )
+        #: Whether fit() cut the threshold on the training windows' scores.
+        #: False means the verdict rests on the configured or default value.
+        self._threshold_calibrated = False
 
         # Initialize neural components
         self.device = torch.device(self.config.get("device", "cpu"))
@@ -635,12 +654,74 @@ class AccelerationDynamicsDetector(BaseDetector):
         self._reference_lyapunov = float(np.mean(all_lyapunov))
 
         self._is_fitted = True
+        self._calibrate_threshold_on_windows(np.asarray(data))
         logger.info(
             f"AccelerationDynamicsDetector fitted. "
             f"Reference velocity: {self._reference_velocity_mean:.4f} ± {self._reference_velocity_std:.4f}"
         )
 
         return self
+
+    #: Window geometry for threshold calibration: each training sample is cut
+    #: into halves taken every ``_CALIBRATION_STRIDE`` points, which yields
+    #: enough windows for the quantile while keeping each long enough for the
+    #: phase-space and Lyapunov summaries to mean anything.
+    _CALIBRATION_STRIDE = 5
+    _MIN_CALIBRATION_WINDOWS = 20
+    #: Shortest window the phase-space and Lyapunov summaries can use.
+    _MIN_CALIBRATION_WIDTH = 32
+
+    def _calibrate_threshold_on_windows(self, data: np.ndarray[Any, Any]) -> None:
+        """Set the alarm threshold from the training data's own score distribution.
+
+        This detector fuses its kinematic deviations into one score for a whole
+        signal, and the normal regime of that score does not sit near the 0.5
+        default: on a stationary AR(1) series it measures 0.79 to 0.83, so the
+        default called every normal series anomalous. Nothing published fixes
+        the value, and one training signal gives only one score, so the
+        threshold is cut at ``calibration_quantile`` of the scores of *windows*
+        of the training signals.
+
+        Windows are the right unit here because the score is stable in the
+        signal's length -- measured 0.7986, 0.8078 and 0.8018 at window lengths
+        100, 200 and 400 on the same process -- so a cut taken on windows
+        transfers to the whole signal.
+
+        An explicitly configured threshold, or ``enable_auto_calibration``, is
+        the caller's decision and is left alone.
+        """
+        if "threshold" in self.config or self._auto_calibrate:
+            return
+
+        windows: list[np.ndarray[Any, Any]] = []
+        for sample in data:
+            width = len(sample) // 2
+            if width < self._MIN_CALIBRATION_WIDTH:
+                continue
+            windows.extend(
+                np.lib.stride_tricks.sliding_window_view(sample, width)[:: self._CALIBRATION_STRIDE]
+            )
+        if len(windows) < self._MIN_CALIBRATION_WINDOWS:
+            logger.warning(
+                "AccelerationDynamicsDetector could not calibrate its threshold: %d "
+                "windows of the training data, fewer than the %d needed. The %.2f "
+                "default stands, and normal signals score above it.",
+                len(windows),
+                self._MIN_CALIBRATION_WINDOWS,
+                self.threshold,
+            )
+            return
+
+        scores = [float(self.detect(window)["anomaly_score"]) for window in windows]
+        self.threshold = float(np.quantile(scores, self._dynamics_config.calibration_quantile))
+        self._threshold_calibrated = True
+        logger.info(
+            "AccelerationDynamicsDetector threshold %.4f from the %.2f quantile of %d "
+            "training windows",
+            self.threshold,
+            self._dynamics_config.calibration_quantile,
+            len(scores),
+        )
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using acceleration dynamics analysis.
@@ -711,6 +792,9 @@ class AccelerationDynamicsDetector(BaseDetector):
             "mean_acceleration": primary_result.kinematic_features.mean_acceleration,
             "max_jerk": primary_result.kinematic_features.max_jerk,
             "detector_type": "acceleration_dynamics",
+            # False means the alarm rests on the configured or default
+            # threshold rather than a cut measured on training windows.
+            "threshold_calibrated": self._threshold_calibrated,
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
         }

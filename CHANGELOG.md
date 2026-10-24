@@ -302,9 +302,10 @@ squash anchor targets but bounded, `srcnn` 0.1020, `statistical` 0.0980, `energy
 `lstm_autoencoder` 0.0670 (see the out-of-fold calibration fix above, which moved it from
 0.6265); at or under contract, the other 15 down to `page_hinkley` 0.0025. **Set-level** detectors reduce the whole series to *one* verdict, so
 what is pinned is the share of the five seeds whose single verdict came back anomalous:
-`acceleration_dynamics` and `nano_safeguard` call an entirely normal
+`nano_safeguard` calls an entirely normal
 stationary series anomalous on every seed,
-while `frequent_pattern`, `spectral_vibration`, `spectral_domain_frequency` and
+while `acceleration_dynamics`, `frequent_pattern`, `spectral_vibration`,
+`spectral_domain_frequency` and
 `uiux_anomaly` never do. A test asserts each group's verdict arity so an entry cannot drift
 between them unnoticed.
 
@@ -312,6 +313,37 @@ between them unnoticed.
 20 seeds their medians are 0.0138 and 0.0188, at or under the nominal 0.02, with a heavy tail
 (max 0.1725 and 0.1375), so the 3-seed excess that first flagged them was the tail and not a
 systematic bias. No change was made to either.
+
+**Fixed — `acceleration_dynamics` decided at a cut its own normal scores sat above; and
+`nano_safeguard` now says when its cut is uncalibrated.** Both reduce a whole signal to one
+score and both shipped a cut that the *normal* regime of that score exceeds, so each called an
+entirely normal stationary series anomalous on all five gate seeds: `acceleration_dynamics` at
+the 0.5 `BaseDetector` default against a fused score of 0.79 to 0.83, `nano_safeguard` at a
+hand-set 0.05 against a composite of 0.40 to 0.44.
+
+Whether that can be calibrated from the training signal turns on one measured property. A
+caller who supplies one series gives one score, so the only source of repeated scores is
+*windows* of that series — and a cut taken on windows is valid only if the score transfers
+across lengths.
+
+It does for the kinematic score: measured 0.7986, 0.8078 and 0.8018 at window lengths 100, 200
+and 400 on one process. `AccelerationDynamicsDetector.fit` therefore cuts at the
+`calibration_quantile` (0.95) of the scores of windows of the training signals. The verdict
+share over the five seeds goes **1.0 -> 0.0**, and the alarm still fires: an injected level
+shift and a five-fold volatility burst are both flagged on every seed tried, where previously
+*everything* was flagged and the operating point separated nothing.
+
+It does not for the nano composite, which rises with length — 0.3757, 0.3915, 0.4049, 0.4125,
+0.4216, 0.4215 at lengths 50 to 400. Window calibration was implemented and measured there
+anyway: it takes the verdict share 1.0 -> 0.4, and `q=0.95` and `q=0.99` give the identical
+result, which shows the residual is that length bias and not quantile noise. Shipping it would
+mean knowingly calibrating on an assumption the measurement rejects, so it is **not** applied.
+Instead `fit` warns, naming the measured normal regime and what to set, and every verdict
+carries `threshold_calibrated` — False unless the caller supplied `micro_threshold`. Closing
+it needs labelled micro-anomalies at a known rate, which no corpus in the tree provides.
+
+`acceleration_dynamics` moves from 1.0 to 0.0 in `MEASURED_VERDICT`; `nano_safeguard` stays at
+1.0, now with the reason stated in its `decision_source` rather than only in this file.
 
 **Fixed — `physics_integrated` declared a modality its own threshold calibration cannot
 use.** It was declared `series_1d`, but its alarm threshold is a split-conformal cut over the

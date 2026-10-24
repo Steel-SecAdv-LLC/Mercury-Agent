@@ -241,7 +241,14 @@ class NanoSafeguardDetector(BaseDetector):
             "across hierarchical scales) from the internal "
             "PROTECTION_OVERVIEW.md N-term specification: no published "
             "threshold exists for this composite and no labelled corpus is "
-            "available to calibrate one; verdicts are experimental."
+            "available to calibrate one; verdicts are experimental and carry "
+            "'threshold_calibrated': False unless the caller sets "
+            "'micro_threshold'. Measured: the composite's normal regime on a "
+            "stationary AR(1) series is 0.40 to 0.44, about eight times the "
+            "0.05 cut, so it calls normal input anomalous. The cut cannot be "
+            "calibrated on windows of the training signal the way "
+            "AccelerationDynamicsDetector's is, because this score rises with "
+            "signal length (0.3757 to 0.4215 at lengths 50 to 400)."
         ),
     )
 
@@ -292,6 +299,29 @@ class NanoSafeguardDetector(BaseDetector):
         }
 
         self._is_fitted = True
+        # The micro-anomaly cut is hand-set (0.05) and fit() does not move it:
+        # the baseline statistics above describe the data but no labelled
+        # corpus maps this composite onto a rate. Measured on a stationary
+        # AR(1) series, the composite's normal regime is 0.40 to 0.44 -- about
+        # eight times the cut -- so an uncalibrated verdict reads "anomalous"
+        # on normal input. Say so at fit time instead of leaving the caller to
+        # discover it from the verdict.
+        #
+        # Calibrating the cut on windows of the training signal, which is what
+        # AccelerationDynamicsDetector does, is not sound here: this score
+        # rises with the signal's length (0.3757, 0.3915, 0.4049, 0.4125,
+        # 0.4216, 0.4215 at lengths 50 to 400 on one process), so a cut taken
+        # on shorter windows does not transfer to a longer signal. Closing
+        # this needs labelled micro-anomalies at a known rate.
+        if "micro_threshold" not in self.config:
+            logger.warning(
+                "NanoSafeguardDetector keeps its hand-set micro-anomaly cut of %.2f, "
+                "which fit() cannot calibrate: the composite's normal regime measures "
+                "0.40 to 0.44 on stationary input, so verdicts are experimental and "
+                "carry no false-alarm bound. Set 'micro_threshold' in config to a value "
+                "measured on your own normal data.",
+                self.micro_threshold,
+            )
         logger.info("NanoSafeguardDetector fitted with baseline statistics")
         return self
 
@@ -316,6 +346,10 @@ class NanoSafeguardDetector(BaseDetector):
 
         return {
             "is_anomaly": result.micro_anomaly_detected,
+            # Always False unless the caller supplied 'micro_threshold':
+            # nothing in fit() calibrates this composite, so the verdict
+            # carries no false-alarm bound. See fit().
+            "threshold_calibrated": "micro_threshold" in self.config,
             "scores": result.confidence,
             "convergence_score": result.convergence_score,
             "dimensional_residual": result.dimensional_residual,
