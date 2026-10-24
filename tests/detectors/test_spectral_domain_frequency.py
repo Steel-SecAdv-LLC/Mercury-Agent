@@ -106,17 +106,47 @@ def test_the_noise_colour_correction_stays_a_reported_diagnostic() -> None:
             assert band.corrected_power_ratio == band.power_ratio
 
 
-def test_phase_coherence_abstains_instead_of_reporting_a_constant() -> None:
-    """It returned exactly 1.0 for every input while documented as a leading indicator."""
-    det = SpectralDomainFrequency().fit(_signals())
-    neutral = SpectralDomainFrequency.PHASE_COHERENCE_NOT_MEASURED
+def test_phase_coupling_responds_to_coupling_known_by_construction() -> None:
+    """The replacement for the term that returned exactly 1.0 for every input.
 
-    for signal in (
-        _signals(n=1, seed=3)[0],
-        np.random.RandomState(0).normal(size=512),
-        np.ones(512),
-    ):
-        assert det._compute_phase_coherence(signal) == neutral
+    Squared bicoherence asks whether the phase at ``f1 + f2`` tracks the sum
+    of the phases at ``f1`` and ``f2`` across segments. Its direction is
+    checked here against signals whose coupling is known: broadband Gaussian
+    noise has none, a periodic impulse train phase-locks all its harmonics,
+    and an impulse train convolved with a decaying resonance is the textbook
+    bearing-fault model.
+    """
+    det = SpectralDomainFrequency().fit(_signals())
+    rng = np.random.default_rng(0)
+    size = 16384
+    impulses = np.zeros(size)
+    impulses[::97] = 1.0
+    resonance = np.exp(-np.arange(60) / 12) * np.sin(2 * np.pi * 0.3 * np.arange(60))
+
+    noise_coupling = det._compute_phase_coherence(rng.normal(size=size))
+    impulse_coupling = det._compute_phase_coherence(impulses + 0.05 * rng.normal(size=size))
+    bearing_coupling = det._compute_phase_coherence(
+        np.convolve(impulses, resonance, "same") + 0.05 * rng.normal(size=size)
+    )
+
+    assert noise_coupling < 0.02
+    assert impulse_coupling > 0.2
+    assert bearing_coupling > 0.1
+    assert impulse_coupling > bearing_coupling > noise_coupling
+
+
+def test_phase_coupling_abstains_when_there_are_too_few_segments() -> None:
+    """The uncoupled expectation is 1/K, so too few segments is a noise floor.
+
+    Abstaining at 0.0 is neutral in the influence multiplier, which reads the
+    value as "how much coupling", not "how much coherence".
+    """
+    det = SpectralDomainFrequency().fit(_signals())
+
+    assert det._compute_phase_coherence(np.random.default_rng(0).normal(size=100)) == (
+        SpectralDomainFrequency.PHASE_COUPLING_NOT_MEASURED
+    )
+    assert SpectralDomainFrequency.PHASE_COUPLING_NOT_MEASURED == 0.0
 
 
 def test_detect_emits_no_numerical_warning() -> None:

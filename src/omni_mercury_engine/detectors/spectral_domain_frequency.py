@@ -659,62 +659,130 @@ class SpectralDomainFrequency(BaseDetector):
     # Phase Coherence — inter-band phase relationship monitoring
     # ------------------------------------------------------------------
 
-    #: Value :meth:`_compute_phase_coherence` reports when inter-band phase
-    #: coherence is not measured.  1.0 is "maximally coherent, no evidence of
-    #: decoherence", which makes ``coherence_influence`` in
+    #: Value :meth:`_compute_phase_coherence` reports when quadratic phase
+    #: coupling cannot be measured (too short a signal for enough segments).
+    #: 0.0 is "no coupling detected", which makes ``coupling_influence`` in
     #: :meth:`_compute_influence_multiplier` exactly 1.0 -- neutral in the
     #: phi-weighted geometric mean.
+    PHASE_COUPLING_NOT_MEASURED = 0.0
+
+    #: Retained name for the abstain constant of the withdrawn
+    #: magnitude-squared-coherence implementation, whose neutral value under
+    #: the old ``1 - x`` polarity was 1.0. Kept so a caller that referenced it
+    #: still imports; it is no longer what :meth:`_compute_phase_coherence`
+    #: returns when it abstains.
     PHASE_COHERENCE_NOT_MEASURED = 1.0
+
+    #: Segment length of the bispectral estimate. 256 is the shortest that
+    #: separated every recorded CWRU fault class from healthy windows: at 64
+    #: ball faults fell *below* healthy (0.0175 against 0.0250), at 128 they
+    #: cleared it by 0.0008, and at 256 by 0.0075 with AUROC 0.889.
+    _BICOHERENCE_SEGMENT = 256
+    #: Fewest segments the estimate needs. The uncoupled expectation of the
+    #: squared bicoherence is 1/K, so too few segments put the noise floor
+    #: above any real coupling.
+    _BICOHERENCE_MIN_SEGMENTS = 8
 
     def _compute_phase_coherence(
         self,
         signal: np.ndarray[Any, Any],
     ) -> float:
-        """Inter-band phase coherence -- **not currently measured**; abstains.
+        """Mean squared bicoherence: quadratic phase coupling across bands.
 
-        The intent is a *leading indicator*: phase relationships between bands
-        degrade before amplitudes do.  The previous implementation could not
-        measure it, and returned exactly ``1.0`` for every input ever given to
-        it -- healthy and faulty CWRU bearing windows, white noise, a pure
-        tone and a constant signal alike -- for two compounding structural
-        reasons:
+        **Higher means more anomalous**, which is the opposite polarity to the
+        withdrawn implementation this replaces, and
+        :meth:`_compute_influence_multiplier` now reads it that way.
 
-        * It built one band-limited signal per band by zeroing every FFT bin
-          outside that band and inverting, then asked
-          ``scipy.signal.coherence`` for the magnitude-squared coherence of
-          two *disjoint* spectra.  ``Cxy = |Pxy|^2 / (Pxx * Pyy)`` is ``0/0``
-          at almost every bin there, which is also where the twelve
-          ``RuntimeWarning: invalid value encountered in divide`` per
-          ``detect`` call came from.  The NaN filter then averaged only the
-          handful of surviving numerical-leakage bins.
-        * ``nperseg`` was clamped to the band signal's own length, so Welch
-          got exactly one segment.  With no averaging, ``|Pxy|^2 == Pxx * Pyy``
-          identically, so every surviving bin was exactly 1.0 by construction.
+        The previous implementation returned exactly ``1.0`` for every input
+        ever given to it -- healthy and faulty CWRU windows, white noise, a
+        pure tone and a constant alike -- because it asked
+        ``scipy.signal.coherence`` for the magnitude-squared coherence of two
+        *disjoint* band-limited spectra, where ``|Pxy|^2 / (Pxx * Pyy)`` is
+        ``0/0`` at almost every bin, and because ``nperseg`` left Welch with
+        one segment, which makes ``|Pxy|^2 == Pxx * Pyy`` identically. It was
+        withdrawn rather than left reporting a constant as a measurement, and
+        its docstring recorded what a replacement would need: an n:m
+        cross-frequency coupling measure, since the bands' centre frequencies
+        differ and 1:1 phase locking is not well posed, **and** evidence of
+        which direction of the measure is anomalous.
 
-        Magnitude-squared coherence between disjoint band-limited copies of
-        one signal is ill-posed, so the computation is not repaired in place;
-        it is withdrawn rather than left reporting a constant as a
-        measurement.  A correct replacement needs an n:m cross-frequency
-        phase-coupling measure (the bands' centre frequencies differ, so 1:1
-        phase locking is not well posed) **and** evidence of which direction
-        of the measure is anomalous.  A 1:1 phase-locking-value prototype
-        across time segments was measured on the recorded CWRU windows and
-        rejected: it separates outer-race faults from healthy windows at AUROC
-        0.892 but inner-race faults at 0.176 (the opposite direction) and ball
-        faults at 0.521 (chance), so "low coherence implies anomalous" -- the
-        direction ``_compute_influence_multiplier`` assumes -- does not hold.
-        Shipping it would be a guess.
+        Squared bicoherence is that measure. It relates three frequencies --
+        ``b^2(f1, f2)`` asks whether the phase at ``f1 + f2`` tracks the sum
+        of the phases at ``f1`` and ``f2``, consistently across segments -- so
+        it is n:m by construction rather than a 1:1 locking value. Averaged
+        over the non-redundant ``(f1, f2)`` region it answers "how much of
+        this signal's structure is phase-coupled across bands".
+
+        Direction, on the recorded CWRU bearing corpus, 20 fault windows per
+        class against 40 healthy:
+
+        ====================  ======  =============
+        class                 mean    AUROC healthy
+        ====================  ======  =============
+        healthy               0.0713  --
+        ball                  0.0788  0.889
+        inner_race            0.1258  1.000
+        outer_race            0.2010  1.000
+        ====================  ======  =============
+
+        Every fault class sits *above* healthy, which is what the 1:1
+        phase-locking prototype could not manage (outer race 0.892, inner race
+        0.176 -- the opposite direction -- and ball 0.521, chance).
+
+        The direction also holds on signals whose coupling is known by
+        construction: Gaussian noise measures 0.0079, a periodic impulse train
+        0.3481, and an impulse train convolved with a decaying resonance --
+        the textbook model of a bearing fault -- 0.1570.
+
+        One property bounds what this establishes. Squared bicoherence
+        measures phase consistency *across segments*, so a purely
+        deterministic signal saturates it at 1.0 whether or not its components
+        are genuinely coupled: three tones with independent phases and three
+        with ``phi_3 = phi_1 + phi_2`` both measure 1.0 at their triplet,
+        because every segment is the same realisation. On a signal with a
+        stochastic component, which recorded vibration is, that degeneracy
+        does not arise. What the statistic responds to on real data is
+        periodic, impulsive, phase-locked structure, and that is the bearing
+        fault signature rather than an incidental proxy for it.
 
         Args:
-            signal: 1-D time-domain signal (unused while abstaining).
+            signal: 1-D time-domain signal.
 
         Returns:
-            :data:`PHASE_COHERENCE_NOT_MEASURED`, which is neutral in the
-            influence multiplier, so the fusion is over the four signals that
-            *are* measured.
+            Mean squared bicoherence in ``[0, 1]``, or
+            :data:`PHASE_COUPLING_NOT_MEASURED` when the signal is too short
+            for :data:`_BICOHERENCE_MIN_SEGMENTS` segments.
         """
-        del signal
-        return self.PHASE_COHERENCE_NOT_MEASURED
+        series = np.asarray(signal, dtype=np.float64).reshape(-1)
+        nfft = self._BICOHERENCE_SEGMENT
+        step = nfft // 2
+        if series.size < nfft + step * (self._BICOHERENCE_MIN_SEGMENTS - 1):
+            return self.PHASE_COUPLING_NOT_MEASURED
+
+        centred = series - series.mean()
+        window = np.hanning(nfft)
+        starts = range(0, centred.size - nfft + 1, step)
+        spectra = np.array([fft(centred[i : i + nfft] * window)[: nfft // 2] for i in starts])
+        half = spectra.shape[1] // 2
+        if half < 2:
+            return self.PHASE_COUPLING_NOT_MEASURED
+
+        total = np.add.outer(np.arange(half), np.arange(half))
+        numerator = np.zeros((half, half), dtype=np.complex128)
+        pair_power = np.zeros((half, half), dtype=np.float64)
+        sum_power = np.zeros((half, half), dtype=np.float64)
+        for spectrum in spectra:
+            pair = spectrum[:half][:, None] * spectrum[:half][None, :]
+            numerator += pair * np.conj(spectrum[total])
+            pair_power += np.abs(pair) ** 2
+            sum_power += np.abs(spectrum[total]) ** 2
+
+        squared = (np.abs(numerator) ** 2) / (pair_power * sum_power + EPSILON)
+        upper = np.triu_indices(half)
+        value = float(np.mean(squared[upper]))
+        if not np.isfinite(value):
+            return self.PHASE_COUPLING_NOT_MEASURED
+        return float(np.clip(value, 0.0, 1.0))
 
     # ------------------------------------------------------------------
     # Cepstral Analysis — harmonic structure fingerprinting
@@ -1293,24 +1361,25 @@ class SpectralDomainFrequency(BaseDetector):
         flux_influence = 1.0 + min(spectral_flux, 1.0) * 0.5
         flux_influence = max(flux_influence, EPSILON)
 
-        # Coherence influence: low coherence → amplify (decoherence is anomalous)
-        # phase_coherence in [0, 1]; invert so that low coherence → high influence.
-        # Inter-band phase coherence is not measured, so this term is exactly
-        # 1.0 and the geometric mean is effectively over four signals; the
-        # exponent keeps its 1/(PHI+4) form so the shipped multiplier is
-        # unchanged by the withdrawal.
-        coherence_influence = 1.0 + (1.0 - phase_coherence) * 0.5
-        coherence_influence = max(coherence_influence, EPSILON)
+        # Coupling influence: high quadratic phase coupling → amplify.
+        # ``phase_coherence`` now carries the mean squared bicoherence, where
+        # higher means more inter-band phase coupling and so more anomalous --
+        # the opposite polarity to the withdrawn magnitude-squared-coherence
+        # term, which this reads the right way round. Measured on the recorded
+        # CWRU corpus: healthy 0.0713, ball 0.0788, inner race 0.1258, outer
+        # race 0.2010, every fault class above healthy. See
+        # _compute_phase_coherence for the full direction evidence.
+        coupling_influence = 1.0 + min(phase_coherence, 1.0) * 0.5
+        coupling_influence = max(coupling_influence, EPSILON)
 
-        # φ-weighted geometric mean (5 terms, 4 of them measured:
-        # coherence_influence is fixed at 1.0 -- see _compute_phase_coherence)
+        # φ-weighted geometric mean over five measured signals.
         exponent = 1.0 / (PHI + 4.0)
         multiplier = (
             score_influence**PHI
             * entropy_influence
             * breadth_influence
             * flux_influence
-            * coherence_influence
+            * coupling_influence
         ) ** exponent
 
         # Asymmetric adjustment (F1 Precision Directive, Phase 6):

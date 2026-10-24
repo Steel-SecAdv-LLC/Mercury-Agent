@@ -27,6 +27,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — COPOD and the adversarial autoencoder are manifest entries, with the three
+defects that blocked them fixed.** Both were recorded as blocked on `BaseDetector`
+conformance because `register_detector` refuses a non-`BaseDetector` instance. That is the
+*engine* seam's requirement; the registry seam carries no such requirement, and
+`lstm_autoencoder` has shipped at `seams=("registry",)` without being a `BaseDetector` all
+along. Both are promoted there, so the signal is available through `extract_all_features`
+with no adapter and no change to either class's released API.
+
+Establishing they were fit to promote found three defects:
+
+* **The autoencoder's verdict was random.** Its encoder drew the reparameterisation sample
+  on every forward pass, including at inference; `Module.eval()` disables dropout but not
+  that. On one fitted model and one fixed input, three `predict` calls gave per-row score
+  differences up to **0.59** and flagged 4, 3 and 3 of 40 rows. The sample exists so
+  gradients flow through it in training; at inference the latent code is the posterior mean.
+  Guarded on `self.training`, repeated calls are bit-identical.
+* **Its `seed` did not seed what mattered.** `seed` reached only the NumPy generator picking
+  the splits, so the network's weights and the adversarial prior samples were unseeded and
+  the benchmark's mean ROC-AUC moved between runs on the same command (0.875, then 0.880).
+  `fit` now seeds torch from it, as `LSTMAutoencoderDetector.fit` does.
+  `ContrastiveLearningDetector` had the identical one-line defect and gets the same fix; it
+  still varies from another source and remains a library class.
+* **Its threshold was cut in sample**, on the training rows' own reconstruction error, which
+  an autoencoder reconstructs better than anything unseen. `fit` now splits three ways and
+  cuts on a disjoint `calibration_split` (0.2). Measured over five seeds of 120 independent
+  Gaussian rows scored on 120 more: **0.1483 -> 0.0900** against the 0.05 the percentile
+  names, at no cost to ranking (benchmark mean 0.874 either way).
+
+COPOD needed none of this: parameter-free with no trained weights, its in-sample percentile
+is not optimistic in the same way and it measures 0.0717 reproducibly.
+
+Promotion evidence, held-out ROC-AUC over five ADBench datasets
+(`benchmarks/advanced_detector_auc.py`), now reproducible to every per-dataset digit: COPOD
+**0.869**, AdversarialAutoencoder **0.874**, against **0.661** for the shipped LOF
+reference. That is the first half of the bar `KMeansDistanceDetector`'s docstring sets --
+standalone ranking justifies making a signal *available* -- and the second half is **not**
+claimed: whether either adds to the live fusion ensemble still needs a fusion-marginal
+ablation, for which no harness exists.
+
+**Fixed — the directive detector scored each row against its own batch, and alarmed at
+0.5.** `SigmaDirectiveDetector` is one of the five detectors the engine enables by default,
+so both defects reached every `engine.detect` call on tabular input.
+
+`_ethical_oversight_amplifier` returned `magnitude / max(magnitude)` over the rows of the
+batch, so a row's score depended on which rows it arrived with. Measured on one fixed row
+against identical fitted state, with the recursive-memory buffer cleared so each call was a
+function of (fitted state, batch) alone: **0.6817** scored on its own, **0.5140** beside 99
+benign rows and **0.5469** beside 99 extreme ones. That 0.168 swing is wider than the gap
+between this detector's normal and anomalous score means; a single extreme row suppressed
+every other row, and a row scored alone was always its own maximum and so always ~1.0. The
+scale now comes from `fit` -- a squash over the training rows' magnitudes with
+`EOA_CALIBRATION_QUANTILE` (0.98) at 0.5, the squash tier's existing convention -- and the
+same measurement reads 0.4842 and 0.4929, a swing of **0.0086** against 0.1677. The residual
+is the recursive-memory buffer, which is documented streaming state for direct callers and
+deliberately unchanged; the engine's fusion boundary already resets it
+(`_reset_transient_detector_state`, ROADMAP row 16).
+
+The alarm sat at the 0.5 `BaseDetector` default while the combined score's normal regime
+means 0.53 to 0.61 with a 95th percentile of 0.68 to 0.72, stable across shapes (60x8,
+200x8, 60x4, 200x16, 500x3) -- so the default flagged **0.61 to 0.94 of entirely normal
+data**. `fit` now cuts at `CALIBRATION_QUANTILE` (0.95) of the training rows' own scores.
+Measured over five seeds of clean 200x8 rows, buffer cleared between calls:
+
+| cut | clean FPR | TPR on an injected +8-sigma block |
+| --- | --- | --- |
+| 0.5 (previous) | 0.61-0.94 | -- |
+| **0.95 quantile** | **0.0560** | **1.0000** |
+| 0.98 quantile | 0.0200 | 0.7800 |
+
+Both the EOA scale and the calibrated threshold are fitted state and travel in the
+checkpoint. An earlier measurement in this round put the true-positive rate at 0.08 for the
+0.95 cut; that was wrong -- the probes shared one detector and the memory buffer carried
+between them. Every figure above was re-measured with the buffer cleared.
+
+**Added — the false-alarm gate now covers the declared `matrix_2d` modality.**
+`tests/core/test_declared_modality_false_alarm_rate.py` drives every `matrix_2d` manifest
+entry behind the registry seam on independent Gaussian rows and pins what each flags in a
+held-out half, where every flag is a false alarm. It is the generalisation of the
+`series_1d` gate that found five mis-declared modalities on this branch, and it has teeth:
+against the previous `directive` it fails with "flags 0.8417 of held-out normal rows against
+the measured 0.0600" -- a flood live in a default-enabled detector that no existing test
+reported, because the manifest seam tests assert a detector *returned* something and never
+that the verdict means anything. Pinned: `realtime_threat` 0.1067, `kmeans_distance` 0.0867,
+`directive` 0.0600, `rca` 0.0467, `spatial` 0.0433, and `physics_integrated` 0.0 set-level.
+Three entries return a ranking rather than a verdict and are listed with that reason;
+further tests assert verdict arity per group and that no new `matrix_2d` entry reaches the
+registry's modality filter unmeasured.
+
+**Fixed — `physics_integrated` applied a conformal cut to signals it was never measured
+for.** Its threshold is a split-conformal cut over the fused scores of whole signals, and
+the fused score is not invariant in a signal's length -- every component's score rises with
+it and the fusion is their mean. Measured on a detector fitted at width 64 with a 0.8929
+cut, scoring stationary signals from the same process as its training data, so every flag is
+a false alarm: 0.00 flagged at the fitted width, 0.20 at 1.12x, 0.70 at 1.25x, 0.90 at 2x
+and 1.00 at 6.25x. That is the mechanism behind this detector calling normal data anomalous
+-- not a bad threshold, but a good threshold applied off-contract. `fit` now records the
+calibration signals' length and `detect` refuses a signal outside 10% of it with
+`InputModalityError`, which the engine carries as a decline. Enforced only when there is a
+calibrated cut to protect.
+
+Checked and **not** changed: the 3R blend. `recursion_score` and `resonance_score` measure
+0.93 to 0.99 on normal data and carry 40% of the blend, which looked like a near-constant
+offset diluting the score -- the same defect a previous round removed from this function as
+`ethical_scaling`. The recorded bearing corpus rejects that reading: disabling the blend
+moves the healthy false-alarm rate **0.0750 -> 0.1250** with fault AUROC unchanged at
+1.0000, because the conformal threshold adapts with the offset (0.8459 -> 0.5573) and
+cancels it.
+
 **Fixed — SR-CNN's operating point is calibrated instead of fixed at 0.5.**
 The BCE objective weights the rare positive class by
 `pos_weight = (1 - inject_ratio) / inject_ratio` (19 at the defaults), which is sound for

@@ -184,3 +184,39 @@ def test_physics_integrated_keeps_the_default_when_there_are_too_few_signals() -
     torch.manual_seed(0)
     detector = PhysicsIntegratedDetector().fit(_reference()[:40])
     assert detector.threshold == 0.5
+
+
+#: Mean squared bicoherence per class, and its AUROC against healthy windows.
+#: Every fault class sits *above* healthy, which is the direction
+#: ``_compute_influence_multiplier`` reads. The 1:1 phase-locking prototype
+#: this replaced could not manage that: outer race 0.892, inner race 0.176 --
+#: the opposite direction -- and ball 0.521, chance.
+MEASURED_PHASE_COUPLING: dict[str, tuple[float, float]] = {
+    "healthy": (0.0711, 0.0),
+    "ball": (0.0788, 0.900),
+    "inner_race": (0.1258, 1.000),
+    "outer_race": (0.2010, 1.000),
+}
+
+
+def test_phase_coupling_separates_every_fault_class_from_healthy() -> None:
+    """The direction evidence the withdrawn coherence term never had.
+
+    The Oracle's inter-band term returned exactly 1.0 for every input and was
+    withdrawn, its docstring recording that a replacement needed an n:m
+    cross-frequency coupling measure *and* evidence of which direction is
+    anomalous. This is that evidence, on the recorded corpus.
+    """
+    oracle = SpectralDomainFrequency()
+    healthy = np.array([oracle._compute_phase_coherence(w) for w in _healthy()])
+    expected_healthy, _ = MEASURED_PHASE_COUPLING["healthy"]
+
+    assert healthy.mean() == pytest.approx(expected_healthy, abs=0.02)
+
+    for fault in FAULTS:
+        scores = np.array([oracle._compute_phase_coherence(w) for w in _windows(fault, 0, 20)])
+        expected_mean, expected_auroc = MEASURED_PHASE_COUPLING[fault]
+        assert scores.mean() == pytest.approx(expected_mean, abs=0.02), fault
+        # Direction: the fault class scores higher, not merely differently.
+        assert scores.mean() > healthy.mean(), fault
+        assert auroc(scores, healthy) == pytest.approx(expected_auroc, abs=0.08), fault
