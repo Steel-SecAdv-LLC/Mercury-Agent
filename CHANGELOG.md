@@ -27,6 +27,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — `RealTimeThreatDetector` failed OPEN when a sub-detector's training score was not
+finite.** `_validated_input` already refuses a non-finite *input* row, with the reason stated
+in its own docstring: "a security detector failing OPEN on an unmeasurable input". The same
+hole was open on the other side, for a non-finite sub-detector *output*. A 1-D input is
+validated to one `(1, n_features)` sample, which leaves the neighbour-based component
+degenerate: LOF scores `inf`. Then `center = median(s)` is `inf`, `mad = median(|s - center|)`
+is `NaN` (the source of the `RuntimeWarning: invalid value encountered in subtract` this
+module emitted), and `scale` is `NaN` — and `scale <= 1e-12` is **False for NaN**, so the
+standard-deviation fallback never fired. The threshold came out `NaN`, `score > NaN` is False
+for every later sample, and the `NaN` column also poisoned the ensemble mean, so
+`_ref_threshold`, `_ref_p90`, `_ref_p95` and `_ref_p99` were all `NaN` too.
+
+Measured on the same input before and after: `_ref_threshold`/p90/p95/p99 `NaN` -> finite, and
+a probe drawn 8 sigma from the training distribution went from **`is_threat: False`,
+`threat_level: "LOW"`** to `is_threat: True`, `threat_level: "CRITICAL"`. A sub-detector whose
+training score is not finite is now dropped from the calibrated ensemble with the reason
+logged, the near-constant fallback arm also rejects a non-finite scale, and a fit where
+*nothing* can be calibrated raises — the same refusal already in place for the zero-fitted
+case, since `detect_threat` requires `name in self._detector_center` and would otherwise
+grade every input LOW. Five tests fail on the old code.
+
+**Fixed — `realtime_threat` was declared `series_1d`.** `_validated_input` documents
+`(n_samples, n_features)` and reshapes a 1-D input to one sample, and the detector is measured
+on ADBench *tables* in `tests/detectors/test_recorded_adbench_tabular.py` (held-out AUROC
+0.675/0.907/0.986/0.994/0.972). It is now `matrix_2d`, the third entry in this round whose
+declared modality its own validator contradicts.
+
 **Fixed — two tabular detectors were declared as 1-D series detectors, and the registry
 routed 1-D series to them.** `DetectorRegistry.extract_all_features(data, modality=...)`
 filters on each entry's declared modality exactly so "detectors that cannot read it" are not

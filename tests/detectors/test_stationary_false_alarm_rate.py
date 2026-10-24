@@ -109,7 +109,6 @@ NO_BASE_DETECTOR_SEAM = frozenset(
         "parapsychology",
         "psyop",
         "quantum",
-        "realtime_threat",
         "schumann_resonance",
         "solar_flare",
         "tornado",

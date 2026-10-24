@@ -359,16 +359,52 @@ class RealTimeThreatDetector(LoggerMixin):
                 continue
             if s is None:
                 continue
+            if not np.isfinite(s).all():
+                # Fail closed, for the same reason ``_validated_input`` refuses a
+                # non-finite row. A single ``inf`` training score makes
+                # ``median(s)`` inf, ``median(|s - inf|)`` NaN, and ``scale`` NaN;
+                # ``scale <= 1e-12`` is False for NaN, so the std fallback never
+                # fired, the threshold came out NaN, and ``score > NaN`` is False
+                # for every later sample -- this sub-detector would report "no
+                # threat" forever. Worse, a NaN column also poisons the
+                # ensemble mean below, taking every reference percentile with it.
+                self.logger.warning(
+                    "Excluding %s from the calibrated ensemble: %d of %d training "
+                    "scores are not finite, so its centre, scale and threshold "
+                    "cannot be estimated. This is NOT a 'no threat' result.",
+                    name,
+                    int(np.count_nonzero(~np.isfinite(s))),
+                    s.size,
+                )
+                continue
             raw_ref[name] = s
             center = float(np.median(s))
             mad = float(np.median(np.abs(s - center)))
             scale = self._MAD_TO_SIGMA * mad
-            if scale <= 1e-12:  # near-constant training score → std fallback
-                scale = float(np.std(s)) or 1.0
+            if not np.isfinite(scale) or scale <= 1e-12:
+                # Near-constant training score → std fallback. The finiteness
+                # arm is defence in depth: the screen above already rejects a
+                # non-finite ``s``, and NaN fails every comparison silently.
+                fallback = float(np.std(s))
+                scale = fallback if np.isfinite(fallback) and fallback > 0.0 else 1.0
             self._detector_center[name] = center
             self._detector_scale[name] = scale
             self._detector_threshold[name] = float(
                 np.quantile(self._standardize(name, s), 1.0 - self.contamination)
+            )
+
+        if not raw_ref:
+            # Every sub-detector fitted but none could be calibrated, so
+            # ``detect_threat`` has no scored component left (it requires
+            # ``name in self._detector_center``) and would grade every input
+            # LOW. The same refusal as the zero-fitted case above.
+            raise RuntimeError(
+                f"RealTimeThreatDetector.fit: all {len(self.detectors)} sub-detectors "
+                "fitted but none produced a finite, calibratable training score; "
+                "refusing to enter a fitted state that would report 'no threat' for "
+                "every input. Check the training data shape -- a 1-D series is "
+                "validated as a single (1, n_features) sample, which leaves the "
+                "neighbour-based components degenerate."
             )
 
         # Reference distribution of the standardized ensemble on training data.

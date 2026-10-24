@@ -1230,7 +1230,12 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         feature_dim=3,
         tags=["security", "ensemble", "calibrated"],
         seams=("registry",),
-        modality="series_1d",
+        # ``matrix_2d``, not ``series_1d``: ``_validated_input`` documents
+        # ``(n_samples, n_features)`` and reshapes a 1-D input to ONE sample of
+        # n features, which leaves the neighbour-based components degenerate
+        # (LOF scored inf on a single sample).  It is measured on ADBench
+        # tables in ``tests/detectors/test_recorded_adbench_tabular.py``.
+        modality="matrix_2d",
     ),
     # -- UAV detectors --------------------------------------------------------
     DetectorManifestEntry(

@@ -135,7 +135,7 @@ an adapter entry and names the domain detector behind it.
 | `parapsychology` | `ParapsychologyDetector` | model | series_1d | -- | Psi phenomena detection |
 | `quantum` | `QuantumAnomalyModel` | model | series_1d | -- | Quantum state anomalies |
 | `neurosymbolic` | `NeurosymbolicEngine` | neurosymbolic | series_1d | -- | Hybrid neural-symbolic reasoning |
-| `realtime_threat` | `RealTimeThreatDetector` | security | series_1d | -- | Projection + kNN + robust-covariance ensemble, training-calibrated |
+| `realtime_threat` | `RealTimeThreatDetector` | security | matrix_2d | -- | Projection + kNN + robust-covariance ensemble, training-calibrated |
 | `schumann_resonance` | `SchumannResonanceDetector` | space | series_1d | -- | Earth resonance detection |
 | `solar_flare` | `SolarFlareDetector` | space | series_1d | covered by `xray_flare` | GOES X-ray flare classification with observed-Kp geomagnetic context |
 | `drone` | `DroneAnomalyDetector` | uav | series_1d | -- | Drone fault detection: RADD phase invariants + single-row Mercury ensemble |
