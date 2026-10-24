@@ -27,6 +27,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the Oracle's inter-band term is measured again, as squared bicoherence.** The
+previous magnitude-squared coherence between disjoint band-limited copies of one signal is
+ill-posed and returned exactly 1.0 for every input; it was withdrawn, and its docstring
+recorded what a replacement needed — an n:m cross-frequency coupling measure *and* evidence
+of which direction is anomalous. A 1:1 phase-locking prototype had failed the second test
+(outer race AUROC 0.892, inner race 0.176 in the opposite direction, ball 0.521 at chance).
+
+Mean squared bicoherence relates three frequencies — whether the phase at `f1 + f2` tracks
+the sum of the phases at `f1` and `f2`, consistently across segments — so it is n:m by
+construction. Direction on the recorded CWRU corpus, 20 fault windows per class against 40
+healthy, every fault class **above** healthy:
+
+| class | mean | AUROC vs healthy |
+| --- | --- | --- |
+| healthy | 0.0711 | — |
+| ball | 0.0788 | 0.900 |
+| inner_race | 0.1258 | 1.000 |
+| outer_race | 0.2010 | 1.000 |
+
+And where coupling is known by construction: Gaussian noise 0.0077, a periodic impulse train
+0.3464, an impulse train convolved with a decaying resonance — the textbook bearing-fault
+model — 0.1594.
+
+Two negative results are kept in the docstring because they bound the claim. Pure sinusoidal
+AM produces no bicoherence at the modulating frequency, because the signal has components at
+`fc - fm`, `fc` and `fc + fm` and none at `fm` itself, so there is no coupled triplet;
+bicoherence is not a demodulation measure. And because the statistic measures phase
+consistency *across segments*, a purely deterministic signal saturates it at 1.0 whether or
+not its components are coupled — three tones with independent phases and three with
+`phi_3 = phi_1 + phi_2` both measure 1.0 at their triplet. On recorded vibration, which has
+a stochastic component, that degeneracy does not arise.
+
+`_BICOHERENCE_SEGMENT` is 256, the shortest length that separated every class: at 64 ball
+faults fell *below* healthy (0.0175 against 0.0250), at 128 they cleared it by 0.0008, at 256
+by 0.0075. The estimate abstains at 0.0 below eight segments, since the uncoupled expectation
+is 1/K. The influence multiplier reads the value with the correct polarity — higher coupling
+amplifies — and is a geometric mean over five measured signals rather than four and a
+constant. Every pinned CWRU figure is unchanged by the wiring: the Oracle's fault AUROC stays
+1.000 and `physics_integrated` keeps its 0.0750 healthy rate and 1.0000 fault AUROC.
+
 **Added — COPOD and the adversarial autoencoder are manifest entries, with the three
 defects that blocked them fixed.** Both were recorded as blocked on `BaseDetector`
 conformance because `register_detector` refuses a non-`BaseDetector` instance. That is the
