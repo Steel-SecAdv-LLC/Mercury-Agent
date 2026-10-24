@@ -16,6 +16,8 @@ results.  Seeds are fixed, runs are repeatable.
 
 from __future__ import annotations
 
+from typing import Any, Protocol
+
 import numpy as np
 import pytest
 
@@ -46,15 +48,22 @@ def _healthy() -> np.ndarray:
     return np.concatenate([_windows("normal_0hp", FITTED, 60), _windows("normal_1hp", FITTED, 60)])
 
 
-def _per_window(detector: object, signals: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    results = [detector.detect(signal.reshape(1, -1)) for signal in signals]  # type: ignore[attr-defined]
+class _WindowScorer(Protocol):
+    """What these measurements need of a detector: one verdict per window."""
+
+    def detect(self, data: np.ndarray) -> dict[str, Any]:
+        """Score one ``(1, WINDOW)`` signal."""
+
+
+def _per_window(detector: _WindowScorer, signals: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    results = [detector.detect(signal.reshape(1, -1)) for signal in signals]
     return (
         np.array([float(r["anomaly_score"]) for r in results]),
         np.array([bool(r["is_anomaly"]) for r in results]),
     )
 
 
-def _measure(detector: object) -> dict[str, tuple[float, float]]:
+def _measure(detector: _WindowScorer) -> dict[str, tuple[float, float]]:
     """Per fault: (AUROC against healthy windows, share of fault windows flagged);
     ``healthy``: (share of healthy windows flagged, 0)."""
     healthy_scores, healthy_flags = _per_window(detector, _healthy())

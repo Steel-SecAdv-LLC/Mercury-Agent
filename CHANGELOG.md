@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Removed the three `# type: ignore` markers this branch had added.** Two were on the
+duplicated `self._oracle_detector.detect(...)` calls in `PhysicsIntegratedDetector.detect`
+and went with the `_run_oracle` helper that replaced them; the third, on
+`detector.detect(...)` in the CWRU recorded-data test, was there because the helper took
+`detector: object`. It now takes a `_WindowScorer` `Protocol` that states what the
+measurement actually needs — one verdict per window — so the call type-checks without a
+suppression. `scripts/check_suppression_hygiene.py` passes.
+
 **Measured — the Oracle band z-score fix moves a published-parity benchmark, upward.**
 `MercuryAnomalyDetector` lazily fits a `SpectralDomainFrequency` Oracle when it classifies
 its input as `TEMPORAL`, and multiplies the ensemble's combined scores by that Oracle's
