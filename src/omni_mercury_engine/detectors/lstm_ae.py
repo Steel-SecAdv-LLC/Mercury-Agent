@@ -144,6 +144,11 @@ class AnomalyDetector(LoggerMixin):
         ).to(self.device)
 
         self.threshold: float | None = None
+        #: Per-feature mean and scale of the training windows' rows; inputs are
+        #: standardised by them.  ``None`` for a checkpoint saved before this
+        #: existed, which was trained on raw values and is served as such.
+        self.mean_: np.ndarray[Any, Any] | None = None
+        self.scale_: np.ndarray[Any, Any] | None = None
         self.train_errors: np.ndarray[Any, Any] | None = None
         #: Point scores of the held-out tail the threshold was cut on.
         self.calibration_scores: np.ndarray[Any, Any] | None = None
@@ -155,6 +160,12 @@ class AnomalyDetector(LoggerMixin):
                 f"{what} needs at least seq_len={self.seq_len} rows to form one "
                 f"sequence; got {len(data)}"
             )
+
+    def _standardise(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """``data`` in the training rows' units (identity for a pre-scaling checkpoint)."""
+        if self.mean_ is None or self.scale_ is None:
+            return data
+        return ((data - self.mean_) / self.scale_).astype(np.float32)
 
     def _create_sequences(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Create overlapping sequences from data."""
@@ -209,10 +220,21 @@ class AnomalyDetector(LoggerMixin):
         if n_holdout < self.seq_len or n - n_holdout - self.seq_len < self.seq_len:
             n_holdout = 0
         if n_holdout:
-            fit_part = train_data[: n - n_holdout - self.seq_len]
-            holdout = train_data[n - n_holdout :]
+            raw_fit_part = train_data[: n - n_holdout - self.seq_len]
+            raw_holdout = train_data[n - n_holdout :]
         else:
-            fit_part, holdout = train_data, None
+            raw_fit_part, raw_holdout = train_data, None
+
+        # Raw values of any scale (a series of 1e7 or of 1e-3) cannot be
+        # reconstructed by a network with bounded activations: on a recorded
+        # road-traffic file the unscaled model ranked its anomaly windows at
+        # AUROC 0.10, below chance, and 0.95 once standardised.  The statistics
+        # come from the training windows only.
+        self.mean_ = raw_fit_part.mean(axis=0)
+        spread = raw_fit_part.std(axis=0)
+        self.scale_ = np.where(spread > 1e-12, spread, 1.0)
+        fit_part = self._standardise(raw_fit_part)
+        holdout = None if raw_holdout is None else self._standardise(raw_holdout)
 
         sequences = self._create_sequences(fit_part)
         if verbose:
@@ -299,14 +321,14 @@ class AnomalyDetector(LoggerMixin):
 
         # Threshold: one-class conformal 95% cut of point scores (the unit
         # detect() compares), on the held-out tail when there is one.
-        if holdout is not None:
-            calibration = self.predict(holdout)
+        if raw_holdout is not None:
+            calibration = self.predict(raw_holdout)
         else:
             self.logger.warning(
                 "fit: series too short to hold out a calibration tail; the "
                 "threshold uses in-sample point scores (optimistic)"
             )
-            calibration = self.predict(fit_part)
+            calibration = self.predict(raw_fit_part)
         self.calibration_scores = calibration
         ranked = np.sort(calibration)
         k = min(max(int(np.ceil((len(ranked) + 1) * 0.95)), 1), len(ranked))
@@ -331,7 +353,7 @@ class AnomalyDetector(LoggerMixin):
         """
         data = np.asarray(data, dtype=np.float32)
         self._check_length(data, "predict")
-        sequences = self._create_sequences(data)
+        sequences = self._create_sequences(self._standardise(data))
         seq_tensor = torch.FloatTensor(sequences).to(self.device)
 
         self.model.eval()
@@ -377,6 +399,8 @@ class AnomalyDetector(LoggerMixin):
                 "seq_len": self.seq_len,
                 "hidden_dim": self.model.hidden_dim,
                 "latent_dim": self.model.latent_dim,
+                "mean": None if self.mean_ is None else self.mean_.tolist(),
+                "scale": None if self.scale_ is None else self.scale_.tolist(),
             },
             path,
         )
@@ -399,6 +423,11 @@ class AnomalyDetector(LoggerMixin):
         )
         detector.model.load_state_dict(checkpoint["model_state"])
         detector.threshold = checkpoint["threshold"]
+        # Absent in a checkpoint saved before inputs were standardised.
+        mean, scale = checkpoint.get("mean"), checkpoint.get("scale")
+        if mean is not None and scale is not None:
+            detector.mean_ = np.asarray(mean, dtype=np.float32)
+            detector.scale_ = np.asarray(scale, dtype=np.float32)
         return detector
 
 

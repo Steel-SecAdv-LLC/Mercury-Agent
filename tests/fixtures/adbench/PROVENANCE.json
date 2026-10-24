@@ -1,0 +1,38 @@
+{
+  "breastw": {
+    "arrays_sha256": "0af32721bbc6b810cac9c1b628efa99b7a02add808177952c56d222b8bb479d6",
+    "n_anomalies": 239,
+    "n_features": 9,
+    "n_samples": 683,
+    "recorded_utc": "2026-10-23T23:56:22Z",
+    "served_sha256": "4f37ce07dbc25ddad8178fdc6d664ab46d2d0000ee28c2787c3c7ff3c03ef9f6",
+    "url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/4_breastw.npz"
+  },
+  "cardio": {
+    "arrays_sha256": "bfa5c5a339bf0d34bb1d0e1f0da6d80caffcce4a65fad50972bc986019d4e740",
+    "n_anomalies": 176,
+    "n_features": 21,
+    "n_samples": 1831,
+    "recorded_utc": "2026-10-23T23:56:21Z",
+    "served_sha256": "bc5009bde6930b4d298b594f31b34485a9a17210cff0e8fb00a8c3068b885a2d",
+    "url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/6_cardio.npz"
+  },
+  "thyroid": {
+    "arrays_sha256": "3ecac1a7c0f9a8c61b214c0def39757ca77923178f0ab14bcbce56955f863d21",
+    "n_anomalies": 93,
+    "n_features": 6,
+    "n_samples": 3772,
+    "recorded_utc": "2026-10-23T23:56:23Z",
+    "served_sha256": "8de161b3f235b7647bb0b39a836d983ff61d67bf234edac461da2d71e889cb87",
+    "url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/38_thyroid.npz"
+  },
+  "wbc": {
+    "arrays_sha256": "8e44b973a0d1b4d4ebaff738c386e832e325fd569c3a41331502c44ff0cc4784",
+    "n_anomalies": 10,
+    "n_features": 9,
+    "n_samples": 223,
+    "recorded_utc": "2026-10-23T23:56:22Z",
+    "served_sha256": "650f9dcb129248f67a291be0974f533ef259fcbde50fce5c8ad2a1cb2652d03b",
+    "url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/42_WBC.npz"
+  }
+}

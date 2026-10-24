@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the LSTM autoencoder trained on raw values.** `AnomalyDetector` (and
+the registry's `lstm_autoencoder`) fed the network series of any scale as they
+were, so it could not reconstruct them: on four recorded NAB files its mean
+AUROC was 0.596 and 0.101 (below chance) on the road-traffic file; with inputs
+standardised by the training rows it is 0.829 and 0.950. The statistics are kept
+in the checkpoint; a checkpoint saved earlier has none and is served on raw
+values as before. Its scores are now in standardised units, and the 95%
+conformal threshold is cut in those units.
+
 **Fixed — PatchCore's coreset could not be seeded.** `PatchCoreConfig` had no
 `seed` although the detector read one "if present", so the greedy coreset always
 started from OS entropy: over 60 identical fits the held-out clean-flag count

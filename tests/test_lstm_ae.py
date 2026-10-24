@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for LSTM Autoencoder anomaly detection module."""
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -372,3 +373,72 @@ class TestHeldOutCalibrationAndGuards:
         assert det.extract_features(X[:100]).shape == (100, 1)
         with pytest.raises(ValueError, match="seq_len"):
             det.predict(X[:5])
+
+
+class TestInputScaling:
+    """Inputs are standardised by the training rows, so the unit of a series is irrelevant."""
+
+    @staticmethod
+    def _series(seed: int = 0) -> np.ndarray:
+        rng = np.random.default_rng(seed)
+        t = np.arange(400)
+        return np.stack(
+            [np.sin(t / 7.0) + 0.05 * rng.normal(size=400), np.cos(t / 11.0)], axis=1
+        ).astype(np.float32)
+
+    def _fitted(self, data: np.ndarray) -> AnomalyDetector:
+        torch.manual_seed(0)
+        detector = AnomalyDetector(input_dim=2, seq_len=10, hidden_dim=16, latent_dim=8, seed=0)
+        detector.fit(data, epochs=3, batch_size=32, verbose=False)
+        return detector
+
+    def test_statistics_come_from_the_training_rows_only(self) -> None:
+        data = self._series()
+        detector = self._fitted(data)
+        n = len(data)
+        n_holdout = int(n * 0.1)
+        fit_rows = data[: n - n_holdout - 10]
+        assert detector.mean_ is not None and detector.scale_ is not None
+        np.testing.assert_allclose(detector.mean_, fit_rows.mean(axis=0), rtol=1e-5)
+        np.testing.assert_allclose(detector.scale_, fit_rows.std(axis=0), rtol=1e-4)
+
+    def test_the_unit_of_the_series_does_not_change_its_scores(self) -> None:
+        """Millions and units of the same signal score alike (raw, they differed by 1e12)."""
+        data = self._series()
+        shifted = (data * np.float32(1e6) + np.float32(5e6)).astype(np.float32)
+        small, large = self._fitted(data), self._fitted(shifted)
+        np.testing.assert_allclose(
+            small.predict(data), large.predict(shifted), rtol=1e-2, atol=1e-3
+        )
+
+    def test_a_constant_feature_is_not_divided_by_zero(self) -> None:
+        data = self._series()
+        data[:, 1] = 3.0
+        detector = self._fitted(data)
+        assert detector.scale_ is not None
+        assert detector.scale_[1] == 1.0
+        assert np.isfinite(detector.predict(data)).all()
+
+    def test_the_scaling_round_trips_through_save_and_load(self, tmp_path: Path) -> None:
+        data = self._series()
+        detector = self._fitted(data)
+        detector.save(str(tmp_path / "ae.pt"))
+        restored = AnomalyDetector.load(str(tmp_path / "ae.pt"), device="cpu")
+        assert restored.mean_ is not None and restored.scale_ is not None
+        assert detector.mean_ is not None and detector.scale_ is not None
+        np.testing.assert_allclose(restored.mean_, detector.mean_)
+        np.testing.assert_allclose(restored.scale_, detector.scale_)
+        np.testing.assert_allclose(restored.predict(data), detector.predict(data), rtol=1e-5)
+
+    def test_a_checkpoint_saved_before_scaling_is_served_on_raw_values(
+        self, tmp_path: Path
+    ) -> None:
+        data = self._series()
+        detector = self._fitted(data)
+        path = str(tmp_path / "old.pt")
+        # What an older build wrote: no statistics.
+        detector.mean_ = detector.scale_ = None
+        detector.save(path)
+        restored = AnomalyDetector.load(path, device="cpu")
+        assert restored.mean_ is None and restored.scale_ is None
+        np.testing.assert_allclose(restored.predict(data), detector.predict(data), rtol=1e-5)
