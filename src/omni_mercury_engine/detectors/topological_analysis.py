@@ -635,7 +635,8 @@ class TopologicalAnomalyDetector:
             :class:`VietorisRipsFiltration`.
         metric: Pairwise distance metric (default ``"euclidean"``).
         n_reference_samples: Number of sub-samples to draw when building
-            the reference profile (``None`` = use all data).
+            the reference profile and calibrating the threshold on it
+            (``None`` = use all data).
         anomaly_threshold: Score above which a window is flagged as
             anomalous.  ``None`` means auto-calibrate from reference.
         seed: Random seed for reproducibility.
@@ -724,7 +725,7 @@ class TopologicalAnomalyDetector:
 
         # Auto-calibrate threshold from reference feature variability
         if self.anomaly_threshold is None:
-            self._calibrate_threshold(reference_data, rng)
+            self._calibrate_threshold(data, rng)
 
         self._fitted = True
         logger.info(

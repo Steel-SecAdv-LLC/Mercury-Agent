@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the topological detector's threshold ignored its sample cap.** With
+`n_reference_samples` set, `TopologicalAnomalyDetector.fit` built the reference
+profile on the capped sample but calibrated the alarm threshold on windows cut
+from the uncapped data: a window of a third of the rows, built ten times. On the
+1886 training rows of ADBench thyroid, `fit` took 167 s with a cap of 80 and now
+takes 0.1 s, and the windows the threshold is cut from now match the reference
+they are compared with. Window-level AUROC on recorded tables (anomalous against
+normal windows of 25 rows, 3 seeds): cardio 0.965, breastw 0.859, thyroid 0.999,
+Pima 0.461 (no better than chance). Callers that set no cap are unchanged.
+
 **Fixed — the LSTM autoencoder trained on raw values.** `AnomalyDetector` (and
 the registry's `lstm_autoencoder`) fed the network series of any scale as they
 were, so it could not reconstruct them: on four recorded NAB files its mean
