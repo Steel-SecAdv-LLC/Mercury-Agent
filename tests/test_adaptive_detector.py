@@ -453,3 +453,73 @@ class TestIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestContaminationCutComesFromFit:
+    """A verdict must not be a fixed share of whatever batch arrives.
+
+    ``_MercuryRandomProjectionDetector`` and ``_MercuryLocalDensityDetector``
+    cut at the percentile of the *scored batch's* own scores, so they flagged
+    exactly ``contamination`` of any batch whatever was in it: measured 0.1000
+    for 200 entirely normal rows, 0.1000 for 200 rows shifted by +9 sigma, and
+    0.1000 for a 90/10 mixture, at ``contamination=0.1``. A row's verdict also
+    depended on which rows it arrived with.
+
+    Only ``fit`` and ``score_samples`` are reached on the live path, so this
+    was a latent trap rather than a live defect -- but
+    ``CovarianceAwareDetector`` in the same module already cuts on a threshold
+    recorded in ``fit``, and these now match it.
+    """
+
+    HELPERS = ("_MercuryRandomProjectionDetector", "_MercuryLocalDensityDetector")
+
+    @staticmethod
+    def _helper(name: str, contamination: float = 0.1) -> Any:
+        import importlib
+
+        module = importlib.import_module("omni_mercury_engine.detectors.adaptive_detector")
+        detector = getattr(module, name)(contamination=contamination)
+        detector.fit(np.random.default_rng(0).normal(size=(200, 8)))
+        return detector
+
+    @pytest.mark.parametrize("name", HELPERS)
+    def test_an_all_anomalous_batch_is_flagged_outright(self, name: str) -> None:
+        """Previously 0.1000 -- the contamination, regardless of the data."""
+        detector = self._helper(name)
+        rng = np.random.default_rng(1)
+
+        flagged = np.asarray(detector.predict(rng.normal(size=(200, 8)) + 9.0))
+
+        assert float(np.mean(flagged == -1)) == 1.0
+
+    @pytest.mark.parametrize("name", HELPERS)
+    def test_a_normal_batch_stays_near_the_contamination(self, name: str) -> None:
+        detector = self._helper(name)
+        rng = np.random.default_rng(2)
+
+        flagged = np.asarray(detector.predict(rng.normal(size=(200, 8))))
+
+        assert float(np.mean(flagged == -1)) == pytest.approx(0.1, abs=0.08)
+
+    @pytest.mark.parametrize("name", HELPERS)
+    def test_a_row_verdict_does_not_depend_on_its_batch_mates(self, name: str) -> None:
+        detector = self._helper(name)
+        rng = np.random.default_rng(3)
+        probe = rng.normal(size=(1, 8))
+
+        beside_benign = np.asarray(detector.predict(np.vstack([probe, rng.normal(size=(99, 8))])))
+        beside_extreme = np.asarray(
+            detector.predict(np.vstack([probe, rng.normal(size=(99, 8)) + 9.0]))
+        )
+
+        assert beside_benign[0] == beside_extreme[0]
+
+    @pytest.mark.parametrize("name", HELPERS)
+    def test_predict_before_fit_is_refused(self, name: str) -> None:
+        import importlib
+
+        module = importlib.import_module("omni_mercury_engine.detectors.adaptive_detector")
+        detector = getattr(module, name)(contamination=0.1)
+
+        with pytest.raises((RuntimeError, AssertionError)):
+            detector.predict(np.random.default_rng(0).normal(size=(10, 8)))
