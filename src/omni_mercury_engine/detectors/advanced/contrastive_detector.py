@@ -405,6 +405,7 @@ class ContrastiveLearningDetector:
         self.train_representations: NDArray[np.float64] | None = None
         self.threshold: float = 0.0
         self._fitted = False
+        self._seed = seed
         self._rng: np.random.Generator = np.random.default_rng(seed)
         # Augmenter shares the seed when not None so its augmentations are
         # reproducible alongside detector-level shuffling.
@@ -434,6 +435,14 @@ class ContrastiveLearningDetector:
         self.config.input_dim = X.shape[-1]
 
         # Initialize model
+        # Seed torch before the weights are drawn. ``seed`` reached the NumPy
+        # generator and the augmenter but not the network's initialisation, so
+        # a run was not reproducible even at a fixed ``seed``: the benchmark's
+        # mean ROC-AUC moved between runs (0.593 then 0.601 on the same
+        # command). ``LSTMAutoencoderDetector.fit`` seeds torch the same way.
+        if self._seed is not None:
+            torch.manual_seed(self._seed)
+
         self.model = ContrastiveModel(self.config).to(self.device)
 
         # Split data

@@ -1213,6 +1213,53 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         modality="rows",
         wraps="omni_mercury_engine.detectors.marine.biodiversity_detector:MarineBiodiversityDetector",
     ),
+    # -- Tabular outlier detectors promoted on standalone ranking -------------
+    # Both are wired at the ``registry`` seam only, as ``lstm_autoencoder`` is:
+    # neither subclasses ``BaseDetector``, which ``register_detector`` requires
+    # and the engine's feature extractor depends on, and neither is adapted
+    # here because that would change a released public API (``predict``
+    # returns an array, ``config`` is a dataclass). The registry seam carries
+    # no such requirement, so the signal is available through
+    # ``extract_all_features`` without touching either class.
+    #
+    # The bar for promoting a dormant detector is the one
+    # ``KMeansDistanceDetector``'s docstring states, it being the last one
+    # promoted: standalone ranking justifies making the signal *available*,
+    # while whether it *adds* to the live fusion ensemble is settled
+    # separately by a fusion-marginal ablation. These clear the first half --
+    # held-out ROC-AUC over five ADBench datasets, three seeds,
+    # ``benchmarks/advanced_detector_auc.py``: COPOD 0.869 and
+    # AdversarialAutoencoder 0.874 against 0.661 for the shipped LOF
+    # reference, both reproducible run to run after the seeding and
+    # inference-determinism fixes in this change. Their
+    # false-alarm rates on normal rows are pinned in
+    # ``tests/core/test_declared_modality_false_alarm_rate.py``.
+    # ``ContrastiveLearningDetector`` (0.621, and under chance on cardio and
+    # thyroid) does not clear it and stays a library class.
+    DetectorManifestEntry(
+        "copod",
+        "omni_mercury_engine.detectors.advanced.copod_detector",
+        "COPODDetector",
+        DetectorCategory.MODEL,
+        "Copula-based outlier detection over per-feature tail ECDFs",
+        feature_dim=1,
+        tags=["tabular", "copula", "parameter-free", "outlier"],
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "adversarial_autoencoder",
+        "omni_mercury_engine.detectors.advanced.adversarial_ae",
+        "AdversarialAutoencoderDetector",
+        DetectorCategory.MODEL,
+        "Adversarial autoencoder reconstruction error with a latent discriminator",
+        feature_dim=1,
+        tags=["tabular", "trained", "adversarial", "reconstruction"],
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
+    ),
     # -- Trained sequence / security ensembles --------------------------------
     DetectorManifestEntry(
         "lstm_autoencoder",

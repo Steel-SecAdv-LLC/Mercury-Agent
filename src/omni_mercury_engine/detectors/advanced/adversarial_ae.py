@@ -18,6 +18,7 @@ Performance Target: BATADAL F1 > 0.80, SWaT F1 > 0.90
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +36,8 @@ __all__ = [
     "AdversarialAEConfig",
     "AdversarialAutoencoderDetector",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -145,10 +148,18 @@ class Encoder(nn.Module):
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
 
-        # Reparameterization trick
+        # Reparameterization trick, in training only. It exists so gradients
+        # flow through the sampling step; at inference the latent code is the
+        # posterior mean. Sampling here made the detector's verdict random:
+        # on one fitted model and one fixed input, three predict() calls gave
+        # per-row score differences up to 0.59 and flagged 4, 3 and 3 of 40
+        # rows. ``self.training`` is False after ``Module.eval()``, which
+        # every scoring path already calls.
         std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        z = mu + eps * std
+        if self.training:
+            z = mu + torch.randn_like(std) * std
+        else:
+            z = mu
 
         result = {
             "z": z,
@@ -413,13 +424,21 @@ class AdversarialAutoencoderDetector:
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "Fitted detector: is_anomaly fires above the threshold_percentile (default 95) "
-            "percentile of its own training scores, so about 5% of the training data alarms by "
-            "construction; no published threshold exists and no false-alarm rate is recorded for "
-            "the cut. Ranking on real labelled data: held-out ROC-AUC 0.866 mean over five "
-            "ADBench datasets (Pima 0.644, breastw 0.977, WBC 0.988, cardio 0.811, thyroid 0.911; "
-            "about 0.01 run-to-run variation), against 0.661 for the shipped LOF reference "
-            "(benchmarks/advanced_detector_auc.py). That measures ranking only."
+            "Fitted detector: is_anomaly fires above the threshold_percentile "
+            "(default 95) of the reconstruction error on a held-out "
+            "calibration block, disjoint from both the training rows and the "
+            "early-stopping block. No published threshold exists for this "
+            "model. Measured false-alarm rate on independent Gaussian rows, "
+            "five seeds: 0.0900 against the 0.05 the percentile names, where "
+            "the previous in-sample cut gave 0.1483 -- an autoencoder "
+            "reconstructs its own training rows better than anything it has "
+            "not seen, so a cut taken on them sits too low. Ranking on real "
+            "labelled data: held-out ROC-AUC 0.874 mean over five ADBench "
+            "datasets (Pima 0.646, breastw 0.979, WBC 0.989, cardio 0.823, "
+            "thyroid 0.930) against 0.661 for the shipped LOF reference "
+            "(benchmarks/advanced_detector_auc.py), reproducible run to run "
+            "at a fixed seed and unchanged by holding the calibration block "
+            "out. That measures ranking only."
         ),
     )
 
@@ -452,6 +471,10 @@ class AdversarialAutoencoderDetector:
         self.model: AdversarialAutoencoder | None = None
         self.threshold: float = 0.0
         self._fitted = False
+        self._seed = seed
+        #: True when fit() had too few rows to hold out a calibration block
+        #: and cut the threshold in-sample, which is optimistic.
+        self._threshold_is_in_sample = False
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def fit(
@@ -459,13 +482,27 @@ class AdversarialAutoencoderDetector:
         X: NDArray[np.float64],
         y: NDArray[np.float64] | None = None,
         validation_split: float = 0.1,
+        calibration_split: float = 0.2,
     ) -> AdversarialAutoencoderDetector:
         """Fit the detector on training data.
+
+        The split is three-way: training rows, a ``validation_split`` block
+        for early stopping, and a ``calibration_split`` block the threshold is
+        cut on. The threshold used to be the ``threshold_percentile`` of the
+        *training* rows' own reconstruction error, which a trained
+        autoencoder reconstructs better than anything it has not seen, so the
+        cut sat too low. Measured over five seeds of 120 independent Gaussian
+        rows scored on 120 more from the same distribution, where every flag
+        is a false alarm: 0.1483 for the in-sample cut against a 0.05 nominal,
+        and 0.0533 for a cut taken on rows the model never trained on.
 
         Args:
             X: Training data [n_samples, n_features] or [n_samples, seq, n_features]
             y: Optional labels (ignored for unsupervised)
-            validation_split: Fraction for validation
+            validation_split: Fraction held out for early stopping.
+            calibration_split: Fraction held out, disjoint from the
+                early-stopping block, for the threshold. ``0.0`` restores the
+                previous in-sample cut.
 
         Returns:
             self
@@ -476,17 +513,34 @@ class AdversarialAutoencoderDetector:
         else:
             self.config.input_dim = X.shape[-1]
 
+        # Seed torch before the weights are drawn. ``seed`` used to reach only
+        # the NumPy generator that picks the validation split, so the network's
+        # initialisation and the adversarial prior samples were unseeded and a
+        # run was not reproducible even at a fixed ``seed``: the benchmark's
+        # mean ROC-AUC moved between runs (0.875 then 0.880 on the same
+        # command). ``LSTMAutoencoderDetector.fit`` seeds torch the same way.
+        if self._seed is not None:
+            torch.manual_seed(self._seed)
+
         # Initialize model
         self.model = AdversarialAutoencoder(self.config).to(self.device)
 
-        # Split data
+        # Split data three ways: calibration, early-stopping validation, train.
         n_samples = len(X)
         n_val = int(n_samples * validation_split)
+        n_cal = int(n_samples * calibration_split)
+        if n_samples - n_val - n_cal < 1:
+            # Too few rows to hold both out; keep every row for training and
+            # fall back to the in-sample cut, which is reported as optimistic.
+            n_cal = 0
         indices = self._rng.permutation(n_samples)
-        train_idx, val_idx = indices[n_val:], indices[:n_val]
+        cal_idx = indices[:n_cal]
+        val_idx = indices[n_cal : n_cal + n_val]
+        train_idx = indices[n_cal + n_val :]
 
         X_train = torch.FloatTensor(X[train_idx]).to(self.device)
         X_val = torch.FloatTensor(X[val_idx]).to(self.device) if n_val > 0 else None
+        X_cal = torch.FloatTensor(X[cal_idx]).to(self.device) if n_cal > 0 else None
 
         # Optimizers (separate for generator and discriminator)
         params_g = list(self.model.encoder.parameters()) + list(self.model.decoder.parameters())
@@ -550,17 +604,28 @@ class AdversarialAutoencoderDetector:
                     if patience_counter >= self.config.early_stopping_patience:
                         break
 
-        # Compute threshold on training data
+        # Threshold on the held-out calibration rows when there are any; the
+        # model reconstructs its own training rows better than anything else,
+        # so a cut taken on them sits below the operating point it claims.
+        if X_cal is None:
+            logger.warning(
+                "AdversarialAutoencoderDetector: too few rows to hold out a calibration "
+                "block, so the threshold is the %.0fth percentile of the training rows' "
+                "own reconstruction error and is optimistic.",
+                self.config.threshold_percentile,
+            )
+        cut_on = X_train if X_cal is None else X_cal
         self.model.eval()
         with torch.no_grad():
-            train_scores = []
-            for i in range(0, len(X_train), self.config.batch_size):
-                batch = X_train[i : i + self.config.batch_size]
+            cut_scores: list[NDArray[np.float64]] = []
+            for i in range(0, len(cut_on), self.config.batch_size):
+                batch = cut_on[i : i + self.config.batch_size]
                 result = self.model(batch)
-                train_scores.append(result["recon_error"].cpu().numpy())
+                cut_scores.append(result["recon_error"].cpu().numpy())
 
-            train_scores = np.concatenate(train_scores)  # type: ignore[assignment, unused-ignore]
-            self.threshold = float(np.percentile(train_scores, self.config.threshold_percentile))
+            stacked = np.concatenate(cut_scores)
+            self.threshold = float(np.percentile(stacked, self.config.threshold_percentile))
+            self._threshold_is_in_sample = X_cal is None
 
         self._fitted = True
         return self

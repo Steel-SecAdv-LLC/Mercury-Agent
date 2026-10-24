@@ -32,6 +32,10 @@ from typing import Any
 import numpy as np
 import pytest
 
+pytest.importorskip("torch")
+
+import torch
+
 from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 
 SEEDS = (7, 11, 23, 101, 999)
@@ -47,6 +51,8 @@ MEASURED_RATE: dict[str, float] = {
     # fail closed is the defensible side to err on.
     "realtime_threat": 0.1067,
     "kmeans_distance": 0.0867,
+    "adversarial_autoencoder": 0.0900,
+    "copod": 0.0717,
     # At or under contract.
     "directive": 0.0600,
     "rca": 0.0467,
@@ -62,6 +68,16 @@ MEASURED_VERDICT: dict[str, float] = {
 #: ``matrix_2d`` entries this gate cannot drive, and why: each returns a
 #: ranking or a diagnostic rather than an ``is_anomaly`` verdict, so there is
 #: no false alarm to count. They are covered by their own tests.
+#: Constructor arguments for entries that need them to be reproducible.
+#: ``AdversarialAutoencoderDetector`` draws its network weights and picks its
+#: splits from ``default_rng(seed)``, which no global seed reaches, so without
+#: an explicit seed the measurement moves between runs (0.1567 then 0.1367 on
+#: the same command). Its own ``seed`` documents ``None`` as "uses OS
+#: entropy", so pinning it here is the caller's job, not a defect.
+ENTRY_KWARGS: dict[str, dict[str, Any]] = {
+    "adversarial_autoencoder": {"seed": 0},
+}
+
 NO_VERDICT_SEAM = frozenset(
     {
         "adaptive_anomaly",
@@ -100,7 +116,12 @@ def _verdicts(name: str) -> tuple[np.ndarray[Any, Any], ...]:
     out = []
     for seed in SEEDS:
         fit_rows, held_out = normal_rows(seed)
-        detector = cls()
+        # Trained entries (e.g. adversarial_autoencoder) draw weights, so the
+        # measurement is only reproducible with both RNGs pinned -- the same
+        # thing tests/detectors/test_stationary_false_alarm_rate.py does.
+        torch.manual_seed(0)
+        np.random.seed(0)
+        detector = cls(**ENTRY_KWARGS.get(name, {}))
         detector.fit(fit_rows)
         score = getattr(detector, "detect", None) or detector.predict
         result = score(held_out)
@@ -165,7 +186,7 @@ def test_no_excluded_entry_silently_gained_a_verdict() -> None:
         entry = next(e for e in DETECTOR_MANIFEST if e.name == name)
         cls = getattr(importlib.import_module(entry.module_path), entry.class_name)
         fit_rows, held_out = normal_rows(SEEDS[0])
-        detector = cls()
+        detector = cls(**ENTRY_KWARGS.get(name, {}))
         detector.fit(fit_rows)
         score = getattr(detector, "detect", None) or getattr(detector, "predict", None)
         if score is None:

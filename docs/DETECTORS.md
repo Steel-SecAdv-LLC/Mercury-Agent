@@ -96,7 +96,7 @@ an adapter entry and names the domain detector behind it.
 | `stfpm` | `STFPMDetector` | visual | image_batch | fit | Student-Teacher Feature Pyramid Matching |
 | `lavad` | `LAVADDetector` | vlm | video_frames | fit | Training-free LLM-based VAD (CVPR 2024) |
 
-## registry only (39)
+## registry only (41)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -125,11 +125,13 @@ an adapter entry and names the domain detector behind it.
 | `heatwave` | `HeatwaveDetector` | meteorological | series_1d | -- | Percentile-climatology heatwave detector with Excess Heat Factor (Perkins & Alexander 2013; Nairn & Fawcett 2015) |
 | `lightning` | `LightningDetector` | meteorological | series_1d | -- | 2-sigma lightning jump severe-weather precursor (Schultz et al. 2009) |
 | `winter_storm` | `WinterStormDetector` | meteorological | series_1d | -- | Winter/ice-storm detector (precip-type + FRAM ice accretion) |
+| `adversarial_autoencoder` | `AdversarialAutoencoderDetector` | model | matrix_2d | fit | Adversarial autoencoder reconstruction error with a latent discriminator |
 | `affective` | `AffectiveAnomalyModel` | model | series_1d | -- | Emotional state anomalies |
 | `astrophysical` | `AstrophysicalAnomalyModel` | model | series_1d | -- | Cosmic signal anomalies |
 | `biometric` | `BiometricAnomalyModel` | model | series_1d | -- | Face/biometric anomalies |
 | `chemistry` | `ChemistryAnomalyDetector` | model | series_1d | -- | Chemical anomaly detection |
 | `consciousness` | `ConsciousnessPreservationModel` | model | series_1d | -- | Consciousness preservation analysis |
+| `copod` | `COPODDetector` | model | matrix_2d | fit | Copula-based outlier detection over per-feature tail ECDFs |
 | `lstm_autoencoder` | `LSTMAutoencoderDetector` | model | series_1d | fit | Trained LSTM-autoencoder multivariate sequence reconstruction |
 | `neural_cognitive` | `NeuralCognitiveModel` | model | series_1d | -- | Brain activity anomalies |
 | `parapsychology` | `ParapsychologyDetector` | model | series_1d | -- | Psi phenomena detection |
@@ -163,7 +165,7 @@ named here is not a numeric seam: it is a part of something else, a base, or a
 detector with its own API that is reached by importing it.
 
 
-### Detectors with their own domain API (import them; no numeric seam) (29)
+### Detectors with their own domain API (import them; no numeric seam) (27)
 
 Each has at least one test and a declared ``decision_source``.
 
@@ -172,9 +174,7 @@ Each has at least one test and a declared ``decision_source``.
 | `BiometricAnomalyDetector` | `biometric` | Multi-modal biometric anomaly detection |
 | `OSHAComplianceDetector` | `compliance.osha_anomaly` | OSHA compliance anomaly detector for industry-specific safety monitoring |
 | `ConformalAnomalyDetector` | `core.conformal_prediction` | Wrapper for anomaly detectors with conformal prediction |
-| `AdversarialAutoencoderDetector` | `detectors.advanced.adversarial_ae` | Adversarial Autoencoder Detector for Industrial Control Systems |
 | `ContrastiveLearningDetector` | `detectors.advanced.contrastive_detector` | Contrastive Learning Detector for Anomaly Detection |
-| `COPODDetector` | `detectors.advanced.copod_detector` | COPOD: Copula-Based Outlier Detection |
 | `MultiScaleTransformerDetector` | `detectors.advanced.multi_scale_transformer` | Multi-Scale Transformer Detector for Time-Series Anomaly Detection |
 | `BLIPVLMDetector` | `detectors.vlm.blip_vlm` | BLIP-based zero-shot anomaly detector |
 | `StatisticalVLMDetector` | `detectors.vlm.statistical_vlm` | Offline, deterministic concrete VLM detector (no network, no weights) |

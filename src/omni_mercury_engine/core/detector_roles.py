@@ -283,13 +283,7 @@ DETECTOR_ROLES: dict[str, DetectorRole] = {
     "omni_mercury_engine.core.conformal_prediction:ConformalAnomalyDetector": DetectorRole(
         "library", ()
     ),
-    "omni_mercury_engine.detectors.advanced.adversarial_ae:AdversarialAutoencoderDetector": DetectorRole(
-        "library", ()
-    ),
     "omni_mercury_engine.detectors.advanced.contrastive_detector:ContrastiveLearningDetector": DetectorRole(
-        "library", ()
-    ),
-    "omni_mercury_engine.detectors.advanced.copod_detector:COPODDetector": DetectorRole(
         "library", ()
     ),
     "omni_mercury_engine.detectors.advanced.multi_scale_transformer:MultiScaleTransformerDetector": DetectorRole(
