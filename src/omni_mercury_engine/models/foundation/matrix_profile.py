@@ -44,7 +44,9 @@ class MatrixProfileConfig(FoundationModelConfig):
         n_discords: Number of discords (anomalies) to find
         n_motifs: Number of motifs to find
         normalize: Whether to z-normalize subsequences
-        discord_threshold: Threshold for discord detection (z-score)
+        discord_threshold: Accepted for compatibility; not read (discords are
+            the ``n_discords`` largest profile values and flags are the batch's
+            ``anomaly_threshold`` quantile)
         use_gpu: Use GPU acceleration (requires stumpy.gpu)
     """
 
@@ -83,9 +85,8 @@ class MatrixProfileDetector(BaseFoundationModel):
             "non-trivial subsequence match; stumpy / UCR Matrix Profile, as "
             "referenced in this module). Points are flagged above the "
             "batch's own anomaly_threshold (default 0.95) quantile of those "
-            "scores, with discords screened at z >= 2.0: relative cuts with "
-            "no published threshold and no labelled corpus to calibrate "
-            "one, so verdicts are experimental."
+            "scores: a relative cut with no published threshold and no "
+            "labelled corpus to calibrate one, so verdicts are experimental."
         ),
     )
 
@@ -199,9 +200,9 @@ class MatrixProfileDetector(BaseFoundationModel):
             if self._gpu_available and self.mp_config.use_gpu:
                 import stumpy.gpu
 
-                result = stumpy.gpu_stump(series, m=window_size)
+                result = stumpy.gpu_stump(series, m=window_size, normalize=self.mp_config.normalize)
             else:
-                result = stumpy.stump(series, m=window_size)
+                result = stumpy.stump(series, m=window_size, normalize=self.mp_config.normalize)
 
             return {
                 "matrix_profile": result[:, 0].astype(float),

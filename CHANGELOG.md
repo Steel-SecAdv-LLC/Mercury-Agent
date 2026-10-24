@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — `MatrixProfileConfig.normalize` was never read, and the matrix-profile provenance
+named a screen that does not exist.** Every profile was z-normalised whatever the caller
+set; `normalize` is now passed to STUMPY (the default, `True`, gives the profile it always
+did). `decision_source` said discords are "screened at z >= 2.0"; nothing applies that
+cut (`discord_threshold` is accepted and not read; flags are the batch's own
+`anomaly_threshold` quantile), so the text now says what the code does. On the four
+recorded NAB files the profile ranks anomaly windows at mean AUROC 0.356 (0.073 on road
+traffic), the same as raw `stumpy.stump`.
+
 **Fixed — the topological detector's threshold ignored its sample cap.** With
 `n_reference_samples` set, `TopologicalAnomalyDetector.fit` built the reference
 profile on the capped sample but calibrated the alarm threshold on windows cut
