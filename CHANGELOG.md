@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — `PhysicsIntegratedDetector` flagged every normal signal.** Its fused score of a
+healthy bearing-vibration window (CWRU Bearing Data Center, 12 kHz) is 0.89-0.99, and the
+alarm threshold stayed at the 0.5 default whatever `fit` saw: it ranked fault windows above
+healthy ones (AUROC 1.0) and flagged 100% of the healthy windows. When no `threshold` is
+configured and `fit` receives at least 76 signals, every fourth signal is now held out of
+the component fits and the threshold is the split-conformal quantile (false-alarm rate
+0.05) of their fused scores, capped below 1.0. Held-out healthy windows flagged: 100% ->
+12.5% (40 windows); fault windows flagged: 100% before and after. A configured threshold
+and a smaller `fit` keep the 0.5 default. Note: `sample_rate` reaches the spectral component
+only through `spectral_config`.
+
 **Fixed — `MatrixProfileConfig.normalize` was never read, and the matrix-profile provenance
 named a screen that does not exist.** Every profile was z-normalised whatever the caller
 set; `normalize` is now passed to STUMPY (the default, `True`, gives the profile it always

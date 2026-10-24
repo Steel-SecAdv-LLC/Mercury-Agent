@@ -33,6 +33,7 @@ import torch
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY, OracleActivation
+from omni_mercury_engine.core.conformal_prediction import split_conformal_threshold
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
@@ -246,9 +247,12 @@ class PhysicsIntegratedDetector(BaseDetector):
             "In-house fusion heuristic: combines the spectral-vibration, "
             "acceleration-dynamics and UI/UX detectors' scores through the "
             "Omni-Ava Equation (golden-ratio-weighted fusion with 3R/GOSNN "
-            "modulation) and decides at the configured BaseDetector threshold "
-            "(default 0.5) on the fused normalized score. No published threshold "
-            "exists for this fusion rule and no labelled corpus calibrates it; "
+            "modulation) on the fused normalized score. The alarm threshold is "
+            "the configured BaseDetector threshold, or, when no threshold is "
+            "configured and fit() receives at least 76 signals, the "
+            "split-conformal quantile (false-alarm rate 0.05) of the fused scores "
+            "of every fourth signal held out of the fit. No published threshold "
+            "exists for the fusion rule and no labelled corpus calibrates it; "
             "the wrapped detectors declare their own provenance on their classes."
         ),
     )
@@ -467,10 +471,18 @@ class PhysicsIntegratedDetector(BaseDetector):
         Raises:
             DetectorException: If data format is invalid.
         """
+        calibration_rows: np.ndarray[Any, Any] | None = None
         if data_type == "time_series":
             # Fit spectral and dynamics detectors
             if isinstance(data, torch.Tensor):
                 data = data.cpu().numpy()
+
+            if self._calibrates_threshold(data):
+                held_out = np.arange(len(data)) % self._CALIBRATION_STRIDE == (
+                    self._CALIBRATION_STRIDE - 1
+                )
+                calibration_rows = data[held_out]  # type: ignore[index, unused-ignore]
+                data = data[~held_out]  # type: ignore[index, unused-ignore]
 
             if self._spectral_detector is not None:
                 self._spectral_detector.fit(data)  # type: ignore[arg-type, unused-ignore]
@@ -519,9 +531,46 @@ class PhysicsIntegratedDetector(BaseDetector):
             )
 
         self._is_fitted = True
+        if calibration_rows is not None:
+            self._calibrate_threshold_on(calibration_rows)
         logger.info("PhysicsIntegratedDetector fitted successfully")
 
         return self
+
+    #: Every ``_CALIBRATION_STRIDE``-th training signal is held out of the
+    #: component fits and scores the alarm threshold; ``_FALSE_ALARM_RATE`` is
+    #: the rate it is cut at.  ``_MIN_CALIBRATION_SIGNALS`` is the fewest
+    #: held-out signals for which that rate is attainable (``ceil(1/alpha) - 1``).
+    _CALIBRATION_STRIDE = 4
+    _FALSE_ALARM_RATE = 0.05
+    _MIN_CALIBRATION_SIGNALS = 19
+
+    def _calibrates_threshold(self, data: Any) -> bool:
+        """Whether ``fit`` can calibrate the threshold on ``data`` (and was not told not to)."""
+        if "threshold" in self.config or self._auto_calibrate:
+            return False
+        if getattr(data, "ndim", 0) != 2:
+            return False
+        return bool(len(data) // self._CALIBRATION_STRIDE >= self._MIN_CALIBRATION_SIGNALS)
+
+    def _calibrate_threshold_on(self, signals: np.ndarray[Any, Any]) -> None:
+        """Set the alarm threshold by split conformal prediction on held-out normal signals.
+
+        The fused score of normal signals sits well above the 0.5 default (0.89
+        to 0.99 on recorded bearing vibration), so the default flagged every
+        normal signal.  The threshold is the conformal quantile of the held-out
+        signals' fused scores, capped just under 1.0 so a saturated score can
+        still alarm.
+        """
+        scores = [float(self.detect(signal.reshape(1, -1))["anomaly_score"]) for signal in signals]
+        result = split_conformal_threshold(scores, self._FALSE_ALARM_RATE)
+        self.threshold = min(result.threshold, float(np.nextafter(1.0, 0.0)))
+        logger.info(
+            "PhysicsIntegratedDetector threshold %.4f from %d held-out signals (false-alarm bound %.3f)",
+            self.threshold,
+            result.n_calibration,
+            result.false_alarm_bound,
+        )
 
     def detect(
         self,

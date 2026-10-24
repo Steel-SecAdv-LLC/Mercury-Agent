@@ -1,9 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Recorded, labelled data for detector tests: NAB series and ADBench tables.
+"""Recorded, labelled data for detector tests: NAB series, ADBench tables, CWRU bearing vibration.
 
 Everything here is read from ``tests/fixtures`` (recorded by
-``scripts/record_nab_fixtures.py`` and ``scripts/record_adbench_fixtures.py``);
+``scripts/record_nab_fixtures.py``, ``scripts/record_adbench_fixtures.py`` and
+``scripts/record_cwru_fixtures.py``);
 nothing is generated. NAB labels a *window* around each real anomaly, so a point
 is positive when its timestamp lies inside one of the file's windows.
 """
@@ -112,3 +113,13 @@ def stratified_split(
     mask = np.zeros(len(labels), dtype=bool)
     mask[sorted(held)] = True
     return np.where(~mask)[0], np.where(mask)[0]
+
+
+def cwru(name: str) -> np.ndarray[Any, Any]:
+    """A recorded CWRU drive-end vibration segment (12 kHz, in g) as float64.
+
+    ``name`` is one of ``normal_0hp``, ``normal_1hp``, ``inner_race``, ``ball``,
+    ``outer_race``; the faults are 0.007-inch at 0 hp.
+    """
+    with np.load(FIXTURES / "cwru" / f"{name}.npz", allow_pickle=False) as archive:
+        return np.asarray(archive["x"], dtype=np.float64)
