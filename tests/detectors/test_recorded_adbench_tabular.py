@@ -9,8 +9,8 @@ standardised on the training rows (the protocol of
 ``benchmarks/dormant_module_revival.py``) and the mean held-out AUROC over three
 seeds is pinned.  0.5 is chance.
 
-``topological`` is a set-level method (one verdict per window), so it is
-measured the way it is used: fitted on half of the normal rows, then asked to
+``topological`` and ``biometric`` (its tabular route) are set-level methods (one
+verdict per window), so they are measured the way it is used: fitted on half of the normal rows, then asked to
 rank 30 windows of 25 held-out normal rows against 30 windows of 25 anomalous
 rows by the window's anomaly score.  WBC has 10 anomalies, too few for windows,
 and is left out for it.
@@ -23,7 +23,7 @@ one, fails here and must be recorded.  Seeds are fixed, runs are repeatable.
 from __future__ import annotations
 
 import importlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -32,8 +32,12 @@ torch = pytest.importorskip("torch")
 
 from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 from omni_mercury_engine.detectors.topological_analysis import TopologicalAnomalyDetector
+from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 from tests.core.test_detector_manifest_seams import FAST_CONFIG
 from tests.recorded_data import ADBENCH_NAMES, adbench, auroc, stratified_split
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 ENTRIES = {e.name: e for e in DETECTOR_MANIFEST}
 SEEDS = (0, 1, 2)
@@ -50,6 +54,9 @@ MEASURED: dict[str, tuple[float, ...]] = {
 
 #: topological: window AUROC per table (``pima_real``, ``cardio``, ``breastw``, ``thyroid``).
 MEASURED_WINDOWS: tuple[float, ...] = (0.461, 0.965, 0.859, 0.999)
+
+#: biometric (tabular route): window AUROC per table, same order.
+MEASURED_BIOMETRIC_WINDOWS: tuple[float, ...] = (0.997, 1.000, 1.000, 1.000)
 
 
 def _scores(name: str, detector: Any, rows: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -85,8 +92,16 @@ def measure_tabular(name: str, table: str) -> float:
     return float(np.mean(values))
 
 
-def measure_windows(table: str, size: int = 25, windows: int = 30) -> float:
-    """Mean AUROC of ``topological`` window scores, anomalous against normal windows."""
+def measure_windows(
+    table: str, make_scorer: Callable[[np.ndarray[Any, Any], int], Callable[..., float]]
+) -> float:
+    """Mean AUROC of a set-level detector's window score, anomalous against normal windows.
+
+    ``make_scorer(reference_rows, seed)`` returns the function that scores one
+    window of rows; 30 windows of 25 held-out normal rows are ranked against 30
+    windows of 25 anomalous rows, over three seeds.
+    """
+    size, windows = 25, 30
     features, labels = adbench(table)
     values = []
     for seed in SEEDS:
@@ -98,18 +113,24 @@ def measure_windows(table: str, size: int = 25, windows: int = 30) -> float:
         spread = features[reference].std(axis=0)
         spread[spread < 1e-8] = 1.0
         rows = (features - mean) / spread
-        detector = TopologicalAnomalyDetector(n_reference_samples=80, seed=seed)
-        detector.fit(rows[reference])
-        negative = [
-            detector.score(rows[rng.choice(held, size, replace=False)])["anomaly_score"]
-            for _ in range(windows)
-        ]
-        positive = [
-            detector.score(rows[rng.choice(anomalous, size, replace=False)])["anomaly_score"]
-            for _ in range(windows)
-        ]
+        score = make_scorer(rows[reference], seed)
+        negative = [score(rows[rng.choice(held, size, replace=False)]) for _ in range(windows)]
+        positive = [score(rows[rng.choice(anomalous, size, replace=False)]) for _ in range(windows)]
         values.append(auroc(np.array(positive), np.array(negative)))
     return float(np.mean(values))
+
+
+def topological_scorer(reference: np.ndarray[Any, Any], seed: int) -> Callable[..., float]:
+    """``topological`` fitted on the reference (capped at 80 rows)."""
+    detector = TopologicalAnomalyDetector(n_reference_samples=80, seed=seed).fit(reference)
+    return lambda window: float(detector.score(window)["anomaly_score"])
+
+
+def biometric_scorer(reference: np.ndarray[Any, Any], seed: int) -> Callable[..., float]:
+    """``biometric``'s tabular route: one harmonic spectral-deviation score per matrix."""
+    del reference, seed
+    model = BiometricAnomalyModel()
+    return lambda window: float(np.asarray(model.predict(window)["anomaly_scores"]).reshape(-1)[0])
 
 
 @pytest.mark.parametrize("name", sorted(MEASURED))
@@ -119,10 +140,19 @@ def test_held_out_auroc_matches_the_measurement(name: str) -> None:
         assert got == pytest.approx(pinned, abs=AUROC_TOLERANCE), f"{name} on {table}"
 
 
+WINDOW_TABLES = ("pima_real", "cardio", "breastw", "thyroid")
+
+
 def test_topological_window_auroc_matches_the_measurement() -> None:
-    tables = ("pima_real", "cardio", "breastw", "thyroid")
-    for table, pinned in zip(tables, MEASURED_WINDOWS, strict=True):
-        assert measure_windows(table) == pytest.approx(pinned, abs=AUROC_TOLERANCE), table
+    for table, pinned in zip(WINDOW_TABLES, MEASURED_WINDOWS, strict=True):
+        got = measure_windows(table, topological_scorer)
+        assert got == pytest.approx(pinned, abs=AUROC_TOLERANCE), table
+
+
+def test_biometric_window_auroc_matches_the_measurement() -> None:
+    for table, pinned in zip(WINDOW_TABLES, MEASURED_BIOMETRIC_WINDOWS, strict=True):
+        got = measure_windows(table, biometric_scorer)
+        assert got == pytest.approx(pinned, abs=AUROC_TOLERANCE), table
 
 
 def test_topological_fit_cost_is_bounded_by_the_cap() -> None:

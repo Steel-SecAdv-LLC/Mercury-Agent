@@ -1,10 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Recorded, labelled data for detector tests: NAB series, ADBench tables, CWRU bearing vibration.
+"""Recorded, labelled data for detector tests: NAB series, ADBench tables, CWRU bearing vibration, CHB-MIT EEG.
 
 Everything here is read from ``tests/fixtures`` (recorded by
-``scripts/record_nab_fixtures.py``, ``scripts/record_adbench_fixtures.py`` and
-``scripts/record_cwru_fixtures.py``);
+``scripts/record_nab_fixtures.py``, ``scripts/record_adbench_fixtures.py``,
+``scripts/record_cwru_fixtures.py`` and ``scripts/record_eeg_fixtures.py``);
 nothing is generated. NAB labels a *window* around each real anomaly, so a point
 is positive when its timestamp lies inside one of the file's windows.
 """
@@ -123,3 +123,16 @@ def cwru(name: str) -> np.ndarray[Any, Any]:
     """
     with np.load(FIXTURES / "cwru" / f"{name}.npz", allow_pickle=False) as archive:
         return np.asarray(archive["x"], dtype=np.float64)
+
+
+def eeg(record: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Recorded CHB-MIT scalp EEG (FP1-F7, 256 Hz, microvolts): ``(background, seizure)``.
+
+    ``record`` is ``chb01_03`` or ``chb01_04``; ``background`` is the 300 s that
+    end 120 s before the annotated seizure and ``seizure`` is the seizure itself.
+    """
+    with np.load(FIXTURES / "eeg" / f"{record}.npz", allow_pickle=False) as archive:
+        return (
+            np.asarray(archive["background"], dtype=np.float64),
+            np.asarray(archive["seizure"], dtype=np.float64),
+        )
