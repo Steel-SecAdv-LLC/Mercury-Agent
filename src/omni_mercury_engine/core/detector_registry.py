@@ -1439,7 +1439,19 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Unified physics detector with 3R and GOSNN integration",
         tags=["physics", "integrated", "3r", "gosnn", "fusion"],
         seams=("engine", "registry"),
-        modality="series_1d",
+        # ``matrix_2d``, not ``series_1d``: the alarm threshold is a
+        # split-conformal cut over the fused scores of held-out *whole
+        # signals*, so calibrating it needs many normal signals --
+        # ``_calibrates_threshold`` enforces ``ndim == 2`` and at least
+        # ``_CALIBRATION_STRIDE * _MIN_CALIBRATION_SIGNALS`` = 76 of them. A
+        # single 1-D series carries exactly one sample of that statistic and
+        # cannot calibrate it at any length. Declared ``series_1d``, the
+        # threshold stayed at the 0.5 default, which the fused score of normal
+        # signals (0.89 to 0.99) exceeds, and the detector called an entirely
+        # normal stationary series anomalous on all five gate seeds. Fitted on
+        # a stack of windows instead it cuts at 0.89 and flags 0.0612 of
+        # normal windows, against its own 0.05 bound.
+        modality="matrix_2d",
         fit_required=True,
     ),
     DetectorManifestEntry(

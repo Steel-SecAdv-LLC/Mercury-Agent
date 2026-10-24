@@ -95,7 +95,6 @@ MEASURED_RATE: dict[str, float] = {
 MEASURED_VERDICT: dict[str, float] = {
     "acceleration_dynamics": 1.0,
     "nano_safeguard": 1.0,
-    "physics_integrated": 1.0,
     "frequent_pattern": 0.0,
     "spectral_domain_frequency": 0.0,
     "spectral_vibration": 0.0,

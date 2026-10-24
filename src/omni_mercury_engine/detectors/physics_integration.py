@@ -287,6 +287,11 @@ class PhysicsIntegratedDetector(BaseDetector):
         # Initialize GOSNN scalars
         self._gosnn = PhysicsGOSNNScalars()
 
+        #: Whether fit() cut the alarm threshold conformally on held-out
+        #: normal signals. False means the verdict rests on the configured or
+        #: default threshold and carries no false-alarm bound.
+        self._threshold_calibrated = False
+
         # Set device
         self.device = torch.device(self.config.get("device", "cpu"))
 
@@ -533,6 +538,21 @@ class PhysicsIntegratedDetector(BaseDetector):
         self._is_fitted = True
         if calibration_rows is not None:
             self._calibrate_threshold_on(calibration_rows)
+            self._threshold_calibrated = True
+        elif "threshold" not in self.config and not self._auto_calibrate:
+            # The fused score of normal signals sits between 0.89 and 0.99,
+            # so the 0.5 default alarms on normal input. Say so rather than
+            # emit a verdict that reads as calibrated: a single 1-D series
+            # carries one sample of a whole-signal score, and the conformal
+            # cut needs at least _MIN_CALIBRATION_SIGNALS held-out signals.
+            logger.warning(
+                "PhysicsIntegratedDetector could not calibrate its threshold on this "
+                "input and keeps the %.2f default, which normal signals exceed. Fit on "
+                "a 2-D stack of at least %d signals for a calibrated alarm, or set "
+                "'threshold' in config.",
+                self.threshold,
+                self._CALIBRATION_STRIDE * self._MIN_CALIBRATION_SIGNALS,
+            )
         logger.info("PhysicsIntegratedDetector fitted successfully")
 
         return self
@@ -728,6 +748,10 @@ class PhysicsIntegratedDetector(BaseDetector):
             "recommendations": recommendations,
             "detector_type": "advanced_physics_integrated",
             "threshold": effective_threshold,
+            # False means the alarm rests on the configured or default
+            # threshold rather than a conformal cut measured on normal
+            # signals, so the verdict carries no false-alarm bound.
+            "threshold_calibrated": self._threshold_calibrated,
             "metadata": {
                 "enabled_detectors": [d.value for d in self._physics_config.enabled_detectors],
                 "use_3r_enhancement": self._physics_config.use_3r_enhancement,

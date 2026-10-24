@@ -101,7 +101,8 @@ VRNN at 0.87 still lies inside Mercury's interval on both protocols (now 0.788-0
 **Fixed — the stationary false-alarm gate reported a rate for detectors that return one
 verdict.** Seven of its 28 entries reduce a whole series to a single verdict rather than one
 per sample (`acceleration_dynamics`, `frequent_pattern`, `nano_safeguard`,
-`physics_integrated`, `spectral_domain_frequency`, `spectral_vibration`, `uiux_anomaly`), so
+`physics_integrated` -- since re-declared `matrix_2d`, below --
+`spectral_domain_frequency`, `spectral_vibration`, `uiux_anomaly`), so
 the "1.0000" first recorded for three of them was not a 100% false-alarm rate — it was one
 Boolean. The gate now pins the two groups separately: `MEASURED_RATE` for per-sample
 detectors, where the number is a rate over 400 samples, and `MEASURED_VERDICT` for set-level
@@ -301,11 +302,8 @@ squash anchor targets but bounded, `srcnn` 0.1020, `statistical` 0.0980, `energy
 `lstm_autoencoder` 0.0670 (see the out-of-fold calibration fix above, which moved it from
 0.6265); at or under contract, the other 15 down to `page_hinkley` 0.0025. **Set-level** detectors reduce the whole series to *one* verdict, so
 what is pinned is the share of the five seeds whose single verdict came back anomalous:
-`acceleration_dynamics`, `nano_safeguard` and `physics_integrated` call an entirely normal
-stationary series anomalous on every seed (`physics_integrated` because its conformal threshold
-calibration requires a 2-D stack of at least 76 signals -- `_calibrates_threshold` returns
-False for anything but `ndim == 2` -- and a 1-D series is neither, so it keeps the 0.5
-default against a fused score of 0.994 on normal data),
+`acceleration_dynamics` and `nano_safeguard` call an entirely normal
+stationary series anomalous on every seed,
 while `frequent_pattern`, `spectral_vibration`, `spectral_domain_frequency` and
 `uiux_anomaly` never do. A test asserts each group's verdict arity so an entry cannot drift
 between them unnoticed.
@@ -314,6 +312,27 @@ between them unnoticed.
 20 seeds their medians are 0.0138 and 0.0188, at or under the nominal 0.02, with a heavy tail
 (max 0.1725 and 0.1375), so the 3-seed excess that first flagged them was the tail and not a
 systematic bias. No change was made to either.
+
+**Fixed — `physics_integrated` declared a modality its own threshold calibration cannot
+use.** It was declared `series_1d`, but its alarm threshold is a split-conformal cut over the
+fused scores of held-out *whole signals*, so calibrating it needs many normal signals:
+`_calibrates_threshold` enforces `ndim == 2` and at least
+`_CALIBRATION_STRIDE * _MIN_CALIBRATION_SIGNALS` = 76 of them. A single 1-D series carries
+exactly one sample of that statistic and cannot calibrate it at any length. Under the wrong
+declaration the threshold stayed at the 0.5 default, which the fused score of normal signals
+(0.89 to 0.99) exceeds, and the detector called an entirely normal stationary series anomalous
+on all five gate seeds — the fifth instance of the defect class already fixed for `rca`,
+`kmeans_distance`, `realtime_threat` and `deeplog_sequence`.
+
+Re-declared `matrix_2d`, the modality filter in `DetectorRegistry.extract_all_features` routes
+it a stack of signals and it calibrates: fitted on 85 windows of a stationary series it cuts at
+0.8929 and flags 0.0612 of normal windows, against its own 0.05 bound. The 1.0 verdict leaves
+`MEASURED_VERDICT`, since the gate drives `series_1d` entries only.
+
+Two things stop the re-declaration from merely hiding the old behaviour. A direct 1-D fit now
+logs a warning naming the uncalibrated threshold and what to fit instead, rather than returning
+an anomaly verdict silently; and every verdict carries `threshold_calibrated`, False when the
+alarm rests on the configured or default threshold and so carries no false-alarm bound.
 
 **Fixed — `EchoStateDetector` calibrated its alarm boundary on data it had trained on.**
 `fit` set the squash scale from the 98th percentile of the readout's *in-sample* residuals.

@@ -75,7 +75,7 @@ an adapter entry and names the domain detector behind it.
 | `pm25_air_quality` | `PM25AirQualityAdapter` | meteorological | rows | serves `AirQualityDetector` | EPA PM2.5 Air Quality Index (40 CFR Part 58 Appendix G, 2024 breakpoints) |
 | `surge_flood_cascade` | `SurgeFloodCascadeAdapter` | meteorological | event | serves `SurgeFloodCascade` | Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual) |
 | `acceleration_dynamics` | `AccelerationDynamicsDetector` | physics | series_1d | -- | Kinematic analysis with Lyapunov stability and phase space |
-| `physics_integrated` | `PhysicsIntegratedDetector` | physics | series_1d | fit | Unified physics detector with 3R and GOSNN integration |
+| `physics_integrated` | `PhysicsIntegratedDetector` | physics | matrix_2d | fit | Unified physics detector with 3R and GOSNN integration |
 | `spectral_domain_frequency` | `SpectralDomainFrequency` | physics | series_1d | -- | Neuro-symbolic spectral-domain anomaly detection with per-band scoring |
 | `spectral_vibration` | `SpectralVibrationDetector` | physics | series_1d | -- | GNN/CNN spectral analysis with phonon interactions |
 | `threat_detection` | `ThreatPayloadAdapter` | security | text | serves `ThreatDetector` | Security threat detection |
