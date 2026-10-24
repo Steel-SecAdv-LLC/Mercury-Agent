@@ -200,7 +200,10 @@ Mean false-alarm rate over the five gate seeds, 400 fit rows scored on the next 
 | pooled out-of-fold, 5 blocks | **0.0670** |
 
 Against the 0.05 nominal that is within a factor of 1.34, and the pin in the stationary gate
-moves from 0.6265 to 0.0670. The reconstruction scores are **bit-identical** before and after
+moves from 0.6265 to 0.0670. The recorded NAB corpus corroborates it independently: the
+detector's NAB standard-profile score moves **-88.5 -> +3.1**, from flooding to net positive,
+with its mean AUROC unchanged at 0.829 — only the alarms moved
+(`tests/detectors/test_recorded_nab_series.py`). The reconstruction scores are **bit-identical** before and after
 (`max |new - old| = 0.0` on seed 7): the model, its split and its early stopping are
 unchanged, so discrimination is untouched and only the decision threshold moved. The residual
 overshoot is the known cost of applying a conformal cut to serially dependent data, where
