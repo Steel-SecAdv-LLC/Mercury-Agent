@@ -47,8 +47,20 @@ class DeepLogSequenceDetector(BaseDetector):
     Input is a 1-D sequence of non-negative integer log-template keys. :meth:`fit`
     accumulates n-gram transition counts (with back-off to shorter contexts and a
     global unigram); :meth:`detect` scores each position by the next-key miss
-    probability ``1 - P(key | context)`` and reports whether the key fell outside
-    the top-``top_g`` predictions.
+    probability ``1 - P(key | context)`` and decides by the paper's criterion,
+    whether the key fell outside the top-``top_g`` predictions.
+
+    The miss probability is a ranking score, not a decision rule: ``1 - P`` can
+    only fall below 0.5 where some single successor holds more than half the
+    conditional mass, so on any grammar with a handful of roughly equiprobable
+    successors a 0.5 cut flags nearly every position.  Measured: on real
+    Drain-parsed HDFS log templates (14 templates, sessions interleaved) a 0.5
+    cut on the miss probability flags 0.827 of a held-out stretch where the
+    top-g criterion flags 0.173; on a synthetic low-entropy grammar, 0.0525
+    against 0.0025.  Both rules catch an injected unseen template (10/10 and
+    9/10 of ten positions respectively; ``top_g`` controls that trade-off,
+    since Laplace smoothing can rank a never-seen key inside the top 3 of a
+    low-branching context).
     """
 
     decision_source = DecisionSource(
@@ -56,11 +68,12 @@ class DeepLogSequenceDetector(BaseDetector):
         description=(
             "DeepLog's detection principle: a position is anomalous when the "
             "observed key departs from the learned grammar of normal logs, with "
-            "the paper's top-g membership check (top_g, default 3) reported per "
-            "position and the LSTM replaced by a back-off n-gram next-key model. "
-            "The scored alarm is the miss probability 1 - P(key | context) "
-            "compared to the configured BaseDetector threshold (default 0.5), an "
-            "engineering default not taken from the paper."
+            "the LSTM replaced by a back-off n-gram next-key model. The verdict "
+            "is the paper's own criterion -- the key fell outside the model's "
+            "top-g next-key predictions (top_g, default 3) -- and must also "
+            "clear the configured BaseDetector threshold on the miss "
+            "probability 1 - P(key | context), which stays available as an "
+            "operating control. The miss probability remains the ranking score."
         ),
         citation=(
             "Du, Li, Zheng & Srikumar (2017), DeepLog: Anomaly Detection and "
@@ -212,8 +225,17 @@ class DeepLogSequenceDetector(BaseDetector):
         context)`` — calibration-free and naturally near 0 for confident,
         in-grammar predictions and near 1 for novel keys/contexts (unlike a
         squashed surprisal, which degenerates on low-entropy grammars).
-        ``metadata['top_g_violations']`` counts positions whose key fell outside
-        the model's top-``top_g`` predictions.
+
+        The *verdict* is DeepLog's own criterion: the key fell outside the
+        model's top-``top_g`` next-key predictions, and the miss probability
+        also clears the configured threshold.  A threshold on the miss
+        probability alone cannot work as a decision rule -- ``1 - P`` drops
+        below 0.5 only where one successor holds over half the conditional
+        mass -- so it flagged 0.827 of a held-out stretch of real HDFS log
+        templates where the paper's rule flags 0.173.
+        ``metadata['top_g_violations']`` counts the positions outside the
+        top-``top_g`` predictions and ``metadata['top_g_outside']`` is the
+        per-position boolean array the verdict is built from.
         """
         seq = self._to_1d_int(data)
         _, probs, flags = self._eval(seq)
@@ -228,7 +250,10 @@ class DeepLogSequenceDetector(BaseDetector):
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,
-            "is_anomaly": scores > self.threshold,
+            "is_anomaly": flags & (scores > self.threshold),
             "confidence": scores,
-            "metadata": {"top_g_violations": int(np.count_nonzero(flags))},
+            "metadata": {
+                "top_g_violations": int(np.count_nonzero(flags)),
+                "top_g_outside": flags,
+            },
         }

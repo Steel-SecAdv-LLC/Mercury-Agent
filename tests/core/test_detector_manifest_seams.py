@@ -317,6 +317,15 @@ def _payload(entry: DetectorManifestEntry) -> Any:
     if entry.modality == "windows_3d":
         # Default MultivariateTSDetector config: window_size=100, num_features=10.
         return rng.normal(size=(6, 100, 10))
+    if entry.modality == "event":
+        # A log-template key sequence: a low-entropy grammar (0->1->2->3 with a
+        # legal 2->4->3 branch) is what a next-key model is for.  A continuous
+        # series is not: ``deeplog_sequence`` rounds it to keys and has no
+        # grammar to learn.
+        keys: list[int] = []
+        while len(keys) < 200:
+            keys += [0, 1, 2] + ([4] if rng.random() < 0.25 else []) + [3]
+        return np.array(keys[:200], dtype=np.int64)
     raise AssertionError(f"no example payload for modality {entry.modality!r}")
 
 

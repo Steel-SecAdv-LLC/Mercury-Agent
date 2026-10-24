@@ -647,7 +647,12 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         feature_dim=1,
         tags=["systems", "sequence", "log", "surprisal"],
         seams=("engine", "registry"),
-        modality="series_1d",
+        # ``event``, not ``series_1d``: the input is a sequence of integer
+        # log-template keys (``_to_1d_int`` rounds to a key), and a categorical
+        # next-key model has nothing to learn from a continuous series -- fed a
+        # stationary AR(1) series it flagged 0.9965 of a held-out half under
+        # the old miss-probability rule.
+        modality="event",
     ),
     DetectorManifestEntry(
         "frequent_pattern",

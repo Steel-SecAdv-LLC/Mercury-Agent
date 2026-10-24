@@ -13,6 +13,12 @@ are measured against NAB's own anomaly windows:
   (0 for raising no alarm, 100 for a perfect detector, negative when false
   alarms cost more than the detected windows earn).
 
+``deeplog_sequence`` was pinned here at AUROC 0.534 / NAB -780.3 and is no
+longer: it is a categorical next-key model over integer log-template keys
+(manifest modality ``event``), and a continuous series gives it no grammar to
+learn.  It is measured on recorded HDFS log templates in
+``test_recorded_hdfs_log_templates.py`` instead.
+
 The numbers are the measured behaviour on this four-file subset, not published
 NAB results and not comparable to them.  They are pinned so a change that
 degrades a detector, or that improves one, fails here and must be recorded: a
@@ -40,7 +46,6 @@ ENTRIES = {e.name: e for e in DETECTOR_MANIFEST}
 #: entry -> (mean AUROC, NAB standard score) measured on the four files.
 MEASURED: dict[str, tuple[float, float]] = {
     "deep_svdd": (0.659, -30.0),
-    "deeplog_sequence": (0.534, -780.3),
     "diffusion_ad": (0.661, -32.2),
     "digital_twin": (0.607, 53.4),
     "dimensional": (0.466, 7.0),

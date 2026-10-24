@@ -19,7 +19,10 @@ cannot consume (``rca`` and ``kmeans_distance`` are ``matrix_2d`` detectors that
 were declared ``series_1d``, so a 1-D series reshaped to a single row, every
 node's or feature's training spread collapsed to its floor, and every held-out
 point flagged); both are fixed, and both now sit under their correct modality
-and outside this gate.
+and outside this gate.  ``deeplog_sequence`` left the same way: it flagged
+0.9965 here because it is a categorical next-key model over integer
+log-template keys, which a continuous series gives it no grammar for, and it is
+now declared ``event`` and measured on recorded HDFS log templates.
 
 Seeds are fixed and the measurement is repeatable: two runs are byte-identical.
 The whole sweep takes about 15 s.
@@ -48,7 +51,6 @@ MEASURED: dict[str, float] = {
     "nano_safeguard": 1.0000,
     "acceleration_dynamics": 1.0000,
     "physics_integrated": 1.0000,
-    "deeplog_sequence": 0.9965,
     "lstm_autoencoder": 0.6265,
     "srcnn": 0.2725,
     # Above the 0.02 the squash anchor targets, but bounded.

@@ -27,6 +27,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — `DeepLogSequenceDetector` decided on a rule that cannot work, while computing the
+paper's own rule and discarding it.** The verdict was `1 - P(key | context) > threshold`,
+which the `decision_source` already flagged as "an engineering default not taken from the
+paper". That rule cannot discriminate: `1 - P` falls below 0.5 only where some single
+successor holds more than half the conditional mass, so on any grammar with a handful of
+roughly equiprobable successors it flags nearly every position. Meanwhile `_eval` computed
+DeepLog's actual criterion — the key fell outside the model's top-`g` next-key predictions —
+per position, and `detect` collapsed it to a scalar count in
+`metadata['top_g_violations']`, throwing the per-position array away.
+
+The verdict is now the paper's criterion conjoined with the configured threshold, so
+DeepLog's rule decides and `threshold` remains an operating control (measured identical to
+the paper's rule alone on every dataset below, since the top-`g` set was a subset of the
+miss-probability set in each). The per-position array is reported as
+`metadata['top_g_outside']` beside the count. The ranking score is unchanged, so AUROC is
+unchanged. Measured, held-out false-alarm rate, miss-probability rule -> paper's rule:
+real Drain-parsed HDFS log templates **0.8270 -> 0.1730**; a synthetic low-entropy grammar
+**0.0525 -> 0.0025**; a stationary AR(1) series (outside its contract) 0.9965 -> 0.1325; the
+four recorded NAB files, NAB standard-profile score **-780.3 -> -530.3**. An injected
+template the training half never shows is still caught 10 of 10 positions on the HDFS
+fixture (9 of 10 on the synthetic grammar, where Laplace smoothing can rank a never-seen key
+inside the top 3 of a low-branching context — the trade-off `top_g` controls).
+
+**Fixed — `deeplog_sequence` was declared `series_1d`.** It takes a sequence of integer
+log-template keys (`_to_1d_int` rounds to a key), and a categorical next-key model has
+nothing to learn from a continuous series. It is now `event`, the manifest's documented
+"discrete domain events fed over time" slot, which no entry occupied; the manifest seam
+suite gains an `event` payload (a low-entropy template grammar) and drives it with that
+instead of `rng.normal(size=200)`. Fourth entry this round whose declared modality its own
+input contract contradicts, after `rca`, `kmeans_distance` and `realtime_threat`.
+
+**Added — `tests/fixtures/loghub` and a recorded-data test for the log detector.**
+`scripts/record_hdfs_log_fixtures.py` records the Drain-parsed event-template keys of 2000
+real Hadoop HDFS log lines (LogHub's `HDFS_2k` sample, 14 templates; He, Zhu, He & Lyu 2020,
+arXiv:2008.06448) with the SHA-256 of the served CSV and of the stored keys.
+`tests/detectors/test_recorded_hdfs_log_templates.py` pins the held-out false-alarm rate
+(0.1730), the rate the old rule gave on the same stretch (0.8270), and the detection of a
+template the training half never shows. Five of its six tests fail on the old code.
+
+No AUROC is claimed: the sample is not anomaly-labelled, because LogHub's block-level labels
+ship with the full 11-million-line `HDFS_1` release. The sessions in this sample also
+interleave — 2200 block ids over 2000 lines, median one event each — so DeepLog's own
+per-block session grouping is not reconstructable from it and the next-key distribution is
+genuinely high-entropy; two of the 14 templates appear only in the held-out half. That is
+why 0.1730 is not low, and it is pinned as measured rather than presented as a calibrated
+rate. `deeplog_sequence` leaves `test_recorded_nab_series.py` (where it was pinned at
+AUROC 0.534 / NAB -780.3) and the stationary false-alarm gate (0.9965): both measured a
+categorical model on continuous data.
+
 **Measured, not fixed — the LSTM autoencoder's conformal threshold, and two candidate fixes
 rejected.** `lstm_autoencoder` still floods: it flags 0.6265 of a stationary held-out half at
 the manifest's default configuration (`tests/detectors/test_stationary_false_alarm_rate.py`),

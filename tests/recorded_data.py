@@ -1,11 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Recorded, labelled data for detector tests: NAB series, ADBench tables, CWRU bearing vibration, CHB-MIT EEG.
+"""Recorded data for detector tests: NAB series, ADBench tables, CWRU bearing vibration, CHB-MIT EEG, HDFS log templates.
 
 Everything here is read from ``tests/fixtures`` (recorded by
 ``scripts/record_nab_fixtures.py``, ``scripts/record_adbench_fixtures.py``,
-``scripts/record_cwru_fixtures.py`` and ``scripts/record_eeg_fixtures.py``);
-nothing is generated. NAB labels a *window* around each real anomaly, so a point
+``scripts/record_cwru_fixtures.py``, ``scripts/record_eeg_fixtures.py`` and
+``scripts/record_hdfs_log_fixtures.py``); nothing is generated. NAB labels a *window* around each real anomaly, so a point
 is positive when its timestamp lies inside one of the file's windows.
 """
 
@@ -123,6 +123,23 @@ def cwru(name: str) -> np.ndarray[Any, Any]:
     """
     with np.load(FIXTURES / "cwru" / f"{name}.npz", allow_pickle=False) as archive:
         return np.asarray(archive["x"], dtype=np.float64)
+
+
+def hdfs_log_templates() -> tuple[np.ndarray[Any, Any], list[str]]:
+    """Drain-parsed HDFS event-template keys ``(keys, event_ids)``.
+
+    2000 real Hadoop HDFS log lines in file order, parsed into 14 event
+    templates by Drain (LogHub's ``HDFS_2k`` sample); ``keys[i]`` indexes
+    ``event_ids``.  Not anomaly-labelled -- LogHub's block-level labels ship
+    with the full ``HDFS_1`` release -- so this supports a normal-regime
+    false-alarm measurement and an injected-unseen-template check, not an
+    AUROC.
+    """
+    with np.load(FIXTURES / "loghub" / "hdfs_templates.npz", allow_pickle=False) as archive:
+        return (
+            np.asarray(archive["keys"], dtype=np.int64),
+            [str(event) for event in archive["event_ids"]],
+        )
 
 
 def eeg(record: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:

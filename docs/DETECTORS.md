@@ -28,7 +28,7 @@ an adapter entry and names the domain detector behind it.
 |---|---|---|---|---|---|
 | `bocpd` | `BOCPDDetector` | base | series_1d | -- | Bayesian Online Change-Point Detection via run-length posterior (Gaussian/NIG conjugate model; Adams & MacKay, 2007) |
 | `deep_svdd` | `DeepSVDDDetector` | base | series_1d | -- | One-class SVDD hypersphere detector on a fixed random tanh-feature embedding (a saturating nonlinear lift, not a Fourier map); distance-to-centre is the anomaly signal (Tax & Duin, 2004) |
-| `deeplog_sequence` | `DeepLogSequenceDetector` | base | series_1d | -- | DeepLog-style log/sequence detector: next-key surprisal from an n-gram transition model flags sequences leaving the learned template grammar |
+| `deeplog_sequence` | `DeepLogSequenceDetector` | base | event | -- | DeepLog-style log/sequence detector: next-key surprisal from an n-gram transition model flags sequences leaving the learned template grammar |
 | `diffusion_ad` | `DiffusionReconstructionDetector` | base | series_1d | fit | DDPM-AD: denoising-diffusion reconstruction-error detector; anomaly score is off-manifold noise-prediction error (Ho et al., 2020; requires torch) |
 | `digital_twin` | `DigitalTwinResidualDetector` | base | series_1d | -- | Digital-twin simulation-residual detector: observed-vs-simulated divergence of an identified AR forward model (Grieves & Vickers, 2017) |
 | `directive` | `SigmaDirectiveDetector` | base | matrix_2d | -- | Rule-based sigma detection |
