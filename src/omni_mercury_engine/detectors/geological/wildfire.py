@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Wildfire Detector - Ignition, Spread & Risk Assessment.
 
 Advanced wildfire detection and prediction for humanitarian early warning:
@@ -35,12 +35,15 @@ from scipy import ndimage
 from scipy.fft import fft, fftfreq
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.detectors._hazard_input import (
+    InputGrader,
     InvalidObservationError,
     finite_array,
     finite_scalar,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 # Brightness temperature (Kelvin) above which a pixel counts as a thermal hotspot.
@@ -148,6 +151,11 @@ class WildfirePredictionResult:
 
     assessment: str = "active_fire"
 
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
+
 
 #: NFDRS 1-hour dead fuel moisture at a midafternoon observation, as a
 #: multiple of the equilibrium moisture content at the fuel-atmosphere
@@ -174,12 +182,102 @@ FUEL_INTERFACE_ADJUSTMENT: dict[int, tuple[float, float]] = {
 }
 
 #: Supplied weather values reported in ``weather_factors``: key -> (unit, lo, hi).
-_WEATHER_INPUTS = {
+_WEATHER_INPUTS: dict[str, tuple[str, float | None, float | None]] = {
     "wind_speed_kmh": ("km/h", 0.0, 500.0),
     "wind_direction_deg": ("deg", 0.0, 360.0),
     "relative_humidity_pct": ("%", 0.0, 100.0),
     "temperature_c": ("degC", -90.0, 60.0),
 }
+
+
+#: Keys of the nested sections ``predict_wildfire`` reads.  The risk ladder
+#: defaults a missing weather key to a benign value (humidity 100 %, calm
+#: wind), so a misspelt key used to grade as low risk.
+WILDFIRE_SECTION_KEYS: dict[str, frozenset[str]] = {
+    "weather_data": frozenset(_WEATHER_INPUTS) | {STATE_OF_WEATHER_KEY},
+    "fire_data": frozenset({"fuel_load_tons_ha", "fuel_moisture_pct"}),
+}
+
+
+#: ``fire_data`` scalars, with the unit and bounds the spread model and the
+#: fuel-moisture reading apply.
+_FIRE_INPUTS: dict[str, tuple[str, float | None, float | None]] = {
+    "fuel_load_tons_ha": ("t/ha", 0.0, 500.0),
+    "fuel_moisture_pct": ("%", 0.0, 400.0),
+}
+
+#: The streams that inform the verdict; the rest is context.
+WILDFIRE_DECISION_STREAMS: frozenset[str] = frozenset(
+    {"thermal_image", "weather_data", "fire_data"}
+)
+
+#: Other top-level keys ``predict_wildfire`` reads.
+WILDFIRE_PASS_THROUGH: frozenset[str] = frozenset(
+    {"pixel_size_km", "evacuation_zones", "containment_strategy", "metadata"}
+)
+
+
+def grade_wildfire_data(wildfire_data: Any) -> tuple[dict[str, Any], InputGrader]:
+    """Keep every usable stream and field; set the rest aside with its reason.
+
+    The risk ladder reads a missing weather key as a benign value (humidity
+    100 %, calm wind), so a misspelt key is set aside and named, not read.
+
+    Raises:
+        InputModalityError: If the record is not a mapping.
+        InvalidObservationError: If no stream that informs the verdict remains.
+    """
+    if not isinstance(wildfire_data, dict):
+        raise InputModalityError(
+            "predict_wildfire expects a mapping (thermal_image, weather_data, ...), got "
+            f"{type(wildfire_data).__name__}"
+        )
+    grader = InputGrader()
+    record: dict[str, Any] = {}
+    for key, value in wildfire_data.items():
+        if key == "thermal_image":
+            # NaN made the confidence NaN, +inf made every pixel a hotspot,
+            # and a plain list raised AttributeError deep in the CNN path.
+            try:
+                record[key] = finite_array(value, "thermal_image", unit="K", ndim=(1, 2, 3))
+            except InvalidObservationError as exc:
+                grader.discard(key, str(exc))
+        elif key == "weather_data":
+            section = grader.grade_section(
+                key, value, scalars=_WEATHER_INPUTS, others=frozenset({STATE_OF_WEATHER_KEY})
+            )
+            if section is not None and STATE_OF_WEATHER_KEY in section:
+                code = grader.attempt(
+                    f"{key}.{STATE_OF_WEATHER_KEY}",
+                    _state_of_weather_code,
+                    section[STATE_OF_WEATHER_KEY],
+                )
+                if code is None:
+                    del section[STATE_OF_WEATHER_KEY]
+                else:
+                    section[STATE_OF_WEATHER_KEY] = code
+            if section:
+                record[key] = section
+        elif key == "fire_data":
+            section = grader.grade_section(key, value, scalars=_FIRE_INPUTS)
+            if section is not None:
+                record[key] = section
+        elif key == "pixel_size_km":
+            pixel = grader.usable_scalar(value, key, unit="km", lo=1e-6)
+            if pixel is not None:
+                record[key] = pixel
+        elif key in WILDFIRE_PASS_THROUGH:
+            record[key] = value
+        else:
+            accepted = sorted(WILDFIRE_PASS_THROUGH | WILDFIRE_DECISION_STREAMS)
+            grader.discard(key, f"unknown stream; accepted: {accepted}")
+    # An empty record used to grade as a silent "low" risk.
+    grader.require_usable(
+        WILDFIRE_DECISION_STREAMS & set(record),
+        "no observation: supply at least one of "
+        f"{sorted(WILDFIRE_DECISION_STREAMS)}; an unobserved forest is not a safe one",
+    )
+    return record, grader
 
 
 def _simard_emc(t_f: float, h: float) -> float:
@@ -820,6 +918,54 @@ class WildfireDetector:
     - GOSNN synapse for ethical gating and scalar registration
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'wildfire_firms' checkpoint: on a conforming "
+                "wildfire-firms-v1 raster the alert decision thresholds the "
+                "CNN fire probability at the checkpoint's "
+                "validation-selected operating point "
+                "(FIRE_PROB_THRESHOLD_DEFAULT = 0.6 only for checkpoints "
+                "that declare none); confidence stays the raw probability."
+            ),
+            operating_point=(
+                "shipped checkpoint 'wildfire_firms' "
+                "(models/checkpoints/wildfire_firms.pt + provenance "
+                "sidecar): operating_point.fire_prob_threshold selected by "
+                "ml.hazard_training.wildfire_ignition._select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Fuel-moisture inputs to the spread model follow the NFDRS "
+                "equations: dead-fuel EMC regressions, the fuel-atmosphere "
+                "interface adjustment by state-of-weather code, and the "
+                "1-hour fuel moisture as 1.03x interface EMC."
+            ),
+            citation=(
+                "Bradshaw et al. (1983), USDA Forest Service GTR INT-169 "
+                "(eq. 26, Table 6, Appendix C eqs. C-1..C-3); Simard (1968) "
+                "EMC regressions; Cohen & Deeming (1985), GTR PSW-82"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The physics fallback fire call is VIIRS/MODIS-STYLE but "
+                "unsourced in its constants: fire when brightness "
+                "temperature > 360 K absolutely, or > 330 K and more than "
+                "4 robust sigma above the scene background, with "
+                "HOTSPOT_THRESHOLD_K = 350 K for hotspot pixels and a "
+                "noisy-OR confidence; the NDVI fuel (0.4) and drought "
+                "(0.2) bars are likewise in-code constants with no "
+                "published source and no labelled calibration."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         enable_ignition_detection: bool = True,
@@ -999,6 +1145,7 @@ class WildfireDetector:
         Returns:
             Wildfire prediction with risk assessment
         """
+        wildfire_data, grader = grade_wildfire_data(wildfire_data)
         result = WildfirePredictionResult(
             fire_detected=False,
             confidence=0.0,
@@ -1009,10 +1156,12 @@ class WildfireDetector:
             # Refuse rather than score a raster that is not one: NaN made the
             # confidence NaN, +inf made every pixel a hotspot, and a plain list
             # raised AttributeError deep in the CNN path.
-            thermal = finite_array(
-                wildfire_data["thermal_image"], "thermal_image", unit="K", ndim=(1, 2, 3)
+            ignition_result = grader.attempt(
+                "thermal_image", self._detect_ignition, wildfire_data["thermal_image"]
             )
-            ignition_result = self._detect_ignition(thermal)
+        else:
+            ignition_result = None
+        if ignition_result is not None:
             result.fire_detected = ignition_result["fire_detected"]
             result.confidence = ignition_result["confidence"]
             result.thermal_hotspots = ignition_result["hotspot_count"]
@@ -1026,8 +1175,9 @@ class WildfireDetector:
             result.ignition_locations = [(float(r), float(c)) for r, c in centroids]
             pixel_size_km = wildfire_data.get("pixel_size_km")
             if pixel_size_km is not None:
-                pixel_km = finite_scalar(pixel_size_km, "pixel_size_km", unit="km", lo=1e-6)
-                result.fire_perimeter_km2 = float(ignition_result["hotspot_count"] * pixel_km**2)
+                result.fire_perimeter_km2 = float(
+                    ignition_result["hotspot_count"] * pixel_size_km**2
+                )
 
             # Capture only when the ignition path actually produced the spatial
             # intermediates; diagnostics stay transparently absent otherwise instead
@@ -1106,6 +1256,8 @@ class WildfireDetector:
         result.risk_level = self._assess_fire_risk(wildfire_data, result)
         result.early_warning_actions = self._generate_warnings(result)
 
+        result.partial = grader.partial
+        result.set_aside = list(grader.set_aside)
         return result
 
     def _detect_ignition(self, thermal_image: np.ndarray[Any, Any]) -> dict[str, Any]:

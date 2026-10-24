@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pillar: competence — the quality bar is the one that is actually enforced.
 
 Competence is not "we aim for 85 % coverage". It is "a pull request below the

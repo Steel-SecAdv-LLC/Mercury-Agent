@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Harmonic analysis encoder using spherical harmonics and Fourier analysis. Provides frequency-domain feature extraction for anomaly detection."""
 
 from __future__ import annotations

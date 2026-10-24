@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: diff the public ``omni_mercury_engine.*`` re-export surface between two refs (or between HEAD and a saved snapshot).
 
 Catches accidental ABI-breaking removals before release.  Operates

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mean-shift drift along principal axes, which per-feature tests dilute.
 
 In correlated data a shift along a low-variance direction moves each column by
@@ -144,7 +144,7 @@ def test_non_finite_rows_are_dropped_and_width_must_match(
 
 
 def test_reports_the_ladder_the_other_p_value_tests_use() -> None:
-    from omni_mercury_engine.ml.drift import _severity_for_p_value
+    from omni_mercury_engine.detectors.drift import _severity_for_p_value
 
     ladder = [_severity_for_p_value(p, 0.05) for p in (0.2, 0.04, 0.004, 0.0004, 0.00001)]
     assert ladder == [

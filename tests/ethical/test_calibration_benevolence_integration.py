@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Cross-item integration: calibrate_iterative × CachedBenevolenceScorer.
 
 The post-PR-167 analysis flagged this as the only seam where Wave A

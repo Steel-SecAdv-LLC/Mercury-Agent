@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """End-to-end: Mercury talks to its subagent fleet and returns a real decision.
 
 Exercises the PR #314 "pantheon" delegation path through the public agent and

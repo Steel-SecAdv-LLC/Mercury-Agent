@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Every job that editable-installs the engine must provision the AMA backend.
 
 ``omni_mercury_engine`` enforces its PQC gate unconditionally at import time, so

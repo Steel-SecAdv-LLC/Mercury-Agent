@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pillar tests: one module per pillar Mercury claims to stand on.
 
 Every module here answers the same question for its pillar: *what would have to

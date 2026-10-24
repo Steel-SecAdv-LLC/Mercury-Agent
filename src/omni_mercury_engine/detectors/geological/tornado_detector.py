@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tornado Detector - Multi-Modal Severe Weather Monitoring.
 
 Comprehensive tornado detection for humanitarian early warning:
@@ -39,6 +39,7 @@ import torch
 from scipy.fft import fft
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.core.three_r_mechanism import (
     RecursionEngine,
     RefactoringEngine,
@@ -51,11 +52,13 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     require_live_client,
 )
 from omni_mercury_engine.detectors._hazard_input import (
+    InputGrader,
     InvalidObservationError,
     finite_array,
     finite_scalar,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -135,6 +138,82 @@ class TornadoPredictionResult:
 
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
+
+
+#: Scalar fields of ``atmospheric_data``, with the unit and bounds the
+#: instability analyzer applies when it reads them.
+TORNADO_ATMOSPHERIC: dict[str, tuple[str, float | None, float | None]] = {
+    "cape_j_kg": ("J/kg", 0.0, 10_000.0),
+    "cin_j_kg": ("J/kg", -2_000.0, 0.0),
+    "srh_m2_s2": ("m^2/s^2", -500.0, 2_000.0),
+    "bulk_shear_kt": ("kt", 0.0, 200.0),
+    "lcl_m": ("m", 0.0, 6_000.0),
+}
+
+#: Streams that can move the decision; ``signal_data`` is reported only.
+TORNADO_DECISION_STREAMS: frozenset[str] = frozenset(
+    {"radar_sequence", "atmospheric_data", "pressure_data"}
+)
+
+#: Other top-level keys ``predict_tornado`` reads.
+TORNADO_PASS_THROUGH: frozenset[str] = frozenset(
+    {"radar_sequence", "signal_data", "location", "metadata"}
+)
+
+
+def grade_weather_data(weather_data: Any) -> tuple[dict[str, Any], InputGrader]:
+    """Keep every usable stream and field; set the rest aside with its reason.
+
+    Raises:
+        InputModalityError: If the record is not a mapping.
+        InvalidObservationError: If no decision stream remains.
+    """
+    if not isinstance(weather_data, dict):
+        raise InputModalityError(
+            "predict_tornado expects a mapping of monitoring streams "
+            f"(radar_sequence, atmospheric_data, pressure_data, ...), got "
+            f"{type(weather_data).__name__}"
+        )
+    grader = InputGrader()
+    record: dict[str, Any] = {}
+    for key, value in weather_data.items():
+        if key == "atmospheric_data":
+            section = grader.grade_section(key, value, scalars=TORNADO_ATMOSPHERIC)
+            if section is not None:
+                record[key] = section
+        elif key == "pressure_data":
+            section = grader.grade_section(
+                key,
+                value,
+                scalars={},
+                others=frozenset({"pressure_mb", "timestamps"}),
+                complete=(frozenset({"pressure_mb"}),),
+            )
+            if section is not None and np.size(section["pressure_mb"]) < 2:
+                # A single reading has no drop: it used to grade as "stable".
+                grader.discard(key, "a pressure drop needs at least 2 samples of pressure_mb")
+                section = None
+            if section is not None:
+                record[key] = section
+        elif key == "location" and not isinstance(value, dict):
+            grader.discard(key, f"must be a mapping, got {type(value).__name__}", value)
+        elif key in TORNADO_PASS_THROUGH:
+            record[key] = value
+        else:
+            accepted = sorted(TORNADO_PASS_THROUGH | {"atmospheric_data", "pressure_data"})
+            grader.discard(key, f"unknown stream; accepted: {accepted}")
+    # An empty record used to grade as a silent "none" threat.
+    grader.require_usable(
+        TORNADO_DECISION_STREAMS & set(record),
+        "no monitoring stream: supply at least one of "
+        f"{sorted(TORNADO_DECISION_STREAMS)}; an unobserved sky is not a quiet one",
+    )
+    return record, grader
 
 
 class DopplerRadarAnalyzer(nn.Module):
@@ -485,6 +564,56 @@ class TornadoDetector:
     - RefactoringEngine: Dynamic model optimization and code analysis
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'tornado_nexrad' checkpoint: on-contract radar "
+                "input, mesocyclone detection thresholds the LSTM "
+                "probability at the checkpoint's ratified, "
+                "validation-selected operating point (0.5 only for legacy "
+                "checkpoints that declare none)."
+            ),
+            operating_point=(
+                "shipped checkpoint 'tornado_nexrad' "
+                "(models/checkpoints/tornado_nexrad.pt + provenance "
+                "sidecar): operating_point.meso_prob_threshold selected by "
+                "ml.hazard_training.tornado_radar._select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "The physics fallback flags a mesocyclone when the median "
+                "Doppler velocity-couplet rotational velocity V_rot = "
+                "(Vmax - Vmin)/2 reaches 15 m/s, and the instability leg "
+                "grades tornado potential with the SPC Significant Tornado "
+                "Parameter STP = (CAPE/1500)(SRH/150)(Shear/40)"
+                "((2000-LCL)/1000)."
+            ),
+            citation=(
+                "NOAA/NWS WSR-88D operational mesocyclone recognition "
+                "practice (rotational-velocity couplet, ~15 m/s flag); NOAA "
+                "Storm Prediction Center Significant Tornado Parameter "
+                "formulation (fixed-layer normalizations 1500 J/kg, 150 "
+                "m^2/s^2, 40 kt, 2000 m LCL)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The aggregate alarm is unsourced engineering: "
+                "tornado_likely fires at indicator count >= 2 (mesocyclone "
+                "= 2, moderate/high STP potential = 1, rapid pressure drop "
+                "= 1), the rapid-drop bar is 4 mb in 15 minutes, and the "
+                "physics confidence maps (V_rot - 5)/25 -- in-code "
+                "constants with no published source and no labelled "
+                "calibration."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         enable_radar: bool = True,
@@ -614,20 +743,33 @@ class TornadoDetector:
                 - metadata: Station info, timestamps
 
         Returns:
-            Tornado prediction with threat level and recommendations
+            Tornado prediction with threat level and recommendations.
+            Unusable pieces are set aside and reported on the result
+            (``partial``, ``set_aside``); the rest is graded.
+
+        Raises:
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: When nothing usable was fed.
         """
+        weather_data, grader = grade_weather_data(weather_data)
         result = TornadoPredictionResult(
             tornado_likely=False,
             confidence=0.0,
             threat_level="none",
             estimated_intensity="no_tornado",
         )
+        assessed: set[str] = set()
 
         indicators_detected = 0
         radar_confidence: float | None = None
 
+        radar_result = None
         if self.enable_radar and "radar_sequence" in weather_data:
-            radar_result = self._analyze_radar(weather_data["radar_sequence"])
+            radar_result = grader.attempt(
+                "radar_sequence", self._analyze_radar, weather_data["radar_sequence"]
+            )
+        if radar_result is not None:
+            assessed.add("radar_sequence")
             result.mesocyclone_detected = radar_result["mesocyclone_detected"]
             result.rotation_velocity_ms = radar_result["rotation_velocity"]
             radar_confidence = float(radar_result["confidence"])
@@ -645,6 +787,7 @@ class TornadoDetector:
             atmos_result = self.atmospheric_analyzer.analyze_instability(
                 weather_data["atmospheric_data"]
             )
+            assessed.add("atmospheric_data")
             result.cape_value = atmos_result["cape"]
             result.helicity_value = atmos_result["helicity"]
             result.wind_shear_detected = atmos_result["significant_shear"]
@@ -653,7 +796,15 @@ class TornadoDetector:
 
         if self.enable_pressure and "pressure_data" in weather_data:
             assert self.pressure_monitor is not None
-            pressure_result = self.pressure_monitor.analyze_pressure(weather_data["pressure_data"])
+            pressure_result = grader.attempt(
+                "pressure_data",
+                self.pressure_monitor.analyze_pressure,
+                weather_data["pressure_data"],
+            )
+        else:
+            pressure_result = None
+        if pressure_result is not None:
+            assessed.add("pressure_data")
             result.pressure_drop_mb = pressure_result["max_pressure_drop"]
             if pressure_result["rapid_drop_detected"]:
                 indicators_float += 1
@@ -664,11 +815,16 @@ class TornadoDetector:
         # indicators, so injected noise flipped ``tornado_likely``.
         if self.enable_resonance and "signal_data" in weather_data:
             assert self.resonance_analyzer is not None
-            resonance_result = self.resonance_analyzer.analyze_resonance(
-                weather_data["signal_data"]
+            resonance_result = grader.attempt(
+                "signal_data",
+                self.resonance_analyzer.analyze_resonance,
+                weather_data["signal_data"],
             )
-            result.resonance_score = resonance_result["resonance_score"]
-            result.harmonic_anomalies = resonance_result["harmonic_anomalies"]
+            if resonance_result is None:
+                del weather_data["signal_data"]  # reported only; set aside above
+            else:
+                result.resonance_score = resonance_result["resonance_score"]
+                result.harmonic_anomalies = resonance_result["harmonic_anomalies"]
 
         if self.enable_recursion and "signal_data" in weather_data:
             assert self.recursive_extractor is not None
@@ -695,6 +851,14 @@ class TornadoDetector:
         if state in self.tornado_alley_states:
             result.tornado_alley_correlation = 0.8
 
+        # Nothing that decides could be assessed: the verdict would be a
+        # silent "none".
+        grader.require_usable(
+            assessed,
+            "no monitoring stream could be assessed: supply at least one of "
+            f"{sorted(TORNADO_DECISION_STREAMS)}; an unobserved sky is not a quiet one",
+        )
+
         result.tornado_likely = indicators_float >= 2
         # The trained mesocyclone probability is kept when radar was analysed
         # (it was overwritten by the indicator count before); otherwise the
@@ -716,6 +880,8 @@ class TornadoDetector:
             f"indicators={indicators_float:.1f}, confidence={result.confidence:.2f}"
         )
 
+        result.partial = grader.partial
+        result.set_aside = list(grader.set_aside)
         return result
 
     def load_neural_weights(self, checkpoint_path: str | None = None) -> None:

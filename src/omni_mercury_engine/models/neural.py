@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Neural cognitive anomaly detection model."""
 
 from __future__ import annotations
@@ -8,6 +8,8 @@ from collections import deque
 from typing import Any
 
 import numpy as np
+
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 #: Rows of a batch whose memory windows are scored together. Bounds the
 #: ``rows x (rows + window)`` similarity matrix at about 10 MB of float64.
@@ -91,6 +93,18 @@ def _row_histogram(
 
 class NeuralCognitiveModel:
     """Neural cognitive model for brain activity anomaly detection."""
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Anomaly score is the mean of three cognitive-metaphor "
+            "heuristics (hippocampal-memory deviation from 0.5, "
+            "prefrontal-executive feature std, peak amygdala response): no "
+            "published threshold exists for this composite and no labelled "
+            "corpus is available to calibrate one; verdicts are "
+            "experimental."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         """Initialize the instance."""

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Base classes for visual anomaly detection.
 
 Provides unified interface for all visual anomaly detection algorithms,
@@ -8,6 +8,8 @@ ensuring consistent API across PatchCore, PaDiM, STFPM, and other methods.
 
 from __future__ import annotations
 
+import logging
+import math
 from abc import abstractmethod
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -18,8 +20,14 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector, DetectorMetrics
-from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.core.conformal_prediction import (
+    split_calibration_indices,
+    split_conformal_threshold,
+)
+from omni_mercury_engine.core.exceptions import DataException, InputModalityError
 from omni_mercury_engine.security.safe_torch import safe_torch_load
+
+logger = logging.getLogger(__name__)
 
 
 class BackboneType(Enum):
@@ -43,7 +51,17 @@ class VisualDetectorConfig:
         layers: Feature extraction layers to use from backbone
         device: Computation device (cuda/cpu/mps)
         batch_size: Batch size for inference
-        threshold: Anomaly score threshold for binary classification
+        threshold: Anomaly score threshold for binary classification.
+            ``None`` (the default) calibrates it during ``fit`` from
+            held-out normal images by split conformal prediction, so the
+            decision is on the detector's own score scale.  A float is used
+            verbatim and ``fit`` then trains on every image.
+        false_alarm_rate: Target probability that a normal image is flagged
+            when the threshold is calibrated (split-conformal level alpha).
+        calibration_fraction: Share of the normal images held out from
+            training to calibrate the threshold (at least one image each
+            for training and calibration).
+        calibration_seed: Seed of the deterministic train/calibration split.
         normalize_features: Whether to L2-normalize extracted features
         pool_strategy: Feature pooling strategy ('avg', 'max', 'adaptive')
     """
@@ -53,9 +71,12 @@ class VisualDetectorConfig:
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     batch_size: int = 32
-    threshold: float = 0.5
+    threshold: float | None = None
     normalize_features: bool = True
     pool_strategy: str = "adaptive"
+    false_alarm_rate: float = 0.05
+    calibration_fraction: float = 0.2
+    calibration_seed: int = 0
 
 
 class BaseVisualDetector(BaseDetector, nn.Module):
@@ -107,7 +128,14 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         # Initialize BaseDetector attributes
         # Note: We don't call BaseDetector.__init__() because we inherit from nn.Module
         # and need to avoid MRO conflicts. Instead, we manually set the required attributes.
-        self.threshold = self.visual_config.threshold
+        # ``inf`` until ``fit`` calibrates it: no decision before calibration.
+        configured = self.visual_config.threshold
+        self.threshold = math.inf if configured is None else float(configured)
+        #: How ``threshold`` was set: ``{"method": "fixed", ...}`` for a
+        #: configured value, ``{"method": "split_conformal", ...}`` with the
+        #: calibration size, the requested and the achieved false-alarm
+        #: bound when it was calibrated by ``fit``; ``None`` before ``fit``.
+        self.calibration: dict[str, Any] | None = None
         self._is_fitted = False
         self._name = self.__class__.__name__
         # BaseDetector's contract (its ``metrics`` property) promises a
@@ -144,7 +172,13 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             self._visual_config_ref = value
             self.visual_config = value
         elif isinstance(value, dict):
-            self._visual_config_ref = VisualDetectorConfig(**value)
+            # Rebuild the detector's own config dataclass: a saved
+            # ``PatchCoreConfig`` dict carries subclass fields
+            # (``coreset_sampling_ratio`` ...) that the base
+            # ``VisualDetectorConfig`` rejects, which made every concrete
+            # visual detector impossible to ``load``.
+            config_cls = type(getattr(self, "_visual_config_ref", None) or VisualDetectorConfig())
+            self._visual_config_ref = config_cls(**value)
             self.visual_config = self._visual_config_ref
 
     @property
@@ -351,6 +385,122 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         """
         return self.detect(x)
 
+    def _split_for_calibration(
+        self, data: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Split normal images into training and calibration subsets.
+
+        A fixed configured ``threshold`` needs no calibration: every image
+        trains.  Otherwise a seeded ``calibration_fraction`` of the batch is
+        held out so the threshold is calibrated on images the model never
+        trained on -- scoring the training images themselves would put the
+        threshold inside the in-sample error (a memory bank scores its own
+        patches near zero), and normal images would then be flagged.
+
+        Args:
+            data: Raw image batch, before :meth:`preprocess`.
+
+        Returns:
+            ``(training_images, calibration_images)``; the second is ``None``
+            when no calibration will run.
+
+        Raises:
+            DataException: If calibration is required and fewer than two
+                images were given.
+        """
+        cfg = self.visual_config
+        if cfg.threshold is not None:
+            self.threshold = float(cfg.threshold)
+            self.calibration = {"method": "fixed", "threshold": self.threshold}
+            return data, None
+        if data.dim() != 4:
+            # Not an image batch: ``preprocess`` refuses it with the typed
+            # modality error, which is the error the caller should see.
+            return data, None
+        n = int(data.shape[0])
+        if n < 2:
+            raise DataException(
+                f"{self._name} calibrates its decision threshold on held-out normal "
+                f"images and needs at least 2 to fit (got {n}). Pass more normal images, "
+                "or configure an explicit `threshold`."
+            )
+        if not 0.0 < cfg.false_alarm_rate < 1.0:
+            raise DataException(f"false_alarm_rate must lie in (0, 1); got {cfg.false_alarm_rate}")
+        try:
+            fit_idx, cal_idx = split_calibration_indices(
+                n, cfg.calibration_fraction, cfg.calibration_seed
+            )
+        except ValueError as e:
+            raise DataException(str(e)) from e
+        index = torch.as_tensor(np.concatenate([fit_idx, cal_idx]), device=data.device)
+        n_fit = len(fit_idx)
+        return data[index[:n_fit]], data[index[n_fit:]]
+
+    def _calibrate_threshold(self, calibration: torch.Tensor | None) -> None:
+        """Set ``threshold`` by split conformal prediction on held-out normals.
+
+        With ``n`` calibration scores and target level ``alpha``, the
+        threshold is the ``k``-th smallest score, ``k = min(ceil((n + 1)(1 -
+        alpha)), n)``.  For a new normal image exchangeable with the
+        calibration images, ``P(score > threshold) <= (n + 1 - k)/(n + 1)``
+        (Vovk, Gammerman & Shafer 2005; Angelopoulos & Bates 2021).  That
+        achieved bound is recorded in :attr:`calibration`; when too few
+        images exist to reach ``alpha`` it is larger than ``alpha`` and a
+        warning says so -- the guarantee is reported, never overstated.
+
+        Args:
+            calibration: Held-out normal images, or ``None`` (no-op).
+
+        Raises:
+            DataException: If a calibration score is not finite.
+        """
+        if calibration is None:
+            return
+        # Raw scores only: no decision is made while the threshold is unset.
+        self.threshold = math.inf
+        scores = np.asarray(self.detect(calibration)["scores"], dtype=np.float64).reshape(-1)
+        try:
+            result = split_conformal_threshold(scores, self.visual_config.false_alarm_rate)
+        except ValueError as e:
+            raise DataException(f"{self._name}: cannot calibrate: {e}") from e
+        self.threshold = result.threshold
+        self.calibration = result.as_record()
+        if result.false_alarm_bound > result.false_alarm_rate:
+            logger.warning(
+                "%s: %d calibration image(s) bound the false-alarm rate by %.3f, above the "
+                "requested %.3f; fit on more normal images to tighten it",
+                self._name,
+                result.n_calibration,
+                result.false_alarm_bound,
+                result.false_alarm_rate,
+            )
+
+    def _fitted_state(self) -> dict[str, Any]:
+        """Fitted state that ``state_dict`` does not carry (plain tensor attributes).
+
+        Subclasses holding their fitted model outside registered modules and
+        buffers (a memory bank, Gaussian statistics, a random projection)
+        return it here so :meth:`save` persists it; without this a saved
+        detector reloads with weights but no fitted model.
+        """
+        return {}
+
+    def _build_architecture_for_load(self) -> None:
+        """Create lazily-built submodules so ``load_state_dict`` has targets.
+
+        Detectors that build modules on the first ``fit`` batch build them
+        here from the configured ``image_size`` (``fit`` sees preprocessed,
+        i.e. resized, images, so the shapes are identical).
+        """
+
+    def _restore_fitted_state(self, state: dict[str, Any]) -> None:
+        """Reinstate :meth:`_fitted_state` after the weights are loaded."""
+
+    def _load_probe(self) -> torch.Tensor:
+        """A zero batch at the configured input size, for shape inference."""
+        height, width = self.visual_config.image_size
+        return torch.zeros(1, 3, int(height), int(width), device=self.device)
+
     def save(self, path: str) -> None:
         """Save detector state to file.
 
@@ -367,6 +517,9 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 "config": asdict(self.visual_config),
                 "state_dict": self.state_dict(),
                 "is_fitted": self._is_fitted,
+                "threshold": self.threshold,
+                "calibration": self.calibration,
+                "fitted_state": self._fitted_state(),
             },
             path,
         )
@@ -430,6 +583,17 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 f"{type(config_payload).__name__}; expected dict (from "
                 "dataclasses.asdict) or VisualDetectorConfig."
             )
+        self._build_architecture_for_load()
         self.load_state_dict(checkpoint["state_dict"])
+        self._restore_fitted_state(checkpoint.get("fitted_state") or {})
         self._is_fitted = checkpoint["is_fitted"]
+        # A calibrated threshold lives on the detector, not in its config;
+        # checkpoints written before calibration existed carry neither key
+        # and keep the configured threshold.
+        if "threshold" in checkpoint:
+            self.threshold = checkpoint["threshold"]
+            self.calibration = checkpoint.get("calibration")
+        else:
+            configured = self.visual_config.threshold
+            self.threshold = math.inf if configured is None else float(configured)
         return self

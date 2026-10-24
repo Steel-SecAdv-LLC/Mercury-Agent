@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Measure — and *enforce* — the Mercury Agent codebase-scale numbers.
 
 This script is the single source of truth for the structural counts that
@@ -55,6 +55,9 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 TORCH_IMPORT_RE = re.compile(r"^\s*(?:from\s+torch\b|import\s+torch\b)", re.MULTILINE)
 NN_MODULE_RE = re.compile(r"^\s*class\s+\w+\([^)]*\bnn\.Module\b[^)]*\):", re.MULTILINE)
 DETECTOR_CLASS_RE = re.compile(r"^class\s+\w*Detector\b", re.MULTILINE)
+#: A detector a caller can use: not an abstract ``Base*`` class, a ``_private`` helper,
+#: or the bare ``Detector`` typing protocol.
+PUBLIC_DETECTOR_CLASS_RE = re.compile(r"^class\s+(?!_|Base[A-Z])\w+Detector\b", re.MULTILINE)
 LOADER_CLASS_RE = re.compile(r"^class\s+\w*Loader\b", re.MULTILINE)
 
 # LOC figures are advertised as approximate (the ``~`` prefix) order-of-
@@ -96,6 +99,8 @@ class ScaleStats(TypedDict):
     subpackages: list[str]
     subpackage_count: int
     detector_classes: int
+    public_detector_classes: int
+    detector_subpackages: int
     loader_classes: int
     test_files: int
     test_loc: int
@@ -178,6 +183,10 @@ def measure() -> ScaleStats:
         "subpackages": subpackages,
         "subpackage_count": len(subpackages),
         "detector_classes": _count_class_matches(DETECTORS, DETECTOR_CLASS_RE),
+        "public_detector_classes": _count_class_matches(SRC, PUBLIC_DETECTOR_CLASS_RE),
+        "detector_subpackages": sum(
+            1 for pkg in subpackages if _count_class_matches(SRC / pkg, PUBLIC_DETECTOR_CLASS_RE)
+        ),
         "loader_classes": _count_class_matches(LOADERS, LOADER_CLASS_RE),
         "test_files": len(test_files),
         "test_loc": _count_lines(test_files),
@@ -218,6 +227,10 @@ def render_block(
         (
             "Detector classes (`class *Detector`) in `detectors/`",
             f"**{stats['detector_classes']}**",
+        ),
+        (
+            "Public detector classes package-wide (`class *Detector`, not `Base*` or `_private`)",
+            f"**{stats['public_detector_classes']} in {stats['detector_subpackages']} subpackages**",
         ),
         ("Data-loader classes (`class *Loader`) in `loaders/`", f"**{stats['loader_classes']}**"),
         (
@@ -285,6 +298,26 @@ def _extract_block(readme_text: str) -> str:
     return readme_text[start:end]
 
 
+#: A prose claim of a detector-class count anywhere in the README.
+DETECTOR_CLAIM_RE = re.compile(r"\b(\d+) (detector classes)\b", re.IGNORECASE)
+
+
+def _stale_detector_claims(text: str, count: int) -> list[str]:
+    """README prose citing a detector-class count other than the measured one."""
+    outside = text.split(SCALE_START, 1)[0] + text.rsplit(SCALE_END, 1)[-1]
+    return [m.group(0) for m in DETECTOR_CLAIM_RE.finditer(outside) if int(m.group(1)) != count]
+
+
+def _fix_detector_claims(text: str, count: int) -> str:
+    head, rest = text.split(SCALE_START, 1)
+    block, tail = rest.split(SCALE_END, 1)
+
+    def fix(part: str) -> str:
+        return DETECTOR_CLAIM_RE.sub(lambda m: f"{count} {m.group(2)}", part)
+
+    return fix(head) + SCALE_START + block + SCALE_END + fix(tail)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of a table.")
@@ -319,10 +352,21 @@ def main(argv: list[str] | None = None) -> int:
         current = _extract_block(text)
         src_fig, test_fig = _accepted_loc_figures(current, stats)
         expected = render_block(stats, src_loc_figure=src_fig, test_loc_figure=test_fig)
+        public_detectors = int(stats["public_detector_classes"])
         if args.update:
-            readme_path.write_text(_splice(text, expected), encoding="utf-8")
+            updated = _fix_detector_claims(_splice(text, expected), public_detectors)
+            readme_path.write_text(updated, encoding="utf-8")
             print(f"Updated scale block in {readme_path}.")
             return 0
+        stale = _stale_detector_claims(text, public_detectors)
+        if stale:
+            print(
+                f"DRIFT: {readme_path} cites detector-class counts other than the measured "
+                f"{public_detectors}: {stale}. Run "
+                "`python scripts/measure_codebase_scale.py --update README.md`.",
+                file=sys.stderr,
+            )
+            return 1
         if current.strip() == expected.strip():
             print(f"OK: {readme_path} scale block is up to date.")
             return 0
@@ -348,6 +392,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"src LOC:                  {int(stats['src_loc']):,}")
     print(f"subpackages:              {stats['subpackage_count']}")
     print(f"detector classes:         {stats['detector_classes']}")
+    print(
+        f"public detector classes:  {stats['public_detector_classes']} in {stats['detector_subpackages']} subpackages"
+    )
     print(f"loader classes:           {stats['loader_classes']}")
     print(f"test files:               {stats['test_files']}")
     print(f"test LOC:                 {int(stats['test_loc']):,}")

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning.
 
 .. warning:: **Legacy / reference surface — not the canonical co-trained path.**
@@ -64,6 +64,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.constants import OmniCodes
 
 if TYPE_CHECKING:
@@ -385,6 +386,20 @@ class NeurosymbolicEngine:
 
     This is the primary neurosymbolic component for Mercury Agent.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Hybrid verdicts take the symbolic layer's combined rule "
+            "confidence (hand-set rules, conclusions at combined confidence "
+            "> 0.5, explanations gated at explainability_threshold 0.7); "
+            "the neural leg is a deterministic statistical heuristic, not a "
+            "trained network (see module warning). No published threshold "
+            "and no labelled corpus to calibrate one: this legacy reference "
+            "surface is experimental; the canonical co-trained path is "
+            "ml.symbolic_constraint.SymbolicConstraintModule."
+        ),
+    )
 
     def __init__(
         self,

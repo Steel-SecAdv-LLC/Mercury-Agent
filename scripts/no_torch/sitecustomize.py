@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Make torch behave as if it were not installed, for the local CI mirror.
 
 CI's ``pqc-production-check`` lane installs only ``[dev,api]``, so torch is

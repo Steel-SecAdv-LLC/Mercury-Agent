@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Evidence-grounded statement verification and a consent-gated Concealed Information Test.
 
 Scientific framing. Comparison-question polygraph testing lacks adequate

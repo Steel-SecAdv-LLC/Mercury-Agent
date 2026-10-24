@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """PatchCore: Towards Total Recall in Industrial Anomaly Detection.
 
 Implementation of PatchCore algorithm from CVPR 2022.
@@ -27,6 +27,7 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -46,6 +47,8 @@ class PatchCoreConfig(VisualDetectorConfig):
         k_nearest: Alias for num_neighbors (for test compatibility)
         faiss_on_gpu: Whether to use GPU for nearest neighbor search
         anomaly_score_num_nn: Number of neighbors for anomaly score computation
+        seed: Seed of the greedy coreset's starting point.  ``None`` draws it
+            from OS entropy (a different memory bank on every fit).
     """
 
     coreset_sampling_ratio: float = 0.1  # Keep 10% of patches
@@ -55,6 +58,7 @@ class PatchCoreConfig(VisualDetectorConfig):
     faiss_on_gpu: bool = True
     anomaly_score_num_nn: int = 1
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
+    seed: int | None = None
 
 
 class PatchCoreDetector(BaseVisualDetector):
@@ -75,6 +79,37 @@ class PatchCoreDetector(BaseVisualDetector):
         >>> print(results['anomaly_maps'].shape)  # Pixel-level maps
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The anomaly score is the re-weighted nearest-neighbour "
+                "distance of pretrained patch features to a greedy-coreset "
+                "memory bank, following the published PatchCore method."
+            ),
+            citation=(
+                'Roth et al., "Towards Total Recall in Industrial Anomaly '
+                'Detection", CVPR 2022, arXiv:2106.08265'
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The binary decision threshold is calibrated in fit() by "
+                "split conformal prediction on held-out normal images at "
+                "visual_config.false_alarm_rate (default 0.05); the record "
+                "is kept in self.calibration and preserved exactly by "
+                "save()/load(). No decision is made before calibration."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold"
+            ),
+        ),
+    )
+
     def __init__(self, config: PatchCoreConfig | dict[str, Any] | None = None) -> None:
         """Initialize PatchCore detector.
 
@@ -88,10 +123,9 @@ class PatchCoreDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.patchcore_config: PatchCoreConfig = config
-        # ``PatchCoreConfig.seed`` (if present) drives the greedy
-        # coreset-subsampling RNG.  Falls back to the generic ``seed``
-        # config attribute if defined; otherwise OS entropy.
-        self._rng: np.random.Generator = np.random.default_rng(getattr(config, "seed", None))
+        # ``PatchCoreConfig.seed`` drives the greedy coreset-subsampling RNG
+        # (the starting point); ``None`` is OS entropy.
+        self._rng: np.random.Generator = np.random.default_rng(config.seed)
 
         # Initialize backbone
         self._init_backbone()
@@ -301,6 +335,7 @@ class PatchCoreDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
+        data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         logger.info(f"Fitting PatchCore on {data.shape[0]} images")
 
@@ -341,6 +376,7 @@ class PatchCoreDetector(BaseVisualDetector):
         self._build_nn_index(self.memory_bank)
 
         self._is_fitted = True
+        self._calibrate_threshold(calibration)
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
@@ -497,6 +533,17 @@ class PatchCoreDetector(BaseVisualDetector):
         features = nn.functional.normalize(features, p=2, dim=1)
 
         return features
+
+    def _fitted_state(self) -> dict[str, Any]:
+        """The coreset memory bank -- PatchCore's whole fitted model."""
+        return {"memory_bank": self.memory_bank}
+
+    def _restore_fitted_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the memory bank and rebuild its nearest-neighbour index."""
+        bank = state.get("memory_bank")
+        if bank is not None:
+            self.memory_bank = bank.to(self.device)
+            self._build_nn_index(self.memory_bank)
 
     def get_memory_bank_size(self) -> int:
         """Get current memory bank size."""

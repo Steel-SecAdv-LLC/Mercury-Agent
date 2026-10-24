@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Render the plain Prometheus rule file and the Helm rule template from the CRD.
 
 ``monitoring/prometheus/prometheus-rules.yaml`` is a Prometheus Operator

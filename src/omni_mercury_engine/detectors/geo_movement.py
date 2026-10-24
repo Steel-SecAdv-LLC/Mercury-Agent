@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Geographic movement-plausibility detector for (lat, lon, time) trajectories.
 
 Flags physically implausible or statistically extreme movement in a
@@ -35,7 +35,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.exceptions import DetectorException, InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.geo import haversine_km
 
 if TYPE_CHECKING:
@@ -77,6 +78,14 @@ class MovementAssessment:
     reason: str = ""
 
 
+class TrajectoryShapeError(InputModalityError, DetectorException):
+    """Input that is not a ``[n, 3]`` (lat, lon, epoch_s) trajectory.
+
+    An ``InputModalityError`` (the typed off-modality refusal) and, as
+    before, a ``DetectorException``.
+    """
+
+
 class GeoMovementAnomalyDetector(BaseDetector):
     """Movement-plausibility detector over (lat, lon, epoch-seconds) trajectories.
 
@@ -104,6 +113,20 @@ class GeoMovementAnomalyDetector(BaseDetector):
         >>> bool(result["is_anomaly"])
         False
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house movement-plausibility heuristic: velocity, jump and "
+            "time-gap channels saturate against configured ceilings (default "
+            "130 km/h feasibility, 6-sigma jump vs fitted step lengths, 4x the "
+            "expected reporting gap) and fuse by noisy-OR; the alarm fires when "
+            "the worst step's fused score exceeds the configured threshold "
+            "(default 0.7) or the auto-calibrated operating point. No published "
+            "threshold exists for these channel ceilings and no labelled "
+            "trajectory corpus calibrates them."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the detector with movement-channel configuration.
@@ -155,14 +178,15 @@ class GeoMovementAnomalyDetector(BaseDetector):
             Validated float64 array of shape ``[n, 3]``.
 
         Raises:
-            DetectorException: On wrong shape, non-finite values,
-                out-of-range coordinates, or decreasing timestamps.
+            TrajectoryShapeError: On a wrong shape (also a ``DetectorException``).
+            DetectorException: On non-finite values, out-of-range
+                coordinates, or decreasing timestamps.
         """
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         arr = np.asarray(data, dtype=np.float64)
         if arr.ndim != 2 or arr.shape[1] != 3:
-            raise DetectorException(
+            raise TrajectoryShapeError(
                 f"Trajectory must have shape [n, 3] = (lat, lon, epoch_s), got {arr.shape}"
             )
         if arr.shape[0] < min_points:

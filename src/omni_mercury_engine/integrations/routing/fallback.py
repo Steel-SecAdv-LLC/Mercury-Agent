@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fallback handler chain for graceful degradation.
 
 Example:
@@ -54,7 +54,7 @@ class FallbackReason(Enum):
 
 
 @dataclass
-class FallbackResult(Generic[T]):  # noqa: UP046 - Generic[T] required for Python 3.11 compatibility
+class FallbackResult(Generic[T]):
     """Result from fallback chain execution.
 
     Attributes:

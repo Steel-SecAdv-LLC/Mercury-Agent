@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Train the SlopeStabilityModel on real NASA GLC landslides + CHIRPS rainfall.
 
 Data sources (hook ``landslide_stability``,
@@ -1617,18 +1617,23 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
 def _rainfall_trigger_confidence(fields: Mapping[str, float]) -> float:
     """Rainfall-trigger probability for one case (physics parity mirror).
 
-    Mirrors ``RainfallTriggerModel.assess_rainfall_trigger`` exactly
-    (Caine-style intensity-duration threshold with an antecedent-rainfall
-    saturation boost); used only to score the API physics path on the
+    Mirrors ``RainfallTriggerModel.assess_rainfall_trigger`` exactly (the
+    published Guzzetti et al. 2008 global minimum ID threshold with
+    Caine 1980 envelope severity grading, over both the event and the
+    antecedent 7-day window); used only to score the API physics path on the
     validation years during operating-point selection. The evaluate stage
     still measures physics through the public detector API.
     """
-    intensity = float(fields.get("intensity_mm_hr", 0.0))
-    duration = float(fields.get("duration_hours", 0.0))
-    antecedent = float(fields.get("antecedent_7day_mm", 0.0))
-    id_threshold = intensity * duration**0.5
-    critical_id = 10.0 * 6.0**0.5
-    return float(min((id_threshold / critical_id) * (1.0 + antecedent / 100.0), 1.0))
+    from omni_mercury_engine.detectors.geological.landslide import RainfallTriggerModel
+
+    result = RainfallTriggerModel().assess_rainfall_trigger(
+        {
+            "intensity_mm_hr": float(fields.get("intensity_mm_hr", 0.0)),
+            "duration_hours": float(fields.get("duration_hours", 0.0)),
+            "antecedent_7day_mm": float(fields.get("antecedent_7day_mm", 0.0)),
+        }
+    )
+    return float(result["trigger_probability"])
 
 
 def _select_operating_point(

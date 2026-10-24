@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Credentials travel in headers only, and POST bodies are the routes' own models.
 
 Two defects in the auth dependencies' signatures, both found while wiring the

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """FIRMS transport guards for WildfireLoader.
 
 Pins the two failure modes NASA FIRMS actually exhibits under key/quota

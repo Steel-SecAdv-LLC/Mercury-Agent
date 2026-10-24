@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """TranAD: Deep Transformer Networks for Anomaly Detection (VLDB 2022).
 
 Implements the TranAD architecture with key innovations:

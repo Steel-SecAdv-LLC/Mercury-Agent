@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Comprehensive tests for 3R (Recursion-Resonance-Refactoring) integration in geological detectors: TornadoDetector, HurricaneDetector, FloodDetector.
 
 These tests verify that the core 3R engines (RecursionEngine, ResonanceEngine,
@@ -291,10 +291,11 @@ class TestTornadoDetector3RIntegration:
         assert len(features) == 3
 
     def test_tornado_detector_empty_data(self, tornado_detector: Any) -> None:
-        """Test tornado detector handles empty data gracefully."""
-        result = tornado_detector.predict_tornado({})
-        assert isinstance(result, TornadoPredictionResult)
-        assert result.tornado_likely is False
+        """An empty record is refused, never a silent "none" threat."""
+        from omni_mercury_engine.core.exceptions import InvalidObservationError
+
+        with pytest.raises(InvalidObservationError, match="nothing usable"):
+            tornado_detector.predict_tornado({})
 
 
 class TestHurricaneDetector3RIntegration:
@@ -367,10 +368,11 @@ class TestHurricaneDetector3RIntegration:
         assert len(features) == 3
 
     def test_hurricane_detector_empty_data(self, hurricane_detector: Any) -> None:
-        """Test hurricane detector handles empty data gracefully."""
-        result = hurricane_detector.predict_hurricane({})
-        assert isinstance(result, HurricanePredictionResult)
-        assert result.cyclone_detected is False
+        """An empty record is refused, never a silent "no_cyclone"."""
+        from omni_mercury_engine.core.exceptions import InvalidObservationError
+
+        with pytest.raises(InvalidObservationError, match="nothing usable"):
+            hurricane_detector.predict_hurricane({})
 
 
 class TestFloodDetector3RIntegration:
@@ -450,10 +452,11 @@ class TestFloodDetector3RIntegration:
         assert len(features) == 3
 
     def test_flood_detector_empty_data(self, flood_detector: Any) -> None:
-        """Test flood detector handles empty data gracefully."""
-        result = flood_detector.predict_flood({})
-        assert isinstance(result, FloodPredictionResult)
-        assert result.flood_likely is False
+        """An empty record is refused, never a silent "no_flood"."""
+        from omni_mercury_engine.core.exceptions import InvalidObservationError
+
+        with pytest.raises(InvalidObservationError, match="nothing usable"):
+            flood_detector.predict_flood({})
 
 
 class TestCrossDetector3RConsistency:

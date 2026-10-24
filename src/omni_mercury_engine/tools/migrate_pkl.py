@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""One-shot legacy ``.pkl`` -> ``.npz`` migration tool.
 
 Pickle has been removed from the Mercury Agent runtime. This tool is

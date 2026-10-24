@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: prove the three ethical gates (Benevolence, σ_Immutable, GOSNN) are reachable from every documented public surface in ``omni_mercury_engine.__all__``.
 
 The tool walks the AST of every module under ``omni_mercury_engine``

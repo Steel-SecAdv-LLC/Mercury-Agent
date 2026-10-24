@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury Agent - Post-Quantum Cryptography Backends.
 
 AMA Cryptography v5.0.0 is the sole PQC implementation.  The git ref is

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Refactoring Engine Benchmarks on Open-Source Repositories Measures performance across 6 dimensions with statistical validation."""
 
 import ast

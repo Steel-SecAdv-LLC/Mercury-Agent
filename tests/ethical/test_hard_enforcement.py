@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Hard ethical enforcement boundary regression suite.
 
 Phase 2 of the May 2026 audit cure flips ethics from "advisory" to

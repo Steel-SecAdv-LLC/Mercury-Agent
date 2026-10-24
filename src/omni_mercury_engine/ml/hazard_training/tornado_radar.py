@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Train the DopplerRadarAnalyzer on real NEXRAD Level-II velocity + SPC reports.
 
 Data sources (hook ``tornado_radar``, ``TornadoDetector.load_neural_weights``):

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for path-dependent Tree SHAP and the global interaction matrix.
 
 ``TreeShapExplainer._tree_shap_single`` previously returned all-zeros (a stub);

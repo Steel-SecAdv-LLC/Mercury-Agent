@@ -13,9 +13,9 @@ immediately previous line at the maintainers' discretion.
 
 | Version | Status               | Security updates |
 | ------- | -------------------- | ---------------- |
-| 2.1.x   | **Current**          | :white_check_mark: |
-| 1.7.x   | Previous (EOL on next minor) | Critical CVEs only |
-| < 1.7   | End-of-life          | :x:              |
+| 3.0.x   | **Current**          | :white_check_mark: |
+| 2.0.x   | Previous (EOL on next minor) | Critical CVEs only |
+| < 2.0   | End-of-life          | :x:              |
 
 ## Reporting a Vulnerability
 
@@ -23,7 +23,7 @@ We appreciate the security community's efforts in helping keep Mercury Agent sec
 
 ### How to Report
 
-1. **Email**: Send a detailed report to steel.sa.llc@gmail.com
+1. **Email**: Send a detailed report to steel.sa.llc@mercuryagent.global
 2. **Subject Line**: Use the format `[SECURITY] Mercury Agent: Brief Description`
 3. **PGP Encryption**: For sensitive reports, request our PGP public key
 
@@ -505,8 +505,8 @@ deployment configuration must be loud.
 
 ## Contact
 
-- **Security Team**: steel.sa.llc@gmail.com
-- **General Support**: steel.sa.llc@gmail.com
+- **Operations & Security**: steel.sa.llc@mercuryagent.global
+- **General Inquiries & Support**: contact@mercuryagent.global
 - **GitHub Issues**: For non-sensitive security discussions
 
 ## Acknowledgments
@@ -515,5 +515,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-09-27*
-*Version: 2.1.0*
+*Last Updated: 2026-10-21*
+*Version: 3.0.0*

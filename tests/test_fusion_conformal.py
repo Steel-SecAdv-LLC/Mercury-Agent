@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for conformal uncertainty in the fusion serving path (``engine.calibrate_fusion_conformal`` / ``engine.score_fusion_conformal``).
 
 * Network-free: wiring + contract on a deterministic separable fixture.

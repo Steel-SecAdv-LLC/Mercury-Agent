@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Loader-side label-provenance leak gate (Phase 1 of governed self-improvement).
 
 The ``datasets/`` side of the codebase already has this discipline

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for :mod:`omni_mercury_engine.compliance.tlp_handler`.
 
 Exercises the full public surface of the TLP 2.0 classifier ported from

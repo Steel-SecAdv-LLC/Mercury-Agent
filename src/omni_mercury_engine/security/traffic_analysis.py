@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Traffic Analysis Module - Network Flow & Communication Pattern Analysis.
 
 Advanced network traffic intelligence for SIGINT/COMINT fusion:

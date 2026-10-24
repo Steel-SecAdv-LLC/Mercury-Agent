@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the DSADS (UCI 256) anomaly-detection loader.
 
 The live archive is ~170 MB / 9120 segments, so these tests exercise the

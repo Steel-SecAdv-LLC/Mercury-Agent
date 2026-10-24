@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``EarthquakeDetector`` serves, on real STEAD traces and a USGS catalog.
 
 Each test fails on the detector as it was before: one NaN sample produced a
@@ -55,11 +55,21 @@ def _event(stead: dict[str, np.ndarray]) -> np.ndarray:
     return np.asarray(stead["z"][int(np.flatnonzero(stead["label"] == 1)[0])], dtype=np.float64)
 
 
-def test_one_nan_sample_is_refused(served: EarthquakeDetector, stead: dict[str, Any]) -> None:
+def test_one_nan_sample_is_a_gap_and_the_trace_is_graded(
+    served: EarthquakeDetector, stead: dict[str, Any]
+) -> None:
+    """Regression: one NaN sample refused a whole recorded STEAD trace."""
     trace = _event(stead)
     trace[100] = np.nan
-    with pytest.raises(InvalidObservationError, match="non-finite"):
-        served.predict_earthquake(trace)
+    result = served.predict_earthquake(trace)
+    assert result.partial is True
+    assert f"samples [101, {trace.size}) of {trace.size}" in result.set_aside[0]["reason"]
+    assert np.isfinite(result.confidence)
+
+
+def test_all_nan_trace_is_refused(served: EarthquakeDetector, stead: dict[str, Any]) -> None:
+    with pytest.raises(InvalidObservationError, match="no finite sample"):
+        served.predict_earthquake(np.full_like(_event(stead), np.nan))
 
 
 def test_learned_path_serves_no_magnitude_or_aftershock_figure(

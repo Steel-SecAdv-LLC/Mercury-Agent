@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury Equation Optimization Experiments Runs 10,000+ iterations to find optimal parameters for Mercury optimizers."""
 
 import sys

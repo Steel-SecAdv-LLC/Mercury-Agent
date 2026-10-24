@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: re-run NIST FIPS 203/204/205 and RFC 8032 known-answer tests outside pytest, and emit a signed JSON certificate suitable for an external auditor.
 
 The Mercury KAT *test suite* lives under ``tests/security/`` and is

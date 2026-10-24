@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Spatial anomaly detector for geographic data.
 
 Scores points against the training distribution's geometry: distance from
@@ -25,7 +25,8 @@ except ImportError:
 from scipy.spatial import KDTree
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.exceptions import DetectorException, InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,23 @@ class SpatialAnomalyDetector(BaseDetector):
     - Spatial clustering
     """
 
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "The score is the mean of a min-max-normalised centroid-distance "
+            "channel and a Local Outlier Factor channel computed as published "
+            "(k-nearest-neighbour reachability-density ratio); the decision "
+            "threshold is the configured or auto-calibrated operating point, "
+            "default 0.5 on the normalized combined score. The LOF channel is "
+            "published; the centroid channel and the equal-weight fusion are "
+            "in-house."
+        ),
+        citation=(
+            "Breunig, Kriegel, Ng & Sander (2000), 'LOF: Identifying "
+            "Density-Based Local Outliers', ACM SIGMOD 2000 (the LOF channel)"
+        ),
+    )
+
     #: Verified free of process-global mutable state at inference (bit-identical
     #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
     parallel_safe = True
@@ -152,14 +170,40 @@ class SpatialAnomalyDetector(BaseDetector):
         self.center: np.ndarray[Any, Any] | None = None
         self.radius_threshold: float | None = None
 
+    @staticmethod
+    def _require_spatial_matrix(data: np.ndarray[Any, Any]) -> None:
+        """Refuse input that is not a spatial coordinate matrix.
+
+        This detector places points in a metric space: the centroid radius and
+        the LOF neighbourhood are only defined over two or more coordinate
+        axes. A 1-D series, or a single-column matrix, carries no such space,
+        so it is declined as the wrong modality rather than scored.
+
+        ``InputModalityError`` is the convention for a component declining a
+        modality it does not process (see
+        :class:`~omni_mercury_engine.core.exceptions.InputModalityError`): the
+        engine skips the detector and the metrics layer counts it as
+        *declined* rather than as an inference error. Checking ``ndim`` first
+        keeps a 1-D array from indexing ``shape[1]`` and surfacing an opaque
+        ``IndexError`` in place of this refusal.
+
+        Raises:
+            InputModalityError: when ``data`` has fewer than two columns.
+        """
+        if data.ndim < 2 or data.shape[1] < 2:
+            raise InputModalityError(
+                "Spatial data must have at least 2 dimensions; got shape "
+                f"{tuple(data.shape)}. This detector scores points in a metric "
+                "space and declines univariate input."
+            )
+
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> SpatialAnomalyDetector:
         """Fit detector to normal spatial data."""
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         assert isinstance(data, np.ndarray)
 
-        if data.shape[1] < 2:
-            raise DetectorException("Spatial data must have at least 2 dimensions")
+        self._require_spatial_matrix(data)
 
         self.center = np.mean(data, axis=0)
 
@@ -202,6 +246,7 @@ class SpatialAnomalyDetector(BaseDetector):
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         assert isinstance(data, np.ndarray)
+        self._require_spatial_matrix(data)
         data_np: np.ndarray[Any, Any] = data
 
         # Sanitise non-finite inputs at the boundary (mirrors the temporal
@@ -395,3 +440,28 @@ class SpatialAnomalyDetector(BaseDetector):
         self.lof._tree = KDTree(np.asarray(state["lof_points"], dtype=np.float64))
         self.lof._lrd = np.asarray(state["lof_lrd"], dtype=np.float64)
         self._is_fitted = True
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Bridge the shared checkpoint to :meth:`get_fitted_state`.
+
+        The fitted ``_NativeLOF`` holds a scipy KDTree, which the shared
+        primitives-only payload cannot carry; the exported state carries the
+        training points instead and :meth:`set_fitted_state` rebuilds the
+        tree deterministically, so restored scores match exactly.
+        """
+        from omni_mercury_engine.core.base import _serializable_state
+
+        fitted = self.get_fitted_state()
+        if fitted is None:
+            return {}
+        return {
+            key: _serializable_state(value, owner=type(self).__name__, attr=key)
+            for key, value in fitted.items()
+        }
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the state captured by :meth:`_learned_state`."""
+        from omni_mercury_engine.core.base import _deserialized_state
+
+        if state:
+            self.set_fitted_state({key: _deserialized_state(value) for key, value in state.items()})

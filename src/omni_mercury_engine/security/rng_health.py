@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Hardware-RNG health monitoring via REG deviation statistics (advisory).
 
 This is the fault-detection application of the REG statistical-deviation

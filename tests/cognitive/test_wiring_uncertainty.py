@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Behavioral tests for the wired ``return_samples`` and conformal ``score_function`` paths of the uncertainty quantifier.
 
 Hand-computed, no torch/network/wall-clock: the ensemble sample stack is

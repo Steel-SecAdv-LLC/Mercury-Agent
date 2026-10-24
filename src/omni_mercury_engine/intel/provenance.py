@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Provenance carried as a typed companion, enforced at the output boundary.
 
 The ideal is provenance as an *unrepresentable-without-it* type: a value on a
@@ -177,7 +177,7 @@ class Provenance:
 
 
 @dataclass(frozen=True)
-class Provenanced(Generic[T]):  # noqa: UP046 - Generic[T] required for Python 3.11 compatibility
+class Provenanced(Generic[T]):
     """A value paired with its :class:`Provenance` -- the typed companion.
 
     Carrying provenance *in the type* is the seed of the unrepresentable-without-
@@ -208,9 +208,7 @@ class Provenanced(Generic[T]):  # noqa: UP046 - Generic[T] required for Python 3
         return {"value": self.value, "provenance": self.provenance.as_dict()}
 
 
-def ensure_provenanced(  # noqa: UP047 - PEP 695 type params require Python 3.12+
-    value: T, provenance: Provenance
-) -> Provenanced[T]:
+def ensure_provenanced(value: T, provenance: Provenance) -> Provenanced[T]:
     """Lift a bare value into a :class:`Provenanced` companion."""
     return Provenanced(value, provenance)
 

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fail-closed behaviour of the σ_Immutable boundary gate when its network is absent.
 
 When the trained GOSNN network cannot be loaded (no torch / missing weights), the

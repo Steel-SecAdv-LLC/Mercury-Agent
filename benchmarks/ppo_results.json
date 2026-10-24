@@ -1,0 +1,217 @@
+{
+  "method": "rl-baselines3-zoo PPO hyperparameters; 100000 steps; 1 torch thread; 20 deterministic evaluation episodes on a separately seeded env",
+  "versions": {
+    "python": "3.13.16",
+    "torch": "2.14.1+cpu",
+    "stable_baselines3": "2.9.0",
+    "gymnasium": "1.4.0",
+    "numpy": "2.5.4"
+  },
+  "machine": "x86_64",
+  "results": {
+    "CartPole-v1": {
+      "mercury": {
+        "runs": [
+          {
+            "seed": 0,
+            "train_s": 9.97,
+            "steps": 100096,
+            "steps_per_s": 10043,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          },
+          {
+            "seed": 1,
+            "train_s": 10.0,
+            "steps": 100096,
+            "steps_per_s": 10013,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          },
+          {
+            "seed": 2,
+            "train_s": 11.2,
+            "steps": 100096,
+            "steps_per_s": 8935,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          },
+          {
+            "seed": 3,
+            "train_s": 11.09,
+            "steps": 100096,
+            "steps_per_s": 9027,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          },
+          {
+            "seed": 4,
+            "train_s": 10.54,
+            "steps": 100096,
+            "steps_per_s": 9496,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          }
+        ],
+        "summary": {
+          "eval_mean_of_means": 500.0,
+          "eval_worst_seed": 500.0,
+          "train_s_mean": 10.56,
+          "steps_per_s_mean": 9503
+        }
+      },
+      "stable-baselines3": {
+        "runs": [
+          {
+            "seed": 0,
+            "train_s": 28.38,
+            "steps": 100096,
+            "steps_per_s": 3527,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          },
+          {
+            "seed": 1,
+            "train_s": 28.36,
+            "steps": 100096,
+            "steps_per_s": 3530,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          },
+          {
+            "seed": 2,
+            "train_s": 29.44,
+            "steps": 100096,
+            "steps_per_s": 3400,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          },
+          {
+            "seed": 3,
+            "train_s": 28.86,
+            "steps": 100096,
+            "steps_per_s": 3468,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          },
+          {
+            "seed": 4,
+            "train_s": 29.05,
+            "steps": 100096,
+            "steps_per_s": 3446,
+            "eval_mean": 500.0,
+            "eval_std": 0.0
+          }
+        ],
+        "summary": {
+          "eval_mean_of_means": 500.0,
+          "eval_worst_seed": 500.0,
+          "train_s_mean": 28.82,
+          "steps_per_s_mean": 3474
+        }
+      }
+    },
+    "Pendulum-v1": {
+      "mercury": {
+        "runs": [
+          {
+            "seed": 0,
+            "train_s": 21.65,
+            "steps": 102400,
+            "steps_per_s": 4731,
+            "eval_mean": -170.45,
+            "eval_std": 125.61
+          },
+          {
+            "seed": 1,
+            "train_s": 20.59,
+            "steps": 102400,
+            "steps_per_s": 4973,
+            "eval_mean": -179.98,
+            "eval_std": 74.13
+          },
+          {
+            "seed": 2,
+            "train_s": 19.44,
+            "steps": 102400,
+            "steps_per_s": 5268,
+            "eval_mean": -266.14,
+            "eval_std": 296.4
+          },
+          {
+            "seed": 3,
+            "train_s": 19.4,
+            "steps": 102400,
+            "steps_per_s": 5280,
+            "eval_mean": -161.09,
+            "eval_std": 127.46
+          },
+          {
+            "seed": 4,
+            "train_s": 20.8,
+            "steps": 102400,
+            "steps_per_s": 4924,
+            "eval_mean": -324.49,
+            "eval_std": 169.56
+          }
+        ],
+        "summary": {
+          "eval_mean_of_means": -220.43,
+          "eval_worst_seed": -324.49,
+          "train_s_mean": 20.38,
+          "steps_per_s_mean": 5035
+        }
+      },
+      "stable-baselines3": {
+        "runs": [
+          {
+            "seed": 0,
+            "train_s": 56.59,
+            "steps": 102400,
+            "steps_per_s": 1810,
+            "eval_mean": -232.23,
+            "eval_std": 316.25
+          },
+          {
+            "seed": 1,
+            "train_s": 54.04,
+            "steps": 102400,
+            "steps_per_s": 1895,
+            "eval_mean": -181.33,
+            "eval_std": 87.24
+          },
+          {
+            "seed": 2,
+            "train_s": 55.47,
+            "steps": 102400,
+            "steps_per_s": 1846,
+            "eval_mean": -677.96,
+            "eval_std": 342.0
+          },
+          {
+            "seed": 3,
+            "train_s": 55.62,
+            "steps": 102400,
+            "steps_per_s": 1841,
+            "eval_mean": -576.87,
+            "eval_std": 286.51
+          },
+          {
+            "seed": 4,
+            "train_s": 56.95,
+            "steps": 102400,
+            "steps_per_s": 1798,
+            "eval_mean": -569.08,
+            "eval_std": 46.56
+          }
+        ],
+        "summary": {
+          "eval_mean_of_means": -447.49,
+          "eval_worst_seed": -677.96,
+          "train_s_mean": 55.73,
+          "steps_per_s_mean": 1838
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Train the EruptionForecastModel on real AVO seismic data + real GVP eruption labels.
 
 SCOPE (stated wherever this checkpoint is described): the shipped model is

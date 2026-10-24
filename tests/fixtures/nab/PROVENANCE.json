@@ -1,0 +1,15 @@
+{
+  "description": "Four real NAB data files (byte-verbatim, gzip-compressed), their windows from NAB's labels/combined_windows.json, and raw scores computed by NAB's own Sweeper (nab/sweeper.py) for seeded alarm patterns under the three NAB profiles.",
+  "source": "https://github.com/numenta/NAB at commit ea702d75cc2258d9d7dd35ca8e5e2539d71f3140",
+  "license": "MIT, Copyright 2014-2024 Numenta Inc.",
+  "recorder": "scripts/record_nab_fixtures.py",
+  "recorded_utc": "2026-10-22T00:30:58Z",
+  "sha256_of_served_files": {
+    "nab/sweeper.py": "281b616a795d17ae517d048a48da2b75db247f7b691b6761f724bd12d8f85255",
+    "labels/combined_windows.json": "1e1fbc4601321aad8d0f8b3784c8134299379f68f6c1f7777565f8ffd57ab6b1",
+    "data/realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": "f115fbe6542159eed5612445bfa620708a28ab6b41349d1432bb15c3a3b8414d",
+    "data/realAdExchange/exchange-3_cpc_results.csv": "e70b24dba107a2589657cb3feb9ca5605b4f3f7de49ff445f32f5991bc0bdbe5",
+    "data/realKnownCause/rogue_agent_key_hold.csv": "47b110baa8e3636574c1033dda1cce780873647fab58223d159d4fee6f180e86",
+    "data/realTraffic/speed_7578.csv": "15ba994384730cb5a2e6818f17ded1430b40d92eb7a08e5b1a48a445c8c350f6"
+  }
+}

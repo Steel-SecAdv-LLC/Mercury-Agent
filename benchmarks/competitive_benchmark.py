@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Competitive head-to-head benchmark: Mercury vs PyOD on the ADBench suite.
 
 Measures Mercury's tier detector (:class:`MercuryAnomalyDetector`, unsupervised
@@ -402,7 +402,7 @@ def _run_mercury_tier(
     # Same runtime-only domain marker mercury_benchmark plants (category
     # "adbench"), so the tier runs the identical eval path (see
     # _benchmark_single).
-    detector._benchmark_domain = "adbench"  # type: ignore[attr-defined]
+    detector._benchmark_domain = "adbench"
     fit_s = time.perf_counter() - t0
     t0 = time.perf_counter()
     scores = np.asarray(detector.detect(X_test)["scores"], dtype=np.float64).ravel()

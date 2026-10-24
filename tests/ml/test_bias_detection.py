@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for ml/bias_detection.py module. Comprehensive test coverage for bias detection and fairness evaluation."""
 
 from __future__ import annotations

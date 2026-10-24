@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Read-only calibration + threshold/temperature sweep for the σ_Immutable gate.
 
 The σ_Immutable :class:`~omni_mercury_engine.core.global_omni_scalar_network.EthicalGate`

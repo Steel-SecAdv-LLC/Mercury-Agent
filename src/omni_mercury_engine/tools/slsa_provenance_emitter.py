@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: emit a SLSA v1.0 in-toto provenance attestation.
 
 The CycloneDX SBOM (see :mod:`sbom_emitter`) answers "what's in this

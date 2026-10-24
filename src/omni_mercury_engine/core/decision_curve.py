@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Decision-curve analysis (Vickers & Elkin 2006) + single operating-point pathway.
 
 Decision Curve Analysis (Stage 3, R2).

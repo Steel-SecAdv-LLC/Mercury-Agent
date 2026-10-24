@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The OOF/adversarial regression gate blocks regressing/poisoned candidates.
 
 Corpus-backed (needs the AMA/PQC backend for gate features); runs in the

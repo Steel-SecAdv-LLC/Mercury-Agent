@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """End-to-end integration tests for Mercury Agent.
 
 This package holds cross-subsystem tests that exercise real component

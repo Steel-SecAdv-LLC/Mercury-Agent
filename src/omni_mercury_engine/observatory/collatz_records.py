@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Collatz records instrument: exhaustive trajectories, record anomalies, refutation hook.
 
 For every ``n`` up to the limit the instrument iterates the Collatz map

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Real-signal measurement harness for the Mercury omni-equation decision.
 
 Runs the REAL Mercury detector (MercuryAnomalyDetector -> resonance / kinematic /

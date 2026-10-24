@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DEPRECATED: legacy stacking / Bayesian-averaging fusion ensemble.
 
 Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This module is
@@ -8,7 +8,7 @@ retained for reference only and will be removed in a future release.
 Do not import this module in production or benchmark code paths.
 
 Original: Stacking and Bayesian Model Averaging Fusion. Copyright (C) 2025 Steel Security Advisors
-LLC License: GPL-3.0-or-later
+LLC License: AGPL-3.0-or-later
 """
 
 from __future__ import annotations

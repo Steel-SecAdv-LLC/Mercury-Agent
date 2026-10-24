@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Climate Resilience Module - Anomaly detection for environmental data.
 
 Supports SDG 13 (Climate Action) by detecting anomalies in:
@@ -25,6 +25,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class ClimateEvent(Enum):
     """Climate event."""
@@ -40,6 +42,32 @@ class ClimateEvent(Enum):
 
 class ClimateResilienceDetector:
     """Detect climate anomalies for disaster prediction and resilience."""
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Sea level: a local trend above the global-mean 3.4 mm/yr (satellite altimetry "
+                "1993-2018) marks a faster-than-global coast, above twice that a hotspot. Wind: "
+                "hurricane force from 64 kt and major-hurricane force from 96 kt on the "
+                "Saffir-Simpson scale."
+            ),
+            citation=(
+                "Nerem et al. 2018, PNAS 115:2022-2025 (doi:10.1073/pnas.1717312115), "
+                "bibliographic record checked on Crossref; NHC Saffir-Simpson Hurricane Wind "
+                "Scale, https://www.nhc.noaa.gov/aboutsshws.php (64-82 kt Category 1, 96-112 kt "
+                "Category 3), page checked 2026-10-23."
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Temperature and precipitation anomalies alarm at |z| of 2 (hand-set); the "
+                "Angstrom fire-danger interpretation (index below 2.0 fire conditions very likely) "
+                "is attributed in the code to Chandler et al. 1983 and was not re-read."
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for Spectral Vibration Analysis Module."""
 
 from __future__ import annotations
@@ -112,7 +112,9 @@ class TestSpectralVibrationDetector:
         assert "anomaly_score" in result
         assert "spectral_features" in result
         assert "diagnostic" in result
-        assert 0.0 <= result["anomaly_score"] <= 1.0
+        # A 5 % amplitude change of the training tone is the same machine.
+        assert result["is_anomaly"] is False
+        assert 0.0 <= result["anomaly_score"] < 0.6
 
     def test_detect_anomalous_signal(self) -> None:
         """Test detection on an anomalous signal."""
@@ -125,12 +127,15 @@ class TestSpectralVibrationDetector:
         detector.fit(train_signal)
 
         # Test with very different signal (impulse + noise)
-        test_signal = np.random.randn(sample_rate) * 5
+        test_signal = np.random.default_rng(0).standard_normal(sample_rate) * 5
         test_signal[500] = 50  # Add impulse
 
         result = detector.detect(test_signal)
-        # The anomalous signal should have higher score
-        assert result["anomaly_score"] > 0.0
+        normal = detector.detect(train_signal * 0.95)
+        # Broadband noise and an impulse against a pure tone: flagged, and
+        # well above the same machine at a slightly different amplitude.
+        assert result["is_anomaly"] is True
+        assert result["anomaly_score"] > normal["anomaly_score"] + 0.3
 
     def test_detect_returns_signature_type(self) -> None:
         """Test that detection returns signature type."""

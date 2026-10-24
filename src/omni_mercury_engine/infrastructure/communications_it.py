@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CISA Communications & IT Critical Infrastructure Anomaly Detection.
 
 Network traffic and cybersecurity monitoring for communications and IT sectors.
@@ -18,6 +18,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class CommunicationsITDetector:
     """Anomaly detection for CISA Communications and Information Technology sectors.
@@ -29,6 +31,17 @@ class CommunicationsITDetector:
     - Supply chain security
     - Cross-sector communication impacts
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "DDoS score: packets_per_sec more than 3 standard deviations above a rolling baseline "
+            "(needs 100 samples), score = min(1, current / (mean + std) / 10), alarming above 0.7 "
+            "(critical above 0.9). The alert_thresholds table (latency x3, packet loss 5%, "
+            "exfiltration 1000 MB) is declared but never read. No published threshold and no "
+            "labelled traffic corpus back the cuts."
+        ),
+    )
 
     def __init__(self, baseline_window: int = 3600) -> None:
         """Initialize the instance."""

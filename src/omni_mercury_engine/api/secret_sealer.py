@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """At-rest sealing for account secrets (TOTP seeds) over SecureDataHandler.
 
 A TOTP seed is a *shared symmetric secret*: anyone who reads it can mint valid

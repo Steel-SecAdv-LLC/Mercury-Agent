@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unified Detector Registry - Bridge connecting detectors across domains for fusion.
 
 This module provides a central registry for all anomaly detectors and models,
@@ -218,6 +218,7 @@ class DetectorInfo:
     error_count: int = 0
     description: str = ""
     tags: list[str] = field(default_factory=list)
+    modality: str = "record"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -231,6 +232,7 @@ class DetectorInfo:
             "error_count": self.error_count,
             "description": self.description,
             "tags": self.tags,
+            "modality": self.modality,
         }
 
 
@@ -254,6 +256,36 @@ class FeatureExtractionResult:
         return torch.tensor(self.features, dtype=torch.float32, device=device)
 
 
+#: Seams a manifest entry may declare.  ``"engine"`` means the class is a
+#: :class:`~omni_mercury_engine.core.base.BaseDetector` reachable through
+#: ``OmniMercuryEngine.enable_detector``; ``"registry"`` means its
+#: ``extract_features``/``predict`` yield real output through this registry
+#: when fed the entry's declared modality.  An entry with no seams is
+#: library-only: its domain API is called directly, and both bridges refuse
+#: it loudly instead of wrapping it in theater.
+MANIFEST_SEAMS: frozenset[str] = frozenset({"engine", "registry"})
+
+#: Input payloads a detector's declared seams accept.  Measured, not aspired:
+#: every entry's seams were driven end-to-end with its modality's data.
+MANIFEST_MODALITIES: frozenset[str] = frozenset(
+    {
+        "series_1d",  # 1-D numeric time series
+        "matrix_2d",  # 2-D numeric batch [n, d]
+        "rows",  # named physical columns (HazardRowAdapter.COLUMNS)
+        "window",  # one time-ordered window over named columns (HazardWindowAdapter)
+        "image_batch",  # [B, C, H, W] / [B, H, W, C] images
+        "video_frames",  # [T, C, H, W] / [T, H, W, C] frames
+        "graph",  # networkx graph
+        "trajectory",  # [n, 3] (lat, lon, epoch_s)
+        "windows_3d",  # [n, window, features] pre-windowed series batches
+        "record",  # typed domain mapping/dataclass
+        "event",  # discrete domain events fed over time
+        "text",  # string payloads
+        "tensor",  # torch tensors on a model-specific contract
+    }
+)
+
+
 @dataclass(frozen=True)
 class DetectorManifestEntry:
     """Declarative entry describing a discoverable detector.
@@ -261,6 +293,19 @@ class DetectorManifestEntry:
     Each entry maps a detector name to the module/class that provides it, along with registration
     metadata.  The manifest is iterated by ``auto_discover_detectors`` so new detectors can be added
     as data rather than code.
+
+    ``seams`` declares where the detector is *measured* to work: ``"engine"``
+    (``enable_detector`` -> ``fit``/``detect``) and/or ``"registry"``
+    (``extract_features``/``predict`` with real output).  The default is no
+    seams -- fail closed: an undeclared entry is library-only and neither
+    bridge will serve it until its seams are declared and proven.
+    ``modality`` names the input its seams were proven with; ``fit_required``
+    marks detectors whose registry methods demand ``fit`` first; ``external``
+    marks detectors that need an external service or model backend to produce
+    output; ``covered_by`` names the manifest adapter entry serving the same
+    domain through the numeric seams (see ``detectors/hazard_adapter.py``).
+    ``wraps`` names (``module:Class``) the domain detector an adapter entry
+    serves, so the catalog shows what is behind every seam.
     """
 
     name: str
@@ -270,6 +315,26 @@ class DetectorManifestEntry:
     description: str
     feature_dim: int | None = None
     tags: list[str] = field(default_factory=list)
+    seams: tuple[str, ...] = ()
+    modality: str = "record"
+    fit_required: bool = False
+    external: bool = False
+    covered_by: str | None = None
+    wraps: str | None = None
+
+    def __post_init__(self) -> None:
+        """Refuse unknown seams or modalities instead of mis-routing later."""
+        unknown = set(self.seams) - MANIFEST_SEAMS
+        if unknown:
+            raise ValueError(
+                f"Manifest entry {self.name!r} declares unknown seams {sorted(unknown)}; "
+                f"known seams: {sorted(MANIFEST_SEAMS)}"
+            )
+        if self.modality not in MANIFEST_MODALITIES:
+            raise ValueError(
+                f"Manifest entry {self.name!r} declares unknown modality {self.modality!r}; "
+                f"known modalities: {sorted(MANIFEST_MODALITIES)}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -286,6 +351,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "MercuryAnomalyDetector",
         DetectorCategory.BASE,
         "Z-score, percentile, MAD-based detection",
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "temporal",
@@ -293,6 +360,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "TemporalAnomalyDetector",
         DetectorCategory.BASE,
         "Time-series patterns and seasonal anomalies",
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "spatial",
@@ -300,6 +369,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "SpatialAnomalyDetector",
         DetectorCategory.BASE,
         "Geographic and spatial relationship anomalies",
+        seams=("engine", "registry"),
+        modality="matrix_2d",
     ),
     DetectorManifestEntry(
         "geo_movement",
@@ -309,6 +380,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Trajectory movement plausibility: velocity, jump, and silence channels",
         feature_dim=8,
         tags=["geospatial", "trajectory"],
+        seams=("engine", "registry"),
+        modality="trajectory",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "dimensional",
@@ -316,6 +390,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "DimensionalAnalyzer",
         DetectorCategory.BASE,
         "High-dimensional data anomalies",
+        seams=("engine",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "directive",
@@ -323,6 +399,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "SigmaDirectiveDetector",
         DetectorCategory.BASE,
         "Rule-based sigma detection",
+        seams=("engine", "registry"),
+        modality="matrix_2d",
     ),
     DetectorManifestEntry(
         "graph_based",
@@ -330,6 +408,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "GraphAnomalyDetector",
         DetectorCategory.BASE,
         "Graph structure anomaly detection",
+        seams=("engine", "registry"),
+        modality="graph",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "kmeans_distance",
@@ -337,9 +418,18 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "KMeansDistanceDetector",
         DetectorCategory.BASE,
         "Distance-to-nearest-centroid unsupervised anomaly signal (revived "
-        "cognitive clusterer; ROC-AUC ~0.8-0.98 on ADBench)",
+        "cognitive clusterer; held-out ROC-AUC 0.76-0.98 on four ADBench "
+        "tables, 0.634 on Pima, mean 0.861)",
         feature_dim=9,
         tags=["unsupervised", "clustering"],
+        seams=("engine", "registry"),
+        # ``matrix_2d``, not ``series_1d``: ``_to_2d_f32`` is ``np.atleast_2d``,
+        # so a 400-sample series becomes ONE 400-feature point, and the signal
+        # was benchmarked on ADBench tables (feature_dim 9 = n_clusters + 1 per
+        # row).  Declared ``series_1d``, the registry's modality filter routed
+        # 1-D series straight to it and every point flagged.
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "spectral_residual",
@@ -350,6 +440,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "(training-free FFT saliency; Ren et al., KDD 2019)",
         feature_dim=1,
         tags=["streaming", "temporal", "spectral"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "bocpd",
@@ -360,6 +452,35 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "(Gaussian/NIG conjugate model; Adams & MacKay, 2007)",
         feature_dim=1,
         tags=["streaming", "temporal", "change-point", "probabilistic"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+    ),
+    DetectorManifestEntry(
+        "sprt",
+        "omni_mercury_engine.detectors.sequential",
+        "SPRTDetector",
+        DetectorCategory.BASE,
+        "Wald Sequential Probability Ratio Test for a Gaussian mean shift, "
+        "deciding at the exact Wald boundaries A=(1-beta)/alpha, "
+        "B=beta/(1-alpha) (Wald, Ann. Math. Statist. 1945)",
+        feature_dim=1,
+        tags=["streaming", "statistical", "sequential", "hypothesis-test"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "page_hinkley",
+        "omni_mercury_engine.detectors.sequential",
+        "PageHinkleyDetector",
+        DetectorCategory.BASE,
+        "Page-Hinkley cumulative mean-shift test (both one-sided variants; "
+        "PH_t = m_t - min m_s, alarm at PH_t > lambda; Page, Biometrika 1954)",
+        feature_dim=1,
+        tags=["streaming", "statistical", "sequential", "change-point"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "spot_evt",
@@ -370,6 +491,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "risk-budgeted false-positive control (Siffer et al., KDD 2017)",
         feature_dim=1,
         tags=["streaming", "statistical", "evt", "thresholding"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "hawkes",
@@ -380,6 +504,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "count streams (exponential-kernel intensity residuals)",
         feature_dim=1,
         tags=["streaming", "temporal", "event-rate", "burst"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "particle_filter",
@@ -390,6 +516,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "normalised one-step-ahead predictive innovations",
         feature_dim=1,
         tags=["streaming", "state-space", "tracking", "residual"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "imm",
@@ -400,6 +528,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "(quiet + manoeuvring Kalman bank; Blom & Bar-Shalom, 1988)",
         feature_dim=1,
         tags=["streaming", "state-space", "tracking", "switching", "residual"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "gaussian_process",
@@ -410,6 +540,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "calibrated predictive variance (Rasmussen & Williams, 2006)",
         feature_dim=1,
         tags=["streaming", "probabilistic", "regression", "uncertainty"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "echo_state",
@@ -420,6 +552,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "(fixed spectral-radius reservoir + ridge readout; Jaeger, 2001)",
         feature_dim=1,
         tags=["streaming", "neuromorphic", "reservoir", "residual"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "spiking",
@@ -430,6 +564,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "scoring spike-rate divergence from the learned normal regime",
         feature_dim=1,
         tags=["streaming", "neuromorphic", "spiking", "novelty"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "digital_twin",
@@ -440,6 +576,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "divergence of an identified AR forward model (Grieves & Vickers, 2017)",
         feature_dim=1,
         tags=["state-space", "simulation", "digital-twin", "residual"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "survival",
@@ -450,6 +588,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "proportional-hazards deviation) for inter-event-time streams",
         feature_dim=1,
         tags=["probabilistic", "survival", "time-to-event", "hazard"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "energy_based",
@@ -461,6 +601,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "calibrated free energy",
         feature_dim=1,
         tags=["generative", "energy-based", "representation", "density"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "deep_svdd",
@@ -472,6 +614,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "distance-to-centre is the anomaly signal (Tax & Duin, 2004)",
         feature_dim=1,
         tags=["generative", "one-class", "representation", "embedding"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "rca",
@@ -482,6 +626,16 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "causal/service graph to rank candidate root causes with attribution",
         feature_dim=1,
         tags=["systems", "rca", "causal-graph", "attribution"],
+        seams=("engine", "registry"),
+        # ``matrix_2d``, not ``series_1d``: ``fit`` takes ``(n_rows, n_nodes)``
+        # and ``rank_root_causes`` localises a *node*.  Declared ``series_1d``,
+        # a 200-sample series reshaped to one row of 200 nodes, every node's
+        # training spread collapsed to the 1e-9 floor, the squash scale came out
+        # 1.4e-9, and the detector flagged 100% of a stationary held-out half
+        # (nominal 2%).  The modality filter in
+        # ``DetectorRegistry.extract_all_features`` exists to keep exactly that
+        # from being routed, and the declaration is what it filters on.
+        modality="matrix_2d",
     ),
     DetectorManifestEntry(
         "deeplog_sequence",
@@ -492,6 +646,13 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "transition model flags sequences leaving the learned template grammar",
         feature_dim=1,
         tags=["systems", "sequence", "log", "surprisal"],
+        seams=("engine", "registry"),
+        # ``event``, not ``series_1d``: the input is a sequence of integer
+        # log-template keys (``_to_1d_int`` rounds to a key), and a categorical
+        # next-key model has nothing to learn from a continuous series -- fed a
+        # stationary AR(1) series it flagged 0.9965 of a held-out half under
+        # the old miss-probability rule.
+        modality="event",
     ),
     DetectorManifestEntry(
         "frequent_pattern",
@@ -502,6 +663,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "violating high-confidence rules mined from normal traces (Apriori)",
         feature_dim=1,
         tags=["systems", "association-rules", "frequent-pattern", "tabular"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "srcnn",
@@ -512,6 +675,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "synthetic-anomaly-augmented series (Ren et al., KDD 2019; requires torch)",
         feature_dim=1,
         tags=["streaming", "temporal", "spectral", "cnn", "torch"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "diffusion_ad",
@@ -522,6 +688,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "is off-manifold noise-prediction error (Ho et al., 2020; requires torch)",
         feature_dim=1,
         tags=["generative", "diffusion", "reconstruction", "torch"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
     ),
     # -- Specialized models ---------------------------------------------------
     DetectorManifestEntry(
@@ -530,6 +699,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "QuantumAnomalyModel",
         DetectorCategory.MODEL,
         "Quantum state anomalies",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "astrophysical",
@@ -537,6 +708,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "AstrophysicalAnomalyModel",
         DetectorCategory.MODEL,
         "Cosmic signal anomalies",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "biometric",
@@ -544,6 +717,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "BiometricAnomalyModel",
         DetectorCategory.MODEL,
         "Face/biometric anomalies",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "affective",
@@ -551,6 +726,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "AffectiveAnomalyModel",
         DetectorCategory.MODEL,
         "Emotional state anomalies",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "neural_cognitive",
@@ -558,6 +735,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "NeuralCognitiveModel",
         DetectorCategory.MODEL,
         "Brain activity anomalies",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "consciousness",
@@ -565,6 +744,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "ConsciousnessPreservationModel",
         DetectorCategory.MODEL,
         "Consciousness preservation analysis",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "neurosymbolic",
@@ -572,6 +753,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "NeurosymbolicEngine",
         DetectorCategory.NEUROSYMBOLIC,
         "Hybrid neural-symbolic reasoning",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "chemistry",
@@ -579,6 +762,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "ChemistryAnomalyDetector",
         DetectorCategory.MODEL,
         "Chemical anomaly detection",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "parapsychology",
@@ -586,14 +771,19 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "ParapsychologyDetector",
         DetectorCategory.MODEL,
         "Psi phenomena detection",
+        seams=("registry",),
+        modality="series_1d",
     ),
     # -- Security detectors ---------------------------------------------------
     DetectorManifestEntry(
         "threat_detection",
-        "omni_mercury_engine.security.threat_detection",
-        "ThreatDetector",
+        "omni_mercury_engine.detectors.adapters.society",
+        "ThreatPayloadAdapter",
         DetectorCategory.SECURITY,
         "Security threat detection",
+        seams=("engine", "registry"),
+        modality="text",
+        wraps="omni_mercury_engine.security.threat_detection:ThreatDetector",
     ),
     DetectorManifestEntry(
         "psyop",
@@ -601,6 +791,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "PSYOPAnalyzer",
         DetectorCategory.INTELLIGENCE,
         "Psychological operations analysis",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "intelligence_fusion",
@@ -608,6 +800,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "IntelligenceFusionEngine",
         DetectorCategory.INTELLIGENCE,
         "Multi-source intelligence fusion",
+        seams=("registry",),
+        modality="record",
     ),
     # -- Space detectors ------------------------------------------------------
     DetectorManifestEntry(
@@ -616,13 +810,18 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "SchumannResonanceDetector",
         DetectorCategory.SPACE,
         "Earth resonance detection",
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "solar_storm",
-        "omni_mercury_engine.space.solar_storm_detector",
-        "SolarStormDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "SolarStormSnapshotAdapter",
         DetectorCategory.SPACE,
         "Solar storm prediction",
+        seams=("engine", "registry"),
+        modality="rows",
+        wraps="omni_mercury_engine.space.solar_storm_detector:SolarStormDetector",
     ),
     DetectorManifestEntry(
         "solar_flare",
@@ -631,6 +830,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.SPACE,
         "GOES X-ray flare classification with observed-Kp geomagnetic context",
         tags=["disaster", "space-weather", "live-wiring"],
+        seams=("registry",),
+        modality="series_1d",
+        covered_by="xray_flare",
     ),
     # -- Medical detectors ----------------------------------------------------
     DetectorManifestEntry(
@@ -639,28 +841,60 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "ABMSDisciplineDetector",
         DetectorCategory.MEDICAL,
         "Medical discipline detection",
+        seams=("registry",),
+        modality="record",
+    ),
+    DetectorManifestEntry(
+        "sepsis",
+        "omni_mercury_engine.detectors.adapters.medical",
+        "SepsisRecordAdapter",
+        DetectorCategory.MEDICAL,
+        "Possible-sepsis screen: Sepsis-3 qSOFA and SOFA (Singer et al., JAMA 2016)",
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.medical.critical_care.sepsis_detector:SepsisDetector",
+    ),
+    DetectorManifestEntry(
+        "case_surge",
+        "omni_mercury_engine.detectors.adapters.medical",
+        "CaseSurgeWindowAdapter",
+        DetectorCategory.MEDICAL,
+        "Disease-surveillance case surge: week-on-week rise in daily counts, growth-implied R_e",
+        tags=["surveillance", "epidemiology", "outbreak"],
+        seams=("engine", "registry"),
+        modality="window",
+        wraps="omni_mercury_engine.medical.pandemic.pandemic_detector:CaseSurgeDetector",
     ),
     # -- Geological detectors -------------------------------------------------
     DetectorManifestEntry(
         "volcanic",
-        "omni_mercury_engine.detectors.geological.volcanic",
-        "VolcanicEruptionDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "VolcanicAdapter",
         DetectorCategory.GEOLOGICAL,
         "Volcanic eruption prediction",
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.detectors.geological.volcanic:VolcanicEruptionDetector",
     ),
     DetectorManifestEntry(
         "landslide",
-        "omni_mercury_engine.detectors.geological.landslide",
-        "LandslideDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "LandslideAdapter",
         DetectorCategory.GEOLOGICAL,
         "Landslide prediction",
+        seams=("engine", "registry"),
+        modality="rows",
+        wraps="omni_mercury_engine.detectors.geological.landslide:LandslideDetector",
     ),
     DetectorManifestEntry(
         "wildfire",
-        "omni_mercury_engine.detectors.geological.wildfire",
-        "WildfireDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "WildfireSceneAdapter",
         DetectorCategory.GEOLOGICAL,
         "Wildfire prediction",
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.detectors.geological.wildfire:WildfireDetector",
     ),
     DetectorManifestEntry(
         "tornado",
@@ -670,6 +904,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Tornado prediction with Doppler radar and FFT resonance analysis",
         feature_dim=20,
         tags=["disaster", "weather", "3r-resonance"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "hurricane",
@@ -679,6 +915,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Hurricane/cyclone/typhoon prediction with SST and resonance amplification",
         feature_dim=20,
         tags=["disaster", "weather", "3r-resonance"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "flood",
@@ -688,6 +926,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Flood prediction with refactoring engine optimization",
         feature_dim=20,
         tags=["disaster", "weather", "3r-refactoring"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "earthquake",
@@ -696,6 +936,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.GEOLOGICAL,
         "P/S-wave spectrogram + STA/LTA earthquake detection (USGS live catalog wiring)",
         tags=["disaster", "seismic", "live-wiring"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "tsunami",
@@ -704,6 +946,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.GEOLOGICAL,
         "Waveform-spectrum tsunami detection from observed sea-level series",
         tags=["disaster", "marine", "live-wiring"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "meteor",
@@ -712,8 +956,21 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.GEOLOGICAL,
         "Bayesian meteor/NEO threat assessment over NASA NeoWs + JPL fireball/Sentry",
         tags=["disaster", "space", "live-wiring"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     # -- Meteorological / hydro-climate detectors -----------------------------
+    DetectorManifestEntry(
+        "pm25_air_quality",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "PM25AirQualityAdapter",
+        DetectorCategory.METEOROLOGICAL,
+        "EPA PM2.5 Air Quality Index (40 CFR Part 58 Appendix G, 2024 breakpoints)",
+        tags=["air-quality", "pm2.5", "aqi", "wildfire-smoke"],
+        seams=("engine", "registry"),
+        modality="rows",
+        wraps="omni_mercury_engine.detectors.meteorological.air_quality:AirQualityDetector",
+    ),
     DetectorManifestEntry(
         "drought",
         "omni_mercury_engine.detectors.meteorological.drought_detector",
@@ -722,6 +979,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "SPI/SPEI drought index detector (McKee et al. 1993; Vicente-Serrano et al. 2010)",
         feature_dim=20,
         tags=["disaster", "weather", "drought", "hydro-climate"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "heatwave",
@@ -732,6 +991,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "(Perkins & Alexander 2013; Nairn & Fawcett 2015)",
         feature_dim=20,
         tags=["disaster", "weather", "heatwave", "hydro-climate"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "atmospheric_river",
@@ -741,6 +1002,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "IVT computation and Ralph et al. (2019) AR-scale classification",
         feature_dim=20,
         tags=["disaster", "weather", "atmospheric-river", "hydro-climate"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "lightning",
@@ -750,6 +1013,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "2-sigma lightning jump severe-weather precursor (Schultz et al. 2009)",
         feature_dim=20,
         tags=["disaster", "weather", "lightning", "hydro-climate"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     # -- Severe-storm / winter detectors --------------------------------------
     DetectorManifestEntry(
@@ -759,6 +1024,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.METEOROLOGICAL,
         "SHIP significant-hail parameter detector (SPC formulation)",
         tags=["disaster", "weather", "hail", "severe-storm"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "winter_storm",
@@ -767,6 +1034,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.METEOROLOGICAL,
         "Winter/ice-storm detector (precip-type + FRAM ice accretion)",
         tags=["disaster", "weather", "winter-storm", "severe-storm"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "derecho",
@@ -775,6 +1044,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.METEOROLOGICAL,
         "Derecho swath detector (Johns & Hirt 1987 criteria)",
         tags=["disaster", "weather", "derecho", "severe-storm"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "dust_storm",
@@ -783,130 +1054,224 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.METEOROLOGICAL,
         "Dust-storm/haboob detector (emission potential + visibility class)",
         tags=["disaster", "weather", "dust-storm", "severe-storm"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "surge_flood_cascade",
-        "omni_mercury_engine.detectors.meteorological.surge_flood_cascade",
-        "SurgeFloodCascade",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "SurgeFloodCascadeAdapter",
         DetectorCategory.METEOROLOGICAL,
         "Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual)",
         tags=["disaster", "weather", "cascade", "surge", "flood"],
+        seams=("engine", "registry"),
+        modality="event",
+        wraps="omni_mercury_engine.detectors.meteorological.surge_flood_cascade:SurgeFloodCascade",
     ),
     # -- Geophysical detectors -------------------------------------------------
     DetectorManifestEntry(
         "avalanche",
-        "omni_mercury_engine.detectors.geological.avalanche_detector",
-        "AvalancheDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "AvalancheProfileAdapter",
         DetectorCategory.GEOLOGICAL,
         "Snowpack stability / SK38 skier-stability avalanche detector",
         tags=["disaster", "geological", "avalanche"],
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.detectors.geological.avalanche_detector:AvalancheDetector",
     ),
     DetectorManifestEntry(
         "rockfall",
-        "omni_mercury_engine.detectors.geological.rockfall_detector",
-        "RockfallDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "RockfallAdapter",
         DetectorCategory.GEOLOGICAL,
         "Rockfall detector with Fukuzono inverse-velocity failure forecasting",
         tags=["disaster", "geological", "rockfall"],
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.detectors.geological.rockfall_detector:RockfallDetector",
     ),
     DetectorManifestEntry(
         "subsidence",
-        "omni_mercury_engine.detectors.geological.subsidence_detector",
-        "SubsidenceDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "SubsidenceAdapter",
         DetectorCategory.GEOLOGICAL,
         "Subsidence/sinkhole detector over InSAR-style displacement series",
         tags=["disaster", "geological", "subsidence", "insar"],
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.detectors.geological.subsidence_detector:SubsidenceDetector",
     ),
     DetectorManifestEntry(
         "eq_tsunami_cascade",
-        "omni_mercury_engine.detectors.geological.eq_tsunami_cascade",
-        "EqTsunamiCascadeDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "EqTsunamiCascadeAdapter",
         DetectorCategory.GEOLOGICAL,
         "Earthquake -> tsunami cascade (PTWC-style screening on real events)",
         tags=["disaster", "geological", "cascade", "tsunami"],
+        seams=("engine", "registry"),
+        modality="event",
+        wraps="omni_mercury_engine.detectors.geological.eq_tsunami_cascade:EqTsunamiCascadeDetector",
     ),
     DetectorManifestEntry(
         "fire_debris_flow_cascade",
-        "omni_mercury_engine.detectors.geological.fire_debris_flow_cascade",
-        "FireDebrisFlowCascadeDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "FireDebrisFlowAdapter",
         DetectorCategory.GEOLOGICAL,
         "Wildfire -> post-fire debris-flow cascade (USGS Staley 2017 M1 + Cannon I-D)",
         tags=["disaster", "geological", "cascade", "debris-flow"],
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.detectors.geological.fire_debris_flow_cascade:FireDebrisFlowCascadeDetector",
     ),
     # -- Space-weather detectors (T4) ------------------------------------------
     DetectorManifestEntry(
         "cme_arrival",
-        "omni_mercury_engine.space.cme_arrival_detector",
-        "CMEArrivalDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "CMEArrivalAdapter",
         DetectorCategory.SPACE,
         "CME Earth-arrival forecaster (Gopalswamy ESA + Vrsnak DBM, DONKI-fed)",
         tags=["disaster", "space-weather", "cme"],
+        seams=("engine", "registry"),
+        modality="rows",
+        wraps="omni_mercury_engine.space.cme_arrival_detector:CMEArrivalDetector",
     ),
     DetectorManifestEntry(
         "sep_storm",
-        "omni_mercury_engine.space.sep_storm_detector",
-        "SEPStormDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "SEPProtonWindowAdapter",
         DetectorCategory.SPACE,
         "Solar energetic-particle / NOAA S-scale radiation-storm detector",
         tags=["disaster", "space-weather", "sep", "radiation"],
+        seams=("engine", "registry"),
+        modality="window",
+        wraps="omni_mercury_engine.space.sep_storm_detector:SEPStormDetector",
     ),
     DetectorManifestEntry(
         "ionospheric_scintillation",
-        "omni_mercury_engine.space.ionospheric_scintillation_detector",
-        "IonosphericScintillationDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "ScintillationAdapter",
         DetectorCategory.SPACE,
         "GNSS ionospheric scintillation detector (S4 / sigma-phi indices)",
         tags=["disaster", "space-weather", "gnss", "scintillation"],
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.space.ionospheric_scintillation_detector:IonosphericScintillationDetector",
     ),
     DetectorManifestEntry(
         "gic",
-        "omni_mercury_engine.space.gic_detector",
-        "GICDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "GICWindowAdapter",
         DetectorCategory.SPACE,
         "Geomagnetically induced current detector (dB/dt + plane-wave geoelectric proxy)",
         tags=["disaster", "space-weather", "gic", "grid"],
+        seams=("engine", "registry"),
+        modality="window",
+        wraps="omni_mercury_engine.space.gic_detector:GICDetector",
     ),
     DetectorManifestEntry(
         "solar_gic_cascade",
-        "omni_mercury_engine.space.solar_gic_cascade",
-        "SolarGICCascadeDetector",
+        "omni_mercury_engine.detectors.adapters.space",
+        "SolarGICCascadeAdapter",
         DetectorCategory.SPACE,
         "Solar eruption -> geomagnetic storm -> GIC grid-impact cascade",
         tags=["disaster", "space-weather", "cascade", "gic"],
+        seams=("engine", "registry"),
+        modality="event",
+        wraps="omni_mercury_engine.space.solar_gic_cascade:SolarGICCascadeDetector",
     ),
     # -- Economic detectors ---------------------------------------------------
     DetectorManifestEntry(
         "financial_crisis",
-        "omni_mercury_engine.detectors.economic.financial_crisis_detector",
-        "FinancialCrisisDetector",
+        "omni_mercury_engine.detectors.adapters.society",
+        "FinancialCrisisRecordAdapter",
         DetectorCategory.ECONOMIC,
         "Financial crisis prediction",
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.detectors.economic.financial_crisis_detector:FinancialCrisisDetector",
     ),
     # -- Energy detectors -----------------------------------------------------
     DetectorManifestEntry(
         "emp",
-        "omni_mercury_engine.detectors.energy.emp_detector",
-        "EMPDetector",
+        "omni_mercury_engine.detectors.adapters.society",
+        "EMPRecordAdapter",
         DetectorCategory.ENERGY,
         "Electromagnetic pulse detection",
+        seams=("engine", "registry"),
+        modality="record",
+        wraps="omni_mercury_engine.detectors.energy.emp_detector:EMPDetector",
     ),
     # -- Marine detectors -----------------------------------------------------
     DetectorManifestEntry(
         "marine_biodiversity",
-        "omni_mercury_engine.detectors.marine.biodiversity_detector",
-        "MarineBiodiversityDetector",
+        "omni_mercury_engine.detectors.adapters.earth",
+        "MarineEcosystemAdapter",
         DetectorCategory.MARINE,
         "Marine biodiversity threat detection",
+        seams=("engine", "registry"),
+        modality="rows",
+        wraps="omni_mercury_engine.detectors.marine.biodiversity_detector:MarineBiodiversityDetector",
+    ),
+    # -- Tabular outlier detectors promoted on standalone ranking -------------
+    # Both are wired at the ``registry`` seam only, as ``lstm_autoencoder`` is:
+    # neither subclasses ``BaseDetector``, which ``register_detector`` requires
+    # and the engine's feature extractor depends on, and neither is adapted
+    # here because that would change a released public API (``predict``
+    # returns an array, ``config`` is a dataclass). The registry seam carries
+    # no such requirement, so the signal is available through
+    # ``extract_all_features`` without touching either class.
+    #
+    # The bar for promoting a dormant detector is the one
+    # ``KMeansDistanceDetector``'s docstring states, it being the last one
+    # promoted: standalone ranking justifies making the signal *available*,
+    # while whether it *adds* to the live fusion ensemble is settled
+    # separately by a fusion-marginal ablation. These clear the first half --
+    # held-out ROC-AUC over five ADBench datasets, three seeds,
+    # ``benchmarks/advanced_detector_auc.py``: COPOD 0.869 and
+    # AdversarialAutoencoder 0.874 against 0.661 for the shipped LOF
+    # reference, both reproducible run to run after the seeding and
+    # inference-determinism fixes in this change. Their
+    # false-alarm rates on normal rows are pinned in
+    # ``tests/core/test_declared_modality_false_alarm_rate.py``.
+    # ``ContrastiveLearningDetector`` (0.621, and under chance on cardio and
+    # thyroid) does not clear it and stays a library class.
+    DetectorManifestEntry(
+        "copod",
+        "omni_mercury_engine.detectors.advanced.copod_detector",
+        "COPODDetector",
+        DetectorCategory.MODEL,
+        "Copula-based outlier detection over per-feature tail ECDFs",
+        feature_dim=1,
+        tags=["tabular", "copula", "parameter-free", "outlier"],
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "adversarial_autoencoder",
+        "omni_mercury_engine.detectors.advanced.adversarial_ae",
+        "AdversarialAutoencoderDetector",
+        DetectorCategory.MODEL,
+        "Adversarial autoencoder reconstruction error with a latent discriminator",
+        feature_dim=1,
+        tags=["tabular", "trained", "adversarial", "reconstruction"],
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
     ),
     # -- Trained sequence / security ensembles --------------------------------
     DetectorManifestEntry(
         "lstm_autoencoder",
-        "omni_mercury_engine.models.lstm_ae",
+        "omni_mercury_engine.detectors.lstm_ae",
         "LSTMAutoencoderDetector",
         DetectorCategory.MODEL,
         "Trained LSTM-autoencoder multivariate sequence reconstruction",
         feature_dim=1,
         tags=["time-series", "trained", "multivariate", "reconstruction"],
+        seams=("registry",),
+        modality="series_1d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "realtime_threat",
@@ -916,6 +1281,13 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Projection + kNN + robust-covariance ensemble, training-calibrated",
         feature_dim=3,
         tags=["security", "ensemble", "calibrated"],
+        seams=("registry",),
+        # ``matrix_2d``, not ``series_1d``: ``_validated_input`` documents
+        # ``(n_samples, n_features)`` and reshapes a 1-D input to ONE sample of
+        # n features, which leaves the neighbour-based components degenerate
+        # (LOF scored inf on a single sample).  It is measured on ADBench
+        # tables in ``tests/detectors/test_recorded_adbench_tabular.py``.
+        modality="matrix_2d",
     ),
     # -- UAV detectors --------------------------------------------------------
     DetectorManifestEntry(
@@ -926,6 +1298,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Drone fault detection: RADD phase invariants + single-row Mercury ensemble",
         feature_dim=16,
         tags=["drone", "uav", "telemetry", "radd"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     # -- Safeguards -----------------------------------------------------------
     DetectorManifestEntry(
@@ -936,6 +1310,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Nano-safeguard micro-anomaly detection with hierarchical scanning",
         feature_dim=20,
         tags=["safeguard", "micro-anomaly", "3r-recursion", "lyapunov"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     # -- SOTA Visual Anomaly Detection ----------------------------------------
     DetectorManifestEntry(
@@ -945,6 +1321,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.VISUAL,
         "Memory bank + coreset subsampling anomaly detection",
         tags=["visual", "sota", "memory-bank"],
+        seams=("engine", "registry"),
+        modality="image_batch",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "padim",
@@ -953,6 +1332,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.VISUAL,
         "Patch-wise Mahalanobis distance anomaly detection",
         tags=["visual", "sota", "mahalanobis"],
+        seams=("engine", "registry"),
+        modality="image_batch",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "stfpm",
@@ -961,6 +1343,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.VISUAL,
         "Student-Teacher Feature Pyramid Matching",
         tags=["visual", "sota", "teacher-student"],
+        seams=("engine", "registry"),
+        modality="image_batch",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "reverse_distillation",
@@ -969,6 +1354,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.VISUAL,
         "Reverse knowledge distillation with OCE bottleneck",
         tags=["visual", "sota", "distillation"],
+        seams=("engine", "registry"),
+        modality="image_batch",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "cflow",
@@ -977,6 +1365,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.VISUAL,
         "Conditional normalizing flow anomaly detection",
         tags=["visual", "sota", "normalizing-flow"],
+        seams=("engine", "registry"),
+        modality="image_batch",
+        fit_required=True,
     ),
     # -- Vision-Language Model (VLM) Detectors --------------------------------
     DetectorManifestEntry(
@@ -986,6 +1377,10 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.VLM,
         "Zero-shot customizable VAD with LVLM (WACV 2026)",
         tags=["vlm", "zero-shot", "lvlm", "sota"],
+        seams=("engine",),
+        modality="video_frames",
+        fit_required=True,
+        external=True,
     ),
     DetectorManifestEntry(
         "lavad",
@@ -994,6 +1389,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.VLM,
         "Training-free LLM-based VAD (CVPR 2024)",
         tags=["vlm", "training-free", "llm", "sota"],
+        seams=("engine", "registry"),
+        modality="video_frames",
+        fit_required=True,
     ),
     # -- Foundation Model Adapters --------------------------------------------
     DetectorManifestEntry(
@@ -1003,6 +1401,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.FOUNDATION,
         "Nixtla TimeGPT foundation model adapter",
         tags=["foundation", "time-series", "api"],
+        seams=(),
+        modality="series_1d",
+        external=True,
     ),
     DetectorManifestEntry(
         "chronos",
@@ -1011,6 +1412,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.FOUNDATION,
         "Amazon Chronos time-series foundation model",
         tags=["foundation", "time-series", "local"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "matrix_profile",
@@ -1019,6 +1422,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.FOUNDATION,
         "STUMPY Matrix Profile for time-series anomalies",
         tags=["foundation", "time-series", "matrix-profile"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "foundation_ensemble",
@@ -1027,6 +1432,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.FOUNDATION,
         "Ensemble of foundation model adapters",
         tags=["foundation", "ensemble"],
+        seams=("registry",),
+        modality="series_1d",
     ),
     # -- Knowledge Distillation -----------------------------------------------
     DetectorManifestEntry(
@@ -1036,6 +1443,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.DISTILLATION,
         "Dual-student knowledge distillation for AD",
         tags=["distillation", "sota", "dual-student"],
+        seams=("registry",),
+        modality="image_batch",
+        fit_required=True,
     ),
     # -- Advanced Physics-Inspired Detectors (v1.4.0) -------------------------
     DetectorManifestEntry(
@@ -1045,6 +1455,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.PHYSICS,
         "GNN/CNN spectral analysis with phonon interactions",
         tags=["physics", "spectral", "vibration", "maintenance"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "acceleration_dynamics",
@@ -1053,6 +1465,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.PHYSICS,
         "Kinematic analysis with Lyapunov stability and phase space",
         tags=["physics", "kinematics", "chaos", "energy"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "uiux_anomaly",
@@ -1061,6 +1475,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.UIUX,
         "User interaction and behavior anomaly detection",
         tags=["uiux", "behavior", "engagement", "bot-detection"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     DetectorManifestEntry(
         "physics_integrated",
@@ -1069,6 +1485,21 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.PHYSICS,
         "Unified physics detector with 3R and GOSNN integration",
         tags=["physics", "integrated", "3r", "gosnn", "fusion"],
+        seams=("engine", "registry"),
+        # ``matrix_2d``, not ``series_1d``: the alarm threshold is a
+        # split-conformal cut over the fused scores of held-out *whole
+        # signals*, so calibrating it needs many normal signals --
+        # ``_calibrates_threshold`` enforces ``ndim == 2`` and at least
+        # ``_CALIBRATION_STRIDE * _MIN_CALIBRATION_SIGNALS`` = 76 of them. A
+        # single 1-D series carries exactly one sample of that statistic and
+        # cannot calibrate it at any length. Declared ``series_1d``, the
+        # threshold stayed at the 0.5 default, which the fused score of normal
+        # signals (0.89 to 0.99) exceeds, and the detector called an entirely
+        # normal stationary series anomalous on all five gate seeds. Fitted on
+        # a stack of windows instead it cuts at 0.89 and flags 0.0612 of
+        # normal windows, against its own 0.05 bound.
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "spectral_domain_frequency",
@@ -1077,6 +1508,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.PHYSICS,
         "Neuro-symbolic spectral-domain anomaly detection with per-band scoring",
         tags=["physics", "spectral", "frequency", "neuro-symbolic", "humanitarian"],
+        seams=("engine", "registry"),
+        modality="series_1d",
     ),
     # -- Hazard adapters: the engine contract over the hazard detectors ------
     # Each wraps its domain detector's own API in named-column batches; the
@@ -1091,6 +1524,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "TornadoDetector over (cape_j_kg, cin_j_kg, srh_m2_s2, bulk_shear_kt, lcl_m) rows",
         feature_dim=4,
         tags=["adapter", "tornado", "atmospheric"],
+        seams=("engine", "registry"),
+        modality="rows",
     ),
     DetectorManifestEntry(
         "hurricane_pressure",
@@ -1100,6 +1535,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "HurricaneDetector over (central_pressure_mb, environmental_pressure_mb, sst_celsius)",
         feature_dim=4,
         tags=["adapter", "hurricane", "pressure"],
+        seams=("engine", "registry"),
+        modality="rows",
     ),
     DetectorManifestEntry(
         "flood_precipitation",
@@ -1109,6 +1546,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "FloodDetector over measured and forecast precipitation depth rows (inches)",
         feature_dim=3,
         tags=["adapter", "flood", "precipitation"],
+        seams=("engine", "registry"),
+        modality="rows",
     ),
     DetectorManifestEntry(
         "financial_stress",
@@ -1118,6 +1557,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "FinancialCrisisDetector over measured market and banking metric rows",
         feature_dim=4,
         tags=["adapter", "financial", "market", "banking"],
+        seams=("engine", "registry"),
+        modality="rows",
     ),
     DetectorManifestEntry(
         "solar_wind_geomag",
@@ -1127,6 +1568,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "SolarStormDetector over (solar_wind_speed_km_s, bz_imf_nt); score is NOAA G/5",
         feature_dim=3,
         tags=["adapter", "geomagnetic", "solar-wind"],
+        seams=("engine", "registry"),
+        modality="rows",
     ),
     DetectorManifestEntry(
         "xray_flare",
@@ -1136,6 +1579,8 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "SolarFlareDetector over GOES long-band flux rows; score is NOAA R/5",
         feature_dim=3,
         tags=["adapter", "flare", "xray"],
+        seams=("engine", "registry"),
+        modality="rows",
     ),
     DetectorManifestEntry(
         "gic_minute_series",
@@ -1145,6 +1590,59 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "GICDetector over a (bx_nt, by_nt) minute series; score is the dB/dt tier over 3",
         feature_dim=3,
         tags=["adapter", "gic", "magnetometer"],
+        seams=("engine", "registry"),
+        modality="rows",
+    ),
+    # -- Statistical / geometric heads integrated from library-only modules --
+    DetectorManifestEntry(
+        "extended_statistical",
+        "omni_mercury_engine.detectors.statistical_extended",
+        "ExtendedStatisticalDetector",
+        DetectorCategory.BASE,
+        "Ensemble over MAD, LOF, DBSCAN, MCD, CUSUM, Grubbs and GESD statistical methods",
+        seams=("engine", "registry"),
+        modality="series_1d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "adaptive_anomaly",
+        "omni_mercury_engine.detectors.adaptive_detector",
+        "AdaptiveAnomalyDetector",
+        DetectorCategory.BASE,
+        "Profile-calibrated detector routing to temporal/covariance/high-dim backends",
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "topological",
+        "omni_mercury_engine.detectors.topological_analysis",
+        "TopologicalAnomalyDetector",
+        DetectorCategory.BASE,
+        "Persistent-homology profile scoring (Betti, entropy, landscapes, Wasserstein)",
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "multivariate_ts",
+        "omni_mercury_engine.detectors.multivariate_timeseries",
+        "MultivariateTSDetector",
+        DetectorCategory.BASE,
+        "LTG multivariate windowed time-series detector (LSTM/temporal-conv/graph features)",
+        seams=("registry",),
+        modality="windows_3d",
+        fit_required=True,
+    ),
+    DetectorManifestEntry(
+        "info_geometry",
+        "omni_mercury_engine.detectors.info_geometry",
+        "InformationGeometryDetector",
+        DetectorCategory.BASE,
+        "Fisher-Rao information-geometry OOD detector over a fitted reference",
+        seams=("registry",),
+        modality="matrix_2d",
+        fit_required=True,
     ),
 ]
 
@@ -1305,6 +1803,7 @@ class DetectorRegistry:
         feature_dim: int | None = None,
         description: str = "",
         tags: list[str] | None = None,
+        modality: str = "record",
     ) -> None:
         """Register a detector with the registry.
 
@@ -1315,9 +1814,25 @@ class DetectorRegistry:
             feature_dim: Output feature dimension (auto-detected if None)
             description: Human-readable description
             tags: Optional tags for filtering
+            modality: Input payload the detector's registry methods accept
+                (one of ``MANIFEST_MODALITIES``); lets ``extract_all_features``
+                run only the detectors that can read a given payload.
+
+        Raises:
+            TypeError: If ``detector`` has neither ``extract_features`` nor
+                ``predict``.  Such a detector can never produce output through
+                the registry; registering it anyway used to make every
+                extraction report ``success=True`` with no features and no
+                scores -- a silent no-op in the fusion path.  Call its domain
+                API directly, or register a real adapter
+                (see ``detectors/hazard_adapter.py``).
         """
         if not hasattr(detector, "extract_features") and not hasattr(detector, "predict"):
-            logger.warning(f"Detector '{name}' does not have extract_features or predict methods")
+            raise TypeError(
+                f"Detector {name!r} has neither 'extract_features' nor 'predict' and can "
+                "never produce output through the registry. Call its domain API directly, "
+                "or register a real adapter (see detectors/hazard_adapter.py)."
+            )
 
         info = DetectorInfo(
             name=name,
@@ -1327,6 +1842,7 @@ class DetectorRegistry:
             is_fitted=getattr(detector, "_is_fitted", False),
             description=description,
             tags=tags or [],
+            modality=modality,
         )
 
         self._detectors[name] = info
@@ -1490,6 +2006,16 @@ class DetectorRegistry:
                         scores = result.get("anomaly_scores", result.get("scores"))
                         if scores is not None:
                             scores = np.atleast_1d(scores)
+                if features is None and scores is None:
+                    # The detector ran but yielded nothing the registry can
+                    # harvest.  Raising routes this through the normal failure
+                    # path (success=False, error_count, circuit breaker), so a
+                    # detector that never produces output stops being paid for
+                    # instead of reporting success forever.
+                    raise RuntimeError(
+                        "detector produced no features and no scores under the "
+                        "registry contract (extract_features/predict)"
+                    )
                 if cache_key is not None:
                     from omni_mercury_engine.core.metrics import record_cache_miss
 
@@ -1560,6 +2086,7 @@ class DetectorRegistry:
         parallel: bool = True,
         categories: list[DetectorCategory] | None = None,
         detector_names: list[str] | None = None,
+        modality: str | None = None,
     ) -> dict[str, FeatureExtractionResult]:
         """Extract features from all registered detectors.
 
@@ -1568,6 +2095,10 @@ class DetectorRegistry:
             parallel: Use parallel execution
             categories: Filter by categories (None = all)
             detector_names: Filter by specific names (None = all)
+            modality: Run only detectors registered for this input modality
+                (None = all).  ``data`` is broadcast to every detector run, so
+                passing the payload's modality keeps detectors that cannot
+                read it from being driven into typed errors.
 
         Returns:
             Dictionary mapping detector names to extraction results
@@ -1581,6 +2112,8 @@ class DetectorRegistry:
                 names.extend(self._category_index[cat])
         else:
             names = list(self._detectors.keys())
+        if modality is not None:
+            names = [n for n in names if self._detectors[n].modality == modality]
 
         results: dict[str, FeatureExtractionResult] = {}
 
@@ -1869,6 +2402,15 @@ class DetectorRegistry:
         registered_count = 0
 
         for entry in DETECTOR_MANIFEST:
+            if "registry" not in entry.seams:
+                # Library-only (or engine-only) entry: its registry methods are
+                # absent or yield nothing, so registering it would re-create the
+                # silent no-op this seam field exists to end.
+                logger.debug(
+                    "Manifest entry '%s' does not declare the registry seam; skipping",
+                    entry.name,
+                )
+                continue
             try:
                 # Only allow imports from the omni_mercury_engine package tree
                 # to prevent arbitrary module loading from manifest entries.
@@ -1887,6 +2429,7 @@ class DetectorRegistry:
                     feature_dim=entry.feature_dim,
                     description=entry.description,
                     tags=entry.tags or [],
+                    modality=entry.modality,
                 )
                 registered_count += 1
             except ImportError as e:

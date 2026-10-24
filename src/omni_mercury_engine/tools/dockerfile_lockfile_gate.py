@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: enforce that every ``apt``/``apk``/``pip`` install in the Mercury Dockerfile is pinned to a version (and, where applicable, a SHA digest).
 
 Catches drift at build time, before

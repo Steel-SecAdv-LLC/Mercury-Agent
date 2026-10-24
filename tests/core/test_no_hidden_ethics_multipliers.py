@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regression pins: no ethics-labelled multiplier may move a number silently.
 
 This codebase deleted a ``benevolence >= 0.99`` pass-bar because it measured

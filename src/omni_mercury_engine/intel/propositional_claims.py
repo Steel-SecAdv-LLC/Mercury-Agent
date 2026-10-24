@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """A tiny propositional formula language routed through the real DPLL oracle.
 
 The verifier loop needs to adjudicate natural-ish propositional claims -- "P or

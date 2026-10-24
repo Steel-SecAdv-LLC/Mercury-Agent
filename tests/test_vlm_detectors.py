@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for Vision-Language Model (VLM) anomaly detectors.
 
 Tests AnyAnomaly and LAVAD zero-shot/training-free detectors.
@@ -7,10 +7,12 @@ Tests AnyAnomaly and LAVAD zero-shot/training-free detectors.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pytest
+
+from omni_mercury_engine.core.exceptions import InputModalityError
 
 try:
     import torch
@@ -45,6 +47,11 @@ class _ScriptedLVLM:
 
     def __init__(self) -> None:
         self.calls: int = 0
+
+    def yes_probability(self, prompt: str) -> float:
+        """LAVAD's frame judgement: the described frame shows the anomaly."""
+        self.calls += 1
+        return 0.9 if "collapsing" in prompt else 0.1
 
     def generate(self, images: list[Any], prompt: str) -> str:
         """Answer a VQA / captioning / text-only reasoning query."""
@@ -102,7 +109,8 @@ class TestAnyAnomalyDetector:
             enable_temporal_context=False,
         )
         detector = AnyAnomalyDetector(config=config)
-        cfg = cast("AnyAnomalyConfig", detector.config)
+        cfg = detector.config
+        assert isinstance(cfg, AnyAnomalyConfig)
         assert cfg.context_window == 4
         assert cfg.enable_positional_context is True
 
@@ -124,6 +132,35 @@ class TestAnyAnomalyDetector:
         detector.set_reference_normal(frames)
         assert len(detector.reference_frames) > 0
 
+    def test_anyanomaly_save_load_keeps_definition_and_references(
+        self, sample_image_batch: Any, tmp_path: Any
+    ) -> None:
+        """The anomaly definition and reference frames survive a checkpoint.
+
+        Regression: ``save`` failed outright (``BaseVLMDetector`` bypasses
+        ``BaseDetector.__init__``, so the calibration attributes ``save``
+        reads did not exist), and numpy reference frames cannot pass the
+        ``weights_only=True`` load undecomposed.
+        """
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
+
+        detector = AnyAnomalyDetector()
+        detector.fit(sample_image_batch)
+        detector.set_anomaly_definition("A person falling down")
+        frames = [np.asarray(sample_image_batch[i]) for i in range(sample_image_batch.shape[0])]
+        detector.set_reference_normal(frames)
+        path = tmp_path / "anyanomaly.pt"
+        detector.save(str(path))
+
+        restored = AnyAnomalyDetector().load(str(path))
+        assert isinstance(restored, AnyAnomalyDetector)
+        assert restored.is_fitted()
+        assert restored.anomaly_definition == "A person falling down"
+        assert len(restored.reference_frames) == len(frames)
+        for got, want in zip(restored.reference_frames, frames, strict=True):
+            assert type(got) is type(want)
+            np.testing.assert_array_equal(got, want)
+
     def test_anyanomaly_off_modality_rejected(self) -> None:
         """A generic 2-D feature matrix is rejected with a clean, named error.
 
@@ -133,7 +170,7 @@ class TestAnyAnomalyDetector:
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
         detector = AnyAnomalyDetector()
-        with pytest.raises(ValueError, match=OFF_MODALITY_MSG):
+        with pytest.raises(InputModalityError, match=OFF_MODALITY_MSG):
             detector.extract_features(np.zeros((200, 8), dtype=np.float32))
 
     def test_anyanomaly_rank4_without_channel_axis_rejected(self) -> None:
@@ -141,7 +178,7 @@ class TestAnyAnomalyDetector:
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
         detector = AnyAnomalyDetector()
-        with pytest.raises(ValueError, match=r"1- or 3-channel frames"):
+        with pytest.raises(InputModalityError, match=r"1- or 3-channel frames"):
             detector.detect(np.zeros((4, 8, 8, 8), dtype=np.float32))
 
     def test_anyanomaly_detect_synthetic_clip(self) -> None:
@@ -239,9 +276,33 @@ class TestLAVADDetector:
             temporal_window=8,
         )
         detector = LAVADDetector(config=config)
-        cfg = cast("LAVADConfig", detector.config)
+        cfg = detector.config
+        assert isinstance(cfg, LAVADConfig)
         assert cfg.sampling_fps == 1.0
         assert cfg.temporal_window == 8
+
+    def test_lavad_save_load_keeps_scene_context(
+        self, sample_image_batch: Any, tmp_path: Any
+    ) -> None:
+        """The fitted flag and the scene context survive a checkpoint.
+
+        (Its captioning and reasoning models are pretrained, loaded by name,
+        and deliberately not checkpointed.)
+        """
+        from omni_mercury_engine.detectors.vlm import LAVADDetector
+
+        detector = LAVADDetector()
+        detector.fit(sample_image_batch)
+        detector.set_scene_context(
+            "Parking lot", expected_activities=["walking"], anomaly_types=["fighting"]
+        )
+        path = tmp_path / "lavad.pt"
+        detector.save(str(path))
+
+        restored = LAVADDetector().load(str(path))
+        assert isinstance(restored, LAVADDetector)
+        assert restored.is_fitted()
+        assert restored.scene_context == detector.scene_context
 
     def test_lavad_set_scene_context(self) -> None:
         """Test setting scene context."""
@@ -264,7 +325,7 @@ class TestLAVADDetector:
         from omni_mercury_engine.detectors.vlm import LAVADDetector
 
         detector = LAVADDetector()
-        with pytest.raises(ValueError, match=OFF_MODALITY_MSG):
+        with pytest.raises(InputModalityError, match=OFF_MODALITY_MSG):
             detector.extract_features(np.zeros((200, 8), dtype=np.float32))
 
     def test_lavad_detect_synthetic_clip(self) -> None:
@@ -280,6 +341,7 @@ class TestLAVADDetector:
         detector = LAVADDetector()
         backend = _ScriptedLVLM()
         detector._caption_model = backend
+        detector._reasoning_model = backend
 
         clip = _synthetic_clip()
         results = detector.detect_video(clip)

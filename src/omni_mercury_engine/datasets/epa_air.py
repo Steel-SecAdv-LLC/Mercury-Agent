@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """EPA Air Quality System (AQS) — Daily PM2.5 Loader.
 
 Downloads daily PM2.5 monitoring data from EPA's pre-generated files. Anomaly flags are computed
@@ -33,8 +33,18 @@ class EPAAirQualityLoader(DatasetLoader):
     Downloads daily PM2.5 summary data from EPA's pre-generated annual
     ZIP files. Each ZIP contains a CSV with site-level daily measurements.
 
-    Anomaly labeling: Daily mean PM2.5 > 35.4 µg/m³ (EPA "Unhealthy for
-    Sensitive Groups" AQI threshold) is labeled as anomaly.
+    One row per monitor-day: the file also carries each continuous
+    monitor's day as a "1 HOUR" summary beside its "24-HR BLK AVG" standard
+    value, and exceptional-event days as both an "Included" and an
+    "Excluded" row, so only rows with a ``Pollutant Standard`` and not
+    ``Excluded`` are kept (in the 2024 file: 398,031 of 740,924 rows, one per
+    monitor-day; formerly every row was kept, so most days counted twice).
+    Days without a standard value (fewer hourly samples than a 24-hour mean
+    needs) are not in the standard rows.
+
+    Anomaly labeling: the EPA AQI of the 24-hour mean (``pm25_aqi``: 40 CFR
+    Part 58 Appendix G) is 101 or more, "Unhealthy for Sensitive Groups" or
+    worse.
 
     Args:
         config: DatasetConfig. Preprocessing options:
@@ -50,8 +60,24 @@ class EPAAirQualityLoader(DatasetLoader):
 
     EPA_BASE_URL = TrustedEndpoints.EPA_AQS_BASE
 
-    # PM2.5 AQI breakpoints (µg/m³)
+    # Top of the PM2.5 "Moderate" band (µg/m³): a mean that truncates to
+    # more than this is AQI 101+, "Unhealthy for Sensitive Groups" (40 CFR
+    # Part 58 Appendix G, Table 2). Labels use ``pm25_aqi`` itself.
     AQI_UNHEALTHY_SENSITIVE = 35.4
+    #: Columns every AirData daily file carries and this parser reads.
+    REQUIRED_COLUMNS = frozenset(
+        {
+            "State Code",
+            "County Code",
+            "Latitude",
+            "Longitude",
+            "Date Local",
+            "Arithmetic Mean",
+            "Observation Count",
+            "Pollutant Standard",
+            "Event Type",
+        }
+    )
 
     def __init__(self, config: DatasetConfig) -> None:
         """Initialize the instance."""
@@ -146,38 +172,57 @@ class EPAAirQualityLoader(DatasetLoader):
         ) from last_err
 
     def _parse_epa_csv(self, text: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Parse EPA daily PM2.5 CSV."""
+        """Parse an EPA AirData daily PM2.5 CSV: one row per monitor-day.
+
+        A row without a measured mean or coordinates is skipped and counted
+        (never read as 0 ug/m3 at 0 N 0 E).
+
+        Raises:
+            ValueError: If the header lacks an AirData column this parser
+                needs, or no row is usable.
+        """
         import csv
 
+        from omni_mercury_engine.detectors.meteorological.air_quality import pm25_aqi
+
         rows: list[list[float]] = []
+        labels: list[int] = []
         reader = csv.DictReader(io.StringIO(text))
+        missing = self.REQUIRED_COLUMNS - set(reader.fieldnames or ())
+        if missing:
+            raise ValueError(f"EPA CSV lacks the AirData column(s) {sorted(missing)}")
 
+        skipped = 0
         for record in reader:
+            # The 24-hour standard value only: the "1 HOUR" summary of the same
+            # day carries no Pollutant Standard, and an "Excluded" row repeats
+            # an exceptional-event day without its event hours.
+            if not record["Pollutant Standard"] or record["Event Type"] == "Excluded":
+                continue
             try:
-                pm25 = float(record.get("Arithmetic Mean", "0") or "0")
-                lat = float(record.get("Latitude", "0") or "0")
-                lon = float(record.get("Longitude", "0") or "0")
-                obs_count = float(record.get("Observation Count", "1") or "1")
-
-                # Parse date
-                date_str = record.get("Date Local", "2023-01-01")
-                parts = date_str.split("-")
-                month = int(parts[1]) if len(parts) > 1 else 1
-                day = int(parts[2]) if len(parts) > 2 else 1
-
-                state_code = int(record.get("State Code", "0") or "0")
-                county_code = int(record.get("County Code", "0") or "0")
-
-                rows.append([pm25, lat, lon, obs_count, month, day, state_code, county_code])
+                pm25 = float(record["Arithmetic Mean"])
+                lat = float(record["Latitude"])
+                lon = float(record["Longitude"])
+                obs_count = float(record["Observation Count"])
+                _, month_text, day_text = record["Date Local"].split("-")
+                month, day = int(month_text), int(day_text)
+                state_code = int(record["State Code"])
+                county_code = int(record["County Code"])
+                aqi, _ = pm25_aqi(pm25)
             except (ValueError, TypeError):
+                skipped += 1
                 continue
 
+            rows.append([pm25, lat, lon, obs_count, month, day, state_code, county_code])
+            labels.append(int(aqi >= 101))
+
+        if skipped:
+            logger.warning("EPA CSV: skipped %d unparseable standard row(s)", skipped)
         if not rows:
             raise ValueError("No parseable records in EPA CSV")
 
         features = np.array(rows, dtype=np.float64)
-        labels = (features[:, 0] > self.AQI_UNHEALTHY_SENSITIVE).astype(np.int32)
-        return features, labels
+        return features, np.array(labels, dtype=np.int32)
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         cache_file = self.data_path / f"epa_pm25_{self.year}.npz"

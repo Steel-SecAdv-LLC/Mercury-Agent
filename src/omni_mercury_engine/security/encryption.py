@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Secure data handling backed by AMA Cryptography.
 
 Post-quantum data protection is a KEM-DEM construction over Mercury's sole

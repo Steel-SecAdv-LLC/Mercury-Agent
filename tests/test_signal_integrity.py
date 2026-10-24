@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for signal integrity fixes.
 
 Tests for Issue #3 (Discrete Score Destruction) and Issue #5 (Contamination Mismatch).

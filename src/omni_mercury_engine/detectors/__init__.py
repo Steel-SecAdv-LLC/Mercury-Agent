@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Detector module for Mercury Agent.
 
 Provides specialized anomaly detectors for different data types and domains.
@@ -15,12 +15,15 @@ from __future__ import annotations
 
 import importlib
 import logging
+from typing import TYPE_CHECKING
 
-# Core detectors — no PyTorch dependency; always available.
-from omni_mercury_engine.detectors.statistical import (
-    MercuryAnomalyDetector,
-    StatisticalAnomalyDetector,
-)
+if TYPE_CHECKING:
+    # Resolved lazily at runtime (see ``_LAZY_IMPORTS``); declared here so type
+    # checkers see the classes rather than ``__getattr__``'s ``object``.
+    from omni_mercury_engine.detectors.statistical import (
+        MercuryAnomalyDetector,
+        StatisticalAnomalyDetector,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,13 @@ logger = logging.getLogger(__name__)
 # package never crashes when PyTorch is absent.
 # ---------------------------------------------------------------------------
 _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
+    # ``statistical`` imports ``core.base`` and so torch; resolving it on first
+    # use keeps ``detectors.provenance`` (a leaf with no heavy imports) loadable
+    # from modules that must stay torch-free.
+    "omni_mercury_engine.detectors.statistical": (
+        "MercuryAnomalyDetector",
+        "StatisticalAnomalyDetector",
+    ),
     "omni_mercury_engine.detectors.acceleration_dynamics": (
         "AccelerationDynamicsDetector",
         "EnergyState",

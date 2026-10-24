@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Survival / time-to-event hazard detector for inter-event-time streams.
 
 Survival analysis models the distribution of *time until an event* through the
@@ -30,6 +30,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -49,6 +50,25 @@ class SurvivalHazardDetector(BaseDetector):
     probability of each duration (small tail probability → large score),
     squashed into ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Scores are -log two-sided tail probabilities of inter-event "
+            "durations under a Kaplan-Meier baseline survival curve with a Cox "
+            "proportional-hazards recent-rate adjustment, squashed with a scale "
+            "anchored at the configured training quantile (default 0.98); the "
+            "decision threshold is the configured operating point, default 0.5 "
+            "on the normalized score. The survival/hazard models are published; "
+            "the tail-surprisal squash/threshold is the engine's "
+            "quantile-anchored convention."
+        ),
+        citation=(
+            "Kaplan & Meier (1958), 'Nonparametric Estimation from Incomplete "
+            "Observations', JASA 53:457-481; Cox (1972), 'Regression Models "
+            "and Life-Tables', JRSS B 34(2):187-220"
+        ),
+    )
 
     def __init__(
         self,

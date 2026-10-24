@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Capacity sweep for the fusion network's ``hidden_dim`` — the evidence behind the default checkpoint's width.
 
 Why this exists

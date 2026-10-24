@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """HCIS-Inspired Hive-Structured Firewall for Anomaly Blocking.
 
 Implements a hierarchical, distributed firewall inspired by HCIS (Hierarchical

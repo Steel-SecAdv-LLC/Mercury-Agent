@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: certify that the OAE fusion weights (w_R, w_H, w_O) remain on the golden-ratio derivation Mercury claims everywhere.
 
 Reproduces the derivation from

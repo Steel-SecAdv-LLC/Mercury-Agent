@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Landslide Detector - Soil Slope Instability Analysis.
 
 Comprehensive soil slope failure detection for humanitarian early warning:
@@ -47,7 +47,10 @@ import torch
 from scipy import signal
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
+from omni_mercury_engine.detectors._hazard_input import InputGrader, finite_scalar
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
@@ -70,6 +73,153 @@ class LandslideType(Enum):
     SNOW_AVALANCHE = "snow_avalanche"
     MUD_FLOW = "mud_flow"
     ROTATIONAL_SLIDE = "rotational_slide"
+
+
+#: Every scalar ``predict_landslide`` reads, with its unit and physical range.
+#: Supplied values are checked before any model sees them: without this a NaN
+#: rainfall or PGA failed every comparison and read as a silent all-clear, a
+#: negative duration crashed on a complex square root, and a 500 deg slope was
+#: graded.
+LANDSLIDE_INPUTS: dict[str, dict[str, tuple[str, float, float]]] = {
+    "rainfall_data": {
+        "intensity_mm_hr": ("mm/h", 0.0, 1000.0),
+        "duration_hours": ("h", 0.0, 2160.0),
+        "antecedent_7day_mm": ("mm", 0.0, 10000.0),
+    },
+    "seismic_data": {
+        "pga_g": ("g", 0.0, 10.0),
+        "magnitude": ("Mw", -2.0, 10.0),
+        "distance_km": ("km", 0.0, 20040.0),
+    },
+    "weather_data": {"snowmelt_mm_day": ("mm/day", 0.0, 1000.0)},
+    "sensor_data": {
+        "soil_saturation_pct": ("%", 0.0, 100.0),
+        "displacement_rate_mm_day": ("mm/day", 0.0, 1e6),
+    },
+    "slope_data": {"slope_angle_deg": ("deg", 0.0, 90.0)},
+}
+
+
+def validate_landslide_data(landslide_data: Any) -> None:
+    """Refuse a record ``predict_landslide`` would otherwise grade wrongly.
+
+    Raises:
+        InputModalityError: If the record or one of its sections is not a mapping.
+        InvalidObservationError: If no section is supplied, a section
+            carries an unknown key or no measurement, a supplied value is non-numeric, non-finite or
+            outside its physical range, or ``slope_features`` holds a
+            non-finite value.
+    """
+    if not isinstance(landslide_data, dict):
+        raise InputModalityError(
+            "predict_landslide expects a mapping of monitoring sections "
+            f"(rainfall_data, seismic_data, ...), got {type(landslide_data).__name__}"
+        )
+    if not any(section in landslide_data for section in LANDSLIDE_INPUTS) and (
+        landslide_data.get("slope_features") is None
+    ):
+        # No monitoring section: the physics path graded zeros as "low".
+        raise InvalidObservationError(
+            "no slope measured: supply at least one of "
+            f"{sorted(LANDSLIDE_INPUTS)} or slope_features; an unmonitored slope is not a "
+            "stable one"
+        )
+    for section, fields in LANDSLIDE_INPUTS.items():
+        if section not in landslide_data:
+            continue
+        values = landslide_data[section]
+        if not isinstance(values, dict):
+            raise InputModalityError(f"{section} must be a mapping, got {type(values).__name__}")
+        # The trigger models default a missing key to a quiet value (0 mm/h,
+        # 0 g), so a misspelt or empty section graded as a silent all-clear.
+        unknown = sorted(set(values) - set(fields))
+        if unknown:
+            raise InvalidObservationError(
+                f"{section} has unknown keys {unknown}; accepted: {sorted(fields)}"
+            )
+        if all(values.get(key) is None for key in fields):
+            raise InvalidObservationError(
+                f"{section} carries no measurement; supply at least one of {sorted(fields)}"
+            )
+        for key, (unit, lo, hi) in fields.items():
+            if values.get(key) is not None:
+                finite_scalar(values[key], key, unit=unit, lo=lo, hi=hi)
+    features = landslide_data.get("slope_features")
+    if features is not None:
+        try:
+            array = np.asarray(features, dtype=np.float64)
+        except (TypeError, ValueError) as e:
+            raise InvalidObservationError("slope_features must be a numeric vector") from e
+        if not np.all(np.isfinite(array)):
+            raise InvalidObservationError(
+                "slope_features has non-finite values; clean or interpolate the record first"
+            )
+
+
+#: Top-level keys ``predict_landslide`` reads besides the monitoring
+#: sections: the opaque feature vector and the cascade-assessment context.
+LANDSLIDE_PASS_THROUGH: frozenset[str] = frozenset(
+    {"slope_features", "infrastructure_data", "population_data"}
+)
+
+
+def grade_landslide_data(landslide_data: Any) -> tuple[dict[str, Any], InputGrader]:
+    """Keep every usable measurement; set the rest aside with its reason.
+
+    The partial-input contract (:class:`InputGrader`): a misspelt key or
+    section, an empty or non-mapping section, or a non-finite / non-physical
+    value is set aside and reported, and the rest of the record is graded.
+    Only a record with nothing usable is refused.
+
+    Returns:
+        ``(record, grader)``: the record holding only usable values, and the
+        grader carrying what was set aside.
+
+    Raises:
+        InputModalityError: If the record itself is not a mapping.
+        InvalidObservationError: If nothing usable remains.
+    """
+    if not isinstance(landslide_data, dict):
+        raise InputModalityError(
+            "predict_landslide expects a mapping of monitoring sections "
+            f"(rainfall_data, seismic_data, ...), got {type(landslide_data).__name__}"
+        )
+    grader = InputGrader()
+    record: dict[str, Any] = dict(
+        grader.grade_sections(
+            {k: v for k, v in landslide_data.items() if k not in LANDSLIDE_PASS_THROUGH},
+            LANDSLIDE_INPUTS,
+        )
+    )
+    features = landslide_data.get("slope_features")
+    if features is not None:
+        try:
+            array = np.asarray(features, dtype=np.float64)
+        except (TypeError, ValueError):
+            grader.discard("slope_features", "must be a numeric vector", features)
+        else:
+            if np.all(np.isfinite(array)):
+                record["slope_features"] = features
+            else:
+                grader.discard(
+                    "slope_features",
+                    f"{int(array.size - np.isfinite(array).sum())} non-finite value(s); "
+                    "the stability model cannot read a vector with gaps",
+                )
+    grader.require_usable(
+        record,
+        f"no slope measured: supply at least one of {sorted(LANDSLIDE_INPUTS)} or "
+        "slope_features; an unmonitored slope is not a stable one",
+    )
+    for key in ("infrastructure_data", "population_data"):
+        context = landslide_data.get(key)
+        if context is None:
+            continue
+        if isinstance(context, dict):
+            record[key] = context
+        else:
+            grader.discard(key, f"must be a mapping, got {type(context).__name__}", context)
+    return record, grader
 
 
 @dataclass
@@ -99,6 +249,12 @@ class LandslidePredictionResult:
     early_warning_actions: list[str] = field(default_factory=list)
     cascade_risks: list[str] = field(default_factory=list)
 
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why, so a partial verdict never
+    # reads as a full all-clear.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
+
     # Populated only when the detector was built with keep_diagnostics=True.
     # NOTE: the landslide detector computes no zonal/geographic output (its
     # evacuation zones are string labels); the diagnostics carry the failure
@@ -106,11 +262,86 @@ class LandslidePredictionResult:
     diagnostics: HazardDiagnostics | None = None
 
 
+#: Published global rainfall intensity-duration (ID) thresholds for the
+#: possible initiation of shallow landslides and debris flows.  Both are of
+#: the form ``I = alpha * D**beta`` with ``I`` the mean rainfall intensity
+#: (mm/h) over the rainfall duration ``D`` (h).  Coefficients and validity
+#: ranges are as reproduced in Table 1 of Brunetti et al. (2010), NHESS
+#: 10:447-458 (doi:10.5194/nhess-10-447-2010):
+#:
+#: * ``GUZZETTI_2008_GLOBAL_ID`` -- Guzzetti, Peruccacci, Rossi & Stark
+#:   (2008), "The rainfall intensity-duration control of shallow landslides
+#:   and debris flows: an update", Landslides 5:3-17
+#:   (doi:10.1007/s10346-007-0112-1).  The global *minimum* ID threshold
+#:   (2,626 catalogued events): below it shallow landslides and debris flows
+#:   are not expected, so it is the alarm bar.
+#: * ``CAINE_1980_ID`` -- Caine (1980), "The rainfall intensity-duration
+#:   control of shallow landslides and debris flows", Geogr. Ann. A 62:23-27.
+#:   The classical global *envelope* above which failures were observed; it
+#:   anchors the top of the severity scale.
+#:
+#: The retired rule (``I*sqrt(D) > 10*sqrt(6)``, no source) sat roughly an
+#: order of magnitude above the published minimum: on the CHIRPS record for
+#: the 2018-08-17 Jodupala (Kerala) landslide day -- 31.5 mm in 24 h after
+#: 454 mm in the prior 7 days -- it read 6.44 against a bar of 24.49 and
+#: stayed off.  Guzzetti's minimum (0.54 mm/h at 24 h) fires on that day,
+#: and on the antecedent week evaluated as its own rainfall condition.
+GUZZETTI_2008_GLOBAL_ID: dict[str, float] = {
+    "alpha": 2.20,
+    "beta": -0.44,
+    "d_min_h": 0.1,
+    "d_max_h": 1000.0,
+}
+CAINE_1980_ID: dict[str, float] = {
+    "alpha": 14.82,
+    "beta": -0.39,
+    "d_min_h": 0.167,
+    "d_max_h": 500.0,
+}
+
+#: Hours covered by the ``antecedent_7day_mm`` field: that record is
+#: evaluated as a (D = 168 h, I = total/168) rainfall condition of its own,
+#: inside the Guzzetti et al. (2008) validity range of 0.1-1000 h.
+ANTECEDENT_WINDOW_H: float = 168.0
+
+
+def _critical_intensity_mm_hr(duration_h: float, curve: dict[str, float]) -> float:
+    """Critical mean intensity of a published ID curve at ``duration_h``.
+
+    Durations outside the curve's published validity range are clamped to
+    its nearest bound, the standard conservative extension.
+    """
+    d = min(max(duration_h, curve["d_min_h"]), curve["d_max_h"])
+    return float(curve["alpha"] * d ** curve["beta"])
+
+
 class RainfallTriggerModel:
     """Rainfall-induced landslide trigger analysis.
 
-    Uses intensity-duration thresholds and antecedent rainfall.
+    The alarm bar is the published global minimum intensity-duration
+    threshold of Guzzetti et al. (2008); severity is graded in log-intensity
+    space up to the Caine (1980) envelope (see the curve constants above).
+    Both the supplied rainfall event and the 7-day antecedent total are
+    evaluated as rainfall conditions; either may trigger.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Rainfall trigger fires when the event's mean intensity, or the "
+            "7-day antecedent window evaluated as its own rainfall condition, "
+            "reaches the global minimum intensity-duration threshold "
+            "I = 2.20*D**-0.44 mm/h (0.1 h < D < 1000 h). Severity grades "
+            "log-linearly from that minimum (0.5) to the Caine (1980) envelope "
+            "I = 14.82*D**-0.39 (1.0)."
+        ),
+        citation=(
+            "Guzzetti, Peruccacci, Rossi & Stark (2008), Landslides 5:3-17, "
+            "doi:10.1007/s10346-007-0112-1 (global minimum ID threshold); "
+            "Caine (1980), Geogr. Ann. A 62:23-27 (envelope); coefficients as "
+            "tabulated in Brunetti et al. (2010), NHESS 10:447-458, Table 1"
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""
@@ -120,25 +351,59 @@ class RainfallTriggerModel:
         """Assess rainfall-induced landslide risk.
 
         Args:
-            rainfall_data: Rainfall intensity, duration, antecedent precipitation
+            rainfall_data: Rainfall intensity (mm/h), duration (h), and
+                antecedent 7-day precipitation (mm).
 
         Returns:
-            Rainfall trigger assessment
+            Rainfall trigger assessment.  ``rainfall_trigger`` is True when
+            any evaluated rainfall condition reaches the Guzzetti et al.
+            (2008) global minimum ID threshold; ``trigger_probability``
+            grades the strongest condition (0.5 at the minimum threshold,
+            1.0 at or above the Caine 1980 envelope); ``conditions`` lists
+            each evaluated window with its critical intensity and exceedance
+            ratio; ``id_threshold`` is the legacy ``I*sqrt(D)`` product,
+            reported for compatibility and no longer part of the decision.
         """
-        intensity_mm_hr = rainfall_data.get("intensity_mm_hr", 0.0)
-        duration_hours = rainfall_data.get("duration_hours", 0.0)
-        antecedent_7day_mm = rainfall_data.get("antecedent_7day_mm", 0.0)
+        intensity_mm_hr = float(rainfall_data.get("intensity_mm_hr", 0.0) or 0.0)
+        duration_hours = float(rainfall_data.get("duration_hours", 0.0) or 0.0)
+        antecedent_7day_mm = float(rainfall_data.get("antecedent_7day_mm", 0.0) or 0.0)
 
-        critical_intensity = 10.0
-        critical_duration = 6.0
+        windows: list[tuple[str, float, float]] = []
+        if intensity_mm_hr > 0.0 and duration_hours > 0.0:
+            windows.append(("event", intensity_mm_hr, duration_hours))
+        if antecedent_7day_mm > 0.0:
+            windows.append(
+                ("antecedent_7day", antecedent_7day_mm / ANTECEDENT_WINDOW_H, ANTECEDENT_WINDOW_H)
+            )
 
-        id_threshold = intensity_mm_hr * (duration_hours**0.5)
-        critical_id = critical_intensity * (critical_duration**0.5)
-
-        rainfall_trigger = id_threshold > critical_id
-
-        saturation_boost = antecedent_7day_mm / 100.0
-        trigger_probability = min((id_threshold / critical_id) * (1 + saturation_boost), 1.0)
+        conditions: list[dict[str, Any]] = []
+        rainfall_trigger = False
+        trigger_probability = 0.0
+        for window, mean_intensity, duration in windows:
+            critical = _critical_intensity_mm_hr(duration, GUZZETTI_2008_GLOBAL_ID)
+            envelope = _critical_intensity_mm_hr(duration, CAINE_1980_ID)
+            ratio = mean_intensity / critical
+            if ratio >= 1.0:
+                # Log-intensity interpolation between the published minimum
+                # (possible: 0.5) and the Caine envelope (expected: 1.0).
+                span = float(np.log(max(envelope / critical, 1.0 + 1e-9)))
+                probability = 0.5 + 0.5 * min(float(np.log(ratio)) / span, 1.0)
+                triggered = True
+            else:
+                probability = 0.5 * ratio
+                triggered = False
+            conditions.append(
+                {
+                    "window": window,
+                    "mean_intensity_mm_hr": float(mean_intensity),
+                    "duration_h": float(duration),
+                    "critical_intensity_mm_hr": float(critical),
+                    "exceedance_ratio": float(ratio),
+                    "triggered": triggered,
+                }
+            )
+            rainfall_trigger = rainfall_trigger or triggered
+            trigger_probability = max(trigger_probability, probability)
 
         if trigger_probability > 0.8:
             severity = "extreme"
@@ -153,7 +418,9 @@ class RainfallTriggerModel:
             "rainfall_trigger": rainfall_trigger,
             "trigger_probability": float(trigger_probability),
             "severity": severity,
-            "id_threshold": float(id_threshold),
+            "id_threshold": float(intensity_mm_hr * (duration_hours**0.5)),
+            "conditions": conditions,
+            "threshold_source": self.decision_source.citation,
         }
 
 
@@ -515,6 +782,46 @@ class LandslideDetector:
     - GOSNN synapse for ethical gating and scalar registration
     """
 
+    decision_source = (
+        # Rainfall trigger: the published intensity-duration rule declared
+        # once on RainfallTriggerModel (Guzzetti 2008 / Caine 1980) and
+        # reused here.
+        RainfallTriggerModel.decision_source,
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'landslide_coolr' checkpoint (real NASA COOLR "
+                "landslide-catalog data, raw 64-dim slope_features "
+                "contract): on the learned path landslide_imminent "
+                "thresholds the slope-failure probability at the "
+                "checkpoint's ratified, validation-selected operating "
+                "point."
+            ),
+            operating_point=(
+                "shipped checkpoint 'landslide_coolr' "
+                "(models/checkpoints/landslide_coolr.pt + provenance "
+                "sidecar): operating_point.detection_threshold selected by "
+                "ml.hazard_training.landslide_stability."
+                "_select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The seismic trigger and the aggregate gate are unsourced "
+                "engineering: the earthquake leg fires at PGA > 0.15 g "
+                "(critical_pga, an in-code constant with no citation) with "
+                "heuristic magnitude/distance factors, and "
+                "landslide_imminent additionally requires at least one "
+                "trigger plus a 0.6 failure-probability bar on the physics "
+                "path and on checkpoints without an operating point -- "
+                "constants with no published source and no labelled "
+                "calibration."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         enable_rainfall_trigger: bool = True,
@@ -696,12 +1003,23 @@ class LandslideDetector:
 
         Returns:
             Landslide prediction with risk level and evacuation recommendations
+
+        Unusable pieces (see :data:`LANDSLIDE_INPUTS`) are set aside and
+        reported on the result (``partial``, ``set_aside``); the usable rest
+        is graded.
+
+        Raises:
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: When nothing usable was fed.
         """
+        landslide_data, grader = grade_landslide_data(landslide_data)
         result = LandslidePredictionResult(
             landslide_imminent=False,
             confidence=0.0,
             risk_level="low",
             landslide_type="debris_flow",
+            partial=grader.partial,
+            set_aside=list(grader.set_aside),
         )
 
         triggers_detected: float = 0

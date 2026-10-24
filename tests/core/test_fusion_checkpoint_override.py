@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """``MERCURY_FUSION_CHECKPOINT`` lets an operator replace the bundled checkpoint.
 
 A set-but-missing override must not fall back to the bundled file: serving the

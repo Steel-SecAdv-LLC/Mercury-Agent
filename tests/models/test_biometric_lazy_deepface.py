@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DeepFace (and the TensorFlow behind it) loads when an image needs it.
 
 Importing it at module level cost 1.8 s of the 2.0 s it took to construct an

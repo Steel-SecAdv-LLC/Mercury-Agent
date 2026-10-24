@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """AnyAnomaly: Zero-Shot Customizable Video Anomaly Detection with LVLM.
 
 Implementation inspired by AnyAnomaly (WACV 2026).
@@ -28,6 +28,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 from omni_mercury_engine.detectors.vlm.context_providers import (
     CombinedContextProvider,
@@ -100,6 +101,32 @@ class AnyAnomalyDetector(BaseVLMDetector):
         >>> print(f"Anomaly at frames: {results['anomaly_frames']}")
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Segment-level zero-shot scoring follows the published "
+                "AnyAnomaly method: an LVLM answers visual questions about "
+                "the user's natural-language anomaly definition, with "
+                "position and temporal context providers."
+            ),
+            citation=(
+                'Ahn et al., "AnyAnomaly: Zero-Shot Customizable Video '
+                'Anomaly Detection with LVLM", WACV 2026, arXiv:2503.04504'
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The binary flag cuts the LVLM confidence score at "
+                "vlm_config.confidence_threshold (default 0.5): the paper "
+                "reports ranking metrics rather than an alarm threshold, "
+                "and no labelled corpus here calibrates one, so binary "
+                "verdicts are experimental."
+            ),
+        ),
+    )
+
     def __init__(self, config: AnyAnomalyConfig | dict[str, Any] | None = None) -> None:
         """Initialize AnyAnomaly detector.
 
@@ -139,6 +166,42 @@ class AnyAnomalyDetector(BaseVLMDetector):
         # Anomaly definition and reference frames for test compatibility
         self._anomaly_definition: str | None = None
         self._reference_frames: list[Any] = []
+
+    #: ``context_provider`` is built deterministically in ``__init__`` from
+    #: configuration; ``_backend`` is the lazily-loaded pretrained LVLM.
+    #: ``_reference_frames`` (user-supplied detection context) is decomposed
+    #: below so numpy frames survive the weights_only load.
+    _UNSAVED_ATTRS = BaseVLMDetector._UNSAVED_ATTRS | {
+        "context_provider",
+        "_backend",
+        "_reference_frames",
+    }
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Default state plus reference frames stored as tensors."""
+        state = super()._learned_state()
+        state["_reference_frames_payload"] = [
+            frame if isinstance(frame, torch.Tensor) else torch.from_numpy(np.asarray(frame))
+            for frame in self._reference_frames
+        ]
+        state["_reference_frames_were_tensors"] = [
+            isinstance(frame, torch.Tensor) for frame in self._reference_frames
+        ]
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore default state, then decode the reference frames."""
+        state = dict(state)
+        payload = state.pop("_reference_frames_payload", None)
+        were_tensors = state.pop("_reference_frames_were_tensors", None)
+        super()._restore_learned_state(state)
+        if payload is not None:
+            if were_tensors is None:
+                were_tensors = [True] * len(payload)
+            self._reference_frames = [
+                frame if was_tensor else frame.cpu().numpy()
+                for frame, was_tensor in zip(payload, were_tensors, strict=True)
+            ]
 
     @property
     def anomaly_definition(self) -> str | None:

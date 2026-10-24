@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fingerprint Recognition Module for Mercury Agent Biometric System.
 
 Implements minutiae-based fingerprint matching with ridge flow analysis

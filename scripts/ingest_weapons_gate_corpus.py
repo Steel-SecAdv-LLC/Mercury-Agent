@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Rolling ingestion + versioning for the weapons-gate evaluation corpus.
 
 The seed corpus is generated from templates in ``benchmarks/weapons_gate_corpus.py``

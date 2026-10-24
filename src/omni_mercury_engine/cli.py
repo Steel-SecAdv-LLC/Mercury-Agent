@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Command-line interface for Mercury Agent."""
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import click
 import numpy as np
@@ -934,8 +934,22 @@ def physics() -> None:
     help="Analysis mode",
 )
 @click.option("--sample-rate", "-s", default=1000.0, type=float, help="Signal sample rate (Hz)")
+@click.option(
+    "--reference",
+    "-r",
+    help=(
+        "Known-good recording(s) (CSV/JSON/NPY; one recording per row) to score the input "
+        "against. Without it the input is scored against its own spectrum, which cannot "
+        "show a fault."
+    ),
+)
 def physics_spectral(
-    input: str, output: str, threshold: float, mode: str, sample_rate: float
+    input: str,
+    output: str,
+    threshold: float,
+    mode: str,
+    sample_rate: float,
+    reference: str | None,
 ) -> None:
     """Spectral vibration analysis using GNN and CNN.
 
@@ -943,15 +957,24 @@ def physics_spectral(
     physics-inspired techniques including phonon interaction modeling,
     harmonic analysis, and predictive maintenance signatures.
 
+    The anomaly verdict compares the input with a baseline of normal
+    behaviour: pass a known-good recording (or several, one per row) with
+    ``--reference``. With no reference the input is fitted on and scored
+    against itself, so its verdict is not meaningful and the output says so;
+    the descriptors (dominant frequencies, spectral entropy, harmonic
+    distortion, signature) are the input's own either way.
+
     Examples:
-        mercury physics spectral -i vibration_data.csv
-        mercury physics spectral -i sensor.json -m phonon -t 0.6
-        mercury physics spectral -i machine.csv -m predictive -o results.json
+        mercury physics spectral -i machine.csv --reference healthy.csv
+        mercury physics spectral -i sensor.json -r healthy.json -m phonon -t 0.6
+        mercury physics spectral -i machine.csv -r healthy.csv -o results.json
     """
     try:
         from omni_mercury_engine.detectors.spectral_vibration import (
             SpectralAnalysisMode,
             SpectralVibrationDetector,
+            spectral_entropy,
+            total_harmonic_distortion,
         )
 
         # Map mode string to enum
@@ -971,24 +994,38 @@ def physics_spectral(
 
         detector = SpectralVibrationDetector(config)
         data = _load_data(input)
+        signal = data.flatten() if data.ndim > 1 else data
 
-        # Fit on the data (self-supervised for single-sample analysis)
-        detector.fit(data.flatten() if data.ndim > 1 else data)
+        if reference is not None:
+            # A baseline of known-good recordings: a CSV's rows are separate
+            # recordings (so the spread comes from between them), a flat
+            # series is one.
+            detector.fit(_load_data(reference))
+            baseline = "reference"
+        else:
+            detector.fit(signal)
+            baseline = "input_itself"
 
-        # Detect anomalies
-        result = detector.detect(data.flatten() if data.ndim > 1 else data)
+        result = detector.detect(signal)
 
-        # Format output
+        power_spectrum = result["spectral_features"].power_spectrum
         output_data = {
             "detector": "SpectralVibrationDetector",
             "mode": mode,
+            "baseline": baseline,
             "is_anomaly": result.get("is_anomaly", False),
             "anomaly_score": float(result.get("anomaly_score", 0.0)),
             "dominant_frequencies": result.get("dominant_frequencies", []),
-            "spectral_entropy": result.get("spectral_entropy", 0.0),
-            "harmonic_distortion": result.get("harmonic_distortion", 0.0),
-            "vibration_signature": result.get("vibration_signature", "unknown"),
+            "spectral_entropy": spectral_entropy(power_spectrum),
+            "harmonic_distortion": total_harmonic_distortion(power_spectrum),
+            "vibration_signature": result["signature_type"],
         }
+        if baseline == "input_itself":
+            output_data["warning"] = (
+                "no --reference given: the input was scored against its own spectrum, so "
+                "is_anomaly and anomaly_score do not measure a fault; pass --reference "
+                "with a known-good recording"
+            )
 
         if output:
             with open(output, "w") as f:
@@ -1840,6 +1877,16 @@ def intel_cascade() -> None:
         "(0 disables). Matches the engine deployment's metrics container port."
     ),
 )
+@click.option(
+    "--detector",
+    default=os.environ.get("MERCURY_STREAM_DETECTOR", "policy"),
+    type=click.Choice(["policy", "zscore"]),
+    help=(
+        "Alarm rule. 'policy' (default): the learned alarm policy (PPO on NAB; "
+        "benchmarks/streaming_alarm_policy_results.json). 'zscore': a fixed "
+        "3-sigma EMA z-score rule."
+    ),
+)
 def stream(
     input_topic: str,
     output_topic: str,
@@ -1847,6 +1894,7 @@ def stream(
     backend: str,
     stats_interval: float,
     metrics_port: int,
+    detector: str,
 ) -> None:
     r"""Run a streaming anomaly-detection worker (consume -> detect -> publish).
 
@@ -1989,6 +2037,8 @@ def stream(
             config=config,
             group_id=consumer_group,
         )
+        if detector == "zscore":
+            pipeline.detector = pipeline.zscore_detector
         metrics_server = _start_metrics_server(pipeline)
 
         stop = asyncio.Event()
@@ -2316,11 +2366,27 @@ def _require_env_path(name: str, purpose: str) -> str:
     return value
 
 
+_Closable = TypeVar("_Closable")
+
+
+def _scoped(resource: _Closable) -> _Closable:
+    """Close ``resource`` (a store or enforcer) when the running command ends.
+
+    The platform commands open SQLite-backed stores; without this each
+    command left its connections open until the interpreter exited, which
+    leaks them in any in-process caller (the maintenance runner, tests).
+    """
+    close = getattr(resource, "close", None)
+    if callable(close):
+        click.get_current_context().call_on_close(close)
+    return resource
+
+
 def _resolve_account(identifier: str) -> Any:
     """Resolve an account by email (preferred) or id, or exit 1."""
     from omni_mercury_engine.api.identity_store import build_identity_store
 
-    store = build_identity_store()
+    store = _scoped(build_identity_store())
     account = store.get_account_by_email(identifier) or store.get_account_by_id(identifier)
     if account is None:
         click.echo(f"Error: no account matches {identifier!r} (by email or id).", err=True)
@@ -2345,7 +2411,7 @@ def _effective_quota(account: Any) -> dict[str, Any]:
     """The account's resolved quota config (override > tier > default)."""
     from omni_mercury_engine.api.quota import build_quota_enforcer
 
-    config = build_quota_enforcer().config_for(account.id, account.tier)
+    config = _scoped(build_quota_enforcer()).config_for(account.id, account.tier)
     return {
         "window_seconds": config.window_seconds,
         "max_requests": config.max_requests,
@@ -2375,7 +2441,9 @@ def platform_account_list() -> None:
     _require_env_path("MERCURY_KEYSTORE_PATH", "accounts live in the shared SQLite store")
     from omni_mercury_engine.api.identity_store import build_identity_store
 
-    accounts = [_account_view(account) for account in build_identity_store().iter_accounts()]
+    accounts = [
+        _account_view(account) for account in _scoped(build_identity_store()).iter_accounts()
+    ]
     click.echo(json.dumps(accounts, indent=2))
 
 
@@ -2394,7 +2462,7 @@ def platform_account_set_tier(identifier: str, tier: str) -> None:
 
     account = _resolve_account(identifier)
     account.tier = tier.strip().lower()
-    build_identity_store().update_account(account)
+    _scoped(build_identity_store()).update_account(account)
     payload = _account_view(account)
     payload["effective_quota"] = _effective_quota(account)
     click.echo(json.dumps(payload, indent=2))
@@ -2405,7 +2473,7 @@ def _set_account_active(identifier: str, active: bool) -> None:
     _require_env_path("MERCURY_KEYSTORE_PATH", "accounts live in the shared SQLite store")
     from omni_mercury_engine.api.identity_store import build_identity_store
 
-    store = build_identity_store()
+    store = _scoped(build_identity_store())
     account = _resolve_account(identifier)
     account.is_active = active
     store.update_account(account)
@@ -2463,7 +2531,7 @@ def platform_quota_override_set(
     from omni_mercury_engine.api.quota import QuotaConfig, build_quota_enforcer
 
     account = _resolve_account(identifier)
-    enforcer = build_quota_enforcer()
+    enforcer = _scoped(build_quota_enforcer())
     config = QuotaConfig(
         window_seconds=(
             window_seconds if window_seconds is not None else QuotaConfig.from_env().window_seconds
@@ -2485,7 +2553,7 @@ def platform_quota_override_clear(identifier: str) -> None:
     from omni_mercury_engine.api.quota import build_quota_enforcer
 
     account = _resolve_account(identifier)
-    build_quota_enforcer().override_store.set_override(account.id, None)
+    _scoped(build_quota_enforcer()).override_store.set_override(account.id, None)
     payload = _account_view(account)
     payload["effective_quota"] = _effective_quota(account)
     click.echo(json.dumps(payload, indent=2))
@@ -2499,7 +2567,7 @@ def platform_quota_override_show(identifier: str) -> None:
     from omni_mercury_engine.api.quota import build_quota_enforcer
 
     account = _resolve_account(identifier)
-    override = build_quota_enforcer().override_store.get_override(account.id)
+    override = _scoped(build_quota_enforcer()).override_store.get_override(account.id)
     payload = _account_view(account)
     payload["override"] = (
         {
@@ -2543,7 +2611,7 @@ def platform_usage_report(identifier: str | None, top_n: int, window_seconds: in
 
     window = window_seconds if window_seconds is not None else QuotaConfig.from_env().window_seconds
     since = datetime.now(UTC) - timedelta(seconds=window)
-    ledger = build_usage_ledger()
+    ledger = _scoped(build_usage_ledger())
 
     def _row(account: Any) -> dict[str, Any]:
         summary = ledger.summary_since(account.id, since)
@@ -2559,7 +2627,7 @@ def platform_usage_report(identifier: str | None, top_n: int, window_seconds: in
         rows = [_row(_resolve_account(identifier))]
     else:
         rows = sorted(
-            (_row(account) for account in build_identity_store().iter_accounts()),
+            (_row(account) for account in _scoped(build_identity_store()).iter_accounts()),
             key=lambda row: (-int(row["requests"]), str(row["email"])),
         )[:top_n]
     click.echo(json.dumps({"window_seconds": window, "accounts": rows}, indent=2))

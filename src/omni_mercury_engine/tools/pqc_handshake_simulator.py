@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: drive a full ML-KEM-1024 encap/decap + ML-DSA-65 sign/verify cycle through the AMA native PQC backend and emit a latency certificate.
 
 Pair-claims the result with :mod:`pqc_capability_probe` so a silent

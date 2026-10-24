@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for Geological Disaster Detectors (Tornado, Hurricane, Flood)."""
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ pytest.importorskip("torch")
 import numpy as np
 import pytest
 
+from omni_mercury_engine.core.exceptions import InvalidObservationError
 from omni_mercury_engine.detectors.geological.flood_detector import (
     FloodDetector,
     FloodPredictionResult,
@@ -168,11 +169,9 @@ class TestTornadoDetector:
         assert result.confidence <= 1.0
 
     def test_empty_data_handling(self, detector: Any) -> None:
-        """Test handling of empty data."""
-        result = detector.predict_tornado({})
-
-        assert isinstance(result, TornadoPredictionResult)
-        assert result.tornado_likely is False
+        """An empty record is refused: it used to grade as a silent "none" threat."""
+        with pytest.raises(InvalidObservationError, match="nothing usable"):
+            detector.predict_tornado({})
 
 
 class TestSaffirSimpsonCategoryEnum:
@@ -311,11 +310,9 @@ class TestHurricaneDetector:
         assert result.confidence <= 1.0
 
     def test_empty_data_handling(self, detector: Any) -> None:
-        """Test handling of empty data."""
-        result = detector.predict_hurricane({})
-
-        assert isinstance(result, HurricanePredictionResult)
-        assert result.cyclone_detected is False
+        """An empty record is refused: it used to grade as a silent "no_cyclone"."""
+        with pytest.raises(InvalidObservationError, match="nothing usable"):
+            detector.predict_hurricane({})
 
     def test_saffir_simpson_classification(self, detector: Any) -> None:
         """NHC Saffir-Simpson boundaries in knots, both sides of each boundary.
@@ -494,11 +491,9 @@ class TestFloodDetector:
         assert result.confidence <= 1.0
 
     def test_empty_data_handling(self, detector: Any) -> None:
-        """Test handling of empty data."""
-        result = detector.predict_flood({})
-
-        assert isinstance(result, FloodPredictionResult)
-        assert result.flood_likely is False
+        """An empty record is refused: it used to grade as a silent "no_flood"."""
+        with pytest.raises(InvalidObservationError, match="nothing usable"):
+            detector.predict_flood({})
 
 
 class TestCrossDomainFusion:
@@ -567,19 +562,15 @@ class TestDetectorIntegration:
         assert hurricane is not None
         assert flood is not None
 
-    def test_all_detectors_predict_empty(self) -> None:
-        """Test that all detectors handle empty data gracefully."""
-        tornado = TornadoDetector()
-        hurricane = HurricaneDetector()
-        flood = FloodDetector()
-
-        tornado_result = tornado.predict_tornado({})
-        hurricane_result = hurricane.predict_hurricane({})
-        flood_result = flood.predict_flood({})
-
-        assert tornado_result.tornado_likely is False
-        assert hurricane_result.cyclone_detected is False
-        assert flood_result.flood_likely is False
+    def test_all_detectors_refuse_an_empty_record(self) -> None:
+        """An empty record carries nothing usable; it used to grade as an all-clear."""
+        for predict in (
+            TornadoDetector().predict_tornado,
+            HurricaneDetector().predict_hurricane,
+            FloodDetector().predict_flood,
+        ):
+            with pytest.raises(InvalidObservationError, match="nothing usable"):
+                predict({})
 
     def test_detector_confidence_bounds(self) -> None:
         """Test that all detector confidences are within [0, 1]."""
@@ -588,9 +579,9 @@ class TestDetectorIntegration:
         flood = FloodDetector()
 
         for _ in range(10):
-            tornado_result = tornado.predict_tornado({})
-            hurricane_result = hurricane.predict_hurricane({})
-            flood_result = flood.predict_flood({})
+            tornado_result = tornado.predict_tornado({"atmospheric_data": {"cape_j_kg": 1500.0}})
+            hurricane_result = hurricane.predict_hurricane({"sst_data": {"sst_celsius": 28.0}})
+            flood_result = flood.predict_flood({"precip_data": {"precipitation_1h_inches": 0.5}})
 
             assert 0.0 <= tornado_result.confidence <= 1.0
             assert 0.0 <= hurricane_result.confidence <= 1.0

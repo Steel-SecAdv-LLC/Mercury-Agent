@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: re-sign ``sigma_immutable_corpus.json`` atomically.
 
 When operators rotate the σ_Immutable corpus (new positive/negative

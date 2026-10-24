@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Held-out synthetic benchmark of the visual anomaly analyser, with exact ground truth.
 
 Real benchmarks (``mvtec_visual_benchmark.py``) measure detection on real

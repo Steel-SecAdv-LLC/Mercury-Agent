@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Per-image latency of the visual anomaly analyser on MVTec AD textures.
 
 For each texture category the analyser is fitted on 60 defect-free training

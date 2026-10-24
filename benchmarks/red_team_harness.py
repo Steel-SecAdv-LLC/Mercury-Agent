@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CI entry point for the adversarial co-training red-team harness.
 
 Runs :func:`omni_mercury_engine.intel.red_team.run_red_team` against the shipped

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for STEAM Alert & Anomaly Detection Data Sources.
 
 This test suite covers:
@@ -924,6 +924,69 @@ class TestEPAAirNowSource:
         assert source._get_aqi_category(75) == "Moderate"
         assert source._get_aqi_category(125) == "Unhealthy for Sensitive Groups"
         assert source._get_aqi_category(175) == "Unhealthy"
+
+    def test_aqi_above_500_is_hazardous(self) -> None:
+        """EPA extends the top segment past 500; it read as 'Unknown'."""
+        source = EPAAirNowSource(api_key="test")
+        assert source._get_aqi_category(593) == "Hazardous"
+        assert source._get_aqi_category(-1) == "Unknown"
+
+    @pytest.mark.asyncio
+    async def test_observation_without_aqi_is_not_good_air(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A missing or negative AQI became AQI 0: 'Good', no alert."""
+
+        class _Response:
+            def json(self) -> list[dict[str, Any]]:
+                base = {
+                    "ParameterName": "PM2.5",
+                    "ReportingArea": "Area",
+                    "DateObserved": "2024-09-09",
+                    "HourObserved": 10,
+                }
+                return [
+                    {**base, "AQI": 168, "Latitude": 34.05, "Longitude": -118.25},
+                    {**base, "ParameterName": "O3"},
+                    {**base, "ParameterName": "PM10", "AQI": -1},
+                ]
+
+        source = EPAAirNowSource(api_key="test", zip_code="90012")
+
+        async def fake_get(endpoint: str, params: dict[str, Any] | None = None) -> _Response:
+            return _Response()
+
+        monkeypatch.setattr(source, "_http_get", fake_get)
+        points = await source._fetch_impl()
+        assert [p.data["aqi"] for p in points] == [168]
+        assert points[0].alert_level == AlertLevel.STRONG
+
+    @pytest.mark.asyncio
+    async def test_unknown_location_is_none_not_null_island(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A ZIP query whose observation carries no coordinates was placed at (0, 0)."""
+
+        class _Response:
+            def json(self) -> list[dict[str, Any]]:
+                return [
+                    {
+                        "AQI": 42,
+                        "ParameterName": "PM2.5",
+                        "ReportingArea": "Area",
+                        "DateObserved": "2024-09-09",
+                        "HourObserved": 10,
+                    }
+                ]
+
+        source = EPAAirNowSource(api_key="test", zip_code="90012")
+
+        async def fake_get(endpoint: str, params: dict[str, Any] | None = None) -> _Response:
+            return _Response()
+
+        monkeypatch.setattr(source, "_http_get", fake_get)
+        (point,) = await source._fetch_impl()
+        assert point.location is None
 
 
 # =============================================================================

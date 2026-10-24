@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """LLM Adapter for Zero-Shot Anomaly Detection.
 
 Provides integration with Large Language Models for:
@@ -24,6 +24,7 @@ from urllib.parse import urlparse
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.models.foundation.llm_usage import LLMUsage, UsageLedger
 from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
 
@@ -830,6 +831,15 @@ class TextLogAnomalyDetector:
     Uses LLM understanding of log patterns, error messages, and text semantics for anomaly
     detection.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "The verdict is a configured LLM provider's zero-shot judgement of the entry against "
+            "the format and known-pattern hints. It is provider- and prompt-dependent and carries "
+            "no recorded false-alarm rate on any labelled log corpus."
+        ),
+    )
 
     def __init__(
         self,

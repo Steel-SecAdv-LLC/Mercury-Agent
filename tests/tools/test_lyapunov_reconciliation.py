@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Cross-component Lyapunov λ reconciliation tests.
 
 The canonical λ for the Mercury Agent fusion-trajectory stability proof

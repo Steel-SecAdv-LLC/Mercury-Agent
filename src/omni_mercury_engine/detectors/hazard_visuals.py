@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Render hazard detector diagnostics into artifacts (PNG / GeoJSON).
 
 Pure functions over :class:`~omni_mercury_engine.detectors.hazard_diagnostics.HazardDiagnostics`

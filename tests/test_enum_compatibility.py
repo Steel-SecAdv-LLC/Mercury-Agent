@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration tests for cross-repo enum compatibility.
 
 Verifies that Mercury Agent's posture enums and their scalar mappings agree

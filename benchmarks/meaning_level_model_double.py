@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Validated served-model test double for the meaning-level CI lane.
 
 The meaning-level routing rescue only activates when a *real* reasoning model

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the earthquake_precursor catalog-based training pipeline.
 
 The binding spec is ``docs/research/EARTHQUAKE_PRECURSOR_LITERATURE_REVIEW.md``:

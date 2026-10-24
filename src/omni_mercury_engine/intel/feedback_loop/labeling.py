@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Turn audit events and human overrides into human-verified labeled examples.
 
 The closed loop only ever learns from labels a human stands behind. This module

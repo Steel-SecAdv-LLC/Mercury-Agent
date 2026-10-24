@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Item E: certificates are threaded through return values, not engine state.
 
 The engine used to stash ``self._last_detector_certificates`` during
@@ -53,9 +53,9 @@ def test_interleaved_extract_does_not_cross_contaminate_certificates() -> None:
     b = rng.normal(4.0, 1.0, size=(24, 4))  # far off-manifold -> different prices
 
     # Interleave A, B, A.  Each call must return its OWN certificate.
-    _, _, cert_a1 = engine._extract_detector_features(a)
-    _, _, cert_b = engine._extract_detector_features(b)
-    _, _, cert_a2 = engine._extract_detector_features(a)
+    _, _, cert_a1, _ = engine._extract_detector_features(a)
+    _, _, cert_b, _ = engine._extract_detector_features(b)
+    _, _, cert_a2, _ = engine._extract_detector_features(a)
 
     assert set(cert_a1) == {"statistical"} == set(cert_b)
     price_a = np.asarray(cert_a1["statistical"]["price"], dtype=float)

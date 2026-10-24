@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: pre-commit hook that refuses to commit ``configs/*.yaml`` (or any operator-supplied path) whose values match the :mod:`secret_scan_baseline` heuristics.
 
 This is the *config-tree* sibling of :mod:`secret_scan_baseline` —

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Normalised evidence extracted from a detection result.
 
 :class:`Evidence` is the single, typed view the decision layer reasons over.

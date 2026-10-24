@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Echo-State-Network (reservoir-computing) predictive residual detector.
 
 Reservoir computing / Echo State Networks (Jaeger, *The "echo state" approach to
@@ -19,6 +19,7 @@ importable); registered as an opt-in BASE detector.
 
 from __future__ import annotations
 
+from itertools import pairwise
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -30,6 +31,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -49,6 +51,24 @@ class EchoStateDetector(BaseDetector):
     ``[0, 1]``.
     """
 
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Scores are standardised one-step prediction residuals of a ridge "
+            "readout over a fixed spectral-radius-scaled random reservoir, "
+            "squashed by 1 - exp(-s / scale) with the scale anchored at the "
+            "configured quantile (default 0.98) of residuals the readout did "
+            "not train on, pooled over cross-fitting folds; the decision "
+            "threshold is the configured operating point, default 0.5 on the "
+            "normalized score. The ESN is published; the residual "
+            "squash/threshold is the engine's quantile-anchored convention."
+        ),
+        citation=(
+            'Jaeger (2001), \'The "echo state" approach to analysing and '
+            "training recurrent neural networks', GMD Report 148"
+        ),
+    )
+
     def __init__(
         self,
         reservoir_size: int = 100,
@@ -57,6 +77,7 @@ class EchoStateDetector(BaseDetector):
         input_scaling: float = 1.0,
         ridge: float = 1e-4,
         calibration_quantile: float = 0.98,
+        calibration_folds: int = 5,
         seed: int = 0,
         config: dict[str, Any] | None = None,
     ) -> None:
@@ -69,8 +90,12 @@ class EchoStateDetector(BaseDetector):
             leak_rate: Leaky-integrator rate in ``(0, 1]``.
             input_scaling: Scale applied to the input weights. Must be > 0.
             ridge: Tikhonov regularisation for the readout. Must be > 0.
-            calibration_quantile: Training-residual quantile at the 0.5 boundary;
-                ``1 - calibration_quantile`` is the normal-regime FPR. In ``(0, 1)``.
+            calibration_quantile: Out-of-fold residual quantile at the 0.5
+                boundary; ``1 - calibration_quantile`` is the normal-regime
+                FPR *while the normal regime is stationary*. In ``(0, 1)``.
+            calibration_folds: Number of contiguous cross-fitting folds the
+                squash scale is measured over. Must be >= 2; a series too
+                short to fold falls back to the in-sample residuals.
             seed: RNG seed for the fixed reservoir (determinism).
             config: Optional ``BaseDetector`` config (``threshold`` ...).
 
@@ -88,12 +113,15 @@ class EchoStateDetector(BaseDetector):
             raise ValueError("input_scaling and ridge must be > 0")
         if not 0.0 < calibration_quantile < 1.0:
             raise ValueError(f"calibration_quantile must be in (0, 1), got {calibration_quantile}")
+        if calibration_folds < 2:
+            raise ValueError(f"calibration_folds must be >= 2, got {calibration_folds}")
         self.reservoir_size = int(reservoir_size)
         self.spectral_radius = float(spectral_radius)
         self.leak_rate = float(leak_rate)
         self.input_scaling = float(input_scaling)
         self.ridge = float(ridge)
         self.calibration_quantile = float(calibration_quantile)
+        self.calibration_folds = int(calibration_folds)
         self.seed = int(seed)
         self._w_res: np.ndarray[Any, Any] | None = None
         self._w_in: np.ndarray[Any, Any] | None = None
@@ -165,7 +193,21 @@ class EchoStateDetector(BaseDetector):
         return out
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> EchoStateDetector:
-        """Build the reservoir and train the ridge readout + squash scale.
+        """Build the reservoir, train the ridge readout, cross-fit the squash scale.
+
+        The readout is trained on the whole series, so ranking uses every
+        sample available.  The squash scale -- which decides where score 0.5,
+        the alarm boundary, sits -- is measured on *out-of-fold* residuals
+        instead: a ``reservoir_size + 1``-parameter ridge readout fitted to a
+        few hundred samples reproduces its own training data far better than
+        anything it has not seen, so an in-sample quantile understates the
+        normal-regime residual and the detector alarms on ordinary data.
+        Measured on the four recorded NAB files, whose probationary periods
+        are 169 to 282 samples against 101 readout parameters: the in-sample
+        98th-percentile residual was 2.5 to 16.6 times smaller than the
+        held-out one, the squash scale came out 0.56-2.23 where cross-fitting
+        gives 4.83-9.00, and the realised false-alarm rate on normal points
+        was 0.32-0.79 against the 0.02 this quantile is documented to deliver.
 
         Args:
             data: Training series (flattened to 1-D), predominantly normal.
@@ -188,12 +230,56 @@ class EchoStateDetector(BaseDetector):
             d = x_train.shape[1]
             gram = x_train.T @ x_train + self.ridge * np.eye(d)
             self._w_out = np.linalg.solve(gram, x_train.T @ y_train)
+            self._scale = self._squash_scale(self._out_of_fold_residuals(x_train, y_train, d))
         else:
             self._w_out = np.zeros((self.reservoir_size + 1,), dtype=np.float64)
-        raw = self._residuals(series)
-        self._scale = self._squash_scale(raw)
+            self._scale = self._squash_scale(self._residuals(series))
         self._is_fitted = True
         return self
+
+    def _out_of_fold_residuals(
+        self,
+        x_train: np.ndarray[Any, Any],
+        y_train: np.ndarray[Any, Any],
+        n_parameters: int,
+    ) -> np.ndarray[Any, Any]:
+        """Pool the residuals of readouts that never saw the samples they score.
+
+        ``calibration_folds`` contiguous blocks; for each, a readout is fitted
+        on the other blocks and used to score that one.  The reservoir states
+        are computed once over the whole series and are independent of the
+        readout, so folding the *readout* alone is sound.  A series too short
+        to leave a fold's complement larger than half the parameter count
+        falls back to the in-sample residuals, which is the behaviour before
+        cross-fitting and still better than no scale at all.
+
+        Args:
+            x_train: ``(n, n_parameters)`` augmented reservoir states.
+            y_train: ``(n,)`` normalised next-sample targets.
+            n_parameters: Readout parameter count (``x_train.shape[1]``).
+
+        Returns:
+            The pooled absolute out-of-fold residuals, or the in-sample ones
+            when no fold could be held out.
+        """
+        n = x_train.shape[0]
+        eye = self.ridge * np.eye(n_parameters)
+        edges = np.linspace(0, n, self.calibration_folds + 1).astype(int)
+        pooled: list[np.ndarray[Any, Any]] = []
+        for first, last in pairwise(edges):
+            if last - first < 1:
+                continue
+            kept = np.ones(n, dtype=bool)
+            kept[first:last] = False
+            if int(kept.sum()) < n_parameters // 2:
+                continue
+            x_kept, y_kept = x_train[kept], y_train[kept]
+            w = np.linalg.solve(x_kept.T @ x_kept + eye, x_kept.T @ y_kept)
+            pooled.append(np.abs(y_train[first:last] - x_train[first:last] @ w))
+        if not pooled:
+            assert self._w_out is not None
+            return np.abs(y_train - x_train @ self._w_out)
+        return np.concatenate(pooled)
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion feature: the standardised readout residual.

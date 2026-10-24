@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Behavioral tests for the enhanced geological detectors (3R integration).
 
 Covers, with exact value/boundary pins so the module mutation floor has teeth:
@@ -45,7 +45,7 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
 
 
 class TestRainfallTriggerModel:
-    """Intensity-duration threshold (I*sqrt(D) vs 10*sqrt(6)) and severity ladder."""
+    """Published ID threshold (Guzzetti et al. 2008 minimum, Caine 1980 envelope)."""
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -54,45 +54,130 @@ class TestRainfallTriggerModel:
 
         return RainfallTriggerModel()
 
-    def test_trigger_boundary_is_strict(self, model: Any) -> None:
-        # At exactly the critical intensity-duration product the trigger is OFF.
-        at = model.assess_rainfall_trigger({"intensity_mm_hr": 10.0, "duration_hours": 6.0})
-        assert at["rainfall_trigger"] is False
-        over = model.assess_rainfall_trigger({"intensity_mm_hr": 10.1, "duration_hours": 6.0})
-        assert over["rainfall_trigger"] is True
-
-    def test_probability_scales_with_id_ratio(self, model: Any) -> None:
-        half = model.assess_rainfall_trigger({"intensity_mm_hr": 5.0, "duration_hours": 6.0})
-        assert half["trigger_probability"] == pytest.approx(0.5)
-        assert half["id_threshold"] == pytest.approx(5.0 * 6.0**0.5)
-
-    def test_antecedent_rain_boosts_probability(self, model: Any) -> None:
-        boosted = model.assess_rainfall_trigger(
-            {"intensity_mm_hr": 5.0, "duration_hours": 6.0, "antecedent_7day_mm": 50.0}
+    def test_trigger_bar_is_the_guzzetti_2008_global_minimum(self, model: Any) -> None:
+        # I_crit(6 h) = 2.20 * 6**-0.44 = 1.0032 mm/h (Guzzetti et al. 2008,
+        # as tabulated in Brunetti et al. 2010, NHESS 10:447-458, Table 1).
+        critical = 2.20 * 6.0**-0.44
+        under = model.assess_rainfall_trigger(
+            {"intensity_mm_hr": critical * 0.99, "duration_hours": 6.0}
         )
-        assert boosted["trigger_probability"] == pytest.approx(0.75)
+        assert under["rainfall_trigger"] is False
+        at = model.assess_rainfall_trigger({"intensity_mm_hr": critical, "duration_hours": 6.0})
+        assert at["rainfall_trigger"] is True
+        assert at["trigger_probability"] == pytest.approx(0.5)
+        assert at["conditions"][0]["critical_intensity_mm_hr"] == pytest.approx(critical)
 
-    def test_probability_caps_at_one(self, model: Any) -> None:
-        capped = model.assess_rainfall_trigger(
-            {"intensity_mm_hr": 5.0, "duration_hours": 6.0, "antecedent_7day_mm": 200.0}
+    def test_probability_scales_below_the_minimum(self, model: Any) -> None:
+        critical = 2.20 * 6.0**-0.44
+        half = model.assess_rainfall_trigger(
+            {"intensity_mm_hr": critical / 2.0, "duration_hours": 6.0}
         )
-        assert capped["trigger_probability"] == pytest.approx(1.0)
+        assert half["rainfall_trigger"] is False
+        assert half["trigger_probability"] == pytest.approx(0.25)
+        assert half["id_threshold"] == pytest.approx((critical / 2.0) * 6.0**0.5)
+
+    def test_probability_saturates_at_the_caine_envelope(self, model: Any) -> None:
+        # At or above Caine's (1980) envelope I = 14.82 * D**-0.39 the
+        # severity scale tops out at 1.0.
+        envelope = 14.82 * 6.0**-0.39
+        at = model.assess_rainfall_trigger({"intensity_mm_hr": envelope, "duration_hours": 6.0})
+        assert at["trigger_probability"] == pytest.approx(1.0)
+        above = model.assess_rainfall_trigger(
+            {"intensity_mm_hr": envelope * 3.0, "duration_hours": 6.0}
+        )
+        assert above["trigger_probability"] == pytest.approx(1.0)
+
+    def test_antecedent_week_is_its_own_rainfall_condition(self, model: Any) -> None:
+        # 454 mm over the prior 7 days (the Jodupala antecedent) exceeds the
+        # published minimum at D = 168 h (0.231 mm/h) on its own, with no
+        # event rainfall supplied at all.
+        result = model.assess_rainfall_trigger({"antecedent_7day_mm": 454.0})
+        assert result["rainfall_trigger"] is True
+        windows = {c["window"]: c for c in result["conditions"]}
+        assert windows["antecedent_7day"]["triggered"] is True
+        assert windows["antecedent_7day"]["critical_intensity_mm_hr"] == pytest.approx(
+            2.20 * 168.0**-0.44
+        )
+
+    def test_duration_is_clamped_to_published_validity(self, model: Any) -> None:
+        # Below D = 0.1 h the curve is undefined; the critical intensity is
+        # held at its 0.1 h value rather than extrapolated upward.
+        result = model.assess_rainfall_trigger({"intensity_mm_hr": 100.0, "duration_hours": 0.01})
+        assert result["conditions"][0]["critical_intensity_mm_hr"] == pytest.approx(
+            2.20 * 0.1**-0.44
+        )
 
     @pytest.mark.parametrize(
-        ("intensity", "severity"),
-        [(8.5, "extreme"), (7.0, "high"), (5.0, "moderate"), (3.0, "low")],
+        ("probability_band", "intensity_factor", "severity"),
+        [
+            ("above envelope", 10.0, "extreme"),
+            ("between curves", 2.0, "high"),
+            ("at minimum", 1.0, "moderate"),
+            ("below minimum", 0.5, "low"),
+        ],
     )
-    def test_severity_ladder(self, model: Any, intensity: float, severity: str) -> None:
+    def test_severity_ladder(
+        self, model: Any, probability_band: str, intensity_factor: float, severity: str
+    ) -> None:
+        critical = 2.20 * 6.0**-0.44
         result = model.assess_rainfall_trigger(
-            {"intensity_mm_hr": intensity, "duration_hours": 6.0}
+            {"intensity_mm_hr": critical * intensity_factor, "duration_hours": 6.0}
         )
-        assert result["severity"] == severity
+        assert result["severity"] == severity, probability_band
 
     def test_no_rain_is_low_and_untriggered(self, model: Any) -> None:
         result = model.assess_rainfall_trigger({})
         assert result["rainfall_trigger"] is False
         assert result["trigger_probability"] == 0.0
         assert result["severity"] == "low"
+        assert result["conditions"] == []
+
+    def test_decision_source_is_published_with_citation(self, model: Any) -> None:
+        source = model.decision_source
+        assert source.kind == "published"
+        assert "10.1007/s10346-007-0112-1" in source.citation
+
+    def test_jodupala_2018_regression(self, model: Any) -> None:
+        """The 2018-08-17 Jodupala (Kerala) landslide day must trigger.
+
+        CHIRPS recorded 31.5 mm that day (1.314 mm/h over 24 h) after
+        454.2 mm in the prior 7 days.  The retired unsourced rule
+        (I*sqrt(D) > 10*sqrt(6)) read 6.44 against a bar of 24.49 and
+        stayed off; the published minimum (0.543 mm/h at 24 h) fires.
+        """
+        import datetime as dt
+        from pathlib import Path
+
+        fixture = (
+            Path(__file__).resolve().parents[1]
+            / "fixtures"
+            / "hazard_training"
+            / "landslide"
+            / "chirps_cell_fixture.npz"
+        )
+        z = np.load(fixture)
+        day = dt.date(2018, 8, 17)
+        i = int(np.flatnonzero(z["era2018_dates"] == day.toordinal())[0])
+        daily_mm = float(z["era2018_mm"][i])
+        antecedent_mm = float(z["era2018_mm"][i - 7 : i].sum())
+        assert daily_mm == pytest.approx(31.5, abs=0.1)
+        assert antecedent_mm == pytest.approx(454.2, abs=0.5)
+
+        # The retired rule stayed off on this record (the defect).
+        assert (daily_mm / 24.0) * (24.0**0.5) < 10.0 * 6.0**0.5
+
+        result = model.assess_rainfall_trigger(
+            {
+                "intensity_mm_hr": daily_mm / 24.0,
+                "duration_hours": 24.0,
+                "antecedent_7day_mm": antecedent_mm,
+            }
+        )
+        assert result["rainfall_trigger"] is True
+        assert result["severity"] == "extreme"
+        windows = {c["window"]: c for c in result["conditions"]}
+        assert windows["event"]["triggered"] is True
+        assert windows["antecedent_7day"]["triggered"] is True
 
 
 class TestSeismicTriggerModel:
@@ -284,8 +369,14 @@ class TestLandslideDetector:
         )
         assert result.slope_failure_probability == pytest.approx(1.0)
 
-    def test_no_data_is_low_risk_nothing_imputed(self, detector: Any) -> None:
-        result = detector.predict_landslide({})
+    def test_no_data_is_refused_nothing_imputed(self, detector: Any) -> None:
+        """No monitoring data used to grade as "low" risk: an all-clear on nothing."""
+        with pytest.raises(InvalidObservationError, match="no slope measured"):
+            detector.predict_landslide({})
+
+    def test_unmonitored_trigger_is_low_risk_nothing_imputed(self, detector: Any) -> None:
+        """Measured quiet rain on an unmonitored slope: no fabricated warning."""
+        result = detector.predict_landslide({"rainfall_data": {"intensity_mm_hr": 0.0}})
         assert result.slope_failure_probability == 0.0
         assert result.risk_level == "low"
         assert result.landslide_imminent is False
@@ -1745,8 +1836,8 @@ class TestMutationKillPins:
         detector = LandslideDetector(load_shipped_weights=False)
         result = detector.predict_landslide(
             {
-                # trigger probability 0.5 (below-threshold rain)...
-                "rainfall_data": {"intensity_mm_hr": 5.0, "duration_hours": 6.0},
+                # Sub-threshold rain (half the Guzzetti 2008 minimum at 6 h)...
+                "rainfall_data": {"intensity_mm_hr": 0.5, "duration_hours": 6.0},
                 # ...and stability probability 0.8.
                 "sensor_data": {"displacement_rate_mm_day": 40.0},
             }
@@ -2894,8 +2985,11 @@ class TestCheckpointAndIntegrationPins:
         # Without a pixel size there is no ground-area estimate.
         bare = detector.predict_wildfire({"thermal_image": image})
         assert bare.fire_perimeter_km2 is None
-        with pytest.raises(InvalidObservationError):
-            detector.predict_wildfire({"thermal_image": image, "pixel_size_km": 0.0})
+        # A zero pixel size is not a ground resolution: it is set aside and
+        # no area is claimed, while the scene is still graded.
+        zero = detector.predict_wildfire({"thermal_image": image, "pixel_size_km": 0.0})
+        assert zero.fire_perimeter_km2 is None
+        assert zero.partial is True and zero.set_aside[0]["where"] == "pixel_size_km"
 
     def test_interface_moisture_needs_temperature_and_humidity_jointly(self) -> None:
         from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector

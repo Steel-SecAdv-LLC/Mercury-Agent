@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """PyOD integration: a real, executable comparison layer against PyOD baselines.
 
 This module runs actual PyOD detectors (not descriptions of them) so Mercury's

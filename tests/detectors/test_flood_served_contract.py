@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``FloodDetector`` serves, offline and on recorded NWS/NWPS responses.
 
 Each test fails on the detector as it was before: an empty record read as at
@@ -57,11 +57,30 @@ def recorded_alerts() -> dict[str, Any]:
     return payload
 
 
-def test_empty_record_is_no_flood() -> None:
-    result = FloodDetector().predict_flood({})
-    assert result.flood_likely is False
-    assert result.severity == "no_flood"
-    assert result.warning_actions == []
+def test_empty_record_is_refused() -> None:
+    """An empty record used to grade as a silent "no_flood" with no warnings."""
+    with pytest.raises(InvalidObservationError, match="nothing usable"):
+        FloodDetector().predict_flood({})
+
+
+@pytest.mark.parametrize(
+    ("extra", "where"),
+    [
+        ({"precip_data": {"precip_1h": 3.0}}, "precip_data.precip_1h"),  # misspelt: read as 0
+        ({"precip_data": {"ffg_1h_inches": 1.5}}, "precip_data"),  # guidance, no accumulation
+        ({"soil_data": {"soil_moisture_pct": 140.0}}, "soil_data"),
+        ({"radar_data": [1.0]}, "radar_data"),
+    ],
+)
+def test_usable_gauge_is_graded_beside_an_unusable_stream(
+    extra: dict[str, object], where: str
+) -> None:
+    """Regression: one unusable stream refused a gauge measured above flood stage."""
+    record = {"gauge_data": {"current_stage_ft": 18.0, "flood_stage_ft": 15.0}, **extra}
+    result = FloodDetector().predict_flood(record)
+    assert result.flood_likely is True
+    assert result.partial is True
+    assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
 
 
 def test_gauge_needs_its_own_flood_stage() -> None:
@@ -240,3 +259,53 @@ def test_soil_products_are_never_fabricated_from_defaults() -> None:
     assert set(out["missing_inputs"]) == {"soil_moisture_pct", "soil_type"}
     with pytest.raises(InvalidObservationError, match="soil_type"):
         model.analyze_soil_conditions({"soil_moisture_pct": 60.0, "soil_type": "basalt"})
+
+
+class TestPrecipitationFlashFloodGuidance:
+    """Flash-flood gate against per-location NWS Flash Flood Guidance."""
+
+    def _analyzer(self) -> Any:
+        from omni_mercury_engine.detectors.geological.flood_detector import (
+            PrecipitationAnalyzer,
+        )
+
+        return PrecipitationAnalyzer()
+
+    def test_rain_at_or_above_guidance_fires(self) -> None:
+        """1.0 in/h over an 0.8 in/h FFG is flash-flood potential, though the
+        fixed 2.0 in/h screen would have stayed silent."""
+        result = self._analyzer().analyze_precipitation(
+            {"precipitation_1h_inches": 1.0, "ffg_1h_inches": 0.8}
+        )
+        assert result["flash_flood_risk"] is True
+        assert result["flash_flood_basis"] == "nws_flash_flood_guidance"
+
+    def test_rain_below_guidance_holds(self) -> None:
+        """2.2 in/h under a 2.5 in/h FFG is not flash-flood potential, though
+        the fixed screen would have fired."""
+        result = self._analyzer().analyze_precipitation(
+            {"precipitation_1h_inches": 2.2, "ffg_1h_inches": 2.5}
+        )
+        assert result["flash_flood_risk"] is False
+        assert result["flash_flood_basis"] == "nws_flash_flood_guidance"
+
+    def test_longer_window_guidance_is_checked(self) -> None:
+        result = self._analyzer().analyze_precipitation(
+            {
+                "precipitation_1h_inches": 0.4,
+                "precipitation_6h_inches": 3.4,
+                "ffg_6h_inches": 3.0,
+            }
+        )
+        assert result["flash_flood_risk"] is True
+
+    def test_without_guidance_the_fixed_screen_is_labelled(self) -> None:
+        result = self._analyzer().analyze_precipitation({"precipitation_1h_inches": 2.5})
+        assert result["flash_flood_risk"] is True
+        assert result["flash_flood_basis"] == "fixed_screen_unsourced"
+
+    def test_decision_source_declares_both_bases(self) -> None:
+        published, fallback = self._analyzer().decision_source
+        assert published.kind == "published"
+        assert "Flash Flood Guidance" in published.citation
+        assert fallback.kind == "experimental"

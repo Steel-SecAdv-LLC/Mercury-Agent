@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Genetic rule evolution vs the hand-written consensus graph, on held-out test F1.
 
 Protocol (pre-registered; the dataset list below is fixed *before* any

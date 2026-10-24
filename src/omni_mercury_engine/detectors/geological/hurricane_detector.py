@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Hurricane/Cyclone/Typhoon Detector - Tropical Cyclone Monitoring System.
 
 Comprehensive tropical cyclone detection for humanitarian early warning:
@@ -39,17 +39,20 @@ import torch
 from scipy.fft import fft
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.core.three_r_mechanism import (
     RecursionEngine,
     RefactoringEngine,
     ResonanceEngine,
 )
 from omni_mercury_engine.detectors._hazard_input import (
+    InputGrader,
     InvalidObservationError,
     finite_array,
     finite_scalar,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -175,6 +178,93 @@ class HurricanePredictionResult:
     # Central-pressure change over the latest 24 h (hPa, positive = deepening);
     # None unless a sampled history with its interval was supplied.
     pressure_change_24h_mb: float | None = None
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
+
+
+#: The scalar sections ``predict_hurricane`` grades field by field, with the
+#: same unit and bounds their analyzers apply: section -> (scalars, other
+#: accepted keys, key sets that make a measurement).  A section lacking every
+#: such set is set aside -- an absent SST used to be read as 25 degC.
+HURRICANE_SECTIONS: dict[
+    str,
+    tuple[
+        dict[str, tuple[str, float | None, float | None]],
+        frozenset[str],
+        tuple[frozenset[str], ...],
+    ],
+] = {
+    "sst_data": (
+        {
+            "sst_celsius": ("degC", -2.5, 40.0),
+            "climatology_celsius": ("degC", -2.5, 40.0),
+            "depth_26c_m": ("m", 0.0, 1000.0),
+        },
+        frozenset(),
+        (frozenset({"sst_celsius"}),),
+    ),
+    "pressure_data": (
+        {
+            "central_pressure_mb": ("hPa", 850.0, 1050.0),
+            "environmental_pressure_mb": ("hPa", 950.0, 1050.0),
+            "pressure_history_interval_h": ("h", 1e-3, 24.0),
+        },
+        frozenset({"pressure_history_mb"}),
+        (frozenset({"central_pressure_mb"}),),
+    ),
+    "intensity_history": (
+        {"interval_h": ("h", 1e-3, 24.0)},
+        frozenset({"max_wind_kt"}),
+        (frozenset({"max_wind_kt", "interval_h"}),),
+    ),
+}
+
+#: Streams that can move the decision; ``signal_data`` is reported only.
+HURRICANE_DECISION_STREAMS: frozenset[str] = frozenset({*HURRICANE_SECTIONS, "wind_field"})
+
+#: Other top-level keys ``predict_hurricane`` reads.
+HURRICANE_PASS_THROUGH: frozenset[str] = frozenset(
+    {"wind_field", "signal_data", "basin", "metadata", "observed_data"}
+)
+
+
+def grade_cyclone_data(cyclone_data: Any) -> tuple[dict[str, Any], InputGrader]:
+    """Keep every usable section and field; set the rest aside with its reason.
+
+    Raises:
+        InputModalityError: If the record is not a mapping.
+        InvalidObservationError: If no decision stream remains.
+    """
+    if not isinstance(cyclone_data, dict):
+        raise InputModalityError(
+            "predict_hurricane expects a mapping of monitoring streams "
+            f"(sst_data, pressure_data, wind_field, ...), got {type(cyclone_data).__name__}"
+        )
+    grader = InputGrader()
+    record: dict[str, Any] = {}
+    for key, value in cyclone_data.items():
+        if key in HURRICANE_SECTIONS:
+            scalars, others, complete = HURRICANE_SECTIONS[key]
+            section = grader.grade_section(
+                key, value, scalars=scalars, others=others, complete=complete
+            )
+            if section is not None:
+                record[key] = section
+        elif key in HURRICANE_PASS_THROUGH:
+            record[key] = value
+        else:
+            accepted = sorted(HURRICANE_PASS_THROUGH | set(HURRICANE_SECTIONS))
+            grader.discard(key, f"unknown stream; accepted: {accepted}")
+    # An empty record used to grade as a silent "no_cyclone".
+    grader.require_usable(
+        HURRICANE_DECISION_STREAMS & set(record),
+        "no monitoring stream: supply at least one of "
+        f"{sorted(HURRICANE_DECISION_STREAMS)}; an unobserved ocean is not a calm one",
+    )
+    return record, grader
 
 
 class SeaSurfaceTemperatureAnalyzer:
@@ -511,6 +601,58 @@ class HurricaneDetector:
     - RefactoringEngine: Dynamic model optimization and code analysis
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'hurricane_era5' checkpoint (ERA5 10 m wind "
+                "patches labeled with IBTrACS best-track intensities): on "
+                "the learned path the category head's tropical-cyclone "
+                "probability decides detection on its own at its natural "
+                "0.5 point (held-out AUC 0.988-0.995 per the checkpoint "
+                "record)."
+            ),
+            operating_point=(
+                "shipped checkpoint 'hurricane_era5' "
+                "(models/checkpoints/hurricane_era5.pt + provenance "
+                "sidecar); TC probability >= 0.5"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Published physics rules: maximum wind from central "
+                "pressure via V_max(kt) = 6.7*(1010 - P)**0.644; rapid "
+                "deepening at >= 42 hPa in 24 h; rapid intensification at "
+                ">= 30 kt in 24 h; and Saffir-Simpson categorization of a "
+                "detected cyclone by maximum sustained wind in knots."
+            ),
+            citation=(
+                "Atkinson & Holliday (1977) western North Pacific "
+                "wind-pressure relation; Holliday & Thompson (1979) 42 "
+                "hPa/24 h rapid-deepening definition; NHC glossary and "
+                "Kaplan & DeMaria (2003) (>= 30 kt/24 h rapid "
+                "intensification); NHC Saffir-Simpson Hurricane Wind Scale"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The physics-path detection gate is unsourced engineering: "
+                "cyclone_detected fires at indicator count >= 2 (pressure "
+                "deficit > 20 hPa = 2, > 10 hPa = 1, favorable-formation "
+                "SST >= 26.5 degC = 1, SST >= 28 degC = +0.5, closed "
+                "circulation = 1, relative vorticity > 5e-4 /s = 0.5, "
+                "rapid intensification = 1) with confidence = "
+                "indicators/5; these in-code constants (including the SST "
+                "favorability bars, carried without a named source) have "
+                "no published decision-rule citation and no labelled "
+                "calibration."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         enable_sst: bool = True,
@@ -653,20 +795,33 @@ class HurricaneDetector:
                 - metadata: Storm info, timestamps
 
         Returns:
-            Hurricane prediction with category and recommendations
+            Hurricane prediction with category and recommendations.  Unusable
+            pieces (see :data:`HURRICANE_SECTIONS`) are set aside and reported
+            on the result (``partial``, ``set_aside``); the rest is graded.
+
+        Raises:
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: When nothing usable was fed.
         """
+        cyclone_data, grader = grade_cyclone_data(cyclone_data)
         result = HurricanePredictionResult(
             cyclone_detected=False,
             confidence=0.0,
             category="no_cyclone",
             cyclone_type="no_cyclone",
         )
+        assessed: set[str] = set()
 
         indicators_detected: float = 0.0
 
+        sst_result = None
         if self.enable_sst and "sst_data" in cyclone_data:
             assert self.sst_analyzer is not None, "SST analyzer must be initialized"
-            sst_result = self.sst_analyzer.analyze_sst(cyclone_data["sst_data"])
+            sst_result = grader.attempt(
+                "sst_data", self.sst_analyzer.analyze_sst, cyclone_data["sst_data"]
+            )
+        if sst_result is not None:
+            assessed.add("sst_data")
             result.sst_anomaly_c = sst_result["sst_anomaly_c"]
             result.ocean_heat_content = sst_result["ocean_heat_content"]
             if sst_result["favorable_formation"]:
@@ -674,9 +829,16 @@ class HurricaneDetector:
             if sst_result["favorable_intensification"]:
                 indicators_detected += 0.5
 
+        pressure_result = None
         if self.enable_pressure and "pressure_data" in cyclone_data:
             assert self.pressure_tracker is not None, "Pressure tracker must be initialized"
-            pressure_result = self.pressure_tracker.analyze_pressure(cyclone_data["pressure_data"])
+            pressure_result = grader.attempt(
+                "pressure_data",
+                self.pressure_tracker.analyze_pressure,
+                cyclone_data["pressure_data"],
+            )
+        if pressure_result is not None:
+            assessed.add("pressure_data")
             # Without a measured central pressure the result keeps its
             # documented defaults; nothing is served as a measurement.
             if pressure_result["central_pressure_mb"] is not None:
@@ -696,9 +858,14 @@ class HurricaneDetector:
 
         if "intensity_history" in cyclone_data:
             history = cyclone_data["intensity_history"]
-            result.intensification_rate_kt_24h = intensification_rate_kt_24h(
-                history.get("max_wind_kt"), history.get("interval_h")
+            rate = grader.attempt(
+                "intensity_history",
+                lambda h: (intensification_rate_kt_24h(h["max_wind_kt"], h["interval_h"]),),
+                history,
             )
+            if rate is not None:
+                assessed.add("intensity_history")
+                result.intensification_rate_kt_24h = rate[0]
             if (
                 result.intensification_rate_kt_24h is not None
                 and result.intensification_rate_kt_24h >= RAPID_INTENSIFICATION_KT_24H
@@ -708,12 +875,16 @@ class HurricaneDetector:
                 indicators_detected += 1
 
         tc_probability: float | None = None
+        wind_result = None
         if self.enable_wind and "wind_field" in cyclone_data:
             if self._neural_trained:
-                wind_result = self._analyze_wind_field_neural(cyclone_data["wind_field"])
+                analyze_wind = self._analyze_wind_field_neural
             else:
                 self._warn_untrained_once()
-                wind_result = self._analyze_wind_field(cyclone_data["wind_field"])
+                analyze_wind = self._analyze_wind_field
+            wind_result = grader.attempt("wind_field", analyze_wind, cyclone_data["wind_field"])
+        if wind_result is not None:
+            assessed.add("wind_field")
             result.max_relative_vorticity_s1 = wind_result["max_relative_vorticity_s1"]
             result.closed_circulation = wind_result["closed_circulation"]
             # The observed field can only raise the wind estimate, never mask a
@@ -738,12 +909,17 @@ class HurricaneDetector:
         # moved confidence from 0.40 to 0.64.
         if self.enable_resonance and "signal_data" in cyclone_data:
             assert self.resonance_amplifier is not None, "Resonance amplifier must be initialized"
-            resonance_result = self.resonance_amplifier.amplify_signals(cyclone_data["signal_data"])
-            result.resonance_score = resonance_result["resonance_score"]
-            result.frequency_amplification = resonance_result["amplification_factor"]
-            result.harmonic_patterns = resonance_result["harmonic_patterns"]
+            resonance_result = grader.attempt(
+                "signal_data", self.resonance_amplifier.amplify_signals, cyclone_data["signal_data"]
+            )
+            if resonance_result is not None:
+                result.resonance_score = resonance_result["resonance_score"]
+                result.frequency_amplification = resonance_result["amplification_factor"]
+                result.harmonic_patterns = resonance_result["harmonic_patterns"]
 
-        if "signal_data" in cyclone_data:
+        if "signal_data" in cyclone_data and "signal_data" not in {
+            e["where"] for e in grader.set_aside
+        }:
             resonance_anomalies = self.resonance_engine.detect_resonance_anomalies(
                 cyclone_data["signal_data"], threshold_std=2.5
             )
@@ -757,7 +933,15 @@ class HurricaneDetector:
             # The refactoring engine expects callable functions, not string data
             pass
 
-        if self.keep_diagnostics and self.enable_wind and "wind_field" in cyclone_data:
+        # Nothing that decides could be assessed: the verdict would be a
+        # silent "no_cyclone".
+        grader.require_usable(
+            assessed,
+            "no monitoring stream could be assessed: supply at least one of "
+            f"{sorted(HURRICANE_DECISION_STREAMS)}; an unobserved ocean is not a calm one",
+        )
+
+        if self.keep_diagnostics and "wind_field" in assessed:
             # Rebuilds the speed/vorticity fields directly from the caller's own
             # wind field (independent of the detection path above), failing loud
             # on malformed u/v rather than capturing anything imputed.
@@ -796,6 +980,8 @@ class HurricaneDetector:
             f"wind={result.max_wind_speed_kt:.0f}kt, confidence={result.confidence:.2f}"
         )
 
+        result.partial = grader.partial
+        result.set_aside = list(grader.set_aside)
         return result
 
     def _analyze_wind_field(

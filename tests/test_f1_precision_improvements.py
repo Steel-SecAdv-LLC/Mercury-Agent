@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for F1 precision improvement features (Phases 2-9).
 
 Tests cover:
@@ -615,10 +615,7 @@ class TestFullPipelineIntegration:
 
         detector = MercuryAnomalyDetector()
         detector.fit(X_train)
-        # _benchmark_domain is a dynamic attribute read by detect() via getattr;
-        # see detectors/statistical.py:1905. setattr keeps mypy happy and the
-        # B010 noqa records that the dynamic write is intentional.
-        setattr(detector, "_benchmark_domain", "environmental")  # noqa: B010
+        detector._benchmark_domain = "environmental"
         result = detector.detect(X_test)
 
         assert result["scores"].shape == (100,)

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Earth Science & Hazards Data Sources.
 
 Production-grade integrations for:
@@ -22,6 +22,7 @@ API Documentation:
 from __future__ import annotations
 
 import logging
+import math
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
@@ -667,6 +668,10 @@ class NOAACOOPSSource(DataSourceBase):
 
     DEFAULT_BASE_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/"
 
+    #: CO-OPS metadata API (station datums and official NWS/NOS coastal
+    #: flood thresholds), a sibling host path of the datagetter API.
+    MDAPI_BASE_URL = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"
+
     # Sample NOAA tide stations
     SAMPLE_STATIONS: dict[str, tuple[str, float, float]] = {
         "8454000": ("Providence, RI", 41.807, -71.401),
@@ -710,6 +715,79 @@ class NOAACOOPSSource(DataSourceBase):
     def default_source_types(self) -> list[DataSourceType]:
         """Default source types."""
         return [DataSourceType.TIDE]
+
+    def fetch_flood_threshold_m(self, datum: str = "MLLW") -> float:
+        """Fetch this station's official minor coastal-flood threshold.
+
+        Combines the CO-OPS metadata API ``floodlevels`` record (official
+        NWS thresholds, with the NOS-derived value as fallback; station-datum
+        referenced) with the station's published tidal ``datums`` so the
+        threshold is expressed in metres above the requested series datum --
+        the same datum the ``datagetter`` water-level products use.  This is
+        the per-station gate :class:`~omni_mercury_engine.detectors.
+        meteorological.surge_flood_cascade.SurgeFloodCascade` prefers over
+        any flat residual default.
+
+        Args:
+            datum: Series datum to express the threshold against ("MLLW" or
+                any datum name the station publishes, e.g. "MHHW").
+
+        Returns:
+            Minor coastal-flood threshold in metres above ``datum``.
+
+        Raises:
+            DataSourceError: When the station publishes no flood levels or
+                no value for the requested datum, or the result is not a
+                positive finite height.
+        """
+        original_base_url = self.config.base_url
+        self.config.base_url = self.MDAPI_BASE_URL
+        try:
+            levels = self._http_get_sync(
+                f"stations/{self._station_id}/floodlevels.json",
+                params={"units": "metric"},
+            ).json()
+            datums_payload = self._http_get_sync(
+                f"stations/{self._station_id}/datums.json",
+                params={"units": "metric"},
+            ).json()
+        finally:
+            self.config.base_url = original_base_url
+
+        minor = levels.get("nws_minor")
+        basis = "nws_minor"
+        if minor is None:
+            minor = levels.get("nos_minor")
+            basis = "nos_minor"
+        if minor is None:
+            raise DataSourceError(
+                f"station {self._station_id} publishes no minor coastal-flood "
+                "threshold (neither nws_minor nor nos_minor)",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        reference = None
+        for record in datums_payload.get("datums", []) or []:
+            if isinstance(record, dict) and record.get("name") == datum.upper():
+                reference = record.get("value")
+                break
+        if reference is None:
+            raise DataSourceError(
+                f"station {self._station_id} publishes no {datum.upper()} datum; "
+                "cannot express the flood threshold against the series datum",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        threshold = float(minor) - float(reference)
+        if not math.isfinite(threshold) or threshold <= 0.0:
+            raise DataSourceError(
+                f"station {self._station_id} {basis} ({minor}) minus "
+                f"{datum.upper()} ({reference}) is not a positive height "
+                f"({threshold}); refusing a nonsensical flood threshold",
+                source_id=self.source_id,
+                retryable=False,
+            )
+        return threshold
 
     async def _fetch_product(
         self,
@@ -842,7 +920,7 @@ class NWSWeatherAlertsSource(DataSourceBase):
     """
 
     DEFAULT_BASE_URL = "https://api.weather.gov/"
-    DEFAULT_USER_AGENT = "MercuryAgent/1.7.0 (steel.sa.llc@gmail.com)"
+    DEFAULT_USER_AGENT = "MercuryAgent/1.7.0 (steel.sa.llc@mercuryagent.global)"
 
     def __init__(
         self,
@@ -1078,7 +1156,13 @@ class EPAAirNowSource(DataSourceBase):
         return AlertLevel.NONE  # Good
 
     def _get_aqi_category(self, aqi: int) -> str:
-        """Get AQI category name."""
+        """Get AQI category name.
+
+        Above 500 is still Hazardous: EPA extends the top segment (40 CFR
+        Part 58 Appendix G, Table 2 footnote 4).
+        """
+        if aqi > AQICategory.HAZARDOUS.value[1]:
+            return AQICategory.HAZARDOUS.value[2]
         for category in AQICategory:
             min_val, max_val, name = category.value
             if min_val <= aqi <= max_val:
@@ -1121,7 +1205,13 @@ class EPAAirNowSource(DataSourceBase):
 
             for obs in data:
                 try:
-                    aqi = int(obs.get("AQI", 0) or 0)
+                    # A missing or negative AQI is not a reading: it used to
+                    # become AQI 0, a "Good" observation with no alert.
+                    raw_aqi = obs.get("AQI")
+                    if raw_aqi is None or raw_aqi == "" or int(raw_aqi) < 0:
+                        logger.debug("AirNow observation without an AQI reading skipped")
+                        continue
+                    aqi = int(raw_aqi)
                     parameter = obs.get("ParameterName", "")
                     reporting_area = obs.get("ReportingArea", "")
 
@@ -1136,9 +1226,15 @@ class EPAAirNowSource(DataSourceBase):
                     else:
                         timestamp = datetime.now(UTC)
 
-                    # Get location
-                    lat = obs.get("Latitude", self._latitude or 0)
-                    lon = obs.get("Longitude", self._longitude or 0)
+                    # Location: the observation's, else the configured query
+                    # point; never (0, 0) when neither is known.
+                    lat = obs.get("Latitude", self._latitude)
+                    lon = obs.get("Longitude", self._longitude)
+                    location = (
+                        (float(lat), float(lon), 0.0)
+                        if lat is not None and lon is not None
+                        else None
+                    )
 
                     data_points.append(
                         DataPoint(
@@ -1156,7 +1252,7 @@ class EPAAirNowSource(DataSourceBase):
                                 "date_observed": date_observed,
                                 "hour_observed": hour_observed,
                             },
-                            location=(float(lat), float(lon), 0.0),
+                            location=location,
                             alert_level=self._aqi_to_alert_level(aqi),
                             confidence=0.9,
                             metadata={"api_version": "AirNow API"},

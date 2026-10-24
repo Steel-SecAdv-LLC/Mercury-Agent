@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Clinical discrimination + calibration metrics for medical predictor scores.
 
 The medical subsystem emits probability-like ``risk_score`` / sub-risk values

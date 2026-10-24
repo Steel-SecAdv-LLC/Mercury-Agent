@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the offline benchmark-integrity gate (ROADMAP row 17 fallback).
 
 Exercises ``scripts/check_benchmark_integrity.py``: the structural

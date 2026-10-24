@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the revived k-means-distance detector (``omni_mercury_engine.detectors.kmeans_distance``), which promotes the previously-dormant ``cognitive.neural_memory_layer.KMeansClusterer`` to a first-class fusion detector. These verify the base-detector contract and that the distance signal actually separates anomalies on a clearly-separable fixture (``benchmarks/dormant_module_revival.py`` measures it on real ADBench labels)."""
 
 from __future__ import annotations
@@ -85,3 +85,67 @@ class TestSignal:
         Xte, yte = _separable(1)
         det = KMeansDistanceDetector(n_clusters=8).fit(normal_train)
         assert roc_auc_score(yte, det.detect(Xte)["scores"]) > 0.9
+
+
+class TestQuantileAnchoredSquash:
+    """The squash anchor and the alarm threshold have to agree."""
+
+    @staticmethod
+    def _stationary(seed: int = 7) -> np.ndarray:
+        return np.random.default_rng(seed).normal(size=(800, 8))
+
+    def test_the_training_quantile_scores_exactly_half(self) -> None:
+        """The scale used to be the *median* training nearest-distance.
+
+        ``1 - exp(-d / median)`` is ``1 - 1/e`` = 0.632 at the median, so the
+        0.5 cut sat *below* the median training distance and by construction
+        flagged more than half of any in-distribution batch.
+        """
+        rows = self._stationary()
+        detector = KMeansDistanceDetector().fit(rows[:400])
+
+        nearest = detector._cluster_distances(rows[:400]).min(axis=1)
+        quantile = float(np.quantile(nearest, detector.calibration_quantile))
+
+        assert 1.0 - np.exp(-quantile / detector._scale) == pytest.approx(0.5)
+
+    def test_in_distribution_rows_are_not_flagged_wholesale(self) -> None:
+        """Measured on 400 held-out stationary rows: 0.93 flagged before, 0.0175 after."""
+        rows = self._stationary()
+        detector = KMeansDistanceDetector().fit(rows[:400])
+
+        flagged = np.asarray(detector.detect(rows[400:])["is_anomaly"], dtype=bool)
+
+        assert flagged.mean() <= 0.05, f"{flagged.mean():.4f} against a nominal 0.02"
+
+    def test_the_configured_threshold_is_honoured(self) -> None:
+        """``detect`` compared against a hard-coded 0.5, so ``threshold`` was ignored."""
+        rows = self._stationary()
+        anomalous = np.random.default_rng(1).normal(loc=4.0, size=(100, 8))
+
+        strict = KMeansDistanceDetector(config={"threshold": 0.99}).fit(rows[:400])
+        lenient = KMeansDistanceDetector(config={"threshold": 0.10}).fit(rows[:400])
+
+        assert strict.threshold == 0.99
+        strict_rate = np.asarray(strict.detect(anomalous)["is_anomaly"], dtype=bool).mean()
+        lenient_rate = np.asarray(lenient.detect(anomalous)["is_anomaly"], dtype=bool).mean()
+        assert strict_rate < lenient_rate
+
+    def test_the_squash_does_not_move_the_ranking(self) -> None:
+        """It is a monotone rescale of the same distance, so AUROC is untouched.
+
+        The benchmarked signal (held-out ROC-AUC 0.76-0.98 on four ADBench
+        tables) is a ranking claim, and this keeps the anchor change from
+        touching it.
+        """
+        X, y = _separable()
+        detector = KMeansDistanceDetector().fit(X[y == 0])
+
+        scores = np.asarray(detector.detect(X)["scores"], dtype=float)
+        distances = detector._cluster_distances(X).min(axis=1)
+
+        assert roc_auc_score(y, scores) == pytest.approx(roc_auc_score(y, distances))
+
+    def test_calibration_quantile_is_validated(self) -> None:
+        with pytest.raises(ValueError, match="calibration_quantile"):
+            KMeansDistanceDetector(calibration_quantile=1.0)

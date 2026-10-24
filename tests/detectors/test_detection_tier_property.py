@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Property-based contract tests for the hardened detector tier.
 
 Hypothesis generates arbitrary finite and non-finite arrays and asserts the tier
@@ -23,6 +23,7 @@ import pytest
 hyp = pytest.importorskip("hypothesis")
 from hypothesis import (
     HealthCheck,
+    example,
     given,
     settings,
     strategies as st,
@@ -70,8 +71,13 @@ _SETTINGS = settings(
 class TestScoreVectorContract:
     @_SETTINGS
     @given(_train, _series)
+    @example(np.linspace(-1.0, 1.0, 40), np.full(12, np.nan))
     def test_spot_scores_finite_bounded(self, train: np.ndarray, probe: np.ndarray) -> None:
         det = SPOTDetector().fit(train)
+        if not np.isfinite(probe).any():
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(probe)
+            return
         result = det.detect(probe)
         _assert_scores_contract(result)
         _assert_metadata_finite(result)
@@ -80,12 +86,20 @@ class TestScoreVectorContract:
     @given(_train, _series)
     def test_digital_twin_scores_finite_bounded(self, train: np.ndarray, probe: np.ndarray) -> None:
         det = DigitalTwinResidualDetector().fit(train)
+        if not np.isfinite(probe).any():
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(probe)
+            return
         _assert_scores_contract(det.detect(probe))
 
     @_SETTINGS
     @given(_train, _series)
     def test_bocpd_scores_finite_bounded(self, train: np.ndarray, probe: np.ndarray) -> None:
         det = BOCPDDetector(max_run_length=40).fit(train)
+        if not np.isfinite(probe).any():
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(probe)
+            return
         _assert_scores_contract(det.detect(probe))
 
 
@@ -94,6 +108,12 @@ class TestMetadataInvariants:
     @given(_train, _series)
     def test_spot_metadata_always_finite(self, train: np.ndarray, probe: np.ndarray) -> None:
         det = SPOTDetector().fit(train)
+        if not np.isfinite(probe).any():
+            # Nothing measurable: the shared base guard refuses loudly
+            # instead of grading a fully unmeasured probe.
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(probe)
+            return
         meta = det.detect(probe)["metadata"]
         assert np.isfinite(meta["z_q"]) and np.isfinite(meta["gamma"])
 
@@ -107,6 +127,11 @@ class TestMetadataInvariants:
     )
     def test_rca_scores_and_ranked_causes_finite(self, rows: np.ndarray) -> None:
         det = RootCauseGraphDetector().fit(np.nan_to_num(rows))
+        if not np.isfinite(rows).all(axis=1).any():
+            # Every row unmeasured: the shared base guard refuses loudly.
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(rows)
+            return
         result = det.detect(rows)
         _assert_scores_contract(result)
         # ranked-cause attributions are finite probabilities that sum to ~1
@@ -118,8 +143,13 @@ class TestMetadataInvariants:
 
     @_SETTINGS
     @given(_train, _series, st.sampled_from(["neutral", "impute", "flag"]))
+    @example(np.linspace(-1.0, 1.0, 40), np.full(12, np.inf), "impute")
     def test_scores_finite_under_all_policies(
         self, train: np.ndarray, probe: np.ndarray, policy: str
     ) -> None:
         det = SPOTDetector(config={"nan_policy": policy}).fit(train)
+        if not np.isfinite(probe).any():
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(probe)
+            return
         _assert_scores_contract(det.detect(probe))

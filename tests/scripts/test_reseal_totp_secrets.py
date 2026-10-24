@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for scripts/reseal_totp_secrets.py (at-rest key rotation for TOTP).
 
 Verifies the rotation is correct and safe: secrets sealed under the OLD key are

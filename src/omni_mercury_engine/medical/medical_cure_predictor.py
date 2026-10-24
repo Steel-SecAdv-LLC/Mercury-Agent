@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Medical Cure Predictor - Early Disease Detection and Treatment Optimization.
 
 Novel medical constructions for humanitarian healthcare:
@@ -47,6 +47,12 @@ class MedicalPredictionResult:
     treatment_pathways: list[dict[str, Any]] = field(default_factory=list)
     early_warning_indicators: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
+    #: Whether a trained network scored the vitals / the image.  ``False`` with
+    #: the input supplied means it was not assessed by a network: the anomaly
+    #: flags above are then ``False`` because nothing was scored, not because
+    #: the patient scored normal.
+    ml_temporal_available: bool = False
+    ml_imaging_available: bool = False
 
 
 class TemporalVitalSignsLSTM(nn.Module):
@@ -61,6 +67,9 @@ class TemporalVitalSignsLSTM(nn.Module):
     ):
         """Initialize the instance."""
         super().__init__()
+
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
 
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
@@ -102,6 +111,11 @@ class TemporalVitalSignsLSTM(nn.Module):
 
         return anomaly_scores, attention_weights
 
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
+
 
 class TemporalVitalSignsDetector:
     """Temporal vital signs anomaly detector using LSTM.
@@ -132,16 +146,22 @@ class TemporalVitalSignsDetector:
         """
         normalized = self._normalize_vitals(vital_signs_sequence)
 
-        x = torch.tensor(normalized, dtype=torch.float32).unsqueeze(0)
+        ml_available = self.lstm_model.is_fitted
+        if ml_available:
+            x = torch.tensor(normalized, dtype=torch.float32).unsqueeze(0)
 
-        self.lstm_model.eval()
-        with torch.no_grad():
-            anomaly_scores, attention_weights = self.lstm_model(x)
+            self.lstm_model.eval()
+            with torch.no_grad():
+                anomaly_scores, attention_weights = self.lstm_model(x)
 
-        anomaly_score = float(anomaly_scores.item())
-        attention = attention_weights[0].numpy()
-
-        critical_indices = np.where(attention > np.percentile(attention, 75))[0]
+            anomaly_score = float(anomaly_scores.item())
+            attention = attention_weights[0].numpy()
+            critical_indices = np.where(attention > np.percentile(attention, 75))[0]
+        else:
+            # Fail-closed: an untrained network's score and attention are noise.
+            anomaly_score = 0.0
+            attention = np.zeros(0)
+            critical_indices = np.zeros(0, dtype=int)
 
         current_vitals = {
             "heart_rate_bpm": float(vital_signs_sequence[-1, 0]),
@@ -160,6 +180,7 @@ class TemporalVitalSignsDetector:
         )
 
         return {
+            "ml_available": ml_available,
             "temporal_anomaly_detected": anomaly_score > 0.5,
             "anomaly_score": anomaly_score,
             "disease_risk": disease_risk,
@@ -259,7 +280,14 @@ class MedicalImagingAnomalyDetector:
             nn.Linear(128, 1),
             nn.Sigmoid(),
         )
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
         self.logger = logging.getLogger(__name__)
+
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.model.load_state_dict(state_dict)
+        self.is_fitted = True
 
     def detect_imaging_anomaly(
         self, medical_image: np.ndarray[Any, Any], imaging_type: str = "xray"
@@ -275,6 +303,18 @@ class MedicalImagingAnomalyDetector:
         """
         processed = self._preprocess_image(medical_image)
 
+        if not self.is_fitted:
+            # Fail-closed: an untrained network's score is noise; say nothing
+            # was assessed rather than report a normal or anomalous image.
+            return {
+                "ml_available": False,
+                "imaging_anomaly_detected": False,
+                "anomaly_score": 0.0,
+                "imaging_type": imaging_type,
+                "findings": [],
+                "recommendations": [],
+            }
+
         x = torch.tensor(processed, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
 
         self.model.eval()
@@ -286,6 +326,7 @@ class MedicalImagingAnomalyDetector:
         findings = self._generate_findings(is_anomalous, anomaly_score, imaging_type)
 
         return {
+            "ml_available": True,
             "imaging_anomaly_detected": is_anomalous,
             "anomaly_score": anomaly_score,
             "imaging_type": imaging_type,
@@ -592,6 +633,7 @@ class MedicalCurePredictor(LoggerMixin):
                 temporal = self.temporal_detector.detect_temporal_anomaly(
                     patient_data["vital_signs_sequence"], patient_data.get("patient_history")
                 )
+                result.ml_temporal_available = temporal["ml_available"]
                 result.vital_signs_anomaly = temporal["temporal_anomaly_detected"]
                 result.confidence = max(result.confidence, temporal["anomaly_score"])
                 result.early_warning_indicators.extend(
@@ -614,6 +656,7 @@ class MedicalCurePredictor(LoggerMixin):
                 imaging = self.imaging_detector.detect_imaging_anomaly(
                     patient_data["medical_image"], patient_data.get("imaging_type", "xray")
                 )
+                result.ml_imaging_available = imaging["ml_available"]
                 result.imaging_anomaly = imaging["imaging_anomaly_detected"]
                 result.confidence = max(result.confidence, imaging["anomaly_score"])
                 result.early_warning_indicators.extend(imaging["findings"])

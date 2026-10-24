@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fit ``counterintelligence.MAX_OUTCOME_WEIGHT`` on real adjudicated outcomes.
 
 Default data: LIAR (Wang, 2017, "Liar, Liar Pants on Fire", ACL), 12,836

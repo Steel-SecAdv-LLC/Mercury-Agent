@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Temporal anomaly detector for time series analysis."""
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ except ImportError:
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 # Fixed initialization seed for the untrained LSTM feature projector. The
 # value is arbitrary but immutable: every TemporalAnomalyDetector instance
@@ -39,6 +40,19 @@ class TemporalAnomalyDetector(BaseDetector):
     - Seasonality detection
     - LSTM-based forecasting
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house heuristic: the score is the mean of a windowed trend "
+            "z-score channel and a sudden-change channel; is_anomaly fires when "
+            "that combined score exceeds the configured threshold (default 0.5 "
+            "on the normalized score) or, when auto_calibrate is set, a "
+            "threshold auto-calibrated from the batch score distribution at the "
+            "configured contamination. No published threshold exists for this "
+            "rule and no labelled corpus calibrates it."
+        ),
+    )
 
     #: Verified free of process-global mutable state at inference (bit-identical
     #: concurrent vs sequential: tests/core/test_parallel_detectors.py).

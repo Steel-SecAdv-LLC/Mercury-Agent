@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Ocean Dataset Loaders - REAL Marine and Oceanographic Data.
 
 This module provides loaders for real-world ocean and marine datasets

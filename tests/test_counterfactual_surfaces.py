@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Counterfactual explanations on the live detection surfaces (CLI/HTTP/MCP).
 
 The tier's ``include_counterfactual`` option and the flagship's
@@ -97,14 +97,17 @@ class TestTierCounterfactualCore:
             run_tier_ensemble,
         )
 
+        # 80, the burst's leading edge, is flagged at the 5% contamination
+        # threshold (the interior points are not: the tier fires on the edges).
         result = run_tier_ensemble(
             _burst_series(),
             include_counterfactual=True,
-            counterfactual_index=82,
+            counterfactual_index=80,
             counterfactual_method="prototype",
         )
         cf = result["counterfactual"]
-        assert cf["index"] == 82
+        assert result["flags"][80] == 1
+        assert cf["index"] == 80
         assert cf["method"] == "prototype"
         assert cf["flipped"] is True
 

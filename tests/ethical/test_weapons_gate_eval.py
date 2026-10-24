@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Measured FP/FN gate for the weapons-uplift gate over the labeled corpus.
 
 Unlike the paired-assertion set (which only checks a handful of fixed strings),

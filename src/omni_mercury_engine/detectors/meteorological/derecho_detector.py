@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Derecho detector: published widespread-damaging-wind criteria over report series.
 
 Implements the derecho identification criteria of Johns & Hirt (1987):
@@ -61,6 +61,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.geo import (
     EARTH_RADIUS_KM,
     haversine_km,
@@ -213,6 +214,37 @@ class DerechoDetector:
         >>> detector = DerechoDetector()
         >>> result = detector.evaluate(reports)  # doctest: +SKIP
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Derecho identification applies the published criteria "
+                "over supplied severe-wind reports: swath >= 650 km long "
+                "and >= 100 km wide, no report gap over 3 h, at least 3 "
+                "F1-damage or >= 33 m/s gust reports mutually separated by "
+                ">= 64 km, and chronological progression along the swath "
+                "axis; the bow-echo precursor leg follows Corfidi's "
+                "propagation-component analysis."
+            ),
+            citation=(
+                "Johns & Hirt (1987), Wea. Forecasting 2:32-49 (criteria "
+                "3-5, intensity anchors); Corfidi et al. (2016), BAMS "
+                "97:935-949 (650 km / 100 km swath dimensions); Corfidi "
+                "(2003), Wea. Forecasting 18:997-1017 (MCS propagation)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Two qualitative published requirements are operationalized "
+                "with this module's own documented numeric cuts, which have "
+                "no published value: chronological progression as a "
+                "time/along-axis Pearson correlation >= 0.6, and the "
+                "progressive-vs-serial split at width/length >= 0.4."
+            ),
+        ),
+    )
 
     #: Fixed fusion feature dimension (see :meth:`extract_features`).
     FEATURE_DIM = 16

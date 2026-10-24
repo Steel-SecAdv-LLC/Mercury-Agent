@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """``medical.pandemic.bio_threats.PathogenDetector``: a baseline-calibrated detector.
 
 The released detector scored an unseeded random Ising matrix on readings

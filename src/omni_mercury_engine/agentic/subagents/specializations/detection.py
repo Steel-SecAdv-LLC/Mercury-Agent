@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Detection subagent: Mercury's own multi-agent anomaly detection, delegated.
 
 This specialization wraps Mercury's *real* detection capability — the

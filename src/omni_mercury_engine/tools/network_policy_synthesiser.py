@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: synthesise a Kubernetes ``NetworkPolicy`` from the egress allow-list discovered by :mod:`network_egress_recorder` plus :mod:`loader_reachability_probe`.
 
 The companion :mod:`helm_values_linter` checks for *presence* of a

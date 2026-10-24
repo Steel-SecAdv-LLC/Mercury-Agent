@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Wildfire → Debris-Flow Cascade — the USGS post-fire debris-flow model family.
 
 Implements the published-coefficient models used operationally by the USGS
@@ -81,6 +81,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -359,6 +361,40 @@ class FireDebrisFlowCascadeDetector:
         cannon_region: Cannon et al. (2008) threshold family to apply.
             Default ``southern_california`` (the M1 training region).
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The assessment is the USGS post-fire debris-flow model "
+                "family with published coefficients embedded verbatim: the "
+                "Staley M1 logistic likelihood at the storm's peak 15/30/60 "
+                "min accumulation (p = 0.5 inverted for the threshold "
+                "intensity, the definition used in USGS assessments), "
+                "Cannon intensity-duration exceedance for recently burned "
+                "areas, and the Gartner emergency volume model when its "
+                "inputs exist."
+            ),
+            citation=(
+                "Staley et al. (2016), USGS OFR 2016-1106, Table 1 / Staley "
+                "et al. (2017), Geomorphology 278:149-162, Table 2 (M1 "
+                "coefficients); Cannon et al. (2008), Geomorphology "
+                "96:250-269 (I = 9.5*D^-0.7 SW Colorado, I = 12.5*D^-0.4 "
+                "S. California); Gartner et al. (2014), Engineering Geology "
+                "176:45-56 (volume model); Kean et al. (2011), JGR 116, "
+                "F04019 (rainfall reduction)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The combined likelihood_class quartile bins (0.25/0.5/0.75 "
+                "over the M1 probability) are deliberately plain quartiles "
+                "for reporting, documented in-code as NOT a claimed USGS "
+                "hazard class; they have no published source of their own."
+            ),
+        ),
+    )
 
     def __init__(
         self,

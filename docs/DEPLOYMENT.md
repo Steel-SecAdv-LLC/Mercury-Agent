@@ -327,7 +327,7 @@ Port and worker count are **CLI flags**, not environment variables: `mercury-age
 
 These configure the engine / streaming-worker tier. CLI flags
 (`--backend`, `--input-topic`, `--output-topic`, `--consumer-group`,
-`--metrics-port`) override the corresponding variable.
+`--metrics-port`, `--detector`) override the corresponding variable.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -337,6 +337,7 @@ These configure the engine / streaming-worker tier. CLI flags
 | `MERCURY_STREAM_INPUT_TOPIC` | `mercury-detections` | Topic/stream consumed for input data |
 | `MERCURY_STREAM_OUTPUT_TOPIC` | `mercury-anomalies` | Topic/stream anomaly results are published to |
 | `MERCURY_STREAM_CONSUMER_GROUP` | `mercury-streaming-workers` | Consumer group for load-balanced consumption |
+| `MERCURY_STREAM_DETECTOR` | `policy` | Alarm rule: `policy`, the learned alarm policy (`ml.alarm_policy`; PPO on NAB, `benchmarks/streaming_alarm_policy_results.json`), or `zscore`, a fixed 3-sigma EMA z-score rule |
 | `MERCURY_METRICS_PORT` | `9090` | Port for the worker's Prometheus `/metrics` endpoint (`0` disables) |
 | `MERCURY_METRICS_HOST` | `127.0.0.1` | Bind address for `/metrics`. Loopback by default so bare-host runs never expose it implicitly; the in-repo k8s configmap and Helm values set `0.0.0.0` so in-cluster Prometheus can scrape cross-pod |
 

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Biometric anomaly detection model."""
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 from omni_mercury_engine._compat import preload_triton_before_tensorflow
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 # deepface pulls TensorFlow into the process (1.8 s of the 2.0 s it took to
 # construct an engine, plus a stream of CUDA probe messages), and only image
@@ -112,6 +113,39 @@ class FourierAnalyzer:
 
 class BiometricAnomalyModel:
     """Biometric anomaly detection for facial recognition and analysis."""
+
+    decision_source = (
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "With a normal model fitted (fit_normal), the image content "
+                "decision is the VisualAnomalyAnalyzer's split-conformal "
+                "verdict: flag at p_value <= alpha (default 0.05), score "
+                "1 - p_value; the false-alarm rate is at most alpha for "
+                "images exchangeable with the fitted normal set, and the "
+                "decision is withheld when the calibration set is too small "
+                "to reach alpha."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "deployment-supplied genuine captures passed to fit_normal "
+                "(held-out conformal calibration split inside "
+                "vision.VisualAnomalyAnalyzer.fit)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Without a fitted normal model no content verdict is "
+                "invented (neutral 0.5): presentation-attack cues use "
+                "absolute screening values (spectral peak excess > 3.5, "
+                "noise |z| > 6) uncalibrated for the domain, and the "
+                "embedding/harmonic tabular routes are heuristics with no "
+                "published threshold and no labelled corpus to calibrate "
+                "one; those verdicts are experimental."
+            ),
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         """Initialize the instance."""

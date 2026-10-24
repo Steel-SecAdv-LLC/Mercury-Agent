@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Per-request audit trail for the HTTP API.
 
 ``record_audit_log`` (``api/routes/export.py``) had no caller, so

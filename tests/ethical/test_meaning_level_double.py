@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The validated meaning-level served-model double actually measures, not stamps.
 
 Backs ``ci/meaning-level`` as a fast, always-on lane: a stdlib HTTP double stands

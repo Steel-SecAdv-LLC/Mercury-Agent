@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operational sweep: run EVERY registered detector and report status + latency.
 
 Answers "were all detectors run, operational, and efficient?" directly: it

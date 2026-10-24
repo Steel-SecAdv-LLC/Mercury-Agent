@@ -1,0 +1,49 @@
+{
+  "description": "Leading segments of five 12 kHz drive-end accelerometer recordings (g) from the Case Western Reserve University Bearing Data Center: healthy at 0 and 1 hp, and 0.007-inch inner-race, ball and outer-race faults at 0 hp.",
+  "source": "https://engineering.case.edu/bearingdatacenter",
+  "citation": "Smith & Randall (2015), Rolling element bearing diagnostics using the Case Western Reserve University data: a benchmark study, Mechanical Systems and Signal Processing 64-65, 100-131, doi:10.1016/j.ymssp.2015.04.021",
+  "recorder": "scripts/record_cwru_fixtures.py",
+  "recorded_utc": "2026-10-24T01:44:50Z",
+  "files": {
+    "normal_0hp": {
+      "url": "https://engineering.case.edu/sites/default/files/97.mat",
+      "channel": "X097_DE_time",
+      "served_sha256": "16bf48babcf1c7ac224bc1a81cd9eafdb27e42d5cf559761907e067e8eeadf3c",
+      "array_sha256": "bec4b8e2d1de56143c13fcbbb9f3d772dfbd033889a616536026024482f53b9b",
+      "samples_in_file": 243938,
+      "samples_kept": 122880
+    },
+    "normal_1hp": {
+      "url": "https://engineering.case.edu/sites/default/files/98.mat",
+      "channel": "X098_DE_time",
+      "served_sha256": "37e6612c05e65c415dcfa2ab27a3fda648a5863160fa898b884a14743044e045",
+      "array_sha256": "11919817d03c1d8d534df1c924080d7f9f442394d051839dd34131f02eacf172",
+      "samples_in_file": 483903,
+      "samples_kept": 122880
+    },
+    "inner_race": {
+      "url": "https://engineering.case.edu/sites/default/files/105.mat",
+      "channel": "X105_DE_time",
+      "served_sha256": "f80b0ea04fd06b372a0eaec7c056543ea37e4bb4727a5b173d2a5bacd2aa9cab",
+      "array_sha256": "f13eb3d8d817266f4233c22fa44636d1fd8ce8098ca41fe25ec13ec7dd6c690a",
+      "samples_in_file": 121265,
+      "samples_kept": 40960
+    },
+    "ball": {
+      "url": "https://engineering.case.edu/sites/default/files/118.mat",
+      "channel": "X118_DE_time",
+      "served_sha256": "b00628f8dd8d1d930af77fa465d1e5cdb385fe259489053f91f3680bda7f640e",
+      "array_sha256": "d22f8be12de4506bae02a4bb99717209082eb35686f007ba06f4af160a3e8a8f",
+      "samples_in_file": 122571,
+      "samples_kept": 40960
+    },
+    "outer_race": {
+      "url": "https://engineering.case.edu/sites/default/files/130.mat",
+      "channel": "X130_DE_time",
+      "served_sha256": "35a095307d0971477049b343a1b5981dde465a58fb7f233ad89b035068c1717d",
+      "array_sha256": "861f328ba35202f44038e50e513246f43d9ff966f0ad06e4a36edf89a12bf980",
+      "samples_in_file": 121991,
+      "samples_kept": 40960
+    }
+  }
+}

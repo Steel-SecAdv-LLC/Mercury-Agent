@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Temporal neuro-symbolic engine: logic tensor networks over time-windowed facts.
 
 This module implements neuro-symbolic capabilities based on:

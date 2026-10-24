@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """LAVAD: Harnessing Large Language Models for Training-free Video Anomaly Detection.
 
 Implementation inspired by LAVAD (CVPR 2024).
@@ -28,6 +28,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
 
@@ -40,7 +41,22 @@ class LAVADConfig(VLMConfig):
 
     Attributes:
         caption_model: Model for frame captioning
-        reasoning_model: Model for temporal reasoning (LLM)
+        reasoning_backend: Backend serving the text reasoning stage
+            (``"hf_text"``: a local instruction-tuned language model)
+        reasoning_model: Model for temporal reasoning (LLM).  The shipped
+            default is the pinned, CPU-runnable Qwen2.5-0.5B-Instruct; the
+            previous default (Llama 3 8B) was never loaded -- the reasoning
+            prompt went to the captioner, which returns nothing for text.
+        reasoning_revision: Immutable revision for a non-default
+            ``reasoning_model`` (the default is pinned by its backend)
+        reasoning_mode: ``"frame_likelihood"`` (default): the language model
+            judges each frame's caption against the anomaly description and
+            the frame's score is its own probability of answering Yes.
+            ``"window_generate"``: LAVAD-style temporal reasoning over a
+            sliding window of captions with a generated, parsed verdict --
+            for capable reasoners (measured: the shipped 0.5B model answers
+            YES on all-normal clips this way, and conflates frames when
+            neighbouring captions are in the prompt).
         window_size: Number of captions for temporal context
         use_llm_reasoning: Use LLM for anomaly reasoning
         llm_model: Alias for reasoning_model (for test compatibility)
@@ -54,7 +70,10 @@ class LAVADConfig(VLMConfig):
     # out of the box; any registered backend/model can be configured.
     caption_backend: str = "blip_caption"
     caption_model: str = "Salesforce/blip-image-captioning-base"
-    reasoning_model: str = "meta-llama/Meta-Llama-3-8B-Instruct"
+    reasoning_backend: str = "hf_text"
+    reasoning_model: str = "Qwen/Qwen2.5-0.5B-Instruct"
+    reasoning_revision: str | None = None
+    reasoning_mode: str = "frame_likelihood"
     window_size: int = 5
     use_llm_reasoning: bool = True
     llm_model: str = "meta-llama/Meta-Llama-3-8B-Instruct"  # Alias for test compatibility
@@ -78,6 +97,32 @@ class LAVADDetector(BaseVLMDetector):
         >>> results = detector.detect(video_frames)
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Training-free window scoring follows the published LAVAD "
+                "pipeline: a VLM captions each frame and an LLM reasons "
+                "over the caption sequence to score temporal windows."
+            ),
+            citation=(
+                'Zanella et al., "Harnessing Large Language Models for '
+                'Training-free Video Anomaly Detection", CVPR 2024, '
+                "https://lucazanella.github.io/lavad/"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The binary flag cuts the LLM-derived window score at "
+                "vlm_config.confidence_threshold (default 0.5): the paper "
+                "reports ranking metrics rather than an alarm threshold, "
+                "and no labelled corpus here calibrates one, so binary "
+                "verdicts are experimental."
+            ),
+        ),
+    )
+
     def __init__(self, config: LAVADConfig | dict[str, Any] | None = None) -> None:
         """Initialize LAVAD detector.
 
@@ -97,6 +142,13 @@ class LAVADDetector(BaseVLMDetector):
 
         # Scene context for test compatibility
         self._scene_context: dict[str, Any] | None = None
+
+    #: The captioning and reasoning models are pretrained checkpoints loaded
+    #: lazily by name from the config, never weights learned here.
+    _UNSAVED_ATTRS = BaseVLMDetector._UNSAVED_ATTRS | {
+        "_caption_model",
+        "_reasoning_model",
+    }
 
     @property
     def scene_context(self) -> dict[str, Any] | None:
@@ -150,6 +202,19 @@ class LAVADDetector(BaseVLMDetector):
         self._caption_model.initialize()
 
         logger.info("LAVAD models initialized")
+
+    @property
+    def reasoner(self) -> Any:
+        """The text language model that reasons over the frame captions."""
+        if self._reasoning_model is None:
+            self._reasoning_model = get_lvlm_backend(
+                model_type=self.lavad_config.reasoning_backend,
+                model_name=self.lavad_config.reasoning_model,
+                device=str(self.device),
+                revision=self.lavad_config.reasoning_revision,
+            )
+            self._reasoning_model.initialize()
+        return self._reasoning_model
 
     @property
     def caption_model(self) -> Any:
@@ -208,6 +273,15 @@ CONFIDENCE: [0.0-1.0]
 EXPLANATION: [Your reasoning based on the frame descriptions]
 """
         return prompt
+
+    @staticmethod
+    def _frame_question(caption: str, anomaly_description: str) -> str:
+        """The yes/no question the language model answers for one frame."""
+        return (
+            f"A video frame is described as: {caption.strip().rstrip('.')}.\n"
+            f"Does this frame show {anomaly_description.strip().rstrip('?.')}? "
+            "Answer Yes or No."
+        )
 
     def _parse_response(self, response: str) -> tuple[bool, float, str]:
         """Parse LLM response."""
@@ -306,14 +380,34 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
             caption = self._generate_caption(data[i])
             captions.append(caption)
 
-        # Stage 2: Temporal reasoning with sliding window
+        # Stage 2: language-model judgement of the captions
         frame_scores = np.zeros(t)
         frame_counts = np.zeros(t)
-        all_explanations = []
+        all_explanations: list[dict[str, Any]] = []
 
         window_size = min(self.lavad_config.window_size, t)
+        mode = self.lavad_config.reasoning_mode
+        if self.lavad_config.use_llm_reasoning and mode not in (
+            "frame_likelihood",
+            "window_generate",
+        ):
+            raise ValueError(
+                f"unknown reasoning_mode {mode!r}; expected 'frame_likelihood' or 'window_generate'"
+            )
+        frame_likelihood = self.lavad_config.use_llm_reasoning and mode == "frame_likelihood"
+        if frame_likelihood:
+            description = self.vlm_config.anomaly_description
+            for i, caption in enumerate(captions):
+                p_yes = float(
+                    self.reasoner.yes_probability(self._frame_question(caption, description))
+                )
+                frame_scores[i], frame_counts[i] = p_yes, 1.0
+                if p_yes > self.vlm_config.confidence_threshold:
+                    all_explanations.append(
+                        {"frame": i, "caption": caption, "confidence": p_yes, "window": (i, i + 1)}
+                    )
 
-        for start in range(0, t - window_size + 1):
+        for start in range(0, t - window_size + 1) if not frame_likelihood else ():
             end = start + window_size
             window_captions = captions[start:end]
 
@@ -324,16 +418,18 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
                     self.vlm_config.anomaly_description,
                 )
 
-                # Query LLM for reasoning
-                try:
-                    # Use caption model for now; ideally separate LLM
-                    response = self.caption_model.generate([], reasoning_prompt)
-                    is_anomaly, confidence, explanation = self._parse_response(response)
-                    anomaly_frames = self._parse_anomaly_frames(response)
-                except Exception as e:
-                    logger.warning(f"Reasoning failed: {e}")
-                    is_anomaly, confidence, explanation = False, 0.0, ""
-                    anomaly_frames = []
+                # Query the language model.  A failure or an answer without a
+                # verdict raises: scoring the window as normal instead (as
+                # this did) would report "no anomaly" for frames nobody
+                # reasoned about.
+                response = self.reasoner.generate([], reasoning_prompt)
+                if "ANOMALY_DETECTED:" not in response.upper():
+                    raise RuntimeError(
+                        "LAVAD reasoning model returned no ANOMALY_DETECTED verdict for "
+                        f"frames {start}..{end - 1}: {response[:200]!r}"
+                    )
+                is_anomaly, confidence, explanation = self._parse_response(response)
+                anomaly_frames = self._parse_anomaly_frames(response)
             else:
                 # Simple heuristic based on caption keywords
                 is_anomaly, confidence, explanation = self._simple_analysis(window_captions)
@@ -358,13 +454,11 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
                     }
                 )
 
-        # Average overlapping window scores
+        # Average overlapping window scores.  No normalisation by the clip's
+        # maximum: dividing by it (as before) put the top frame of every clip
+        # at 1.0, so even an all-normal clip always flagged a frame.
         frame_counts = np.maximum(frame_counts, 1)
         scores = frame_scores / frame_counts
-
-        # Normalize to [0, 1]
-        if scores.max() > 0:
-            scores = scores / scores.max()
 
         # Threshold for anomaly detection (per-frame mask; distinct from the
         # per-window ``is_anomaly`` bool reused in the windowing loop above).

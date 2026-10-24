@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DEPRECATED: This module uses Mercury's mercury_ml (PCA) for anomaly detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This module is retained for reference only.
 
 Original: Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
@@ -48,6 +48,8 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors._calibration import squash_scale
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 #: Reference rows kept from the fit for the GSIS density score (a deterministic,
 #: evenly spaced subsample). It bounds the score's cost at O(n * m * d) for a
@@ -212,6 +214,19 @@ class SigmaDirectiveDetector(BaseDetector):
         >>> anomalies = result["is_anomaly"]
     """
 
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Deprecated in-house rule set: PCP, GSIS, RMD and EOA protocol "
+            "scores (plus optional quantum/nano/harmonic enhancements) are "
+            "weight-combined into one [0, 1] score; is_anomaly fires when it "
+            "exceeds the configured threshold (default 0.5) or the "
+            "auto-calibrated operating point. No published threshold exists for "
+            "these protocols and no labelled corpus calibrates them; the module "
+            "is retained for reference only."
+        ),
+    )
+
     #: Verified free of process-global mutable state at inference (bit-identical
     #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
     parallel_safe = True
@@ -236,6 +251,16 @@ class SigmaDirectiveDetector(BaseDetector):
         self.stability_factor: float = self.config.get("stability_factor", 1.0)
         # (reference rows, sorted leave-one-out k-th distances) from the fit.
         self._gsis_reference: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
+        #: Squash scale for the EOA row magnitude, learned from the training
+        #: rows so a row's score does not depend on the batch it arrives in.
+        #: ``None`` for a checkpoint saved before this existed, which falls
+        #: back to the previous batch-relative behaviour with a warning.
+        self._eoa_scale: float | None = None
+        #: An explicitly configured threshold is the caller's decision and
+        #: survives fit; only the BaseDetector default is calibrated.
+        self._threshold_is_configured = "threshold" in self.config
+        #: Whether fit() cut the threshold on the training rows' own scores.
+        self._threshold_calibrated = False
         self.memory_depth: int = self.config.get("memory_depth", 5)
         self.use_quantum_enhanced: bool = self.config.get("use_quantum_enhanced", True)
         self.use_nano_detection: bool = self.config.get("use_nano_detection", True)
@@ -345,12 +370,73 @@ class SigmaDirectiveDetector(BaseDetector):
         self.baseline_pattern = np.mean(data, axis=0).astype(np.float64)
         built = _gsis_reference(np.asarray(data, dtype=np.float64))
         self._gsis_reference = None if built is None else (built[0], built[1])
+        # EOA scale from the training rows' magnitudes, so detect() divides by
+        # a fixed reference instead of the batch maximum. See
+        # _ethical_oversight_amplifier.
+        self._eoa_scale = squash_scale(
+            np.linalg.norm(np.asarray(data, dtype=np.float64), axis=1),
+            self.EOA_CALIBRATION_QUANTILE,
+        )
 
         # Clear memory buffer on new fit (fresh start)
         self.clear_memory()
 
         self._is_fitted = True
+        self._calibrate_threshold_on_training_rows(np.asarray(data, dtype=np.float64))
         return self
+
+    #: Quantile of the training rows' own combined scores installed as the
+    #: alarm threshold by :meth:`fit`.
+    CALIBRATION_QUANTILE = 0.95
+
+    def _calibrate_threshold_on_training_rows(self, data: NDArray[np.float64]) -> None:
+        """Cut the alarm threshold on the training rows' own combined scores.
+
+        The combined score's normal regime does not sit near the 0.5
+        ``BaseDetector`` default: measured on clean Gaussian rows it means
+        0.53 to 0.61 with a 95th percentile of 0.68 to 0.72, stable across
+        shapes (60x8, 200x8, 60x4, 200x16, 500x3), so the default flagged 0.61
+        to 0.94 of normal data. Nothing published fixes a value for this
+        composite, so it is cut at :data:`CALIBRATION_QUANTILE` of the scores
+        the training rows themselves receive.
+
+        Measured over five seeds of clean 200x8 Gaussian rows, with the
+        recursive-memory buffer cleared between calls so each measurement is a
+        function of (fitted state, batch) alone: the 0.95 quantile gives a
+        false-alarm rate of 0.0560 and flags every row of an injected
+        +8-sigma block (true-positive rate 1.0000). The 0.98 quantile gives
+        0.0200 and 0.7800, so 0.95 is taken: this detector's score separates
+        the two classes well enough that the lower cut costs little and the
+        higher one starts missing rows.
+
+        An explicitly configured ``threshold``, or ``enable_auto_calibration``,
+        is the caller's decision and is left alone.
+        """
+        if self._threshold_is_configured or self._auto_calibrate:
+            return
+        try:
+            # Scored with a cleared buffer, and cleared again afterwards, so
+            # calibration neither reads nor leaves streaming state.
+            self.clear_memory()
+            scores = np.asarray(self.detect(data)["scores"], dtype=np.float64)
+        finally:
+            self.clear_memory()
+        finite = scores[np.isfinite(scores)]
+        if finite.size == 0:
+            logger.warning(
+                "SigmaDirectiveDetector could not calibrate its threshold: no finite "
+                "training score. The %.2f default stands, which normal rows exceed.",
+                self.threshold,
+            )
+            return
+        self.threshold = float(np.quantile(finite, self.CALIBRATION_QUANTILE))
+        self._threshold_calibrated = True
+        logger.info(
+            "SigmaDirectiveDetector threshold %.4f from the %.2f quantile of %d training rows",
+            self.threshold,
+            self.CALIBRATION_QUANTILE,
+            finite.size,
+        )
 
     def detect(self, data: NDArray[np.float64] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using Sigma Directive protocols.
@@ -476,6 +562,9 @@ class SigmaDirectiveDetector(BaseDetector):
             "harmonic_score": harmonic_score,
             "detector_type": "directive",
             "threshold": effective_threshold,
+            # False means the alarm rests on the configured or default
+            # threshold rather than a cut measured on the training rows.
+            "threshold_calibrated": self._threshold_calibrated,
             "calibration_diagnostics": calibration_diagnostics,
         }
 
@@ -617,15 +706,43 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return scores
 
+    #: Quantile of the training rows' magnitudes placed at score 0.5 by the
+    #: EOA squash, matching the squash tier's convention.
+    EOA_CALIBRATION_QUANTILE = 0.98
+
     def _ethical_oversight_amplifier(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """EOA: Amplify detection of ethically significant anomalies."""
+        """EOA: row magnitude against the training rows' magnitude scale.
+
+        The scale comes from ``fit``, not from the batch being scored. It used
+        to be ``magnitude / max(magnitude)`` over the batch, which made a
+        row's score depend on the rows it happened to arrive with: the same
+        row measured 0.6817 scored alone, 0.5140 beside 99 benign rows and
+        0.5469 beside 99 extreme ones -- a 0.168 swing, wider than the gap
+        between this detector's normal and anomalous means. A single extreme
+        row suppressed every other row's score, and a row scored on its own
+        was always its own maximum and so always ~1.0.
+
+        The squash ``1 - exp(-r / scale)`` puts
+        :data:`EOA_CALIBRATION_QUANTILE` of the training magnitudes at 0.5 and
+        is bounded in ``[0, 1)``, so the score is absolute, reproducible and
+        monotone in the row's magnitude.
+        """
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
         magnitude = np.linalg.norm(data, axis=1)
-        magnitude_norm = magnitude / (np.max(magnitude) + 1e-6)
+        if self._eoa_scale is None:
+            # Checkpoint from before the scale was learned: keep the old
+            # behaviour rather than silently changing a loaded model's scores,
+            # but say that the verdict is batch-relative.
+            logger.warning(
+                "SigmaDirectiveDetector has no learned EOA scale (checkpoint predates it); "
+                "falling back to batch-relative normalisation, so a row's score depends on "
+                "the batch it is scored in. Re-fit to get an absolute scale."
+            )
+            return np.asarray(magnitude / (np.max(magnitude) + 1e-6))
 
-        return magnitude_norm
+        return np.asarray(1.0 - np.exp(-magnitude / self._eoa_scale))
 
     def _quantum_pattern_containment(self, data: np.ndarray[Any, Any]) -> dict[str, float]:
         """Quantum Pattern Containment Protocol (QPCP)."""
@@ -855,6 +972,13 @@ class SigmaDirectiveDetector(BaseDetector):
         if self._gsis_reference is not None:
             state["gsis_reference"] = np.asarray(self._gsis_reference[0], dtype=np.float64)
             state["gsis_radii"] = np.asarray(self._gsis_reference[1], dtype=np.float64)
+        if self._eoa_scale is not None:
+            # Fitted state: the EOA squash scale and the threshold cut on it
+            # must travel with the checkpoint, or a reloaded detector scores
+            # the same rows differently from the one that saved it.
+            state["eoa_scale"] = np.asarray([self._eoa_scale], dtype=np.float64)
+        if self._threshold_calibrated:
+            state["calibrated_threshold"] = np.asarray([self.threshold], dtype=np.float64)
         return state
 
     def set_fitted_state(self, state: dict[str, Any]) -> None:
@@ -871,5 +995,42 @@ class SigmaDirectiveDetector(BaseDetector):
             )
         else:
             self._gsis_reference = None
+        # A state written before the EOA scale existed restores without one;
+        # _ethical_oversight_amplifier then falls back to batch-relative
+        # normalisation and warns, rather than silently changing the loaded
+        # model's scores.
+        self._eoa_scale = (
+            float(np.asarray(state["eoa_scale"]).reshape(-1)[0]) if "eoa_scale" in state else None
+        )
+        if "calibrated_threshold" in state:
+            self.threshold = float(np.asarray(state["calibrated_threshold"]).reshape(-1)[0])
+            self._threshold_calibrated = True
+        else:
+            self._threshold_calibrated = False
         self.clear_memory()
         self._is_fitted = True
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Bridge the shared checkpoint to :meth:`get_fitted_state`.
+
+        The configured :class:`DirectiveWeights` and the per-thread
+        recursive-memory buffer are construction/streaming state, not
+        knowledge; only the fitted baseline pattern and GSIS reference are
+        exported, matching the federation checkpoint convention.
+        """
+        from omni_mercury_engine.core.base import _serializable_state
+
+        fitted = self.get_fitted_state()
+        if fitted is None:
+            return {}
+        return {
+            key: _serializable_state(value, owner=type(self).__name__, attr=key)
+            for key, value in fitted.items()
+        }
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the state captured by :meth:`_learned_state`."""
+        from omni_mercury_engine.core.base import _deserialized_state
+
+        if state:
+            self.set_fitted_state({key: _deserialized_state(value) for key, value in state.items()})

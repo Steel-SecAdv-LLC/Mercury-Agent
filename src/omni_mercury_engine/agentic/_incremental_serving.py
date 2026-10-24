@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Exact incremental single-sample serving for :class:`DetectorAgent`.
 
 The agent's single-sample contract is *score the sample as the last row of

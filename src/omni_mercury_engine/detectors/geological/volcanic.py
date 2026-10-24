@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Volcanic Eruption Detector - Multi-Modal Volcano Monitoring.
 
 Comprehensive volcanic hazard detection for humanitarian early warning:
@@ -50,11 +50,13 @@ from omni_mercury_engine.data_sources.live_ingestion import (
     require_live_client,
 )
 from omni_mercury_engine.detectors._hazard_input import (
+    InputGrader,
     InvalidObservationError,
     finite_array,
     finite_scalar,
 )
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -202,6 +204,58 @@ if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.earth_science import USGSVolcanoSource
 
 
+#: Monitoring sections ``predict_eruption`` reads: the keys each may carry,
+#: and the measurement sets of which one must be complete.  The analysers
+#: default a missing key to baseline (gas) or zero (deformation), so a
+#: misspelt or empty section used to grade as a silent all-clear.
+VOLCANIC_SECTIONS: dict[str, tuple[frozenset[str], tuple[frozenset[str], ...]]] = {
+    "thermal_data": (
+        frozenset({"brightness_temperature_k", "radiant_heat_mw"}),
+        (frozenset({"brightness_temperature_k"}),),
+    ),
+    "gas_data": (
+        frozenset({"so2_tons_per_day", "co2_tons_per_day"}),
+        (frozenset({"so2_tons_per_day"}), frozenset({"co2_tons_per_day"})),
+    ),
+    "insar_data": (
+        frozenset(
+            {"vertical_displacement_cm", "horizontal_displacement_cm", "deformation_rate_cm_day"}
+        ),
+        (frozenset({"vertical_displacement_cm"}), frozenset({"horizontal_displacement_cm"})),
+    ),
+    "precursor_rate": (
+        frozenset({"bin_edges_h", "counts", "times_h", "rate"}),
+        (frozenset({"bin_edges_h", "counts"}), frozenset({"times_h", "rate"})),
+    ),
+}
+
+
+#: Scalar fields graded value by value -- the same unit and bounds the
+#: stream analyzers apply when they read them.  Array fields
+#: (``brightness_temperature_k`` and the precursor series) are checked by
+#: their analyzers, and a stream that fails there is set aside whole: filling
+#: its gaps would be fabrication.
+VOLCANIC_SCALARS: dict[str, tuple[str, float | None, float | None]] = {
+    "radiant_heat_mw": ("MW", 0.0, None),
+    "so2_tons_per_day": ("t/day", 0.0, None),
+    "co2_tons_per_day": ("t/day", 0.0, None),
+    "vertical_displacement_cm": ("cm", None, None),
+    "horizontal_displacement_cm": ("cm", None, None),
+    "deformation_rate_cm_day": ("cm/day", None, None),
+}
+
+#: Top-level keys ``predict_eruption`` reads besides the sections.
+VOLCANIC_STREAMS: frozenset[str] = frozenset(
+    {"seismic_sequence", "fused_features", "schumann_elf", "metadata"}
+)
+
+
+#: The streams that can move the decision; ``schumann_elf`` is reported only.
+VOLCANIC_DECISION_STREAMS: frozenset[str] = frozenset(
+    {"seismic_sequence", "fused_features", *VOLCANIC_SECTIONS}
+)
+
+
 class VolcanicActivityLevel(Enum):
     """USGS volcanic alert levels."""
 
@@ -267,6 +321,11 @@ class VolcanicPredictionResult:
 
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
 
     # How time_to_eruption_hours was fitted: the failure-forecast output of
     # :func:`failure_forecast` or :func:`failure_forecast_poisson` plus its
@@ -939,6 +998,13 @@ class EruptionForecastModel(nn.Module):
         return eruption_prob, vei_logits, time_norm
 
 
+def _fit_precursor_rate(rate: dict[str, Any]) -> dict[str, float] | None:
+    """Materials failure forecast from binned counts (Poisson MLE) or a rate series."""
+    if "counts" in rate:
+        return failure_forecast_poisson(rate.get("bin_edges_h"), rate["counts"])
+    return failure_forecast(rate.get("times_h"), rate.get("rate"))
+
+
 class VolcanicEruptionDetector:
     """Comprehensive volcanic eruption detection system.
 
@@ -950,6 +1016,60 @@ class VolcanicEruptionDetector:
     - 3R Refactoring mechanism for adaptive parameter optimization
     - GOSNN synapse for ethical gating and scalar registration
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'volcanic_avo_seismic' checkpoint (real "
+                "held-out AVO data, scoped to the named Alaska/AVO volcano "
+                "set in its provenance record): on the learned path the "
+                "eruption_imminent decision thresholds the eruption-head "
+                "probability at the checkpoint's ratified, "
+                "validation-selected operating point."
+            ),
+            operating_point=(
+                "shipped checkpoint 'volcanic_avo_seismic' "
+                "(models/checkpoints/volcanic_avo_seismic.pt + provenance "
+                "sidecar): operating_point.eruption_prob_threshold selected "
+                "by ml.hazard_training.volcanic_eruption."
+                "_select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Failure-time forecasting uses the inverse-rate failure "
+                "forecast method (reported only when the inverse precursor "
+                "rate falls with R^2 >= 0.8 over >= 5 samples, Poisson form "
+                "for sparse event counts), and detect_live reports the "
+                "official USGS observatory alert level verbatim (WARNING = "
+                "eruption imminent)."
+            ),
+            citation=(
+                "Voight (1988), Nature 332 (inverse-rate FFM, alpha = 2 per "
+                "Cornelius & Voight 1995); Bell, Naylor & Main (2013), GJI "
+                "194 (Poisson count form); USGS Volcano Alert Level "
+                "definitions (usgs.gov/natural-hazards/volcano-hazards/"
+                "about-alert-levels)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The physics-path forecast is unsourced engineering: a "
+                "noisy-OR over precursor severities normalised against "
+                "in-code references (degassing index saturating at 5x "
+                "baseline, 20 cm InSAR displacement, 1000 MW radiant heat, "
+                "robust seismic-swarm exceed fraction with a 0.02 swarm "
+                "bar, HMM belief) thresholded at 0.7, the indicator-count "
+                "alert ladder in _determine_alert_level, and the bounded "
+                "exploratory Schumann/ELF correlation -- constants with no "
+                "published source and no labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,
@@ -1289,20 +1409,7 @@ class VolcanicEruptionDetector:
         Returns:
             Volcanic eruption prediction with alert level and recommendations
         """
-        if not isinstance(volcano_data, dict):
-            # A bare array used to return a silent all-clear ("normal").
-            raise InputModalityError(
-                "predict_eruption expects a mapping of monitoring streams "
-                f"(seismic_sequence, thermal_data, gas_data, insar_data, ...), got "
-                f"{type(volcano_data).__name__}"
-            )
-        if "seismic_sequence" in volcano_data:
-            volcano_data = {
-                **volcano_data,
-                "seismic_sequence": finite_array(
-                    volcano_data["seismic_sequence"], "seismic_sequence", unit="counts"
-                ),
-            }
+        volcano_data, grader = self._grade_volcano_data(volcano_data)
         if self.state_hmm is not None and not self.persist_hmm_state:
             self.state_hmm.reset()
 
@@ -1312,6 +1419,10 @@ class VolcanicEruptionDetector:
             alert_level="normal",
             eruption_type="no_eruption",
         )
+
+        # Streams whose analyzer refused them are set aside; at least one
+        # decision stream must be assessed (checked after the analyzers run).
+        assessed_streams: set[str] = set()
 
         indicators_detected: float = 0
 
@@ -1326,6 +1437,7 @@ class VolcanicEruptionDetector:
         swarm_probability: float | None = None
         if self.enable_seismic and "seismic_sequence" in volcano_data:
             seismic_result = self._analyze_seismic(volcano_data["seismic_sequence"])
+            assessed_streams.add("seismic_sequence")
             # The learned LSTM is trained on the eruption-onset label, not on
             # swarms, so the swarm flag is always the amplitude rule that the
             # name describes; the LSTM output stays in the diagnostics.
@@ -1360,9 +1472,15 @@ class VolcanicEruptionDetector:
             and "thermal_data" in volcano_data
             and self.thermal_detector is not None
         ):
-            thermal_result = self.thermal_detector.detect_thermal_anomaly(
-                volcano_data["thermal_data"]
+            thermal_result = grader.attempt(
+                "thermal_data",
+                self.thermal_detector.detect_thermal_anomaly,
+                volcano_data["thermal_data"],
             )
+        else:
+            thermal_result = None
+        if thermal_result is not None:
+            assessed_streams.add("thermal_data")
             result.thermal_anomaly_detected = thermal_result["anomaly_detected"]
             signals["radiant_heat_mw"] = thermal_result.get("radiant_heat_mw", 0.0)
             hmm_observations[1] = thermal_result["anomaly_detected"]
@@ -1371,6 +1489,7 @@ class VolcanicEruptionDetector:
 
         if self.enable_gas and "gas_data" in volcano_data and self.gas_analyzer is not None:
             gas_result = self.gas_analyzer.analyze_gas_emissions(volcano_data["gas_data"])
+            assessed_streams.add("gas_data")
             result.gas_flux_anomaly = gas_result["so2_anomaly"] or gas_result["co2_anomaly"]
             signals["degassing_index"] = gas_result["degassing_index"]
             hmm_observations[2] = result.gas_flux_anomaly
@@ -1379,6 +1498,7 @@ class VolcanicEruptionDetector:
 
         if self.enable_insar and "insar_data" in volcano_data and self.insar_detector is not None:
             insar_result = self.insar_detector.detect_deformation(volcano_data["insar_data"])
+            assessed_streams.add("insar_data")
             result.deformation_detected = insar_result["deformation_detected"]
             signals["total_displacement_cm"] = insar_result["total_displacement_cm"]
             signals["deformation_rate_cm_day"] = insar_result.get("deformation_rate_cm_day", 0.0)
@@ -1390,21 +1510,33 @@ class VolcanicEruptionDetector:
             # Reported only. ELF anomalies are not validated eruption
             # precursors, and the score is a deviation from 7.83 Hz, not a
             # correlation; it no longer adds to the decision.
-            result.schumann_elf_correlation = self._correlate_schumann_elf(
-                finite_array(volcano_data["schumann_elf"], "schumann_elf", unit="Hz")
+            elf = grader.attempt(
+                "schumann_elf",
+                lambda v: finite_array(v, "schumann_elf", unit="Hz"),
+                volcano_data["schumann_elf"],
             )
+            if elf is not None:
+                result.schumann_elf_correlation = self._correlate_schumann_elf(elf)
 
         if "precursor_rate" in volcano_data:
             rate = volcano_data["precursor_rate"]
-            if "counts" in rate:
-                forecast = failure_forecast_poisson(rate.get("bin_edges_h"), rate["counts"])
-                method = "ffm_poisson_mle"
-            else:
-                forecast = failure_forecast(rate.get("times_h"), rate.get("rate"))
-                method = "ffm_inverse_rate"
+            method = "ffm_poisson_mle" if "counts" in rate else "ffm_inverse_rate"
+            forecast = grader.attempt("precursor_rate", _fit_precursor_rate, rate)
+            if "precursor_rate" not in {e["where"] for e in grader.set_aside}:
+                assessed_streams.add("precursor_rate")
             if forecast is not None:
                 result.time_to_eruption_hours = forecast["time_to_failure_h"]
                 result.time_to_eruption_fit = {"method": method, **forecast}
+
+        if "fused_features" in volcano_data:
+            assessed_streams.add("fused_features")
+        # Nothing that decides could be assessed: the result would be a silent
+        # "normal" (Schumann ELF is reported only and decides nothing).
+        grader.require_usable(
+            assessed_streams,
+            "no monitoring stream could be assessed: supply at least one of "
+            f"{sorted(VOLCANIC_DECISION_STREAMS)}; an unmonitored volcano is not a quiet one",
+        )
 
         # Update HMM state belief based on observations
         hmm_state_info: dict[str, Any] = {}
@@ -1487,7 +1619,64 @@ class VolcanicEruptionDetector:
             f"hmm_state={hmm_state_info.get('current_state', 'disabled')}"
         )
 
+        result.partial = grader.partial
+        result.set_aside = list(grader.set_aside)
         return result
+
+    @staticmethod
+    def _grade_volcano_data(volcano_data: Any) -> tuple[dict[str, Any], InputGrader]:
+        """Keep every usable stream and field; set the rest aside with its reason.
+
+        A misspelt key, an empty or non-mapping section, a non-finite or
+        out-of-range scalar, or a seismic / feature series with gaps is set
+        aside and reported; the rest is assessed.
+
+        Raises:
+            InputModalityError: If the record is not a mapping.
+            InvalidObservationError: If no decision stream remains.
+        """
+        if not isinstance(volcano_data, dict):
+            # A bare array used to return a silent all-clear ("normal").
+            raise InputModalityError(
+                "predict_eruption expects a mapping of monitoring streams "
+                f"(seismic_sequence, thermal_data, gas_data, insar_data, ...), got "
+                f"{type(volcano_data).__name__}"
+            )
+        grader = InputGrader()
+        record: dict[str, Any] = {}
+        for key, value in volcano_data.items():
+            if key in VOLCANIC_SECTIONS:
+                allowed, complete = VOLCANIC_SECTIONS[key]
+                section = grader.grade_section(
+                    key,
+                    value,
+                    scalars={k: VOLCANIC_SCALARS[k] for k in allowed if k in VOLCANIC_SCALARS},
+                    others=frozenset(k for k in allowed if k not in VOLCANIC_SCALARS),
+                    complete=complete,
+                )
+                if section is not None:
+                    record[key] = section
+            elif key in ("seismic_sequence", "fused_features"):
+                unit = "counts" if key == "seismic_sequence" else "feature units"
+                try:
+                    checked = finite_array(value, key, unit=unit)
+                except InvalidObservationError as exc:
+                    grader.discard(key, str(exc))
+                    continue
+                # The seismic series is consumed as float64; the feature vector
+                # keeps the caller's dtype for the trained encoder.
+                record[key] = checked if key == "seismic_sequence" else value
+            elif key in VOLCANIC_STREAMS:
+                record[key] = value
+            else:
+                accepted = sorted(VOLCANIC_STREAMS | set(VOLCANIC_SECTIONS))
+                grader.discard(key, f"unknown stream; accepted: {accepted}")
+        grader.require_usable(
+            VOLCANIC_DECISION_STREAMS & set(record),
+            "no monitoring stream: supply at least one of "
+            f"{sorted(VOLCANIC_DECISION_STREAMS)}; an unmonitored volcano is not a quiet one",
+        )
+        return record, grader
 
     def _analyze_seismic(self, seismic_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze seismic swarm activity.

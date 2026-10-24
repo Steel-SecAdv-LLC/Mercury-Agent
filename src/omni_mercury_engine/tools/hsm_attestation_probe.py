@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: HSM / TPM / YubiHSM attestation probe.
 
 Reads ``MERCURY_HSM=pkcs11|tpm2|yubihsm`` and attempts to fetch and

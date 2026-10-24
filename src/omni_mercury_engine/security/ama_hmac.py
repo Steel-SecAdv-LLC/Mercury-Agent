@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """AMA-Cryptography HMAC routing for Mercury Agent.
 
 Thin Mercury-side adapter that surfaces AMA Cryptography's

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Association Discrepancy Module - Anomaly Transformer (ICLR 2022).
 
 Implements the core innovation from "Anomaly Transformer: Time Series Anomaly

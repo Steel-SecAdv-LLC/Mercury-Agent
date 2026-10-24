@@ -142,5 +142,5 @@ jobs:
           path: |
             benchmarks/competitive_results_quick.json
             benchmarks/competitive_results_full_ci.json
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 90

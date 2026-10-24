@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Adversarial robustness / contract regression tests for the detector tier.
 
 These lock in the hardening pass that fixed a family of confirmed defects the
@@ -219,7 +219,15 @@ class TestRcaRobustness:
         det = RootCauseGraphDetector().fit(np.random.default_rng(10).normal(size=(80, 4)))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            _assert_contract(det.detect(np.array([[1.0, np.inf, 2.0, -np.inf]])))
+            # The only row carries non-finite values, so nothing is
+            # measurable: the shared base guard refuses loudly instead of
+            # grading a fully unmeasured input (a mixed batch keeps its
+            # finite rows and marks the rest unmeasured).
+            with pytest.raises(ValueError, match="non-finite"):
+                det.detect(np.array([[1.0, np.inf, 2.0, -np.inf]]))
+            mixed = det.detect(np.array([[1.0, np.inf, 2.0, -np.inf], [1.0, 0.5, 2.0, -0.5]]))
+            assert mixed["partial"] is True
+            assert mixed["unmeasured"]["indices"] == [0]
             feats = det.extract_features(np.array([[1.0, np.inf, 2.0, -np.inf]]))
         assert np.all(np.isfinite(feats)), "extract_features returned non-finite features"
 

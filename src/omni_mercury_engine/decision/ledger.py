@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Append-only audit ledger of decisions -- the "verify" and "detail" pillar.
 
 :class:`DecisionLedger` is the closed loop's memory: an append-only, JSON-

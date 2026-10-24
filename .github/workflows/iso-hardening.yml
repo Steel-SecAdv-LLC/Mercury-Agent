@@ -32,7 +32,10 @@ name: ISO Hardening
 
 on:
   push:
-    branches: [main, develop]
+    # steel/** is this repository's working-branch convention (see ci.yml):
+    # without it these gates (Examples Parity, the hardening scans) ran only
+    # once a PR opened.
+    branches: [main, develop, steel/**]
   pull_request:
     branches: [main, develop]
 
@@ -94,7 +97,9 @@ jobs:
   examples-parity:
     name: Examples Parity
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 40: a cold cache streams ~1.1 GB of DTU training files from figshare
+    # (measured ~1.7 MB/s from one network: ~11 min) before the demos run.
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -145,18 +150,33 @@ jobs:
           echo "$out"
           echo "$out" | grep -q "PHYSICS-INSPIRED DETECTORS"
 
+      - name: Cache DTU AIS training files
+        # Keyed on the two pinned SHA-256s; the loader re-hashes each file
+        # against its pin before use, so a cached file cannot pass unverified.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: data/dtu_ais_training
+          key: dtu-ais-training-801b94417724-8daf08d18685
+
       - name: Run mercury_quickstart end-to-end (real DTU AIS download)
         # The README's ten-minute path: downloads the digest-pinned DTU
         # labelled set (~38 MB from figshare) and must reproduce the
-        # committed DTU_AIS_Abnormal benchmark row deterministically.
+        # committed DTU_AIS_Abnormal benchmark row (harness protocol) and the
+        # label-free cross-fit over all 521 tracks, both deterministically.
+        # --published-protocols also streams each paper's own training file
+        # (~1.1 GB from figshare's archive, SHA-256 pinned) and must
+        # reproduce the README's thesis and JMSE protocol figures.
         env:
           AMA_REQUIRE_REAL_PQC: "true"
         run: |
           set -euo pipefail
-          out=$(python examples/mercury_quickstart.py --data-dir ./data)
+          out=$(python examples/mercury_quickstart.py --data-dir ./data --published-protocols)
           echo "$out"
-          echo "$out" | grep -q "MERCURY QUICKSTART COMPLETE"
-          echo "$out" | grep -q "Mercury ensemble (this run)  ROC-AUC 0.8613"
+          echo "$out" | grep -qF "MERCURY QUICKSTART COMPLETE"
+          echo "$out" | grep -qF "incl. all 25 abnormal: ROC-AUC 0.8613 "
+          echo "$out" | grep -qF "Mercury label-free cross-fit ROC-AUC 0.8617"
+          echo "$out" | grep -qF "Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8785 "
+          echo "$out" | grep -qF "JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8751 "
 
   load-tests:
     name: Load Tests (smoke)

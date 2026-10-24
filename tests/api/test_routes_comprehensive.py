@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Comprehensive tests for api/routes/ endpoint modules.
 
 Covers:
@@ -369,6 +369,31 @@ class TestDetectionRoutes:
         # Conformal flags concentrate near the injected burst.
         flagged = {i for i, f in enumerate(result["conformal_flags"]) if f}
         assert flagged & set(range(95, 115))
+
+    def test_tier_detection_is_recorded_with_its_flags_and_scores(self, client: Any) -> None:
+        """The history record (and so the SIEM alert, which skips records with
+        no anomalies) carries the tier's flags and scores: it was recorded with
+        neither key, so every tier detection counted 0 anomalies at score 0."""
+        import asyncio
+
+        from omni_mercury_engine.api.routes.export import get_data_store
+
+        rng = np.random.default_rng(0)
+        series = rng.normal(0, 1, 200).tolist()
+        for i in range(100, 108):
+            series[i] += 7.0
+        response = client.post(
+            "/api/v1/detect/tier",
+            json={"data": series, "subset": ["spectral_residual", "spot_evt", "bocpd"]},
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["n_flagged"] > 0
+        records, _ = asyncio.run(get_data_store().query_detections(method="detector_tier"))
+        latest = max(records, key=lambda r: r.timestamp)
+        assert latest.anomaly_count == result["n_flagged"]
+        assert latest.max_score == max(result["scores"])
+        assert latest.summary["threshold"] == result["threshold"]
 
     def test_tier_detection_bad_request(self, client: Any) -> None:
         """stacking without labels is a 400 (surfaced ValueError), not a 500."""

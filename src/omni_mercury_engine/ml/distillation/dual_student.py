@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dual-Student Knowledge Distillation for Anomaly Detection.
 
 Implementation based on recent SOTA papers (2024):
@@ -22,8 +22,20 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import torch
 from torch import nn, optim
+
+from omni_mercury_engine.core.conformal_prediction import (
+    split_calibration_indices,
+    split_conformal_threshold,
+)
+from omni_mercury_engine.core.exceptions import (
+    DataException,
+    InputModalityError,
+    InvalidObservationError,
+)
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +63,16 @@ class DualStudentConfig:
             1.0 trains only student 1, 0.0 only student 2; the default 0.5
             weights both equally (the historical unweighted-sum behaviour
             up to the overall scale).
+        imagenet_normalize: Standardise inputs with the ImageNet statistics
+            the pre-trained teacher was trained on (images in [0, 1]).
+        threshold: Decision threshold on the anomaly score.  ``None`` (the
+            default) calibrates it in ``fit`` on held-out normal images by
+            split conformal prediction at ``false_alarm_rate``; a float is
+            used verbatim and every image trains.
+        false_alarm_rate: Target probability that a normal image is flagged.
+        calibration_fraction: Share of the normal images held out to
+            calibrate the threshold.
+        calibration_seed: Seed of the train/calibration split.
     """
 
     backbone: str = "resnet18"
@@ -61,6 +83,11 @@ class DualStudentConfig:
     alpha: float = 0.5
     batch_size: int = 32
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    imagenet_normalize: bool = True
+    threshold: float | None = None
+    false_alarm_rate: float = 0.05
+    calibration_fraction: float = 0.2
+    calibration_seed: int = 0
 
     def __post_init__(self) -> None:
         """Validate the student weighting.
@@ -223,6 +250,45 @@ class DualStudentDistillation(nn.Module):
         >>> anomaly_scores = distiller.detect(test_images)
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "The anomaly score is the teacher-versus-dual-student "
+                "feature discrepancy of the two students trained in fit() "
+                "on normal images (cosine feature-matching loss; no "
+                "decision is made before fit calibrates the threshold)."
+            ),
+            operating_point=(
+                "fit-time record: the student weights trained on the normal "
+                "split plus the threshold record kept in self.calibration "
+                "(method, n_calibration, requested and achieved false-alarm "
+                "bound)"
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The decision threshold is set by split conformal "
+                "prediction on held-out normal images at the configured "
+                "false_alarm_rate (default 0.05); when too few calibration "
+                "images bound that rate, fit() logs the achieved bound "
+                "instead of pretending. A configured fixed threshold "
+                "bypasses calibration and is recorded as such."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold; "
+                "record kept in self.calibration"
+            ),
+        ),
+    )
+
+    _norm_mean: torch.Tensor
+    _norm_std: torch.Tensor
+
     def __init__(self, config: DualStudentConfig | dict[str, Any] | None = None) -> None:
         """Initialize dual-student distillation.
 
@@ -249,6 +315,60 @@ class DualStudentDistillation(nn.Module):
 
         self._is_fitted = False
         self._feature_dim: int = 0
+        # ``inf`` until fit calibrates it: no decision before calibration.
+        self.threshold = math.inf if self.config.threshold is None else float(self.config.threshold)
+        #: How ``threshold`` was set (``fixed`` or ``split_conformal`` with
+        #: the achieved false-alarm bound); ``None`` before ``fit``.
+        self.calibration: dict[str, Any] | None = None
+        self.register_buffer("_norm_mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+        self.register_buffer("_norm_std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
+
+    def _prepare(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+        """``data`` as a finite float32 image batch [N, 3, H, W] on the device.
+
+        Raises:
+            InputModalityError: If ``data`` is not a 3-channel image batch.
+            InvalidObservationError: If it contains non-finite pixels (they
+                used to score NaN and read as "not anomalous").
+        """
+        batch = torch.as_tensor(np.asarray(data) if not torch.is_tensor(data) else data)
+        batch = batch.to(device=self.device, dtype=torch.float32)
+        if batch.dim() != 4 or batch.shape[1] != 3:
+            raise InputModalityError(
+                "DualStudentDistillation expects an image batch [N, 3, H, W]; "
+                f"got shape {tuple(batch.shape)}"
+            )
+        if not bool(torch.isfinite(batch).all()):
+            raise InvalidObservationError("DualStudentDistillation: non-finite pixel values")
+        if self.config.imagenet_normalize:
+            batch = (batch - self._norm_mean.to(batch.device)) / self._norm_std.to(batch.device)
+        return batch
+
+    def _discrepancy_maps(self, batch: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Per-position ``1 - cos(teacher, student)`` for each student, [B, H, W].
+
+        The discrepancy the students are trained to minimise
+        (:meth:`_distillation_loss`); scoring anything else -- the squared
+        error of the raw features, as before -- measures the student output
+        norm the cosine loss never constrains, and ranked real defects below
+        normal images.
+        """
+        assert self.teacher is not None
+        assert self.student1 is not None
+        assert self.student2 is not None
+        with torch.no_grad():
+            teacher_agg = self._aggregate_features(self.teacher(batch))
+            t_norm = nn.functional.normalize(teacher_agg, p=2, dim=1)
+            maps = []
+            for student in (self.student1, self.student2):
+                s_norm = nn.functional.normalize(student(teacher_agg), p=2, dim=1)
+                maps.append(1.0 - (t_norm * s_norm).sum(dim=1))
+        return maps[0], maps[1]
+
+    def _scores(self, batch: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        diff1, diff2 = self._discrepancy_maps(batch)
+        anomaly_maps = torch.max(diff1, diff2)
+        return anomaly_maps.flatten(1).max(dim=1)[0], diff1, diff2
 
     @property
     def feature_dim(self) -> int:
@@ -342,7 +462,7 @@ class DualStudentDistillation(nn.Module):
 
         return loss
 
-    def fit(self, data: torch.Tensor) -> DualStudentDistillation:
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> DualStudentDistillation:
         """Train students on normal data.
 
         Datasets smaller than ``batch_size`` train as a single full batch;
@@ -360,8 +480,23 @@ class DualStudentDistillation(nn.Module):
         if len(data) == 0:
             raise ValueError("fit() requires at least one sample; got an empty batch")
 
-        if isinstance(data, torch.Tensor):
-            data = data.to(self.device)
+        data = self._prepare(data)
+        calibration: torch.Tensor | None = None
+        if self.config.threshold is not None:
+            self.threshold = float(self.config.threshold)
+            self.calibration = {"method": "fixed", "threshold": self.threshold}
+        else:
+            try:
+                fit_idx, cal_idx = split_calibration_indices(
+                    len(data), self.config.calibration_fraction, self.config.calibration_seed
+                )
+            except ValueError as e:
+                raise DataException(
+                    f"DualStudentDistillation calibrates its threshold on held-out normal "
+                    f"images: {e}. Pass more normal images, or configure an explicit threshold."
+                ) from e
+            calibration = data[torch.as_tensor(cal_idx, device=data.device)]
+            data = data[torch.as_tensor(fit_idx, device=data.device)]
 
         # Initialize networks
         if self.student1 is None:
@@ -439,10 +574,25 @@ class DualStudentDistillation(nn.Module):
         self.student2.eval()
         self._is_fitted = True
 
+        if calibration is not None:
+            result = split_conformal_threshold(
+                self._scores(calibration)[0].cpu().numpy(), self.config.false_alarm_rate
+            )
+            self.threshold = result.threshold
+            self.calibration = result.as_record()
+            if result.false_alarm_bound > result.false_alarm_rate:
+                logger.warning(
+                    "DualStudentDistillation: %d calibration image(s) bound the false-alarm "
+                    "rate by %.3f, above the requested %.3f",
+                    result.n_calibration,
+                    result.false_alarm_bound,
+                    result.false_alarm_rate,
+                )
+
         logger.info("Dual-student training complete")
         return self
 
-    def detect(self, data: torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using dual-student discrepancy.
 
         Args:
@@ -454,42 +604,55 @@ class DualStudentDistillation(nn.Module):
         if not self._is_fitted:
             raise RuntimeError("Must call fit() before detect()")
 
-        data = data.to(self.device)
-
-        # Assert networks are initialized
         assert self.student1 is not None
         assert self.student2 is not None
-        assert self.teacher is not None
-
         self.student1.eval()
         self.student2.eval()
 
-        with torch.no_grad():
-            # Teacher features
-            teacher_features = self.teacher(data)
-            teacher_agg = self._aggregate_features(teacher_features)
-
-            # Student outputs
-            student1_out = self.student1(teacher_agg)
-            student2_out = self.student2(teacher_agg)
-
-            # Anomaly scores = max discrepancy from teacher
-            diff1 = (teacher_agg - student1_out).pow(2).mean(dim=1)  # [B, H, W]
-            diff2 = (teacher_agg - student2_out).pow(2).mean(dim=1)  # [B, H, W]
-
-            # Take maximum discrepancy
-            anomaly_maps = torch.max(diff1, diff2)
-
-            # Image-level scores
-            scores = anomaly_maps.view(len(data), -1).max(dim=1)[0]
-
+        scores, diff1, diff2 = self._scores(self._prepare(data))
+        anomaly_maps = torch.max(diff1, diff2)
         return {
             "scores": scores.cpu().numpy(),
             "anomaly_maps": anomaly_maps.cpu().numpy(),
-            "is_anomaly": (scores > scores.mean()).cpu().numpy(),
+            # Against the calibrated threshold.  Before, the decision was
+            # ``score > batch mean``: a single image was never flagged and
+            # an all-normal batch always flagged some.
+            "is_anomaly": (scores > self.threshold).cpu().numpy(),
+            "threshold": self.threshold,
             "student1_maps": diff1.cpu().numpy(),
             "student2_maps": diff2.cpu().numpy(),
         }
+
+    def predict(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
+        """Registry contract: the same per-image scores and decisions as :meth:`detect`."""
+        result = self.detect(data)
+        return {
+            "anomaly_scores": result["scores"],
+            "is_anomaly": result["is_anomaly"],
+            "threshold": result["threshold"],
+        }
+
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+        """Per-image measured discrepancy summary.
+
+        Returns:
+            ``[N, 5]``: anomaly score, then mean and max of each student's
+            discrepancy map (student 1 mean, student 1 max, student 2 mean,
+            student 2 max).
+        """
+        result = self.detect(data)
+        maps1, maps2 = result["student1_maps"], result["student2_maps"]
+        n = len(result["scores"])
+        return np.stack(
+            [
+                result["scores"],
+                maps1.reshape(n, -1).mean(axis=1),
+                maps1.reshape(n, -1).max(axis=1),
+                maps2.reshape(n, -1).mean(axis=1),
+                maps2.reshape(n, -1).max(axis=1),
+            ],
+            axis=1,
+        ).astype(np.float64)
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass for PyTorch integration."""

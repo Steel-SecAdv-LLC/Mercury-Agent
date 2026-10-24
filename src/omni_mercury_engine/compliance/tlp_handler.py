@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Traffic Light Protocol (TLP) classification for Mercury Agent.
 
 This module implements automated Traffic Light Protocol (TLP) tagging for

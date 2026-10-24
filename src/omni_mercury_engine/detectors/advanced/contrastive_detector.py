@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Contrastive Learning Detector for Anomaly Detection.
 
 Implements SimCLR-style contrastive learning adapted for anomaly detection:
@@ -25,6 +25,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -358,6 +360,19 @@ class ContrastiveLearningDetector:
         >>> scores = detector.predict(X_test)
     """
 
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Fitted detector: is_anomaly fires above the threshold_percentile (default 95) "
+            "percentile of its own training scores, so about 5% of the training data alarms by "
+            "construction; no published threshold exists and no false-alarm rate is recorded for "
+            "the cut. Ranking on real labelled data is weak: held-out ROC-AUC 0.598 mean over "
+            "five ADBench datasets (Pima 0.550, breastw 0.890, WBC 0.686, cardio 0.403, thyroid "
+            "0.461), below the shipped LOF reference's 0.661 and under 0.5 on two datasets "
+            "(benchmarks/advanced_detector_auc.py)."
+        ),
+    )
+
     def __init__(
         self,
         input_dim: int = 38,
@@ -390,6 +405,7 @@ class ContrastiveLearningDetector:
         self.train_representations: NDArray[np.float64] | None = None
         self.threshold: float = 0.0
         self._fitted = False
+        self._seed = seed
         self._rng: np.random.Generator = np.random.default_rng(seed)
         # Augmenter shares the seed when not None so its augmentations are
         # reproducible alongside detector-level shuffling.
@@ -419,6 +435,14 @@ class ContrastiveLearningDetector:
         self.config.input_dim = X.shape[-1]
 
         # Initialize model
+        # Seed torch before the weights are drawn. ``seed`` reached the NumPy
+        # generator and the augmenter but not the network's initialisation, so
+        # a run was not reproducible even at a fixed ``seed``: the benchmark's
+        # mean ROC-AUC moved between runs (0.593 then 0.601 on the same
+        # command). ``LSTMAutoencoderDetector.fit`` seeds torch the same way.
+        if self._seed is not None:
+            torch.manual_seed(self._seed)
+
         self.model = ContrastiveModel(self.config).to(self.device)
 
         # Split data

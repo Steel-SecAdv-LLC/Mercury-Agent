@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury Agent - Explainability Module with SHAP/LIME Integration.
 
 Production-grade explainability for anomaly detection models.
@@ -24,6 +24,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import logging
+import math
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -52,6 +53,11 @@ except ImportError:
     nn = None  # type: ignore[assignment, unused-ignore]
 
 _OPTIONAL_MODULES: dict[str, Any] = {}
+
+#: Up to this many features the SHAP fallback enumerates every coalition
+#: (2**n model rows, one batched call) and returns exact Shapley values;
+#: above it, it averages ``n_samples`` random feature orderings.
+_EXACT_SHAPLEY_MAX_FEATURES = 10
 
 
 def _optional_module(name: str) -> Any:
@@ -218,6 +224,7 @@ class SHAPExplainer(BaseExplainer):
             feature_names = [f"feature_{i}" for i in range(n_features)]
 
         if self.background_data is not None and _optional_module("shap") is not None:
+            method = "kernel_shap"
             if self._explainer is None:
                 self._explainer = self._create_explainer(model, self.background_data)
 
@@ -232,8 +239,11 @@ class SHAPExplainer(BaseExplainer):
                 base_value = float(base_value[0])
 
         else:
+            exact = n_features <= _EXACT_SHAPLEY_MAX_FEATURES
+            method = "exact_shapley" if exact else "permutation_shapley"
             shap_values = self._approximate_shap(model, instance)
-            base_value = float(model(instance.mean(axis=0, keepdims=True))[0])
+            # Efficiency: the values sum to f(instance) - f(baseline).
+            base_value = float(model(self._baseline(n_features).reshape(1, -1))[0])
 
         prediction = float(model(instance)[0])
 
@@ -266,48 +276,68 @@ class SHAPExplainer(BaseExplainer):
             base_value=base_value,
             local_accuracy=float(local_accuracy),
             human_readable=human_readable,
-            metadata={"n_samples": self.n_samples, "method": "kernel_shap"},
+            metadata={"n_samples": self.n_samples, "method": method},
         )
+
+    def _baseline(self, n_features: int) -> np.ndarray[Any, Any]:
+        """The reference input absent features take: the background mean, else zeros.
+
+        Raises:
+            ValueError: ``background_data`` has a different feature count.
+        """
+        if self.background_data is None:
+            return np.zeros(n_features)
+        background = np.atleast_2d(np.asarray(self.background_data, dtype=np.float64))
+        if background.shape[1] != n_features:
+            raise ValueError(
+                f"background_data has {background.shape[1]} features, the instance {n_features}"
+            )
+        return np.asarray(background.mean(axis=0), dtype=np.float64)
 
     def _approximate_shap(
         self,
         model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         instance: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Approximate SHAP values without SHAP library."""
-        instance = instance.flatten()
+        """Shapley values against a fixed baseline, without the SHAP library.
+
+        A feature absent from a coalition takes its :meth:`_baseline` value.
+        Up to :data:`_EXACT_SHAPLEY_MAX_FEATURES` features every coalition is
+        evaluated and weighted by ``|S|! (n - |S| - 1)! / n!``, giving the
+        exact values; above that, ``n_samples`` random orderings are averaged
+        (each ordering's increments sum to ``f(instance) - f(baseline)``, so
+        efficiency holds exactly either way).
+        """
+        instance = instance.flatten().astype(np.float64)
         n_features = len(instance)
+        baseline = self._baseline(n_features)
+
+        if n_features <= _EXACT_SHAPLEY_MAX_FEATURES:
+            codes = np.arange(2**n_features)
+            members = ((codes[:, np.newaxis] >> np.arange(n_features)) & 1).astype(bool)
+            values = np.asarray(model(np.where(members, instance, baseline)), dtype=np.float64)
+            values = values.reshape(-1)
+            sizes = members.sum(axis=1)
+            weight = np.array(
+                [math.factorial(k) * math.factorial(n_features - k - 1) for k in range(n_features)],
+                dtype=np.float64,
+            ) / math.factorial(n_features)
+            shap_values = np.zeros(n_features)
+            for j in range(n_features):
+                without = codes[~members[:, j]]
+                gains = values[without | (1 << j)] - values[without]
+                shap_values[j] = float(np.sum(weight[sizes[without]] * gains))
+            return shap_values
+
         shap_values = np.zeros(n_features)
-
-        baseline = np.zeros_like(instance)
-        n_samples = min(self.n_samples, 2**n_features)
-
-        for _ in range(n_samples):
-            coalition = self._rng.integers(0, 2, n_features)
-
-            with_feature = baseline.copy()
-            without_feature = baseline.copy()
-
-            for j in range(n_features):
-                if coalition[j] == 1:
-                    with_feature[j] = instance[j]
-                    without_feature[j] = instance[j]
-
-            for j in range(n_features):
-                temp_with = with_feature.copy()
-                temp_without = without_feature.copy()
-
-                if coalition[j] == 0:
-                    temp_with[j] = instance[j]
-                else:
-                    temp_without[j] = baseline[j]
-
-                pred_with = model(temp_with.reshape(1, -1))[0]
-                pred_without = model(temp_without.reshape(1, -1))[0]
-
-                shap_values[j] += (pred_with - pred_without) / n_samples
-
-        return shap_values
+        for _ in range(self.n_samples):
+            order = self._rng.permutation(n_features)
+            rows = np.tile(baseline, (n_features + 1, 1))
+            for step, j in enumerate(order, start=1):
+                rows[step:, j] = instance[j]
+            path = np.asarray(model(rows), dtype=np.float64).reshape(-1)
+            shap_values[order] += np.diff(path)
+        return shap_values / self.n_samples
 
     def _generate_human_readable(
         self,
@@ -449,38 +479,49 @@ class LIMEExplainer(BaseExplainer):
         instance: np.ndarray[Any, Any],
         feature_names: list[str],
     ) -> tuple[dict[str, float], float]:
-        """Approximate LIME without LIME library."""
+        """Approximate LIME without the LIME library.
+
+        Fits LIME's local surrogate (Ribeiro, Singh & Guestrin 2016): a
+        kernel-weighted linear model *with an intercept* over perturbations
+        around ``instance``, ``f(x) ~ b + beta . (x - instance)``. The
+        intercept absorbs the model's local level, so ``beta`` holds only the
+        local slopes; without it a constant output was spread across every
+        feature.
+
+        Returns:
+            The per-feature slopes and the weighted R^2 of the surrogate.
+        """
         n_features = len(instance)
 
-        samples = self._rng.standard_normal((self.n_samples, n_features)) * 0.1 + instance
-        predictions = model(samples).flatten()
+        offsets = self._rng.standard_normal((self.n_samples, n_features)) * 0.1
+        predictions = model(instance + offsets).flatten()
 
-        distances = np.sqrt(np.sum((samples - instance) ** 2, axis=1))
+        distances = np.sqrt(np.sum(offsets**2, axis=1))
         kernel_width = self.kernel_width or np.sqrt(n_features) * 0.75
         weights = np.exp(-(distances**2) / (kernel_width**2))
 
-        samples_weighted = samples * np.sqrt(weights)[:, np.newaxis]
-        predictions_weighted = predictions * np.sqrt(weights)
-
+        design = np.column_stack([np.ones(self.n_samples), offsets])
+        root_w = np.sqrt(weights)
         try:
-            coeffs, residuals, _, _ = np.linalg.lstsq(
-                samples_weighted, predictions_weighted, rcond=None
+            beta, _, _, _ = np.linalg.lstsq(
+                design * root_w[:, np.newaxis], predictions * root_w, rcond=None
             )
         except np.linalg.LinAlgError:
-            coeffs = np.zeros(n_features)
-            residuals = np.array([1e10])
+            beta = np.zeros(n_features + 1)
+        coeffs = beta[1:]
 
         lime_weights = {name: float(coeffs[i]) for i, name in enumerate(feature_names)}
 
-        ss_res = (
-            residuals[0]
-            if len(residuals) > 0
-            else np.sum((predictions_weighted - samples_weighted @ coeffs) ** 2)
-        )
-        ss_tot = np.sum((predictions_weighted - np.mean(predictions_weighted)) ** 2) + 1e-8
-        r2 = 1 - ss_res / ss_tot
+        fitted = design @ beta
+        mean = np.average(predictions, weights=weights)
+        ss_res = float(np.sum(weights * (predictions - fitted) ** 2))
+        ss_tot = float(np.sum(weights * (predictions - mean) ** 2))
+        if ss_tot > 0:
+            r2 = 1.0 - ss_res / ss_tot
+        else:  # a locally constant model: perfect iff the residual is negligible
+            r2 = 1.0 if ss_res <= 1e-12 * float(np.sum(weights * predictions**2)) else 0.0
 
-        return lime_weights, float(max(0, r2))
+        return lime_weights, float(max(0.0, r2))
 
     def _generate_human_readable(
         self,

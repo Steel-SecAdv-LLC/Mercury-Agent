@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Closed feedback loop units: labeling, durable queue, signed trigger, rollback.
 
 The corpus-heavy regression gate and end-to-end demo are exercised in

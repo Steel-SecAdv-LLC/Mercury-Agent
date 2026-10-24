@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Periodic maintenance sweeps for the platform stores.
 
 Append-only and expiring state needs an owner or it grows without bound and
@@ -29,8 +29,9 @@ import contextlib
 import logging
 import os
 import time
+from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -68,6 +69,9 @@ def maintenance_interval_seconds() -> float:
         return float(raw) if raw else 3600.0
     except ValueError:
         return 3600.0
+
+
+_R = TypeVar("_R")
 
 
 def _isolated(label: str, results: dict[str, int], task: Callable[[], int]) -> None:
@@ -110,35 +114,51 @@ def run_maintenance_sweep(now: datetime | None = None) -> dict[str, int]:
     moment = now or datetime.now(UTC)
     results: dict[str, int] = {}
 
-    store = build_identity_store()
-    _isolated("expired_sessions", results, lambda: store.prune_expired_sessions(moment))
-    _isolated("email_tokens", results, lambda: store.prune_email_tokens(moment))
-    _isolated(
-        "sealed_totp_secrets",
-        results,
-        lambda: migrate_plaintext_totp_secrets(
-            store, build_secret_sealer(store_is_durable=identity_store_is_durable())
-        ),
-    )
+    # Every store built here holds a SQLite connection; the periodic loop
+    # runs this in the long-lived API process, so an unclosed store leaked
+    # four connections per sweep, without bound.
+    with ExitStack() as opened:
 
-    ledger = build_usage_ledger()
-    cutoff = moment - usage_retention()
-    _isolated("usage_events", results, lambda: ledger.prune_before(cutoff))
+        def _track(resource: _R) -> _R:
+            close = getattr(resource, "close", None)
+            if callable(close):
+                opened.callback(close)
+            return resource
 
-    bucket_backend = build_shared_bucket_backend()
-    if bucket_backend is not None:
-        # A bucket idle for an hour has long since refilled; its row is dead.
-        _isolated("rate_buckets", results, lambda: bucket_backend.prune_stale(time.time() - 3600))
-
-    limiter = build_action_rate_limiter()
-    counter_store = getattr(limiter, "_store", None)
-    if counter_store is not None and hasattr(counter_store, "prune_stale"):
-        # Fixed-window counters two days old are outside every action window.
+        store = _track(build_identity_store())
+        _isolated("expired_sessions", results, lambda: store.prune_expired_sessions(moment))
+        _isolated("email_tokens", results, lambda: store.prune_email_tokens(moment))
         _isolated(
-            "rate_counters",
+            "sealed_totp_secrets",
             results,
-            lambda: counter_store.prune_stale(int(time.time()) - 2 * 86400),
+            lambda: migrate_plaintext_totp_secrets(
+                store, build_secret_sealer(store_is_durable=identity_store_is_durable())
+            ),
         )
+
+        ledger = _track(build_usage_ledger())
+        cutoff = moment - usage_retention()
+        _isolated("usage_events", results, lambda: ledger.prune_before(cutoff))
+
+        bucket_backend = build_shared_bucket_backend()
+        if bucket_backend is not None:
+            _track(bucket_backend)
+            # A bucket idle for an hour has long since refilled; its row is dead.
+            _isolated(
+                "rate_buckets", results, lambda: bucket_backend.prune_stale(time.time() - 3600)
+            )
+
+        limiter = build_action_rate_limiter()
+        counter_store = getattr(limiter, "_store", None)
+        if counter_store is not None:
+            _track(counter_store)
+        if counter_store is not None and hasattr(counter_store, "prune_stale"):
+            # Fixed-window counters two days old are outside every action window.
+            _isolated(
+                "rate_counters",
+                results,
+                lambda: counter_store.prune_stale(int(time.time()) - 2 * 86400),
+            )
 
     # Time-based audit retention (compliance): delete whole rotated segments
     # older than MERCURY_AUDIT_RETENTION_DAYS. Only runs when both the audit dir

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Space-weather event-coincidence: a real, mission-justified application of the WS-D pre-registered null-test machinery.
 
 WS-D built reusable scientific-integrity infrastructure (transparent ingestion,

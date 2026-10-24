@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Offline (air-gapped) operation contract for the dataset layer.
 
 Production deployments require both connectivity modes: online (fetch and

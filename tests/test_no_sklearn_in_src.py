@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Guardrail: scikit-learn must never appear outside ``benchmarks/`` — repo-wide.
 
 Mercury builds its own ML in ``omni_mercury_engine.ml.mercury_ml`` (own

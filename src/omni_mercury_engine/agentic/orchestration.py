@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Multi-agent orchestration over the live detector ensemble (vision pillar B).
 
 This module is the wiring that revives the dormant planning / coordination /

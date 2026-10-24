@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regression guard for ``SchumannResonanceDetector._compute_power_spectrum``.
 
 A degenerate ELF window (all-zero, or shorter than two samples) has a spectral

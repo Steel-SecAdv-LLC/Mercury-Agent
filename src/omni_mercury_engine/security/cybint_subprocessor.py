@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CYBINT Sub-Processor - Advanced Cyber Intelligence Analysis.
 
 Detailed cyber threat taxonomy and attribution for security INT fusion:
@@ -111,6 +111,12 @@ class CYBINTAnalysisResult:
     recommended_actions: list[str] = field(default_factory=list)
     defensive_measures: list[str] = field(default_factory=list)
 
+    #: Whether a trained network attributed / classified the supplied features.
+    #: ``False`` means no network assessed them: ``apt_group`` and
+    #: ``malware_family`` are then "unknown", not a finding.
+    ml_apt_available: bool = False
+    ml_malware_available: bool = False
+
 
 class APTPatternRecognizer(nn.Module):
     """Neural network for APT group attribution.
@@ -121,6 +127,9 @@ class APTPatternRecognizer(nn.Module):
     def __init__(self, input_dim: int = 256) -> None:
         """Initialize the instance."""
         super().__init__()
+
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
 
         self.pattern_encoder = nn.Sequential(
             nn.Linear(input_dim, 512),
@@ -154,6 +163,11 @@ class APTPatternRecognizer(nn.Module):
 
         return apt_logits, confidence
 
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
+
 
 class MalwareTaxonomyClassifier(nn.Module):
     """Malware family classification network.
@@ -164,6 +178,9 @@ class MalwareTaxonomyClassifier(nn.Module):
     def __init__(self, input_dim: int = 128) -> None:
         """Initialize the instance."""
         super().__init__()
+
+        # Fail-closed: random weights until real trained weights are loaded.
+        self.is_fitted: bool = False
 
         self.feature_extractor = nn.Sequential(
             nn.Linear(input_dim, 256),
@@ -192,6 +209,11 @@ class MalwareTaxonomyClassifier(nn.Module):
         classification: torch.Tensor = self.family_classifier(features)
 
         return classification
+
+    def load_trained_weights(self, state_dict: dict[str, Any]) -> None:
+        """Load trained weights and mark the model fitted (safe to surface)."""
+        self.load_state_dict(state_dict)
+        self.is_fitted = True
 
 
 class C2InfrastructureDetector:
@@ -437,6 +459,7 @@ class CYBINTSubProcessor:
 
         if self.enable_apt_attribution and "threat_features" in threat_data:
             apt_result = self._attribute_apt(threat_data["threat_features"])
+            result.ml_apt_available = apt_result["available"]
             result.apt_group = apt_result["apt_group"]
             result.attribution_confidence = apt_result["confidence"]
             result.confidence = max(result.confidence, apt_result["confidence"])
@@ -447,6 +470,7 @@ class CYBINTSubProcessor:
 
         if self.enable_malware_classification and "malware_features" in threat_data:
             malware_result = self._classify_malware(threat_data["malware_features"])
+            result.ml_malware_available = malware_result["available"]
             result.malware_family = malware_result["family"]
             result.confidence = max(result.confidence, malware_result["confidence"])
 
@@ -498,11 +522,18 @@ class CYBINTSubProcessor:
         return result
 
     def _attribute_apt(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Attribute threat to APT group."""
+        """Attribute threat to APT group, or report "unknown" if the network is untrained."""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
         if self.apt_recognizer is None:
             raise RuntimeError("apt_recognizer not initialized")
+        if not self.apt_recognizer.is_fitted:
+            # Fail-closed: naming an actor from random weights is a false attribution.
+            return {
+                "available": False,
+                "apt_group": APTGroup.UNKNOWN.value,
+                "confidence": 0.0,
+            }
         self.apt_recognizer.eval()
         with torch.no_grad():
             apt_logits, _confidence = self.apt_recognizer(features_tensor)
@@ -514,14 +545,21 @@ class CYBINTSubProcessor:
         apt_groups = [e.value for e in APTGroup]
         identified_apt = apt_groups[apt_idx]
 
-        return {"apt_group": identified_apt, "confidence": apt_confidence}
+        return {"available": True, "apt_group": identified_apt, "confidence": apt_confidence}
 
     def _classify_malware(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Classify malware family."""
+        """Classify malware family, or report "unknown" if the network is untrained."""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
         if self.malware_classifier is None:
             raise RuntimeError("malware_classifier not initialized")
+        if not self.malware_classifier.is_fitted:
+            # Fail-closed: a family named from random weights is a false finding.
+            return {
+                "available": False,
+                "family": MalwareFamily.UNKNOWN.value,
+                "confidence": 0.0,
+            }
         self.malware_classifier.eval()
         with torch.no_grad():
             classification = self.malware_classifier(features_tensor)
@@ -533,7 +571,7 @@ class CYBINTSubProcessor:
         families = [e.value for e in MalwareFamily]
         identified_family = families[family_idx]
 
-        return {"family": identified_family, "confidence": confidence}
+        return {"available": True, "family": identified_family, "confidence": confidence}
 
     def _identify_kill_chain_stage(self, threat_data: dict[str, Any]) -> str:
         """Identify cyber kill chain stage."""

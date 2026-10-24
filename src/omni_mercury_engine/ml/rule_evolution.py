@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Genetic evolution of symbolic rule graphs, grounded in held-out detection F1.
 
 This module searches the space of :class:`~omni_mercury_engine.ml.symbolic_constraint.RuleGraph`

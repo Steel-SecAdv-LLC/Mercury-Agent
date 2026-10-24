@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Point-Adjustment Evaluation Protocol for Time-Series Anomaly Detection.
 
 Implements the standard point-adjustment protocol used in time-series

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Orchestration-boundary aggregate harm gate (harm-policy spec §6).
 
 A per-query gate is trivially evaded by *decomposition*: an operator (or

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The intelligence-layer value board: measure every stream vs its baseline/target.
 
 Renders, per stream, ``baseline -> measured (target)`` for the declared value

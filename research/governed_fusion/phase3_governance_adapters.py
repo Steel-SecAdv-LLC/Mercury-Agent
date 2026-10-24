@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Gate-backed Phase 3 governance policies for the live engine surfaces.
 
 This module is the bridge between the engine-owned governance seam

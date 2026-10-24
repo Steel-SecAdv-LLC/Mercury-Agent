@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """World Bank economic sectors anomaly detection.
 
 Monitors 21 ISIC Rev 4 economic sectors for anomalies with focus

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the out-of-fold (OOF) ECE/Brier rolling-corpus evaluation harness.
 
 The OOF math (folding, metrics, regression check) is exercised with synthetic

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """GOSNN attention fusion must receive genuine per-call input variation.
 
 Regression: detector/model anomaly scores reach the engine as ``torch.Tensor``

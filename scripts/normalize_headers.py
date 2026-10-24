@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Normalize Python file headers and module docstrings."""
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ TARGET_DIRS = (
     "assets",
 )
 COPYRIGHT_HEADER = "# Copyright (C) 2025 Steel Security Advisors LLC"
-SPDX_HEADER = "# SPDX-License-Identifier: GPL-3.0-or-later"
+SPDX_HEADER = "# SPDX-License-Identifier: AGPL-3.0-or-later"
 CANONICAL_HEADERS = (COPYRIGHT_HEADER, SPDX_HEADER)
 
 # Rust sources carry the same canonical copyright/SPDX pair, expressed with the
@@ -34,7 +34,7 @@ CANONICAL_HEADERS = (COPYRIGHT_HEADER, SPDX_HEADER)
 # the same pre-commit hook and CI gate as the Python headers.
 RUST_TARGET_DIRS = ("rust_crypto/src",)
 RUST_COPYRIGHT_HEADER = "// Copyright (C) 2025 Steel Security Advisors LLC"
-RUST_SPDX_HEADER = "// SPDX-License-Identifier: GPL-3.0-or-later"
+RUST_SPDX_HEADER = "// SPDX-License-Identifier: AGPL-3.0-or-later"
 RUST_CANONICAL_HEADERS = (RUST_COPYRIGHT_HEADER, RUST_SPDX_HEADER)
 CODING_RE = re.compile(r"^#.*coding[:=]\s*[-\w.]+")
 SEPARATOR_RE = re.compile(r"^\s*[-=]{6,}\s*$")

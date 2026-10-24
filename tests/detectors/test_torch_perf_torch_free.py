@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Torch-free contract for :mod:`omni_mercury_engine.detectors._torch_perf`.
 
 ``_torch_perf`` is imported unconditionally by torch-optional detectors such

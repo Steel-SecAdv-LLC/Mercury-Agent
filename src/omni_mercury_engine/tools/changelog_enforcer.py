@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: enforce that every PR that mutates the public surface adds a CHANGELOG entry in the active unreleased section.
 
 Compares the staged diff against ``CHANGELOG.md``:

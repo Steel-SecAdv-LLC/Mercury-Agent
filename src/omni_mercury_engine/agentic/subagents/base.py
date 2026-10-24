@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Subagent base: a full-capability, Omni-Code-anchored, access-guarded worker.
 
 A :class:`SubAgent` *is a* :class:`~omni_mercury_engine.agentic.mercury_a_agent.MercuryAgent`

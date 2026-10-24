@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """SR-CNN: supervised CNN over Spectral-Residual saliency for time-series anomalies.
 
 SR-CNN (Ren et al., *Time-Series Anomaly Detection Service at Microsoft*, KDD
@@ -35,6 +35,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
 )
 from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
 
 __all__ = ["SRCNNDetector"]
@@ -76,7 +77,71 @@ class SRCNNDetector(BaseDetector):
     the training series and trains a 1-D CNN to classify each point's saliency
     window; :meth:`detect` scores each point of a new series by the CNN's
     sigmoid output on its saliency window.
+
+    **The score is not a calibrated probability, and 0.5 is not its midpoint.**
+    The BCE objective weights the rare positive class by
+    ``pos_weight = (1 - inject_ratio) / inject_ratio`` (19 at the defaults),
+    which is sound for training a classifier on a 5%-positive set but shifts
+    what the sigmoid means. At the optimum
+    ``w * p * (1 - s) = (1 - p) * s``, so ``logit(s) = log(w) + logit(p)``: the
+    trained logit carries a constant ``+log(w)`` offset, and a cut at 0.5 on
+    ``s`` is a cut at ``sigmoid(log w) = w / (1 + w) = 0.95`` on the
+    prior-calibrated probability.
+
+    :meth:`fit` therefore does not leave the threshold at 0.5. It installs the
+    ``calibration_quantile`` (0.95) of the *unaugmented* training series' own
+    scores, so the cut is a stated position in this detector's score
+    distribution instead of a fixed value the ``+log(w)`` offset has already
+    moved. An explicitly configured ``threshold`` is the caller's decision and
+    is left alone.
+
+    All of these cuts sit on one ROC curve -- mean AUROC over the four recorded
+    NAB files is 0.683 for every one of them -- so the operating point is the
+    only thing in question. Measured over five seeds of a stationary AR(1)
+    series fitted on 400 samples and scored on the next 400 from the same
+    process, which contains no anomaly at all, against NAB's standard-profile
+    score on the recorded files:
+
+    =========================================  =============  ====
+    operating point                             clean-data FPR  NAB
+    =========================================  =============  ====
+    fixed 0.5 (previous default)                      0.2725  12.2
+    logit minus ``log(w)``                            0.0000   9.0
+    **0.95 quantile of training scores**              0.1020  13.2
+    =========================================  =============  ====
+
+    The calibrated cut is better than the fixed one on *both* axes, so this is
+    not a sensitivity trade. Subtracting ``log(w)`` eliminates the false alarms
+    but costs true detections, which is why it is not what is applied. The
+    0.90 quantile scores NAB 42.7 at an FPR of 0.1940; it is not the default
+    because choosing it would be tuning the threshold on the evaluation
+    corpus. Both numbers are pinned (``tests/detectors/test_srcnn.py``,
+    ``tests/detectors/test_recorded_nab_series.py``).
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "SR-CNN: each point's Spectral-Residual saliency window is scored by "
+            "a 1-D CNN trained self-supervised on a synthetic-anomaly-injected "
+            "copy of the normal series, per the published pipeline; the CNN's "
+            "sigmoid output is the [0, 1] score. The alarm fires at the "
+            "threshold fit() calibrates to the 0.95 quantile of the "
+            "unaugmented training series' own scores, an engineering choice "
+            "rather than a value from the paper. The score is not a "
+            "calibrated probability: the BCE objective weights the positive "
+            "class by (1 - inject_ratio) / inject_ratio = 19, which offsets "
+            "the trained logit by +log(19), so the fixed 0.5 this replaced "
+            "was a 0.95 cut on the prior-calibrated probability and flagged "
+            "0.2725 of a stationary, anomaly-free held-out half. The "
+            "calibrated cut flags 0.1020 of it and scores higher on NAB "
+            "(13.2 against 12.2); mean AUROC is 0.683 for either cut."
+        ),
+        citation=(
+            "Ren et al. (2019), Time-Series Anomaly Detection Service at "
+            "Microsoft, KDD 2019 (SR and SR-CNN; named in the module docstring)"
+        ),
+    )
 
     def __init__(
         self,
@@ -86,6 +151,7 @@ class SRCNNDetector(BaseDetector):
         lr: float = 1e-2,
         inject_ratio: float = 0.05,
         inject_scale: float = 6.0,
+        calibration_quantile: float = 0.95,
         seed: int = 0,
         config: dict[str, Any] | None = None,
     ) -> None:
@@ -101,6 +167,12 @@ class SRCNNDetector(BaseDetector):
                 during self-supervised training. Must be in ``(0, 1)``.
             inject_scale: Std-multiple magnitude of injected synthetic spikes.
                 Must be > 0.
+            calibration_quantile: Quantile of the *unaugmented* training
+                series' own scores that :meth:`fit` installs as the decision
+                threshold, so the cut is a position in this detector's score
+                distribution rather than a fixed 0.5 the trained logit's
+                ``+log(pos_weight)`` offset has already moved. Must be in
+                ``(0, 1)``. Ignored when ``config`` sets ``threshold``.
             seed: Torch/NumPy seed for deterministic training.
             config: Optional ``BaseDetector`` config (``threshold`` ...).
 
@@ -120,12 +192,18 @@ class SRCNNDetector(BaseDetector):
             raise ValueError(f"inject_ratio must be in (0, 1), got {inject_ratio}")
         if inject_scale <= 0.0:
             raise ValueError(f"inject_scale must be > 0, got {inject_scale}")
+        if not 0.0 < calibration_quantile < 1.0:
+            raise ValueError(f"calibration_quantile must be in (0, 1), got {calibration_quantile}")
         self.window = int(window) | 1  # force odd so the window has a centre
         self.hidden = int(hidden)
         self.epochs = int(epochs)
         self.lr = float(lr)
         self.inject_ratio = float(inject_ratio)
         self.inject_scale = float(inject_scale)
+        self.calibration_quantile = float(calibration_quantile)
+        # An explicitly configured threshold is the caller's decision and
+        # survives fit; only the default is calibrated.
+        self._threshold_is_configured = config is not None and "threshold" in config
         self.seed = int(seed)
         self._sr = SpectralResidualDetector()
         self._model: _SRCNN | None = None
@@ -133,6 +211,33 @@ class SRCNNDetector(BaseDetector):
     def is_fitted(self) -> bool:
         """Return ``True`` once the CNN discriminator has been trained."""
         return self._is_fitted
+
+    # ``_sr`` is a nested detector (decomposed into its own learned state
+    # below) and ``_model``'s shape travels with the saved window/hidden, so
+    # it is rebuilt before its weights are restored.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_sr", "_model"}
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Primitives, the SR sub-detector's learned state, and CNN weights."""
+        state = super()._learned_state()
+        state["_sr_state"] = self._sr._learned_state()
+        if self._model is not None:
+            state["_model_weights"] = {"__module_state__": self._model.state_dict()}
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore primitives, then the SR sub-detector, then rebuild the CNN."""
+        state = dict(state)
+        sr_state = state.pop("_sr_state", None)
+        model_weights = state.pop("_model_weights", None)
+        super()._restore_learned_state(state)
+        if sr_state is not None:
+            self._sr._restore_learned_state(sr_state)
+        if model_weights is not None:
+            model = _SRCNN(self.window, self.hidden)
+            model.load_state_dict(model_weights["__module_state__"])
+            model.eval()
+            self._model = model
 
     def _to_1d(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
@@ -203,6 +308,16 @@ class SRCNNDetector(BaseDetector):
         model.eval()
         self._model = model
         self._is_fitted = True
+
+        if not self._threshold_is_configured:
+            # Cut at a position in this detector's own score distribution,
+            # measured on the series without the injected anomalies. A fixed
+            # 0.5 is not the midpoint of that distribution: the BCE
+            # pos_weight offsets every trained logit by +log(w), so 0.5 on
+            # the sigmoid is a 0.95 cut on the prior-calibrated probability.
+            self.threshold = float(
+                np.quantile(self._point_scores(series), self.calibration_quantile)
+            )
         return self
 
     def _point_scores(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

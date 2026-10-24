@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Restored ``api`` symbols removed in 7ab59916 as uncalled.
 
 The released ``rate_limit_middleware`` raised ``HTTPException`` from an

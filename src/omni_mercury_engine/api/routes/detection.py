@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury Agent - Detection API Routes.
 
 Extracted detection endpoints for modular organization.
@@ -16,6 +16,7 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
+from scipy.special import ndtri_exp
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.api.routes.export import record_detection
@@ -397,6 +398,43 @@ async def detect_neurosymbolic(
         ) from e
 
 
+def _spectral_peak_z(values: np.ndarray[Any, Any]) -> float:
+    """How surprising the strongest periodic component is, in z-score units.
+
+    The fusion score compares every detector's output with one threshold in
+    standard-deviation units. The spectral score was ``max|FFT| / N`` of the
+    raw data: its DC bin alone is the mean, so the same signal offset by 1000
+    scored 1000 (and scaled by 0.001, 0.00015) while the statistical score
+    stayed 3.07, and any data away from zero was an anomaly.
+
+    This is Fisher's (1929) test for a dominant frequency, on the standardised
+    series. Its periodogram ordinates (DC removed) are, under white noise,
+    independent exponentials, so the strongest of the ``m`` ordinates has the
+    tail ``1 - (1 - exp(-x))^m`` (x in units of the mean ordinate); that
+    p-value is returned as the two-sided normal quantile, so 0 means "no more
+    periodic than noise" and 2-5 spans the route's threshold range. Invariant
+    to the data's offset and scale.
+
+    Args:
+        values: A one-dimensional series.
+
+    Returns:
+        The z-score, ``0.0`` for fewer than four samples or a constant series.
+    """
+    n = values.size
+    m = (n - 1) // 2  # ordinates strictly between DC and Nyquist
+    if m < 1:
+        return 0.0
+    std = float(np.std(values))
+    if std == 0.0:
+        return 0.0
+    ordinates = np.abs(np.fft.fft((values - np.mean(values)) / std)[1 : m + 1]) ** 2
+    x = float(np.max(ordinates) / np.mean(ordinates))
+    # log of 1 - (1 - e^-x)^m, evaluated without cancellation.
+    log_tail = float(np.log(-np.expm1(m * np.log1p(-np.exp(-x)))))
+    return float(max(0.0, -ndtri_exp(log_tail - np.log(2.0))))
+
+
 @router.post(
     "/fusion",
     response_model=FusionResponse,
@@ -449,9 +487,7 @@ async def detect_fusion(
             detector_contributions["dimensional"] = 0.20
 
         if "spectral" in request.detectors:
-            fft = np.fft.fft(data.flatten())
-            magnitudes = np.abs(fft)
-            spectral_score = float(np.max(magnitudes) / len(magnitudes))
+            spectral_score = _spectral_peak_z(data.flatten())
             detector_scores["spectral"] = spectral_score
             detector_contributions["spectral"] = 0.20
 
@@ -733,11 +769,17 @@ async def detect_tier(
             method="detector_tier",
             data=request.data,
             results={
-                "n_flagged": result["n_flagged"],
-                "n_points": result["n_points"],
-                "threshold": result["threshold"],
-                "combiner": result["method"],
-                "max_score": max(result["scores"]) if result["scores"] else 0.0,
+                # The keys record_detection reads: the history record and the
+                # SIEM alert (which skips records with no anomalies) count
+                # these, so they must be the tier's own flags and scores.
+                "anomalies": result["flags"],
+                "scores": result["scores"],
+                "summary": {
+                    "n_flagged": result["n_flagged"],
+                    "n_points": result["n_points"],
+                    "threshold": result["threshold"],
+                    "combiner": result["method"],
+                },
             },
         )
         return result

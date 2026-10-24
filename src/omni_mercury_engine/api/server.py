@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""FastAPI server for real-time anomaly detection.
 
 This module provides a REST API for multi-domain anomaly detection using
@@ -33,7 +33,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request, Response, status
@@ -44,6 +44,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 # Type alias for ASGI middleware call_next parameter
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
+
+if TYPE_CHECKING:
+    from starlette.types import ASGIApp
 
 # Context variable for request correlation ID - accessible throughout request lifecycle
 correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -260,11 +263,11 @@ app = FastAPI(
     contact={
         "name": "Steel Security Advisors LLC",
         "url": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent",
-        "email": "steel.sa.llc@gmail.com",
+        "email": "steel.sa.llc@mercuryagent.global",
     },
     license_info={
-        "name": "GPL-3.0-or-later",
-        "url": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "name": "AGPL-3.0-or-later",
+        "url": "https://www.gnu.org/licenses/agpl-3.0.html",
     },
     docs_url="/docs",
     # The bundled ReDoc route is registered by hand below so it can be built
@@ -302,7 +305,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: FastAPI,
+        app: ASGIApp,
         requests_per_minute: int | None = None,
         burst_size: int | None = None,
     ):
@@ -401,7 +404,7 @@ from omni_mercury_engine.api.quota_middleware import QuotaMiddleware
 app.add_middleware(QuotaMiddleware)  # type: ignore[arg-type, unused-ignore]
 
 # Register rate limiting middleware
-app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type, unused-ignore]
+app.add_middleware(RateLimitMiddleware)
 
 
 from omni_mercury_engine.api.request_audit import audit_request
@@ -1518,6 +1521,27 @@ try:
 except ImportError as e:
     logger.warning(f"Assessment routes not available: {e}")
 
+# Include the Agent Notice and RFC 9116 security.txt (always on: read-only,
+# unauthenticated public documents that accept no input)
+try:
+    from omni_mercury_engine.api.routes.agent_notice import router as agent_notice_router
+
+    app.include_router(agent_notice_router)
+    logger.info("Agent notice routes registered")
+except ImportError as e:
+    logger.warning(f"Agent notice routes not available: {e}")
+
+# Include the corresponding-source offer (AGPL-3.0 section 13; always on:
+# read-only, unauthenticated, accepts no input)
+try:
+    from omni_mercury_engine.api.routes.source import router as source_router
+
+    app.include_router(source_router)
+    logger.info("Source offer route registered")
+except ImportError as e:
+    logger.warning(f"Source offer route not available: {e}")
+
+
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)
 try:
@@ -1557,6 +1581,18 @@ try:
     logger.info("Prometheus /metrics endpoint registered at root")
 except ImportError as e:
     logger.warning(f"/metrics endpoint not available: {e}")
+
+# Include the Decoy Surface (opt-in via MERCURY_DECEPTION_ENABLED=true; left
+# off, nothing is registered and every existing route stays byte-identical).
+# Registered after every real route so each decoy path can be checked against
+# all of them: a decoy the application already serves is refused.
+try:
+    from omni_mercury_engine.api.routes.decoys import register_decoys
+
+    if register_decoys(app) is not None:
+        logger.info("Deception decoy surface registered")
+except ImportError as e:
+    logger.warning(f"Deception decoy surface not available: {e}")
 
 
 # =============================================================================

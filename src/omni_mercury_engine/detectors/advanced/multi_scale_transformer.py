@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Multi-Scale Transformer for Time-Series Anomaly Detection.
 
 Addresses the time-series gap (F1 0.15-0.25 → target 0.70+) by:
@@ -26,6 +26,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -461,6 +463,17 @@ class MultiScaleTransformerDetector:
         >>> scores = detector.predict(X_test)
         >>> predictions = detector.detect(X_test, threshold=0.95)
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Fitted detector: is_anomaly fires above the threshold_percentile (default 95) "
+            "percentile of its own training scores, so about 5% of the training data alarms by "
+            "construction (segment grouping uses 0.8 of that cut); no published threshold exists "
+            "and no false-alarm rate is recorded for the cut. It is a sequence model and is not "
+            "measured on real labelled data: ADBench rows are not sequences."
+        ),
+    )
 
     def __init__(
         self,

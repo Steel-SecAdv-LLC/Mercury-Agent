@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared NWS CAP alert plumbing for the severe-storm detector cluster.
 
 The hail, winter-storm, derecho, and dust-storm detectors each cross-check

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Restored ``core`` symbols removed in 7ab59916 and f498866a as uncalled.
 
 Each is pinned to its released contract; the defect tests fail on the
@@ -26,8 +26,8 @@ from omni_mercury_engine.core.base_domains import (
 )
 from omni_mercury_engine.core.domain_metrics import compute_benchmark_metrics
 from omni_mercury_engine.core.governed_fusion import precision_sqrt
-from omni_mercury_engine.core.info_geometry import _safe_cholesky
 from omni_mercury_engine.core.robust_pooling import reliability_pool
+from omni_mercury_engine.detectors.info_geometry import _safe_cholesky
 
 
 class _Detector:

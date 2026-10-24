@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Machine Learning module for Mercury Agent.
 
 Provides attention mechanisms, feature encoders, fusion networks, training, and inference.
@@ -27,8 +27,10 @@ __all__ = [
     "AstrophysicalEncoder",
     "AuxiliaryMaxVariance",
     "BiometricEncoder",
+    "CheckpointCallback",
     "CompressionMethod",
     "ConceptDriftEvaluator",
+    "ConvergenceMonitor",
     # Cortical Network (Neuroscience-inspired)
     "CorticalColumn",
     "CorticalConfig",
@@ -54,10 +56,13 @@ __all__ = [
     "MetaLearningAdapter",
     "MetaLearningAlgorithm",
     "ModelCompressor",
+    "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
     "NisslAnalyzer",
     "OmniFusionModel",
     "OnlineLearningPipeline",
+    "PPOConfig",
+    "PPOTrainer",
     "ParallelExecutor",
     "PrototypicalNetworks",
     "QuantumEncoder",
@@ -74,6 +79,7 @@ __all__ = [
     "ThreeRAnomalyTrainer",
     "ThreeRAnomalyTransformer",
     "ThreeRAttentionBlock",
+    "TrainingStats",
     "WeigertAnalyzer",
     "apply_all_optimizations",
     "compute_fairness_score",
@@ -84,7 +90,9 @@ __all__ = [
     "create_explainer",
     "create_few_shot_learner",
     "create_meta_learner",
+    "create_multi_env_trainer",
     "create_online_pipeline",
+    "create_ppo_trainer",
     "quick_anomaly_score",
 ]
 
@@ -147,6 +155,16 @@ if HAS_TORCH or TYPE_CHECKING:
     )
 
 if TYPE_CHECKING:
+    from omni_mercury_engine.ml.ppo_trainer import (
+        CheckpointCallback,
+        ConvergenceMonitor,
+        MultiEnvPPOTrainer,
+        PPOConfig,
+        PPOTrainer,
+        TrainingStats,
+        create_multi_env_trainer,
+        create_ppo_trainer,
+    )
     from omni_mercury_engine.ml.training import (
         HAS_PYTORCH_LIGHTNING,
         FusionTrainer,
@@ -160,10 +178,23 @@ if TYPE_CHECKING:
 _TRAINING_EXPORTS = frozenset(
     {"HAS_PYTORCH_LIGHTNING", "FusionTrainer", "LyapunovAnomalyLoss", "ThreeRAnomalyTrainer"}
 )
+# ``ml.ppo_trainer`` likewise loads only when one of its names is used.
+_PPO_EXPORTS = frozenset(
+    {
+        "CheckpointCallback",
+        "ConvergenceMonitor",
+        "MultiEnvPPOTrainer",
+        "PPOConfig",
+        "PPOTrainer",
+        "TrainingStats",
+        "create_multi_env_trainer",
+        "create_ppo_trainer",
+    }
+)
 
 
 def __getattr__(name: str) -> Any:
-    """Resolve the names owned by ``ml.training`` on first access."""
+    """Resolve the names owned by ``ml.training`` and ``ml.ppo_trainer`` on first access."""
     if name in _TRAINING_EXPORTS:
         if not HAS_TORCH:
             if name == "HAS_PYTORCH_LIGHTNING":
@@ -174,6 +205,13 @@ def __getattr__(name: str) -> Any:
             value = getattr(training, name)
             globals()[name] = value
             return value
+    if name in _PPO_EXPORTS:
+        _require_torch()
+        from omni_mercury_engine.ml import ppo_trainer
+
+        value = getattr(ppo_trainer, name)
+        globals()[name] = value
+        return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -181,7 +219,7 @@ def _require_torch() -> None:
     """Raise ImportError if torch is not available."""
     if not HAS_TORCH:
         raise ImportError(
-            "PyTorch is required for ML components. " "Install with: pip install torch torchvision"
+            "PyTorch is required for ML components. Install with: pip install torch torchvision"
         )
 
 
@@ -191,7 +229,7 @@ def create_drift_detector(*args: Any, **kwargs: Any) -> Any:
 
     Lazy import to avoid scipy dependency at module load.
     """
-    from omni_mercury_engine.ml.drift import create_drift_detector as _create
+    from omni_mercury_engine.detectors.drift import create_drift_detector as _create
 
     return _create(*args, **kwargs)
 

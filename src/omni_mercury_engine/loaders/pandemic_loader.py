@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for pandemic/outbreak data from WHO and Our World in Data.
 
 Connects to the Our World in Data COVID-19 dataset and the WHO Global Health Observatory (GHO) OData

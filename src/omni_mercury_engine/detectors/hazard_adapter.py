@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """BaseDetector adapters for the hazard detectors.
 
 The hazard detectors (tornado, hurricane, flood, financial crisis, solar
@@ -32,23 +32,34 @@ domain APIs.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.core.exceptions import InvalidObservationError
+from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
+from omni_mercury_engine.detectors.provenance import WrappedDecisionSource
 
 __all__ = [
+    "Assessment",
     "FinancialStressAdapter",
     "FloodPrecipitationAdapter",
     "GICMinuteSeriesAdapter",
+    "HazardRecordAdapter",
     "HazardRowAdapter",
+    "HazardTextAdapter",
+    "HazardUnitAdapter",
+    "HazardWindowAdapter",
     "HurricanePressureAdapter",
     "SolarWindGeomagAdapter",
     "TornadoConditionsAdapter",
     "XrayFlareAdapter",
+    "nan_if_none",
+    "ordinal_score",
+    "utc_datetime",
 ]
 
 
@@ -60,12 +71,48 @@ class HazardRowAdapter(BaseDetector):
     :meth:`_analyze_row`.
     """
 
+    #: Adapters define NaN as "this column/field is unmeasured" by contract
+    #: (OPTIONAL_COLUMNS / _measured): the shared base guard defers to that
+    #: contract and only enforces the never-serve-a-NaN-score post-check.
+    handles_unmeasured = True
+
     COLUMNS: ClassVar[tuple[str, ...]] = ()
     FEATURE_NAMES: ClassVar[tuple[str, ...]] = ()
+    #: Per-call bookkeeping of what each row set aside: process state, never
+    #: learned state, so it stays out of the shared checkpoint.
+    #: ``_detector`` (the wrapped domain detector) is rebuilt lazily from
+    #: config and learns nothing here (``fit`` only validates the schema), so
+    #: it is never checkpointed; the rest is process bookkeeping.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_detector", "_row_set_aside", "_row_index"}
+    _row_set_aside: dict[int, list[dict[str, Any]]]
+    _row_index: int
+    #: Columns a row may leave unmeasured, as NaN: the wrapped detector is
+    #: then called without that measurement (never with a substitute).
+    #: Infinities are refused in every column.
+    OPTIONAL_COLUMNS: ClassVar[frozenset[str]] = frozenset()
 
     def _analyze_row(self, row: np.ndarray[Any, Any]) -> tuple[float, bool, list[float]]:
         """One row's (score in [0, 1], detector decision, measured features)."""
         raise NotImplementedError
+
+    def _note_set_aside(self, result: Any) -> None:
+        """Record what the wrapped detector set aside for the row being analyzed.
+
+        The partial-input contract marks a verdict partial when part of its
+        input was set aside; without this the row adapter served the wrapped
+        detector's partial verdict as a full one.
+        """
+        entries = getattr(result, "set_aside", None)
+        if entries:
+            # ``_analyze`` resets both per call; a direct ``_analyze_row`` call
+            # outside it records under row 0 of a fresh bookkeeping dict.
+            if not hasattr(self, "_row_set_aside"):
+                self._row_set_aside = {}
+            self._row_set_aside[getattr(self, "_row_index", 0)] = list(entries)
+
+    def _measured(self, row: np.ndarray[Any, Any]) -> dict[str, float]:
+        """``{column: value}`` for the row's measured (non-NaN) columns."""
+        return {c: float(v) for c, v in zip(self.COLUMNS, row, strict=True) if not np.isnan(v)}
 
     def _validated(self, data: Any) -> np.ndarray[Any, Any]:
         """``data`` as a finite 2-D batch of ``len(COLUMNS)`` columns."""
@@ -77,9 +124,15 @@ class HazardRowAdapter(BaseDetector):
                 f"{self._name} takes rows over the declared columns "
                 f"{self.COLUMNS}; got shape {batch.shape}"
             )
-        if not np.all(np.isfinite(batch)):
+        optional = np.array([c in self.OPTIONAL_COLUMNS for c in self.COLUMNS], dtype=bool)
+        if np.isinf(batch).any() or np.isnan(batch[:, ~optional]).any():
             raise InvalidObservationError(
-                f"{self._name}: non-finite values are not measurements; " "refusing to grade them"
+                f"{self._name}: non-finite values are not measurements; refusing to grade them"
+                + (
+                    f" (NaN marks an unmeasured value only in {sorted(self.OPTIONAL_COLUMNS)})"
+                    if self.OPTIONAL_COLUMNS
+                    else ""
+                )
             )
         return batch
 
@@ -90,7 +143,9 @@ class HazardRowAdapter(BaseDetector):
         scores = np.empty(batch.shape[0])
         flags = np.empty(batch.shape[0], dtype=bool)
         features = np.empty((batch.shape[0], len(self.FEATURE_NAMES)))
+        self._row_set_aside = {}
         for i, row in enumerate(batch):
+            self._row_index = i
             score, flag, row_features = self._analyze_row(row)
             scores[i], flags[i], features[i] = score, flag, row_features
         return scores, flags, features
@@ -112,13 +167,320 @@ class HazardRowAdapter(BaseDetector):
 
     def detect(self, data: Any) -> dict[str, Any]:
         """Batch decision: the worst row decides, each row's score is served."""
+        # Reset here as well as in ``_analyze``: a subclass that overrides
+        # ``_analyze`` must not serve a previous call's set-aside entries.
+        self._row_set_aside = {}
         scores, flags, _ = self._analyze(data)
-        return {
+        out: dict[str, Any] = {
             "anomaly_score": float(scores.max()),
             "is_anomaly": bool(flags.any()),
             "scores": scores,
+            "flags": flags,
             "metadata": {"columns": self.COLUMNS, "rows": int(scores.size)},
         }
+        if self._row_set_aside:
+            out["partial"] = True
+            out["set_aside"] = dict(self._row_set_aside)
+        return out
+
+
+@dataclass(frozen=True)
+class Assessment:
+    """One assessed unit: a window, a record, an event sequence or a payload.
+
+    Attributes:
+        score: In [0, 1]: the wrapped detector's own confidence or
+            probability, or its cited scale's level over the scale's top.
+        flag: The wrapped detector's own decision (or the scale's first
+            actionable level, named in each adapter's docstring).
+        features: Measured outputs, in the adapter's ``FEATURE_NAMES`` order;
+            NaN marks a quantity the detector reported as unmeasured.
+        result: The wrapped detector's full result object, unchanged.
+        set_aside: Input the wrapped detectors set aside, for an adapter
+            whose ``result`` does not carry it itself (a cascade wrapping a
+            domain detector); otherwise read from ``result.set_aside``.
+    """
+
+    score: float
+    flag: bool
+    features: tuple[float, ...]
+    result: Any
+    set_aside: tuple[dict[str, Any], ...] = ()
+
+
+def ordinal_score(level: str, ladder: tuple[str, ...]) -> float:
+    """``level``'s position on ``ladder`` (lowest first) over its top, in [0, 1]."""
+    if level not in ladder:
+        raise InvalidObservationError(f"level {level!r} is not on the ladder {ladder}")
+    return ladder.index(level) / (len(ladder) - 1)
+
+
+def nan_if_none(value: Any) -> float:
+    """``value`` as a float; ``None`` (unmeasured) becomes NaN, never zero."""
+    return float("nan") if value is None else float(value)
+
+
+def utc_datetime(value: Any, name: str) -> datetime:
+    """A timezone-aware UTC datetime from a datetime, ISO-8601 string or epoch seconds.
+
+    Raises:
+        InvalidObservationError: For naive datetimes, unparseable strings,
+            non-finite numbers or other types.
+    """
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            raise InvalidObservationError(f"{name}: naive datetime {value!r}; timezone required")
+        return value.astimezone(UTC)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as e:
+            raise InvalidObservationError(f"{name}: unparseable time {value!r}") from e
+        return utc_datetime(parsed, name)
+    if isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool):
+        seconds = float(value)
+        if not np.isfinite(seconds):
+            raise InvalidObservationError(f"{name}: non-finite epoch seconds {value!r}")
+        return datetime.fromtimestamp(seconds, tz=UTC)
+    raise InvalidObservationError(
+        f"{name}: expected a datetime, ISO-8601 string or epoch seconds, got {type(value).__name__}"
+    )
+
+
+class HazardUnitAdapter(BaseDetector):
+    """Engine and registry contract over assessed units of a domain detector.
+
+    A payload is split into units (:meth:`_units`, which also validates
+    them) and every unit is assessed by the wrapped detector's own entry
+    point (:meth:`_assess`).  Nothing is trained: ``fit`` validates the
+    payload schema.  ``scores`` / ``flags`` carry one value per unit, so a
+    window-level verdict is served once, not repeated over its samples.
+    """
+
+    #: Adapters define NaN as "this column/field is unmeasured" by contract
+    #: (OPTIONAL_COLUMNS / _measured): the shared base guard defers to that
+    #: contract and only enforces the never-serve-a-NaN-score post-check.
+    handles_unmeasured = True
+
+    FEATURE_NAMES: ClassVar[tuple[str, ...]] = ()
+
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize with ``BaseDetector`` config; the detector loads lazily."""
+        super().__init__(config)
+        self._detector: Any = None
+
+    def _units(self, data: Any) -> list[Any]:
+        """Validated units of ``data``."""
+        raise NotImplementedError
+
+    def _assess(self, unit: Any) -> Assessment:
+        """The wrapped detector's assessment of one unit."""
+        raise NotImplementedError
+
+    #: Per-call bookkeeping of what ``_units`` set aside per unit: process
+    #: state, never learned state, so it stays out of the shared checkpoint.
+    #: As for row adapters: the lazily built ``_detector`` learns nothing.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_detector", "_unit_set_aside"}
+    _unit_set_aside: dict[int, list[dict[str, Any]]]
+
+    def _assessments(self, data: Any) -> list[Assessment]:
+        self._unit_set_aside = {}
+        assessments = [self._assess(unit) for unit in self._units(data)]
+        for a in assessments:
+            if len(a.features) != len(self.FEATURE_NAMES) or not 0.0 <= a.score <= 1.0:
+                raise RuntimeError(f"{self._name}: malformed assessment {a!r}")
+        return assessments
+
+    def fit(self, data: Any) -> HazardUnitAdapter:
+        """Validate the payload schema on reference data; no training occurs."""
+        self._unit_set_aside = {}
+        self._units(data)
+        self._is_fitted = True
+        return self
+
+    def extract_features(self, data: Any) -> np.ndarray[Any, Any]:
+        """One row of measured outputs per unit, columns named by ``FEATURE_NAMES``."""
+        return np.array([a.features for a in self._assessments(data)], dtype=np.float64)
+
+    def predict(self, data: Any) -> dict[str, Any]:
+        """Per-unit scores under the registry's prediction contract."""
+        assessments = self._assessments(data)
+        return {
+            "anomaly_scores": np.array([a.score for a in assessments]),
+            "flags": np.array([a.flag for a in assessments], dtype=bool),
+        }
+
+    def detect(self, data: Any) -> dict[str, Any]:
+        """Batch decision: the worst unit decides; every unit's result is served."""
+        assessments = self._assessments(data)
+        scores = np.array([a.score for a in assessments])
+        flags = np.array([a.flag for a in assessments], dtype=bool)
+        out: dict[str, Any] = {
+            "anomaly_score": float(scores.max()),
+            "is_anomaly": bool(flags.any()),
+            "scores": scores,
+            "flags": flags,
+            "metadata": {
+                "units": len(assessments),
+                "feature_names": self.FEATURE_NAMES,
+                "results": [a.result for a in assessments],
+            },
+        }
+        # Partial-input contract: a unit whose wrapped result set part of its
+        # input aside makes the served verdict partial, unit by unit.
+        set_aside: dict[int, list[dict[str, Any]]] = {}
+        for i, a in enumerate(assessments):
+            entries = [
+                *self._unit_set_aside.get(i, ()),
+                *(a.set_aside or getattr(a.result, "set_aside", None) or ()),
+            ]
+            if entries:
+                set_aside[i] = entries
+        if set_aside:
+            out["partial"] = True
+            out["set_aside"] = set_aside
+        return out
+
+
+class HazardWindowAdapter(HazardUnitAdapter):
+    """One time-ordered window per payload: rows over declared ``COLUMNS``.
+
+    A 2-D ``[n_samples, len(COLUMNS)]`` array is one window and one
+    assessment.  ``OPTIONAL_COLUMNS`` may hold NaN (a gap or an unmeasured
+    channel); every other value must be finite.
+    """
+
+    COLUMNS: ClassVar[tuple[str, ...]] = ()
+    OPTIONAL_COLUMNS: ClassVar[frozenset[str]] = frozenset()
+    MIN_SAMPLES: ClassVar[int] = 2
+
+    def _units(self, data: Any) -> list[Any]:
+        try:
+            window = np.asarray(data, dtype=np.float64)
+        except (TypeError, ValueError) as e:
+            raise InputModalityError(
+                f"{self._name} expects a numeric window over {self.COLUMNS}"
+            ) from e
+        if window.ndim != 2 or window.shape[1] != len(self.COLUMNS):
+            raise InputModalityError(
+                f"{self._name} expects one window [n_samples, {len(self.COLUMNS)}] over "
+                f"the columns {self.COLUMNS}; got shape {window.shape}"
+            )
+        if window.shape[0] < self.MIN_SAMPLES:
+            raise InvalidObservationError(
+                f"{self._name} needs at least {self.MIN_SAMPLES} samples; got {window.shape[0]}"
+            )
+        optional = np.array([c in self.OPTIONAL_COLUMNS for c in self.COLUMNS], dtype=bool)
+        if np.isinf(window).any() or np.isnan(window[:, ~optional]).any():
+            raise InvalidObservationError(
+                f"{self._name}: non-finite values outside the gap-capable columns "
+                f"{sorted(self.OPTIONAL_COLUMNS)}; refusing to grade them"
+            )
+        return [window]
+
+    def column(self, window: np.ndarray[Any, Any], name: str) -> np.ndarray[Any, Any]:
+        """One named column of a validated window."""
+        return np.asarray(window[:, self.COLUMNS.index(name)], dtype=np.float64)
+
+
+class HazardRecordAdapter(HazardUnitAdapter):
+    """Records: one mapping, or a sequence of mappings, each assessed alone.
+
+    Subclasses validate a record in :meth:`_parse` (returning what
+    :meth:`_assess` consumes) so ``fit`` refuses malformed records without
+    running the detector.
+    """
+
+    #: Keys every record must carry.
+    REQUIRED_KEYS: ClassVar[frozenset[str]] = frozenset()
+    #: Keys a record may carry; ``None`` accepts any.  Declared where the
+    #: wrapped detector ignores unknown keys: a misspelt measurement is set
+    #: aside and named (the unit's verdict marked partial) instead of
+    #: silently going unassessed.  A record missing a REQUIRED key is still
+    #: refused -- the adapter serves one verdict per record, so it cannot
+    #: drop one without misaligning every score after it.
+    ALLOWED_KEYS: ClassVar[frozenset[str] | None] = None
+
+    def _parse(self, record: Mapping[str, Any]) -> Any:
+        """Validate one record; default: the record itself."""
+        return record
+
+    def _units(self, data: Any) -> list[Any]:
+        if isinstance(data, Mapping):
+            records: list[Any] = [data]
+        elif isinstance(data, Sequence) and not isinstance(data, (str, bytes)) and data:
+            records = list(data)
+        else:
+            raise InputModalityError(
+                f"{self._name} expects a record (mapping) or a non-empty sequence of records; "
+                f"got {type(data).__name__}"
+            )
+        parsed = []
+        for i, record in enumerate(records):
+            if not isinstance(record, Mapping):
+                raise InputModalityError(
+                    f"{self._name}: record {i} is a {type(record).__name__}, not a mapping"
+                )
+            missing = sorted(self.REQUIRED_KEYS - set(record))
+            if missing:
+                raise InvalidObservationError(f"{self._name}: record {i} is missing {missing}")
+            if self.ALLOWED_KEYS is not None:
+                unknown = sorted(set(record) - self.ALLOWED_KEYS)
+                for key in unknown:
+                    self._unit_set_aside.setdefault(i, []).append(
+                        {
+                            "where": f"record[{i}].{key}",
+                            "reason": f"unknown key; accepted: {sorted(self.ALLOWED_KEYS)}",
+                        }
+                    )
+                if unknown:
+                    record = {k: v for k, v in record.items() if k not in unknown}
+                    if not record:
+                        raise InvalidObservationError(
+                            f"{self._name}: record {i} has nothing usable: unknown keys "
+                            f"{unknown}; accepted: {sorted(self.ALLOWED_KEYS)}"
+                        )
+            parsed.append(self._parse(record))
+        return parsed
+
+
+class HazardTextAdapter(HazardUnitAdapter):
+    """Text payloads: one string, or a sequence of strings, each assessed alone."""
+
+    #: Longest stretch of a payload graded, in characters (it bounds the work
+    #: one call can demand).  Beyond it the payload's first ``MAX_CHARS``
+    #: characters are graded and the rest is set aside, with its length, and
+    #: the verdict is marked partial -- never graded as if it were the whole.
+    MAX_CHARS: ClassVar[int] = 65536
+
+    def _units(self, data: Any) -> list[Any]:
+        if isinstance(data, str):
+            payloads = [data]
+        elif isinstance(data, Sequence) and not isinstance(data, bytes) and data:
+            payloads = list(data)
+        else:
+            raise InputModalityError(
+                f"{self._name} expects text (str) or a non-empty sequence of strings; "
+                f"got {type(data).__name__}"
+            )
+        for i, payload in enumerate(payloads):
+            if not isinstance(payload, str):
+                raise InputModalityError(
+                    f"{self._name}: payload {i} is a {type(payload).__name__}, not text"
+                )
+            if len(payload) > self.MAX_CHARS:
+                self._unit_set_aside.setdefault(i, []).append(
+                    {
+                        "where": f"payload[{i}][{self.MAX_CHARS}:]",
+                        "reason": (
+                            f"{len(payload) - self.MAX_CHARS} of {len(payload)} characters "
+                            f"lie beyond the {self.MAX_CHARS}-character analysis limit and "
+                            "were not graded; split the payload to grade them"
+                        ),
+                    }
+                )
+                payloads[i] = payload[: self.MAX_CHARS]
+        return payloads
 
 
 class TornadoConditionsAdapter(HazardRowAdapter):
@@ -129,6 +491,10 @@ class TornadoConditionsAdapter(HazardRowAdapter):
     ``TornadoDetector.predict_tornado``'s own confidence and
     ``tornado_likely`` on the atmospheric path.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.tornado_detector:TornadoDetector"
+    )
 
     COLUMNS = ("cape_j_kg", "cin_j_kg", "srh_m2_s2", "bulk_shear_kt", "lcl_m")
     FEATURE_NAMES = ("confidence", "tornado_likely", "cape_value", "helicity_value")
@@ -148,6 +514,7 @@ class TornadoConditionsAdapter(HazardRowAdapter):
         result = self._detector.predict_tornado(
             {"atmospheric_data": dict(zip(self.COLUMNS, (float(v) for v in row)))}
         )
+        self._note_set_aside(result)
         return (
             float(result.confidence),
             bool(result.tornado_likely),
@@ -169,6 +536,10 @@ class HurricanePressureAdapter(HazardRowAdapter):
     ``cyclone_detected``; the wind feature is its Atkinson & Holliday (1977)
     pressure-wind value.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.hurricane_detector:HurricaneDetector"
+    )
 
     COLUMNS = ("central_pressure_mb", "environmental_pressure_mb", "sst_celsius")
     FEATURE_NAMES = ("confidence", "cyclone_detected", "max_wind_speed_kt", "min_pressure_mb")
@@ -195,6 +566,7 @@ class HurricanePressureAdapter(HazardRowAdapter):
                 "sst_data": {"sst_celsius": sst},
             }
         )
+        self._note_set_aside(result)
         return (
             float(result.confidence),
             bool(result.cyclone_detected),
@@ -215,6 +587,10 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
     decision are ``FloodDetector.predict_flood``'s own confidence and
     ``flood_likely`` on the precipitation path.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.geological.flood_detector:FloodDetector"
+    )
 
     COLUMNS = (
         "precipitation_1h_inches",
@@ -237,6 +613,7 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
         result = self._detector.predict_flood(
             {"precip_data": dict(zip(self.COLUMNS, (float(v) for v in row)))}
         )
+        self._note_set_aside(result)
         return (
             float(result.confidence),
             bool(result.flood_likely),
@@ -259,6 +636,10 @@ class FinancialStressAdapter(HazardRowAdapter):
     ``crisis_imminent``. The untrained fraud network stays unconsulted, as in
     the wrapped detector.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.economic.financial_crisis_detector:FinancialCrisisDetector"
+    )
 
     COLUMNS = (
         "price_change_pct",
@@ -289,6 +670,7 @@ class FinancialStressAdapter(HazardRowAdapter):
                 "banking_data": dict(zip(self.COLUMNS[3:], values[3:])),
             }
         )
+        self._note_set_aside(result)
         return (
             float(result.confidence),
             bool(result.crisis_imminent),
@@ -305,10 +687,17 @@ class SolarWindGeomagAdapter(HazardRowAdapter):
     """Geomagnetic storm level from solar-wind speed and IMF Bz.
 
     Columns: ``solar_wind_speed_km_s`` (km/s), ``bz_imf_nt`` (nT). The score
-    is NOAA's own scale — the predicted G level over 5 — and the decision is
-    G >= 1, exactly the storm definition the training labels use
-    (``evaluation.hazard_metrics.noaa_g_scale``).
+    is NOAA's G scale over 5 and the decision is G >= 1, where G is the
+    detector's own ``geomagnetic_storm_level`` -- including its trained
+    operating point, which raises a sub-G1 Kp estimate to G1 when the storm
+    probability clears it.  Re-deriving G from ``kp_index`` alone (as before)
+    disagreed with the detector: (600 km/s, Bz -10 nT) is "minor" to the
+    detector but was served as G0, not anomalous.
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.solar_storm_detector:SolarStormDetector"
+    )
 
     COLUMNS = ("solar_wind_speed_km_s", "bz_imf_nt")
     FEATURE_NAMES = ("kp_index", "g_level", "confidence")
@@ -323,16 +712,16 @@ class SolarWindGeomagAdapter(HazardRowAdapter):
             from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
 
             self._detector = SolarStormDetector()
-        from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
+        from omni_mercury_engine.evaluation.hazard_metrics import G_SCALE_NAMES
 
         result = self._detector.predict_solar_storm(
             {"magnetosphere_data": dict(zip(self.COLUMNS, (float(v) for v in row)))}
         )
-        if result.kp_index is None:
+        if result.kp_index is None or result.geomagnetic_storm_level not in G_SCALE_NAMES:
             raise InvalidObservationError(
-                "solar storm prediction returned no Kp for a measured row"
+                "solar storm prediction returned no geomagnetic level for a measured row"
             )
-        g_level = noaa_g_scale(float(result.kp_index))
+        g_level = G_SCALE_NAMES.index(result.geomagnetic_storm_level)
         return (
             g_level / 5.0,
             g_level >= 1,
@@ -348,6 +737,10 @@ class XrayFlareAdapter(HazardRowAdapter):
     (``evaluation.hazard_metrics.noaa_r_scale``); the decision is R >= 1
     (an M1 flare, NOAA's Minor radio blackout).
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.space.solar_storm_detector:SolarFlareDetector"
+    )
 
     COLUMNS = ("flux_long_wm2",)
     FEATURE_NAMES = ("flare_intensity", "r_level", "flare_detected")
@@ -386,6 +779,8 @@ class GICMinuteSeriesAdapter(HazardRowAdapter):
     The assessment is window-level, so its score and measured features repeat
     on every row of the window.
     """
+
+    decision_source = WrappedDecisionSource("omni_mercury_engine.space.gic_detector:GICDetector")
 
     COLUMNS = ("bx_nt", "by_nt")
     FEATURE_NAMES = ("peak_dbdt_nt_per_min", "sustained_dbdt_nt_per_min", "risk_tier")

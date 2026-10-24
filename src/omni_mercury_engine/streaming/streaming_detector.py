@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Streaming anomaly detector with async data ingestion.
 
 Provides a StreamingDetector wrapper that accepts data points one at a time, maintains a rolling
@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 import numpy as np
+
+from omni_mercury_engine.detectors.provenance import WrappedDecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,10 @@ class StreamingDetector:
         async for point in async_data_source:
             result = await detector.async_ingest(point)
     """
+
+    decision_source = WrappedDecisionSource(
+        "omni_mercury_engine.detectors.statistical:MercuryAnomalyDetector"
+    )
 
     def __init__(
         self,

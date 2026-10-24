@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fail-closed guard for the orchestrator boundary when the σ gate is absent.
 
 The gate- and engine-level ``gosnn_unavailable`` refusals are covered in

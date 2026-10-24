@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``TornadoDetector.predict_tornado`` serves, on the real Moore EF5 sector.
 
 Each test fails on the detector as it was before: masked radar gates (NaN)
@@ -70,7 +70,9 @@ def test_confidence_is_the_trained_mesocyclone_probability(
 
 
 def test_non_evidence_inputs_carry_no_decision_weight(served: td.TornadoDetector) -> None:
-    base = {"atmospheric_data": {"cape": 500.0}}
+    # ``cape`` (not ``cape_j_kg``) used to be read silently as CAPE 0; it is
+    # now set aside, so the base record names the real field.
+    base = {"atmospheric_data": {"cape_j_kg": 500.0}}
     extras = {
         **base,
         "location": {"state": "OK"},

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """OSHA compliance anomaly detection for industry-specific safety monitoring.
 
 version.
@@ -52,6 +52,7 @@ from typing import Any, Final
 
 import requests
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 logger = logging.getLogger(__name__)
@@ -524,6 +525,33 @@ class OSHAComplianceDetector:
     API by passing an :class:`ECFRClient` instance.
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Three sensor rules take their line from the regulation text: a fall hazard at 6 "
+                "feet or more above a lower level without protection, unguarded live parts at 50 "
+                "volts or more, and a noise exposure at 85 dBA or more. The standard defines the "
+                "noise line as an 8-hour time-weighted average; the detector applies it to one "
+                "reading."
+            ),
+            citation=(
+                "29 CFR 1926.501(b)(1) (6 feet (1.8 m) or more); 29 CFR 1910.303(g)(2)(i) (live "
+                "parts at 50 volts or more); 29 CFR 1910.95(c)(1) (8-hour TWA of 85 dBA). Text "
+                "checked on eCFR, 2026-10-01."
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The other rules are hand-set with no recorded source or calibration: machinery "
+                "within 3 m of active machinery, a heat index above 103 F (the index itself is the "
+                "NWS Rothfusz regression), and the per-category score cuts (0.60-0.85) applied to "
+                "caller-supplied '<category>_score' keys."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         sector: OSHASector = OSHASector.GENERAL_INDUSTRY,
@@ -719,7 +747,7 @@ class OSHAComplianceDetector:
                 )
             )
         voltage = float(sensor_data.get("electrical_voltage", 0.0))
-        if voltage > 50.0 and not bool(sensor_data.get("electrical_protection", False)):
+        if voltage >= 50.0 and not bool(sensor_data.get("electrical_protection", False)):
             severity = min(0.75 + (voltage / 1000.0), 1.0)
             hazards.append(
                 self._build_hazard(
@@ -839,7 +867,7 @@ class OSHAComplianceDetector:
         del context
         hazards: list[OSHAHazard] = []
         noise = float(sensor_data.get("noise_level_db", 0.0))
-        if noise > 85.0:
+        if noise >= 85.0:
             severity = min(0.70 + (noise - 85.0) / 30.0, 1.0)
             hazards.append(
                 self._build_hazard(

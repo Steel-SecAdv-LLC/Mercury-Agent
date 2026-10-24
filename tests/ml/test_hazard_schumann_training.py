@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Offline tests for the Schumann-harmonics checkpoint-training pipeline.
 
 No network: the remote-ZIP reader is exercised against a local ZIP built

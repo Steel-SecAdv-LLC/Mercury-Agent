@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Reproducible transductive ADBench harness for the MercuryAnomalyDetector fusion.
 
 Pins a fixed 18-set ADBench ("Classical", Minqi824) subset and measures the real

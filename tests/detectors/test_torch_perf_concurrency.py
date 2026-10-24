@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Concurrency contract for :func:`single_threaded_torch`.
 
 The intra-op thread knob is process-global, so a naive save/set/restore races

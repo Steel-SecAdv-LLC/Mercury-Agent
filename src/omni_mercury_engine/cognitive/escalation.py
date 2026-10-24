@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Human-in-the-loop / bounded-autonomy escalation for gate ESCALATE verdicts.
 
 An ``ESCALATE`` disposition marks a genuine gray-zone request that a *human*

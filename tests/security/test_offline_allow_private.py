@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the VPC-air-gap mode (MERCURY_OFFLINE + allow_private).
 
 Pins the interaction the previous offline gate could not express: cut from the

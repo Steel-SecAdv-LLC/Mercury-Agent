@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Oracle-validated verifier for a PARADOX_DEFENSE scalar.
 
 A "paradox defense" is formalised as two propositional theories: the *naive* framing that

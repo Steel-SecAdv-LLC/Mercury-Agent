@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: emit / verify a synthetic-data provenance tag.
 
 **Live-first data policy.**  Mercury Agent treats live data as the

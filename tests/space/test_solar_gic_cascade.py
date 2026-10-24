@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the solar-to-GIC cascade escalation state machine.
 
 Stage-transition tests replay the recorded real May 2024 (Gannon G5 storm)

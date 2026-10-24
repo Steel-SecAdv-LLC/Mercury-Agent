@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Production-grade input validation and sanitization.
 
 Implements OWASP input validation guidelines:
@@ -595,7 +595,7 @@ class TrustedEndpoints:
             "cds.climate.copernicus.eu",
             # Academic/Research Datasets
             "archive.ics.uci.edu",
-            "ndownloader.figshare.com",  # DTU Data labelled AIS set (DOI 10.11583/DTU.21511815)
+            "ndownloader.figshare.com",  # DTU Data AIS sets (DOI 10.11583/DTU.21511815, .21511842)
             "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
             "cicresearch.ca",  # CICIDS 2017 legacy mirror hostname
             # Weather APIs

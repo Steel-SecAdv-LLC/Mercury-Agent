@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Neuroscience Module - Cognitive pattern and neural anomaly detection.
 
 Supports cognitive enhancement and mental health monitoring by detecting:
@@ -32,6 +32,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class NeuralThreat(Enum):
     """Neural threat."""
@@ -45,6 +47,32 @@ class NeuralThreat(Enum):
 
 class NeuroscienceDetector:
     """Detect neural and cognitive pattern anomalies."""
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Mental-health screening scores a validated instrument by its published scoring: "
+                "PHQ-9 (severity bands 5/10/15/20, cutpoint 10, any endorsement of item 9 flagged "
+                "for suicide-risk assessment), GAD-7 (bands 5/10/15, cutpoint 10) and ASRS v1.1 "
+                "Part A (positive at 4 or more shaded items). The output is a screen, not a "
+                "diagnosis."
+            ),
+            citation=(
+                "Kroenke, Spitzer & Williams 2001, J Gen Intern Med 16:606-613; Spitzer et al. "
+                "2006, Arch Intern Med 166:1092-1097; Kessler et al. 2005, Psychol Med 35:245-256; "
+                "Simon et al. 2013, Psychiatr Serv 64:1195-1202. Bibliographic records checked on "
+                "Crossref; the scoring rules were not re-read in the papers."
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Neural-activity anomalies alarm at |z| above 2 or a seizure risk above 0.3, and "
+                "cognitive decline below a score of 0.7 (all hand-set)."
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""

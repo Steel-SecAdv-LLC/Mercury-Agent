@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: runtime monitor for the OAE fusion-matrix eigenvalues.
 
 :mod:`lyapunov_validator` proves the (P, A, λ) closure once at design

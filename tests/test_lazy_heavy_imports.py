@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Importing the engine must not load libraries only training or validation use.
 
 PyTorch Lightning (with torchmetrics and matplotlib behind it) is needed to

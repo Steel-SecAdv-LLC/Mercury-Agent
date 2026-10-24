@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """PaDiM: Patch Distribution Modeling Framework for Anomaly Detection.
 
 Implementation of PaDiM algorithm from ICPR 2020.
@@ -28,6 +28,7 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -65,6 +66,39 @@ class PaDiMDetector(BaseVisualDetector):
         >>> detector.fit(normal_images)
         >>> results = detector.detect(test_images)
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The anomaly score is the per-position Mahalanobis distance "
+                "of pretrained patch features to position-wise multivariate "
+                "Gaussians fitted on normal images, following the published "
+                "PaDiM method."
+            ),
+            citation=(
+                'Defard et al., "PaDiM: a Patch Distribution Modeling '
+                'Framework for Anomaly Detection and Localization", '
+                "ICPR 2020, arXiv:2011.08785"
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The binary decision threshold is calibrated in fit() by "
+                "split conformal prediction on held-out normal images at "
+                "visual_config.false_alarm_rate (default 0.05); the record "
+                "is kept in self.calibration and preserved exactly by "
+                "save()/load(). No decision is made before calibration."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold"
+            ),
+        ),
+    )
 
     def __init__(self, config: PaDiMConfig | dict[str, Any] | None = None) -> None:
         """Initialize PaDiM detector.
@@ -164,6 +198,7 @@ class PaDiMDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
+        data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         n_samples = data.shape[0]
         logger.info(f"Fitting PaDiM on {n_samples} images")
@@ -231,6 +266,7 @@ class PaDiMDetector(BaseVisualDetector):
 
         logger.info(f"Fitted Gaussian distributions for {n_positions} positions")
         self._is_fitted = True
+        self._calibrate_threshold(calibration)
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
@@ -311,6 +347,28 @@ class PaDiMDetector(BaseVisualDetector):
             "is_anomaly": is_anomaly.cpu().numpy(),
             "features": features.cpu(),
         }
+
+    def _fitted_state(self) -> dict[str, Any]:
+        """Per-position Gaussians and the random projection they live in.
+
+        The projection must persist with the statistics: a reloaded detector
+        drawing a fresh projection would score patches in a different
+        feature space than the one ``mean``/``cov_inv`` were fitted in.
+        """
+        return {
+            "mean": self.mean,
+            "cov_inv": self.cov_inv,
+            "projection": self.projection,
+            "spatial_shape": self._spatial_shape,
+        }
+
+    def _restore_fitted_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the Gaussians, projection and spatial shape on this device."""
+        for name in ("mean", "cov_inv", "projection"):
+            value = state.get(name)
+            setattr(self, name, value.to(self.device) if value is not None else None)
+        shape = state.get("spatial_shape")
+        self._spatial_shape = tuple(shape) if shape is not None else None
 
     def _compute_mahalanobis(self, patches: torch.Tensor) -> torch.Tensor:
         """Compute Mahalanobis distance for each patch position.

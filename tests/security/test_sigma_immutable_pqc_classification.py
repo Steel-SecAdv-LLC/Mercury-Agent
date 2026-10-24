@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """σ_Immutable corpus-verification failure classification.
 
 When the AMA Cryptography native post-quantum signature backend is not

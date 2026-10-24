@@ -282,6 +282,20 @@ config:
     # proxy fronts the Service.
     MERCURY_TRUSTED_PROXY_HOPS: "1"
 
+    # --- Trust surface (security/agent_notice.py, security/deception.py) ---
+    # /.well-known/security.txt serves MERCURY_SECURITY_CONTACT: comma-
+    # separated mailto:, tel: or https:// URIs. Empty serves the upstream
+    # project's contact -- set it whenever you, not the upstream project,
+    # operate this release. MERCURY_DECEPTION_ENABLED="true" registers the
+    # containment-only decoys (tripwires and a bounded tarpit, recorded on
+    # the audit chain; nothing reaches outward), with cluster-wide tripwire
+    # state on MERCURY_KEYSTORE_PATH. MERCURY_DECOY_PATHS and
+    # MERCURY_SILENT_DECOY_PATHS add private, unpublished decoy paths.
+    MERCURY_SECURITY_CONTACT: ""
+    MERCURY_DECEPTION_ENABLED: "false"
+    MERCURY_DECOY_PATHS: ""
+    MERCURY_SILENT_DECOY_PATHS: ""
+
     # --- Request validation limits (api/server.py APIRequestValidator) -----
     OMNI_MAX_DATA_POINTS: "100000"
     OMNI_MAX_FEATURES: "1000"

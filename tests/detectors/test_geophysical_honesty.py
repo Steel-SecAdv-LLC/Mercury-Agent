@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tsunami/Earthquake detectors must derive from observed physics, never fabricate.
 
 Regression locks for the anti-theater fixes in ``disaster_detectors``:
@@ -94,9 +94,18 @@ class TestTsunamiHonesty:
 
         det = TsunamiDetector(sampling_rate=1.0)
         record = _tsunami_record(np.random.default_rng(4))
+        clean = det.predict_tsunami(record.copy())
         record[100] = np.nan
-
-        with pytest.raises(ValueError, match="non-finite"):
+        # The NaN is a gap: the longest gap-free run is graded, the verdict is
+        # marked partial, and nothing NaN reaches the severity ladder.
+        result = det.predict_tsunami(record)
+        assert np.isfinite(result.estimated_wave_height_m)
+        assert result.severity == clean.severity
+        assert result.partial is True
+        assert "samples [101, 4096) of 4096" in result.set_aside[0]["reason"]
+        # Gaps that leave no 30-minute run leave nothing usable to grade.
+        record[np.arange(0, 4096, 1000)] = np.nan
+        with pytest.raises(ValueError, match="30 min"):
             det.predict_tsunami(record)
 
 
@@ -185,3 +194,31 @@ class TestLegacyTrainerSyntheticFallbackOptIn:
         model = dd.SeismicWaveAnalyzer()
         with pytest.raises(RuntimeError, match=r"synthetic .*not explicitly allowed"):
             dd.train_seismic_analyzer(model, n_epochs=1, n_samples=8)
+
+
+class TestRegistryFeaturesSeeTheGradedRun:
+    """extract_features summarises the same gap-free run the verdict grades.
+
+    Regression: one NaN sample made every mean/std/FFT feature NaN on the
+    registry seam while the verdict path refused or graded around it.
+    """
+
+    def test_tsunami_and_earthquake_features_stay_finite_with_a_gap(self) -> None:
+        rng = np.random.default_rng(7)
+        wave = _tsunami_record(rng)
+        wave[100] = np.nan
+        quake = _quake_record(rng)
+        quake[50] = np.nan
+        for features in (
+            TsunamiDetector(sampling_rate=1.0).extract_features(wave),
+            EarthquakeDetector(load_shipped_weights=False).extract_features(quake),
+        ):
+            assert np.all(np.isfinite(features))
+
+    def test_meteor_features_stay_finite_with_a_gap(self) -> None:
+        from omni_mercury_engine.detectors.geological.disaster_detectors import MeteorDetector
+
+        radar = np.ones(64)
+        radar[3] = np.nan
+        features = MeteorDetector(use_nasa_data=False).extract_features(radar_data=radar)
+        assert np.all(np.isfinite(features))

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Hail / severe-convective detector: SHIP formulation, tiers, NWS wiring.
 
 SHIP expectations are hand-computed from the SPC formulation

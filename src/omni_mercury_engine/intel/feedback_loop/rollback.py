@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """A staged model registry with a one-command rollback.
 
 A gated retrain writes its accepted candidate into a **staging** registry, never

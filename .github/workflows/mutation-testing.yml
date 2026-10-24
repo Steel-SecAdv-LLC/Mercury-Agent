@@ -53,6 +53,9 @@ jobs:
       geological: ${{ steps.detect.outputs.geological }}
       crisismonitor: ${{ steps.detect.outputs.crisismonitor }}
       observatory: ${{ steps.detect.outputs.observatory }}
+      trustsurface: ${{ steps.detect.outputs.trustsurface }}
+      hazardevidence: ${{ steps.detect.outputs.hazardevidence }}
+      rltrainer: ${{ steps.detect.outputs.rltrainer }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -134,6 +137,30 @@ jobs:
             echo "observatory=false" >> "$GITHUB_OUTPUT"
             echo "observatory mutation surface unchanged."
           fi
+          # The mutation-floored trust surface (agent notice, security.txt, decoys).
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/security/(deception|deception_store|agent_notice|source_offer)\.py|src/omni_mercury_engine/api/routes/(decoys|agent_notice|source)\.py|tests/security/test_(deception|agent_notice|source_offer)\.py|tests/api/test_trust_surface_routes\.py|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "trustsurface=true" >> "$GITHUB_OUTPUT"
+            echo "trust-surface mutation surface changed: trust-surface floor lane runs."
+          else
+            echo "trustsurface=false" >> "$GITHUB_OUTPUT"
+            echo "trust-surface mutation surface unchanged."
+          fi
+          # The mutation-floored hazard-evidence surface (SURGEDAT/NHC surge, DONKI labels).
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/data_sources/storm_surge\.py|src/omni_mercury_engine/loaders/space_weather_loader\.py|tests/test_storm_surge_source\.py|tests/loaders/test_space_weather_meteor_loaders\.py|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "hazardevidence=true" >> "$GITHUB_OUTPUT"
+            echo "hazard-evidence mutation surface changed: hazard-evidence floor lane runs."
+          else
+            echo "hazardevidence=false" >> "$GITHUB_OUTPUT"
+            echo "hazard-evidence mutation surface unchanged."
+          fi
+          # The mutation-floored PPO trainer and its environments.
+          if echo "$changed" | grep -qE '^(src/omni_mercury_engine/ml/(ppo_trainer|rl_envs)\.py|tests/ml/test_(ppo_trainer|rl_envs)\.py|tests/fixtures/rl_envs/.+|\.github/workflows/mutation-testing\.yml)$'; then
+            echo "rltrainer=true" >> "$GITHUB_OUTPUT"
+            echo "PPO trainer mutation surface changed: PPO trainer floor lane runs."
+          else
+            echo "rltrainer=false" >> "$GITHUB_OUTPUT"
+            echo "PPO trainer mutation surface unchanged."
+          fi
 
   mutation-sample:
     name: Sigma mutation cheap sample (every PR)
@@ -185,7 +212,7 @@ jobs:
         with:
           name: sigma-mutation-sample-report
           path: mutation_sample_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-gate-full:
     name: Sigma hot-path mutation kill-rate floor
@@ -250,7 +277,7 @@ jobs:
         with:
           name: sigma-mutation-report
           path: mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   hazard-mutation-floor:
     name: Hazard adapter/surge mutation kill-rate floor
@@ -318,7 +345,7 @@ jobs:
           path: |
             hazard_adapter_mutation_report.json
             storm_surge_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   distillation-mutation-floor:
     name: Distillation mutation kill-rate floor
@@ -387,7 +414,7 @@ jobs:
         with:
           name: distillation-mutation-report
           path: distillation_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   humanitarian-mutation-floor:
     name: Humanitarian detectors mutation kill-rate floor
@@ -455,7 +482,7 @@ jobs:
         with:
           name: humanitarian-mutation-report
           path: humanitarian_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-crisis-monitor:
     name: Crisis-monitor mutation kill-rate floor
@@ -509,7 +536,7 @@ jobs:
         with:
           name: crisis-monitor-mutation-report
           path: crisis_monitor_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-geological:
     name: Geological detectors mutation kill-rate floor
@@ -578,7 +605,7 @@ jobs:
         with:
           name: geological-mutation-report
           path: geological_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   mutation-floor-observatory:
     name: Observatory mutation kill-rate floor
@@ -638,4 +665,227 @@ jobs:
         with:
           name: observatory-mutation-report
           path: observatory_mutation_report.json
-          if-no-files-found: ignore
+          if-no-files-found: error
+
+  mutation-floor-trust-surface:
+    name: Trust-surface mutation kill-rate floor
+    needs: changes
+    # Seventh module set under the per-module kill-rate program (2026-10-21):
+    # the trust surface -- agent notice, RFC 9116 security.txt, and the
+    # containment-only decoy layer -- shipped mutation-measured. First full
+    # enumeration (120 sites): 98 killed, 81.7%, with both route modules at
+    # 100%. Survivor classification found two real validator gaps (non-
+    # printable characters and malformed mailto:/tel: contacts were
+    # accepted), fixed with fail-on-old tests, and closed the killable test
+    # gaps. Re-measured (115 sites, the validator rewrite having changed the
+    # site set): 114 killed, 99.1%. After the red-team evasion fixes (129
+    # sites): 128 killed, 99.2%. After rotation resistance, the campaign
+    # signal, the audit cap and the cross-worker store joined the surface
+    # (199 sites, deception_store.py now enumerated): first run 160 killed,
+    # 80.4% -- the 39 survivors were classified, the killable gaps closed
+    # (boundary acceptances, pinned defaults, LRU/prune-cadence off-by-ones,
+    # a checkpointed campaign-log test verified by hand-applying its
+    # mutant) -- final 196 killed, 98.5%. After the bounded store, cluster-
+    # wide grading, innermost silent tripwires and the contact-parser fix
+    # (2026-10-21, 208 sites): first run 202 killed, 97.1%; the two killable
+    # survivors (the store's max_sources defaults, unpinned against the
+    # sensor's cap) closed by a signature pin verified by hand-applying both
+    # mutants, and the one timeout kill (the TarpitGate cap) made a 1 s
+    # failure instead of a 120 s hang -- final 204 killed, 98.1%. The four
+    # survivors are classified equivalents: the tarpit cap, where capped and
+    # uncapped delays coincide; two in the store's mkdir guard, where
+    # Path.parent is always truthy and exist_ok matters only under a
+    # concurrent-creation race; and the eviction guard's excess <= 0, where
+    # excess == 0 selects LIMIT 0 and evicts nothing either way. The AGPL
+    # section 13 source offer joined the surface (2026-10-21, 218 sites:
+    # security/source_offer.py and routes/source.py, 10 sites, all killed,
+    # the URL length limit pinned exactly): 214 killed, 98.2%, the same four
+    # classified equivalents surviving.
+    if: github.event_name != 'pull_request' || needs.changes.outputs.trustsurface == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml,api] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml,api]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-21, local, full enumeration): 214/218
+      # killed -- 98.2% -- with the four survivors classified equivalents.
+      # The floor sits at 95: the equivalents cost 1.8 points, and the rest
+      # of the margin (about six mutants) absorbs legitimate new sites while
+      # real weakening fails the lane.
+      - name: Trust-surface mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/security/deception.py \
+              src/omni_mercury_engine/security/deception_store.py \
+              src/omni_mercury_engine/security/agent_notice.py \
+              src/omni_mercury_engine/security/source_offer.py \
+              src/omni_mercury_engine/api/routes/decoys.py \
+              src/omni_mercury_engine/api/routes/agent_notice.py \
+              src/omni_mercury_engine/api/routes/source.py \
+            --test-cmd "python -m pytest tests/security/test_deception.py tests/security/test_agent_notice.py tests/security/test_source_offer.py tests/api/test_trust_surface_routes.py -q -x" \
+            --jobs 4 \
+            --fail-under 95 \
+            --report trust_surface_mutation_report.json
+
+      - name: Upload trust-surface mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trust-surface-mutation-report
+          path: trust_surface_mutation_report.json
+          if-no-files-found: error
+
+  mutation-floor-hazard-evidence:
+    name: Hazard-evidence mutation kill-rate floor
+    needs: changes
+    # Ninth module set under the per-module kill-rate program (2026-10-21):
+    # the storm-surge sources (NHC Peak Storm Surge, SURGEDAT) and the DONKI
+    # space-weather loader. First full enumeration (129 sites): 73 killed,
+    # 56.6% -- the SURGEDAT rounding-interval arithmetic and the loader's
+    # feature windows, request windows and label edges were unpinned.
+    # Known-answer tests (boundary pairs within micrometres of the overlap
+    # rule, closed-form ramp features, a fixed clock, a sub-second label
+    # edge) brought it to 121 killed, 93.8%. The eight survivors are
+    # classified equivalents: the interval comparisons' > vs >= and +/- 1e-9
+    # slack (four; rounding intervals of decimal strings can never touch,
+    # the feet edge ending in an even digit and the metres edge in a 5), the
+    # point-reading index tweaks (two; a point's low and high and their
+    # half-widths are equal), the real-time window's microsecond (dropped by
+    # the request format) and reset_index's drop flag (the index column is
+    # never read).
+    if: github.event_name != 'pull_request' || needs.changes.outputs.hazardevidence == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-21, local, full enumeration): 121/129
+      # killed -- 93.8% -- with the eight survivors classified equivalents.
+      # The floor sits at 88: the equivalents cost 6.2 points, and the rest
+      # of the margin (about seven mutants) absorbs legitimate new sites.
+      - name: Hazard-evidence mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/data_sources/storm_surge.py \
+              src/omni_mercury_engine/loaders/space_weather_loader.py \
+            --test-cmd "python -m pytest tests/test_storm_surge_source.py tests/loaders/test_space_weather_meteor_loaders.py -q -x" \
+            --jobs 4 \
+            --fail-under 88 \
+            --report hazard_evidence_mutation_report.json
+
+      - name: Upload hazard-evidence mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hazard-evidence-mutation-report
+          path: hazard_evidence_mutation_report.json
+          if-no-files-found: error
+
+  mutation-floor-rl-trainer:
+    name: PPO trainer mutation kill-rate floor
+    needs: changes
+    # Tenth module set under the per-module kill-rate program (2026-10-21):
+    # the native PPO trainer and its batched environments. First full
+    # enumeration (691 sites): 475 killed, 68.7% -- defaults, validation
+    # edges and the update's arithmetic (normalization, clipping, the KL
+    # stop, Gaussian constants, budgets) were unpinned. Two test rounds,
+    # several through a stand-in gradient that records what the update
+    # passes, brought it to 659 of 687 killed, 95.9%. The 28 survivors are
+    # classified equivalents: numpy's reshape(-2) alias of reshape(-1) (six);
+    # exact-tie comparisons at a float clip boundary (four: value clipping
+    # twice, the clip fraction, explained variance's zero-variance branch,
+    # which yields NaN either way); initial values that reset() or
+    # init_callback() overwrite (four: CartPole's and Pendulum's state
+    # shapes, BaseCallback.num_timesteps, CheckpointCallback's period
+    # count); a different but equally valid seed (two: the unseeded draw's
+    # length, the sampling generator's offset); fused vs unfused Adam; an
+    # astype copy flag; keepdim into a contiguous out buffer; Module._apply's
+    # recurse flag (no submodules); the progress cap (progress never exceeds
+    # 1); the advantage and return-variance floors (the standard deviation is
+    # 0 only for identical advantages, giving 0 either way, and the return
+    # variance never reaches 0 from its prior of 1); the evaluation copy
+    # count of a named environment; the temporary file's missing_ok (it
+    # always exists); Box's dataclass eq flag (its own __eq__ wins);
+    # (theta +/- pi) mod 2 pi; and l**2 vs l**3 with l = 1.
+    if: github.event_name != 'pull_request' || needs.changes.outputs.rltrainer == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-timeout hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      # Floor calibration (2026-10-21, local, full enumeration, 4 workers,
+      # about 40 minutes): 659/687 killed -- 95.9% -- with the 28 survivors
+      # classified equivalents. The floor sits at 91: the equivalents cost
+      # 4.1 points, and the rest of the margin (about 30 mutants) absorbs
+      # legitimate new sites.
+      - name: PPO trainer mutation floor
+        run: |
+          python scripts/run_sigma_mutation_gate.py \
+            --targets \
+              src/omni_mercury_engine/ml/ppo_trainer.py \
+              src/omni_mercury_engine/ml/rl_envs.py \
+            --test-cmd "python -m pytest tests/ml/test_ppo_trainer.py tests/ml/test_rl_envs.py -q -x" \
+            --jobs 4 \
+            --fail-under 91 \
+            --report rl_trainer_mutation_report.json
+
+      - name: Upload PPO trainer mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: rl-trainer-mutation-report
+          path: rl_trainer_mutation_report.json
+          if-no-files-found: error

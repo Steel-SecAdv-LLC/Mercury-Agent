@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Formal-verification soundness: does the dormant interval-bound propagator produce *sound* output certificates for a network over an input region?
 
 `formal_verification.py` was orphaned and un-revivable by anomaly-AUC -- it emits

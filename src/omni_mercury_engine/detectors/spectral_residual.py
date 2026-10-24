@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Spectral-Residual (SR) saliency detector for streaming time series.
 
 The Spectral Residual transform (Ren et al., *Time-Series Anomaly Detection
@@ -32,6 +32,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -54,6 +55,21 @@ class SpectralResidualDetector(BaseDetector):
     score via ``1 - exp(-s / scale)``. No model weights are learned, matching
     the training-free nature of the transform.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Scores are Spectral-Residual saliency local z-scores squashed by "
+            "1 - exp(-s / scale), the scale anchored so the configured training "
+            "calibration quantile (default 0.98) lands at 0.5; the decision "
+            "threshold is the configured operating point, default 0.5 on the "
+            "normalized score (~2% normal-regime false-positive rate at the "
+            "defaults)."
+        ),
+        citation=(
+            "Ren et al. (2019), 'Time-Series Anomaly Detection Service at " "Microsoft', KDD 2019"
+        ),
+    )
 
     def __init__(
         self,

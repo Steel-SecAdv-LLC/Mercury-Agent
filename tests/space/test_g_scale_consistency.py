@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Every G-scale site gives the SWPC level for Kp in thirds.
 
 SWPC files each third under its integer: G1 "Kp = 5" (5-, 5o, 5+), G4

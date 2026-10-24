@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for real-world dataset loaders and benchmarks.
 
 These tests use synthetic fallback data for fast, offline unit testing.

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Code Analysis Engine - AST-based symbolic reasoning for code refactoring.
 
 This module provides AST (Abstract Syntax Tree) analysis capabilities for:

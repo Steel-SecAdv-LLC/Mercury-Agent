@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Deterministic, first-party synthetic-data generators for the ``real-data`` validation suites.
 
 Each generator returns a dictionary whose keys match the field names

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Merit gate for the weapons-gate confidence calibration's held-out generalisation.
 
 ``scripts/fit_weapons_gate_calibration.py`` fits the Axis-B offensive-confidence

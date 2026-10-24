@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Real-image benchmark of the interpretable visual anomaly analyser on MVTec AD textures.
 
 MVTec AD (Bergmann et al., CVPR 2019; CC BY-NC-SA 4.0) is the standard

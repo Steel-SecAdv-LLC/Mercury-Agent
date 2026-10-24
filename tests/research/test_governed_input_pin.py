@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The governed-fusion input pin: hashes that are checked, not merely recorded.
 
 ``build_manifest.py`` has always written a SHA-256 of every event's ``(X, y)``,

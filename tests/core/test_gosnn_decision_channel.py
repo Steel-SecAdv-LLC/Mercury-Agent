@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The GOSNN consequential decision channel: isolation and routing contracts.
 
 The fused state's only consequential outlet is the decision layer's

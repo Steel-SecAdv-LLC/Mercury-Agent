@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What the restored quantum anomaly detector serves.
 
 The package was deleted (740da10a) for defects these tests pin; each fails on

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Particle-filter state-space residual detector for streaming series.
 
 A bootstrap particle filter tracks the latent state of a state-space model with
@@ -37,6 +37,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -59,6 +60,24 @@ class ParticleFilterDetector(BaseDetector):
     squash scores into ``[0, 1]``. Resampling uses systematic resampling with a
     fixed seed so runs are reproducible.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Scores are normalised one-step-ahead predictive innovations of a "
+            "bootstrap particle filter tracking a local-level state-space "
+            "model, squashed by 1 - exp(-s / scale) with the scale anchored at "
+            "the configured training quantile (default 0.98); the decision "
+            "threshold is the configured operating point, default 0.5 on the "
+            "normalized score. The filter is published; the innovation "
+            "squash/threshold is the engine's quantile-anchored convention."
+        ),
+        citation=(
+            "Gordon, Salmond & Smith (1993), 'Novel approach to "
+            "nonlinear/non-Gaussian Bayesian state estimation', IEE "
+            "Proceedings F 140(2):107-113 (the bootstrap particle filter)"
+        ),
+    )
 
     def __init__(
         self,

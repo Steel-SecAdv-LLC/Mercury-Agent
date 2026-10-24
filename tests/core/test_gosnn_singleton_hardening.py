@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regression tests for the GOSNN singleton hardening (F10).
 
 Pins the four product fixes that replaced the test-isolation-only

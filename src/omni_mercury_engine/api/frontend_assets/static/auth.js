@@ -1,5 +1,5 @@
 /* Copyright (C) 2025 Steel Security Advisors LLC
-   SPDX-License-Identifier: GPL-3.0-or-later
+   SPDX-License-Identifier: AGPL-3.0-or-later
 
    Page logic for the unauthenticated flows: register, login (+ inline 2FA
    step), verify-email, reset-password (request + confirm), and

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Reproducible training pipeline for the hazard-detector neural hooks.
 
 Submodules (imported lazily by the registry so that inference-side imports of

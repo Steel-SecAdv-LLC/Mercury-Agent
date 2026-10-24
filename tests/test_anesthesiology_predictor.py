@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the anesthesiology predictor and its rule monitors."""
 
 from __future__ import annotations
@@ -338,11 +338,44 @@ class TestPredictorPipeline:
         assert result.risk_detected is True
         assert result.bis_score == pytest.approx(70.0)
 
-    def test_tiva_path_runs(self) -> None:
+    def test_an_untrained_tiva_network_abstains(self) -> None:
+        """Random weights once gave a 'depth of anesthesia' that changed with the seed."""
+        import torch
+
+        outcomes = set()
+        for seed in range(5):
+            torch.manual_seed(seed)
+            predictor = AnesthesiologyPredictor(enable_pid=False, enable_hemodynamics=False)
+            sequence = np.full((60, 8), float(seed), dtype=np.float64)
+            result = predictor.predict_anesthesia_risk({"anesthesia_sequence": sequence})
+            assert result.ml_tiva_available is False
+            outcomes.add(
+                (
+                    result.depth_of_anesthesia,
+                    result.risk_type,
+                    result.confidence,
+                    result.risk_detected,
+                )
+            )
+        assert outcomes == {(0.5, "none", 0.0, False)}
+
+    def test_loaded_weights_are_scored(self) -> None:
+        import torch
+
+        torch.manual_seed(0)
         predictor = AnesthesiologyPredictor(enable_pid=False, enable_hemodynamics=False)
+        assert predictor.tiva_monitor is not None
+        assert predictor.tiva_monitor.is_fitted is False
+        predictor.tiva_monitor.load_trained_weights(predictor.tiva_monitor.state_dict())
+        assert predictor.tiva_monitor.is_fitted is True
+
         sequence = np.zeros((60, 8), dtype=np.float64)
         result = predictor.predict_anesthesia_risk({"anesthesia_sequence": sequence})
-        assert 0.0 <= result.depth_of_anesthesia <= 1.0
+
+        assert result.ml_tiva_available is True
+        with torch.no_grad():
+            depth, _, _ = predictor.tiva_monitor.eval()(torch.zeros(1, 60, 8))
+        assert result.depth_of_anesthesia == pytest.approx(float(depth.item()))
         assert 0.0 <= result.risk_score <= 1.0
 
     def test_tiva_sequence_shape_validated(self) -> None:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Continuous-wave radar I/Q front end: imbalance correction and demodulation.
 
 A CW (or Six-Port) radar's baseband I/Q trace an ellipse rather than a circle:

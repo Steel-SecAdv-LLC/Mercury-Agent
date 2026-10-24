@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Deep subagent specializations — real domain logic, no stubs.
 
 These classes back the ``deep`` members of the pantheon roster (see

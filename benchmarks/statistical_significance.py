@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Statistical confirmation of the sub-threshold neuro-symbolic sweep results.
 
 PR #265 ran same-cell sweeps and reported *point* deltas plus a "seed
