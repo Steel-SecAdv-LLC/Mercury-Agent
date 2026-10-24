@@ -336,7 +336,14 @@ class TestHeldOutCalibrationAndGuards:
         assert all(np.isfinite(history["val_loss"]))
         assert detector.threshold is not None and np.isfinite(detector.threshold)
 
-    def test_threshold_is_cut_on_held_out_point_scores(self) -> None:
+    def test_threshold_is_cut_on_pooled_out_of_fold_point_scores(self) -> None:
+        """The cut covers the whole series, one block at a time.
+
+        Each of the five blocks is scored by a model trained on the other
+        four, so every pooled score is out-of-sample and the pool spans the
+        series. Cutting on a single contiguous tail understated the quantile
+        on autocorrelated data.
+        """
         torch.manual_seed(0)
         rng = np.random.default_rng(0)
         detector = AnomalyDetector(
@@ -344,11 +351,31 @@ class TestHeldOutCalibrationAndGuards:
         )
         detector.fit(rng.normal(size=(400, 2)).astype(np.float32), epochs=3, verbose=False)
         assert detector.calibration_scores is not None
-        # 10% tail of 400 rows -> 40 held-out rows, scored point-wise.
-        assert len(detector.calibration_scores) == 40
+        # Five blocks of 80 rows, each scored point-wise out of fold.
+        assert len(detector.calibration_scores) == 400
         ranked = np.sort(detector.calibration_scores)
-        k = int(np.ceil(41 * 0.95))
+        k = int(np.ceil(401 * 0.95))
         assert detector.threshold == pytest.approx(float(ranked[k - 1]))
+
+    def test_a_fold_model_trains_without_calibrating_a_threshold(self) -> None:
+        """``calibration_folds=0`` is the internal path for fold models."""
+        torch.manual_seed(0)
+        rng = np.random.default_rng(0)
+        detector = AnomalyDetector(
+            input_dim=2, seq_len=10, hidden_dim=8, latent_dim=4, device="cpu", seed=0
+        )
+
+        detector.fit(
+            rng.normal(size=(200, 2)).astype(np.float32),
+            epochs=2,
+            calibration_folds=0,
+            verbose=False,
+        )
+
+        assert detector.threshold is None
+        assert detector.calibration_scores is None
+        # Still a usable model: it just has no decision threshold of its own.
+        assert np.all(np.isfinite(detector.predict(rng.normal(size=(50, 2)).astype(np.float32))))
 
     def test_evaluation_reports_threshold_source(self) -> None:
         y = np.array([0, 0, 1, 1])

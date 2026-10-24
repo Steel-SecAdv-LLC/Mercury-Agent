@@ -62,8 +62,10 @@ TOLERANCE = 0.03
 #: Per-sample entry -> share of the 400 stationary held-out samples it flags.
 #: ``1 - calibration_quantile`` is 0.02 for the squash tier.
 MEASURED_RATE: dict[str, float] = {
+    # Conformal tier: the detector's own 0.05 nominal, met on pooled
+    # out-of-fold calibration scores.
+    "lstm_autoencoder": 0.0670,
     # Flooding at the default threshold -- recorded, not accepted.
-    "lstm_autoencoder": 0.6265,
     "srcnn": 0.2725,
     # Above the 0.02 the squash anchor targets, but bounded.
     "statistical": 0.0980,

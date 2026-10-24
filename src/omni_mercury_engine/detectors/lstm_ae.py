@@ -129,6 +129,9 @@ class AnomalyDetector(LoggerMixin):
         """Initialize the instance."""
         self.input_dim = input_dim
         self.seq_len = seq_len
+        self._hidden_dim = hidden_dim
+        self._latent_dim = latent_dim
+        self._seed = seed
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         if device == "auto":
@@ -174,6 +177,61 @@ class AnomalyDetector(LoggerMixin):
             sequences.append(data[i : i + self.seq_len])
         return np.array(sequences)
 
+    def _out_of_fold_scores(
+        self,
+        train_data: np.ndarray[Any, Any],
+        folds: int,
+        epochs: int,
+        batch_size: int,
+        lr: float,
+    ) -> np.ndarray[Any, Any] | None:
+        """Pooled out-of-fold point scores spanning the whole training series.
+
+        The series is cut into ``folds`` contiguous blocks. For each block a
+        fresh model is trained on the remaining blocks and scores the held-out
+        one, so every pooled score is out-of-sample for the model that
+        produced it and the pool covers the series end to end.
+
+        A single contiguous calibration tail cannot do this job on an
+        autocorrelated series: consecutive points carry far less information
+        than independent ones, so a short block's spread understates the
+        score distribution's. On a stationary AR(1) regime (phi=0.6) an
+        80-row tail had a score standard deviation 3 to 11 times smaller than
+        the scored block's, putting the 95% cut well below the true quantile.
+
+        Returns:
+            Pooled scores, or ``None`` when no block is long enough to score.
+        """
+        n = len(train_data)
+        bounds = np.linspace(0, n, folds + 1).astype(int)
+        pooled: list[np.ndarray[Any, Any]] = []
+        for index in range(folds):
+            low, high = int(bounds[index]), int(bounds[index + 1])
+            held = train_data[low:high]
+            rest = np.concatenate([train_data[:low], train_data[high:]])
+            if len(held) < self.seq_len or len(rest) < self.seq_len:
+                continue
+            fold_model = AnomalyDetector(
+                input_dim=self.input_dim,
+                hidden_dim=self._hidden_dim,
+                latent_dim=self._latent_dim,
+                seq_len=self.seq_len,
+                device=str(self.device),
+                seed=self._seed,
+            )
+            # calibration_folds=1: the fold model's own threshold is never
+            # read, and this stops the recursion.
+            fold_model.fit(
+                rest,
+                epochs=epochs,
+                batch_size=batch_size,
+                lr=lr,
+                calibration_folds=0,
+                verbose=False,
+            )
+            pooled.append(fold_model.predict(held))
+        return np.concatenate(pooled) if pooled else None
+
     def fit(
         self,
         train_data: np.ndarray[Any, Any],
@@ -181,28 +239,42 @@ class AnomalyDetector(LoggerMixin):
         batch_size: int = 64,
         lr: float = 0.001,
         val_split: float = 0.1,
+        calibration_folds: int = 5,
         early_stopping: int = 10,
         verbose: bool = True,
     ) -> dict[str, Any]:
         """Train the autoencoder on normal data.
 
-        The split is chronological: the last ``val_split`` of the series is
-        held out, separated from the training windows by ``seq_len`` rows so
-        no held-out point appears in a training window (a random split of
-        overlapping windows shares almost every point between the two
-        sides). Early stopping watches the held-out loss, and the decision
-        threshold is the one-class conformal 95% cut of the held-out
-        *point* scores -- the quantity :meth:`detect` compares against.
-        With too little data to hold anything out, training loss drives
-        early stopping and the threshold falls back to the in-sample
-        point scores (logged).
+        The split is chronological and three-way -- training, then a
+        ``val_split`` validation block, then a ``calibration_split``
+        calibration tail -- with ``seq_len`` rows between each block so no
+        window spans two of them (a random split of overlapping windows
+        shares almost every point between the sides).
+
+        Early stopping watches the validation block. The decision threshold
+        is the one-class conformal 95% cut of the *calibration* block's
+        point scores, the quantity :meth:`detect` compares against. The two
+        blocks are disjoint because early stopping restores the state with
+        the lowest error on the block it watches, so that block's scores are
+        no longer exchangeable with test scores and a cut taken on them sits
+        below the true quantile.
+
+        When the series cannot afford both blocks, the validation block is
+        dropped and training loss drives early stopping, keeping the
+        threshold valid. With too little data for even a calibration tail,
+        the threshold falls back to in-sample point scores (logged).
 
         Args:
             train_data: Training data (n_samples, n_features) - should be mostly normal
             epochs: Number of training epochs
             batch_size: Batch size
             lr: Learning rate
-            val_split: Validation split ratio
+            val_split: Fraction of the series held out for early stopping.
+            calibration_folds: Number of contiguous blocks used to pool
+                out-of-fold scores for the conformal threshold. ``1`` cuts on
+                the early-stopping block instead, which is what this detector
+                used to do. ``0`` trains without calibrating a threshold, used
+                for the fold models whose own threshold is never read.
             early_stopping: Patience for early stopping
             verbose: Print training progress
 
@@ -221,9 +293,9 @@ class AnomalyDetector(LoggerMixin):
             n_holdout = 0
         if n_holdout:
             raw_fit_part = train_data[: n - n_holdout - self.seq_len]
-            raw_holdout = train_data[n - n_holdout :]
+            raw_validation = train_data[n - n_holdout :]
         else:
-            raw_fit_part, raw_holdout = train_data, None
+            raw_fit_part, raw_validation = train_data, None
 
         # Raw values of any scale (a series of 1e7 or of 1e-3) cannot be
         # reconstructed by a network with bounded activations: on a recorded
@@ -234,7 +306,7 @@ class AnomalyDetector(LoggerMixin):
         spread = raw_fit_part.std(axis=0)
         self.scale_ = np.where(spread > 1e-12, spread, 1.0)
         fit_part = self._standardise(raw_fit_part)
-        holdout = None if raw_holdout is None else self._standardise(raw_holdout)
+        validation = None if raw_validation is None else self._standardise(raw_validation)
 
         sequences = self._create_sequences(fit_part)
         if verbose:
@@ -242,8 +314,8 @@ class AnomalyDetector(LoggerMixin):
         order = self._rng.permutation(len(sequences))
         train_seqs = torch.FloatTensor(sequences[order]).to(self.device)
         val_seqs = (
-            torch.FloatTensor(self._create_sequences(holdout)).to(self.device)
-            if holdout is not None
+            torch.FloatTensor(self._create_sequences(validation)).to(self.device)
+            if validation is not None
             else None
         )
 
@@ -320,10 +392,29 @@ class AnomalyDetector(LoggerMixin):
             self.train_errors = self.model.reconstruction_error(train_seqs).cpu().numpy()
 
         # Threshold: one-class conformal 95% cut of point scores (the unit
-        # detect() compares), on the held-out tail when there is one.
-        if raw_holdout is not None:
-            calibration = self.predict(raw_holdout)
-        else:
+        # detect() compares), pooled across the out-of-fold blocks.
+        if calibration_folds <= 0:
+            # Fold model: its threshold is never read, so skip the extra
+            # scoring pass and leave it unset.
+            return history
+
+        calibration = None
+        if calibration_folds > 1:
+            calibration = self._out_of_fold_scores(
+                train_data, calibration_folds, epochs, batch_size, lr
+            )
+        if calibration is None and raw_validation is not None:
+            # No pooled scores available: cut on the early-stopping block.
+            # Early stopping restored the state with the lowest error on
+            # exactly these rows, so their scores are optimistically small
+            # and this cut sits below the true quantile.
+            self.logger.warning(
+                "fit: no out-of-fold calibration scores; the threshold uses "
+                "the early-stopping block, whose scores the restored state "
+                "was selected to minimise (optimistic)"
+            )
+            calibration = self.predict(raw_validation)
+        if calibration is None:
             self.logger.warning(
                 "fit: series too short to hold out a calibration tail; the "
                 "threshold uses in-sample point scores (optimistic)"

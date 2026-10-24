@@ -155,35 +155,46 @@ rate. `deeplog_sequence` leaves `test_recorded_nab_series.py` (where it was pinn
 AUROC 0.534 / NAB -780.3) and the stationary false-alarm gate (0.9965): both measured a
 categorical model on continuous data.
 
-**Measured, not fixed — the LSTM autoencoder's conformal threshold, and two candidate fixes
-rejected.** `lstm_autoencoder` still floods: it flags 0.6265 of a stationary held-out half at
-the manifest's default configuration (`tests/detectors/test_stationary_false_alarm_rate.py`),
-against the 0.05 its one-class conformal 95% cut is documented to deliver. The cause was
-root-caused far enough to rule out the two obvious fixes, both of which were implemented and
-measured on five seeds of a stationary AR(1) series with `AnomalyDetector(input_dim=1,
-seq_len=10)`:
+**Fixed — the LSTM autoencoder's conformal threshold is cut on pooled out-of-fold scores.**
+`lstm_autoencoder` flagged 0.6265 of a stationary held-out half at the manifest's default
+configuration, against the 0.05 its one-class conformal 95% cut is documented to deliver
+(`tests/detectors/test_stationary_false_alarm_rate.py`). Two defects stacked, and the second
+is the dominant one.
 
-* **Not model-selection leakage.** The held-out tail drives early stopping *and* carries the
-  conformal calibration, so the restored `best_state` is the epoch that reconstructed exactly
-  those rows best — which looked like the echo-state defect one level up. It is not: the ratio
-  of the median held-out score to the median calibration score is **0.96**, so the calibration
-  scores are not systematically optimistic. Splitting the tail so early stopping and
-  calibration see disjoint rows makes it **worse**, not better — 0.2265 -> 0.2825 at
-  `val_split=0.1` — because it halves the calibration set. Rejected.
-* **Not simply too few calibration points, though that is part of it.** At `val_split=0.1` a
-  400-row fit leaves 40 calibration points, and `k = ceil(41 * 0.95) = 39` makes the threshold
-  the 39th of 40 ranked scores. Raising `val_split` to 0.30 (120 points) brings the mean rate
-  to 0.0705, close to nominal — but one of the five seeds still sits at 0.188, far outside the
-  spread quantile-estimation variance alone predicts (about 2% at n=120). Raising a public
-  default on that evidence would be a guess, and it costs 20% of the training rows. Not taken.
+* **The calibration block and the early-stopping block were the same rows.** Early stopping
+  restores the state that reconstructed those rows best, so their scores are not exchangeable
+  with test scores and a cut taken on them sits below the true quantile. Separating the two
+  blocks moves the mean rate 0.6265 -> 0.4450: real, and not the main cause.
+* **A single contiguous tail cannot estimate the score distribution of an autocorrelated
+  series.** Consecutive points carry far less information than independent ones, so a short
+  block's spread understates the distribution's. Measured on the five gate seeds, the 80-row
+  tail's score standard deviation was 3 to 11 times smaller than the scored block's (e.g.
+  0.029 against 0.310), which is what put the cut so far below the 95th percentile.
 
-What the spread points to instead is **exchangeability**: a single contiguous tail of a random
-walk is not exchangeable with a later stretch of the same walk, so the conformal coverage
-guarantee does not apply, and more calibration data only partly compensates. Closing this needs
-a calibration scheme that does not assume exchangeability across a drifting level -- a block
-bootstrap, or one of the drift-adaptive conformal methods -- validated on labelled data rather
-than on this synthetic series. That is the evidence this round could not produce, and no change
-was made.
+The threshold now comes from pooled out-of-fold scores: the fit series is cut into
+`calibration_folds` (default 5) contiguous blocks, each block is scored by a model trained on
+the other four, and the 95% cut is taken over the pool. Every pooled score is out-of-sample
+for the model that produced it, and the pool spans the series end to end rather than one
+stretch of it. `calibration_folds=1` restores the old single-block cut; `0` trains without
+calibrating a threshold and is the internal path for the fold models.
+
+Mean false-alarm rate over the five gate seeds, 400 fit rows scored on the next 400:
+
+| calibration | mean rate |
+| --- | --- |
+| single block, shared with early stopping (previous) | 0.6265 |
+| single block, disjoint from early stopping | 0.4450 |
+| pooled out-of-fold, 5 blocks | **0.0670** |
+
+Against the 0.05 nominal that is within a factor of 1.34, and the pin in the stationary gate
+moves from 0.6265 to 0.0670. The reconstruction scores are **bit-identical** before and after
+(`max |new - old| = 0.0` on seed 7): the model, its split and its early stopping are
+unchanged, so discrimination is untouched and only the decision threshold moved. The residual
+overshoot is the known cost of applying a conformal cut to serially dependent data, where
+exchangeability holds only approximately; it is no longer a defect in how the cut is taken.
+A fold-ensemble variant, scoring test rows with the mean of the five fold models instead of
+the full-data model, measured 0.0815 and was not taken: it would put five models in every
+checkpoint for a difference small against that residual.
 
 **Fixed — `RealTimeThreatDetector` failed OPEN when a sub-detector's training score was not
 finite.** `_validated_input` already refuses a non-finite *input* row, with the reason stated
@@ -272,10 +283,11 @@ The measurement also puts numbers on calibration gaps that were previously descr
 against drifting NAB files, where drift could be blamed. It is pinned in two groups, because
 a single number does not mean the same thing for both kinds of detector under `series_1d`.
 **Per-sample** detectors return one verdict per held-out sample, so the number is a
-false-alarm rate: flooding, `lstm_autoencoder` 0.6265 and `srcnn` 0.2725; above the 0.02 the
+false-alarm rate: flooding, `srcnn` 0.2725; above the 0.02 the
 squash anchor targets but bounded, `statistical` 0.0980, `energy_based` 0.0755, `deep_svdd`
-0.0470, `extended_statistical` 0.0460; at or under contract, the other 15 down to
-`page_hinkley` 0.0025. **Set-level** detectors reduce the whole series to *one* verdict, so
+0.0470, `extended_statistical` 0.0460; meeting its own 0.05 conformal nominal,
+`lstm_autoencoder` 0.0670 (see the out-of-fold calibration fix above, which moved it from
+0.6265); at or under contract, the other 15 down to `page_hinkley` 0.0025. **Set-level** detectors reduce the whole series to *one* verdict, so
 what is pinned is the share of the five seeds whose single verdict came back anomalous:
 `acceleration_dynamics`, `nano_safeguard` and `physics_integrated` call an entirely normal
 stationary series anomalous on every seed (`physics_integrated` because its conformal threshold
