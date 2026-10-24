@@ -41,11 +41,11 @@ an adapter entry and names the domain detector behind it.
 | `graph_based` | `GraphAnomalyDetector` | base | graph | fit | Graph structure anomaly detection |
 | `hawkes` | `HawkesBurstDetector` | base | series_1d | -- | Hawkes self-exciting point-process event-rate / burst detector for count streams (exponential-kernel intensity residuals) |
 | `imm` | `IMMDetector` | base | series_1d | -- | Interacting-Multiple-Model switching state-space residual detector (quiet + manoeuvring Kalman bank; Blom & Bar-Shalom, 1988) |
-| `kmeans_distance` | `KMeansDistanceDetector` | base | series_1d | fit | Distance-to-nearest-centroid unsupervised anomaly signal (revived cognitive clusterer; ROC-AUC ~0.8-0.98 on ADBench) |
+| `kmeans_distance` | `KMeansDistanceDetector` | base | matrix_2d | fit | Distance-to-nearest-centroid unsupervised anomaly signal (revived cognitive clusterer; held-out ROC-AUC 0.76-0.98 on four ADBench tables, 0.634 on Pima, mean 0.861) |
 | `nano_safeguard` | `NanoSafeguardDetector` | base | series_1d | -- | Nano-safeguard micro-anomaly detection with hierarchical scanning |
 | `page_hinkley` | `PageHinkleyDetector` | base | series_1d | fit | Page-Hinkley cumulative mean-shift test (both one-sided variants; PH_t = m_t - min m_s, alarm at PH_t > lambda; Page, Biometrika 1954) |
 | `particle_filter` | `ParticleFilterDetector` | base | series_1d | -- | Bootstrap particle-filter state-space residual detector scoring normalised one-step-ahead predictive innovations |
-| `rca` | `RootCauseGraphDetector` | base | series_1d | -- | Root-cause localisation detector: propagates per-node residuals over a causal/service graph to rank candidate root causes with attribution |
+| `rca` | `RootCauseGraphDetector` | base | matrix_2d | -- | Root-cause localisation detector: propagates per-node residuals over a causal/service graph to rank candidate root causes with attribution |
 | `spatial` | `SpatialAnomalyDetector` | base | matrix_2d | -- | Geographic and spatial relationship anomalies |
 | `spectral_residual` | `SpectralResidualDetector` | base | series_1d | -- | Spectral-Residual saliency detector for streaming time series (training-free FFT saliency; Ren et al., KDD 2019) |
 | `spiking` | `SpikingNetworkDetector` | base | series_1d | -- | Spiking-neural-network (leaky integrate-and-fire) novelty detector scoring spike-rate divergence from the learned normal regime |

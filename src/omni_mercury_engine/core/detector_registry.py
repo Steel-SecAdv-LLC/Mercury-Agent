@@ -418,11 +418,17 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "KMeansDistanceDetector",
         DetectorCategory.BASE,
         "Distance-to-nearest-centroid unsupervised anomaly signal (revived "
-        "cognitive clusterer; ROC-AUC ~0.8-0.98 on ADBench)",
+        "cognitive clusterer; held-out ROC-AUC 0.76-0.98 on four ADBench "
+        "tables, 0.634 on Pima, mean 0.861)",
         feature_dim=9,
         tags=["unsupervised", "clustering"],
         seams=("engine", "registry"),
-        modality="series_1d",
+        # ``matrix_2d``, not ``series_1d``: ``_to_2d_f32`` is ``np.atleast_2d``,
+        # so a 400-sample series becomes ONE 400-feature point, and the signal
+        # was benchmarked on ADBench tables (feature_dim 9 = n_clusters + 1 per
+        # row).  Declared ``series_1d``, the registry's modality filter routed
+        # 1-D series straight to it and every point flagged.
+        modality="matrix_2d",
         fit_required=True,
     ),
     DetectorManifestEntry(
@@ -621,7 +627,15 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         feature_dim=1,
         tags=["systems", "rca", "causal-graph", "attribution"],
         seams=("engine", "registry"),
-        modality="series_1d",
+        # ``matrix_2d``, not ``series_1d``: ``fit`` takes ``(n_rows, n_nodes)``
+        # and ``rank_root_causes`` localises a *node*.  Declared ``series_1d``,
+        # a 200-sample series reshaped to one row of 200 nodes, every node's
+        # training spread collapsed to the 1e-9 floor, the squash scale came out
+        # 1.4e-9, and the detector flagged 100% of a stationary held-out half
+        # (nominal 2%).  The modality filter in
+        # ``DetectorRegistry.extract_all_features`` exists to keep exactly that
+        # from being routed, and the declaration is what it filters on.
+        modality="matrix_2d",
     ),
     DetectorManifestEntry(
         "deeplog_sequence",

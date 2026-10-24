@@ -27,6 +27,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — two tabular detectors were declared as 1-D series detectors, and the registry
+routed 1-D series to them.** `DetectorRegistry.extract_all_features(data, modality=...)`
+filters on each entry's declared modality exactly so "detectors that cannot read it" are not
+driven with it. `rca` and `kmeans_distance` both declared `series_1d` while being
+`(n_rows, n_features)` detectors, so the filter passed 1-D series straight through to them:
+
+* `rca`'s `_to_2d_f64` reshapes a 1-D input to `(1, n)`, so a 200-sample series became one
+  row of 200 nodes. `rows.std(axis=0)` over a single row is 0, every `_node_std` sat at its
+  `1e-9` floor, the squash scale came out `1.4e-9`, and every subsequent row scored 1.0:
+  **100% of a stationary held-out half flagged** against the 2% its `calibration_quantile`
+  targets. `rank_root_causes` on such an input "localises" a *timestep* as the root-cause
+  node. Its `fit` has always documented `(n_rows, n_nodes)`.
+* `kmeans_distance`'s `_to_2d_f32` is `np.atleast_2d`, so a 400-sample series became one
+  400-feature point. The signal was benchmarked on ADBench *tables* and its `feature_dim` is
+  9 = `n_clusters + 1` **per row**.
+
+Both are now declared `matrix_2d`. The manifest seam suite drove both with
+`rng.normal(size=200)` and passed, because it checks the result contract (shapes, ranges,
+finiteness) rather than whether the verdicts mean anything; it now drives them with
+`(60, 8)`.
+
+**Fixed — `KMeansDistanceDetector` anchored its squash at the median, then cut at 0.5.**
+`1 - exp(-d / scale)` with `scale` = the median training nearest-centroid distance puts
+score `1 - 1/e` = **0.632**, not 0.5, at the median, so the 0.5 alarm cut sat *below* the
+median training distance and by construction flagged more than half of any in-distribution
+batch. Measured on 400 held-out rows of a stationary 8-column Gaussian: **0.93 flagged**.
+The scale now uses the shared `detectors._calibration.squash_scale` with a new
+`calibration_quantile` (default 0.98), the engine's quantile-anchored convention that the
+rest of the squash tier already follows, so the configured quantile of training
+nearest-distances scores exactly 0.5. Measured: **0.93 -> 0.0175** against the nominal 0.02.
+The squash is a monotone rescale of the same distance, so the benchmarked *ranking* is
+untouched — held-out AUROC on all five recorded ADBench tables is bit-identical before and
+after (pima 0.6527, cardio 0.7711, breastw 0.9770, wbc 0.9878, thyroid 0.9548).
+
+**Fixed — `KMeansDistanceDetector.detect` ignored its configured threshold.** It compared
+against a hard-coded `0.5`, so `config={"threshold": ...}` was accepted and had no effect.
+It now uses `self.threshold` like the rest of the tier.
+
+**Corrected — the k-means signal's benchmarked AUROC range.** Its module docstring and
+manifest description claimed "~0.8-0.98 across breastw/thyroid/WBC/cardio". The repo's own
+`artifacts/dormant_module_revival.json` records cardio at **0.762**, and re-running
+`benchmarks/dormant_module_revival.py` reproduces it (cardio 0.762, thyroid 0.945, breastw
+0.982, WBC 0.981, Pima 0.634, mean 0.861 over five tables and three seeds). The range is
+0.76-0.98 on those four tables, and Pima — outside the quoted set — is 0.634.
+`docs/DETECTORS.md` is regenerated from the manifest.
+
+**Added — `tests/detectors/test_stationary_false_alarm_rate.py`**, the measurement that found
+both modality defects. Every `series_1d` manifest entry with a `BaseDetector` seam is fitted
+on 400 samples of a stationary AR(1) series and asked about the next 400 from the same
+process: nothing there is anomalous and the process does not drift, so the share it flags is
+a false-alarm rate with no drift to blame, which is the one place the squash tier's
+`1 - calibration_quantile` contract can be read directly. 30 entries are pinned at their
+measured rate; the 32 that serve a domain API instead of `fit`/`detect` are listed with that
+reason, and two completeness tests fail if a new entry appears unpinned or an excluded one
+grows the seam. Fixed seeds, byte-identical across runs, about 15 s.
+
+The measurement also puts numbers on calibration gaps that were previously described only
+against drifting NAB files, where drift could be blamed. Flooding on a *stationary* normal
+regime: `nano_safeguard` 1.0000, `acceleration_dynamics` 1.0000, `physics_integrated` 1.0000
+(a 1-D series is one signal, below the 76 its conformal threshold calibration needs, so it
+keeps the 0.5 default), `deeplog_sequence` 0.9965, `lstm_autoencoder` 0.6265, `srcnn` 0.2725.
+Above the 0.02 anchor but bounded: `statistical` 0.0980, `energy_based` 0.0755, `deep_svdd`
+0.0470, `extended_statistical` 0.0460. **Not** defects, checked: `energy_based` and
+`deep_svdd` are high-variance, not biased — over 20 seeds their medians are 0.0138 and
+0.0188, at or under the nominal 0.02, with a heavy tail (max 0.1725 and 0.1375), so the
+3-seed excess that first flagged them was the tail and not a systematic bias. No change was
+made to either.
+
 **Fixed — `EchoStateDetector` calibrated its alarm boundary on data it had trained on.**
 `fit` set the squash scale from the 98th percentile of the readout's *in-sample* residuals.
 A `reservoir_size + 1` = 101-parameter ridge readout (`ridge=1e-4`, barely regularised)
