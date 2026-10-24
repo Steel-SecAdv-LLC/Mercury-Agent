@@ -40,7 +40,9 @@ import pytest
 
 pytest.importorskip("torch")
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.detectors.acceleration_dynamics import AccelerationDynamicsDetector
+from omni_mercury_engine.detectors.physics_integration import PhysicsIntegratedDetector
 from omni_mercury_engine.safeguards.nano_safeguards import NanoSafeguardDetector
 
 SEEDS = (7, 11, 23, 101, 999)
@@ -198,3 +200,77 @@ class TestNanoSafeguardDeclaresItsCutUncalibrated:
 
         assert result.dimensional_measured is False
         assert detector._dimensional_downsampling_detection(series[FIT:]) is None
+
+
+class TestPhysicsIntegratedEnforcesItsCalibratedLength:
+    """A conformal cut over whole-signal scores only covers one signal length.
+
+    ``PhysicsIntegratedDetector`` fuses component scores that each rise with
+    the signal's length, so the fused score does too: a 400-sample signal
+    scores 1.0000 where 64-sample signals of the same stationary process
+    average 0.83. Measured against a cut calibrated at width 64, the share of
+    *normal* signals flagged went 0.00 at the fitted width, 0.20 at 1.12x,
+    0.70 at 1.25x, 0.90 at 2x and 1.00 at 6.25x. Scoring one length against
+    another's threshold is therefore not a calibrated verdict, and this is
+    how the detector came to call entirely normal data anomalous.
+    """
+
+    WIDTH = 64
+
+    @staticmethod
+    def _stack(series: np.ndarray[Any, Any], width: int) -> np.ndarray[Any, Any]:
+        """A 2-D stack of ``width``-sample signals, which is this modality."""
+        return np.ascontiguousarray(np.lib.stride_tricks.sliding_window_view(series, width)[::4])
+
+    def _fitted(self) -> PhysicsIntegratedDetector:
+        series = stationary_ar1(7)
+        return PhysicsIntegratedDetector().fit(self._stack(series[:FIT], self.WIDTH))
+
+    def test_fit_records_the_length_the_cut_was_measured_at(self) -> None:
+        detector = self._fitted()
+
+        assert detector._threshold_calibrated is True
+        assert detector._calibration_signal_length == self.WIDTH
+
+    def test_a_signal_of_the_calibrated_length_is_scored(self) -> None:
+        series = stationary_ar1(7)
+        detector = self._fitted()
+
+        result = detector.detect(series[FIT : FIT + self.WIDTH].reshape(1, -1))
+
+        assert result["threshold_calibrated"] is True
+        assert result["calibration_signal_length"] == self.WIDTH
+        assert result["is_anomaly"] is False
+
+    @pytest.mark.parametrize("length", [72, 128, 400])
+    def test_a_signal_the_cut_does_not_cover_is_declined(self, length: int) -> None:
+        """Declined, not scored: the engine skips it and counts it declined."""
+        series = stationary_ar1(7)
+        detector = self._fitted()
+
+        with pytest.raises(InputModalityError, match="does not transfer"):
+            detector.detect(series[FIT : FIT + length].reshape(1, -1))
+
+    def test_a_small_difference_is_still_covered(self) -> None:
+        """The band is a measured tolerance, not an equality check."""
+        series = stationary_ar1(7)
+        detector = self._fitted()
+
+        result = detector.detect(series[FIT : FIT + self.WIDTH + 4].reshape(1, -1))
+
+        assert result["threshold_calibrated"] is True
+
+    def test_an_uncalibrated_cut_enforces_no_length(self) -> None:
+        """There is no false-alarm bound to protect, and fit() says so.
+
+        A caller who sets the threshold owns the operating point, so the
+        detector does not also refuse their input on length.
+        """
+        series = stationary_ar1(7)
+        detector = PhysicsIntegratedDetector({"threshold": 0.95}).fit(
+            self._stack(series[:FIT], self.WIDTH)
+        )
+
+        result = detector.detect(series[FIT:].reshape(1, -1))
+
+        assert result["threshold_calibrated"] is False

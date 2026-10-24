@@ -34,7 +34,7 @@ import torch
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY, OracleActivation
 from omni_mercury_engine.core.conformal_prediction import split_conformal_threshold
-from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.exceptions import DetectorException, InputModalityError
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 from omni_mercury_engine.detectors.acceleration_dynamics import (
@@ -291,6 +291,11 @@ class PhysicsIntegratedDetector(BaseDetector):
         #: normal signals. False means the verdict rests on the configured or
         #: default threshold and carries no false-alarm bound.
         self._threshold_calibrated = False
+        #: Length of the signals the threshold was calibrated on. The fused
+        #: score is not invariant in a signal's length, so the cut only
+        #: transfers to signals of about this length -- see
+        #: ``_LENGTH_TOLERANCE`` and :meth:`_require_calibrated_length`.
+        self._calibration_signal_length: int | None = None
 
         # Set device
         self.device = torch.device(self.config.get("device", "cpu"))
@@ -583,6 +588,7 @@ class PhysicsIntegratedDetector(BaseDetector):
         still alarm.
         """
         scores = [float(self.detect(signal.reshape(1, -1))["anomaly_score"]) for signal in signals]
+        self._calibration_signal_length = int(signals.shape[-1])
         result = split_conformal_threshold(scores, self._FALSE_ALARM_RATE)
         self.threshold = min(result.threshold, float(np.nextafter(1.0, 0.0)))
         logger.info(
@@ -590,6 +596,47 @@ class PhysicsIntegratedDetector(BaseDetector):
             self.threshold,
             result.n_calibration,
             result.false_alarm_bound,
+        )
+
+    #: How far a scored signal's length may differ from the calibration
+    #: signals' before the conformal cut stops transferring. Measured on a
+    #: detector fitted at width 64 with a 0.8929 cut, scoring stationary
+    #: signals of the same process: at the fitted width it flagged 0.00 of
+    #: them, at 1.12x 0.20, at 1.25x 0.70, at 2x 0.90 and at 6.25x all of
+    #: them, because every component's score rises with length and the fusion
+    #: is their mean.
+    _LENGTH_TOLERANCE = 0.1
+
+    def _require_calibrated_length(self, data: Any) -> None:
+        """Refuse a signal the calibrated threshold does not cover.
+
+        The fused score is not invariant in the signal's length, so a cut
+        measured on signals of one length is not a cut for signals of
+        another: a 400-sample signal scores 1.0000 where 64-sample signals of
+        the same process average 0.83. Scoring one against the other's
+        threshold is how this detector called entirely normal data anomalous.
+
+        Only enforced when there is a calibrated cut to protect. A configured
+        or default threshold is the caller's own, carries no false-alarm bound
+        either way, and is already reported as ``threshold_calibrated: False``.
+
+        Raises:
+            InputModalityError: when the signal's length is outside
+                ``_LENGTH_TOLERANCE`` of the calibration signals'.
+        """
+        expected = self._calibration_signal_length
+        if expected is None or not self._threshold_calibrated:
+            return
+        length = getattr(data, "shape", (None,))[-1]
+        if not isinstance(length, int) or length == expected:
+            return
+        if abs(length - expected) <= self._LENGTH_TOLERANCE * expected:
+            return
+        raise InputModalityError(
+            f"threshold calibrated on signals of {expected} samples; got {length}. "
+            "The fused score rises with a signal's length, so the conformal cut does "
+            "not transfer: re-fit on signals of this length, or set 'threshold' in "
+            "config to decide the operating point yourself."
         )
 
     def detect(
@@ -617,6 +664,9 @@ class PhysicsIntegratedDetector(BaseDetector):
         """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
+
+        if data_type == "time_series":
+            self._require_calibrated_length(data)
 
         # Run component detectors
         spectral_result = None
@@ -752,6 +802,10 @@ class PhysicsIntegratedDetector(BaseDetector):
             # threshold rather than a conformal cut measured on normal
             # signals, so the verdict carries no false-alarm bound.
             "threshold_calibrated": self._threshold_calibrated,
+            # The signal length the cut was measured at; the score is not
+            # invariant in it, so a cut only covers signals of about this
+            # length (see _require_calibrated_length).
+            "calibration_signal_length": self._calibration_signal_length,
             "metadata": {
                 "enabled_detectors": [d.value for d in self._physics_config.enabled_detectors],
                 "use_3r_enhancement": self._physics_config.use_3r_enhancement,
