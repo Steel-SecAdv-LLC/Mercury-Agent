@@ -27,6 +27,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Measured — the Oracle band z-score fix moves a published-parity benchmark, upward.**
+`MercuryAnomalyDetector` lazily fits a `SpectralDomainFrequency` Oracle when it classifies
+its input as `TEMPORAL`, and multiplies the ensemble's combined scores by that Oracle's
+influence multiplier before clipping them to `[0, 1]`. The band z-score defect above was
+therefore in the path of `examples/mercury_quickstart.py --published-protocols`, which the
+ISO Hardening workflow pins exactly. Measured on the digest-pinned DTU AIS training files
+(the same bytes both sides, source the only difference, reproduced locally and in CI run
+1170 against 1175):
+
+| protocol | before | after |
+|---|---|---|
+| Thesis Fig. 6.1 ROC-AUC | 0.8785 | 0.8785 |
+| Thesis Fig. 6.1 AP | 0.3641 | **0.3827** |
+| JMSE Fig. 12a ROC-AUC | 0.8615 | **0.8751** |
+| JMSE Fig. 12a AP | 0.2475 | **0.3085** |
+| Harness protocol / label-free cross-fit | 0.8613 / 0.8617 | unchanged |
+
+Every figure that moved improved. The mechanism is the clip: the influence multiplier is a
+single scalar for the whole batch, and multiplying every score by a constant cannot change a
+ranking — but `np.clip(scores, 0.0, 1.0)` after it can, by tying everything the multiplier
+pushes past 1.0. With `aggregate_score` pinned at its saturated constant the multiplier was
+larger (measured 1.3069 against 1.2732 on a controlled TEMPORAL fit), so more scores hit the
+ceiling and the ties cost ranking. The harness and label-free rows are untouched because
+they do not take that path.
+
+The pinned figures are updated in `.github/workflows/iso-hardening.yml` and in README's
+quickstart output block. The published comparison is unchanged in substance: GeoTrackNet /
+VRNN at 0.87 still lies inside Mercury's interval on both protocols (now 0.788-0.951 and
+0.792-0.944), so the result remains parity rather than superiority.
+
+**Fixed — the stationary false-alarm gate reported a rate for detectors that return one
+verdict.** Seven of its 28 entries reduce a whole series to a single verdict rather than one
+per sample (`acceleration_dynamics`, `frequent_pattern`, `nano_safeguard`,
+`physics_integrated`, `spectral_domain_frequency`, `spectral_vibration`, `uiux_anomaly`), so
+the "1.0000" first recorded for three of them was not a 100% false-alarm rate — it was one
+Boolean. The gate now pins the two groups separately: `MEASURED_RATE` for per-sample
+detectors, where the number is a rate over 400 samples, and `MEASURED_VERDICT` for set-level
+ones, where it is the share of the five seeds whose single verdict came back anomalous. A
+new test asserts each group's verdict arity so an entry cannot drift between them unnoticed,
+and the CHANGELOG and ROADMAP wording is corrected to match.
+
+**Verified — the advanced tabular detectors' benchmark figures.** `ROADMAP` row 32 cited
+COPOD 0.869 and AdversarialAE 0.866 against 0.661 for the shipped LOF reference without a
+re-run. Re-measured with `python -m benchmarks.advanced_detector_auc` on its own protocol:
+COPOD **0.869** and LOF **0.661** reproduce exactly; AdversarialAE measures **0.870** against
+the cited 0.866 and ContrastiveLearningDetector **0.621** against 0.598, both within what a
+different torch/numpy build explains, and the qualitative claim about Contrastive holds
+exactly (under 0.5 on cardio, 0.432, and thyroid, 0.481). The row is updated to the
+reproduced values.
+
 **Fixed — `DeepLogSequenceDetector` decided on a rule that cannot work, while computing the
 paper's own rule and discarding it.** The verdict was `1 - P(key | context) > threshold`,
 which the `decision_source` already flagged as "an engineering default not taken from the
@@ -190,16 +240,27 @@ reason, and two completeness tests fail if a new entry appears unpinned or an ex
 grows the seam. Fixed seeds, byte-identical across runs, about 15 s.
 
 The measurement also puts numbers on calibration gaps that were previously described only
-against drifting NAB files, where drift could be blamed. Flooding on a *stationary* normal
-regime: `nano_safeguard` 1.0000, `acceleration_dynamics` 1.0000, `physics_integrated` 1.0000
-(a 1-D series is one signal, below the 76 its conformal threshold calibration needs, so it
-keeps the 0.5 default), `deeplog_sequence` 0.9965, `lstm_autoencoder` 0.6265, `srcnn` 0.2725.
-Above the 0.02 anchor but bounded: `statistical` 0.0980, `energy_based` 0.0755, `deep_svdd`
-0.0470, `extended_statistical` 0.0460. **Not** defects, checked: `energy_based` and
-`deep_svdd` are high-variance, not biased — over 20 seeds their medians are 0.0138 and
-0.0188, at or under the nominal 0.02, with a heavy tail (max 0.1725 and 0.1375), so the
-3-seed excess that first flagged them was the tail and not a systematic bias. No change was
-made to either.
+against drifting NAB files, where drift could be blamed. It is pinned in two groups, because
+a single number does not mean the same thing for both kinds of detector under `series_1d`.
+**Per-sample** detectors return one verdict per held-out sample, so the number is a
+false-alarm rate: flooding, `lstm_autoencoder` 0.6265 and `srcnn` 0.2725; above the 0.02 the
+squash anchor targets but bounded, `statistical` 0.0980, `energy_based` 0.0755, `deep_svdd`
+0.0470, `extended_statistical` 0.0460; at or under contract, the other 15 down to
+`page_hinkley` 0.0025. **Set-level** detectors reduce the whole series to *one* verdict, so
+what is pinned is the share of the five seeds whose single verdict came back anomalous:
+`acceleration_dynamics`, `nano_safeguard` and `physics_integrated` call an entirely normal
+stationary series anomalous on every seed (`physics_integrated` because its conformal threshold
+calibration requires a 2-D stack of at least 76 signals -- `_calibrates_threshold` returns
+False for anything but `ndim == 2` -- and a 1-D series is neither, so it keeps the 0.5
+default against a fused score of 0.994 on normal data),
+while `frequent_pattern`, `spectral_vibration`, `spectral_domain_frequency` and
+`uiux_anomaly` never do. A test asserts each group's verdict arity so an entry cannot drift
+between them unnoticed.
+
+**Not** defects, checked: `energy_based` and `deep_svdd` are high-variance, not biased — over
+20 seeds their medians are 0.0138 and 0.0188, at or under the nominal 0.02, with a heavy tail
+(max 0.1725 and 0.1375), so the 3-seed excess that first flagged them was the tail and not a
+systematic bias. No change was made to either.
 
 **Fixed — `EchoStateDetector` calibrated its alarm boundary on data it had trained on.**
 `fit` set the squash scale from the 98th percentile of the readout's *in-sample* residuals.

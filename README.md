@@ -830,14 +830,14 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
 ~800 MB cached) and scored on all 521 tracks:
 
 ```text
-  Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8785 [95% CI 0.788-0.951], AP 0.3641
+  Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8785 [95% CI 0.788-0.951], AP 0.3827
     GeoTrackNet                ROC-AUC 0.87   inside Mercury's interval
     RAE                        ROC-AUC 0.86   inside Mercury's interval
     Seq-2-Seq                  ROC-AUC 0.84   inside Mercury's interval
     Seq-2-Seq with attention   ROC-AUC 0.83   inside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
 
-  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8615 [95% CI 0.778-0.933], AP 0.2475
+  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8751 [95% CI 0.792-0.944], AP 0.3085
     VRNN (GeoTrackNet arch.)   ROC-AUC 0.87   inside Mercury's interval
     Two-step clustering        ROC-AUC 0.73   outside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
@@ -845,7 +845,7 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
 
 Four protocols, all seed-pinned and deterministic:
 
-- **Published protocols (0.8785, 0.8615)** are the numbers to read beside the
+- **Published protocols (0.8785, 0.8751)** are the numbers to read beside the
   published ones. Each fits on the training file that paper's models were
   trained on: 1 June to 30 November 2021 for Figure 6.1 of Kristoffer Vinther
   Olesen's DTU PhD thesis (2023, p. 48), and December 2021 without the 13th

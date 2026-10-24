@@ -176,7 +176,7 @@ jobs:
           echo "$out" | grep -qF "incl. all 25 abnormal: ROC-AUC 0.8613 "
           echo "$out" | grep -qF "Mercury label-free cross-fit ROC-AUC 0.8617"
           echo "$out" | grep -qF "Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8785 "
-          echo "$out" | grep -qF "JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8615 "
+          echo "$out" | grep -qF "JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8751 "
 
   load-tests:
     name: Load Tests (smoke)
