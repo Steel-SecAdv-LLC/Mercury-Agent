@@ -27,6 +27,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — `EchoStateDetector` calibrated its alarm boundary on data it had trained on.**
+`fit` set the squash scale from the 98th percentile of the readout's *in-sample* residuals.
+A `reservoir_size + 1` = 101-parameter ridge readout (`ridge=1e-4`, barely regularised)
+reproduces its own training data far better than anything it has not seen, so that quantile
+understates the normal-regime residual and the detector alarms on ordinary data — making the
+documented contract ("`1 - calibration_quantile` is the normal-regime FPR") false. Measured
+on the four recorded NAB files, whose probationary periods are 169 to 282 samples: the
+in-sample 98th-percentile residual was 2.5 to 16.6 times smaller than the held-out one, the
+squash scale came out 0.56/1.54/2.23/1.76 where honest calibration gives
+5.88/9.00/4.83/8.04, and the realised false-alarm rate on normal points was
+0.79/0.32/0.68/0.66 against the nominal 0.02. On a stationary AR(1) series fitted on 400
+samples — no drift to blame — the rate was **0.2375 against 0.02**.
+
+The readout still trains on every sample, so ranking is untouched; only the scale moves. It
+is now the pooled quantile of *out-of-fold* residuals: `calibration_folds` (new, default 5,
+must be >= 2) contiguous blocks, each scored by a readout fitted on the others, with the
+reservoir states computed once over the whole series — they do not depend on the readout, so
+folding the readout alone is sound. A series too short to leave a fold's complement larger
+than half the parameter count falls back to the in-sample residuals.
+
+Measured, four recorded NAB files, same defaults: mean ranking AUROC **0.699 -> 0.699**
+(identical, as intended), NAB standard-profile score **-1167.5 -> -368.3**, mean
+false-alarm rate on normal points **0.611 -> 0.188**, alarms 846/475/1134/652 ->
+13/13/919/228. On the stationary AR(1) series the rate is 0.0250 against the nominal 0.02,
+so the contract now holds. Two alternatives were measured and rejected: a single held-out
+tail of 25% of the fit series reached NAB -852.8 but cost ranking (AUROC 0.699 -> 0.636,
+and 0.471 at a 40% holdout) because the readout trains on less data; 10 folds was no better
+than 5 (NAB -380.1). **Not fixed:** two of the four files still flood (`rogue_agent_key_hold`
+919 alarms, FPR 0.533; `speed_7578` 228, FPR 0.205). Their post-probation normal level
+drifts away from the probationary reference, so no quantile measured inside the training
+window can bound the false-alarm rate there — a fixed-reference residual detector needs an
+adaptive reference, which is a separate change with its own evidence burden. Four tests fail
+on the old code, including `test_low_false_positive_rate` tightened from its 0.1 bar to the
+0.03 the quantile actually promises — 800 training samples overfit mildly enough to pass 0.1
+even while the scale was wrong, which is why that test did not catch this.
+
 **Fixed — the frequency-domain Oracle returned the same score for every input.**
 `SpectralDomainFrequency._score_band` z-scored a *dimensionless* quantity against *absolute*
 band-power statistics: `z = (corrected_ratio - ref_mean) / (ref_std + EPSILON)`, where

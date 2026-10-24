@@ -44,7 +44,7 @@ MEASURED: dict[str, tuple[float, float]] = {
     "diffusion_ad": (0.661, -32.2),
     "digital_twin": (0.607, 53.4),
     "dimensional": (0.466, 7.0),
-    "echo_state": (0.699, -1167.5),
+    "echo_state": (0.699, -368.3),
     "energy_based": (0.671, 27.4),
     "extended_statistical": (0.624, 31.4),
     "gaussian_process": (0.563, 52.9),
