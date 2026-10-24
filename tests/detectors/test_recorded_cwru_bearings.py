@@ -22,6 +22,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from omni_mercury_engine.detectors.physics_integration import PhysicsIntegratedDetector
+from omni_mercury_engine.detectors.spectral_domain_frequency import SpectralDomainFrequency
 from omni_mercury_engine.detectors.spectral_vibration import SpectralVibrationDetector
 from tests.recorded_data import auroc, cwru
 
@@ -93,14 +94,75 @@ def test_spectral_vibration_fitted_on_one_load_flags_every_window_of_another() -
 
 
 def test_physics_integrated_flags_faults_and_not_every_healthy_window() -> None:
-    """Its fused score of a healthy window is 0.89-0.99, so the 0.5 default flagged them all."""
+    """Its fused score of a healthy window is 0.89-0.99, so the 0.5 default flagged them all.
+
+    Re-measured after the Oracle's band z-score was put back into power units:
+    healthy windows flagged 0.125 -> 0.075, fault AUROC 0.975 -> 1.000 on all
+    three faults, calibrated threshold 0.983 -> 0.846.
+    """
     detector = _physics(_reference())
     measured = _measure(detector)
-    assert measured["healthy"][0] == pytest.approx(0.125, abs=0.1)
+    # Tolerances tight enough to tell the new measurement from the old one:
+    # 40 healthy windows give a 0.025 granularity, so abs=0.03 spans 0.045 to
+    # 0.105 and excludes the previous 0.125; abs=0.02 on the AUROC excludes
+    # the previous 0.975.  The protocol is seeded and the fixtures are
+    # recorded, so both values repeat exactly.
+    assert measured["healthy"][0] == pytest.approx(0.075, abs=0.03)
     for fault in FAULTS:
-        assert measured[fault][0] == pytest.approx(0.975, abs=AUROC_TOLERANCE), fault
+        assert measured[fault][0] == pytest.approx(1.000, abs=0.02), fault
         assert measured[fault][1] == pytest.approx(1.0, abs=RATE_TOLERANCE), fault
     assert 0.5 < detector.threshold < 1.0
+
+
+#: ``frequency_oracle``: (AUROC against healthy windows, mean score) per fault,
+#: and ``healthy``: the mean score.  Before the band z-score was corrected the
+#: Oracle returned exactly 0.21 for every one of these windows.
+MEASURED_ORACLE_AUROC = 1.000
+MEASURED_ORACLE_HEALTHY_MEAN = 0.056
+
+
+def test_the_oracle_alone_separates_every_fault_from_healthy_windows() -> None:
+    """The Oracle's own score was a constant, so it carried nothing into the fusion.
+
+    ``_score_band`` z-scored a dimensionless power *ratio* against absolute
+    band-power statistics.  On these recordings the band powers are 1e-6 to
+    1e-4, so the z-score was 6.4e3 to 6.6e6 whatever the window held, ``|z|/3``
+    clipped to 1.0, and every resolvable band scored exactly 0.6 for an
+    aggregate of exactly 0.21 -- healthy and faulty alike.
+    """
+    torch.manual_seed(0)
+    np.random.seed(0)
+    oracle = SpectralDomainFrequency({"sample_rate": 12000.0}).fit(_reference())
+
+    healthy_scores, _ = _per_window(oracle, _healthy())
+    assert healthy_scores.std() > 0.0, "a constant score ranks nothing"
+    assert healthy_scores.mean() == pytest.approx(MEASURED_ORACLE_HEALTHY_MEAN, abs=0.02)
+
+    for fault in FAULTS:
+        scores, _ = _per_window(oracle, _windows(fault, 0, 20))
+        assert auroc(scores, healthy_scores) == pytest.approx(
+            MEASURED_ORACLE_AUROC, abs=AUROC_TOLERANCE
+        ), fault
+
+
+def test_the_oracle_alone_never_reaches_its_own_default_threshold() -> None:
+    """Measured and pinned: it ranks these faults perfectly and decides nothing.
+
+    The aggregate is a band-weighted mean of ``0.6 * z_anomaly + 0.4 * cp``,
+    and most of the weight sits on bands this 12 kHz sample rate cannot
+    resolve, so a single window cannot reach the 0.5 BaseDetector default.
+    ``PhysicsIntegratedDetector`` consumes the Oracle's score and influence
+    vector, not its verdict, so the fusion is unaffected; a caller using the
+    Oracle standalone needs its own threshold.
+    """
+    torch.manual_seed(0)
+    np.random.seed(0)
+    oracle = SpectralDomainFrequency({"sample_rate": 12000.0}).fit(_reference())
+
+    for signals in (_healthy(), *(_windows(f, 0, 20) for f in FAULTS)):
+        scores, flags = _per_window(oracle, signals)
+        assert scores.max() < oracle.threshold
+        assert not flags.any()
 
 
 def test_physics_integrated_keeps_a_threshold_it_was_given() -> None:

@@ -27,6 +27,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the frequency-domain Oracle returned the same score for every input.**
+`SpectralDomainFrequency._score_band` z-scored a *dimensionless* quantity against *absolute*
+band-power statistics: `z = (corrected_ratio - ref_mean) / (ref_std + EPSILON)`, where
+`corrected_ratio` is observed power over reference power over the band's expected share of a
+`1/f**beta` spectrum, while `ref_mean`/`ref_std` are band powers in the signal's own units.
+That branch ran whenever the noise colour had been estimated, which is the normal case. On
+the recorded CWRU bearing windows the band powers are 1e-6 to 1e-4, so the subtraction was
+dominated by `-ref_mean / ref_std`: z came out between 6.4e3 and 6.6e6 whatever the window
+held, `|z| / 3` clipped to 1.0, every resolvable band scored exactly `0.6 * 1.0 + 0.4 * 0.0`
+= 0.6, and the Oracle's aggregate was exactly **0.210000000 for every healthy and every
+faulty window alike** — a declared fusion component contributing a constant. The z-score is
+now taken in power units. Nor can the correction be made unit-consistent and still matter:
+`expected_ratio` is a per-band constant once `beta` is estimated in `fit`, and a constant
+divisor applied to both the observation and the reference cancels exactly in a
+standardisation — so the corrected ratio is reported as the diagnostic it is, on the new
+`FrequencyBandResult.corrected_power_ratio` field (additive, default `0.0`). Measured on the
+recorded CWRU windows (fitted on 80 healthy, scoring one 2048-sample window at a time):
+healthy scores now range 0.021-0.097 (mean 0.056) and every fault separates at **AUROC
+1.000** (inner race, ball, outer race) against 0.5 — no ranking at all — before.
+Downstream, `PhysicsIntegratedDetector` on the same protocol: healthy windows flagged
+**0.125 -> 0.075**, fault AUROC **0.975 -> 1.000** on all three faults, calibrated threshold
+0.983 -> 0.846. Measured and pinned as a limit: the Oracle's own aggregate stays below its
+0.5 `BaseDetector` default on every one of these windows, so standalone it ranks perfectly
+and flags nothing; `PhysicsIntegratedDetector` consumes its score and influence vector, not
+its verdict. Six tests fail on the old code.
+
+**Fixed — the Oracle's inter-band phase coherence was never measured, and said nothing.**
+`_compute_phase_coherence` returned exactly `1.0` for every input it was ever given —
+healthy and faulty CWRU windows, white noise, a pure tone, a constant signal — for two
+compounding reasons. It built one band-limited signal per band by zeroing every FFT bin
+outside that band, then asked `scipy.signal.coherence` for the magnitude-squared coherence
+of two *disjoint* spectra, where `|Pxy|^2 / (Pxx * Pyy)` is `0/0` at almost every bin; and
+`nperseg` was clamped to the band signal's own length, so Welch got exactly one segment, and
+with no averaging `|Pxy|^2 == Pxx * Pyy` identically, making every surviving bin exactly 1.0.
+Since `coherence_influence = 1.0 + (1.0 - phase_coherence) * 0.5`, one of the five terms in
+the phi-weighted influence multiplier was permanently neutral: a documented five-signal
+fusion was a four-signal fusion. The 0/0 was also the source of twelve
+`RuntimeWarning: invalid value encountered in divide` per `detect` call — under `-W error`
+those became exceptions, which `PhysicsIntegratedDetector` caught, dropping the Oracle from
+`component_scores` with nothing but a log line to show for it. Magnitude-squared coherence
+between disjoint band-limited copies of one signal is ill-posed, so the computation is
+withdrawn rather than left reporting a constant as a measurement: the method now abstains
+explicitly at `PHASE_COHERENCE_NOT_MEASURED`, the numeric fusion is unchanged (the term was
+already neutral), the warnings are gone, and every docstring that claimed five measured
+signals says four. **A replacement needs evidence this round could not produce**: the bands'
+centre frequencies differ, so 1:1 phase locking is not well posed, and a 1:1 phase-locking-
+value prototype across time segments was measured on the recorded CWRU windows and rejected
+— outer-race faults separate from healthy at AUROC 0.892 but inner-race faults at 0.176 (the
+opposite direction) and ball faults at 0.521 (chance), so "low coherence implies anomalous",
+the direction the influence multiplier assumes, does not hold. What is missing is an n:m
+cross-frequency phase-coupling measure with its anomalous direction established on labelled
+data.
+
+**Fixed — a failed Oracle silently changed `PhysicsIntegratedDetector`'s verdict.** Both
+copies of the `try`/`except Exception` around the Oracle logged a warning and carried on, so
+`frequency_oracle` left `component_scores` and the influence vector stopped modulating the
+fused score with no trace in the returned dict — and `oracle_result is None` there was
+indistinguishable from "the domain policy disabled the Oracle for this domain". The two
+copies are now one `_run_oracle` helper, and the reason any optional component failed is
+recorded under `metadata['component_failures']`, empty when every enabled component ran.
+Three tests fail on the old code.
+
 **Fixed — the topological detector scored windows against a profile of a different size.**
 `TopologicalAnomalyDetector.fit` built `_reference_features` from the whole reference point
 cloud (80 points under the `n_reference_samples=80` cap used by the pinned ADBench window
@@ -97,7 +159,10 @@ old code, including the hand-computed seven-point table, which now shows the res
 **Fixed — `PhysicsIntegratedDetector` flagged every normal signal.** Its fused score of a
 healthy bearing-vibration window (CWRU Bearing Data Center, 12 kHz) is 0.89-0.99, and the
 alarm threshold stayed at the 0.5 default whatever `fit` saw: it ranked fault windows above
-healthy ones (AUROC 1.0) and flagged 100% of the healthy windows. When no `threshold` is
+healthy ones (AUROC 0.975 — this entry previously said 1.0, which was measured on a run
+without the spectral component's `sample_rate`; re-measured with the pinned configuration it
+was 0.975 both before and after that change, and reached 1.000 only with the Oracle band
+z-score fixed, below) and flagged 100% of the healthy windows. When no `threshold` is
 configured and `fit` receives at least 76 signals, every fourth signal is now held out of
 the component fits and the threshold is the split-conformal quantile (false-alarm rate
 0.05) of their fused scores, capped below 1.0. Held-out healthy windows flagged: 100% ->

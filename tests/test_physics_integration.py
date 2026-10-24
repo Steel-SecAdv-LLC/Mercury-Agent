@@ -475,3 +475,59 @@ class TestIntegrationScenarios:
         assert result["fusion_result"] is not None
         assert result["ethical_scaling"] > 0
         assert len(result["recommendations"]) > 0
+
+
+class TestOracleFailureIsObservable:
+    """A swallowed Oracle failure changes the fused verdict, so it must be recorded."""
+
+    @staticmethod
+    def _fitted() -> PhysicsIntegratedDetector:
+        signals = np.stack([create_test_time_series(512) for _ in range(8)])
+        torch.manual_seed(0)
+        np.random.seed(0)
+        return PhysicsIntegratedDetector({"oracle_mode": "enabled"}).fit(signals)
+
+    def test_a_healthy_run_records_no_failure(self) -> None:
+        detector = self._fitted()
+        result = detector.detect(create_test_time_series(512).reshape(1, -1))
+
+        assert result["metadata"]["component_failures"] == {}
+        assert result["oracle_result"] is not None
+        assert "frequency_oracle" in result["component_scores"]
+
+    def test_a_raising_oracle_is_named_in_component_failures(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Before, the only trace was a log line.
+
+        ``oracle_result is None`` in the returned dict could not be told apart
+        from "the domain policy disabled the Oracle", and ``frequency_oracle``
+        simply vanished from ``component_scores`` -- silently moving the fused
+        score.
+        """
+        detector = self._fitted()
+        assert detector._oracle_detector is not None
+
+        def explode(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise RuntimeError("synthetic oracle failure")
+
+        monkeypatch.setattr(detector._oracle_detector, "detect", explode)
+        result = detector.detect(create_test_time_series(512).reshape(1, -1))
+
+        failures = result["metadata"]["component_failures"]
+        assert failures["frequency_oracle"] == "RuntimeError: synthetic oracle failure"
+        assert result["oracle_result"] is None
+        assert "frequency_oracle" not in result["component_scores"]
+        # The fused verdict still comes back: the Oracle is an optional component.
+        assert np.isfinite(float(result["anomaly_score"]))
+
+    def test_an_absent_oracle_is_not_a_failure(self) -> None:
+        signals = np.stack([create_test_time_series(512) for _ in range(8)])
+        torch.manual_seed(0)
+        detector = PhysicsIntegratedDetector({"oracle_mode": "disabled"}).fit(signals)
+
+        result = detector.detect(create_test_time_series(512).reshape(1, -1))
+
+        assert detector._oracle_detector is None
+        assert result["metadata"]["component_failures"] == {}
+        assert result["oracle_result"] is None

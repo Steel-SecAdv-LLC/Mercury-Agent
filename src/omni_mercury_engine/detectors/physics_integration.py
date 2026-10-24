@@ -585,6 +585,12 @@ class PhysicsIntegratedDetector(BaseDetector):
 
         Returns:
             Dictionary containing integrated detection results.
+            ``metadata['component_failures']`` maps the name of any optional
+            component that raised to the exception that stopped it, and is
+            empty when every enabled component ran.  A failed component is
+            dropped from ``component_scores``, which changes the fused score,
+            so that mapping is the only way to tell a degraded verdict from a
+            healthy one.
 
         Raises:
             DetectorException: If detector not fitted.
@@ -599,6 +605,8 @@ class PhysicsIntegratedDetector(BaseDetector):
         oracle_result: dict[str, Any] | None = None
         frequency_influence: FrequencyInfluenceVector | None = None
 
+        component_failures: dict[str, str] = {}
+
         if data_type == "time_series":
             if isinstance(data, torch.Tensor):
                 data = data.cpu().numpy()
@@ -610,12 +618,7 @@ class PhysicsIntegratedDetector(BaseDetector):
                 dynamics_result = self._dynamics_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
 
             # Frequency Domain Oracle — parallel frequency-space pipeline
-            if self._oracle_detector is not None and self._oracle_detector.is_fitted():
-                try:
-                    oracle_result = self._oracle_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
-                    frequency_influence = oracle_result.get("influence_vector")
-                except Exception as e:
-                    logger.warning("SpectralDomainFrequency detection failed: %s", e)
+            oracle_result, frequency_influence = self._run_oracle(data, component_failures)
 
         elif data_type == "interactions":
             if self._uiux_detector is not None and self._uiux_detector.is_fitted():
@@ -633,12 +636,7 @@ class PhysicsIntegratedDetector(BaseDetector):
                     dynamics_result = self._dynamics_detector.detect(ts_data)
 
                 # Frequency Domain Oracle — parallel frequency-space pipeline
-                if self._oracle_detector is not None and self._oracle_detector.is_fitted():
-                    try:
-                        oracle_result = self._oracle_detector.detect(ts_data)
-                        frequency_influence = oracle_result.get("influence_vector")
-                    except Exception as e:
-                        logger.warning("SpectralDomainFrequency detection failed: %s", e)
+                oracle_result, frequency_influence = self._run_oracle(ts_data, component_failures)
 
             if "interactions" in data:
                 if self._uiux_detector is not None and self._uiux_detector.is_fitted():
@@ -734,8 +732,44 @@ class PhysicsIntegratedDetector(BaseDetector):
                 "enabled_detectors": [d.value for d in self._physics_config.enabled_detectors],
                 "use_3r_enhancement": self._physics_config.use_3r_enhancement,
                 "use_gosnn_scaling": self._physics_config.use_gosnn_scaling,
+                "component_failures": component_failures,
             },
         }
+
+    def _run_oracle(
+        self,
+        data: Any,
+        component_failures: dict[str, str],
+    ) -> tuple[dict[str, Any] | None, FrequencyInfluenceVector | None]:
+        """Run the frequency-domain Oracle, recording a failure rather than hiding it.
+
+        The Oracle is an optional parallel component, so a failure must not
+        take the fused verdict down with it -- but it does change that verdict:
+        ``frequency_oracle`` leaves ``component_scores`` and the influence
+        vector stops modulating the fused score.  Before, the only trace was a
+        log line, and ``oracle_result is None`` in the returned dict was
+        indistinguishable from "no Oracle was configured for this domain".  The
+        reason is now recorded under ``metadata['component_failures']`` so a
+        caller can see a degraded verdict for what it is.
+
+        Args:
+            data: Time-series data to score.
+            component_failures: Mutated in place; gains a ``frequency_oracle``
+                entry when the Oracle raises.
+
+        Returns:
+            ``(oracle_result, influence_vector)``, both ``None`` when the
+            Oracle is absent, unfitted, or failed.
+        """
+        if self._oracle_detector is None or not self._oracle_detector.is_fitted():
+            return None, None
+        try:
+            oracle_result = self._oracle_detector.detect(data)
+        except Exception as e:  # the Oracle is optional; the failure is recorded below
+            logger.warning("SpectralDomainFrequency detection failed: %s", e)
+            component_failures["frequency_oracle"] = f"{type(e).__name__}: {e}"
+            return None, None
+        return oracle_result, oracle_result.get("influence_vector")
 
     def extract_features(
         self,
