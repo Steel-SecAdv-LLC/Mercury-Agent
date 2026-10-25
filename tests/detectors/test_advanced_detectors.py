@@ -210,6 +210,24 @@ class TestContrastiveLearningDetector:
         assert features.shape[0] == 50
         assert features.shape[1] == 64  # hidden_dim
 
+    def test_a_fixed_seed_fixes_the_fit(self) -> None:
+        """Same seed, same weights: the contrastive views must not draw OS entropy."""
+        import torch
+
+        from omni_mercury_engine.detectors.advanced import ContrastiveLearningDetector
+
+        X_train, _ = generate_industrial_data(n_samples=120, n_sensors=8)
+
+        def fitted_weights() -> torch.Tensor:
+            detector = ContrastiveLearningDetector(
+                input_dim=8, hidden_dim=32, epochs=2, batch_size=32, seed=3
+            )
+            detector.fit(X_train)
+            assert detector.model is not None
+            return torch.cat([p.detach().flatten() for p in detector.model.parameters()])
+
+        assert torch.equal(fitted_weights(), fitted_weights())
+
 
 class TestAdversarialAutoencoderDetector:
     """Tests for AdversarialAutoencoderDetector."""
