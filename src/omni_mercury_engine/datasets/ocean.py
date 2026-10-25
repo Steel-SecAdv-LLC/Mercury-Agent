@@ -217,7 +217,7 @@ class NOAABuoyLoader(DatasetLoader):
                 loader_name="NOAABuoy",
                 source_url="https://www.ndbc.noaa.gov/",
                 reason=f"NOAA Buoy download failed: {e}",
-            )
+            ) from e
 
     def _process_buoy_data(
         self, df: pd.DataFrame

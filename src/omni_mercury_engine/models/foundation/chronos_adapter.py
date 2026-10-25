@@ -186,12 +186,12 @@ class ChronosAdapter(BaseFoundationModel):
 
             logger.info("Chronos model loaded successfully")
 
-        except ImportError:
+        except ImportError as exc:
             raise NotImplementedError(
                 "chronos-forecasting package not installed. "
                 "Install with: pip install chronos-forecasting. "
                 "Silent mock degradation is not permitted (Phase 2 audit cure)."
-            )
+            ) from exc
 
     def forecast(
         self,

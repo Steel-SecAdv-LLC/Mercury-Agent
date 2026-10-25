@@ -268,8 +268,8 @@ def _parse_time(name: str, value: Any) -> datetime:
         raise ValueError(f"{name} must be an ISO 8601 timestamp string")
     try:
         parsed = datetime.fromisoformat(value)
-    except ValueError:
-        raise ValueError(f"{name} {value!r} is not an ISO 8601 timestamp")
+    except ValueError as exc:
+        raise ValueError(f"{name} {value!r} is not an ISO 8601 timestamp") from exc
     return _aware(name, parsed)
 
 
@@ -295,7 +295,7 @@ def _reports(value: Any) -> dict[str, Any]:
     try:
         copied: dict[str, Any] = json.loads(_canonical(dict(value)))
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"intel_reports must be JSON with finite numbers: {exc}")
+        raise ValueError(f"intel_reports must be JSON with finite numbers: {exc}") from exc
     return copied
 
 

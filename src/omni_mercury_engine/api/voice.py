@@ -376,7 +376,7 @@ async def speak(request: SpeakRequest) -> VoiceResponseModel:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred while processing the message.",
-        )
+        ) from e
 
 
 @router.post(
@@ -463,7 +463,7 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred while generating narration.",
-        )
+        ) from e
 
 
 @router.get(

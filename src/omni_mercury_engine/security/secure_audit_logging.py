@@ -409,7 +409,7 @@ class PIIMasker:
                 raise ValueError(
                     f"Custom PII pattern '{name}' is invalid: {e}. "
                     f"All custom patterns must be valid regular expressions."
-                )
+                ) from e
 
     def mask(self, data: Any) -> Any:
         """Mask PII in data recursively."""

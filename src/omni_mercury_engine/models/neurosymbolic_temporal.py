@@ -294,8 +294,8 @@ class TemporalLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         # Handle literal numbers
         try:
             return torch.full((pvals.shape[0], 1), float(expr), device=pvals.device)
-        except ValueError:
-            raise ValueError(f"Cannot parse expression: {expr}")
+        except ValueError as exc:
+            raise ValueError(f"Cannot parse expression: {expr}") from exc
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass with predicate grounding and formula evaluation.

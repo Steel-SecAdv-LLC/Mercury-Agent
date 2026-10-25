@@ -35,7 +35,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
                 )
             else:
                 click.echo(f"Error: Failed to load ML engine - {e}")
-            raise SystemExit(1)
+            raise SystemExit(1) from e
     return OmniMercuryEngine(*args, **kwargs)
 
 
@@ -1036,10 +1036,10 @@ def physics_spectral(
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         click.echo(f"Error during spectral analysis: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @physics.command("dynamics")
@@ -1117,10 +1117,10 @@ def physics_dynamics(
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         click.echo(f"Error during dynamics analysis: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @physics.command("uiux")
@@ -1253,13 +1253,13 @@ def physics_uiux(
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except json.JSONDecodeError as e:
         click.echo(f"Error: Invalid JSON in input file - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         click.echo(f"Error during UI/UX analysis: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @physics.command("integrated")
@@ -1424,10 +1424,10 @@ def physics_integrated(
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         click.echo(f"Error during integrated analysis: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @physics.command("list")
@@ -1564,14 +1564,14 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
             reload=reload,
             log_level=log_level,
         )
-    except ImportError:
+    except ImportError as exc:
         click.echo(
             "Error: uvicorn is required for the API server. " "Install with: pip install uvicorn"
         )
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
     except Exception as e:
         click.echo(f"Error starting server: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @main.command()

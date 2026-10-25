@@ -820,8 +820,10 @@ def timeout(seconds: float) -> Callable[[F], F]:
                 future: Future[Any] = executor.submit(func, *args, **kwargs)
                 try:
                     return future.result(timeout=seconds)
-                except TimeoutError:
-                    raise TimeoutError(f"Function {func.__name__} timed out after {seconds}s")
+                except TimeoutError as exc:
+                    raise TimeoutError(
+                        f"Function {func.__name__} timed out after {seconds}s"
+                    ) from exc
 
         return cast("F", wrapper)  # type: ignore[return-value, unused-ignore]
 

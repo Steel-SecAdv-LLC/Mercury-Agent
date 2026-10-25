@@ -377,10 +377,10 @@ class DBSCANDetector:
 
         try:
             from omni_mercury_engine.ml.mercury_ml import DBSCAN
-        except ImportError:
+        except ImportError as exc:
             raise DetectorException(
                 "omni_mercury_engine.ml.mercury_ml required for DBSCAN detection"
-            )
+            ) from exc
 
         X = np.asarray(X)
         if X.ndim == 1:
