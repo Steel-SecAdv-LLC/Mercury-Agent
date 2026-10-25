@@ -348,3 +348,54 @@ def finite_scores(
         record_nonfinite_correction(detector, resolved, "scores", n_nan=n_nan, n_inf=n_inf)
     arr = np.nan_to_num(arr, nan=lo, posinf=hi, neginf=lo)
     return np.clip(arr, lo, hi)
+
+
+#: Training quantile of the PCA reconstruction residuals that sets the
+#: micro-anomaly cut. The rate of residuals above it is the micro score.
+MICRO_RESIDUAL_QUANTILE = 95.0
+
+
+def fit_pca_basis(
+    data_2d: np.ndarray[Any, Any], target_dim: int
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Mean and the top ``target_dim`` principal axes of the training rows.
+
+    The basis is fitted once, on training data, and then applied unchanged to
+    every batch. Refitting it on the scored batch lets the batch's own axes
+    absorb whatever the batch contains, so its residuals cannot show a departure
+    from the normal regime.
+    """
+    mean = data_2d.mean(axis=0)
+    _, _, vt = np.linalg.svd(data_2d - mean, full_matrices=False)
+    return mean, vt[:target_dim]
+
+
+def pca_residuals(
+    data_2d: np.ndarray[Any, Any],
+    basis: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]],
+) -> tuple[np.ndarray[Any, Any], float]:
+    """Absolute residuals of ``data_2d`` against a fitted basis.
+
+    Returns the residual matrix (the shape of ``data_2d``) and the batch's
+    residual energy share: the fraction of its centred energy the training
+    subspace does not reproduce, in ``[0, 1]``.
+    """
+    mean, components = basis
+    centred = data_2d - mean
+    residual = centred - (centred @ components.T) @ components
+    total = float(np.sum(centred**2))
+    energy_share = float(np.sum(residual**2)) / total if total > 0.0 else 0.0
+    return np.abs(residual), energy_share
+
+
+def micro_residual_cut(
+    data_2d: np.ndarray[Any, Any],
+    basis: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]],
+) -> float:
+    """The micro-anomaly cut: the training residuals' :data:`MICRO_RESIDUAL_QUANTILE`.
+
+    ``data_2d`` must be the rows the ``basis`` was fitted on. A cut taken from
+    the scored batch's own residuals makes the rate about 0.05 for any input.
+    """
+    residuals, _ = pca_residuals(data_2d, basis)
+    return float(np.percentile(residuals.flatten(), MICRO_RESIDUAL_QUANTILE))

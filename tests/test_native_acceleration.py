@@ -566,3 +566,38 @@ class TestIncrementalServingParity:
         row[2] = np.nan
         served = agent.detect(row).anomaly_score
         assert served == _full_path_oracle(agent, row)
+
+
+class TestEOAScaleContract:
+    """The EOA squash is absolute; a scale-less checkpoint keeps batch-relative."""
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    def test_replica_on_a_scale_less_checkpoint_matches_full_path(self, seed: int) -> None:
+        """A checkpoint from before the learned EOA scale stays on the fast path.
+
+        Its batch-relative EOA depends on the batch maximum, so the replica
+        must take the maximum over [R; x] itself, exactly as the full path does.
+        """
+        from omni_mercury_engine.agentic._incremental_serving import build_serving_cache
+
+        agent = _fitted_agent("directive", seed)
+        agent.detector._eoa_scale = None
+        cache = build_serving_cache(agent.detector, agent._reference)
+        assert cache is not None, "a scale-less checkpoint must still take the fast path"
+        for row in _rows(seed + 31, n=25, d=7):
+            assert cache.serve(row) == _full_path_oracle(agent, row)
+
+    def test_squash_is_bounded_monotone_and_hits_its_scale(self) -> None:
+        from omni_mercury_engine.detectors.directive import eoa_squash
+
+        magnitude = np.array([0.0, 1.0, 2.0, 50.0])
+        score = eoa_squash(magnitude, 2.0)
+        assert np.all((score >= 0.0) & (score < 1.0))
+        assert np.all(np.diff(score) > 0.0)
+        assert score[2] == pytest.approx(1.0 - math.exp(-1.0))
+
+    def test_batch_relative_is_the_row_over_the_batch_maximum(self) -> None:
+        from omni_mercury_engine.detectors.directive import eoa_batch_relative
+
+        magnitude = np.array([1.0, 2.0, 4.0])
+        assert eoa_batch_relative(magnitude, 4.0) == pytest.approx(magnitude / (4.0 + 1e-6))

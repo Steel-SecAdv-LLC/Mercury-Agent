@@ -50,6 +50,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.directive import eoa_batch_relative, eoa_squash
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["build_serving_cache"]
@@ -137,12 +139,9 @@ class _DirectiveServingCache(_ServingCache):
         self._batch = np.empty((n + 1, d), dtype=np.float64)
         self._batch[:n] = reference
         self._baseline_ref = detector.baseline_pattern
-        # EOA: the detector scores against a fit-time absolute scale when it
-        # has one (see SigmaDirectiveDetector._ethical_oversight_amplifier).
-        # Only a checkpoint from before that scale existed falls back to the
-        # batch-relative form, whose maximum over [R; x] is max(reference
-        # maximum, |x|) -- comparison-based, so exact.
-        self._eoa_scale_ref: float | None = getattr(detector, "_eoa_scale", None)
+        # EOA scale the cache was built against; a refit changes it and
+        # invalidates the cache (see _still_valid).
+        self._eoa_scale_ref: float | None = detector._eoa_scale
         self._ref_magnitude_max = float(np.max(np.linalg.norm(reference, axis=1)))
         # RMD: buffer contents after a reset and a full pass over R — the
         # loop appends `row.astype(np.float64)` (a copy) per row.
@@ -156,7 +155,7 @@ class _DirectiveServingCache(_ServingCache):
             det._is_fitted
             and not det._auto_calibrate
             and det.baseline_pattern is self._baseline_ref
-            and getattr(det, "_eoa_scale", None) == self._eoa_scale_ref
+            and det._eoa_scale == self._eoa_scale_ref
             and len(self._rmd_tail) == min(int(det.memory_depth), self._reference.shape[0])
         )
 
@@ -187,14 +186,16 @@ class _DirectiveServingCache(_ServingCache):
             rmd = 0.0
 
         # --- EOA ----------------------------------------------------------
-        # The detector's own method on this row, so the replica and the full
-        # path run one implementation. The squash is elementwise, so one row
-        # yields the same value the batch does at that row.
+        # The detector's formulas, shared with its method. Both are
+        # elementwise, so one row yields the value the batch gives that row.
+        magnitude = np.linalg.norm(row[np.newaxis, :], axis=1)
         if self._eoa_scale_ref is not None:
-            eoa = float(det._ethical_oversight_amplifier(row[np.newaxis, :])[0])
+            eoa = float(eoa_squash(magnitude, self._eoa_scale_ref)[0])
         else:
-            magnitude = float(np.linalg.norm(row[np.newaxis, :], axis=1)[0])
-            eoa = magnitude / (max(self._ref_magnitude_max, magnitude) + 1e-6)
+            # Legacy checkpoint: the batch is [R; x], whose maximum magnitude
+            # is the reference maximum or |x|, whichever is larger.
+            batch_max = max(self._ref_magnitude_max, float(magnitude[0]))
+            eoa = float(eoa_batch_relative(magnitude, batch_max)[0])
 
         weights = det.weights
         combined = (

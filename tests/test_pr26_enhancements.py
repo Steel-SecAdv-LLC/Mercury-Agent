@@ -154,8 +154,12 @@ class TestNanoScaleEnhancements:
     def test_dimensional_downsampling(self) -> None:
         """Test dimensional downsampling detection"""
         detector = SigmaDirectiveDetector()
-
         data = np.random.randn(20, 10)
+        # The micro rate is measured against the cut fitted on training rows, so
+        # an unfitted detector has no scale and the term abstains.
+        assert detector._dimensional_downsampling_detection(data) is None
+
+        detector.fit(np.random.default_rng(1).normal(size=(60, 10)))
         score = detector._dimensional_downsampling_detection(data)
 
         assert isinstance(score, (float, np.floating))
@@ -172,6 +176,7 @@ class TestNanoScaleEnhancements:
 
         detector = SigmaDirectiveDetector()
         data = np.random.randn(40, 8)
+        detector.fit(data)
 
         # Sanity: on the success path the sub-score is present.
         ok = detector._nano_scale_detection(data)
