@@ -83,8 +83,9 @@ jobs:
       - name: Install dependencies (core + ML + PyOD benchmark extra)
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml,benchmark]"
-          pip install pytest
+          # The dev extra supplies pytest and pytest-asyncio. pyproject sets
+          # asyncio_mode, and --strict-config makes that option fatal without the plugin.
+          pip install -e ".[ml,benchmark,dev]"
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # Every later step imports ``omni_mercury_engine`` (the prefetch

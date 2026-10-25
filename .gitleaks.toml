@@ -50,6 +50,11 @@ useDefault = true
     # name (tests/fixtures/nab/PROVENANCE.json, the streaming alarm policy
     # provenance and results).
     '''47b110baa8e3636574c1033dda1cce780873647fab58223d159d4fee6f180e86''',
+    # tests/fixtures/loghub/PROVENANCE.json: "keys_sha256" is the SHA-256 of the
+    # per-line event-key array written by scripts/record_hdfs_log_fixtures.py, a
+    # provenance digest and not a credential. The generic-api-key rule reads the
+    # word "keys" in the key name and the 64 hex characters as a secret.
+    '''87c61720288642fac97728ebdea46165f3e62ebf8b0e9db782a7f5fe9b68fa01''',
     # tests/fixtures/crs/crs_v470_payloads.json: the jwt.io documentation sample
     # token (sub 1234567890, "John Doe") inside an OWASP CRS v4.7.0 test payload.
     '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ''',

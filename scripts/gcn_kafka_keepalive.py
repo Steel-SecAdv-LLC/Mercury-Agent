@@ -293,6 +293,24 @@ def load_credentials(
     )
 
 
+#: CA bundles tried, in order, when the environment does not name one. The
+#: broker's OIDC token fetch reads the bundle named by ``ssl.ca.location``; on an
+#: image that keeps its bundle elsewhere the fetch fails before the credential
+#: is ever checked, which reads as a broker outage rather than a configuration fault.
+_CA_BUNDLE_CANDIDATES: tuple[str, ...] = (
+    "/etc/ssl/certs/ca-certificates.crt",
+    "/etc/pki/tls/certs/ca-bundle.crt",
+)
+
+
+def ca_bundle_location() -> str | None:
+    """The CA bundle for the broker connection, or ``None`` to keep the library default."""
+    for candidate in (os.environ.get("SSL_CERT_FILE", ""), *_CA_BUNDLE_CANDIDATES):
+        if candidate and Path(candidate).is_file():
+            return candidate
+    return None
+
+
 def consumer_config(creds: Credentials, group_id: str = "mercury-gcn-keepalive") -> dict[str, Any]:
     """librdkafka configuration for a GCN SASL_SSL/OAUTHBEARER connection.
 
@@ -309,6 +327,7 @@ def consumer_config(creds: Credentials, group_id: str = "mercury-gcn-keepalive")
         "sasl.oauthbearer.client.id": creds.client_id,
         "sasl.oauthbearer.client.secret": creds.client_secret,
         "sasl.oauthbearer.token.endpoint.url": creds.token_endpoint,
+        **({"ssl.ca.location": ca} if (ca := ca_bundle_location()) else {}),
     }
 
 

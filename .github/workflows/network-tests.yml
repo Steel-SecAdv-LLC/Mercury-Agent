@@ -68,7 +68,9 @@ jobs:
           # (tests/test_live_wiring_network.py) importorskip torch, so
           # without the ML stack the five detector round-trips silently
           # skip every week and live-wiring drift goes unwatched.
-          pip install -e ".[compliance,dev,ml]"
+          # ``api`` supplies httpx and fastapi, which tests/test_data_source_credential_redaction.py
+          # and the data-source tests import at module level. Without it collection fails.
+          pip install -e ".[compliance,dev,ml,api]"
 
       # Prove the injected data-source secrets DELIVER real data (not merely
       # exist). Import-light (requests only, no engine/AMA), so it runs before
