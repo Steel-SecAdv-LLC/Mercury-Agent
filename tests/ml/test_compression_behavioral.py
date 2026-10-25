@@ -299,7 +299,7 @@ class TestKnowledgeDistiller:
         x = torch.randn(5, 8)
         loss = kd.distillation_loss(student(x), teacher(x))
         assert loss.dim() == 0
-        assert float(loss) >= 0.0
+        assert float(loss.detach()) >= 0.0
 
     def test_distillation_loss_bce_branch_for_1d_targets(self) -> None:
         teacher, student = self._pair(output_dim=1)

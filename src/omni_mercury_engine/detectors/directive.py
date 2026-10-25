@@ -48,7 +48,12 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
-from omni_mercury_engine.detectors._calibration import squash_scale
+from omni_mercury_engine.detectors._calibration import (
+    fit_pca_basis,
+    micro_residual_cut,
+    pca_residuals,
+    squash_scale,
+)
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 #: Reference rows kept from the fit for the GSIS density score (a deterministic,
@@ -105,6 +110,23 @@ def _gsis_reference(
     own = np.arange(len(reference), dtype=np.intp)
     kdist = np.sort(_gsis_kth_distances(reference, reference, k, own))
     return reference, kdist, picked
+
+
+def eoa_squash(magnitude: np.ndarray[Any, Any], scale: float) -> np.ndarray[Any, Any]:
+    """EOA score against a fit-time magnitude scale: ``1 - exp(-r / scale)``.
+
+    Bounded in ``[0, 1)`` and independent of the rows it is scored with.
+    """
+    return np.asarray(1.0 - np.exp(-magnitude / scale))
+
+
+def eoa_batch_relative(magnitude: np.ndarray[Any, Any], batch_max: float) -> np.ndarray[Any, Any]:
+    """Legacy EOA for a checkpoint with no learned scale: ``r / max(r)`` over the batch.
+
+    ``batch_max`` is the maximum magnitude of the batch being scored, so a
+    row's score depends on the rows it arrives with.
+    """
+    return np.asarray(magnitude / (batch_max + 1e-6))
 
 
 logger = logging.getLogger(__name__)
@@ -256,6 +278,8 @@ class SigmaDirectiveDetector(BaseDetector):
         #: ``None`` for a checkpoint saved before this existed, which falls
         #: back to the previous batch-relative behaviour with a warning.
         self._eoa_scale: float | None = None
+        self._micro_basis: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
+        self._micro_residual_cut: float | None = None
         #: An explicitly configured threshold is the caller's decision and
         #: survives fit; only the BaseDetector default is calibrated.
         self._threshold_is_configured = "threshold" in self.config
@@ -377,6 +401,9 @@ class SigmaDirectiveDetector(BaseDetector):
             np.linalg.norm(np.asarray(data, dtype=np.float64), axis=1),
             self.EOA_CALIBRATION_QUANTILE,
         )
+        # Micro-anomaly cut from the training rows, so the rate in
+        # _dimensional_downsampling_detection has a fixed normal-regime scale.
+        self._micro_basis, self._micro_residual_cut = self._fit_micro(data)
 
         # Clear memory buffer on new fit (fresh start)
         self.clear_memory()
@@ -740,9 +767,9 @@ class SigmaDirectiveDetector(BaseDetector):
                 "falling back to batch-relative normalisation, so a row's score depends on "
                 "the batch it is scored in. Re-fit to get an absolute scale."
             )
-            return np.asarray(magnitude / (np.max(magnitude) + 1e-6))
+            return eoa_batch_relative(magnitude, float(np.max(magnitude)))
 
-        return np.asarray(1.0 - np.exp(-magnitude / self._eoa_scale))
+        return eoa_squash(magnitude, self._eoa_scale)
 
     def _quantum_pattern_containment(self, data: np.ndarray[Any, Any]) -> dict[str, float]:
         """Quantum Pattern Containment Protocol (QPCP)."""
@@ -904,34 +931,48 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return float(min(micro_score, 1.0))
 
+    def _micro_target_dim(self, data_2d: np.ndarray[Any, Any]) -> int:
+        """Components the micro projection keeps for a ``(rows, columns)`` batch."""
+        return max(1, min(3, data_2d.shape[1] // 2))
+
+    def _fit_micro(
+        self, data: np.ndarray[Any, Any]
+    ) -> tuple[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]], float] | tuple[None, None]:
+        """The training basis and micro cut, or ``(None, None)`` when the rows cannot give one."""
+        data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
+        if data_2d.shape[1] < 2 or data_2d.shape[0] == 0:
+            return None, None
+        target_dim = self._micro_target_dim(data_2d)
+        try:
+            basis = fit_pca_basis(np.asarray(data_2d, dtype=np.float64), target_dim)
+            return basis, micro_residual_cut(np.asarray(data_2d, dtype=np.float64), basis)
+        except Exception as e:
+            logger.warning("Micro-anomaly basis not fitted; the micro term abstains: %s", e)
+            return None, None
+
     def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float | None:
         """N Term Enhancement: dimensional downsampling for micro-anomaly detection.
 
-        Downsamples to low dimensions to detect subtle micro-patterns.
+        Downsamples to low dimensions to detect subtle micro-patterns. The rate
+        counts residuals above the cut fitted on the training rows, so the batch
+        is measured against the normal regime rather than against itself. A
+        single column, an unfitted detector or an empty batch returns ``None``:
+        the term abstains and the blend renormalises over the rest.
         """
         data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
 
-        if data_2d.shape[1] < 2:
-            return 0.0
-
-        target_dim = max(1, min(3, data_2d.shape[1] // 2))
+        if (
+            data_2d.shape[1] < 2
+            or data_2d.shape[0] == 0
+            or self._micro_basis is None
+            or self._micro_residual_cut is None
+        ):
+            return None
 
         try:
-            from omni_mercury_engine.ml.mercury_ml import PCA
+            micro_residuals, _ = pca_residuals(data_2d, self._micro_basis)
 
-            pca = PCA(n_components=target_dim)
-            downsampled = pca.fit_transform(data_2d)
-
-            reconstructed = pca.inverse_transform(downsampled)
-
-            micro_residuals = np.abs(data_2d - reconstructed)
-
-            residual_threshold = np.percentile(micro_residuals.flatten(), 95)
-
-            micro_anomaly_pixels = np.sum(micro_residuals > residual_threshold)
-            total_pixels = micro_residuals.size
-
-            micro_anomaly_rate = micro_anomaly_pixels / total_pixels
+            micro_anomaly_rate = float(np.mean(micro_residuals > self._micro_residual_cut))
 
             local_concentrations = []
             for i in range(min(5, data_2d.shape[0])):
@@ -977,6 +1018,13 @@ class SigmaDirectiveDetector(BaseDetector):
             # must travel with the checkpoint, or a reloaded detector scores
             # the same rows differently from the one that saved it.
             state["eoa_scale"] = np.asarray([self._eoa_scale], dtype=np.float64)
+        if self._micro_basis is not None and self._micro_residual_cut is not None:
+            # The micro basis and cut are fitted state too: without them a
+            # reloaded detector abstains on the micro term and scores differently.
+            mean, components = self._micro_basis
+            state["micro_basis_mean"] = np.asarray(mean, dtype=np.float64)
+            state["micro_basis_components"] = np.asarray(components, dtype=np.float64)
+            state["micro_residual_cut"] = np.asarray([self._micro_residual_cut], dtype=np.float64)
         if self._threshold_calibrated:
             state["calibrated_threshold"] = np.asarray([self.threshold], dtype=np.float64)
         return state
@@ -1002,6 +1050,15 @@ class SigmaDirectiveDetector(BaseDetector):
         self._eoa_scale = (
             float(np.asarray(state["eoa_scale"]).reshape(-1)[0]) if "eoa_scale" in state else None
         )
+        if {"micro_basis_mean", "micro_basis_components", "micro_residual_cut"} <= state.keys():
+            self._micro_basis = (
+                np.asarray(state["micro_basis_mean"], dtype=np.float64),
+                np.asarray(state["micro_basis_components"], dtype=np.float64),
+            )
+            self._micro_residual_cut = float(np.asarray(state["micro_residual_cut"]).reshape(-1)[0])
+        else:
+            self._micro_basis = None
+            self._micro_residual_cut = None
         if "calibrated_threshold" in state:
             self.threshold = float(np.asarray(state["calibrated_threshold"]).reshape(-1)[0])
             self._threshold_calibrated = True

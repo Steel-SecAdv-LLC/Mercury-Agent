@@ -135,6 +135,10 @@ class NeuralCognitiveModel:
         """
         if data.ndim == 1:
             data = data.reshape(1, -1)
+        # Refuse before any arithmetic: a non-finite row has no cosine
+        # similarity, and the ratios below would otherwise warn on it first.
+        if not np.isfinite(data).all():
+            raise ValueError("hippocampal memory cannot score non-finite input")
 
         batch_size, width = data.shape
         memory_features = np.zeros((batch_size, 16), dtype=np.float32)

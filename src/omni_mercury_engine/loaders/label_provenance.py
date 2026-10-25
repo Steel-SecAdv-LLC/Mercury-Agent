@@ -231,7 +231,8 @@ def discover_loaders() -> dict[str, type[BaseDomainLoader]]:
 
     def _all_subclasses(cls: type) -> set[type]:
         out: set[type] = set()
-        for s in cls.__subclasses__():
+        subclasses: list[type] = cls.__subclasses__()
+        for s in subclasses:
             out.add(s)
             out |= _all_subclasses(s)
         return out

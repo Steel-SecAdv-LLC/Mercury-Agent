@@ -51,6 +51,11 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors._calibration import (
+    fit_pca_basis,
+    micro_residual_cut,
+    pca_residuals,
+)
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
@@ -282,6 +287,9 @@ class NanoSafeguardDetector(BaseDetector):
         self.resonance_analyzer = ResonanceAnalyzer()
 
         self.baseline_stats: dict[str, float] = {}
+        # Training PCA basis and micro cut; None until fit().
+        self._micro_basis: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
+        self._micro_residual_cut: float | None = None
         self.memory_buffer: list[np.ndarray[Any, Any]] = []
         self.max_memory = self.config.get("max_memory", 100)
 
@@ -311,6 +319,9 @@ class NanoSafeguardDetector(BaseDetector):
             "median": float(np.median(data)),
         }
 
+        self._micro_basis, self._micro_residual_cut = self._fit_micro(
+            np.asarray(data, dtype=np.float64)
+        )
         self._is_fitted = True
         # The micro-anomaly cut is hand-set (0.05) and fit() does not move it:
         # the baseline statistics above describe the data but no labelled
@@ -511,6 +522,27 @@ class NanoSafeguardDetector(BaseDetector):
 
         return float(convergence)
 
+    def _micro_target_dim(self, data_2d: np.ndarray[Any, Any]) -> int:
+        """Components the micro projection keeps for a ``(rows, columns)`` batch."""
+        return int(min(self.target_dim, data_2d.shape[1] - 1, data_2d.shape[0] - 1))
+
+    def _fit_micro(
+        self, data: np.ndarray[Any, Any]
+    ) -> tuple[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]], float] | tuple[None, None]:
+        """The training basis and micro cut, or ``(None, None)`` when the signal cannot give one."""
+        data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
+        if data_2d.shape[0] < self.target_dim or data_2d.shape[1] < 2:
+            return None, None
+        target_dim = self._micro_target_dim(data_2d)
+        if target_dim < 1:
+            return None, None
+        try:
+            basis = fit_pca_basis(data_2d, target_dim)
+            return basis, micro_residual_cut(data_2d, basis)
+        except Exception as e:
+            logger.warning("Micro-anomaly basis not fitted; the micro term abstains: %s", e)
+            return None, None
+
     def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float | None:
         """Dimensional downsampling for micro-anomaly detection.
 
@@ -525,7 +557,8 @@ class NanoSafeguardDetector(BaseDetector):
             already uses for the same term: a term that measured nothing is
             omitted from the composite and the remaining weights are
             renormalised, rather than summed in as a 0.0 that dilutes the
-            blend downward and costs detections.
+            blend downward and costs detections. An unfitted detector has no
+            micro cut yet, so the term abstains the same way.
 
             This matters for every 1-D signal, which is this detector's
             declared modality: a 1-D array reshapes to ``(n, 1)``, so the
@@ -534,30 +567,21 @@ class NanoSafeguardDetector(BaseDetector):
         """
         data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
 
-        if data_2d.shape[0] < self.target_dim or data_2d.shape[1] < 2:
+        if (
+            data_2d.shape[0] < self.target_dim
+            or data_2d.shape[1] < 2
+            or self._micro_basis is None
+            or self._micro_residual_cut is None
+        ):
             return None
 
         try:
-            from omni_mercury_engine.ml.mercury_ml import PCA
+            residuals, unexplained_score = pca_residuals(data_2d, self._micro_basis)
 
-            target_dim = min(self.target_dim, data_2d.shape[1] - 1, data_2d.shape[0] - 1)
-            if target_dim < 1:
-                return None
-
-            pca = PCA(n_components=target_dim)
-            downsampled = pca.fit_transform(data_2d)
-            reconstructed = pca.inverse_transform(downsampled)
-
-            residuals = np.abs(data_2d - reconstructed)
-
-            threshold = np.percentile(residuals.flatten(), 95)
-            micro_anomaly_count = np.sum(residuals > threshold)
-            total_elements = residuals.size
-
-            micro_rate = micro_anomaly_count / total_elements
-
-            explained_variance = np.sum(pca.explained_variance_ratio_)
-            unexplained_score = 1.0 - explained_variance
+            # Share of residuals above the cut fitted on the training signal:
+            # about 0.05 on normal input and larger when the batch departs from
+            # the normal regime.
+            micro_rate = float(np.mean(residuals > self._micro_residual_cut))
 
             final_score = micro_rate * 0.6 + unexplained_score * 0.4
 

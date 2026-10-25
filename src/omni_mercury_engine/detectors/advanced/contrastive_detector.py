@@ -252,8 +252,13 @@ class ContrastiveModel(nn.Module):
     Combines encoder and projection head with NT-Xent loss.
     """
 
-    def __init__(self, config: ContrastiveConfig) -> None:
-        """Initialize the instance."""
+    def __init__(self, config: ContrastiveConfig, seed: int | None = None) -> None:
+        """Initialize the instance.
+
+        ``seed`` drives the augmenter that makes the two contrastive views. It
+        must be passed: without it the views come from OS entropy and two fits
+        with identical seeds end with different weights.
+        """
         super().__init__()
         self.config = config
 
@@ -273,6 +278,7 @@ class ContrastiveModel(nn.Module):
             mask_ratio=config.mask_ratio,
             scale_range=config.scale_range,
             shift_range=config.shift_range,
+            seed=seed,
         )
 
     def forward(self, x: torch.Tensor, return_projection: bool = True) -> dict[str, torch.Tensor]:
@@ -407,9 +413,6 @@ class ContrastiveLearningDetector:
         self._fitted = False
         self._seed = seed
         self._rng: np.random.Generator = np.random.default_rng(seed)
-        # Augmenter shares the seed when not None so its augmentations are
-        # reproducible alongside detector-level shuffling.
-        self._augmenter = TimeSeriesAugmenter(seed=seed)
 
     def fit(
         self,
@@ -443,7 +446,9 @@ class ContrastiveLearningDetector:
         if self._seed is not None:
             torch.manual_seed(self._seed)
 
-        self.model = ContrastiveModel(self.config).to(self.device)
+        # The contrastive views draw from the same seed, so a fixed seed fixes
+        # the whole fit (weights, views, shuffles).
+        self.model = ContrastiveModel(self.config, seed=self._seed).to(self.device)
 
         # Split data
         n_samples = len(X)

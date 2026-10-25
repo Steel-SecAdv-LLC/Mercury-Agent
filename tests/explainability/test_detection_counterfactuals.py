@@ -15,6 +15,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+from scipy.special import expit
 
 from omni_mercury_engine.explainability.detection_counterfactuals import (  # type: ignore[import-not-found,unused-ignore]
     DETECTION_COUNTERFACTUAL_METHODS,
@@ -33,13 +34,13 @@ from omni_mercury_engine.explainability.detection_counterfactuals import (  # ty
 def _linear_score(x: np.ndarray) -> np.ndarray:
     """Score in (0, 1): anomalous iff x0 + 0.5*x1 > 1 (features 2+ irrelevant)."""
     z = 2.0 * (x[:, 0] + 0.5 * x[:, 1] - 1.0)
-    return 1.0 / (1.0 + np.exp(-z))
+    return np.asarray(expit(z), dtype=np.float64)
 
 
 def _single_feature_score(x: np.ndarray) -> np.ndarray:
     """Score depends ONLY on feature 0: anomalous iff x0 > 1."""
     z = 3.0 * (x[:, 0] - 1.0)
-    return 1.0 / (1.0 + np.exp(-z))
+    return np.asarray(expit(z), dtype=np.float64)
 
 
 class TestCoreAPI:

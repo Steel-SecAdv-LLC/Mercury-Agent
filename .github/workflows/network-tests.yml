@@ -55,7 +55,7 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
@@ -68,7 +68,9 @@ jobs:
           # (tests/test_live_wiring_network.py) importorskip torch, so
           # without the ML stack the five detector round-trips silently
           # skip every week and live-wiring drift goes unwatched.
-          pip install -e ".[compliance,dev,ml]"
+          # ``api`` supplies httpx and fastapi, which tests/test_data_source_credential_redaction.py
+          # and the data-source tests import at module level. Without it collection fails.
+          pip install -e ".[compliance,dev,ml,api]"
 
       # Prove the injected data-source secrets DELIVER real data (not merely
       # exist). Import-light (requests only, no engine/AMA), so it runs before

@@ -180,7 +180,11 @@ class QuantumAnomalyModel:
         entanglement = self._schmidt_entropy(quantum_states).reshape(-1, 1)
         # Effective dimension (participation ratio / d), in (0, 1].
         sum_sq = (probs**2).sum(axis=1)
-        participation = np.where(sum_sq > 1e-12, 1.0 / (sum_sq * dim), 0.0).reshape(-1, 1)
+        # Divide only where the state has weight: np.where evaluates both
+        # branches, so the zero rows get a placeholder denominator instead.
+        has_weight = sum_sq > 1e-12
+        denominator = np.where(has_weight, sum_sq * dim, 1.0)
+        participation = np.where(has_weight, 1.0 / denominator, 0.0).reshape(-1, 1)
         # Phase coherence: length of the probability-weighted mean phasor.
         phasors = (probs * np.exp(1j * np.angle(quantum_states))).sum(axis=1)
         coherence = np.abs(phasors).reshape(-1, 1)

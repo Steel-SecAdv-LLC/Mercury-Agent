@@ -27,6 +27,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Changed — the micro-anomaly term is measured against training data.** The
+micro-anomaly rate in `SigmaDirectiveDetector` and `NanoSafeguardDetector` counted
+residuals above the 95th percentile of the *scored* batch's own residuals, so it
+was about 0.05 for any input, and the batch refitted its own PCA, so the batch's
+axes absorbed whatever the batch contained. Both now fit one PCA basis and one cut
+on the training rows and score batches against them. The directive detector's
+fitted state persists both, and a checkpoint without them abstains on the term
+rather than scoring as before. Directive ROC-AUC on the five ADBench datasets is
+unchanged (mean 0.9145 before and after, `benchmarks/directive_signal.py`).
+
+**Fixed — single-column directive input abstains.** The directive copy of the
+term returned `0.0` for one column, which the blend averaged in as a real score.
+It now returns `None`, as the nano copy already did.
+
+**Fixed — `ContrastiveLearningDetector` fits are reproducible at a fixed seed.**
+The contrastive views were drawn from an unseeded augmenter, so two fits with the
+same seed ended with different weights. The model now takes the detector's seed.
+
+**Fixed — numeric warnings at their source.** `quantum.py` no longer divides by a
+zero-weight row before masking it; `neural.py` refuses non-finite input before any
+arithmetic, with the same `ValueError` the reference raises; the counterfactual
+search uses a finite limit for unbounded features.
+
+**Changed — the CI gates are testable scripts.** The performance benchmark is
+`scripts/performance_benchmark.py` (one threshold table, JSON written before the
+assertions). The AMA compiler choice is `scripts/resolve_ama_compiler.sh`, with its
+three install paths tested against fake compilers.
+
+**Changed — deprecations are reported.** `pyproject.toml` no longer ignores
+`DeprecationWarning` and `PendingDeprecationWarning`. The final full run reports
+them; see `docs/ROADMAP.md` rows 21 and 22 for what remains.
+
 **Fixed — the Oracle's inter-band term is measured again, as squared bicoherence.** The
 previous magnitude-squared coherence between disjoint band-limited copies of one signal is
 ill-posed and returned exactly 1.0 for every input; it was withdrawn, and its docstring
