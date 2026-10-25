@@ -236,7 +236,7 @@ jobs:
           name: pytest-release-log
           path: pytest-release.log
           retention-days: 14
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   # ============================================================================
   # Build Package

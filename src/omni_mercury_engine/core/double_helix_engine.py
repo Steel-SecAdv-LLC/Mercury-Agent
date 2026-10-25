@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Double-Helix Evolution Engine for Mercury Agent.
 
 Implements a weighted gradient descent framework with 18+ variant terms for

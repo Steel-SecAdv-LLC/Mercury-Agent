@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """VALIDATION REGISTER V9-V11 (real ADBench data, Brief Part 1 + Standard Track S2/S4).
 
 Protocol (per dataset x seed in {0..4}): permute; 50/25/25 train/cal/test;

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Train Mercury's offline meaning-level harm classifier.
 
 Fits the linear model that :mod:`omni_mercury_engine.cognitive.meaning_level`

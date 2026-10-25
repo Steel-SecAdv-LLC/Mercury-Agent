@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain-specific data loaders for Mercury anomaly detection.
 
 Each loader connects to real-world APIs and data sources, fetches historical events with ground

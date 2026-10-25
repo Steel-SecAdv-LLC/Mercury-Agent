@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration: the decision layer wires into detect_with_fusion as an opt-in.
 
 Mirrors the conformal wiring tests -- a tiny separable fixture, a short fit, and

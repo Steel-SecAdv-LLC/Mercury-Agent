@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for SOTA Visual Anomaly Detection modules.
 
 Tests PatchCore, PaDiM, STFPM, Reverse Distillation, and CFlow detectors.

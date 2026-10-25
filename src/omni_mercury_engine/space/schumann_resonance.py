@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Schumann Resonance Detector Module.
 
 Earth-ionosphere waveguide electromagnetic field anomaly detection for environmental
@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.geomagnetic import BGSELFStationSource
     from omni_mercury_engine.data_sources.live_ingestion import LiveFetch
 from omni_mercury_engine.detectors.hazard_diagnostics import HazardDiagnostics
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 try:
     import torch
@@ -209,6 +210,39 @@ class SchumannResonanceDetector:
     Monitors Earth-ionosphere electromagnetic cavity resonances for anomalies that may correlate
     with seismic, climate, or space weather events.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Default (untrained) path: anomaly_detected is the "
+                "deterministic FFT-physics flags — band-power amplitude "
+                "anomaly, fundamental-frequency deviation beyond 0.5 Hz "
+                "scaled by the golden ratio, and spectrum shift. These "
+                "thresholds have no published source and no labelled real "
+                "ELF corpus exists to calibrate them: the Schumann sub-net "
+                "is quarantined per docs/SCHUMANN_PREREGISTRATION.md (only "
+                "synthetic, driver-keyed ELF could be evaluated, which "
+                "cannot lift quarantine), so verdicts are experimental."
+            ),
+        ),
+        DecisionSource(
+            kind="trained",
+            description=(
+                "Learned path, active only when trained weights are loaded "
+                "via load_neural_weights(): anomaly_detected is the CNN-LSTM "
+                "confidence against the checkpoint's validation-selected "
+                "detection threshold. The untrained network is never "
+                "consulted (anti-theater guard)."
+            ),
+            operating_point=(
+                "checkpoint-carried operating_point.detection_threshold, "
+                "selected by ml.hazard_training.schumann_harmonics "
+                "_select_operating_point; no checkpoint ships while the WS-C "
+                "quarantine of docs/SCHUMANN_PREREGISTRATION.md holds"
+            ),
+        ),
+    )
 
     def __init__(
         self,

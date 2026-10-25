@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Multi-Modal Support - Image and Audio Analysis Narration.
 
 Extends Mercury's narrative capabilities to describe and explain:

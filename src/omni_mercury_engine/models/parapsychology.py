@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """REG Statistical-Deviation Detection (parapsychology-research instrumentation).
 
 What this module MEASURES: deviation-from-chance in random event generator
@@ -52,6 +52,7 @@ import torch
 from scipy import stats
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 
@@ -162,6 +163,48 @@ class ParapsychologyDetector:
     ``load_neural_weights(None)`` loads the shipped ``reg_deviation_gcp``
     fault-detection checkpoint with its provenance.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Statistical deviation verdicts: exact binomial / Stouffer-Z / "
+                "chi-square tests against exact chance baselines, anomalous at "
+                "p < 0.05 (two-sided), with analysis choices pre-registered "
+                "before data."
+            ),
+            citation=(
+                "Standard significance testing at alpha = 0.05 (Fisher 1925, "
+                "Statistical Methods for Research Workers) over exact chance "
+                "baselines; pre-registered analysis per "
+                "docs/PARAPSYCH_PREREGISTRATION.md"
+            ),
+        ),
+        DecisionSource(
+            kind="trained",
+            description=(
+                "REG hardware fault detection: the shipped reg_deviation_gcp "
+                "checkpoint is trained on real measured GCP streams versus the "
+                "same streams through recorded fault-injection channels."
+            ),
+            operating_point=(
+                "reg_deviation_gcp merit-gated checkpoint "
+                "(ml.hazard_training.consciousness_field; validation-selected "
+                "operating point recorded in its provenance sidecar)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Psi interpretation: a statistically significant deviation "
+                "establishes only that the stream deviates from chance; no "
+                "published threshold exists for attributing it to psi, so any "
+                "psi-level claim is experimental and the cause (hardware, "
+                "environment, analysis, or hypothesis) must be established "
+                "separately."
+            ),
+        ),
+    )
 
     def __init__(
         self,

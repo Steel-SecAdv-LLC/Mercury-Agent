@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Explicit energy-based-model (EBM) anomaly detector.
 
 An energy-based model defines an unnormalised density ``p(x) ∝ exp(-E(x))`` via
@@ -32,6 +32,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -50,6 +51,26 @@ class EnergyBasedDetector(BaseDetector):
     scores each point by its free energy ``0.5 (x-μ)ᵀ Λ (x-μ)`` squashed into
     ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Scores are the free energy 0.5 (x-mu)^T Lambda (x-mu) of a "
+            "quadratic (Gaussian-family) energy-based model fitted by score "
+            "matching on a standardised delay embedding, squashed with a scale "
+            "anchored at the configured training quantile (default 0.98); the "
+            "decision threshold is the configured operating point, default 0.5 "
+            "on the normalized score. The EBM framing and score-matching "
+            "estimator are published; the free-energy squash/threshold is the "
+            "engine's quantile-anchored convention."
+        ),
+        citation=(
+            "LeCun, Chopra, Hadsell, Ranzato & Huang (2006), 'A Tutorial on "
+            "Energy-Based Learning'; Hyvarinen (2005), 'Estimation of "
+            "Non-Normalized Statistical Models by Score Matching', JMLR "
+            "6:695-709"
+        ),
+    )
 
     def __init__(
         self,

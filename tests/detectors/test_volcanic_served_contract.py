@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``VolcanicEruptionDetector.predict_eruption`` serves.
 
 Each test fails on the detector as it was before: the same observation gave a
@@ -62,8 +62,9 @@ def test_persisting_hmm_state_is_an_explicit_choice() -> None:
 
 
 def test_bare_array_is_refused(physics: VolcanicEruptionDetector) -> None:
+    bare_array: Any = np.ones((10, 10))  # deliberately outside the declared type
     with pytest.raises(InputModalityError, match="mapping"):
-        physics.predict_eruption(np.ones((10, 10)))  # type: ignore[arg-type]
+        physics.predict_eruption(bare_array)
 
 
 def test_non_finite_thermal_pixel_is_refused(physics: VolcanicEruptionDetector) -> None:
@@ -261,3 +262,95 @@ def test_detector_reports_the_failure_forecast() -> None:
     assert counted.time_to_eruption_fit["method"] == "ffm_poisson_mle"
     assert counted.time_to_eruption_hours is not None
     assert 0.0 < counted.time_to_eruption_hours < 40.0
+
+
+@pytest.mark.parametrize(
+    ("section", "values"),
+    [
+        ("gas_data", {"so2_flux_tons_day": 5000.0}),  # misspelt: read as baseline
+        ("insar_data", {"vertical_cm": 30.0}),  # misspelt: read as 0 cm
+        ("thermal_data", {"max_temperature_k": 900.0}),  # misspelt: read as no pixels
+    ],
+)
+def test_misspelt_section_key_is_refused(
+    physics: VolcanicEruptionDetector, section: str, values: dict[str, float]
+) -> None:
+    """A misspelt measurement used to grade as baseline -- a silent all-clear."""
+    with pytest.raises(InvalidObservationError, match=r"nothing usable.*unknown key"):
+        physics.predict_eruption({section: values})
+
+
+@pytest.mark.parametrize(
+    ("section", "values"),
+    [
+        ("gas_data", {}),
+        ("thermal_data", {"radiant_heat_mw": 50.0}),  # no brightness raster to grade
+        ("insar_data", {"deformation_rate_cm_day": 1.0}),  # rate alone decides nothing
+        ("precursor_rate", {"times_h": [0.0, 1.0, 2.0]}),  # half a series
+    ],
+)
+def test_section_without_a_measurement_is_refused(
+    physics: VolcanicEruptionDetector, section: str, values: dict[str, Any]
+) -> None:
+    with pytest.raises(InvalidObservationError, match="no measurement"):
+        physics.predict_eruption({section: values})
+
+
+def test_one_measured_gas_is_graded(physics: VolcanicEruptionDetector) -> None:
+    """A single measured flux is enough; the other stays at its baseline."""
+    result = physics.predict_eruption({"gas_data": {"so2_tons_per_day": 5000.0}})
+    assert result.gas_flux_anomaly
+
+
+@pytest.mark.parametrize("section", ["thermal_data", "gas_data", "insar_data", "precursor_rate"])
+def test_non_mapping_section_is_refused(physics: VolcanicEruptionDetector, section: str) -> None:
+    """A list section used to fail deep inside with a bare AttributeError."""
+    with pytest.raises(InvalidObservationError, match="must be a mapping"):
+        physics.predict_eruption({section: [1.0, 2.0]})
+
+
+def test_non_mapping_record_is_refused(physics: VolcanicEruptionDetector) -> None:
+    not_a_mapping: Any = [1.0, 2.0]  # deliberately outside the declared type
+    with pytest.raises(InputModalityError, match="mapping"):
+        physics.predict_eruption(not_a_mapping)
+
+
+@pytest.mark.parametrize(
+    ("extra", "where"),
+    [
+        ({"insar_data": {"vertical_cm": 30.0}}, "insar_data.vertical_cm"),
+        ({"insar_data": {"vertical_displacement_cm": float("nan")}}, "insar_data"),
+        ({"thermal_data": {"brightness_temperature_k": [300.0, 9000.0]}}, "thermal_data"),
+        ({"seismic_sequence": [1.0, float("nan"), 3.0]}, "seismic_sequence"),
+        ({"insar_data": [1.0]}, "insar_data"),
+        ({"radon_data": {"bq": 3.0}}, "radon_data"),
+        (
+            {"precursor_rate": {"times_h": [1.0, 2.0, 3.0, 4.0, 5.0], "rate": [1.0, -1.0]}},
+            "precursor_rate",
+        ),
+    ],
+)
+def test_usable_streams_are_graded_beside_an_unusable_one(
+    physics: VolcanicEruptionDetector, extra: dict[str, Any], where: str
+) -> None:
+    """Regression: one unusable stream refused a measured gas anomaly."""
+    result = physics.predict_eruption({"gas_data": {"so2_tons_per_day": 5000.0}, **extra})
+    assert result.gas_flux_anomaly
+    assert result.partial is True
+    assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
+
+
+def test_clean_record_is_not_partial(physics: VolcanicEruptionDetector) -> None:
+    result = physics.predict_eruption({"gas_data": {"so2_tons_per_day": 5000.0}})
+    assert result.partial is False and result.set_aside == []
+
+
+@pytest.mark.parametrize(
+    "record", [{}, {"schumann_elf": [7.8, 7.9, 7.8]}, {"metadata": {"name": "x"}}]
+)
+def test_record_without_a_deciding_stream_is_refused(
+    physics: VolcanicEruptionDetector, record: dict[str, Any]
+) -> None:
+    """Nothing that decides used to grade as a silent "normal"."""
+    with pytest.raises(InvalidObservationError, match="no monitoring stream"):
+        physics.predict_eruption(record)

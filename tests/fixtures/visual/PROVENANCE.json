@@ -1,0 +1,29 @@
+{
+  "description": "Four real photographs from scikit-image's bundled sample data, byte-verbatim, each verified against the SHA-256 in scikit-image's data registry.",
+  "source": "https://github.com/scikit-image/scikit-image at commit a160f384523ac70173d069954b7084bee79fb68e",
+  "licence_source": "skimage/data/_fetchers.py at the same commit",
+  "recorder": "scripts/record_visual_fixtures.py",
+  "recorded_utc": "2026-10-22T15:53:48Z",
+  "files": {
+    "brick.png": {
+      "url": "https://raw.githubusercontent.com/scikit-image/scikit-image/a160f384523ac70173d069954b7084bee79fb68e/skimage/data/brick.png",
+      "sha256": "7966caf324f6ba843118d98f7a07746d22f6a343430add0233eca5f6eaaa8fcf",
+      "licence": "CC0 (CC0Textures Bricks25)"
+    },
+    "gravel.png": {
+      "url": "https://raw.githubusercontent.com/scikit-image/scikit-image/a160f384523ac70173d069954b7084bee79fb68e/skimage/data/gravel.png",
+      "sha256": "c48615b451bf1e606fbd72c0aa9f8cc0f068ab7111ef7d93bb9b0f2586440c12",
+      "licence": "CC0 (CC0Textures Gravel04)"
+    },
+    "chelsea.png": {
+      "url": "https://raw.githubusercontent.com/scikit-image/scikit-image/a160f384523ac70173d069954b7084bee79fb68e/skimage/data/chelsea.png",
+      "sha256": "596aa1e7cb875eb79f437e310381d26b338a81c2da23439704a73c4651e8c4bb",
+      "licence": "CC0 by the photographer (Stefan van der Walt)"
+    },
+    "coffee.png": {
+      "url": "https://raw.githubusercontent.com/scikit-image/scikit-image/a160f384523ac70173d069954b7084bee79fb68e/skimage/data/coffee.png",
+      "sha256": "cc02f8ca188b167c775a7101b5d767d1e71792cf762c33d6fa15a4599b5a8de7",
+      "licence": "CC0 by the photographer (Rachel Michetti)"
+    }
+  }
+}

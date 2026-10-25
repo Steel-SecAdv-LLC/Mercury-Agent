@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Geomagnetically induced current (GIC) grid-risk detection from magnetometer data.
 
 Consumes ground-magnetometer minute data (e.g.
@@ -65,6 +65,7 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     from omni_mercury_engine.data_sources.base import DataPoint
@@ -281,6 +282,31 @@ class GICDetector:
         >>> result = detector.assess(times, bx_nt, by_nt, observatory="BOU")
         >>> result.risk_level, result.peak_dbdt_nt_per_min
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "dB/dt risk tiers on 1-minute horizontal-field data, each "
+            "anchored to a cited level: moderate from 90 nT/min (1.5 nT/s, "
+            "the highest of the community dB/dt validation thresholds), high "
+            "from 300 nT/min (the lower end of the 300-600 nT/min that "
+            "accompanied US grid impacts in March 1989), severe from 480 "
+            "nT/min (the regional level at the 1989 Hydro-Québec collapse). "
+            "The geoelectric proxy is the standard plane-wave "
+            "(magnetotelluric) surface impedance Z = sqrt(i omega mu0 / "
+            "sigma) over a uniform half-space with named reference "
+            "conductivity models. Physics only; no neural network."
+        ),
+        citation=(
+            "Pulkkinen et al. (2013), Space Weather 11 (90 nT/min); Oak "
+            "Ridge Meta-R-321 (300-600 nT/min, March 1989 US impacts); "
+            "Bolduc (2002) (Hydro-Québec level); Cagniard (1953), Geophysics "
+            "18; Viljanen & Pirjola (1994), Surv. Geophys. 15; Viljanen et "
+            "al. (2004), Ann. Geophys. 22 (plane-wave geoelectric relation); "
+            "Boteler (1994), IEEE Trans. Power Delivery 9 (resistive-shield "
+            "reference ground)"
+        ),
+    )
 
     def __init__(
         self,

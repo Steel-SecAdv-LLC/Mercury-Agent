@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Reusable confound guard for paired ablations (WS-B follow-on).
 
 During PR #262 two ablation *designs* produced a spurious **+0.48 "KEEP"** for

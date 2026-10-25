@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Winter / ice-storm detector: partial thickness, Stull wet bulb, FRAM-like accretion, SPIA tiers, NWS blizzard criteria, and winter-alert wiring.
 
 Formulation anchors:

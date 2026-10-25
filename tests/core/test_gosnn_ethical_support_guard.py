@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The ethical band stays inside the σ_Immutable network's trained support.
 
 Measured before this guard: with all 24 ethical anchors set to 10.0 the

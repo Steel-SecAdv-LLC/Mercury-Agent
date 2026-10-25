@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Canonical feature specifications shared by training and inference.
 
 The trained checkpoints only mean anything if the detector builds the *same*

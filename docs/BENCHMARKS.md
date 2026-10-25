@@ -44,7 +44,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-14.
 > comparable ADBench subset is Mean AUC **0.8515** on the hardened detector (0.8251 before the kNN density stream)
 > (base `e118e1f` 0.8180; see the base-vs-current section below).
 
-> **Released ensemble changes (v2.1.0, 2026-07-08).** The `[2.1.0]`
+> **Ensemble changes prepared for v2.1.0 (2026-07-08; never released, ship in v3.0.0).** The `[2.1.0]`
 > CHANGELOG entry "fusion-margin sharpening, data-type gate correction,
 > temporal robustness" changes the data-type classification, the
 > fusion-weight margins, and restricts the temporal residual-frequency
@@ -380,7 +380,7 @@ function of the scored signal.
    (e.g., ADBench datasets), derivatives are meaningless noise. The kinematic
    component achieved mean AUC 0.6013 across all datasets — near-random on
    unordered tabular data, more useful on time-series.
-   *Mitigation (released in v2.1.0, 2026-07-08):* the data-type gate now requires *strong*
+   *Mitigation (prepared for v2.1.0, 2026-07-08; ships in v3.0.0):* the data-type gate now requires *strong*
    autocorrelation (> 0.55) **or** adjacent-row coherence (> 0.75) before
    classifying `TEMPORAL`, so tabular sets that previously tripped the old 0.3
    gate are correctly `TABULAR` and zero out kinematic. Margin sharpening
@@ -390,7 +390,7 @@ function of the scored signal.
    On high-dimensional image-like features (optdigits, landsat, WPBC), the ensemble
    score can invert (anomalies score lower than normal). This manifests as
    ROC-AUC < 0.5 on 6 datasets.
-   *Mitigation (released in v2.1.0, 2026-07-08):* a substantial part of the optdigits (ADBench-26)
+   *Mitigation (prepared for v2.1.0, 2026-07-08; ships in v3.0.0):* a substantial part of the optdigits (ADBench-26)
    inversion was the temporal `_residual_frequency_filter` firing on tabular rows
    via a shape proxy — measured to drag optdigits from 0.52 to 0.39. The filter
    is now gated on `_data_type == TEMPORAL`, removing that rank-altering pass from

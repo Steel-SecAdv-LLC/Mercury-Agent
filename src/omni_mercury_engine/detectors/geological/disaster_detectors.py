@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Comprehensive Disaster Detectors for Humanitarian Early Warning.
 
 Implements detection systems for:
@@ -46,8 +46,8 @@ import numpy as np
 
 from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.detectors._hazard_input import (
+    InputGrader,
     InvalidObservationError,
-    finite_array,
     finite_scalar,
 )
 from omni_mercury_engine.detectors.geological.sea_level import (
@@ -55,6 +55,7 @@ from omni_mercury_engine.detectors.geological.sea_level import (
     quietest_segment_sigma,
     remove_isolated_spikes,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 if TYPE_CHECKING:
@@ -249,6 +250,11 @@ class TsunamiPredictionResult:
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
 
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
+
 
 @dataclass
 class EarthquakePredictionResult:
@@ -284,6 +290,11 @@ class EarthquakePredictionResult:
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
 
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
+
     # Which path decided: "learned_seismic_stead", "physics_sta_lta", or
     # "usgs_catalog" (detect_live). Added after the released fields so
     # positional construction keeps their order.
@@ -318,6 +329,11 @@ class MeteorPredictionResult:
 
     # Populated only when the detector was built with keep_diagnostics=True.
     diagnostics: HazardDiagnostics | None = None
+
+    # Partial-input contract: True when part of the record was set aside;
+    # ``set_aside`` names each piece and why.
+    partial: bool = False
+    set_aside: list[dict[str, Any]] = field(default_factory=list)
 
 
 if TYPE_CHECKING or TORCH_AVAILABLE:
@@ -615,6 +631,37 @@ class TsunamiDetector:
     surfaced only as the diagnostic ``nn_wave_height_m``.
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The physics path cannot call a tsunami unless the detided "
+                "water-column residual reaches the NOAA DART bottom-pressure "
+                "trigger level (DART_TRIGGER_M = 0.03 m), the North Pacific "
+                "amplitude at which the operational DART algorithm triggers."
+            ),
+            citation=(
+                "Mofjeld, NOAA PMEL/NCTR Tsunami Detection Algorithm "
+                "documentation, nctr.pmel.noaa.gov/tda_documentation.html "
+                "(30 mm North Pacific trigger level)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Above that gate the detection confidence is a noisy-OR of an "
+                "amplitude severity mapping (robust-z 5 maps to 0, z 20 "
+                "saturates) with a tsunami-band FFT resonance score (0.25 per "
+                "band with >2x local power), thresholded at the constructor's "
+                "detection_threshold (default 0.96); these constants are "
+                "in-code monitoring defaults with no published source and no "
+                "labelled calibration. No trained leg ships: the 2026-07 "
+                "tsunami_dart checkpoint candidate was refused by the merit "
+                "gate, so the physics path stays in charge."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         sampling_rate: float = 1.0 / 900.0,
@@ -807,7 +854,8 @@ class TsunamiDetector:
                 record, a record shorter than 30 min, or values that cannot be
                 metres (tidal range above 20 m or a residual above 30 m).
         """
-        record = finite_array(waveform_data, "waveform_data", unit="m", ndim=(1, 2))
+        grader = InputGrader()
+        record = grader.usable_run(waveform_data, "waveform_data", unit="m", ndim=(1, 2))
         if record.ndim == 2:
             if record.shape[0] != 1:
                 raise InvalidObservationError(
@@ -949,6 +997,8 @@ class TsunamiDetector:
             warning_actions=warnings,
             evacuation_zones=zones,
             diagnostics=diagnostics,
+            partial=grader.partial,
+            set_aside=list(grader.set_aside),
         )
 
     def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
@@ -1110,6 +1160,9 @@ class TsunamiDetector:
 
         if waveform_data.ndim > 1:
             waveform_data = waveform_data.flatten()
+        # The same gap-free run predict_tsunami grades: a NaN sample used to
+        # make every summary feature NaN.
+        waveform_data = InputGrader().usable_run(waveform_data, "waveform_data", unit="m")
 
         features = np.zeros(FEATURE_DIM)
 
@@ -1328,6 +1381,58 @@ class EarthquakeDetector:
     the constructor's ``detection_threshold``, and the emitted ``confidence``
     is identical either way.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "A default-constructed detector serves the shipped "
+                "merit-gated 'seismic_stead' checkpoint (trained on real "
+                "STEAD waveforms); on-contract input the alert decision "
+                "thresholds the (temperature-calibrated) detection head at "
+                "the checkpoint's ratified, validation-selected tau."
+            ),
+            operating_point=(
+                "shipped checkpoint 'seismic_stead' "
+                "(models/checkpoints/seismic_stead.pt + provenance sidecar): "
+                "operating_point.detection_threshold and calibration "
+                "temperature selected by "
+                "ml.hazard_training.seismic_wave._select_operating_point"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "The physics fallback path picks arrivals with an STA/LTA "
+                "trigger (0.5 s / 5 s windows) on a trace band-passed to "
+                "1-45 Hz; ML, when a Wood-Anderson amplitude and hypocentral "
+                "distance are supplied, is the IASPEI standard local "
+                "magnitude, and the aftershock probability integrates the "
+                "Reasenberg-Jones rate with caller-supplied regional "
+                "parameters."
+            ),
+            citation=(
+                "Trnkoczy, NMSOP IS 8.1 (STA/LTA trigger on filtered "
+                "traces); IASPEI Working Group on Magnitudes (2013) and "
+                "Hutton & Boore (1987) (ML = log10(A) + 1.11 log10(R) + "
+                "0.00189 R - 2.09); Reasenberg & Jones (1989), USGS "
+                "Open-File Report 96-266 (aftershock rate); Page et al. "
+                "(2016) (regional parameters)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The physics-path ALERT bar itself is unsourced: confidence "
+                "= clip((peak STA/LTA - 2.5) / 7.5, 0, 1) + 0.2 * "
+                "seismic-band resonance score, thresholded at the "
+                "constructor's detection_threshold (default 0.96) -- the "
+                "2.5/7.5 mapping, the 0.2 resonance bump and the 0.96 bar "
+                "are in-code constants with no published source and no "
+                "labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,
@@ -1572,7 +1677,8 @@ class EarthquakeDetector:
                 f"[seq_len] or [batch, seq_len]; got ndim={seismic_data.ndim} "
                 f"(shape {seismic_data.shape})"
             )
-        record = finite_array(seismic_data, "seismic_data", unit="counts", ndim=(1, 2))
+        grader = InputGrader()
+        record = grader.usable_run(seismic_data, "seismic_data", unit="counts", ndim=(1, 2))
         if record.ndim == 2:
             if record.shape[0] != 1:
                 raise InvalidObservationError(
@@ -1767,6 +1873,8 @@ class EarthquakeDetector:
             aftershock_probability=aftershock_probability,
             detection_method=detection_method,
             diagnostics=diagnostics,
+            partial=grader.partial,
+            set_aside=list(grader.set_aside),
         )
 
     def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
@@ -2087,6 +2195,9 @@ class EarthquakeDetector:
 
         if seismic_data.ndim > 1:
             seismic_data = seismic_data.flatten()
+        # The same gap-free run predict_earthquake grades: a NaN sample used
+        # to make every summary feature NaN.
+        seismic_data = InputGrader().usable_run(seismic_data, "seismic_data", unit="counts")
 
         features = np.zeros(FEATURE_DIM)
 
@@ -2135,6 +2246,41 @@ class MeteorDetector:
     ``data_provenance`` / ``live_context`` on the result when live data was
     actually consulted.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Live corroboration legs consume operational NASA/JPL "
+                "products as published: a recent significant fireball from "
+                "the JPL CNEOS Fireball feed, upcoming close approaches from "
+                "NASA NeoWs, and Sentry impact risks whose published "
+                "cumulative impact probability floors the reported "
+                "impact_probability (never understated)."
+            ),
+            citation=(
+                "NASA/JPL CNEOS SSD APIs (ssd-api.jpl.nasa.gov): Fireball "
+                "API, Sentry impact-risk API (cumulative impact probability, "
+                "Palermo/Torino ratings); NASA NeoWs close-approach feed "
+                "(api.nasa.gov)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The detection rule itself is unsourced engineering: a "
+                "Bayesian update over optical/radar detections with assumed "
+                "sensitivities (0.8 optical, 0.9 radar) and false-positive "
+                "rates (0.01/0.005), posterior boosts for NASA corroboration "
+                "(+0.2 fireball, +0.15 close approach), thresholded at the "
+                "constructor's detection_threshold (default 0.7); the Sentry "
+                "screen keeps objects with palermo_scale > -3 and the "
+                "close-approach screen uses < 1 lunar distance within 7 "
+                "days. None of these constants has a published source or a "
+                "labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,
@@ -2294,20 +2440,47 @@ class MeteorDetector:
                 - size_estimate_m: float - Estimated size in meters
 
         Returns:
-            MeteorPredictionResult with detection details including NASA CNEOS data
+            MeteorPredictionResult with detection details including NASA CNEOS
+            data.  An unusable sensor series or stub is set aside and reported
+            (``partial``, ``set_aside``); a NaN sample used to make the
+            percentile NaN and every comparison False, a silent "no meteor".
+
+        Raises:
+            InvalidObservationError: When nothing usable was fed and no live
+                feed answered (an unobserved sky is not a quiet one).
         """
+        grader = InputGrader()
+        if optical_data is not None:
+            try:
+                optical_data = grader.usable_run(optical_data, "optical_data", unit="brightness")
+            except InvalidObservationError as exc:
+                grader.discard("optical_data", str(exc))
+                optical_data = None
+        if radar_data is not None:
+            try:
+                radar_data = grader.usable_run(radar_data, "radar_data", unit="radar return")
+            except InvalidObservationError as exc:
+                grader.discard("radar_data", str(exc))
+                radar_data = None
+        if noaa_stub is not None and not isinstance(noaa_stub, dict):
+            grader.discard(
+                "noaa_stub", f"must be a mapping, got {type(noaa_stub).__name__}", noaa_stub
+            )
+            noaa_stub = None
         optical_detection = False
         radar_detection = False
 
         # Process local optical sensor data
         if optical_data is not None:
             optical_threshold = np.percentile(optical_data, 99)
-            optical_detection = np.max(optical_data) > optical_threshold * 1.5
+            # bool(): the numpy comparison yields np.bool_, which leaked into
+            # the bool-typed result field.
+            optical_detection = bool(np.max(optical_data) > optical_threshold * 1.5)
 
         # Process local radar sensor data
         if radar_data is not None:
             radar_threshold = np.percentile(radar_data, 99)
-            radar_detection = np.max(radar_data) > radar_threshold * 1.5
+            radar_detection = bool(np.max(radar_data) > radar_threshold * 1.5)
 
         # Integrate external data (NOAA stub or other sources)
         if noaa_stub is not None:
@@ -2398,6 +2571,15 @@ class MeteorDetector:
                 logger.warning(f"MeteorDetector: Sentry feed unavailable: {e}")
                 live_context["sentry_error"] = str(e)
 
+        grader.require_usable(
+            optical_data is not None
+            or radar_data is not None
+            or noaa_stub is not None
+            or bool(live_sources_used),
+            "no observation: supply optical_data, radar_data or noaa_stub, or enable a "
+            "live feed that answers; an unobserved sky is not a quiet one",
+        )
+
         # Update Bayesian posterior with all detection sources
         # NASA data provides additional evidence
         combined_optical = optical_detection or nasa_fireball_alert
@@ -2481,6 +2663,8 @@ class MeteorDetector:
             data_provenance="live" if live_sources_used else None,
             live_context=live_context or None,
             diagnostics=diagnostics,
+            partial=grader.partial,
+            set_aside=list(grader.set_aside),
         )
 
     def _assess_threat(
@@ -2559,8 +2743,23 @@ class MeteorDetector:
         optical_data: np.ndarray[Any, Any] | None = None,
         radar_data: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
-        """Extract features for fusion pipeline."""
+        """Extract features for fusion pipeline.
+
+        The sensor series are read as their gap-free runs, as
+        :meth:`predict_meteor` grades them (a NaN sample used to make the
+        summary features NaN); an unusable series contributes no features.
+        """
         features = np.zeros(FEATURE_DIM)
+        grader = InputGrader()
+        series: dict[str, np.ndarray[Any, Any] | None] = {}
+        for name, raw in (("optical_data", optical_data), ("radar_data", radar_data)):
+            series[name] = None
+            if raw is not None:
+                try:
+                    series[name] = grader.usable_run(raw, name, unit="sensor counts")
+                except InvalidObservationError:
+                    pass
+        optical_data, radar_data = series["optical_data"], series["radar_data"]
 
         if optical_data is not None:
             features[0] = np.mean(optical_data)

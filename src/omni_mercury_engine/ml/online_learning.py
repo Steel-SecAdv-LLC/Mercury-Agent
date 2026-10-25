@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Online Learning Pipeline.
 
 Production-grade online learning pipeline providing:
@@ -39,12 +39,12 @@ if TYPE_CHECKING:
         RecalibrationGovernance,
     )
 
-from omni_mercury_engine.governance.self_improvement import ProposedRecalibration
-from omni_mercury_engine.ml.drift import (
+from omni_mercury_engine.detectors.drift import (
     DriftResult,
     DriftSeverity,
     EnsembleDriftDetector,
 )
+from omni_mercury_engine.governance.self_improvement import ProposedRecalibration
 
 logger = logging.getLogger(__name__)
 

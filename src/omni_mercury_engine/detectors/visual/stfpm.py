@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """STFPM: Student-Teacher Feature Pyramid Matching for Anomaly Detection.
 
 Implementation of STFPM from arXiv 2021.
@@ -28,6 +28,7 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -134,6 +135,37 @@ class STFPMDetector(BaseVisualDetector):
         >>> results = detector.detect(test_images)
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The anomaly score is the multi-scale feature-pyramid "
+                "discrepancy between a frozen teacher and a student trained "
+                "on normal images, following the published STFPM method."
+            ),
+            citation=(
+                'Wang et al., "Student-Teacher Feature Pyramid Matching '
+                'for Anomaly Detection", arXiv:2103.04257'
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The binary decision threshold is calibrated in fit() by "
+                "split conformal prediction on held-out normal images at "
+                "visual_config.false_alarm_rate (default 0.05); the record "
+                "is kept in self.calibration and preserved exactly by "
+                "save()/load(). No decision is made before calibration."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold"
+            ),
+        ),
+    )
+
     def __init__(self, config: STFPMConfig | dict[str, Any] | None = None) -> None:
         """Initialize STFPM detector.
 
@@ -194,6 +226,7 @@ class STFPMDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
+        data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         n_samples = data.shape[0]
         logger.info(f"Training STFPM student on {n_samples} images")
@@ -271,6 +304,7 @@ class STFPMDetector(BaseVisualDetector):
         self.student.eval()
         self._is_fitted = True
         logger.info("STFPM training complete")
+        self._calibrate_threshold(calibration)
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regression suite for the concrete ``MultiHeadAttentionProvider`` (ROADMAP #7).
 
 The provider is wired to a real ``torch.nn.MultiheadAttention`` surface and

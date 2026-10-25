@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """External Information Retrieval - Web Search and Database Queries.
 
 Extends Mercury's knowledge capabilities with external information sources:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pathogen Detection using a Baseline-Calibrated Energy Model.
 
 Scores a snapshot of biological sensor readings (one value per channel)
@@ -26,7 +26,7 @@ Mathematical Foundation:
   rate and so less sensitivity.
 - Sequential test (:meth:`PathogenDetector.monitor`): a conformal
   Shiryaev-Roberts test on the stream of energies
-  (:mod:`omni_mercury_engine.core.conformal_martingale`), seeded with the
+  (:mod:`omni_mercury_engine.detectors.conformal_martingale`), seeded with the
   held-out energies. It alarms on a persistent rise too small for one snapshot
   to cross E_critical; while the stream is like the baseline, its alarms are at
   least ``mean_snapshots_to_false_alarm`` snapshots apart on average. ``seed``
@@ -47,12 +47,13 @@ from typing import Any
 import numpy as np
 import torch
 
-from omni_mercury_engine.core.conformal_martingale import ConformalChangeDetector
+from omni_mercury_engine.detectors.conformal_martingale import ConformalChangeDetector
 from omni_mercury_engine.detectors.detection_tier import (
     conformal_threshold,
     pac_conformal_threshold,
     pac_minimum_calibration_size,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 _FIT_FRACTION = 0.7
 _SIGNATURE_SD = 3.0
@@ -89,6 +90,17 @@ class PathogenDetector:
     - Per-channel signatures relative to the baseline
     - MASINT agent reports for classification and escalation
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Energy of a snapshot's deviation from the fitted baseline; an alarm is energy above "
+            "the split-conformal quantile of the baseline energies at false_alarm_rate (or a fixed "
+            "energy_threshold). The guarantee holds only if baseline and monitored snapshots are "
+            "exchangeable, and one baseline's realised rate varies around the target. No labelled "
+            "pathogen corpus is recorded, so detection power is unmeasured."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize pathogen detector.

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Info-geometry component certificate primitives (NumPy-only).
 
 Scope (read this before using the certificate): these primitives certify the

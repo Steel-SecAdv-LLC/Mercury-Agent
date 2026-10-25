@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pillar: openness — the source is licensed, and every file says so.
 
 "Open source" is a claim about the licence a recipient actually receives, so
@@ -21,7 +21,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = REPO_ROOT / "src" / "omni_mercury_engine"
 
-SPDX_LINE = "# SPDX-License-Identifier: GPL-3.0-or-later"
+SPDX_LINE = "# SPDX-License-Identifier: AGPL-3.0-or-later"
 COPYRIGHT_LINE = "# Copyright (C) 2025 Steel Security Advisors LLC"
 
 
@@ -61,15 +61,47 @@ class TestEverySourceFileIsLicensed:
 
 
 class TestTheProjectShipsItsLicence:
-    def test_gpl_licence_file_is_present(self) -> None:
+    def test_agpl_licence_file_is_present(self) -> None:
         licence = REPO_ROOT / "LICENSE"
         assert licence.is_file()
         body = licence.read_text(encoding="utf-8")
-        assert "GNU GENERAL PUBLIC LICENSE" in body.upper()
+        assert "GNU AFFERO GENERAL PUBLIC LICENSE" in body.upper()
+        assert "13. Remote Network Interaction" in body
 
     def test_pyproject_declares_the_same_licence(self) -> None:
         pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        assert "GPL-3.0-or-later" in pyproject
+        assert "AGPL-3.0-or-later" in pyproject
+
+    def test_licence_text_is_verbatim(self) -> None:
+        """LICENSE is the FSF's AGPL-3.0 text, byte for byte: grants live elsewhere."""
+        import hashlib
+
+        digest = hashlib.sha256((REPO_ROOT / "LICENSE").read_bytes()).hexdigest()
+        assert digest == "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+
+    def test_section_7_permission_is_scoped_and_keeps_section_13(self) -> None:
+        """The NVIDIA grant is a section 7 permission and relaxes nothing else."""
+        grant = (REPO_ROOT / "LICENSE-EXCEPTION").read_text(encoding="utf-8")
+        assert "section 7" in grant
+        assert "NVIDIA CUDA Libraries" in grant
+        assert "covers those libraries and nothing else" in grant
+        assert "section 13 still requires" in grant
+        assert "may\nremove this additional permission" in grant
+
+    def test_permission_ships_wherever_the_licence_does(self) -> None:
+        """Packaging includes LICENSE-EXCEPTION next to LICENSE.
+
+        Without an explicit ``license-files``, setuptools bundles files matching
+        its default ``LICEN[CS]E*`` pattern; if ``license-files`` is ever set,
+        it must still cover both files.
+        """
+        import fnmatch
+        import tomllib
+
+        project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text("utf-8"))["project"]
+        patterns = project.get("license-files", ["LICEN[CS]E*"])
+        for name in ("LICENSE", "LICENSE-EXCEPTION"):
+            assert any(fnmatch.fnmatchcase(name, pattern) for pattern in patterns), name
 
 
 class TestCiRunsTheSameChecker:

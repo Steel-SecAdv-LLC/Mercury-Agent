@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Drift detection is on by default and never adopts an inference batch.
 
 Before this, ``enable_drift_detection`` had no caller, so the served engines

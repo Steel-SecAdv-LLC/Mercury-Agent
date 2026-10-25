@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The audit hash chain survives restarts and never interleaves two writers.
 
 Before the fix every process start opened a fresh genesis while appending to

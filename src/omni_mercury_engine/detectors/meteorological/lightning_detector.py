@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Lightning Detector - flash-rate anomaly detection (lightning jump algorithm).
 
 Implements the "2-sigma" lightning jump algorithm of Schultz, Petersen &
@@ -50,6 +50,8 @@ from typing import Any
 
 import numpy as np
 import torch
+
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +140,35 @@ class LightningDetector:
     2-sigma DFRDT threshold over the preceding 12 minutes, and a
     10 flashes/min activation rate.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "A lightning jump is declared per the published 2-sigma "
+                "algorithm: 2-minute average flash rates, DFRDT >= 2x the "
+                "standard deviation of the preceding 12 minutes of DFRDT, "
+                "with the 10 flashes/min activation rate; the exposed lead "
+                "time is the papers' climatological ~20-23 min figure, not "
+                "a per-storm computation."
+            ),
+            citation=(
+                "Schultz, Petersen & Carey (2009), J. Appl. Meteor. "
+                "Climatol. 48:2543-2563 (2-sigma lightning jump); Schultz "
+                "et al. (2011), Wea. Forecasting 26:744-755"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Cell clustering is deliberately simple spatial windowing "
+                "(0.15 deg fixed-grid binning, no tracking or merging) and "
+                "the NWS-alert match uses a great-circle distance to the "
+                "alert polygon centroid -- in-code engineering choices with "
+                "no published source."
+            ),
+        ),
+    )
 
     def __init__(
         self,

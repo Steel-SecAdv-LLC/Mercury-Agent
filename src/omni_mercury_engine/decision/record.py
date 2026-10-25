@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The auditable artifact the closed loop emits for every event.
 
 A :class:`DecisionRecord` is the loop's "measurement, or transparent abstention" --

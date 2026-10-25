@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Spectral Vibration Analysis Module for Mercury Agent.
 
 Advanced frequency-domain anomaly detection inspired by:
@@ -27,7 +27,9 @@ The ``nn.Module`` subclasses here (``SpectralGNN``, ``SpectralCNN``,
 training script fits them, no checkpoint is loaded, and none exists in this
 repository. They run in ``eval()`` under ``no_grad`` at their initialisation
 weights, which makes them a deterministic **random projection** of the spectrum
-— a real, reproducible feature transform, but not a learned model.
+— a real, reproducible feature transform (the weights are drawn from a fixed
+seed, ``config["network_seed"]``, so every instance is bit-identical), but not
+a learned model.
 
 That is not fatal to the detector, because ``fit()`` computes its reference
 statistics through the *same* projection, so the anomaly score compares like
@@ -66,6 +68,7 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.centralized_constants import get_domain_fundamentals
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
 logger = logging.getLogger(__name__)
@@ -73,6 +76,12 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Constants and Enumerations
 # =============================================================================
+
+#: Seed of the untrained network weights (``config["network_seed"]`` overrides).
+#: Constructed under a forked RNG, as the repository's other untrained
+#: projections are, so every instance is bit-identical and the caller's global
+#: RNG stream is untouched.
+_NETWORK_INIT_SEED = 20260723
 
 # Golden ratio for harmonic weighting (from 3R mechanism)
 PHI = MathematicalConstants.GOLDEN_RATIO.value  # 1.618033988749895
@@ -830,6 +839,19 @@ class SpectralVibrationDetector(BaseDetector):
         >>> print(result["anomaly_score"], result["signature_type"])
     """
 
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house heuristic: FFT/graph-spectral features pass through "
+            "untrained nn.Module random projections (see the module docstring's "
+            "trained-status note) and are compared against statistical reference "
+            "profiles learned in fit(); the composite normalized score is "
+            "decided at the configured BaseDetector threshold (default 0.5). No "
+            "published threshold exists for this rule and no labelled corpus "
+            "calibrates it."
+        ),
+    )
+
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize spectral vibration detector.
 
@@ -877,39 +899,100 @@ class SpectralVibrationDetector(BaseDetector):
             sig_type: [] for sig_type in VibrationSignatureType
         }
 
+    # ``_spectral_graph_cache`` is memoized per spectrum size and rebuilt on
+    # demand; ``_signature_database`` is decomposed below because its enum
+    # keys are not weights_only-loadable.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {
+        "_spectral_graph_cache",
+        "_signature_database",
+    }
+
+    #: Blocks a single fit signal is cut into to estimate its spread: the
+    #: fewest of 4, 8 and 16 for which normal signals stayed under the 0.5
+    #: threshold in every measured case (tone, noise and two-tone signals of
+    #: 1,000, 3,000 and 8,192 samples); 4 blocks scored noise at 0.54-0.66.
+    _SPREAD_BLOCKS = 8
+    #: Smallest fft_size a single short signal is analysed at: below 32 the
+    #: graph Laplacian yields fewer than the 10 eigenvalues the feature
+    #: vector takes (6 at 16), so the features would be incomplete.
+    _MIN_SINGLE_SIGNAL_FFT_SIZE = 32
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Default state, the fft_size fitted at, and the signature database."""
+        state = super()._learned_state()
+        # One short signal is fitted at a reduced fft_size (see fit); the
+        # networks' weight shapes follow it, so it is restored first.
+        state["_fft_size"] = self._spectral_config.fft_size
+        # Spectra are stored as torch tensors: this entry bypasses the base
+        # packing, and a raw ndarray is not weights_only-loadable.
+        state["_signature_database_by_value"] = {
+            sig_type.value: [
+                torch.from_numpy(np.ascontiguousarray(spectrum)) for spectrum in spectra
+            ]
+            for sig_type, spectra in self._signature_database.items()
+        }
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore default state, then rekey the signature database by enum."""
+        state = dict(state)
+        database = state.pop("_signature_database_by_value", None)
+        fft_size = state.pop("_fft_size", None)
+        if fft_size is not None:
+            self._set_fft_size(int(fft_size))
+        super()._restore_learned_state(state)
+        if database is not None:
+            restored: dict[VibrationSignatureType, list[np.ndarray[Any, Any]]] = {
+                sig_type: [] for sig_type in VibrationSignatureType
+            }
+            for value, spectra in database.items():
+                restored[VibrationSignatureType(value)] = [
+                    spectrum.cpu().numpy() for spectrum in spectra
+                ]
+            self._signature_database = restored
+
     def _init_networks(self) -> None:
         """Initialize neural network components."""
         cfg = self._spectral_config
+        seed = int(self.config.get("network_seed", _NETWORK_INIT_SEED))
 
-        # GNN for spectral graph analysis
-        self._gnn = SpectralGNN(
-            input_dim=2,  # magnitude + phase or magnitude + derivative
-            hidden_dim=cfg.gnn_hidden_dim,
-            output_dim=32,
-            num_layers=cfg.gnn_num_layers,
-        ).to(self.device)
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(seed)
 
-        # CNN for spectral patterns
-        self._cnn = SpectralCNN(
-            input_channels=1,
-            num_filters=cfg.cnn_filters,
-            output_dim=32,
-        ).to(self.device)
+            # GNN for spectral graph analysis
+            gnn = SpectralGNN(
+                input_dim=2,  # magnitude + phase or magnitude + derivative
+                hidden_dim=cfg.gnn_hidden_dim,
+                output_dim=32,
+                num_layers=cfg.gnn_num_layers,
+            )
 
-        # Phonon interaction network
-        num_modes = cfg.fft_size // 2
-        self._phonon_net = PhononInteractionNetwork(
-            num_modes=min(num_modes, 128),  # Cap for efficiency
-            hidden_dim=32,
-            interaction_order=3,
-        ).to(self.device)
+            # CNN for spectral patterns
+            cnn = SpectralCNN(
+                input_channels=1,
+                num_filters=cfg.cnn_filters,
+                output_dim=32,
+            )
 
-        # MLIP encoder
-        self._mlip_encoder = MLIPVibrationEncoder(
-            num_freq_bins=cfg.fft_size // 2,
-            descriptor_dim=64,
-            output_dim=32,
-        ).to(self.device)
+            # Phonon interaction network
+            num_modes = cfg.fft_size // 2
+            phonon_net = PhononInteractionNetwork(
+                num_modes=min(num_modes, 128),  # Cap for efficiency
+                hidden_dim=32,
+                interaction_order=3,
+            )
+
+            # MLIP encoder
+            mlip_encoder = MLIPVibrationEncoder(
+                num_freq_bins=cfg.fft_size // 2,
+                descriptor_dim=64,
+                output_dim=32,
+            )
+
+        self._gnn = gnn.to(self.device)
+        self._cnn = cnn.to(self.device)
+        self._phonon_net = phonon_net.to(self.device)
+        self._mlip_encoder = mlip_encoder.to(self.device)
 
         # Set to eval mode (no training in detector)
         self._gnn.eval()
@@ -924,6 +1007,15 @@ class SpectralVibrationDetector(BaseDetector):
     ) -> SpectralVibrationDetector:
         """Fit detector on reference/training data.
 
+        A batch's spread is taken between its signals. One signal has none
+        (its std is 0, so every other signal scored 1.0): its spread is taken
+        between ``_SPREAD_BLOCKS`` equal blocks of it, each analysed exactly as
+        a whole signal is, at the configured ``fft_size`` halved until every
+        block holds two frames. A block averages fewer frames than the whole
+        signal, so this spread is usually the wider one (normal signals
+        scored below a 32-signal batch fit in 8 of 9 measured cases, at most
+        0.02 above in the ninth). ``detect`` reports the ``fft_size`` in use.
+
         Args:
             data: Time-domain signal array [num_samples] or [batch, num_samples]
             signature_type: Type of vibration signature in training data
@@ -932,7 +1024,8 @@ class SpectralVibrationDetector(BaseDetector):
             Self for method chaining.
 
         Raises:
-            DetectorException: If data is empty or invalid.
+            DetectorException: If data is empty or invalid, or is one signal
+                too short to cut into blocks of two 32-sample frames.
         """
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -944,6 +1037,12 @@ class SpectralVibrationDetector(BaseDetector):
         # Handle batched input
         if data.ndim == 1:
             data = data.reshape(1, -1)
+
+        # Chosen before any state changes, so a refusal leaves none behind.
+        fft_size = int(self.config.get("fft_size", 1024))
+        if len(data) == 1:
+            fft_size = self._single_signal_fft_size(data.shape[1], fft_size)
+        self._set_fft_size(fft_size)
 
         # Compute reference spectrum for each sample
         all_spectra = []
@@ -962,16 +1061,27 @@ class SpectralVibrationDetector(BaseDetector):
                 # Add to signature database
                 self._signature_database[signature_type].append(spectrum)
 
+            spread_spectra, spread_features = all_spectra, all_features
+            if len(data) == 1:
+                block = data.shape[1] // self._SPREAD_BLOCKS
+                spread_spectra, spread_features = [], []
+                for i in range(self._SPREAD_BLOCKS):
+                    part = data[0, i * block : (i + 1) * block]
+                    spread_spectra.append(self._compute_power_spectrum(part))
+                    spread_features.append(
+                        self._features_to_array(self._extract_spectral_features(part))
+                    )
+
         # Compute reference statistics
         spectra_array = np.array(all_spectra)
         self._reference_spectrum = np.mean(spectra_array, axis=0)
         self._reference_mean = np.mean(spectra_array, axis=0)
-        self._reference_std = np.std(spectra_array, axis=0) + 1e-8
+        self._reference_std = np.std(np.array(spread_spectra), axis=0) + 1e-8
 
         # Store reference features
         features_array = np.array(all_features)
         self._reference_features_mean = np.mean(features_array, axis=0)
-        self._reference_features_std = np.std(features_array, axis=0) + 1e-8
+        self._reference_features_std = np.std(np.array(spread_features), axis=0) + 1e-8
 
         self._is_fitted = True
         logger.info(
@@ -980,6 +1090,54 @@ class SpectralVibrationDetector(BaseDetector):
         )
 
         return self
+
+    def _hop(self, fft_size: int) -> int:
+        """Frame advance for ``fft_size``, clamped to at least one sample.
+
+        An ``overlap_ratio`` of 1.0 (or greater) would otherwise make the hop
+        0 and raise ZeroDivisionError on the frame count.
+        """
+        return max(1, int(fft_size * (1 - self._spectral_config.overlap_ratio)))
+
+    def _single_signal_fft_size(self, length: int, fft_size: int) -> int:
+        """``fft_size`` halved until each spread block holds two frames.
+
+        Raises:
+            DetectorException: If even ``_MIN_SINGLE_SIGNAL_FFT_SIZE`` leaves a
+                block with fewer than two frames.
+        """
+        block = length // self._SPREAD_BLOCKS
+        size = fft_size
+        while block < size + self._hop(size):
+            size //= 2
+            if size < self._MIN_SINGLE_SIGNAL_FFT_SIZE:
+                floor = self._MIN_SINGLE_SIGNAL_FFT_SIZE
+                minimum = self._SPREAD_BLOCKS * (floor + self._hop(floor))
+                raise DetectorException(
+                    "SpectralVibrationDetector cannot estimate a reference spread "
+                    f"from one signal of {length} samples: it needs {minimum} "
+                    f"({self._SPREAD_BLOCKS} blocks of two {floor}-sample frames at "
+                    f"overlap_ratio={self._spectral_config.overlap_ratio}), or a "
+                    "batch of two or more signals."
+                )
+        if size != fft_size:
+            logger.info(
+                "SpectralVibrationDetector: one %d-sample signal is fitted at "
+                "fft_size=%d (configured %d) so each of its %d spread blocks "
+                "holds two frames",
+                length,
+                size,
+                fft_size,
+                self._SPREAD_BLOCKS,
+            )
+        return size
+
+    def _set_fft_size(self, fft_size: int) -> None:
+        """Analyse at ``fft_size``, rebuilding the networks sized by it."""
+        if fft_size != self._spectral_config.fft_size:
+            self._spectral_config.fft_size = fft_size
+            self._spectral_graph_cache.clear()
+            self._init_networks()
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in spectral vibration data.
@@ -998,6 +1156,7 @@ class SpectralVibrationDetector(BaseDetector):
                 - signature_type: Detected vibration signature type
                 - confidence: Detection confidence
                 - detector_type: "spectral_vibration"
+                - fft_size: The FFT size in use (see fit)
 
         Raises:
             DetectorException: If detector not fitted.
@@ -1061,6 +1220,8 @@ class SpectralVibrationDetector(BaseDetector):
             # initialisation weights (see the module docstring), so a
             # consumer can see this without reading the source.
             "neural_backbone": "untrained_random_projection",
+            # Lower than configured when fit() had one short signal.
+            "fft_size": self._spectral_config.fft_size,
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
         }
@@ -1146,31 +1307,32 @@ class SpectralVibrationDetector(BaseDetector):
             Power spectrum (magnitude squared of FFT)
         """
         cfg = self._spectral_config
+        half = cfg.fft_size // 2
+        window = np.hanning(cfg.fft_size)
 
-        # Zero-pad or truncate to FFT size
-        if len(signal) < cfg.fft_size:
-            signal = np.pad(signal, (0, cfg.fft_size - len(signal)))
-        elif len(signal) > cfg.fft_size:
-            # Use windowed average for long signals. Clamp the hop to at least 1
-            # sample: an ``overlap_ratio`` of 1.0 (or greater) would otherwise
-            # make ``hop == 0`` and raise ZeroDivisionError on the frame count.
-            hop = max(1, int(cfg.fft_size * (1 - cfg.overlap_ratio)))
+        if len(signal) > cfg.fft_size:
+            # Welch: the mean spectrum of Hann-windowed, overlapping frames.
+            hop = self._hop(cfg.fft_size)
             num_frames = (len(signal) - cfg.fft_size) // hop + 1
-
             spectra = []
-            window = np.hanning(cfg.fft_size)
-
             for i in range(num_frames):
                 start = i * hop
                 frame = signal[start : start + cfg.fft_size] * window
-                spectrum = np.abs(fft(frame)[: cfg.fft_size // 2]) ** 2
-                spectra.append(spectrum)
-
+                spectra.append(np.abs(fft(frame)[:half]) ** 2)
             return np.mean(spectra, axis=0)
 
-        # Single FFT for short signals
-        spectrum = np.abs(fft(signal)[: cfg.fft_size // 2]) ** 2
-        return spectrum
+        # One frame: the signal itself. It is Hann-windowed over its own length
+        # (as the frames above are) and zero-padded, and scaled so its broadband
+        # level equals a full frame's -- the same estimator at every length. An
+        # unwindowed single FFT here made a signal one sample over ``fft_size``
+        # read as a different statistic from one at ``fft_size``.
+        n = len(signal)
+        if n == 0:
+            return np.zeros(half)
+        own = np.hanning(n) if n >= 3 else np.ones(n)
+        level = float(np.sum(window**2) / np.sum(own**2))
+        spectrum: np.ndarray[Any, Any] = np.abs(fft(signal * own, n=cfg.fft_size)[:half]) ** 2
+        return spectrum * level
 
     def _extract_spectral_features(self, signal: np.ndarray[Any, Any]) -> SpectralFeatures:
         """Extract comprehensive spectral features.
@@ -1384,7 +1546,11 @@ class SpectralVibrationDetector(BaseDetector):
             flipped = diags(np.full(n, 2.0)) - laplacian
             # Only the eigenvalues are consumed; skipping eigenvector
             # extraction halves the ARPACK cost.
-            top = eigsh(flipped, k=k, which="LM", return_eigenvectors=False)
+            # ARPACK starts from a random vector unless given one, which made
+            # the eigenvalues (and the score) differ by ~1e-14 / ~1e-9 between
+            # identical calls; a fixed generic start makes every call identical.
+            v0 = np.random.default_rng(0).standard_normal(n)
+            top = eigsh(flipped, k=k, which="LM", return_eigenvectors=False, v0=v0)
             eigenvalues = np.sort(2.0 - np.real(top))
         except Exception:
             eigenvalues = np.zeros(k)
@@ -1821,6 +1987,57 @@ class SpectralVibrationDetector(BaseDetector):
 # =============================================================================
 # Utility Functions
 # =============================================================================
+
+
+def spectral_entropy(power_spectrum: np.ndarray[Any, Any]) -> float:
+    """Normalised Shannon entropy of a power spectrum.
+
+    Args:
+        power_spectrum: One-sided power spectrum (non-negative).
+
+    Returns:
+        ``H / log(N)`` of the spectrum treated as a probability distribution
+        over its ``N`` bins: near 0 for one tone (window leakage keeps a
+        Hann-windowed tone at about 0.1), near 1 for a flat (white) spectrum;
+        0 for an empty or all-zero spectrum.
+    """
+    spectrum = np.asarray(power_spectrum, dtype=float)
+    total = float(spectrum.sum())
+    if spectrum.size < 2 or total <= 0.0:
+        return 0.0
+    p = spectrum[spectrum > 0.0] / total
+    return float(-np.sum(p * np.log(p)) / np.log(spectrum.size))
+
+
+def total_harmonic_distortion(power_spectrum: np.ndarray[Any, Any], max_harmonic: int = 8) -> float:
+    """Total harmonic distortion of a power spectrum (IEEE 519 definition).
+
+    ``THD = sqrt(sum_{h=2..H} P_h / P_1)``: the power at integer multiples of
+    the strongest non-DC component (its fundamental), over the fundamental's,
+    each taken as the largest of the bin and its two neighbours (window
+    leakage); on a power spectrum ``P`` is proportional to amplitude squared,
+    so this equals the amplitude ratio.
+
+    Args:
+        power_spectrum: One-sided power spectrum.
+        max_harmonic: Highest harmonic included (>= 2).
+
+    Returns:
+        The distortion ratio (0 for a pure tone); 0 for a spectrum with no
+        non-DC power or whose harmonics lie beyond the spectrum.
+    """
+    spectrum = np.asarray(power_spectrum, dtype=float)
+    if spectrum.size < 3 or float(spectrum[1:].max()) <= 0.0:
+        return 0.0
+    fundamental = int(np.argmax(spectrum[1:])) + 1
+    p1 = float(spectrum[fundamental])
+    harmonics = 0.0
+    for h in range(2, max(2, max_harmonic) + 1):
+        centre = h * fundamental
+        if centre >= spectrum.size:
+            break
+        harmonics += float(spectrum[max(centre - 1, 1) : centre + 2].max())
+    return float(np.sqrt(harmonics / p1))
 
 
 def compute_short_time_fourier_transform(

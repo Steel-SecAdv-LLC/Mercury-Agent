@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Enhanced Anomaly Detection - Memory Graph and External Data Integration.
 
 Implements Phase 4 of the neuro-symbolic evolution:
@@ -797,7 +797,7 @@ class NOAAWeatherSource(ExternalDataSource):
         self._client = httpx.Client(
             timeout=timeout_seconds,
             headers={
-                "User-Agent": "MercuryAgent/1.7.0 (steel.sa.llc@gmail.com)",
+                "User-Agent": "MercuryAgent/1.7.0 (steel.sa.llc@mercuryagent.global)",
                 "Accept": "application/geo+json",
             },
         )

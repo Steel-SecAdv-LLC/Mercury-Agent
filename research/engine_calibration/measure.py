@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Canonical before/after measurement on cached real events (single pass).
 
 Scores are deterministic, so before/after differ ONLY in the operating point:

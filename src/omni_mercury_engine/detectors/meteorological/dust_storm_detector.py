@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dust-storm detector (physics core, works untrained).
 
 Implements the literature-standard sand-and-dust-storm formulations:
@@ -60,6 +60,7 @@ from omni_mercury_engine.detectors.meteorological.severe_storm_alerts import (
     filter_alerts_by_event,
     normalize_alert_records,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +188,41 @@ class DustStormDetector:
         >>> detector.classify_visibility(visibility_m=500.0, wind_speed_ms=14.0)
         'dust_storm'
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Event classes follow the WMO SDS present-weather "
+                "definitions (dust storm < 1000 m visibility, severe < "
+                "200 m, blowing dust 1-10 km) gated on a concurrent "
+                "dust-raising wind; emission potential compares "
+                "log-profile friction velocity against the Shao & Lu dry "
+                "threshold with the Fecan soil-moisture correction."
+            ),
+            citation=(
+                "WMO Manual on Codes (WMO-No. 306) and WMO SDS-WAS Science "
+                "and Implementation Plan (visibility classes); Shao & Lu "
+                "(2000), JGR 105(D17):22437-22443 (threshold friction "
+                "velocity); Fecan, Marticorena & Bergametti (1999), Ann. "
+                "Geophysicae 17:149-157 (moisture correction)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Two rules carry this module's own documented "
+                "operationalizations rather than published values: the "
+                "default 10 m/s dust-raising wind gate (a typical "
+                "mid-latitude value from the SDS literature, not a "
+                "standard), and the haboob gust-front cuts (60 min window, "
+                ">= 1.0 hPa pressure jump, >= 3.0 degC temperature drop, "
+                ">= 30 deg wind shift, >= 5 m/s surge) chosen to match the "
+                "signature magnitudes Idso et al. (1972, BAMS 53:930-935) "
+                "describe."
+            ),
+        ),
+    )
 
     #: Fixed fusion feature dimension (see :meth:`extract_features`).
     FEATURE_DIM = 16

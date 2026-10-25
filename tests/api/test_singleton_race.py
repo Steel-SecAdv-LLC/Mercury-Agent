@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Concurrency tests for the lazily-built process-wide singletons.
 
 A double-checked-locking bug on first build lets two threads each construct a
@@ -24,9 +24,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-def _hammer_first_build(  # noqa: UP047 - PEP 695 unavailable on the 3.11 runtime
-    reset: Callable[[], None], getter: Callable[[], T]
-) -> set[int]:
+def _hammer_first_build(reset: Callable[[], None], getter: Callable[[], T]) -> set[int]:
     """Reset the singleton, then call ``getter`` from many threads at once.
 
     Returns the set of distinct object ids observed — a correct singleton

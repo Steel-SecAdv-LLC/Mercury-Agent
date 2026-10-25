@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Matrix Profile Integration using STUMPY.
 
 Provides O(n log n) time complexity for pattern discovery and
@@ -26,6 +26,7 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
@@ -43,7 +44,9 @@ class MatrixProfileConfig(FoundationModelConfig):
         n_discords: Number of discords (anomalies) to find
         n_motifs: Number of motifs to find
         normalize: Whether to z-normalize subsequences
-        discord_threshold: Threshold for discord detection (z-score)
+        discord_threshold: Accepted for compatibility; not read (discords are
+            the ``n_discords`` largest profile values and flags are the batch's
+            ``anomaly_threshold`` quantile)
         use_gpu: Use GPU acceleration (requires stumpy.gpu)
     """
 
@@ -74,6 +77,18 @@ class MatrixProfileDetector(BaseFoundationModel):
         >>> discords = results['discord_indices']
         >>> motifs = results['motif_indices']
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Scores are STUMPY matrix-profile discord distances (nearest "
+            "non-trivial subsequence match; stumpy / UCR Matrix Profile, as "
+            "referenced in this module). Points are flagged above the "
+            "batch's own anomaly_threshold (default 0.95) quantile of those "
+            "scores: a relative cut with no published threshold and no "
+            "labelled corpus to calibrate one, so verdicts are experimental."
+        ),
+    )
 
     def __init__(self, config: MatrixProfileConfig | dict[str, Any] | None = None) -> None:
         """Initialize Matrix Profile detector.
@@ -185,9 +200,9 @@ class MatrixProfileDetector(BaseFoundationModel):
             if self._gpu_available and self.mp_config.use_gpu:
                 import stumpy.gpu
 
-                result = stumpy.gpu_stump(series, m=window_size)
+                result = stumpy.gpu_stump(series, m=window_size, normalize=self.mp_config.normalize)
             else:
-                result = stumpy.stump(series, m=window_size)
+                result = stumpy.stump(series, m=window_size, normalize=self.mp_config.normalize)
 
             return {
                 "matrix_profile": result[:, 0].astype(float),

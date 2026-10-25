@@ -1,5 +1,5 @@
 <!-- Copyright (C) 2025 Steel Security Advisors LLC -->
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 # Platform Hardening — Free-Service Account, Auth, and Abuse Controls
 
@@ -282,6 +282,12 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_AUDIT_MAX_FILES` | `10` | Rotated audit segments to retain (count-based cap) |
 | `MERCURY_AUDIT_RETENTION_DAYS` | *(unset → count-based only)* | Also delete rotated segments older than this many days (sweep-driven) |
 | `MERCURY_FRONTEND_ENABLED` | `false` | Serve the browser account UI (`/`, `/login`, `/register`, `/dashboard`, the email-link pages, and the `/static` assets) from the API process |
+| `MERCURY_SECURITY_CONTACT` | *(unset → upstream mailbox + SECURITY.md)* | Comma-separated `Contact` URIs (`mailto:`, `tel:`, `https://`) served in `/.well-known/security.txt`. A deployment operated by anyone other than the upstream project must set it, or reporters are sent upstream. Invalid entries are dropped with a warning, never served |
+| `MERCURY_SOURCE_URL` | *(unset → upstream repository)* | Where `/source` tells users this deployment's corresponding source is published (AGPL-3.0 section 13). A deployment running a **modified** Mercury must set it to its published fork. Must be `https://` with a host and no embedded credentials; an invalid value is logged and the upstream location served instead |
+| `MERCURY_SOURCE_REVISION` | *(unset → omitted)* | The exact Git commit this deployment was built from, served by `/source`; a hexadecimal object id (7–40 or 64 characters), anything else is logged and omitted |
+| `MERCURY_DECEPTION_ENABLED` | `false` | Register the containment-only decoy surface (`api/routes/decoys.py`): tripwires and a bounded tarpit, recorded on the audit chain; nothing reaches outward. Tripwire state is cluster-wide when `MERCURY_KEYSTORE_PATH` is set |
+| `MERCURY_DECOY_PATHS` | *(unset)* | Comma-separated private decoy paths answered with the protected-route challenge. The shipped decoys are public; a deployment's own unpublished paths catch a prober who has read the code. A path a real route serves is refused |
+| `MERCURY_SILENT_DECOY_PATHS` | *(unset)* | Comma-separated private silent-tripwire paths: observed, then answered by the router's own 404 |
 
 ## Deployment
 

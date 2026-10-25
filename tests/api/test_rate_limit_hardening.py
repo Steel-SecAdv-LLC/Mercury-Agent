@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the shared rate-limit store and the middleware bypass fixes.
 
 Three properties are pinned here, each mapped to a real attack:
@@ -34,6 +34,7 @@ from omni_mercury_engine.api.rate_limit_store import (
 from omni_mercury_engine.security.rate_limiting import RateLimiter, RateLimitInfo
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 
@@ -304,11 +305,14 @@ class TestCounterStores:
     @pytest.fixture(params=["memory", "sqlite"])
     def counter_store(
         self, request: pytest.FixtureRequest, tmp_path: Path
-    ) -> InMemoryCounterStore | SqliteCounterStore:
-        """Both counter backends, for parity."""
+    ) -> Iterator[InMemoryCounterStore | SqliteCounterStore]:
+        """Both counter backends, for parity (the SQLite one closed afterwards)."""
         if request.param == "memory":
-            return InMemoryCounterStore()
-        return SqliteCounterStore(tmp_path / "counters.db")
+            yield InMemoryCounterStore()
+            return
+        store = SqliteCounterStore(tmp_path / "counters.db")
+        yield store
+        store.close()
 
     def test_concurrent_increments_never_undercount(
         self, counter_store: InMemoryCounterStore | SqliteCounterStore

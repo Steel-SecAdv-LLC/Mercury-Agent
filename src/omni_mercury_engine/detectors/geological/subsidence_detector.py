@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Subsidence & Sinkhole-Precursor Detector — InSAR-style displacement-series analysis.
 
 Consumes the standard InSAR persistent-scatterer / distributed-scatterer (PS/DS)
@@ -75,6 +75,8 @@ from typing import Any
 
 import numpy as np
 from scipy import stats
+
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +207,44 @@ class SubsidenceDetector:
         coherence_min: Points with temporal coherence below this are dropped
             before analysis (standard PS selection practice). Default 0.3.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Literature-anchored rules: anomaly_detected fires when the "
+                "worst absolute Theil-Sen LOS velocity leaves the stable "
+                "class (~2 mm/yr, the wide-area PSI noise floor) or an "
+                "accelerating-subsidence cluster exists; acceleration is a "
+                "quadratic-vs-linear F-test AND a BIC margin of 2 (positive "
+                "evidence); the sinkhole-precursor flag requires a "
+                "localized accelerating subsidence bowl of the form "
+                "observed before Dead Sea collapses; the severity ladder "
+                "spans the published cm/yr-to-dm/yr basin-compaction range."
+            ),
+            citation=(
+                "Crosetto et al. (2020), Remote Sensing 12(12):2043 (PSI "
+                "velocity noise floor ~1-2 mm/yr); Intrieri et al. (2018), "
+                "Landslides 15(1):123-133 (precursory InSAR acceleration); "
+                "Nof et al. (2013), Geology 41(9):1019-1022 (sinkhole "
+                "precursor bowls); Cigna & Tapete (2021), RSE 253:112161 "
+                "(subsidence-rate classes); Kass & Raftery (1995), JASA "
+                "90(430):773-795 (delta-BIC > 2)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Operating constants around those rules are in-code "
+                "choices without a published threshold of their own: the "
+                "F-test level accel_p_value = 0.01, the minPts = 4 cluster "
+                "membership, the 500 m sinkhole_max_extent_m localization "
+                "bound (only loosely anchored to the Dead Sea bowl sizes), "
+                "the 0.3 coherence floor, and the evidence-fraction "
+                "confidence score; none has a labelled calibration."
+            ),
+        ),
+    )
 
     def __init__(
         self,

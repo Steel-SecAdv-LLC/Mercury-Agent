@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: Mercury/AMA Disconnect response-latency tester.
 
 Engages the Phase-5 OODA Mercury/AMA Disconnect on ``AutonomousAgent``

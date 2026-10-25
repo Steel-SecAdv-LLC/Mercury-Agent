@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Scoped intra-op threading control for tiny-tensor torch sections.
 
 The torch-gated tier detectors (srcnn, diffusion_ad) train very small models

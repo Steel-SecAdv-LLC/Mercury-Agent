@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Decorrelated-stream fusion protocol (FINDINGS.md) — executed, not deferred.
 
 ``FINDINGS.md`` closed *fusion-beats-best-single* as a conclusive negative on the

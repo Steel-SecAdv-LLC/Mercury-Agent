@@ -18,6 +18,57 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Resolve AMA C/C++ compiler
+      # AMA's own CMake sets the floor: GCC >= 12 for constant-time code
+      # generation (INVARIANT-8), and "only GCC >= 12, Clang >= 15, and MSVC
+      # are tested". Use the image's default GCC/G++ when it meets that floor.
+      #
+      # This used to hardcode /usr/bin/gcc-12 on the premise that the image
+      # ships it. The jobs now run on ubuntu-26.04, which does not, so every
+      # cache miss fell through to an apt download of gcc-12 that stalled and
+      # hit its cap (Performance Benchmark and PQC on run 40123771384). GCC 12
+      # is AMA's reference build and its floor, not a requirement of the
+      # source: a GCC 13 build of v5.0.0 with these flags produces a library
+      # whose SHA3-256 equals the signed INTEGRITY_NATIVE_DIGEST_HEX, and it
+      # passes the same PQC capability probe the workflow runs.
+      id: cc
+      shell: bash
+      run: |
+        set -euo pipefail
+        floor=12
+        # Echo "<cc> <cxx> <version>" when both compilers exist and meet the floor.
+        pick() {
+          local c="$1" x="$2" cmajor xmajor
+          command -v "${c}" >/dev/null 2>&1 || return 1
+          command -v "${x}" >/dev/null 2>&1 || return 1
+          cmajor="$("${c}" -dumpfullversion | cut -d. -f1)"
+          xmajor="$("${x}" -dumpfullversion | cut -d. -f1)"
+          [ "${cmajor}" -ge "${floor}" ] && [ "${xmajor}" -ge "${floor}" ] || return 1
+          echo "${c} ${x} $("${c}" -dumpfullversion)"
+        }
+        need_apt=false
+        if read -r cc cxx ver < <(pick gcc g++); then
+          source=image-default
+        elif read -r cc cxx ver < <(pick gcc-12 g++-12); then
+          source=image-gcc-12
+        else
+          # Nothing usable on the image: the install step below provides
+          # gcc-12/g++-12, and the build calls them by absolute path.
+          cc=/usr/bin/gcc-12
+          cxx=/usr/bin/g++-12
+          ver=12
+          source=apt-gcc-12
+          need_apt=true
+        fi
+        {
+          echo "cc=${cc}"
+          echo "cxx=${cxx}"
+          echo "version=${ver}"
+          echo "source=${source}"
+          echo "need-apt=${need_apt}"
+        } >> "$GITHUB_OUTPUT"
+        echo "AMA C compiler: ${cc} (${ver}, from ${source})"
+
     - name: Compute AMA native-build cache key
       # The cmake build of the native PQC library is identical for every job
       # on the same runner image and architecture (it involves no Python), so
@@ -29,8 +80,9 @@ runs:
       shell: bash
       env:
         AMA_REF: ${{ inputs.ama-ref }}
+        CC_VERSION: ${{ steps.cc.outputs.version }}
       run: |
-        echo "key=ama-native-${AMA_REF}-${RUNNER_OS}-$(uname -m)-${ImageOS:-unknown-image}" \
+        echo "key=ama-native-${AMA_REF}-${RUNNER_OS}-$(uname -m)-${ImageOS:-unknown-image}-gcc${CC_VERSION}" \
           >> "$GITHUB_OUTPUT"
 
     - name: Restore cached AMA native build tree
@@ -54,12 +106,13 @@ runs:
       # build-essential/cmake/ninja (13.7 MB) from a mirror serving 31.5 kB/s.
       # That one step, not a cache miss, pushed the job past its limit.
       #
-      # On a miss the step installs only what the runner image lacks. GitHub's
-      # Ubuntu 24.04 image ships gcc-12, g++-12 and make; cmake comes from the
-      # PyPI shim pinned in the next step (it shadows any apt cmake on PATH).
-      # apt is the fallback for a different image, bounded so a slow mirror
-      # fails in minutes instead of eating the job budget.
-      if: steps.ama-cache.outputs.cache-hit != 'true'
+      # Runs only when the resolver above found no usable compiler, so on the
+      # current ubuntu-26.04 images this step is skipped and no apt traffic
+      # happens. cmake comes from the PyPI shim pinned in the next step (it
+      # shadows any apt cmake on PATH). The apt fallback stays for an image
+      # with no GCC >= 12, bounded so a slow mirror fails in minutes instead
+      # of eating the job budget.
+      if: steps.ama-cache.outputs.cache-hit != 'true' && steps.cc.outputs.need-apt == 'true'
       shell: bash
       run: |
         missing=()
@@ -125,6 +178,8 @@ runs:
       shell: bash
       env:
         AMA_REF: ${{ inputs.ama-ref }}
+        AMA_CC: ${{ steps.cc.outputs.cc }}
+        AMA_CXX: ${{ steps.cc.outputs.cxx }}
       run: |
         # Build the native C library explicitly via cmake so the compiled
         # shared objects exist before the Python install. This satisfies
@@ -133,7 +188,8 @@ runs:
         git clone --branch "${AMA_REF}" --depth 1 \
           https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
         cd /tmp/ama-cryptography
-        CC=/usr/bin/gcc-12 CXX=/usr/bin/g++-12 cmake -S . -B build \
+        echo "Building AMA with ${AMA_CC} ($("${AMA_CC}" -dumpfullversion))"
+        CC="${AMA_CC}" CXX="${AMA_CXX}" cmake -S . -B build \
           -DCMAKE_BUILD_TYPE=Release \
           -DAMA_USE_NATIVE_PQC=ON \
           -DAMA_BUILD_SHARED=ON \

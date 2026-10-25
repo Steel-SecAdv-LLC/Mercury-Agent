@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``HurricaneDetector.predict_hurricane`` serves, on real ERA5 patches.
 
 Each test fails on the detector as it was before this contract was written:
@@ -264,3 +264,47 @@ class TestPressureHonesty:
         assert tracker._pressure_wind_relationship(950.0) == pytest.approx(
             6.7 * 60.0**0.644, rel=1e-9
         )
+
+
+class TestPartialInput:
+    """A usable stream is graded beside an unusable one; the verdict says so.
+
+    Regression: an analyzer's refusal of one stream aborted the whole record,
+    and an empty SST section was read as a measured 25 degC.
+    """
+
+    DEEP_LOW = {"pressure_data": {"central_pressure_mb": 940.0}}
+
+    @pytest.mark.parametrize(
+        ("extra", "where"),
+        [
+            ({"sst_data": {"sst_celsius": 300.15}}, "sst_data.sst_celsius"),  # kelvin
+            ({"sst_data": {"climatology_celsius": 27.0}}, "sst_data"),  # no SST measured
+            ({"sst_data": {}}, "sst_data"),
+            ({"wind_field": {"u": [[1.0, float("nan")]], "v": [[0.0, 0.0]]}}, "wind_field"),
+            (
+                {"intensity_history": {"max_wind_kt": [50, 60, 70, 80, 95], "interval_h": 5.0}},
+                "intensity_history",
+            ),
+            ({"satellite_data": {"ir": 1.0}}, "satellite_data"),
+        ],
+    )
+    def test_usable_rest_is_graded_and_the_verdict_is_partial(
+        self, extra: dict[str, Any], where: str
+    ) -> None:
+        detector = HurricaneDetector(load_shipped_weights=False)
+        result = detector.predict_hurricane({**self.DEEP_LOW, **extra})
+        assert result.min_pressure_mb == 940.0
+        assert result.cyclone_detected is True  # a 73 hPa deficit decides alone
+        assert result.partial is True
+        assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
+
+    def test_clean_record_is_not_partial(self) -> None:
+        result = HurricaneDetector(load_shipped_weights=False).predict_hurricane(self.DEEP_LOW)
+        assert result.partial is False and result.set_aside == []
+
+    def test_record_with_only_unusable_streams_is_refused(self) -> None:
+        with pytest.raises(InvalidObservationError, match=r"nothing usable.*sst_celsius"):
+            HurricaneDetector(load_shipped_weights=False).predict_hurricane(
+                {"sst_data": {"sst_celsius": 300.15}}
+            )

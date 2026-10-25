@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Security Intelligence Fusion Module.
 
 Comprehensive integration of multi-source intelligence disciplines for all-source
@@ -52,6 +52,7 @@ from torch import nn
 
 from omni_mercury_engine.core.centralized_constants import INTEL_MERIT
 from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.security.counterintelligence import (
     CounterintelligenceAssessment,
     CounterintelligenceAssessor,
@@ -419,6 +420,36 @@ class IntelligenceFusionEngine:
     Synthesizes multi-INT inputs for comprehensive threat assessment with neurosymbolic reasoning
     and cryptanalysis integration.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Default evidence path (untrained network): "
+                "reliability-weighted discipline threat scores with "
+                "corroboration-scaled confidence, flagged at ThreatLevel >= "
+                "SUBSTANTIAL after counterintelligence screening. The "
+                "weights and the flag line are simulation-based, with no "
+                "published threshold and no labelled all-source corpus to "
+                "calibrate one; these verdicts are experimental."
+            ),
+        ),
+        DecisionSource(
+            kind="trained",
+            description=(
+                "Fusion-network path: decisions route through the "
+                "AllSourceFusionNetwork only after load_trained_weights has "
+                "measured a checkpoint beating the evidence scorer on "
+                "held-out labelled cases; until then the network's "
+                "random-init logits never decide."
+            ),
+            operating_point=(
+                "a checkpoint admitted by load_trained_weights' merit test "
+                "on held-out labelled cases, with attempts counted in "
+                "MeritAttemptLog under the INTEL_MERIT policy"
+            ),
+        ),
+    )
 
     def __init__(
         self,

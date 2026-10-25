@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Base classes and types for STEAM Alert & Anomaly Detection data sources.
 
 This module provides:
@@ -414,7 +414,7 @@ class DataSourceBase(ABC):
 
     DEFAULT_BASE_URL: str = ""
     DEFAULT_TIMEOUT: float = 30.0
-    DEFAULT_USER_AGENT: str = "MercuryAgent/1.7.0 (steel.sa.llc@gmail.com)"
+    DEFAULT_USER_AGENT: str = "MercuryAgent/1.7.0 (steel.sa.llc@mercuryagent.global)"
 
     def __init__(self, config: DataSourceConfig | None = None) -> None:
         """Initialize data source.

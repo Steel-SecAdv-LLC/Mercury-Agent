@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fitted statistics container -- the ONLY data that leaves a federated node.
 
 These fields map 1:1 to MercuryAnomalyDetector's internal state after fit(). The detector stores 13

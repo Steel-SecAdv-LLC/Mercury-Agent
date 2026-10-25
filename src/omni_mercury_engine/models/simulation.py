@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mathematical Simulation and Analysis Module.
 
 Simulates and analyzes paradoxes, conjectures, theorems, and Millennium Prize Problems

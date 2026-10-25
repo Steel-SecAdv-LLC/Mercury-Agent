@@ -9,8 +9,8 @@ description: |
   serving humanitarian technology and STEAM research domains.
 
 type: application
-version: 2.1.0
-appVersion: "2.1.0"
+version: 3.0.0
+appVersion: "3.0.0"
 
 # Minimum Kubernetes version required
 kubeVersion: ">=1.23.0-0"
@@ -22,7 +22,7 @@ sources:
 
 maintainers:
   - name: Steel Security Advisors LLC
-    email: steel.sa.llc@gmail.com
+    email: steel.sa.llc@mercuryagent.global
     url: https://steel-secadv.com
 
 keywords:
@@ -36,7 +36,7 @@ keywords:
 
 annotations:
   artifacthub.io/category: machine-learning
-  artifacthub.io/license: GPL-3.0-or-later
+  artifacthub.io/license: AGPL-3.0-or-later
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: "false"

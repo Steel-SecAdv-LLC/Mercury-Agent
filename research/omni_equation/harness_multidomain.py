@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Per-stream measurement on REAL multi-domain Mercury data.
 
 Real loaders -> real MercuryAnomalyDetector -> real equation_profiles.

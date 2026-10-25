@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Chronos Adapter for Mercury-Agent.
 
 Integrates Amazon's Chronos foundation model for local
@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
@@ -76,6 +77,19 @@ class ChronosAdapter(BaseFoundationModel):
         >>> forecasts = adapter.forecast(time_series, horizon=24)
         >>> anomalies = adapter.detect_anomalies(time_series)
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Scores are each point's deviation from Amazon Chronos's "
+            "sampled one-step-ahead forecast intervals (10th-90th sample "
+            "quantiles; github.com/amazon-science/chronos-forecasting). "
+            "Points are flagged above the batch's own anomaly_threshold "
+            "(default 0.95) quantile of those scores: a batch-relative cut "
+            "with no published threshold and no labelled corpus to "
+            "calibrate one, so verdicts are experimental."
+        ),
+    )
 
     MODEL_SIZES = {
         "tiny": "amazon/chronos-t5-tiny",

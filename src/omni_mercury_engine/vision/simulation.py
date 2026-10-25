@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Physically defined anomaly synthesis on normal images.
 
 Each anomaly type in the analyser's taxonomy has a generative definition here:

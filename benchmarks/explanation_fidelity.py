@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Explanation-fidelity validation: are the dormant explainers faithful, and do they recover the features a model actually uses?
 
 `explainability.py` was orphaned and, judged by anomaly-AUC, un-revivable -- it

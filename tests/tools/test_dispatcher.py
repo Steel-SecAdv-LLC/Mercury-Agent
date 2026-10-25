@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Smoke tests for ``python -m tools`` dispatcher entry-point.
 
 The dispatcher lives in ``tools/__main__.py`` and registers operator

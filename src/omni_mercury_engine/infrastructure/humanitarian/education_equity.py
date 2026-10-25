@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Education Equity Module - Learning bias and access anomaly detection.
 
 Supports SDG 4 (Quality Education) by monitoring:
@@ -25,6 +25,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class EducationThreat(Enum):
     """Education threat."""
@@ -39,6 +41,30 @@ class EducationThreat(Enum):
 
 class EducationEquityDetector:
     """Detect educational equity anomalies and learning barriers."""
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The primary out-of-school rate is graded against the measured world rate, 10.3%."
+            ),
+            citation=(
+                "UNESCO UIS SDG4 indicator ROFST.1.CP, geoUnit 'SDG: World', 2023, recorded at "
+                "tests/fixtures/humanitarian/uis_rofst1cp_sdg_world.json (sha256 "
+                "49b32bef43425aaab82e65accdcb03c097654f07c917801e39acdc4996b6a3cc)."
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Achievement gaps alarm at z below -2 or a disparity above 0.3, dropout risk when "
+                "more than 15% of indicators fall below 0.3 (hand-set). A pupil-teacher ratio "
+                "above 40:1 (attributed in the code to the UNESCO EFA Global Monitoring Report) "
+                "and a gender parity index outside 0.97-1.03 (attributed to UIS methodology) were "
+                "not re-read."
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""

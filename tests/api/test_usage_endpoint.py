@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for ``GET /api/v1/auth/usage`` (the dashboard's usage/limits read).
 
 Covers both caller kinds (browser session and ``X-API-Key``), the

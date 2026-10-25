@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """End-to-end staging demo of the accept-gated closed feedback loop.
 
 Runs the whole loop against the shipped gate + corpus (requires the AMA/PQC

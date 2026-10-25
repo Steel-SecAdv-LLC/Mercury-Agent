@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for clinical governance scalars (SOFA, NEWS2, MEWS, MELD-Na), three-state.
 
 CI transparency: the torch-backed SOFA worked examples are skipped *loudly* (explicit reason)

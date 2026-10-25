@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regression tests for production-path fusion calibration application.
 
 These lock the contract that ``detect_with_fusion`` (the production decision
@@ -175,3 +175,50 @@ class TestDetectWithFusionSingleSampleShape:
         from_numpy = trained_engine.detect_with_fusion(x[:1])
 
         assert from_tensor["anomaly_prob"] == pytest.approx(from_numpy["anomaly_prob"], abs=1e-6)
+
+
+class TestBatchScalarVerdict:
+    """The scalar keys are the batch verdict, not a copy of row 0.
+
+    ``anomaly_prob`` is the most anomalous row's probability, ``is_anomaly``
+    is True exactly when any row crosses the threshold, and ``top_row`` names
+    the row the scalars describe. Before this contract the scalars copied
+    row 0, so a batch whose only anomaly sat on any other row read "normal"
+    at the top level.
+    """
+
+    @staticmethod
+    def _batch_with_anomaly_at(row: int, seed: int = 23) -> np.ndarray[Any, Any]:
+        rng = np.random.RandomState(seed)
+        batch = rng.normal(0.0, 1.0, (8, 12)).astype(np.float32)
+        batch[row] += 6.0
+        return batch
+
+    def test_anomaly_off_row_zero_is_the_batch_verdict(self, trained_engine: Any) -> None:
+        """An anomaly on row 5 flips the scalar verdict (row 0 copying missed it)."""
+        result = trained_engine.detect_with_fusion(self._batch_with_anomaly_at(5))
+        probs = np.asarray(result["anomaly_probs"], dtype=np.float64)
+        threshold = float(result["threshold_used"])
+        assert probs[5] > threshold, "fixture must make row 5 anomalous"
+        assert probs[0] < threshold, "fixture must keep row 0 normal"
+        assert result["is_anomaly"] is True
+        assert result["top_row"] == int(np.argmax(probs))
+        assert result["anomaly_prob"] == pytest.approx(float(probs.max()))
+        assert result["severity"] == pytest.approx(result["severity_scores"][result["top_row"]])
+
+    def test_scalar_flag_equals_any_row_flag(self, trained_engine: Any) -> None:
+        """is_anomaly == any(is_anomaly_rows), on anomalous and clean batches alike."""
+        rng = np.random.RandomState(29)
+        clean = rng.normal(0.0, 1.0, (8, 12)).astype(np.float32)
+        for batch in (clean, self._batch_with_anomaly_at(3)):
+            result = trained_engine.detect_with_fusion(batch)
+            assert result["is_anomaly"] == any(result["is_anomaly_rows"])
+
+    def test_single_row_contract_unchanged(self, trained_engine: Any) -> None:
+        """One row in: the scalars are that row, and top_row is 0."""
+        rng = np.random.RandomState(31)
+        sample = rng.normal(0.0, 1.0, (1, 12)).astype(np.float32)
+        result = trained_engine.detect_with_fusion(sample)
+        assert result["top_row"] == 0
+        assert result["anomaly_prob"] == pytest.approx(result["anomaly_probs"][0])
+        assert result["severity"] == pytest.approx(result["severity_scores"][0])

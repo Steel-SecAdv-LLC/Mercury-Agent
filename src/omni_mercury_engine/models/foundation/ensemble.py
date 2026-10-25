@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Foundation Model Ensemble.
 
 Combines predictions from multiple foundation models for
@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
@@ -74,6 +75,18 @@ class FoundationEnsemble(BaseFoundationModel):
         ... )
         >>> results = ensemble.detect_anomalies(time_series)
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "The ensemble verdict is a majority vote over the member "
+            "foundation adapters' own verdicts (or a weighted mean of them "
+            "cut at 0.5): the vote rule has no published threshold and no "
+            "labelled corpus to calibrate one, so ensemble verdicts are "
+            "experimental; each member adapter declares its own decision "
+            "provenance."
+        ),
+    )
 
     AVAILABLE_MODELS = {
         "timegpt": (TimeGPTAdapter, TimeGPTConfig),

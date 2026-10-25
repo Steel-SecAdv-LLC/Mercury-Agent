@@ -1,0 +1,32 @@
+Mercury Agent: Additional Permission under GNU AGPL version 3, section 7
+
+Copyright (C) 2025 Steel Security Advisors LLC
+
+Mercury Agent is licensed under the GNU Affero General Public License,
+version 3, or (at your option) any later version; see the LICENSE file.
+Steel Security Advisors LLC, the copyright holder, grants the following
+additional permission under section 7 of that license.
+
+If you modify this Program, or any covered work, by linking or combining it
+with the NVIDIA CUDA Libraries (or a modified version of those libraries),
+containing parts covered by the terms of NVIDIA Corporation's license
+agreements for those libraries, the licensors of this Program grant you
+additional permission to convey the resulting work.
+
+"NVIDIA CUDA Libraries" means the runtime libraries NVIDIA Corporation
+distributes as part of the NVIDIA CUDA Toolkit and its CUDA-X libraries,
+including the CUDA runtime, cuBLAS, cuFFT, cuRAND, cuSOLVER, cuSPARSE,
+cuSPARSELt, cuDNN, NCCL, NVRTC, nvJitLink, CUPTI, cuFile and NVSHMEM, in the
+form NVIDIA publishes them, including NVIDIA's Python distributions of them
+whose names begin with "nvidia-".
+
+This permission covers those libraries and nothing else. It relaxes no other
+term of the license. In particular, section 13 still requires a modified
+version offered to users over a network to offer those users the complete
+Corresponding Source of the covered work; the NVIDIA CUDA Libraries are not
+part of that Corresponding Source.
+
+As section 7 provides, when you convey a copy of a covered work you may
+remove this additional permission from that copy, or from any part of it.
+
+This permission applies to Mercury Agent version 3.0.0 and later.

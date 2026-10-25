@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Snow Avalanche Detector — snow-stability physics for dry-slab hazard.
 
 Split out of :mod:`omni_mercury_engine.detectors.geological.landslide`, which
@@ -88,6 +88,8 @@ from typing import TypedDict
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 logger = logging.getLogger(__name__)
 
 #: Gravitational acceleration (m/s^2).
@@ -98,6 +100,17 @@ RHO_ICE = 917.0
 
 #: Standard skier line load (N/m): 85 kg skier on 1.7 m skis (Föhn 1987).
 SKIER_LINE_LOAD_N_M = 500.0
+
+#: Dry-snow slab release terrain (Schweizer, Jamieson & Schneebeli 2003,
+#: Rev. Geophys. 41, 1016): slab avalanches release almost exclusively on
+#: slopes steeper than about 30 deg (most frequently 35-45 deg); below about
+#: 25 deg dry-slab release on the slope itself is rare.  The danger mapping
+#: caps accordingly: below 25 deg at MODERATE, 25-30 deg at CONSIDERABLE,
+#: 30 deg and steeper uncapped.  The cap grades the assessed slope itself;
+#: remote triggering and runout from steeper terrain above are why it never
+#: caps below MODERATE.
+SLAB_RELEASE_MIN_ANGLE_DEG = 30.0
+SLAB_RELEASE_RARE_BELOW_DEG = 25.0
 
 #: Persistent weak-layer grain types for which the Jamieson & Johnston (2001)
 #: density power law applies (SNOWPACK default branch: FC, DH, FCxr).
@@ -265,6 +278,47 @@ class AvalancheDetector:
         tg_persistence_days: Days the gradient must persist for the faceting
             flag when a duration is supplied. Default 3.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Stability rules are literature-anchored snow physics: the "
+                "skier stability index SK38 with Foehn's line-load solution "
+                "and ski-penetration refinement (SK38 < 1 likely skier "
+                "triggering, 1-1.5 transitional, > 1.5 generally stable), "
+                "the Jamieson & Johnston (2001) persistent-grain strength "
+                "power law as a documented fallback, critical new-snow "
+                "loading ~30 cm/24 h (10-20 cm for skier triggering), the "
+                "~5 m/s drift threshold, the > 10 K/m faceting temperature "
+                "gradient, rain-on-snow destabilisation, and 30-45 deg "
+                "release terrain; the output grades on the 5-level EAWS "
+                "danger scale."
+            ),
+            citation=(
+                "Foehn (1987), IAHS Publ. 162:195-214; Jamieson & Johnston "
+                "(1998), Ann. Glaciol. 26:296-302; Jamieson & Johnston "
+                "(2001), Ann. Glaciol. 32:59-69; Schweizer, Jamieson & "
+                "Schneebeli (2003), Rev. Geophys. 41(4):1016; Li & Pomeroy "
+                "(1997), J. Appl. Meteor. 36:205-213; Conway & Raymond "
+                "(1993), J. Glaciol. 39(133):635-642; Monti et al. (2016), "
+                "NHESS 16:775-788; EAWS (2023) European Avalanche Danger "
+                "Scale, avalanches.org/standards/avalanche-danger-scale"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The mapping from SK38 classes and loading flags onto the "
+                "qualitative EAWS 1-5 levels is an explicit, documented "
+                "engineering rule set that does not claim to be the "
+                "official EAWS matrix, and the 2x wind-slab loading "
+                "multiplier and 3-day faceting persistence are deliberately "
+                "conservative in-code choices without a published value of "
+                "their own."
+            ),
+        ),
+    )
 
     def __init__(
         self,
@@ -599,6 +653,32 @@ class AvalancheDetector:
         danger = self._map_to_eaws(
             sk38_result, loading, bool(faceting["faceting_risk"]), rain_on_snow
         )
+
+        # Release-terrain modulation: the SK38 index is defined at the 38 deg
+        # reference (Jamieson & Johnston 1998), so without this the assessed
+        # slope's own angle changed nothing.  Dry-slab release needs steep
+        # enough terrain (Schweizer et al. 2003): sub-30 deg slopes cap the
+        # danger grading for the slope itself.
+        if not 0.0 < slope_angle_deg < 90.0:
+            raise ValueError(f"slope_angle_deg must be in (0, 90), got {slope_angle_deg}")
+        terrain_cap: AvalancheDangerLevel | None = None
+        if slope_angle_deg < SLAB_RELEASE_RARE_BELOW_DEG:
+            terrain_cap = AvalancheDangerLevel.MODERATE
+        elif slope_angle_deg < SLAB_RELEASE_MIN_ANGLE_DEG:
+            terrain_cap = AvalancheDangerLevel.CONSIDERABLE
+        if terrain_cap is not None:
+            capped = min(danger.value, terrain_cap.value)
+            evidence.append(
+                {
+                    "criterion": "release_terrain",
+                    "value": slope_angle_deg,
+                    "cap": terrain_cap.name.lower(),
+                    "applied": capped < danger.value,
+                    "citation": "Schweizer, Jamieson & Schneebeli 2003",
+                }
+            )
+            danger = AvalancheDangerLevel(capped)
+
         confidence = self._evidence_confidence(sk38_result, loading, faceting, rain_on_snow)
 
         return AvalanchePredictionResult(

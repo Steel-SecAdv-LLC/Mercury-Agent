@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Spectral Domain Frequency — Full-Power Neuro-Symbolic Implementation.
 
 A production-grade spectral-domain anomaly detection system covering
@@ -20,11 +20,15 @@ Capabilities:
 4. **Spectral Flux** — rate-of-spectral-change detection for slow-onset
    anomalies.
 5. **Phase Coherence** — inter-band phase relationship monitoring; phase
-   decoherence can precede amplitude changes.
+   decoherence can precede amplitude changes.  **Abstains**: the measure is
+   not implemented (see
+   :meth:`~omni_mercury_engine.detectors.spectral_domain_frequency.SpectralDomainFrequency._compute_phase_coherence`),
+   so it contributes a neutral term.
 6. **Cepstral Analysis** — harmonic structure fingerprinting via inverse
    FFT of the log power spectrum.
-7. **φ-weighted influence multiplier** — five-signal geometric mean
-   (score, entropy, breadth, flux, coherence) with golden ratio weighting.
+7. **φ-weighted influence multiplier** — five-term geometric mean
+   (score, entropy, breadth, flux, coherence) with golden ratio weighting;
+   four terms are measured, coherence abstains at its neutral value.
 8. **Domain-aware auto-activation** — enabled/neutral/disabled per
    :data:`~omni_mercury_engine.core.config.ORACLE_DOMAIN_POLICY` (overridable
    via :class:`~omni_mercury_engine.core.config.OracleActivation`).
@@ -53,6 +57,7 @@ from omni_mercury_engine.core.centralized_constants import (
     MATH,
 )
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +217,12 @@ class FrequencyBandResult:
         anomaly_score: Combined anomaly score for this band [0, 1].
         p_value: Statistical significance (SI-corrected when CP detected).
         is_significant: ``True`` when ``p_value < alpha``.
+        corrected_power_ratio: ``power_ratio`` divided by the band's expected
+            share of a ``1/f**beta`` spectrum, when the noise colour has been
+            estimated; equal to ``power_ratio`` otherwise.  A reported
+            diagnostic only -- it cannot enter ``z_score``, because dividing
+            both the observation and the reference by the same per-band
+            constant cancels exactly in a standardisation.
     """
 
     band_label: str
@@ -223,6 +234,7 @@ class FrequencyBandResult:
     anomaly_score: float
     p_value: float
     is_significant: bool
+    corrected_power_ratio: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -240,7 +252,9 @@ class FrequencyInfluenceVector:
         change_point_detected: True when binary segmentation found a CP.
         confidence: 1 - aggregate_p_value.
         spectral_flux: Rate-of-spectral-change (L2 norm of frame diffs).
-        phase_coherence: Mean inter-band phase coherence [0, 1].
+        phase_coherence: Inter-band phase coherence [0, 1].  Not measured --
+            always :data:`SpectralDomainFrequency.PHASE_COHERENCE_NOT_MEASURED`;
+            see :meth:`SpectralDomainFrequency._compute_phase_coherence`.
         cepstral_peak_ratio: Max quefrency peak / mean (harmonic indicator).
     """
 
@@ -323,10 +337,12 @@ class SpectralDomainFrequency(BaseDetector):
     3. **Selective inference** p-value correction with truncated normal
        conditioning for detected CPs (Lee et al., 2016).
     4. **Spectral flux** — rate-of-spectral-change detection.
-    5. **Phase coherence** — inter-band phase relationship monitoring.
+    5. **Phase coherence** — inter-band phase relationship monitoring;
+       abstains, see :meth:`_compute_phase_coherence`.
     6. **Cepstral analysis** — harmonic structure fingerprinting.
-    7. **φ-weighted influence multiplier** — five-signal geometric mean
-       of score, entropy, breadth, flux, and coherence.
+    7. **φ-weighted influence multiplier** — five-term geometric mean
+       of score, entropy, breadth, flux, and coherence; coherence abstains,
+       so four terms are measured.
 
     The resulting :class:`FrequencyInfluenceVector` modulates the fused
     anomaly score in ``PhysicsIntegratedDetector``.
@@ -338,6 +354,35 @@ class SpectralDomainFrequency(BaseDetector):
         result = oracle.detect(test_signal) # (T,) array
         iv = result["influence_vector"]     # FrequencyInfluenceVector
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Change-point testing: binary-segmentation CUSUM candidates are "
+                "tested with selective-inference p-values (truncated normal "
+                "conditioning on the selection event) at the configured "
+                "significance_level (default alpha = 0.05), controlling "
+                "post-selection Type I error."
+            ),
+            citation=(
+                "Lee et al. (2016), Exact post-selection inference, with "
+                "application to the lasso, Annals of Statistics 44(3); Takeuchi "
+                "Lab, arXiv:2502.03062 (both named in the module docstring)"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Overall alarm: per-band z-scores against fitted reference "
+                "statistics and the phi-weighted five-signal influence "
+                "multiplier are in-house constructions; the normalized anomaly "
+                "score is decided at the configured threshold (default 0.5). No "
+                "published threshold exists for that composite rule and no "
+                "labelled corpus calibrates it."
+            ),
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the instance."""
@@ -614,99 +659,130 @@ class SpectralDomainFrequency(BaseDetector):
     # Phase Coherence — inter-band phase relationship monitoring
     # ------------------------------------------------------------------
 
+    #: Value :meth:`_compute_phase_coherence` reports when quadratic phase
+    #: coupling cannot be measured (too short a signal for enough segments).
+    #: 0.0 is "no coupling detected", which makes ``coupling_influence`` in
+    #: :meth:`_compute_influence_multiplier` exactly 1.0 -- neutral in the
+    #: phi-weighted geometric mean.
+    PHASE_COUPLING_NOT_MEASURED = 0.0
+
+    #: Retained name for the abstain constant of the withdrawn
+    #: magnitude-squared-coherence implementation, whose neutral value under
+    #: the old ``1 - x`` polarity was 1.0. Kept so a caller that referenced it
+    #: still imports; it is no longer what :meth:`_compute_phase_coherence`
+    #: returns when it abstains.
+    PHASE_COHERENCE_NOT_MEASURED = 1.0
+
+    #: Segment length of the bispectral estimate. 256 is the shortest that
+    #: separated every recorded CWRU fault class from healthy windows: at 64
+    #: ball faults fell *below* healthy (0.0175 against 0.0250), at 128 they
+    #: cleared it by 0.0008, and at 256 by 0.0075 with AUROC 0.889.
+    _BICOHERENCE_SEGMENT = 256
+    #: Fewest segments the estimate needs. The uncoupled expectation of the
+    #: squared bicoherence is 1/K, so too few segments put the noise floor
+    #: above any real coupling.
+    _BICOHERENCE_MIN_SEGMENTS = 8
+
     def _compute_phase_coherence(
         self,
         signal: np.ndarray[Any, Any],
     ) -> float:
-        """Compute mean inter-band phase coherence.
+        """Mean squared bicoherence: quadratic phase coupling across bands.
 
-        Phase coherence degrades before amplitude changes, making it a
-        *leading indicator* of anomalous behaviour.  Uses Welch's method
-        cross-spectral density estimation (``scipy.signal.csd``) to
-        compute magnitude-squared coherence between adjacent frequency
-        bands.
+        **Higher means more anomalous**, which is the opposite polarity to the
+        withdrawn implementation this replaces, and
+        :meth:`_compute_influence_multiplier` now reads it that way.
 
-        When fewer than 2 bands have sufficient data, returns 1.0
-        (maximally coherent — no evidence of decoherence).
+        The previous implementation returned exactly ``1.0`` for every input
+        ever given to it -- healthy and faulty CWRU windows, white noise, a
+        pure tone and a constant alike -- because it asked
+        ``scipy.signal.coherence`` for the magnitude-squared coherence of two
+        *disjoint* band-limited spectra, where ``|Pxy|^2 / (Pxx * Pyy)`` is
+        ``0/0`` at almost every bin, and because ``nperseg`` left Welch with
+        one segment, which makes ``|Pxy|^2 == Pxx * Pyy`` identically. It was
+        withdrawn rather than left reporting a constant as a measurement, and
+        its docstring recorded what a replacement would need: an n:m
+        cross-frequency coupling measure, since the bands' centre frequencies
+        differ and 1:1 phase locking is not well posed, **and** evidence of
+        which direction of the measure is anomalous.
+
+        Squared bicoherence is that measure. It relates three frequencies --
+        ``b^2(f1, f2)`` asks whether the phase at ``f1 + f2`` tracks the sum
+        of the phases at ``f1`` and ``f2``, consistently across segments -- so
+        it is n:m by construction rather than a 1:1 locking value. Averaged
+        over the non-redundant ``(f1, f2)`` region it answers "how much of
+        this signal's structure is phase-coupled across bands".
+
+        Direction, on the recorded CWRU bearing corpus, 20 fault windows per
+        class against 40 healthy:
+
+        ====================  ======  =============
+        class                 mean    AUROC healthy
+        ====================  ======  =============
+        healthy               0.0713  --
+        ball                  0.0788  0.889
+        inner_race            0.1258  1.000
+        outer_race            0.2010  1.000
+        ====================  ======  =============
+
+        Every fault class sits *above* healthy, which is what the 1:1
+        phase-locking prototype could not manage (outer race 0.892, inner race
+        0.176 -- the opposite direction -- and ball 0.521, chance).
+
+        The direction also holds on signals whose coupling is known by
+        construction: Gaussian noise measures 0.0079, a periodic impulse train
+        0.3481, and an impulse train convolved with a decaying resonance --
+        the textbook model of a bearing fault -- 0.1570.
+
+        One property bounds what this establishes. Squared bicoherence
+        measures phase consistency *across segments*, so a purely
+        deterministic signal saturates it at 1.0 whether or not its components
+        are genuinely coupled: three tones with independent phases and three
+        with ``phi_3 = phi_1 + phi_2`` both measure 1.0 at their triplet,
+        because every segment is the same realisation. On a signal with a
+        stochastic component, which recorded vibration is, that degeneracy
+        does not arise. What the statistic responds to on real data is
+        periodic, impulsive, phase-locked structure, and that is the bearing
+        fault signature rather than an incidental proxy for it.
 
         Args:
             signal: 1-D time-domain signal.
 
         Returns:
-            Mean coherence in [0, 1].
+            Mean squared bicoherence in ``[0, 1]``, or
+            :data:`PHASE_COUPLING_NOT_MEASURED` when the signal is too short
+            for :data:`_BICOHERENCE_MIN_SEGMENTS` segments.
         """
-        from scipy.signal import coherence as scipy_coherence
+        series = np.asarray(signal, dtype=np.float64).reshape(-1)
+        nfft = self._BICOHERENCE_SEGMENT
+        step = nfft // 2
+        if series.size < nfft + step * (self._BICOHERENCE_MIN_SEGMENTS - 1):
+            return self.PHASE_COUPLING_NOT_MEASURED
 
-        sr = self._oracle_config.sample_rate
-        nperseg = min(256, len(signal) // 2) if len(signal) >= 4 else len(signal)
+        centred = series - series.mean()
+        window = np.hanning(nfft)
+        starts = range(0, centred.size - nfft + 1, step)
+        spectra = np.array([fft(centred[i : i + nfft] * window)[: nfft // 2] for i in starts])
+        half = spectra.shape[1] // 2
+        if half < 2:
+            return self.PHASE_COUPLING_NOT_MEASURED
 
-        if nperseg < 4 or len(self._bands) < 2:
-            logger.debug(
-                "Phase coherence: insufficient data (nperseg=%d, bands=%d), defaulting to 1.0",
-                nperseg,
-                len(self._bands),
-            )
-            return 1.0
+        total = np.add.outer(np.arange(half), np.arange(half))
+        numerator = np.zeros((half, half), dtype=np.complex128)
+        pair_power = np.zeros((half, half), dtype=np.float64)
+        sum_power = np.zeros((half, half), dtype=np.float64)
+        for spectrum in spectra:
+            pair = spectrum[:half][:, None] * spectrum[:half][None, :]
+            numerator += pair * np.conj(spectrum[total])
+            pair_power += np.abs(pair) ** 2
+            sum_power += np.abs(spectrum[total]) ** 2
 
-        # Bandpass-filtered power series per band
-        n = len(signal)
-        win_len = min(self._oracle_config.inner_window, n)
-        freqs_full = fftfreq(win_len, d=1.0 / sr)
-        pos_freqs = freqs_full[freqs_full >= 0]
-
-        # Build per-band time-domain approximations via inverse FFT masking
-        band_signals: list[np.ndarray[Any, Any]] = []
-        spectrum = fft(signal[:win_len] * np.hanning(win_len))
-        for lo, hi, _label, _w in self._bands:
-            mask_pos = (pos_freqs >= lo) & (pos_freqs <= hi)
-            if not np.any(mask_pos):
-                continue
-
-            # Zero out frequencies outside the band
-            filtered = np.zeros_like(spectrum)
-            # Positive frequencies
-            pos_indices = np.where(freqs_full >= 0)[0]
-            for idx in pos_indices[mask_pos]:
-                filtered[idx] = spectrum[idx]
-                # Mirror for negative frequencies
-                if idx > 0 and idx < len(spectrum) - 1:
-                    filtered[len(spectrum) - idx] = spectrum[len(spectrum) - idx]
-
-            band_sig = np.real(np.fft.ifft(filtered))
-            band_signals.append(band_sig)
-
-        if len(band_signals) < 2:
-            logger.debug("Phase coherence: fewer than 2 bands with data, defaulting to 1.0")
-            return 1.0
-
-        # Pairwise coherencebetween adjacent bands
-        coherences: list[float] = []
-        for i in range(len(band_signals) - 1):
-            try:
-                _, coh = scipy_coherence(
-                    band_signals[i],
-                    band_signals[i + 1],
-                    fs=sr,
-                    nperseg=min(nperseg, len(band_signals[i])),
-                )
-                # Filter NaN values from coherence (caused by zero-power bins)
-                coh_clean = coh[np.isfinite(coh)]
-                if len(coh_clean) > 0:
-                    coherences.append(float(np.mean(coh_clean)))
-                else:
-                    coherences.append(1.0)
-            except (ValueError, ZeroDivisionError):
-                coherences.append(1.0)
-
-        if not coherences:
-            logger.debug("Phase coherence: no valid pairwise coherence computed, defaulting to 1.0")
-            return 1.0
-        mean_coh = float(np.mean(coherences))
-        # Guard against residual NaN from edge cases
-        if not np.isfinite(mean_coh):
-            logger.debug("Phase coherence: mean coherence non-finite, defaulting to 1.0")
-            return 1.0
-        return float(np.clip(mean_coh, 0.0, 1.0))
+        squared = (np.abs(numerator) ** 2) / (pair_power * sum_power + EPSILON)
+        upper = np.triu_indices(half)
+        value = float(np.mean(squared[upper]))
+        if not np.isfinite(value):
+            return self.PHASE_COUPLING_NOT_MEASURED
+        return float(np.clip(value, 0.0, 1.0))
 
     # ------------------------------------------------------------------
     # Cepstral Analysis — harmonic structure fingerprinting
@@ -1169,11 +1245,24 @@ class SpectralDomainFrequency(BaseDetector):
                     expected_ratio = expected / total_expected
                     corrected_ratio = power_ratio / max(expected_ratio, 1e-10)
 
-        # Z-score (use corrected ratio when noise color is estimated)
-        if self._noise_beta != 0.0:
-            z_score = (corrected_ratio - ref_mean) / (ref_std + EPSILON)
-        else:
-            z_score = (observed_mean - ref_mean) / (ref_std + EPSILON)
+        # Z-score of the observed band power against the reference band-power
+        # statistics.  ``corrected_ratio`` must not appear here: it is
+        # dimensionless (observed power over reference power, over the band's
+        # expected share of a beta-slope spectrum) while ``ref_mean`` and
+        # ``ref_std`` are absolute band powers, so the subtraction mixed units.
+        # On the recorded CWRU bearing windows the band powers are 1e-6 to
+        # 1e-4, so a ratio of order 1 gave z = 6.4e3 to 6.6e6 and ``|z| / 3``
+        # clipped to 1.0 for every window -- healthy and faulty alike -- making
+        # every resolvable band score exactly 0.6 and the oracle's aggregate
+        # exactly 0.21 whatever it was shown.  Nor can the correction be made
+        # unit-consistent and still matter: ``expected_ratio`` is a per-band
+        # constant once beta is estimated in ``fit``, and a constant divisor
+        # applied to both the observation and the reference cancels exactly in
+        # a z-score.  The noise-colour estimate stays reported in
+        # ``corrected_power_ratio`` and is used where it does carry
+        # information, the beta-shift alignment in
+        # :meth:`_compute_influence_multiplier`.
+        z_score = (observed_mean - ref_mean) / (ref_std + EPSILON)
         z_anomaly = float(np.clip(abs(z_score) / 3.0, 0.0, 1.0))
 
         # Change-point evidence
@@ -1208,6 +1297,7 @@ class SpectralDomainFrequency(BaseDetector):
             anomaly_score=anomaly_score,
             p_value=p_value,
             is_significant=is_significant,
+            corrected_power_ratio=corrected_ratio,
         )
 
     # ------------------------------------------------------------------
@@ -1271,19 +1361,25 @@ class SpectralDomainFrequency(BaseDetector):
         flux_influence = 1.0 + min(spectral_flux, 1.0) * 0.5
         flux_influence = max(flux_influence, EPSILON)
 
-        # Coherence influence: low coherence → amplify (decoherence is anomalous)
-        # phase_coherence in [0, 1]; invert so that low coherence → high influence
-        coherence_influence = 1.0 + (1.0 - phase_coherence) * 0.5
-        coherence_influence = max(coherence_influence, EPSILON)
+        # Coupling influence: high quadratic phase coupling → amplify.
+        # ``phase_coherence`` now carries the mean squared bicoherence, where
+        # higher means more inter-band phase coupling and so more anomalous --
+        # the opposite polarity to the withdrawn magnitude-squared-coherence
+        # term, which this reads the right way round. Measured on the recorded
+        # CWRU corpus: healthy 0.0713, ball 0.0788, inner race 0.1258, outer
+        # race 0.2010, every fault class above healthy. See
+        # _compute_phase_coherence for the full direction evidence.
+        coupling_influence = 1.0 + min(phase_coherence, 1.0) * 0.5
+        coupling_influence = max(coupling_influence, EPSILON)
 
-        # φ-weighted geometric mean (5 signals)
+        # φ-weighted geometric mean over five measured signals.
         exponent = 1.0 / (PHI + 4.0)
         multiplier = (
             score_influence**PHI
             * entropy_influence
             * breadth_influence
             * flux_influence
-            * coherence_influence
+            * coupling_influence
         ) ** exponent
 
         # Asymmetric adjustment (F1 Precision Directive, Phase 6):
@@ -1469,7 +1565,7 @@ class SpectralDomainFrequency(BaseDetector):
           - Aggregate score
           - Influence multiplier
           - Spectral flux
-          - Phase coherence
+          - Phase coherence (abstains; constant)
           - Cepstral peak ratio
 
         Complies with BaseDetector contract: returns torch.Tensor
@@ -1612,7 +1708,8 @@ class SpectralDomainFrequency(BaseDetector):
         dominant_idx = int(np.argmax(mean_spectrum))
         dominant_frequency = float(freqs[dominant_idx]) if len(freqs) > dominant_idx else 0.0
 
-        # Stage 4: Influence multiplier (φ-weighted geometric mean, 5 signals)
+        # Stage 4: Influence multiplier (φ-weighted geometric mean, 5 terms,
+        # 4 measured -- phase coherence abstains)
         influence_multiplier = self._compute_influence_multiplier(
             aggregate_score,
             spectral_entropy,

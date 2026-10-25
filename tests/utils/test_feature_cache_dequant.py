@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Core-lane tests for feature_cache correctness fixes (no torch required).
 
 These pin two real defects and prove the module's pure-numpy surface works

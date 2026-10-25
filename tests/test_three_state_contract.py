@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The verifier vocabulary maps onto the unified three-state contract.
 
 Pure-Python tier (no torch / no Lean required): the GOSNN constructs

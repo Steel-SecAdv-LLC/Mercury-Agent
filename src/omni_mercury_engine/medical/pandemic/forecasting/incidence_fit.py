@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fit the SEIR model to observed daily incidence and forecast it with intervals.
 
 Method (Chowell, Bleichrodt & Luo 2024, *Stat. Med.* 43:1826-1848; King et al.

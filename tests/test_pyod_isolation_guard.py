@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Guardrail: PyOD stays a benchmark baseline, never an operational dependency.
 
 PyOD (and the scikit-learn estimators underneath it) exists in this repository

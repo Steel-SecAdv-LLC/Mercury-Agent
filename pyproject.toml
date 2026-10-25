@@ -1,6 +1,6 @@
 # Mercury Agent Project Configuration
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 [build-system]
 requires = ["setuptools>=82.0.1", "wheel"]
@@ -8,16 +8,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mercury-agent-global"
-version = "2.1.0"
+version = "3.0.0"
 description = "Mercury Agent: civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 readme = "README.md"
-license = {text = "GPL-3.0-or-later"}
+license = {text = "AGPL-3.0-or-later"}
 requires-python = ">=3.11"
 authors = [
-    {name = "Steel Security Advisors LLC", email = "steel.sa.llc@gmail.com"}
+    {name = "Steel Security Advisors LLC", email = "steel.sa.llc@mercuryagent.global"}
 ]
 maintainers = [
-    {name = "Steel Security Advisors LLC", email = "steel.sa.llc@gmail.com"}
+    {name = "Steel Security Advisors LLC", email = "steel.sa.llc@mercuryagent.global"}
 ]
 keywords = [
     "anomaly-detection",
@@ -32,7 +32,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -506,6 +506,10 @@ namespaces = false
 omni_mercury_engine = [
     "py.typed",
     "models/checkpoints/*.pt",
+    # The streaming worker's learned alarm policy (ml/alarm_policy.py): NumPy
+    # arrays, loaded with allow_pickle=False after its sidecar's sha256 check.
+    # Without it a non-editable install's StreamingAnomalyPipeline cannot start.
+    "models/checkpoints/*.npz",
     # Provenance sidecars travel WITH their checkpoints: a non-editable
     # install without them would silently degrade the shipped-checkpoint
     # provenance guarantee (load_shipped_checkpoint verifies the .pt against
@@ -542,7 +546,7 @@ omni_mercury_engine = [
 # =============================================================================
 [tool.black]
 line-length = 100
-target-version = ['py312', 'py313']
+target-version = ['py311', 'py312', 'py313']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -792,6 +796,12 @@ module = [
     # and ``audit_log_signer`` surface a ``try/except ImportError`` so
     # the cert body can record the omission reason.
     "pkcs11",
+    # Optional RL environment registry: ``ml.rl_envs`` guards the import
+    # with ``try/except ImportError`` and serves its in-tree environments
+    # without it (the PPO trainer is torch-native; gymnasium only widens
+    # the environment id space when an operator installs it).
+    "gymnasium",
+    "gymnasium.*",
 ]
 ignore_missing_imports = true
 
@@ -1130,7 +1140,9 @@ skips = ["*_test.py", "test_*.py"]
 # Ruff Configuration (Fast Python Linter)
 # =============================================================================
 [tool.ruff]
-target-version = "py312"
+# The floor of requires-python: a newer target recommends syntax (PEP 695
+# generics) that is a SyntaxError on 3.11, which CI tests.
+target-version = "py311"
 line-length = 100
 # ``ruff check`` must be a pure check. ``fix = true`` made every plain
 # ``ruff check`` invocation auto-mutate the tree, so a file could change

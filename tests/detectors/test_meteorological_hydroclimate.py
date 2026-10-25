@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the hydro-climate meteorological detectors (T4b1).
 
 Drought (SPI/SPEI, McKee 1993 / Vicente-Serrano 2010), heatwave
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
+from typing import Any
 
 import numpy as np
 import pytest
@@ -432,7 +433,7 @@ class TestLightningJump:
 # =============================================================================
 
 
-def _coops_payload(values: list[float], key: str) -> dict[str, object]:
+def _coops_payload(values: list[float], key: str) -> dict[str, list[dict[str, str]]]:
     """CO-OPS datagetter payload shape (product=water_level / predictions)."""
     rows = [{"t": f"2026-07-08 {i:02d}:00", "v": f"{v:.3f}"} for i, v in enumerate(values)]
     return {key: rows}
@@ -538,7 +539,160 @@ class TestSurgeFloodCascade:
         with pytest.raises(ValueError, match="surge_threshold_m"):
             SurgeFloodCascade(surge_threshold_m=0.0)
 
+    # -- Per-station flood thresholds (Sweet et al. 2018 / NOAA CO-OPS) ----
+
+    def test_station_flood_threshold_gates_on_total_water_level(self) -> None:
+        """With the station's own threshold, the gate is the observed total
+        water level reaching it -- the quantity NWS thresholds are defined
+        on -- not the flat residual default.
+
+        The Battery (8518750): official NWS minor flood threshold is
+        2.195 m above MLLW (mdapi floodlevels 3.197 m minus MLLW datum
+        1.002 m, both station-datum referenced; recorded fixture).
+        """
+        battery_minor_mllw = 3.197 - 1.002
+        # A 0.9 m surge on top of a 1.4 m tide crosses the 2.195 m line...
+        high = _coops_payload([1.0, 1.4, 2.3], key="data")
+        tide = _coops_payload([1.0, 1.4, 1.4], key="predictions")
+        cascade = SurgeFloodCascade()
+        record = cascade.update_surge_evidence(
+            high, tide, station_id="8518750", flood_threshold_m=battery_minor_mllw
+        )
+        assert record.qualifies is True
+        assert record.summary["threshold_basis"] == "station_flood_threshold"
+        assert record.summary["threshold_m"] == pytest.approx(battery_minor_mllw)
+        # ...while the same 0.9 m residual at low tide floods nothing, where
+        # the retired flat 0.3 m residual gate fired regardless of the tide.
+        low = _coops_payload([0.1, 0.2, 1.1], key="data")
+        low_tide = _coops_payload([0.1, 0.2, 0.2], key="predictions")
+        record = cascade.update_surge_evidence(
+            low, low_tide, station_id="8518750", flood_threshold_m=battery_minor_mllw
+        )
+        assert record.qualifies is False
+        assert record.summary["max_residual_m"] == pytest.approx(0.9)
+
+    def test_constructor_station_threshold_map_is_used(self) -> None:
+        cascade = SurgeFloodCascade(station_flood_thresholds_m={"8518750": 2.195})
+        observed = _coops_payload([2.0, 2.3], key="data")
+        predicted = _coops_payload([1.9, 2.0], key="predictions")
+        record = cascade.update_surge_evidence(observed, predicted, station_id="8518750")
+        assert record.summary["threshold_basis"] == "station_flood_threshold"
+        assert record.qualifies is True
+
+    def test_sweet_2018_derived_threshold(self) -> None:
+        """Without an official threshold, Sweet et al. (2018) derives one.
+
+        Minor = 1.04*GT + 0.50 m above MLLW (NOAA Tech. Rep. NOS CO-OPS
+        086, Fig. 3).  The Battery's GT is 1.541 m, so the derived line is
+        2.103 m above MLLW -- within the report's 0.19 m RMSE of the
+        official 2.195 m.
+        """
+        from omni_mercury_engine.detectors.meteorological.surge_flood_cascade import (
+            derived_minor_flood_threshold_m,
+        )
+
+        derived = derived_minor_flood_threshold_m("MLLW", 1.541)
+        assert derived == pytest.approx(1.04 * 1.541 + 0.50)
+        assert abs(derived - 2.195) < 0.19
+        assert derived_minor_flood_threshold_m("MHHW", 1.541) == pytest.approx(0.04 * 1.541 + 0.50)
+        with pytest.raises(ValueError, match="datum"):
+            derived_minor_flood_threshold_m("NAVD88", 1.541)
+        with pytest.raises(ValueError, match="great_diurnal_range_m"):
+            derived_minor_flood_threshold_m("MLLW", 0.0)
+
+        cascade = SurgeFloodCascade()
+        observed = _coops_payload([1.8, 2.2], key="data")
+        predicted = _coops_payload([1.4, 1.5], key="predictions")
+        record = cascade.update_surge_evidence(
+            observed, predicted, station_id="8518750", datum="MLLW", great_diurnal_range_m=1.541
+        )
+        assert record.summary["threshold_basis"] == "sweet_2018_derived_minor_threshold"
+        assert record.qualifies is True  # max observed 2.2 >= 2.103
+
+    def test_residual_fallback_is_labelled_unsourced(self) -> None:
+        cascade = SurgeFloodCascade()
+        observed = _coops_payload([1.0, 1.5], key="data")
+        predicted = _coops_payload([1.0, 1.0], key="predictions")
+        record = cascade.update_surge_evidence(observed, predicted)
+        assert record.summary["threshold_basis"] == "residual_monitoring_gate_unsourced"
+        assert record.qualifies is True  # residual 0.5 >= 0.3
+
+    def test_fetch_flood_threshold_m_from_recorded_metadata(self) -> None:
+        """NOAACOOPSSource combines floodlevels and datums (recorded payloads)."""
+        import json as _json
+        from pathlib import Path as _Path
+        from unittest import mock
+
+        from omni_mercury_engine.data_sources.earth_science import NOAACOOPSSource
+
+        fixtures = _Path(__file__).parents[1] / "fixtures" / "coops"
+        payloads = {
+            "floodlevels": _json.loads((fixtures / "floodlevels_8518750.json").read_text()),
+            "datums": _json.loads((fixtures / "datums_8518750.json").read_text()),
+        }
+
+        def fake_get(endpoint: str, params: dict[str, Any] | None = None) -> mock.Mock:
+            key = "floodlevels" if "floodlevels" in endpoint else "datums"
+            return mock.Mock(json=lambda: payloads[key])
+
+        source = NOAACOOPSSource(station_id="8518750")
+        with mock.patch.object(source, "_http_get_sync", side_effect=fake_get):
+            assert source.fetch_flood_threshold_m("MLLW") == pytest.approx(3.197 - 1.002)
+            assert source.fetch_flood_threshold_m("MHHW") == pytest.approx(3.197 - 2.543)
+
+    def test_decision_source_names_the_published_threshold(self) -> None:
+        published, fallback = SurgeFloodCascade.decision_source
+        assert published.kind == "published"
+        assert published.citation is not None
+        assert "NOS CO-OPS 086" in published.citation
+        assert fallback.kind == "experimental"
+
     def test_river_evidence_without_stage_fails_loud(self) -> None:
         cascade = SurgeFloodCascade()
         with pytest.raises(ValueError, match="no observed stage"):
             cascade.update_river_evidence({"lid": "X", "status": {"observed": {}}})
+
+
+class TestSurgeInputsFailClosed:
+    """Corrupted CO-OPS and NWPS values are refused, never graded."""
+
+    @pytest.mark.parametrize("bad", ["inf", "-inf", "nan"])
+    def test_non_finite_water_level_is_refused(self, bad: str) -> None:
+        """An "inf" level made the residual infinite and escalated the cascade."""
+        observed = _coops_payload([0.1, 0.2, 0.3], "data")
+        observed["data"][1]["v"] = bad
+        predicted = _coops_payload([0.1, 0.2, 0.3], "predictions")
+        with pytest.raises(ValueError, match="non-finite"):
+            SurgeFloodCascade().update_surge_evidence(observed, predicted, "8518750")
+
+    def test_string_error_payload_is_reported(self) -> None:
+        """A bare-string CO-OPS error used to crash with AttributeError."""
+        with pytest.raises(ValueError, match="No data was found"):
+            SurgeFloodCascade().update_surge_evidence(
+                {"error": "No data was found"}, _coops_payload([0.1], "predictions")
+            )
+
+    @pytest.mark.parametrize(
+        "gauge",
+        [
+            {"lid": "X", "status": {"observed": {"primary": float("inf")}}},
+            {"lid": "X", "status": {"observed": {"primary": float("nan")}}},
+            {
+                "lid": "X",
+                "status": {"observed": {"primary": 3.0}},
+                "flood": {"categories": {"minor": {"stage": float("nan")}}},
+            },
+        ],
+    )
+    def test_non_finite_gauge_is_refused(self, gauge: dict[str, object]) -> None:
+        with pytest.raises(ValueError, match="non-finite"):
+            SurgeFloodCascade().update_river_evidence(gauge)
+
+    def test_null_minor_category_is_tolerated(self) -> None:
+        """NWPS serves ``"minor": null`` for ungauged categories."""
+        gauge = {
+            "lid": "X",
+            "status": {"observed": {"primary": 3.0, "floodCategory": "no_flooding"}},
+            "flood": {"categories": {"minor": None}},
+        }
+        assert SurgeFloodCascade().update_river_evidence(gauge).qualifies is False

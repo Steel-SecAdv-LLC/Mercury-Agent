@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The batched domain models reproduce the per-row models they replaced.
 
 Each ``_reference_*`` function is the original implementation, one Python

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Native web research: fetch URLs, extract readable text, best-effort search.
 
 HTML parsing and extraction are pure standard library (``html.parser``); no

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Solar & Geomagnetic Storm Detector - Space Weather Monitoring.
 
 Comprehensive space weather detection for critical infrastructure protection:
@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.evaluation.hazard_metrics import (
     G_SCALE_NAMES,
     noaa_g_scale,
@@ -230,6 +231,23 @@ class SolarFlareDetector:
     fetched DataPoints onto :meth:`predict_solar_flare` and stamps
     ``source_id`` / ``data_provenance`` / ``live_context`` on the result.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Flare classification is the GOES X-ray standard on the 0.1-0.8 nm "
+            "long band: A/B/C/M/X at 1e-8/1e-7/1e-6/1e-5/1e-4 W/m^2, with the "
+            "radio-blackout level graded by the NOAA R scale on the same flux. "
+            "Dst is estimated only from an OBSERVED Kp, via the NOAA G-scale "
+            "correspondence anchored to the Loewe & Proelss (1997) storm-class "
+            "Dst ranges; no geomagnetic quantity is fabricated offline."
+        ),
+        citation=(
+            "NOAA SWPC Space Weather Scales (R scale; GOES X-ray flare classes, "
+            "https://www.swpc.noaa.gov/noaa-scales-explanation); Loewe & "
+            "Proelss (1997), JGR 102(A7), 14209 (storm-class Dst ranges)"
+        ),
+    )
 
     # GOES X-ray flux classification thresholds (W/m^2) -- physical standard.
     FLUX_THRESHOLDS: dict[str, float] = {
@@ -867,6 +885,48 @@ class SolarStormDetector:
 
     Integrates solar flares, CMEs, geomagnetic indices for infrastructure protection.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="trained",
+            description=(
+                "Geomagnetic storm prediction serves the shipped merit-gated "
+                "'solar_storm_geomag' checkpoint by default: a Kp regression "
+                "plus a storm-probability head whose validation-selected "
+                "threshold drives G1 storm onset. Measured on 25,846 held-out "
+                "OMNI2 hours (test years 2022-2024): Kp MAE 0.575 versus "
+                "1.054 for the physics fallback, with G1-onset storm labels "
+                "per noaa_g_scale (Kp 5- and up)."
+            ),
+            operating_point=(
+                "shipped checkpoint 'solar_storm_geomag' "
+                "(src/omni_mercury_engine/models/checkpoints/"
+                "solar_storm_geomag.pt; checkpoint-carried validation-selected "
+                "storm_prob_threshold, selection recorded in "
+                "solar_storm_geomag.provenance.json)"
+            ),
+        ),
+        DecisionSource(
+            kind="published",
+            description=(
+                "Scale grading and the no-checkpoint fallback are published "
+                "rules: G from Kp, R from the GOES 0.1-0.8 nm X-ray flux and "
+                "S from the >=10 MeV proton flux per the NOAA Space Weather "
+                "Scales. Absent the checkpoint, Kp derives deterministically "
+                "from the observed solar wind/IMF via the Boyle et al. (1997) "
+                "polar-cap potential Phi[kV] = 1e-4 v^2 + "
+                "11.7 B_T sin^3(theta_c/2) and the standard empirical map "
+                "Kp = 8.93 log10(Phi) - 12.55; an untrained network is never "
+                "consulted."
+            ),
+            citation=(
+                "NOAA SWPC Space Weather Scales (G, R and S scales; "
+                "https://www.swpc.noaa.gov/noaa-scales-explanation); Boyle et "
+                "al. (1997) polar-cap potential (the coupling function of the "
+                "physics Kp fallback)"
+            ),
+        ),
+    )
 
     def __init__(
         self,

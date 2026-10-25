@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Obfuscation-resistant text normalization and multilingual hazard lexicons.
 
 The weapons/mass-casualty uplift gate (:mod:`.ethical_bounding`) historically

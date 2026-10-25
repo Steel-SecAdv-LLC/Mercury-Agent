@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unified benchmark runner for all domain-specific anomaly detectors.
 
 Orchestrates all domain benchmarks, produces a unified report, and

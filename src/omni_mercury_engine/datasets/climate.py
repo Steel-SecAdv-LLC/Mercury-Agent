@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Climate and Oceanographic Dataset Loaders - Advanced Marine Data Integration.
 
 This module provides loaders for advanced climate and oceanographic datasets:

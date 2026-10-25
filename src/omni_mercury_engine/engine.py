@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Main OmniMercuryEngine orchestrating all detectors and models.
 
 This module provides the core anomaly detection engine that integrates
@@ -150,9 +150,9 @@ from omni_mercury_engine.core.parallel_detectors import (
 # that exercise non-GOSNN code paths can opt out of σ_Immutable's
 # corpus / weights bootstrap when running on stripped-down CI images
 # (no torch, no signed corpus).  Setting it True turns every
-# ``detect_with_fusion`` call into a benevolence-only check; the
-# engine still runs the BenevolenceScorer hard gate, but skips the
-# σ_Immutable second gate.
+# ``detect_with_fusion`` call into a harm-uplift-only check; the
+# engine still runs the shared fail-closed harm-uplift gate, but skips
+# the σ_Immutable second gate.
 #
 # At every public call site, the ``_enable_gosnn`` parameter is private
 # (leading underscore) — public callers cannot bypass σ_Immutable.
@@ -181,13 +181,13 @@ __version__ = _get_version()
 # Core detectors - always imported (lightweight base classes)
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
+
+# Runtime pipeline modules - always imported (required for core functionality)
+from omni_mercury_engine.detectors.drift import DriftIncomparableError, EnsembleDriftDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 from omni_mercury_engine.ml.domain_encoders import DomainEncoderStack
-
-# Runtime pipeline modules - always imported (required for core functionality)
-from omni_mercury_engine.ml.drift import DriftIncomparableError, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
 from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
@@ -1071,6 +1071,13 @@ class OmniMercuryEngine(LoggerMixin):
         # width-8 retrain still carried the shipped checkpoint's width-16
         # rows and every later drift check reported "incomparable".
         self._checkpoint_fit_detectors: set[str] = set()
+        # Detectors that declined the training data's modality (raised
+        # InputModalityError from fit). A decline is a correct refusal, not a
+        # fault: such a detector can never become fitted on this corpus, so
+        # the fail-loud unfit check at inference must skip it instead of
+        # demanding a fit_fusion call that has already happened. Keyed strictly
+        # on InputModalityError so a genuine fit failure still fails loudly.
+        self._modality_declined_detectors: set[str] = set()
         # Fail-loud on an unfit detector at inference instead of leaking the
         # first batch as its reference distribution (see __init__ docstring).
         self._require_explicit_fit: bool = require_explicit_fit
@@ -1317,9 +1324,12 @@ class OmniMercuryEngine(LoggerMixin):
             The constructed and registered detector instance.
 
         Raises:
-            ValueError: If ``name`` is not in the manifest, its manifest
-                ``module_path`` is outside the ``omni_mercury_engine``
-                package, or it is already enabled.
+            ValueError: If ``name`` is not in the manifest, the entry does
+                not declare the ``engine`` seam (library-only detectors are
+                called through their domain APIs, or through the adapter
+                named in the error), its manifest ``module_path`` is outside
+                the ``omni_mercury_engine`` package, or it is already
+                enabled.
             TypeError: If the manifest entry constructs an object that is
                 not a :class:`~omni_mercury_engine.core.base.BaseDetector`.
         """
@@ -1332,6 +1342,17 @@ class OmniMercuryEngine(LoggerMixin):
             available = ", ".join(sorted(e.name for e in DETECTOR_MANIFEST))
             raise ValueError(
                 f"Unknown detector {name!r}. Available manifest detectors: {available}"
+            )
+        if "engine" not in entry.seams:
+            hint = (
+                f" Its numeric surface is served by the {entry.covered_by!r} adapter entry."
+                if entry.covered_by
+                else ""
+            )
+            raise ValueError(
+                f"Detector {name!r} does not serve the engine seam (declared seams: "
+                f"{', '.join(entry.seams) or 'none -- library-only'}; modality: "
+                f"{entry.modality}). Call its domain API directly.{hint}"
             )
         # Defense in depth: the manifest is curated code, but never import from
         # outside the package tree (mirrors DetectorRegistry.auto_discover_detectors).
@@ -1709,6 +1730,21 @@ class OmniMercuryEngine(LoggerMixin):
         # resolution below is correct -- np.asarray on a live tensor is unreliable.
         if isinstance(y, torch.Tensor):
             y = y.detach().cpu().numpy()
+
+        X = np.asarray(X)
+        if X.ndim != 2:
+            # The documented contract is ``X: (n_samples, n_features)``. A 1-D
+            # array used to be accepted here and then failed deep inside
+            # feature extraction, because the base detectors disagree on what
+            # a bare 1-D array means: some read it as one feature column and
+            # others as a single sample. Refuse at the boundary and name the
+            # fix, rather than training on whichever feature groups happened
+            # to survive.
+            raise ValueError(
+                "fit_fusion expects X with shape (n_samples, n_features); got "
+                f"shape {tuple(X.shape)}. For a single series pass "
+                "X.reshape(-1, 1)."
+            )
 
         n_samples = len(X)
         logger.info(f"Starting fusion training on {n_samples} samples...")
@@ -2685,7 +2721,17 @@ class OmniMercuryEngine(LoggerMixin):
                 try:
                     if self._fit_for_training(name, detector, X):
                         logger.debug(f"Fitted detector: {name}")
+                    self._modality_declined_detectors.discard(name)
+                except InputModalityError as e:
+                    # A correct refusal: this detector does not process this
+                    # modality (e.g. the spatial detector on a univariate
+                    # column). Recorded so inference skips it rather than
+                    # reporting it to the caller as an unfitted detector.
+                    self._modality_declined_detectors.add(name)
+                    record_component_declined(name)
+                    logger.info(f"Detector {name} declined the training modality: {e}")
                 except Exception as e:
+                    self._modality_declined_detectors.discard(name)
                     logger.warning(f"Failed to fit detector {name}: {e}")
 
         logger.info("Extracting fusion features (detectors + domain models)...")
@@ -2794,7 +2840,7 @@ class OmniMercuryEngine(LoggerMixin):
             Float32 tensor ``(n_samples, n_detectors)`` of scores in ``[0, 1]``.
         """
         n_samples = len(X)
-        _, det_scores, _ = self._extract_detector_features(X)
+        _, det_scores, _, _ = self._extract_detector_features(X)
         _, mod_scores = self._extract_model_features(X)
 
         all_scores = {**det_scores, **mod_scores}
@@ -4325,6 +4371,46 @@ class OmniMercuryEngine(LoggerMixin):
         self._checkpoint_fit_detectors.discard(name)
         return True
 
+    def stream_session(
+        self,
+        detector_types: list[str] | None = None,
+        *,
+        window_size: int = 256,
+        min_samples: int = 32,
+        refit_interval: int = 128,
+        monitor_drift: bool = True,
+    ) -> Any:
+        """Open a one-sample-at-a-time detection session on this engine.
+
+        The returned :class:`~omni_mercury_engine.streaming.engine_stream.
+        EngineStreamSession` keeps a rolling window and detector state across
+        ``observe(sample)`` calls: detectors are fitted at warm-up and every
+        ``refit_interval`` samples, never per record, and each sample is
+        scored through :meth:`detect` so the gated boundary applies to
+        streaming verdicts exactly as to batch ones.
+
+        Args:
+            detector_types: Detector names to run (default: all enabled).
+            window_size: Rolling-window length scored per sample.
+            min_samples: Warm-up samples before the first verdict.
+            refit_interval: Samples between detector refits.
+            monitor_drift: Run the ADWIN online drift monitor over the
+                measured stream (verdicts then carry a ``drift`` record).
+
+        Returns:
+            A new ``EngineStreamSession``.
+        """
+        from omni_mercury_engine.streaming.engine_stream import EngineStreamSession
+
+        return EngineStreamSession(
+            self,
+            detector_types=detector_types,
+            window_size=window_size,
+            min_samples=min_samples,
+            refit_interval=refit_interval,
+            monitor_drift=monitor_drift,
+        )
+
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
     def detect(
         self,
@@ -4378,6 +4464,7 @@ class OmniMercuryEngine(LoggerMixin):
         # detector executor. A failure is re-raised after every detector has
         # finished, as the first failure in ``detector_types`` order.
         runnable: list[tuple[str, Any]] = []
+        declined: list[str] = []
         for detector_name in dict.fromkeys(detector_types):
             if detector_name in self.detectors:
                 detector = self.detectors[detector_name]
@@ -4385,7 +4472,26 @@ class OmniMercuryEngine(LoggerMixin):
                 if not detector.is_fitted():
                     if isinstance(data, dict):
                         continue
-                    self._auto_fit_on_inference(detector_name, detector, data)
+                    try:
+                        self._auto_fit_on_inference(detector_name, detector, data)
+                    except InputModalityError as e:
+                        # Correct refusal, not a fault: skip the detector and
+                        # count it as declined, the contract documented on
+                        # InputModalityError and already honoured by
+                        # detect_with_fusion. Raising here would let one
+                        # inapplicable detector crash the whole call.
+                        #
+                        # Deliberately NOT recorded in
+                        # ``_modality_declined_detectors``: that set means
+                        # "declined the training corpus" and is what lets the
+                        # fusion path skip its fail-loud unfit check. Writing
+                        # it from an inference call would silence that
+                        # leakage guard for a detector the caller never
+                        # trained.
+                        record_component_declined(detector_name)
+                        declined.append(detector_name)
+                        logger.info(f"Detector {detector_name} declined this input: {e}")
+                        continue
 
                 if isinstance(data, dict):
                     continue
@@ -4408,12 +4514,27 @@ class OmniMercuryEngine(LoggerMixin):
                 results[outcome.name] = outcome.value
                 continue
             if outcome.status is OutcomeStatus.DECLINED:
+                # Declining a modality is a correct refusal: skip the
+                # detector rather than failing the call, so one inapplicable
+                # detector cannot crash detect() for the applicable ones.
                 record_component_declined(outcome.name)
-            else:
-                record_inference_error(outcome.name)
+                declined.append(outcome.name)
+                logger.info(f"Detector {outcome.name} declined this input: {outcome.error}")
+                continue
+            record_inference_error(outcome.name)
             failure = failure or outcome
         if failure is not None:
             reraise(failure)
+
+        if declined and not results:
+            # Every detector refused this input, so there is no evidence to
+            # report. Returning is_anomaly=False here would be a fail-open:
+            # "nothing could score this" is not "nothing is wrong".
+            raise InputModalityError(
+                "No detector could process this input; all declined: "
+                f"{sorted(set(declined))}. Check the input's shape and modality "
+                "against the detectors requested in detector_types."
+            )
 
         output: dict[str, Any] = {
             "detectors": results,
@@ -4428,6 +4549,10 @@ class OmniMercuryEngine(LoggerMixin):
         }
         if self._inference_auto_fit_detectors:
             output["inference_auto_fit_detectors"] = sorted(self._inference_auto_fit_detectors)
+        if declined:
+            # Surfaced so a caller can see which detectors did not contribute
+            # and why the verdict rests on the remainder.
+            output["declined_detectors"] = sorted(set(declined))
         return output
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_batch_subject)
@@ -5079,7 +5204,8 @@ class OmniMercuryEngine(LoggerMixin):
             data: Input data for feature extraction.
 
         Returns:
-            Tuple of (detector_features, detector_scores, detector_certificates):
+            Tuple of (detector_features, detector_scores, detector_certificates,
+            detector_uncertainties):
                 - detector_features: Dict mapping detector names to features
                 - detector_scores: Dict mapping detector names to scores
                 - detector_certificates: Dict mapping detector names to their
@@ -5087,6 +5213,13 @@ class OmniMercuryEngine(LoggerMixin):
                   threaded through the return value rather than stashed on the
                   engine so interleaved ``detect()`` calls cannot cross-
                   contaminate certificates).
+                - detector_uncertainties: Dict mapping detector names to the
+                  detector's own reported ``uncertainty`` when its result
+                  carries one, else the margin-based decision uncertainty of
+                  its normalized scores against its effective threshold
+                  (``BaseDetector.uncertainty_from_result``) -- so fusion sees
+                  a real uncertainty for every detector instead of the former
+                  constant zero.
 
         Note:
             Uses parallel processing when available for improved performance.
@@ -5107,6 +5240,7 @@ class OmniMercuryEngine(LoggerMixin):
         detector_features = {}
         detector_scores = {}
         detector_certificates: dict[str, Any] = {}
+        detector_uncertainties: dict[str, float] = {}
 
         # Phase 1 (sequential): fail-loud or legacy auto-fit. Fitting mutates
         # detector state and some fits seed the global torch RNG under
@@ -5116,6 +5250,14 @@ class OmniMercuryEngine(LoggerMixin):
             # Fail-loud (or legacy auto-fit) on an unfit detector. This runs
             # OUTSIDE the graceful per-detector skip handler below so the
             # fail-loud RuntimeError is not swallowed.
+            if not detector.is_fitted() and name in self._modality_declined_detectors:
+                # Declined this modality at training time; it cannot be fitted
+                # on this corpus, so skip it instead of raising the unfit
+                # error, which would blame the caller for a refusal that is
+                # correct and already recorded.
+                record_component_declined(name)
+                continue
+
             if not detector.is_fitted() and not isinstance(data, dict):
                 if self._require_explicit_fit:
                     raise RuntimeError(
@@ -5156,6 +5298,10 @@ class OmniMercuryEngine(LoggerMixin):
                 detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
+                detector_uncertainties[name] = BaseDetector.uncertainty_from_result(
+                    {**result, "scores": detector_scores[name]},
+                    threshold=self.detectors[name].get_effective_threshold(),
+                )
                 if "info_geometry_certificate" in result:
                     detector_certificates[name] = result["info_geometry_certificate"]
             except (
@@ -5187,7 +5333,7 @@ class OmniMercuryEngine(LoggerMixin):
                     logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
-        return detector_features, detector_scores, detector_certificates
+        return detector_features, detector_scores, detector_certificates, detector_uncertainties
 
     def _detector_budget(self, data: Any) -> float | None:
         """Wall-clock budget for one detector pass over ``data`` (``None``: unbounded).
@@ -5349,8 +5495,11 @@ class OmniMercuryEngine(LoggerMixin):
         Decision boundary:
             The method enforces TWO hard ethical gates in order:
 
-            1. ``BenevolenceScorer.enforce`` — keyword/context-driven gate
-               raised as ``EthicalConstraintViolationError(check="benevolence")``.
+            1. The shared fail-closed harm-uplift gate
+               (:mod:`omni_mercury_engine.cognitive.decision_gate`), raised as
+               ``EthicalConstraintViolationError(check="harm_uplift")``.
+               Benevolence is scored and attached as advisory metadata; it
+               decides nothing.
             2. ``SigmaImmutableGate.enforce`` — trained 256-D scalar
                network raised as
                ``EthicalConstraintViolationError(check="sigma_immutable")``.
@@ -5402,10 +5551,17 @@ class OmniMercuryEngine(LoggerMixin):
 
         Returns:
             Dictionary containing:
-                - anomaly_prob: Probability of anomaly (0.0-1.0)
-                - is_anomaly: Boolean anomaly flag (prob > 0.5)
-                - class_prediction: Predicted anomaly class
-                - severity: Anomaly severity score
+                - anomaly_prob: The batch's maximum per-row anomaly
+                  probability (0.0-1.0) — the most anomalous row's score
+                - is_anomaly: ``True`` when any row crosses
+                  ``threshold_used`` (equivalently, ``anomaly_prob`` does)
+                - class_prediction: Predicted class of that row
+                - severity: Severity score of that row
+                - top_row: Index of the row the four scalars above describe
+                  (``0`` for a single-row input)
+                - anomaly_probs / is_anomaly_rows / severity_scores:
+                  per-row values, aligned with the input rows
+                - threshold_used: The decision threshold applied
                 - detector_importance: Dict of detector weights
                 - mode: Detection mode ('fusion')
                 - explanation: (only when ``explain=True``) Integrated-Gradients
@@ -5454,7 +5610,9 @@ class OmniMercuryEngine(LoggerMixin):
         elif isinstance(data, torch.Tensor) and data.dim() == 1:
             data = data.unsqueeze(0)
 
-        det_features, det_scores, det_certificates = self._extract_detector_features(data)
+        det_features, det_scores, det_certificates, det_uncertainties = (
+            self._extract_detector_features(data)
+        )
         mod_features, mod_scores = self._extract_model_features(data)
 
         all_features = {**det_features, **mod_features}
@@ -5470,10 +5628,10 @@ class OmniMercuryEngine(LoggerMixin):
         # locked May-2026 audit decisions forbid.
         #
         # σ_Immutable is now trained (scripts/train_sigma_immutable.py)
-        # and serves as a second independent gate alongside the
-        # BenevolenceScorer.  The primary, per-call, content-driven ethical
-        # contract is BenevolenceScorer.enforce (keyword- and context-driven,
-        # deterministic) — enforced here, before the GOSNN block.
+        # and serves as a second independent gate.  The primary, per-call,
+        # content-driven ethical contract is the shared fail-closed
+        # harm-uplift gate (cognitive.decision_gate), applied by this
+        # method's GATED_BOUNDARY contract before the body runs.
         #
         # σ_Immutable is NOT a per-input-data classifier: it evaluates the
         # 127 operational governance scalars (padded to the network's 256-d
@@ -5491,7 +5649,7 @@ class OmniMercuryEngine(LoggerMixin):
         # (enforce_ethical_floor); the learned score over the full vector is
         # advisory (and, since the harvested retrain, agrees with the floor on
         # anchor collapse instead of falsely assuring it).  Per-call ethical
-        # sensitivity lives in BenevolenceScorer, not here.
+        # sensitivity lives in the harm-uplift gate, not here.
         # ------------------------------------------------------------
         self._enforce_ethics_at_boundary(domain=domain, data=data)
 
@@ -5742,45 +5900,45 @@ class OmniMercuryEngine(LoggerMixin):
             )
         )
 
-        anomaly_prob_val = fusion_result["anomaly_probs"][0]
-        if isinstance(anomaly_prob_val, np.ndarray) or hasattr(anomaly_prob_val, "item"):
-            anomaly_prob_val = anomaly_prob_val.item()
+        anomaly_probs_all = np.asarray(fusion_result["anomaly_probs"], dtype=np.float64).reshape(-1)
+        severity_all = np.asarray(fusion_result["severity_scores"], dtype=np.float64).reshape(-1)
+        class_preds_all = np.asarray(fusion_result["class_predictions"]).reshape(-1)
 
-        severity_val = fusion_result["severity_scores"][0]
-        if isinstance(severity_val, np.ndarray) or hasattr(severity_val, "item"):
-            severity_val = severity_val.item()
-
-        class_pred_val = fusion_result["class_predictions"][0]
-        if isinstance(class_pred_val, np.ndarray) or hasattr(class_pred_val, "item"):
-            class_pred_val = class_pred_val.item()
+        # The scalar verdict describes the batch through its most anomalous
+        # row: ``anomaly_prob`` is the maximum row probability, so
+        # ``is_anomaly`` is True exactly when any row crosses the threshold,
+        # and ``severity``/``class_prediction`` come from that same row
+        # (``top_row``). On a single-row input the maximum is the row itself,
+        # so the serving contract is unchanged. The scalars used to copy
+        # row 0, so a batch whose only anomaly sat on any other row read
+        # "normal" at the top level, and the LLM-enhancement hook, which
+        # keys on ``is_anomaly``, skipped exactly the batches it was for.
+        top_row = int(np.argmax(anomaly_probs_all))
+        anomaly_prob_val = float(anomaly_probs_all[top_row])
+        severity_val = float(severity_all[top_row])
+        class_pred_val = int(class_preds_all[top_row])
 
         # Determine threshold for anomaly classification
-        threshold = self._get_anomaly_threshold(
-            anomaly_prob_val,
-            fusion_result.get("anomaly_probs", np.array([anomaly_prob_val])),
-        )
-
-        anomaly_probs_all = np.asarray(
-            fusion_result.get("anomaly_probs", [anomaly_prob_val]), dtype=np.float64
-        ).reshape(-1)
-        severity_all = np.asarray(
-            fusion_result.get("severity_scores", [severity_val]), dtype=np.float64
-        ).reshape(-1)
+        threshold = self._get_anomaly_threshold(anomaly_prob_val, anomaly_probs_all)
 
         result = {
-            "anomaly_prob": float(anomaly_prob_val),
-            "is_anomaly": bool(float(anomaly_prob_val) > threshold),
-            "class_prediction": int(class_pred_val),
-            "severity": float(severity_val),
-            # Per-row verdicts for multi-row inputs. The scalar keys above
-            # describe row 0 only (the single-sample serving contract);
-            # batch callers must consume these lists -- detect_batch used
-            # to stamp row 0's verdict onto every row of the batch. Plain
-            # lists keep the result JSON-serialisable for the HTTP surface.
+            "anomaly_prob": anomaly_prob_val,
+            "is_anomaly": bool(anomaly_prob_val > threshold),
+            "class_prediction": class_pred_val,
+            "severity": severity_val,
+            "top_row": top_row,
+            # Per-row verdicts for multi-row inputs; the scalars above are
+            # the batch verdict (the most anomalous row). Plain lists keep
+            # the result JSON-serialisable for the HTTP surface.
             "anomaly_probs": anomaly_probs_all.tolist(),
             "is_anomaly_rows": (anomaly_probs_all > threshold).tolist(),
             "severity_scores": severity_all.tolist(),
             "detector_importance": fusion_result.get("detector_importance", {}),
+            # Per-detector decision uncertainty: the detector's own reported
+            # value when its result carried one, else the margin-based
+            # uncertainty of its normalized scores against its effective
+            # threshold. Formerly every base detector reported a constant 0.
+            "detector_uncertainties": {k: float(v) for k, v in det_uncertainties.items()},
             "mode": "fusion",
             "threshold_used": float(threshold),
         }
@@ -6134,7 +6292,7 @@ class OmniMercuryEngine(LoggerMixin):
         # For batch data, we need the full probability array
         # The fusion_inference returns probs for all samples
         if self.mode == "fusion":
-            det_features, det_scores, _ = self._extract_detector_features(data)
+            det_features, det_scores, _, _ = self._extract_detector_features(data)
             mod_features, mod_scores = self._extract_model_features(data)
             all_features = {**det_features, **mod_features}
 
@@ -6187,6 +6345,7 @@ class OmniMercuryEngine(LoggerMixin):
             "class_prediction": fusion_result.get("class_prediction", 0),
             "severity": fusion_result.get("severity", 0.0),
             "detector_importance": fusion_result.get("detector_importance", {}),
+            "detector_uncertainties": fusion_result.get("detector_uncertainties", {}),
             "mode": "fusion_calibrated",
         }
 

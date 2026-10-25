@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CLI operator surface for the intelligence layer (``mercury-agent intel ...``).
 
 Proves each stream is selectable and runnable from the CLI -- the operator half

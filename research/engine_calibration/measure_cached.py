@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Canonical before/after measurement using cached scores + the REAL detector.
 
 Scores are rank-preserving under the calibration change, so the cached per-event

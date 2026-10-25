@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Spiking-neural-network (leaky integrate-and-fire) novelty detector.
 
 Spiking neural networks encode information in the *timing and rate* of discrete
@@ -30,6 +30,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -48,6 +49,19 @@ class SpikingNetworkDetector(BaseDetector):
     robust deviation of the local spike rate from that baseline, squashed into
     ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "The LIF neuron dynamics follow the standard textbook model "
+            "(Gerstner & Kistler 2002), but the decision rule -- robust z-score "
+            "of the population spike rate against the training baseline, "
+            "squashed with a scale anchored at the configured training quantile "
+            "(default 0.98) and cut at the configured threshold (default 0.5) "
+            "-- is an in-house novelty heuristic: no published threshold exists "
+            "for spike-rate divergence and no labelled corpus calibrates it."
+        ),
+    )
 
     def __init__(
         self,

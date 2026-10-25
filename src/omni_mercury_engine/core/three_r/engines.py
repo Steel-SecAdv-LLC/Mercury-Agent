@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """3R Mechanism Engines.
 
 Core engines for the 3R (Recursion-Resonance-Refactoring) Mechanism.

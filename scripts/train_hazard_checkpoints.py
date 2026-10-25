@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Train, evaluate, and ship hazard-detector checkpoints on real data.
 
 Drives the :mod:`omni_mercury_engine.ml.hazard_training` pipeline per

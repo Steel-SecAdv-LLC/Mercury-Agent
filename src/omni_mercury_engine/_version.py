@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Single source of truth for the Mercury Agent distribution version.
 
 The version is resolved at import time so the canonical version surfaces — the
@@ -42,7 +42,7 @@ _DISTRIBUTION_NAME = "mercury-agent-global"
 
 #: Last-resort literal — reached only when neither installed metadata nor the
 #: source ``pyproject.toml`` is readable. Kept equal to ``[project].version``.
-_FALLBACK_VERSION = "2.1.0"
+_FALLBACK_VERSION = "3.0.0"
 
 
 def _version_from_pyproject() -> str | None:

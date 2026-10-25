@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Reverse Distillation for Anomaly Detection.
 
 Implementation of Reverse Distillation from CVPR 2022.
@@ -28,6 +28,7 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.backbone import FeatureExtractor
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
@@ -151,6 +152,39 @@ class ReverseDistillationDetector(BaseVisualDetector):
         >>> results = detector.detect(test_images)
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "The anomaly score is the multi-scale reconstruction "
+                "discrepancy between frozen teacher features and a decoder "
+                "fed through a one-class-embedding bottleneck (reverse "
+                "information flow), following the published Reverse "
+                "Distillation method."
+            ),
+            citation=(
+                'Deng & Li, "Anomaly Detection via Reverse Distillation '
+                'from One-Class Embedding", CVPR 2022, arXiv:2201.10703'
+            ),
+        ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "The binary decision threshold is calibrated in fit() by "
+                "split conformal prediction on held-out normal images at "
+                "visual_config.false_alarm_rate (default 0.05); the record "
+                "is kept in self.calibration and preserved exactly by "
+                "save()/load(). No decision is made before calibration."
+            ),
+            false_alarm_rate=0.05,
+            calibration_data=(
+                "held-out calibration_fraction (default 20%, seeded split) "
+                "of the fit-time normal images, scored by "
+                "core.conformal_prediction.split_conformal_threshold"
+            ),
+        ),
+    )
+
     def __init__(self, config: ReverseDistillationConfig | dict[str, Any] | None = None) -> None:
         """Initialize detector."""
         if config is None:
@@ -221,6 +255,11 @@ class ReverseDistillationDetector(BaseVisualDetector):
             f"layers={list(self._layer_channels.keys())}"
         )
 
+    def _build_architecture_for_load(self) -> None:
+        """Build the bottleneck and decoder that ``fit`` creates lazily."""
+        if self.bottleneck is None:
+            self._initialize_components(self._load_probe())
+
     def _aggregate_student_features(self, features: dict[str, torch.Tensor]) -> torch.Tensor:
         """Aggregate multi-scale student features for bottleneck.
 
@@ -258,6 +297,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
+        data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         logger.info(f"Training Reverse Distillation on {data.shape[0]} images")
 
@@ -356,6 +396,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         self._is_fitted = True
 
         logger.info("Reverse Distillation training complete")
+        self._calibrate_threshold(calibration)
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:

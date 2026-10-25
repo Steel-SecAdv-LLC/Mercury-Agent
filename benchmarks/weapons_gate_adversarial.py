@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Genuinely held-out adversarial slice for the weapons/mass-casualty uplift gate.
 
 The shipped ``benchmarks/weapons_gate_corpus.py`` measures the gate on templates

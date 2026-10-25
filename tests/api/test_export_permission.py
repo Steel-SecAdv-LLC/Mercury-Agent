@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The export API requires the ``export`` permission; CSV cells are inert.
 
 Every ``/api/v1/export/*`` route used to accept any authenticated credential,

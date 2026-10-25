@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: verify the OAE R/H/O branches preserve dimensionality through fusion at the tensor level.
 
 The scalar :mod:`oae_weight_certifier` proves the (w_R, w_H, w_O)

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for landslide data from NASA Global Landslide Catalog (COOLR).
 
 Connects to the NASA Cooperative Open Online Landslide Repository (COOLR) ArcGIS REST endpoint to

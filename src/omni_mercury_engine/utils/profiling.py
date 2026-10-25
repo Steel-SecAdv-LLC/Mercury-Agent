@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Performance profiling utilities for Mercury Agent.
 
 Provides four decorators, one context manager, and one benchmarking helper
@@ -556,7 +556,7 @@ class PerformanceBenchmark(AbstractContextManager["PerformanceBenchmark"]):
         )
 
 
-def benchmark_function(  # noqa: UP047  # Py 3.11-compatible generics
+def benchmark_function(  # Py 3.11-compatible generics
     func: Callable[P, R],
     *args: Any,
     iterations: int = 100,

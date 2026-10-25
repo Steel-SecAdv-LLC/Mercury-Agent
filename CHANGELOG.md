@@ -27,6 +27,1358 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the Oracle's inter-band term is measured again, as squared bicoherence.** The
+previous magnitude-squared coherence between disjoint band-limited copies of one signal is
+ill-posed and returned exactly 1.0 for every input; it was withdrawn, and its docstring
+recorded what a replacement needed — an n:m cross-frequency coupling measure *and* evidence
+of which direction is anomalous. A 1:1 phase-locking prototype had failed the second test
+(outer race AUROC 0.892, inner race 0.176 in the opposite direction, ball 0.521 at chance).
+
+Mean squared bicoherence relates three frequencies — whether the phase at `f1 + f2` tracks
+the sum of the phases at `f1` and `f2`, consistently across segments — so it is n:m by
+construction. Direction on the recorded CWRU corpus, 20 fault windows per class against 40
+healthy, every fault class **above** healthy:
+
+| class | mean | AUROC vs healthy |
+| --- | --- | --- |
+| healthy | 0.0711 | — |
+| ball | 0.0788 | 0.900 |
+| inner_race | 0.1258 | 1.000 |
+| outer_race | 0.2010 | 1.000 |
+
+And where coupling is known by construction: Gaussian noise 0.0077, a periodic impulse train
+0.3464, an impulse train convolved with a decaying resonance — the textbook bearing-fault
+model — 0.1594.
+
+Two negative results are kept in the docstring because they bound the claim. Pure sinusoidal
+AM produces no bicoherence at the modulating frequency, because the signal has components at
+`fc - fm`, `fc` and `fc + fm` and none at `fm` itself, so there is no coupled triplet;
+bicoherence is not a demodulation measure. And because the statistic measures phase
+consistency *across segments*, a purely deterministic signal saturates it at 1.0 whether or
+not its components are coupled — three tones with independent phases and three with
+`phi_3 = phi_1 + phi_2` both measure 1.0 at their triplet. On recorded vibration, which has
+a stochastic component, that degeneracy does not arise.
+
+`_BICOHERENCE_SEGMENT` is 256, the shortest length that separated every class: at 64 ball
+faults fell *below* healthy (0.0175 against 0.0250), at 128 they cleared it by 0.0008, at 256
+by 0.0075. The estimate abstains at 0.0 below eight segments, since the uncoupled expectation
+is 1/K. The influence multiplier reads the value with the correct polarity — higher coupling
+amplifies — and is a geometric mean over five measured signals rather than four and a
+constant. Every pinned CWRU figure is unchanged by the wiring: the Oracle's fault AUROC stays
+1.000 and `physics_integrated` keeps its 0.0750 healthy rate and 1.0000 fault AUROC.
+
+**Added — COPOD and the adversarial autoencoder are manifest entries, with the three
+defects that blocked them fixed.** Both were recorded as blocked on `BaseDetector`
+conformance because `register_detector` refuses a non-`BaseDetector` instance. That is the
+*engine* seam's requirement; the registry seam carries no such requirement, and
+`lstm_autoencoder` has shipped at `seams=("registry",)` without being a `BaseDetector` all
+along. Both are promoted there, so the signal is available through `extract_all_features`
+with no adapter and no change to either class's released API.
+
+Establishing they were fit to promote found three defects:
+
+* **The autoencoder's verdict was random.** Its encoder drew the reparameterisation sample
+  on every forward pass, including at inference; `Module.eval()` disables dropout but not
+  that. On one fitted model and one fixed input, three `predict` calls gave per-row score
+  differences up to **0.59** and flagged 4, 3 and 3 of 40 rows. The sample exists so
+  gradients flow through it in training; at inference the latent code is the posterior mean.
+  Guarded on `self.training`, repeated calls are bit-identical.
+* **Its `seed` did not seed what mattered.** `seed` reached only the NumPy generator picking
+  the splits, so the network's weights and the adversarial prior samples were unseeded and
+  the benchmark's mean ROC-AUC moved between runs on the same command (0.875, then 0.880).
+  `fit` now seeds torch from it, as `LSTMAutoencoderDetector.fit` does.
+  `ContrastiveLearningDetector` had the identical one-line defect and gets the same fix; it
+  still varies from another source and remains a library class.
+* **Its threshold was cut in sample**, on the training rows' own reconstruction error, which
+  an autoencoder reconstructs better than anything unseen. `fit` now splits three ways and
+  cuts on a disjoint `calibration_split` (0.2). Measured over five seeds of 120 independent
+  Gaussian rows scored on 120 more: **0.1483 -> 0.0900** against the 0.05 the percentile
+  names, at no cost to ranking (benchmark mean 0.874 either way).
+
+COPOD needed none of this: parameter-free with no trained weights, its in-sample percentile
+is not optimistic in the same way and it measures 0.0717 reproducibly.
+
+Promotion evidence, held-out ROC-AUC over five ADBench datasets
+(`benchmarks/advanced_detector_auc.py`), now reproducible to every per-dataset digit: COPOD
+**0.869**, AdversarialAutoencoder **0.874**, against **0.661** for the shipped LOF
+reference. That is the first half of the bar `KMeansDistanceDetector`'s docstring sets --
+standalone ranking justifies making a signal *available* -- and the second half is **not**
+claimed: whether either adds to the live fusion ensemble still needs a fusion-marginal
+ablation, for which no harness exists.
+
+**Fixed — the directive detector scored each row against its own batch, and alarmed at
+0.5.** `SigmaDirectiveDetector` is one of the five detectors the engine enables by default,
+so both defects reached every `engine.detect` call on tabular input.
+
+`_ethical_oversight_amplifier` returned `magnitude / max(magnitude)` over the rows of the
+batch, so a row's score depended on which rows it arrived with. Measured on one fixed row
+against identical fitted state, with the recursive-memory buffer cleared so each call was a
+function of (fitted state, batch) alone: **0.6817** scored on its own, **0.5140** beside 99
+benign rows and **0.5469** beside 99 extreme ones. That 0.168 swing is wider than the gap
+between this detector's normal and anomalous score means; a single extreme row suppressed
+every other row, and a row scored alone was always its own maximum and so always ~1.0. The
+scale now comes from `fit` -- a squash over the training rows' magnitudes with
+`EOA_CALIBRATION_QUANTILE` (0.98) at 0.5, the squash tier's existing convention -- and the
+same measurement reads 0.4842 and 0.4929, a swing of **0.0086** against 0.1677. The residual
+is the recursive-memory buffer, which is documented streaming state for direct callers and
+deliberately unchanged; the engine's fusion boundary already resets it
+(`_reset_transient_detector_state`, ROADMAP row 16).
+
+The alarm sat at the 0.5 `BaseDetector` default while the combined score's normal regime
+means 0.53 to 0.61 with a 95th percentile of 0.68 to 0.72, stable across shapes (60x8,
+200x8, 60x4, 200x16, 500x3) -- so the default flagged **0.61 to 0.94 of entirely normal
+data**. `fit` now cuts at `CALIBRATION_QUANTILE` (0.95) of the training rows' own scores.
+Measured over five seeds of clean 200x8 rows, buffer cleared between calls:
+
+| cut | clean FPR | TPR on an injected +8-sigma block |
+| --- | --- | --- |
+| 0.5 (previous) | 0.61-0.94 | -- |
+| **0.95 quantile** | **0.0560** | **1.0000** |
+| 0.98 quantile | 0.0200 | 0.7800 |
+
+Both the EOA scale and the calibrated threshold are fitted state and travel in the
+checkpoint. An earlier measurement in this round put the true-positive rate at 0.08 for the
+0.95 cut; that was wrong -- the probes shared one detector and the memory buffer carried
+between them. Every figure above was re-measured with the buffer cleared.
+
+**Added — the false-alarm gate now covers the declared `matrix_2d` modality.**
+`tests/core/test_declared_modality_false_alarm_rate.py` drives every `matrix_2d` manifest
+entry behind the registry seam on independent Gaussian rows and pins what each flags in a
+held-out half, where every flag is a false alarm. It is the generalisation of the
+`series_1d` gate that found five mis-declared modalities on this branch, and it has teeth:
+against the previous `directive` it fails with "flags 0.8417 of held-out normal rows against
+the measured 0.0600" -- a flood live in a default-enabled detector that no existing test
+reported, because the manifest seam tests assert a detector *returned* something and never
+that the verdict means anything. Pinned: `realtime_threat` 0.1067, `kmeans_distance` 0.0867,
+`directive` 0.0600, `rca` 0.0467, `spatial` 0.0433, and `physics_integrated` 0.0 set-level.
+Three entries return a ranking rather than a verdict and are listed with that reason;
+further tests assert verdict arity per group and that no new `matrix_2d` entry reaches the
+registry's modality filter unmeasured.
+
+**Fixed — `physics_integrated` applied a conformal cut to signals it was never measured
+for.** Its threshold is a split-conformal cut over the fused scores of whole signals, and
+the fused score is not invariant in a signal's length -- every component's score rises with
+it and the fusion is their mean. Measured on a detector fitted at width 64 with a 0.8929
+cut, scoring stationary signals from the same process as its training data, so every flag is
+a false alarm: 0.00 flagged at the fitted width, 0.20 at 1.12x, 0.70 at 1.25x, 0.90 at 2x
+and 1.00 at 6.25x. That is the mechanism behind this detector calling normal data anomalous
+-- not a bad threshold, but a good threshold applied off-contract. `fit` now records the
+calibration signals' length and `detect` refuses a signal outside 10% of it with
+`InputModalityError`, which the engine carries as a decline. Enforced only when there is a
+calibrated cut to protect.
+
+Checked and **not** changed: the 3R blend. `recursion_score` and `resonance_score` measure
+0.93 to 0.99 on normal data and carry 40% of the blend, which looked like a near-constant
+offset diluting the score -- the same defect a previous round removed from this function as
+`ethical_scaling`. The recorded bearing corpus rejects that reading: disabling the blend
+moves the healthy false-alarm rate **0.0750 -> 0.1250** with fault AUROC unchanged at
+1.0000, because the conformal threshold adapts with the offset (0.8459 -> 0.5573) and
+cancels it.
+
+**Fixed — SR-CNN's operating point is calibrated instead of fixed at 0.5.**
+The BCE objective weights the rare positive class by
+`pos_weight = (1 - inject_ratio) / inject_ratio` (19 at the defaults), which is sound for
+training a classifier on a 5%-positive set but shifts what the sigmoid means: at the optimum
+`w * p * (1 - s) = (1 - p) * s`, so `logit(s) = log(w) + logit(p)` and the trained logit
+carries a constant `+log(w)`. A cut at 0.5 on that output is therefore a cut at
+`sigmoid(log w) = w / (1 + w) = 0.95` on the prior-calibrated probability — which the
+provenance, describing "the CNN's sigmoid output" and a 0.5 threshold, did not say. Measured
+consequence: on a stationary AR(1) series fitted on 400 samples and scored on the next 400
+from the same process, the fixed cut flagged **0.2725** of a held-out half with no anomaly
+in it.
+
+`fit` now installs the `calibration_quantile` (0.95) of the *unaugmented* training series'
+own scores as the threshold, so the cut is a stated position in this detector's score
+distribution rather than a fixed value the `+log(w)` offset has already moved. An explicitly
+configured `threshold` is the caller's decision and survives `fit`.
+
+Every candidate cut sits on one ROC curve — mean AUROC over the four recorded NAB files is
+0.683 for all of them — so only the operating point was ever in question:
+
+| operating point | clean-data FPR | NAB |
+| --- | --- | --- |
+| fixed 0.5 (previous) | 0.2725 | 12.2 |
+| logit minus `log(w)` | 0.0000 | 9.0 |
+| **0.95 quantile of training scores** | **0.1020** | **13.2** |
+
+The calibrated cut is better than the fixed one on *both* axes, so this is not a sensitivity
+trade — it was simply a worse point on the curve. Subtracting `log(w)` removes the false
+alarms outright but costs true detections, which is why that is not what is applied. The 0.90
+quantile scores NAB 42.7 at an FPR of 0.1940 and is not the default, because choosing it
+would be tuning a threshold on the evaluation corpus. The stationary gate's pin moves from
+0.2725 to 0.1020; the NAB pin (12.2) is unchanged within its tolerance.
+
+**Removed the three `# type: ignore` markers this branch had added.** Two were on the
+duplicated `self._oracle_detector.detect(...)` calls in `PhysicsIntegratedDetector.detect`
+and went with the `_run_oracle` helper that replaced them; the third, on
+`detector.detect(...)` in the CWRU recorded-data test, was there because the helper took
+`detector: object`. It now takes a `_WindowScorer` `Protocol` that states what the
+measurement actually needs — one verdict per window — so the call type-checks without a
+suppression. `scripts/check_suppression_hygiene.py` passes.
+
+**Measured — the Oracle band z-score fix moves a published-parity benchmark, upward.**
+`MercuryAnomalyDetector` lazily fits a `SpectralDomainFrequency` Oracle when it classifies
+its input as `TEMPORAL`, and multiplies the ensemble's combined scores by that Oracle's
+influence multiplier before clipping them to `[0, 1]`. The band z-score defect above was
+therefore in the path of `examples/mercury_quickstart.py --published-protocols`, which the
+ISO Hardening workflow pins exactly. Measured on the digest-pinned DTU AIS training files
+(the same bytes both sides, source the only difference, reproduced locally and in CI run
+1170 against 1175):
+
+| protocol | before | after |
+|---|---|---|
+| Thesis Fig. 6.1 ROC-AUC | 0.8785 | 0.8785 |
+| Thesis Fig. 6.1 AP | 0.3641 | **0.3827** |
+| JMSE Fig. 12a ROC-AUC | 0.8615 | **0.8751** |
+| JMSE Fig. 12a AP | 0.2475 | **0.3085** |
+| Harness protocol / label-free cross-fit | 0.8613 / 0.8617 | unchanged |
+
+Every figure that moved improved. The mechanism is the clip: the influence multiplier is a
+single scalar for the whole batch, and multiplying every score by a constant cannot change a
+ranking — but `np.clip(scores, 0.0, 1.0)` after it can, by tying everything the multiplier
+pushes past 1.0. With `aggregate_score` pinned at its saturated constant the multiplier was
+larger (measured 1.3069 against 1.2732 on a controlled TEMPORAL fit), so more scores hit the
+ceiling and the ties cost ranking. The harness and label-free rows are untouched because
+they do not take that path.
+
+The pinned figures are updated in `.github/workflows/iso-hardening.yml` and in README's
+quickstart output block. The published comparison is unchanged in substance: GeoTrackNet /
+VRNN at 0.87 still lies inside Mercury's interval on both protocols (now 0.788-0.951 and
+0.792-0.944), so the result remains parity rather than superiority.
+
+**Fixed — the stationary false-alarm gate reported a rate for detectors that return one
+verdict.** Seven of its 28 entries reduce a whole series to a single verdict rather than one
+per sample (`acceleration_dynamics`, `frequent_pattern`, `nano_safeguard`,
+`physics_integrated` -- since re-declared `matrix_2d`, below --
+`spectral_domain_frequency`, `spectral_vibration`, `uiux_anomaly`), so
+the "1.0000" first recorded for three of them was not a 100% false-alarm rate — it was one
+Boolean. The gate now pins the two groups separately: `MEASURED_RATE` for per-sample
+detectors, where the number is a rate over 400 samples, and `MEASURED_VERDICT` for set-level
+ones, where it is the share of the five seeds whose single verdict came back anomalous. A
+new test asserts each group's verdict arity so an entry cannot drift between them unnoticed,
+and the CHANGELOG and ROADMAP wording is corrected to match.
+
+**Verified — the advanced tabular detectors' benchmark figures.** `ROADMAP` row 32 cited
+COPOD 0.869 and AdversarialAE 0.866 against 0.661 for the shipped LOF reference without a
+re-run. Re-measured with `python -m benchmarks.advanced_detector_auc` on its own protocol:
+COPOD **0.869** and LOF **0.661** reproduce exactly; AdversarialAE measures **0.870** against
+the cited 0.866 and ContrastiveLearningDetector **0.621** against 0.598, both within what a
+different torch/numpy build explains, and the qualitative claim about Contrastive holds
+exactly (under 0.5 on cardio, 0.432, and thyroid, 0.481). The row is updated to the
+reproduced values.
+
+**Fixed — `DeepLogSequenceDetector` decided on a rule that cannot work, while computing the
+paper's own rule and discarding it.** The verdict was `1 - P(key | context) > threshold`,
+which the `decision_source` already flagged as "an engineering default not taken from the
+paper". That rule cannot discriminate: `1 - P` falls below 0.5 only where some single
+successor holds more than half the conditional mass, so on any grammar with a handful of
+roughly equiprobable successors it flags nearly every position. Meanwhile `_eval` computed
+DeepLog's actual criterion — the key fell outside the model's top-`g` next-key predictions —
+per position, and `detect` collapsed it to a scalar count in
+`metadata['top_g_violations']`, throwing the per-position array away.
+
+The verdict is now the paper's criterion conjoined with the configured threshold, so
+DeepLog's rule decides and `threshold` remains an operating control (measured identical to
+the paper's rule alone on every dataset below, since the top-`g` set was a subset of the
+miss-probability set in each). The per-position array is reported as
+`metadata['top_g_outside']` beside the count. The ranking score is unchanged, so AUROC is
+unchanged. Measured, held-out false-alarm rate, miss-probability rule -> paper's rule:
+real Drain-parsed HDFS log templates **0.8270 -> 0.1730**; a synthetic low-entropy grammar
+**0.0525 -> 0.0025**; a stationary AR(1) series (outside its contract) 0.9965 -> 0.1325; the
+four recorded NAB files, NAB standard-profile score **-780.3 -> -530.3**. An injected
+template the training half never shows is still caught 10 of 10 positions on the HDFS
+fixture (9 of 10 on the synthetic grammar, where Laplace smoothing can rank a never-seen key
+inside the top 3 of a low-branching context — the trade-off `top_g` controls).
+
+**Fixed — `deeplog_sequence` was declared `series_1d`.** It takes a sequence of integer
+log-template keys (`_to_1d_int` rounds to a key), and a categorical next-key model has
+nothing to learn from a continuous series. It is now `event`, the manifest's documented
+"discrete domain events fed over time" slot, which no entry occupied; the manifest seam
+suite gains an `event` payload (a low-entropy template grammar) and drives it with that
+instead of `rng.normal(size=200)`. Fourth entry this round whose declared modality its own
+input contract contradicts, after `rca`, `kmeans_distance` and `realtime_threat`.
+
+**Added — `tests/fixtures/loghub` and a recorded-data test for the log detector.**
+`scripts/record_hdfs_log_fixtures.py` records the Drain-parsed event-template keys of 2000
+real Hadoop HDFS log lines (LogHub's `HDFS_2k` sample, 14 templates; He, Zhu, He & Lyu 2020,
+arXiv:2008.06448) with the SHA-256 of the served CSV and of the stored keys.
+`tests/detectors/test_recorded_hdfs_log_templates.py` pins the held-out false-alarm rate
+(0.1730), the rate the old rule gave on the same stretch (0.8270), and the detection of a
+template the training half never shows. Five of its six tests fail on the old code.
+
+No AUROC is claimed: the sample is not anomaly-labelled, because LogHub's block-level labels
+ship with the full 11-million-line `HDFS_1` release. The sessions in this sample also
+interleave — 2200 block ids over 2000 lines, median one event each — so DeepLog's own
+per-block session grouping is not reconstructable from it and the next-key distribution is
+genuinely high-entropy; two of the 14 templates appear only in the held-out half. That is
+why 0.1730 is not low, and it is pinned as measured rather than presented as a calibrated
+rate. `deeplog_sequence` leaves `test_recorded_nab_series.py` (where it was pinned at
+AUROC 0.534 / NAB -780.3) and the stationary false-alarm gate (0.9965): both measured a
+categorical model on continuous data.
+
+**Fixed — the LSTM autoencoder's conformal threshold is cut on pooled out-of-fold scores.**
+`lstm_autoencoder` flagged 0.6265 of a stationary held-out half at the manifest's default
+configuration, against the 0.05 its one-class conformal 95% cut is documented to deliver
+(`tests/detectors/test_stationary_false_alarm_rate.py`). Two defects stacked, and the second
+is the dominant one.
+
+* **The calibration block and the early-stopping block were the same rows.** Early stopping
+  restores the state that reconstructed those rows best, so their scores are not exchangeable
+  with test scores and a cut taken on them sits below the true quantile. Separating the two
+  blocks moves the mean rate 0.6265 -> 0.4450: real, and not the main cause.
+* **A single contiguous tail cannot estimate the score distribution of an autocorrelated
+  series.** Consecutive points carry far less information than independent ones, so a short
+  block's spread understates the distribution's. Measured on the five gate seeds, the 80-row
+  tail's score standard deviation was 3 to 11 times smaller than the scored block's (e.g.
+  0.029 against 0.310), which is what put the cut so far below the 95th percentile.
+
+The threshold now comes from pooled out-of-fold scores: the fit series is cut into
+`calibration_folds` (default 5) contiguous blocks, each block is scored by a model trained on
+the other four, and the 95% cut is taken over the pool. Every pooled score is out-of-sample
+for the model that produced it, and the pool spans the series end to end rather than one
+stretch of it. `calibration_folds=1` restores the old single-block cut; `0` trains without
+calibrating a threshold and is the internal path for the fold models.
+
+Mean false-alarm rate over the five gate seeds, 400 fit rows scored on the next 400:
+
+| calibration | mean rate |
+| --- | --- |
+| single block, shared with early stopping (previous) | 0.6265 |
+| single block, disjoint from early stopping | 0.4450 |
+| pooled out-of-fold, 5 blocks | **0.0670** |
+
+Against the 0.05 nominal that is within a factor of 1.34, and the pin in the stationary gate
+moves from 0.6265 to 0.0670. The recorded NAB corpus corroborates it independently: the
+detector's NAB standard-profile score moves **-88.5 -> +3.1**, from flooding to net positive,
+with its mean AUROC unchanged at 0.829 — only the alarms moved
+(`tests/detectors/test_recorded_nab_series.py`). The reconstruction scores are **bit-identical** before and after
+(`max |new - old| = 0.0` on seed 7): the model, its split and its early stopping are
+unchanged, so discrimination is untouched and only the decision threshold moved. The residual
+overshoot is the known cost of applying a conformal cut to serially dependent data, where
+exchangeability holds only approximately; it is no longer a defect in how the cut is taken.
+A fold-ensemble variant, scoring test rows with the mean of the five fold models instead of
+the full-data model, measured 0.0815 and was not taken: it would put five models in every
+checkpoint for a difference small against that residual.
+
+**Fixed — `RealTimeThreatDetector` failed OPEN when a sub-detector's training score was not
+finite.** `_validated_input` already refuses a non-finite *input* row, with the reason stated
+in its own docstring: "a security detector failing OPEN on an unmeasurable input". The same
+hole was open on the other side, for a non-finite sub-detector *output*. A 1-D input is
+validated to one `(1, n_features)` sample, which leaves the neighbour-based component
+degenerate: LOF scores `inf`. Then `center = median(s)` is `inf`, `mad = median(|s - center|)`
+is `NaN` (the source of the `RuntimeWarning: invalid value encountered in subtract` this
+module emitted), and `scale` is `NaN` — and `scale <= 1e-12` is **False for NaN**, so the
+standard-deviation fallback never fired. The threshold came out `NaN`, `score > NaN` is False
+for every later sample, and the `NaN` column also poisoned the ensemble mean, so
+`_ref_threshold`, `_ref_p90`, `_ref_p95` and `_ref_p99` were all `NaN` too.
+
+Measured on the same input before and after: `_ref_threshold`/p90/p95/p99 `NaN` -> finite, and
+a probe drawn 8 sigma from the training distribution went from **`is_threat: False`,
+`threat_level: "LOW"`** to `is_threat: True`, `threat_level: "CRITICAL"`. A sub-detector whose
+training score is not finite is now dropped from the calibrated ensemble with the reason
+logged, the near-constant fallback arm also rejects a non-finite scale, and a fit where
+*nothing* can be calibrated raises — the same refusal already in place for the zero-fitted
+case, since `detect_threat` requires `name in self._detector_center` and would otherwise
+grade every input LOW. Five tests fail on the old code.
+
+**Fixed — `realtime_threat` was declared `series_1d`.** `_validated_input` documents
+`(n_samples, n_features)` and reshapes a 1-D input to one sample, and the detector is measured
+on ADBench *tables* in `tests/detectors/test_recorded_adbench_tabular.py` (held-out AUROC
+0.675/0.907/0.986/0.994/0.972). It is now `matrix_2d`, the third entry in this round whose
+declared modality its own validator contradicts.
+
+**Fixed — two tabular detectors were declared as 1-D series detectors, and the registry
+routed 1-D series to them.** `DetectorRegistry.extract_all_features(data, modality=...)`
+filters on each entry's declared modality exactly so "detectors that cannot read it" are not
+driven with it. `rca` and `kmeans_distance` both declared `series_1d` while being
+`(n_rows, n_features)` detectors, so the filter passed 1-D series straight through to them:
+
+* `rca`'s `_to_2d_f64` reshapes a 1-D input to `(1, n)`, so a 200-sample series became one
+  row of 200 nodes. `rows.std(axis=0)` over a single row is 0, every `_node_std` sat at its
+  `1e-9` floor, the squash scale came out `1.4e-9`, and every subsequent row scored 1.0:
+  **100% of a stationary held-out half flagged** against the 2% its `calibration_quantile`
+  targets. `rank_root_causes` on such an input "localises" a *timestep* as the root-cause
+  node. Its `fit` has always documented `(n_rows, n_nodes)`.
+* `kmeans_distance`'s `_to_2d_f32` is `np.atleast_2d`, so a 400-sample series became one
+  400-feature point. The signal was benchmarked on ADBench *tables* and its `feature_dim` is
+  9 = `n_clusters + 1` **per row**.
+
+Both are now declared `matrix_2d`. The manifest seam suite drove both with
+`rng.normal(size=200)` and passed, because it checks the result contract (shapes, ranges,
+finiteness) rather than whether the verdicts mean anything; it now drives them with
+`(60, 8)`.
+
+**Fixed — `KMeansDistanceDetector` anchored its squash at the median, then cut at 0.5.**
+`1 - exp(-d / scale)` with `scale` = the median training nearest-centroid distance puts
+score `1 - 1/e` = **0.632**, not 0.5, at the median, so the 0.5 alarm cut sat *below* the
+median training distance and by construction flagged more than half of any in-distribution
+batch. Measured on 400 held-out rows of a stationary 8-column Gaussian: **0.93 flagged**.
+The scale now uses the shared `detectors._calibration.squash_scale` with a new
+`calibration_quantile` (default 0.98), the engine's quantile-anchored convention that the
+rest of the squash tier already follows, so the configured quantile of training
+nearest-distances scores exactly 0.5. Measured: **0.93 -> 0.0175** against the nominal 0.02.
+The squash is a monotone rescale of the same distance, so the benchmarked *ranking* is
+untouched — held-out AUROC on all five recorded ADBench tables is bit-identical before and
+after (pima 0.6527, cardio 0.7711, breastw 0.9770, wbc 0.9878, thyroid 0.9548).
+
+**Fixed — `KMeansDistanceDetector.detect` ignored its configured threshold.** It compared
+against a hard-coded `0.5`, so `config={"threshold": ...}` was accepted and had no effect.
+It now uses `self.threshold` like the rest of the tier.
+
+**Corrected — the k-means signal's benchmarked AUROC range.** Its module docstring and
+manifest description claimed "~0.8-0.98 across breastw/thyroid/WBC/cardio". The repo's own
+`artifacts/dormant_module_revival.json` records cardio at **0.762**, and re-running
+`benchmarks/dormant_module_revival.py` reproduces it (cardio 0.762, thyroid 0.945, breastw
+0.982, WBC 0.981, Pima 0.634, mean 0.861 over five tables and three seeds). The range is
+0.76-0.98 on those four tables, and Pima — outside the quoted set — is 0.634.
+`docs/DETECTORS.md` is regenerated from the manifest.
+
+**Added — `tests/detectors/test_stationary_false_alarm_rate.py`**, the measurement that found
+both modality defects. Every `series_1d` manifest entry with a `BaseDetector` seam is fitted
+on 400 samples of a stationary AR(1) series and asked about the next 400 from the same
+process: nothing there is anomalous and the process does not drift, so the share it flags is
+a false-alarm rate with no drift to blame, which is the one place the squash tier's
+`1 - calibration_quantile` contract can be read directly. 30 entries are pinned at their
+measured rate; the 32 that serve a domain API instead of `fit`/`detect` are listed with that
+reason, and two completeness tests fail if a new entry appears unpinned or an excluded one
+grows the seam. Fixed seeds, byte-identical across runs, about 15 s.
+
+The measurement also puts numbers on calibration gaps that were previously described only
+against drifting NAB files, where drift could be blamed. It is pinned in two groups, because
+a single number does not mean the same thing for both kinds of detector under `series_1d`.
+**Per-sample** detectors return one verdict per held-out sample, so the number is a
+false-alarm rate: above the 0.02 the
+squash anchor targets but bounded, `srcnn` 0.1020, `statistical` 0.0980, `energy_based` 0.0755, `deep_svdd`
+0.0470, `extended_statistical` 0.0460; meeting its own 0.05 conformal nominal,
+`lstm_autoencoder` 0.0670 (see the out-of-fold calibration fix above, which moved it from
+0.6265); at or under contract, the other 15 down to `page_hinkley` 0.0025. **Set-level** detectors reduce the whole series to *one* verdict, so
+what is pinned is the share of the five seeds whose single verdict came back anomalous:
+`nano_safeguard` calls an entirely normal
+stationary series anomalous on every seed,
+while `acceleration_dynamics`, `frequent_pattern`, `spectral_vibration`,
+`spectral_domain_frequency` and
+`uiux_anomaly` never do. A test asserts each group's verdict arity so an entry cannot drift
+between them unnoticed.
+
+**Not** defects, checked: `energy_based` and `deep_svdd` are high-variance, not biased — over
+20 seeds their medians are 0.0138 and 0.0188, at or under the nominal 0.02, with a heavy tail
+(max 0.1725 and 0.1375), so the 3-seed excess that first flagged them was the tail and not a
+systematic bias. No change was made to either.
+
+**Fixed — `acceleration_dynamics` decided at a cut its own normal scores sat above; and
+`nano_safeguard` now says when its cut is uncalibrated.** Both reduce a whole signal to one
+score and both shipped a cut that the *normal* regime of that score exceeds, so each called an
+entirely normal stationary series anomalous on all five gate seeds: `acceleration_dynamics` at
+the 0.5 `BaseDetector` default against a fused score of 0.79 to 0.83, `nano_safeguard` at a
+hand-set 0.05 against a composite of 0.40 to 0.44.
+
+Whether that can be calibrated from the training signal turns on one measured property. A
+caller who supplies one series gives one score, so the only source of repeated scores is
+*windows* of that series — and a cut taken on windows is valid only if the score transfers
+across lengths.
+
+It does for the kinematic score: measured 0.7986, 0.8078 and 0.8018 at window lengths 100, 200
+and 400 on one process. `AccelerationDynamicsDetector.fit` therefore cuts at the
+`calibration_quantile` (0.95) of the scores of windows of the training signals. The verdict
+share over the five seeds goes **1.0 -> 0.0**, and the alarm still fires: an injected level
+shift and a five-fold volatility burst are both flagged on every seed tried, where previously
+*everything* was flagged and the operating point separated nothing.
+
+It does not for the nano composite, which rises with length — 0.3757, 0.3915, 0.4049, 0.4125,
+0.4216, 0.4215 at lengths 50 to 400. Window calibration was implemented and measured there
+anyway: it takes the verdict share 1.0 -> 0.4, and `q=0.95` and `q=0.99` give the identical
+result, which shows the residual is that length bias and not quantile noise. Shipping it would
+mean knowingly calibrating on an assumption the measurement rejects, so it is **not** applied.
+Instead `fit` warns, naming the measured normal regime and what to set, and every verdict
+carries `threshold_calibrated` — False unless the caller supplied `micro_threshold`. Closing
+it needs labelled micro-anomalies at a known rate, which no corpus in the tree provides.
+
+`acceleration_dynamics` moves from 1.0 to 0.0 in `MEASURED_VERDICT`; `nano_safeguard` stays at
+1.0, now with the reason stated in its `decision_source` rather than only in this file.
+
+**Fixed — `physics_integrated` declared a modality its own threshold calibration cannot
+use.** It was declared `series_1d`, but its alarm threshold is a split-conformal cut over the
+fused scores of held-out *whole signals*, so calibrating it needs many normal signals:
+`_calibrates_threshold` enforces `ndim == 2` and at least
+`_CALIBRATION_STRIDE * _MIN_CALIBRATION_SIGNALS` = 76 of them. A single 1-D series carries
+exactly one sample of that statistic and cannot calibrate it at any length. Under the wrong
+declaration the threshold stayed at the 0.5 default, which the fused score of normal signals
+(0.89 to 0.99) exceeds, and the detector called an entirely normal stationary series anomalous
+on all five gate seeds — the fifth instance of the defect class already fixed for `rca`,
+`kmeans_distance`, `realtime_threat` and `deeplog_sequence`.
+
+Re-declared `matrix_2d`, the modality filter in `DetectorRegistry.extract_all_features` routes
+it a stack of signals and it calibrates: fitted on 85 windows of a stationary series it cuts at
+0.8929 and flags 0.0612 of normal windows, against its own 0.05 bound. The 1.0 verdict leaves
+`MEASURED_VERDICT`, since the gate drives `series_1d` entries only.
+
+Two things stop the re-declaration from merely hiding the old behaviour. A direct 1-D fit now
+logs a warning naming the uncalibrated threshold and what to fit instead, rather than returning
+an anomaly verdict silently; and every verdict carries `threshold_calibrated`, False when the
+alarm rests on the configured or default threshold and so carries no false-alarm bound.
+
+**Fixed — `EchoStateDetector` calibrated its alarm boundary on data it had trained on.**
+`fit` set the squash scale from the 98th percentile of the readout's *in-sample* residuals.
+A `reservoir_size + 1` = 101-parameter ridge readout (`ridge=1e-4`, barely regularised)
+reproduces its own training data far better than anything it has not seen, so that quantile
+understates the normal-regime residual and the detector alarms on ordinary data — making the
+documented contract ("`1 - calibration_quantile` is the normal-regime FPR") false. Measured
+on the four recorded NAB files, whose probationary periods are 169 to 282 samples: the
+in-sample 98th-percentile residual was 2.5 to 16.6 times smaller than the held-out one, the
+squash scale came out 0.56/1.54/2.23/1.76 where honest calibration gives
+5.88/9.00/4.83/8.04, and the realised false-alarm rate on normal points was
+0.79/0.32/0.68/0.66 against the nominal 0.02. On a stationary AR(1) series fitted on 400
+samples — no drift to blame — the rate was **0.2375 against 0.02**.
+
+The readout still trains on every sample, so ranking is untouched; only the scale moves. It
+is now the pooled quantile of *out-of-fold* residuals: `calibration_folds` (new, default 5,
+must be >= 2) contiguous blocks, each scored by a readout fitted on the others, with the
+reservoir states computed once over the whole series — they do not depend on the readout, so
+folding the readout alone is sound. A series too short to leave a fold's complement larger
+than half the parameter count falls back to the in-sample residuals.
+
+Measured, four recorded NAB files, same defaults: mean ranking AUROC **0.699 -> 0.699**
+(identical, as intended), NAB standard-profile score **-1167.5 -> -368.3**, mean
+false-alarm rate on normal points **0.611 -> 0.188**, alarms 846/475/1134/652 ->
+13/13/919/228. On the stationary AR(1) series the rate is 0.0250 against the nominal 0.02,
+so the contract now holds. Two alternatives were measured and rejected: a single held-out
+tail of 25% of the fit series reached NAB -852.8 but cost ranking (AUROC 0.699 -> 0.636,
+and 0.471 at a 40% holdout) because the readout trains on less data; 10 folds was no better
+than 5 (NAB -380.1). **Not fixed:** two of the four files still flood (`rogue_agent_key_hold`
+919 alarms, FPR 0.533; `speed_7578` 228, FPR 0.205). Their post-probation normal level
+drifts away from the probationary reference, so no quantile measured inside the training
+window can bound the false-alarm rate there — a fixed-reference residual detector needs an
+adaptive reference, which is a separate change with its own evidence burden. Four tests fail
+on the old code, including `test_low_false_positive_rate` tightened from its 0.1 bar to the
+0.03 the quantile actually promises — 800 training samples overfit mildly enough to pass 0.1
+even while the scale was wrong, which is why that test did not catch this.
+
+**Fixed — the frequency-domain Oracle returned the same score for every input.**
+`SpectralDomainFrequency._score_band` z-scored a *dimensionless* quantity against *absolute*
+band-power statistics: `z = (corrected_ratio - ref_mean) / (ref_std + EPSILON)`, where
+`corrected_ratio` is observed power over reference power over the band's expected share of a
+`1/f**beta` spectrum, while `ref_mean`/`ref_std` are band powers in the signal's own units.
+That branch ran whenever the noise colour had been estimated, which is the normal case. On
+the recorded CWRU bearing windows the band powers are 1e-6 to 1e-4, so the subtraction was
+dominated by `-ref_mean / ref_std`: z came out between 6.4e3 and 6.6e6 whatever the window
+held, `|z| / 3` clipped to 1.0, every resolvable band scored exactly `0.6 * 1.0 + 0.4 * 0.0`
+= 0.6, and the Oracle's aggregate was exactly **0.210000000 for every healthy and every
+faulty window alike** — a declared fusion component contributing a constant. The z-score is
+now taken in power units. Nor can the correction be made unit-consistent and still matter:
+`expected_ratio` is a per-band constant once `beta` is estimated in `fit`, and a constant
+divisor applied to both the observation and the reference cancels exactly in a
+standardisation — so the corrected ratio is reported as the diagnostic it is, on the new
+`FrequencyBandResult.corrected_power_ratio` field (additive, default `0.0`). Measured on the
+recorded CWRU windows (fitted on 80 healthy, scoring one 2048-sample window at a time):
+healthy scores now range 0.021-0.097 (mean 0.056) and every fault separates at **AUROC
+1.000** (inner race, ball, outer race) against 0.5 — no ranking at all — before.
+Downstream, `PhysicsIntegratedDetector` on the same protocol: healthy windows flagged
+**0.125 -> 0.075**, fault AUROC **0.975 -> 1.000** on all three faults, calibrated threshold
+0.983 -> 0.846. Measured and pinned as a limit: the Oracle's own aggregate stays below its
+0.5 `BaseDetector` default on every one of these windows, so standalone it ranks perfectly
+and flags nothing; `PhysicsIntegratedDetector` consumes its score and influence vector, not
+its verdict. Six tests fail on the old code.
+
+**Fixed — the Oracle's inter-band phase coherence was never measured, and said nothing.**
+`_compute_phase_coherence` returned exactly `1.0` for every input it was ever given —
+healthy and faulty CWRU windows, white noise, a pure tone, a constant signal — for two
+compounding reasons. It built one band-limited signal per band by zeroing every FFT bin
+outside that band, then asked `scipy.signal.coherence` for the magnitude-squared coherence
+of two *disjoint* spectra, where `|Pxy|^2 / (Pxx * Pyy)` is `0/0` at almost every bin; and
+`nperseg` was clamped to the band signal's own length, so Welch got exactly one segment, and
+with no averaging `|Pxy|^2 == Pxx * Pyy` identically, making every surviving bin exactly 1.0.
+Since `coherence_influence = 1.0 + (1.0 - phase_coherence) * 0.5`, one of the five terms in
+the phi-weighted influence multiplier was permanently neutral: a documented five-signal
+fusion was a four-signal fusion. The 0/0 was also the source of twelve
+`RuntimeWarning: invalid value encountered in divide` per `detect` call — under `-W error`
+those became exceptions, which `PhysicsIntegratedDetector` caught, dropping the Oracle from
+`component_scores` with nothing but a log line to show for it. Magnitude-squared coherence
+between disjoint band-limited copies of one signal is ill-posed, so the computation is
+withdrawn rather than left reporting a constant as a measurement: the method now abstains
+explicitly at `PHASE_COHERENCE_NOT_MEASURED`, the numeric fusion is unchanged (the term was
+already neutral), the warnings are gone, and every docstring that claimed five measured
+signals says four. **A replacement needs evidence this round could not produce**: the bands'
+centre frequencies differ, so 1:1 phase locking is not well posed, and a 1:1 phase-locking-
+value prototype across time segments was measured on the recorded CWRU windows and rejected
+— outer-race faults separate from healthy at AUROC 0.892 but inner-race faults at 0.176 (the
+opposite direction) and ball faults at 0.521 (chance), so "low coherence implies anomalous",
+the direction the influence multiplier assumes, does not hold. What is missing is an n:m
+cross-frequency phase-coupling measure with its anomalous direction established on labelled
+data.
+
+**Fixed — a failed Oracle silently changed `PhysicsIntegratedDetector`'s verdict.** Both
+copies of the `try`/`except Exception` around the Oracle logged a warning and carried on, so
+`frequency_oracle` left `component_scores` and the influence vector stopped modulating the
+fused score with no trace in the returned dict — and `oracle_result is None` there was
+indistinguishable from "the domain policy disabled the Oracle for this domain". The two
+copies are now one `_run_oracle` helper, and the reason any optional component failed is
+recorded under `metadata['component_failures']`, empty when every enabled component ran.
+Three tests fail on the old code.
+
+**Fixed — the topological detector scored windows against a profile of a different size.**
+`TopologicalAnomalyDetector.fit` built `_reference_features` from the whole reference point
+cloud (80 points under the `n_reference_samples=80` cap used by the pinned ADBench window
+protocol) while every window `score` is asked about holds 25. Betti numbers, persistence
+entropies, landscape norms and lifetime counts all scale with the number of points — the
+reference's `n_features_h0` was 60 against a window's 20 at a cap of 60 — so each of the 14
+feature deviations carried a constant size bias, the bias dominated their unweighted mean,
+and the signal was diluted. Clean reference windows scored 0.92, up against the ceiling of
+the score's sigmoid. The baseline `_aggregate_score` measures from is now the mean feature
+vector of the reference *sub-samples*, which carry the same number of points as the windows
+being scored (the same discipline `SpectralVibrationDetector` already used for its
+per-window `_reference_features_mean`); the whole-reference profile remains as the fallback
+when fewer than four rows make windows impossible. Measured window AUROC on the pinned
+ADBench protocol (four tables, three seeds): Pima 0.461 -> 0.599, cardio 0.965 -> 0.961,
+breastw 0.859 -> 0.999, thyroid 0.999 -> 1.000; mean **0.821 -> 0.890**. Over six seeds,
+0.839 -> 0.883. The calibrated threshold drops from 0.920 to 0.311, out of the saturating
+region. The Wasserstein distances `score` reports stay a diagnostic and out of the
+aggregate: adding them measured 0.883 against 0.890.
+
+**Fixed — a configured `anomaly_threshold` silently changed the topological score itself.**
+`anomaly_threshold` is documented as the decision cut, but supplying it skipped calibration
+entirely, so `_feature_stds` stayed empty and `_aggregate_score` fell through to its
+near-zero-variance branch: the same clean window scored 0.918 with an auto threshold and
+0.085 with `anomaly_threshold=0.5`. The window baseline and feature spreads are now measured
+whenever `fit` has enough rows, and only the threshold is left alone when one was given.
+Cost of always measuring them: an uncapped `fit` on 300 rows with a configured threshold
+goes 1.47 s -> 1.89 s, a capped one 0.027 s -> 0.050 s. Four tests fail on the old code.
+
+**Fixed — refitting the topological detector kept the first fit's threshold.** The
+auto-calibration guard was `if self.anomaly_threshold is None`, which is false after any
+auto-calibration, so a second `fit` on different reference data moved the window baseline
+and feature spreads to the new data but left the old cut point in place: fitting on
+scale-0.05 rows then on scale-5.0 rows held the threshold at 0.3155 where a fresh fit on
+the same rows gives 0.2798. Whether the threshold was *configured by the caller* is now
+recorded at construction, so an auto threshold recalibrates on every `fit` and a configured
+one is still never overwritten. Two tests fail on the old code.
+
+**Fixed — Page–Hinkley's `delta` and `lambda` were in the series' own unit.** The same test
+on the same shape of data alarmed from the first sample when the unit was large and never
+when it was small: on four recorded NAB files (standard deviation 8.5e6, 4.8, 0.09 and
+0.05) it alarmed on 1056 of 1057 and 937 of 958 points, and on none of 1308 and 1600.
+After `fit`, the series is now measured in units of the reference standard deviation (1 for
+a constant reference; an unfitted detector keeps the series' unit), so `delta` and `lambda`
+mean the same for any unit, and the scale is saved with the detector and reported in
+`metadata['scale']`. The class has not been released. On its own this made the verdicts
+consistent, not good — at the default `delta=0.005`, `lambda=50` it then alarmed on the
+level drift of every one of the four files (NAB standard score -792 -> -1785) — which
+exposed the missing restart fixed in the next entry.
+
+**Fixed — Page–Hinkley never restarted, so one shift alarmed to the end of the series.**
+`PH_t = m_t - min_{s<=t} m_s` grows monotonically while a shift is sustained, so once it
+crossed `lambda` it stayed there: on a synthetic +3σ shift held for 700 samples the
+detector alarmed on 685 of them, and on the four recorded NAB files it alarmed on 798 of
+1057, 1138 of 1308, 1542 of 1600 and 695 of 958 post-probation points. The Page–Hinkley
+change detector clears its accumulators on the sample following an alarm (as the reference
+implementation in `river.drift.PageHinkley` does, and as `SPRTDetector` in the same module
+already did after each Wald decision); Mercury's did not. Both one-sided accumulators and
+their running minima now restart after an alarm. Measured on the same four NAB files, same
+defaults: alarms 798/1138/1542/695 -> 4/10/19/9, NAB standard-profile score **-1785.3 ->
++26.6**, mean ranking AUROC 0.332 -> 0.534. Because `x_bar` is fixed by `fit`, a shift that
+persists re-alarms every `lambda / (shift - delta)` samples (measured 14-20 for a +3σ shift
+at the defaults, predicted 16.7) rather than alarming once: a fixed-reference CUSUM reports
+that the series is still away from the reference it was fitted on. Cost: the restart makes
+the scan sequential, so `page_hinkley_statistics` runs at 1.7 Msample/s against 11 Msample/s
+for the previous cumulative form (90 ms -> 580 ms per 10^6 samples). Three tests fail on the
+old code, including the hand-computed seven-point table, which now shows the restart.
+
+**Fixed — `PhysicsIntegratedDetector` flagged every normal signal.** Its fused score of a
+healthy bearing-vibration window (CWRU Bearing Data Center, 12 kHz) is 0.89-0.99, and the
+alarm threshold stayed at the 0.5 default whatever `fit` saw: it ranked fault windows above
+healthy ones (AUROC 0.975 — this entry previously said 1.0, which was measured on a run
+without the spectral component's `sample_rate`; re-measured with the pinned configuration it
+was 0.975 both before and after that change, and reached 1.000 only with the Oracle band
+z-score fixed, below) and flagged 100% of the healthy windows. When no `threshold` is
+configured and `fit` receives at least 76 signals, every fourth signal is now held out of
+the component fits and the threshold is the split-conformal quantile (false-alarm rate
+0.05) of their fused scores, capped below 1.0. Held-out healthy windows flagged: 100% ->
+12.5% (40 windows); fault windows flagged: 100% before and after. A configured threshold
+and a smaller `fit` keep the 0.5 default. Note: `sample_rate` reaches the spectral component
+only through `spectral_config`.
+
+**Fixed — `MatrixProfileConfig.normalize` was never read, and the matrix-profile provenance
+named a screen that does not exist.** Every profile was z-normalised whatever the caller
+set; `normalize` is now passed to STUMPY (the default, `True`, gives the profile it always
+did). `decision_source` said discords are "screened at z >= 2.0"; nothing applies that
+cut (`discord_threshold` is accepted and not read; flags are the batch's own
+`anomaly_threshold` quantile), so the text now says what the code does. On the four
+recorded NAB files the profile ranks anomaly windows at mean AUROC 0.356 (0.073 on road
+traffic), the same as raw `stumpy.stump`.
+
+**Fixed — the topological detector's threshold ignored its sample cap.** With
+`n_reference_samples` set, `TopologicalAnomalyDetector.fit` built the reference
+profile on the capped sample but calibrated the alarm threshold on windows cut
+from the uncapped data: a window of a third of the rows, built ten times. On the
+1886 training rows of ADBench thyroid, `fit` took 167 s with a cap of 80 and now
+takes 0.1 s, and the windows the threshold is cut from now match the reference
+they are compared with. Window-level AUROC on recorded tables (anomalous against
+normal windows of 25 rows, 3 seeds): cardio 0.965, breastw 0.859, thyroid 0.999,
+Pima 0.461 (no better than chance). Callers that set no cap are unchanged.
+
+**Fixed — the LSTM autoencoder trained on raw values.** `AnomalyDetector` (and
+the registry's `lstm_autoencoder`) fed the network series of any scale as they
+were, so it could not reconstruct them: on four recorded NAB files its mean
+AUROC was 0.596 and 0.101 (below chance) on the road-traffic file; with inputs
+standardised by the training rows it is 0.829 and 0.950. The statistics are kept
+in the checkpoint; a checkpoint saved earlier has none and is served on raw
+values as before. Its scores are now in standardised units, and the 95%
+conformal threshold is cut in those units.
+
+**Fixed — PatchCore's coreset could not be seeded.** `PatchCoreConfig` had no
+`seed` although the detector read one "if present", so the greedy coreset always
+started from OS entropy: over 60 identical fits the held-out clean-flag count
+ranged from 0 to 5 of 12, which failed CI's `test_calibrated_decision_is_informative`
+(limit 3) about one run in sixty. `PatchCoreConfig.seed` now exists (default
+`None`, unchanged behaviour); the visual-image test fits with `seed=0`.
+
+**Fixed — untrained networks no longer decide alarms (endocrinology, TEMPEST,
+anesthesia, medical imaging and vitals, CYBINT, interstellar objects, BLIP).**
+A freshly built network is a random function of its input. Measured: the CGM
+analyser labelled 500 mg/dL "severe hypoglycemia" under one seed and "normal"
+under another; a blank X-ray was "anomalous" under three of five seeds; the TEMPEST
+video network graded an all-zero feature vector "moderate risk" or "high risk"
+by seed; CYBINT named an APT group and malware family from noise. Each now
+follows the repository's existing fail-closed pattern (`is_fitted`,
+`load_trained_weights`, `ml_*_available` on the result) and abstains until trained
+weights are loaded; none ship. The endocrinology glycemic state is instead the
+consensus glucose band of the latest reading (<54, <70, >180 mg/dL; Battelino et
+al. 2019) and a non-finite reading is refused. The interstellar detector's
+non-gravitational hypotheses read a key nothing set and never appeared. BLIP's
+128-D fusion features came from an unseeded projection left in training mode
+(dropout on): the same image gave different features on every call; the
+projection is now seeded, in eval mode, and an extraction failure raises instead
+of returning a zero vector. OSHA: the 50 V and 85 dBA lines are "or more" in the
+regulations (29 CFR 1910.303(g)(2)(i), 1910.95(c)(1)); the code used strict
+`>`. The unused network classes and attributes are kept (released API).
+
+**Fixed — spectral vibration detector, its fusion score and its CLI.**
+A detector fitted on 1,024-sample signals scored every normal 1,025-sample
+signal 1.000 (the longer path was Hann-windowed, the shorter was not); every
+length now takes one windowed estimator, with a single frame scaled to the
+broadband level of a full one (long-signal values are unchanged). Its
+untrained networks are now drawn from a fixed seed (`network_seed`), so
+instances agree bit for bit, and its graph-Laplacian eigenvalues start from a
+fixed vector, which removes a ~1e-9 run-to-run score difference. The
+`/detect/fusion` spectral score was `max|FFT| / N` of the raw data (a series
+offset by 1000 scored 1000 and was always an anomaly); it is now Fisher's
+dominant-frequency test as a z-score, like the other scores.
+`mercury physics spectral` gains `--reference`, reports the input's own
+spectral entropy, harmonic distortion and signature in place of constant
+placeholders, and says when no reference was given.
+
+**Fixed — decoy failures were visible only in logs.** When the audit chain refused
+a tripwire record, the shared store failed, or a decoy route failed, the sensor
+kept answering (by design) but left nothing an operator or the chain could act
+on. `TripwireEvent` gains `audits_failed` (lost audit records, carried on the
+next audited event) and `degraded` (failures hit while recording the touch);
+both appear in the audit details. `DeceptionSensor` gains `failure_counts()`,
+`note_failure()` and an optional `failure_hook`; the API exports
+`mercury_deception_failures_total{kind}` on `/metrics`.
+
+## [3.0.0] - 2026-10-21
+
+The first release after 2.0.0; it includes the work prepared as 2.1.0, which
+was never released. Upgrading from 2.0.0: the license is now
+AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
+2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
+
+### The streaming worker alarms with a learned policy: PPO on NAB (branch `steel/version-cov5`)
+
+**Added — `ml/alarm_policy.py`, now the default detector of
+`StreamingAnomalyPipeline` and `mercury stream` (`--detector zscore` /
+`MERCURY_STREAM_DETECTOR=zscore` keeps the EMA z-score rule).** The worker's
+decision, alarm or not on each message, is what NAB scores, so it is learned
+against NAB's own reward. Per numeric field, causal features (fast/slow EMA
+z-scores, median/MAD robust z over 100 and 1,000 values, percentile-rank
+extremeness, a first-difference z) gate *candidates* (rank extremeness above
+0.962: 5% of points, 107 of 110 windows reachable), and a policy trained with
+`ml.ppo_trainer` decides at each candidate from the features and its own recent
+alarm history. The training environment's reward is the exact NAB score
+increment of each decision, so an episode's return is the stream's raw NAB
+score plus a constant (tested). Without the gate PPO learned never to alarm.
+Serving is NumPy only: the policy network ships as
+`models/checkpoints/streaming_alarm_policy.npz` (44 KB, loaded with
+`allow_pickle=False` after its sidecar's SHA-256 check), produced by
+`scripts/train_streaming_alarm_policy.py`.
+
+**Measured — leave-one-category-out on the five real NAB categories (47 files,
+321,206 points, 110 windows; NAB standard profile; `benchmarks/streaming_alarm_policy_results.json`).**
+Each category scored by a policy trained on the other four, three PPO seeds:
+mean held-out score 46.0 (44.2, 48.1, 45.7), detecting 82-86 of 110 windows
+with 468-564 false alarms. Baselines on the same folds: the EMA z-score rule
+-188.7 (99 windows, 5,640 false alarms); a threshold plus refractory period
+on one feature, tuned on the training folds, 29.1 with the feature chosen by
+training score, 41.7 with the best feature chosen on the held-out folds. The
+PPO settings and the gate were chosen on the realAWSCloudwatch fold; on the
+other four folds alone the policy scores 43.2 (40.8, 46.6, 42.1) against 39.3
+for the best-on-held-out threshold, and every seed beats it. The shipped
+policy is trained on all 47 files (seed 0, 2,000,000 decisions; each training
+run takes about a minute on one CPU thread).
+
+### The streaming worker could never raise an alarm (branch `steel/version-cov5`)
+
+**Fixed — `StreamingAnomalyPipeline`'s default detector
+(`infrastructure/streaming.py`), which `mercury stream` and the Kubernetes and
+Helm streaming deployments run.** It folded each value into the EMA mean and
+variance *before* scoring it, so a deviation `d` scored
+`z = (1 - a)|d| / sqrt((1 - a) v + a d^2)`, never more than
+`(1 - a) / sqrt(a) = 2.85` at `a = 0.1`: below the 3.0 threshold for every
+input, however extreme. On the 47 real NAB streams it raised no alarm at all.
+The value is now scored against the statistics it has not yet moved, then
+folded in. Measured on the same 47 streams (321,206 points, NAB standard
+profile via `evaluation.nab_scoring`): 99 of 110 anomaly windows detected,
+but 5,640 false alarms (2.1% of points), NAB score -188.7. A fixed
+3-sigma rule fires too often on real, heavy-tailed streams; the learned alarm
+policy below replaces it.
+
+### Tier detections recorded and alerted correctly; label-free flags honour `contamination` (branch `steel/version-cov5`)
+
+**Fixed — `/api/v1/detect/tier` recorded every detection as 0 anomalies at
+score 0 (`api/routes/detection.py`).** The route handed the history recorder
+`n_flagged` and `max_score`, but the recorder reads `anomalies` and `scores`,
+so tier detections were stored empty and never reached the SIEM alert sinks
+(which skip records with no anomalies). It now passes the tier's own flags
+and scores.
+
+**Fixed — without labels, the tier flagged 35-53% of a series
+(`detectors/detection_tier.py`, `StreamingScoreEnsemble.fit`).** The
+threshold came from the automatic calibration selector, which read the
+averaged rank scores as bimodal and split them with Otsu near the median: a
+200-point series with one 8-point burst had 106 points flagged (3 members)
+or 69 (all 17) at `contamination=0.05`. The label-free threshold is now the
+`1 - contamination` quantile of the ensemble score, as documented (10 of 200
+flagged); with labels it stays F1-optimal. Benchmarks score with AUC and
+oracle F1, so no recorded result changes.
+
+### `ml.ppo_trainer` rebuilt natively: PPO with no reinforcement-learning dependency (branch `steel/version-cov5`)
+
+**Rebuilt — `ml.ppo_trainer` under its 2.0.0 names (`ml/ppo_trainer.py`,
+`ml/rl_envs.py`).** The 2.0.0 module wrapped stable-baselines3, which no
+install profile provided, and fabricated results when forced to run
+(DEPRECATION.md §6.6). PPO is now implemented in PyTorch: PPO-Clip with GAE,
+separate policy and value networks with orthogonal initialization,
+per-minibatch advantage normalization, gradient-norm clipping, optional
+value clipping, linear learning-rate and clip-range annealing,
+approximate-KL early stopping, value bootstrapping through time-limit
+truncations, observation and reward normalization, and gSDE for continuous
+actions. Both networks run as batched matrix products over one flat
+parameter vector, and the loss gradient is computed by hand, about twice as
+fast as autograd on the same network; it equals autograd in all 60 tested
+configurations (worst relative error 2.6e-7). `ml.rl_envs` supplies batched
+`CartPole-v1` and `Pendulum-v1` that replay a recorded Gymnasium trajectory
+bit for bit (4,000 steps across 135 episodes; `tests/fixtures/rl_envs/`), plus an
+adapter for any Gymnasium-API environment. Every 2.0.0 entry point exists
+and works; the changes from 2.0.0 are listed in §6.6. Checkpoints hold only
+tensors and primitives and load through `safe_torch_load`, so loading one
+cannot run code (stable-baselines3's `.zip` format unpickles with
+`cloudpickle.loads`). Training is reproducible from `PPOConfig.seed` and
+leaves the process-wide random state untouched.
+
+**Measured — against stable-baselines3 2.9.0 on identical settings
+(`benchmarks/ppo_benchmark.py`, `benchmarks/ppo_results.json`).** The
+rl-baselines3-zoo PPO hyperparameters, 100,000 steps, one CPU thread, seeds
+0-4 alternating between the two implementations, 20 deterministic
+evaluation episodes per run. CartPole-v1: both reach the 500 cap on every
+seed; Mercury trains in 10.6 s on average against 28.8 s (2.7x). Pendulum-v1:
+mean evaluation return -220 against -447 (worst seed -324 against -678;
+higher on every seed, seed 1 within 1.4), in 20.4 s against 55.7 s (2.7x).
+
+**Measured — the two modules are mutation-floored (`mutation-testing.yml`:
+`mutation-floor-rl-trainer`).** First full enumeration of
+`ml/ppo_trainer.py` and `ml/rl_envs.py` (691 sites): 475 killed, 68.7%.
+Defaults, validation edges and the update's arithmetic were unpinned. Two
+test rounds, several through a stand-in gradient that records what the
+update passes and steps, bring it to 659 of 687 killed, 95.9%; the 28
+survivors are classified equivalents in the lane comment. Floor 91.
+
+### Relicensed to AGPL-3.0-or-later (branch `steel/version-cov5`; effective v3.0.0)
+
+Mercury Agent is now licensed under the GNU Affero General Public License
+v3.0 or later. The AGPL closes the one gap the GPL left open for a project
+whose natural deployment is a hosted service: its section 13 extends the
+corresponding-source obligation to anyone offering a **modified** Mercury to
+users over a network, so no proprietary version can exist, distributed or
+hosted. Versions before 3.0.0 were released under GPL-3.0-or-later and remain
+so, irrevocably, for everyone who received them.
+
+The change is complete, not cosmetic: the `LICENSE` file carries the verbatim
+AGPL-3.0 text (sections 0–12 and 14–17 verified equivalent to the previous
+GPL text under the Affero renaming; section 13 and the appendix differ exactly
+as the two licenses do; pre-2017 `http://` FSF links normalized to `https://`
+to match the FSF's current canonical file); all 1,942 SPDX tags flipped to
+`AGPL-3.0-or-later`; packaging metadata (both `pyproject.toml` files,
+`Cargo.toml`, the Docker OCI license label, the Helm artifacthub annotation),
+the OpenAPI license object, `__license__`, the README license statements, the
+agent notice, CONTRIBUTING and the docs all updated; the openness pillar test
+now pins the AGPL file (including section 13) and the pyproject declaration.
+Before the change, every copyright line in the repository was verified to
+name Steel Security Advisors LLC — the sole holder, so the relicense needs no
+third-party consent. Historical records (dated CHANGELOG entries and the
+`tlp_handler` port-provenance note) are left as written: they were true when
+written. AMA Cryptography (Apache-2.0) remains one-way compatible.
+
+### Additional permission under AGPL section 7: the NVIDIA CUDA libraries (branch `steel/version-cov5`)
+
+**Added — `LICENSE-EXCEPTION`.** Mercury's GPU acceleration runs on NVIDIA's
+CUDA libraries, which are proprietary; the CUDA builds of torch install them
+and the Docker image ships them. As copyright holder, Steel Security Advisors
+LLC grants an additional permission under AGPL section 7 — in the FSF's
+standard form for such libraries — to combine Mercury with the NVIDIA CUDA
+Libraries and convey the result. It is scoped by name (the CUDA runtime,
+cuBLAS, cuFFT, cuRAND, cuSOLVER, cuSPARSE, cuSPARSELt, cuDNN, NCCL, NVRTC,
+nvJitLink, CUPTI, cuFile, NVSHMEM, and NVIDIA's `nvidia-*` distributions of
+them), relaxes no other term — section 13's network source offer included —
+and, as section 7 allows, may be removed from a conveyed copy. `LICENSE` stays
+the FSF's verbatim text (now pinned by sha256); the permission ships beside it
+in every wheel, sdist and image through setuptools' `LICEN[CS]E*` default
+(pinned by test).
+
+**Changed — the license gate learns `permitted`.** A review entry may now cite
+a section 7 grant in the project; the gate checks the named file exists and
+is one, counts those dependencies separately, and reports them without
+warning. The 14 NVIDIA packages move from `flagged` to `permitted`; `regex`
+stays flagged. The gate suite (57 tests) fails 3 against the previous gate;
+three new openness tests pin the grant's scope, the verbatim license and the
+packaging.
+
+### The AGPL made operable: a source offer and a dependency license gate (branch `steel/version-cov5`)
+
+**Added — `/source`, the corresponding-source offer (AGPL-3.0 section 13).**
+Every deployment now serves, publicly and with no input, the license, the
+running version and where its complete corresponding source is published —
+the upstream repository by default, so a stock deployment complies by
+existing. An operator running a modified Mercury sets `MERCURY_SOURCE_URL` to
+their published fork (and `MERCURY_SOURCE_REVISION` to the exact commit); a
+URL that is not `https://`, has no host or embeds credentials is refused and
+logged — a credential in a refused URL never reaches the log — and the upstream
+location is served instead; a revision that is not a Git object id is omitted.
+38 tests, failing without the new module; full mutation enumeration of the
+offer and its route kills 10 of 10 (the first run's survivor, the URL length
+limit, was a real boundary gap, closed with an exact-limit test). Both modules
+joined the trust-surface mutation lane, re-enumerated whole: 214 of 218
+killed (98.2%, floor 95), the four survivors the lane's classified
+equivalents.
+
+**Added — dependency license gate** (`scripts/check_dependency_licenses.py`,
+`configs/dependency_license_review.toml`). It walks the runtime requirement
+closure `pyproject.toml` declares for the requested extras and resolves each
+installed distribution's license from its own metadata (PEP 639 expression,
+then a recognised `License` field, then classifiers as alternatives). Labels
+that name a family without a version — "BSD", "Apache" — are never guessed:
+the shipped license text decides (an advertising clause or a non-2.0 Apache
+text fails), and no text is unknown. Unknown or incompatible licenses fail
+unless a reviewed entry pins their exact metadata: `verified` entries carry
+primary evidence, `flagged` ones are reported on every run as the owner's
+decision. It runs in Type Checking on every PR (`[ml]`, 101 distributions)
+and in ML Tests over `[all]`, the closure the Docker image ships. The `[all]`
+lane was pre-validated against pip's full resolution of `[all]` (186
+distributions, classified by the gate's own resolver; every unversioned label
+settled from the package's real license text) so it lands green. 51 tests over
+real `.dist-info` directories.
+
+What it found, reported rather than hidden: the CUDA builds of torch install
+NVIDIA's proprietary runtime libraries (14 packages) into the `[all]` closure
+and the image — now covered by the section 7 permission below; `regex`, which
+transformers loads on import, declares `Apache-2.0 AND CNRI-Python`, a license
+the FSF lists as GPL-incompatible — flagged for the owner's decision.
+`tokenizers` and `namex` ship no usable license metadata; both are verified
+Apache-2.0 from their own license files (sha256 recorded).
+
+**Fixed — `run_ci_gates.sh` had drifted from ci.yml.** Its shipped-scripts
+mypy list lacked `scripts/record_gdacs_fixtures.py`, which ci.yml checks; the
+local mirror now matches (20 scripts, both lists).
+
+### SURGEDAT acquired; DONKI Kp encoding verified (branch `steel/version-cov5`)
+
+**Added — SURGEDAT observed peak storm surge (`data_sources/storm_surge.py`:
+`parse_surgedat_csv`, `SurgeObservation`, `SurgeHeight`).** The LSU
+databases the previous round could not reach are recorded byte-verbatim:
+the global database (745 observations, 1737-2014) and the Gulf of Mexico
+database (240, 1880-2011), with provenance in
+`tests/fixtures/surgedat/PROVENANCE.json`. The server sends its leaf
+certificate without the issuing intermediate; the intermediate (InCommon
+RSA Server CA 2) was taken from Mozilla's CCADB, verified against the
+system roots, and the files fetched with full TLS verification. Both are
+classic Mac OS files (carriage-return line ends, Mac Roman text), read as
+such. Most heights are stated in feet and in metres; a pair counts as one
+reading only when the two rounding intervals overlap, so four pairs in the
+global file are reported as conflicts the database holds against itself
+(Roger 1993's 1.3 ft beside 0.7 m among them) and none in the Gulf file.
+A conflict or a stated range keeps both readings and has no single value;
+the GDACS surge level is assigned only when every stated reading falls in
+one band, and only storm surge is graded (storm tide adds the tide). The
+files are static archives (last modified 2014 and 2013), so the parser
+reads a snapshot; no live source is added, since a client would need the
+same chain repair to reach the server.
+
+**Fixed — the DONKI storm-window labels dropped NOAA G1's lowest third
+(`loaders/space_weather_loader.py`).** The loader kept its literal
+`Kp >= 5.0` last round because the kpIndex encoding could not be checked.
+It is now checked against an independent primary source: GFZ's definitive
+Kp as NASA OMNI2 serves it (`tests/fixtures/space_weather/omni2_kp_2024_05.json`,
+Kp*10 in thirds). The recorded live DONKI May 2024 response, which holds
+the Gannon storm, writes Kp in decimal thirds (x.33 = x+, x.67 = (x+1)-):
+every one of its 20 values is a third, 14 equal GFZ's value and the other
+six differ by one third (NOAA's estimate against GFZ's definitive index);
+on the Gannon records alone, 10 of 16 match. So a 5- arrives as 4.67, which
+the literal read as quiet. Windows are now classified through `noaa_g_scale`
+like every other G-scale site, thirds strings ("5-") parse, and
+`KP_STORM_THRESHOLD` states the G1 onset (14/3). Not settled by this
+evidence: whether DONKI omits G1-only windows by policy. Five of the six
+GFZ G1-only windows of May 2024 have no DONKI entry, so the labels cover
+what DONKI reports; DONKI's own definition and NOAA's archived estimates
+were unreachable (api.nasa.gov 503; CCMC, GFZ and SWPC's FTP mirror reset
+by the egress path).
+
+**Measured — the two modules above are mutation-floored
+(`mutation-testing.yml`: `mutation-floor-hazard-evidence`).** First full
+enumeration of `data_sources/storm_surge.py` and
+`loaders/space_weather_loader.py` (129 sites): 73 killed, 56.6%. The
+SURGEDAT rounding-interval arithmetic, the loader's feature windows, its
+real-time and DONKI request windows and the label window's edges were
+unpinned. Known-answer tests (boundary pairs within micrometres of the
+overlap rule, closed-form ramp features, a fixed clock, a sub-second label
+edge) bring it to 121 killed, 93.8%; the eight survivors are classified
+equivalents in the lane comment. Floor 88.
+
+### Trust surface: a bounded store, decoys behind the rate limiter, contacts that cannot break security.txt (branch `steel/version-cov5`)
+
+**Fixed — the cross-worker tripwire store grew without bound
+(`security/deception_store.py`).** The in-process sensor keeps at most
+`max_sources` sources; the store kept every source and aggregate it ever
+saw and never pruned decoy touches, and every touch counted distinct
+sources by scanning all of them. Measured under address rotation (100
+touches/s inside one window): 40,000 rotated sources left 40,000 touch
+rows and per-touch latency climbing from 0.24 ms to 5.0 ms, serialized
+across workers on the shared file's write lock. The store now caps sources
+and aggregates at the sensor's `max_sources` (passed through
+`record_touch(..., max_sources=)`), evicting the least recently seen with
+its hits and touches -- the in-process LRU rule -- and counts the campaign
+signal from an indexed last-seen table. Same flood: 10,000 touch rows and
+about 1 ms per touch at the cap. A store written before the cap is
+backfilled on open, so its keys are covered too. The key being recorded is
+never an eviction candidate: the store runs on the wall clock, and after a
+backward step a fresh key stamped older than every other evicted itself
+mid-touch, so the touch counted zero hits (no tarpit) and left an orphaned
+touch row.
+
+**Fixed — reliability grading was per-worker (`security/deception.py`).**
+`DeceptionSensor.outcomes()` / `posterior()` read only the process's own
+touches, so with the shared store each worker graded a source on the
+decoys that worker happened to see. With a store they now read the
+cluster-wide count (`TripwireStore.distinct_decoys`), falling back to the
+process's view on a store failure.
+
+**Fixed — silent tripwires answered refusals late (`api/routes/decoys.py`).**
+The observe-only middleware was added outermost, so a request the rate
+limiter refused was still recorded, written to the store and held by the
+tarpit before its 429 -- an unthrottled write path, and a delayed 429
+where a real missing path answers at once. It now sits innermost, beside
+the router: it sees only what the application answers, and a refused
+probe is refused exactly as a real missing path is (pinned by a
+differential test against a real `RateLimitMiddleware`).
+`register_decoys` refuses an application that has already started instead
+of half-registering.
+
+**Fixed — one malformed operator contact broke `/.well-known/security.txt`
+(`security/agent_notice.py`).** `MERCURY_SECURITY_CONTACT` entries are
+documented as dropped with a warning, but an `https` value the URI parser
+cannot read (`https://[::1`) raised out of `configured_contacts`, failing
+the request. Such values are now refused, as are an out-of-range or
+non-numeric port, an `https` URI with a port but no host, and userinfo
+(a published contact must not carry credentials, RFC 3986 section 3.2.1).
+
+**Added — the trust-surface variables reach the deployment surfaces.**
+`MERCURY_SECURITY_CONTACT`, `MERCURY_DECEPTION_ENABLED`,
+`MERCURY_DECOY_PATHS` and `MERCURY_SILENT_DECOY_PATHS` were absent from
+the configuration reference (`docs/PLATFORM_HARDENING.md`), the Helm
+values, the kustomize env file and the compose overlay, so a third-party
+deployment served the upstream security contact with nothing prompting the
+operator to change it. All four are now documented and carried, the decoys
+off by default; a test holds each surface to the modules' constants.
+
+**Measured — the trust-surface mutation lane, re-enumerated in full.**
+208 sites across the five modules: first run 202 killed (97.1%). The two
+killable survivors were the store's `max_sources` defaults, unpinned
+against the sensor's cap (now pinned, both mutants verified killed by hand);
+the one timeout kill, the TarpitGate capacity check, now fails its test in
+one second instead of hanging for the harness's 120. Final: 204 killed,
+98.1%, the four survivors classified equivalents in the lane comment. The
+floor rises from 90 to 95.
+
+### Explainers: the fallback LIME and SHAP paths compute what they name (branch `steel/version-cov5`)
+
+**Fixed — the LIME surrogate spread a model's level across every feature
+(`cognitive/explainability.py`).** Every install takes the in-repo
+surrogate: `lime` is in no extra, its only release cannot build. The
+surrogate regressed predictions on raw perturbed inputs with no intercept,
+so `3 + 2*x0` at (1, 1, 1) read as slopes (2.95, 1.06, 0.98) and `100 + x1`
+at the origin as (-35.8, 24.3, 11.5). It now fits LIME's local model
+(Ribeiro, Singh & Guestrin 2016): a kernel-weighted linear fit with an
+intercept over centred perturbations. Those cases return (2, 0, 0) and
+(0, 1, 0), `x0**2` at x0 = 3 its local slope 6.00, and R^2 is the weighted
+R^2 of that fit.
+
+**Fixed — the SHAP fallback was neither Shapley nor anchored.** It
+averaged random coalitions with equal weight (a Banzhaf estimate, which
+breaks efficiency under interactions) and set `base_value` to the
+prediction itself, so `base_value + sum(values)` could not reconstruct it:
+`x0*x1 + x2` at (2, 3, 1) gave (4.5, 4.5, 1.0), local accuracy -0.43. Up to
+ten features it now enumerates every coalition with the Shapley weights
+(exact; one batched model call); above that it averages random orderings,
+whose increments sum to `f(x) - f(baseline)` exactly. The baseline is the
+background mean when `background_data` is given, else zeros, and
+`base_value` is the model at that baseline: the same case gives (3, 3, 1),
+local accuracy 1.0. `metadata["method"]` names what ran (`exact_shapley`,
+`permutation_shapley`, or `kernel_shap` for the installed `shap` library,
+whose path is unchanged).
+
+### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
+
+The two gaps the red-team round left open, closed.
+
+**Added — rotating addresses stops paying.** Tripwire hits are now also
+counted per aggregate — the ``/48`` for IPv6, the ``/24`` for IPv4 — with its
+own, larger free allowance (`TarpitPolicy.aggregate_free_hits`, default 8),
+and the response is held for the larger of the per-source and per-aggregate
+schedules. A lone prober sees exactly the old schedule (proven by test); a
+pool of rotating addresses inside one allocation spends one shared allowance
+and then escalates together. Rotation *across* allocations is met by the
+campaign signal: every audited event now carries the window's distinct-source
+count and a ``campaign`` flag once it crosses the threshold
+(``campaign_sources``, default 8) — the one signal rotation raises instead of
+suppressing, because rotating addresses is what drives it up.
+
+**Added — the audit chain cannot be flooded through the decoys.** Tripwire
+audits are capped per window (``max_audits_per_window``, default 512); past
+the cap they are counted, not written, and the first audit of the next window
+carries ``audits_suppressed`` so the tamper-evident chain accounts for every
+suppressed record. An attacker spending addresses to spam the chain buys one
+summary number.
+
+**Added — cross-worker tripwire state** (`security/deception_store.py`).
+With ``MERCURY_KEYSTORE_PATH`` set — the same SQLite file the rate limiter,
+key store and identity store already share — hit counts, audit dedupe and the
+campaign signal are cluster-wide: N workers no longer give a prober N free
+allowances or N duplicate first-touch audit records (both pinned by tests
+driving two sensors over one store). Every ``record_touch`` is one ``BEGIN
+IMMEDIATE`` transaction, rows are pruned and per-key capped like the
+in-process deques, and a store failure falls back to the in-process view for
+that request — logged, never blocking the answer. Unset, behaviour is
+byte-identical to before.
+
+The trust-surface mutation lane now enumerates ``deception_store.py`` too.
+
+### The scalar detection verdict is now the batch verdict (branch `steel/version-cov5`)
+
+**Fixed — `anomaly_prob` / `is_anomaly` described row 0 only.** On a
+multi-row batch, `detect_with_fusion`'s top-level scalars copied the first
+row, so a batch whose only anomaly sat on any other row read "normal" at the
+top level — and the LLM-enhancement hook, which keys on `is_anomaly`, skipped
+exactly the batches it was for. The scalars are now the batch verdict:
+`anomaly_prob` is the most anomalous row's probability (so
+`is_anomaly == anomaly_prob > threshold` is True exactly when any row crosses
+the threshold), `severity` and `class_prediction` come from that same row, and
+a new `top_row` key names it. Single-row inputs are unchanged (the maximum of
+one row is the row), as are the per-row `anomaly_probs` / `is_anomaly_rows` /
+`severity_scores` lists. Three new tests fail against the replaced code.
+
+**Clarified — where `check="benevolence"` still enforces.** The ethical
+package docstring said the code is retired outright; in fact the assessment
+purpose screen (`assessment/policy.py`) still raises it — scored on the
+caller's own stated purpose for a human-subject measurement, never an
+engine-written string — for stalking/harassment purposes the weapons-scoped
+harm-uplift gate measurably admits. The docstring now says exactly that.
+
+**Changed — contact labels.** `steel.sa.llc@mercuryagent.global` is labelled
+*Operations & Security* and `contact@mercuryagent.global` *General Inquiries &
+Support* across README, CONTRIBUTING and SECURITY. README "What We Did Right"
+gains two measured claims: the tamper-evident audit chain (tampering-detected
+tests across restarts and rotation) and the eliminate-not-waive container-CVE
+practice (perl-base purged, pip stripped, absence proven by re-scan).
+
+### Official contact addresses; README corrected against the code (branch `steel/version-cov5`)
+
+**Changed — official email.** Every project contact now uses the
+`mercuryagent.global` domain: `steel.sa.llc@mercuryagent.global` (primary —
+security reports, conduct enforcement, package metadata, the OpenAPI contact,
+HTTP `User-Agent` strings, ACME and Alertmanager) and
+`contact@mercuryagent.global` (general enquiries). The CAP alert `sender`
+default moves to the primary address, and `/.well-known/security.txt` now
+lists `mailto:steel.sa.llc@mercuryagent.global` ahead of the SECURITY.md link
+when `MERCURY_SECURITY_CONTACT` is unset (a test pins that mailbox to the one
+SECURITY.md names). The User-Agent recorded in
+`tests/fixtures/meteorological/PROVENANCE.json` is left as captured: it is a
+historical record of the request that produced the fixture.
+
+**Fixed — AMA Cryptography's license.** The README said AMA Cryptography is
+GNU GPL v3.0; it is Apache License 2.0 (one-way compatible with Mercury's
+GPL-3.0-or-later). The GPL paragraph now states the obligation accurately: it
+attaches on distribution; private modification and network use are not
+distribution.
+
+**Fixed — README claims the code did not support.**
+- The *Simple Example* raised `RuntimeError: Detector 'statistical' is not
+  fitted` and read a key the result does not have. It is replaced by an example
+  run as written (`Flagged rows: [3]`), with a note that the scalar
+  `anomaly_prob` / `is_anomaly` describe the first row only.
+- *Memory Footprint* listed figures that were never measured; it now leads with
+  a measured 611 MB peak RSS (Python 3.13, CPU) and labels the rest estimates.
+- Docker *Mode 3* contained a Python snippet that could not run; it is now the
+  CLI invocation.
+- Test count 18,538 (collected); mutation floors across eight module sets.
+- "ACVP-validated" HMAC → native HMAC whose ACVP-Server known-answer vectors
+  pass bit-for-bit (no CAVP certificate is claimed).
+- *Ethics Scoring* now describes the enforcing gates (`harm_uplift`,
+  `sigma_immutable`) and benevolence as advisory, citing the tests that pin it.
+- CI table: `release.yml` attaches sdist, wheel, SBOM and provenance (no
+  signing is claimed); `mutation-testing.yml` added.
+- FIPS guidance points to FIPS 140-3 validated HSMs (140-2 certificates were
+  scheduled to move to the CMVP Historical list on 21 September 2026).
+- *What We Did Right* rewritten around what the repository demonstrates.
+
+The `detect_with_fusion` docstring and two engine comments still named
+`BenevolenceScorer.enforce` (`check="benevolence"`) as the first hard gate;
+they now name the shared harm-uplift gate it was replaced by.
+
+### Trust surface red-team: four ways around the decoys, closed (branch `steel/version-cov5`)
+
+An adversarial pass against the decoy layer found four ways around it; three
+were measured directly and the fourth is a property of the repository. Each
+fix has fail-on-old tests (13 route tests fail against the replaced code).
+
+**Fixed — the shipped decoys are public.** Mercury is open source, so anyone
+who reads `DEFAULT_DECOYS` can avoid all eight. Deployments now add private,
+unpublished paths with `MERCURY_DECOY_PATHS` (protected-route challenge) and
+`MERCURY_SILENT_DECOY_PATHS` (silent tripwire); a decoy's location is the
+secret, like a key. Invalid or duplicate entries are logged and skipped, never
+fatal. Registration now runs after every real route and refuses any decoy the
+application already serves, checked with each route's own `matches()` — so a
+configured `/api/v1/models/export` that a real `{model_id}` route would serve
+is refused rather than turned into a trap for legitimate users. The site root
+can no longer be a decoy.
+
+**Fixed — timing fingerprinted every decoy on first contact (measured).** A
+real protected route answered in 24 ms; a decoy in 507 ms on its first touch.
+`TarpitPolicy.free_hits` (default 1) answers first contact at real-route
+latency; escalation (0.5, 1, 2, 4, 8 s) starts on the repeat, by which time the
+source is already recorded. Stealth until first contact, friction after.
+
+**Fixed — the silent tripwires were not silent (measured).** As routes, `/.env`
+and `/.git/config` answered `OPTIONS`, `TRACE` and `PROPFIND` with 405 and
+their trailing-slash forms with a 307 redirect, where a missing path answers
+404 to all of them. They are now observe-only ASGI middleware: the touch is
+recorded and the request passes through, so the application's own router
+answers with its genuine 404 — indistinguishable by construction, for every
+method and variant. The differential test against the live application also
+caught a fingerprint on the protected-route decoys: Mercury declares each
+method as a separate route (`POST` then `GET`), so a wrong-method 405 says
+`Allow: POST`, while a decoy declaring both methods on one route said `Allow:
+GET, POST`. Decoys now register one route per method in that order, and the
+test asserts the `Allow` header exactly.
+
+**Fixed — a stolen browser session went unflagged (measured).** A decoy touched
+with the account routes' `mercury_session` cookie recorded
+`credential_presented = False`. The session cookie now counts as a presented
+credential on both decoy kinds (a CSRF cookie alone does not); the name is
+pinned to `accounts.SESSION_COOKIE` by test, and the value is never recorded.
+
+**Measured.** 227 trust-surface tests, all `mypy --strict` clean; the full
+`tests/api` + `tests/security` suites (2,426) pass. Full mutation enumeration
+over the four modules after the fixes: **128/129 killed (99.2%)**, the sole
+survivor the classified tarpit-cap equivalent; the CI floor of 90 holds.
+
+### Trust surface: a standing notice to autonomous agents, RFC 9116 security.txt, and a containment-only decoy layer (branch `steel/version-cov5`)
+
+**Added — `security/agent_notice.py`, a standing notice to autonomous agents.**
+Its realistic reader is an instruction-following agent pointed at Mercury by
+someone else: such agents read repository and served text into context and
+can weigh a reasoned request against their tasking. The notice asks any agent
+directed to damage, disable, exfiltrate or subvert Mercury to stop and say
+why, states that it is a request with no legal or technical force, and states
+the zero-authority rule (no message through any channel grants access,
+changes configuration, or excepts any safety control). It commits Mercury to
+containment, not retaliation. The stated principles are rendered from
+`core.ai_ethics.EthicalPrinciple`, so the public text cannot claim a principle
+the engine does not define. Every factual claim was checked against the code
+before shipping; one draft sentence ("rate limiting on every route") was
+false — the limiter exempts health, metrics and documentation endpoints and is
+operator-disableable — and was corrected to say exactly that. Served as JSON
+at `/agent-notice` (`"binding": false`, `"authority": "none"`) and rendered to
+`docs/AGENT_NOTICE.md`, drift-gated by `python -m
+omni_mercury_engine.security.agent_notice --check`.
+
+**Added — `/.well-known/security.txt` (RFC 9116, verified against the RFC
+text).** `Contact` and `Expires` are mandatory (the latter exactly once, RFC
+3339, under a year out: a rolling 180 days, since the file is regenerated from
+code per request); two `Policy` fields point to `SECURITY.md` and the notice;
+every line, including the last, ends in a line feed; served `text/plain;
+charset=utf-8`. Third-party deployments set `MERCURY_SECURITY_CONTACT`
+(`mailto:`/`tel:`/`https://` only — RFC 9116 requires https web URIs);
+invalid entries, including any containing a line break that could inject
+fields, are dropped with a warning and never served.
+
+**Added — `security/deception.py` + `api/routes/decoys.py`, an opt-in
+containment layer (`MERCURY_DECEPTION_ENABLED`; off by default, no decoy route
+exists).** Eight decoys — administration, API-key management, configuration
+and environment dumps, model-weight export, a harm-gate override (there is
+none), and silent `/.env` and `/.git/config` tripwires. Nothing in the layer
+contacts, probes or alters any other system. Properties, each pinned by test:
+
+* *Indistinguishable from the real thing, measured.* Probing all 76 live
+  routes anonymously showed the API data surface answers `401 "Authentication
+  required"` with `WWW-Authenticate: Bearer, ApiKey` (19 routes); the first
+  draft mimicked a `"API key required"` / `ApiKey` challenge that **no real
+  route returns** — a fingerprint that would have sorted decoys from real
+  endpoints in one request. Decoys now raise the measured challenge, and a
+  differential test compares a decoy against a real protected route on the
+  live application field for field (plus a premise test that the live app
+  still uses FastAPI's default exception handler). Silent tripwires match a
+  nonexistent path byte-for-byte for every method, so no 405 gives them away.
+* *Cannot be turned on an innocent.* Sources resolve through the rate
+  limiter's own `resolve_client_ip`, which ignores `X-Forwarded-For` unless
+  trusted proxy hops are declared — a forged header cannot frame a victim's
+  address. IPv6 keys by `/64`, so rotating addresses inside one allocation
+  does not reset escalation.
+* *Consequences stay on the decoys.* The tarpit delays decoy responses only
+  (0.5, 1, 2, 4, 8 s, capped, overflow-proof in log space), and no real route
+  consults the sensor: a legitimate user behind a prober's NAT is never
+  slowed. `TarpitGate` caps concurrently held responses; past the cap it
+  answers immediately, so the tarpit cannot exhaust the server.
+* *Bounded.* Per-source state is LRU-capped (10,000), hit history is
+  length-capped, and audit records are one per source per decoy per window —
+  internet-background scanning cannot flood the chain.
+* *Fail-closed.* Any internal failure answers as a missing path; a decoy
+  never returns 500.
+* *Evidence, honestly weighted.* Tripwires are recorded as `security_incident`
+  events on the existing shared hash-chained audit logger (the client address
+  in its dedicated field, never in free text), and map onto
+  `counterintelligence.SourceOutcome` — one refuted outcome per *distinct*
+  decoy touched (retries are not independent adjudications) — applied through
+  the module's own `source_posterior`. The sensor is exposed as
+  `app.state.deception_sensor` for consumers that grade a source; no real
+  route consumes it automatically (see the NAT property above).
+* *The highest-value signal.* A decoy touched by a request presenting an API
+  key or `Authorization` header — a stolen credential or an insider — is
+  flagged `credential_presented`; the credential itself is never recorded.
+
+**Measured.** 193 tests across `tests/security/test_agent_notice.py`,
+`tests/security/test_deception.py` and `tests/api/test_trust_surface_routes.py`,
+all passing `mypy --strict`; the full `tests/api` + `tests/security` suites
+(2,368) pass with the new routes registered. Mutation-measured on day one by
+full enumeration over the four modules: 98/120 killed (81.7%) on the first
+pass, both route modules at 100%. Survivor classification found **two real
+validator gaps**, fixed with fail-on-old tests (7 cases fail on the replaced
+validator): `security.txt` would have served a contact carrying DEL or a C1
+control character — the old check covered only `0x00`–`0x1F`, and URI syntax
+admits none of them — and accepted malformed contacts such as
+`mailto:security` (no `@`) or `tel:abc` (no digit). The killable test gaps
+(immutability, documented defaults, boundary legality, an offset-less
+`tzinfo`, CLI help) are closed by 24 kill-pins; a redundant
+`replace(microsecond=0)` (already dropped by `strftime`) was removed, leaving
+one classified equivalent, the tarpit-cap boundary where capped and uncapped
+delays coincide. Re-measured over the hardened code (115 sites): **114 killed, 99.1%**, the sole survivor that classified equivalent. CI enforces floor 90 (`mutation-floor-trust-surface`).
+
 ### Mathematical Observatory: verified equation solving, anomaly instruments over mathematical data, mathlib-capable proof checking (branch `steel/version-cov4`)
 
 **Added — `omni_mercury_engine.observatory`, a machine that solves what is
@@ -1995,16 +3347,21 @@ Clemmensen & Christensen, DTU). Trajectories are served as 22 documented
 kinematic/geometric features; `LABEL_SOURCE = "expert_annotated"` keeps it
 in the genuine-label headline pool.
 
-Measured against the published baselines on the identical evaluation set
-(Olesen's DTU thesis Fig. 6.1 and JMSE 11(11):2085): fitting the stock
-`MercuryAnomalyDetector` on the companion June–November unlabelled months
-(106,728 trajectories, benchmark 10k cap, 0.33 s fit) and scoring all 521
-labelled trajectories yields ROC-AUC 0.876 (full-reference variant 0.869,
-95 % bootstrap CI ≈ [0.78, 0.95]) — parity with GeoTrackNet (0.87, the
-field's reference deep model, 50-epoch training) and above RAE 0.86,
-Seq2Seq 0.84/0.83, the contextual detector 0.79 and RVAE 0.72. With only
-25 positives all methods' intervals overlap: the honest claim is parity,
-not superiority. The in-suite row (uniform harness protocol, seed 42)
+Measured on each paper's own protocol, the stock `MercuryAnomalyDetector`
+fitted on that paper's unlabelled training file (DOI 10.11583/DTU.21511842,
+`DTUAISTrainingSet`) and scoring all 521 labelled trajectories:
+June–November 2021 (106,728 tracks; Kristoffer Vinther Olesen's DTU PhD
+thesis, 2023, Fig. 6.1) ROC-AUC 0.8785 (95 % stratified bootstrap CI
+0.788–0.951, AP 0.364; 0.875–0.879 when fitted on 10,000-track random
+subsets); December 2021 without the 13th (12,591 tracks; JMSE 11(11):2085
+Fig. 12a) 0.8615 (0.778–0.933, AP 0.248). Both are reproduced by
+`examples/mercury_quickstart.py --published-protocols`. GeoTrackNet / VRNN
+(0.87), RAE (0.86) and both Seq-2-Seq models (0.84, 0.83) lie inside
+Mercury's intervals: parity, not superiority. RVAE (0.72) and the JMSE
+two-step clustering (0.73; its 0.79 is Fig. 12b, with stationary tracks
+removed) lie below them. An earlier draft of this entry gave 0.876 and a
+"full-reference" 0.869 from code that was never committed; the full fit
+now gives 0.8785. The in-suite row (uniform harness protocol, seed 42)
 reports AUC 0.8613 / oracle-F1 0.6000. The features were written once,
 before any score was seen — no tuning iterations, no label contact.
 
@@ -4130,7 +5487,10 @@ tests; no behavior was suppressed or cosmetically patched.
   paths fabricated training results. No runtime caller, no tests. See
   DEPRECATION.md §6.6.
 
-## [2.1.0] - 2026-07-08
+### Prepared as 2.1.0, never released; ships in 3.0.0
+
+Never tagged or published. The "SemVer minor" reading below was wrong: this
+work already removed 2.0.0 public names (DEPRECATION.md §7).
 
 Feature-additive over 2.0.0 — the detector-tier surface below is new public
 API, so this cut is a SemVer **minor**, not a patch. Release hygiene included
@@ -9522,9 +10882,9 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
-[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.1.0...HEAD
-[2.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.0.0...v2.1.0
-[2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...v2.0.0
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/2.0.0...v3.0.0
+[2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...2.0.0
 [1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.0...v1.5.1

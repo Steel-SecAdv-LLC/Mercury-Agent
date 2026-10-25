@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pillar: candor — the documentation says what is true, and CI checks.
 
 Candor is the pillar that fails silently, because prose does not raise. Four

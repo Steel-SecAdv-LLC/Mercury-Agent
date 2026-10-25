@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Reachable real-domain measurement suite for the governed fusion substrate.
 
 This is the single shared measurement driver used by every governed-fusion

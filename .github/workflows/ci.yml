@@ -14,7 +14,9 @@ concurrency:
 
 on:
   push:
-    branches: [main, develop, feature/*]
+    # steel/** is this repository's working-branch convention (steel/version-*,
+    # steel/maint-*): without it those branches got zero CI until a PR opened.
+    branches: [main, develop, feature/*, steel/**]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
@@ -567,6 +569,13 @@ jobs:
           pip install mypy==2.3.1 types-requests==2.33.0.20260712 \
             "pytest>=9.0.3" pytest-asyncio pytest-mock "hypothesis>=6.0.0"
 
+      - name: Dependency license gate ([ml] runtime closure)
+        # Mercury is AGPL-3.0-or-later: every runtime dependency must carry a
+        # license known to be compatible, or a reviewed entry in
+        # configs/dependency_license_review.toml. The ml-tests job runs the
+        # same gate over [all], the closure the Docker image ships.
+        run: python scripts/check_dependency_licenses.py --extras ml
+
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
@@ -719,6 +728,7 @@ jobs:
             scripts/render_prometheus_rules.py \
             scripts/check_torch_load_safety.py \
             scripts/ci_gate_watchdog.py \
+            scripts/check_dependency_licenses.py \
             scripts/record_gdacs_fixtures.py \
             --show-error-codes \
             --pretty
@@ -1394,11 +1404,25 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-ml-
 
+      - name: Cache pinned HuggingFace models
+        # Keyed on the SafeHFLoader pin table: the cache rolls over exactly
+        # when a pinned revision changes.  With the models cached, the
+        # image/video real-model tiers (tests/detectors/test_vlm_real_models.py,
+        # test_visual_real_images.py) run instead of skipping.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-models-${{ hashFiles('src/omni_mercury_engine/detectors/vlm/lvlm_backends.py') }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
+
+      - name: Dependency license gate ([all] runtime closure, as shipped)
+        # The closure ``pip install ".[all]"`` and the Docker image ship.
+        run: python scripts/check_dependency_licenses.py --extras all
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # ``ml-tests`` collects everything under ``tests/``, including
@@ -1411,6 +1435,13 @@ jobs:
         uses: ./.github/actions/build-ama-cryptography
         with:
           ama-ref: v5.0.0
+
+      - name: Prefetch pinned HuggingFace models (image/video tiers)
+        # Populates the cached ~/.cache/huggingface with exactly the
+        # SafeHFLoader-pinned revisions (a cache hit makes this a no-op), so
+        # the real-model image/video tiers run and MERCURY_REQUIRES_HF_MODELS
+        # below can declare them must-run instead of silently skipped.
+        run: python scripts/prefetch_pinned_models.py
 
       - name: Run full test suite with parallelization
         env:
@@ -1427,6 +1458,10 @@ jobs:
           # Without this flag a broken install would surface as
           # several thousand "green" skips rather than a CI red.
           MERCURY_REQUIRES_ML: "1"
+          # The prefetch step above provisioned the pinned HF models, so the
+          # image/video real-model tiers must run; a missing model is a red,
+          # not a skip (tests/conftest.py session gate).
+          MERCURY_REQUIRES_HF_MODELS: "1"
         run: |
           # Run tests in parallel with 4 workers, 300s timeout per test
           # Coverage threshold enforced to ensure production readiness
@@ -1693,6 +1728,7 @@ jobs:
           AMA_REQUIRE_REAL_PQC: "true"
         run: |
           python -c "
+          import json
           import time
           import numpy as np
           from omni_mercury_engine.core.gosnn_integration import (
@@ -1741,6 +1777,20 @@ jobs:
           print(f'SyntheticGradient (100 ops): {grad_time:.2f}ms')
           print(f'Gradient Cache Hit Rate: {grad_stats[\"hit_rate\"]*100:.1f}%')
 
+          # Record the measurements before asserting: the upload step runs
+          # with if: always() and requires this file, so it must exist even
+          # when a threshold below fails.
+          results = {
+              \"ttl_cache_write_ms\": write_time,
+              \"ttl_cache_read_ms\": read_time,
+              \"ttl_cache_hit_rate\": hits / 1000,
+              \"synthetic_gradient_ms\": grad_time,
+              \"gradient_cache_hit_rate\": grad_stats[\"hit_rate\"],
+              \"thresholds_ms\": {\"ttl_write\": 500, \"ttl_read\": 100, \"gradient\": 1000},
+          }
+          with open(\"benchmark-results.json\", \"w\") as fh:
+              json.dump(results, fh, indent=2, sort_keys=True)
+
           # Performance assertions
           assert write_time < 500, f'TTLCache write too slow: {write_time}ms'
           assert read_time < 100, f'TTLCache read too slow: {read_time}ms'
@@ -1758,7 +1808,7 @@ jobs:
           name: performance-benchmark-results
           path: benchmark-results.json
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   # ===========================================================================
   # Stage 8: Docker Build

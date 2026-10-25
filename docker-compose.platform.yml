@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Mercury-Agent Platform Overlay — the public account-platform deployment.
 #
@@ -53,6 +53,13 @@ services:
       MERCURY_PUBLIC_BASE_URL: ${MERCURY_PUBLIC_BASE_URL:-https://app.mercuryagent.global}
       MERCURY_CONTACT_EMAIL: ${MERCURY_CONTACT_EMAIL:-contact@mercuryagent.global}
       MERCURY_FRONTEND_ENABLED: ${MERCURY_FRONTEND_ENABLED:-true}
+      # --- trust surface: security.txt contact, opt-in containment decoys ---
+      # Set MERCURY_SECURITY_CONTACT when you, not the upstream project,
+      # operate this deployment; blank serves the upstream contact.
+      MERCURY_SECURITY_CONTACT: ${MERCURY_SECURITY_CONTACT:-}
+      MERCURY_DECEPTION_ENABLED: ${MERCURY_DECEPTION_ENABLED:-false}
+      MERCURY_DECOY_PATHS: ${MERCURY_DECOY_PATHS:-}
+      MERCURY_SILENT_DECOY_PATHS: ${MERCURY_SILENT_DECOY_PATHS:-}
       # --- secrets (generate with: python scripts/generate_secret_key.py --all)
       MERCURY_DATA_ENC_KEY: ${MERCURY_DATA_ENC_KEY:-}
       MERCURY_DATA_ENC_KEY_OLD: ${MERCURY_DATA_ENC_KEY_OLD:-}

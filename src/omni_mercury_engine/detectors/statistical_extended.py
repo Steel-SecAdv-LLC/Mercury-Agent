@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DEPRECATED: This module uses Mercury's mercury_ml (DBSCAN, NearestNeighbors) and scipy for anomaly.
 
 detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This
@@ -39,6 +39,7 @@ from scipy import stats
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -1010,6 +1011,40 @@ class ExtendedStatisticalDetector(BaseDetector):
     - Dynamic threshold adaptation
     """
 
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Component methods are the named canonical algorithms: MAD "
+                "modified z-score (consistency constant 1.4826, cut 3.5 by "
+                "default), LOF, DBSCAN, MCD, CUSUM, Grubbs' test and "
+                "Generalized ESD; Grubbs and GESD decide at their published "
+                "t-based critical values for the configured alpha (default "
+                "0.05)."
+            ),
+            citation=(
+                "Iglewicz & Hoaglin (1993), How to Detect and Handle Outliers "
+                "(MAD modified z-score, 3.5 cut); Breunig et al. (2000), LOF, "
+                "SIGMOD; Ester et al. (1996), DBSCAN, KDD; Rousseeuw (1984), "
+                "MCD; Page (1954), CUSUM, Biometrika; Grubbs (1950), Ann. Math. "
+                "Statist.; Rosner (1983), GESD, Technometrics"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Ensemble decision: the fixed in-house method weights, the "
+                "ensemble strategy (weighted average by default) and the "
+                "dynamic threshold adapter targeting an assumed 5% anomaly rate "
+                "are unpublished engineering choices; the combined normalized "
+                "score is decided at the adapted or configured threshold "
+                "(default 0.5). No published threshold exists for the combined "
+                "rule and no labelled corpus calibrates it. The module is "
+                "deprecated and retained for reference."
+            ),
+        ),
+    )
+
     def __init__(
         self,
         config: dict[str, Any] | None = None,
@@ -1107,6 +1142,65 @@ class ExtendedStatisticalDetector(BaseDetector):
 
         self._is_fitted = True
         return self
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Decompose the fitted sub-detectors into primitive innards.
+
+        Every component (MAD, LOF, DBSCAN, MCD, CUSUM, Grubbs, GESD) is an
+        in-house class whose fitted state is plain floats/arrays, so each is
+        saved as its ``__dict__``, keyed by the method's string value (the
+        :class:`StatisticalMethod` enum itself must not enter the payload).
+        The one exception is the LOF detector's scipy cKDTree, which is
+        rebuilt deterministically from the saved training points on restore.
+        The dynamic-threshold adapter's streaming state rides along so a
+        restored detector resumes at the same operating point.
+        """
+        from omni_mercury_engine.core.base import _serializable_state
+
+        owner = type(self).__name__
+        detectors: dict[str, Any] = {}
+        for method, detector in self._detectors.items():
+            detectors[str(method)] = {
+                key: _serializable_state(value, owner=owner, attr=f"_detectors[{method}].{key}")
+                for key, value in detector.__dict__.items()
+                if key != "_train_tree"  # scipy cKDTree: rebuilt from _train_X
+            }
+        state: dict[str, Any] = {"detectors": detectors}
+        if self._dynamic_threshold is not None:
+            state["dynamic_threshold"] = {
+                key: _serializable_state(value, owner=owner, attr=f"dynamic_threshold.{key}")
+                for key, value in vars(self._dynamic_threshold.state).items()
+            }
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the sub-detector innards captured by :meth:`_learned_state`.
+
+        The fresh instance's ``__init__`` has already constructed the
+        sub-detectors from config; this pours the saved fitted attributes
+        back into them and rebuilds the LOF detector's cKDTree.
+        """
+        from omni_mercury_engine.core.base import _deserialized_state
+
+        state = _deserialized_state(state)
+        detectors_state = state.get("detectors", {})
+        for method, detector in self._detectors.items():
+            inner = detectors_state.get(str(method))
+            if inner is None:
+                continue
+            for key, value in inner.items():
+                setattr(detector, key, value)
+            if (
+                isinstance(detector, LOFDetector)
+                and getattr(detector, "_train_X", None) is not None
+            ):
+                from scipy.spatial import cKDTree
+
+                detector._train_tree = cKDTree(detector._train_X)
+        dynamic_state = state.get("dynamic_threshold")
+        if dynamic_state is not None and self._dynamic_threshold is not None:
+            for key, value in dynamic_state.items():
+                setattr(self._dynamic_threshold.state, key, value)
 
     def detect(self, data: np.ndarray[Any, Any] | Any) -> dict[str, Any]:
         """Detect anomalies using ensemble of methods."""

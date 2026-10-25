@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: emit the Lyapunov convergence proof block as LaTeX directly into ``docs/MATH_SPEC.md``.
 
 Given the certificate parameters ``(A, P, λ)`` — system matrix,

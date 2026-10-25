@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the perf + correctness hot-spot fixes.
 
 Covers: blake3 import hoist, FeatureCache key sampling, kinematic sliding-max

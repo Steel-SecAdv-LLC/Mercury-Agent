@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """AgriFood Security Module - Crop yield and food supply anomaly detection.
 
 Supports SDG 2 (Zero Hunger) by monitoring:
@@ -25,6 +25,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
 
 class FoodSecurityThreat(Enum):
     """Food security threat."""
@@ -38,6 +40,29 @@ class FoodSecurityThreat(Enum):
 
 class AgriFoodSecurityDetector:
     """Detect agricultural and food security anomalies."""
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Soil organic carbon below 2.0% marks potentially serious decline in soil quality."
+            ),
+            citation=(
+                "Loveland & Webb 2003, Soil & Tillage Research 70:1-18 "
+                "(doi:10.1016/S0167-1987(02)00139-3); bibliographic record checked on Crossref."
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "The other limits are attributed in the code to FAO and USDA documents that were "
+                "not re-read: soil pH outside 5.5-7.5, bulk density above 1.6 g/cm3 (USDA NRCS), "
+                "saturation-extract salinity at or above 4 dS/m (USDA Handbook 60, Richards 1954), "
+                "500 hoppers/ha locust control density (FAO), cereal stocks-to-use below 17% "
+                "(FAO). Yield and price anomalies alarm at a z-score above 2, a hand-set cut."
+            ),
+        ),
+    )
 
     def __init__(self) -> None:
         """Initialize the instance."""

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Native document generation -- Markdown, HTML, and plain text.
 
 Turns structured content (a title, ordered sections, optional bullet points and

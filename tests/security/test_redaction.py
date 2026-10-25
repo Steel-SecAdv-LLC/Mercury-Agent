@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Contracts for the canonical credential-redaction primitives.
 
 These pin the leak-closure behaviour every consumer relies on:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Graph-Based Anomaly Detection using NetworkX.
 
 Detects anomalies in graph-structured data using:
@@ -19,6 +19,16 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
+
+
+class AdjacencyShapeError(InputModalityError, nx.NetworkXError):
+    """Input that is not a square adjacency matrix.
+
+    An ``InputModalityError`` (the typed off-modality refusal) and, as
+    before, an ``nx.NetworkXError``.
+    """
 
 
 class GraphAnomalyDetector(BaseDetector):
@@ -28,6 +38,20 @@ class GraphAnomalyDetector(BaseDetector):
     normalized [0, 1] score thresholds used by other detectors. The threshold
     represents the number of standard deviations from baseline metrics.
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house heuristic: the score is 10x the mean relative deviation "
+            "of graph summary metrics (average degree, density, clustering) "
+            "from their fitted baselines, read in z-score-like units; "
+            "is_anomaly fires above the configured threshold (default 3.0, i.e. "
+            "a 30% mean metric shift). No published threshold exists for this "
+            "metric-deviation rule and no labelled graph corpus calibrates it "
+            "(the module is explicitly simulation-based, real-world validation "
+            "required)."
+        ),
+    )
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         # Extract z-score threshold before calling super().__init__()
@@ -90,10 +114,19 @@ class GraphAnomalyDetector(BaseDetector):
         return self.fitted
 
     def _array_to_graph(self, data: np.ndarray[Any, Any]) -> nx.Graph:
-        """Convert adjacency matrix to NetworkX graph."""
+        """Convert adjacency matrix to NetworkX graph.
+
+        Raises:
+            AdjacencyShapeError: If ``data`` is not a square adjacency matrix.
+        """
         if data.ndim == 1:
             n = int(np.sqrt(len(data)))
             data = data[: n * n].reshape(n, n)
+        if data.ndim != 2 or data.shape[0] != data.shape[1]:
+            raise AdjacencyShapeError(
+                f"Adjacency matrix not square: nx,ny={data.shape}; "
+                f"{type(self).__name__} expects a square adjacency matrix or a graph"
+            )
 
         graph = nx.from_numpy_array(data)
         return graph

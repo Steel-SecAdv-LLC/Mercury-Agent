@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for earthquake data from the USGS Earthquake Hazards Program API.
 
 Connects to the USGS real-time GeoJSON feed and FDSN event web-service to provide seismic data for

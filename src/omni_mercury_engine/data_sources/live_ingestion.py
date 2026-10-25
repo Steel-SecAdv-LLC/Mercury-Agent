@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Uniform live-ingestion seam between hazard detectors and data-source clients.
 
 Every hazard detector that supports optional live ingestion follows ONE pattern,

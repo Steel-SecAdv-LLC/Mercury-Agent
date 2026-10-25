@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Canonical label-provenance leak detector for the live-API loaders.
 
 Phase 1 of the governed recursive self-improvement loop: the autonomous

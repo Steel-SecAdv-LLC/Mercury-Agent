@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Time-based one-time passwords (TOTP) for optional two-factor auth.
 
 A dependency-free RFC 6238 (TOTP) / RFC 4226 (HOTP) implementation over the

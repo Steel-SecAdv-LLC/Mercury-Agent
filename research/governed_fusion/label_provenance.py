@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Per-event label-provenance lookup for the governed-fusion suite.
 
 Phase 1 of governed recursive self-improvement: pivot from the per-loader

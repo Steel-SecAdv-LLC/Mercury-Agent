@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Reproducibility tests for the raw fusion training path (Issue: expose train -> fit_fusion(X, y) on raw input with no manual glue).
 
 These verify that:

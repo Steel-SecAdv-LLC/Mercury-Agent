@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for the USGS EROS M2M client (mocked transport; no network).
 
 These exercise the ``login-token`` auth flow, the ``X-Auth-Token`` header

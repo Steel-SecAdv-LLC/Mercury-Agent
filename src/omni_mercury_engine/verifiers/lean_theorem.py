@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Theorem-tier verifier: an external formal proof checker (Lean 4) as the oracle.
 
 Where the number-theory verifiers confirm *instances*, this confirms a *theorem* -- but only

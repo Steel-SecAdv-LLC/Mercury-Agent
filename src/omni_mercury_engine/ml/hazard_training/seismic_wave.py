@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Train the SeismicWaveAnalyzer on real STEAD waveforms (SeisBench mirror).
 
 Data source (hook ``seismic_wave``, ``EarthquakeDetector.load_neural_weights``):

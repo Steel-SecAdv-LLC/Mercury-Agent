@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The federated DP release must actually deliver the (epsilon, delta) it prints.
 
 Four independent defects made the previous mechanism unsound, and each has a

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operational vocabulary for the decision / abstention / response layer.
 
 The layer closes the loop ``identify -> interpret -> decide -> deter`` on top of

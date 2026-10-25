@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Coordinator subagent: a real **operator** over one or more engine subsystems.
 
 A :class:`CoordinatorSubAgent` is the pantheon member used when a role maps to a

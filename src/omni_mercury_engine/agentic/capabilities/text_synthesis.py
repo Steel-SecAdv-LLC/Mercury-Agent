@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Extractive text synthesis -- numpy-only, no language model.
 
 Mercury has no generative language model, so it does not *write* prose. What it

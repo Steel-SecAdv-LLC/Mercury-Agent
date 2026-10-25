@@ -1,0 +1,33 @@
+{
+  "citation": "He, Zhu, He & Lyu (2020), Loghub: A Large Collection of System Log Datasets towards Automated Log Analytics, arXiv:2008.06448",
+  "description": "Drain-parsed event-template keys of 2000 real Hadoop HDFS log lines (LogHub HDFS_2k sample), in file order. Not anomaly-labelled: LogHub's block-level labels ship with the full HDFS_1 release.",
+  "files": {
+    "hdfs_templates": {
+      "event_ids": [
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+        "E6",
+        "E7",
+        "E8",
+        "E9",
+        "E10",
+        "E11",
+        "E12",
+        "E13",
+        "E14"
+      ],
+      "keys_sha256": "87c61720288642fac97728ebdea46165f3e62ebf8b0e9db782a7f5fe9b68fa01",
+      "lines": 2000,
+      "served_sha256": "729df59774e3dde934044028546d2a55d5e3d4370b9d12fcebbe4c087b2bf7b4",
+      "url": "https://raw.githubusercontent.com/logpai/loghub/master/HDFS/HDFS_2k.log_structured.csv",
+      "vocabulary": 14
+    }
+  },
+  "license": "LogHub datasets are released for research use; see the LogHub repository.",
+  "recorded_utc": "2026-10-24T06:51:02Z",
+  "recorder": "scripts/record_hdfs_log_fixtures.py",
+  "source": "https://github.com/logpai/loghub"
+}

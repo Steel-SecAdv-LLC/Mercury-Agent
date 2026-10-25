@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Internal-only subagent fleet for Mercury Agent — the Greek-pantheon roster.
 
 This package is the orchestration tier through which the main Mercury Agent

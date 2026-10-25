@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: GOSNN latency-SLA gate.
 
 Times the GOSNN step that runs inside every ``detect_with_fusion`` call,

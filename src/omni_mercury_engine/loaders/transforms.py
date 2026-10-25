@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Standardized transformation from raw loader output to MercuryAnomalyDetector input.
 
 EVERY domain loader's engineer_features() method must return a pd.DataFrame where:

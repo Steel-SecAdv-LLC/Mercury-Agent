@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for Financial Crisis Detector."""
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ pytest.importorskip("torch")
 import pytest
 import torch
 
+from omni_mercury_engine.core.exceptions import InputModalityError, InvalidObservationError
 from omni_mercury_engine.detectors.economic.financial_crisis_detector import (
     BankingStressDetector,
     CrisisSeverity,
@@ -117,13 +118,73 @@ class TestMarketCrashDetector:
         """Test detection during moderate volatility."""
         market_data = {
             "price_change_pct": -2.0,
-            "vix": 28.0,
+            "vix": 29.0,
             "volume_vs_average": 1.2,
         }
         result = detector.detect_market_crash(market_data)
 
         assert result["crash_detected"] is False
+        # 29.0 sits in the calibrated moderate band (p90 = 28.5 <= VIX < 32.9).
         assert result["severity"] == "moderate"
+
+    def test_vix_below_p90_is_low(self, detector: Any) -> None:
+        """Below the calibrated 90th percentile (28.5) severity is low."""
+        result = detector.detect_market_crash({"price_change_pct": -2.0, "vix": 28.0})
+        assert result["severity"] == "low"
+
+    def test_crash_line_is_the_circuit_breaker_level_1(self, detector: Any) -> None:
+        """The crash bar is the SEC market-wide circuit breaker (7%)."""
+        under = detector.detect_market_crash({"price_change_pct": -6.9, "vix": 40.0})
+        assert under["crash_detected"] is False
+        at = detector.detect_market_crash({"price_change_pct": -7.0, "vix": 40.0})
+        assert at["crash_detected"] is True
+
+    def test_crash_graded_without_a_vix_print(self, detector: Any) -> None:
+        """A 1987-style record with no VIX still grades as a crash.
+
+        The retired rule required a VIX print alongside the -5% line, so
+        Black Monday (-20.5%, VIX not yet published) could never fire.
+        """
+        result = detector.detect_market_crash({"price_change_pct": -20.5})
+        assert result["crash_detected"] is True
+        assert result["severity"] == "unknown"
+        assert "vix" in result["missing_inputs"]
+
+    @pytest.mark.parametrize(
+        ("date", "price_change_pct", "vix", "is_crash", "severity"),
+        [
+            # Dated crisis days: NASDAQ Composite close-to-close change
+            # (FRED NASDAQCOM) with the VIX close (FRED VIXCLS).
+            ("1987-10-19", -11.35, None, True, "unknown"),
+            ("2008-09-29", -9.14, 46.72, True, "extreme"),
+            ("2008-10-15", -8.47, 69.25, True, "extreme"),
+            ("2020-03-12", -9.43, 75.47, True, "extreme"),
+            ("2020-03-16", -12.32, 82.69, True, "extreme"),
+            # Dated stress-but-not-crash days (S&P 500 changes: -6.66% on
+            # 2011-08-08 per the public record; -4.10% per FRED SP500).
+            ("2011-08-08", -6.66, 48.00, False, "extreme"),
+            ("2018-02-05", -4.10, 37.32, False, "high"),
+            # Dated calm days (FRED SP500 changes).
+            ("2017-06-15", -0.22, 10.90, False, "low"),
+            ("2024-05-15", 1.17, 12.45, False, "low"),
+        ],
+    )
+    def test_dated_historical_record(
+        self,
+        detector: Any,
+        date: str,
+        price_change_pct: float,
+        vix: float | None,
+        is_crash: bool,
+        severity: str,
+    ) -> None:
+        """Calibration regression on the dated historical crisis table."""
+        record: dict[str, Any] = {"price_change_pct": price_change_pct}
+        if vix is not None:
+            record["vix"] = vix
+        result = detector.detect_market_crash(record)
+        assert result["crash_detected"] is is_crash, date
+        assert result["severity"] == severity, date
 
     def test_missing_inputs_are_named_not_defaulted(self, detector: Any) -> None:
         """Absent metrics are reported as None and named, never fabricated.
@@ -442,20 +503,35 @@ class TestFinancialCrisisDetector:
         assert result.contagion_probability > 0.0
 
     def test_empty_data_handling(self, detector: Any) -> None:
-        """Test handling of empty financial data."""
-        result = detector.predict_financial_crisis({})
-
-        assert result.crisis_imminent is False
-        assert result.severity_level == "stable"
+        """Empty financial data is refused: it used to grade as stable."""
+        with pytest.raises(InvalidObservationError, match="no gradable section"):
+            detector.predict_financial_crisis({})
 
     def test_partial_data_handling(self, detector: Any) -> None:
         """Test handling of partial financial data."""
-        partial_data = {"market_data": {"price_change_pct": -6.0, "vix": 40.0}}
+        # 2020-03-09 (dated): S&P 500 -7.60%, past the circuit-breaker line.
+        partial_data = {"market_data": {"price_change_pct": -7.6, "vix": 54.46}}
         result = detector.predict_financial_crisis(partial_data)
 
         assert result.market_crash_detected is True
         # Should not crash with missing data
         assert result.banking_stress is False
+
+    def test_panic_selling_reaches_the_verdict(self, detector: Any) -> None:
+        """volume_vs_average must change the outcome, not be discarded.
+
+        A heavy-volume -3.5% day short of the circuit breaker is half a
+        crisis indicator; the same day on normal volume contributes nothing.
+        """
+        heavy = detector.predict_financial_crisis(
+            {"market_data": {"price_change_pct": -3.5, "vix": 30.0, "volume_vs_average": 3.0}}
+        )
+        calm = detector.predict_financial_crisis(
+            {"market_data": {"price_change_pct": -3.5, "vix": 30.0, "volume_vs_average": 1.0}}
+        )
+        assert heavy.panic_selling is True
+        assert calm.panic_selling is False
+        assert heavy.confidence > calm.confidence
 
 
 class TestHonestyContract:
@@ -478,15 +554,70 @@ class TestHonestyContract:
         assert result.crisis_type == "banking_crisis"
 
     def test_empty_input_reports_no_fabricated_measurements(self) -> None:
-        """Regression: empty input used to report CDS 100 bps as a measurement."""
+        """Regression: empty input used to report CDS 100 bps as a measurement.
+
+        Empty sections are now refused outright; a partly measured record
+        still reports the unmeasured values as None.
+        """
         detector = FinancialCrisisDetector()
-        result = detector.predict_financial_crisis(
-            {"market_data": {}, "banking_data": {}, "network_data": {}}
-        )
+        with pytest.raises(InvalidObservationError, match="no measurement"):
+            detector.predict_financial_crisis(
+                {"market_data": {}, "banking_data": {}, "network_data": {}}
+            )
+        result = detector.predict_financial_crisis({"market_data": {"price_change_pct": -1.0}})
         assert result.vix_level is None
         assert result.credit_default_swap_spread is None
         assert result.systemic_risk_score == 0.0  # dataclass default, nothing scored
         assert result.severity_level == "stable"
+
+    @pytest.mark.parametrize(
+        "record",
+        [
+            {"market_data": {"VIX": 60.0}},  # misspelt: read as unmeasured
+            {"banking_data": {"cds_bps": 900.0}},
+            {"network_data": {"interconnectedness": 0.95}},
+            {"currency_data": {"vol": 0.4}},
+        ],
+    )
+    def test_misspelt_measurement_is_refused(self, record: dict[str, Any]) -> None:
+        """A misspelt key used to go unread, so a stressed market graded stable."""
+        with pytest.raises(InvalidObservationError, match=r"nothing usable.*unknown key"):
+            FinancialCrisisDetector().predict_financial_crisis(record)
+
+    @pytest.mark.parametrize("section", ["market_data", "banking_data", "currency_data"])
+    def test_non_mapping_section_is_refused(self, section: str) -> None:
+        with pytest.raises(InvalidObservationError, match="must be a mapping"):
+            FinancialCrisisDetector().predict_financial_crisis({section: [1.0]})
+
+    def test_non_mapping_record_is_refused(self) -> None:
+        not_a_mapping: Any = [1.0]  # deliberately outside the declared type
+        with pytest.raises(InputModalityError, match="mapping"):
+            FinancialCrisisDetector().predict_financial_crisis(not_a_mapping)
+
+    @pytest.mark.parametrize(
+        ("extra", "where"),
+        [
+            ({"market_data": {"price_change_pct": -12.0, "VIX": 60.0}}, "market_data.VIX"),
+            ({"market_data": {"price_change_pct": -12.0, "vix": float("nan")}}, "market_data.vix"),
+            ({"market_data": {"price_change_pct": -12.0}, "currency_data": [0.4]}, "currency_data"),
+            ({"market_data": {"price_change_pct": -12.0}, "forex_data": {"x": 1}}, "forex_data"),
+            ({"market_data": {"price_change_pct": -12.0}, "banking_data": {}}, "banking_data"),
+        ],
+    )
+    def test_usable_rest_is_graded_and_the_verdict_is_partial(
+        self, extra: dict[str, Any], where: str
+    ) -> None:
+        """Regression: one unusable piece refused a measured -12% crash."""
+        result = FinancialCrisisDetector().predict_financial_crisis(extra)
+        assert result.market_crash_detected is True
+        assert result.partial is True
+        assert any(entry["where"] == where for entry in result.set_aside), result.set_aside
+
+    def test_clean_record_is_not_partial(self) -> None:
+        result = FinancialCrisisDetector().predict_financial_crisis(
+            {"market_data": {"price_change_pct": -1.0, "vix": 15.0}}
+        )
+        assert result.partial is False and result.set_aside == []
 
     def test_untrained_fraud_network_is_not_consulted(self) -> None:
         """Regression: a randomly-initialised FraudDetector was run and its noise
@@ -494,7 +625,15 @@ class TestHonestyContract:
         detector = FinancialCrisisDetector()
         fraud = detector._detect_fraud({"volume_anomaly_score": 0.9})
         assert fraud == {"fraud_detected": False, "fraud_probability": None, "consulted": False}
-        result = detector.predict_financial_crisis({"trading_data": {"volume_anomaly_score": 0.9}})
+        # Trading data alone feeds only the unconsulted network: refused.
+        with pytest.raises(InvalidObservationError, match="no gradable section"):
+            detector.predict_financial_crisis({"trading_data": {"volume_anomaly_score": 0.9}})
+        result = detector.predict_financial_crisis(
+            {
+                "market_data": {"price_change_pct": 0.5, "vix": 15.0},
+                "trading_data": {"volume_anomaly_score": 0.9},
+            }
+        )
         assert result.fraud_indicators == []
 
     def test_fraud_is_consulted_once_weights_load(self, tmp_path: Any) -> None:

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """``medical.pandemic.forecasting.EpidemicForecaster``: R0, threshold and impact.
 
 The released forecaster reported R0 = β/(σ+γ) (1.67 for the default rates whose

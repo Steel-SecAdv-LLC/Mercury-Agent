@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the shipped default fusion checkpoint (Issue #2).
 
 A versioned checkpoint is packaged so a fresh install runs detection with a

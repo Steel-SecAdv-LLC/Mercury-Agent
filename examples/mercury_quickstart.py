@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Ten-minute maritime quickstart: one real dataset, one honest number.
 
 Downloads the only public, expert-annotated real-AIS anomaly benchmark —
@@ -8,18 +8,29 @@ Downloads the only public, expert-annotated real-AIS anomaly benchmark —
 labelled abnormal: colliding vessels, Search-and-Rescue responders, law
 enforcement, and traffic forced off course by the accident — and scores
 it with the stock :class:`MercuryAnomalyDetector`, unsupervised, in
-seconds. The run is seed-pinned and mirrors the committed benchmark
-protocol step for step, so the ROC-AUC printed here reproduces the
-``DTU_AIS_Abnormal`` row of ``benchmarks/mercury_benchmark_results.json``
-exactly.
+seconds, under two seed-pinned protocols:
 
-Published baselines measured by the dataset's own authors on this same
-evaluation set (Olesen's DTU thesis, Fig. 6.1; J. Mar. Sci. Eng.
-11(11):2085, 2023): GeoTrackNet 0.87, RAE 0.86, Seq2Seq 0.84,
-Seq2Seq+attention 0.83, contextual detector 0.79, RVAE 0.72 — each after
-deep training on months of AIS data. The deeper-protocol Mercury result
-(fit on the same June-November training months) is 0.876; see
-docs/BENCHMARKS.md.
+* **Harness protocol** -- the committed benchmark split, step for step, so
+  its ROC-AUC reproduces the ``DTU_AIS_Abnormal`` row of
+  ``benchmarks/mercury_benchmark_results.json`` exactly.  It fits on half
+  the *normal* tracks (picked with the labels) and scores the other 273,
+  so it does not score the full evaluation set.
+* **Label-free cross-fit** -- every one of the 521 tracks is scored by a
+  model fitted, without labels, on the other four of five folds.  No label
+  reaches a fit; this is the number to read beside the published ones.
+
+Published baselines on all 521 labelled tracks (Olesen et al., J. Mar.
+Sci. Eng. 11(11):2085, 2023, Figure 12a): VRNN (the GeoTrackNet
+architecture) 0.87, the paper's two-step clustering 0.73 (0.79 only after
+removing stationary tracks, Figure 12b), RVAE 0.72.  The authors trained
+every model on the Bornholm December 2021 unlabelled data except 13
+December and tested on that day (section 4.7).  Olesen's DTU PhD thesis
+(2023, Figure 6.1, p. 86) adds, on the same 521 tracks, RAE 0.86, Seq-2-Seq
+0.84 and Seq-2-Seq with attention 0.83 (GeoTrackNet 0.87, RVAE 0.72 there
+too), from models trained on 1 June to 30 November traffic in the same
+region (p. 48); by its Hanley-McNeil test only RVAE differs significantly
+from GeoTrackNet (p = 0.02).  Neither protocol here is theirs: the
+cross-fit trains on the test day's own unlabelled traffic.
 
 Data: Olesen, K. V., Clemmensen, L. K. H., & Christensen, A. N. (2023),
 Technical University of Denmark, CC BY 4.0,
@@ -49,7 +60,11 @@ import time
 import numpy as np
 
 from omni_mercury_engine.datasets.base import DatasetConfig
-from omni_mercury_engine.datasets.maritime import FEATURE_NAMES, DTUAISLoader
+from omni_mercury_engine.datasets.maritime import (
+    FEATURE_NAMES,
+    DTUAISLoader,
+    DTUAISTrainingSet,
+)
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.ml.mercury_ml import (
     StandardScaler,
@@ -57,16 +72,44 @@ from omni_mercury_engine.ml.mercury_ml import (
     roc_auc_score,
 )
 
-#: Published ROC-AUC baselines on this exact evaluation set, from the
-#: dataset authors (DTU thesis Fig. 6.1 / JMSE 11(11):2085). Each model was
-#: trained for 50 epochs on months of AIS trajectories.
+#: ROC-AUC on all 521 labelled tracks.  JMSE 11(11):2085 Figure 12a: each
+#: model trained on Bornholm December 2021 except the 13th (section 4.7).
+#: Olesen's DTU PhD thesis (2023) Figure 6.1: trained on 1 June to 30
+#: November traffic in the same region (p. 48).
 PUBLISHED_BASELINES: tuple[tuple[str, float, str], ...] = (
-    ("GeoTrackNet (VRNN)", 0.87, "deep, the field's reference model"),
-    ("RAE", 0.86, "deep recurrent autoencoder"),
-    ("Seq2Seq", 0.84, "deep sequence model"),
-    ("Seq2Seq + attention", 0.83, "deep sequence model"),
-    ("Contextual detector", 0.79, "interpretable clustering (JMSE 2023)"),
-    ("RVAE", 0.72, "deep variational autoencoder"),
+    ("VRNN (GeoTrackNet arch.)", 0.87, "JMSE 2023 Fig. 12a"),
+    ("RAE", 0.86, "thesis 2023 Fig. 6.1"),
+    ("Seq-2-Seq", 0.84, "thesis 2023 Fig. 6.1"),
+    ("Seq-2-Seq with attention", 0.83, "thesis 2023 Fig. 6.1"),
+    ("Two-step clustering", 0.73, "JMSE 2023 Fig. 12a (0.79 w/o stationary)"),
+    ("RVAE", 0.72, "JMSE 2023 Fig. 12a"),
+)
+
+PERIOD_LABELS = {
+    "june_november": "June-November 2021",
+    "december": "December 2021 (no 13th)",
+}
+
+#: Each paper's own rows, for ``--published-protocols``: the period of
+#: :class:`DTUAISTrainingSet` its models were trained on, and their ROC-AUC
+#: on all 521 labelled tracks.
+PROTOCOLS: tuple[tuple[str, str, tuple[tuple[str, float], ...]], ...] = (
+    (
+        "Thesis Fig. 6.1",
+        "june_november",
+        (
+            ("GeoTrackNet", 0.87),
+            ("RAE", 0.86),
+            ("Seq-2-Seq", 0.84),
+            ("Seq-2-Seq with attention", 0.83),
+            ("RVAE", 0.72),
+        ),
+    ),
+    (
+        "JMSE Fig. 12a",
+        "december",
+        (("VRNN (GeoTrackNet arch.)", 0.87), ("Two-step clustering", 0.73), ("RVAE", 0.72)),
+    ),
 )
 
 
@@ -102,6 +145,81 @@ def benchmark_protocol_split(
     return X_train, X_test[perm], y_test[perm]
 
 
+#: Folds of the label-free cross-fit.
+CROSS_FIT_FOLDS = 5
+
+
+def fit_and_score(X_train: np.ndarray, X_test: np.ndarray) -> np.ndarray:
+    """The benchmark's own pipeline: scale on train, fit, score the test rows."""
+    X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
+    X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
+    scaler = StandardScaler()
+    detector = MercuryAnomalyDetector()
+    detector.fit(scaler.fit_transform(X_train))
+    # The benchmark suite plants the dataset category on the detector after
+    # fitting so ensemble weight selection uses the matching domain preset;
+    # mirror it exactly so the harness run reproduces the committed row.
+    detector._benchmark_domain = "maritime"
+    return np.asarray(detector.detect(scaler.transform(X_test))["scores"], dtype=float)
+
+
+def published_protocol(
+    train_features: np.ndarray, eval_features: np.ndarray, labels: np.ndarray
+) -> tuple[float, tuple[float, float], float]:
+    """Fit on a paper's own unlabelled training tracks; score the labelled ones.
+
+    Returns:
+        ``(ROC-AUC, 95% bootstrap interval, average precision)``.
+    """
+    scores = fit_and_score(train_features, eval_features)
+    return (
+        roc_auc_score(labels, scores),
+        bootstrap_auc_ci(labels, scores),
+        average_precision_score(labels, scores),
+    )
+
+
+def label_free_cross_fit(
+    features: np.ndarray, n_folds: int = CROSS_FIT_FOLDS, seed: int = 42
+) -> np.ndarray:
+    """One score per track, each from a model that never saw it or any label.
+
+    The tracks are split into ``n_folds`` seeded folds; each fold is scored by
+    a detector fitted on the other folds' features alone (abnormal tracks
+    included, unlabelled, as in deployment).
+
+    Returns:
+        Scores aligned with ``features``.
+    """
+    folds = np.array_split(np.random.RandomState(seed).permutation(len(features)), n_folds)
+    scores = np.empty(len(features), dtype=float)
+    for k, held_out in enumerate(folds):
+        fit_rows = np.concatenate([fold for j, fold in enumerate(folds) if j != k])
+        scores[held_out] = fit_and_score(features[fit_rows], features[held_out])
+    return scores
+
+
+def bootstrap_auc_ci(
+    y_true: np.ndarray, scores: np.ndarray, n_boot: int = 2000, seed: int = 0
+) -> tuple[float, float]:
+    """95 % percentile bootstrap interval for ROC-AUC.
+
+    Stratified: each resample keeps the positive and negative counts, so
+    every resample has both classes (with 25 positives, the uncertainty that
+    matters is which abnormal tracks were drawn).
+    """
+    rng = np.random.default_rng(seed)
+    positives, negatives = np.flatnonzero(y_true == 1), np.flatnonzero(y_true == 0)
+    aucs = []
+    for _ in range(n_boot):
+        idx = np.concatenate(
+            [rng.choice(positives, len(positives)), rng.choice(negatives, len(negatives))]
+        )
+        aucs.append(roc_auc_score(y_true[idx], scores[idx]))
+    low, high = np.percentile(aucs, [2.5, 97.5])
+    return float(low), float(high)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the quickstart end to end; return a process exit code."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -109,6 +227,14 @@ def main(argv: list[str] | None = None) -> int:
         "--data-dir",
         default="./data",
         help="Download/cache directory (default: ./data; ~38 MB on first run)",
+    )
+    parser.add_argument(
+        "--published-protocols",
+        action="store_true",
+        help=(
+            "Also fit on each paper's own unlabelled training data (DOI "
+            "10.11583/DTU.21511842; ~1.1 GB streamed once, ~800 MB cached)"
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -137,44 +263,85 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     t2 = time.perf_counter()
-    print("[3/4] Fitting MercuryAnomalyDetector on half the normal tracks ...")
+    print("[3/4] Harness protocol: fit on half the normal tracks (label-selected) ...")
     X_train, X_test, y_test = benchmark_protocol_split(features, labels)
-    X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
-    X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
-    scaler = StandardScaler()
-    detector = MercuryAnomalyDetector()
-    detector.fit(scaler.fit_transform(X_train))
-    # The benchmark suite plants the dataset category on the detector after
-    # fitting so ensemble weight selection uses the matching domain preset;
-    # mirror it exactly so this run reproduces the committed row.
-    detector._benchmark_domain = "maritime"
-    scores = np.asarray(detector.detect(scaler.transform(X_test))["scores"], dtype=float)
-    auc = roc_auc_score(y_test, scores)
-    ap = average_precision_score(y_test, scores)
+    harness = fit_and_score(X_train, X_test)
+    harness_auc = roc_auc_score(y_test, harness)
+    harness_ci = bootstrap_auc_ci(y_test, harness)
     print(
-        f"      fit on {len(X_train)} normals, scored {len(X_test)} tracks "
-        f"incl. all {int(y_test.sum())} abnormal ({time.perf_counter() - t2:.1f}s)"
+        f"      fit on {len(X_train)} normals, scored {len(X_test)} tracks incl. all "
+        f"{int(y_test.sum())} abnormal: ROC-AUC {harness_auc:.4f} "
+        f"[95% CI {harness_ci[0]:.3f}-{harness_ci[1]:.3f}], "
+        f"AP {average_precision_score(y_test, harness):.4f} ({time.perf_counter() - t2:.1f}s)"
     )
 
-    print("[4/4] Result vs. published baselines (identical evaluation set):\n")
-    rows = [("Mercury ensemble (this run)", auc, "unsupervised, fit in seconds")]
+    t3 = time.perf_counter()
+    print(f"[4/4] Label-free {CROSS_FIT_FOLDS}-fold cross-fit over all {len(labels)} tracks ...")
+    cross = label_free_cross_fit(features)
+    cross_auc = roc_auc_score(labels, cross)
+    cross_ci = bootstrap_auc_ci(labels, cross)
+    cross_ap = average_precision_score(labels, cross)
+    print(
+        f"      no label reaches a fit: ROC-AUC {cross_auc:.4f} "
+        f"[95% CI {cross_ci[0]:.3f}-{cross_ci[1]:.3f}], AP {cross_ap:.4f} "
+        f"(base rate {labels.mean():.3f}) ({time.perf_counter() - t3:.1f}s)\n"
+    )
+
+    print("      All 521 labelled tracks, ROC-AUC (protocols differ; see caveats):\n")
+    rows = [("Mercury label-free cross-fit", cross_auc, "this run, no labels")]
     rows += [(name, value, note) for name, value, note in PUBLISHED_BASELINES]
     for name, value, note in sorted(rows, key=lambda r: -r[1]):
         marker = " <-- you" if name.startswith("Mercury") else ""
         print(f"      {name:<28s} ROC-AUC {value:.4f}   {note}{marker}")
-    print(f"\n      Mercury average precision: {ap:.4f}")
-    print(f"      Total wall time: {time.perf_counter() - t0:.1f}s")
+    print(f"\n      Total wall time: {time.perf_counter() - t0:.1f}s")
 
+    outside = [
+        name for name, value, _ in PUBLISHED_BASELINES if not cross_ci[0] <= value <= cross_ci[1]
+    ]
     print(
-        "\nHonest caveats: 25 positives make every method's confidence interval"
-        "\nwide (~+/-0.08) — read this as parity with the published state of the"
-        "\nart, not superiority. The published models score point-wise along the"
-        "\ntrack after deep training on months of data; Mercury scored 22"
-        "\ntrajectory-level features, unsupervised. Deeper-protocol Mercury"
-        "\nresult (fit on the same training months): 0.876 — docs/BENCHMARKS.md."
+        f"\nCaveats: with {int(labels.sum())} positives the cross-fit's 95% interval spans "
+        f"{cross_ci[1] - cross_ci[0]:.2f} of AUC"
     )
-    print("\nThis run is deterministic (seed 42) and reproduces the")
-    print("DTU_AIS_Abnormal row of benchmarks/mercury_benchmark_results.json.")
+    if outside:
+        print(f"({', '.join(outside)} fall outside it).", end=" ")
+    print(
+        "No ranking follows: the protocols differ.\n"
+        "The JMSE models were trained on Bornholm December 2021 except the 13th,\n"
+        "the thesis models on 1 June to 30 November traffic in the same region;\n"
+        "the cross-fit trains on the 13th's own (unlabelled) traffic and\n"
+        "scores 22 trajectory-level features. The harness row scores 273 of the\n"
+        "521 tracks after fitting on label-selected normals, so it is not\n"
+        "comparable to the published figures."
+    )
+    if args.published_protocols:
+        print(
+            "\nPublished protocols: fit on the paper's own unlabelled training file\n"
+            "(Olesen, Clemmensen & Christensen 2023, https://doi.org/10.11583/DTU.21511842),\n"
+            "score all 521 labelled tracks, compare with that paper's rows only."
+        )
+        t4 = time.perf_counter()
+        DTUAISTrainingSet.download_periods(args.data_dir, [p for _, p, _ in PROTOCOLS])
+        print(f"  training files verified in {time.perf_counter() - t4:.1f}s")
+        for title, period, rows_published in PROTOCOLS:
+            t4 = time.perf_counter()
+            train_features = DTUAISTrainingSet(args.data_dir, period).features()
+            auc, ci, ap = published_protocol(train_features, features, labels)
+            print(
+                f"\n  {title}: fit on {len(train_features):,} {PERIOD_LABELS[period]} "
+                f"tracks: ROC-AUC {auc:.4f} [95% CI {ci[0]:.3f}-{ci[1]:.3f}], "
+                f"AP {ap:.4f} ({time.perf_counter() - t4:.1f}s)"
+            )
+            for name, value in rows_published:
+                inside = "inside" if ci[0] <= value <= ci[1] else "outside"
+                print(f"    {name:<26s} ROC-AUC {value:.2f}   {inside} Mercury's interval")
+        print(
+            "\n  Same training file and test tracks as each paper; the models still\n"
+            "  differ (22 track-level features here, sequence models there), and\n"
+            "  with 25 positives a published figure inside the interval is parity."
+        )
+
+    print("\nThis run is deterministic (seed 42); the harness ROC-AUC reproduces")
+    print("the DTU_AIS_Abnormal row of benchmarks/mercury_benchmark_results.json.")
     print("\nMERCURY QUICKSTART COMPLETE")
     return 0
 

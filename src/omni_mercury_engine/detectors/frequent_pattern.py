@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Frequent-pattern / association-rule mining anomaly detector.
 
 Association-rule mining (Agrawal & Srikant, *Fast Algorithms for Mining
@@ -31,6 +31,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -51,6 +52,25 @@ class FrequentPatternDetector(BaseDetector):
     each transaction by its confidence-weighted violation mass (antecedent
     present, consequent absent), squashed into ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Mines frequent itemsets by Apriori and scores each transaction by "
+            "its confidence-weighted rule-violation mass (antecedent present, "
+            "expected consequent absent -- FP-outlier rule-violation scoring), "
+            "squashed into [0, 1] with the training calibration_quantile "
+            "(default 0.98) anchored at score 0.5. The alarm fires at the "
+            "configured BaseDetector threshold (default 0.5) on that normalized "
+            "score; the threshold and quantile are engineering defaults, not "
+            "published values."
+        ),
+        citation=(
+            "Agrawal & Srikant (1994), Fast Algorithms for Mining Association "
+            "Rules, VLDB 1994 (Apriori); He et al. (2004), FP-outlier "
+            "rule-violation scoring (both named in the module docstring)"
+        ),
+    )
 
     def __init__(
         self,

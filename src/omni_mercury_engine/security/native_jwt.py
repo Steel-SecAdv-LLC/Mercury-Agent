@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Native JSON Web Token (JWT) implementation — stdlib + AMA-routed.
 
 This module is the supply-chain remediation that retires Mercury-Agent's

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dimensional analyzer using PCA and neural projection.
 
 Enhanced with DB term (dimensional code-breaking via Fourier analysis)
@@ -35,6 +35,7 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -198,6 +199,19 @@ class DimensionalAnalyzer(BaseDetector):
         >>> result = analyzer.detect(test_data)
         >>> anomalies = result["is_anomaly"]
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house combination: PCA reconstruction error, optional "
+            "autoencoder reconstruction error and a Fourier 'DB term' spectral "
+            "score are weight-combined into one [0, 1] score; is_anomaly fires "
+            "when it exceeds the configured threshold (default 0.5) or the "
+            "auto-calibrated operating point at the configured contamination. "
+            "No published threshold exists for the combined score and no "
+            "labelled corpus calibrates the default weights or cut."
+        ),
+    )
 
     #: Verified free of process-global mutable state at inference (bit-identical
     #: concurrent vs sequential: tests/core/test_parallel_detectors.py).
@@ -767,3 +781,28 @@ class DimensionalAnalyzer(BaseDetector):
             np.asarray(row_spectrum, dtype=np.float64) if row_spectrum is not None else None
         )
         self._is_fitted = True
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Bridge the shared checkpoint to :meth:`get_fitted_state`.
+
+        The fitted ``_NativePCA`` and ``NeuralProjection`` autoencoder are
+        exported as their primitive innards (basis arrays, ``state_dict``,
+        constructor dims), and :meth:`set_fitted_state` rebuilds both exactly
+        -- including the data-dependent autoencoder shape.
+        """
+        from omni_mercury_engine.core.base import _serializable_state
+
+        fitted = self.get_fitted_state()
+        if fitted is None:
+            return {}
+        return {
+            key: _serializable_state(value, owner=type(self).__name__, attr=key)
+            for key, value in fitted.items()
+        }
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Reinstate the state captured by :meth:`_learned_state`."""
+        from omni_mercury_engine.core.base import _deserialized_state
+
+        if state:
+            self.set_fitted_state({key: _deserialized_state(value) for key, value in state.items()})

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Watchdog analyzer for blocking CI gates that never reach a clean verdict.
 
 A blocking gate is only meaningful if it actually *completes*. Two failure

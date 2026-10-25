@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Coverage tests for the RCA random-walk degenerate + adjacency-inference paths.
 
 Targets the previously-untested branches in

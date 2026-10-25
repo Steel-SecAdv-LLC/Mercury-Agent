@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain-variant affinity mapping for all 21 Anomaly Math Arrest probes.
 
 Each domain ranks the 21 probes by relevance. Probes at the top of the list receive higher Phi-

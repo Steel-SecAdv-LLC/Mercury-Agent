@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the platform Prometheus counters.
 
 Covers registrations, logins, throttles, quotas, mail, and maintenance.
@@ -357,3 +357,34 @@ def test_module_is_inert_without_prometheus(monkeypatch: pytest.MonkeyPatch) -> 
         monkeypatch.setattr(builtins, "__import__", real_import)
         platform_metrics.__dict__.update(saved_state)
     assert platform_metrics.PROMETHEUS_AVAILABLE is True
+
+
+def test_deception_failure_counter_by_kind() -> None:
+    """Each survived decoy failure is a counted, closed-set label."""
+    before = {
+        kind: _metric_value("mercury_deception_failures_total", {"kind": kind})
+        for kind in ("audit_sink", "tripwire")
+    }
+    platform_metrics.record_deception_failure("audit_sink")
+    platform_metrics.record_deception_failure("audit_sink")
+    platform_metrics.record_deception_failure("tripwire")
+    assert (
+        _metric_value("mercury_deception_failures_total", {"kind": "audit_sink"})
+        == before["audit_sink"] + 2
+    )
+    assert (
+        _metric_value("mercury_deception_failures_total", {"kind": "tripwire"})
+        == before["tripwire"] + 1
+    )
+
+
+def test_registered_decoys_export_their_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The default sensor built by ``register_decoys`` feeds the Prometheus counter."""
+    from omni_mercury_engine.api.routes.decoys import register_decoys
+
+    monkeypatch.setenv("MERCURY_KEYSTORE_PATH", "")
+    sensor = register_decoys(FastAPI(), enabled=True)
+    assert sensor is not None
+    before = _metric_value("mercury_deception_failures_total", {"kind": "handler"})
+    sensor.note_failure("handler")
+    assert _metric_value("mercury_deception_failures_total", {"kind": "handler"}) == before + 1

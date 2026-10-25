@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Signed, audited authorization for a gated retrain run.
 
 A learning loop that retrains on ingested audit + red-team data is a

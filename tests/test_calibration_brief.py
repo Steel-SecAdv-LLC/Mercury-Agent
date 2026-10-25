@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the calibration-brief port: ``StrictIsotonicCalibration``.
 
 Ported from PR #275 (X1 survivor; branch deleted, recovered from

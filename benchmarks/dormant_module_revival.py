@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Dormant-module revival: do the orphaned "cognitive" modules carry *real* anomaly-detection signal on genuinely-labelled data?
 
 This is the anti-theater gate for salvaging the dormant cognitive subsystem.

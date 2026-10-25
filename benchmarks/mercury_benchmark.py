@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury Benchmark Suite.
 
 Standalone benchmark that measures MercuryAnomalyDetector performance
@@ -349,9 +349,10 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
     ("UCR", "academic", "UCRLoader", "ucr_archive", {}),
     ("CWRU_Bearing", "academic", "CWRUBearingLoader", "ucr_archive", {}),
     ("MSDS", "academic", "MSDSLoader", "ucr_archive", {}),
-    # --- Maritime (expert-annotated AIS trajectories; published SOTA
-    # baselines on the same eval set: GeoTrackNet 0.87, RAE 0.86,
-    # contextual detector 0.79 — see datasets/maritime.py) ---
+    # --- Maritime (expert-annotated AIS trajectories). This harness fits on
+    # label-selected normals and scores 273 of the 521 tracks, so it is not
+    # comparable to the published all-521 figures; see the quickstart's
+    # label-free cross-fit and datasets/maritime.py ---
     ("DTU_AIS_Abnormal", "maritime", "DTUAISLoader", "maritime", {}),
     # --- Security ---
     ("ThreatIntel", "security", "ThreatIntelLoader", "security", {}),
@@ -694,12 +695,9 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     try:
         t0 = time.perf_counter()
         detector.fit(X_train)
-        # ``_benchmark_domain`` is a runtime-only marker the benchmark plants
-        # on the detector so downstream weight selection knows which domain
-        # preset to use. mypy cannot see this dynamic attribute on the
-        # ``MercuryAnomalyDetector`` class, so silence the false positive
-        # without changing the runtime contract.
-        detector._benchmark_domain = category  # type: ignore[attr-defined]
+        # The dataset category selects the domain weight preset ``detect``
+        # blends in (``MercuryAnomalyDetector._benchmark_domain``).
+        detector._benchmark_domain = category
         fit_ms = (time.perf_counter() - t0) * 1000
 
         t0 = time.perf_counter()

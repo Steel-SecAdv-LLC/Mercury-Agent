@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Root-cause localisation detector over a causal / service graph.
 
 When many correlated signals (service metrics, sensor channels) go anomalous at
@@ -31,6 +31,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
@@ -49,6 +50,32 @@ class RootCauseGraphDetector(BaseDetector):
     the row by the peak residual (squashed to ``[0, 1]``), and ranks root causes
     by a reverse personalised random walk seeded from the residual vector.
     """
+
+    decision_source = (
+        DecisionSource(
+            kind="published",
+            description=(
+                "Root-cause ranking: a reverse personalised random walk over the "
+                "causal/service graph, seeded by per-node standardised residuals, "
+                "attributes anomaly mass to upstream causes -- the random-walk "
+                "RCA pattern behind MonitorRank and CloudRanger."
+            ),
+            citation=(
+                "MonitorRank / CloudRanger (Lin et al., 2018) and the random-walk "
+                "RCA family, as named in the module docstring"
+            ),
+        ),
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Alarm rule: the peak per-node standardised residual, squashed "
+                "into [0, 1] with the training calibration_quantile (default "
+                "0.98) anchored at score 0.5 and compared to the configured "
+                "BaseDetector threshold (default 0.5). No published threshold "
+                "exists for this rule and no labelled corpus calibrates it."
+            ),
+        ),
+    )
 
     def __init__(
         self,

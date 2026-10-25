@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Engine detector-registration seam and inference-path robustness.
 
 These tests pin two related contracts introduced to close a real wiring gap:
@@ -224,7 +224,7 @@ def test_failloud_detector_skipped_on_inference_path() -> None:
     for name, det in eng.detectors.items():
         det.fit(_trajectory(40) if name == "geo_movement" else warm)
     non_trajectory = np.random.RandomState(0).randn(20, 7).astype(np.float32)
-    det_features, _scores, _certs = eng._extract_detector_features(non_trajectory)
+    det_features, _scores, _certs, _ = eng._extract_detector_features(non_trajectory)
     assert "geo_movement" not in det_features
     assert _BASE_FIVE & set(det_features)  # base detectors still produced features
 

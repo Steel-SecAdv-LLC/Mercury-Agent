@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Serve-path explainability wiring tests (WS5).
 
 ``OmniMercuryEngine.detect_with_fusion(explain=True)`` must attach a real

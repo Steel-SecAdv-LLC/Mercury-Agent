@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Generate the random hex keys Mercury's operator env vars expect.
 
 A first-class, dependency-free alternative to ``openssl rand -hex N``: the

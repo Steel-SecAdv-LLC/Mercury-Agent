@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: dump the current ~209 omni-scalar values as JSON (127 operational + 82 diagnostic measurement scalars).
 
 The README's GOSNN section makes structural claims about the σ band

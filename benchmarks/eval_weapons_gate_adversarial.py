@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Measure the weapons gate on the held-out adversarial slice.
 
 Reports the confusion matrix, precision/recall/F1, and the Brier score of the

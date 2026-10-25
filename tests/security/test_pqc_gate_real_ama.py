@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """End-to-end tests of the import-time PQC production gate against the **real** AMA Cryptography native C library — no mock, no stub, no ``importorskip``, no ``skipif``.  These tests REQUIRE the real ``ama_cryptography`` package with its native ``libama_cryptography.so`` loadable via ``LD_LIBRARY_PATH``; they fail loudly if the dependency isn't available, which is the correct behaviour for a contract that should not silently degrade.
 
 The CI workflows that collect this file

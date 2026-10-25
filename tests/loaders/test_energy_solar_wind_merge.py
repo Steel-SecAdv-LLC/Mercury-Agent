@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """RTSW/ACE solar-wind merge preference for EnergyLoader.
 
 The RTSW 1-minute product is multi-spacecraft (SOLAR1/SWFO-L1 active, ACE

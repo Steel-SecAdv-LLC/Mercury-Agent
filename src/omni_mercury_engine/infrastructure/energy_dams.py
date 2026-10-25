@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CISA Energy & Dams Critical Infrastructure Anomaly Detection.
 
 Power grid stability and dam structural monitoring.
@@ -16,6 +16,8 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 
 class EnergySubsector(Enum):
@@ -45,6 +47,16 @@ class EnergyDamsDetector:
     - Cascading failure risks
     - Renewable energy integration
     """
+
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "Grid: frequency more than 0.05 Hz from 60 Hz is an anomaly, critical beyond 0.10 Hz. "
+            "Dam: seepage above 50 gpm (critical above 100) and a water level outside 100..500 ft, "
+            "an absolute band applied to every dam; the displacement_mm limit is declared but "
+            "never checked. The numbers are hand-set with no recorded source or calibration."
+        ),
+    )
 
     def __init__(self, subsector: EnergySubsector | None = None) -> None:
         """Initialize the instance."""

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Behavioral tests for the wired ``input_length`` / ``num_leads`` contract.
 
 The analyzer resamples any time window to its contracted ``input_length`` (so

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The volcanic detector must forecast from observed physics, never fabricate.
 
 Regression lock for the anti-theater fix: previously ``_forecast_eruption``

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """A CSV that starts with column names loads; a numeric first row is data.
 
 ``mercury-agent detect -i data.csv`` crashed with ``could not convert string

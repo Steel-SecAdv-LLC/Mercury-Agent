@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """NOAA GSOD — Global Summary of the Day Loader.
 
 Daily weather summaries from 9000+ stations worldwide. Free access.

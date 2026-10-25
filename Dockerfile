@@ -157,15 +157,15 @@ ARG USER_GID=$USER_UID
 # OCI version label (build-time metadata; bump with pyproject [project].version
 # or override via --build-arg MERCURY_VERSION=...). The runtime __version__ is
 # SSOT-resolved at import; this image-metadata surface can't read it at build.
-ARG MERCURY_VERSION=2.1.0
+ARG MERCURY_VERSION=3.0.0
 
 # Security labels
-LABEL maintainer="Steel Security Advisors LLC <steel.sa.llc@gmail.com>"
+LABEL maintainer="Steel Security Advisors LLC <steel.sa.llc@mercuryagent.global>"
 LABEL org.opencontainers.image.title="Mercury Agent"
 LABEL org.opencontainers.image.description="Civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
-LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
 LABEL security.hardened="true"
 LABEL security.scan-date="2026-09-27"
 

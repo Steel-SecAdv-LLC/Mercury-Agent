@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: OTLP span emitter for the Mercury gate stack.
 
 Emits a representative trace covering Benevolence, σ_Immutable, GOSNN,

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DDPM-AD: denoising-diffusion reconstruction anomaly detector for time series.
 
 Denoising Diffusion Probabilistic Models (Ho et al., 2020) learn to invert a
@@ -34,6 +34,7 @@ from omni_mercury_engine.detectors._calibration import (
     squash_scale,
 )
 from omni_mercury_engine.detectors._torch_perf import single_threaded_torch
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 __all__ = ["DiffusionReconstructionDetector"]
 
@@ -74,6 +75,25 @@ class DiffusionReconstructionDetector(BaseDetector):
     :meth:`detect` scores each point by the mean noise-prediction error of its
     centred window across a set of diffusion timesteps, squashed to ``[0, 1]``.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "DDPM reconstruction-error detection: a denoiser trained on normal "
+            "windows (the Ho et al. 2020 forward/reverse noising process) scores "
+            "each point by its mean noise-prediction error across the eval "
+            "timesteps -- the diffusion-AD signal of AnoDDPM -- squashed into "
+            "[0, 1] with the training calibration_quantile (default 0.98) "
+            "anchored at score 0.5. The alarm fires at the configured "
+            "BaseDetector threshold (default 0.5); the threshold and quantile "
+            "are engineering defaults, not published values."
+        ),
+        citation=(
+            "Ho, Jain & Abbeel (2020), Denoising Diffusion Probabilistic Models, "
+            "NeurIPS 2020; Wyatt et al. (2022), AnoDDPM (both named in the "
+            "module docstring)"
+        ),
+    )
 
     def __init__(
         self,
@@ -140,6 +160,29 @@ class DiffusionReconstructionDetector(BaseDetector):
     def is_fitted(self) -> bool:
         """Return ``True`` once the denoiser has been trained."""
         return self._is_fitted
+
+    # ``_model``'s shape travels with the saved window/hidden/n_steps, so a
+    # fresh (unfitted, ``_model is None``) instance rebuilds it before its
+    # weights are restored.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {"_model"}
+
+    def _learned_state(self) -> dict[str, Any]:
+        """The default primitive state plus the denoiser's weights."""
+        state = super()._learned_state()
+        if self._model is not None:
+            state["_model_weights"] = {"__module_state__": self._model.state_dict()}
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore primitives, then rebuild the denoiser and load its weights."""
+        state = dict(state)
+        model_weights = state.pop("_model_weights", None)
+        super()._restore_learned_state(state)
+        if model_weights is not None:
+            model = _Denoiser(self.window, self.hidden, self.n_steps)
+            model.load_state_dict(model_weights["__module_state__"])
+            model.eval()
+            self._model = model
 
     def _to_1d(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""

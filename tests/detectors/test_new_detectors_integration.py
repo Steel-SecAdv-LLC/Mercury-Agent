@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration checks for the new streaming / statistical / state-space detectors.
 
 These lock the wiring added on ``steel/detection-mechanisms``: every new manifest

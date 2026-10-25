@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the ``mercury-agent platform`` operator commands.
 
 Drives every subcommand through Click's CliRunner against real SQLite state
@@ -13,9 +13,12 @@ chain and failing on a tampered line.
 
 from __future__ import annotations
 
+import gc
 import json
+import warnings
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from click.testing import CliRunner
@@ -27,6 +30,7 @@ from omni_mercury_engine.api.usage_ledger import SqliteUsageLedger, UsageEvent
 from omni_mercury_engine.cli import main
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 _T0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
@@ -55,6 +59,21 @@ def keystore(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     )
     store.close()
     return db_path
+
+
+def _config_for(account_id: str, tier: str) -> Any:
+    """The effective quota config, from an enforcer that is closed afterwards."""
+    with closing(build_quota_enforcer()) as enforcer:
+        return enforcer.config_for(account_id, tier)
+
+
+def _unclosed_databases(run: Callable[[], object]) -> list[str]:
+    """``unclosed database`` warnings raised once ``run``'s garbage is collected."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        run()
+        gc.collect()
+    return [str(w.message) for w in caught if "unclosed database" in str(w.message)]
 
 
 def _invoke(*args: str) -> tuple[int, str]:
@@ -98,7 +117,7 @@ def test_set_tier_round_trip_changes_config_for(
 ) -> None:
     """set-tier persists and visibly changes QuotaEnforcer.config_for."""
     monkeypatch.setenv("MERCURY_QUOTA_TIER_SUPPORTER", "5000,3600000")
-    before = build_quota_enforcer().config_for("acct-cli-1", "free").max_requests
+    before = _config_for("acct-cli-1", "free").max_requests
 
     code, out = _invoke("platform", "account", "set-tier", "op@b.com", "supporter")
     assert code == 0
@@ -110,7 +129,7 @@ def test_set_tier_round_trip_changes_config_for(
     account = store.get_account_by_id("acct-cli-1")
     store.close()
     assert account is not None and account.tier == "supporter"
-    after = build_quota_enforcer().config_for(account.id, account.tier).max_requests
+    after = _config_for(account.id, account.tier).max_requests
     assert (before, after) == (1000, 5000)
 
 
@@ -165,7 +184,7 @@ def test_quota_override_set_show_clear_round_trip(
         "max_requests": 7,
         "max_compute_ms": 99.5,
     }
-    config = build_quota_enforcer().config_for("acct-cli-1", "supporter")
+    config = _config_for("acct-cli-1", "supporter")
     assert (config.max_requests, config.max_compute_ms) == (7, 99.5)
 
     code, out = _invoke("platform", "quota", "override", "show", "op@b.com")
@@ -175,7 +194,7 @@ def test_quota_override_set_show_clear_round_trip(
     code, out = _invoke("platform", "quota", "override", "clear", "op@b.com")
     assert code == 0
     assert json.loads(out)["effective_quota"]["max_requests"] == 5000  # tier again
-    assert build_quota_enforcer().config_for("acct-cli-1", "supporter").max_requests == 5000
+    assert _config_for("acct-cli-1", "supporter").max_requests == 5000
     code, out = _invoke("platform", "quota", "override", "show", "op@b.com")
     assert json.loads(out)["override"] is None
 
@@ -311,3 +330,24 @@ def test_audit_verify_fails_on_an_empty_directory(
     code, out = _invoke("platform", "audit", "verify")
     assert code == 1
     assert json.loads(out)["ok"] is False
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("platform", "account", "show", "op@b.com"),
+        ("platform", "account", "list"),
+        ("platform", "account", "set-tier", "op@b.com", "supporter"),
+        ("platform", "account", "disable", "op@b.com"),
+        ("platform", "quota", "override", "show", "op@b.com"),
+        ("platform", "usage", "report"),
+    ],
+)
+def test_commands_close_every_store_they_open(keystore: Path, args: tuple[str, ...]) -> None:
+    """Regression: each command left its SQLite connections open.
+
+    The identity store, quota override store and usage ledger were built and
+    never closed; any in-process caller leaked them per command.
+    """
+    leaked = _unclosed_databases(lambda: _invoke(*args))
+    assert leaked == [], leaked

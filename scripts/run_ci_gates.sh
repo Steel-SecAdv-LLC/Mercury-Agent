@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Run the exact PR quality-gate matrix locally, before pushing.
 #
@@ -95,6 +95,9 @@ run_gate "codebase-scale documentation drift (ci.yml: measure_codebase_scale --c
 run_gate "capability inventory drift (pytest: test_committed_inventory_is_fresh)" \
   python scripts/generate_capability_inventory.py --check
 
+run_gate "detector catalog drift (docs/DETECTORS.md vs DETECTOR_MANIFEST)" \
+  python scripts/generate_detector_catalog.py --check
+
 run_gate "documentation lint (ci.yml: doc_lint)" \
   python scripts/doc_lint.py
 
@@ -122,6 +125,9 @@ if [[ "${FAST}" -eq 0 ]]; then
   MYPY_PIN="$(grep -oE 'mypy==[0-9.]+' pyproject.toml | head -1 | cut -d= -f3)"
   run_gate "mypy version matches the pyproject pin (${MYPY_PIN})" \
     bash -c "mypy --version | grep -qF 'mypy ${MYPY_PIN}' || { echo \"resolved \$(mypy --version) at \$(command -v mypy); expected ${MYPY_PIN} — a shadowing install (e.g. ~/.local/bin/mypy) must be removed\"; exit 1; }"
+
+  run_gate "dependency license gate (ci.yml: Type Checking, [ml] closure)" \
+    python scripts/check_dependency_licenses.py --extras ml
 
   run_gate "mypy src lane (ci.yml: Run MyPy)" \
     mypy src/omni_mercury_engine/ --show-error-codes
@@ -172,6 +178,8 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/render_prometheus_rules.py \
     scripts/check_torch_load_safety.py \
     scripts/ci_gate_watchdog.py \
+    scripts/check_dependency_licenses.py \
+    scripts/record_gdacs_fixtures.py \
     --show-error-codes
 else
   echo ""

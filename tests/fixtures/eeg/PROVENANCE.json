@@ -1,0 +1,34 @@
+{
+  "description": "Single-channel (FP1-F7, 256 Hz, microvolts) scalp EEG from two recordings of CHB-MIT patient chb01: 300 s of background ending 120 s before each annotated seizure, and the seizure itself.",
+  "source": "https://physionet.org/content/chbmit/1.0.0/",
+  "license": "Open Data Commons Attribution License v1.0",
+  "citation": "Guttag, J. (2010), CHB-MIT Scalp EEG Database, version 1.0.0, PhysioNet, doi:10.13026/C2K01R; Goldberger et al. (2000), PhysioBank, PhysioToolkit, and PhysioNet, Circulation 101(23), doi:10.1161/01.CIR.101.23.e215",
+  "recorder": "scripts/record_eeg_fixtures.py",
+  "recorded_utc": "2026-10-24T02:31:53Z",
+  "files": {
+    "chb01_03": {
+      "url": "https://physionet.org/files/chbmit/1.0.0/chb01/chb01_03.edf",
+      "channel": "FP1-F7",
+      "sampling_rate_hz": 256,
+      "seizure_seconds": [
+        2996,
+        3036
+      ],
+      "served_sha256": "4c4a95a9b4331aeaadadd538763eb2e735950d9aa615b85ee6246c784be8ae90",
+      "background_sha256": "c9a24ee61f1ad10bd399dbcc14239cb3622e5805fecc347bf0cd7e7685329088",
+      "seizure_sha256": "a7c163235e5a28ccf1bb62cd75c3fbdb8dc08224f876b02be1417d33eede53da"
+    },
+    "chb01_04": {
+      "url": "https://physionet.org/files/chbmit/1.0.0/chb01/chb01_04.edf",
+      "channel": "FP1-F7",
+      "sampling_rate_hz": 256,
+      "seizure_seconds": [
+        1467,
+        1494
+      ],
+      "served_sha256": "d91d190b2362697fe2cdef922a593baabadcb12fde437bd8d50c01b084ca9030",
+      "background_sha256": "22f5e757cbb08cb2ec18267b982875d3d691f183545e57669cb38f342f633d9b",
+      "seizure_sha256": "f55f83743a7e86ad155c197e3c8a956a3355b709332bf9cbbbe7b274589c4eac"
+    }
+  }
+}

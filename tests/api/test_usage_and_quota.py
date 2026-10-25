@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for per-account usage metering and quota enforcement (brick 4).
 
 Covers the usage ledger (in-memory + durable SQLite parity, windowing, per-account
@@ -112,7 +112,9 @@ def test_build_usage_ledger_selects_backend(
     monkeypatch.delenv("MERCURY_KEYSTORE_PATH", raising=False)
     assert isinstance(build_usage_ledger(), InMemoryUsageLedger)
     monkeypatch.setenv("MERCURY_KEYSTORE_PATH", str(tmp_path / "u.db"))
-    assert isinstance(build_usage_ledger(), SqliteUsageLedger)
+    durable = build_usage_ledger()
+    assert isinstance(durable, SqliteUsageLedger)
+    durable.close()
 
 
 # --------------------------------------------------------------------------- #

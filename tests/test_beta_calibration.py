@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Stage 2 R1/R4: Beta-MCA calibration properties + exact-reducing accept-gate.
 
 Pins the guarantees the calibration thesis rests on:

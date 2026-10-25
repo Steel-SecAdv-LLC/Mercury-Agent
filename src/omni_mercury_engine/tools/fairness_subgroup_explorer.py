@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: intersectional fairness subgroup explorer.
 
 Extends the existing :mod:`bias_audit_standalone` (which audits a

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the differentiable symbolic-constraint LTN layer (``omni_mercury_engine.ml.symbolic_constraint``).
 
 These verify the three properties that make the layer a *genuine*

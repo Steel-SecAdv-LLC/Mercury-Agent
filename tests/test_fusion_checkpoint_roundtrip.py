@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Fusion checkpoint round-trip fidelity (ROADMAP row 16).
 
 Pins the save → load probability-equivalence contract: an engine that loads

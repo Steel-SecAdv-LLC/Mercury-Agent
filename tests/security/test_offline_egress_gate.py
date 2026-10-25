@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Air-gap egress contract for every outbound path outside the dataset layer.
 
 ``tests/datasets/test_offline_mode.py`` pins the dataset-loader chokepoint.

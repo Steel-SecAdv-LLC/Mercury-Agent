@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the advisory hardware-RNG health monitor (security.rng_health).
 
 The monitor applies the same REG deviation statistics (and fault channels)

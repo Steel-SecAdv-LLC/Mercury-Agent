@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for flood data from NOAA AHPS and USGS Water Services.
 
 Connects to the USGS National Water Information System (NWIS) Instantaneous Values web service to

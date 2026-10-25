@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Property/fuzz tests and an adversarial paraphrase corpus for the weapons gate.
 
 Two kinds of assurance the fixed-string corpus cannot give:

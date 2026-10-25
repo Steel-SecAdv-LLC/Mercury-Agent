@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Gated surfaces for the evidence-assessment and human-subject library modules.
 
 Four library modules had no API endpoint, CLI command or MCP tool, and so no

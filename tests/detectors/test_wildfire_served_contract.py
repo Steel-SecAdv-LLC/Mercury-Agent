@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """What ``WildfireDetector.predict_wildfire`` serves, on a real FIRMS raster.
 
 Each test fails on the detector as it was before: any 3-channel array went to
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime as dt
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -248,16 +249,23 @@ def test_shelter_weather_alone_gives_no_nfdrs_fuel_moisture(served: WildfireDete
 
 
 @pytest.mark.parametrize("code", [4, 6, 1.5, -1, "clear"])
-def test_state_of_weather_without_an_interface_adjustment_is_refused(
+def test_state_of_weather_without_an_interface_adjustment_is_set_aside(
     served: WildfireDetector, code: object
 ) -> None:
+    """A code with no fuel-interface adjustment yields no NFDRS moisture; the rest is graded."""
     weather = {
         "temperature_c": 32.0,
         "relative_humidity_pct": 12.0,
         SOW: code,
     }
-    with pytest.raises(InvalidObservationError, match=SOW):
-        served.predict_wildfire({"thermal_image": _brightness_scene(), "weather_data": weather})
+    result = served.predict_wildfire(
+        {"thermal_image": _brightness_scene(), "weather_data": weather}
+    )
+    assert result.partial is True
+    (entry,) = result.set_aside
+    assert entry["where"] == f"weather_data.{SOW}"
+    assert SOW not in result.weather_factors
+    assert result.weather_factors["temperature_c"] == 32.0
 
 
 def test_unassessed_fields_say_so(served: WildfireDetector) -> None:
@@ -289,3 +297,46 @@ def test_spread_is_never_fabricated_from_defaults() -> None:
     assert "wind_direction_deg" in out["missing_inputs"]
     with pytest.raises(InvalidObservationError, match="wind_speed_kmh"):
         model.predict_spread({}, {"wind_speed_kmh": float("nan")})
+
+
+def test_misspelt_weather_key_is_refused(served: WildfireDetector) -> None:
+    """``relative_humidity`` used to fall back to 100 % humidity: a silent low risk."""
+    with pytest.raises(InvalidObservationError, match=r"nothing usable.*unknown key"):
+        served.predict_wildfire({"weather_data": {"relative_humidity": 5.0}})
+
+
+def test_misspelt_fire_key_is_set_aside_and_the_scene_graded(served: WildfireDetector) -> None:
+    result = served.predict_wildfire(
+        {"thermal_image": _brightness_scene(), "fire_data": {"fuel_moisture": 4.0}}
+    )
+    assert result.fuel_moisture is None  # the misspelt reading is not read
+    assert result.partial is True
+    assert [e["where"] for e in result.set_aside] == ["fire_data.fuel_moisture", "fire_data"]
+
+
+def test_empty_record_is_refused(served: WildfireDetector) -> None:
+    """An empty record used to grade as a silent "low" risk."""
+    with pytest.raises(InvalidObservationError, match="nothing usable"):
+        served.predict_wildfire({})
+
+
+def test_unusable_scene_is_set_aside_and_the_weather_graded(served: WildfireDetector) -> None:
+    scene = _brightness_scene().astype(float)
+    scene[0, 0] = float("nan")
+    result = served.predict_wildfire(
+        {"thermal_image": scene, "weather_data": {"wind_speed_kmh": 40.0}}
+    )
+    assert result.fire_detected is False and result.partial is True
+    assert result.set_aside[0]["where"] == "thermal_image"
+    assert result.weather_factors["wind_speed_kmh"] == 40.0
+
+
+@pytest.mark.parametrize("section", ["weather_data", "fire_data"])
+def test_non_mapping_section_is_refused(served: WildfireDetector, section: str) -> None:
+    from omni_mercury_engine.core.exceptions import InputModalityError
+
+    with pytest.raises(InvalidObservationError, match="must be a mapping"):
+        served.predict_wildfire({section: [1.0, 2.0]})
+    not_a_mapping: Any = [1.0, 2.0]  # deliberately outside the declared type
+    with pytest.raises(InputModalityError, match="mapping"):
+        served.predict_wildfire(not_a_mapping)

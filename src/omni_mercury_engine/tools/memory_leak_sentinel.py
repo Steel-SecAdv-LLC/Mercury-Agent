@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator tool: tracemalloc-based memory-leak sentinel.
 
 Drives the GOSNN forward step (``gosnn_latency_sla_gate.GOSNNStep.detect()``,

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Password hashing for user accounts.
 
 Distinct from API-key hashing (``APIKeyStore.hash_key``), which hashes a

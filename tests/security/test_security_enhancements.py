@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Test suite for security enhancements: quantum-resistant encryption and real-time threat detection."""
 
 from __future__ import annotations
@@ -410,3 +410,71 @@ class TestThreatInputGuards:
         bad[10, 1] = np.inf
         with pytest.raises(ValueError, match="non-finite"):
             detector.fit(bad)
+
+
+class TestNonFiniteTrainingScoreFailsClosed:
+    """A sub-detector that cannot be calibrated must be dropped, not trusted.
+
+    ``_validated_input`` reshapes a 1-D input to one ``(1, n_features)``
+    sample, which leaves the neighbour-based component degenerate: LOF scores
+    ``inf``.  ``median(s)`` is then ``inf``, ``median(|s - inf|)`` is ``NaN``
+    (with a ``RuntimeWarning``), and ``scale`` is ``NaN`` -- and
+    ``scale <= 1e-12`` is False for ``NaN``, so the standard-deviation fallback
+    never fired.  The threshold came out ``NaN``, ``score > NaN`` is False for
+    every later sample, and the ``NaN`` column also poisoned the ensemble mean,
+    taking every reference percentile with it.
+    """
+
+    @staticmethod
+    def _degenerate() -> np.ndarray:
+        return np.random.default_rng(0).normal(size=200)
+
+    def test_the_ensemble_reference_stays_finite(self) -> None:
+        """Every reference percentile used to come out NaN."""
+        detector = RealTimeThreatDetector().fit(self._degenerate())
+
+        for attribute in ("_ref_threshold", "_ref_p90", "_ref_p95", "_ref_p99"):
+            value = getattr(detector, attribute)
+            assert np.isfinite(value), f"{attribute} is {value}"
+
+    def test_a_far_shifted_sample_is_not_graded_low(self) -> None:
+        """It graded a sample 8 sigma from the training distribution LOW / no threat."""
+        detector = RealTimeThreatDetector().fit(self._degenerate())
+
+        result = detector.detect_threat(np.random.default_rng(1).normal(loc=8.0, size=200))
+
+        assert result["is_threat"] is True
+        assert result["threat_level"] != "LOW"
+
+    def test_the_uncalibratable_sub_detector_is_excluded(self) -> None:
+        detector = RealTimeThreatDetector().fit(self._degenerate())
+
+        assert "lof" not in detector._detector_threshold
+        assert {"isolation_forest", "elliptic"} <= set(detector._detector_threshold)
+        assert all(np.isfinite(v) for v in detector._detector_threshold.values())
+
+    def test_fit_refuses_when_nothing_can_be_calibrated(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Zero calibratable components is the same blindness as zero fitted ones."""
+        monkeypatch.setattr(
+            RealTimeThreatDetector,
+            "_raw_score",
+            staticmethod(lambda detector, X: np.full(len(X), np.inf)),
+        )
+        with pytest.raises(RuntimeError, match="none produced a finite"):
+            RealTimeThreatDetector().fit(np.random.default_rng(0).normal(size=(60, 8)))
+
+    def test_a_healthy_fit_calibrates_every_sub_detector(self) -> None:
+        rows = np.random.default_rng(0).normal(size=(200, 8))
+        detector = RealTimeThreatDetector().fit(rows)
+
+        assert set(detector._detector_threshold) == set(detector.detectors)
+        assert np.isfinite(detector._ref_threshold)
+
+    def test_the_manifest_declares_the_modality_the_validator_takes(self) -> None:
+        """It was ``series_1d``, the shape that makes the ensemble degenerate."""
+        from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+
+        entry = next(e for e in DETECTOR_MANIFEST if e.name == "realtime_threat")
+        assert entry.modality == "matrix_2d"

@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dust-storm detector: WMO visibility classes, Shao-Lu / Fecan friction velocity, haboob gust-front signature, and NWS dust-alert wiring.
 
 Formulation anchors:

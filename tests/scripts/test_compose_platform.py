@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Guards for the platform compose overlay (docker-compose.platform.yml).
 
 CI has no Docker daemon, so these are structural checks over the YAML: the

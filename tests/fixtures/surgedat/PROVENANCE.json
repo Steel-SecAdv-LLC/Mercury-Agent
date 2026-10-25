@@ -1,0 +1,20 @@
+{
+  "description": "Recorded real SURGEDAT peak storm-surge databases (Louisiana State University, Southern Regional Climate Center). Nothing is synthetic; each CSV is the served file byte-verbatim (classic Mac OS carriage-return line ends, Mac Roman text), stored gzip-compressed so line-ending and end-of-file hooks cannot rewrite it.",
+  "source": "SURGEDAT, https://surge.climate.lsu.edu/data.html, offered on that page as freely available. Cite: Needham, H.F. and B.D. Keim, 2012: A Storm Surge Database for the U.S. Gulf Coast. International Journal of Climatology, 32(14), 2108-2123, doi:10.1002/joc.2425.",
+  "transport": "surge.climate.lsu.edu serves its leaf certificate (CN=surge.climate.lsu.edu, issuer InCommon RSA Server CA 2) without the intermediate. The intermediate was taken from Mozilla's CCADB intermediate report (https://ccadb.my.salesforce-sites.com/mozilla/MozillaIntermediateCertsCSVReport; SHA-256 87E01CC4DD0C9D92A3DBD49092FF13F9CD387445CDC57E5B984E1B7721B5B029, issued by USERTrust RSA Certification Authority), the chain was verified with `openssl verify` against the system roots, and the files were fetched with full TLS verification using that intermediate.",
+  "notes": "Used by tests/test_storm_surge_source.py. The database states most heights in both feet and metres; four pairs in the global file (one surge, three storm tide) disagree beyond their stated rounding, which the parser reports as conflicts, and none in the Gulf file do.",
+  "fixtures": {
+    "globalpeaksurgedb.csv.gz": {
+      "url": "https://surge.climate.lsu.edu/files/globalpeaksurgedb.csv",
+      "recorded_utc": "2026-10-21T15:39:01Z",
+      "method": "GET; verbatim bytes, gzip-compressed for the repository; Last-Modified: Fri, 05 Dec 2014 17:26:26 GMT; ETag \"fc68-5097b605eb480\"; 64616 bytes; sha256 of the uncompressed CSV: 069d1daffcc68a2b67efc86a6acedd931e7493801fb95ac03399284e35e52d84",
+      "content": "The Global Peak Surge Database: 745 observations, 1737-2014, 23 columns (heights in m and ft for surge, storm tide, and storm tide with waves; datum, observation type, tropical flag, confidence)."
+    },
+    "gompeaksurgedb.csv.gz": {
+      "url": "https://surge.climate.lsu.edu/files/gompeaksurgedb.csv",
+      "recorded_utc": "2026-10-21T15:39:01Z",
+      "method": "GET; verbatim bytes, gzip-compressed for the repository; Last-Modified: Tue, 22 Jan 2013 18:14:24 GMT; ETag \"4523-4d3e48c23c000\"; 17699 bytes; sha256 of the uncompressed CSV: f303d9dc1659837be40d7355eb17beb45898a5415879db25f5f5710a10a6de49",
+      "content": "The Gulf of Mexico Peak Surge Database: 240 observations, 1880-2011, 12 columns (surge and storm tide in ft and m, location, state, coordinates, confidence)."
+    }
+  }
+}

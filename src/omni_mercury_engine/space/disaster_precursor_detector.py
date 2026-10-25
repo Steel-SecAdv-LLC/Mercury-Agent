@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Disaster Precursor Detector - Schumann Resonance + Multi-Source Correlation.
 
 Advanced disaster early warning using Schumann resonance anomalies:
@@ -49,6 +49,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
 from omni_mercury_engine.security.safe_torch import safe_torch_load
 from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
@@ -363,6 +364,22 @@ class DisasterPrecursorDetector:
     Integrates Schumann resonance, geomagnetic, ionospheric, and seismic data for multi-modal
     disaster early warning.
     """
+
+    decision_source = (
+        *SchumannResonanceDetector.decision_source,
+        DecisionSource(
+            kind="experimental",
+            description=(
+                "Fusion of the Schumann, geomagnetic, ionospheric and seismic-correlation "
+                "flags: a Schumann alarm needs risk above 0.6, a geomagnetic correlation "
+                "above 0.6, a seismic correlation needs anomaly strength above 0.6, activity "
+                "above 4.0 and correlation above 0.7; confidence tiers at 0.4 / 0.6 / 0.8 "
+                "(hand-set). The catalog-trained earthquake forecaster (alarm at "
+                "probability 0.5) abstains until a checkpoint is loaded; none ships, so no "
+                "operating point is recorded."
+            ),
+        ),
+    )
 
     def __init__(
         self,

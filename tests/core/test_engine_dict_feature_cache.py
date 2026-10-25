@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regression test: distinct dict inputs must not collide in the feature cache.
 
 The fusion feature extractors previously keyed dict inputs by a constant
@@ -54,8 +54,8 @@ def test_distinct_dict_payloads_get_distinct_features() -> None:
     )
     engine.register_detector("dictdet", _DictFeatureDetector())
 
-    features_a, _, _ = engine._extract_detector_features({"value": 1.0})
-    features_b, _, _ = engine._extract_detector_features({"value": 2.0})
+    features_a, _, _, _ = engine._extract_detector_features({"value": 1.0})
+    features_b, _, _, _ = engine._extract_detector_features({"value": 2.0})
 
     # Under the constant-key cache collision, features_b would have echoed the
     # first payload's value (1.0) instead of 2.0.

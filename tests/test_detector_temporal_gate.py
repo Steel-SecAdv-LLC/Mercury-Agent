@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the Ljung-Box temporal-structure gate + per-component calibration (issue #6). The Kinematic component assumes temporal ordering; gate it behind a real white-noise-null significance test (not just a magnitude heuristic), and calibrate each component to [0,1] via isotonic on a labeled holdout."""
 
 from __future__ import annotations

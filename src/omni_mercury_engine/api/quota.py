@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Per-account quota enforcement over the usage ledger.
 
 Turns windowed usage into an allow/deny decision, so a free service throttles
@@ -280,6 +280,18 @@ class QuotaEnforcer:
     def override_store(self) -> QuotaOverrideStore:
         """The per-account override store (operator tooling hooks in here)."""
         return self._overrides
+
+    def close(self) -> None:
+        """Close the ledger and override store when they hold a connection.
+
+        :func:`build_quota_enforcer` opens both on the shared SQLite file;
+        a caller that builds an enforcer for one task must close it, or each
+        build leaks two connections.
+        """
+        for resource in (self._ledger, self._overrides):
+            close = getattr(resource, "close", None)
+            if callable(close):
+                close()
 
     def config_for(self, account_id: str, tier: str = "free") -> QuotaConfig:
         """Resolve the effective config: override > tier > default.

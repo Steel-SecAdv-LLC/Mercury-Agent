@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Pin the cross-SciPy-version equivalence of the inline ``sph_harm`` shim used inside ``ThreeRMechanism.analyze_with_spherical_harmonics``.
 
 SciPy ≥ 1.14 removed the legacy ``scipy.special.sph_harm`` and replaced it with

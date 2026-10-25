@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Atmospheric River Detector - IVT computation and the Ralph et al. AR scale.
 
 Implements the literature-standard atmospheric-river diagnostics:
@@ -40,6 +40,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import torch
+
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +236,22 @@ class AtmosphericRiverDetector:
     series when only single-level data exists upstream.  Profiles are never
     fabricated.
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "AR conditions exist while trapezoid-integrated IVT >= 250 kg "
+            "m^-1 s^-1; the episode rank follows the published AR scale "
+            "(max-IVT bins 250/500/750/1000/1250 for AR1-5, promoted one "
+            "rank past 48 h duration, demoted below 24 h, an AR1 shorter "
+            "than 24 h dropping to rank 0)."
+        ),
+        citation=(
+            "Ralph, Rutz, Cordeira et al. (2019), 'A scale to characterize "
+            "the strength and impacts of atmospheric rivers', Bull. Amer. "
+            "Meteor. Soc. 100:269-289"
+        ),
+    )
 
     def __init__(self, ivt_threshold: float = AR_IVT_THRESHOLD) -> None:
         """Initialize the detector.

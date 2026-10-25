@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CME arrival-time prediction from coronagraph kinematics (DONKI CMEAnalysis).
 
 Consumes NASA DONKI ``CMEAnalysis`` records (speed, half-angle, direction at
@@ -46,6 +46,7 @@ from itertools import product
 from typing import Any
 
 from omni_mercury_engine.core.exceptions import InputModalityError
+from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +351,27 @@ class CMEArrivalDetector:
         >>> prediction = detector.predict_from_donki(donki_cme_analysis_record)
         >>> prediction.earth_directed, prediction.most_probable_arrival
     """
+
+    decision_source = DecisionSource(
+        kind="published",
+        description=(
+            "Arrival windows come from two literature-anchored empirical "
+            "models over DONKI kinematics at 21.5 solar radii: the Gopalswamy "
+            "empirical shock-arrival model (effective interplanetary "
+            "acceleration a = 1.41 - 0.0035 u m/s^2, cessation at 0.76 AU) "
+            "and a drag-based-model ensemble over the documented gamma = "
+            "0.2e-7..2.0e-7 km^-1 and ambient-wind 300..500 km/s ranges. "
+            "Earth-directedness is cone geometry: apex separation from the "
+            "Sun-Earth line versus the reconstructed half-angle. Physics "
+            "only; no neural network."
+        ),
+        citation=(
+            "Gopalswamy et al. (2000), GRL 27, 145; Gopalswamy et al. "
+            "(2001), JGR 106, 29207; Vršnak et al. (2013), Sol. Phys. 285, "
+            "295 (DBM); Dumbović et al. (2018), ApJ 854, 180 (ensemble "
+            "parameter practice)"
+        ),
+    )
 
     #: Fields a DONKI CMEAnalysis record must provide (fail-loud contract).
     REQUIRED_DONKI_FIELDS: tuple[str, ...] = (

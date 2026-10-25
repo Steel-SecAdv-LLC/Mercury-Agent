@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury Agent: Neuro-Symbolic AI Framework.
 
 Mercury Agent is a neuro-symbolic AI platform built for a **civilization-first**
@@ -140,7 +140,7 @@ from omni_mercury_engine._version import get_version as _get_version
 
 __version__ = _get_version()
 __author__ = "Steel Security Advisors LLC"
-__license__ = "GPL-3.0-or-later"
+__license__ = "AGPL-3.0-or-later"
 
 __all__ = [
     "AnomalyMathArrest",

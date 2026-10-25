@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Domain loader for marine biodiversity data from OBIS (Ocean Biodiversity Information System).
 
 Connects to the OBIS API v3 to retrieve species occurrence records for

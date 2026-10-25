@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Train the FireIgnitionDetector CNN on real NASA FIRMS VIIRS detections.
 
 Data source (hook ``wildfire_ignition``, ``WildfireDetector.load_neural_weights``):

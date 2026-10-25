@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Orchestration validation: does the revived planning / coordination / reflexion / chain-of-thought tier carry *real* signal on the engine's own task?
 
 This is the measurement harness the Dormancy & Salvage Ledger (rows 10-11)

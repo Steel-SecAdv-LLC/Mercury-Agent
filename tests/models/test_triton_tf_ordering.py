@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Native-library ordering guard: TensorFlow must never precede triton.
 
 TensorFlow and triton (torch's compiler backend) each bundle an LLVM.

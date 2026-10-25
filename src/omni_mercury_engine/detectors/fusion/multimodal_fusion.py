@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Multi-Modal Fusion Optimizer for VLM + Visual Detector Ensemble.
 
 Provides intelligent fusion of features from:

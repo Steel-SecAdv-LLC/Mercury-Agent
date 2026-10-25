@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Subagent fleet: the main agent's mechanism to call on subagents.
 
 The fleet is how the main Mercury Agent delegates work — one task to the most

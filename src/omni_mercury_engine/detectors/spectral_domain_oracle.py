@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Backward-compatibility shim for the renamed spectral_domain_frequency module.
 
 The Spectral Domain Frequency detector (formerly Spectral Domain Sound Oracle) was renamed to better

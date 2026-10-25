@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Per-event label-provenance integrity for the governed-fusion manifest.
 
 This locks the transparent-fitness substrate Phase 2's promotion gate reads from:

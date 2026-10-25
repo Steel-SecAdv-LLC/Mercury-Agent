@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Advanced Physics Integration Module for Mercury Agent.
 
 This module provides unified integration of the advanced physics-inspired
@@ -33,12 +33,14 @@ import torch
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY, OracleActivation
-from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.conformal_prediction import split_conformal_threshold
+from omni_mercury_engine.core.exceptions import DetectorException, InputModalityError
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
+from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.spectral_domain_frequency import (
     FrequencyInfluenceVector,
     SpectralDomainFrequency,
@@ -239,6 +241,22 @@ class PhysicsIntegratedDetector(BaseDetector):
         >>> print(result.anomaly_score, result.fusion_result)
     """
 
+    decision_source = DecisionSource(
+        kind="experimental",
+        description=(
+            "In-house fusion heuristic: combines the spectral-vibration, "
+            "acceleration-dynamics and UI/UX detectors' scores through the "
+            "Omni-Ava Equation (golden-ratio-weighted fusion with 3R/GOSNN "
+            "modulation) on the fused normalized score. The alarm threshold is "
+            "the configured BaseDetector threshold, or, when no threshold is "
+            "configured and fit() receives at least 76 signals, the "
+            "split-conformal quantile (false-alarm rate 0.05) of the fused scores "
+            "of every fourth signal held out of the fit. No published threshold "
+            "exists for the fusion rule and no labelled corpus calibrates it; "
+            "the wrapped detectors declare their own provenance on their classes."
+        ),
+    )
+
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize integrated physics detector.
 
@@ -268,6 +286,16 @@ class PhysicsIntegratedDetector(BaseDetector):
 
         # Initialize GOSNN scalars
         self._gosnn = PhysicsGOSNNScalars()
+
+        #: Whether fit() cut the alarm threshold conformally on held-out
+        #: normal signals. False means the verdict rests on the configured or
+        #: default threshold and carries no false-alarm bound.
+        self._threshold_calibrated = False
+        #: Length of the signals the threshold was calibrated on. The fused
+        #: score is not invariant in a signal's length, so the cut only
+        #: transfers to signals of about this length -- see
+        #: ``_LENGTH_TOLERANCE`` and :meth:`_require_calibrated_length`.
+        self._calibration_signal_length: int | None = None
 
         # Set device
         self.device = torch.device(self.config.get("device", "cpu"))
@@ -307,6 +335,57 @@ class PhysicsIntegratedDetector(BaseDetector):
             ethical_compliance_threshold=config.get("ethical_compliance_threshold", 0.96),
             threshold=config.get("threshold", self.threshold),
         )
+
+    #: The wrapped component detectors that learn in :meth:`fit`; their
+    #: learned state is nested under these names in the checkpoint.
+    _CHILD_DETECTOR_ATTRS: tuple[str, ...] = (
+        "_spectral_detector",
+        "_dynamics_detector",
+        "_uiux_detector",
+        "_oracle_detector",
+    )
+
+    #: The 3R engines and GOSNN scalars are built deterministically in
+    #: ``__init__`` from configuration and hold constants, not fitted state;
+    #: the child detectors are decomposed into their own learned state below.
+    _UNSAVED_ATTRS = BaseDetector._UNSAVED_ATTRS | {
+        "_recursion_engine",
+        "_resonance_engine",
+        "_fusion_equation",
+        "_gosnn",
+        *_CHILD_DETECTOR_ATTRS,
+    }
+
+    def _learned_state(self) -> dict[str, Any]:
+        """Own primitives plus each enabled child detector's learned state."""
+        state = super()._learned_state()
+        for attr in self._CHILD_DETECTOR_ATTRS:
+            child = getattr(self, attr)
+            state[attr] = None if child is None else child._learned_state()
+        return state
+
+    def _restore_learned_state(self, state: dict[str, Any]) -> None:
+        """Restore own primitives, then each child detector's learned state.
+
+        The children are rebuilt by ``__init__`` from configuration, so a
+        checkpoint whose enabled-detector set differs from this instance's
+        configuration is refused instead of silently dropping a child's
+        learned state.
+        """
+        state = dict(state)
+        child_states = {attr: state.pop(attr, None) for attr in self._CHILD_DETECTOR_ATTRS}
+        super()._restore_learned_state(state)
+        for attr, child_state in child_states.items():
+            child = getattr(self, attr)
+            if child_state is None:
+                continue
+            if child is None:
+                raise ValueError(
+                    f"checkpoint carries learned state for {attr}, but this "
+                    "PhysicsIntegratedDetector is configured without that "
+                    "component; construct it with the same enabled_detectors"
+                )
+            child._restore_learned_state(child_state)
 
     def _init_detectors(self) -> None:
         """Initialize component detectors based on configuration."""
@@ -402,10 +481,18 @@ class PhysicsIntegratedDetector(BaseDetector):
         Raises:
             DetectorException: If data format is invalid.
         """
+        calibration_rows: np.ndarray[Any, Any] | None = None
         if data_type == "time_series":
             # Fit spectral and dynamics detectors
             if isinstance(data, torch.Tensor):
                 data = data.cpu().numpy()
+
+            if self._calibrates_threshold(data):
+                held_out = np.arange(len(data)) % self._CALIBRATION_STRIDE == (
+                    self._CALIBRATION_STRIDE - 1
+                )
+                calibration_rows = data[held_out]  # type: ignore[index, unused-ignore]
+                data = data[~held_out]  # type: ignore[index, unused-ignore]
 
             if self._spectral_detector is not None:
                 self._spectral_detector.fit(data)  # type: ignore[arg-type, unused-ignore]
@@ -454,9 +541,103 @@ class PhysicsIntegratedDetector(BaseDetector):
             )
 
         self._is_fitted = True
+        if calibration_rows is not None:
+            self._calibrate_threshold_on(calibration_rows)
+            self._threshold_calibrated = True
+        elif "threshold" not in self.config and not self._auto_calibrate:
+            # The fused score of normal signals sits between 0.89 and 0.99,
+            # so the 0.5 default alarms on normal input. Say so rather than
+            # emit a verdict that reads as calibrated: a single 1-D series
+            # carries one sample of a whole-signal score, and the conformal
+            # cut needs at least _MIN_CALIBRATION_SIGNALS held-out signals.
+            logger.warning(
+                "PhysicsIntegratedDetector could not calibrate its threshold on this "
+                "input and keeps the %.2f default, which normal signals exceed. Fit on "
+                "a 2-D stack of at least %d signals for a calibrated alarm, or set "
+                "'threshold' in config.",
+                self.threshold,
+                self._CALIBRATION_STRIDE * self._MIN_CALIBRATION_SIGNALS,
+            )
         logger.info("PhysicsIntegratedDetector fitted successfully")
 
         return self
+
+    #: Every ``_CALIBRATION_STRIDE``-th training signal is held out of the
+    #: component fits and scores the alarm threshold; ``_FALSE_ALARM_RATE`` is
+    #: the rate it is cut at.  ``_MIN_CALIBRATION_SIGNALS`` is the fewest
+    #: held-out signals for which that rate is attainable (``ceil(1/alpha) - 1``).
+    _CALIBRATION_STRIDE = 4
+    _FALSE_ALARM_RATE = 0.05
+    _MIN_CALIBRATION_SIGNALS = 19
+
+    def _calibrates_threshold(self, data: Any) -> bool:
+        """Whether ``fit`` can calibrate the threshold on ``data`` (and was not told not to)."""
+        if "threshold" in self.config or self._auto_calibrate:
+            return False
+        if getattr(data, "ndim", 0) != 2:
+            return False
+        return bool(len(data) // self._CALIBRATION_STRIDE >= self._MIN_CALIBRATION_SIGNALS)
+
+    def _calibrate_threshold_on(self, signals: np.ndarray[Any, Any]) -> None:
+        """Set the alarm threshold by split conformal prediction on held-out normal signals.
+
+        The fused score of normal signals sits well above the 0.5 default (0.89
+        to 0.99 on recorded bearing vibration), so the default flagged every
+        normal signal.  The threshold is the conformal quantile of the held-out
+        signals' fused scores, capped just under 1.0 so a saturated score can
+        still alarm.
+        """
+        scores = [float(self.detect(signal.reshape(1, -1))["anomaly_score"]) for signal in signals]
+        self._calibration_signal_length = int(signals.shape[-1])
+        result = split_conformal_threshold(scores, self._FALSE_ALARM_RATE)
+        self.threshold = min(result.threshold, float(np.nextafter(1.0, 0.0)))
+        logger.info(
+            "PhysicsIntegratedDetector threshold %.4f from %d held-out signals (false-alarm bound %.3f)",
+            self.threshold,
+            result.n_calibration,
+            result.false_alarm_bound,
+        )
+
+    #: How far a scored signal's length may differ from the calibration
+    #: signals' before the conformal cut stops transferring. Measured on a
+    #: detector fitted at width 64 with a 0.8929 cut, scoring stationary
+    #: signals of the same process: at the fitted width it flagged 0.00 of
+    #: them, at 1.12x 0.20, at 1.25x 0.70, at 2x 0.90 and at 6.25x all of
+    #: them, because every component's score rises with length and the fusion
+    #: is their mean.
+    _LENGTH_TOLERANCE = 0.1
+
+    def _require_calibrated_length(self, data: Any) -> None:
+        """Refuse a signal the calibrated threshold does not cover.
+
+        The fused score is not invariant in the signal's length, so a cut
+        measured on signals of one length is not a cut for signals of
+        another: a 400-sample signal scores 1.0000 where 64-sample signals of
+        the same process average 0.83. Scoring one against the other's
+        threshold is how this detector called entirely normal data anomalous.
+
+        Only enforced when there is a calibrated cut to protect. A configured
+        or default threshold is the caller's own, carries no false-alarm bound
+        either way, and is already reported as ``threshold_calibrated: False``.
+
+        Raises:
+            InputModalityError: when the signal's length is outside
+                ``_LENGTH_TOLERANCE`` of the calibration signals'.
+        """
+        expected = self._calibration_signal_length
+        if expected is None or not self._threshold_calibrated:
+            return
+        length = getattr(data, "shape", (None,))[-1]
+        if not isinstance(length, int) or length == expected:
+            return
+        if abs(length - expected) <= self._LENGTH_TOLERANCE * expected:
+            return
+        raise InputModalityError(
+            f"threshold calibrated on signals of {expected} samples; got {length}. "
+            "The fused score rises with a signal's length, so the conformal cut does "
+            "not transfer: re-fit on signals of this length, or set 'threshold' in "
+            "config to decide the operating point yourself."
+        )
 
     def detect(
         self,
@@ -471,6 +652,12 @@ class PhysicsIntegratedDetector(BaseDetector):
 
         Returns:
             Dictionary containing integrated detection results.
+            ``metadata['component_failures']`` maps the name of any optional
+            component that raised to the exception that stopped it, and is
+            empty when every enabled component ran.  A failed component is
+            dropped from ``component_scores``, which changes the fused score,
+            so that mapping is the only way to tell a degraded verdict from a
+            healthy one.
 
         Raises:
             DetectorException: If detector not fitted.
@@ -478,12 +665,17 @@ class PhysicsIntegratedDetector(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
+        if data_type == "time_series":
+            self._require_calibrated_length(data)
+
         # Run component detectors
         spectral_result = None
         dynamics_result = None
         uiux_result = None
         oracle_result: dict[str, Any] | None = None
         frequency_influence: FrequencyInfluenceVector | None = None
+
+        component_failures: dict[str, str] = {}
 
         if data_type == "time_series":
             if isinstance(data, torch.Tensor):
@@ -496,12 +688,7 @@ class PhysicsIntegratedDetector(BaseDetector):
                 dynamics_result = self._dynamics_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
 
             # Frequency Domain Oracle — parallel frequency-space pipeline
-            if self._oracle_detector is not None and self._oracle_detector.is_fitted():
-                try:
-                    oracle_result = self._oracle_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
-                    frequency_influence = oracle_result.get("influence_vector")
-                except Exception as e:
-                    logger.warning("SpectralDomainFrequency detection failed: %s", e)
+            oracle_result, frequency_influence = self._run_oracle(data, component_failures)
 
         elif data_type == "interactions":
             if self._uiux_detector is not None and self._uiux_detector.is_fitted():
@@ -519,12 +706,7 @@ class PhysicsIntegratedDetector(BaseDetector):
                     dynamics_result = self._dynamics_detector.detect(ts_data)
 
                 # Frequency Domain Oracle — parallel frequency-space pipeline
-                if self._oracle_detector is not None and self._oracle_detector.is_fitted():
-                    try:
-                        oracle_result = self._oracle_detector.detect(ts_data)
-                        frequency_influence = oracle_result.get("influence_vector")
-                    except Exception as e:
-                        logger.warning("SpectralDomainFrequency detection failed: %s", e)
+                oracle_result, frequency_influence = self._run_oracle(ts_data, component_failures)
 
             if "interactions" in data:
                 if self._uiux_detector is not None and self._uiux_detector.is_fitted():
@@ -616,12 +798,56 @@ class PhysicsIntegratedDetector(BaseDetector):
             "recommendations": recommendations,
             "detector_type": "advanced_physics_integrated",
             "threshold": effective_threshold,
+            # False means the alarm rests on the configured or default
+            # threshold rather than a conformal cut measured on normal
+            # signals, so the verdict carries no false-alarm bound.
+            "threshold_calibrated": self._threshold_calibrated,
+            # The signal length the cut was measured at; the score is not
+            # invariant in it, so a cut only covers signals of about this
+            # length (see _require_calibrated_length).
+            "calibration_signal_length": self._calibration_signal_length,
             "metadata": {
                 "enabled_detectors": [d.value for d in self._physics_config.enabled_detectors],
                 "use_3r_enhancement": self._physics_config.use_3r_enhancement,
                 "use_gosnn_scaling": self._physics_config.use_gosnn_scaling,
+                "component_failures": component_failures,
             },
         }
+
+    def _run_oracle(
+        self,
+        data: Any,
+        component_failures: dict[str, str],
+    ) -> tuple[dict[str, Any] | None, FrequencyInfluenceVector | None]:
+        """Run the frequency-domain Oracle, recording a failure rather than hiding it.
+
+        The Oracle is an optional parallel component, so a failure must not
+        take the fused verdict down with it -- but it does change that verdict:
+        ``frequency_oracle`` leaves ``component_scores`` and the influence
+        vector stops modulating the fused score.  Before, the only trace was a
+        log line, and ``oracle_result is None`` in the returned dict was
+        indistinguishable from "no Oracle was configured for this domain".  The
+        reason is now recorded under ``metadata['component_failures']`` so a
+        caller can see a degraded verdict for what it is.
+
+        Args:
+            data: Time-series data to score.
+            component_failures: Mutated in place; gains a ``frequency_oracle``
+                entry when the Oracle raises.
+
+        Returns:
+            ``(oracle_result, influence_vector)``, both ``None`` when the
+            Oracle is absent, unfitted, or failed.
+        """
+        if self._oracle_detector is None or not self._oracle_detector.is_fitted():
+            return None, None
+        try:
+            oracle_result = self._oracle_detector.detect(data)
+        except Exception as e:  # the Oracle is optional; the failure is recorded below
+            logger.warning("SpectralDomainFrequency detection failed: %s", e)
+            component_failures["frequency_oracle"] = f"{type(e).__name__}: {e}"
+            return None, None
+        return oracle_result, oracle_result.get("influence_vector")
 
     def extract_features(
         self,

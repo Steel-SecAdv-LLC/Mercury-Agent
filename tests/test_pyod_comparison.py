@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tests for the real PyOD comparison layer.
 
 The layer under test actually runs PyOD detectors, so most tests skip cleanly
@@ -217,7 +217,7 @@ def test_benchmark_against_pyod_end_to_end(
     # Match the benchmark's eval path exactly: competitive_benchmark._run_mercury_tier
     # plants this runtime-only domain marker, which routes detect() through the
     # same "adbench" blending. Without it this test would exercise a different path.
-    detector._benchmark_domain = "adbench"  # type: ignore[attr-defined]
+    detector._benchmark_domain = "adbench"
     mercury_scores = np.asarray(detector.detect(X_test)["scores"], dtype=np.float64)
 
     comparison = PyODComparison()

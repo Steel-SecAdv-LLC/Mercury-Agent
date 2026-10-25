@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Guardrail subagent: ethical-guardrail and manipulation-resistance screening.
 
 This specialization screens a proposed action or a user input against two
