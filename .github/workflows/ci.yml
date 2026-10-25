@@ -2091,24 +2091,42 @@ jobs:
           done
           [ "$(count staging PrometheusRule)" -eq 0 ] \
             || { echo "::error::staging must not install the production-namespaced rules"; exit 1; }
+          # Render-only values: production mode requires a secret source (templates/secret.yaml).
+          # These are never deployed; the rendered manifests are discarded.
+          RENDER_ONLY_SECRETS=(--set config.secrets.JWT_SECRET_KEY=render-only
+            --set config.secrets.API_KEY_HASH_SALT=render-only)
           for values in production staging; do
             helm template mercury-agent ./helm/mercury-agent \
-              -f "helm/mercury-agent/values-${values}.yaml" | grep -q "^kind: PrometheusRule$" \
+              -f "helm/mercury-agent/values-${values}.yaml" "${RENDER_ONLY_SECRETS[@]}" \
+              | grep -q "^kind: PrometheusRule$" \
               || { echo "::error::Helm ${values} values render no PrometheusRule"; exit 1; }
           done
 
       - name: Lint and render the Helm chart
         run: |
           set -euo pipefail
+          # Render-only values: production mode requires a secret source (templates/secret.yaml).
+          # These are never deployed; the rendered manifests are discarded.
+          RENDER_ONLY_SECRETS=(--set config.secrets.JWT_SECRET_KEY=render-only
+            --set config.secrets.API_KEY_HASH_SALT=render-only)
           helm lint ./helm/mercury-agent
           # No `-f` renders the chart exactly as `helm install mercury-agent
           # ./helm/mercury-agent` would -- the command the README publishes.
           helm template mercury-agent ./helm/mercury-agent > /dev/null
           for values in helm/mercury-agent/values-*.yaml; do
             echo "::group::helm template -f ${values}"
-            helm template mercury-agent ./helm/mercury-agent -f "${values}" > /dev/null
+            helm template mercury-agent ./helm/mercury-agent -f "${values}" "${RENDER_ONLY_SECRETS[@]}" > /dev/null
             echo "::endgroup::"
           done
+          # A production-mode render with no secret source must be refused, and
+          # the refusal must name the missing key.
+          if helm template mercury-agent ./helm/mercury-agent \
+              -f helm/mercury-agent/values-production.yaml > /dev/null 2> refusal.txt; then
+            echo "::error::production renders without JWT_SECRET_KEY; the render guard is gone"
+            exit 1
+          fi
+          grep -q "JWT_SECRET_KEY" refusal.txt \
+            || { echo "::error::production refusal does not name JWT_SECRET_KEY"; cat refusal.txt; exit 1; }
 
       - name: Assert the Prometheus Operator integration renders
         # The chart declares no monitoring subcharts; it integrates with an
