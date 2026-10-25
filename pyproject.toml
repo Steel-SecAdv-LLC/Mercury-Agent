@@ -979,8 +979,10 @@ markers = [
     "network: marks tests requiring network access (deselect with '-m \"not network\"')",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
+    # Deprecations are reported, not hidden: a warning the suite never shows
+    # is a deprecation nobody sees before an upgrade breaks on it.
+    "default::DeprecationWarning",
+    "default::PendingDeprecationWarning",
 ]
 asyncio_mode = "auto"
 
