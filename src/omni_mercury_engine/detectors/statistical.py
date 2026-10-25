@@ -644,6 +644,7 @@ class MercuryAnomalyDetector(BaseDetector):
                                 self._threshold_pipeline = trial
                                 self._calibration_result = result
                         except Exception:
+                            logger.debug("Calibration trial failed; skipping it", exc_info=True)
                             continue
                     self._supervised_threshold = best_threshold
                     logger.info(
@@ -2215,6 +2216,7 @@ class MercuryAnomalyDetector(BaseDetector):
                     self._threshold_pipeline = trial
                     self._calibration_result = result
             except Exception:
+                logger.debug("Calibration trial failed; skipping it", exc_info=True)
                 continue
 
         self._supervised_threshold = best_threshold

@@ -78,6 +78,7 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
+import logging
 import pkgutil
 from dataclasses import dataclass
 
@@ -86,6 +87,8 @@ from omni_mercury_engine.datasets.metadata import (
     VALID_LABEL_SOURCES,
 )
 from omni_mercury_engine.loaders.base import BaseDomainLoader
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # The committed audit. Key: "<module_basename>.<ClassName>". Value:
@@ -225,6 +228,9 @@ def discover_loaders() -> dict[str, type[BaseDomainLoader]]:
         try:
             importlib.import_module(mod.name)
         except Exception:
+            logger.debug(
+                "Loader module %s not importable; no classes contributed", mod.name, exc_info=True
+            )
             # An unimportable optional-dep loader contributes no classes here.
             # Import hygiene is covered by other CI lanes, not this gate.
             continue

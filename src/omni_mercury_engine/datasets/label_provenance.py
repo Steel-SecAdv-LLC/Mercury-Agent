@@ -41,6 +41,7 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
+import logging
 import pkgutil
 from dataclasses import dataclass
 
@@ -49,6 +50,8 @@ from omni_mercury_engine.datasets.metadata import (
     GENUINE_LABEL_SOURCES,
     VALID_LABEL_SOURCES,
 )
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # The committed audit. Key: "<module_basename>.<ClassName>". Value:
@@ -275,6 +278,9 @@ def discover_loaders() -> dict[str, type[DatasetLoader]]:
         try:
             importlib.import_module(mod.name)
         except Exception:
+            logger.debug(
+                "Loader module %s not importable; no classes contributed", mod.name, exc_info=True
+            )
             # A loader whose optional deps are absent still has its class
             # defined once imported elsewhere; an unimportable module simply
             # contributes no classes here. Import hygiene is covered by other

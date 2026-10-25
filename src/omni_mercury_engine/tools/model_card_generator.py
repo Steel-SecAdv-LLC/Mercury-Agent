@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import logging
 import platform
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +24,8 @@ import numpy as np
 import numpy.typing as npt
 
 from omni_mercury_engine.tools._base import Certificate, atomic_write_text, run_tool
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA = "mercury.tools.model_card_generator/v1"
 
@@ -184,7 +187,12 @@ def _collect(args: argparse.Namespace) -> Certificate:
             try:
                 detector_obj.fit(X)
             except Exception:
-                pass
+                logger.warning(
+                    "Fitting %s on %s failed; the card describes an unfitted detector",
+                    args.detector,
+                    args.data,
+                    exc_info=True,
+                )
     if args.labels:
         y = np.load(args.labels, allow_pickle=False)
 
