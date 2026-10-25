@@ -27,6 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Changed — Helm chart refuses production installs without a secret source.** With
+`config.app.MERCURY_ENV=production` the chart now fails `helm template` / `helm install`
+unless `config.secrets.JWT_SECRET_KEY` and `config.secrets.API_KEY_HASH_SALT` are set, or
+`config.secrets.existingSecret` names a Secret that holds them. The application already
+refused to start without them, so the old behaviour was pods that crash-looped after
+install. CI renders the production and staging overlays with render-only values and
+asserts that the production refusal names the missing key.
+
+**Fixed — the directive detector no longer claims to be deprecated.** `detectors/directive.py`
+emitted a `DeprecationWarning` on import and described itself as "retained for reference
+only". It is a production member of the default detector suite, the orchestrator and the
+registry, so the warning and that description were both wrong. The warning is removed and
+the module docstring states what the module is.
+
+**Changed — deprecated shims load on first use.** `detectors/advanced` (GWO ensemble) and
+`validation` (dataset loaders) now load their deprecated modules lazily, through
+`__getattr__`. `import omni_mercury_engine` no longer emits a `DeprecationWarning`; the
+warning fires when a deprecated name is actually used.
+
 **Changed — the micro-anomaly term is measured against training data.** The
 micro-anomaly rate in `SigmaDirectiveDetector` and `NanoSafeguardDetector` counted
 residuals above the 95th percentile of the *scored* batch's own residuals, so it
