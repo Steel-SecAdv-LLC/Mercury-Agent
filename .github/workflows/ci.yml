@@ -1724,82 +1724,11 @@ jobs:
       - name: Run performance benchmarks
         # Performance gate: Detect regressions in key operations
         # Targets: GOSNN detection <100ms, cache hit rate >50%
+        # Measurement, thresholds and the JSON record live in the script so
+        # they are testable; it writes the JSON before it asserts.
         env:
           AMA_REQUIRE_REAL_PQC: "true"
-        run: |
-          python -c "
-          import json
-          import time
-          import numpy as np
-          from omni_mercury_engine.core.gosnn_integration import (
-              TTLCache, GOSNNPerformanceMonitor, get_detection_cache
-          )
-          from omni_mercury_engine.ml.optimizers import (
-              SyntheticGradientPredictor, get_gradient_cache
-          )
-
-          print('=' * 60)
-          print('MERCURY AGENT PERFORMANCE BENCHMARK')
-          print('=' * 60)
-
-          # Test 1: TTLCache performance
-          cache = TTLCache(max_size=1000)
-          data = np.random.randn(100, 64)
-
-          start = time.time()
-          for i in range(1000):
-              cache.set(data[i % 100], {'result': i})
-          write_time = (time.time() - start) * 1000
-
-          start = time.time()
-          hits = 0
-          for i in range(1000):
-              if cache.get(data[i % 100]) is not None:
-                  hits += 1
-          read_time = (time.time() - start) * 1000
-
-          print(f'TTLCache Write (1000 ops): {write_time:.2f}ms')
-          print(f'TTLCache Read (1000 ops): {read_time:.2f}ms')
-          print(f'TTLCache Hit Rate: {hits/1000*100:.1f}%')
-
-          # Test 2: Synthetic Gradient Predictor
-          predictor = SyntheticGradientPredictor(input_dim=128, hidden_dim=64)
-          get_gradient_cache().clear()
-
-          activations = np.random.randn(32, 128).astype(np.float32)
-
-          start = time.time()
-          for _ in range(100):
-              predictor.forward(activations, use_cache=True)
-          grad_time = (time.time() - start) * 1000
-
-          grad_stats = get_gradient_cache().stats
-          print(f'SyntheticGradient (100 ops): {grad_time:.2f}ms')
-          print(f'Gradient Cache Hit Rate: {grad_stats[\"hit_rate\"]*100:.1f}%')
-
-          # Record the measurements before asserting: the upload step runs
-          # with if: always() and requires this file, so it must exist even
-          # when a threshold below fails.
-          results = {
-              \"ttl_cache_write_ms\": write_time,
-              \"ttl_cache_read_ms\": read_time,
-              \"ttl_cache_hit_rate\": hits / 1000,
-              \"synthetic_gradient_ms\": grad_time,
-              \"gradient_cache_hit_rate\": grad_stats[\"hit_rate\"],
-              \"thresholds_ms\": {\"ttl_write\": 500, \"ttl_read\": 100, \"gradient\": 1000},
-          }
-          with open(\"benchmark-results.json\", \"w\") as fh:
-              json.dump(results, fh, indent=2, sort_keys=True)
-
-          # Performance assertions
-          assert write_time < 500, f'TTLCache write too slow: {write_time}ms'
-          assert read_time < 100, f'TTLCache read too slow: {read_time}ms'
-          assert grad_time < 1000, f'Gradient prediction too slow: {grad_time}ms'
-
-          print('=' * 60)
-          print('ALL PERFORMANCE BENCHMARKS PASSED')
-          print('=' * 60)
-          "
+        run: python scripts/performance_benchmark.py --output benchmark-results.json
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

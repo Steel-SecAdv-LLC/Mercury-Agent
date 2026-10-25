@@ -33,41 +33,10 @@ runs:
       # passes the same PQC capability probe the workflow runs.
       id: cc
       shell: bash
+      # The selection logic is in scripts/resolve_ama_compiler.sh, where its
+      # three paths are tested with fake compilers.
       run: |
-        set -euo pipefail
-        floor=12
-        # Echo "<cc> <cxx> <version>" when both compilers exist and meet the floor.
-        pick() {
-          local c="$1" x="$2" cmajor xmajor
-          command -v "${c}" >/dev/null 2>&1 || return 1
-          command -v "${x}" >/dev/null 2>&1 || return 1
-          cmajor="$("${c}" -dumpfullversion | cut -d. -f1)"
-          xmajor="$("${x}" -dumpfullversion | cut -d. -f1)"
-          [ "${cmajor}" -ge "${floor}" ] && [ "${xmajor}" -ge "${floor}" ] || return 1
-          echo "${c} ${x} $("${c}" -dumpfullversion)"
-        }
-        need_apt=false
-        if read -r cc cxx ver < <(pick gcc g++); then
-          source=image-default
-        elif read -r cc cxx ver < <(pick gcc-12 g++-12); then
-          source=image-gcc-12
-        else
-          # Nothing usable on the image: the install step below provides
-          # gcc-12/g++-12, and the build calls them by absolute path.
-          cc=/usr/bin/gcc-12
-          cxx=/usr/bin/g++-12
-          ver=12
-          source=apt-gcc-12
-          need_apt=true
-        fi
-        {
-          echo "cc=${cc}"
-          echo "cxx=${cxx}"
-          echo "version=${ver}"
-          echo "source=${source}"
-          echo "need-apt=${need_apt}"
-        } >> "$GITHUB_OUTPUT"
-        echo "AMA C compiler: ${cc} (${ver}, from ${source})"
+        bash "${GITHUB_WORKSPACE}/scripts/resolve_ama_compiler.sh" >> "${GITHUB_OUTPUT}"
 
     - name: Compute AMA native-build cache key
       # The cmake build of the native PQC library is identical for every job
