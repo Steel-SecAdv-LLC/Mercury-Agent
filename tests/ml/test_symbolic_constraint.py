@@ -126,7 +126,7 @@ class TestSemantics:
         out = module(prob, scores)
         per_rule = out["rule_satisfaction"]
         # Rule order matches consensus_rule_graph(): index 1 == R2_precision.
-        assert float(per_rule[1]) < 0.2
+        assert float(per_rule[1].detach()) < 0.2
 
 
 class TestDifferentiability:

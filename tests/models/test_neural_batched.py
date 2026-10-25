@@ -25,6 +25,10 @@ class _ReferenceNeural(NeuralCognitiveModel):
     def _hippocampal_memory(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         if data.ndim == 1:
             data = data.reshape(1, -1)
+        # Same refusal as the batched path: no similarity exists for a
+        # non-finite row, so the oracle must not compute one.
+        if not np.isfinite(data).all():
+            raise ValueError("hippocampal memory cannot score non-finite input")
         memory_features = np.zeros((data.shape[0], 16), dtype=np.float32)
         for i in range(data.shape[0]):
             pattern = data[i]

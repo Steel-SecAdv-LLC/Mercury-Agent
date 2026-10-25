@@ -54,6 +54,11 @@ class DistanceMetric(Enum):
 FEATURE_TYPE_NUMERIC = "numeric"
 FEATURE_TYPE_CATEGORICAL = "categorical"
 _VALID_FEATURE_TYPES = frozenset({FEATURE_TYPE_NUMERIC, FEATURE_TYPE_CATEGORICAL})
+#: Search limit for a feature with no declared bound. Finite, so the L-BFGS
+#: iterates cannot run to +/-inf and overflow the squared-distance terms; far
+#: beyond any value a standardised feature takes, so it does not bind on real
+#: inputs.
+UNBOUNDED_SEARCH_LIMIT = 1e6
 
 
 def _validate_feature_metadata(
@@ -526,11 +531,19 @@ class WachterCounterfactual(CounterfactualGenerator):
                 if not constraint.is_mutable:
                     bounds.append((original[i], original[i]))
                 else:
-                    low = constraint.min_value if constraint.min_value is not None else -np.inf
-                    high = constraint.max_value if constraint.max_value is not None else np.inf
+                    low = (
+                        constraint.min_value
+                        if constraint.min_value is not None
+                        else -UNBOUNDED_SEARCH_LIMIT
+                    )
+                    high = (
+                        constraint.max_value
+                        if constraint.max_value is not None
+                        else UNBOUNDED_SEARCH_LIMIT
+                    )
                     bounds.append((low, high))
             else:
-                bounds.append((-np.inf, np.inf))
+                bounds.append((-UNBOUNDED_SEARCH_LIMIT, UNBOUNDED_SEARCH_LIMIT))
 
         return bounds
 
