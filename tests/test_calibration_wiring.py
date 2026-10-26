@@ -78,9 +78,9 @@ class TestCalibrationWiring:
         assert f1 > 0.30, f"F1-optimal F1 should be > 0.30, got {f1:.4f}"
         # F1-optimal calibrates on this very data, so it must not do worse
         # than the uncalibrated default operating point.
-        assert f1 >= baseline_f1, (
-            f"F1-optimal ({f1:.4f}) fell below the uncalibrated baseline ({baseline_f1:.4f})"
-        )
+        assert (
+            f1 >= baseline_f1
+        ), f"F1-optimal ({f1:.4f}) fell below the uncalibrated baseline ({baseline_f1:.4f})"
 
     def test_supervised_threshold_stored(
         self, separated_data: tuple[np.ndarray, np.ndarray]
