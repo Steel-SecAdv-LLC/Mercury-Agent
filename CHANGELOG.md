@@ -27,6 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — Mercury-native matrix profile backend; the foundation ensemble works without
+extras.** `ml/matrix_profile.py` computes the self-join matrix profile in pure numpy
+(STOMP recurrence seeded and refreshed by FFT sliding dot products), matching
+`stumpy.stump` conventions: z-normalized distance, `ceil(m/4)` exclusion zone, left and
+right neighbour indices, and the constant-window convention. `MatrixProfileDetector` uses
+STUMPY when the `[foundation]` extra is installed and the native backend otherwise, so
+the detector and the default `FoundationEnsemble` (whose only default member it is) are
+operational on a base install instead of refusing. Equivalence is pinned against an
+O(l²m) brute-force reference and against STUMPY itself in
+`tests/ml/test_matrix_profile_native.py`; the manifest seam tests now drive both
+detectors in the no-extra lane rather than skipping them.
+
 **Changed — Helm chart refuses production installs without a secret source.** With
 `config.app.MERCURY_ENV=production` the chart now fails `helm template` / `helm install`
 unless `config.secrets.JWT_SECRET_KEY` and `config.secrets.API_KEY_HASH_SALT` are set, or

@@ -1420,7 +1420,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "omni_mercury_engine.models.foundation",
         "MatrixProfileAdapter",
         DetectorCategory.FOUNDATION,
-        "STUMPY Matrix Profile for time-series anomalies",
+        "Matrix Profile for time-series anomalies (STUMPY-accelerated when installed)",
         tags=["foundation", "time-series", "matrix-profile"],
         seams=("registry",),
         modality="series_1d",

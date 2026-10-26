@@ -473,11 +473,12 @@ def _driven(seam: str) -> list[str]:
 #: (pyproject), mapped to the module that extra provides.  Without it they
 #: refuse loudly ("silent mock degradation is not permitted"), which is the
 #: correct behaviour but not the seam under test, so the seam is driven only
-#: where the extra is installed.
+#: where the extra is installed.  ``matrix_profile`` and the default
+#: ``foundation_ensemble`` are no longer listed: they run on the
+#: Mercury-native STOMP backend (``omni_mercury_engine.ml.matrix_profile``)
+#: when ``stumpy`` is absent, so their seams are driven in every lane.
 _FOUNDATION_EXTRA_MODULE: dict[str, str] = {
     "chronos": "chronos",
-    "matrix_profile": "stumpy",
-    "foundation_ensemble": "stumpy",
 }
 
 
