@@ -566,7 +566,7 @@ jobs:
           # ``py.typed``, so installing it lets mypy resolve the decorator
           # signatures; without it the [[tool.mypy.overrides]] boundary turns
           # them into ``Any`` and the strict lane flags [untyped-decorator].
-          pip install mypy==2.4.0 types-requests==2.33.0.20260712 \
+          pip install mypy==2.4.0 types-requests==2.33.0.20261006 \
             "pytest>=9.0.3" pytest-asyncio pytest-mock "hypothesis>=6.0.0"
 
       - name: Dependency license gate ([ml] runtime closure)
