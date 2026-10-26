@@ -54,7 +54,10 @@ class TestConformalContract:
         X, y = _separable_fixture()
         X_tr, y_tr, _, _, X_te, _ = _three_way(X, y)
         engine = _engine()
-        engine.fit_fusion(X_tr, y_tr, epochs=8, batch_size=32)
+        # conformal_calibrate=False: the labelled default now auto-fits the
+        # certificate (tests/core/test_fusion_auto_conformal.py), so the
+        # not-fitted refusal is reached through the explicit opt-out.
+        engine.fit_fusion(X_tr, y_tr, epochs=8, batch_size=32, conformal_calibrate=False)
         with pytest.raises(RuntimeError, match="Conformal calibrator not fitted"):
             engine.score_fusion_conformal(X_te)
 
@@ -90,7 +93,16 @@ class TestConformalContract:
         X, y = _separable_fixture()
         X_tr, y_tr, X_cal, y_cal, X_te, _ = _three_way(X, y)
         engine = _engine()
-        engine.fit_fusion(X_tr, y_tr, epochs=15, batch_size=32, early_stopping_patience=10)
+        # Opt out of the automatic certificate so this test still drives the
+        # explicit calibrate_fusion_conformal() path end to end.
+        engine.fit_fusion(
+            X_tr,
+            y_tr,
+            epochs=15,
+            batch_size=32,
+            early_stopping_patience=10,
+            conformal_calibrate=False,
+        )
 
         # Before calibration: production detect returns no conformal section.
         assert "conformal" not in engine.detect_with_fusion(X_te[:1])

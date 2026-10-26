@@ -102,6 +102,29 @@ in-support batches bit-identical, the labelled training path unchanged, and a
 legacy checkpoint without an envelope restores the unguarded behaviour exactly.
 Pinned in `tests/core/test_fusion_support_guard.py`.
 
+**Added — the default labelled fit now carries a conformal coverage
+certificate.** An AI-architecture audit of the serving path traced which
+decision-layer signals ever energise. The GOSNN consequential channel is a
+measured refusal working as designed (its merit gate evaluated the detection
+head at held-out AUC 0.8007 against the engine's own 0.9608 and shipped
+observability-only — `artifacts/gosnn_fusion.eval.json`); drift, symbolic
+consistency and the abstention overlay all consume real signals, assembled
+before the decider reads them. The one dead wire was conformal:
+`calibrate_fusion_conformal()` existed only as a separate opt-in nothing
+called, so every decision read "margin heuristic, no coverage guarantee"
+even when labels were available to certify. `fit_fusion` now holds out a
+stratified slice (`conformal_split`, default 10%, at least 5 rows per class)
+before detectors or the net see it and fits the distribution-free
+certificate on it automatically: `detect_with_fusion` serves prediction
+sets, and the decision signals flip to `calibrated=True` with the target
+coverage. Measured end to end: realized per-class coverage 1.0/1.0 on fresh
+draws through the real serving path (target 0.9), certificate carried
+through `save_model`/`load_model`, consensus pseudo-labels refused (a
+coverage guarantee against labels the detectors themselves manufactured
+would be circular), tiny classes skipped with the reason logged, and
+`conformal_calibrate=False` restores the prior behaviour exactly. Pinned in
+`tests/core/test_fusion_auto_conformal.py` (7 tests).
+
 **Changed — the NOAA validation-loader trio is ported to canonical real-data
 loaders; the fabrication their "real" paths carried is retired.** The
 `validation.data_loaders` NOAA classes claimed real multi-feature data while

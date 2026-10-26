@@ -1644,6 +1644,9 @@ class OmniMercuryEngine(LoggerMixin):
         symbolic_rule_graph: str = "consensus",
         domain_encoder: bool = False,
         domain_encoder_config: dict[str, Any] | None = None,
+        conformal_calibrate: bool = True,
+        conformal_split: float = 0.1,
+        conformal_coverage: float = 0.9,
     ) -> dict[str, Any]:
         """Fit the fusion model on training data with semi-supervised learning.
 
@@ -1730,6 +1733,19 @@ class OmniMercuryEngine(LoggerMixin):
             ValueError: If mode is not 'fusion'.
             RuntimeError: If no detector features could be extracted.
 
+        Conformal certificate (``conformal_calibrate``, default True): with
+        EXPLICIT labels, a stratified ``conformal_split`` slice of each class
+        (at least 5 rows) is held out before detectors or the net see it, and
+        :meth:`calibrate_fusion_conformal` fits the distribution-free
+        coverage certificate (target ``conformal_coverage``) on it
+        automatically, so ``detect_with_fusion`` serves prediction sets and
+        the decision layer's ``calibrated``/``coverage`` signals energise on
+        the default labelled path. Skipped, with the reason logged, for
+        consensus pseudo-labels — a coverage guarantee against labels the
+        detectors themselves manufactured would be circular — and when a
+        class is too small; the metrics then carry no ``conformal`` key and
+        serving is exactly as before.
+
         Example:
             >>> engine = OmniMercuryEngine(mode="fusion")
             >>> metrics = engine.fit_fusion(X_train, y_train, epochs=100)
@@ -1765,6 +1781,50 @@ class OmniMercuryEngine(LoggerMixin):
         n_samples = len(X)
         self._fitted_feature_width = int(X.shape[1])
         logger.info(f"Starting fusion training on {n_samples} samples...")
+
+        # Conformal slice: with EXPLICIT labels, hold out a stratified slice
+        # before anything — detectors included — sees it, so the automatic
+        # coverage certificate below rests on genuinely exchangeable rows.
+        # The decision layer is built around that certificate (``calibrated``
+        # / ``coverage`` signals), yet until now nothing on the default
+        # labelled path ever fitted one, so every decision read "margin
+        # heuristic, no coverage guarantee" even when labels were available
+        # to certify. Consensus pseudo-labels never certify: a coverage
+        # guarantee against labels the detectors themselves manufactured
+        # would be circular.
+        conformal_holdout: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
+        if y is not None and conformal_calibrate:
+            y_arr = np.asarray(y).reshape(-1)
+            rng_conf = np.random.default_rng(42)
+            per_class_idx = [np.flatnonzero((y_arr >= 0.5) == is_pos) for is_pos in (False, True)]
+            take = [
+                min(max(round(conformal_split * len(idx)), 5), max(len(idx) - 5, 0))
+                for idx in per_class_idx
+            ]
+            if all(t >= 5 for t in take):
+                held = np.concatenate(
+                    [
+                        rng_conf.permutation(idx)[:t]
+                        for idx, t in zip(per_class_idx, take, strict=True)
+                    ]
+                )
+                keep = np.setdiff1d(np.arange(len(X)), held)
+                conformal_holdout = (X[held], y_arr[held])
+                X, y = X[keep], y_arr[keep]
+                n_samples = len(X)
+                logger.info(
+                    "Held out %d rows (stratified) for the automatic conformal "
+                    "coverage certificate; training on %d.",
+                    len(held),
+                    n_samples,
+                )
+            else:
+                logger.info(
+                    "Automatic conformal calibration skipped: fewer than 5 "
+                    "holdout rows available in some class (%s). Call "
+                    "calibrate_fusion_conformal() with your own split.",
+                    take,
+                )
 
         # Fit base detectors and extract the fusion feature set (detectors +
         # domain models, matching inference). Shared with build_feature_npz()
@@ -1882,6 +1942,21 @@ class OmniMercuryEngine(LoggerMixin):
             self._fusion_background = background_source[np.sort(sample_idx)].copy()
         else:
             self._fusion_background = None
+
+        # Automatic conformal coverage certificate on the slice held out
+        # before detector fitting: the decision layer's ``calibrated`` /
+        # ``coverage`` signals now energise on the default labelled path.
+        if conformal_holdout is not None:
+            try:
+                metrics["conformal"] = self.calibrate_fusion_conformal(
+                    conformal_holdout[0],
+                    conformal_holdout[1],
+                    coverage=conformal_coverage,
+                )
+            except Exception as exc:
+                # The certificate is an addition, never the reason a fit
+                # fails; the engine without it serves exactly as before.
+                logger.warning("Automatic conformal calibration failed: %s", exc)
 
         return metrics
 
