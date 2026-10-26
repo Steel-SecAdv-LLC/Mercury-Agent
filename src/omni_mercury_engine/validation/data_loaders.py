@@ -3,19 +3,29 @@
 """Real-World Dataset Loaders (DEPRECATED).
 
 .. deprecated:: 1.5.0
-    Use :mod:`omni_mercury_engine.datasets` module directly.
-    This module will be removed in v2.0.
+    Use :mod:`omni_mercury_engine.datasets` module directly for the loaders
+    that exist there.
 
 Provides standardized data loaders for validation:
 - NSL-KDD: Network intrusion detection dataset
 - USGS Earthquake: Seismic event data from USGS API
 - MIMIC-III: Medical ICU data (IRB placeholder simulation)
 
-Canonical loaders now live in ``datasets/``.  Overlapping classes
-(NSLKDDLoader, USGSEarthquakeLoader, MIMICLoader) are re-exported
-from ``datasets/`` for backward compatibility.  Unique loaders
-(NOAASpaceWeatherLoader, NOAAHurricaneLoader, NOAAOceanLoader)
-remain here until ported to ``datasets/``.
+Actual state of the consolidation into ``datasets/`` (this header
+previously claimed the overlapping classes were re-exports and that the
+module would be removed in v2.0; neither was true, and v2.0 shipped with
+the module intact):
+
+- NSLKDDLoader, USGSEarthquakeLoader and MIMICLoader are full LOCAL
+  definitions here, duplicating same-named canonical loaders in
+  ``datasets/`` (``security.py``, ``environmental.py``, ``medical.py``).
+  The two implementations must be reconciled before either is removed.
+- NOAASpaceWeatherLoader, NOAAHurricaneLoader and NOAAOceanLoader exist
+  ONLY here (working, tested in ``tests/validation/``) and must be ported
+  to ``datasets/`` before any removal.
+
+Nothing in this module is removed until those two steps are done and a
+removal is announced for a specific release.
 """
 
 from __future__ import annotations
@@ -24,8 +34,10 @@ import hashlib
 import warnings
 
 warnings.warn(
-    "validation.data_loaders is deprecated. Use datasets/ module directly. "
-    "This module will be removed in v2.0.",
+    "validation.data_loaders is deprecated: prefer omni_mercury_engine.datasets "
+    "for the loaders that exist there. The NOAA space-weather, hurricane and "
+    "ocean loaders live only in this module and stay supported here until they "
+    "are ported; nothing is removed before then (see the module docstring).",
     DeprecationWarning,
     stacklevel=2,
 )

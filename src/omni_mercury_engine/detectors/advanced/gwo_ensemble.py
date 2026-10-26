@@ -24,7 +24,12 @@ from __future__ import annotations
 import warnings
 
 warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    f"{__name__} is deprecated: the trained fusion pipeline "
+    "(OmniMercuryEngine.fit_fusion / OmniFusionModel) is the supported way to "
+    "learn detector combination, with calibrated probabilities and conformal "
+    "guarantees. This module's torch-free Grey Wolf weight search remains "
+    "available and tested until a removal is decided and announced; nothing "
+    "is removed without a ported replacement for what it uniquely offers.",
     DeprecationWarning,
     stacklevel=2,
 )
