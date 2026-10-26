@@ -139,7 +139,7 @@ ml = [
     # three sites together (this [ml] extra, [dev] below, and the two
     # ``.github/workflows/ci.yml`` install lines).
     "mypy==2.4.0",
-    "types-requests==2.33.0.20260712",
+    "types-requests==2.33.0.20261006",
     # Hazard checkpoint training data decoders (scripts/train_hazard_checkpoints.py):
     # h5py streams STEAD waveform subsets from the SeisBench mirror over HTTP
     # Range requests; numcodecs (Blosc) decodes ARCO-ERA5 zarr chunks fetched
@@ -379,7 +379,7 @@ dev = [
     "hypothesis>=6.0.0",
     "black==26.10.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
     "mypy==2.4.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
-    "types-requests==2.33.0.20260712",  # PINNED with mypy (see [ml])
+    "types-requests==2.33.0.20261006",  # PINNED with mypy (see [ml])
     "ruff==0.17.1",  # PINNED with the CI Code Quality job (deliberate bumps only; 0.16.0 stabilised PLR0917 — now a curated [tool.ruff.lint] ignore)
     "flake8==7.4.1",  # PINNED with the CI Code Quality job and the pre-commit hook (parity gate: scripts/check_pinned_tool_versions.py)
     "pre-commit>=3.5.0",
