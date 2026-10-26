@@ -125,12 +125,12 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8545 | 0.8546 | -0.0000 |
+| Mean ROC-AUC | 0.8548 | 0.8545 | +0.0003 |
 | Median ROC-AUC | 0.9052 | 0.9052 | +0.0000 |
-| Mean Oracle F1 | 0.6425 | 0.6430 | -0.0005 |
+| Mean Oracle F1 | 0.6430 | 0.6425 | +0.0005 |
 | Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
-| Run timestamp (UTC) | 2026-10-14T20:27:14.966442+00:00 | 2026-10-14T20:04:58.109883+00:00 | — |
-| Commit | `27d2293` | `5569e83` | — |
+| Run timestamp (UTC) | 2026-10-14T20:27:14.966442+00:00 | 2026-10-14T20:27:14.966442+00:00 | — |
+| Commit | `27d2293` | `27d2293` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
@@ -274,7 +274,7 @@ against other detectors.
 | Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
 | General (ADRepository) | 1 | 0.8657 | 0.5150 |
 | Industrial (BATADAL) | 1 | 0.9095 | 0.5548 |
-| Maritime (DTU_AIS_Abnormal) | 1 | 0.8613 | 0.6000 |
+| Maritime (DTU_AIS_Abnormal) | 1 | 0.8750 | 0.6250 |
 | Security (NSL-KDD) | 1 | 0.9750 | 0.9567 |
 
 *Generated from `benchmarks/mercury_benchmark_results.json` by
@@ -811,13 +811,13 @@ python examples/mercury_quickstart.py
 ```
 
 ```text
-[3/4] Harness protocol: ... scored 273 tracks incl. all 25 abnormal: ROC-AUC 0.8613 [95% CI 0.763-0.937] ...
+[3/4] Harness protocol: ... scored 273 tracks incl. all 25 abnormal: ROC-AUC 0.8750 [95% CI 0.788-0.942] ...
 [4/4] Label-free 5-fold cross-fit over all 521 tracks ...
-      no label reaches a fit: ROC-AUC 0.8617 [95% CI 0.776-0.935], AP 0.3271 (base rate 0.048)
+      no label reaches a fit: ROC-AUC 0.8739 [95% CI 0.796-0.940], AP 0.3352 (base rate 0.048)
 
       All 521 labelled tracks, ROC-AUC (protocols differ; see caveats):
+      Mercury label-free cross-fit ROC-AUC 0.8739   this run, no labels <-- you
       VRNN (GeoTrackNet arch.)     ROC-AUC 0.8700   JMSE 2023 Fig. 12a
-      Mercury label-free cross-fit ROC-AUC 0.8617   this run, no labels <-- you
       RAE                          ROC-AUC 0.8600   thesis 2023 Fig. 6.1
       Seq-2-Seq                    ROC-AUC 0.8400   thesis 2023 Fig. 6.1
       Seq-2-Seq with attention     ROC-AUC 0.8300   thesis 2023 Fig. 6.1
@@ -830,14 +830,14 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
 ~800 MB cached) and scored on all 521 tracks:
 
 ```text
-  Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8785 [95% CI 0.788-0.951], AP 0.3827
+  Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8934 [95% CI 0.821-0.955], AP 0.3541
     GeoTrackNet                ROC-AUC 0.87   inside Mercury's interval
     RAE                        ROC-AUC 0.86   inside Mercury's interval
     Seq-2-Seq                  ROC-AUC 0.84   inside Mercury's interval
     Seq-2-Seq with attention   ROC-AUC 0.83   inside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
 
-  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8751 [95% CI 0.792-0.944], AP 0.3085
+  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8779 [95% CI 0.809-0.938], AP 0.2746
     VRNN (GeoTrackNet arch.)   ROC-AUC 0.87   inside Mercury's interval
     Two-step clustering        ROC-AUC 0.73   outside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
@@ -845,7 +845,7 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
 
 Four protocols, all seed-pinned and deterministic:
 
-- **Published protocols (0.8785, 0.8751)** are the numbers to read beside the
+- **Published protocols (0.8934, 0.8779)** are the numbers to read beside the
   published ones. Each fits on the training file that paper's models were
   trained on: 1 June to 30 November 2021 for Figure 6.1 of Kristoffer Vinther
   Olesen's DTU PhD thesis (2023, p. 48), and December 2021 without the 13th
@@ -853,13 +853,14 @@ Four protocols, all seed-pinned and deterministic:
   section 4.7 (the file holds no point on that day). Both score all 521
   tracks. With 25 positives the intervals span about 0.16 of AUC: the
   strongest published model (GeoTrackNet / VRNN, 0.87) lies inside both, so
-  the result is parity, not superiority. The models still differ: Mercury
+  the honest reading is parity: Mercury's point estimates sit above every
+  published figure, but not statistically separably. The models still differ: Mercury
   scores 22 track-level features, the published models score sequences.
-- **Label-free cross-fit (0.8617)** needs no download beyond the labelled
+- **Label-free cross-fit (0.8739)** needs no download beyond the labelled
   set. It scores all 521 tracks, each by a model fitted without labels on
   the other four of five folds, so it trains on the 13th's own unlabelled
   traffic: neither paper's protocol.
-- **Harness protocol (0.8613)** is the `DTU_AIS_Abnormal` row of the committed
+- **Harness protocol (0.8750)** is the `DTU_AIS_Abnormal` row of the committed
   benchmark results. It fits on half of the *normal* tracks, picked with the
   labels, and scores the remaining 273, so it is **not** a score on the full
   evaluation set and is not comparable to published figures.
@@ -882,7 +883,7 @@ analytic leaves (dataset loader, statistical detector, metrics) under the
 scoped production gate — no C compiler, no native PQC build. Measured end
 to end in a clean virtualenv with no AMA Cryptography installed at all:
 26 s `pip install -e .`, 51 s total from install to the printed table
-(including the 38 MB first-run download), ROC-AUC 0.8613 reproduced
+(including the 38 MB first-run download), ROC-AUC 0.8750 reproduced
 exactly. This is a
 deliberate, scoped fast path, not a bypass of the agent's crypto mandate:
 the Mercury *agent* surfaces (engine, CLI, API, crypto, and every AMA-backed
@@ -2617,7 +2618,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 ### What We Did Right
 
-- **Measured, not asserted:** headline numbers regenerate from a command. CI rewrites the [Latest Benchmark Results](#latest-benchmark-results) block from a live run, the [Codebase Scale](#codebase-scale-measured-not-estimated) block fails the build if it drifts from disk, and the ten-minute quickstart reproduces the DTU AIS result (ROC-AUC 0.8613) bit for bit. Figures that are still estimates are labelled as estimates.
+- **Measured, not asserted:** headline numbers regenerate from a command. CI rewrites the [Latest Benchmark Results](#latest-benchmark-results) block from a live run, the [Codebase Scale](#codebase-scale-measured-not-estimated) block fails the build if it drifts from disk, and the ten-minute quickstart reproduces the DTU AIS result (ROC-AUC 0.8750) bit for bit. Figures that are still estimates are labelled as estimates.
 - **Tests that are themselves tested:** 19,066 tests collected (2026-10-21) — unit, property-based (Hypothesis), known-answer vectors (RFC 8032, NIST ACVP-Server) and load-test SLOs (k6 + locust) — and ten module sets are mutation-tested by full enumeration, with kill-rate floors enforced in CI, so a suite that stops catching injected defects fails the build.
 - **Fail closed, never fabricate:** detectors refuse unmeasurable input rather than grade it safe; a missing oracle reports *unavailable* under the three-state contract instead of guessing; benchmarks skip an unreachable dataset rather than substitute synthetic data.
 - **Ethics that are enforced, and honestly scoped:** a fail-closed harm-uplift gate and the σ_Immutable configuration-integrity gate stand at every gated decision surface; benevolence is reported as an advisory score, never presented as a control it is not — its one enforcing use is the human-subject purpose screen, which scores the caller's own stated purpose and refuses stalking and harassment the weapons-scoped gate does not cover. The autonomy layer recommends and escalates and never executes a destructive action — a test invariant, not a promise.

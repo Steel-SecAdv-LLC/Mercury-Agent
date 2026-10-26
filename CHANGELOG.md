@@ -44,6 +44,41 @@ turf closed to parity, 0.8779 vs 0.8810). Gate contract pinned in
 `tests/detectors/test_knn_fusion_gate.py`; the stationary false-alarm pin and
 discrimination floors hold unchanged.
 
+The gate moved every published-parity AIS figure upward, so the pins are re-recorded
+(the DTU track features are d=22, where the gate trusts the kNN stream more): harness
+protocol 0.8613 → 0.8750 (oracle F1 0.6000 → 0.6250, re-measured by the benchmark
+harness and spliced into `benchmarks/mercury_benchmark_results.json` after recomputing
+every aggregate from the per-dataset rows — the recomputation first reproduced the
+committed aggregates bit-for-bit, proving formula fidelity), label-free cross-fit
+0.8617 → 0.8739, Thesis Fig. 6.1 0.8785 → 0.8934, JMSE Fig. 12a 0.8751 → 0.8779. Both
+published-protocol point estimates now sit above GeoTrackNet/VRNN's 0.87, which remains
+inside Mercury's confidence intervals: the honest reading is still parity, not
+statistically separable superiority. The full suite then surfaced three defects the
+dev/holdout protocol could not see, each fixed with the measurement that decided it:
+the fitted gate weight was not persisted (`get_fitted_state` now carries
+`knn_stream.fusion_weight`; a legacy state restores to the historical 0.5 fuse, pinned
+by the save/load round-trip tests); TEMPORAL-classified data inherited the tabular
+gate's high low-d weight although rows that are time steps of one signal break kNN
+density's iid premise — measured on the sampling-jitter fixtures, hard-fixture AUROC
+peaks at w=0.25 (0.9941 vs 0.9742 at the 0.85 cap) and jitter rank-correlation falls
+monotonically with w (worst 0.754 at 0, 0.507 at 0.85). A flat TEMPORAL cap was tried
+first and measured against the published protocols before shipping: the DTU training
+files are *time-ordered independent instances* (tracks sorted by departure, median
+|lag-1 autocorr| 0.69-0.70, TEMPORAL-classified) where kNN earns its weight, and the
+cap regressed Thesis to 0.8714 and JMSE to 0.8640 — below even the pre-gate 0.5 fuse.
+The two regimes the classifier conflates separate cleanly on feature-space continuity
+(median consecutive-row distance over median 1-NN distance: 1.35-2.70 on every series
+fixture — point, collective, pure AR(1) — against 5.12-10.86 on the DTU sets; a
+nearest-neighbour *index-gap* statistic was tried and rejected, defeated by periodic
+series), so the gate caps at `_KNN_WEIGHT_TEMPORAL_CAP = 0.25` only below
+`_KNN_SERIES_CONTINUITY_MAX = 3.5`, failing toward the cap when no ratio is available.
+No competitive set classifies TEMPORAL (verified over all 47 cached ADBench sets) and
+the labelled DTU set is tabular, so no other recorded figure moves;
+and `tests/test_calibration_wiring.py`'s "baseline F1 is near zero" premise went stale
+(the gate lifted the uncalibrated operating point to F1 0.366 on its fixture), so the
+test now pins the live invariants: the label-free default stays conservative, and the
+F1-optimal calibrated threshold never falls below the uncalibrated baseline.
+
 **Added — GCN notice ingest.** `loaders/gcn_notices.py` consumes NASA GCN's Kafka alert
 stream (gravitational waves, neutrinos, GRBs, FRBs, X-ray transients, supernova watches —
 the twelve topics this deployment's credential subscribes to) in three layers:

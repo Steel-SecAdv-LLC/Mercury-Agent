@@ -13,10 +13,10 @@
     "failed": 9,
     "headline_label_policy": "genuine_labels_only (ground_truth | expert_annotated)",
     "n_genuine_labeled": 54,
-    "mean_auc": 0.8545189269502736,
+    "mean_auc": 0.8547728098654469,
     "median_auc": 0.9052260139366795,
-    "std_auc": 0.14603160516727592,
-    "mean_oracle_f1": 0.6424967629111172,
+    "std_auc": 0.14605507244663132,
+    "mean_oracle_f1": 0.6429597258740801,
     "median_oracle_f1": 0.7073827328348063,
     "unsupervised_eval": {
       "n_datasets": 13,
@@ -43,9 +43,9 @@
       "median_auc_all_datasets": 0.9198386028803179,
       "median_auc_genuine_only": 0.9052260139366795,
       "median_auc_delta": -0.014612588943638483,
-      "mean_auc_all_datasets": 0.8697630120236625,
-      "mean_auc_genuine_only": 0.8545189269502736,
-      "mean_auc_delta": -0.015244085073388813
+      "mean_auc_all_datasets": 0.8699676340746977,
+      "mean_auc_genuine_only": 0.8547728098654469,
+      "mean_auc_delta": -0.015194824209250779
     }
   },
   "domain_summary": {
@@ -298,11 +298,11 @@
       "n_failed": 0,
       "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.8612903225806451,
-        "median_auc": 0.8612903225806451,
+        "mean_auc": 0.875,
+        "median_auc": 0.875,
         "std_auc": 0.0,
-        "mean_f1": 0.6,
-        "mean_precision": 0.6,
+        "mean_f1": 0.6250000000000001,
+        "mean_precision": 0.6521739130434783,
         "mean_recall": 0.6,
         "component_mean_aucs": {
           "resonance": 0.7685483870967742,
@@ -2086,9 +2086,9 @@
     },
     "DTU_AIS_Abnormal": {
       "category": "maritime",
-      "auc": 0.8612903225806451,
-      "f1": 0.6,
-      "precision": 0.6,
+      "auc": 0.875,
+      "f1": 0.6250000000000001,
+      "precision": 0.6521739130434783,
       "recall": 0.6,
       "n_total": 521,
       "n_train": 248,
@@ -2105,8 +2105,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 32.155832999706035,
-      "score_ms": 5.650664000313554,
+      "fit_ms": 65.15194600069663,
+      "score_ms": 12.709398999504629,
       "error": null
     },
     "ThreatIntel": {

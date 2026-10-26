@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from omni_mercury_engine.core.config import DataCharacteristics
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 
@@ -60,6 +61,50 @@ def test_fit_stores_the_weight_and_fusion_moves_with_it() -> None:
     s0 = np.asarray(base_only.detect(probe)["scores"], dtype=float)
     s1 = np.asarray(knn_heavy.detect(probe)["scores"], dtype=float)
     assert not np.allclose(s0, s1)
+
+
+def test_temporal_series_caps_the_weight() -> None:
+    """Rows that are time steps of one signal break kNN density's iid
+    premise: low-d series data must not inherit the tabular gate's high
+    weight (measured basis at ``_KNN_WEIGHT_TEMPORAL_CAP``). With no
+    continuity measurement the gate fails toward the cap."""
+    detector = MercuryAnomalyDetector()
+    detector._data_type = DataCharacteristics.TEMPORAL
+    assert detector._knn_consec_nn_ratio is None
+    assert detector._knn_dimension_weight(3) == detector._KNN_WEIGHT_TEMPORAL_CAP
+    # The explicit override still wins over the cap.
+    pinned = MercuryAnomalyDetector({"knn_stream_weight": 0.9})
+    pinned._data_type = DataCharacteristics.TEMPORAL
+    assert pinned._knn_dimension_weight(3) == 0.9
+
+
+def test_temporal_ordered_instances_keep_the_dimensional_weight() -> None:
+    """TEMPORAL-classified data whose rows are independent instances in time
+    order (the DTU AIS training files: continuity ratio 5.12-10.86 against
+    1.35-2.70 for every series fixture) keeps the dimensional gate weight —
+    capping it measured Thesis 0.8934 -> 0.8714 and JMSE 0.8779 -> 0.8640."""
+    detector = MercuryAnomalyDetector()
+    detector._data_type = DataCharacteristics.TEMPORAL
+    detector._knn_consec_nn_ratio = 7.0
+    tabular = MercuryAnomalyDetector()
+    assert detector._knn_dimension_weight(22) == tabular._knn_dimension_weight(22)
+    assert detector._knn_dimension_weight(22) > detector._KNN_WEIGHT_TEMPORAL_CAP
+
+    # End to end: a fitted TEMPORAL detector stores the capped weight.
+    rng = np.random.RandomState(7)
+    t = np.arange(900)
+    cols = []
+    for _ in range(3):
+        ar = np.zeros(900)
+        e = rng.standard_normal(900)
+        for i in range(1, 900):
+            ar[i] = 0.75 * ar[i - 1] + 0.25 * e[i]
+        cols.append(np.sin(2 * np.pi * t / 60.0) + 0.6 * ar)
+    series = np.column_stack(cols)
+    fitted = MercuryAnomalyDetector().fit(series)
+    assert fitted._data_type == DataCharacteristics.TEMPORAL
+    assert fitted._knn_fusion_weight is not None
+    assert fitted._knn_fusion_weight <= fitted._KNN_WEIGHT_TEMPORAL_CAP
 
 
 def test_stream_off_leaves_no_weight() -> None:
