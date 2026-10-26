@@ -39,6 +39,29 @@ O(l²m) brute-force reference and against STUMPY itself in
 `tests/ml/test_matrix_profile_native.py`; the manifest seam tests now drive both
 detectors in the no-extra lane rather than skipping them.
 
+**Changed — a fitted engine refuses input of the wrong feature width.** After
+`fit_fusion(X)`, `detect`, `detect_batch` and `detect_with_fusion` refuse arrays whose
+column count differs from `X.shape[1]`, naming both widths and the fix. Before, a 1-D
+input died in a raw torch shape error inside a projection and a mismatched 2-D input
+passed silently through detectors that tolerate any width, scoring columns against the
+wrong fitted statistics. A 1-D input to `detect` now gets the reshape disambiguation
+(`(1, -1)` for one sample, `(-1, 1)` for one series); `detect_with_fusion` keeps its
+documented one-sample reading. The fitted width persists in the fusion checkpoint;
+legacy checkpoints without it, unfitted engines, and dict input stay unchecked.
+
+**Changed — MultivariateTSDetector validates its windowed-input contract.** `fit` and
+`predict` refuse non-3-D input, empty batches, and windows whose `(window_size,
+num_features)` differ from the configuration, with a message naming the expected shape
+and the config keys — previously a 2-D array died inside `np.concatenate` with a bare
+`AxisError`, and wrong trailing dimensions were silently reshaped across features.
+
+**Fixed — the extended statistical detector no longer claims to be deprecated.**
+`detectors/statistical_extended.py` warned "is deprecated, use MercuryAnomalyDetector"
+on import and told readers not to import it in production, while the manifest registers
+it as the production BASE detector `extended_statistical` with engine and registry
+seams. Same cure as the directive detector: the warning is removed and the docstring
+states what the module is.
+
 **Changed — Helm chart refuses production installs without a secret source.** With
 `config.app.MERCURY_ENV=production` the chart now fails `helm template` / `helm install`
 unless `config.secrets.JWT_SECRET_KEY` and `config.secrets.API_KEY_HASH_SALT` are set, or
