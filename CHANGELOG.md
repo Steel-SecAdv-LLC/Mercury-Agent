@@ -79,6 +79,29 @@ and `tests/test_calibration_wiring.py`'s "baseline F1 is near zero" premise went
 test now pins the live invariants: the label-free default stays conservative, and the
 F1-optimal calibrated threshold never falls below the uncalibrated baseline.
 
+**Fixed — the fusion net can no longer vote an input it never saw toward "normal".**
+A full-system diagnostic surfaced an inverted ranking at the serving boundary:
+after a semi-supervised `fit_fusion` over pure normals (consensus pseudo-labels put
+the decision boundary inside the normal cloud), `detect_with_fusion` assigned
+near-zero anomaly probability to 5-sigma outliers while in-distribution rows
+averaged higher — outside the training envelope a neural net's output is
+extrapolation, not inference. The decision layer's drift defer already failed the
+*verdict* closed (it abstained and requested input), but every consumer of the
+per-row `anomaly_probs` ranking saw blatant outliers ranked below normal traffic.
+`fit_fusion` (and `fit_fusion_pooled`, when its sources share a raw width) now
+records the training data's per-feature envelope (min, max, std), persisted
+through `save_model`/`load_model` as tensors the restricted weights-only
+unpickler accepts; `detect_with_fusion` floors the probability of any row that
+exits that envelope by more than half a feature-spread at the base detectors'
+consensus (median of the per-detector [0, 1] scores already computed in the same
+call — analytic channels monotone in deviation, which do not extrapolate), and
+names the floored rows in `result["out_of_support_rows"]`. Measured on the
+diagnostic scenario: shifted-row probabilities 0.544-0.624 against an
+in-distribution mean of 0.034 (AUROC 1.0; before: ~0.000 against 0.029, inverted),
+in-support batches bit-identical, the labelled training path unchanged, and a
+legacy checkpoint without an envelope restores the unguarded behaviour exactly.
+Pinned in `tests/core/test_fusion_support_guard.py`.
+
 **Added — GCN notice ingest.** `loaders/gcn_notices.py` consumes NASA GCN's Kafka alert
 stream (gravitational waves, neutrinos, GRBs, FRBs, X-ray transients, supernova watches —
 the twelve topics this deployment's credential subscribes to) in three layers:

@@ -1464,6 +1464,13 @@ class OmniMercuryEngine(LoggerMixin):
             # untrained projections for aggregating/extra groups). None until
             # trained → no filtering, preserving the untrained-engine contract.
             self._fusion_feature_groups: list[str] | None = None
+            # Per-feature envelope of the fusion training data (min, max, std),
+            # recorded by fit_fusion for the extrapolation guard in
+            # detect_with_fusion. None until trained, and None on a legacy
+            # checkpoint → the guard is a no-op, preserving old behaviour.
+            self._fusion_support_low: np.ndarray[Any, Any] | None = None
+            self._fusion_support_high: np.ndarray[Any, Any] | None = None
+            self._fusion_support_scale: np.ndarray[Any, Any] | None = None
             # Differentiable symbolic-constraint LTN co-trained with the fusion
             # net when fit_fusion(symbolic_weight>0). Retained after training for
             # explainability (learned detector reliabilities / rule satisfaction).
@@ -1766,6 +1773,7 @@ class OmniMercuryEngine(LoggerMixin):
         # itself to exactly this set.
         detector_features = self._extract_fusion_features(X, fit_detectors=True)
         self._fusion_feature_groups = sorted(detector_features.keys())
+        self._record_fusion_support(X)
 
         # Generate consensus labels if not provided (semi-supervised). Done
         # here -- before the symbolic weight is resolved -- because the
@@ -2551,10 +2559,12 @@ class OmniMercuryEngine(LoggerMixin):
         factory = engine_factory or (lambda: type(self)(mode="fusion", device=str(self.device)))
 
         per_dataset: list[tuple[dict[str, torch.Tensor], np.ndarray[Any, Any]]] = []
+        raw_pool: list[np.ndarray[Any, Any]] = []
         for i, (raw_x, raw_y) in enumerate(datasets):
             x_arr = np.asarray(raw_x, dtype=np.float32)
             if x_arr.ndim == 1:
                 x_arr = x_arr.reshape(1, -1)
+            raw_pool.append(np.asarray(x_arr, dtype=np.float64))
             labels = np.asarray(raw_y).reshape(-1)
             # Fresh detectors per source: extraction fits this engine's
             # detectors on x_arr only, so each dataset's features reflect its
@@ -2597,6 +2607,11 @@ class OmniMercuryEngine(LoggerMixin):
         pooled = {key: torch.cat([feats[key] for feats, _ in per_dataset]) for key in consistent}
         pooled_y = np.concatenate([labels for _, labels in per_dataset])
         self._fusion_feature_groups = consistent
+        # The extrapolation guard needs one raw-space envelope; a pool whose
+        # sources disagree on raw width has no such space, so it records none
+        # and the guard stays a no-op for that engine.
+        if len({x.shape[1] for x in raw_pool}) == 1:
+            self._record_fusion_support(np.vstack(raw_pool))
 
         metrics = self._fit_fusion_on_features(
             pooled,
@@ -2937,6 +2952,91 @@ class OmniMercuryEngine(LoggerMixin):
         arr = np.asarray(probs)
         calibrated = np.asarray(self._fusion_calibrator.calibrate(arr.reshape(-1)))
         return calibrated.reshape(arr.shape)
+
+    def _record_fusion_support(self, X: np.ndarray[Any, Any]) -> None:
+        """Record the per-feature envelope of the fusion training data.
+
+        The fusion net is only a density-free function approximator: outside
+        the training support its output is extrapolation, and measured on a
+        semi-supervised fit over pure normals it assigned near-zero anomaly
+        probability to 5-sigma outliers while in-distribution rows averaged
+        higher — an inverted ranking exactly where the input is most clearly
+        anomalous. The envelope (min, max, std per feature) is what
+        :meth:`_apply_fusion_support_guard` reads at inference to recognise
+        such rows. A constant feature records scale 1.0 so float noise on it
+        does not flag every row.
+        """
+        arr = np.asarray(X, dtype=np.float64)
+        if arr.ndim != 2 or arr.shape[0] == 0:
+            return
+        scale = arr.std(axis=0)
+        self._fusion_support_low = arr.min(axis=0)
+        self._fusion_support_high = arr.max(axis=0)
+        self._fusion_support_scale = np.where(scale < 1e-12, 1.0, scale)
+
+    def _apply_fusion_support_guard(
+        self,
+        probs: np.ndarray[Any, Any],
+        data: Any,
+        all_scores: dict[str, Any],
+    ) -> tuple[np.ndarray[Any, Any], list[int]]:
+        """Fail-closed extrapolation floor on the fused per-row probabilities.
+
+        A row whose any feature exits the recorded training envelope by more
+        than half that feature's training spread is outside the net's support:
+        the net never saw such a region, so its probability there is
+        extrapolation, not inference. For exactly those rows the fused
+        probability is floored at the base detectors' consensus (the median of
+        the per-detector scores already computed this call, each in [0, 1]),
+        whose analytic channels are monotone in deviation and do not
+        extrapolate. In-support rows pass through bit-identically; engines
+        restored from a checkpoint without an envelope (legacy) and
+        non-tabular inputs are a no-op.
+        """
+        if (
+            self._fusion_support_low is None
+            or self._fusion_support_high is None
+            or self._fusion_support_scale is None
+        ):
+            return probs, []
+        if isinstance(data, torch.Tensor):
+            rows = data.detach().cpu().numpy()
+        elif isinstance(data, np.ndarray):
+            rows = data
+        else:
+            return probs, []
+        rows = np.asarray(rows, dtype=np.float64)
+        if rows.ndim != 2 or rows.shape[1] != self._fusion_support_low.shape[0]:
+            return probs, []
+        margin = 0.5 * self._fusion_support_scale
+        outside = np.any(
+            (rows < self._fusion_support_low - margin)
+            | (rows > self._fusion_support_high + margin),
+            axis=1,
+        )
+        if not np.any(outside):
+            return probs, []
+        n = rows.shape[0]
+        columns = []
+        for raw in all_scores.values():
+            col = np.asarray(raw, dtype=np.float64).reshape(-1)
+            if col.shape[0] == n and np.all(np.isfinite(col)):
+                columns.append(col)
+        if not columns:
+            return probs, []
+        consensus = np.clip(np.median(np.stack(columns, axis=1), axis=1), 0.0, 1.0)
+        flat = np.asarray(probs, dtype=np.float64).reshape(-1)
+        guarded = flat.copy()
+        guarded[outside] = np.maximum(flat[outside], consensus[outside])
+        out_rows = [int(i) for i in np.flatnonzero(outside)]
+        logger.info(
+            "detect_with_fusion: %d of %d rows lie outside the fusion training "
+            "envelope; their probabilities are floored at the detector consensus "
+            "(see result['out_of_support_rows']).",
+            len(out_rows),
+            n,
+        )
+        return guarded.reshape(np.asarray(probs).shape), out_rows
 
     def _apply_runtime_equation_profile(
         self,
@@ -5953,6 +6053,14 @@ class OmniMercuryEngine(LoggerMixin):
             )
         )
 
+        # Extrapolation guard: rows outside the fusion training envelope are
+        # floored at the detector consensus. Applied after calibration and the
+        # equation profile so the floor compares on the same scale every
+        # downstream consumer reads.
+        fusion_result["anomaly_probs"], out_of_support_rows = self._apply_fusion_support_guard(
+            np.asarray(fusion_result["anomaly_probs"]), data, all_scores
+        )
+
         anomaly_probs_all = np.asarray(fusion_result["anomaly_probs"], dtype=np.float64).reshape(-1)
         severity_all = np.asarray(fusion_result["severity_scores"], dtype=np.float64).reshape(-1)
         class_preds_all = np.asarray(fusion_result["class_predictions"]).reshape(-1)
@@ -5985,6 +6093,10 @@ class OmniMercuryEngine(LoggerMixin):
             # the result JSON-serialisable for the HTTP surface.
             "anomaly_probs": anomaly_probs_all.tolist(),
             "is_anomaly_rows": (anomaly_probs_all > threshold).tolist(),
+            # Rows outside the fusion training envelope whose probabilities
+            # were floored at the detector consensus (empty when all rows are
+            # in-support or no envelope is recorded).
+            "out_of_support_rows": out_of_support_rows,
             "severity_scores": severity_all.tolist(),
             "detector_importance": fusion_result.get("detector_importance", {}),
             # Per-detector decision uncertainty: the detector's own reported
@@ -6929,6 +7041,17 @@ class OmniMercuryEngine(LoggerMixin):
             "temperature": temperature,
             "feature_groups": self._fusion_feature_groups,
             "fitted_feature_width": self._fitted_feature_width,
+            # Stored as torch tensors: the restricted weights-only unpickler
+            # that guards load_model accepts tensors, not raw numpy arrays.
+            "fusion_support": (
+                {
+                    "low": torch.tensor(self._fusion_support_low, dtype=torch.float64),
+                    "high": torch.tensor(self._fusion_support_high, dtype=torch.float64),
+                    "scale": torch.tensor(self._fusion_support_scale, dtype=torch.float64),
+                }
+                if self._fusion_support_low is not None
+                else None
+            ),
             "symbolic_constraint_state_dict": (
                 self._symbolic_module.state_dict() if self._symbolic_module is not None else None
             ),
@@ -7032,6 +7155,23 @@ class OmniMercuryEngine(LoggerMixin):
             self._fusion_feature_groups = list(groups) if groups is not None else None
             width = checkpoint.get("fitted_feature_width")
             self._fitted_feature_width = int(width) if width is not None else None
+            # Training-envelope for the extrapolation guard; absent on legacy
+            # checkpoints, which restores the pre-guard behaviour exactly.
+            support = checkpoint.get("fusion_support")
+            if support is not None:
+                self._fusion_support_low = np.asarray(
+                    torch.as_tensor(support["low"]).cpu(), dtype=np.float64
+                )
+                self._fusion_support_high = np.asarray(
+                    torch.as_tensor(support["high"]).cpu(), dtype=np.float64
+                )
+                self._fusion_support_scale = np.asarray(
+                    torch.as_tensor(support["scale"]).cpu(), dtype=np.float64
+                )
+            else:
+                self._fusion_support_low = None
+                self._fusion_support_high = None
+                self._fusion_support_scale = None
             symbolic_state = checkpoint.get("symbolic_constraint_state_dict")
             symbolic_config = checkpoint.get("symbolic_constraint_config")
             if symbolic_state is not None and isinstance(symbolic_config, dict):
