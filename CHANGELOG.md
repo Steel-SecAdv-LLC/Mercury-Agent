@@ -27,6 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — GCN notice ingest.** `loaders/gcn_notices.py` consumes NASA GCN's Kafka alert
+stream (gravitational waves, neutrinos, GRBs, FRBs, X-ray transients, supernova watches —
+the twelve topics this deployment's credential subscribes to) in three layers:
+best-effort notice normalization that preserves the raw payload, a per-topic rate matrix
+over fixed time windows shaped for `fit_fusion`/`detect_batch` (multimessenger
+coincidences appear as the cross-topic correlation structure the rebuilt dimensional and
+temporal detectors see), and a `confluent-kafka` OIDC transport that fails loudly without
+its dependency or credential. The transport's librdkafka block is pinned key-for-key
+equal to `scripts/gcn_kafka_keepalive.py`'s (the keep-alive workflow installs only
+`confluent-kafka`, so the builders are deliberate duplicates that a parity test keeps
+from drifting). Credentials come from `GCN_KAFKA_CLIENT_ID`/`GCN_KAFKA_CLIENT_SECRET`.
+
 **Added — Mercury-native matrix profile backend; the foundation ensemble works without
 extras.** `ml/matrix_profile.py` computes the self-join matrix profile in pure numpy
 (STOMP recurrence seeded and refreshed by FFT sliding dot products), matching
