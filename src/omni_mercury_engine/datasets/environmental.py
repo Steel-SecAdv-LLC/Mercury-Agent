@@ -111,10 +111,12 @@ class USGSEarthquakeLoader(DatasetLoader):
         )
 
     def _real_cache_file(self) -> Path:
-        """Parameterized cache path: the window and the label rule are baked
-        into the cached matrix, so they are baked into its name too — a
-        changed parameter must never read a stale cache (the fixed name used
-        to do exactly that)."""
+        """Parameterized cache path for the real-data matrix.
+
+        The window and the label rule are baked into the cached matrix, so
+        they are baked into its name too — a changed parameter must never
+        read a stale cache (the fixed name used to do exactly that).
+        """
         return self.data_path / (
             f"usgs_earthquake_real_{self.days_back}d_m{self.min_magnitude:g}"
             f"_sig{self.significant_magnitude:g}_deep{self.deep_focus_km:g}.npz"
