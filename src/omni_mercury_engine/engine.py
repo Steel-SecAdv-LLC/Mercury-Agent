@@ -1437,6 +1437,15 @@ class OmniMercuryEngine(LoggerMixin):
             performance. Detection will still work without training but may
             produce suboptimal results.
         """
+        # Raw feature width (X.shape[1]) the engine was fitted on, used to
+        # refuse mismatched inference input with a clear error instead of
+        # a torch shape error deep in a projection (1-D input) or a silent
+        # misalignment against fitted detector state (2-D input). None
+        # until fit_fusion runs; fit_fusion_pooled leaves it None because
+        # its sources may legitimately differ in width. Persisted in the
+        # fusion checkpoint; absent there (legacy checkpoints) means None.
+        # Unconditional: detect()/detect_batch() read it in EVERY mode.
+        self._fitted_feature_width: int | None = None
         if self.mode == "fusion":
             self.fusion_model = OmniFusionModel()
             self.fusion_model.to(self.device)
@@ -1455,14 +1464,6 @@ class OmniMercuryEngine(LoggerMixin):
             # untrained projections for aggregating/extra groups). None until
             # trained → no filtering, preserving the untrained-engine contract.
             self._fusion_feature_groups: list[str] | None = None
-            # Raw feature width (X.shape[1]) the engine was fitted on, used to
-            # refuse mismatched inference input with a clear error instead of
-            # a torch shape error deep in a projection (1-D input) or a silent
-            # misalignment against fitted detector state (2-D input). None
-            # until fit_fusion runs; fit_fusion_pooled leaves it None because
-            # its sources may legitimately differ in width. Persisted in the
-            # fusion checkpoint; absent there (legacy checkpoints) means None.
-            self._fitted_feature_width: int | None = None
             # Differentiable symbolic-constraint LTN co-trained with the fusion
             # net when fit_fusion(symbolic_weight>0). Retained after training for
             # explainability (learned detector reliabilities / rule satisfaction).
@@ -4420,7 +4421,6 @@ class OmniMercuryEngine(LoggerMixin):
             monitor_drift=monitor_drift,
         )
 
-    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
     def _check_feature_width(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any], caller: str
     ) -> None:
@@ -4458,6 +4458,7 @@ class OmniMercuryEngine(LoggerMixin):
                 f"the engine on the new feature layout.{hint}"
             )
 
+    @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
     def detect(
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],

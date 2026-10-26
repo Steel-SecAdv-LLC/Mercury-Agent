@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,068
+- **Total top-level classes:** 3,069
 - **Capability-bearing classes:** 2,052 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1201 |
-| Support types (config / result / enum / error) | 1016 |
+| Support types (config / result / enum / error) | 1017 |
 | Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 106 |
@@ -2007,7 +2007,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `ml/` — 323 classes (259 capability)
+### `ml/` — 324 classes (259 capability)
 
 **Adapters & backends**
 
@@ -2301,9 +2301,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
 
-<details><summary>Support types (64)</summary>
+<details><summary>Support types (65)</summary>
 
-`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `ValueFeatureState`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
+`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MatrixProfileResult`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `ValueFeatureState`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
 
 </details>
 
@@ -2340,7 +2340,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Detection**
 
 - `ChemistryAnomalyDetector` (`models.chemistry`) — Chemistry Discipline Anomaly Detector.
-- `MatrixProfileDetector` (`models.foundation.matrix_profile`) — Matrix Profile-based anomaly detector using STUMPY.
+- `MatrixProfileDetector` (`models.foundation.matrix_profile`) — Matrix Profile-based anomaly detector.
 - `ParapsychologyDetector` (`models.parapsychology`) — REG statistical-deviation detector (parapsychology-research tooling).
 - `TextLogAnomalyDetector` (`models.foundation.llm_adapter`) — Specialized detector for text and log anomalies.
 - `ZeroShotAnomalyDetector` (`models.foundation.llm_adapter`) — Zero-shot anomaly detector using LLM prompting.

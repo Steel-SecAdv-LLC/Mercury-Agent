@@ -107,7 +107,7 @@ an adapter entry and names the domain detector behind it.
 | `dual_student` | `DualStudentDistillation` | distillation | image_batch | fit | Dual-student knowledge distillation for AD |
 | `chronos` | `ChronosAdapter` | foundation | series_1d | -- | Amazon Chronos time-series foundation model |
 | `foundation_ensemble` | `FoundationEnsemble` | foundation | series_1d | -- | Ensemble of foundation model adapters |
-| `matrix_profile` | `MatrixProfileAdapter` | foundation | series_1d | -- | STUMPY Matrix Profile for time-series anomalies |
+| `matrix_profile` | `MatrixProfileAdapter` | foundation | series_1d | -- | Matrix Profile for time-series anomalies (STUMPY-accelerated when installed) |
 | `earthquake` | `EarthquakeDetector` | geological | series_1d | -- | P/S-wave spectrogram + STA/LTA earthquake detection (USGS live catalog wiring) |
 | `flood` | `FloodDetector` | geological | series_1d | -- | Flood prediction with refactoring engine optimization |
 | `hurricane` | `HurricaneDetector` | geological | series_1d | -- | Hurricane/cyclone/typhoon prediction with SST and resonance amplification |
@@ -267,7 +267,7 @@ Built and driven by the class(es) in the last column; not seams of their own.
 | `TemporalVitalSignsDetector` | `medical.medical_cure_predictor` | Temporal vital signs anomaly detector using LSTM | `MedicalCurePredictor` |
 | `StreamingAlarmDetector` | `ml.alarm_policy` | The streaming pipeline's detector: the learned alarm policy, per numeric field | `StreamingAnomalyPipeline` |
 | `ZeroShotAnomalyDetector` | `models.foundation.llm_adapter` | Zero-shot anomaly detector using LLM prompting | `OmniMercuryEngine`, `TextLogAnomalyDetector` |
-| `MatrixProfileDetector` | `models.foundation.matrix_profile` | Matrix Profile-based anomaly detector using STUMPY | `FoundationEnsemble` |
+| `MatrixProfileDetector` | `models.foundation.matrix_profile` | Matrix Profile-based anomaly detector | `FoundationEnsemble` |
 | `QAOAAnomalyDetector` | `quantum_computing.hybrid` | Quantum Approximate Optimization Algorithm for anomaly detection | `QuantumAnomalyDetector` |
 | `VQEAnomalyDetector` | `quantum_computing.hybrid` | Variational one-class anomaly detector | `QuantumAnomalyDetector` |
 | `C2InfrastructureDetector` | `security.cybint_subprocessor` | Command & Control infrastructure detection | `CYBINTSubProcessor` |

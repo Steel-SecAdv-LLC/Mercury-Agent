@@ -181,7 +181,37 @@ class TemporalAnomalyDetector(BaseDetector):
             self.diff_std_ = None
 
         self._is_fitted = True
+        self._calibrate_threshold_on_training_scores(data_np)
         return self
+
+    #: Training-score quantile the decision threshold is cut at when the
+    #: caller sets no explicit threshold: alarms on training-like data are
+    #: bounded near 1 - this quantile.
+    _THRESHOLD_CALIBRATION_QUANTILE = 0.995
+
+    def _calibrate_threshold_on_training_scores(self, data_np: np.ndarray[Any, Any]) -> None:
+        """Cut the alarm threshold from the training data's own scores.
+
+        The combined score's normal regime is the squash of the max of three
+        null z-channels, which sits nowhere near any fixed constant (and moved
+        when the channels were rebuilt), so a fixed default threshold either
+        never fires or fires on everything. The cut at the
+        ``_THRESHOLD_CALIBRATION_QUANTILE`` of the training batch's own
+        combined scores bounds the alarm rate on training-like data. An
+        explicitly configured ``threshold``, or ``enable_auto_calibration``,
+        is the caller's decision and is left alone (the same contract as
+        AccelerationDynamicsDetector's fit-time calibration).
+        """
+        if "threshold" in self.config or self._auto_calibrate:
+            return
+        if data_np.shape[0] < 20:
+            return
+        trend = self._detect_trend_anomalies(data_np)
+        change = self._detect_sudden_changes(data_np)
+        prediction = self._detect_prediction_residuals(data_np)
+        combined_z = np.maximum(np.maximum(trend, change), prediction)
+        scores = combined_z / (3.0 + combined_z)
+        self.threshold = float(np.quantile(scores, self._THRESHOLD_CALIBRATION_QUANTILE))
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect temporal anomalies with optional auto-calibration.
@@ -476,6 +506,7 @@ class TemporalAnomalyDetector(BaseDetector):
         return {
             "baseline_mean": self.baseline_mean,
             "baseline_std": self.baseline_std,
+            "threshold": float(self.threshold),
             "feature_mean": self.feature_mean_,
             "feature_std": self.feature_std_,
             "diff_mean": self.diff_mean_,
@@ -502,6 +533,9 @@ class TemporalAnomalyDetector(BaseDetector):
         ):
             value = state.get(key)
             setattr(self, attr, np.asarray(value, dtype=np.float64) if value is not None else None)
+        saved_threshold = state.get("threshold")
+        if saved_threshold is not None and "threshold" not in self.config:
+            self.threshold = float(saved_threshold)
         lstm_state = state.get("lstm_state_dict")
         if lstm_state is not None and self.lstm is not None:
             self.lstm.load_state_dict(lstm_state)

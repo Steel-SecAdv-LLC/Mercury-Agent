@@ -48,7 +48,7 @@ MEASURED: dict[str, tuple[float, float]] = {
     "deep_svdd": (0.659, -30.0),
     "diffusion_ad": (0.661, -32.2),
     "digital_twin": (0.607, 53.4),
-    "dimensional": (0.466, 7.0),
+    "dimensional": (0.533, 48.7),
     "echo_state": (0.699, -368.3),
     "energy_based": (0.671, 27.4),
     "extended_statistical": (0.624, 31.4),
@@ -64,7 +64,7 @@ MEASURED: dict[str, tuple[float, float]] = {
     "sprt": (0.494, 30.2),
     "srcnn": (0.683, 12.2),
     "survival": (0.596, 48.4),
-    "temporal": (0.539, 56.6),
+    "temporal": (0.643, 46.0),
 }
 AUROC_TOLERANCE = 0.05
 
