@@ -327,7 +327,12 @@ def consumer_config(
         "sasl.oauthbearer.token.endpoint.url": f"https://auth.{domain}/oauth2/token",
     }
     if ca := _ca_bundle_location():
+        # Both links need the CA: ssl.ca.location for the Kafka TLS
+        # connection, https.ca.location for librdkafka's own HTTPS client
+        # that fetches the OIDC token (its built-in CA path is the build
+        # machine's, absent on Ubuntu since confluent-kafka 2.16).
         config["ssl.ca.location"] = ca
+        config["https.ca.location"] = ca
     return config
 
 
@@ -418,7 +423,16 @@ class GCNNoticeConsumer:
             error = message.error()
             if error:
                 raise GCNIngestError(f"GCN broker error on consume: {error}")
-            yield parse_notice(message.topic(), message.value())
+            topic, value = message.topic(), message.value()
+            if topic is None or value is None:
+                # A tombstone or topicless message carries no notice; GCN's
+                # alert topics never publish these, so name it rather than
+                # guessing at a payload.
+                raise GCNIngestError(
+                    f"GCN message without {'a topic' if topic is None else 'a payload'} "
+                    f"on {topic or 'an unknown topic'}; not a notice."
+                )
+            yield parse_notice(topic, value)
 
     def close(self) -> None:
         """Close the underlying consumer."""
