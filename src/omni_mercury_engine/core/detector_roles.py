@@ -272,10 +272,10 @@ DETECTOR_ROLES: dict[str, DetectorRole] = {
         ("omni_mercury_engine.security.realtime_threat_detection:RealTimeThreatDetector",),
     ),
     # -- deprecated (1) ----------------------------------------
+    # -- library (30) ----------------------------------------
     "omni_mercury_engine.detectors.advanced.gwo_ensemble:GWOEnsembleDetector": DetectorRole(
-        "deprecated", ()
+        "library", ()
     ),
-    # -- library (29) ----------------------------------------
     "omni_mercury_engine.biometric:BiometricAnomalyDetector": DetectorRole("library", ()),
     "omni_mercury_engine.compliance.osha_anomaly:OSHAComplianceDetector": DetectorRole(
         "library", ()

@@ -16,16 +16,22 @@ previously claimed the overlapping classes were re-exports and that the
 module would be removed in v2.0; neither was true, and v2.0 shipped with
 the module intact):
 
-- NSLKDDLoader, USGSEarthquakeLoader and MIMICLoader are full LOCAL
+- NOAASpaceWeatherLoader, NOAAHurricaneLoader and NOAAOceanLoader are now
+  thin wrappers over their canonical ``datasets/`` ports
+  (``space_weather.py``, ``hurricane.py``, ``ocean.py``), keeping this
+  module's ``load()``/``get_train_test_split()`` interface. The port also
+  retired the fabrication the old local implementations carried: their
+  "real" paths fetched one-to-four real channels and synthesised the rest
+  (Kp-derived columns, constant hurricane radii, RNG oceanography). The
+  canonical loaders read every feature from the instrument that measures
+  it.
+- NSLKDDLoader, USGSEarthquakeLoader and MIMICLoader remain full LOCAL
   definitions here, duplicating same-named canonical loaders in
   ``datasets/`` (``security.py``, ``environmental.py``, ``medical.py``).
   The two implementations must be reconciled before either is removed.
-- NOAASpaceWeatherLoader, NOAAHurricaneLoader and NOAAOceanLoader exist
-  ONLY here (working, tested in ``tests/validation/``) and must be ported
-  to ``datasets/`` before any removal.
 
-Nothing in this module is removed until those two steps are done and a
-removal is announced for a specific release.
+Removal: with the NOAA trio ported, this module is announced for removal
+in v4.0. New code imports from ``omni_mercury_engine.datasets``.
 """
 
 from __future__ import annotations
@@ -34,30 +40,25 @@ import hashlib
 import warnings
 
 warnings.warn(
-    "validation.data_loaders is deprecated: prefer omni_mercury_engine.datasets "
-    "for the loaders that exist there. The NOAA space-weather, hurricane and "
-    "ocean loaders live only in this module and stay supported here until they "
-    "are ported; nothing is removed before then (see the module docstring).",
+    "validation.data_loaders is deprecated and announced for removal in v4.0: "
+    "import from omni_mercury_engine.datasets instead. The NOAA space-weather, "
+    "hurricane and ocean classes here are thin wrappers over their canonical "
+    "datasets/ ports (see the module docstring).",
     DeprecationWarning,
     stacklevel=2,
 )
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from omni_mercury_engine.datasets.exceptions import (
-    ALLOW_SYNTHETIC,
-    DataSourceUnavailableError,
     check_synthetic_allowed,
 )
-from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
-from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -300,24 +301,31 @@ class NSLKDDLoader(DatasetLoader):
         return data[shuffle_idx], labels[shuffle_idx]
 
     def _load_real(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real NSL-KDD data from cache or download."""
-        cache_file = self.cache_dir / "nsl_kdd.npz"
+        """Load real NSL-KDD data through the canonical ``datasets/`` loader.
 
+        A pre-reconciliation local cache (``nsl_kdd.npz``) stays readable;
+        otherwise the canonical :class:`omni_mercury_engine.datasets.security.
+        NSLKDDLoader` downloads and parses the real corpus (this module's old
+        path could only read a cache it had no way to create).
+        """
+        cache_file = self.cache_dir / "nsl_kdd.npz"
         if cache_file.exists():
             loaded = np.load(cache_file)
             return loaded["data"], loaded["labels"]
 
-        logger.info("Downloading NSL-KDD dataset...")
-        if ALLOW_SYNTHETIC:
-            check_synthetic_allowed(
-                "NSL-KDD (validation)", "Download not implemented in validation loader"
+        from omni_mercury_engine.datasets.base import DatasetConfig
+        from omni_mercury_engine.datasets.security import NSLKDDLoader as _Canonical
+
+        loader = _Canonical(
+            DatasetConfig(
+                name="nsl-kdd",
+                data_dir=str(self.cache_dir),
+                cache_dir=str(self.cache_dir),
             )
-            return self._generate_synthetic(50000)
-        raise DataSourceUnavailableError(
-            loader_name="NSL-KDD (validation)",
-            source_url=str(self.NSL_KDD_URL),
-            reason="Cache not found and download not implemented. Use datasets.security.NSLKDDLoader instead.",
         )
+        loader.download()
+        data, labels = loader._load_raw()
+        return np.asarray(data, dtype=np.float64), np.asarray(labels, dtype=np.float64)
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
@@ -431,7 +439,11 @@ class USGSEarthquakeLoader(DatasetLoader):
             self._data, self._labels = self._generate_synthetic(n_samples, anomaly_threshold)
             source = "synthetic"
         else:
-            self._data, self._labels = self._load_from_api(
+            # Delegate to the canonical datasets/ loader: one USGS fetch and
+            # label rule for the whole tree. The local ``_load_from_api``
+            # this replaces also encoded ``magType`` via Python's per-process
+            # salted ``hash()``, so that feature changed value between runs.
+            feature_names, (self._data, self._labels) = self._load_real_via_canonical(
                 days_back, min_magnitude, anomaly_threshold
             )
             if len(self._data) < min_real_samples:
@@ -443,6 +455,9 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         load_time = time.time() - start_time
 
+        feature_names_out = (
+            feature_names if not use_synthetic else self.FEATURE_NAMES[: self._data.shape[1]]
+        )
         num_anomalies = int(np.sum(self._labels))
         self._metadata = DatasetMetadata(
             name="USGS Earthquake",
@@ -451,7 +466,7 @@ class USGSEarthquakeLoader(DatasetLoader):
             num_features=self._data.shape[1],
             num_anomalies=num_anomalies,
             anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
-            feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
+            feature_names=feature_names_out,
             load_time_seconds=load_time,
             checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
             license="Public Domain (U.S. Government Work)",
@@ -516,81 +531,40 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         return data, labels
 
-    def _load_from_api(
+    def _load_real_via_canonical(
         self, days_back: int, min_magnitude: float, anomaly_threshold: float
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real earthquake data from USGS API with circuit breaker protection."""
-        circuit_breaker = get_data_loader_breaker("usgs_earthquake")
+    ) -> tuple[list[str], tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]]:
+        """Fetch real USGS data through the canonical ``datasets/`` loader.
 
-        def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-            end_time = datetime.utcnow()
-            start_time = end_time - timedelta(days=days_back)
+        Returns:
+            ``(feature_names, (features, labels))`` from
+            :class:`omni_mercury_engine.datasets.environmental.USGSEarthquakeLoader`,
+            with ``anomaly_threshold`` honoured as the canonical
+            ``significant_magnitude`` label rule.
+        """
+        from omni_mercury_engine.datasets.base import DatasetConfig
+        from omni_mercury_engine.datasets.environmental import (
+            USGSEarthquakeLoader as _Canonical,
+        )
 
-            params = {
-                "format": "geojson",
-                "starttime": start_time.strftime("%Y-%m-%d"),
-                "endtime": end_time.strftime("%Y-%m-%d"),
-                "minmagnitude": str(min_magnitude),
-            }
-
-            # SafeHTTPClient validates scheme and TRUSTED_DOMAINS for us.
-            data = SafeHTTPClient.get_json(
-                self.USGS_API_URL,
-                params=params,
-                headers={"User-Agent": "Mercury-Agent/1.0"},
-                timeout=30,
+        loader = _Canonical(
+            DatasetConfig(
+                name="earthquake",
+                data_dir=str(self.cache_dir),
+                cache_dir=str(self.cache_dir),
+                preprocessing={
+                    "days_back": days_back,
+                    "min_magnitude": min_magnitude,
+                    "significant_magnitude": anomaly_threshold,
+                },
             )
-
-            features_list = []
-            for feature in data.get("features", []):
-                props = feature.get("properties", {})
-                geom = feature.get("geometry", {}).get("coordinates", [0, 0, 0])
-
-                event_time = datetime.fromtimestamp(props.get("time", 0) / 1000)
-
-                features_list.append(
-                    [
-                        props.get("mag", 0) or 0,
-                        geom[2] if len(geom) > 2 else 0,
-                        geom[1] if len(geom) > 1 else 0,
-                        geom[0] if len(geom) > 0 else 0,
-                        hash(props.get("magType", "")) % 5,
-                        props.get("gap", 0) or 0,
-                        props.get("dmin", 0) or 0,
-                        props.get("rms", 0) or 0,
-                        props.get("horizontalError", 0) or 0,
-                        props.get("depthError", 0) or 0,
-                        props.get("magError", 0) or 0,
-                        event_time.hour,
-                        event_time.weekday(),
-                        event_time.month,
-                    ]
-                )
-
-            if not features_list:
-                raise RuntimeError(
-                    "USGS Earthquake API returned no data. "
-                    "Set use_synthetic=True to use synthetic data instead."
-                )
-
-            data_array = np.array(features_list, dtype=np.float32)
-            labels = (data_array[:, 0] >= anomaly_threshold).astype(float)
-
-            return data_array, labels
-
-        try:
-            result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(
-                _fetch_data
-            )
-            return result
-        except RuntimeError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to load from USGS API: {e}")
-            raise RuntimeError(
-                f"USGS Earthquake API unavailable: {e}. "
-                "Set use_synthetic=True to use synthetic data instead."
-            ) from e
+        )
+        loader.download()
+        data, labels = loader._load_raw()
+        return list(_Canonical.FEATURE_NAMES), (
+            np.asarray(data, dtype=np.float64),
+            np.asarray(labels, dtype=np.float64),
+        )
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
@@ -918,41 +892,22 @@ class MIMICLoader(DatasetLoader):
         }
 
 
-class NOAASpaceWeatherLoader(DatasetLoader):
-    """NOAA Space Weather Prediction Center Data Loader.
+class _CanonicalNOAALoader(DatasetLoader):
+    """Validation-interface wrapper over a canonical ``datasets/`` loader.
 
-    Loads solar activity and geomagnetic storm data from NOAA SWPC.
-    Data is publicly available and updated in real-time.
-
-    Source: https://www.swpc.noaa.gov/
-
-    Features: Solar X-ray flux, solar wind parameters, geomagnetic indices
-    Anomalies: Significant geomagnetic storms (Kp >= threshold)
-
-    Citation:
-    NOAA Space Weather Prediction Center.
-    https://www.swpc.noaa.gov/
+    The NOAA trio used to carry full local implementations whose "real"
+    paths fabricated most features (Kp-derived columns, constant radii, RNG
+    oceanography — see the module docstring's history note). Each wrapper
+    now delegates to its canonical loader, which reads every channel from
+    the instrument that measures it, and keeps this module's historical
+    ``load()``/``get_train_test_split()`` interface.
     """
 
-    # Via TrustedEndpoints for SSRF prevention
-    SWPC_API_URL = TrustedEndpoints.NOAA_SWPC_BASE
-
-    FEATURE_NAMES = [
-        "kp_index",
-        "dst_index",
-        "bz_gsm",
-        "solar_wind_speed",
-        "solar_wind_density",
-        "xray_flux_short",
-        "xray_flux_long",
-        "proton_flux_10mev",
-        "proton_flux_100mev",
-        "electron_flux_2mev",
-        "magnetopause_standoff",
-        "hour_of_day",
-        "day_of_year",
-        "solar_cycle_phase",
-    ]
+    #: Name used by the synthetic-policy gate and the metadata record.
+    _GATE_NAME = "override"
+    _SOURCE_NAME = "override"
+    _LICENSE = "Public Domain (U.S. Government Work)"
+    _CITATION = "override"
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
         """Initialize the instance."""
@@ -963,6 +918,113 @@ class NOAASpaceWeatherLoader(DatasetLoader):
         self._data: np.ndarray[Any, Any] | None = None
         self._labels: np.ndarray[Any, Any] | None = None
         self._metadata: DatasetMetadata | None = None
+
+    def _canonical(self, n_samples: int, **preprocessing: Any) -> Any:
+        """Build the canonical loader this wrapper delegates to."""
+        raise NotImplementedError
+
+    def _delegate_load(
+        self,
+        use_synthetic: bool,
+        n_samples: int,
+        min_real_samples: int,
+        **preprocessing: Any,
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
+        import time
+
+        start_time = time.time()
+        loader = self._canonical(n_samples, **preprocessing)
+        if use_synthetic:
+            # Caller-flag bypass closure: route through the policy gate so the
+            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` floor cannot be
+            # circumvented by a caller passing ``use_synthetic=True``.
+            check_synthetic_allowed(self._GATE_NAME, "Caller passed use_synthetic=True")
+            loader._create_synthetic()
+            source = "synthetic"
+        else:
+            loader.download()
+            source = self._SOURCE_NAME if loader.is_real_data else "synthetic"
+        data, labels = loader._load_raw()
+        if not use_synthetic and loader.is_real_data and len(data) < min_real_samples:
+            raise RuntimeError(
+                f"{self._GATE_NAME}: Failed to load minimum {min_real_samples} real "
+                f"samples. Got {len(data)}. API may be down or data unavailable."
+            )
+        self._data = np.asarray(data, dtype=np.float64)
+        self._labels = np.asarray(labels, dtype=np.float64)
+        num_anomalies = int(self._labels.sum())
+        self._metadata = DatasetMetadata(
+            name=self._GATE_NAME,
+            source=source,
+            num_samples=len(self._data),
+            num_features=int(self._data.shape[1]),
+            num_anomalies=num_anomalies,
+            anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
+            feature_names=list(loader.FEATURE_NAMES),
+            load_time_seconds=time.time() - start_time,
+            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
+            license=self._LICENSE,
+            citation=self._CITATION,
+        )
+        logger.info(
+            f"Loaded {self._GATE_NAME}: {self._metadata.num_samples} samples, "
+            f"{self._metadata.anomaly_ratio:.2%} anomalous"
+        )
+        return self._data, self._labels, self._metadata
+
+    def get_train_test_split(
+        self, test_size: float = 0.2, random_state: int = 42
+    ) -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
+        """Get train/test split."""
+        if self._data is None or self._labels is None:
+            self.load()
+        if self._data is None or self._labels is None:
+            raise ValueError("Data not loaded properly")
+        rng = np.random.default_rng(random_state)
+        n_samples = len(self._data)
+        n_test = int(n_samples * test_size)
+        indices = rng.permutation(n_samples)
+        test_idx = indices[:n_test]
+        train_idx = indices[n_test:]
+        return (
+            self._data[train_idx],
+            self._data[test_idx],
+            self._labels[train_idx],
+            self._labels[test_idx],
+        )
+
+
+class NOAASpaceWeatherLoader(_CanonicalNOAALoader):
+    """NOAA SWPC space-weather loader (validation interface).
+
+    Delegates to :class:`omni_mercury_engine.datasets.space_weather.
+    NOAASpaceWeatherLoader`, which reads Kp, solar-wind plasma/IMF, GOES
+    X-ray and integral proton flux from their own SWPC products. The
+    pre-port implementation fetched only Kp and synthesised the other
+    thirteen features as deterministic functions of it.
+    """
+
+    _GATE_NAME = "NOAA Space Weather"
+    _SOURCE_NAME = "NOAA Space Weather Prediction Center"
+    _CITATION = "NOAA Space Weather Prediction Center. https://www.swpc.noaa.gov/"
+
+    def _canonical(self, n_samples: int, **preprocessing: Any) -> Any:
+        from omni_mercury_engine.datasets.base import DatasetConfig
+        from omni_mercury_engine.datasets.space_weather import (
+            NOAASpaceWeatherLoader as _Canonical,
+        )
+
+        return _Canonical(
+            DatasetConfig(
+                name="noaa_space_weather",
+                data_dir=str(self.cache_dir),
+                cache_dir=str(self.cache_dir),
+                max_samples=n_samples,
+                preprocessing=preprocessing,
+            )
+        )
 
     def load(
         self,
@@ -972,276 +1034,53 @@ class NOAASpaceWeatherLoader(DatasetLoader):
         min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """Load NOAA Space Weather data.
+        """Load NOAA space-weather data (see the canonical loader for features).
 
         Args:
-            use_synthetic: Use synthetic data (for testing without API calls)
-            n_samples: Number of samples for synthetic data
-            storm_threshold: Kp index threshold for storm classification (G1=5, G2=6, G3=7, G4=8, G5=9)
-            min_real_samples: Minimum required real samples (fails if not met)
+            use_synthetic: Use synthetic data (policy-gated).
+            n_samples: Sample count for the synthetic path.
+            storm_threshold: Kp threshold for storm labels (G1 = 5).
+            min_real_samples: Minimum required real samples.
 
         Returns:
-            Tuple of (features, labels, metadata)
-
-        Raises:
-            RuntimeError: If real data loading fails and use_synthetic=False
+            Tuple of (features, labels, metadata).
         """
-        import time
-
-        start_time = time.time()
-
-        if use_synthetic:
-            # Caller-flag bypass closure: route through policy gate so the
-            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` floor cannot be
-            # circumvented by a caller passing ``use_synthetic=True``.
-            check_synthetic_allowed("NOAA Space Weather", "Caller passed use_synthetic=True")
-            self._data, self._labels = self._generate_synthetic(n_samples, storm_threshold)
-            source = "synthetic"
-        else:
-            self._data, self._labels = self._load_from_api(storm_threshold)
-            if len(self._data) < min_real_samples:
-                raise RuntimeError(
-                    f"NOAA Space Weather: Failed to load minimum {min_real_samples} real samples. "
-                    f"Got {len(self._data)}. API may be down or data unavailable."
-                )
-            source = "NOAA Space Weather Prediction Center"
-
-        load_time = time.time() - start_time
-
-        num_anomalies = int(np.sum(self._labels))
-        self._metadata = DatasetMetadata(
-            name="NOAA Space Weather",
-            source=source,
-            num_samples=len(self._data),
-            num_features=self._data.shape[1],
-            num_anomalies=num_anomalies,
-            anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
-            feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
-            load_time_seconds=load_time,
-            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
-            license="Public Domain (U.S. Government Work)",
-            citation="NOAA Space Weather Prediction Center. https://www.swpc.noaa.gov/",
-        )
-
-        logger.info(
-            f"Loaded NOAA Space Weather: {self._metadata.num_samples} samples, "
-            f"{self._metadata.anomaly_ratio:.2%} storm events"
-        )
-
-        return self._data, self._labels, self._metadata
-
-    def _generate_synthetic(
-        self, n_samples: int, storm_threshold: float
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Generate synthetic space weather data."""
-        rng = np.random.default_rng(42)
-
-        # Kp index (0-9 scale, storms >= 5)
-        kp_index = rng.exponential(scale=1.5, size=n_samples)
-        kp_index = np.clip(kp_index, 0, 9)
-
-        # Dst index (negative during storms, typically -20 to -500 nT)
-        dst_index = -rng.exponential(scale=30, size=n_samples)
-        dst_index = np.clip(dst_index, -500, 50)
-
-        # Bz GSM (southward = negative, triggers storms)
-        bz_gsm = rng.normal(0, 5, size=n_samples)
-        bz_gsm = np.clip(bz_gsm, -30, 30)
-
-        # Solar wind speed (km/s, typically 300-800)
-        solar_wind_speed = rng.normal(450, 100, size=n_samples)
-        solar_wind_speed = np.clip(solar_wind_speed, 250, 1200)
-
-        # Solar wind density (protons/cm^3)
-        solar_wind_density = rng.exponential(scale=5, size=n_samples)
-        solar_wind_density = np.clip(solar_wind_density, 0.1, 100)
-
-        # X-ray flux (W/m^2)
-        xray_short = rng.exponential(scale=1e-7, size=n_samples)
-        xray_long = rng.exponential(scale=1e-6, size=n_samples)
-
-        # Proton flux (pfu)
-        proton_10mev = rng.exponential(scale=1, size=n_samples)
-        proton_100mev = rng.exponential(scale=0.1, size=n_samples)
-
-        # Electron flux
-        electron_2mev = rng.exponential(scale=100, size=n_samples)
-
-        # Magnetopause standoff distance (Earth radii)
-        magnetopause = rng.normal(10, 2, size=n_samples)
-        magnetopause = np.clip(magnetopause, 5, 15)
-
-        # Temporal features
-        hour = rng.integers(0, 24, size=n_samples)
-        day_of_year = rng.integers(1, 366, size=n_samples)
-        solar_cycle = rng.uniform(0, 1, size=n_samples)  # Phase in 11-year cycle
-
-        data = np.column_stack(
-            [
-                kp_index,
-                dst_index,
-                bz_gsm,
-                solar_wind_speed,
-                solar_wind_density,
-                xray_short,
-                xray_long,
-                proton_10mev,
-                proton_100mev,
-                electron_2mev,
-                magnetopause,
-                hour,
-                day_of_year,
-                solar_cycle,
-            ]
-        )
-
-        labels = (kp_index >= storm_threshold).astype(float)
-
-        return data, labels
-
-    def _load_from_api(
-        self, storm_threshold: float
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real space weather data from NOAA SWPC API with circuit breaker protection."""
-        circuit_breaker = get_data_loader_breaker("noaa_space_weather")
-
-        def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-            kp_data = SafeHTTPClient.get_json(
-                f"{self.SWPC_API_URL}/planetary_k_index_1m.json",
-                headers={"User-Agent": "Mercury-Agent/1.0"},
-                timeout=30,
-            )
-
-            if not kp_data:
-                raise RuntimeError(
-                    "NOAA SWPC API returned no data. "
-                    "Set use_synthetic=True to use synthetic data instead."
-                )
-
-            features_list = []
-            for entry in kp_data[-1000:]:
-                kp = float(entry.get("kp_index", 0) or 0)
-                features_list.append(
-                    [
-                        kp,
-                        -kp * 10,
-                        -kp * 2,
-                        400 + kp * 50,
-                        5 + kp,
-                        1e-7 * (1 + kp),
-                        1e-6 * (1 + kp),
-                        kp * 0.5,
-                        kp * 0.05,
-                        100 * (1 + kp),
-                        10 - kp * 0.3,
-                        12,
-                        180,
-                        0.5,
-                    ]
-                )
-
-            if not features_list:
-                raise RuntimeError(
-                    "NOAA SWPC API returned no data. "
-                    "Set use_synthetic=True to use synthetic data instead."
-                )
-
-            data_array = np.array(features_list, dtype=np.float32)
-            labels = (data_array[:, 0] >= storm_threshold).astype(float)
-
-            return data_array, labels
-
-        try:
-            result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(
-                _fetch_data
-            )
-            return result
-        except RuntimeError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to load from NOAA SWPC API: {e}")
-            raise RuntimeError(
-                f"NOAA SWPC API unavailable: {e}. "
-                "Set use_synthetic=True to use synthetic data instead."
-            ) from e
-
-    def get_train_test_split(
-        self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[
-        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
-    ]:
-        """Get train/test split."""
-        if self._data is None or self._labels is None:
-            self.load()
-
-        if self._data is None or self._labels is None:
-            raise ValueError("Data not loaded properly")
-
-        rng = np.random.default_rng(random_state)
-        n_samples = len(self._data)
-        n_test = int(n_samples * test_size)
-
-        indices = rng.permutation(n_samples)
-        test_idx = indices[:n_test]
-        train_idx = indices[n_test:]
-
-        return (
-            self._data[train_idx],
-            self._data[test_idx],
-            self._labels[train_idx],
-            self._labels[test_idx],
+        return self._delegate_load(
+            use_synthetic, n_samples, min_real_samples, storm_threshold=storm_threshold
         )
 
 
-class NOAAHurricaneLoader(DatasetLoader):
-    """NOAA National Hurricane Center Data Loader.
+class NOAAHurricaneLoader(_CanonicalNOAALoader):
+    """NOAA NHC HURDAT2 loader (validation interface).
 
-    Loads tropical cyclone track and intensity data from NHC.
-    Data is publicly available and updated during hurricane season.
-
-    Source: https://www.nhc.noaa.gov/
-
-    Features: Position, wind speed, pressure, motion, forecast uncertainty
-    Anomalies: Major hurricanes (Category 3+, wind >= 111 mph)
-
-    Citation:
-    NOAA National Hurricane Center.
-    https://www.nhc.noaa.gov/
+    Delegates to :class:`omni_mercury_engine.datasets.hurricane.
+    NOAAHurricaneLoader`, which parses the full best-track layout (real
+    wind radii, kinematics derived from consecutive fixes). The pre-port
+    implementation padded fourteen constant columns and compared HURDAT2's
+    knots against a 111 *mph* threshold; the threshold is now converted
+    (mph -> kt) before it meets the data.
     """
 
-    # Via TrustedEndpoints for SSRF prevention
-    NHC_API_URL = TrustedEndpoints.NOAA_NHC_ARCHIVE
+    _GATE_NAME = "NOAA Hurricane"
+    _SOURCE_NAME = "NOAA National Hurricane Center"
+    _CITATION = "NOAA National Hurricane Center. https://www.nhc.noaa.gov/"
 
-    FEATURE_NAMES = [
-        "latitude",
-        "longitude",
-        "max_wind_mph",
-        "min_pressure_mb",
-        "storm_speed_mph",
-        "storm_direction_deg",
-        "radius_34kt_ne",
-        "radius_34kt_se",
-        "radius_34kt_sw",
-        "radius_34kt_nw",
-        "radius_64kt_ne",
-        "radius_64kt_se",
-        "radius_64kt_sw",
-        "radius_64kt_nw",
-        "sst_celsius",
-        "wind_shear_kts",
-        "hour_of_day",
-        "day_of_year",
-    ]
+    #: Statute miles per hour per knot.
+    _MPH_PER_KT = 1.15078
 
-    def __init__(self, cache_dir: str | Path | None = None) -> None:
-        """Initialize the instance."""
-        self.cache_dir = (
-            Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+    def _canonical(self, n_samples: int, **preprocessing: Any) -> Any:
+        from omni_mercury_engine.datasets.base import DatasetConfig
+        from omni_mercury_engine.datasets.hurricane import NOAAHurricaneLoader as _Canonical
+
+        return _Canonical(
+            DatasetConfig(
+                name="noaa_hurricane",
+                data_dir=str(self.cache_dir),
+                cache_dir=str(self.cache_dir),
+                max_samples=n_samples,
+                preprocessing=preprocessing,
+            )
         )
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._data: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None
-        self._metadata: DatasetMetadata | None = None
 
     def load(
         self,
@@ -1251,544 +1090,97 @@ class NOAAHurricaneLoader(DatasetLoader):
         min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """Load NOAA Hurricane data.
+        """Load HURDAT2 best-track data (see the canonical loader for features).
 
         Args:
-            use_synthetic: Use synthetic data (for testing without API calls)
-            n_samples: Number of samples for synthetic data
-            major_hurricane_threshold: Wind speed threshold for major hurricane (Cat 3+ = 111 mph)
-            min_real_samples: Minimum required real samples (fails if not met)
+            use_synthetic: Use synthetic data (policy-gated).
+            n_samples: Sample count for the synthetic path.
+            major_hurricane_threshold: Major-hurricane wind threshold in
+                **mph** (kept for interface compatibility; Category 3 is
+                111 mph). Converted to knots before it meets HURDAT2's
+                knot-valued winds — the pre-port code compared the mph
+                number against knots directly and under-labelled.
+            min_real_samples: Minimum required real samples.
 
         Returns:
-            Tuple of (features, labels, metadata)
-
-        Raises:
-            RuntimeError: If real data loading fails and use_synthetic=False
+            Tuple of (features, labels, metadata).
         """
-        import time
-
-        start_time = time.time()
-
-        if use_synthetic:
-            # Caller-flag bypass closure: route through policy gate so the
-            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` floor cannot be
-            # circumvented by a caller passing ``use_synthetic=True``.
-            check_synthetic_allowed("NOAA Hurricane", "Caller passed use_synthetic=True")
-            self._data, self._labels = self._generate_synthetic(
-                n_samples, major_hurricane_threshold
-            )
-            source = "synthetic"
-        else:
-            self._data, self._labels = self._load_from_api(major_hurricane_threshold)
-            if len(self._data) < min_real_samples:
-                raise RuntimeError(
-                    f"NOAA Hurricane: Failed to load minimum {min_real_samples} real samples. "
-                    f"Got {len(self._data)}. API may be down or data unavailable."
-                )
-            source = "NOAA National Hurricane Center"
-
-        load_time = time.time() - start_time
-
-        num_anomalies = int(np.sum(self._labels))
-        self._metadata = DatasetMetadata(
-            name="NOAA Hurricane",
-            source=source,
-            num_samples=len(self._data),
-            num_features=self._data.shape[1],
-            num_anomalies=num_anomalies,
-            anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
-            feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
-            load_time_seconds=load_time,
-            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
-            license="Public Domain (U.S. Government Work)",
-            citation="NOAA National Hurricane Center. https://www.nhc.noaa.gov/",
-        )
-
-        logger.info(
-            f"Loaded NOAA Hurricane: {self._metadata.num_samples} samples, "
-            f"{self._metadata.anomaly_ratio:.2%} major hurricanes"
-        )
-
-        return self._data, self._labels, self._metadata
-
-    def _generate_synthetic(
-        self, n_samples: int, major_threshold: float
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Generate synthetic hurricane data."""
-        rng = np.random.default_rng(42)
-
-        # Position (Atlantic basin typical range)
-        latitudes = rng.uniform(10, 45, size=n_samples)
-        longitudes = rng.uniform(-100, -20, size=n_samples)
-
-        # Intensity (wind speed follows exponential-like distribution)
-        max_wind = rng.exponential(scale=40, size=n_samples) + 30
-        max_wind = np.clip(max_wind, 25, 185)  # Tropical storm to Cat 5
-
-        # Pressure (inversely related to wind)
-        min_pressure = 1013 - (max_wind - 30) * 0.8
-        min_pressure = np.clip(min_pressure, 880, 1010)
-
-        # Motion
-        storm_speed = rng.normal(15, 8, size=n_samples)
-        storm_speed = np.clip(storm_speed, 0, 50)
-        storm_direction = rng.uniform(0, 360, size=n_samples)
-
-        # Wind radii (34kt and 64kt quadrants)
-        radius_34kt = rng.exponential(scale=100, size=(n_samples, 4))
-        radius_64kt = rng.exponential(scale=50, size=(n_samples, 4))
-
-        # Environmental factors
-        sst = rng.normal(28, 3, size=n_samples)  # Sea surface temp
-        sst = np.clip(sst, 20, 32)
-        wind_shear = rng.exponential(scale=15, size=n_samples)
-        wind_shear = np.clip(wind_shear, 0, 50)
-
-        # Temporal
-        hour = rng.integers(0, 24, size=n_samples)
-        day_of_year = rng.integers(152, 335, size=n_samples)  # June-November
-
-        data = np.column_stack(
-            [
-                latitudes,
-                longitudes,
-                max_wind,
-                min_pressure,
-                storm_speed,
-                storm_direction,
-                radius_34kt[:, 0],
-                radius_34kt[:, 1],
-                radius_34kt[:, 2],
-                radius_34kt[:, 3],
-                radius_64kt[:, 0],
-                radius_64kt[:, 1],
-                radius_64kt[:, 2],
-                radius_64kt[:, 3],
-                sst,
-                wind_shear,
-                hour,
-                day_of_year,
-            ]
-        )
-
-        labels = (max_wind >= major_threshold).astype(float)
-
-        return data, labels
-
-    def _load_from_api(
-        self, major_threshold: float
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real hurricane data from NOAA NHC API with circuit breaker protection."""
-        circuit_breaker = get_data_loader_breaker("noaa_hurricane")
-
-        def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-            raw_data = SafeHTTPClient.get_text(
-                f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt",
-                headers={"User-Agent": "Mercury-Agent/1.0"},
-                timeout=30,
-            )
-
-            if not raw_data:
-                raise RuntimeError(
-                    "NOAA NHC API returned no data. "
-                    "Set use_synthetic=True to use synthetic data instead."
-                )
-
-            features_list = []
-            lines = raw_data.strip().split("\n")
-            for line in lines:
-                parts = line.split(",")
-                if len(parts) >= 7:
-                    try:
-                        lat = float(parts[4].strip().replace("N", "").replace("S", "-") or 0)
-                        lon = float(parts[5].strip().replace("W", "-").replace("E", "") or 0)
-                        wind = float(parts[6].strip() or 0)
-                        pressure = float(parts[7].strip() or 1013) if len(parts) > 7 else 1013
-
-                        if wind > 0:
-                            features_list.append(
-                                [
-                                    lat,
-                                    lon,
-                                    wind,
-                                    pressure,
-                                    15,
-                                    0,
-                                    100,
-                                    100,
-                                    100,
-                                    100,
-                                    50,
-                                    50,
-                                    50,
-                                    50,
-                                    28,
-                                    15,
-                                    12,
-                                    200,
-                                ]
-                            )
-                    except (ValueError, IndexError):
-                        continue
-
-            if not features_list:
-                raise RuntimeError(
-                    "NOAA NHC API returned no valid hurricane data. "
-                    "Set use_synthetic=True to use synthetic data instead."
-                )
-
-            data_array = np.array(features_list, dtype=np.float32)
-            labels = (data_array[:, 2] >= major_threshold).astype(float)
-
-            return data_array, labels
-
-        try:
-            result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(
-                _fetch_data
-            )
-            return result
-        except RuntimeError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to load from NOAA NHC API: {e}")
-            raise RuntimeError(
-                f"NOAA NHC API unavailable: {e}. "
-                "Set use_synthetic=True to use synthetic data instead."
-            ) from e
-
-    def get_train_test_split(
-        self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[
-        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
-    ]:
-        """Get train/test split."""
-        if self._data is None or self._labels is None:
-            self.load()
-
-        if self._data is None or self._labels is None:
-            raise ValueError("Data not loaded properly")
-
-        rng = np.random.default_rng(random_state)
-        n_samples = len(self._data)
-        n_test = int(n_samples * test_size)
-
-        indices = rng.permutation(n_samples)
-        test_idx = indices[:n_test]
-        train_idx = indices[n_test:]
-
-        return (
-            self._data[train_idx],
-            self._data[test_idx],
-            self._labels[train_idx],
-            self._labels[test_idx],
+        return self._delegate_load(
+            use_synthetic,
+            n_samples,
+            min_real_samples,
+            major_threshold_kt=major_hurricane_threshold / self._MPH_PER_KT,
         )
 
 
-class NOAAOceanLoader(DatasetLoader):
-    """NOAA National Ocean Service Data Loader.
+class NOAAOceanLoader(_CanonicalNOAALoader):
+    """NOAA CO-OPS station loader (validation interface).
 
-    Loads ocean temperature, salinity, and marine ecosystem data.
-    Data is publicly available from NOAA oceanographic services.
-
-    Source: https://oceanservice.noaa.gov/
-
-    Features: Sea surface temperature, salinity, currents, chlorophyll
-    Anomalies: Marine heatwaves, harmful algal blooms
-
-    Citation:
-    NOAA National Ocean Service.
-    https://oceanservice.noaa.gov/
+    Delegates to :class:`omni_mercury_engine.datasets.ocean.
+    NOAACoOpsStationLoader`, which fetches each real station product
+    (water/air temperature, pressure, hourly water level, wind) and labels
+    heatwave-like hours at the in-window monthly 90th percentile of water
+    temperature. The pre-port implementation fetched one real channel and
+    generated seventeen RNG columns under ``source="NOAA National Ocean
+    Service"``; its absolute ``heatwave_threshold`` applied to that
+    fabricated matrix and is accepted-but-ignored for compatibility.
     """
 
-    # Via TrustedEndpoints for SSRF prevention
-    NOS_API_URL = TrustedEndpoints.NOAA_NOS_API
+    _GATE_NAME = "NOAA Ocean"
+    _SOURCE_NAME = "NOAA CO-OPS (tidesandcurrents.noaa.gov)"
+    _CITATION = (
+        "NOAA Center for Operational Oceanographic Products and Services (CO-OPS). "
+        "https://tidesandcurrents.noaa.gov/"
+    )
 
-    FEATURE_NAMES = [
-        "sst_celsius",
-        "sst_anomaly",
-        "salinity_psu",
-        "chlorophyll_mg_m3",
-        "current_speed_m_s",
-        "current_direction_deg",
-        "wave_height_m",
-        "wave_period_s",
-        "wave_direction_deg",
-        "dissolved_oxygen_mg_l",
-        "ph_level",
-        "turbidity_ntu",
-        "latitude",
-        "longitude",
-        "depth_m",
-        "hour_of_day",
-        "day_of_year",
-        "year",
-    ]
+    def _canonical(self, n_samples: int, **preprocessing: Any) -> Any:
+        from omni_mercury_engine.datasets.base import DatasetConfig
+        from omni_mercury_engine.datasets.ocean import NOAACoOpsStationLoader as _Canonical
 
-    def __init__(self, cache_dir: str | Path | None = None) -> None:
-        """Initialize the instance."""
-        self.cache_dir = (
-            Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        return _Canonical(
+            DatasetConfig(
+                name="noaa_coops_station",
+                data_dir=str(self.cache_dir),
+                cache_dir=str(self.cache_dir),
+                max_samples=n_samples,
+                preprocessing=preprocessing,
+            )
         )
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._data: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None
-        self._metadata: DatasetMetadata | None = None
 
     def load(
         self,
         use_synthetic: bool = False,
-        n_samples: int = 5000,
+        n_samples: int = 2000,
         heatwave_threshold: float = 2.0,
         min_real_samples: int = 100,
+        station: str = "8454000",
+        days_back: int = 60,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """Load NOAA Ocean data.
+        """Load CO-OPS station data (see the canonical loader for features).
 
         Args:
-            use_synthetic: Use synthetic data (for testing without API calls)
-            n_samples: Number of samples for synthetic data
-            heatwave_threshold: SST anomaly threshold for marine heatwave (degrees C)
-            min_real_samples: Minimum required real samples (fails if not met)
+            use_synthetic: Use synthetic data (policy-gated).
+            n_samples: Sample count for the synthetic path.
+            heatwave_threshold: Accepted for interface compatibility and
+                ignored — it thresholded a fabricated ``sst_anomaly`` RNG
+                column; labels now come from the canonical in-window
+                monthly 90th percentile of the real water temperature.
+            min_real_samples: Minimum required real samples.
+            station: CO-OPS station id.
+            days_back: Days of history to fetch.
 
         Returns:
-            Tuple of (features, labels, metadata)
-
-        Raises:
-            RuntimeError: If real data loading fails and use_synthetic=False
+            Tuple of (features, labels, metadata).
         """
-        import time
-
-        start_time = time.time()
-
-        if use_synthetic:
-            # Caller-flag bypass closure: route through policy gate so the
-            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` floor cannot be
-            # circumvented by a caller passing ``use_synthetic=True``.
-            check_synthetic_allowed("NOAA Ocean", "Caller passed use_synthetic=True")
-            self._data, self._labels = self._generate_synthetic(n_samples, heatwave_threshold)
-            source = "synthetic"
-        else:
-            self._data, self._labels = self._load_from_api(heatwave_threshold)
-            if len(self._data) < min_real_samples:
-                raise RuntimeError(
-                    f"NOAA Ocean: Failed to load minimum {min_real_samples} real samples. "
-                    f"Got {len(self._data)}. API may be down or data unavailable."
-                )
-            source = "NOAA National Ocean Service"
-
-        load_time = time.time() - start_time
-
-        num_anomalies = int(np.sum(self._labels))
-        self._metadata = DatasetMetadata(
-            name="NOAA Ocean",
-            source=source,
-            num_samples=len(self._data),
-            num_features=self._data.shape[1],
-            num_anomalies=num_anomalies,
-            anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
-            feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
-            load_time_seconds=load_time,
-            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
-            license="Public Domain (U.S. Government Work)",
-            citation="NOAA National Ocean Service. https://oceanservice.noaa.gov/",
-        )
-
-        logger.info(
-            f"Loaded NOAA Ocean: {self._metadata.num_samples} samples, "
-            f"{self._metadata.anomaly_ratio:.2%} marine heatwave events"
-        )
-
-        return self._data, self._labels, self._metadata
-
-    def _generate_synthetic(
-        self, n_samples: int, heatwave_threshold: float
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Generate synthetic ocean data."""
-        rng = np.random.default_rng(42)
-
-        # Sea surface temperature (varies by latitude)
-        sst = rng.normal(20, 8, size=n_samples)
-        sst = np.clip(sst, -2, 35)
-
-        # SST anomaly (deviation from climatology)
-        sst_anomaly = rng.normal(0, 1.5, size=n_samples)
-        sst_anomaly = np.clip(sst_anomaly, -5, 8)
-
-        # Salinity (practical salinity units)
-        salinity = rng.normal(35, 2, size=n_samples)
-        salinity = np.clip(salinity, 30, 40)
-
-        # Chlorophyll (phytoplankton indicator)
-        chlorophyll = rng.exponential(scale=1, size=n_samples)
-        chlorophyll = np.clip(chlorophyll, 0.01, 50)
-
-        # Currents
-        current_speed = rng.exponential(scale=0.3, size=n_samples)
-        current_direction = rng.uniform(0, 360, size=n_samples)
-
-        # Waves
-        wave_height = rng.exponential(scale=1.5, size=n_samples)
-        wave_period = rng.normal(8, 3, size=n_samples)
-        wave_period = np.clip(wave_period, 2, 20)
-        wave_direction = rng.uniform(0, 360, size=n_samples)
-
-        # Water quality
-        dissolved_oxygen = rng.normal(7, 2, size=n_samples)
-        dissolved_oxygen = np.clip(dissolved_oxygen, 0, 14)
-        ph_level = rng.normal(8.1, 0.2, size=n_samples)
-        ph_level = np.clip(ph_level, 7.5, 8.5)
-        turbidity = rng.exponential(scale=5, size=n_samples)
-
-        # Location
-        latitudes = rng.uniform(-60, 60, size=n_samples)
-        longitudes = rng.uniform(-180, 180, size=n_samples)
-        depths = rng.exponential(scale=50, size=n_samples)
-
-        # Temporal
-        hour = rng.integers(0, 24, size=n_samples)
-        day_of_year = rng.integers(1, 366, size=n_samples)
-        year = rng.integers(2015, 2026, size=n_samples)
-
-        data = np.column_stack(
-            [
-                sst,
-                sst_anomaly,
-                salinity,
-                chlorophyll,
-                current_speed,
-                current_direction,
-                wave_height,
-                wave_period,
-                wave_direction,
-                dissolved_oxygen,
-                ph_level,
-                turbidity,
-                latitudes,
-                longitudes,
-                depths,
-                hour,
-                day_of_year,
-                year,
-            ]
-        )
-
-        # Marine heatwave: SST anomaly >= threshold
-        labels = (sst_anomaly >= heatwave_threshold).astype(float)
-
-        return data, labels
-
-    def _load_from_api(
-        self, heatwave_threshold: float
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real ocean data from NOAA NOS API with circuit breaker protection."""
-        circuit_breaker = get_data_loader_breaker("noaa_ocean")
-
-        def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-            raw_data = SafeHTTPClient.get_json(
-                self.NOS_API_URL,
-                params={
-                    "begin_date": "20240101",
-                    "end_date": "20241231",
-                    "station": "8454000",
-                    "product": "water_temperature",
-                    "datum": "MLLW",
-                    "units": "metric",
-                    "time_zone": "gmt",
-                    "application": "Mercury-Agent",
-                    "format": "json",
-                },
-                headers={"User-Agent": "Mercury-Agent/1.0"},
-                timeout=30,
+        if heatwave_threshold != 2.0:
+            logger.warning(
+                "NOAAOceanLoader: heatwave_threshold is accepted for interface "
+                "compatibility and ignored; labels use the canonical in-window "
+                "monthly p90 of the real water temperature."
             )
-
-            data_entries = raw_data.get("data", [])
-            if not data_entries:
-                raise RuntimeError(
-                    "NOAA NOS API returned no data. "
-                    "Set use_synthetic=True to use synthetic data instead."
-                )
-
-            features_list = []
-            rng = np.random.default_rng(42)
-            for entry in data_entries:
-                try:
-                    sst = float(entry.get("v", 20))
-                    sst_anomaly = rng.normal(0, 1.5)
-                    features_list.append(
-                        [
-                            sst,
-                            sst_anomaly,
-                            35 + rng.normal(0, 2),
-                            rng.exponential(1),
-                            rng.exponential(0.3),
-                            rng.uniform(0, 360),
-                            rng.exponential(1.5),
-                            8 + rng.normal(0, 3),
-                            rng.uniform(0, 360),
-                            7 + rng.normal(0, 2),
-                            8.1 + rng.normal(0, 0.2),
-                            rng.exponential(5),
-                            41.5,
-                            -71.4,
-                            rng.exponential(50),
-                            12,
-                            180,
-                            2024,
-                        ]
-                    )
-                except (ValueError, KeyError):
-                    continue
-
-            if not features_list:
-                raise RuntimeError(
-                    "NOAA NOS API returned no valid ocean data. "
-                    "Set use_synthetic=True to use synthetic data instead."
-                )
-
-            data_array = np.array(features_list, dtype=np.float32)
-            labels = (data_array[:, 1] >= heatwave_threshold).astype(float)
-
-            return data_array, labels
-
-        try:
-            result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(
-                _fetch_data
-            )
-            return result
-        except RuntimeError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to load from NOAA NOS API: {e}")
-            raise RuntimeError(
-                f"NOAA NOS API unavailable: {e}. "
-                "Set use_synthetic=True to use synthetic data instead."
-            ) from e
-
-    def get_train_test_split(
-        self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[
-        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
-    ]:
-        """Get train/test split."""
-        if self._data is None or self._labels is None:
-            self.load()
-
-        if self._data is None or self._labels is None:
-            raise ValueError("Data not loaded properly")
-
-        rng = np.random.default_rng(random_state)
-        n_samples = len(self._data)
-        n_test = int(n_samples * test_size)
-
-        indices = rng.permutation(n_samples)
-        test_idx = indices[:n_test]
-        train_idx = indices[n_test:]
-
-        return (
-            self._data[train_idx],
-            self._data[test_idx],
-            self._labels[train_idx],
-            self._labels[test_idx],
+        return self._delegate_load(
+            use_synthetic, n_samples, min_real_samples, station=station, days_back=days_back
         )
 
 

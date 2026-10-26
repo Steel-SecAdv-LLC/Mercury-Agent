@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,072
-- **Capability-bearing classes:** 2,054 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,076
+- **Capability-bearing classes:** 2,058 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,203 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Support types (config / result / enum / error) | 1018 |
 | Detection | 180 |
 | Neural models & layers | 162 |
-| Data sources & loaders | 106 |
+| Data sources & loaders | 110 |
 | Engines & orchestration | 102 |
 | Adapters & backends | 97 |
 | Training & optimization | 65 |
@@ -962,7 +962,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `datasets/` — 70 classes (57 capability)
+### `datasets/` — 73 classes (60 capability)
 
 **Data sources & loaders**
 
@@ -987,8 +987,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `NABLoader` (`datasets.timeseries`) — Numenta Anomaly Benchmark (NAB) Dataset Loader.
 - `NASAExoplanetLoader` (`datasets.space`) — NASA Exoplanet Archive Data Loader.
 - `NOAABuoyLoader` (`datasets.ocean`) — NOAA National Data Buoy Center (NDBC) Real-Time Data Loader.
+- `NOAACoOpsStationLoader` (`datasets.ocean`) — NOAA CO-OPS tide-station loader over real per-product observations.
 - `NOAAERDDAPLoader` (`datasets.noaa_erddap`) — NOAA ERDDAP oceanographic data loader.
 - `NOAAGSODLoader` (`datasets.noaa_gsod`) — NOAA Global Summary of the Day (GSOD) weather data loader.
+- `NOAAHurricaneLoader` (`datasets.hurricane`) — NOAA NHC HURDAT2 best-track loader over the fields the record carries.
+- `NOAASpaceWeatherLoader` (`datasets.space_weather`) — NOAA SWPC space-weather loader over real multi-instrument channels.
 - `NOAAStormEventsLoader` (`datasets.noaa_storm`) — NOAA Storm Events Database loader.
 - `NOAAWeatherLoader` (`datasets.environmental`) — Weather/Climate Data Loader using Open-Meteo API.
 - `NSLKDDLoader` (`datasets.security`) — NSL-KDD Network Intrusion Detection Dataset Loader.
@@ -2933,17 +2936,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `validation/` — 22 classes (14 capability)
+### `validation/` — 23 classes (15 capability)
 
 **Data sources & loaders**
 
 - `DatasetLoader` (`validation.data_loaders`) — Abstract base class for dataset loaders.
 - `MIMICLoader` (`validation.data_loaders`) — MIMIC-III Medical ICU Data Loader (IRB Placeholder Simulation).
-- `NOAAHurricaneLoader` (`validation.data_loaders`) — NOAA National Hurricane Center Data Loader.
-- `NOAAOceanLoader` (`validation.data_loaders`) — NOAA National Ocean Service Data Loader.
-- `NOAASpaceWeatherLoader` (`validation.data_loaders`) — NOAA Space Weather Prediction Center Data Loader.
+- `NOAAHurricaneLoader` (`validation.data_loaders`) — NOAA NHC HURDAT2 loader (validation interface).
+- `NOAAOceanLoader` (`validation.data_loaders`) — NOAA CO-OPS station loader (validation interface).
+- `NOAASpaceWeatherLoader` (`validation.data_loaders`) — NOAA SWPC space-weather loader (validation interface).
 - `NSLKDDLoader` (`validation.data_loaders`) — NSL-KDD Network Intrusion Detection Dataset Loader.
 - `USGSEarthquakeLoader` (`validation.data_loaders`) — USGS Earthquake Data Loader.
+- `_CanonicalNOAALoader` (`validation.data_loaders`) — Validation-interface wrapper over a canonical ``datasets/`` loader.
 
 **Engines & orchestration**
 

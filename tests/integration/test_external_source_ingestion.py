@@ -88,7 +88,9 @@ class TestUsgsIngestionToFeatureMatrix:
         assert "limit=50" in captured[0]
 
         # Parsed, persisted, and shaped to the documented 11-feature schema.
-        cached = loader.data_path / "usgs_earthquake_real.npz"
+        # The cache name carries the window and label-rule parameters so a
+        # changed parameter can never serve a stale matrix.
+        cached = loader._real_cache_file()
         assert cached.exists()
         with np.load(cached) as payload:
             features = payload["features"]
@@ -109,7 +111,7 @@ class TestIngestedDataFeedsDetection:
         with patch(_PATCH_TARGET, return_value=body):
             assert loader._download_from_usgs() is True
 
-        with np.load(loader.data_path / "usgs_earthquake_real.npz") as payload:
+        with np.load(loader._real_cache_file()) as payload:
             features = payload["features"]
 
         detector = MercuryAnomalyDetector()

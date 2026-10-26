@@ -165,7 +165,7 @@ named here is not a numeric seam: it is a part of something else, a base, or a
 detector with its own API that is reached by importing it.
 
 
-### Detectors with their own domain API (import them; no numeric seam) (27)
+### Detectors with their own domain API (import them; no numeric seam) (28)
 
 Each has at least one test and a declared ``decision_source``.
 
@@ -175,6 +175,7 @@ Each has at least one test and a declared ``decision_source``.
 | `OSHAComplianceDetector` | `compliance.osha_anomaly` | OSHA compliance anomaly detector for industry-specific safety monitoring |
 | `ConformalAnomalyDetector` | `core.conformal_prediction` | Wrapper for anomaly detectors with conformal prediction |
 | `ContrastiveLearningDetector` | `detectors.advanced.contrastive_detector` | Contrastive Learning Detector for Anomaly Detection |
+| `GWOEnsembleDetector` | `detectors.advanced.gwo_ensemble` | GWO-Enhanced Ensemble Detector for Anomaly Detection |
 | `MultiScaleTransformerDetector` | `detectors.advanced.multi_scale_transformer` | Multi-Scale Transformer Detector for Time-Series Anomaly Detection |
 | `BLIPVLMDetector` | `detectors.vlm.blip_vlm` | BLIP-based zero-shot anomaly detector |
 | `StatisticalVLMDetector` | `detectors.vlm.statistical_vlm` | Offline, deterministic concrete VLM detector (no network, no weights) |
@@ -207,13 +208,12 @@ A subclass, reached by importing it.
 |---|---|---|---|
 | `AdaptiveThreatDetector` | `security.realtime_threat_detection` | Adaptive threat detector that updates based on new threats | `RealTimeThreatDetector` |
 
-### Deprecated (1)
+### Deprecated (0)
 
 The module warns on import and names its replacement; kept for compatibility.
 
 | class | module | what it is |
 |---|---|---|
-| `GWOEnsembleDetector` | `detectors.advanced.gwo_ensemble` | GWO-Enhanced Ensemble Detector for Anomaly Detection |
 
 ### Components (constructed by another class) (53)
 

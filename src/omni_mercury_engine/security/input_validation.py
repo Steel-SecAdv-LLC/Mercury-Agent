@@ -811,13 +811,28 @@ class TrustedEndpoints:
     NOAA_SWPC_PROTONS = (
         "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json"
     )
+    NOAA_SWPC_PROTONS_7DAY = (
+        "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-7-day.json"
+    )
     NOAA_SWPC_KP_PRODUCTS = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+    # Maintained combined plasma+IMF product (header row + value rows:
+    # time_tag, speed, density, temperature, bx, by, bz, bt, vx, vy, vz,
+    # propagated_time_tag), ~7 days at 1-minute cadence. The older
+    # products/solar-wind/* paths 404 since 2026. Verified live 2026-10-26.
+    NOAA_SWPC_SOLAR_WIND = (
+        "https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind.json"
+    )
 
     # ==========================================================================
     # NOAA - National Hurricane Center
     # ==========================================================================
     NOAA_NHC_ARCHIVE = "https://www.nhc.noaa.gov/gis/forecast/archive"
-    NOAA_NHC_HURDAT2 = "https://www.nhc.noaa.gov/gis/forecast/archive/hurdat2-1851-2023-052424.txt"
+    # HURDAT2 best-track home. Filenames are date-stamped and churn with each
+    # reanalysis release; loaders resolve the newest ``hurdat2-1851-*.txt``
+    # from the index and fall back to the pinned known-good file. The old
+    # gis/forecast/archive copy 404s (verified 2026-10-26).
+    NOAA_NHC_HURDAT2_INDEX = "https://www.nhc.noaa.gov/data/hurdat/"
+    NOAA_NHC_HURDAT2 = "https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2024-040425.txt"
 
     # ==========================================================================
     # NOAA - National Ocean Service / Tides

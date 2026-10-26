@@ -13,7 +13,7 @@ from __future__ import annotations
 import io
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -29,6 +29,9 @@ from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +82,9 @@ class USGSEarthquakeLoader(DatasetLoader):
         super().__init__(config)
         self.min_magnitude = config.preprocessing.get("min_magnitude", 2.5)
         self.days_back = config.preprocessing.get("days_back", 30)
+        # Label rule (threshold on features; LABEL_SOURCE stays "statistical").
+        self.significant_magnitude = float(config.preprocessing.get("significant_magnitude", 5.0))
+        self.deep_focus_km = float(config.preprocessing.get("deep_focus_km", 300.0))
         self._is_real_data = False
 
     @property
@@ -104,6 +110,16 @@ class USGSEarthquakeLoader(DatasetLoader):
             reason="USGS API failed",
         )
 
+    def _real_cache_file(self) -> Path:
+        """Parameterized cache path: the window and the label rule are baked
+        into the cached matrix, so they are baked into its name too — a
+        changed parameter must never read a stale cache (the fixed name used
+        to do exactly that)."""
+        return self.data_path / (
+            f"usgs_earthquake_real_{self.days_back}d_m{self.min_magnitude:g}"
+            f"_sig{self.significant_magnitude:g}_deep{self.deep_focus_km:g}.npz"
+        )
+
     def _download_from_usgs(self) -> bool:
         """Download earthquake data from USGS Earthquake Hazards API."""
         import urllib.parse
@@ -111,7 +127,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
-        cache_file = dataset_dir / "usgs_earthquake_real.npz"
+        cache_file = self._real_cache_file()
 
         if cache_file.exists():
             logger.info(f"USGS earthquake data already cached at {cache_file}")
@@ -207,10 +223,13 @@ class USGSEarthquakeLoader(DatasetLoader):
         # Handle NaN/inf
         features = np.nan_to_num(features, nan=0.0, posinf=1e10, neginf=-1e10)
 
-        # Label significant events (magnitude >= 5.0 or deep focus)
+        # Label significant events (magnitude or deep-focus threshold on
+        # the features themselves — configurable, statistical provenance).
         magnitudes = features[:, 3]  # magnitude column
         depths = features[:, 2]  # depth column
-        labels = ((magnitudes >= 5.0) | (depths > 300)).astype(np.int64)
+        labels = (
+            (magnitudes >= self.significant_magnitude) | (depths > self.deep_focus_km)
+        ).astype(np.int64)
 
         # Apply max_samples limit
         if self.config.max_samples and len(features) > self.config.max_samples:
@@ -293,8 +312,13 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load earthquake data from cache (real data first, then synthetic)."""
-        # Check for real data first
-        real_cache = self.data_path / "usgs_earthquake_real.npz"
+        # Check for real data first; the legacy fixed name stays readable
+        # for caches written before the name was parameterized.
+        real_cache = self._real_cache_file()
+        if not real_cache.exists():
+            legacy = self.data_path / "usgs_earthquake_real.npz"
+            if legacy.exists():
+                real_cache = legacy
         if real_cache.exists():
             data = np.load(real_cache)
             self._is_real_data = True

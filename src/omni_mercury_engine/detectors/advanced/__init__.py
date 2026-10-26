@@ -54,8 +54,9 @@ if TYPE_CHECKING:
         GWOEnsembleDetector,
     )
 
-#: Names served lazily from the deprecated ``gwo_ensemble`` module. Importing that module
-#: emits a DeprecationWarning, so it is loaded only when one of these is first used.
+#: Names served lazily from the ``gwo_ensemble`` module (a library-role
+#: detector since the 2026-10-26 measurement in its docstring; no longer
+#: deprecated). The lazy load is kept so importing this package stays cheap.
 _LAZY_GWO_NAMES = frozenset({"GWOEnsembleConfig", "GWOEnsembleDetector"})
 
 

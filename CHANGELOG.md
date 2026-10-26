@@ -102,6 +102,68 @@ in-support batches bit-identical, the labelled training path unchanged, and a
 legacy checkpoint without an envelope restores the unguarded behaviour exactly.
 Pinned in `tests/core/test_fusion_support_guard.py`.
 
+**Changed — the NOAA validation-loader trio is ported to canonical real-data
+loaders; the fabrication their "real" paths carried is retired.** The
+`validation.data_loaders` NOAA classes claimed real multi-feature data while
+measuring almost none of it: the space-weather loader fetched one channel
+(Kp) and synthesised the other thirteen features as deterministic functions
+of it; the hurricane loader read four HURDAT2 columns, padded fourteen
+constants (while ignoring the twelve real wind-radii columns the file
+carries), compared an mph threshold against HURDAT2's knots (so "major
+hurricane" labels were wrong), and pointed at a URL that now 404s; the ocean
+loader fetched one channel and generated seventeen RNG columns named
+``salinity_psu``, ``chlorophyll_mg_m3``, ``ph_level`` under
+``source="NOAA National Ocean Service"``. The canonical ports read every
+feature from the instrument that measures it, all verified live 2026-10-26:
+`datasets/space_weather.py` (Kp 3-hourly product, propagated solar-wind
+plasma+IMF, GOES X-ray and integral-proton flux, aligned on a shared hourly
+grid with only fully-observed hours kept, plus the Shue-1998 magnetopause
+standoff as a cited closed form — 168 hours x 15 real features);
+`datasets/hurricane.py` (full HURDAT2 layout with real radii, kinematics
+derived from consecutive fixes, knots-correct Category-3 labels, newest-file
+resolution from the NHC index — 11,417 fixes x 20 features, 786 Cat 3+);
+`datasets/ocean.py::NOAACoOpsStationLoader` (per-product CO-OPS station
+fetches — water/air temperature, pressure, hourly water level, wind — with
+in-window monthly-p90 heatwave labels — 582 hours x 9 real features). All
+three carry ``LABEL_SOURCE="statistical"`` and audited label-provenance
+registry entries. The validation classes remain as thin wrappers keeping
+their historical interface (the hurricane wrapper now converts mph to knots
+before the threshold meets the data), and `validation.data_loaders` is
+announced for removal in v4.0.
+
+**Changed — the duplicated validation loaders are reconciled onto the
+canonical implementations.** `validation.NSLKDDLoader`'s real path, which
+could only read a cache it had no way to create, now downloads the real
+corpus through `datasets.security.NSLKDDLoader` (148,517 records, verified
+live). `validation.USGSEarthquakeLoader`'s real path delegates to
+`datasets.environmental.USGSEarthquakeLoader`, retiring a feature that
+changed value between runs (``magType`` encoded via Python's per-process
+salted ``hash()``); the canonical loader's label rule is now configurable
+(``significant_magnitude``/``deep_focus_km``, defaults unchanged) and its
+cache filename carries the window and label-rule parameters — the fixed name
+used to serve a stale matrix after a parameter change. `validation.
+MIMICLoader` was already honest (policy-gated synthetic placeholder naming
+the credentialed canonical path) and is documented as such.
+
+**Changed — gwo_ensemble is un-deprecated into a library role, on a
+measurement.** Head-to-head on six held-out ADBench sets x 3 seeds
+(semi-supervised protocol, IsolationForest/LOF/OneClassSVM bases): the Grey
+Wolf weight search beats equal weighting of the same detectors in 17 of 18
+runs, mean held-out ROC-AUC 0.8292 vs 0.7852 (landsat 0.54 -> 0.69). That is
+the torch-free way to learn detector combination from labels — the niche the
+trained fusion pipeline (which needs torch) cannot serve — so the
+DeprecationWarning is removed, the class gains an experimental
+``decision_source`` carrying the measurement, and its role moves from
+``deprecated`` to ``library``. Two dead mechanisms found on the way are now
+real or honestly off: ``n_folds`` was declared and never read (the fitness
+now averages percentile-F1 over that many folds when >= 2; measured 0.8259
+vs resubstitution's 0.8292, so the default is 1), and the diversity bonus
+was weight-independent — a constant that could not move the optimum (it is
+now the weighted pairwise disagreement it documented; measured active at 0.1
+it lowers held-out AUROC to 0.8221, so ``diversity_weight`` defaults to
+0.0). The "Target: Improve ensemble F1 by 10-15%" marketing line is replaced
+by the measured record.
+
 **Added — GCN notice ingest.** `loaders/gcn_notices.py` consumes NASA GCN's Kafka alert
 stream (gravitational waves, neutrinos, GRBs, FRBs, X-ray transients, supernova watches —
 the twelve topics this deployment's credential subscribes to) in three layers:

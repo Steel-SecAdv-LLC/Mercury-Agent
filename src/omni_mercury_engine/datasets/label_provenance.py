@@ -157,7 +157,22 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
     # --- Manufactured / synthetic (statistical) -- excluded from headline -
     "environmental.USGSEarthquakeLoader": (
         "statistical",
-        "Labels = magnitude>=5 OR depth>300 threshold on feature columns.",
+        "Labels = magnitude>=significant_magnitude (default 5) OR "
+        "depth>deep_focus_km (default 300) threshold on feature columns.",
+    ),
+    "hurricane.NOAAHurricaneLoader": (
+        "statistical",
+        "Labels = HURDAT2 max wind >= 96 kt (Saffir-Simpson Category 3), a "
+        "threshold on the wind feature itself.",
+    ),
+    "ocean.NOAACoOpsStationLoader": (
+        "statistical",
+        "Labels = station water temperature >= the in-window monthly 90th "
+        "percentile, a threshold on the temperature feature itself.",
+    ),
+    "space_weather.NOAASpaceWeatherLoader": (
+        "statistical",
+        "Labels = hourly Kp >= storm_threshold (G1 = 5), a threshold on the " "Kp feature itself.",
     ),
     "environmental.NOAAWeatherLoader": (
         "statistical",
