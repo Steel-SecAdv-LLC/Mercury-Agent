@@ -220,9 +220,10 @@ def test_adapter_uses_native_backend_when_stumpy_is_absent(
     rng = np.random.default_rng(11)
     series = np.sin(np.linspace(0, 40 * np.pi, 600)) + 0.05 * rng.normal(size=600)
     series[300:315] += 2.5
-    assert detector._stumpy_available is False or not detector._initialized
-
     result = detector.detect(series)
+    # Initialization ran inside detect with stumpy blocked, so the detector
+    # must have selected the native backend, not merely fallen through.
+    assert detector._stumpy_available is False
     assert set(result) >= {"scores", "is_anomaly", "discords", "matrix_profile"}
     native = matrix_profile(series, 16)
     np.testing.assert_allclose(result["matrix_profile"], native.profile, atol=1e-9)
