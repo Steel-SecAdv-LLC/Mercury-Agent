@@ -2240,7 +2240,14 @@ jobs:
               ("helm/mercury-agent/values-staging.yaml", "production"),
               ("helm/mercury-agent/values-production.yaml", "production"),
           ):
-              docs = render(["helm", "template", "mercury-agent", "./helm/mercury-agent", "-f", values])
+              # Production mode requires a secret source (templates/secret.yaml).
+              # Naming an existing Secret satisfies the guard without rendering
+              # any key material, so the ships-no-key-material check below
+              # still sees no Secret documents.
+              docs = render([
+                  "helm", "template", "mercury-agent", "./helm/mercury-agent", "-f", values,
+                  "--set", "config.secrets.existingSecret=ci-render-placeholder",
+              ])
               data = app_config(docs)
               if data.get("MERCURY_ENV") != expected_env:
                   failures.append(f"{values}: MERCURY_ENV={data.get('MERCURY_ENV')!r}, expected {expected_env!r}")
