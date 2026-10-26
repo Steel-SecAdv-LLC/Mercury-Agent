@@ -14,7 +14,9 @@ from __future__ import annotations
 import warnings
 
 warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    f"{__name__} is deprecated: benchmarks/mercury_benchmark.py is the "
+    "production benchmark harness. This module is retained for reference "
+    "until a removal is announced for a specific release.",
     DeprecationWarning,
     stacklevel=2,
 )

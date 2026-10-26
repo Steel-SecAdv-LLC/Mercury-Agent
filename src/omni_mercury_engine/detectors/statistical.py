@@ -2848,11 +2848,13 @@ class MercuryAnomalyDetector(BaseDetector):
                 "kinematic": kinematic,
                 "info_geometry": info_geo,
             },
-            # DEPRECATED: will be removed in v2.0 - use "scores" instead
+            # DEPRECATED alias of "scores", kept for compatibility (the v2.0 removal
+            # this comment once promised never happened); removal to be announced
             "isolation_forest_scores": combined_scores,
             # Legacy keys
             "iqr_flags": iqr_anomalies,
-            # DEPRECATED: will be removed in v2.0 - use "is_anomaly" instead
+            # DEPRECATED alias of "is_anomaly", kept for compatibility; removal to be
+            # announced
             "isolation_forest_flags": is_anomaly,
             "detector_type": "statistical",
             "threshold": effective_threshold,
