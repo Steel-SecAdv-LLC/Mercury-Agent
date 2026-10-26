@@ -60,13 +60,22 @@ class _NativePCA:
         self.n_components = n_components
         self.components_: np.ndarray[Any, Any] | None = None
         self.mean_: np.ndarray[Any, Any] | None = None
+        # Full spectrum, kept for eigenvalue-normalized (Mahalanobis) scoring:
+        # the reconstruction above uses only the leading components, but the
+        # anomaly signal of a correlation break lives in the *smallest*
+        # eigenvalue directions, invisible unless each direction is scaled by
+        # its own variance. None on a basis restored from a legacy checkpoint.
+        self.full_components_: np.ndarray[Any, Any] | None = None
+        self.explained_variance_: np.ndarray[Any, Any] | None = None
 
     def fit(self, X: np.ndarray[Any, Any]) -> _NativePCA:
         self.mean_ = X.mean(axis=0)
         X_centered = X - self.mean_
         # Economy SVD - only compute first min(n, d) singular vectors
-        _U, _s, Vt = np.linalg.svd(X_centered, full_matrices=False)
+        _U, s, Vt = np.linalg.svd(X_centered, full_matrices=False)
         self.components_ = Vt[: self.n_components]
+        self.full_components_ = Vt
+        self.explained_variance_ = (s**2) / max(X.shape[0] - 1, 1)
         return self
 
     def transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -85,6 +94,20 @@ class DimensionalWeights:
     Attributes:
         pca_weight: Weight for PCA reconstruction error (default: 0.5).
         autoencoder_weight: Weight for autoencoder reconstruction error (default: 0.5).
+        mahalanobis_blend: Blend factor for the eigenvalue-normalized
+            (Mahalanobis) channel (default: 0.7, chosen on the measured
+            planted-anomaly protocol in tests/detectors/
+            test_base_detector_discrimination.py, where it dominates 0.5 on
+            every scenario while keeping the reconstruction and spectral
+            channels a meaningful share for structure the protocol does not
+            cover). Applied after the DB term:
+            combined = base * (1 - blend) + mahalanobis * blend. The raw
+            reconstruction errors weight every direction equally, so anomaly
+            energy in small-eigenvalue directions — a correlation break with
+            ordinary marginals — is drowned by normal spread along the large
+            ones; dividing each principal direction by its own fitted variance
+            (Shyu et al. 2003's normalized PCA scoring, taken over the full
+            spectrum) is what makes that case visible. 0 disables the channel.
         db_blend: Blend factor for DB term when enabled (default: 0.3).
             When DB term is enabled, combined = base * (1 - db_blend) + db * db_blend.
 
@@ -95,6 +118,7 @@ class DimensionalWeights:
 
     pca_weight: float = 0.5
     autoencoder_weight: float = 0.5
+    mahalanobis_blend: float = 0.7
     db_blend: float = 0.3
 
     def __post_init__(self) -> None:
@@ -102,6 +126,8 @@ class DimensionalWeights:
         base_sum = self.pca_weight + self.autoencoder_weight
         if abs(base_sum - 1.0) > 1e-6:
             raise ValueError(f"pca_weight + autoencoder_weight must equal 1.0, got {base_sum:.4f}")
+        if not 0.0 <= self.mahalanobis_blend <= 1.0:
+            raise ValueError(f"mahalanobis_blend must be in [0, 1], got {self.mahalanobis_blend}")
         if not 0.0 <= self.db_blend <= 1.0:
             raise ValueError(f"db_blend must be in [0, 1], got {self.db_blend}")
 
@@ -455,12 +481,27 @@ class DimensionalAnalyzer(BaseDetector):
             + ae_errors_norm * self.weights.autoencoder_weight
         )
 
-        # Optionally blend in DB term spectral analysis
+        # Optionally blend in DB term spectral analysis. The DB term refines
+        # the reconstruction view, so it blends into the base BEFORE the
+        # Mahalanobis channel: blended after, it re-diluted that channel's
+        # weight share (measured: correlation-break ROC-AUC 0.763 with the
+        # dilution against 0.901 for the channel's own ranking).
         db_scores: NDArray[np.float64] | None = None
         if self.use_db_term and self.baseline_spectral_signature is not None:
             db_scores = self._dimensional_code_breaking(data_np)
             blend = self.weights.db_blend
             combined_scores = combined_scores * (1 - blend) + db_scores * blend
+
+        # Blend in the eigenvalue-normalized channel (see DimensionalWeights.
+        # mahalanobis_blend). None on a basis restored from a legacy
+        # checkpoint, which has no spectrum; such checkpoints keep their
+        # exact pre-upgrade scores.
+        mahalanobis = self._mahalanobis_scores(data_np)
+        if mahalanobis is not None and self.weights.mahalanobis_blend > 0.0:
+            blend = self.weights.mahalanobis_blend
+            combined_scores = (
+                combined_scores * (1 - blend) + self._safe_normalize(mahalanobis) * blend
+            )
 
         # Ensure scores are finite and in valid range
         if np.any(~np.isfinite(combined_scores)):
@@ -487,6 +528,29 @@ class DimensionalAnalyzer(BaseDetector):
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
         }
+
+    def _mahalanobis_scores(self, data: np.ndarray[Any, Any]) -> NDArray[np.float64] | None:
+        """Mahalanobis distance in the fitted full PCA basis, per row.
+
+        Each principal direction's score is divided by its fitted variance
+        (floored at a tiny fraction of the largest, so a direction the
+        training data barely spans cannot blow up the sum), which is what
+        makes anomalies lying off the training correlation structure visible
+        when their marginal scale is ordinary. Returns None when the basis
+        was restored from a checkpoint that predates the full spectrum.
+        """
+        if (
+            self.pca is None
+            or self.pca.full_components_ is None
+            or self.pca.explained_variance_ is None
+            or self.pca.mean_ is None
+        ):
+            return None
+        variances = np.asarray(self.pca.explained_variance_, dtype=np.float64)
+        floor = float(variances.max()) * 1e-9 + 1e-12
+        projected = (data - self.pca.mean_) @ self.pca.full_components_.T
+        result: NDArray[np.float64] = np.square(projected) / np.maximum(variances, floor)
+        return np.asarray(result.sum(axis=1), dtype=np.float64)
 
     def _safe_normalize(self, scores: NDArray[np.float64]) -> NDArray[np.float64]:
         """Safely normalize scores to [0, 1] range.
@@ -738,6 +802,16 @@ class DimensionalAnalyzer(BaseDetector):
             "pca_n_components": int(self.pca.n_components),
             "pca_mean": np.asarray(self.pca.mean_, dtype=np.float64),
             "pca_components": np.asarray(self.pca.components_, dtype=np.float64),
+            "pca_full_components": (
+                np.asarray(self.pca.full_components_, dtype=np.float64)
+                if self.pca.full_components_ is not None
+                else None
+            ),
+            "pca_explained_variance": (
+                np.asarray(self.pca.explained_variance_, dtype=np.float64)
+                if self.pca.explained_variance_ is not None
+                else None
+            ),
             "autoencoder_latent_dim": int(self.pca.n_components),
             "autoencoder_state_dict": (
                 dict(self.autoencoder.state_dict()) if self.autoencoder is not None else None
@@ -760,6 +834,14 @@ class DimensionalAnalyzer(BaseDetector):
         pca = _NativePCA(n_components=int(state["pca_n_components"]))
         pca.mean_ = np.asarray(state["pca_mean"], dtype=np.float64)
         pca.components_ = np.asarray(state["pca_components"], dtype=np.float64)
+        # Legacy checkpoints carry no spectrum: the Mahalanobis channel stays
+        # off for them (detect falls back to the exact pre-upgrade scores).
+        full = state.get("pca_full_components")
+        variance = state.get("pca_explained_variance")
+        pca.full_components_ = np.asarray(full, dtype=np.float64) if full is not None else None
+        pca.explained_variance_ = (
+            np.asarray(variance, dtype=np.float64) if variance is not None else None
+        )
         self.pca = pca
         ae_state = state.get("autoencoder_state_dict")
         if ae_state is not None:

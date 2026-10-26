@@ -39,6 +39,33 @@ O(l²m) brute-force reference and against STUMPY itself in
 `tests/ml/test_matrix_profile_native.py`; the manifest seam tests now drive both
 detectors in the no-extra lane rather than skipping them.
 
+**Changed — the temporal and dimensional base detectors detect what they claim.** A
+measured planted-anomaly protocol (correlated training data; scattered 3σ point shifts,
+variance bursts, variance-matched correlation breaks, a contiguous level shift; 5 seeds;
+now pinned as floors in `tests/detectors/test_base_detector_discrimination.py`) found the
+two weakest members of the default suite. `TemporalAnomalyDetector`'s `fit()` stored
+statistics `detect()` never read, both channels scored against the contaminated batch,
+rows before the first full window scored a hard 0, and the windowed trend adapted into
+level shifts — ROC-AUC ~0.54 on point anomalies and level shifts. Rebuilt: fit learns
+per-feature level and innovation statistics (innovation scale floored at 1% of the level
+scale against noiseless training series); the trend channel tests the rolling *median*
+against the fitted level; a one-step-ahead prediction channel scores each point against
+its trailing window at the fitted noise scale; the change channel scores first
+differences against the fitted innovations with spike isolation (min of in/out steps);
+channels are reduced over features by null-scaled max/RMS and combined by max in z-space
+with one squash. Measured: point 0.539→0.889, variance 0.876→0.964, level shift
+~0.53→0.982. `DimensionalAnalyzer` scored 0.625 on variance-matched correlation breaks —
+the anomaly family a PCA detector exists for — because its residuals were not
+eigenvalue-normalized; it gains a full-spectrum Mahalanobis channel (Shyu et al. 2003's
+normalized PCA scoring; `mahalanobis_blend` default 0.7, chosen by sweep), with the DB
+spectral term blended into the reconstruction base before it. Measured: correlation
+break 0.625→0.828 against the exact-Mahalanobis ceiling of 0.901 for the protocol;
+mean/variance/shift ≥0.99 throughout. Both detectors persist the new fitted state;
+legacy checkpoints restore with the channels that state supports and keep working. The
+temporal incremental-serving replica mirrors the new channels bit-identically (pinned by
+the parity suite) and invalidates on refit; detectors restored from legacy state take
+the full path.
+
 **Changed — a fitted engine refuses input of the wrong feature width.** After
 `fit_fusion(X)`, `detect`, `detect_batch` and `detect_with_fusion` refuse arrays whose
 column count differs from `X.shape[1]`, naming both widths and the fix. Before, a 1-D

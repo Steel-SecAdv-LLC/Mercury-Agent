@@ -292,62 +292,88 @@ class _SpatialServingCache(_ServingCache):
 class _TemporalServingCache(_ServingCache):
     """Incremental form of ``TemporalAnomalyDetector.detect`` for the last row.
 
-    The trend term reads only the ``window_size`` rows preceding the appended
-    row (a fixed reference slice); the sudden-change term's batch statistics
-    (``np.mean(|diffs|)`` / ``np.std(diffs)`` over all rows) are recomputed
-    on the assembled diff buffers — same arrays, same reductions, bit-equal —
-    at O(n·d) instead of re-walking the trend window per reference row.
+    Mirrors the fitted-reference channels of the 2026-10 rebuild for the
+    appended row of ``[reference; row]``, bit-for-bit (pinned by the parity
+    tests): the trend channel's rolling median over the trailing
+    ``window_size`` rows including the appended one, the prediction channel's
+    one-step-ahead residual against the mean of the trailing window excluding
+    it, and the change channel's first difference against the FITTED
+    innovation statistics — each reduced over features by the detector's own
+    ``_reduce_feature_z`` — combined by max and squashed once. The last row's
+    channel values depend only on the trailing window, the previous row and
+    the fitted state, so the replica is O(window * d) per serve. Detectors
+    restored from legacy checkpoints (no per-feature references) take the
+    full detect path instead: ``build_serving_cache`` returns None for them.
     """
 
     def __init__(self, detector: Any, reference: np.ndarray[Any, Any]) -> None:
         super().__init__(detector, reference)
-        n, d = reference.shape
-        diffs_ref = np.diff(reference, axis=0, prepend=reference[0:1])
-        self._diffs = np.empty((n + 1, d), dtype=np.float64)
-        self._diffs[:n] = diffs_ref
-        self._abs_diffs = np.empty((n + 1, d), dtype=np.float64)
-        self._abs_diffs[:n] = np.abs(diffs_ref)
-        self._last_reference_row = reference[n - 1]
-        # Trend-window statistics keyed by window size (re-derived if the
-        # detector's configuration changes between serves).
-        self._trend_stats: dict[int, tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]] = {}
+        self._feature_mean_ref = detector.feature_mean_
+        self._feature_std_ref = detector.feature_std_
+        self._diff_mean_ref = detector.diff_mean_
+        self._diff_std_ref = detector.diff_std_
+        self._last_reference_row = reference[reference.shape[0] - 1]
+        # Prefix sums over the assembled batch's rows, float64, exactly as
+        # detect() builds them: its prediction mean is (csum[t] - csum[tail])
+        # / count, a DIFFERENCE of prefix sums, which differs from a direct
+        # slice mean in the last ulp. Parity is bit-exact, so the replica
+        # must sum in the same order.
+        self._csum = np.vstack(
+            [np.zeros((1, reference.shape[1])), np.cumsum(reference.astype(np.float64), axis=0)]
+        )
 
     def _still_valid(self) -> bool:
         det = self._detector
-        return det._is_fitted and not det._auto_calibrate
+        return (
+            det._is_fitted
+            and not det._auto_calibrate
+            # A refit replaces the fitted reference arrays; identity pins the
+            # cache to the exact fit it was built against.
+            and det.feature_mean_ is self._feature_mean_ref
+            and det.feature_std_ is self._feature_std_ref
+            and det.diff_mean_ is self._diff_mean_ref
+            and det.diff_std_ is self._diff_std_ref
+            and self._feature_mean_ref is not None
+            and self._feature_mean_ref.shape[0] == self._reference.shape[1]
+        )
 
     def _serve_locked(self, row: np.ndarray[Any, Any]) -> float | None:
+        from omni_mercury_engine.detectors.temporal import _reduce_feature_z
+
         det = self._detector
         n = self._reference.shape[0]
-
-        # --- Trend (window = the last `window_size` reference rows) -------
+        t = n  # index of the appended row in the assembled batch of n + 1
         window_size = int(det.window_size)
-        if n >= window_size > 0:
-            stats = self._trend_stats.get(window_size)
-            if stats is None:
-                window = self._reference[n - window_size : n]
-                stats = (
-                    np.mean(window, axis=0),
-                    np.std(window, axis=0) + 1e-6,
-                )
-                self._trend_stats[window_size] = stats
-            window_mean, window_std = stats
-            z_scores = np.abs((row - window_mean) / window_std)
-            z_score = float(np.max(z_scores))
-            trend = z_score / (3.0 + z_score)
-        else:
-            trend = 0.0
 
-        # --- Sudden change (batch statistics over the assembled diffs) ----
-        self._diffs[n] = row - self._last_reference_row
-        self._abs_diffs[n] = np.abs(self._diffs[n])
-        diff_mean = np.mean(self._abs_diffs, axis=0)
-        diff_std = np.std(self._diffs, axis=0) + 1e-6
-        z_vec = np.abs(self._diffs[n] - diff_mean) / diff_std
-        max_z = float(np.max(z_vec))
-        change = max_z / (det.change_threshold + max_z)
+        # --- Trend: rolling median over the trailing window INCLUDING row --
+        trend_width = min(window_size, n + 1)
+        trailing = np.vstack([self._reference[t - trend_width + 1 : t], row[np.newaxis, :]])
+        rolling_median = np.median(trailing, axis=0)
+        z_trend = np.abs(rolling_median - det.feature_mean_) / (
+            1.2533 * det.feature_std_ / np.sqrt(float(trend_width))
+        )
+        trend = float(_reduce_feature_z(z_trend[np.newaxis, :])[0])
 
-        return float((trend + change) / 2.0)
+        # --- Prediction: one-step residual vs the window EXCLUDING row -----
+        pred_width = min(window_size, max((n + 1) - 1, 1))
+        count = min(t, pred_width)
+        predicted = (self._csum[t] - self._csum[t - count]) / max(count, 1)
+        stderr = float(np.sqrt(1.0 + 1.0 / max(count, 1)))
+        z_pred = np.abs(row - predicted) / (det.feature_std_ * stderr)
+        prediction = float(_reduce_feature_z(z_pred[np.newaxis, :])[0])
+
+        # --- Change: last diff against the fitted innovation statistics ----
+        change = 0.0
+        if det.diff_mean_ is not None and det.diff_std_ is not None:
+            diff = row - self._last_reference_row
+            z_change = np.abs(diff - det.diff_mean_) / det.diff_std_
+            row_z = float(_reduce_feature_z(z_change[np.newaxis, :])[0])
+            # The appended row is the batch's last: its outgoing step does
+            # not exist yet, so the min rule keeps the incoming one.
+            change = row_z * (2.0 / det.change_threshold)
+
+        combined_z = max(trend, change, prediction)
+        return float(combined_z / (3.0 + combined_z))
 
 
 def build_serving_cache(
@@ -386,6 +412,13 @@ def build_serving_cache(
                 return None
             return _SpatialServingCache(detector, reference)
         if detector_type is TemporalAnomalyDetector:
+            if detector.feature_mean_ is None or detector.feature_std_ is None:
+                # Legacy checkpoint state: detect() scores from batch
+                # statistics, which an appended-row replica cannot reproduce
+                # bit-identically at O(window); take the full path.
+                return None
+            if detector.feature_mean_.shape[0] != reference.shape[1]:
+                return None
             return _TemporalServingCache(detector, reference)
     except Exception as exc:
         logger.debug("Incremental serving cache build failed; using full path: %s", exc)

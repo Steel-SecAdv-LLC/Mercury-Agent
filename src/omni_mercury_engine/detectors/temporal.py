@@ -32,6 +32,25 @@ _LSTM_INIT_SEED: int = 1_726_021
 _TREND_BLOCK_ELEMENTS: int = 1 << 21
 
 
+def _reduce_feature_z(z_matrix: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Reduce a per-feature z matrix [n, d] to one comparable z per row.
+
+    The max over features sees a single-feature spike but throws away a
+    shift spread over every feature: with d features, the max of d null
+    z's runs about sqrt(2 ln d) (~2.0 at d=8), so a simultaneous 1.8-sigma
+    move on all features ranks BELOW ordinary noise. The RMS sees the
+    spread shift but dilutes a single-feature spike by sqrt(d). Each
+    reduction is therefore normalized by its own null scale — sqrt(2 ln d)
+    for the max, 1 for the RMS — and the larger one is the row's z, so
+    both anomaly geometries keep their full resolution.
+    """
+    n_features = z_matrix.shape[1]
+    max_null = float(np.sqrt(2.0 * np.log(max(n_features, 2))))
+    max_z = z_matrix.max(axis=1) / max_null
+    rms_z = np.sqrt(np.mean(np.square(z_matrix), axis=1))
+    return np.asarray(np.maximum(max_z, rms_z))
+
+
 class TemporalAnomalyDetector(BaseDetector):
     """Time series anomaly detection using:.
 
@@ -96,6 +115,14 @@ class TemporalAnomalyDetector(BaseDetector):
 
         self.baseline_mean: float | None = None
         self.baseline_std: float | None = None
+        # Per-feature fitted references (see fit()). None until fitted, and
+        # None on a state restored from a legacy checkpoint, in which case
+        # detect() falls back to the scored batch's own statistics exactly
+        # as before the references existed.
+        self.feature_mean_: np.ndarray[Any, Any] | None = None
+        self.feature_std_: np.ndarray[Any, Any] | None = None
+        self.diff_mean_: np.ndarray[Any, Any] | None = None
+        self.diff_std_: np.ndarray[Any, Any] | None = None
 
     def _lstm(self) -> Any:
         """Return the LSTM, raising a clear error when torch is absent.
@@ -115,12 +142,43 @@ class TemporalAnomalyDetector(BaseDetector):
         return self.lstm
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> TemporalAnomalyDetector:
-        """Fit detector to normal time series."""
+        """Fit the temporal reference: per-feature level and innovation statistics.
+
+        The fitted state is what detect() scores against. Before this, fit()
+        stored a global mean/std that detect() never read, so every score was
+        computed from the scored batch's own statistics: the anomalies
+        contaminated their own reference (a batch with large spikes inflated
+        the diff scale that was supposed to expose them), and the first
+        ``window_size`` points scored a hard 0.
+
+        Learns, per feature: the level mean/std (the trend channel's reference
+        for points too early to have a full window) and the first-difference
+        mean/std (the change channel's innovation scale). The scalar
+        ``baseline_mean``/``baseline_std`` stay for checkpoint compatibility.
+        """
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+        data_np = np.asarray(data, dtype=np.float64)
+        if data_np.ndim == 1:
+            data_np = data_np.reshape(-1, 1)
 
-        self.baseline_mean = float(np.mean(data))
-        self.baseline_std = float(np.std(data))
+        self.baseline_mean = float(np.mean(data_np))
+        self.baseline_std = float(np.std(data_np))
+        self.feature_mean_ = data_np.mean(axis=0)
+        self.feature_std_ = data_np.std(axis=0) + 1e-6
+        if data_np.shape[0] >= 2:
+            diffs = np.diff(data_np, axis=0)
+            self.diff_mean_ = np.abs(diffs).mean(axis=0)
+            # Floor the innovation scale at 1% of the level scale: a
+            # noiseless training series (e.g. an exact ramp) measures a
+            # near-zero diff std, under which EVERY later innovation scores
+            # as astronomically surprising and the whole batch saturates to
+            # the same score. The floor caps the channel's sensitivity at
+            # 100x the level scale instead of infinity.
+            self.diff_std_ = np.maximum(diffs.std(axis=0) + 1e-6, 0.01 * self.feature_std_)
+        else:
+            self.diff_mean_ = None
+            self.diff_std_ = None
 
         self._is_fitted = True
         return self
@@ -162,6 +220,7 @@ class TemporalAnomalyDetector(BaseDetector):
 
         trend_anomalies = self._detect_trend_anomalies(data_np)
         change_anomalies = self._detect_sudden_changes(data_np)
+        prediction_anomalies = self._detect_prediction_residuals(data_np)
 
         # Fix for P0: Validate and sanitize NaN/Inf before combining scores
         # Silent NaN propagation can corrupt downstream fusion
@@ -170,7 +229,15 @@ class TemporalAnomalyDetector(BaseDetector):
         if np.any(~np.isfinite(change_anomalies)):
             change_anomalies = np.nan_to_num(change_anomalies, nan=0.0, posinf=1.0, neginf=0.0)
 
-        combined_scores = (trend_anomalies + change_anomalies) / 2.0
+        # The channels are specialized — trend fires on sustained level
+        # shifts, prediction on point departures from the local level, change
+        # on sharp spikes in the first differences — so a point is anomalous
+        # when ANY fires; averaging halved whichever channel fired alone.
+        # Channels combine on the raw z scale and are squashed once: squashing
+        # each channel with its own scale and then taking the max let the
+        # channel with the highest baseline bury another channel's signal.
+        combined_z = np.maximum(np.maximum(trend_anomalies, change_anomalies), prediction_anomalies)
+        combined_scores = combined_z / (3.0 + combined_z)
 
         # Final validation to ensure output is clean
         if np.any(~np.isfinite(combined_scores)):
@@ -189,8 +256,8 @@ class TemporalAnomalyDetector(BaseDetector):
         return {
             "is_anomaly": is_anomaly,
             "scores": combined_scores,
-            "trend_flags": trend_anomalies > 0.5,
-            "change_flags": change_anomalies > 0.5,
+            "trend_flags": trend_anomalies > 3.0,
+            "change_flags": change_anomalies > 3.0,
             "detector_type": "temporal",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
@@ -230,18 +297,57 @@ class TemporalAnomalyDetector(BaseDetector):
         return lstm_features
 
     def _detect_trend_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Detect anomalies based on trend deviation.
+        """Detect sustained deviations of the local level from the fitted level.
 
-        Returns continuous scores without hard clipping to preserve ranking information for
-        downstream fusion models.
+        Fitted path: the statistic for point ``t`` is a z-test of the trailing
+        ``window_size`` MEDIAN (over a growing prefix before a full window
+        exists) against the per-feature level reference learned by fit(),
+        ``|rolling_median - fitted_mean| / (1.2533 * fitted_std /
+        sqrt(window))`` (1.2533 is the median's efficiency factor at the
+        Gaussian), reduced over features. The median, not the mean: an
+        isolated spike inside the trailing window drags a window MEAN for the
+        next ``window_size`` points, handing every neighbour of a point
+        anomaly a raised trend score that buries the other channels' signal
+        in the max-combine, while a median shrugs off up to half the window.
+        A sustained shift moves the median fully, so shift detection keeps
+        its power. A rolling statistic compared with the batch's own local
+        window — the previous behaviour, kept below for states restored from
+        legacy checkpoints — adapts INTO a level shift within one window
+        length and then reports the shifted regime as normal, so it flagged
+        only a shift's first few points. Point spikes are the prediction and
+        change channels' case.
 
-        Fix for Issue #7: No Score Continuity. Previously used np.minimum(z_score / 3.0, 1.0) which
-        capped scores at 1.0, losing differentiation between extreme anomalies.
+        Returns raw z per row; detect() squashes the combined channels once.
         """
-        if len(data) < self.window_size:
-            return np.zeros(len(data))
+        if len(data) == 0:
+            return np.zeros(0)
+        data_2d = data.reshape(len(data), -1)
+        if (
+            self.feature_mean_ is not None
+            and self.feature_std_ is not None
+            and data_2d.shape[1] == self.feature_mean_.shape[0]
+        ):
+            width = min(self.window_size, len(data_2d))
+            n_rows = len(data_2d)
+            rolling_median = np.empty_like(data_2d, dtype=np.float64)
+            # Growing prefixes for the first width-1 rows, then full windows.
+            for t in range(min(width - 1, n_rows)):
+                rolling_median[t] = np.median(data_2d[: t + 1], axis=0)
+            if n_rows >= width:
+                windows = sliding_window_view(data_2d, width, axis=0)
+                rolling_median[width - 1 :] = np.median(windows, axis=-1)
+            counts = np.minimum(np.arange(1, n_rows + 1), width).astype(np.float64)
+            median_efficiency = 1.2533
+            z = np.abs(rolling_median - self.feature_mean_) / (
+                median_efficiency * self.feature_std_ / np.sqrt(counts)[:, None]
+            )
+            return _reduce_feature_z(z)
 
+        # Legacy fallback (unfitted per-feature reference, or a different
+        # width): the original batch-local windowed z-score.
         scores = np.zeros(len(data))
+        if len(data) < self.window_size:
+            return scores
 
         # Score every point against the ``window_size`` points before it, a
         # block of points at a time so the window views stay small.
@@ -262,9 +368,50 @@ class TemporalAnomalyDetector(BaseDetector):
 
             # Continuous score: sigmoid-like transformation for soft capping
             # Preserves ordering while keeping scores in reasonable range
-            scores[start:stop] = z_score / (3.0 + z_score)  # Asymptotic to 1.0
+            scores[start:stop] = z_score
 
         return scores
+
+    def _detect_prediction_residuals(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """One-step-ahead prediction residuals under a local-level model.
+
+        Point ``t`` is predicted by the mean of its trailing window (the
+        fitted level reference for ``t = 0``) and the residual is scored
+        against the FITTED noise scale, inflated by the predictor's own
+        standard error: ``|x_t - mean(window)| / (sigma_fit * sqrt(1 + 1/w))``.
+        This is the point-anomaly channel the differences cannot provide: a
+        first difference compares two noisy samples (a sqrt(2) noise tax) and
+        the spike-isolating min rule loses adjacent anomalies, where the step
+        between two shifted points is ordinary. Scoring against the local
+        prediction pays only the standard-error tax and sees each point on
+        its own. Zeros when no per-feature reference is fitted (legacy
+        checkpoints), matching their pre-upgrade channel set.
+        """
+        if len(data) == 0:
+            return np.zeros(0)
+        data_2d = data.reshape(len(data), -1)
+        if (
+            self.feature_mean_ is None
+            or self.feature_std_ is None
+            or data_2d.shape[1] != self.feature_mean_.shape[0]
+            or len(data_2d) == 0
+        ):
+            return np.zeros(len(data))
+
+        width = min(self.window_size, max(len(data_2d) - 1, 1))
+        csum = np.vstack([np.zeros((1, data_2d.shape[1])), np.cumsum(data_2d, axis=0)])
+        positions = np.arange(len(data_2d))
+        counts = np.minimum(positions, width)
+        tail = positions - counts
+        with np.errstate(invalid="ignore", divide="ignore"):
+            predicted = (csum[positions] - csum[tail]) / np.maximum(counts, 1)[:, None]
+        # No history at t=0: predict from the fitted level, whose standard
+        # error term vanishes (1/count -> 0 for the reference mean).
+        predicted[counts == 0] = self.feature_mean_
+        stderr = np.sqrt(1.0 + 1.0 / np.maximum(counts, 1).astype(np.float64))
+        stderr[counts == 0] = 1.0
+        z = np.abs(data_2d - predicted) / (self.feature_std_ * stderr[:, None])
+        return _reduce_feature_z(z)
 
     def _detect_sudden_changes(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Detect sudden changes in values.
@@ -276,24 +423,41 @@ class TemporalAnomalyDetector(BaseDetector):
         if len(data) < 2:
             return np.zeros(len(data))
 
-        if data.ndim == 1:
-            diffs = np.diff(data, prepend=data[0])
-        else:
-            diffs = np.diff(data, axis=0, prepend=data[0:1])
+        if len(data) == 0:
+            return np.zeros(0)
+        data_2d = data.reshape(len(data), -1)
+        diffs = np.diff(data_2d, axis=0, prepend=data_2d[0:1])
 
-        diff_mean = np.mean(np.abs(diffs), axis=0)
-        diff_std = np.std(diffs, axis=0) + 1e-6
+        # Score innovations against the FITTED diff statistics when they
+        # exist for this width. The batch's own statistics (the previous
+        # reference, kept as the fallback) are contaminated by the very
+        # anomalies being scored: one large spike inflates the scale that
+        # should expose it and every other spike in the batch.
+        if self.diff_std_ is not None and self.diff_std_.shape[0] == data_2d.shape[1]:
+            diff_mean = self.diff_mean_
+            diff_std = self.diff_std_
+        else:
+            diff_mean = np.mean(np.abs(diffs), axis=0)
+            diff_std = np.std(diffs, axis=0) + 1e-6
 
         z_scores = np.abs(diffs - diff_mean) / diff_std
+        row_z = _reduce_feature_z(z_scores)
 
-        if data.ndim == 1:
-            # Soft normalization: score / (threshold + score) for asymptotic behavior
-            scores = z_scores / (self.change_threshold + z_scores)
-        else:
-            max_z = np.max(z_scores, axis=1)
-            scores = max_z / (self.change_threshold + max_z)
+        # A point anomaly at t produces a large step INTO t and a large step
+        # OUT of it, while t's normal successor has only the large step in,
+        # so the per-point score is min(step in, step out): the spike keeps
+        # its score and stops bleeding onto the next point as a false alarm.
+        # The last point has no outgoing step and keeps its incoming one, and
+        # a level shift (large in, small out) is the trend channel's case.
+        z_out = np.empty_like(row_z)
+        z_out[:-1] = row_z[1:]
+        z_out[-1] = row_z[-1]
+        point_z = np.minimum(row_z, z_out)
 
-        return scores
+        # change_threshold keeps its sensitivity meaning on the z scale: the
+        # default 2.0 is neutral, a lower value amplifies this channel's z.
+        result: np.ndarray[Any, Any] = point_z * (2.0 / self.change_threshold)
+        return result
 
     def get_fitted_state(self) -> dict[str, Any] | None:
         """Export the fitted state for checkpoint round-tripping.
@@ -312,6 +476,10 @@ class TemporalAnomalyDetector(BaseDetector):
         return {
             "baseline_mean": self.baseline_mean,
             "baseline_std": self.baseline_std,
+            "feature_mean": self.feature_mean_,
+            "feature_std": self.feature_std_,
+            "diff_mean": self.diff_mean_,
+            "diff_std": self.diff_std_,
             "lstm_state_dict": dict(self.lstm.state_dict()) if self.lstm is not None else None,
         }
 
@@ -323,6 +491,17 @@ class TemporalAnomalyDetector(BaseDetector):
         self.baseline_std = (
             float(state["baseline_std"]) if state["baseline_std"] is not None else None
         )
+        # Legacy checkpoints carry no per-feature references: detect() then
+        # scores from the batch's own statistics (the pre-upgrade reference
+        # for each channel; the channel combiner applies to every state).
+        for attr, key in (
+            ("feature_mean_", "feature_mean"),
+            ("feature_std_", "feature_std"),
+            ("diff_mean_", "diff_mean"),
+            ("diff_std_", "diff_std"),
+        ):
+            value = state.get(key)
+            setattr(self, attr, np.asarray(value, dtype=np.float64) if value is not None else None)
         lstm_state = state.get("lstm_state_dict")
         if lstm_state is not None and self.lstm is not None:
             self.lstm.load_state_dict(lstm_state)

@@ -1,6 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Windowed trend scoring matches the point-by-point loop it replaced."""
+"""The LEGACY windowed trend scoring matches the point-by-point loop it replaced.
+
+The batch-local windowed z-score is the trend channel's fallback for
+detectors restored from legacy checkpoints (no fitted per-feature
+references); a fitted detector scores trend against the fitted level (see
+tests/detectors/test_base_detector_discrimination.py). These parity tests
+drive unfitted detectors, which take the legacy path, and compare raw z:
+since the 2026-10 rebuild the channels return raw z and detect() squashes
+the combined channels once.
+"""
 
 from __future__ import annotations
 
@@ -29,7 +38,7 @@ def _reference_trend(data: Array, window_size: int) -> Array:
             window_mean = np.mean(window, axis=0)
             window_std = np.std(window, axis=0) + 1e-6
             z_score = np.max(np.abs((current - window_mean) / window_std))
-        scores[i] = z_score / (3.0 + z_score)
+        scores[i] = z_score
     return scores
 
 
