@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+import math
 from typing import Any
 
 import numpy as np
@@ -410,6 +411,10 @@ class MercuryAnomalyDetector(BaseDetector):
         self._knn_scale: np.ndarray[Any, Any] | None = None
         self._knn_k: int = 0
         self._knn_ref_stats: tuple[float, float] | None = None
+        # Fusion weight of the kNN z-stream, set at fit time from the data's
+        # feature width (see _knn_dimension_weight) or pinned by the
+        # ``knn_stream_weight`` config key. None means the stream is off.
+        self._knn_fusion_weight: float | None = None
         # (state key, median, scale) of the ensemble part on the reference
         # sample; recomputed whenever the key (weights, fitted components)
         # changes, so the fusion always aligns the current ensemble.
@@ -2992,6 +2997,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self._knn_k = 0
         self._knn_ref_stats = None
         self._knn_live_stats = None
+        self._knn_fusion_weight = None
         if not self._knn_stream_enabled or len(arr) < 3:
             return
         try:
@@ -3026,6 +3032,7 @@ class MercuryAnomalyDetector(BaseDetector):
             self._knn_scale = scale
             self._knn_k = k
             self._knn_ref_stats = ref_stats
+            self._knn_fusion_weight = self._knn_dimension_weight(arr.shape[1])
         except Exception as exc:
             logger.warning("fit: kNN density stream disabled: %s", exc)
 
@@ -3104,6 +3111,45 @@ class MercuryAnomalyDetector(BaseDetector):
         self._knn_live_stats = (key, stats[0], stats[1])
         return stats
 
+    #: Dimensional gate for the kNN stream's fusion weight: midpoint (the
+    #: feature width where both streams weigh equally) and the log-width of
+    #: the transition. Distance concentration erodes nearest-neighbour
+    #: contrast as dimension grows (Beyer et al. 1999; Zimek et al. 2012),
+    #: and the 57-dataset competitive record shows the same split: the kNN
+    #: stream dominates the base ensemble at low width (its 20 losses to the
+    #: PyOD kNN baseline have median d=18.5) while the base ensemble owns
+    #: the high-dimensional sets (its 11 outright wins have median d=400).
+    _KNN_WEIGHT_DIM_MIDPOINT: float = 128.0
+    _KNN_WEIGHT_LOG_SCALE: float = 1.0
+    #: Caps on the fit-time weight: neither stream is ever dropped, because
+    #: both are fallible and the caps bound the damage when the gate's prior
+    #: is wrong for a dataset.
+    _KNN_WEIGHT_MIN: float = 0.35
+    _KNN_WEIGHT_MAX: float = 0.85
+
+    def _knn_dimension_weight(self, n_features: int) -> float:
+        """Fit-time fusion weight of the kNN z-stream, gated on feature width.
+
+        ``knn_stream_weight`` in the config pins an explicit float (clipped
+        to [0, 1]); otherwise a smooth sigmoid in ``log2`` of the feature
+        width interpolates between the caps, equal-weighted at the midpoint.
+        Label-free and fit-time only, so the unsupervised protocol of the
+        competitive benchmark (library defaults, no per-dataset tuning) is
+        respected: the weight is a function of the data's shape, not its
+        labels. Measured on an ADBench dev split before adoption
+        (benchmarks/COMPETITIVE_BENCHMARK.md records the standing): raising
+        the low-dimensional weight recovers most of the gap to the kNN
+        baseline on the sets it was losing, while the high-dimensional cap
+        protects the sets the base ensemble wins.
+        """
+        explicit = self.config.get("knn_stream_weight")
+        if explicit is not None:
+            return float(np.clip(float(explicit), 0.0, 1.0))
+        midpoint = math.log2(self._KNN_WEIGHT_DIM_MIDPOINT)
+        position = (midpoint - math.log2(max(n_features, 1))) / self._KNN_WEIGHT_LOG_SCALE
+        gate = 1.0 / (1.0 + math.exp(-position))
+        return self._KNN_WEIGHT_MIN + (self._KNN_WEIGHT_MAX - self._KNN_WEIGHT_MIN) * gate
+
     def _fuse_knn_stream(
         self,
         data: np.ndarray[Any, Any],
@@ -3112,7 +3158,8 @@ class MercuryAnomalyDetector(BaseDetector):
         """Fuse the kNN stream into the ensemble scores.
 
         Both streams are robust-z standardised against their fit-time
-        references and averaged; the fused z is mapped back into the
+        references and combined at the fit-time dimensional weight
+        (:meth:`_knn_dimension_weight`); the fused z is mapped back into the
         ensemble's own units (``median + scale * z``), so a normal row keeps
         the score scale the ensemble had and fixed thresholds below the
         saturation knee keep their meaning; the upper tail is compressed
@@ -3134,7 +3181,8 @@ class MercuryAnomalyDetector(BaseDetector):
         knn_med, knn_scale = self._knn_ref_stats
         z_live = (combined_scores - live_med) / live_scale
         z_knn = (knn - knn_med) / knn_scale
-        fused = live_med + live_scale * 0.5 * (z_live + z_knn)
+        weight = 0.5 if self._knn_fusion_weight is None else self._knn_fusion_weight
+        fused = live_med + live_scale * ((1.0 - weight) * z_live + weight * z_knn)
         return self._saturate_upper(fused), knn
 
     #: Cap on the stored reference distribution. 2048 sorted float64 scores

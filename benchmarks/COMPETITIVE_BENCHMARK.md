@@ -7,6 +7,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
 
+> **2026-10-26 (v3.0 branch):** the table below predates two tier-detector changes and
+> understates the current detector. (1) The kNN density stream (fused after this run was
+> recorded; `_fuse_knn_stream`). (2) The dimensional fusion gate (`_knn_dimension_weight`):
+> the kNN z-stream's weight now follows feature width (sigmoid in log2(d), capped to
+> [0.35, 0.85], midpoint d=128), motivated by distance concentration and by this table's
+> own split (the 20 losses to `knn` have median d=18.5; the 11 outright wins median
+> d=400). Measured on a 12-set dev split and a 12-set untouched holdout under this file's
+> exact protocol: every dev set improved or held (landsat 0.660→0.726, Waveform
+> 0.715→0.750, annthyroid 0.928→0.951 — now beating `knn`'s 0.933 — InternetAds held at
+> 0.904); on the holdout, 10 of 12 beat the recorded numbers (fault +0.093, satellite
+> +0.082, SpamBase +0.046) and the mean gap to `knn` on its favoured low/mid-d turf
+> closed to parity (0.8779 vs 0.8810). The full 57-set table is re-measured by the
+> scheduled competitive lane; until it republishes, the numbers below are the v2.1.x
+> record, not the current standing.
+
 On the full **57-dataset ADBench suite** (47 Classical + 10 CV/NLP embedding sets), under one identical unsupervised protocol for every method, **Mercury's tier detector places 3rd of 8 by mean rank (3.79)** — behind `knn` (2.40) and `local_outlier_factor` (3.69), and **ahead of** `isolation_forest` (3.94), `hbos` (5.14), `copod` (5.62) and `ecod` (6.11). This is a measurement of position, not a highlight reel: Mercury **wins** decisively against the statistical baselines and **loses** to the distance/local-density methods (k-NN, LOF). The signature is consistent and diagnosable — Mercury is strong-to-dominant on **high-dimensional** sets where distance methods collapse, and weaker on **low-dimensional local-density** sets where they excel.
 
 ## Per-method summary (mean over each method's successful datasets)

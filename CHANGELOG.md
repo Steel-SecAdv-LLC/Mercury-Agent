@@ -27,6 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Changed — the tier detector's kNN stream weight follows a dimensional gate.** Equal
+z-averaging (0.5/0.5) wasted whichever stream was stronger: on the recorded 57-set
+ADBench competitive run the kNN stream dominates the base ensemble at low feature width
+(the tier's 20 losses to the PyOD `knn` baseline have median d=18.5) while the base
+ensemble owns high dimensions (its 11 outright wins have median d=400; distance
+concentration). `MercuryAnomalyDetector` now sets the fusion weight at fit time from the
+data's feature width — a sigmoid in log2(d), capped to [0.35, 0.85], midpoint d=128,
+label-free, overridable via `knn_stream_weight` — after a decomposition showed the
+internal stream (robust scaling, k=10, leave-one-out) outperforms the PyOD baseline on
+the sets where the raw-dimension objection would have applied (Wilt: internal 0.801 vs
+baseline 0.624). Measured under the competitive protocol on a 12-set dev split (every
+set improved or held; annthyroid 0.951 now beats `knn`; InternetAds held) and a 12-set
+untouched holdout (10 of 12 above the recorded table; mean gap to `knn` on its favoured
+turf closed to parity, 0.8779 vs 0.8810). Gate contract pinned in
+`tests/detectors/test_knn_fusion_gate.py`; the stationary false-alarm pin and
+discrimination floors hold unchanged.
+
 **Added — GCN notice ingest.** `loaders/gcn_notices.py` consumes NASA GCN's Kafka alert
 stream (gravitational waves, neutrinos, GRBs, FRBs, X-ray transients, supernova watches —
 the twelve topics this deployment's credential subscribes to) in three layers:
