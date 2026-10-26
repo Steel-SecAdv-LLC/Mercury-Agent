@@ -1455,6 +1455,14 @@ class OmniMercuryEngine(LoggerMixin):
             # untrained projections for aggregating/extra groups). None until
             # trained → no filtering, preserving the untrained-engine contract.
             self._fusion_feature_groups: list[str] | None = None
+            # Raw feature width (X.shape[1]) the engine was fitted on, used to
+            # refuse mismatched inference input with a clear error instead of
+            # a torch shape error deep in a projection (1-D input) or a silent
+            # misalignment against fitted detector state (2-D input). None
+            # until fit_fusion runs; fit_fusion_pooled leaves it None because
+            # its sources may legitimately differ in width. Persisted in the
+            # fusion checkpoint; absent there (legacy checkpoints) means None.
+            self._fitted_feature_width: int | None = None
             # Differentiable symbolic-constraint LTN co-trained with the fusion
             # net when fit_fusion(symbolic_weight>0). Retained after training for
             # explainability (learned detector reliabilities / rule satisfaction).
@@ -1747,6 +1755,7 @@ class OmniMercuryEngine(LoggerMixin):
             )
 
         n_samples = len(X)
+        self._fitted_feature_width = int(X.shape[1])
         logger.info(f"Starting fusion training on {n_samples} samples...")
 
         # Fit base detectors and extract the fusion feature set (detectors +
@@ -4412,6 +4421,43 @@ class OmniMercuryEngine(LoggerMixin):
         )
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_detect_subject)
+    def _check_feature_width(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any], caller: str
+    ) -> None:
+        """Refuse array input whose feature width differs from the fitted width.
+
+        A fitted engine scores input against detector state and fusion
+        projections built for ``X.shape[1]`` columns. A different width used
+        to surface as a raw torch shape error (1-D input reaching a Linear
+        layer) or, worse, pass silently through detectors that tolerate any
+        width, scoring columns against the wrong fitted statistics. A 1-D
+        array counts as one feature column, matching ``fit_fusion``'s
+        documented ``X.reshape(-1, 1)`` convention. Dictionary input is
+        domain-keyed, not columnar, so it is not checked; an unfitted engine
+        (``_fitted_feature_width is None``) is not checked either.
+        """
+        if self._fitted_feature_width is None or isinstance(data, dict):
+            return
+        shape = getattr(data, "shape", None)
+        if shape is None or len(shape) == 0:
+            return
+        width = int(shape[1]) if len(shape) >= 2 else 1
+        if width != self._fitted_feature_width:
+            hint = (
+                " A 1-D array is ambiguous here: pass x.reshape(1, -1) for one "
+                f"sample of {self._fitted_feature_width} features, or "
+                "x.reshape(-1, 1) for a single-feature series (only on an "
+                "engine fitted on one column)."
+                if len(shape) == 1
+                else ""
+            )
+            raise ValueError(
+                f"{caller} got data with {width} feature column(s) but this "
+                f"engine was fitted on {self._fitted_feature_width}. Pass data "
+                f"with shape (n_samples, {self._fitted_feature_width}), or refit "
+                f"the engine on the new feature layout.{hint}"
+            )
+
     def detect(
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
@@ -4454,6 +4500,7 @@ class OmniMercuryEngine(LoggerMixin):
             used as the drift reference, and the next training fit replaces it.
             Dictionary input skips fitting for detectors that require arrays.
         """
+        self._check_feature_width(data, "detect")
         if detector_types is None:
             detector_types = list(self.detectors.keys())
 
@@ -4599,6 +4646,7 @@ class OmniMercuryEngine(LoggerMixin):
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
+        self._check_feature_width(data, "detect_batch")
         n_samples = data.shape[0]
 
         # Dynamic batch size based on memory
@@ -5609,6 +5657,10 @@ class OmniMercuryEngine(LoggerMixin):
             data = data.reshape(1, -1)
         elif isinstance(data, torch.Tensor) and data.dim() == 1:
             data = data.unsqueeze(0)
+
+        # After the 1-D normalization so a single sample is checked as one
+        # row of n features, which is this method's documented reading of it.
+        self._check_feature_width(data, "detect_with_fusion")
 
         det_features, det_scores, det_certificates, det_uncertainties = (
             self._extract_detector_features(data)
@@ -6875,6 +6927,7 @@ class OmniMercuryEngine(LoggerMixin):
             "projection_registry": self.fusion_model.export_projection_registry(),
             "temperature": temperature,
             "feature_groups": self._fusion_feature_groups,
+            "fitted_feature_width": self._fitted_feature_width,
             "symbolic_constraint_state_dict": (
                 self._symbolic_module.state_dict() if self._symbolic_module is not None else None
             ),
@@ -6976,6 +7029,8 @@ class OmniMercuryEngine(LoggerMixin):
 
             groups = checkpoint.get("feature_groups")
             self._fusion_feature_groups = list(groups) if groups is not None else None
+            width = checkpoint.get("fitted_feature_width")
+            self._fitted_feature_width = int(width) if width is not None else None
             symbolic_state = checkpoint.get("symbolic_constraint_state_dict")
             symbolic_config = checkpoint.get("symbolic_constraint_config")
             if symbolic_state is not None and isinstance(symbolic_config, dict):
