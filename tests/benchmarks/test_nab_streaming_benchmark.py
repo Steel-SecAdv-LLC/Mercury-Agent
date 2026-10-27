@@ -11,7 +11,7 @@ scores a leaked anomaly.
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -25,6 +25,9 @@ from benchmarks.nab_streaming_benchmark import (
     load_stream,
     run_benchmark,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Floors sit just under the recorded run (0.840/0.661/0.686/0.728); they
 # assert real detection with headroom for numeric noise, not a tuned number.
