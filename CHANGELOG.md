@@ -64,7 +64,7 @@ before the bump landed. The Dataset Attributions table now credits ALFA (CC0), U
 Robot Execution Failures (CC BY 4.0, which requires attribution), NAB (MIT) and OpenSky
 — corpora this release added without their attribution rows — and the README gains a
 STEAM-exploration badge that states only what is in the repo: real labeled data across
-robotics, UAV, Earth and space.
+robotics, medical (CHB-MIT EEG, PhysioNet sepsis, ADBench clinical sets), Earth and space.
 
 **Added — benevolent-first stand-down greeting on the counter-AI decoy surface.**
 Mercury's fail-closed ethic applied to hostile automation: a probing agent's

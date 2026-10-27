@@ -14,7 +14,7 @@
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
 [![Counter-AI Stand-Down](https://img.shields.io/badge/Counter--AI-Benevolent%20Stand--Down%20%E2%86%92%20Containment-b71c1c.svg)](#counter-ai-containment-rogue-agent-tripwires)
-[![STEAM Exploration](https://img.shields.io/badge/STEAM%20Exploration-Real%20Labeled%20Data%3A%20Robotics%20%C2%B7%20UAV%20%C2%B7%20Earth%20%C2%B7%20Space-2e7d32.svg)](#current-benchmarks-and-visual-proof)
+[![STEAM Exploration](https://img.shields.io/badge/STEAM%20Exploration-Real%20Labeled%20Data%3A%20Robotics%20%C2%B7%20Med%20%C2%B7%20Earth%20%C2%B7%20Space-2e7d32.svg)](#current-benchmarks-and-visual-proof)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![AMA-Cryptography](https://img.shields.io/badge/AMA--Cryptography-PQC%20Adapter-4fc3f7.svg)](#ama-cryptography-integration)
