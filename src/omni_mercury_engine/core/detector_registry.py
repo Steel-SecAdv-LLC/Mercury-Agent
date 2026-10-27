@@ -700,7 +700,12 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Quantum state anomalies",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): scores ROWS of a feature matrix, and
+        # the fitted-reference score demands a fitted normal baseline; the
+        # old series_1d/fit-free declaration served a fixed-direction
+        # heuristic that measured below chance on a planted burst.
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "astrophysical",
@@ -709,7 +714,11 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Cosmic signal anomalies",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): row-wise scoring over a fitted
+        # reference; the old series_1d/fit-free declaration served an
+        # inverted proximity-to-horizon heuristic (burst AUROC 0.000).
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "biometric",
@@ -745,7 +754,11 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Consciousness preservation analysis",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): row-wise scoring over a fitted
+        # reference; the old series_1d/fit-free declaration served unfitted
+        # constant thresholds that separated nothing (burst AUROC 0.644).
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "neurosymbolic",

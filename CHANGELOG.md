@@ -57,6 +57,29 @@ across engine, aileron, rudder and elevator faults
 The drone detector's `decision_source` previously rested on simulated flights
 only; this is its first calibration against real recorded faults.
 
+**Added/Fixed — full-manifest detector evidence sweep; fitted-reference retrofit of the
+exotic models; two harness corrections.** Every one of the 113 manifest detectors now has a
+measured, machine-readable evidence row (`artifacts/detector_evidence/`): 44 graded on real
+labeled data (4 NAB streams, 5 ADBench clinical sets), 69 classified domain-wired pending
+domain packs, tiers computed from the numbers (T0-T5 scheme). The sweep found, and this entry
+fixes, three detectors broken by *fixed, unfitted scoring directions*: `astrophysical` scored
+a planted 12-sigma burst at AUROC 0.000 (its score was proximity-to-horizon = 1/norm, so loud
+events ranked safest), `quantum` at 0.33 (below chance), `consciousness` at 0.644 with no
+separation. All three keep their feature identity and now score calibrated robust deviation
+from a reference fitted on normal data (`models/fitted_reference.py`: median/MAD center-scale,
+empirical-CDF calibration with a strictly monotone tail; unfitted scoring is refused, never
+served). Re-measured under the identical sweep protocol: burst AUROC 1.000 for all three;
+ADBench means 0.805 / 0.825 / 0.719. Declared, measured blind spot: the quantum and
+consciousness feature maps are scale-invariant, so pure amplitude collapse is invisible by
+representation - pinned as a `cannot_detect` fact in
+`tests/models/test_fitted_reference_models.py` alongside burst-competency and real-data
+floors. Also fixed: a latent `quantum.extract_features` crash on inputs narrower than 8
+columns (amplitudes were padded, states were not). Manifest truth corrected for the three
+(`modality="matrix_2d"`, `fit_required=True`). Honest both ways: rev 2 of the evidence table
+corrects two rev-1 *harness* errors - `info_geometry` (0.891) and `adaptive_anomaly` (0.883)
+were never broken; the sweep drove `detect()` on registry-seam detectors that expose
+`fit()+predict()`. They rank 2nd and 3rd of all graded detectors.
+
 **Changed — lint toolchain and README provenance.** `ruff` is bumped 0.17.1 → 0.17.2
 (rolls up Dependabot #383) across all three pin surfaces the parity gate enforces
 (`ci.yml`, `pyproject.toml [dev]`, `.pre-commit-config.yaml`), verified clean tree-wide

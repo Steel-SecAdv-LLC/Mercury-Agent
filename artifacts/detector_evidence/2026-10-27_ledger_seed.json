@@ -1,0 +1,2003 @@
+{
+ "generated": "2026-10-27T18:16:04.679583+00:00",
+ "head": "d6e3f23f",
+ "tiers": {
+  "adversarial_autoencoder": "T3",
+  "directive": "T3",
+  "rca": "T3",
+  "copod": "T3",
+  "kmeans_distance": "T3",
+  "lstm_autoencoder": "T3",
+  "echo_state": "T2",
+  "spatial": "T2",
+  "energy_based": "T2",
+  "srcnn": "T2",
+  "deep_svdd": "T2",
+  "diffusion_ad": "T2",
+  "bocpd": "T2",
+  "temporal": "T2",
+  "extended_statistical": "T2",
+  "digital_twin": "T2",
+  "survival": "T1",
+  "particle_filter": "T1",
+  "spiking": "T1",
+  "page_hinkley": "T1",
+  "statistical": "T1",
+  "gaussian_process": "T1",
+  "dimensional": "T1",
+  "hawkes": "T1",
+  "spot_evt": "T1",
+  "imm": "T1",
+  "spectral_residual": "T1",
+  "sprt": "T1",
+  "chronos": "T1",
+  "matrix_profile": "T1",
+  "foundation_ensemble": "T1",
+  "frequent_pattern": "T1",
+  "quantum": "T3",
+  "astrophysical": "T3",
+  "biometric": "T1",
+  "affective": "T0",
+  "neural_cognitive": "T1",
+  "consciousness": "T2",
+  "chemistry": "T0",
+  "parapsychology": "T0",
+  "nano_safeguard": "T1",
+  "adaptive_anomaly": "T3",
+  "topological": "T1",
+  "info_geometry": "T3"
+ },
+ "burst_probe": {
+  "quantum": 0.329,
+  "astrophysical": 0.0,
+  "biometric": 1.0,
+  "affective": 0.5,
+  "neural_cognitive": 0.999,
+  "consciousness": 0.644,
+  "chemistry": 0.5,
+  "parapsychology": 0.5
+ },
+ "sweep": {
+  "results": [
+   {
+    "name": "statistical",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6317880252272914,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6171183277342291,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.4990793309805125,
+      "config": "default",
+      "secs": 1.9
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5220100161276632,
+      "config": "default",
+      "secs": 2.0
+     }
+    }
+   },
+   {
+    "name": "temporal",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.7451060692931444,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6643486375513251,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.605945134946209,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5544181308887192,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "spatial",
+    "category": "BASE",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "scored",
+      "auroc": 0.8405128205128205,
+      "config": "default",
+      "secs": 1.3
+     },
+     "wbc": {
+      "status": "scored",
+      "auroc": 0.9516431924882629,
+      "config": "default",
+      "secs": 0.0
+     },
+     "cardio": {
+      "status": "scored",
+      "auroc": 0.5464261191980225,
+      "config": "default",
+      "secs": 0.2
+     },
+     "pima_real": {
+      "status": "scored",
+      "auroc": 0.5740597014925373,
+      "config": "default",
+      "secs": 0.0
+     },
+     "breastw": {
+      "status": "scored",
+      "auroc": 0.4440046741301971,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "dimensional",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6039909083463019,
+      "config": "default",
+      "secs": 15.6
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.42920492721164616,
+      "config": "default",
+      "secs": 0.4
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.5536545445245767,
+      "config": "default",
+      "secs": 0.2
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5662564015505192,
+      "config": "default",
+      "secs": 0.9
+     }
+    }
+   },
+   {
+    "name": "directive",
+    "category": "BASE",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "scored",
+      "auroc": 0.9047179487179488,
+      "config": "default",
+      "secs": 0.4
+     },
+     "wbc": {
+      "status": "scored",
+      "auroc": 0.968075117370892,
+      "config": "default",
+      "secs": 0.0
+     },
+     "cardio": {
+      "status": "scored",
+      "auroc": 0.9231907443010162,
+      "config": "default",
+      "secs": 0.2
+     },
+     "pima_real": {
+      "status": "scored",
+      "auroc": 0.7155149253731343,
+      "config": "default",
+      "secs": 0.0
+     },
+     "breastw": {
+      "status": "scored",
+      "auroc": 0.994496588638848,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "kmeans_distance",
+    "category": "BASE",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "scored",
+      "auroc": 0.9265230769230769,
+      "config": "default",
+      "secs": 3.0
+     },
+     "wbc": {
+      "status": "scored",
+      "auroc": 0.9779342723004695,
+      "config": "default",
+      "secs": 0.0
+     },
+     "cardio": {
+      "status": "scored",
+      "auroc": 0.7397109310628948,
+      "config": "default",
+      "secs": 0.0
+     },
+     "pima_real": {
+      "status": "scored",
+      "auroc": 0.6442611940298507,
+      "config": "default",
+      "secs": 0.0
+     },
+     "breastw": {
+      "status": "scored",
+      "auroc": 0.9664141128576275,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "spectral_residual",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.487396592677533,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.5245502053004852,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.47887576083064803,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.4852559205500382,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "bocpd",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6431423540011467,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.37128406121687196,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.8790257957819719,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.6864669099963218,
+      "config": "default",
+      "secs": 0.1
+     }
+    }
+   },
+   {
+    "name": "sprt",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.3100991072159882,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.4820977976857036,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.5998755391881063,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5774665421724245,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "page_hinkley",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.41310713408141536,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6055580440462859,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.759176853698873,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5245621480915599,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "spot_evt",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.4970308788598575,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.49858156028368794,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.49946294307196565,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5159211159211159,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "hawkes",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.5748013760340732,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6170903322135125,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.4533698191055871,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.48574823868941513,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "particle_filter",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6547219264477026,
+      "config": "default",
+      "secs": 0.2
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.43606196341918624,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.7104154945186094,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5575135104546869,
+      "config": "default",
+      "secs": 0.1
+     }
+    }
+   },
+   {
+    "name": "imm",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6613563764436072,
+      "config": "default",
+      "secs": 0.2
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.37025009331840236,
+      "config": "default",
+      "secs": 0.2
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.46235486675873355,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5076535664770959,
+      "config": "default",
+      "secs": 0.2
+     }
+    }
+   },
+   {
+    "name": "gaussian_process",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6107686952248341,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.39630085852930197,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.6636233440744719,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5800696035990154,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "echo_state",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6495822753706282,
+      "config": "default",
+      "secs": 0.7
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.7059555804404628,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.6957615126251002,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.7142857142857143,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "spiking",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6972315504955361,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6600055991041434,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.40500912144306345,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5787228022522141,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "digital_twin",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.7200630682283561,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6318551698394923,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.5759210952551447,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5011628893981835,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "survival",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6862509214513883,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6402314296379246,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.48789490733636814,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5731488555017967,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "energy_based",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.7446760586452617,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6454311310190369,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.7175165805670639,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5704495939790057,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "deep_svdd",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.7558051437464166,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6710526315789473,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.6083491040526486,
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5978892567127861,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "rca",
+    "category": "BASE",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "scored",
+      "auroc": 0.926,
+      "config": "default",
+      "secs": 0.0
+     },
+     "wbc": {
+      "status": "scored",
+      "auroc": 0.9744131455399061,
+      "config": "default",
+      "secs": 0.0
+     },
+     "cardio": {
+      "status": "scored",
+      "auroc": 0.9322404559187036,
+      "config": "default",
+      "secs": 0.0
+     },
+     "pima_real": {
+      "status": "scored",
+      "auroc": 0.6726194029850746,
+      "config": "default",
+      "secs": 0.0
+     },
+     "breastw": {
+      "status": "scored",
+      "auroc": 0.9648403633759283,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "frequent_pattern",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.6
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.2
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.1
+     }
+    }
+   },
+   {
+    "name": "srcnn",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.7422802850356295,
+      "config": "default",
+      "secs": 10.2
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.4771108622620381,
+      "config": "default",
+      "secs": 0.4
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.6346989923789065,
+      "config": "default",
+      "secs": 0.2
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.8174235350705938,
+      "config": "default",
+      "secs": 0.2
+     }
+    }
+   },
+   {
+    "name": "diffusion_ad",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.8449811614382833,
+      "config": "default",
+      "secs": 8.4
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.567711832773423,
+      "config": "default",
+      "secs": 0.2
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.5108008115526913,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.670011034716917,
+      "config": "default",
+      "secs": 0.1
+     }
+    }
+   },
+   {
+    "name": "quantum",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "astrophysical",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "biometric",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "affective",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "neural_cognitive",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "consciousness",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "chemistry",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "parapsychology",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.2
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "copod",
+    "category": "MODEL",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "scored",
+      "auroc": 0.7711692307692307,
+      "config": "default",
+      "secs": 0.5
+     },
+     "wbc": {
+      "status": "scored",
+      "auroc": 0.9943661971830986,
+      "config": "default",
+      "secs": 0.0
+     },
+     "cardio": {
+      "status": "scored",
+      "auroc": 0.9050638560834936,
+      "config": "default",
+      "secs": 0.0
+     },
+     "pima_real": {
+      "status": "scored",
+      "auroc": 0.6600447761194029,
+      "config": "default",
+      "secs": 0.0
+     },
+     "breastw": {
+      "status": "scored",
+      "auroc": 0.9892758867654265,
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "adversarial_autoencoder",
+    "category": "MODEL",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "timeout"
+     },
+     "wbc": {
+      "status": "scored",
+      "auroc": 0.9971830985915493,
+      "config": "default",
+      "secs": 51.1
+     },
+     "cardio": {
+      "status": "timeout"
+     },
+     "pima_real": {
+      "status": "timeout"
+     },
+     "breastw": {
+      "status": "timeout"
+     }
+    }
+   },
+   {
+    "name": "lstm_autoencoder",
+    "category": "MODEL",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.9495044639200589,
+      "config": "default",
+      "secs": 844.3
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.5856700261291526,
+      "config": "default",
+      "secs": 341.4
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.787180536374951,
+      "config": "default",
+      "secs": 249.5
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.9939620292561469,
+      "config": "default",
+      "secs": 531.8
+     }
+    }
+   },
+   {
+    "name": "nano_safeguard",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAWSCloudwatch": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "realAdExchange": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.1
+     }
+    }
+   },
+   {
+    "name": "chronos",
+    "category": "FOUNDATION",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6083063723482677,
+      "config": "default",
+      "secs": 2100.6
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.48215005599104144,
+      "config": "default",
+      "secs": 464.8
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.1079484425349087,
+      "config": "default",
+      "secs": 244.0
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.28408454290807233,
+      "config": "default",
+      "secs": 353.4
+     }
+    }
+   },
+   {
+    "name": "matrix_profile",
+    "category": "FOUNDATION",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.07275882545663036,
+      "config": "default",
+      "secs": 81.5
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.4656737588652482,
+      "config": "default",
+      "secs": 1.3
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.5347424684159378,
+      "config": "default",
+      "secs": 1.3
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.3492572786690434,
+      "config": "default",
+      "secs": 1.3
+     }
+    }
+   },
+   {
+    "name": "foundation_ensemble",
+    "category": "FOUNDATION",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.07275882545663036,
+      "config": "default",
+      "secs": 1.7
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.4656737588652482,
+      "config": "default",
+      "secs": 1.1
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.5347424684159378,
+      "config": "default",
+      "secs": 1.1
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.3492572786690434,
+      "config": "default",
+      "secs": 1.1
+     }
+    }
+   },
+   {
+    "name": "extended_statistical",
+    "category": "BASE",
+    "modality": "series_1d",
+    "data": {
+     "realTraffic": {
+      "status": "scored",
+      "auroc": 0.6682365468097305,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realKnownCause": {
+      "status": "scored",
+      "auroc": 0.6479357969391564,
+      "config": "default",
+      "secs": 0.2
+     },
+     "realAWSCloudwatch": {
+      "status": "scored",
+      "auroc": 0.6517995669445723,
+      "config": "default",
+      "secs": 0.1
+     },
+     "realAdExchange": {
+      "status": "scored",
+      "auroc": 0.5218742042271454,
+      "config": "default",
+      "secs": 0.2
+     }
+    }
+   },
+   {
+    "name": "adaptive_anomaly",
+    "category": "BASE",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.2
+     },
+     "wbc": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "cardio": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 1.6
+     },
+     "pima_real": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     },
+     "breastw": {
+      "status": "no_per_point_scores",
+      "config": "default",
+      "secs": 0.0
+     }
+    }
+   },
+   {
+    "name": "topological",
+    "category": "BASE",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "timeout"
+     },
+     "wbc": {
+      "status": "refused",
+      "error": "AttributeError: 'TopologicalAnomalyDetector' object has no attribute 'detect'"
+     },
+     "cardio": {
+      "status": "timeout"
+     },
+     "pima_real": {
+      "status": "timeout"
+     },
+     "breastw": {
+      "status": "refused",
+      "error": "AttributeError: 'TopologicalAnomalyDetector' object has no attribute 'detect'"
+     }
+    }
+   },
+   {
+    "name": "info_geometry",
+    "category": "BASE",
+    "modality": "matrix_2d",
+    "data": {
+     "thyroid": {
+      "status": "refused",
+      "error": "AttributeError: 'InformationGeometryDetector' object has no attribute 'detect'"
+     },
+     "wbc": {
+      "status": "refused",
+      "error": "AttributeError: 'InformationGeometryDetector' object has no attribute 'detect'"
+     },
+     "cardio": {
+      "status": "refused",
+      "error": "AttributeError: 'InformationGeometryDetector' object has no attribute 'detect'"
+     },
+     "pima_real": {
+      "status": "refused",
+      "error": "AttributeError: 'InformationGeometryDetector' object has no attribute 'detect'"
+     },
+     "breastw": {
+      "status": "refused",
+      "error": "AttributeError: 'InformationGeometryDetector' object has no attribute 'detect'"
+     }
+    }
+   }
+  ],
+  "skipped": [
+   {
+    "name": "geo_movement",
+    "category": "BASE",
+    "modality": "trajectory",
+    "module_path": "omni_mercury_engine.detectors.geo_movement",
+    "class_name": "GeoMovementAnomalyDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "graph_based",
+    "category": "BASE",
+    "modality": "graph",
+    "module_path": "omni_mercury_engine.detectors.graph_based",
+    "class_name": "GraphAnomalyDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "deeplog_sequence",
+    "category": "BASE",
+    "modality": "event",
+    "module_path": "omni_mercury_engine.detectors.deeplog_sequence",
+    "class_name": "DeepLogSequenceDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "neurosymbolic",
+    "category": "NEUROSYMBOLIC",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.models.neurosymbolic",
+    "class_name": "NeurosymbolicEngine",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "threat_detection",
+    "category": "SECURITY",
+    "modality": "text",
+    "module_path": "omni_mercury_engine.detectors.adapters.society",
+    "class_name": "ThreatPayloadAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "psyop",
+    "category": "INTELLIGENCE",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.security.psyop",
+    "class_name": "PSYOPAnalyzer",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "intelligence_fusion",
+    "category": "INTELLIGENCE",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.security.intelligence_fusion",
+    "class_name": "IntelligenceFusionEngine",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "schumann_resonance",
+    "category": "SPACE",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.space.schumann_resonance",
+    "class_name": "SchumannResonanceDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "solar_storm",
+    "category": "SPACE",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.adapters.space",
+    "class_name": "SolarStormSnapshotAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "solar_flare",
+    "category": "SPACE",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.space.solar_storm_detector",
+    "class_name": "SolarFlareDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "medical_abms",
+    "category": "MEDICAL",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.medical.abms_disciplines",
+    "class_name": "ABMSDisciplineDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "sepsis",
+    "category": "MEDICAL",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.medical",
+    "class_name": "SepsisRecordAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "case_surge",
+    "category": "MEDICAL",
+    "modality": "window",
+    "module_path": "omni_mercury_engine.detectors.adapters.medical",
+    "class_name": "CaseSurgeWindowAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "volcanic",
+    "category": "GEOLOGICAL",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "VolcanicAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "landslide",
+    "category": "GEOLOGICAL",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "LandslideAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "wildfire",
+    "category": "GEOLOGICAL",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "WildfireSceneAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "tornado",
+    "category": "GEOLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.geological.tornado_detector",
+    "class_name": "TornadoDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "hurricane",
+    "category": "GEOLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.geological.hurricane_detector",
+    "class_name": "HurricaneDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "flood",
+    "category": "GEOLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.geological.flood_detector",
+    "class_name": "FloodDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "earthquake",
+    "category": "GEOLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.geological.disaster_detectors",
+    "class_name": "EarthquakeDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "tsunami",
+    "category": "GEOLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.geological.disaster_detectors",
+    "class_name": "TsunamiDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "meteor",
+    "category": "GEOLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.geological.disaster_detectors",
+    "class_name": "MeteorDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "pm25_air_quality",
+    "category": "METEOROLOGICAL",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "PM25AirQualityAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "drought",
+    "category": "METEOROLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.meteorological.drought_detector",
+    "class_name": "DroughtDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "heatwave",
+    "category": "METEOROLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.meteorological.heatwave_detector",
+    "class_name": "HeatwaveDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "atmospheric_river",
+    "category": "METEOROLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.meteorological.atmospheric_river_detector",
+    "class_name": "AtmosphericRiverDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "lightning",
+    "category": "METEOROLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.meteorological.lightning_detector",
+    "class_name": "LightningDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "hail",
+    "category": "METEOROLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.meteorological.hail_detector",
+    "class_name": "HailDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "winter_storm",
+    "category": "METEOROLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.meteorological.winter_storm_detector",
+    "class_name": "WinterStormDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "derecho",
+    "category": "METEOROLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.meteorological.derecho_detector",
+    "class_name": "DerechoDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "dust_storm",
+    "category": "METEOROLOGICAL",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.meteorological.dust_storm_detector",
+    "class_name": "DustStormDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "surge_flood_cascade",
+    "category": "METEOROLOGICAL",
+    "modality": "event",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "SurgeFloodCascadeAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "avalanche",
+    "category": "GEOLOGICAL",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "AvalancheProfileAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "rockfall",
+    "category": "GEOLOGICAL",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "RockfallAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "subsidence",
+    "category": "GEOLOGICAL",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "SubsidenceAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "eq_tsunami_cascade",
+    "category": "GEOLOGICAL",
+    "modality": "event",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "EqTsunamiCascadeAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "fire_debris_flow_cascade",
+    "category": "GEOLOGICAL",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "FireDebrisFlowAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "cme_arrival",
+    "category": "SPACE",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.adapters.space",
+    "class_name": "CMEArrivalAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "sep_storm",
+    "category": "SPACE",
+    "modality": "window",
+    "module_path": "omni_mercury_engine.detectors.adapters.space",
+    "class_name": "SEPProtonWindowAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "ionospheric_scintillation",
+    "category": "SPACE",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.space",
+    "class_name": "ScintillationAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "gic",
+    "category": "SPACE",
+    "modality": "window",
+    "module_path": "omni_mercury_engine.detectors.adapters.space",
+    "class_name": "GICWindowAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "solar_gic_cascade",
+    "category": "SPACE",
+    "modality": "event",
+    "module_path": "omni_mercury_engine.detectors.adapters.space",
+    "class_name": "SolarGICCascadeAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "financial_crisis",
+    "category": "ECONOMIC",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.society",
+    "class_name": "FinancialCrisisRecordAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "emp",
+    "category": "ENERGY",
+    "modality": "record",
+    "module_path": "omni_mercury_engine.detectors.adapters.society",
+    "class_name": "EMPRecordAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "marine_biodiversity",
+    "category": "MARINE",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.adapters.earth",
+    "class_name": "MarineEcosystemAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "realtime_threat",
+    "category": "SECURITY",
+    "modality": "matrix_2d",
+    "module_path": "omni_mercury_engine.security.realtime_threat_detection",
+    "class_name": "RealTimeThreatDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "drone",
+    "category": "UAV",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.drone.detector",
+    "class_name": "DroneAnomalyDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "patchcore",
+    "category": "VISUAL",
+    "modality": "image_batch",
+    "module_path": "omni_mercury_engine.detectors.visual",
+    "class_name": "PatchCoreDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "padim",
+    "category": "VISUAL",
+    "modality": "image_batch",
+    "module_path": "omni_mercury_engine.detectors.visual",
+    "class_name": "PaDiMDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "stfpm",
+    "category": "VISUAL",
+    "modality": "image_batch",
+    "module_path": "omni_mercury_engine.detectors.visual",
+    "class_name": "STFPMDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "reverse_distillation",
+    "category": "VISUAL",
+    "modality": "image_batch",
+    "module_path": "omni_mercury_engine.detectors.visual",
+    "class_name": "ReverseDistillationDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "cflow",
+    "category": "VISUAL",
+    "modality": "image_batch",
+    "module_path": "omni_mercury_engine.detectors.visual",
+    "class_name": "CFlowDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "anyanomaly",
+    "category": "VLM",
+    "modality": "video_frames",
+    "module_path": "omni_mercury_engine.detectors.vlm",
+    "class_name": "AnyAnomalyDetector",
+    "why": "external optional extra"
+   },
+   {
+    "name": "lavad",
+    "category": "VLM",
+    "modality": "video_frames",
+    "module_path": "omni_mercury_engine.detectors.vlm",
+    "class_name": "LAVADDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "timegpt",
+    "category": "FOUNDATION",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.models.foundation",
+    "class_name": "TimeGPTAdapter",
+    "why": "external optional extra"
+   },
+   {
+    "name": "dual_student",
+    "category": "DISTILLATION",
+    "modality": "image_batch",
+    "module_path": "omni_mercury_engine.ml.distillation",
+    "class_name": "DualStudentDistillation",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "spectral_vibration",
+    "category": "PHYSICS",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.spectral_vibration",
+    "class_name": "SpectralVibrationDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "acceleration_dynamics",
+    "category": "PHYSICS",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.acceleration_dynamics",
+    "class_name": "AccelerationDynamicsDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "uiux_anomaly",
+    "category": "UIUX",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.uiux_anomaly",
+    "class_name": "UIUXAnomalyDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "physics_integrated",
+    "category": "PHYSICS",
+    "modality": "matrix_2d",
+    "module_path": "omni_mercury_engine.detectors.physics_integration",
+    "class_name": "PhysicsIntegratedDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "spectral_domain_frequency",
+    "category": "PHYSICS",
+    "modality": "series_1d",
+    "module_path": "omni_mercury_engine.detectors.spectral_domain_frequency",
+    "class_name": "SpectralDomainFrequency",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "tornado_conditions",
+    "category": "GEOLOGICAL",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.hazard_adapter",
+    "class_name": "TornadoConditionsAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "hurricane_pressure",
+    "category": "GEOLOGICAL",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.hazard_adapter",
+    "class_name": "HurricanePressureAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "flood_precipitation",
+    "category": "GEOLOGICAL",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.hazard_adapter",
+    "class_name": "FloodPrecipitationAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "financial_stress",
+    "category": "ECONOMIC",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.hazard_adapter",
+    "class_name": "FinancialStressAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "solar_wind_geomag",
+    "category": "SPACE",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.hazard_adapter",
+    "class_name": "SolarWindGeomagAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "xray_flare",
+    "category": "SPACE",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.hazard_adapter",
+    "class_name": "XrayFlareAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "gic_minute_series",
+    "category": "SPACE",
+    "modality": "rows",
+    "module_path": "omni_mercury_engine.detectors.hazard_adapter",
+    "class_name": "GICMinuteSeriesAdapter",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   },
+   {
+    "name": "multivariate_ts",
+    "category": "BASE",
+    "modality": "windows_3d",
+    "module_path": "omni_mercury_engine.detectors.multivariate_timeseries",
+    "class_name": "MultivariateTSDetector",
+    "why": "domain/modality-specific: not gradable on generic series/tabular"
+   }
+  ]
+ },
+ "rev": 2,
+ "rev2_corrections": {
+  "harness_errors": {
+   "info_geometry": {
+    "adbench_mean_auroc": 0.891
+   },
+   "adaptive_anomaly": {
+    "adbench_mean_auroc": 0.883
+   }
+  },
+  "fixed_via_fitted_reference": {
+   "astrophysical": {
+    "adbench_mean_auroc": 0.805,
+    "burst_hi": 1.0,
+    "burst_lo": 1.0,
+    "was": {
+     "burst_hi": 0.0
+    }
+   },
+   "quantum": {
+    "adbench_mean_auroc": 0.825,
+    "burst_hi": 1.0,
+    "burst_lo": 0.467,
+    "cannot_detect": [
+     "amplitude-scale anomalies (scale-invariant features)"
+    ],
+    "was": {
+     "burst_hi": 0.329
+    },
+    "also_fixed": "latent <8-column extract_features crash"
+   },
+   "consciousness": {
+    "adbench_mean_auroc": 0.719,
+    "burst_hi": 1.0,
+    "burst_lo": 0.545,
+    "cannot_detect": [
+     "amplitude-scale anomalies (scale-invariant features)"
+    ],
+    "was": {
+     "burst_hi": 0.644
+    }
+   }
+  },
+  "protocol": "identical to rev-1 sweep (fit on full contaminated matrix; ADBench thyroid/wbc/cardio/pima_real/breastw)",
+  "pinned_by": "tests/models/test_fitted_reference_models.py",
+  "generated": "2026-10-27T18:41:34.659806+00:00"
+ }
+}

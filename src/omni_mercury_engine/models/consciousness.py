@@ -9,30 +9,32 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.detectors.provenance import DecisionSource
+from omni_mercury_engine.models.fitted_reference import FittedReferenceScorer
 
 #: Rows whose 16 x 16 state matrices are decomposed in one stacked call.
 _ENTANGLEMENT_BLOCK_ROWS = 16384
 
 
-class ConsciousnessPreservationModel:
-    """Model for consciousness state preservation and anomaly detection.
+class ConsciousnessPreservationModel(FittedReferenceScorer):
+    """Pattern-coherence features scored as deviation from a fitted reference.
 
-    EXPERIMENTAL: the decision rule (anomaly when the Fourier-pattern
-    coherence falls below ``coherence_threshold``, default 0.5, else the
-    eigen-entropy "entanglement" scaled by 1/4) is a quantum-inspired
-    engineering heuristic.  No published threshold exists for these
-    composites and no labelled corpus is available to calibrate one, so
-    verdicts from this model are experimental signals, not validated
-    detections (see :attr:`decision_source`).
+    The pre-2026-10-27 rule (anomaly when Fourier-pattern coherence fell
+    below a constant threshold, else eigen-entropy / 4) separated nothing
+    on a planted 12-sigma burst (AUROC 0.644; score means 0.228 clean vs
+    0.224 burst): the thresholds were never fitted to any notion of
+    normal. The coherence/entanglement feature encoding is kept; the
+    anomaly score is now the calibrated deviation of those features from a
+    reference fitted on normal data (:class:`FittedReferenceScorer`).
     """
 
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "Coherence (1 - sum p^2 of FFT amplitude shares) below the "
-            "configured threshold (default 0.5), else eigen-entropy / 4: a "
-            "quantum-inspired heuristic with no published threshold and no "
-            "labelled corpus to calibrate one; verdicts are experimental."
+            "Calibrated robust deviation of Fourier-pattern features "
+            "(state components, coherence, eigen-entropy) from a reference "
+            "fitted on normal data; direction-free by construction; no "
+            "labelled corpus backs a domain tier yet, so verdicts remain "
+            "experimental."
         ),
     )
 
@@ -127,22 +129,27 @@ class ConsciousnessPreservationModel:
         if data_array.ndim == 1:
             data_array = data_array.reshape(1, -1)
 
-        batch_size = data_array.shape[0]
-
         pattern_states = self._encode_pattern_states(data_array)
         coherence = self._measure_pattern_coherence(pattern_states)
         entanglement = self._compute_entanglement(pattern_states)
 
-        anomaly_scores = np.zeros(batch_size, dtype=np.float32)
-        for i in range(batch_size):
-            if coherence[i] < self.coherence_threshold:
-                anomaly_scores[i] = 1.0 - coherence[i]
-            else:
-                anomaly_scores[i] = entanglement[i] / 4.0
+        features = np.concatenate(
+            [
+                pattern_states.real[:, :15],
+                pattern_states.imag[:, :15],
+                coherence.reshape(-1, 1),
+                entanglement.reshape(-1, 1),
+            ],
+            axis=1,
+        ).astype(np.float64)
+        scores = self.score_features(features)
 
         return {
             "model_type": "consciousness",
-            "anomaly_scores": anomaly_scores.astype(np.float32),
+            "anomaly_scores": scores["anomaly_scores"],
+            "reference_deviation": scores["reference_deviation"],
+            "confidence": scores["confidence"],
+            "anomaly_score_basis": self.decision_source.description,
             "pattern_states": pattern_states,
             "coherence": coherence.astype(np.float32),
             "entanglement": entanglement.astype(np.float32),

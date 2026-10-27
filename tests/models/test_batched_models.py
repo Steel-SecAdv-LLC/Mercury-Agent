@@ -92,7 +92,7 @@ class TestQuantum:
 
     def test_predict_coherence_is_measured_not_constant(self) -> None:
         """Regression: predict()'s coherence was identically 0 (1 - |0 - 1|)."""
-        result = QuantumAnomalyModel().predict(_data((80, 12)))
+        result = QuantumAnomalyModel().fit(_data((80, 12))).predict(_data((80, 12)))
         coherence = np.asarray(result["coherence"])
         assert float(np.std(coherence)) > 1e-6
         assert np.all((coherence >= 0.0) & (coherence <= 1.0 + 1e-6))

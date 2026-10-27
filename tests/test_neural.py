@@ -76,7 +76,7 @@ def test_consciousness_model_initialization() -> None:
 
 def test_consciousness_model_predict(sample_data: Any) -> None:
     """Test consciousness preservation model prediction"""
-    model = ConsciousnessPreservationModel()
+    model = ConsciousnessPreservationModel().fit(sample_data)
     result = model.predict(sample_data)
 
     assert "anomaly_scores" in result
