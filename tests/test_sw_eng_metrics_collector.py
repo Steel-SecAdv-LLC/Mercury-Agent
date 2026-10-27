@@ -80,7 +80,7 @@ _WIRED = {
 }
 
 
-def _load_collector():
+def _load_collector() -> Any:
     spec = importlib.util.spec_from_file_location("collect_sw_eng_metrics", _SCRIPT)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
@@ -149,7 +149,12 @@ def test_wired_scalars_stay_metric_only_and_do_not_move_the_gate() -> None:
     padded = np.zeros(256, dtype=np.float64)
     vals = np.asarray(list(operational.values()), dtype=np.float64)
     padded[: len(vals)] = vals
-    assert float(gate.evaluate(padded).score) == pytest.approx(0.9999216794967651, abs=1e-9)
+    # Single source of truth for the operational constant: the calibration
+    # module's frozen value (re-pinned when the gate is deliberately
+    # retrained), so this test cannot drift from it.
+    from omni_mercury_engine.security.sigma_calibration import SIGMA_FROZEN_CONSTANT
+
+    assert float(gate.evaluate(padded).score) == pytest.approx(SIGMA_FROZEN_CONSTANT, abs=1e-9)
 
 
 def test_overlay_actually_applied_real_values() -> None:
