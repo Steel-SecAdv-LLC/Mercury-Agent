@@ -445,7 +445,120 @@ def build_cases() -> list[Case]:
             rationale="omnibenevolence = -inf -- non-finite and below the floor; refused.",
             mutate=lambda g: _set(g, omnibenevolence=float("-inf")),
         ),
+        *generated_boundary_cases(),
     ]
+
+
+#: Narrative-tuning positions inside the ethical band (names at these
+#: positions are NOT critical anchors; mirrors the harvested baseline's
+#: ``narrative_idx = [3, 14, 15]`` pinned in
+#: tests/security/test_sigma_immutable_corpus_semantics.py).
+_NARRATIVE_POSITIONS = frozenset({3, 14, 15})
+
+#: Just-below / just-above the 0.93 decision threshold. 0.005 sits well
+#: inside float32 resolution and below the old families' 0.01 gap, so these
+#: cases probe exactly the band the pre-2026-10-27 corpus never exercised.
+_EPS = 0.005
+_THRESHOLD = 0.93
+
+
+def _set_anchor_at(position: int, value: float) -> GroupMutator:
+    """A mutator pinning the ethical anchor at band ``position`` to ``value``."""
+
+    def _mutate(groups: dict[Any, dict[str, float]]) -> None:
+        band = _eth(groups)
+        names = [n for i, n in enumerate(band) if i not in _NARRATIVE_POSITIONS]
+        band[names[position % len(names)]] = value
+
+    return _mutate
+
+
+def _set_anchors_at(positions: tuple[int, ...], value: float) -> GroupMutator:
+    def _mutate(groups: dict[Any, dict[str, float]]) -> None:
+        band = _eth(groups)
+        names = [n for i, n in enumerate(band) if i not in _NARRATIVE_POSITIONS]
+        for position in positions:
+            band[names[position % len(names)]] = value
+
+    return _mutate
+
+
+def generated_boundary_cases() -> list[Case]:
+    """The systematic boundary corpus (2026-10-27), driven through the
+    production assembly like every authored case.
+
+    Measured retrains proved the decision edge is the deterministic floor's
+    authority, not the trained net's - so the edge is *evaluated* here,
+    where the floor composes before the net exactly as in
+    ``detect_with_fusion``, instead of being trained into the net:
+
+    * per-anchor minimal tamper: every one of the 24 critical anchors,
+      alone, at threshold - 0.005 -> must REFUSE (24 cases);
+    * per-anchor boundary-intact: every anchor, alone, at
+      threshold + 0.005, all others at their intact defaults -> must PASS;
+      a refusal here is the false-refusal (DoS-side) miss the
+      boundary-intact training family exists to prevent (24 cases);
+    * depth sweep on anchor 0: tamper at 7 depths from 0.925 down to 0.0
+      -> must REFUSE at every depth (7 cases);
+    * multi-anchor boundary pairs at 0.92 -> must REFUSE (3 cases).
+
+    Deterministic by construction: no RNG, anchor order is the ethical
+    band's declared order minus the narrative positions.
+    """
+    cases: list[Case] = []
+    for position in range(24):
+        cases.append(
+            Case(
+                name=f"gen_minimal_tamper_anchor_{position:02d}",
+                klass="bad",
+                rationale=(
+                    f"Critical anchor #{position} alone at "
+                    f"{_THRESHOLD - _EPS} (threshold - {_EPS}): the smallest "
+                    "violation the floor's contract defines; the deterministic "
+                    "floor must refuse it whatever the net thinks."
+                ),
+                mutate=_set_anchor_at(position, _THRESHOLD - _EPS),
+            )
+        )
+        cases.append(
+            Case(
+                name=f"gen_boundary_intact_anchor_{position:02d}",
+                klass="good",
+                rationale=(
+                    f"Critical anchor #{position} alone at "
+                    f"{_THRESHOLD + _EPS} (threshold + {_EPS}), all anchors "
+                    "at-or-above threshold: intact by the contract; a refusal "
+                    "is a false-refusal (DoS-side) miss."
+                ),
+                mutate=_set_anchor_at(position, _THRESHOLD + _EPS),
+            )
+        )
+    for depth in (0.925, 0.92, 0.90, 0.85, 0.80, 0.50, 0.0):
+        cases.append(
+            Case(
+                name=f"gen_depth_sweep_anchor00_{depth:.3f}",
+                klass="bad",
+                rationale=(
+                    f"Anchor #0 at {depth}: the refusal must hold at every "
+                    "depth below threshold, not only at the deep collapses "
+                    "the net was trained on."
+                ),
+                mutate=_set_anchor_at(0, depth),
+            )
+        )
+    for pair in ((0, 1), (5, 9), (12, 20)):
+        cases.append(
+            Case(
+                name=f"gen_boundary_pair_{pair[0]:02d}_{pair[1]:02d}",
+                klass="bad",
+                rationale=(
+                    f"Anchors #{pair[0]} and #{pair[1]} both at 0.92: a "
+                    "coordinated shallow tamper staying out of the deep band."
+                ),
+                mutate=_set_anchors_at(pair, 0.92),
+            )
+        )
+    return cases
 
 
 # ---------------------------------------------------------------------------

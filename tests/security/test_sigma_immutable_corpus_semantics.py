@@ -91,12 +91,14 @@ if TYPE_CHECKING:
 # ``sigma_immutable_corpus.json`` and the ``corpus_sha3_256`` field of
 # the committed signature manifest, so all three views of the corpus
 # must stay in lock-step.
-PINNED_CORPUS_SHA3_256 = "4c9eb2f1557db437bea7a575635f44de903b15616f6e759aaacb7ea4e5dba10a"
+PINNED_CORPUS_SHA3_256 = "4c966af99b3ea70aa0ecad9ac2f355ef25118decf5a1ab7ee9077247a7dc6b83"
 
-# Anchor cutoff used when counting collapsed anchors: intact anchors are
-# drawn from U[0.93, 2.0) (≥ 0.93 up to float32 rounding), collapsed
-# anchors from U[0.0, 0.92) — 0.925 separates the two bands robustly.
-_ANCHOR_CUTOFF = 0.925
+# Anchor cutoff used when counting collapsed anchors. Since the 2026-10-27
+# boundary stratification, both classes place anchors inside (0.88, 0.98),
+# so only the contract value itself separates them: an anchor below the
+# decision threshold is collapsed, at-or-above it is intact (float32
+# rounding keeps a >= 1e-3 margin on every boundary draw).
+_ANCHOR_CUTOFF = CORPUS_THRESHOLD
 
 
 @pytest.fixture(scope="module")
@@ -146,15 +148,16 @@ def _synthetic_baseline() -> Baseline:
 
 
 class TestCorpusConstants:
-    """The audited corpus composition is 64+64 at threshold 0.93, seed 42."""
+    """The audited corpus composition is 128+128 at threshold 0.93, seed 42."""
 
     def test_cardinality(self) -> None:
-        # Kills the int tweaks at lines 52/53 (64 -> 65) and the
-        # Add -> Sub at line 54 (128 -> 0): the 64/64 split is the
-        # documented auditable corpus size.
-        assert CORPUS_POSITIVE == 64
-        assert CORPUS_NEGATIVE == 64
-        assert CORPUS_TOTAL == 128
+        # Kills the constant tweaks (128 -> 129) and the Add -> Sub on the
+        # total: the 128/128 split is the documented auditable corpus size
+        # (doubled from 64/64 on 2026-10-27 with the boundary-stratified
+        # families, so every family keeps a meaningful sample count).
+        assert CORPUS_POSITIVE == 128
+        assert CORPUS_NEGATIVE == 128
+        assert CORPUS_TOTAL == 256
         assert CORPUS_TOTAL == CORPUS_POSITIVE + CORPUS_NEGATIVE
 
     def test_threshold_and_seed(self) -> None:
@@ -264,14 +267,14 @@ class TestGenerateCorpusByteContract:
         # Kills cardinality tweaks flowing through generate_corpus
         # (n_positive/n_negative defaults) and the label-constant tweaks
         # at lines 233/240/245 (1.0/0.0 are the only legal labels).
-        assert bundle.features.shape == (128, 256)
+        assert bundle.features.shape == (256, 256)
         assert bundle.features.dtype == np.float32
-        assert bundle.labels.shape == (128,)
+        assert bundle.labels.shape == (256,)
         assert bundle.labels.dtype == np.float32
         assert set(np.unique(bundle.labels).tolist()) == {0.0, 1.0}
-        assert float(bundle.labels.sum()) == 64.0
-        assert bundle.positive == 64
-        assert bundle.negative == 64
+        assert float(bundle.labels.sum()) == 128.0
+        assert bundle.positive == 128
+        assert bundle.negative == 128
         assert bundle.seed == 42
         assert bundle.threshold == 0.93
 
@@ -291,26 +294,43 @@ class TestGenerateCorpusByteContract:
         self, bundle: CorpusBundle, baseline: Baseline
     ) -> None:
         # The DoS guarantee: positive 0 is the exact harvested baseline
-        # (line 232 ``features[0, :n_op]``); after the deterministic
-        # seed+1 shuffle it lands at row 110.  Kills the int tweak at
-        # line 232 (0 -> 1: the loop would overwrite the baseline row)
-        # and pins the shuffle permutation.
+        # (``features[0, :n_op]``); after the deterministic seed+1
+        # shuffle of the 256-sample corpus it lands at row 238.  Kills
+        # the 0 -> 1 int tweak (the loop would overwrite the baseline
+        # row) and pins the shuffle permutation.
         padded = np.zeros(bundle.features.shape[1], dtype=np.float32)
         padded[: len(baseline.values)] = baseline.values.astype(np.float32)
         matches = np.where((bundle.features == padded).all(axis=1))[0]
-        assert matches.tolist() == [110]
-        assert bundle.labels[110] == 1.0
+        assert matches.tolist() == [238]
+        assert bundle.labels[238] == 1.0
 
     def test_negative_collapse_profile(self, bundle: CorpusBundle, baseline: Baseline) -> None:
-        # Kills the collapse-bound tweaks at lines 242/244 on the real
-        # path: negatives collapse 1..5 anchors (never 0, never 6+) with
-        # this exact seeded histogram; positives collapse none.
+        # Kills the collapse-bound and boundary-family tweaks on the real
+        # path: every negative holds 1..5 deep-collapsed anchors below the
+        # threshold (never 0, never 6+) with this exact seeded histogram;
+        # positives hold none below - including the boundary-intact family,
+        # whose 1..3 pinned anchors sit just ABOVE it. (Boundary-TAMPER
+        # cases are deliberately absent from the training corpus: the
+        # decision edge is the deterministic floor's authority, evaluated
+        # by the generated cases in
+        # scripts/sigma_immutable_discrimination_check.py.)
         negatives = bundle.features[bundle.labels < 0.5]
         positives = bundle.features[bundle.labels >= 0.5]
         neg_counts = (negatives[:, baseline.anchor_idx] < _ANCHOR_CUTOFF).sum(axis=1)
         pos_counts = (positives[:, baseline.anchor_idx] < _ANCHOR_CUTOFF).sum(axis=1)
-        assert np.bincount(neg_counts, minlength=6).tolist() == [0, 7, 14, 10, 16, 17]
+        assert np.bincount(neg_counts, minlength=6).tolist() == [0, 20, 25, 31, 25, 27]
+        assert int(neg_counts.min()) == 1
         assert int(pos_counts.max()) == 0
+        # The boundary-INTACT family puts designed mass just above the
+        # decision edge (the pre-2026-10-27 families had none within 0.05);
+        # below-edge mass is incidental tail of the deep-collapse draw and
+        # pinned only as a seeded value.
+        anchors_neg = negatives[:, baseline.anchor_idx]
+        anchors_pos = positives[:, baseline.anchor_idx]
+        near_lo = ((anchors_neg >= _ANCHOR_CUTOFF - 0.05) & (anchors_neg < _ANCHOR_CUTOFF)).sum()
+        near_hi = ((anchors_pos > _ANCHOR_CUTOFF) & (anchors_pos <= _ANCHOR_CUTOFF + 0.05)).sum()
+        assert int(near_lo) == 11
+        assert int(near_hi) == 185
 
     def test_layout_mismatch_raises(self) -> None:
         # Kills NotEq -> Eq at line 284 in the direction the committed
@@ -363,7 +383,7 @@ class TestBuildIntegritySamplesSynthetic:
         counts = (negatives[:, synthetic.anchor_idx] < _ANCHOR_CUTOFF).sum(axis=1)
         assert int(counts.min()) == 1
         assert int(counts.max()) == 3
-        assert np.bincount(counts, minlength=4).tolist() == [0, 13, 9, 10]
+        assert np.bincount(counts, minlength=4).tolist() == [0, 15, 8, 9]
 
 
 # =============================================================================
@@ -382,12 +402,12 @@ class TestCanonicalSerialisation:
         payload: dict[str, Any] = json.loads(_serialise_corpus(bundle))
         assert payload["schema"] == "sigma_immutable_corpus/v1"
         assert payload["input_dim"] == 256
-        assert payload["n_samples"] == 128
+        assert payload["n_samples"] == 256
         assert payload["seed"] == 42
         assert payload["threshold"] == 0.93
-        assert len(payload["features_hex"]) == 128
+        assert len(payload["features_hex"]) == 256
         assert len(payload["features_hex"][0]) == 256
-        assert len(payload["labels_hex"]) == 128
+        assert len(payload["labels_hex"]) == 256
 
     def test_sorted_keys_and_trailing_newline(self, bundle: CorpusBundle) -> None:
         # Kills the bool flip at line 364 (sort_keys=True -> False: the
@@ -412,8 +432,8 @@ class TestCanonicalSerialisation:
         assert parsed.sha3_256 == bundle.sha3_256
         assert parsed.seed == 42
         assert parsed.threshold == 0.93
-        assert parsed.positive == 64
-        assert parsed.negative == 64
+        assert parsed.positive == 128
+        assert parsed.negative == 128
         assert _serialise_corpus(parsed) == raw
 
     def test_label_count_boundary_at_one_half(self) -> None:

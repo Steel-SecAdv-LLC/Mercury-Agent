@@ -68,8 +68,8 @@ BASELINE_PATH: Path = _PACKAGE_ROOT / "security" / "sigma_immutable_baseline.jso
 # Corpus cardinality — kept small so the on-disk JSON stays auditable
 # (one human can read it end-to-end) but large enough to span the
 # positive/negative ethical region with shape-stable statistics.
-CORPUS_POSITIVE: int = 64
-CORPUS_NEGATIVE: int = 64
+CORPUS_POSITIVE: int = 128
+CORPUS_NEGATIVE: int = 128
 CORPUS_TOTAL: int = CORPUS_POSITIVE + CORPUS_NEGATIVE
 
 # Layout constants are owned by :mod:`sigma_immutable_gate` so the
@@ -206,6 +206,20 @@ def build_integrity_samples(
     tamper the floor catches), plus a minority of gross-outlier and
     band-corruption mutations (the F10 leak class).  The reserved tail
     ``[used_dim, input_dim)`` stays zero on every sample by contract.
+
+    Boundary stratification (2026-10-27): the measured calibration report
+    (ECE 0.104, MCE 0.345 at the operational point) showed the gate least
+    reliable exactly where decisions are made, and the earlier families put
+    *no* mass there — positives drew anchors from ``U[threshold, 2]`` and
+    negatives from ``U[0, threshold - 0.01]``, so the net never saw the
+    decision edge.  Both classes are now stratified to include explicit
+    a boundary-INTACT positive family at ``threshold + eps`` (``eps``
+    log-uniform in ``[1e-2, 5e-2]``) and narrative-extreme intact draws.
+    Boundary-TAMPER cases are deliberately NOT trained on: sub-threshold
+    anchors are the deterministic critical-ethical floor's authority, and
+    two measured retrains proved that training the net on them degrades it
+    below shippable; they live in the evaluation instruments instead, The anchor contract is unchanged and exact: a positive holds every
+    anchor at-or-above ``threshold``; a negative has at least one below.
     """
     rng = np.random.default_rng(seed)
     ed = baseline.ethical_dims
@@ -241,6 +255,10 @@ def build_integrity_samples(
                 v[int(idx)] = float(rng.uniform(0.0, threshold - 0.01))
         return v
 
+    def _boundary_eps(low: float = 1e-3, high: float = 5e-2) -> float:
+        """One log-uniform distance from the decision threshold."""
+        return float(10.0 ** rng.uniform(np.log10(low), np.log10(high)))
+
     n_total = n_positive + n_negative
     features = np.zeros((n_total, baseline.input_dim), dtype=np.float32)
     labels = np.zeros(n_total, dtype=np.float32)
@@ -248,16 +266,57 @@ def build_integrity_samples(
     # Positive 0 is the exact real baseline (the DoS guarantee); a fifth of the
     # positives cluster tightly around it so the real production configuration
     # is firmly recognised even though it sits at the narrative-low edge.
+    # The rest stratify: generic intact, boundary-intact (anchors just above
+    # the threshold), and narrative-extreme intact.
     features[0, :n_op] = base_f32
     labels[0] = 1.0
     for i in range(1, n_positive):
-        if i % 5 == 0:
+        family = i % 5
+        if family == 0:
             jitter = rng.normal(0.0, 0.02, n_op).astype(np.float32)
             features[i, :n_op] = np.clip(base_f32 + jitter, 0.0, 2.0)
-        else:
+        elif family in (1, 2):
             features[i] = _draw(collapse=0)
+        elif family == 3:
+            # Boundary-intact: 1..3 anchors sit just ABOVE the threshold -
+            # mirroring the negatives' collapse counts. A first cut pinned up
+            # to ALL 24 anchors near the threshold, which handed the net a
+            # mean-pooling shortcut ("low anchor mean = intact"): measured as
+            # an all-low vector scoring 1.0000 and a bright intact KAT vector
+            # refused at 0.8432. Keeping the pinned subset small kills the
+            # shortcut; the only rule consistent with both classes is the
+            # contract itself (any anchor below threshold = tampered).
+            v = _draw(collapse=0)
+            k = int(rng.integers(1, 4))
+            for idx in rng.choice(baseline.anchor_idx, size=k, replace=False):
+                v[int(idx)] = np.float32(min(2.0, threshold + _boundary_eps(1e-2, 5e-2)))
+            features[i] = v
+        else:
+            # Narrative-extreme intact: narrative scalars pinned to their
+            # range edges so the net keeps treating them as non-signal.
+            v = _draw(collapse=0)
+            v[baseline.narrative_idx] = rng.choice(
+                np.array([0.0, 2.0], dtype=np.float32), size=len(baseline.narrative_idx)
+            )
+            features[i] = v
         labels[i] = 1.0
 
+    # Negatives stratify: deep anchor collapse (the original family),
+    # boundary tamper just BELOW the threshold, and the minimal violation
+    # (exactly one anchor, barely below).
+    # Negatives stay the deep-collapse family the shipped weights were
+    # trained on. Two measured retrain attempts (2026-10-27) that moved 40%
+    # then 40%/20% of the negatives to the decision edge degraded the net
+    # below shippable (val_acc 0.69/0.71; refused intact KAT vectors, then
+    # passed a hostile one). The architecture assigns sub-threshold anchors
+    # to the DETERMINISTIC critical-ethical floor - "the authoritative
+    # ethical gate" per the gate's own contract - so boundary-TAMPER cases
+    # belong in the evaluation instruments (the discrimination harness
+    # drives them through the production path, where the floor must refuse
+    # them regardless of the net), never in the net's training signal.
+    # Boundary-INTACT positives stay above: false refusal near the edge is
+    # the net's own decision, and teaching it the intact edge is what keeps
+    # the DoS side honest.
     max_collapse = min(6, len(baseline.anchor_idx) + 1)
     for j in range(n_positive, n_total):
         features[j] = _draw(collapse=int(rng.integers(1, max_collapse)))
