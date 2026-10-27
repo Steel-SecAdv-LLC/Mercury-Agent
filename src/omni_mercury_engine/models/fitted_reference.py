@@ -28,7 +28,7 @@ Scoring before :meth:`fit` raises - fail closed, never a silent heuristic.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
 import numpy as np
 
@@ -64,7 +64,7 @@ class FittedReferenceScorer:
         """True once :meth:`fit` has stored a usable reference."""
         return self._ref_center is not None
 
-    def fit(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> FittedReferenceScorer:
+    def fit(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> Self:
         """Fit the robust reference from normal (or mostly-normal) data.
 
         Args:
