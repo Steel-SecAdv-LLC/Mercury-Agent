@@ -46,6 +46,8 @@ from starlette.routing import Match
 
 from omni_mercury_engine.api.client_ip import resolve_client_ip
 from omni_mercury_engine.security.deception import (
+    STAND_DOWN_HEADER,
+    STAND_DOWN_NOTICE,
     DeceptionSensor,
     DecoyRoute,
     TarpitGate,
@@ -193,10 +195,18 @@ def _decoy_handler(
             logger.exception("decoy %s failed; answering as a missing path", decoy.path)
             sensor.note_failure("handler")
             raise HTTPException(status_code=404) from None
+        headers = {"WWW-Authenticate": _AUTH_CHALLENGE}
+        # Benevolent-first stand-down: while the source is still in the free
+        # window, carry an explicit advisory to desist. A normal client reads
+        # an ordinary 401; an agent parsing headers gets a clear chance to
+        # stop before any containment delay applies. Header-only, so the
+        # decoy's auth-challenge camouflage is unchanged for everything else.
+        if event.stand_down_offered:
+            headers[STAND_DOWN_HEADER] = STAND_DOWN_NOTICE
         raise HTTPException(
             status_code=401,
             detail=_AUTH_REQUIRED_DETAIL,
-            headers={"WWW-Authenticate": _AUTH_CHALLENGE},
+            headers=headers,
         )
 
     return handler

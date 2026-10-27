@@ -680,12 +680,23 @@ class NeuralMemoryLayer:
     This is the neural component that feeds into the symbolic reasoning layer.
     """
 
+    #: Default episodic capacity. Chosen so short analyses are unaffected
+    #: while a long-running ingest loop (e.g. one analysis per tick over
+    #: thousands of ticks) stops growing without bound. Before this bound,
+    #: ``embeddings`` grew by one per ingest forever and ``clusterer.fit``
+    #: re-ran over the whole list each time, so per-ingest cost rose
+    #: linearly and a sustained loop was O(n^2) in wall-clock and O(n) in
+    #: memory. With the bound both are capped: steady-state cost is
+    #: O(max_memories) per ingest.
+    DEFAULT_MAX_MEMORIES: int = 10000
+
     def __init__(
         self,
         embedding_dim: int = 64,
         n_clusters: int = 8,
         anomaly_threshold: float = 2.0,
         prediction_horizon: float = 3600.0,
+        max_memories: int | None = None,
     ):
         """Initialize Neural Memory Layer.
 
@@ -694,9 +705,23 @@ class NeuralMemoryLayer:
             n_clusters: Number of clusters for K-means
             anomaly_threshold: Threshold for anomaly detection
             prediction_horizon: Time horizon for predictions
+            max_memories: Episodic capacity. When the retained set would
+                exceed this, the lowest-importance (oldest on ties)
+                embeddings are evicted so memory and per-ingest cost stay
+                bounded. ``None`` uses :attr:`DEFAULT_MAX_MEMORIES`; must be
+                at least ``n_clusters`` so clustering still has support.
+
+        Raises:
+            ValueError: ``max_memories`` is below ``n_clusters``.
         """
         self.embedding_dim = embedding_dim
         self.n_clusters = n_clusters
+        self.max_memories = self.DEFAULT_MAX_MEMORIES if max_memories is None else int(max_memories)
+        if self.max_memories < n_clusters:
+            raise ValueError(
+                f"max_memories ({self.max_memories}) must be >= n_clusters ({n_clusters}) "
+                "so clustering retains support after eviction"
+            )
 
         self.vectorizer = MemoryVectorizer(embedding_dim=embedding_dim)
         self.clusterer = KMeansClusterer(n_clusters=n_clusters)
@@ -707,8 +732,36 @@ class NeuralMemoryLayer:
         self.patterns: list[DetectedPattern] = []
         self.predictions: list[AnomalyPrediction] = []
 
+        #: Monotonic id source for default entry ids. Length-based ids
+        #: would recycle after eviction and collide with live entries;
+        #: a monotonic counter keeps generated ids unique for the layer's
+        #: lifetime.
+        self._next_id = 0
+        #: Episodic embeddings evicted over the layer's lifetime (telemetry).
+        self.evicted_count = 0
+
         self._fitted = False
-        logger.info(f"NeuralMemoryLayer initialized (dim={embedding_dim}, clusters={n_clusters})")
+        logger.info(
+            f"NeuralMemoryLayer initialized (dim={embedding_dim}, clusters={n_clusters}, "
+            f"max_memories={self.max_memories})"
+        )
+
+    def _enforce_capacity(self) -> None:
+        """Evict lowest-importance embeddings when over :attr:`max_memories`.
+
+        Ties break toward evicting the oldest. Runs in O(n) only when the
+        capacity is exceeded, so steady-state ingest cost stays flat.
+        """
+        overflow = len(self.embeddings) - self.max_memories
+        if overflow <= 0:
+            return
+        # Rank by (importance, timestamp); the ``overflow`` smallest are
+        # evicted. argpartition is O(n) vs a full O(n log n) sort.
+        keys = np.array([(e.importance, e.timestamp) for e in self.embeddings], dtype=np.float64)
+        order = np.lexsort((keys[:, 1], keys[:, 0]))  # by importance, then timestamp
+        drop = set(order[:overflow].tolist())
+        self.embeddings = [e for i, e in enumerate(self.embeddings) if i not in drop]
+        self.evicted_count += overflow
 
     def ingest_memories(
         self,
@@ -732,10 +785,15 @@ class NeuralMemoryLayer:
             self._fitted = True
 
         new_embeddings = []
-        for i, mem in enumerate(memories):
+        for mem in memories:
             embedding = self.vectorizer.transform(mem)
+            if "id" in mem:
+                entry_id = mem["id"]
+            else:
+                entry_id = f"mem_{self._next_id}"
+                self._next_id += 1
             mem_emb = MemoryEmbedding(
-                entry_id=mem.get("id", f"mem_{len(self.embeddings) + i}"),
+                entry_id=entry_id,
                 memory_type=memory_type,
                 embedding=embedding,
                 timestamp=mem.get("timestamp", time.time()),
@@ -744,6 +802,10 @@ class NeuralMemoryLayer:
             )
             new_embeddings.append(mem_emb)
             self.embeddings.append(mem_emb)
+
+        # Bound the episodic store before the (cost-dominating) refit, so
+        # clustering runs over at most max_memories embeddings.
+        self._enforce_capacity()
 
         if len(self.embeddings) >= self.n_clusters:
             X = np.array([e.embedding for e in self.embeddings])

@@ -242,6 +242,7 @@ class TestSensorRecording:
             sources_in_window=1,
             campaign=False,
             audits_suppressed=0,
+            stand_down_offered=True,  # first touch is in the free window
         )
 
     def test_escalation_across_decoys(self) -> None:
@@ -329,6 +330,7 @@ class TestSensorRecording:
             "audits_suppressed": 0,
             "audits_failed": 0,
             "degraded": [],
+            "stand_down_offered": True,
         }
 
 

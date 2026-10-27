@@ -148,10 +148,26 @@ class AgentMemory:
         self,
         short_term_capacity: int = 100,
         long_term_capacity: int = 10000,
+        episodic_capacity: int = 10000,
+        semantic_capacity: int = 10000,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Args:
+            short_term_capacity: Recent-observation ring size (bounded deque).
+            long_term_capacity: Consolidated-knowledge cap.
+            episodic_capacity: Episodic-experience cap. Before this bound the
+                episodic store was an unbounded dict grown once per analysis,
+                so a long-running loop (a benchmark epoch, a persistent
+                session) grew memory without limit and every retrieval/stat
+                scanned an ever-larger dict -- the dominant per-epoch cost
+                growth in the neuro-symbolic benchmark.
+            semantic_capacity: Semantic-fact cap (same unbounded-dict fix).
+        """
         self.short_term_capacity = short_term_capacity
         self.long_term_capacity = long_term_capacity
+        self.episodic_capacity = episodic_capacity
+        self.semantic_capacity = semantic_capacity
 
         self.short_term: deque[MemoryEntry] = deque[Any](maxlen=short_term_capacity)
         self.long_term: dict[str, MemoryEntry] = {}
@@ -221,6 +237,8 @@ class AgentMemory:
             memory_type="episodic",
             importance=importance,
         )
+        if len(self.episodic) >= self.episodic_capacity:
+            self._prune_store(self.episodic)
         self.episodic[entry_id] = entry
         return entry_id
 
@@ -239,6 +257,8 @@ class AgentMemory:
             memory_type="semantic",
             importance=confidence,
         )
+        if len(self.semantic) >= self.semantic_capacity:
+            self._prune_store(self.semantic)
         self.semantic[entry_id] = entry
         return entry_id
 
@@ -296,17 +316,26 @@ class AgentMemory:
 
     def _prune_long_term(self) -> None:
         """Prune least important long-term memories."""
-        if not self.long_term:
-            return
+        self._prune_store(self.long_term)
 
+    @staticmethod
+    def _prune_store(store: dict[str, MemoryEntry]) -> None:
+        """Evict the least-valuable ~10% of a memory store, in place.
+
+        Value is ``(importance, access_count)`` ascending, so rarely used,
+        low-importance entries go first; at least one is always removed so a
+        store at capacity cannot wedge. Shared by the long-term, episodic,
+        and semantic stores (the latter two were previously unbounded).
+        """
+        if not store:
+            return
         sorted_entries = sorted(
-            self.long_term.items(),
+            store.items(),
             key=lambda x: (x[1].importance, x[1].access_count),
         )
-
-        prune_count = len(self.long_term) // 10
+        prune_count = max(1, len(store) // 10)
         for entry_id, _ in sorted_entries[:prune_count]:
-            del self.long_term[entry_id]
+            del store[entry_id]
 
     def get_statistics(self) -> dict[str, Any]:
         """Get memory system statistics."""

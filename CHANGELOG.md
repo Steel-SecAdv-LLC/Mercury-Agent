@@ -57,6 +57,64 @@ across engine, aileron, rudder and elevator faults
 The drone detector's `decision_source` previously rested on simulated flights
 only; this is its first calibration against real recorded faults.
 
+**Added — benevolent-first stand-down greeting on the counter-AI decoy surface.**
+Mercury's fail-closed ethic applied to hostile automation: a probing agent's
+first contact with a decoy — while still inside the tarpit's no-delay free
+window, before any containment escalates — now carries an explicit, logged
+stand-down notice (`STAND_DOWN_NOTICE`, in the `X-Mercury-Advisory` response
+header): it has reached a monitored decoy, stopping now carries no consequence,
+and the system takes no action against the prober's. A normal client still
+reads an ordinary 401 auth challenge; an agent parsing headers gets a clear
+chance to desist. The offer is a one-time grace (it lapses the instant a tarpit
+delay applies and never reappears to signal a reset), is recorded in the
+tamper-evident audit (`stand_down_offered`), drives no outbound action (a header
+on Mercury's own response, naming no host/URL/command), and can be disabled
+(`TarpitPolicy(stand_down=False)`) for silent containment. `security/deception.py`,
+`api/routes/decoys.py`; pinned by `tests/security/test_stand_down_greeting.py`
+(offer timing, escalation lapse, auditability, silent mode, non-weaponization).
+The README's test-count badge is replaced by a Counter-AI Stand-Down badge and a
+Counter-AI Containment section documenting the full posture.
+
+**Added — real-data neuro-symbolic benchmark on NAB labeled streams; authored-scenario
+benchmark demoted to an honest integration demo.** `benchmarks/nab_streaming_benchmark.py`
+measures Mercury's actual detection→symbolic-decision pipeline
+(`MercuryAnomalyDetector`) on four real Numenta Anomaly Benchmark streams
+(traffic, AWS CloudWatch, ad-exchange, known-cause) with human-labeled anomaly
+windows — committed verbatim and SHA-256-pinned under `tests/fixtures/nab/`
+(MIT, Numenta), offline, no API key. Leak-free causal featurization, fitted on
+each stream's warmup prefix: per-stream AUROC 0.840 / 0.661 / 0.686 / 0.728,
+mean **0.729** (`artifacts/nab_streaming.eval.json`). Pinned by
+`tests/benchmarks/test_nab_streaming_benchmark.py`, including a label-shuffle
+control that proves the AUROC tracks the real windows. Building this surfaced a
+real gap the authored scenarios had masked: the neuro-symbolic *memory layer*'s
+own point score is at chance on real numeric streams (its token vectorizer bins
+values coarsely), so `neuro_symbolic_benchmark.py` is relabeled as what it is —
+a cognitive-stack **integration demo on authored illustrative scenarios, not a
+performance benchmark** — pointing to the NAB benchmark for real numbers.
+
+**Fixed — unbounded episodic memory in the neuro-symbolic fusion engine (and in
+the agent's episodic/semantic stores).** `NeuralMemoryLayer.ingest_memories`
+appended one embedding per call forever, and `MercuryAgent`'s `episodic` and
+`semantic` stores were likewise unbounded dicts grown once per analysis — so a
+sustained ingest loop (one analysis per tick) grew memory without limit. Added
+bounded, importance-aware stores: `NeuralMemoryLayer` gains `max_memories`
+(default 10000) and the agent stores gain `episodic_capacity`/`semantic_capacity`
+(default 10000). When over capacity the lowest-importance (oldest on ties)
+entries are evicted, and `NeuralMemoryLayer` entry IDs are now monotonic so
+eviction can't recycle an ID. Pinned by `tests/cognitive/test_memory_bounded.py`
+and `tests/agentic/test_agent_memory_bounded.py`, each with a cost-plateau test
+that fails the old unbounded behavior.
+
+Scope, stated honestly: this bounds *memory* so a long-running deployment cannot
+grow without limit; once a store reaches its cap, per-ingest cost is flat. It
+does **not** flatten cost *below* the cap, because `ingest_memories` still refits
+the clusterer over the whole retained set on every call — so a short run that
+never reaches 10000 ingests (the benchmark is ~600) still sees per-epoch cost
+climb quadratically. That is a separate refit-cadence inefficiency, tracked but
+not changed here (changing the clustering cadence would alter measured numbers);
+it is why the demo image below is rendered at a converged lower epoch count
+rather than at a high one.
+
 **Fixed — removed fabricated metrics from the neuro-symbolic benchmark report.**
 Two panels of `docs/images/neuro_symbolic_benchmark_report.png` were rendered
 from invented numbers: the "Domain Competence Heatmap" filled every per-domain
@@ -71,9 +129,12 @@ fabrication surfaced a masked truth: the agent's `success_rate` is a structural
 which the old `0.9 + random` had papered over — that axis is dropped from the
 heatmap as not-applicable rather than shown as failure. Pinned against
 regression in `tests/benchmarks/test_neuro_symbolic_real_metrics.py`. The
-committed report image is rendered from a 100-epoch run (the metrics are flat
-from ~epoch 80; the committed `--epochs` default stays 200 for a longer render
-on hardware without the CI time budget).
+committed report image is rendered from a 25-epoch run — the panels (confidence,
+benevolence, memory growth, per-domain accuracy) have converged by ~epoch 20, and
+the per-ingest clusterer refit makes longer runs cost quadratically more for no
+added signal (see the memory-fix entry above). The image is an integration demo,
+not a performance benchmark; real neuro-symbolic anomaly numbers come from the
+NAB streaming benchmark.
 
 **Fixed — the wildfire loader's two FIRMS windowing defects (issue #382 and a
 silent historical mislabeling).** First, `fetch_realtime()`: FIRMS `day_range`

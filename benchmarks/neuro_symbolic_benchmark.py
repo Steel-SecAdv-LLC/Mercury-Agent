@@ -1,15 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Neuro-Symbolic Benchmark Suite - 200 Epoch Training with Visualization.
+"""Neuro-symbolic cognitive-stack integration demo (NOT a performance benchmark).
 
-This module runs comprehensive benchmarks for the neuro-symbolic evolution,
-generating publication-quality visualizations for:
-- Confidence evolution over epochs
-- Domain competence heatmaps
-- Anomaly detection precision/recall
-- Ethical benevolence scores
-- Memory growth curves
-- Neural-symbolic fusion metrics
+Scope, stated plainly: this exercises the full cognitive stack (agent
+planning, neuro-symbolic fusion, benevolence scoring, memory) over a small
+set of **hand-authored illustrative scenarios** and visualizes how its
+internal signals evolve across epochs. The scenarios are built to be
+separable, so the precision/recall and per-domain numbers here are an
+integration smoke, not a measure of real anomaly-detection skill. On real
+labeled streams the neuro-symbolic memory layer's own point score is at
+chance - its token vectorizer bins numeric values coarsely and loses the
+signal. For a real-data measurement of Mercury's detection -> symbolic
+decision pipeline, see ``benchmarks/nab_streaming_benchmark.py`` (NAB
+labeled streams, AUROC 0.73 mean).
+
+The panels (confidence/benevolence evolution, memory-type growth, domain
+heatmap, fusion contribution) are aggregated from the run's real internal
+signals - no fabricated numbers - but they describe behavior on the
+authored scenarios, not field performance.
 """
 
 import json
@@ -254,7 +262,7 @@ def register_mock_tools(agent: MercuryAgent) -> None:
     agent.register_tool("query_database", query_database)
 
 
-def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
+def run_neuro_symbolic_benchmark(epochs: int = 50) -> dict[str, Any]:
     """
     Run the full neuro-symbolic benchmark suite.
 
@@ -765,9 +773,10 @@ def create_comprehensive_report(results: dict[str, Any], output_dir: Path) -> No
     )
 
     fig.suptitle(
-        "Mercury-Agent Neuro-Symbolic Evolution\n"
-        "7-Phase Cognitive Architecture Benchmark Report",
-        fontsize=16,
+        "Mercury-Agent Neuro-Symbolic Cognitive-Stack Integration Demo\n"
+        "Authored illustrative scenarios — not field performance "
+        "(real-data: nab_streaming_benchmark.py)",
+        fontsize=15,
         fontweight="bold",
         y=0.98,
     )
@@ -812,7 +821,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Neuro-Symbolic Benchmark Suite")
     parser.add_argument(
-        "--epochs", type=int, default=200, help="Number of training epochs (default: 200)"
+        "--epochs",
+        type=int,
+        default=50,
+        help=(
+            "Number of demo epochs (default: 50). Panels converge by ~epoch 20; "
+            "the per-ingest clusterer refit makes higher counts cost quadratically "
+            "more for no added signal."
+        ),
     )
     parser.add_argument("--output-dir", type=str, default=None, help="Output directory for results")
     args = parser.parse_args()
