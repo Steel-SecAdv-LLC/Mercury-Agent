@@ -83,6 +83,16 @@ NO_VERDICT_SEAM = frozenset(
         "adaptive_anomaly",
         "info_geometry",
         "topological",
+        # The fitted-reference exotics (2026-10-27 retrofit) return calibrated
+        # deviation scores plus a confidence, deliberately no is_anomaly
+        # verdict: thresholding belongs to the consumer, and the ECDF
+        # calibration makes held-out-normal behavior a designed property
+        # (scores ~uniform, so any threshold q yields ~1-q false alarms).
+        # That property is itself measured and pinned in
+        # tests/models/test_fitted_reference_models.py.
+        "astrophysical",
+        "quantum",
+        "consciousness",
     }
 )
 

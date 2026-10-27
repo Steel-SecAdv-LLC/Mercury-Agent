@@ -1965,7 +1965,7 @@
   },
   "fixed_via_fitted_reference": {
    "astrophysical": {
-    "adbench_mean_auroc": 0.805,
+    "adbench_mean_auroc": 0.803,
     "burst_hi": 1.0,
     "burst_lo": 1.0,
     "was": {
@@ -1973,7 +1973,7 @@
     }
    },
    "quantum": {
-    "adbench_mean_auroc": 0.825,
+    "adbench_mean_auroc": 0.827,
     "burst_hi": 1.0,
     "burst_lo": 0.467,
     "cannot_detect": [
@@ -1985,7 +1985,7 @@
     "also_fixed": "latent <8-column extract_features crash"
    },
    "consciousness": {
-    "adbench_mean_auroc": 0.719,
+    "adbench_mean_auroc": 0.717,
     "burst_hi": 1.0,
     "burst_lo": 0.545,
     "cannot_detect": [
@@ -1994,7 +1994,8 @@
     "was": {
      "burst_hi": 0.644
     }
-   }
+   },
+   "calibration_note": "split-conformal: ECDF calibrated on reference rows disjoint from the center/scale fit; held-out-normal FAR at q=0.95 pinned ~0.05 per model"
   },
   "protocol": "identical to rev-1 sweep (fit on full contaminated matrix; ADBench thyroid/wbc/cardio/pima_real/breastw)",
   "pinned_by": "tests/models/test_fitted_reference_models.py",

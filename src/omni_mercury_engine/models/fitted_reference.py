@@ -67,6 +67,14 @@ class FittedReferenceScorer:
     def fit(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> Self:
         """Fit the robust reference from normal (or mostly-normal) data.
 
+        Conformal discipline: the center/scale are estimated on the even
+        reference rows and the calibration deviations on the odd rows, so the
+        ECDF is computed on rows the center never saw. Calibrating on the
+        fitting rows biased in-sample deviations low and ranked held-out
+        normal rows too high - measured as a false-alarm excess on the
+        32-feature consciousness model (caught by the held-out-normal pin in
+        ``tests/models/test_fitted_reference_models.py``).
+
         Args:
             data: Reference input in any form ``extract_features`` accepts;
                 must yield at least :data:`MIN_REFERENCE_ROWS` feature rows.
@@ -85,10 +93,11 @@ class FittedReferenceScorer:
                 f"fitted-reference scoring needs >= {MIN_REFERENCE_ROWS} reference rows, "
                 f"got {feats.shape[0]}; a smaller reference is noise dressed as a baseline"
             )
-        center = np.nanmedian(feats, axis=0)
-        mad = np.nanmedian(np.abs(feats - center), axis=0)
+        fit_half, calib_half = feats[0::2], feats[1::2]
+        center = np.nanmedian(fit_half, axis=0)
+        mad = np.nanmedian(np.abs(fit_half - center), axis=0)
         scale = _MAD_SIGMA * mad
-        std = np.nanstd(feats, axis=0)
+        std = np.nanstd(fit_half, axis=0)
         scale = np.where(scale > _SCALE_FLOOR, scale, std)
         mask = scale > _SCALE_FLOOR
         if not bool(mask.any()):
@@ -96,7 +105,7 @@ class FittedReferenceScorer:
         self._ref_center = center
         self._ref_scale = np.where(mask, scale, 1.0)
         self._ref_mask = mask
-        self._ref_deviations = np.sort(self._deviation(feats))
+        self._ref_deviations = np.sort(self._deviation(calib_half))
         return self
 
     def _deviation(self, feats: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

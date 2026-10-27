@@ -69,7 +69,11 @@ separation. All three keep their feature identity and now score calibrated robus
 from a reference fitted on normal data (`models/fitted_reference.py`: median/MAD center-scale,
 empirical-CDF calibration with a strictly monotone tail; unfitted scoring is refused, never
 served). Re-measured under the identical sweep protocol: burst AUROC 1.000 for all three;
-ADBench means 0.805 / 0.825 / 0.719. Declared, measured blind spot: the quantum and
+ADBench means 0.803 / 0.827 / 0.717. Calibration is conformal-disciplined: the
+ECDF is computed on reference rows disjoint from the center/scale fit, after a
+held-out-normal false-alarm pin caught the in-sample bias on the 32-feature
+consciousness model; held-out normal rows now score above 0.95 at ~5 percent by
+construction, pinned per model. Declared, measured blind spot: the quantum and
 consciousness feature maps are scale-invariant, so pure amplitude collapse is invisible by
 representation - pinned as a `cannot_detect` fact in
 `tests/models/test_fitted_reference_models.py` alongside burst-competency and real-data

@@ -44,12 +44,12 @@ Generated 2026-10-27 18:16 UTC on branch `steel/version-cov7`, head `d6e3f23f`.
 | matrix_profile | FOUNDATION | — | — | — | — | — | 0.07 | 0.47 | 0.53 | 0.35 | **0.356** | T1 | ~chance on this protocol |
 | foundation_ensemble | FOUNDATION | — | — | — | — | — | 0.07 | 0.47 | 0.53 | 0.35 | **0.356** | T1 | ~chance on this protocol |
 | frequent_pattern | BASE | — | — | — | — | — | no-pts | no-pts | no-pts | no-pts | n/a | T1 | no per-point scores harvested |
-| quantum | MODEL | 0.99 | 0.87 | 0.83 | 0.59 | 0.84 | — | — | — | — | **0.825** | T3 | FIXED (fitted reference; was burst 0.33): burst now 1.000; declared cannot_detect: amplitude collapse (scale-invariant features) |
-| astrophysical | MODEL | 0.64 | 0.99 | 0.92 | 0.50 | 0.97 | — | — | — | — | **0.805** | T3 | FIXED (fitted reference; was inverted, burst 0.000): burst now 1.000 both directions |
+| quantum | MODEL | 0.99 | 0.87 | 0.83 | 0.59 | 0.84 | — | — | — | — | **0.827** | T3 | FIXED (fitted reference; was burst 0.33): burst now 1.000; declared cannot_detect: amplitude collapse (scale-invariant features) |
+| astrophysical | MODEL | 0.64 | 0.99 | 0.92 | 0.50 | 0.97 | — | — | — | — | **0.803** | T3 | FIXED (fitted reference; was inverted, burst 0.000): burst now 1.000 both directions |
 | biometric | MODEL | — | — | — | — | — | no-pts | no-pts | no-pts | no-pts | n/a | T1 | window-level score only (no per-point); burst probe 1.00 separates |
 | affective | MODEL | — | — | — | — | — | no-pts | no-pts | no-pts | no-pts | n/a | T0 | constant output on declared modality (mislabeled input contract) |
 | neural_cognitive | MODEL | — | — | — | — | — | no-pts | no-pts | no-pts | no-pts | n/a | T1 | window-level score only (no per-point); burst probe 1.00 separates |
-| consciousness | MODEL | 0.94 | 0.66 | 0.72 | 0.59 | 0.69 | — | — | — | — | **0.719** | T2 | FIXED (fitted reference; was non-separating 0.644): burst now 1.000; declared cannot_detect: amplitude collapse |
+| consciousness | MODEL | 0.94 | 0.66 | 0.72 | 0.59 | 0.69 | — | — | — | — | **0.717** | T2 | FIXED (fitted reference; was non-separating 0.644): burst now 1.000; declared cannot_detect: amplitude collapse |
 | chemistry | MODEL | — | — | — | — | — | no-pts | no-pts | no-pts | no-pts | n/a | T0 | constant output on declared modality (mislabeled input contract) |
 | parapsychology | MODEL | — | — | — | — | — | no-pts | no-pts | no-pts | no-pts | n/a | T0 | constant output on declared modality (mislabeled input contract) |
 | nano_safeguard | BASE | — | — | — | — | — | no-pts | no-pts | no-pts | no-pts | n/a | T1 | no per-point scores harvested |

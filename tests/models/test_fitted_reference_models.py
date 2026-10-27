@@ -195,3 +195,28 @@ class TestQuantumRegressions:
         result = model.predict_with_noise(rng.normal(size=(6, 12)))
         assert len(np.ravel(result["anomaly_scores"])) == 6
         assert "anomaly_score_basis" in result
+
+
+class TestFalseAlarmByConstruction:
+    """What the scores do to held-out NORMAL data - the modality gate's
+    question, answered at score level since these models emit no verdict.
+
+    The ECDF calibration makes this a designed property: on held-out rows
+    drawn from the fitted reference's distribution, scores are ~uniform, so
+    the share above any threshold q is ~(1 - q). Pinned at q = 0.95 over the
+    same five seeds the modality gate uses.
+    """
+
+    @pytest.mark.parametrize("name", sorted(MODELS))
+    def test_heldout_normal_share_above_q95_is_about_5_percent(self, name: str) -> None:
+        rates = []
+        for seed in (7, 11, 23, 101, 999):
+            rng = np.random.default_rng(seed)
+            model = MODELS[name]().fit(rng.normal(size=(120, 8)))
+            held_out = rng.normal(size=(120, 8))
+            rates.append(float(np.mean(_scores(model, held_out) > 0.95)))
+        rate = float(np.mean(rates))
+        assert rate == pytest.approx(0.05, abs=0.04), (
+            f"{name}: {rate:.4f} of held-out normal rows score above 0.95; "
+            "the ECDF construction promises ~0.05 - investigate before re-pinning"
+        )
