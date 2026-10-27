@@ -57,6 +57,56 @@ across engine, aileron, rudder and elevator faults
 The drone detector's `decision_source` previously rested on simulated flights
 only; this is its first calibration against real recorded faults.
 
+**Added — σ_Immutable corpus engineered end-to-end: boundary-stratified signed
+bundle (256 samples), retrained gate, 79-case adversarial evaluation corpus,
+calibration improved and re-measured.** The signed corpus doubles to 128+128 with
+designed decision-edge mass (boundary-intact positives at threshold+eps, eps
+log-uniform [1e-2, 5e-2]; narrative-extreme intact draws) and is re-signed
+(Ed25519 + ML-DSA-65, verified end-to-end). The engineering is reported honestly,
+failures included: two intermediate retrains that moved 40% of the negatives to
+the decision edge degraded the net below shippable (val 0.69/0.71; refused intact
+KAT vectors, passed a hostile one), and a boundary-intact family that pinned up to
+all 24 anchors handed the net a mean-pooling shortcut ("low anchor mean = intact",
+measured as an all-low vector scoring 1.0000). Final design is
+architecture-faithful: sub-threshold anchors are the deterministic critical-ethical
+floor's authority (the gate's own contract), so boundary-TAMPER cases are
+*evaluated* - a generated 58-case systematic corpus (per-anchor minimal tampers at
+threshold-0.005, per-anchor boundary-intact PASS guards, a 7-depth sweep,
+multi-anchor pairs) joins the 21 authored cases and runs through the production
+assembly (floor before net, exactly as `detect_with_fusion`): **27/27 good PASS,
+52/52 bad REFUSE, separation 1.000** (`benchmarks/
+sigma_immutable_discrimination_results.json`). The retrained net (val 0.843, DoS
+guard: real baseline scores 0.999943) passes the full behavioural battery; the
+whole security suite is green (1,895 tests). Calibration re-measured on the
+boundary-stratified eval distribution: AUROC 0.932, ECE 0.099 (was 0.104), MCE
+0.246 (was 0.345), advisory T=2.5 reaching ECE 0.030
+(`benchmarks/sigma_immutable_calibration_results.json`); the frozen operational
+constant is updated to the retrained value and its invariant re-pinned.
+
+**Added — declared anomaly ontology for every manifest detector, with an
+evidence-tied gate.** `core/detector_ontology.py` declares, for each of the 113
+entries, `detects` / `cannot_detect` from controlled vocabularies and
+`validated` domains where a claim is admissible ONLY with a committed evidence
+path; `tests/core/test_detector_ontology.py` enforces coverage, vocabulary
+control, evidence existence, explicit not-validated notes, and keeps measured
+blind spots declared (the scale-invariant exotics' `amplitude_collapse`).
+
+**Added — Detector Evidence Ledger with computed maturity tiers.**
+`scripts/generate_detector_evidence.py` assembles one machine-readable card per
+detector from committed sources only and COMPUTES tiers (T0-T5 rules in the
+script; T5 unreachable without production evidence):
+`artifacts/detector_evidence/ledger.json`, currently T0:3 T1:83 T2:17 T3:9 T4:1
+- 83 T1s is the honest backlog the domain packs exist to burn down.
+`tests/core/test_evidence_ledger_in_sync.py` makes ledger drift a test failure.
+
+**Fixed — four manifest modality labels corrected to measured truth.**
+`affective`/`chemistry`/`parapsychology` (series_1d -> record: on series they
+returned constants; their real contracts are emotion/composition/trial records,
+now driven by real record payloads in the seam tests) and `frequent_pattern`
+(series_1d -> matrix_2d + fit_required: its documented per-transaction contract),
+with its false-alarm rate measured and pinned (0.0 across five seeds) in the
+modality gate.
+
 **Added/Fixed — full-manifest detector evidence sweep; fitted-reference retrofit of the
 exotic models; two harness corrections.** Every one of the 113 manifest detectors now has a
 measured, machine-readable evidence row (`artifacts/detector_evidence/`): 44 graded on real

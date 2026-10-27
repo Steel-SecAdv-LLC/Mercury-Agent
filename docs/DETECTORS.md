@@ -35,7 +35,7 @@ an adapter entry and names the domain detector behind it.
 | `echo_state` | `EchoStateDetector` | base | series_1d | -- | Echo-State-Network reservoir-computing predictive residual detector (fixed spectral-radius reservoir + ridge readout; Jaeger, 2001) |
 | `energy_based` | `EnergyBasedDetector` | base | series_1d | -- | Explicit energy-based model detector: delay-embedding quadratic (Gaussian-family) energy fitted by score matching; anomaly score is the calibrated free energy |
 | `extended_statistical` | `ExtendedStatisticalDetector` | base | series_1d | fit | Ensemble over MAD, LOF, DBSCAN, MCD, CUSUM, Grubbs and GESD statistical methods |
-| `frequent_pattern` | `FrequentPatternDetector` | base | series_1d | -- | Frequent-pattern / association-rule mining detector: flags transactions violating high-confidence rules mined from normal traces (Apriori) |
+| `frequent_pattern` | `FrequentPatternDetector` | base | matrix_2d | fit | Frequent-pattern / association-rule mining detector: flags transactions violating high-confidence rules mined from normal traces (Apriori) |
 | `gaussian_process` | `GaussianProcessDetector` | base | series_1d | -- | Windowed RBF Gaussian-Process one-step-ahead residual detector with calibrated predictive variance (Rasmussen & Williams, 2006) |
 | `geo_movement` | `GeoMovementAnomalyDetector` | base | trajectory | fit | Trajectory movement plausibility: velocity, jump, and silence channels |
 | `graph_based` | `GraphAnomalyDetector` | base | graph | fit | Graph structure anomaly detection |
@@ -126,16 +126,16 @@ an adapter entry and names the domain detector behind it.
 | `lightning` | `LightningDetector` | meteorological | series_1d | -- | 2-sigma lightning jump severe-weather precursor (Schultz et al. 2009) |
 | `winter_storm` | `WinterStormDetector` | meteorological | series_1d | -- | Winter/ice-storm detector (precip-type + FRAM ice accretion) |
 | `adversarial_autoencoder` | `AdversarialAutoencoderDetector` | model | matrix_2d | fit | Adversarial autoencoder reconstruction error with a latent discriminator |
-| `affective` | `AffectiveAnomalyModel` | model | series_1d | -- | Emotional state anomalies |
-| `astrophysical` | `AstrophysicalAnomalyModel` | model | series_1d | -- | Cosmic signal anomalies |
+| `affective` | `AffectiveAnomalyModel` | model | record | -- | Emotional state anomalies |
+| `astrophysical` | `AstrophysicalAnomalyModel` | model | matrix_2d | fit | Cosmic signal anomalies |
 | `biometric` | `BiometricAnomalyModel` | model | series_1d | -- | Face/biometric anomalies |
-| `chemistry` | `ChemistryAnomalyDetector` | model | series_1d | -- | Chemical anomaly detection |
-| `consciousness` | `ConsciousnessPreservationModel` | model | series_1d | -- | Consciousness preservation analysis |
+| `chemistry` | `ChemistryAnomalyDetector` | model | record | -- | Chemical anomaly detection |
+| `consciousness` | `ConsciousnessPreservationModel` | model | matrix_2d | fit | Consciousness preservation analysis |
 | `copod` | `COPODDetector` | model | matrix_2d | fit | Copula-based outlier detection over per-feature tail ECDFs |
 | `lstm_autoencoder` | `LSTMAutoencoderDetector` | model | series_1d | fit | Trained LSTM-autoencoder multivariate sequence reconstruction |
 | `neural_cognitive` | `NeuralCognitiveModel` | model | series_1d | -- | Brain activity anomalies |
-| `parapsychology` | `ParapsychologyDetector` | model | series_1d | -- | Psi phenomena detection |
-| `quantum` | `QuantumAnomalyModel` | model | series_1d | -- | Quantum state anomalies |
+| `parapsychology` | `ParapsychologyDetector` | model | record | -- | Psi phenomena detection |
+| `quantum` | `QuantumAnomalyModel` | model | matrix_2d | fit | Quantum state anomalies |
 | `neurosymbolic` | `NeurosymbolicEngine` | neurosymbolic | series_1d | -- | Hybrid neural-symbolic reasoning |
 | `realtime_threat` | `RealTimeThreatDetector` | security | matrix_2d | -- | Projection + kNN + robust-covariance ensemble, training-calibrated |
 | `schumann_resonance` | `SchumannResonanceDetector` | space | series_1d | -- | Earth resonance detection |

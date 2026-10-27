@@ -105,6 +105,21 @@ FAST_CONFIG: dict[str, dict[str, Any]] = {
 }
 
 RECORD_PAYLOADS: dict[str, Any] = {
+    # Relabeled 2026-10-27 from series_1d after measurement showed constant
+    # outputs on series: these three accept declared records only.
+    "affective": {
+        "emotions": np.clip(
+            np.abs(np.sin(np.linspace(0.0, 6.0, 120))).reshape(20, 6) / 6.0, 0.0, 1.0
+        ),
+    },
+    "chemistry": {
+        "elemental_composition": {"H": 0.62, "O": 0.26, "C": 0.10, "Fe": 0.02},
+        "isotope_ratios": {"C-12": 0.989, "C-13": 0.011},
+    },
+    "parapsychology": {
+        "trial_results": np.array([1, 0, 2, 3, 1, 4, 0, 2, 3, 1, 2, 0, 4, 3, 1, 0]),
+        "targets": np.array([1, 1, 2, 0, 1, 4, 3, 2, 0, 1, 2, 2, 4, 0, 1, 3]),
+    },
     "intelligence_fusion": {
         "SIGINT": {
             "confidence": 0.8,

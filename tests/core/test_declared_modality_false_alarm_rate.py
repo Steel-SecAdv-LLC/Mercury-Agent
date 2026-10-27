@@ -57,6 +57,10 @@ MEASURED_RATE: dict[str, float] = {
     "directive": 0.0600,
     "rca": 0.0467,
     "spatial": 0.0433,
+    # Relabeled 2026-10-27 (series_1d -> matrix_2d, its documented
+    # transaction contract). On all-items-present Gaussian rows every mined
+    # rule is satisfied, so it flags nothing: 0.0 across all five seeds.
+    "frequent_pattern": 0.0,
 }
 
 #: Set-level entry -> share of the seeds whose single verdict came back
