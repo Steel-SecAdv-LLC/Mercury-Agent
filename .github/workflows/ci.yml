@@ -153,7 +153,7 @@ jobs:
           # the exact drift class the ruff incident demonstrated.  All six
           # lint/format/type pins are cross-checked by
           # scripts/check_pinned_tool_versions.py in Workflow Hardening.
-          pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.1 pydocstyle==6.3.0
+          pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.2 pydocstyle==6.3.0
 
       - name: Run Black (formatting)
         run: black --check --diff src/ tests/

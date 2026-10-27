@@ -57,6 +57,15 @@ across engine, aileron, rudder and elevator faults
 The drone detector's `decision_source` previously rested on simulated flights
 only; this is its first calibration against real recorded faults.
 
+**Changed — lint toolchain and README provenance.** `ruff` is bumped 0.17.1 → 0.17.2
+(rolls up Dependabot #383) across all three pin surfaces the parity gate enforces
+(`ci.yml`, `pyproject.toml [dev]`, `.pre-commit-config.yaml`), verified clean tree-wide
+before the bump landed. The Dataset Attributions table now credits ALFA (CC0), UCI
+Robot Execution Failures (CC BY 4.0, which requires attribution), NAB (MIT) and OpenSky
+— corpora this release added without their attribution rows — and the README gains a
+STEAM-exploration badge that states only what is in the repo: real labeled data across
+robotics, UAV, Earth and space.
+
 **Added — benevolent-first stand-down greeting on the counter-AI decoy surface.**
 Mercury's fail-closed ethic applied to hostile automation: a probing agent's
 first contact with a decoy — while still inside the tarpit's no-delay free

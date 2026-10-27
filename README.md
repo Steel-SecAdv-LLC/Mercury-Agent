@@ -14,6 +14,7 @@
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
 [![Counter-AI Stand-Down](https://img.shields.io/badge/Counter--AI-Benevolent%20Stand--Down%20%E2%86%92%20Containment-b71c1c.svg)](#counter-ai-containment-rogue-agent-tripwires)
+[![STEAM Exploration](https://img.shields.io/badge/STEAM%20Exploration-Real%20Labeled%20Data%3A%20Robotics%20%C2%B7%20UAV%20%C2%B7%20Earth%20%C2%B7%20Space-2e7d32.svg)](#current-benchmarks-and-visual-proof)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![AMA-Cryptography](https://img.shields.io/badge/AMA--Cryptography-PQC%20Adapter-4fc3f7.svg)](#ama-cryptography-integration)
@@ -2644,6 +2645,10 @@ Mercury-Agent benchmarks use the following publicly available datasets:
 | BATADAL | Taormina et al., "Battle of the Attack Detection Algorithms", ASCE 2018 | [GitHub](https://github.com/SYChen123/Baseline-outlier-detection-algorithms-on-BATADAL-dataset) |
 | Covtype | Blackard & Dean, 1999; UCI ML Repository | [sklearn.datasets](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_covtype.html) |
 | KDDCup99 | Tavallaee et al., IEEE 2009 (NSL-KDD variant) | [sklearn.datasets](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_kddcup99.html) |
+| ALFA (UAV faults) | Keipour, Mousaei & Scherer, "ALFA: A Dataset for UAV Fault and Anomaly Detection", IJRR 2021; CMU AIR Lab; CC0 | [DOI 10.1184/R1/12707963](https://doi.org/10.1184/R1/12707963) |
+| Robot Execution Failures | Lopes & Camarinha-Matos, 1998; UCI Machine Learning Repository (dataset 138); CC BY 4.0 | [DOI 10.24432/C5M89N](https://doi.org/10.24432/C5M89N) |
+| NAB (Numenta Anomaly Benchmark) | Lavin & Ahmad, "Evaluating Real-time Anomaly Detection Algorithms — the Numenta Anomaly Benchmark", ICMLA 2015; MIT | [numenta/NAB](https://github.com/numenta/NAB) |
+| OpenSky Network (ADS-B state vectors) | Schäfer et al., "Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research", IPSN 2014; used under the OpenSky terms of use | [opensky-network.org](https://opensky-network.org) |
 
 ### Data Source Transparency
 

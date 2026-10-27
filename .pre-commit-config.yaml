@@ -45,7 +45,7 @@ repos:
   # Linting
   # ==========================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.1  # PINNED with ci.yml + pyproject [dev] (check_pinned_tool_versions.py)
+    rev: v0.17.2  # PINNED with ci.yml + pyproject [dev] (check_pinned_tool_versions.py)
     hooks:
       - id: ruff
         args: ['--fix', '--exit-non-zero-on-fix']
