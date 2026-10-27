@@ -5,39 +5,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Competitive benchmark — Mercury vs PyOD (ADBench) + NAB streaming
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-13.
+Applies to Mercury Agent **v3.0**. Last updated: 2026-10-27 (full 57-set re-measure at
+commit `a2d7f991`, seed 42; the v2.1.x record this replaces had the tier 3rd of 8 at
+mean rank 3.79, losing to both `knn` and `local_outlier_factor`).
 
-> **2026-10-26 (v3.0 branch):** the table below predates two tier-detector changes and
-> understates the current detector. (1) The kNN density stream (fused after this run was
-> recorded; `_fuse_knn_stream`). (2) The dimensional fusion gate (`_knn_dimension_weight`):
-> the kNN z-stream's weight now follows feature width (sigmoid in log2(d), capped to
-> [0.35, 0.85], midpoint d=128), motivated by distance concentration and by this table's
-> own split (the 20 losses to `knn` have median d=18.5; the 11 outright wins median
-> d=400). Measured on a 12-set dev split and a 12-set untouched holdout under this file's
-> exact protocol: every dev set improved or held (landsat 0.660→0.726, Waveform
-> 0.715→0.750, annthyroid 0.928→0.951 — now beating `knn`'s 0.933 — InternetAds held at
-> 0.904); on the holdout, 10 of 12 beat the recorded numbers (fault +0.093, satellite
-> +0.082, SpamBase +0.046) and the mean gap to `knn` on its favoured low/mid-d turf
-> closed to parity (0.8779 vs 0.8810). The full 57-set table is re-measured by the
-> scheduled competitive lane; until it republishes, the numbers below are the v2.1.x
-> record, not the current standing.
-
-On the full **57-dataset ADBench suite** (47 Classical + 10 CV/NLP embedding sets), under one identical unsupervised protocol for every method, **Mercury's tier detector places 3rd of 8 by mean rank (3.79)** — behind `knn` (2.40) and `local_outlier_factor` (3.69), and **ahead of** `isolation_forest` (3.94), `hbos` (5.14), `copod` (5.62) and `ecod` (6.11). This is a measurement of position, not a highlight reel: Mercury **wins** decisively against the statistical baselines and **loses** to the distance/local-density methods (k-NN, LOF). The signature is consistent and diagnosable — Mercury is strong-to-dominant on **high-dimensional** sets where distance methods collapse, and weaker on **low-dimensional local-density** sets where they excel.
+On the full **57-dataset ADBench suite** (47 Classical + 10 CV/NLP embedding sets), under
+one identical unsupervised protocol for every method, **Mercury's tier detector places
+2nd of 8 by mean rank (2.72)** — behind `knn` (2.52) and **ahead of**
+`local_outlier_factor` (3.61), `isolation_forest` (4.55), `hbos` (5.55), `copod` (5.60)
+and `ecod` (6.06) — and carries the **highest mean ROC-AUC of all eight methods**
+(0.8341 vs `knn`'s 0.8316 and LOF's 0.8169). The movement from the v2.1.x record is the
+kNN density stream plus its dimensional fusion gate (`_knn_dimension_weight`,
+measured dev/holdout before adoption): the LOF head-to-head flipped from 28W/27L to
+**34W/23L**, the `knn` head-to-head closed from 21W/35L to **23W/34L with a median
+losing margin of 0.008 AUC**, and the statistical baselines are beaten 47–50 of 57.
+This stays a measurement of position, not a highlight reel: `knn` still leads on
+low-dimensional local-density sets (its native turf), and every loss is enumerated
+below with its margin.
 
 ## Per-method summary (mean over each method's successful datasets)
 
 | method | n | mean AUC | median AUC | mean AP | mean rank |
 |---|---:|---:|---:|---:|---:|
-| `mercury_tier` **(Mercury)** | 57 | 0.8119 | 0.8192 | 0.5247 | 3.79 |
-| `mercury_fusion` **(Mercury)** | 42 | 0.7715 | 0.8366 | 0.4780 | 5.31 |
-| `isolation_forest` | 57 | 0.7748 | 0.8080 | 0.4446 | 3.94 |
-| `ecod` | 57 | 0.7238 | 0.7141 | 0.4157 | 6.11 |
-| `copod` | 57 | 0.7291 | 0.7336 | 0.4025 | 5.62 |
-| `local_outlier_factor` | 57 | 0.8169 | 0.8516 | 0.5458 | 3.69 |
-| `knn` | 57 | 0.8316 | 0.8772 | 0.5635 | 2.40 |
-| `hbos` | 57 | 0.7412 | 0.7406 | 0.4208 | 5.14 |
+| `mercury_tier` **(Mercury)** | 57 | 0.8341 | 0.8718 | 0.5518 | 2.72 |
+| `mercury_fusion` **(Mercury)** | 57 | 0.7481 | 0.7270 | 0.3935 | 5.39 |
+| `isolation_forest` | 57 | 0.7748 | 0.8080 | 0.4446 | 4.55 |
+| `ecod` | 57 | 0.7238 | 0.7141 | 0.4157 | 6.06 |
+| `copod` | 57 | 0.7291 | 0.7336 | 0.4025 | 5.60 |
+| `local_outlier_factor` | 57 | 0.8169 | 0.8516 | 0.5458 | 3.61 |
+| `knn` | 57 | 0.8316 | 0.8772 | 0.5635 | 2.52 |
+| `hbos` | 57 | 0.7412 | 0.7406 | 0.4208 | 5.55 |
 
-Mean rank uses only the **42 datasets complete for every method** (those where every method produced a finite AUC), so ranks always compare identical work. `mercury_fusion` scored 42/57 datasets — the other 15 deferred at the per-cell wall-clock cap (see *Deferred cells*).
+Mean rank uses the **57 datasets complete for every method** — this run has no deferred cells, so ranks compare identical work across the whole suite.
 
 ## Head-to-head: wins / losses / break-evens
 
@@ -47,107 +46,90 @@ Strictly-higher ROC-AUC = a win; exact ties are break-evens. Losses are reported
 
 | baseline | wins | losses | break-evens | n compared |
 |---|---:|---:|---:|---:|
-| `isolation_forest` | 36 | 21 | 0 | 57 |
-| `ecod` | 48 | 9 | 0 | 57 |
-| `copod` | 46 | 11 | 0 | 57 |
-| `local_outlier_factor` | 28 | 27 | 2 | 57 |
-| `knn` | 21 | 35 | 1 | 57 |
-| `hbos` | 44 | 12 | 1 | 57 |
+| `isolation_forest` | 47 | 10 | 0 | 57 |
+| `ecod` | 50 | 7 | 0 | 57 |
+| `copod` | 48 | 9 | 0 | 57 |
+| `local_outlier_factor` | 34 | 23 | 0 | 57 |
+| `knn` | 23 | 34 | 0 | 57 |
+| `hbos` | 49 | 8 | 0 | 57 |
 
 ### `mercury_fusion` vs each PyOD baseline
 
 | baseline | wins | losses | break-evens | n compared |
 |---|---:|---:|---:|---:|
-| `isolation_forest` | 12 | 30 | 0 | 42 |
-| `ecod` | 25 | 17 | 0 | 42 |
-| `copod` | 23 | 19 | 0 | 42 |
-| `local_outlier_factor` | 10 | 32 | 0 | 42 |
-| `knn` | 7 | 35 | 0 | 42 |
-| `hbos` | 22 | 20 | 0 | 42 |
+| `isolation_forest` | 22 | 35 | 0 | 57 |
+| `ecod` | 32 | 25 | 0 | 57 |
+| `copod` | 31 | 26 | 0 | 57 |
+| `local_outlier_factor` | 18 | 39 | 0 | 57 |
+| `knn` | 9 | 48 | 0 | 57 |
+| `hbos` | 30 | 27 | 0 | 57 |
 
 ## Where Mercury wins outright
 
-Mercury's tier is the single best method on **11 datasets** — overwhelmingly the high-dimensional sets where distance/density methods degrade:
+Mercury's tier is the single best method on **11 datasets**:
 
-> `campaign`, `celeba`, `fraud`, `InternetAds`, `musk`, `speech`, `Wilt`, `cv:CIFAR10_0`, `cv:MNIST-C_brightness`, `cv:MVTec-AD_bottle`, `nlp:agnews_0`
+> `InternetAds`, `SpamBase`, `Wilt`, `annthyroid`, `campaign`, `celeba`, `nlp:amazon`, `satimage-2`, `smtp`, `speech`, `thyroid`
 
-`mercury_fusion` is best on 3: `Cardiotocography`, `vertebral`, `yeast`.
+`mercury_fusion` is best on 2: `vertebral`, `yeast`.
 
 ## Where Mercury loses
 
-Every one of the **45 datasets** where at least one PyOD baseline beats `mercury_tier`, sorted by margin, each diagnosed. Margin = best-beating-baseline AUC − Mercury AUC.
+Every one of the **46 datasets** where at least one PyOD baseline beats `mercury_tier`, sorted by margin, each diagnosed. Margin = best-beating-baseline AUC − Mercury AUC.
 
 | dataset | Mercury tier AUC | beaten by | margin | # baselines | diagnosis |
 |---|---:|---|---:|---:|---|
-| `landsat` | 0.480 | `knn` | +0.279 | 4 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `optdigits` | 0.800 | `local_outlier_factor` | +0.173 | 4 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `Waveform` | 0.600 | `local_outlier_factor` | +0.171 | 6 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `ALOI` | 0.551 | `local_outlier_factor` | +0.139 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `pendigits` | 0.874 | `knn` | +0.124 | 6 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `skin` | 0.872 | `knn` | +0.120 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `annthyroid` | 0.819 | `knn` | +0.114 | 3 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `glass` | 0.768 | `knn` | +0.110 | 4 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `fault` | 0.685 | `knn` | +0.110 | 1 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `satellite` | 0.774 | `knn` | +0.103 | 4 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `donors` | 0.925 | `knn` | +0.067 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `ALOI` | 0.547 | `local_outlier_factor` | +0.143 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `optdigits` | 0.875 | `local_outlier_factor` | +0.098 | 3 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `nlp:20news_0` | 0.722 | `local_outlier_factor` | +0.069 | 1 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
 | `WPBC` | 0.483 | `hbos` | +0.064 | 6 | statistical-baseline (HBOS/COPOD/ECOD) edge on this distribution; small margin |
-| `Cardiotocography` | 0.765 | `isolation_forest` | +0.050 | 3 | isolation-friendly axis-parallel structure; small margin, borderline |
-| `magic.gamma` | 0.792 | `knn` | +0.044 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `cover` | 0.949 | `local_outlier_factor` | +0.043 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `smtp` | 0.900 | `knn` | +0.042 | 4 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `Ionosphere` | 0.941 | `knn` | +0.042 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `letter` | 0.819 | `knn` | +0.042 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `SpamBase` | 0.802 | `knn` | +0.037 | 3 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `vowels` | 0.943 | `knn` | +0.033 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `Pima` | 0.705 | `hbos` | +0.029 | 2 | statistical-baseline (HBOS/COPOD/ECOD) edge on this distribution; small margin |
-| `Stamps` | 0.927 | `copod` | +0.027 | 3 | statistical-baseline (HBOS/COPOD/ECOD) edge on this distribution; small margin |
-| `nlp:20news_0` | 0.766 | `local_outlier_factor` | +0.025 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `glass` | 0.837 | `knn` | +0.041 | 1 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `donors` | 0.953 | `knn` | +0.039 | 1 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `cover` | 0.955 | `local_outlier_factor` | +0.037 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `Cardiotocography` | 0.780 | `isolation_forest` | +0.035 | 3 | isolation-friendly axis-parallel structure; small margin, borderline |
+| `mammography` | 0.872 | `ecod` | +0.034 | 4 | statistical-baseline (HBOS/COPOD/ECOD) edge on this distribution; small margin |
+| `landsat` | 0.726 | `knn` | +0.033 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `mnist` | 0.914 | `knn` | +0.030 | 2 | inductive-bias mismatch (decisive): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `backdoor` | 0.930 | `local_outlier_factor` | +0.030 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `cv:SVHN_0` | 0.636 | `local_outlier_factor` | +0.026 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `Stamps` | 0.928 | `copod` | +0.026 | 3 | statistical-baseline (HBOS/COPOD/ECOD) edge on this distribution; small margin |
 | `wine` | 0.950 | `knn` | +0.025 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `mammography` | 0.881 | `ecod` | +0.025 | 2 | statistical-baseline (HBOS/COPOD/ECOD) edge on this distribution; small margin |
-| `nlp:imdb` | 0.493 | `copod` | +0.024 | 5 | statistical-baseline (HBOS/COPOD/ECOD) edge on this distribution; small margin |
-| `yeast` | 0.455 | `local_outlier_factor` | +0.023 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `backdoor` | 0.941 | `local_outlier_factor` | +0.019 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `PageBlocks` | 0.953 | `local_outlier_factor` | +0.017 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `mnist` | 0.930 | `knn` | +0.015 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
-| `census` | 0.708 | `knn` | +0.014 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `cardio` | 0.933 | `isolation_forest` | +0.025 | 2 | isolation-friendly axis-parallel structure; small margin, borderline |
+| `letter` | 0.837 | `knn` | +0.024 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `Waveform` | 0.750 | `local_outlier_factor` | +0.022 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `cv:FashionMNIST_0` | 0.888 | `local_outlier_factor` | +0.021 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `satellite` | 0.856 | `knn` | +0.021 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `cv:MNIST-C_brightness` | 0.857 | `local_outlier_factor` | +0.020 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `fault` | 0.778 | `knn` | +0.016 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `yeast` | 0.463 | `local_outlier_factor` | +0.015 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `cv:CIFAR10_0` | 0.732 | `local_outlier_factor` | +0.012 | 2 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
 | `Lymphography` | 0.984 | `isolation_forest` | +0.012 | 4 | isolation-friendly axis-parallel structure; small margin, borderline |
-| `thyroid` | 0.978 | `isolation_forest` | +0.010 | 4 | isolation-friendly axis-parallel structure; small margin, borderline |
-| `cardio` | 0.951 | `isolation_forest` | +0.006 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
-| `cv:SVHN_0` | 0.658 | `local_outlier_factor` | +0.005 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
-| `http` | 0.995 | `knn` | +0.005 | 2 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
-| `shuttle` | 0.994 | `local_outlier_factor` | +0.004 | 4 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
-| `cv:FashionMNIST_0` | 0.905 | `local_outlier_factor` | +0.004 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
-| `WBC` | 0.991 | `isolation_forest` | +0.004 | 4 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
-| `nlp:yelp` | 0.687 | `knn` | +0.003 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
+| `nlp:yelp` | 0.678 | `knn` | +0.011 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `nlp:agnews_0` | 0.660 | `local_outlier_factor` | +0.010 | 1 | inductive-bias mismatch (small-margin): local-density/distance anomalies that k-NN/LOF capture directly; Mercury's tier weighting favors global geometry (PR-3 target) |
+| `fraud` | 0.962 | `hbos` | +0.010 | 5 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `census` | 0.713 | `knn` | +0.008 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
+| `skin` | 0.983 | `knn` | +0.008 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `Ionosphere` | 0.975 | `knn` | +0.008 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `WDBC` | 0.992 | `isolation_forest` | +0.008 | 4 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `vertebral` | 0.504 | `knn` | +0.007 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
+| `nlp:imdb` | 0.510 | `copod` | +0.007 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
+| `PageBlocks` | 0.965 | `local_outlier_factor` | +0.005 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `cv:MVTec-AD_bottle` | 0.960 | `isolation_forest` | +0.004 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `WBC` | 0.992 | `isolation_forest` | +0.003 | 4 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `magic.gamma` | 0.833 | `knn` | +0.003 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
 | `Hepatitis` | 0.799 | `hbos` | +0.002 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
-| `breastw` | 0.992 | `isolation_forest` | +0.002 | 3 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
-| `WDBC` | 0.998 | `isolation_forest` | +0.001 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
-| `satimage-2` | 0.998 | `knn` | +0.000 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
-| `nlp:amazon` | 0.613 | `knn` | +0.000 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
+| `vowels` | 0.974 | `knn` | +0.002 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `Pima` | 0.731 | `hbos` | +0.002 | 1 | near-tie (<0.01 margin; both methods weak on this hard, near-random set) |
+| `shuttle` | 0.997 | `local_outlier_factor` | +0.002 | 2 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `pendigits` | 0.997 | `knn` | +0.002 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `musk` | 0.999 | `local_outlier_factor` | +0.001 | 3 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `breastw` | 0.993 | `isolation_forest` | +0.001 | 3 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
+| `http` | 0.999 | `knn` | +0.000 | 1 | near-tie at ceiling AUC (within cross-environment noise; not a decisive loss) |
 
-Of these, **20 are decisive** (margin ≥ 0.03) and dominated by k-NN/LOF on local-density structure; the remaining 25 are near-ties at ceiling AUC (margins < 0.03, within cross-environment numerical noise). The decisive losses are the explicit target of the PR-3 per-domain calibration work.
+Of these, **11 are decisive** (margin ≥ 0.03) and dominated by k-NN/LOF on local-density structure; the remaining 35 are near-ties (margins < 0.03, within cross-environment numerical noise). The decisive losses remain the explicit target of the per-domain calibration work.
 
 ## Deferred cells
 
-**15 (dataset, method) cells** exceeded the per-cell wall-clock cap (`MERCURY_METHOD_TIMEOUT`, default 300 s) and are recorded as deferrals — never silent drops. All are `mercury_fusion` (50-epoch torch training) on the largest / highest-dimensional sets; the tier and every PyOD baseline completed on all 57. A deferral excludes only that one cell from the aggregate, with its wall-time recorded:
-
-| dataset | method | wall seconds |
-|---|---|---:|
-| `ALOI` | `mercury_fusion` | 300.1 |
-| `backdoor` | `mercury_fusion` | 300.0 |
-| `celeba` | `mercury_fusion` | 300.0 |
-| `census` | `mercury_fusion` | 300.0 |
-| `InternetAds` | `mercury_fusion` | 300.0 |
-| `speech` | `mercury_fusion` | 300.1 |
-| `cv:CIFAR10_0` | `mercury_fusion` | 300.1 |
-| `cv:FashionMNIST_0` | `mercury_fusion` | 300.1 |
-| `cv:SVHN_0` | `mercury_fusion` | 300.1 |
-| `cv:MNIST-C_brightness` | `mercury_fusion` | 300.1 |
-| `nlp:20news_0` | `mercury_fusion` | 300.1 |
-| `nlp:agnews_0` | `mercury_fusion` | 300.1 |
-| `nlp:amazon` | `mercury_fusion` | 300.1 |
-| `nlp:imdb` | `mercury_fusion` | 300.1 |
-| `nlp:yelp` | `mercury_fusion` | 300.0 |
+**None in this run.** Every (dataset, method) cell — `mercury_fusion`'s 50-epoch torch training included — completed inside the per-cell wall-clock cap (`MERCURY_METHOD_TIMEOUT`, default 300 s), so the aggregates cover all 57 datasets for all 8 methods. (The v2.1.x run deferred 15 `mercury_fusion` cells on the largest sets; deferrals are recorded, never silently dropped, and this section reports them whenever they occur.)
 
 ## NAB streaming (Mercury streaming tier vs same-harness baselines)
 

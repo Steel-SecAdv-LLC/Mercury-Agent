@@ -7,26 +7,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,076
-- **Capability-bearing classes:** 2,058 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,081
+- **Capability-bearing classes:** 2,063 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,203 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,204 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1203 |
+| Other capability classes | 1204 |
 | Support types (config / result / enum / error) | 1018 |
 | Detection | 180 |
 | Neural models & layers | 162 |
-| Data sources & loaders | 110 |
+| Data sources & loaders | 113 |
 | Engines & orchestration | 102 |
 | Adapters & backends | 97 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
-| Monitoring | 26 |
+| Monitoring | 27 |
 | Prediction & forecasting | 21 |
 | Ethics & governance | 14 |
 | Solvers & scorers | 11 |
@@ -962,12 +962,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `datasets/` — 73 classes (60 capability)
+### `datasets/` — 76 classes (63 capability)
 
 **Data sources & loaders**
 
 - `ADBenchLoader` (`datasets.adbench`) — ADBench tabular anomaly detection dataset loader.
 - `ADRepositoryLoader` (`datasets.adrepository`) — Loader for ADRepository real-world anomaly detection datasets.
+- `ALFAUAVLoader` (`datasets.uav_flight`) — ALFA fixed-wing UAV fault flights with injection-time ground truth.
 - `BATADALLoader` (`datasets.industrial`) — BATADAL (Battle of Attack Detection Algorithms) Dataset Loader.
 - `CICIDSLoader` (`datasets.security`) — CICIDS 2017 Network Intrusion Detection Dataset Loader.
 - `CWRUBearingLoader` (`datasets.ucr_archive`) — Alias for MBA loader (CWRU Bearing Data).
@@ -996,6 +997,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `NOAAWeatherLoader` (`datasets.environmental`) — Weather/Climate Data Loader using Open-Meteo API.
 - `NSLKDDLoader` (`datasets.security`) — NSL-KDD Network Intrusion Detection Dataset Loader.
 - `PhysioNetLoader` (`datasets.medical`) — Generic PhysioNet dataset loader for vital sign data.
+- `RobotExecutionFailuresLoader` (`datasets.robot_failures`) — UCI Robot Execution Failures with observed-outcome ground truth.
 - `SETILoader` (`datasets.space`) — SETI Signal Dataset Loader.
 - `SMAPMSLLoader` (`datasets.timeseries`) — NASA SMAP and MSL Spacecraft Telemetry Dataset Loader.
 - `SMDLoader` (`datasets.timeseries`) — Server Machine Dataset (SMD) Loader.
@@ -1012,6 +1014,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Other capability classes**
 
+- `ALFASequence` (`datasets.uav_flight`) — One resampled ALFA flight sequence with ground-truth fault labels.
 - `BaseImageDataset` (`datasets.benchmarks.base_dataset`) — Abstract base class for image anomaly detection datasets.
 - `BaseVideoDataset` (`datasets.benchmarks.base_dataset`) — Abstract base class for video anomaly detection datasets.
 - `BenchmarkComparison` (`datasets.benchmarks.suite`) — Comparison between multiple benchmark results.
@@ -1055,7 +1058,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 462 classes (335 capability)
+### `detectors/` — 463 classes (336 capability)
 
 **Adapters & backends**
 
@@ -1238,6 +1241,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Monitoring**
 
+- `ActuatorHealthMonitor` (`detectors.drone.actuator_health`) — Streaming stuck-actuator monitor over per-tick actuation vectors.
 - `PressureGradientMonitor` (`detectors.geological.tornado_detector`) — Atmospheric pressure gradient monitoring for tornado precursors.
 - `PressureTracker` (`detectors.geological.hurricane_detector`) — Central pressure tracking for cyclone intensity monitoring.
 - `RiverGaugeMonitor` (`detectors.geological.flood_detector`) — River gauge monitoring for flood stage detection.
@@ -1865,10 +1869,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `loaders/` — 27 classes (25 capability)
+### `loaders/` — 28 classes (26 capability)
 
 **Data sources & loaders**
 
+- `AirspaceLoader` (`loaders.airspace_loader`) — Loader for live OpenSky airspace state vectors.
 - `BaseDomainLoader` (`loaders.base`) — Base class for all domain data loaders.
 - `DroughtLoader` (`loaders.drought_loader`) — Loader for drought data from NOAA NCEI GSOM monthly summaries.
 - `EarthquakeLoader` (`loaders.earthquake_loader`) — Loader for earthquake data from the USGS Earthquake Hazards Program.

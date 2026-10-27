@@ -79,10 +79,12 @@ from .noaa_erddap import NOAAERDDAPLoader
 from .noaa_gsod import NOAAGSODLoader
 from .noaa_storm import NOAAStormEventsLoader
 from .ocean import NOAABuoyLoader, NOAACoOpsStationLoader
+from .robot_failures import RobotExecutionFailuresLoader
 from .security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from .space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
 from .space_weather import NOAASpaceWeatherLoader
 from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
+from .uav_flight import ALFAUAVLoader
 from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
 
 __all__ = [
@@ -93,6 +95,8 @@ __all__ = [
     "ALLOW_SYNTHETIC",
     "ADBenchLoader",
     "ADRepositoryLoader",
+    # ALFA UAV fault flights (CMU AIR Lab)
+    "ALFAUAVLoader",
     "BATADALLoader",
     # Visual anomaly detection base classes (from data/benchmarks)
     "BaseDatasetConfig",
@@ -141,6 +145,8 @@ __all__ = [
     "NSLKDDLoader",
     "PhysioNetLoader",
     "RealWorldBenchmarkSuite",
+    # UCI Robot Execution Failures (manipulator force/torque)
+    "RobotExecutionFailuresLoader",
     "SETILoader",
     "SMAPMSLLoader",
     "SMDLoader",

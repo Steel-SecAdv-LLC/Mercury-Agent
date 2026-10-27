@@ -154,6 +154,22 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "independent of the kinematic features Mercury scores. "
         "DOI 10.11583/DTU.21511815.",
     ),
+    "robot_failures.RobotExecutionFailuresLoader": (
+        "ground_truth",
+        "Each of the 463 manipulator executions carries its observed task "
+        "outcome (normal/ok vs collision, obstruction, part lost, ...) "
+        "annotated by the dataset authors at run time - event ground truth "
+        "independent of the force/torque features Mercury scores. UCI 138, "
+        "DOI 10.24432/C5M89N (CC BY 4.0).",
+    ),
+    "uav_flight.ALFAUAVLoader": (
+        "ground_truth",
+        "Fault windows recorded by the onboard failure_status ROS topics at "
+        "the instant the safety pilot injected each real actuator fault "
+        "(engine, aileron, rudder, elevator) mid-flight; event ground truth "
+        "independent of the telemetry features Mercury scores. "
+        "DOI 10.1184/R1/12707963 (CC0).",
+    ),
     # --- Manufactured / synthetic (statistical) -- excluded from headline -
     "environmental.USGSEarthquakeLoader": (
         "statistical",

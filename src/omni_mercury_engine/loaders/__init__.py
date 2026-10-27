@@ -10,6 +10,7 @@ All loaders implement the BaseDomainLoader interface.
 
 from __future__ import annotations
 
+from omni_mercury_engine.loaders.airspace_loader import AirspaceLoader
 from omni_mercury_engine.loaders.base import BaseDomainLoader, FetchHTTPError
 from omni_mercury_engine.loaders.drought_loader import DroughtLoader
 from omni_mercury_engine.loaders.earthquake_loader import EarthquakeLoader
@@ -34,6 +35,7 @@ from omni_mercury_engine.loaders.volcanic_loader import VolcanicLoader
 from omni_mercury_engine.loaders.wildfire_loader import WildfireLoader
 
 __all__ = [
+    "AirspaceLoader",
     "BaseDomainLoader",
     "DroughtLoader",
     "EarthquakeLoader",

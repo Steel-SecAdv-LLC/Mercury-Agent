@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import logging
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -31,10 +32,19 @@ logger = logging.getLogger(__name__)
 _AREA_URL = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
 _COUNTRY_URL = "https://firms.modaps.eosdis.nasa.gov/api/country/csv"
 
+#: Near-real-time product: the last ~2 months only, ~3 h processing lag.
 _SENSOR = "VIIRS_NOAA20_NRT"
+#: Standard-processing (archive) product: science-quality detections for
+#: dates older than the NRT horizon, published a few months behind.
+_SENSOR_SP = "VIIRS_NOAA20_SP"
 
-# Maximum number of days allowed for NRT data requests
+#: Maximum day_range a single FIRMS request accepts (NRT and SP alike).
 _MAX_NRT_DAYS = 10
+
+#: Events whose window ends within this many days of "now" are fetched from
+#: the NRT product; older windows use the SP archive, which is the only
+#: product that still holds them.
+_NRT_HORIZON_DAYS = 60
 
 # ---------------------------------------------------------------------------
 # Ground truth event catalog
@@ -50,7 +60,6 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "country_code": None,
         "start": "2025-01-07",
         "end": "2025-01-14",
-        "days": 8,
     },
     "maui_2023": {
         "name": "2023 Maui Wildfire",
@@ -60,7 +69,6 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "country_code": None,
         "start": "2023-08-08",
         "end": "2023-08-12",
-        "days": 5,
     },
     "australia_2020": {
         "name": "2020 Australian Bushfires",
@@ -73,7 +81,6 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "country_code": "AUS",
         "start": "2019-11-01",
         "end": "2020-02-29",
-        "days": 10,
     },
     "west_coast_2020": {
         "name": "2020 US West Coast Fires",
@@ -86,7 +93,6 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "country_code": None,
         "start": "2020-09-01",
         "end": "2020-09-30",
-        "days": 10,
     },
 }
 
@@ -134,10 +140,16 @@ class WildfireLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """Fetch the most recent day of global active-fire detections.
+        """Fetch the most recent global active-fire detections.
 
         Queries the NASA FIRMS area endpoint for a global bounding box
-        over the last 1 day of NRT data.
+        over the last 2 days of NRT data. FIRMS ``day_range`` counts UTC
+        calendar days ending today, and VIIRS NRT granules take roughly
+        three hours to process, so a 1-day request issued shortly after
+        UTC midnight covers a day with no processed detections yet and
+        returns a header-only CSV. Two days always spans the last fully
+        processed UTC day, so an empty result signals a real upstream
+        outage instead of a clock artifact.
 
         Returns:
             DataFrame with FIRMS CSV columns including latitude,
@@ -157,8 +169,10 @@ class WildfireLoader(BaseDomainLoader):
             logger.debug("Returning cached real-time wildfire data.")
             return pd.DataFrame(cached)
 
-        # Global bounding box, 1 day of NRT data
-        url = self._build_area_url("-180,-90,180,90", days=1)
+        # Global bounding box, 2 days of NRT data: see the docstring for
+        # why 1 day is empty near UTC midnight (day_range counts UTC
+        # calendar days and NRT processing lags ~3 hours).
+        url = self._build_area_url("-180,-90,180,90", days=2)
         df = self._fetch_firms_csv(url)
 
         if not df.empty:
@@ -168,6 +182,15 @@ class WildfireLoader(BaseDomainLoader):
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
         """Fetch fire-detection data for a known historical wildfire event.
+
+        Requests the event's **actual date window**: the ``start``..``end``
+        range from the catalog is paged in forward-counting chunks of at
+        most 10 days (FIRMS's per-request limit), each anchored to an
+        explicit start date. Windows older than the NRT horizon come from
+        the standard-processing archive (``VIIRS_NOAA20_SP``) - the NRT
+        product only holds the last ~2 months, and a date-less request
+        would silently return whatever is burning in that bounding box
+        *today*, mislabelled as the historical event.
 
         Args:
             event_id: Key into the ground truth catalog (e.g.
@@ -196,18 +219,31 @@ class WildfireLoader(BaseDomainLoader):
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
-        days = min(event["days"], _MAX_NRT_DAYS)
+        start = datetime.strptime(event["start"], "%Y-%m-%d").replace(tzinfo=UTC)
+        end = datetime.strptime(event["end"], "%Y-%m-%d").replace(tzinfo=UTC)
+        age_days = (datetime.now(UTC) - end).days
+        sensor = _SENSOR if age_days <= _NRT_HORIZON_DAYS else _SENSOR_SP
 
-        if event["country_code"] is not None:
-            url = self._build_country_url(event["country_code"], days=days)
-        else:
-            url = self._build_area_url(event["area"], days=days)
+        frames: list[pd.DataFrame] = []
+        chunk_start = start
+        while chunk_start <= end:
+            chunk_days = min((end - chunk_start).days + 1, _MAX_NRT_DAYS)
+            date = chunk_start.strftime("%Y-%m-%d")
+            if event["country_code"] is not None:
+                url = self._build_country_url(
+                    event["country_code"], days=chunk_days, date=date, sensor=sensor
+                )
+            else:
+                url = self._build_area_url(event["area"], days=chunk_days, date=date, sensor=sensor)
+            chunk = self._fetch_firms_csv(url)
+            if not chunk.empty:
+                frames.append(chunk)
+            chunk_start += timedelta(days=chunk_days)
 
-        df = self._fetch_firms_csv(url)
-
-        if df.empty:
+        if not frames:
             logger.warning("FIRMS returned no detections for event '%s'.", event_id)
-            return df
+            return pd.DataFrame()
+        df = pd.concat(frames, ignore_index=True)
 
         # Sort chronologically by acquisition date and time
         df = self._sort_chronologically(df)
@@ -375,31 +411,44 @@ class WildfireLoader(BaseDomainLoader):
     # Private helpers -- URL construction
     # ------------------------------------------------------------------
 
-    def _build_area_url(self, area: str, days: int) -> str:
+    def _build_area_url(
+        self, area: str, days: int, date: str | None = None, sensor: str = _SENSOR
+    ) -> str:
         """Build a FIRMS area-endpoint URL.
 
         Args:
             area: Bounding box as ``"west,south,east,north"``.
-            days: Number of days of NRT data to request (max 10).
+            days: Day range of the request (max 10).
+            date: Optional ``YYYY-MM-DD`` start date; FIRMS then serves
+                ``days`` days counting **forward** from it. Without it the
+                range ends today (UTC).
+            sensor: FIRMS source (NRT for recent data, SP for the archive).
 
         Returns:
             Fully-qualified URL string including the API key.
         """
         days = min(days, _MAX_NRT_DAYS)
-        return f"{_AREA_URL}/{self._api_key}/{_SENSOR}/{area}/{days}"
+        url = f"{_AREA_URL}/{self._api_key}/{sensor}/{area}/{days}"
+        return f"{url}/{date}" if date else url
 
-    def _build_country_url(self, country_code: str, days: int) -> str:
+    def _build_country_url(
+        self, country_code: str, days: int, date: str | None = None, sensor: str = _SENSOR
+    ) -> str:
         """Build a FIRMS country-endpoint URL.
 
         Args:
             country_code: ISO 3166-1 alpha-3 country code (e.g. ``"AUS"``).
-            days: Number of days of NRT data to request (max 10).
+            days: Day range of the request (max 10).
+            date: Optional ``YYYY-MM-DD`` start date (forward-counting, as
+                in :meth:`_build_area_url`).
+            sensor: FIRMS source (NRT for recent data, SP for the archive).
 
         Returns:
             Fully-qualified URL string including the API key.
         """
         days = min(days, _MAX_NRT_DAYS)
-        return f"{_COUNTRY_URL}/{self._api_key}/{_SENSOR}/{country_code}/{days}"
+        url = f"{_COUNTRY_URL}/{self._api_key}/{sensor}/{country_code}/{days}"
+        return f"{url}/{date}" if date else url
 
     # ------------------------------------------------------------------
     # Private helpers -- data parsing

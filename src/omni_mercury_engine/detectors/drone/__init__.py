@@ -13,6 +13,11 @@ another single-domain stream live in
 
 from __future__ import annotations
 
+from omni_mercury_engine.detectors.drone.actuator_health import (
+    ActuatorHealthMonitor,
+    causal_rolling_std,
+    stuck_actuator_scores,
+)
 from omni_mercury_engine.detectors.drone.detector import (
     DroneAnomalyDetector,
     DroneFault,
@@ -23,10 +28,13 @@ from omni_mercury_engine.detectors.drone.detector import (
 )
 
 __all__ = [
+    "ActuatorHealthMonitor",
     "DroneAnomalyDetector",
     "DroneFault",
     "DroneState",
     "FaultType",
     "MissionPhase",
+    "causal_rolling_std",
     "get_drone_detector",
+    "stuck_actuator_scores",
 ]

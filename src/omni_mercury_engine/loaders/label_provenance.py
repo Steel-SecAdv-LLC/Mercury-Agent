@@ -165,6 +165,13 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "statistical",
         "Labels = (fatality_count > 0) OR (size_code >= large); both are scored features.",
     ),
+    "airspace_loader.AirspaceLoader": (
+        "statistical",
+        "Kinematic-envelope outliers over live OpenSky state vectors are "
+        "statistical by construction; the genuine event channel (emergency "
+        "squawks 7500/7600/7700) is excluded from the scored features and "
+        "carried as a separate column, never manufactured into labels.",
+    ),
     "wildfire_loader.WildfireLoader": (
         "statistical",
         "Labels = ``FRP >= 90th percentile`` per-dataset on the scored ``frp`` feature.",

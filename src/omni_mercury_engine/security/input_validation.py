@@ -593,6 +593,8 @@ class TrustedEndpoints:
             "simonscmap.com",
             # Copernicus Climate Data Store
             "cds.climate.copernicus.eu",
+            # OpenSky Network (live ADS-B aircraft states; anonymous REST)
+            "opensky-network.org",
             # Academic/Research Datasets
             "archive.ics.uci.edu",
             "ndownloader.figshare.com",  # DTU Data AIS sets (DOI 10.11583/DTU.21511815, .21511842)
@@ -1025,6 +1027,30 @@ class TrustedEndpoints:
     # ==========================================================================
     BATADAL_TRAIN = "https://www.batadal.net/data/BATADAL_dataset03.csv"
     BATADAL_TEST = "https://www.batadal.net/data/BATADAL_dataset04.csv"
+
+    # ==========================================================================
+    # OpenSky Network — live ADS-B aircraft state vectors
+    # ==========================================================================
+    # Anonymous REST access (rate-limited); crowd-sourced real ADS-B/Mode S
+    # receptions. https://openskynetwork.github.io/opensky-api/rest.html
+    OPENSKY_STATES = "https://opensky-network.org/api/states/all"
+
+    # ==========================================================================
+    # UCI ML Repository — Robot Execution Failures (dataset 138, CC BY 4.0)
+    # ==========================================================================
+    # Real manipulator force/torque with observed execution outcomes; the
+    # loader pins the archive's SHA-256 and reads only the lp*.data members.
+    UCI_ROBOT_FAILURES = (
+        "https://archive.ics.uci.edu/static/public/138/robot+execution+failures.zip"
+    )
+
+    # ==========================================================================
+    # ALFA — CMU AIR Lab UAV Failure and Anomaly Dataset (CC0)
+    # ==========================================================================
+    # ``processed.zip`` of figshare article 12707963 (DOI
+    # 10.1184/R1/12707963): 47 fixed-wing flight sequences with real
+    # mid-flight actuator faults. The loader pins the archive's SHA-256.
+    ALFA_UAV_PROCESSED = "https://ndownloader.figshare.com/files/24095870"
 
     # ==========================================================================
     # Domain Loader Endpoints (added for Mercury domain wiring)

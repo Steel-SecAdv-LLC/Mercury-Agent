@@ -27,6 +27,107 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [3.0.0] - 2026-10-27
+
+The first release after 2.0.0 (the work prepared as 2.1.0 was never released);
+the upgrade notes from 2.0.0 — the AGPL-3.0-or-later relicense and every
+renamed or removed 2.0.0 name — are summarised where this section's earlier
+entries introduce them and in DEPRECATION.md §6.6-§6.15 and §7.
+
+**Added — ALFA UAV fault corpus, stuck-actuator health monitor, and the drone
+detector's first real-fault measurement.** `datasets/uav_flight.py` loads the CMU
+AIR Lab ALFA dataset (DOI 10.1184/R1/12707963, CC0; SHA-256-pinned archive): 46
+real fixed-wing flights, 36 with a mid-flight injected actuator fault whose
+injection instant the onboard `failure_status` topics record — genuine event
+ground truth (`LABEL_SOURCE="ground_truth"`), the registry's justification
+audited in `label_provenance.py`. Measuring Mercury on it exposed the class
+per-tick scoring cannot see: a locked aileron stays in range per-tick while its
+servo channel's variance collapses (per-flight ensemble AUROC 0.60 on aileron
+locks). `detectors/drone/actuator_health.py` adds the targeted statistic —
+causal rolling std against the channel's demonstrated activity (a running max,
+so a fault filling the window cannot normalise itself away) — scoring 0.907 on
+the same class, and `DroneAnomalyDetector` now raises `ACTUATOR_FAILURE` faults
+from it (`detected_by="ActuatorHealth"`, gate 0.95 ≈ <0.5% per-tick false
+alarms on the ten no-failure flights). Decision-level OR fusion of both alarms
+detects 35/36 fault flights at 0.68% joint normal FPR with 8.0 s median delay
+across engine, aileron, rudder and elevator faults
+(`benchmarks/alfa_uav_benchmark.py`, recorded in `artifacts/alfa_uav.eval.json`).
+The drone detector's `decision_source` previously rested on simulated flights
+only; this is its first calibration against real recorded faults.
+
+**Fixed — removed fabricated metrics from the neuro-symbolic benchmark report.**
+Two panels of `docs/images/neuro_symbolic_benchmark_report.png` were rendered
+from invented numbers: the "Domain Competence Heatmap" filled every per-domain
+cell with `0.85/0.9/0.95 + np.random.random()`, and the "Memory System Growth"
+panel split the real memory total by fixed ratios (0.4/0.35/0.25) with a
+made-up short-term curve — synthetic values presented as measured results. The
+benchmark now aggregates the **real** per-domain confidence, benevolence and
+anomaly-call accuracy its own loop computes, and records the agent's **real**
+per-type memory counts (short/long/episodic/semantic) each epoch. Removing the
+fabrication surfaced a masked truth: the agent's `success_rate` is a structural
+0.0 for these pure-reasoning scenarios (no tools bound, so no task executes),
+which the old `0.9 + random` had papered over — that axis is dropped from the
+heatmap as not-applicable rather than shown as failure. Pinned against
+regression in `tests/benchmarks/test_neuro_symbolic_real_metrics.py`. The
+committed report image is rendered from a 100-epoch run (the metrics are flat
+from ~epoch 80; the committed `--epochs` default stays 200 for a longer render
+on hardware without the CI time budget).
+
+**Fixed — the wildfire loader's two FIRMS windowing defects (issue #382 and a
+silent historical mislabeling).** First, `fetch_realtime()`: FIRMS `day_range`
+counts UTC calendar days ending today and VIIRS NRT processing lags ~3 hours,
+so the 1-day global query returned a header-only CSV when issued shortly after
+UTC midnight — the weekly keyed-loader smoke's recurring "0 rows" failure. Two
+days always spans the last fully processed UTC day, so an empty result now
+signals a real upstream outage instead of a clock artifact. Second, and worse,
+`fetch_historical()` carried **no date at all**: it requested the last N days
+of NRT data in the event's bounding box, so "2023 Maui Wildfire" returned
+whatever is burning near Lahaina *today*, silently mislabelled as the
+historical event (consumed as event ground truth by the
+`research/governed_fusion`, `engine_calibration` and `omni_equation`
+harnesses), and the 10-day request cap meant multi-month events could never be
+covered. It now pages the catalog's actual start..end window in
+forward-counting ≤10-day chunks against the standard-processing archive
+(`VIIRS_NOAA20_SP`; NRT only within its ~2-month horizon) — Australia 2019-20
+is 13 chunked requests, not one dateless one. Both pinned in
+`test_wildfire_firms_guards.py`. An audit of the other 19 `_EVENT_CATALOG`
+loaders found no second instance: each filters by the event's dates/IDs or
+documents its synthesis/refusal openly.
+
+**Added — UCI Robot Execution Failures: a genuine manipulator fault corpus.**
+`datasets/robot_failures.py` loads UCI dataset 138 (CC BY 4.0, SHA-256-pinned
+archive; only the `lp*.data` text members are read — the shipped `a.out`
+binary is never touched): 463 real robot-manipulator executions, 15
+force/torque samples each, labelled with the observed task outcome (collision,
+obstruction, part lost, ...) — event ground truth in the contact modality of
+manipulators and humanoid limbs. Parsing surfaced a trap the raw files
+confirm: lp3 relabels lp2's 47 transfer executions (byte-identical numeric
+rows), so the default pooled view excludes lp3 rather than double-count.
+Measured semi-supervised (fit on half the nominal runs per problem, 20 seeded
+splits, nothing tuned on failures): AUROC 1.000 (lp1), 0.984 (lp2/lp3), 1.000
+(lp4), 0.922 (lp5); pooled 0.968 (`benchmarks/robot_failures_benchmark.py`,
+recorded in `artifacts/robot_failures.eval.json`).
+
+**Added — live airspace domain loader (OpenSky Network).**
+`loaders/airspace_loader.py` reads real crowd-sourced ADS-B / Mode S state
+vectors from OpenSky's anonymous REST API (worldwide or a bounding box) —
+Mercury's live-GIS airspace surface, verified against the live endpoint. Its
+semantics are stated honestly: emergency squawks (7500/7600/7700) are real
+declared events surfaced as a separate `squawk_emergency` column and
+deliberately excluded from the scored kinematic features, so statistical
+envelope outliers ("aircraft behaving unusually") stay independent of the
+genuine event channel; historical state vectors are refused rather than
+fabricated (OpenSky serves history only to authenticated accounts).
+`opensky-network.org` joins the SSRF allowlist with a pinned endpoint.
+
+**Fixed — `generate_calibration_visuals.py` no longer regenerates the retired
+`conformal_coverage.png`.** The standalone image was retired in PR #139 when its
+empirical-vs-target scatter became a panel of `calibration_improvement.png`
+(docs/BENCHMARKS.md, MD-005), but the generator kept writing the orphan file to
+`docs/images/` on every run, contradicting the documented retirement.
+
 **Changed — the tier detector's kNN stream weight follows a dimensional gate.** Equal
 z-averaging (0.5/0.5) wasted whichever stream was stronger: on the recorded 57-set
 ADBench competitive run the kNN stream dominates the base ensemble at low feature width
@@ -1059,8 +1160,6 @@ next audited event) and `degraded` (failures hit while recording the touch);
 both appear in the audit details. `DeceptionSensor` gains `failure_counts()`,
 `note_failure()` and an optional `failure_hook`; the API exports
 `mercury_deception_failures_total{kind}` on `/metrics`.
-
-## [3.0.0] - 2026-10-21
 
 The first release after 2.0.0; it includes the work prepared as 2.1.0, which
 was never released. Upgrading from 2.0.0: the license is now

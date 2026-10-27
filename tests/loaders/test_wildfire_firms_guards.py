@@ -169,6 +169,77 @@ class TestFIRMSErrorBodyGuard:
             df = loader.fetch_realtime()
         assert df.empty
 
+    def test_historical_requests_the_event_window_from_the_archive(self, tmp_path: Any) -> None:
+        """Pin the date-windowed historical fetch.
+
+        The pre-fix request carried no date, so FIRMS served the last N
+        days of NRT data - present-day fires in the event's bounding box,
+        mislabelled as the historical event (and the NRT product does not
+        even hold archival dates). The fix pages the catalog's actual
+        start..end window in forward-counting <=10-day chunks against the
+        standard-processing archive.
+        """
+        loader = _loader(tmp_path)
+        seen_urls: list[str] = []
+
+        def record(url: str, **kwargs: Any) -> bytes:
+            seen_urls.append(url)
+            return _FIRMS_CSV
+
+        with patch(
+            "omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url",
+            side_effect=record,
+        ):
+            df = loader.fetch_historical("maui_2023")
+        # 2023-08-08..2023-08-12 inclusive = 5 days = one chunk, SP archive.
+        assert len(seen_urls) == 1
+        assert seen_urls[0].endswith("/VIIRS_NOAA20_SP/-156.7,20.8,-156.4,21.0/5/2023-08-08")
+        assert len(df) == 2
+
+    def test_historical_multimonth_event_is_paged_in_ten_day_chunks(self, tmp_path: Any) -> None:
+        loader = _loader(tmp_path)
+        seen_urls: list[str] = []
+
+        def record(url: str, **kwargs: Any) -> bytes:
+            seen_urls.append(url)
+            return _FIRMS_CSV
+
+        with patch(
+            "omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url",
+            side_effect=record,
+        ):
+            df = loader.fetch_historical("australia_2020")
+        # 2019-11-01..2020-02-29 inclusive = 121 days = 12x10 + 1.
+        assert len(seen_urls) == 13
+        assert all("/VIIRS_NOAA20_SP/AUS/" in url for url in seen_urls)
+        assert seen_urls[0].endswith("/AUS/10/2019-11-01")
+        assert seen_urls[1].endswith("/AUS/10/2019-11-11")
+        assert seen_urls[-1].endswith("/AUS/1/2020-02-29")
+        assert len(df) == 13 * 2  # chunks concatenated
+
+    def test_realtime_requests_two_utc_days(self, tmp_path: Any) -> None:
+        """Pin the 2-day realtime window (issue #382 root cause).
+
+        FIRMS ``day_range`` counts UTC calendar days ending today and
+        VIIRS NRT processing lags ~3 hours, so a 1-day global request
+        issued shortly after UTC midnight returns a header-only CSV and
+        fails the weekly keyed-loader smoke. Two days always spans the
+        last fully processed UTC day.
+        """
+        loader = _loader(tmp_path)
+        seen_urls: list[str] = []
+
+        def record(url: str, **kwargs: Any) -> bytes:
+            seen_urls.append(url)
+            return _FIRMS_CSV
+
+        with patch(
+            "omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url",
+            side_effect=record,
+        ):
+            loader.fetch_realtime()
+        assert seen_urls and seen_urls[0].endswith("/-180,-90,180,90/2")
+
     def test_error_body_echoing_key_is_scrubbed(self, tmp_path: Any) -> None:
         """Observed FIRMS error bodies do not echo the MAP key, but that is
         upstream behaviour, not a contract — if one ever does, the value
