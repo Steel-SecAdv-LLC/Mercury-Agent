@@ -6,10 +6,12 @@ Phase 2 of the May 2026 audit cure flips ethics from "advisory" to
 "functional".  Every API surface listed as a *decision boundary* in
 ``src/omni_mercury_engine/ethical/__init__.py`` MUST raise
 ``EthicalConstraintViolationError`` (re-exported as ``EthicalViolation``)
-on a simulated benevolence-violation (``check="benevolence"``), and MUST
-NOT raise for legitimate inputs.  GOSNN's σ_Immutable score is
-informational metadata — it is not the enforcement gate today because
-the underlying neural network is untrained.
+on an impermissible decision (``check="harm_uplift"``, the first hard
+gate — the benevolence pass-bar it replaced is retired, see the ethical
+module docstring) or a sub-threshold σ_Immutable verdict
+(``check="sigma_immutable"`` from the trained second hard gate,
+``check="gosnn_unavailable"`` when GOSNN cannot run), and MUST NOT
+raise for legitimate inputs.
 
 This file is the regression that makes the contract durable: any future
 change that turns one of these boundaries back into a logger.warning,
@@ -745,14 +747,14 @@ class TestNeuroSymbolicHubEmptyBatchClosure:
 # ---------------------------------------------------------------------------
 # σ_Immutable Wave C — narrative voice + federation boundaries.
 #
-# Wave C extends the dual hard gate (BenevolenceScorer.enforce first,
+# Wave C extends the dual hard gate (harm-uplift choke point first,
 # SigmaImmutableGate.enforce second) from the engine / orchestrator / hub
 # to the three previously-ungated public surfaces: narrative voice,
 # federation aggregator, and the FL-server training round.  Each surface is
 # pinned with the same four-way contract used at the existing boundaries:
 #
 #   * a legitimate call passes the *real* trained gate (no monkeypatch),
-#   * a benevolence-floor violation raises ``check="benevolence"``,
+#   * an impermissible decision raises ``check="harm_uplift"``,
 #   * a sub-threshold σ_Immutable score raises ``check="sigma_immutable"``,
 #   * an unevaluable gate raises ``check="gosnn_unavailable"``.
 #

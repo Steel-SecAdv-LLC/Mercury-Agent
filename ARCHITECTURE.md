@@ -640,16 +640,25 @@ Infrastructure modules integrate seamlessly with the core detector classes:
 
 Every public detect / analyze / predict surface in Mercury-Agent runs
 **two independent hard ethical gates** in order before returning any
-prediction.  There is no advisory mode and no public flag that disables
-either gate; failure modes raise
-`EthicalConstraintViolationError` with a machine-checkable `check=…`
-field and abort the call.
+prediction.  There is no public flag that disables either gate; failure
+modes raise `EthicalConstraintViolationError` with a machine-checkable
+`check=…` field and abort the call.  The first gate is the **harm-uplift
+choke point** (`cognitive/decision_gate.enforce_decision_boundary`),
+which scores a structured `DecisionSubject` — the caller's real request,
+never an engine-written description of its own intentions.  Benevolence
+is computed as an **advisory** score at these boundaries: logged on the
+verdict, deciding nothing.  `check="benevolence"` is retired as a
+boundary pass-bar; its one remaining enforcing use is the assessment
+purpose screen (`omni_mercury_engine.assessment.policy.gate`), which
+scores the caller's own stated purpose for a human-subject measurement.
+See `src/omni_mercury_engine/ethical/__init__.py` for the full contract
+and the history of the removed pass-bar.
 
 ```
 caller → boundary surface
               │
-              ├── Gate 1: BenevolenceScorer.enforce(action, context)
-              │     └── raises check="benevolence" if score < threshold
+              ├── Gate 1: enforce_decision_boundary(DecisionSubject)
+              │     └── raises check="harm_uplift" if the decision is impermissible
               │
               ├── Gate 2: SigmaImmutableGate.enforce(scalar_vector)
               │     └── raises check="sigma_immutable" if score < threshold
@@ -658,14 +667,18 @@ caller → boundary surface
               └── return prediction
 ```
 
+Both gates run through the single shared primitive
+`security.sigma_immutable_gate.enforce_dual_ethical_gate`, so the
+harm-first / σ_Immutable-second contract cannot drift between boundaries.
+
 Boundary surfaces:
 
 | Surface                                                    | Gate 1                | Gate 2                       |
 | ---------------------------------------------------------- | --------------------- | ---------------------------- |
-| `OmniMercuryEngine.detect_with_fusion`                     | `check="benevolence"` | `check="sigma_immutable"` / `gosnn_unavailable` |
-| `OmniMercuryEngine.detect_with_fusion_calibrated`          | `check="benevolence"` | `check="sigma_immutable"` / `gosnn_unavailable` |
-| `CognitiveOrchestrator.analyze`                            | `check="benevolence"` | `check="sigma_immutable"`    |
-| `NeuroSymbolicHub.predict`                                 | `check="benevolence"` | `check="sigma_immutable"`    |
+| `OmniMercuryEngine.detect_with_fusion`                     | `check="harm_uplift"` | `check="sigma_immutable"` / `gosnn_unavailable` |
+| `OmniMercuryEngine.detect_with_fusion_calibrated`          | `check="harm_uplift"` | `check="sigma_immutable"` / `gosnn_unavailable` |
+| `CognitiveOrchestrator.analyze`                            | `check="harm_uplift"` | `check="sigma_immutable"`    |
+| `NeuroSymbolicHub.predict`                                 | `check="harm_uplift"` | `check="sigma_immutable"`    |
 
 **σ_Immutable layout** (constants in
 `omni_mercury_engine.security.sigma_immutable_gate`):

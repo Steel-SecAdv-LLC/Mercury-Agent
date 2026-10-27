@@ -24,7 +24,7 @@ in the sections below, and **measured at runtime** for the data-dependent ones:
 1. **Lyapunov-style contraction** of fusion score trajectories ($\dot{V} \leq -\lambda V$, $\lambda = 0.25$) — a decay-schedule *design target* the engine monitors and reports (`is_stable`), not a guarantee asserted a priori (see §2.2.3, §4.2 discrete-time note).
 2. **Banach contraction** bounds on recursive decomposition ($\alpha < 1 \Rightarrow$ geometric convergence) — proven (§4.2).
 3. **Conformal coverage** of prediction intervals (finite-sample valid *under exchangeability*; on real, non-exchangeable anomaly data the coverage is **empirical/measured, not assumed** — see `docs/LIVE_DATA_VALIDATION.md`).
-4. **Ethical gating** — a continuous, domain-adaptive sigmoid benevolence function shapes the fusion score (§2.1.3), while a hard benevolence enforcement gate ($\beta \geq 0.99$ default, configurable no lower than the $0.70$ floor) blocks impermissible actions at every public boundary (§2.7.3).
+4. **Ethical gating** — a continuous, domain-adaptive sigmoid benevolence function shapes the fusion score (§2.1.3), while the hard harm-uplift gate (`check="harm_uplift"`, §2.7.3) and the σ_Immutable gate (§2.1.5) block impermissible actions at every public boundary. The former hard benevolence enforcement gate ($\beta \geq 0.99$) is removed; benevolence is advisory (§2.7.3).
 
 All scores are normalized to $[0, 1]$. All weights sum to $1.0$. All division
 operations are guarded with $\varepsilon = 10^{-8}$.
@@ -189,19 +189,22 @@ $$
 The sigmoid benevolence gate of Section 2.1.3 attenuates the fusion
 score continuously, but is **not** the only ethical guardrail. Wave B
 promotes σ_Immutable to a **second mandatory hard ethical gate** at
-every public decision boundary; the call aborts with
-`EthicalConstraintViolationError` if either gate fails.
+every public decision boundary, after the harm-uplift gate of §2.7.3;
+the call aborts with `EthicalConstraintViolationError` if either gate
+fails.
 
 **Boundary contract.** Let $\mathcal{C}$ denote a public boundary
-surface (e.g. `OmniMercuryEngine.detect_with_fusion`). Then for every
-input $x$ on $\mathcal{C}$:
+surface (e.g. `OmniMercuryEngine.detect_with_fusion`) and let
+$h(x) \in \{\text{permit}, \text{block}\}$ be the verdict of the
+two-axis harm-uplift gate (§2.7.3) on the structured decision subject.
+Then for every input $x$ on $\mathcal{C}$:
 
 $$
 \mathcal{C}(x) =
 \begin{cases}
-\text{prediction}(x) & \text{if } b(x) \geq \tau_b \;\wedge\; \sigma_I(\mathbf{s}(x)) \geq \tau_\sigma, \\
-\text{raise } \texttt{check="benevolence"} & \text{if } b(x) < \tau_b, \\
-\text{raise } \texttt{check="sigma\_immutable"} & \text{if } b(x) \geq \tau_b \wedge \sigma_I(\mathbf{s}(x)) < \tau_\sigma, \\
+\text{prediction}(x) & \text{if } h(x) = \text{permit} \;\wedge\; \sigma_I(\mathbf{s}(x)) \geq \tau_\sigma, \\
+\text{raise } \texttt{check="harm\_uplift"} & \text{if } h(x) = \text{block}, \\
+\text{raise } \texttt{check="sigma\_immutable"} & \text{if } h(x) = \text{permit} \wedge \sigma_I(\mathbf{s}(x)) < \tau_\sigma, \\
 \text{raise } \texttt{check="gosnn\_unavailable"} & \text{if GOSNN cannot run.}
 \end{cases}
 $$
@@ -246,12 +249,13 @@ defaults to `False` at module import. Setting the flag in
 production is a deliberate, auditable opt-out — not an
 inadvertent bypass.
 
-**Composition with the sigmoid gate.** σ_Immutable runs *after* the
-benevolence sigmoid of Section 2.1.3 has been enforced (so $b \geq
-\tau_b$ at the σ_Immutable check). The two gates are independent:
-σ_Immutable can reject an action that the benevolence gate accepted
-when the broader scalar state is incompatible with the trained
-ethical manifold.
+**Composition with the first gate.** σ_Immutable runs *after* the
+harm-uplift gate of §2.7.3 has permitted the decision (so
+$h(x) = \text{permit}$ at the σ_Immutable check). The two gates are
+independent: σ_Immutable can reject an action that the harm-uplift
+gate permitted when the broader scalar state is incompatible with the
+trained ethical manifold. The benevolence sigmoid of §2.1.3 remains a
+continuous fusion-*score* attenuation, not a pass-bar.
 
 **Implementation:** `omni_mercury_engine.security.sigma_immutable_gate.SigmaImmutableGate.enforce`,
 called from `OmniMercuryEngine._enforce_ethics_at_boundary`. The

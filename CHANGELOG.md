@@ -27,7 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+**Fixed — stale ethics-gate documentation brought back to the code.** Four
+documents still described the retired benevolence pass-bar as the first hard
+gate at the detection boundaries, contradicting the enforced code
+(`check="harm_uplift"` first via the structured-`DecisionSubject` choke point,
+σ_Immutable second; benevolence advisory, with its one enforcing use at the
+assessment purpose screen — see `src/omni_mercury_engine/ethical/__init__.py`):
+`docs/index.md` ("Benevolence, then σ_Immutable … no advisory mode"),
+`ARCHITECTURE.md` §"Dual-Gate Hard Ethical Enforcement" (Gate 1 diagram and
+per-surface `check="benevolence"` table), `docs/MATH_SPEC.md` (overview item 4
+and the §2.1.5 boundary-contract cases, which contradicted the spec's own
+corrected §2.7.3), and `docs/ROADMAP.md` rows 1 and the v1.7 status table. The
+module docstring and Wave C comment block of
+`tests/ethical/test_hard_enforcement.py` carried the same stale prose — one
+line even claimed σ_Immutable "is not the enforcement gate today because the
+underlying neural network is untrained", false on both counts — while its
+assertions already pinned `check="harm_uplift"`; the prose now matches the
+assertions. No code or test behaviour changed.
 
 ## [3.0.0] - 2026-10-27
 
