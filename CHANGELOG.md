@@ -27,6 +27,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — full-repo fabrication audit, wave 1/2: engine code that invented
+measurements now measures, discloses, or fails closed.** A four-auditor sweep
+of the whole repository found fabrication beyond the chart generators; every
+confirmed finding in `src/` is fixed at the root, with the ratifying tests
+rewritten to pin the honest contract:
+`TemporalNeurosymbolicEngine.predict` returned uniform RNG draws as anomaly
+scores when torch was absent (now raises);
+`EthicalAutonomyGovernor` manufactured its "statistical validation (p<0.05)"
+by t-testing RNG draws around the baseline (now a real one-sample t-test when
+the caller supplies a score sample, else None) and its "Fairlearn-compatible"
+bias audit split the array in half, ignored the context, and claimed
+`mitigation_applied` (now real demographic parity over caller-supplied
+protected attributes, `audit_performed=False` otherwise, and the
+mitigation field can only be False);
+`load_usgs_earthquake_catalog` trained on RNG-synthesized spectrograms
+labelled "real (USGS catalog)" with every label 1.0 because the query floor
+and the label threshold were the same value (now labelled synthetic-from-real-
+events, with a separate `label_magnitude` so both classes exist);
+`ChaosMultivariateFusion` moved its decision threshold by an RNG draw on every
+call (now a deterministic score-seeded logistic map, documented as a
+heuristic); `SimulationModule` fed RNG padding columns into its anomaly score
+(now zero-padded, with a declared `anomaly_score_basis`);
+both Lyapunov `verify_lyapunov_stability` fallbacks returned the configured
+target rate as the "measured" rate with `is_stable=True` on degenerate windows
+(now `(False, 0.0)`); the Phase-6 coherence audit silently validated a
+synthetic reference curve (now named in `fusion_scores_source`);
+the conformal binary fallback invented 0.7/0.3 scores plus RNG noise and
+mapped IsolationForest's normal class to anomalous (now degenerate {0,1} with
+correct polarity); `evaluation/baselines.py` is relabelled an UNVERIFIED
+transcription, its nine untraceable `paper: "Various"` rows are removed
+(NSL-KDD now empty pending citations) and every comparison carries the caveat;
+`IntegratedAnomalyDetector` registered RNG "USGS/NOAA" sources by default with
+confidence 0.9 (now opt-in, confidence 0.0, `metadata.simulated`, and the
+factor line counts them separately); the marine loader cached synthetic
+fallback frames under the real cache key and logged them as "fetched" (now
+never cached, marked `is_real_data=False`); the Prometheus exporter served
+hardcoded 0.0 counters and the retired 0.99 benevolence floor (now unavailable
+metrics are exposition comments, the advisory floor comes from its constant,
+and PQC availability is read from the real backend flags); meta-learning's
+"accuracy = 1 - loss" is now None with the reason; the uncertainty
+quantifier's constant 0.1 ECE under 20 outcomes is now None with a
+`calibration_error_measured` flag and reliability logic that treats
+unmeasured as unmeasured; NCF monitor/emerging-tech/essential-workers
+planning tables are labelled as uncited planning assumptions (and NCF
+confidence now derives from the z-score evidence); voice/CLI canned replies
+carry `confidence_basis` and no longer claim sources never consulted; the
+database stub health check reports its measured simulated round-trip labelled
+as a stub instead of an unrelated random draw; financial/weather factories
+raise on unknown provider strings instead of silently serving stub data; and
+`simulate_attack` no longer hardcodes replay/side-channel "detections" into
+the live anomaly history (no such detectors exist; the drill now says so).
+
 **Removed — three more fabricating visual generators and the RNG-drawn
 "validation metrics" of the gating-form study; a single-writer gate now owns
 `docs/images`.** Mapping every script that writes images exposed four

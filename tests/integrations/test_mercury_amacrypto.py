@@ -27,11 +27,37 @@ import pytest
 # =============================================================================
 
 
+def _record_test_anomaly(adapter: Any, severity: float = 0.85) -> None:
+    """Record a real CryptoAnomaly through the recording seam.
+
+    simulate_attack no longer fabricates detections for replay/side_channel,
+    so plumbing tests inject through the seam they actually exercise.
+    """
+    from omni_mercury_engine.integrations.mercury_amacrypto import (
+        CryptoAnomaly,
+        CryptoAnomalyType,
+    )
+
+    adapter._record_anomaly(
+        CryptoAnomaly(
+            anomaly_type=CryptoAnomalyType.SIDE_CHANNEL_SUSPECTED,
+            severity=severity,
+            timestamp=time.time(),
+            operation="unit_test_record",
+            details={"message": "test plumbing record"},
+            omni_scalars={
+                "omni_crypto_side_channel": 1.0,
+                "omni_crypto_attack_severity": severity,
+            },
+        )
+    )
+
+
 class TestMercuryGuardianAdapter:
     """Tests for MercuryGuardianAdapter."""
 
     @pytest.fixture
-    def adapter(self):
+    def adapter(self) -> Any:
         """Create MercuryGuardianAdapter instance."""
         from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
@@ -43,7 +69,7 @@ class TestMercuryGuardianAdapter:
         )
 
     @pytest.fixture
-    def adapter_no_timing(self):
+    def adapter_no_timing(self) -> Any:
         """Create MercuryGuardianAdapter without timing monitor."""
         from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
@@ -53,7 +79,7 @@ class TestMercuryGuardianAdapter:
         )
 
     @pytest.fixture
-    def adapter_no_gosnn(self):
+    def adapter_no_gosnn(self) -> Any:
         """Create MercuryGuardianAdapter without GOSNN synapse."""
         from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
@@ -126,7 +152,7 @@ class TestEWMATimingMonitor:
     """Tests for EWMATimingMonitor."""
 
     @pytest.fixture
-    def monitor(self):
+    def monitor(self) -> Any:
         """Create EWMATimingMonitor instance."""
         from omni_mercury_engine.integrations.mercury_amacrypto import EWMATimingMonitor
 
@@ -322,7 +348,7 @@ class TestAttackSimulation:
     """Tests for attack simulation."""
 
     @pytest.fixture
-    def adapter(self):
+    def adapter(self) -> Any:
         """Create MercuryGuardianAdapter instance."""
         from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
@@ -340,39 +366,34 @@ class TestAttackSimulation:
         assert "anomalies" in result
         assert "gosnn_triggered" in result
 
-    def test_simulate_replay_attack(self, adapter: Any) -> None:
-        """Test replay attack simulation."""
+    def test_simulate_replay_attack_reports_no_detector(self, adapter: Any) -> None:
+        """No replay detector exists: the drill must say so, not fake a catch.
+
+        The previous behaviour hardcoded ``detected=True``, constructed the
+        anomaly it claimed to detect, and recorded it into the live anomaly
+        history.
+        """
         result = adapter.simulate_attack(attack_type="replay")
         assert result["attack_type"] == "replay"
-        assert result["detected"] is True
-        assert len(result["anomalies"]) > 0
+        assert result["detected"] is False
+        assert result["detector_available"] is False
+        assert result["anomalies"] == []
 
-    def test_simulate_side_channel_attack(self, adapter: Any) -> None:
-        """Test side-channel attack simulation."""
+    def test_simulate_side_channel_attack_reports_no_detector(self, adapter: Any) -> None:
+        """Same contract for side-channel drills."""
         result = adapter.simulate_attack(attack_type="side_channel")
         assert result["attack_type"] == "side_channel"
-        assert result["detected"] is True
-        assert len(result["anomalies"]) > 0
+        assert result["detected"] is False
+        assert result["detector_available"] is False
+        assert result["anomalies"] == []
 
-    def test_attack_detection_rate(self, adapter: Any) -> None:
-        """Test attack detection rate meets threshold."""
-        attacks = ["timing", "replay", "side_channel"]
-        detected_count = 0
-
-        for attack_type in attacks:
-            result = adapter.simulate_attack(attack_type=attack_type)
-            if result["detected"]:
-                detected_count += 1
-
-        detection_rate = detected_count / len(attacks)
-        # Timing attacks may not be detected if timing monitor hasn't built baseline
-        # Replay and side_channel attacks should always be detected
-        assert detection_rate >= 0.66  # At least 2/3 attacks detected
-
-    def test_gosnn_triggered_on_attack(self, adapter: Any) -> None:
-        """Test GOSNN synapse is triggered on attack."""
-        result = adapter.simulate_attack(attack_type="replay")
-        assert result["gosnn_triggered"] is True
+    def test_undetectable_drills_do_not_pollute_anomaly_history(self, adapter: Any) -> None:
+        """A staged attack with no detector must not enter the live history."""
+        before = adapter.get_anomaly_summary().get("total_anomalies", 0)
+        adapter.simulate_attack(attack_type="replay")
+        adapter.simulate_attack(attack_type="side_channel")
+        after = adapter.get_anomaly_summary().get("total_anomalies", 0)
+        assert after == before
 
     def test_crypto_anomalies_register_as_security_not_ethical_anchors(self, adapter: Any) -> None:
         from omni_mercury_engine.core.global_omni_scalar_network import (
@@ -383,7 +404,26 @@ class TestAttackSimulation:
 
         reset_global_network()
         try:
-            adapter.simulate_attack(attack_type="side_channel")
+            # Record a real CryptoAnomaly through the recording seam directly:
+            # simulate_attack no longer fabricates one for side_channel.
+            from omni_mercury_engine.integrations.mercury_amacrypto import (
+                CryptoAnomaly,
+                CryptoAnomalyType,
+            )
+
+            adapter._record_anomaly(
+                CryptoAnomaly(
+                    anomaly_type=CryptoAnomalyType.SIDE_CHANNEL_SUSPECTED,
+                    severity=0.85,
+                    timestamp=time.time(),
+                    operation="unit_test_record",
+                    details={"message": "test plumbing record"},
+                    omni_scalars={
+                        "omni_crypto_side_channel": 1.0,
+                        "omni_crypto_attack_severity": 0.85,
+                    },
+                )
+            )
             gosnn = GlobalOmniScalarNetwork()
             assert "omni_crypto_attack_severity" in gosnn.scalar_groups[ScalarGroup.SECURITY]
             assert "omni_crypto_attack_severity" not in gosnn.critical_ethical_anchors()
@@ -400,7 +440,7 @@ class TestAnomalyRecording:
     """Tests for anomaly recording and history."""
 
     @pytest.fixture
-    def adapter(self):
+    def adapter(self) -> Any:
         """Create MercuryGuardianAdapter instance."""
         from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
@@ -409,20 +449,19 @@ class TestAnomalyRecording:
             gosnn_synapse_enabled=False,
         )
 
-    def test_anomaly_recorded_after_attack(self, adapter: Any) -> None:
-        """Test anomaly is recorded after attack simulation."""
+    def test_anomaly_recorded_through_seam(self, adapter: Any) -> None:
+        """A recorded anomaly lands in the history (plumbing)."""
         initial_count = len(adapter.anomaly_history)
-        adapter.simulate_attack(attack_type="replay")
+        _record_test_anomaly(adapter)
         assert len(adapter.anomaly_history) > initial_count
 
-    def test_anomaly_summary_after_attacks(self, adapter: Any) -> None:
-        """Test anomaly summary after multiple attacks."""
-        adapter.simulate_attack(attack_type="timing")
-        adapter.simulate_attack(attack_type="replay")
-        adapter.simulate_attack(attack_type="side_channel")
+    def test_anomaly_summary_after_recorded_anomalies(self, adapter: Any) -> None:
+        """Summary reflects really-recorded anomalies, never staged drills."""
+        _record_test_anomaly(adapter, severity=0.85)
+        _record_test_anomaly(adapter, severity=0.65)
 
         summary = adapter.get_anomaly_summary()
-        assert summary["total_anomalies"] > 0
+        assert summary["total_anomalies"] == 2
         assert len(summary["by_type"]) > 0
         assert summary["avg_severity"] > 0
 
@@ -550,7 +589,7 @@ class TestFailClosedPqcBoundary:
     """Tests for mandatory AMA/PQC without silently fabricating key material."""
 
     @pytest.fixture
-    def adapter(self):
+    def adapter(self) -> Any:
         """Create MercuryGuardianAdapter instance."""
         from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
@@ -598,7 +637,7 @@ class TestGOSNNScalars:
     """Tests for GOSNN scalar generation."""
 
     @pytest.fixture
-    def adapter(self):
+    def adapter(self) -> Any:
         """Create MercuryGuardianAdapter instance."""
         from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
@@ -617,15 +656,15 @@ class TestGOSNNScalars:
             assert isinstance(value, float), f"Scalar {key} is not float"
 
     def test_scalars_after_anomalies(self, adapter: Any) -> None:
-        """Test scalars include anomaly info after attacks."""
-        adapter.simulate_attack(attack_type="replay")
+        """Scalars include anomaly info after really-recorded anomalies."""
+        _record_test_anomaly(adapter)
         scalars = adapter.get_gosnn_scalars()
         assert scalars["omni_crypto_anomaly_count"] > 0
 
     def test_avg_severity_scalar(self, adapter: Any) -> None:
-        """Test average severity scalar is computed."""
-        adapter.simulate_attack(attack_type="replay")
-        adapter.simulate_attack(attack_type="side_channel")
+        """Average severity scalar is computed from recorded anomalies."""
+        _record_test_anomaly(adapter, severity=0.85)
+        _record_test_anomaly(adapter, severity=0.65)
         scalars = adapter.get_gosnn_scalars()
         assert "omni_crypto_avg_severity" in scalars
         assert scalars["omni_crypto_avg_severity"] > 0

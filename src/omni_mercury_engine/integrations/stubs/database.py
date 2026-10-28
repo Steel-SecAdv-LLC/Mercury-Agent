@@ -15,6 +15,7 @@ import logging
 import os
 import random
 import re
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -401,11 +402,17 @@ class DatabaseStub:
             Health status.
         """
         try:
+            # Measure the stub's actual (simulated) round-trip rather than
+            # drawing an unrelated random number, and say it is a stub:
+            # AsyncDatabase passes this dict through verbatim.
+            start = time.perf_counter()
             await self._simulate_latency()
+            elapsed_ms = (time.perf_counter() - start) * 1000.0
             return {
                 "healthy": True,
-                "latency_ms": self._rng.randint(*self._latency_ms),
-                "connections_available": self._rng.randint(5, 10),
+                "backend": "stub",
+                "simulated": True,
+                "latency_ms": elapsed_ms,
             }
         except Exception as e:
             return {

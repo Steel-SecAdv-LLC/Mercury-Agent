@@ -231,11 +231,14 @@ class TestDatasetSpecificBaselines:
         assert "TranAD" in msl
         assert msl["TranAD"]["paper"] == "VLDB 2022"
 
-    def test_nsl_kdd_baselines(self) -> None:
-        """NSL-KDD should have network intrusion baselines."""
+    def test_nsl_kdd_baselines_stay_empty_without_citations(self) -> None:
+        """NSL-KDD holds no rows: its old entries cited only "Various".
+
+        Exact 4-digit metrics with no traceable paper were removed in the
+        fabrication audit; a row may return only with a verifiable citation.
+        """
         nsl = BASELINE_RESULTS["NSL-KDD"]
-        assert "Random_Forest" in nsl
-        assert "DNN" in nsl
+        assert nsl == {}
 
     def test_nab_baselines(self) -> None:
         """NAB should have HTM and other streaming baselines."""

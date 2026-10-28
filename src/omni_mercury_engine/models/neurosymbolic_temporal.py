@@ -1304,8 +1304,14 @@ class TemporalNeurosymbolicEngine:
             result["anomaly_scores"] = ltn_output["satisfaction"].numpy().flatten()
 
         else:
-            # Fallback to simple scoring
-            result["anomaly_scores"] = self._rng.random(len(features) if features.ndim == 2 else 1)
+            # Fail closed: without torch there is no model to score with.
+            # This branch used to return uniform RNG draws as anomaly scores,
+            # which then drove the verdict text, meta-cognition and the causal
+            # gate as if they were measurements.
+            raise RuntimeError(
+                "TemporalNeurosymbolicEngine.predict requires torch: the LTN is "
+                "the only scoring path, and no honest fallback exists."
+            )
 
         # 2. Temporal reasoning
         temporal_result = self.temporal_reasoner.reason(

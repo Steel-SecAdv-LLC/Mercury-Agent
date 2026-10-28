@@ -73,10 +73,11 @@ class UncertaintyEstimate:
     total: float  # Combined: sqrt(epistemic^2 + aleatoric^2)
     confidence: float  # Calibrated confidence [0, 1]
     confidence_interval: tuple[float, float]  # (lower, upper)
-    calibration_error: float  # Current ECE estimate
+    calibration_error: float | None  # Measured ECE; None until >=20 outcomes exist
     is_reliable: bool  # Meets reliability criteria
     explanation: str
     # Additional diagnostics
+    calibration_error_measured: bool = True
     mutual_information: float = 0.0  # BALD acquisition function
     predictive_entropy: float = 0.0  # Total predictive uncertainty
     mc_samples: int = 0  # Number of MC samples used
@@ -797,10 +798,13 @@ class UncertaintyQuantifier:
         )
 
         calibration_error = self._compute_ece()
+        calibration_error_measured = calibration_error is not None
 
         # === RELIABILITY ASSESSMENT ===
+        # Unmeasured calibration neither passes nor fails the ECE clause:
+        # the other reliability conditions still have to hold.
         is_reliable = (
-            calibration_error < self.reliability_threshold
+            (calibration_error is None or calibration_error < self.reliability_threshold)
             and epistemic < 0.5
             and confidence > 0.3
             and (
@@ -813,7 +817,11 @@ class UncertaintyQuantifier:
         # === OVERCONFIDENCE DETECTION ===
         # Ref: Kaddour et al. (2026) "Agentic Uncertainty Reveals Agentic Overconfidence"
         # High confidence paired with poor calibration signals systematic overconfidence.
-        is_overconfident = confidence > 0.8 and calibration_error > self.reliability_threshold
+        is_overconfident = (
+            confidence > 0.8
+            and calibration_error is not None
+            and calibration_error > self.reliability_threshold
+        )
 
         # === EXPLANATION ===
         explanation = self._generate_explanation(
@@ -859,6 +867,7 @@ class UncertaintyQuantifier:
             confidence=confidence,
             confidence_interval=(ci_low, ci_high),
             calibration_error=calibration_error,
+            calibration_error_measured=calibration_error_measured,
             is_reliable=is_reliable,
             explanation=explanation,
             mutual_information=mutual_information,
@@ -1073,12 +1082,14 @@ class UncertaintyQuantifier:
 
         # Check reliability
         if not uncertainty.is_reliable:
+            ece_text = (
+                f"ECE={uncertainty.calibration_error:.3f}"
+                if uncertainty.calibration_error is not None
+                else "ECE not yet measured (<20 outcomes)"
+            )
             decision["should_defer"] = True
             decision["action"] = "defer_to_human"
-            decision["reason"] = (
-                f"Prediction unreliable (ECE={uncertainty.calibration_error:.3f}). "
-                "Human review recommended."
-            )
+            decision["reason"] = f"Prediction unreliable ({ece_text}). Human review recommended."
             return decision
 
         # Check overconfidence (Kaddour et al. 2026)
@@ -1455,14 +1466,18 @@ class UncertaintyQuantifier:
         self._stats["calibrations_performed"] += 1
         return report
 
-    def _compute_ece(self) -> float:
+    def _compute_ece(self) -> float | None:
         """Compute current Expected Calibration Error using vectorized operations.
+
+        Returns None when fewer than 20 outcomes exist: there is no sample to
+        measure calibration on, and the constant 0.1 this used to return was
+        an invented ECE that silently drove the reliability flags.
 
         Vectorized implementation for O(n) performance instead of O(n²) with loops. Uses numpy
         histogram and binned statistics for efficient binning.
         """
         if len(self._outcomes) < 20:
-            return 0.1  # Default for limited data
+            return None
 
         confidences = np.array(list(self._confidences)[-500:])
         outcomes = np.array(list(self._outcomes)[-500:])
@@ -1550,7 +1565,7 @@ class UncertaintyQuantifier:
         stats: dict[str, Any] = {
             **self._stats,
             "prediction_history_size": len(self._predictions),
-            "current_ece": self._compute_ece(),
+            "current_ece": self._compute_ece(),  # None until >=20 outcomes
             "temperature": self.temperature_scaler.temperature,
             "temperature_fitted": self.temperature_scaler._fitted,
         }

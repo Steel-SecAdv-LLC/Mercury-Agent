@@ -262,11 +262,23 @@ class ChaosMultivariateFusion:
         }
 
     def _apply_chaos_refinement(self, scores: np.ndarray[Any, Any], base_threshold: float) -> float:
-        """Apply chaotic perturbation to threshold for adaptive detection."""
+        """Deterministic, score-seeded logistic-map perturbation of the threshold.
+
+        The map is seeded from the scores themselves, so identical inputs give
+        identical thresholds. The previous implementation seeded it from an
+        RNG draw and ignored ``scores`` entirely, which moved the decision
+        threshold by up to ±10% between identical calls — nondeterministic
+        predictions presented as a "chaos_refined" method. The perturbation is
+        a bounded heuristic, not a measured improvement.
+        """
         from omni_mercury_engine.core.chaos_evolutionary import ChaoticMap
 
-        chaos_value = self._rng.rand(1)[0]
-        chaos_value = ChaoticMap.logistic_map(chaos_value)
+        # Seed in (0, 1) from the data, clear of the logistic fixed points.
+        mean_score = float(np.mean(scores)) if scores.size else 0.0
+        seed = 0.1 + 0.8 * (abs(mean_score) % 1.0)
+        chaos_value = seed
+        for _ in range(8):
+            chaos_value = ChaoticMap.logistic_map(chaos_value)
 
         perturbation = 0.1 * (2 * chaos_value - 1)
         refined_threshold = base_threshold * (1 + perturbation)

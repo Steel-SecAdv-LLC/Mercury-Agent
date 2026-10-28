@@ -337,14 +337,14 @@ class TestEnhancedAnomalyDetector:
 
     def test_init(self) -> None:
         """Test detector initialization."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
         assert detector.benevolence_advisory_threshold == MINIMUM_BENEVOLENCE_FLOOR
         assert detector.memory_graph is not None
         assert detector.bayesian_predictor is not None
 
     def test_add_memory(self) -> None:
         """Test adding memory to graph."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
         node_id = detector.add_memory(
             memory_id="m1",
             memory_type="episodic",
@@ -356,7 +356,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_add_memory_with_relations(self) -> None:
         """Test adding memory with relations."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
         detector.add_memory("m1", "episodic", {"event": "e1"})
         node_id = detector.add_memory(
             memory_id="m2",
@@ -371,21 +371,21 @@ class TestEnhancedAnomalyDetector:
 
     def test_update_predictor(self) -> None:
         """Test updating Bayesian predictor."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
         detector.update_predictor("context_1", success=True)
 
         assert "context_1" in detector.bayesian_predictor.contexts
 
     def test_observe_sequence(self) -> None:
         """Test HMM observation."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
         state = detector.observe_sequence("event_a")
 
         assert 0 <= state < 3
 
     def test_predict(self) -> None:
         """Test prediction generation."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
 
         for _ in range(5):
             detector.update_predictor("test_context", success=True)
@@ -398,7 +398,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_predict_with_external(self) -> None:
         """Test prediction with external data."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
         result = detector.predict("test_context", include_external=True)
 
         assert "External data points" in str(result.contributing_factors)
@@ -415,7 +415,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_analyze_memory_patterns(self) -> None:
         """Test memory pattern analysis."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
         detector.add_memory("m1", "episodic", {"event": "e1"})
         detector.add_memory("m2", "episodic", {"event": "e2"}, related_to=["m1"])
 
@@ -427,7 +427,7 @@ class TestEnhancedAnomalyDetector:
 
     def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
-        detector = IntegratedAnomalyDetector()
+        detector = IntegratedAnomalyDetector(use_simulated_sources=True)
         detector.add_memory("m1", "episodic", {"event": "e1"})
         detector.predict("test", include_external=False)
 

@@ -347,9 +347,13 @@ class OmniAvaEquation:
             if ratio > 0:
                 estimated_lambda = -np.log(ratio) / self.time_step
             else:
-                estimated_lambda = self.lambda_lyapunov
+                # Degenerate recent window (zero variance): no rate is
+                # measurable. Returning the configured target here reported
+                # the goal as the measurement.
+                return False, 0.0
         else:
-            estimated_lambda = self.lambda_lyapunov
+            # Degenerate initial window: nothing to measure against.
+            return False, 0.0
 
         is_stable = bool(estimated_lambda > 0)
         return is_stable, float(estimated_lambda)

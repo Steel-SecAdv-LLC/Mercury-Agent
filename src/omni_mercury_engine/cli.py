@@ -2305,23 +2305,27 @@ class _FallbackVoice:
             return {
                 "message": "Mercury Agent operational. Running in fallback mode.",
                 "confidence": 0.9,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
             }
         elif any(kw in msg_lower for kw in ["hello", "hi"]):
             return {
                 "message": "Hello. Mercury Agent at your service.",
                 "confidence": 0.95,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
             }
         elif any(kw in msg_lower for kw in ["help", "what can"]):
             return {
                 "message": "I can help with anomaly detection and monitoring. "
                 "Use the detect command for analysis, or ask about system status.",
                 "confidence": 0.9,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
             }
         else:
             return {
                 "message": "I received your query. For detailed analysis, "
                 "please use the detect command with your data file.",
                 "confidence": 0.7,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
             }
 
     def greet(self, domain: str | None = None) -> dict[str, Any]:
@@ -2329,6 +2333,7 @@ class _FallbackVoice:
         return {
             "message": "Mercury Agent online. How can I assist you?",
             "confidence": 1.0,
+            "confidence_basis": "fixed greeting; not a calibrated NLU score",
         }
 
     def get_conversation_history(self) -> list[Any]:

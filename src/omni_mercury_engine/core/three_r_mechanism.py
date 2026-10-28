@@ -300,9 +300,11 @@ class _LegacyOmniAvaEquation:
             if ratio > 0:
                 estimated_lambda = -np.log(ratio) / self.time_step
             else:
-                estimated_lambda = self.lambda_lyapunov
+                # Degenerate window: no rate is measurable. Returning the
+                # configured target here reported the goal as the measurement.
+                return False, 0.0
         else:
-            estimated_lambda = self.lambda_lyapunov
+            return False, 0.0
 
         # Stable if estimated decay rate is positive and close to target
         is_stable = bool(estimated_lambda > 0 and estimated_lambda >= self.lambda_lyapunov * 0.5)

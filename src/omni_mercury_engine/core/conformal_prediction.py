@@ -586,31 +586,22 @@ class ConformalAnomalyDetector:
         except (AttributeError, NotImplementedError):
             pass
 
-        # Strategy 4: Binary prediction with synthetic probability scores
+        # Strategy 4: binary predictions, mapped degenerately to {0, 1}.
+        # A detector that reaches this branch exposes nothing continuous
+        # (strategies 1-3 already covered predict_proba, decision_function
+        # and score_samples), so the honest score IS two-valued. The previous
+        # code invented 0.7/0.3 "probabilities", added RNG noise "for
+        # differentiation", and mapped IsolationForest's +1 (its NORMAL
+        # class) to the anomalous score.
         try:
-            predictions = self.base_detector.predict(X)
+            predictions = np.asarray(self.base_detector.predict(X))
 
-            # If detector has labels_ (e.g., LOF), use for context
-            if hasattr(self.base_detector, "negative_outlier_factor_"):
-                # LOF stores this for training data - use as reference
-                nof = np.abs(self.base_detector.negative_outlier_factor_)
-                np.median(nof)
-                # Estimate anomaly scores based on prediction
-                scores = np.where(predictions == -1, 0.7, 0.3)
-            elif hasattr(self.base_detector, "offset_"):
-                # Isolation Forest has offset
-                scores = np.where(predictions == 1, 0.7, 0.3)
+            if np.isin(predictions, (-1, 1)).all():
+                # sklearn outlier convention: -1 anomalous, +1 normal.
+                scores = np.where(predictions == -1, 1.0, 0.0)
             else:
-                # Generic binary to continuous conversion
-                scores = predictions.astype(float)
-                # Add small noise for differentiation
-                # Independent ``Generator`` driven by ``self.seed`` so the
-                # binary→continuous score smoothing is reproducible without
-                # touching the legacy global ``np.random`` state.
-                scores = (
-                    0.3 + 0.4 * scores + 0.1 * np.random.default_rng(self.seed).random(len(scores))
-                )
-                scores = np.clip(scores, 0.0, 1.0)
+                # Generic 0/1 convention: 1 anomalous.
+                scores = np.clip(predictions.astype(float), 0.0, 1.0)
 
             return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
         except (AttributeError, NotImplementedError):

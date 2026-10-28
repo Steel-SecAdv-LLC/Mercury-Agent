@@ -146,12 +146,17 @@ class NCFMonitor:
             "category": ncf_category,
             "anomaly_detected": anomaly_detected,
             "anomaly_score": float(np.max(z_scores)),
-            "confidence": 0.85,
+            # Derived from the z-score evidence (saturating), not the fixed
+            # 0.85 literal this used to report regardless of the data.
+            "confidence": float(1.0 - 1.0 / (1.0 + np.max(z_scores))),
             "cascade_risk": cascade_risk,
             "ethical_impact": ethical_score,
             "affected_population_est": self._estimate_population_impact(ncf_id),
             "economic_impact_est": self._estimate_economic_impact(ncf_id),
             "recovery_time_est": self._estimate_recovery_time(ncf_id),
+            # The *_est fields come from the planning-assumption tables below,
+            # not from any measurement or cited source.
+            "estimates_basis": "static planning assumptions (uncited); not measured",
             "details": {
                 "anomaly_indices": np.where(z_scores > 3.0)[0].tolist(),
                 "severity": "high" if np.max(z_scores) > 5.0 else "medium",
@@ -207,7 +212,11 @@ class NCFMonitor:
         return np.abs((data - mean) / std)
 
     def _calculate_ethical_impact(self, ncf_id: str, context: dict[str, Any] | None) -> float:
-        """Score ethical impact, weighting the people most exposed to the outage."""
+        """Score ethical impact, weighting the people most exposed to the outage.
+
+        The weights are planning assumptions, not measurements, and
+        ``context`` is currently unused (kept for interface stability).
+        """
         vulnerable_ncfs = {
             "conduct_public_health": 0.95,
             "provide_housing": 0.90,
@@ -218,7 +227,7 @@ class NCFMonitor:
         return vulnerable_ncfs.get(ncf_id, 0.70)
 
     def _estimate_population_impact(self, ncf_id: str) -> int:
-        """Estimate population affected if NCF fails."""
+        """Planning-assumption population figure if this NCF fails (uncited)."""
         impact_estimates = {
             "distribute_electricity": 330000000,
             "provide_internet_services": 300000000,
@@ -231,7 +240,7 @@ class NCFMonitor:
         return impact_estimates.get(ncf_id, 1000000)
 
     def _estimate_economic_impact(self, ncf_id: str) -> float:
-        """Estimate economic impact per day if NCF fails (USD)."""
+        """Planning-assumption USD/day figure if this NCF fails (uncited)."""
         impact_estimates = {
             "distribute_electricity": 10_000_000_000,
             "clear_carry_settle_payments": 5_000_000_000,
@@ -249,7 +258,7 @@ class NCFMonitor:
         return "unknown"
 
     def _estimate_recovery_time(self, ncf_id: str) -> str:
-        """Estimate typical recovery time if NCF fails."""
+        """Planning-assumption recovery window if this NCF fails (uncited)."""
         recovery_times = {
             "distribute_electricity": "1-7 days",
             "provide_internet_services": "1-3 days",

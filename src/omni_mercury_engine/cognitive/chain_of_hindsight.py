@@ -1396,26 +1396,34 @@ class AnomalyChainOfHindsight:
                     else:
                         fn_count += 1
 
-        # Generate recommendation
+        # Confidence grows with the evidence behind the recommendation and is
+        # 0.0 with no errors observed at all — the old fixed 0.8/0.9 literals
+        # reported 0.9 confidence on zero evidence.
+        n_errors = fp_count + fn_count
+        evidence_confidence = n_errors / (n_errors + 5.0)
+
         if fn_count > fp_count * 2:
             return {
                 "recommendation": "lower_threshold",
                 "reasoning": f"High false negative rate ({fn_count} FN vs {fp_count} FP)",
                 "suggested_delta": -0.05,
-                "confidence": 0.8,
+                "confidence": evidence_confidence,
+                "confidence_basis": "error-count evidence (n/(n+5)); heuristic",
             }
         elif fp_count > fn_count * 2:
             return {
                 "recommendation": "raise_threshold",
                 "reasoning": f"High false positive rate ({fp_count} FP vs {fn_count} FN)",
                 "suggested_delta": 0.05,
-                "confidence": 0.8,
+                "confidence": evidence_confidence,
+                "confidence_basis": "error-count evidence (n/(n+5)); heuristic",
             }
         else:
             return {
                 "recommendation": "maintain",
                 "reasoning": f"Balanced error rate ({fp_count} FP, {fn_count} FN)",
-                "confidence": 0.9,
+                "confidence": evidence_confidence,
+                "confidence_basis": "error-count evidence (n/(n+5)); heuristic",
             }
 
     def learn_from_history(self, history: list[dict[str, Any]]) -> dict[str, Any]:

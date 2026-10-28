@@ -973,7 +973,14 @@ class MercuryGuardianAdapter:
             return None
 
     def simulate_attack(self, attack_type: str = "timing") -> dict[str, Any]:
-        """Simulate cryptographic attack for testing detection."""
+        """Run an attack drill against the detectors that actually exist.
+
+        Only the timing path exercises a real detector (the EWMA/MAD timing
+        monitor). ``replay`` and ``side_channel`` have no detector in this
+        adapter: the drill reports ``detected=False`` with
+        ``detector_available=False`` instead of fabricating a detection and
+        polluting the live anomaly history (the previous behaviour).
+        """
         results: dict[str, Any] = {
             "attack_type": attack_type,
             "detected": False,
@@ -991,39 +998,20 @@ class MercuryGuardianAdapter:
                         results["anomalies"].append(anomaly)
                         results["gosnn_triggered"] = self.gosnn_synapse_enabled
 
-        elif attack_type == "replay":
-            anomaly = CryptoAnomaly(
-                anomaly_type=CryptoAnomalyType.REPLAY_ATTACK,
-                severity=0.95,
-                timestamp=time.time(),
-                operation="simulated_replay",
-                details={"message": "Simulated replay attack detected"},
-                omni_scalars={
-                    "omni_crypto_replay_attack": 1.0,
-                    "omni_crypto_attack_severity": 0.95,
-                },
+        elif attack_type in ("replay", "side_channel"):
+            # No replay or side-channel detector exists in this adapter, so a
+            # drill cannot be "detected". The previous implementation
+            # hardcoded detected=True, constructed the anomaly it claimed to
+            # detect, and recorded it into the REAL anomaly history — so
+            # get_anomaly_summary() and the omni scalars counted staged
+            # attacks as live ones.
+            results["detected"] = False
+            results["detector_available"] = False
+            results["reason"] = (
+                f"no {attack_type} detector is implemented in this adapter; "
+                "a simulated attack therefore cannot be detected, and nothing "
+                "is recorded into the live anomaly history"
             )
-            self._record_anomaly(anomaly)
-            results["detected"] = True
-            results["anomalies"].append(anomaly)
-            results["gosnn_triggered"] = self.gosnn_synapse_enabled
-
-        elif attack_type == "side_channel":
-            anomaly = CryptoAnomaly(
-                anomaly_type=CryptoAnomalyType.SIDE_CHANNEL_SUSPECTED,
-                severity=0.85,
-                timestamp=time.time(),
-                operation="simulated_side_channel",
-                details={"message": "Simulated side-channel attack pattern"},
-                omni_scalars={
-                    "omni_crypto_side_channel": 1.0,
-                    "omni_crypto_attack_severity": 0.85,
-                },
-            )
-            self._record_anomaly(anomaly)
-            results["detected"] = True
-            results["anomalies"].append(anomaly)
-            results["gosnn_triggered"] = self.gosnn_synapse_enabled
 
         return results
 

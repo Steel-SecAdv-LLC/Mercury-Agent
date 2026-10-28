@@ -586,9 +586,11 @@ class BenevolenceOptimizer:
         avg_convergence = np.mean(convergence_epochs)
         avg_lyapunov = np.mean(lyapunov_exponents)
 
-        # Compute overhead
-        overhead_percent = (elapsed_time / (n_simulations * 0.001)) * 100  # vs 1ms baseline
-        overhead_percent = min(overhead_percent, 5.0)  # Cap at 5%
+        # Measured wall time per simulated trajectory as a percentage of the
+        # declared 1 ms per-evaluation budget. Reported uncapped: the old
+        # min(..., 5.0) clamp meant the figure could never exceed 5% no
+        # matter what was measured.
+        overhead_percent = (elapsed_time / (n_simulations * 0.001)) * 100
 
         # Stability score based on Lyapunov
         stability_score: float = (
@@ -928,13 +930,13 @@ def run_comprehensive_benchmark(
     # Display results
     print("\nBenchmark Results:")
     print("-" * 70)
-    print(f"{'Form':<15} {'F1':<8} {'Conv.':<8} {'Lambda':<10} {'Overhead':<10} {'Stable'}")
+    print(f"{'Form':<15} {'Stability':<10} {'Conv.':<8} {'Lambda':<10} {'Overhead':<10} {'Stable'}")
     print("-" * 70)
 
     for form_type, result in results.items():
         stable = "Yes" if result.lyapunov_exponent >= LAMBDA_LYAPUNOV else "No"
         print(
-            f"{form_type.value:<15} {result.f1_score:<8.4f} "
+            f"{form_type.value:<15} {result.stability_score:<10.4f} "
             f"{result.convergence_epochs:<8d} {result.lyapunov_exponent:<10.4f} "
             f"{result.overhead_percent:<10.2f} {stable}"
         )
@@ -945,7 +947,7 @@ def run_comprehensive_benchmark(
     print("\nOptimal Forms by Domain:")
     for domain in ["medical", "security", "humanitarian", "general"]:
         best_form, best_result = optimizer.get_optimal_form(domain=domain)
-        print(f"  {domain}: {best_form.value} (F1={best_result.f1_score:.4f})")
+        print(f"  {domain}: {best_form.value} (stability={best_result.stability_score:.4f})")
 
     # Generate visualizations
     if MATPLOTLIB_AVAILABLE:

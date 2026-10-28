@@ -1,12 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Published Baseline Results for Anomaly Detection.
+"""Reference baseline numbers for anomaly detection (UNVERIFIED transcription).
 
-This module contains published benchmark results from academic papers.
-Use these to compare your model's performance against established baselines.
+This table was transcribed without preserving verifiable provenance, and an
+audit found rows that cannot be checked at all (they carried ``paper:
+"Various"``; those are removed). The ``paper`` field names the method's own
+venue, NOT a verified source of the number — several values credited to a
+method's venue could only plausibly come from a different paper's evaluation
+tables, and some match no known table. Treat every row as an UNVERIFIED
+reference point: confirm it against the actual paper before citing it or
+drawing conclusions from a ranking against it. ``compare_to_baselines``
+carries this caveat in its result.
 
-IMPORTANT: These are results reported in original papers on standard benchmarks.
-           Your model should be evaluated on the SAME datasets with SAME metrics.
+IMPORTANT: your model must be evaluated on the SAME datasets with the SAME
+metric conventions (these tables are point-adjusted F1) for the comparison
+to mean anything at all.
 
 Datasets and their standard benchmarks:
 - SMD: Server Machine Dataset (OmniAnomaly benchmark)
@@ -124,7 +132,6 @@ BASELINE_RESULTS = {
             "f1": 0.9544,
             "paper": "ICLR 2022",
         },
-        "LSTM-AE": {"precision": 0.9123, "recall": 0.9312, "f1": 0.9217, "paper": "Various"},
         "OmniAnomaly": {"precision": 0.9234, "recall": 0.9456, "f1": 0.9344, "paper": "KDD 2019"},
         "DAGMM": {"precision": 0.8512, "recall": 0.8712, "f1": 0.8611, "paper": "ICLR 2018"},
     },
@@ -138,8 +145,6 @@ BASELINE_RESULTS = {
             "f1": 0.9800,
             "paper": "ICLR 2022",
         },
-        "CNN-LSTM": {"precision": 0.9612, "recall": 0.9723, "f1": 0.9667, "paper": "Various"},
-        "1D-CNN": {"precision": 0.9534, "recall": 0.9645, "f1": 0.9589, "paper": "Various"},
         "DAGMM": {"precision": 0.8912, "recall": 0.9123, "f1": 0.9016, "paper": "ICLR 2018"},
     },
     "MSDS": {
@@ -157,13 +162,10 @@ BASELINE_RESULTS = {
         "DAGMM": {"precision": 0.7812, "recall": 0.8123, "f1": 0.7964, "paper": "ICLR 2018"},
     },
     "NSL-KDD": {
-        # Network Intrusion Detection
-        # Results from various IDS papers
-        "Random_Forest": {"precision": 0.9941, "recall": 0.9962, "f1": 0.9951, "paper": "Various"},
-        "SVM": {"precision": 0.9750, "recall": 0.9682, "f1": 0.9716, "paper": "Various"},
-        "DNN": {"precision": 0.9870, "recall": 0.9891, "f1": 0.9880, "paper": "Various"},
-        "LSTM": {"precision": 0.9912, "recall": 0.9934, "f1": 0.9923, "paper": "Various"},
-        "AE": {"precision": 0.9673, "recall": 0.9658, "f1": 0.9665, "paper": "Various"},
+        # Network Intrusion Detection. Empty on purpose: every row this
+        # section used to hold cited only "Various" — exact 4-digit metrics
+        # with no traceable paper — and was removed in the fabrication audit.
+        # Add a row only with a verifiable citation.
     },
     "NAB": {
         # Numenta Anomaly Benchmark
@@ -171,7 +173,6 @@ BASELINE_RESULTS = {
         "TranAD": {"nab_score": 79.1, "f1": 0.8234, "paper": "VLDB 2022"},
         "HTM": {"nab_score": 70.5, "paper": "ICMLA 2015"},
         "Numenta": {"nab_score": 64.6, "paper": "ICMLA 2015"},
-        "LSTM": {"nab_score": 56.2, "paper": "Various"},
         "Twitter_ADVec": {"nab_score": 47.1, "paper": "NAB Competition"},
         "EXPoSE": {"nab_score": 44.6, "paper": "NAB Competition"},
     },
@@ -200,7 +201,16 @@ class BaselineComparison:
             f"  Best Baseline: {self.best_baseline} ({self.best_baseline_f1:.4f})\n"
             f"  Rank: {self.rank}/{self.total_baselines}\n"
             f"  Improvement over avg: {self.improvement_over_avg:+.2%}\n"
+            f"  CAVEAT: {BASELINE_PROVENANCE_CAVEAT}\n"
         )
+
+
+#: Carried on every comparison: the table's transcription provenance was not
+#: preserved, so a rank against it is indicative, not citable.
+BASELINE_PROVENANCE_CAVEAT = (
+    "baseline numbers are an unverified transcription; verify against the "
+    "named papers before citing this ranking"
+)
 
 
 def compare_to_baselines(
@@ -209,7 +219,11 @@ def compare_to_baselines(
     your_recall: float,
     your_f1: float,
 ) -> BaselineComparison:
-    """Compare your model's results to published baselines.
+    """Rank your model's results against the UNVERIFIED reference table.
+
+    The table's transcription provenance was not preserved (see the module
+    docstring), so treat the resulting rank as indicative only; the string
+    form of the result carries the caveat.
 
     Args:
         dataset: Dataset name (SMD, SMAP, MSL, NSL-KDD, NAB)
