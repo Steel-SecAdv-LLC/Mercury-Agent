@@ -125,12 +125,12 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8610 | 0.8548 | +0.0062 |
-| Median ROC-AUC | 0.9077 | 0.9052 | +0.0025 |
-| Mean Oracle F1 | 0.6476 | 0.6430 | +0.0046 |
-| Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
-| Run timestamp (UTC) | 2026-10-26T23:01:08.701481+00:00 | 2026-10-14T20:27:14.966442+00:00 | — |
-| Commit | `a2d7f99` | `27d2293` | — |
+| Mean ROC-AUC | 0.8616 | 0.8610 | +0.0007 |
+| Median ROC-AUC | 0.9038 | 0.9077 | -0.0039 |
+| Mean Oracle F1 | 0.6493 | 0.6476 | +0.0017 |
+| Datasets (successful / total) | 66 / 76 | 67 / 76 | -1.0000 |
+| Run timestamp (UTC) | 2026-10-28T14:45:22.428315+00:00 | 2026-10-26T23:01:08.701481+00:00 | — |
+| Commit | `8ce85ec` | `a2d7f99` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
@@ -270,15 +270,16 @@ against other detectors.
 | Domain | Datasets | Mean AUC | Mean oracle F1 |
 |--------|----------|----------|----------------|
 | ADBench | 47 | 0.8571 | 0.6443 |
-| Time series (SMD, NAB) | 2 | 0.7738 | 0.4690 |
+| Time series (SMD, NAB) | 2 | 0.7737 | 0.4699 |
 | Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
 | General (ADRepository) | 1 | 0.9116 | 0.6162 |
 | Industrial (BATADAL) | 1 | 0.8976 | 0.5548 |
 | Maritime (DTU_AIS_Abnormal) | 1 | 0.8750 | 0.6250 |
+| Medical (MIT-BIH) | 1 | 0.8978 | 0.7406 |
 | Security (NSL-KDD) | 1 | 0.9741 | 0.9544 |
 
 *Generated from `benchmarks/mercury_benchmark_results.json` by
-`scripts/update_readme_benchmarks.py`: the 54 successful datasets whose
+`scripts/update_readme_benchmarks.py`: the 55 successful datasets whose
 labels are `ground_truth` or `expert_annotated`. Threshold-derived
 (`statistical`) labels are excluded as circular. Domains of one to three
 datasets are easy to separate at that size; the comparable figure is the
