@@ -27,6 +27,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — measured σ-threshold ablation replacing the deleted `ab_sigma`
+theater (`benchmarks/sigma_threshold_ablation.py` +
+`sigma_threshold_ablation_results.json`).** The deleted script claimed
+"σ=0.96 beats 0.93" from a formula with the conclusion built in. The real
+measurement — the trained gate over the committed hand-justified
+discrimination corpus, with deterministic-floor refusals counted
+threshold-independently — answers that question differently: 0.93 and 0.96
+are operationally identical (27/27 benign pass, 52/52 hostile block at both;
+the floor alone blocks 43/52 hostile cases), separation holds across the
+whole 0.90–0.995 range, and benign passes only begin failing above τ=0.999.
+The artifact states what it does and does not measure (gate operating points,
+not end-task F1 — no committed experiment measures that). A real
+Lyapunov-constant A/B (what `ab_dominance` faked) would need the fusion
+training loop with λ varied and remains an open task rather than a claim.
+
 **Fixed — fabrication audit waves 3-5: theater benchmarks removed, docs trued
 to committed evidence, remaining disclosures landed.** Seven benchmark scripts
 that scripted their own results were deleted (none referenced by code):

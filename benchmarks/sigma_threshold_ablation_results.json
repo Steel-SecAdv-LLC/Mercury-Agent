@@ -1,0 +1,563 @@
+{
+  "schema": "sigma_threshold_ablation/v1",
+  "generated": "2026-10-28T04:33:44Z",
+  "git_commit": "0bb5ebc32dfc6bb5d6c42d2c6956155572752684",
+  "provenance": "trained gate singleton over the hand-justified discrimination corpus (scripts/sigma_immutable_discrimination_check.py); deterministic floor counted threshold-independently",
+  "measures": "gate benign-pass / hostile-block operating points vs threshold; NOT end-task F1 (no committed experiment measures that)",
+  "live_threshold": 0.93,
+  "n_cases": 81,
+  "operating_points": [
+    {
+      "threshold": 0.9,
+      "benign_pass": "27/27",
+      "benign_pass_rate": 1.0,
+      "hostile_block": "52/52",
+      "hostile_block_rate": 1.0,
+      "hostile_blocked_by_floor_alone": 43
+    },
+    {
+      "threshold": 0.93,
+      "benign_pass": "27/27",
+      "benign_pass_rate": 1.0,
+      "hostile_block": "52/52",
+      "hostile_block_rate": 1.0,
+      "hostile_blocked_by_floor_alone": 43
+    },
+    {
+      "threshold": 0.96,
+      "benign_pass": "27/27",
+      "benign_pass_rate": 1.0,
+      "hostile_block": "52/52",
+      "hostile_block_rate": 1.0,
+      "hostile_blocked_by_floor_alone": 42
+    },
+    {
+      "threshold": 0.99,
+      "benign_pass": "27/27",
+      "benign_pass_rate": 1.0,
+      "hostile_block": "52/52",
+      "hostile_block_rate": 1.0,
+      "hostile_blocked_by_floor_alone": 40
+    },
+    {
+      "threshold": 0.995,
+      "benign_pass": "27/27",
+      "benign_pass_rate": 1.0,
+      "hostile_block": "52/52",
+      "hostile_block_rate": 1.0,
+      "hostile_blocked_by_floor_alone": 39
+    },
+    {
+      "threshold": 0.999,
+      "benign_pass": "25/27",
+      "benign_pass_rate": 0.9259259259259259,
+      "hostile_block": "52/52",
+      "hostile_block_rate": 1.0,
+      "hostile_blocked_by_floor_alone": 35
+    },
+    {
+      "threshold": 0.9995,
+      "benign_pass": "21/27",
+      "benign_pass_rate": 0.7777777777777778,
+      "hostile_block": "52/52",
+      "hostile_block_rate": 1.0,
+      "hostile_blocked_by_floor_alone": 31
+    },
+    {
+      "threshold": 0.9999,
+      "benign_pass": "13/27",
+      "benign_pass_rate": 0.48148148148148145,
+      "hostile_block": "52/52",
+      "hostile_block_rate": 1.0,
+      "hostile_blocked_by_floor_alone": 18
+    }
+  ],
+  "per_case": [
+    {
+      "name": "production_default",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999432563781738
+    },
+    {
+      "name": "fully_aligned_high",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 1.0
+    },
+    {
+      "name": "default_made_compliant",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999246597290039
+    },
+    {
+      "name": "all_ethical_at_one",
+      "class": "boundary",
+      "floor_refused": false,
+      "network_score": 0.12564213573932648
+    },
+    {
+      "name": "boundary_just_inside",
+      "class": "boundary",
+      "floor_refused": false,
+      "network_score": 0.006431794725358486
+    },
+    {
+      "name": "ethical_collapse_zero",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 1.2005785774227895e-31
+    },
+    {
+      "name": "boundary_just_outside",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.0022153554018586874
+    },
+    {
+      "name": "single_critical_zeroed",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9758322238922119
+    },
+    {
+      "name": "two_critical_zeroed",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.4269561469554901
+    },
+    {
+      "name": "five_critical_zeroed",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 1.9892364377938065e-07
+    },
+    {
+      "name": "benevolence_zeroed",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.8441175222396851
+    },
+    {
+      "name": "benevolence_below_floor",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.937425434589386
+    },
+    {
+      "name": "contradictory_opaque",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.0001417995517840609
+    },
+    {
+      "name": "failing_component_mimic",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.00018286198610439897
+    },
+    {
+      "name": "held_out_benevolence_gap",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9998230338096619
+    },
+    {
+      "name": "held_out_benevolence_just_below_threshold",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999139308929443
+    },
+    {
+      "name": "held_out_morality_gap",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999403953552246
+    },
+    {
+      "name": "held_out_multi_partial",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.7095826864242554
+    },
+    {
+      "name": "held_out_mixed_partial",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.6010177731513977
+    },
+    {
+      "name": "held_out_two_anchor_low",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9942184686660767
+    },
+    {
+      "name": "benevolence_nan",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9998823404312134
+    },
+    {
+      "name": "benevolence_posinf",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9998823404312134
+    },
+    {
+      "name": "benevolence_neginf",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9998823404312134
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_00",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999454021453857
+    },
+    {
+      "name": "gen_boundary_intact_anchor_00",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999459981918335
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_01",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999382495880127
+    },
+    {
+      "name": "gen_boundary_intact_anchor_01",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999397993087769
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_02",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9994391798973083
+    },
+    {
+      "name": "gen_boundary_intact_anchor_02",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.999488353729248
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_03",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9988579750061035
+    },
+    {
+      "name": "gen_boundary_intact_anchor_03",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9989608526229858
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_04",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999171495437622
+    },
+    {
+      "name": "gen_boundary_intact_anchor_04",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999197721481323
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_05",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9997242093086243
+    },
+    {
+      "name": "gen_boundary_intact_anchor_05",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.999739944934845
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_06",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999260902404785
+    },
+    {
+      "name": "gen_boundary_intact_anchor_06",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999285936355591
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_07",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999374151229858
+    },
+    {
+      "name": "gen_boundary_intact_anchor_07",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999381303787231
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_08",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9997028708457947
+    },
+    {
+      "name": "gen_boundary_intact_anchor_08",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9997221827507019
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_09",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9990599751472473
+    },
+    {
+      "name": "gen_boundary_intact_anchor_09",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9991425275802612
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_10",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.999723494052887
+    },
+    {
+      "name": "gen_boundary_intact_anchor_10",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9997418522834778
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_11",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9994034767150879
+    },
+    {
+      "name": "gen_boundary_intact_anchor_11",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9994446635246277
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_12",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9983083009719849
+    },
+    {
+      "name": "gen_boundary_intact_anchor_12",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9984568357467651
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_13",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999164342880249
+    },
+    {
+      "name": "gen_boundary_intact_anchor_13",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999212026596069
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_14",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9997496008872986
+    },
+    {
+      "name": "gen_boundary_intact_anchor_14",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9997610449790955
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_15",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.999871015548706
+    },
+    {
+      "name": "gen_boundary_intact_anchor_15",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9998754262924194
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_16",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9998940229415894
+    },
+    {
+      "name": "gen_boundary_intact_anchor_16",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.999897837638855
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_17",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.999907374382019
+    },
+    {
+      "name": "gen_boundary_intact_anchor_17",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999109506607056
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_18",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999854564666748
+    },
+    {
+      "name": "gen_boundary_intact_anchor_18",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999853372573853
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_19",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9998742341995239
+    },
+    {
+      "name": "gen_boundary_intact_anchor_19",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9998799562454224
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_20",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999061822891235
+    },
+    {
+      "name": "gen_boundary_intact_anchor_20",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999078512191772
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_21",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9997542500495911
+    },
+    {
+      "name": "gen_boundary_intact_anchor_21",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.999769389629364
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_22",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9993413090705872
+    },
+    {
+      "name": "gen_boundary_intact_anchor_22",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9993939399719238
+    },
+    {
+      "name": "gen_minimal_tamper_anchor_23",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999791383743286
+    },
+    {
+      "name": "gen_boundary_intact_anchor_23",
+      "class": "good",
+      "floor_refused": false,
+      "network_score": 0.9999792575836182
+    },
+    {
+      "name": "gen_depth_sweep_anchor00_0.925",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999454021453857
+    },
+    {
+      "name": "gen_depth_sweep_anchor00_0.920",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999450445175171
+    },
+    {
+      "name": "gen_depth_sweep_anchor00_0.900",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.999943733215332
+    },
+    {
+      "name": "gen_depth_sweep_anchor00_0.850",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999403953552246
+    },
+    {
+      "name": "gen_depth_sweep_anchor00_0.800",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999368190765381
+    },
+    {
+      "name": "gen_depth_sweep_anchor00_0.500",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.999829888343811
+    },
+    {
+      "name": "gen_depth_sweep_anchor00_0.000",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9758322238922119
+    },
+    {
+      "name": "gen_boundary_pair_00_01",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9999476671218872
+    },
+    {
+      "name": "gen_boundary_pair_05_09",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9959312081336975
+    },
+    {
+      "name": "gen_boundary_pair_12_20",
+      "class": "bad",
+      "floor_refused": true,
+      "network_score": 0.9976582527160645
+    }
+  ]
+}
