@@ -264,11 +264,10 @@ def register_mock_tools(agent: MercuryAgent) -> None:
 
 
 def run_neuro_symbolic_benchmark(epochs: int = 50) -> dict[str, Any]:
-    """
-    Run the full neuro-symbolic benchmark suite.
+    """Run the full neuro-symbolic benchmark suite.
 
     Args:
-        epochs: Number of training epochs (default 200)
+        epochs: Number of demo epochs (default 50)
 
     Returns:
         Complete benchmark results with metrics and visualizations
@@ -868,9 +867,12 @@ if __name__ == "__main__":
     docs_images.mkdir(parents=True, exist_ok=True)
     import shutil
 
-    for img in output_dir.glob("*.png"):
-        shutil.copy(img, docs_images / img.name)
-        print(f"Copied to docs/images: {img.name}")
+    # Only the committed report is installed into docs/images; copying every
+    # PNG left six uncommitted strays there on each run.
+    report = output_dir / "neuro_symbolic_benchmark_report.png"
+    if report.exists():
+        shutil.copy(report, docs_images / report.name)
+        print(f"Copied to docs/images: {report.name}")
 
     print("\n" + "=" * 70)
     print("NEURO-SYMBOLIC BENCHMARK COMPLETE")

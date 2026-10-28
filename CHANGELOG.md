@@ -27,6 +27,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Removed — three more fabricating visual generators and the RNG-drawn
+"validation metrics" of the gating-form study; a single-writer gate now owns
+`docs/images`.** Mapping every script that writes images exposed four
+generations of generators all writing the same filenames into `docs/images`
+(up to five writers per committed chart, so whichever ran last silently
+replaced the figure — the mechanism behind both clobbered charts found
+earlier). Deleted: `benchmarks/generate_advanced_visuals.py` (every curve
+synthesized from seeded noise on designed exponentials, written straight over
+the committed report), `benchmarks/generate_consolidated_visuals.py` (falls
+back to `generate_synthetic_results()` when the results file is absent and
+renders it), `benchmarks/generate_v1_2_visuals.py` (v1.7-era, carries a
+"(Simulated)" panel), and `benchmarks/generate_benchmark_visuals.py`
+(data-driven but fully superseded by the two `scripts/` generators it collided
+with). Nothing referenced any of the four. `benchmarks/benevolence_optimization.py`
+reported RNG-drawn Brier/F1/AUC/FP/FN "results" (`auc_score =
+uniform(0.92, 0.98)`) and ranked gating forms by that fabricated F1 — those
+fields are now `None` with the not-measured contract pinned in its tests,
+ranking uses the measured stability score, the comparison chart plots
+stability instead of the fabricated F1, and its output moved out of
+`docs/images`. The demo's post-run copy loop installs only the committed
+report instead of six stray PNGs. The durable fix is
+`tests/test_docs_images_single_writer.py`: only three declared writers may
+reference `docs/images`, no two may own the same filename, and every committed
+chart must have exactly one declared generator. Pre-existing style debt in the
+touched files resolved (19 docstring-format fixes, one missing `__init__`
+docstring, five untyped test fixtures, a docstring claiming a default of 200
+epochs where the signature says 50).
+
 **Removed — the fabricated anomaly-panel generator; every committed docs chart
 audited and regenerated from measured data.** A full audit of
 `docs/images/` found that the committed `anomaly_detection_panel.png` was
