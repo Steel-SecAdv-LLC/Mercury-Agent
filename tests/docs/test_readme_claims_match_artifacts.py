@@ -201,27 +201,20 @@ def test_degenerate_label_failures_are_what_the_readme_says_they_are() -> None:
 
 def test_loader_counts_match_the_provenance_registry() -> None:
     """``of N concrete loaders, only M`` matches the registry the CI audit reads."""
+    # ``ground_truth_loader_keys`` is the module's own exported answer to
+    # "which loaders carry labels independent of a scored feature" -- the same
+    # one the CI audit prints -- so the gate reads that rather than
+    # re-implementing the predicate over a non-exported constant.
     from omni_mercury_engine.loaders.label_provenance import (
-        GENUINE_LABEL_SOURCES,
         LABEL_PROVENANCE_REGISTRY,
+        ground_truth_loader_keys,
     )
 
     concrete, genuine = (int(n) for n in _groups(r"of (\d+) concrete\s+loaders, only (\d+) \("))
-    actual_genuine = sum(
-        1
-        for entry in LABEL_PROVENANCE_REGISTRY.values()
-        if _label_source(entry) in GENUINE_LABEL_SOURCES
-    )
+    actual_genuine = len(ground_truth_loader_keys())
 
     assert concrete == len(LABEL_PROVENANCE_REGISTRY)
     assert genuine == actual_genuine
-
-
-def _label_source(entry: Any) -> str:
-    """The declared label source, whether the registry stores tuples or records."""
-    if isinstance(entry, tuple):
-        return str(entry[0])
-    return str(getattr(entry, "label_source", entry))
 
 
 # ---------------------------------------------------------------------------
@@ -419,12 +412,13 @@ def test_fusion_hardening_ledger_records_the_detector_it_measured() -> None:
         assert summary.get("detector_commit"), f"{relative} records no detector_commit"
 
 
-def test_readme_flags_the_ledger_when_the_detector_has_moved_past_it() -> None:
-    """A ledger older than the detector it is quoted for must say so in the README.
+def test_readme_ledger_is_not_quoted_past_the_detector_that_produced_it() -> None:
+    """A ledger older than the detector it is quoted for must be flagged.
 
-    The guard is the pairing, not the number: while the committed run predates
-    the live ``detectors/statistical.py``, the README has to carry the caveat;
-    once a refresh makes them agree, the caveat is no longer required.
+    The guard is the pairing, not the number. While the committed run matches
+    the live ``detectors/statistical.py``, the README quotes it as current and
+    no staleness caveat belongs there; the moment the detector moves ahead, the
+    caveat becomes mandatory until someone refreshes both sides.
     """
     recorded = _artifact("research/omni_equation/adbench_results.json")["summary"][
         "detector_commit"
@@ -438,11 +432,233 @@ def test_readme_flags_the_ledger_when_the_detector_has_moved_past_it() -> None:
     caveat = "This ledger is a historical measurement, not the current tree."
     if recorded == live:
         assert caveat not in text, (
-            "the committed ADBench run is current again -- drop the staleness caveat "
-            "and quote the refreshed ledger"
+            "the committed ADBench run matches the live detector -- drop the staleness "
+            "caveat and quote the refreshed ledger"
         )
     else:
         assert caveat in text, (
             f"the committed ADBench run is at {str(recorded)[:7]} but the detector is at "
             f"{live[:7]}; the README quotes the ledger without saying it is historical"
+        )
+
+
+def test_readme_ledger_numbers_match_the_committed_comparison() -> None:
+    """The quoted mean, delta and win/tie/loss counts are the ledger's own.
+
+    The previous ledger drifted because nothing re-derived it: the figures sat
+    in prose while the comparison file moved underneath them.
+    """
+    ledger = _artifact("research/omni_equation/adbench_base_vs_current.json")["summary"]
+    base, current, delta, wins, ties, losses = _groups(
+        r"Mean AUROC \*\*(0\.\d+) \u2192 (0\.\d+) \(\+(\d+\.\d+) pts, "
+        r"(\d+) W / (\d+) tie / (\d+) L\)\*\*"
+    )
+
+    assert float(base) == pytest.approx(ledger["mean_baseline"], abs=5e-5)
+    assert float(current) == pytest.approx(ledger["mean_current"], abs=5e-5)
+    # The prose quotes the delta in points, the ledger stores it as a fraction.
+    assert float(delta) == pytest.approx(100.0 * ledger["mean_delta"], abs=5e-3)
+    assert int(wins) == ledger["wins"]
+    assert int(ties) == ledger["ties"]
+    assert int(losses) == ledger["losses"]
+
+
+def test_the_base_side_of_the_ledger_is_the_commit_the_readme_names() -> None:
+    """The ledger's baseline really is the `e118e1f` the README cites."""
+    ledger = _artifact("research/omni_equation/adbench_base_vs_current.json")["summary"]
+    named = _one(r"from base `([0-9a-f]{7})` to the detector at `([0-9a-f]{7})`")
+    recorded = _artifact("research/omni_equation/adbench_results.json")["summary"][
+        "detector_commit"
+    ]
+
+    assert str(ledger["baseline_commit"]).startswith(named)
+    assert str(recorded).startswith(
+        _groups(r"from base `([0-9a-f]{7})` to the detector at `([0-9a-f]{7})`")[1]
+    )
+
+
+# ---------------------------------------------------------------------------
+# Claims the first sweep of this gate did not cover
+# ---------------------------------------------------------------------------
+
+
+def test_benchmark_coverage_row_splits_both_denominators() -> None:
+    """The capability row separates the successful split from the attempted one.
+
+    It read "67 reproducible datasets (of 76 attempted; 47 ADBench + 29
+    domain)", where 47 + 29 totals the *attempted* 76 while the sentence reads
+    as the composition of the reproducible 67. The successful split is
+    47 ADBench + 20 domain.
+    """
+    rows = _artifact("benchmarks/mercury_benchmark_results.json")["per_dataset"]
+    successful = [r for r in rows if not r.get("error")]
+    adbench_ok = [r for r in successful if r["category"] == "adbench"]
+    adbench_all = [r for r in rows if r["category"] == "adbench"]
+
+    ok_total, ok_adb, ok_dom, att_total, att_adb, att_dom = (
+        int(n)
+        for n in _groups(
+            r"(\d+) reproducible datasets \((\d+) ADBench \+ (\d+) domain\) of "
+            r"(\d+) attempted \((\d+) ADBench \+ (\d+) domain\)"
+        )
+    )
+
+    assert (ok_adb, ok_dom) == (len(adbench_ok), len(successful) - len(adbench_ok))
+    assert ok_adb + ok_dom == ok_total == len(successful)
+    assert (att_adb, att_dom) == (len(adbench_all), len(rows) - len(adbench_all))
+    assert att_adb + att_dom == att_total == len(rows)
+
+
+def test_stated_caveats_are_the_measured_ones() -> None:
+    """The "when to use Mercury" caveats quote the run, not an impression.
+
+    Both are checkable: the KinematicScore mean, and how many genuine-label
+    datasets the ensemble inverts below chance.
+    """
+    gen = _genuine_rows()
+    kinematic = float(_one(r"near-random on shuffled tabular data \(mean AUC (0\.\d+)\)"))
+    inverted = int(_one(r"(\d+) datasets fall below 0\.50\s*\nAUC"))
+    measured_inverted = [
+        r["name"] for r in gen if r.get("ensemble_auc") is not None and r["ensemble_auc"] < 0.50
+    ]
+
+    assert kinematic == pytest.approx(statistics.fmean([r["kinematic_auc"] for r in gen]), abs=5e-3)
+    assert inverted == len(measured_inverted), f"below-chance sets are {measured_inverted}"
+
+
+def test_nsl_kdd_figure_matches_its_row() -> None:
+    """The validation-status row's NSL-KDD AUC is the run's own figure."""
+    gen = _genuine_rows()
+    nsl = next(r for r in gen if r["name"] == "NSL-KDD")
+    quoted = float(_one(r"NSL-KDD benchmarked \(AUC (0\.\d+), table above\)"))
+
+    assert quoted == pytest.approx(nsl["ensemble_auc"], abs=5e-4)
+
+
+def test_regression_floors_match_the_workflow_that_enforces_them() -> None:
+    """The quoted coarse floors are the ones ``benchmark.yml`` actually gates on."""
+    workflow = (_REPO / ".github" / "workflows" / "benchmark.yml").read_text(encoding="utf-8")
+    auc_floor, f1_floor = (
+        float(n) for n in _groups(r"ROC-AUC must stay ≥ (\d\.\d+) and Mean Oracle F1 ≥ (\d\.\d+)")
+    )
+
+    assert f'MIN_ROC_AUC: "{auc_floor}"' in workflow, "quoted AUC floor is not the gated one"
+    assert f'MIN_F1: "{f1_floor}"' in workflow, "quoted F1 floor is not the gated one"
+
+
+def test_sklearn_spot_check_table_matches_its_committed_run() -> None:
+    """Every cell of the baseline spot check is the committed run's own figure.
+
+    The table cited a command and a date but not a file, so nothing re-derived
+    it -- the only README table left unguarded after the first sweep. The run
+    is deterministic at ``--seed 42``: re-running it reproduced all 20 cells.
+    """
+    rows = _artifact("results/empirical_benchmark_results.json")["results"]
+    measured = {(r["detector_name"], r["dataset_name"]): r["roc_auc"] for r in rows}
+    datasets = ("breast_cancer", "covtype", "digits_8", "kddcup99")
+    detectors = {
+        "Mercury-Agent": r"\*\*Mercury-Agent\*\*",
+        "IsolationForest": "Isolation Forest",
+        "OneClassSVM": "One-Class SVM",
+        "LocalOutlierFactor": "LOF",
+        "EllipticEnvelope": "Elliptic Envelope",
+    }
+    cell = r"\s*\|\s*\**([0-9.]+)\**"
+
+    for key, label in detectors.items():
+        quoted = _groups(rf"\|\s*{label}{cell}{cell}{cell}{cell}\s*\|")
+        for dataset, value in zip(datasets, quoted, strict=True):
+            assert (key, dataset) in measured, f"{key}/{dataset} is not in the committed run"
+            # The table quotes 3 decimals, so it is held to half an ulp of that.
+            assert float(value) == pytest.approx(
+                measured[(key, dataset)], abs=5e-4
+            ), f"{key}/{dataset}"
+
+
+def test_spot_check_standing_matches_the_committed_run() -> None:
+    """ "#4 of 5 by mean AUC, 0.736 vs the 0.829 best baseline" is the run's own."""
+    summary = _artifact("results/empirical_benchmark_results.json")["summary"][
+        "omni_mercury_comparison"
+    ]
+    rank, of, mercury, best = _groups(
+        r"#(\d+) of (\d+) by mean AUC, (0\.\d+) vs the\s*\n?(0\.\d+) best baseline"
+    )
+
+    assert int(rank) == summary["rank_by_roc_auc"]
+    assert float(mercury) == pytest.approx(summary["omni_mercury_roc_auc"], abs=5e-4)
+    assert float(best) == pytest.approx(summary["best_baseline_roc_auc"], abs=5e-4)
+    assert int(of) == len(
+        _artifact("results/empirical_benchmark_results.json")["summary"]["per_detector"]
+    )
+
+
+def test_head_to_head_and_loss_margin_match_the_competitive_run() -> None:
+    """The LOF record and the median margin of the losses to knn are the run's.
+
+    Verified by hand during the v3 audit and guarded here so the next
+    competitive run cannot leave them behind.
+    """
+    doc = _artifact("benchmarks/competitive_results.json")
+    head = doc["summary"]["head_to_head"]["mercury_tier"]["local_outlier_factor"]
+    rows = doc["per_dataset"]
+    text = _text()
+
+    wins, losses = (int(n) for n in _groups(r"LOF\s*\nhead-to-head reads (\d+)W/(\d+)L", text=text))
+    assert (wins, losses) == (head["wins"], head["losses"])
+
+    def _auc(row: dict[str, Any], method: str) -> float | None:
+        cell = row.get("methods", row).get(method)
+        return cell.get("roc_auc") if isinstance(cell, dict) else None
+
+    margins = sorted(
+        knn - mercury
+        for row in rows
+        if (mercury := _auc(row, "mercury_tier")) is not None
+        and (knn := _auc(row, "knn")) is not None
+        and knn > mercury
+    )
+    n_losses, quoted_margin = _groups(
+        r"the (\d+) losses to `knn` carry a median margin\s*\nof (0\.\d+) AUC"
+    )
+
+    assert int(n_losses) == len(margins)
+    # The prose quotes 3 decimals, so it is held to half an ulp of that.
+    assert float(quoted_margin) == pytest.approx(statistics.median(margins), abs=5e-4)
+
+
+def test_quickstart_transcript_matches_a_real_run() -> None:
+    """The default quickstart figures are the committed benchmark's own.
+
+    The harness row the transcript prints is the ``DTU_AIS_Abnormal`` row of
+    ``mercury_benchmark_results.json``, which the quickstart's own closing line
+    promises. Re-running the quickstart during the v3 audit reproduced the
+    whole transcript, interval bounds included.
+    """
+    gen = _genuine_rows()
+    dtu = next(r for r in gen if r["name"] == "DTU_AIS_Abnormal")
+    harness = float(_one(r"all 25 abnormal: ROC-AUC (0\.\d+) \[95% CI"))
+
+    assert harness == pytest.approx(dtu["ensemble_auc"], abs=5e-4)
+
+
+def test_quoted_interval_widths_are_the_widths_of_the_quoted_intervals() -> None:
+    """ "the intervals span about X of AUC" is arithmetic on the printed bounds.
+
+    It read 0.16 against bounds of 0.821-0.955 (0.134) and 0.809-0.938
+    (0.129) -- a figure no subtraction in the section produces. The sentence
+    is about the two published-protocol intervals, so those two are the ones
+    checked, located by the point estimates the same paragraph names.
+    """
+    claimed = float(_one(r"the intervals span about (0\.\d+) of AUC"))
+    text = _text()
+    widths = []
+    for point in _groups(r"\*\*Published protocols \((0\.\d+), (0\.\d+)\)\*\*"):
+        low, high = _groups(rf"ROC-AUC {point} \[95% CI (0\.\d+)-(0\.\d+)\]", text=text)
+        widths.append(float(high) - float(low))
+
+    assert len(widths) == 2, "the paragraph no longer names two published protocols"
+    for width in widths:
+        assert width == pytest.approx(claimed, abs=0.01), (
+            f"claimed span {claimed} is not the width of a printed interval "
+            f"({[round(w, 3) for w in widths]})"
         )

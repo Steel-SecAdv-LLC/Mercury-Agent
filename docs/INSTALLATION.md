@@ -100,10 +100,31 @@ pip install -e ".[all]"
 
 ## Installation Profiles
 
+> **OpenCV moved from `[ml]` into the core dependencies in v3.** The FINDΩYOU
+> face path needs it for decoding, colour conversion, resize and the
+> legacy-noise blur, and on the 4.x line it also supplies the Haar cascade that
+> detects a face without PyTorch. While it was optional the path degraded
+> silently: the age filter returned its input unchanged, and a missing decoder
+> was reported as "Face detection failed". Image *decoding* does have in-house
+> parity and keeps it (`vision/imaging` falls back to Pillow), so that path does
+> not depend on the pin.
+>
+> **The core pin alone does not guarantee a face _detector_.** OpenCV 5.0 moved
+> `CascadeClassifier` and the bundled cascades into `opencv_contrib`, so the
+> 5.x `-headless` wheel (which the `<6` ceiling admits) carries neither — a
+> core-only install resolving 5.x has no detector at all, and MTCNN from `[ml]`
+> is then the only one. That case now raises `FaceDetectorUnavailableError`
+> naming the OpenCV version, which symbols it provides, and what to install,
+> rather than returning `None` and reading as "no face in the image". Either
+> install `[ml]`, pin OpenCV to the 4.x line, or supply the cascade XMLs as
+> described under
+> [Biometric image analysis (DeepFace) assets](#biometric-image-analysis-deepface-assets)
+> below.
+
 | Profile | Command | Includes |
 |---------|---------|----------|
-| **Core** | `pip install -e .` | numpy, scipy, pandas, MercuryAnomalyDetector |
-| **ML** | `pip install -e ".[ml]"` | Core + PyTorch, torchvision, pytorch-lightning, timm, OpenCV (headless) |
+| **Core** | `pip install -e .` | numpy, scipy, pandas, OpenCV (headless), MercuryAnomalyDetector, face detection and age progression |
+| **ML** | `pip install -e ".[ml]"` | Core + PyTorch, torchvision, pytorch-lightning, timm, h5py, numcodecs, netCDF4, metpy, obspy |
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
 | **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate. Ships SHA-pinned local BLIP backends (`blip_vqa`, `blip_caption`) that run the AnyAnomaly/LAVAD detectors on CPU; larger LVLMs (Qwen2-VL, MiniCPM-V, LLaVA) are configurable with an operator-supplied revision pin. |
 | **Foundation** | `pip install -e ".[foundation]"` | ML + foundation-model adapters: `chronos-forecasting` (Amazon Chronos, local inference), `nixtla` (TimeGPT API client), `stumpy` (matrix profile) |

@@ -110,17 +110,15 @@ def test_multimodal_engine_never_fabricates(tmp_path: Path) -> None:
         engine.fuse_with_symbolic(path, {"csdm": 0.9})
 
 
-def test_age_filter_never_silently_returns_its_input_without_opencv(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The legacy-noise filter runs on both branches with OpenCV absent.
+def test_age_filter_never_returns_its_input_unchanged() -> None:
+    """Both directions of the legacy-noise filter alter the face.
 
-    It used to return ``face`` unchanged whenever ``CV2_AVAILABLE`` was false,
-    so an unprocessed image was served as an age-progressed one with nothing
-    saying so. Only the rejuvenation blur ever needed OpenCV, and it now has a
-    SciPy path, so neither direction may no-op.
+    It used to return ``face`` unchanged whenever OpenCV was absent, so an
+    unprocessed image was served as an age-progressed one with nothing saying
+    so, and ``assess_progression`` then measured no injected noise. OpenCV is
+    a core dependency now and the filter has no skip path, so neither
+    direction may no-op.
     """
-    monkeypatch.setattr(biometric_multimodal, "CV2_AVAILABLE", False)
     engine = AgeProgressionEngine(seed=3)
 
     for delta in (10, -10):
@@ -130,10 +128,68 @@ def test_age_filter_never_silently_returns_its_input_without_opencv(
         assert not np.array_equal(out, _FACE), f"age_delta={delta} returned its input unchanged"
 
 
-def test_age_filter_blur_matches_opencv_kernel_sigma(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The SciPy fallback smooths, like the OpenCV 5x5 ``sigma=0`` kernel it replaces."""
-    monkeypatch.setattr(biometric_multimodal, "CV2_AVAILABLE", False)
+def test_age_filter_has_one_blur_implementation() -> None:
+    """The blur smooths, and does so the same way in every supported install.
+
+    A SciPy stand-in for the OpenCV kernel would cure the old silence but make
+    the pixels depend on which wheels were installed -- the wrong property for
+    a face a search may be run against -- so there is exactly one path.
+    """
     blurred = biometric_multimodal._gaussian_blur_5x5(_FACE.astype(float))
 
     assert blurred.shape == _FACE.shape
     assert float(np.var(blurred)) < float(np.var(_FACE.astype(float)))
+
+
+def test_no_detector_installed_is_not_reported_as_a_failed_detection(
+    tmp_path: Path,
+) -> None:
+    """ "No detector here" and "no face there" are different answers.
+
+    ``detect_and_align_face`` used to return ``None`` for both, and
+    ``progress_age`` rendered that as "Face detection failed" -- so a missing
+    dependency read as a verdict about the image. OpenCV 5.x carries neither
+    ``CascadeClassifier`` nor the bundled cascades (they moved to
+    ``opencv_contrib``), so on a core-only install that case is reachable, and
+    it now names what to install.
+    """
+    cv2 = pytest.importorskip("cv2")
+    engine = AgeProgressionEngine(seed=0)
+    blank = tmp_path / "blank.png"
+    cv2.imwrite(str(blank), np.zeros((64, 64, 3), dtype=np.uint8))
+
+    has_cascade = getattr(cv2, "CascadeClassifier", None) is not None
+    if engine.face_detector is not None or has_cascade:
+        pytest.skip("a face detector is installed; the no-detector path is unreachable")
+
+    with pytest.raises(biometric_multimodal.FaceDetectorUnavailableError, match="no face detector"):
+        engine.detect_and_align_face(str(blank))
+
+    result = engine.progress_age(str(blank), 10)
+    assert not result.success
+    assert "no face detector" in str(result.message)
+    assert "Face detection failed" not in str(result.message)
+
+
+def test_a_detector_that_finds_nothing_still_reports_a_failed_detection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """With a detector present and no face in frame, ``None`` is the right answer."""
+    cv2 = pytest.importorskip("cv2")
+    engine = AgeProgressionEngine(seed=0)
+    blank = tmp_path / "blank.png"
+    cv2.imwrite(str(blank), np.zeros((64, 64, 3), dtype=np.uint8))
+
+    class _FindsNothing:
+        @staticmethod
+        def detect(_image: object) -> tuple[None, None]:
+            return None, None
+
+    monkeypatch.setattr(engine, "face_detector", _FindsNothing())
+    monkeypatch.setattr(biometric_multimodal, "TORCH_AVAILABLE", True)
+
+    assert engine.detect_and_align_face(str(blank)) is None
+
+    result = engine.progress_age(str(blank), 10)
+    assert not result.success
+    assert "Face detection failed" in str(result.message)

@@ -3,11 +3,23 @@
 """Pin the ADBench base-vs-current comparison behind the committed artifacts.
 
 ``research/omni_equation/_compare.py`` is engine-free, so this suite imports the
-diff logic directly (not through the detector) and asserts that the committed base run
-(``adbench_base_e118e1f.json``) diffed against the committed hardened run
-(``adbench_results.json``) yields the PR-302 headline — 14 W / 2 tie / 2 L,
-+0.0237 — and that the committed ``adbench_base_vs_current.json`` artifact stays
-in sync with a fresh recompute from those two sources.
+diff logic directly (not through the detector) and asserts that the committed
+base run (``adbench_base_e118e1f.json``) diffed against the committed current
+run (``adbench_results.json``) yields the ledger the README cites, and that
+``adbench_base_vs_current.json`` stays in sync with a fresh recompute from
+those two sources.
+
+**The ledger moved in the v3 audit, and this suite is why that was visible.**
+It pinned the PR-302 headline (14 W / 2 tie / 2 L, +0.0237 to a mean of
+0.7634), which was recorded at ``bdcdf6a``. Seven commits of
+``detectors/statistical.py`` (+1,199 / −105 lines) later, re-running the
+harness measured 0.7745. The base was re-measured too, in a matched
+environment (numpy 2.5.3, scipy 1.18.1, AMA 3.2.0 — the release the base tree
+pins), and it reproduced the committed 0.7397 on all 18 sets byte-for-byte,
+which rules the environment out and attributes the move to the detector. The
+refreshed ledger is a larger mean gain on a worse win rate: 13 W / 1 tie / 4 L,
++0.0348. ``cardio`` (−0.0855) and ``optdigits`` (−0.0624) are the regressions
+to look at.
 """
 
 from __future__ import annotations
@@ -43,15 +55,26 @@ def _results(filename: str) -> list[dict[str, Any]]:
 class TestCommittedHeadline:
     """The committed JSON pair must reproduce the headline the PR/docs cite."""
 
-    def test_base_vs_current_is_14_2_2(self) -> None:
+    def test_base_vs_current_is_13_1_4(self) -> None:
         comparison = compare_to_baseline(
             _results("adbench_results.json"), _results("adbench_base_e118e1f.json")
         )
         summary = comparison["summary"]
-        assert (summary["wins"], summary["ties"], summary["losses"]) == (14, 2, 2)
+        assert (summary["wins"], summary["ties"], summary["losses"]) == (13, 1, 4)
         assert summary["mean_baseline"] == 0.7397
-        assert summary["mean_current"] == 0.7634
-        assert summary["mean_delta"] == 0.0237
+        assert summary["mean_current"] == 0.7745
+        assert summary["mean_delta"] == 0.0348
+
+    def test_the_current_run_records_the_detector_it_measured(self) -> None:
+        """Both sides date themselves, so a stale ledger cannot hide again.
+
+        The PR-302 current-side run carried no provenance at all, which is why
+        it outlived its detector unnoticed; ``harness_adbench.py`` now stamps
+        commit, detector commit, timestamp and library versions on every run.
+        """
+        for filename in ("adbench_results.json", "adbench_base_e118e1f.json"):
+            summary = json.loads((_RESEARCH / filename).read_text())["summary"]
+            assert summary.get("detector_commit"), f"{filename} records no detector_commit"
 
     def test_named_ties_and_losses(self) -> None:
         comparison = compare_to_baseline(
@@ -59,9 +82,14 @@ class TestCommittedHeadline:
         )
         verdict = {row["dataset"]: row["verdict"] for row in comparison["per_set"]}
         assert verdict["Hepatitis"] == "tie"
-        assert verdict["Lymphography"] == "tie"
-        assert verdict["Waveform"] == "loss"
-        assert verdict["WPBC"] == "loss"
+        # The four regressions, named so a later run cannot quietly add a fifth.
+        assert verdict["cardio"] == "loss"
+        assert verdict["optdigits"] == "loss"
+        assert verdict["Cardiotocography"] == "loss"
+        assert verdict["vertebral"] == "loss"
+        # Both were losses under the PR-302 ledger and are wins now.
+        assert verdict["Waveform"] == "win"
+        assert verdict["WPBC"] == "win"
 
     def test_committed_comparison_artifact_in_sync(self) -> None:
         """adbench_base_vs_current.json must equal a fresh recompute from sources."""
@@ -87,7 +115,10 @@ class TestVerdictRules:
     """Classification edges that the committed ledger depends on."""
 
     def test_sub_noise_regression_counts_as_loss(self) -> None:
-        # The real Waveform delta: -0.0003 is negligible but still a loss at tie_tol=0.
+        # Was the real Waveform delta under the PR-302 ledger (-0.0003:
+        # negligible, still a loss at tie_tol=0); Waveform is a +0.1289 win in
+        # the refreshed one, so these are now illustrative literals for the
+        # rule itself rather than a reference to a live row.
         comparison = compare_to_baseline(
             [{"dataset": "x", "auroc": 0.5867}], [{"dataset": "x", "auroc": 0.5870}]
         )

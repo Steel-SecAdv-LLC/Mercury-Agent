@@ -88,17 +88,14 @@ except Exception as _face_recognition_exc:
         _face_recognition_exc,
     )
 
-CV2_AVAILABLE = False
-try:
-    import cv2
-
-    CV2_AVAILABLE = True
-except Exception as _cv2_exc:
-    logger.debug(
-        "OpenCV not available (%s: %s), age progression limited",
-        type(_cv2_exc).__name__,
-        _cv2_exc,
-    )
+# OpenCV is a core dependency (pyproject ``[project] dependencies``), not an
+# optional extra, so this is a hard import. It was optional, and the face path
+# paid for it twice: ``apply_polynomial_age_filter`` returned its input
+# unchanged, and ``detect_and_align_face`` reported "Face detection failed"
+# when the truth was that the decoder was missing. OpenCV supplies the
+# decoding, colour conversion, resize and blur this module needs, and -- on
+# the 4.x line -- the Haar cascade that detects a face without PyTorch.
+import cv2
 
 FACENET_AVAILABLE = False
 try:
@@ -586,31 +583,52 @@ class MultimodalBiometricEngine:
         return float(proximity)
 
 
+class FaceDetectorUnavailableError(RuntimeError):
+    """No face detector is installed, so no image was ever examined.
+
+    Distinct from ``detect_and_align_face`` returning ``None``, which means a
+    detector ran and found no face. Keeping the two apart is what stops
+    "Face detection failed" from being reported for a missing dependency --
+    the misdirection the removed ``CV2_AVAILABLE`` guard used to produce.
+    """
+
+
+def face_detector_requirement() -> str:
+    """Why no face detector is available, and what supplies one.
+
+    Mercury has two: MTCNN from ``facenet_pytorch`` (needs the ``[ml]`` extra
+    for PyTorch), and OpenCV's Haar cascade. OpenCV 5.0 moved
+    ``CascadeClassifier`` and the bundled ``cv2.data.haarcascades`` into
+    ``opencv_contrib``, so the ``-headless`` 5.x wheel the core pin admits
+    carries neither -- a core-only install on 5.x therefore has *no* detector,
+    and the pin's ``<6`` ceiling is deliberate (see pyproject). Saying which
+    one to install beats returning ``None`` and letting the caller report "no
+    face in the image".
+    """
+    cascade = getattr(cv2, "CascadeClassifier", None) is not None
+    bundled = getattr(getattr(cv2, "data", None), "haarcascades", None) is not None
+    return (
+        "no face detector is available in this install: MTCNN needs PyTorch "
+        '(pip install "mercury-agent-global[ml]"), and this OpenCV '
+        f"({cv2.__version__}) provides CascadeClassifier={cascade}, bundled "
+        f"cascades={bundled} -- OpenCV 5.x moved both into opencv_contrib. "
+        "Install the [ml] extra, or supply the cascade XMLs (see "
+        "docs/INSTALLATION.md)."
+    )
+
+
 def _gaussian_blur_5x5(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Blur with OpenCV's 5x5 ``sigma=0`` kernel, or SciPy's equivalent sigma.
+    """Blur with OpenCV's 5x5 ``sigma=0`` kernel (sigma 1.1, derived by OpenCV).
 
-    The legacy-noise age filter used to be skipped outright when OpenCV was
-    absent, which made the whole filter return its input unchanged -- an
-    unprocessed face served as an age-progressed one, with nothing on the
-    result saying so.  Only this one blur ever needed OpenCV, and the sibling
-    :meth:`AgeProgressionEngine.apply_detail_age_filter` already blurs through
-    SciPy (a core dependency), so the filter now always runs.
-
-    OpenCV derives ``sigma = 0.3 * ((ksize - 1) * 0.5 - 1) + 0.8 = 1.1`` for a
-    5x5 kernel; the SciPy path uses that same sigma per spatial axis, leaving
-    any channel axis untouched.  When OpenCV is installed the original code
-    path is kept, so existing deployments see byte-identical output.
+    One implementation, because OpenCV is core. The previous arrangement --
+    skip the blur, and with it the whole filter, when OpenCV was absent -- made
+    an unprocessed face pass for an age-progressed one. A SciPy stand-in would
+    cure the silence but leave the pixels an operator gets depending on which
+    wheels they installed, which is the wrong property for a face a search may
+    be run against.
     """
     work = np.clip(image, 0, 255).astype(np.uint8)
-    if CV2_AVAILABLE:
-        return np.asarray(cv2.GaussianBlur(work, (5, 5), 0)).astype(float)
-
-    from scipy import ndimage
-
-    sigma: float | tuple[float, ...] = 1.1
-    if work.ndim == 3:
-        sigma = (1.1, 1.1, 0.0)
-    return np.asarray(ndimage.gaussian_filter(work.astype(float), sigma))
+    return np.asarray(cv2.GaussianBlur(work, (5, 5), 0)).astype(float)
 
 
 class AgeProgressionEngine:
@@ -677,10 +695,6 @@ class AgeProgressionEngine:
         Returns:
             Aligned face as numpy array (160x160) or None
         """
-        if not CV2_AVAILABLE:
-            logger.warning("OpenCV not available for face detection")
-            return None
-
         try:
             image = cv2.imread(image_path)
             if image is None:
@@ -726,9 +740,23 @@ class AgeProgressionEngine:
                         face = image_rgb[y : y + h, x : x + w]
                         face = cv2.resize(face, (160, 160))
                         return face
+                    return None
+
+            # Neither detector exists in this install, so nothing looked at the
+            # image. Returning ``None`` here would be read by ``progress_age``
+            # as "Face detection failed" -- the same wrong reason the removed
+            # ``CV2_AVAILABLE`` guard used to give. ``None`` is reserved for
+            # "a detector ran and found no face"; this is a configuration
+            # statement, and ``FaceDetectorUnavailableError`` carries it past
+            # the handler below so the caller reports the real cause.
+            if self.face_detector is None or not TORCH_AVAILABLE:
+                raise FaceDetectorUnavailableError(face_detector_requirement())
 
             return None
 
+        except FaceDetectorUnavailableError:
+            # A configuration fact, not a detection outcome: let it through.
+            raise
         except Exception as e:
             logger.error(f"Face detection error: {e}")
             return None

@@ -109,11 +109,12 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         "age_progression",
         "cardioidal craniofacial growth geometry, deterministic texture aging, audited output",
         ("omni_mercury_engine.models.biometric_multimodal",),
-        # No cv2: the growth geometry, both texture models and the audit all
-        # run on numpy + scipy. OpenCV is only needed to read a face out of an
-        # image *file*, which is the biometric_match capability's surface, not
-        # this one's.
-        requires=("numpy", "scipy"),
+        # cv2 is back in the list, and now it is the truth rather than a
+        # silent degradation: OpenCV moved into the core dependencies, the
+        # module imports it unconditionally, and the legacy-noise texture
+        # model blurs through it. While it was optional this capability
+        # reported available and then returned the face unchanged.
+        requires=("numpy", "scipy", "cv2"),
     ),
     CapabilitySpec(
         "findoyou_evidence_bridge",

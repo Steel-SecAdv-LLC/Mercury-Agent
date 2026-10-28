@@ -1,23 +1,31 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Guardrail: a numpy array type alias must be annotated ``: TypeAlias``.
+"""Style guard: a numpy array type alias is annotated ``: TypeAlias``.
 
-``Array = np.ndarray[Any, Any]`` is an *implicit* alias (PEP 613 calls the
-annotated form explicit).  Whether MyPy accepts an implicit one depends on how
-the right-hand side evaluates at runtime, which is a numpy-version-dependent
-detail: under numpy 2.4 the tree's 14 implicit aliases typed clean, and under
-numpy 2.5 -- which ``pyproject.toml`` admits, since it pins ``numpy>=2.4.0``
-with no ceiling -- MyPy rejected every one of them as "Variable ... is not
-valid as a type" and cascaded into **520 errors across 19 files**, against 14
-once the aliases were annotated.  A blocking type gate that passes or fails on
-a transitive dependency's patch release is not a gate.
+``Array = np.ndarray[Any, Any]`` is an *implicit* alias; PEP 613 calls the
+annotated ``Array: TypeAlias = np.ndarray[Any, Any]`` form explicit. MyPy
+accepts both when it can resolve numpy, so this is a readability and
+intent-signalling rule, not a correctness one: the annotated form says "this
+name is a type" at the binding site, and cannot be mistaken for a module-level
+value by a reader or by a checker that loses the numpy stubs.
 
-``X: TypeAlias = np.ndarray[...]`` is unambiguous to every checker and every
-numpy, so it is the form this repository uses.  This guard is AST-based and
-usage-aware: it reads module-level assignments and only objects when the
-right-hand side is a subscript of ``np.ndarray``, ``np.dtype``, ``NDArray`` or
-``npt.NDArray`` and the target carries no annotation.  Strings, comments and
-non-numpy aliases never trip it.
+**Correcting the record.** The audit commit that introduced this guard said
+these aliases broke MyPy under numpy 2.5, citing 520 errors across 19 files.
+That was wrong, and the error count had a single cause that was not numpy:
+``mypy`` was installed as a uv tool with its own interpreter, which could not
+see the system ``dist-packages``, so numpy was unresolvable and every
+``np.ndarray`` subscript degraded to "a variable, not valid as a type". Run
+with ``--python-executable`` pointing at the interpreter that holds the
+dependencies, the implicit aliases type-check clean and ``src/`` reports no
+issues at all. There is no numpy-version hazard here and no ceiling is needed.
+The conversion is kept because the explicit form is better practice and is
+annotation-only -- each alias binds exactly what it bound before -- but it
+fixed a measurement artefact, not a defect.
+
+The guard is AST-based and usage-aware: it reads module-level assignments and
+only objects when the right-hand side subscripts ``np.ndarray``, ``np.dtype``,
+``NDArray`` or ``npt.NDArray`` and the target carries no annotation. Strings,
+comments, locals and non-numpy aliases never trip it.
 """
 
 from __future__ import annotations
@@ -79,7 +87,7 @@ def _implicit_aliases(path: Path) -> list[tuple[int, str]]:
 
 
 def test_every_numpy_array_alias_is_annotated_as_a_type_alias() -> None:
-    """No module-level numpy array alias is left for the checker to guess at."""
+    """No module-level numpy array alias is left in the implicit form."""
     offences = [
         f"{path.relative_to(_REPO)}:{line}: {name} = np.ndarray[...] "
         f"-> write `{name}: TypeAlias = ...`"
