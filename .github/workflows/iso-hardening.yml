@@ -173,10 +173,10 @@ jobs:
           out=$(python examples/mercury_quickstart.py --data-dir ./data --published-protocols)
           echo "$out"
           echo "$out" | grep -qF "MERCURY QUICKSTART COMPLETE"
-          echo "$out" | grep -qF "incl. all 25 abnormal: ROC-AUC 0.8613 "
-          echo "$out" | grep -qF "Mercury label-free cross-fit ROC-AUC 0.8617"
-          echo "$out" | grep -qF "Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8785 "
-          echo "$out" | grep -qF "JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8751 "
+          echo "$out" | grep -qF "incl. all 25 abnormal: ROC-AUC 0.8750 "
+          echo "$out" | grep -qF "Mercury label-free cross-fit ROC-AUC 0.8739"
+          echo "$out" | grep -qF "Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8934 "
+          echo "$out" | grep -qF "JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8779 "
 
   load-tests:
     name: Load Tests (smoke)

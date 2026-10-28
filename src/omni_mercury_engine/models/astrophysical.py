@@ -9,23 +9,36 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.detectors.provenance import DecisionSource
+from omni_mercury_engine.models.fitted_reference import FittedReferenceScorer
 from omni_mercury_engine.utils.constants import OmniCodes
 
 # Omni-Code: Omni-Indivisible Guardian (unified protection and integrity)
 _ETHICAL_ANCHOR = OmniCodes.OMNI_INDIVISIBLE.code
 
 
-class AstrophysicalAnomalyModel:
-    """Astrophysical anomaly detection using black hole physics and cosmic event modeling."""
+class AstrophysicalAnomalyModel(FittedReferenceScorer):
+    """Astrophysical feature mapping scored as deviation from a fitted reference.
+
+    The pre-2026-10-27 score was the mean of three fixed-direction
+    black-hole-metaphor heuristics whose "distance from the event horizon"
+    was simply the row norm - so a high-energy burst read as *far from the
+    singularity* and scored as maximally safe (measured AUROC 0.000 against
+    clean windows on a planted 12-sigma burst). The black-hole feature
+    mapping is kept as the representation; the anomaly score is now the
+    calibrated deviation of those features from a reference fitted on
+    normal data (:class:`FittedReferenceScorer`), which rises for any
+    departure - high- or low-energy - by construction.
+    """
 
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "Anomaly score is the mean of three black-hole-metaphor "
-            "heuristics (inverse event-horizon distance, tanh of the "
-            "synthetic gravitational field, horizon-state grade): a "
-            "physics-inspired heuristic with no published threshold and no "
-            "labelled corpus to calibrate one; verdicts are experimental."
+            "Calibrated robust deviation of black-hole-metaphor features "
+            "(row norm, synthetic gravitational field, time dilation, "
+            "horizon grade, info density, accretion) from a reference "
+            "fitted on normal data; direction-free by construction; no "
+            "labelled astrophysical corpus backs a domain tier yet, so "
+            "verdicts remain experimental."
         ),
     )
 
@@ -92,22 +105,25 @@ class AstrophysicalAnomalyModel:
         return features.astype(np.float32)
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
-        """Predict anomalies using astrophysical models."""
+        """Score rows as calibrated deviation from the fitted reference.
+
+        Raises:
+            RuntimeError: Called before :meth:`fit` - the retired
+                fixed-direction heuristic is refused, never served.
+        """
         features = self.extract_features(data)
+        scores = self.score_features(features.astype(np.float64))
 
         distances = features[:, 0]
         grav_fields = features[:, 1]
         time_dilations = features[:, 2]
         horizon_states = features[:, 3]
 
-        distance_anomaly = 1.0 / (distances + 1.0)
-        grav_anomaly = np.tanh(grav_fields / 10.0)
-        horizon_anomaly = horizon_states
-
-        anomaly_scores = (distance_anomaly + grav_anomaly + horizon_anomaly) / 3.0
-
         return {
-            "anomaly_scores": anomaly_scores.astype(np.float32),
+            "anomaly_scores": scores["anomaly_scores"],
+            "reference_deviation": scores["reference_deviation"],
+            "confidence": scores["confidence"],
+            "anomaly_score_basis": self.decision_source.description,
             "event_horizons": np.stack([distances, horizon_states], axis=1).astype(np.float32),
             "gravitational_fields": grav_fields.astype(np.float32),
             "time_dilations": time_dilations.astype(np.float32),

@@ -1878,7 +1878,10 @@ class SpectralVibrationDetector(BaseDetector):
         # Misalignment: 2x or 3x running speed
         # Looseness: many harmonics, half harmonics
 
-        confidence = 0.7  # Base confidence
+        # The confidences returned by this rule cascade are fixed rule
+        # priors per signature branch (0.70-0.85), not computed or
+        # calibrated probabilities.
+        confidence = 0.7  # base rule prior
 
         # High crest factor indicates impulsive faults (bearings, gears)
         if features.crest_factor > 4.0:

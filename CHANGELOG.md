@@ -27,6 +27,722 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — measured σ-threshold ablation replacing the deleted `ab_sigma`
+theater (`benchmarks/sigma_threshold_ablation.py` +
+`sigma_threshold_ablation_results.json`).** The deleted script claimed
+"σ=0.96 beats 0.93" from a formula with the conclusion built in. The real
+measurement — the trained gate over the committed hand-justified
+discrimination corpus, with deterministic-floor refusals counted
+threshold-independently — answers that question differently: 0.93 and 0.96
+are operationally identical (27/27 benign pass, 52/52 hostile block at both;
+the floor alone blocks 43/52 hostile cases), separation holds across the
+whole 0.90–0.995 range, and benign passes only begin failing above τ=0.999.
+The artifact states what it does and does not measure (gate operating points,
+not end-task F1 — no committed experiment measures that). A real
+Lyapunov-constant A/B (what `ab_dominance` faked) would need the fusion
+training loop with λ varied and remains an open task rather than a claim.
+
+**Fixed — fabrication audit waves 3-5: theater benchmarks removed, docs trued
+to committed evidence, remaining disclosures landed.** Seven benchmark scripts
+that scripted their own results were deleted (none referenced by code):
+`ab_dominance`/`ab_sigma` wrote per-epoch F1 curves toward hardcoded targets
+plus noise and printed "BENCHMARK PASSED"; `ethical_scalar_experiments` drew
+execution time, memory and accuracy from RNG; `ethical_scalar_validation`
+separated random toy data by construction and printed "VALIDATED FOR
+PRODUCTION DEPLOYMENT"; `comprehensive_equation_optimization` scored toy
+formulas with noise added "for realism" and `quick_benchmark_validation`
+consumed its output as "the optimized config"; `plot_mercury_training` drew
+invented calibration/memory/uncertainty curves. The two engine comments citing
+`ab_dominance.py` as "the measured comparison" behind the Lyapunov constant
+now state the truth (design target per MATH_SPEC §2.2). The hand-entered
+`mercury_agent` row (0.85/0.80) in `benchmarks/baseline_results.json` is
+removed and its provenance note states the peer rows are uncited
+approximations. The seven-axis runner and its committed artifact/docs section
+now disclose the synthetic workload. Docs trued to committed artifacts: the
+stale 2026-10-14 headline (0.8545/0.9052/0.6425, ADBench 0.8515/0.6415) is
+replaced by the committed 2026-10-26 run (0.8610/0.9077/0.6476, ADBench
+0.8571/0.6443) across README, BENCHMARKS, LIVE_DATA_VALIDATION, DATASOURCES,
+SELF_IMPROVEMENT_LOOP, ROADMAP and docs/index; the README spot-check table is
+regenerated from a real 2026-10-28 run (Mercury ranks #4 of 5 on it — stated
+plainly) and its unsourceable TranAD/MAAT "published reference" rows are
+removed; the calibration block now quotes the committed 55-dataset run; the
+hazard table is rebuilt from `research/engine_calibration/results.json` (its
+unsourced Flood row removed); the NAB detection-tier tables are rebuilt from
+the committed 30-series run, which reverses the old claim — consensus (0.635)
+beats the best member, the unsupervised average (0.604) does not;
+ARCHITECTURE's unsourced "empirical validation" percentages and λ_max ≈ 0.87
+claims are withdrawn and its stale scale copies defer to the CI-gated README
+block; perf/memory/install/PQC-coverage claims are labelled indicative or
+CI-artifact-sourced; the live demo discloses its synthetic streams. Remaining
+adjudications: the chronos adapter's fail-closed raise was caught by its own
+except (any failure became score 0.0 "normal") — it now propagates; the legacy
+three-R "dominance proof" table and docstring now label the 0.92 figure an
+aspiration; single-class folds in `realworld_benchmark`/`lstm_ae` metrics are
+NaN-excluded instead of entering means as 0.5/0.25; the unfitted statistical
+ensemble diagnostic returns None instead of a made-up 0.5 and labels its
+synthetic-OOD basis; MSDS (a synthetic stand-in sharing the real TranAD
+dataset's name) now goes through the `check_synthetic_allowed` gate; the
+tsunami loader marks reconstructed BPR series on the frame;
+`communications_it` raises on missing inputs instead of inventing nominal
+traffic; fixed confidence literals across infrastructure/narrative/
+distributed/hindsight/vibration/code-analysis outputs are labelled as
+uncalibrated rule priors (and the operations power estimate drops its 1.0
+confidence to 0.3); energy_dams renames its count formula to
+`heuristic_risk_index`; INTEL_VALUE_METRICS and the detector-evidence seed
+disclose their authored-workload/non-committed-harness provenance; and the
+in-session gwo/dimensional measurements are marked CHANGELOG-recorded, not
+artifact-backed.
+
+**Fixed — full-repo fabrication audit, wave 1/2: engine code that invented
+measurements now measures, discloses, or fails closed.** A four-auditor sweep
+of the whole repository found fabrication beyond the chart generators; every
+confirmed finding in `src/` is fixed at the root, with the ratifying tests
+rewritten to pin the honest contract:
+`TemporalNeurosymbolicEngine.predict` returned uniform RNG draws as anomaly
+scores when torch was absent (now raises);
+`EthicalAutonomyGovernor` manufactured its "statistical validation (p<0.05)"
+by t-testing RNG draws around the baseline (now a real one-sample t-test when
+the caller supplies a score sample, else None) and its "Fairlearn-compatible"
+bias audit split the array in half, ignored the context, and claimed
+`mitigation_applied` (now real demographic parity over caller-supplied
+protected attributes, `audit_performed=False` otherwise, and the
+mitigation field can only be False);
+`load_usgs_earthquake_catalog` trained on RNG-synthesized spectrograms
+labelled "real (USGS catalog)" with every label 1.0 because the query floor
+and the label threshold were the same value (now labelled synthetic-from-real-
+events, with a separate `label_magnitude` so both classes exist);
+`ChaosMultivariateFusion` moved its decision threshold by an RNG draw on every
+call (now a deterministic score-seeded logistic map, documented as a
+heuristic); `SimulationModule` fed RNG padding columns into its anomaly score
+(now zero-padded, with a declared `anomaly_score_basis`);
+both Lyapunov `verify_lyapunov_stability` fallbacks returned the configured
+target rate as the "measured" rate with `is_stable=True` on degenerate windows
+(now `(False, 0.0)`); the Phase-6 coherence audit silently validated a
+synthetic reference curve (now named in `fusion_scores_source`);
+the conformal binary fallback invented 0.7/0.3 scores plus RNG noise and
+mapped IsolationForest's normal class to anomalous (now degenerate {0,1} with
+correct polarity); `evaluation/baselines.py` is relabelled an UNVERIFIED
+transcription, its nine untraceable `paper: "Various"` rows are removed
+(NSL-KDD now empty pending citations) and every comparison carries the caveat;
+`IntegratedAnomalyDetector` registered RNG "USGS/NOAA" sources by default with
+confidence 0.9 (now opt-in, confidence 0.0, `metadata.simulated`, and the
+factor line counts them separately); the marine loader cached synthetic
+fallback frames under the real cache key and logged them as "fetched" (now
+never cached, marked `is_real_data=False`); the Prometheus exporter served
+hardcoded 0.0 counters and the retired 0.99 benevolence floor (now unavailable
+metrics are exposition comments, the advisory floor comes from its constant,
+and PQC availability is read from the real backend flags); meta-learning's
+"accuracy = 1 - loss" is now None with the reason; the uncertainty
+quantifier's constant 0.1 ECE under 20 outcomes is now None with a
+`calibration_error_measured` flag and reliability logic that treats
+unmeasured as unmeasured; NCF monitor/emerging-tech/essential-workers
+planning tables are labelled as uncited planning assumptions (and NCF
+confidence now derives from the z-score evidence); voice/CLI canned replies
+carry `confidence_basis` and no longer claim sources never consulted; the
+database stub health check reports its measured simulated round-trip labelled
+as a stub instead of an unrelated random draw; financial/weather factories
+raise on unknown provider strings instead of silently serving stub data; and
+`simulate_attack` no longer hardcodes replay/side-channel "detections" into
+the live anomaly history (no such detectors exist; the drill now says so).
+
+**Removed — three more fabricating visual generators and the RNG-drawn
+"validation metrics" of the gating-form study; a single-writer gate now owns
+`docs/images`.** Mapping every script that writes images exposed four
+generations of generators all writing the same filenames into `docs/images`
+(up to five writers per committed chart, so whichever ran last silently
+replaced the figure — the mechanism behind both clobbered charts found
+earlier). Deleted: `benchmarks/generate_advanced_visuals.py` (every curve
+synthesized from seeded noise on designed exponentials, written straight over
+the committed report), `benchmarks/generate_consolidated_visuals.py` (falls
+back to `generate_synthetic_results()` when the results file is absent and
+renders it), `benchmarks/generate_v1_2_visuals.py` (v1.7-era, carries a
+"(Simulated)" panel), and `benchmarks/generate_benchmark_visuals.py`
+(data-driven but fully superseded by the two `scripts/` generators it collided
+with). Nothing referenced any of the four. `benchmarks/benevolence_optimization.py`
+reported RNG-drawn Brier/F1/AUC/FP/FN "results" (`auc_score =
+uniform(0.92, 0.98)`) and ranked gating forms by that fabricated F1 — those
+fields are now `None` with the not-measured contract pinned in its tests,
+ranking uses the measured stability score, the comparison chart plots
+stability instead of the fabricated F1, and its output moved out of
+`docs/images`. The demo's post-run copy loop installs only the committed
+report instead of six stray PNGs. The durable fix is
+`tests/test_docs_images_single_writer.py`: only three declared writers may
+reference `docs/images`, no two may own the same filename, and every committed
+chart must have exactly one declared generator. Pre-existing style debt in the
+touched files resolved (19 docstring-format fixes, one missing `__init__`
+docstring, five untyped test fixtures, a docstring claiming a default of 200
+epochs where the signature says 50).
+
+**Removed — the fabricated anomaly-panel generator; every committed docs chart
+audited and regenerated from measured data.** A full audit of
+`docs/images/` found that the committed `anomaly_detection_panel.png` was
+produced by `scripts/generate_anomaly_panel.py`, which fabricated three of its
+six panels: hardcoded per-domain F1 literals under a comment claiming they were
+"based on comprehensive benchmark", analytic formula curves titled "Threshold
+Sensitivity Analysis", and a pie chart of invented severity counts
+(`[45, 28, 15, 12]  # Simulated distribution`) titled as 100 real events — plus
+a hardcoded "(200 epochs)" label and an undisclosed `synthetic_labeled` data
+source behind its headline F1. The honest rendering of that figure already
+existed in `scripts/generate_docs_images.py` (every panel computed from the
+CI-integrity-gated `benchmarks/mercury_benchmark_results.json`), and the
+fabricated script had silently overwritten its output via the same
+filename-collision defect fixed for the demo report. The fabricated script is
+deleted (its in-repo replacement is the real-data panel, now the committed
+image), the README caption is corrected to describe the actual panels, and the
+remaining four charts were audited and re-rendered with their defects fixed:
+the dashboard legend no longer covers the academic row's value labels, the
+MD-011 figure's Improved/ΔF1 summary moved into the title where the legend had
+rendered on top of it, the MD-003 figure's legend moved below the axes so all
+three μ/σ boxes are visible, and the benchmark summary now names all 9 failed
+datasets beside the 67/76 count instead of leaving the gap silent. Five
+pre-existing missing docstrings in `generate_docs_images.py` are added.
+
+**Fixed — pure-reasoning plans no longer poison the Bayesian confidence
+calibrator, and the neuro-symbolic demo report stops misrendering its own
+data.** `MercuryAgent._learn_from_execution` recorded a *failure* observation
+whenever a plan's tasks were all transparently skipped (no tool bound), because
+the skipped-only `success_rate` of 0.0 — which means "not applicable" — was
+compared against the 0.99 success bar. Every pure-reasoning run therefore drove
+the Beta posterior toward the calibrator's 0.5 clamp; the committed demo report
+showed plan confidence collapsing 0.76 → 0.500 from this alone, and its heatmap
+confidence column sat at a dead 0.52. Now a plan with zero executed tasks
+records no calibration observation (no evidence is not failure), pinned by
+`tests/test_mercury_a_agent.py::TestCalibrationEvidence` end to end. The demo
+figure (`benchmarks/neuro_symbolic_benchmark.py`, embedded in the README) had
+three rendering defects on top: the domain-competence heatmap clipped at
+`vmin=0.7` while its data spans 0.24–0.76, so every cell rendered the same
+saturated red and the colorbar misrepresented the data (now the full [0, 1]
+range); the benevolence panel's y-axis (0.90–1.02) hid the ~0.64 advisory
+series entirely while drawing the retired 0.99 pass-bar as its reference line
+(now scaled to the data, against the 0.70 advisory reporting floor, labeled
+advisory); and the confidence panel annotated a negative delta as `+-0.260` in
+success green (now signed and colored by direction). The demo's scorer also
+dropped its retired `benevolence_threshold=0.99` for the default advisory
+floor. Separately, `scripts/generate_docs_images.py` wrote a *different*
+figure (the ensemble report) to the same
+`docs/images/neuro_symbolic_benchmark_report.png` the README embeds as the
+cognitive-stack demo, so running it silently replaced one figure with the
+other; it now saves as `ensemble_benchmark_report.png`. The committed demo
+image is regenerated under the fixed engine and renderer. Three pre-existing
+untyped test helpers in `tests/test_mercury_a_agent.py` are annotated.
+
+**Fixed — stale ethics-gate documentation brought back to the code.** Four
+documents still described the retired benevolence pass-bar as the first hard
+gate at the detection boundaries, contradicting the enforced code
+(`check="harm_uplift"` first via the structured-`DecisionSubject` choke point,
+σ_Immutable second; benevolence advisory, with its one enforcing use at the
+assessment purpose screen — see `src/omni_mercury_engine/ethical/__init__.py`):
+`docs/index.md` ("Benevolence, then σ_Immutable … no advisory mode"),
+`ARCHITECTURE.md` §"Dual-Gate Hard Ethical Enforcement" (Gate 1 diagram and
+per-surface `check="benevolence"` table), `docs/MATH_SPEC.md` (overview item 4
+and the §2.1.5 boundary-contract cases, which contradicted the spec's own
+corrected §2.7.3), and `docs/ROADMAP.md` rows 1 and the v1.7 status table. The
+module docstring and Wave C comment block of
+`tests/ethical/test_hard_enforcement.py` carried the same stale prose — one
+line even claimed σ_Immutable "is not the enforcement gate today because the
+underlying neural network is untrained", false on both counts — while its
+assertions already pinned `check="harm_uplift"`; the prose now matches the
+assertions. No code or test behaviour changed.
+
+## [3.0.0] - 2026-10-27
+
+The first release after 2.0.0 (the work prepared as 2.1.0 was never released);
+the upgrade notes from 2.0.0 — the AGPL-3.0-or-later relicense and every
+renamed or removed 2.0.0 name — are summarised where this section's earlier
+entries introduce them and in DEPRECATION.md §6.6-§6.15 and §7.
+
+**Added — ALFA UAV fault corpus, stuck-actuator health monitor, and the drone
+detector's first real-fault measurement.** `datasets/uav_flight.py` loads the CMU
+AIR Lab ALFA dataset (DOI 10.1184/R1/12707963, CC0; SHA-256-pinned archive): 46
+real fixed-wing flights, 36 with a mid-flight injected actuator fault whose
+injection instant the onboard `failure_status` topics record — genuine event
+ground truth (`LABEL_SOURCE="ground_truth"`), the registry's justification
+audited in `label_provenance.py`. Measuring Mercury on it exposed the class
+per-tick scoring cannot see: a locked aileron stays in range per-tick while its
+servo channel's variance collapses (per-flight ensemble AUROC 0.60 on aileron
+locks). `detectors/drone/actuator_health.py` adds the targeted statistic —
+causal rolling std against the channel's demonstrated activity (a running max,
+so a fault filling the window cannot normalise itself away) — scoring 0.907 on
+the same class, and `DroneAnomalyDetector` now raises `ACTUATOR_FAILURE` faults
+from it (`detected_by="ActuatorHealth"`, gate 0.95 ≈ <0.5% per-tick false
+alarms on the ten no-failure flights). Decision-level OR fusion of both alarms
+detects 35/36 fault flights at 0.68% joint normal FPR with 8.0 s median delay
+across engine, aileron, rudder and elevator faults
+(`benchmarks/alfa_uav_benchmark.py`, recorded in `artifacts/alfa_uav.eval.json`).
+The drone detector's `decision_source` previously rested on simulated flights
+only; this is its first calibration against real recorded faults.
+
+**Added — σ_Immutable corpus engineered end-to-end: boundary-stratified signed
+bundle (256 samples), retrained gate, 79-case adversarial evaluation corpus,
+calibration improved and re-measured.** The signed corpus doubles to 128+128 with
+designed decision-edge mass (boundary-intact positives at threshold+eps, eps
+log-uniform [1e-2, 5e-2]; narrative-extreme intact draws) and is re-signed
+(Ed25519 + ML-DSA-65, verified end-to-end). The engineering is reported honestly,
+failures included: two intermediate retrains that moved 40% of the negatives to
+the decision edge degraded the net below shippable (val 0.69/0.71; refused intact
+KAT vectors, passed a hostile one), and a boundary-intact family that pinned up to
+all 24 anchors handed the net a mean-pooling shortcut ("low anchor mean = intact",
+measured as an all-low vector scoring 1.0000). Final design is
+architecture-faithful: sub-threshold anchors are the deterministic critical-ethical
+floor's authority (the gate's own contract), so boundary-TAMPER cases are
+*evaluated* - a generated 58-case systematic corpus (per-anchor minimal tampers at
+threshold-0.005, per-anchor boundary-intact PASS guards, a 7-depth sweep,
+multi-anchor pairs) joins the 21 authored cases and runs through the production
+assembly (floor before net, exactly as `detect_with_fusion`): **27/27 good PASS,
+52/52 bad REFUSE, separation 1.000** (`benchmarks/
+sigma_immutable_discrimination_results.json`). The retrained net (val 0.843, DoS
+guard: real baseline scores 0.999943) passes the full behavioural battery; the
+whole security suite is green (1,895 tests). Calibration re-measured on the
+boundary-stratified eval distribution: AUROC 0.932, ECE 0.099 (was 0.104), MCE
+0.246 (was 0.345), advisory T=2.5 reaching ECE 0.030
+(`benchmarks/sigma_immutable_calibration_results.json`); the frozen operational
+constant is updated to the retrained value and its invariant re-pinned.
+
+**Added — declared anomaly ontology for every manifest detector, with an
+evidence-tied gate.** `core/detector_ontology.py` declares, for each of the 113
+entries, `detects` / `cannot_detect` from controlled vocabularies and
+`validated` domains where a claim is admissible ONLY with a committed evidence
+path; `tests/core/test_detector_ontology.py` enforces coverage, vocabulary
+control, evidence existence, explicit not-validated notes, and keeps measured
+blind spots declared (the scale-invariant exotics' `amplitude_collapse`).
+
+**Added — Detector Evidence Ledger with computed maturity tiers.**
+`scripts/generate_detector_evidence.py` assembles one machine-readable card per
+detector from committed sources only and COMPUTES tiers (T0-T5 rules in the
+script; T5 unreachable without production evidence):
+`artifacts/detector_evidence/ledger.json`, currently T0:3 T1:83 T2:17 T3:9 T4:1
+- 83 T1s is the honest backlog the domain packs exist to burn down.
+`tests/core/test_evidence_ledger_in_sync.py` makes ledger drift a test failure.
+
+**Fixed — four manifest modality labels corrected to measured truth.**
+`affective`/`chemistry`/`parapsychology` (series_1d -> record: on series they
+returned constants; their real contracts are emotion/composition/trial records,
+now driven by real record payloads in the seam tests) and `frequent_pattern`
+(series_1d -> matrix_2d + fit_required: its documented per-transaction contract),
+with its false-alarm rate measured and pinned (0.0 across five seeds) in the
+modality gate.
+
+**Added/Fixed — full-manifest detector evidence sweep; fitted-reference retrofit of the
+exotic models; two harness corrections.** Every one of the 113 manifest detectors now has a
+measured, machine-readable evidence row (`artifacts/detector_evidence/`): 44 graded on real
+labeled data (4 NAB streams, 5 ADBench clinical sets), 69 classified domain-wired pending
+domain packs, tiers computed from the numbers (T0-T5 scheme). The sweep found, and this entry
+fixes, three detectors broken by *fixed, unfitted scoring directions*: `astrophysical` scored
+a planted 12-sigma burst at AUROC 0.000 (its score was proximity-to-horizon = 1/norm, so loud
+events ranked safest), `quantum` at 0.33 (below chance), `consciousness` at 0.644 with no
+separation. All three keep their feature identity and now score calibrated robust deviation
+from a reference fitted on normal data (`models/fitted_reference.py`: median/MAD center-scale,
+empirical-CDF calibration with a strictly monotone tail; unfitted scoring is refused, never
+served). Re-measured under the identical sweep protocol: burst AUROC 1.000 for all three;
+ADBench means 0.803 / 0.827 / 0.717. Calibration is conformal-disciplined: the
+ECDF is computed on reference rows disjoint from the center/scale fit, after a
+held-out-normal false-alarm pin caught the in-sample bias on the 32-feature
+consciousness model; held-out normal rows now score above 0.95 at ~5 percent by
+construction, pinned per model. Declared, measured blind spot: the quantum and
+consciousness feature maps are scale-invariant, so pure amplitude collapse is invisible by
+representation - pinned as a `cannot_detect` fact in
+`tests/models/test_fitted_reference_models.py` alongside burst-competency and real-data
+floors. Also fixed: a latent `quantum.extract_features` crash on inputs narrower than 8
+columns (amplitudes were padded, states were not). Manifest truth corrected for the three
+(`modality="matrix_2d"`, `fit_required=True`). Honest both ways: rev 2 of the evidence table
+corrects two rev-1 *harness* errors - `info_geometry` (0.891) and `adaptive_anomaly` (0.883)
+were never broken; the sweep drove `detect()` on registry-seam detectors that expose
+`fit()+predict()`. They rank 2nd and 3rd of all graded detectors.
+
+**Changed — lint toolchain and README provenance.** `ruff` is bumped 0.17.1 → 0.17.2
+(rolls up Dependabot #383) across all three pin surfaces the parity gate enforces
+(`ci.yml`, `pyproject.toml [dev]`, `.pre-commit-config.yaml`), verified clean tree-wide
+before the bump landed. The Dataset Attributions table now credits ALFA (CC0), UCI
+Robot Execution Failures (CC BY 4.0, which requires attribution), NAB (MIT) and OpenSky
+— corpora this release added without their attribution rows — and the README gains a
+STEAM-exploration badge that states only what is in the repo: real labeled data across
+robotics, medical (CHB-MIT EEG, PhysioNet sepsis, ADBench clinical sets), Earth and space.
+
+**Added — benevolent-first stand-down greeting on the counter-AI decoy surface.**
+Mercury's fail-closed ethic applied to hostile automation: a probing agent's
+first contact with a decoy — while still inside the tarpit's no-delay free
+window, before any containment escalates — now carries an explicit, logged
+stand-down notice (`STAND_DOWN_NOTICE`, in the `X-Mercury-Advisory` response
+header): it has reached a monitored decoy, stopping now carries no consequence,
+and the system takes no action against the prober's. A normal client still
+reads an ordinary 401 auth challenge; an agent parsing headers gets a clear
+chance to desist. The offer is a one-time grace (it lapses the instant a tarpit
+delay applies and never reappears to signal a reset), is recorded in the
+tamper-evident audit (`stand_down_offered`), drives no outbound action (a header
+on Mercury's own response, naming no host/URL/command), and can be disabled
+(`TarpitPolicy(stand_down=False)`) for silent containment. `security/deception.py`,
+`api/routes/decoys.py`; pinned by `tests/security/test_stand_down_greeting.py`
+(offer timing, escalation lapse, auditability, silent mode, non-weaponization).
+The README's test-count badge is replaced by a Counter-AI Stand-Down badge and a
+Counter-AI Containment section documenting the full posture.
+
+**Added — real-data neuro-symbolic benchmark on NAB labeled streams; authored-scenario
+benchmark demoted to an honest integration demo.** `benchmarks/nab_streaming_benchmark.py`
+measures Mercury's actual detection→symbolic-decision pipeline
+(`MercuryAnomalyDetector`) on four real Numenta Anomaly Benchmark streams
+(traffic, AWS CloudWatch, ad-exchange, known-cause) with human-labeled anomaly
+windows — committed verbatim and SHA-256-pinned under `tests/fixtures/nab/`
+(MIT, Numenta), offline, no API key. Leak-free causal featurization, fitted on
+each stream's warmup prefix: per-stream AUROC 0.840 / 0.661 / 0.686 / 0.728,
+mean **0.729** (`artifacts/nab_streaming.eval.json`). Pinned by
+`tests/benchmarks/test_nab_streaming_benchmark.py`, including a label-shuffle
+control that proves the AUROC tracks the real windows. Building this surfaced a
+real gap the authored scenarios had masked: the neuro-symbolic *memory layer*'s
+own point score is at chance on real numeric streams (its token vectorizer bins
+values coarsely), so `neuro_symbolic_benchmark.py` is relabeled as what it is —
+a cognitive-stack **integration demo on authored illustrative scenarios, not a
+performance benchmark** — pointing to the NAB benchmark for real numbers.
+
+**Fixed — unbounded episodic memory in the neuro-symbolic fusion engine (and in
+the agent's episodic/semantic stores).** `NeuralMemoryLayer.ingest_memories`
+appended one embedding per call forever, and `MercuryAgent`'s `episodic` and
+`semantic` stores were likewise unbounded dicts grown once per analysis — so a
+sustained ingest loop (one analysis per tick) grew memory without limit. Added
+bounded, importance-aware stores: `NeuralMemoryLayer` gains `max_memories`
+(default 10000) and the agent stores gain `episodic_capacity`/`semantic_capacity`
+(default 10000). When over capacity the lowest-importance (oldest on ties)
+entries are evicted, and `NeuralMemoryLayer` entry IDs are now monotonic so
+eviction can't recycle an ID. Pinned by `tests/cognitive/test_memory_bounded.py`
+and `tests/agentic/test_agent_memory_bounded.py`, each with a cost-plateau test
+that fails the old unbounded behavior.
+
+Scope, stated honestly: this bounds *memory* so a long-running deployment cannot
+grow without limit; once a store reaches its cap, per-ingest cost is flat. It
+does **not** flatten cost *below* the cap, because `ingest_memories` still refits
+the clusterer over the whole retained set on every call — so a short run that
+never reaches 10000 ingests (the benchmark is ~600) still sees per-epoch cost
+climb quadratically. That is a separate refit-cadence inefficiency, tracked but
+not changed here (changing the clustering cadence would alter measured numbers);
+it is why the demo image below is rendered at a converged lower epoch count
+rather than at a high one.
+
+**Fixed — removed fabricated metrics from the neuro-symbolic benchmark report.**
+Two panels of `docs/images/neuro_symbolic_benchmark_report.png` were rendered
+from invented numbers: the "Domain Competence Heatmap" filled every per-domain
+cell with `0.85/0.9/0.95 + np.random.random()`, and the "Memory System Growth"
+panel split the real memory total by fixed ratios (0.4/0.35/0.25) with a
+made-up short-term curve — synthetic values presented as measured results. The
+benchmark now aggregates the **real** per-domain confidence, benevolence and
+anomaly-call accuracy its own loop computes, and records the agent's **real**
+per-type memory counts (short/long/episodic/semantic) each epoch. Removing the
+fabrication surfaced a masked truth: the agent's `success_rate` is a structural
+0.0 for these pure-reasoning scenarios (no tools bound, so no task executes),
+which the old `0.9 + random` had papered over — that axis is dropped from the
+heatmap as not-applicable rather than shown as failure. Pinned against
+regression in `tests/benchmarks/test_neuro_symbolic_real_metrics.py`. The
+committed report image is rendered from a 25-epoch run — the panels (confidence,
+benevolence, memory growth, per-domain accuracy) have converged by ~epoch 20, and
+the per-ingest clusterer refit makes longer runs cost quadratically more for no
+added signal (see the memory-fix entry above). The image is an integration demo,
+not a performance benchmark; real neuro-symbolic anomaly numbers come from the
+NAB streaming benchmark.
+
+**Fixed — the wildfire loader's two FIRMS windowing defects (issue #382 and a
+silent historical mislabeling).** First, `fetch_realtime()`: FIRMS `day_range`
+counts UTC calendar days ending today and VIIRS NRT processing lags ~3 hours,
+so the 1-day global query returned a header-only CSV when issued shortly after
+UTC midnight — the weekly keyed-loader smoke's recurring "0 rows" failure. Two
+days always spans the last fully processed UTC day, so an empty result now
+signals a real upstream outage instead of a clock artifact. Second, and worse,
+`fetch_historical()` carried **no date at all**: it requested the last N days
+of NRT data in the event's bounding box, so "2023 Maui Wildfire" returned
+whatever is burning near Lahaina *today*, silently mislabelled as the
+historical event (consumed as event ground truth by the
+`research/governed_fusion`, `engine_calibration` and `omni_equation`
+harnesses), and the 10-day request cap meant multi-month events could never be
+covered. It now pages the catalog's actual start..end window in
+forward-counting ≤10-day chunks against the standard-processing archive
+(`VIIRS_NOAA20_SP`; NRT only within its ~2-month horizon) — Australia 2019-20
+is 13 chunked requests, not one dateless one. Both pinned in
+`test_wildfire_firms_guards.py`. An audit of the other 19 `_EVENT_CATALOG`
+loaders found no second instance: each filters by the event's dates/IDs or
+documents its synthesis/refusal openly.
+
+**Added — UCI Robot Execution Failures: a genuine manipulator fault corpus.**
+`datasets/robot_failures.py` loads UCI dataset 138 (CC BY 4.0, SHA-256-pinned
+archive; only the `lp*.data` text members are read — the shipped `a.out`
+binary is never touched): 463 real robot-manipulator executions, 15
+force/torque samples each, labelled with the observed task outcome (collision,
+obstruction, part lost, ...) — event ground truth in the contact modality of
+manipulators and humanoid limbs. Parsing surfaced a trap the raw files
+confirm: lp3 relabels lp2's 47 transfer executions (byte-identical numeric
+rows), so the default pooled view excludes lp3 rather than double-count.
+Measured semi-supervised (fit on half the nominal runs per problem, 20 seeded
+splits, nothing tuned on failures): AUROC 1.000 (lp1), 0.984 (lp2/lp3), 1.000
+(lp4), 0.922 (lp5); pooled 0.968 (`benchmarks/robot_failures_benchmark.py`,
+recorded in `artifacts/robot_failures.eval.json`).
+
+**Added — live airspace domain loader (OpenSky Network).**
+`loaders/airspace_loader.py` reads real crowd-sourced ADS-B / Mode S state
+vectors from OpenSky's anonymous REST API (worldwide or a bounding box) —
+Mercury's live-GIS airspace surface, verified against the live endpoint. Its
+semantics are stated honestly: emergency squawks (7500/7600/7700) are real
+declared events surfaced as a separate `squawk_emergency` column and
+deliberately excluded from the scored kinematic features, so statistical
+envelope outliers ("aircraft behaving unusually") stay independent of the
+genuine event channel; historical state vectors are refused rather than
+fabricated (OpenSky serves history only to authenticated accounts).
+`opensky-network.org` joins the SSRF allowlist with a pinned endpoint.
+
+**Fixed — `generate_calibration_visuals.py` no longer regenerates the retired
+`conformal_coverage.png`.** The standalone image was retired in PR #139 when its
+empirical-vs-target scatter became a panel of `calibration_improvement.png`
+(docs/BENCHMARKS.md, MD-005), but the generator kept writing the orphan file to
+`docs/images/` on every run, contradicting the documented retirement.
+
+**Changed — the tier detector's kNN stream weight follows a dimensional gate.** Equal
+z-averaging (0.5/0.5) wasted whichever stream was stronger: on the recorded 57-set
+ADBench competitive run the kNN stream dominates the base ensemble at low feature width
+(the tier's 20 losses to the PyOD `knn` baseline have median d=18.5) while the base
+ensemble owns high dimensions (its 11 outright wins have median d=400; distance
+concentration). `MercuryAnomalyDetector` now sets the fusion weight at fit time from the
+data's feature width — a sigmoid in log2(d), capped to [0.35, 0.85], midpoint d=128,
+label-free, overridable via `knn_stream_weight` — after a decomposition showed the
+internal stream (robust scaling, k=10, leave-one-out) outperforms the PyOD baseline on
+the sets where the raw-dimension objection would have applied (Wilt: internal 0.801 vs
+baseline 0.624). Measured under the competitive protocol on a 12-set dev split (every
+set improved or held; annthyroid 0.951 now beats `knn`; InternetAds held) and a 12-set
+untouched holdout (10 of 12 above the recorded table; mean gap to `knn` on its favoured
+turf closed to parity, 0.8779 vs 0.8810). Gate contract pinned in
+`tests/detectors/test_knn_fusion_gate.py`; the stationary false-alarm pin and
+discrimination floors hold unchanged.
+
+The gate moved every published-parity AIS figure upward, so the pins are re-recorded
+(the DTU track features are d=22, where the gate trusts the kNN stream more): harness
+protocol 0.8613 → 0.8750 (oracle F1 0.6000 → 0.6250, re-measured by the benchmark
+harness and spliced into `benchmarks/mercury_benchmark_results.json` after recomputing
+every aggregate from the per-dataset rows — the recomputation first reproduced the
+committed aggregates bit-for-bit, proving formula fidelity), label-free cross-fit
+0.8617 → 0.8739, Thesis Fig. 6.1 0.8785 → 0.8934, JMSE Fig. 12a 0.8751 → 0.8779. Both
+published-protocol point estimates now sit above GeoTrackNet/VRNN's 0.87, which remains
+inside Mercury's confidence intervals: the honest reading is still parity, not
+statistically separable superiority. The full suite then surfaced three defects the
+dev/holdout protocol could not see, each fixed with the measurement that decided it:
+the fitted gate weight was not persisted (`get_fitted_state` now carries
+`knn_stream.fusion_weight`; a legacy state restores to the historical 0.5 fuse, pinned
+by the save/load round-trip tests); TEMPORAL-classified data inherited the tabular
+gate's high low-d weight although rows that are time steps of one signal break kNN
+density's iid premise — measured on the sampling-jitter fixtures, hard-fixture AUROC
+peaks at w=0.25 (0.9941 vs 0.9742 at the 0.85 cap) and jitter rank-correlation falls
+monotonically with w (worst 0.754 at 0, 0.507 at 0.85). A flat TEMPORAL cap was tried
+first and measured against the published protocols before shipping: the DTU training
+files are *time-ordered independent instances* (tracks sorted by departure, median
+|lag-1 autocorr| 0.69-0.70, TEMPORAL-classified) where kNN earns its weight, and the
+cap regressed Thesis to 0.8714 and JMSE to 0.8640 — below even the pre-gate 0.5 fuse.
+The two regimes the classifier conflates separate cleanly on feature-space continuity
+(median consecutive-row distance over median 1-NN distance: 1.35-2.70 on every series
+fixture — point, collective, pure AR(1) — against 5.12-10.86 on the DTU sets; a
+nearest-neighbour *index-gap* statistic was tried and rejected, defeated by periodic
+series), so the gate caps at `_KNN_WEIGHT_TEMPORAL_CAP = 0.25` only below
+`_KNN_SERIES_CONTINUITY_MAX = 3.5`, failing toward the cap when no ratio is available.
+No competitive set classifies TEMPORAL (verified over all 47 cached ADBench sets) and
+the labelled DTU set is tabular, so no other recorded figure moves;
+and `tests/test_calibration_wiring.py`'s "baseline F1 is near zero" premise went stale
+(the gate lifted the uncalibrated operating point to F1 0.366 on its fixture), so the
+test now pins the live invariants: the label-free default stays conservative, and the
+F1-optimal calibrated threshold never falls below the uncalibrated baseline.
+
+**Fixed — the fusion net can no longer vote an input it never saw toward "normal".**
+A full-system diagnostic surfaced an inverted ranking at the serving boundary:
+after a semi-supervised `fit_fusion` over pure normals (consensus pseudo-labels put
+the decision boundary inside the normal cloud), `detect_with_fusion` assigned
+near-zero anomaly probability to 5-sigma outliers while in-distribution rows
+averaged higher — outside the training envelope a neural net's output is
+extrapolation, not inference. The decision layer's drift defer already failed the
+*verdict* closed (it abstained and requested input), but every consumer of the
+per-row `anomaly_probs` ranking saw blatant outliers ranked below normal traffic.
+`fit_fusion` (and `fit_fusion_pooled`, when its sources share a raw width) now
+records the training data's per-feature envelope (min, max, std), persisted
+through `save_model`/`load_model` as tensors the restricted weights-only
+unpickler accepts; `detect_with_fusion` floors the probability of any row that
+exits that envelope by more than half a feature-spread at the base detectors'
+consensus (median of the per-detector [0, 1] scores already computed in the same
+call — analytic channels monotone in deviation, which do not extrapolate), and
+names the floored rows in `result["out_of_support_rows"]`. Measured on the
+diagnostic scenario: shifted-row probabilities 0.544-0.624 against an
+in-distribution mean of 0.034 (AUROC 1.0; before: ~0.000 against 0.029, inverted),
+in-support batches bit-identical, the labelled training path unchanged, and a
+legacy checkpoint without an envelope restores the unguarded behaviour exactly.
+Pinned in `tests/core/test_fusion_support_guard.py`.
+
+**Added — the default labelled fit now carries a conformal coverage
+certificate.** An AI-architecture audit of the serving path traced which
+decision-layer signals ever energise. The GOSNN consequential channel is a
+measured refusal working as designed (its merit gate evaluated the detection
+head at held-out AUC 0.8007 against the engine's own 0.9608 and shipped
+observability-only — `artifacts/gosnn_fusion.eval.json`); drift, symbolic
+consistency and the abstention overlay all consume real signals, assembled
+before the decider reads them. The one dead wire was conformal:
+`calibrate_fusion_conformal()` existed only as a separate opt-in nothing
+called, so every decision read "margin heuristic, no coverage guarantee"
+even when labels were available to certify. `fit_fusion` now holds out a
+stratified slice (`conformal_split`, default 10%, at least 5 rows per class)
+before detectors or the net see it and fits the distribution-free
+certificate on it automatically: `detect_with_fusion` serves prediction
+sets, and the decision signals flip to `calibrated=True` with the target
+coverage. Measured end to end: realized per-class coverage 1.0/1.0 on fresh
+draws through the real serving path (target 0.9), certificate carried
+through `save_model`/`load_model`, consensus pseudo-labels refused (a
+coverage guarantee against labels the detectors themselves manufactured
+would be circular), tiny classes skipped with the reason logged, and
+`conformal_calibrate=False` restores the prior behaviour exactly. Pinned in
+`tests/core/test_fusion_auto_conformal.py` (7 tests).
+
+**Changed — the NOAA validation-loader trio is ported to canonical real-data
+loaders; the fabrication their "real" paths carried is retired.** The
+`validation.data_loaders` NOAA classes claimed real multi-feature data while
+measuring almost none of it: the space-weather loader fetched one channel
+(Kp) and synthesised the other thirteen features as deterministic functions
+of it; the hurricane loader read four HURDAT2 columns, padded fourteen
+constants (while ignoring the twelve real wind-radii columns the file
+carries), compared an mph threshold against HURDAT2's knots (so "major
+hurricane" labels were wrong), and pointed at a URL that now 404s; the ocean
+loader fetched one channel and generated seventeen RNG columns named
+``salinity_psu``, ``chlorophyll_mg_m3``, ``ph_level`` under
+``source="NOAA National Ocean Service"``. The canonical ports read every
+feature from the instrument that measures it, all verified live 2026-10-26:
+`datasets/space_weather.py` (Kp 3-hourly product, propagated solar-wind
+plasma+IMF, GOES X-ray and integral-proton flux, aligned on a shared hourly
+grid with only fully-observed hours kept, plus the Shue-1998 magnetopause
+standoff as a cited closed form — 168 hours x 15 real features);
+`datasets/hurricane.py` (full HURDAT2 layout with real radii, kinematics
+derived from consecutive fixes, knots-correct Category-3 labels, newest-file
+resolution from the NHC index — 11,417 fixes x 20 features, 786 Cat 3+);
+`datasets/ocean.py::NOAACoOpsStationLoader` (per-product CO-OPS station
+fetches — water/air temperature, pressure, hourly water level, wind — with
+in-window monthly-p90 heatwave labels — 582 hours x 9 real features). All
+three carry ``LABEL_SOURCE="statistical"`` and audited label-provenance
+registry entries. The validation classes remain as thin wrappers keeping
+their historical interface (the hurricane wrapper now converts mph to knots
+before the threshold meets the data), and `validation.data_loaders` is
+announced for removal in v4.0.
+
+**Changed — the duplicated validation loaders are reconciled onto the
+canonical implementations.** `validation.NSLKDDLoader`'s real path, which
+could only read a cache it had no way to create, now downloads the real
+corpus through `datasets.security.NSLKDDLoader` (148,517 records, verified
+live). `validation.USGSEarthquakeLoader`'s real path delegates to
+`datasets.environmental.USGSEarthquakeLoader`, retiring a feature that
+changed value between runs (``magType`` encoded via Python's per-process
+salted ``hash()``); the canonical loader's label rule is now configurable
+(``significant_magnitude``/``deep_focus_km``, defaults unchanged) and its
+cache filename carries the window and label-rule parameters — the fixed name
+used to serve a stale matrix after a parameter change. `validation.
+MIMICLoader` was already honest (policy-gated synthetic placeholder naming
+the credentialed canonical path) and is documented as such.
+
+**Changed — gwo_ensemble is un-deprecated into a library role, on a
+measurement.** Head-to-head on six held-out ADBench sets x 3 seeds
+(semi-supervised protocol, IsolationForest/LOF/OneClassSVM bases): the Grey
+Wolf weight search beats equal weighting of the same detectors in 17 of 18
+runs, mean held-out ROC-AUC 0.8292 vs 0.7852 (landsat 0.54 -> 0.69). That is
+the torch-free way to learn detector combination from labels — the niche the
+trained fusion pipeline (which needs torch) cannot serve — so the
+DeprecationWarning is removed, the class gains an experimental
+``decision_source`` carrying the measurement, and its role moves from
+``deprecated`` to ``library``. Two dead mechanisms found on the way are now
+real or honestly off: ``n_folds`` was declared and never read (the fitness
+now averages percentile-F1 over that many folds when >= 2; measured 0.8259
+vs resubstitution's 0.8292, so the default is 1), and the diversity bonus
+was weight-independent — a constant that could not move the optimum (it is
+now the weighted pairwise disagreement it documented; measured active at 0.1
+it lowers held-out AUROC to 0.8221, so ``diversity_weight`` defaults to
+0.0). The "Target: Improve ensemble F1 by 10-15%" marketing line is replaced
+by the measured record.
+
+**Added — GCN notice ingest.** `loaders/gcn_notices.py` consumes NASA GCN's Kafka alert
+stream (gravitational waves, neutrinos, GRBs, FRBs, X-ray transients, supernova watches —
+the twelve topics this deployment's credential subscribes to) in three layers:
+best-effort notice normalization that preserves the raw payload, a per-topic rate matrix
+over fixed time windows shaped for `fit_fusion`/`detect_batch` (multimessenger
+coincidences appear as the cross-topic correlation structure the rebuilt dimensional and
+temporal detectors see), and a `confluent-kafka` OIDC transport that fails loudly without
+its dependency or credential. The transport's librdkafka block is pinned key-for-key
+equal to `scripts/gcn_kafka_keepalive.py`'s (the keep-alive workflow installs only
+`confluent-kafka`, so the builders are deliberate duplicates that a parity test keeps
+from drifting). Credentials come from `GCN_KAFKA_CLIENT_ID`/`GCN_KAFKA_CLIENT_SECRET`.
+
+**Added — Mercury-native matrix profile backend; the foundation ensemble works without
+extras.** `ml/matrix_profile.py` computes the self-join matrix profile in pure numpy
+(STOMP recurrence seeded and refreshed by FFT sliding dot products), matching
+`stumpy.stump` conventions: z-normalized distance, `ceil(m/4)` exclusion zone, left and
+right neighbour indices, and the constant-window convention. `MatrixProfileDetector` uses
+STUMPY when the `[foundation]` extra is installed and the native backend otherwise, so
+the detector and the default `FoundationEnsemble` (whose only default member it is) are
+operational on a base install instead of refusing. Equivalence is pinned against an
+O(l²m) brute-force reference and against STUMPY itself in
+`tests/ml/test_matrix_profile_native.py`; the manifest seam tests now drive both
+detectors in the no-extra lane rather than skipping them.
+
+**Changed — the temporal and dimensional base detectors detect what they claim.** A
+measured planted-anomaly protocol (correlated training data; scattered 3σ point shifts,
+variance bursts, variance-matched correlation breaks, a contiguous level shift; 5 seeds;
+now pinned as floors in `tests/detectors/test_base_detector_discrimination.py`) found the
+two weakest members of the default suite. `TemporalAnomalyDetector`'s `fit()` stored
+statistics `detect()` never read, both channels scored against the contaminated batch,
+rows before the first full window scored a hard 0, and the windowed trend adapted into
+level shifts — ROC-AUC ~0.54 on point anomalies and level shifts. Rebuilt: fit learns
+per-feature level and innovation statistics (innovation scale floored at 1% of the level
+scale against noiseless training series); the trend channel tests the rolling *median*
+against the fitted level; a one-step-ahead prediction channel scores each point against
+its trailing window at the fitted noise scale; the change channel scores first
+differences against the fitted innovations with spike isolation (min of in/out steps);
+channels are reduced over features by null-scaled max/RMS and combined by max in z-space
+with one squash. Measured: point 0.539→0.889, variance 0.876→0.964, level shift
+~0.53→0.982. `DimensionalAnalyzer` scored 0.625 on variance-matched correlation breaks —
+the anomaly family a PCA detector exists for — because its residuals were not
+eigenvalue-normalized; it gains a full-spectrum Mahalanobis channel (Shyu et al. 2003's
+normalized PCA scoring; `mahalanobis_blend` default 0.7, chosen by sweep), with the DB
+spectral term blended into the reconstruction base before it. Measured: correlation
+break 0.625→0.828 against the exact-Mahalanobis ceiling of 0.901 for the protocol;
+mean/variance/shift ≥0.99 throughout. Both detectors persist the new fitted state;
+legacy checkpoints restore with the channels that state supports and keep working. The
+temporal incremental-serving replica mirrors the new channels bit-identically (pinned by
+the parity suite) and invalidates on refit; detectors restored from legacy state take
+the full path.
+
+**Changed — a fitted engine refuses input of the wrong feature width.** After
+`fit_fusion(X)`, `detect`, `detect_batch` and `detect_with_fusion` refuse arrays whose
+column count differs from `X.shape[1]`, naming both widths and the fix. Before, a 1-D
+input died in a raw torch shape error inside a projection and a mismatched 2-D input
+passed silently through detectors that tolerate any width, scoring columns against the
+wrong fitted statistics. A 1-D input to `detect` now gets the reshape disambiguation
+(`(1, -1)` for one sample, `(-1, 1)` for one series); `detect_with_fusion` keeps its
+documented one-sample reading. The fitted width persists in the fusion checkpoint;
+legacy checkpoints without it, unfitted engines, and dict input stay unchecked.
+
+**Changed — MultivariateTSDetector validates its windowed-input contract.** `fit` and
+`predict` refuse non-3-D input, empty batches, and windows whose `(window_size,
+num_features)` differ from the configuration, with a message naming the expected shape
+and the config keys — previously a 2-D array died inside `np.concatenate` with a bare
+`AxisError`, and wrong trailing dimensions were silently reshaped across features.
+
+**Fixed — the extended statistical detector no longer claims to be deprecated.**
+`detectors/statistical_extended.py` warned "is deprecated, use MercuryAnomalyDetector"
+on import and told readers not to import it in production, while the manifest registers
+it as the production BASE detector `extended_statistical` with engine and registry
+seams. Same cure as the directive detector: the warning is removed and the docstring
+states what the module is.
+
+**Changed — Helm chart refuses production installs without a secret source.** With
+`config.app.MERCURY_ENV=production` the chart now fails `helm template` / `helm install`
+unless `config.secrets.JWT_SECRET_KEY` and `config.secrets.API_KEY_HASH_SALT` are set, or
+`config.secrets.existingSecret` names a Secret that holds them. The application already
+refused to start without them, so the old behaviour was pods that crash-looped after
+install. CI renders the production and staging overlays with render-only values and
+asserts that the production refusal names the missing key.
+
+**Fixed — the directive detector no longer claims to be deprecated.** `detectors/directive.py`
+emitted a `DeprecationWarning` on import and described itself as "retained for reference
+only". It is a production member of the default detector suite, the orchestrator and the
+registry, so the warning and that description were both wrong. The warning is removed and
+the module docstring states what the module is.
+
+**Changed — deprecated shims load on first use.** `detectors/advanced` (GWO ensemble) and
+`validation` (dataset loaders) now load their deprecated modules lazily, through
+`__getattr__`. `import omni_mercury_engine` no longer emits a `DeprecationWarning`; the
+warning fires when a deprecated name is actually used.
+
 **Changed — the micro-anomaly term is measured against training data.** The
 micro-anomaly rate in `SigmaDirectiveDetector` and `NanoSafeguardDetector` counted
 residuals above the 95th percentile of the *scored* batch's own residuals, so it
@@ -806,8 +1522,6 @@ next audited event) and `degraded` (failures hit while recording the touch);
 both appear in the audit details. `DeceptionSensor` gains `failure_counts()`,
 `note_failure()` and an optional `failure_hook`; the API exports
 `mercury_deception_failures_total{kind}` on `/metrics`.
-
-## [3.0.0] - 2026-10-21
 
 The first release after 2.0.0; it includes the work prepared as 2.1.0, which
 was never released. Upgrading from 2.0.0: the license is now

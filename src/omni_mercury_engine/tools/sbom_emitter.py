@@ -20,12 +20,15 @@ import datetime as _dt
 import hashlib
 import importlib.metadata as _md
 import json
+import logging
 import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 from omni_mercury_engine.tools._base import Certificate, atomic_write_text, run_tool
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA = "mercury.tools.sbom_emitter/v1"
 
@@ -91,7 +94,7 @@ def _component_for(dist: _md.Distribution) -> dict[str, Any]:
             combined = hashlib.sha256("\n".join(sorted(digests)).encode("utf-8")).hexdigest()
             component["hashes"] = [{"alg": "SHA-256", "content": combined}]
     except Exception:
-        pass
+        logger.debug("Hash metadata unreadable; component emitted without hashes", exc_info=True)
     return component
 
 
@@ -102,6 +105,7 @@ def _build_sbom(root_name: str, serial_number: str | None = None) -> dict[str, A
         try:
             name = (dist.metadata.get("Name") or "").lower()
         except Exception:
+            logger.debug("Distribution metadata unreadable; skipping it", exc_info=True)
             continue
         if not name or name in seen:
             continue

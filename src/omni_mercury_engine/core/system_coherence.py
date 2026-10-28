@@ -400,7 +400,14 @@ class LyapunovRuntimeEnforcer:
 
 @dataclass
 class CoherenceReport:
-    """Full system-level coherence audit report."""
+    """Full system-level coherence audit report.
+
+    ``fusion_scores_source`` says what the Lyapunov check actually ran on:
+    ``"caller"`` for scores the caller supplied, or
+    ``"synthetic_reference"`` for the built-in decaying reference curve used
+    when none were supplied — in which case ``lyapunov_stable`` verifies the
+    enforcer's plumbing, not any real run's convergence.
+    """
 
     signal_flow_ascii: str
     handoff_results: list[HandoffResult]
@@ -409,6 +416,7 @@ class CoherenceReport:
     lyapunov_report: dict[str, Any]
     timestamp: str
     warnings: list[str] = field(default_factory=list)
+    fusion_scores_source: str = "caller"
 
 
 def run_coherence_audit(
@@ -446,8 +454,12 @@ def run_coherence_audit(
     # 3. Lyapunov enforcement
     enforcer = LyapunovRuntimeEnforcer(halt_on_violation=halt_on_violation)
 
+    fusion_scores_source = "caller"
     if fusion_scores is None:
-        # Generate synthetic stable sequence for validation
+        # Built-in decaying reference curve: exercises the enforcer's
+        # plumbing only. The report names the source so this cannot read as
+        # a real run's convergence.
+        fusion_scores_source = "synthetic_reference"
         fusion_scores = [
             float(LYAPUNOV.EPSILON_INITIAL * np.exp(-LYAPUNOV.LAMBDA_CONVERGENCE * t))
             for t in range(1, 51)
@@ -466,4 +478,5 @@ def run_coherence_audit(
         lyapunov_report=lyapunov_report,
         timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         warnings=warnings,
+        fusion_scores_source=fusion_scores_source,
     )

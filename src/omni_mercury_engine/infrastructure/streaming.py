@@ -620,10 +620,10 @@ class KafkaStreamProducer(StreamProducer):
         """Connect to Kafka cluster."""
         try:
             from aiokafka import AIOKafkaProducer
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "aiokafka is required for Kafka streaming. " "Install with: pip install aiokafka"
-            )
+            ) from exc
 
         kafka_config = {
             "bootstrap_servers": self.config.kafka_bootstrap_servers,
@@ -769,10 +769,10 @@ class KafkaStreamConsumer(StreamConsumer):
         """Connect to Kafka cluster."""
         try:
             from aiokafka import AIOKafkaConsumer
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "aiokafka is required for Kafka streaming. " "Install with: pip install aiokafka"
-            )
+            ) from exc
 
         kafka_config = {
             "bootstrap_servers": self.config.kafka_bootstrap_servers,
@@ -971,10 +971,10 @@ class RedisStreamProducer(StreamProducer):
         """Connect to Redis."""
         try:
             import redis.asyncio as redis
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "redis is required for Redis streaming. " "Install with: pip install redis"
-            )
+            ) from exc
 
         self._redis = redis.from_url(
             self.config.redis_url,
@@ -1117,10 +1117,10 @@ class RedisStreamConsumer(StreamConsumer):
         """Connect to Redis."""
         try:
             import redis.asyncio as redis
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "redis is required for Redis streaming. " "Install with: pip install redis"
-            )
+            ) from exc
 
         self._redis = redis.from_url(
             self.config.redis_url,

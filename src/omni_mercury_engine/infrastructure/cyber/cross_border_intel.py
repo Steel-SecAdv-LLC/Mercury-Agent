@@ -52,7 +52,7 @@ class CrossBorderIntelligence:
             "threat_type": threat_type,
             "time_lag_hours": lag_analysis["lag_hours"],
             "leading_region": lag_analysis["leader"],
-            "confidence": 0.85 if synchronized else 0.60,
+            "confidence": 0.85 if synchronized else 0.60,  # fixed rule priors, not calibrated
             "recommendations": self._generate_cross_border_recommendations(
                 synchronized, threat_type
             ),

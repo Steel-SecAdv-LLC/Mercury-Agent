@@ -1,0 +1,1414 @@
+{
+  "timestamp": "2026-10-28T03:26:13.739914+00:00",
+  "methodology": {
+    "datasets": [
+      "breast_cancer",
+      "digits_8",
+      "covtype",
+      "kddcup99"
+    ],
+    "detectors": [
+      "Mercury-Agent",
+      "IsolationForest",
+      "OneClassSVM",
+      "LocalOutlierFactor",
+      "EllipticEnvelope"
+    ],
+    "metrics": [
+      "roc_auc",
+      "pr_auc",
+      "f1",
+      "precision",
+      "recall",
+      "fpr",
+      "latency"
+    ],
+    "k_fold": true,
+    "n_folds": 5,
+    "include_time_series": false,
+    "include_sota": false,
+    "seed": 42,
+    "note": "Empirical benchmarks using publicly available datasets with K-fold CV; deterministic for a fixed seed and dataset snapshot. Unavailable datasets are skipped (never substituted with synthetic data)."
+  },
+  "results": [
+    {
+      "dataset_name": "breast_cancer",
+      "detector_name": "Mercury-Agent",
+      "roc_auc": 0.789722963101607,
+      "pr_auc": 0.6336337481709536,
+      "f1": 0.3855560831781424,
+      "precision": 0.6701149656443774,
+      "recall": 0.2830564784053156,
+      "false_positive_rate": 0.08685446009389672,
+      "inference_latency_ms": 0.026664249957633713,
+      "train_time_ms": 50.63269740003307,
+      "n_samples": 569,
+      "n_features": 30,
+      "anomaly_ratio": 0.37258347978910367,
+      "timestamp": "2026-10-28T03:25:41.667578+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.8013565891472868,
+          "f1": 0.48571428571428577,
+          "precision": 0.6296296296296297,
+          "recall": 0.3953488372093023
+        },
+        {
+          "roc_auc": 0.7971576227390181,
+          "f1": 0.2692307692307693,
+          "precision": 0.7777777777777778,
+          "recall": 0.16279069767441862
+        },
+        {
+          "roc_auc": 0.7823608316566063,
+          "f1": 0.4776119402985074,
+          "precision": 0.64,
+          "recall": 0.38095238095238093
+        },
+        {
+          "roc_auc": 0.8598256203890007,
+          "f1": 0.4406779661016949,
+          "precision": 0.7647058823529411,
+          "recall": 0.30952380952380953
+        },
+        {
+          "roc_auc": 0.7079141515761234,
+          "f1": 0.2545454545454545,
+          "precision": 0.5384615384615384,
+          "recall": 0.16666666666666666
+        }
+      ],
+      "roc_auc_std": 0.04868650860407678,
+      "f1_std": 0.10221519634786305,
+      "true_positives": 60,
+      "true_negatives": 326,
+      "false_positives": 31,
+      "false_negatives": 152,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "breast_cancer",
+      "detector_name": "IsolationForest",
+      "roc_auc": 0.7800026255725568,
+      "pr_auc": 0.6428942784768236,
+      "f1": 0.6396618354621416,
+      "precision": 0.6254512516469038,
+      "recall": 0.6557032115171649,
+      "false_positive_rate": 0.23247261345852896,
+      "inference_latency_ms": 0.07294469565250736,
+      "train_time_ms": 106.9169795999187,
+      "n_samples": 569,
+      "n_features": 30,
+      "anomaly_ratio": 0.37258347978910367,
+      "timestamp": "2026-10-28T03:25:42.332381+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.7800387596899224,
+          "f1": 0.6436781609195402,
+          "precision": 0.6363636363636364,
+          "recall": 0.6511627906976745
+        },
+        {
+          "roc_auc": 0.7564599483204134,
+          "f1": 0.6292134831460675,
+          "precision": 0.6086956521739131,
+          "recall": 0.6511627906976745
+        },
+        {
+          "roc_auc": 0.789403085177733,
+          "f1": 0.6511627906976744,
+          "precision": 0.6363636363636364,
+          "recall": 0.6666666666666666
+        },
+        {
+          "roc_auc": 0.8219315895372235,
+          "f1": 0.6888888888888889,
+          "precision": 0.6458333333333334,
+          "recall": 0.7380952380952381
+        },
+        {
+          "roc_auc": 0.7521797451374916,
+          "f1": 0.5853658536585366,
+          "precision": 0.6,
+          "recall": 0.5714285714285714
+        }
+      ],
+      "roc_auc_std": 0.025198326506003624,
+      "f1_std": 0.033552726675271954,
+      "true_positives": 139,
+      "true_negatives": 274,
+      "false_positives": 83,
+      "false_negatives": 73,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "breast_cancer",
+      "detector_name": "OneClassSVM",
+      "roc_auc": 0.6620065353360474,
+      "pr_auc": 0.544212883346822,
+      "f1": 0.5252703807443344,
+      "precision": 0.5103984494019337,
+      "recall": 0.5426356589147288,
+      "false_positive_rate": 0.3107589984350548,
+      "inference_latency_ms": 0.018483362615516,
+      "train_time_ms": 6.0636505999354995,
+      "n_samples": 569,
+      "n_features": 30,
+      "anomaly_ratio": 0.37258347978910367,
+      "timestamp": "2026-10-28T03:25:42.424398+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.601421188630491,
+          "f1": 0.4731182795698925,
+          "precision": 0.44,
+          "recall": 0.5116279069767442
+        },
+        {
+          "roc_auc": 0.6747416020671835,
+          "f1": 0.5287356321839081,
+          "precision": 0.5227272727272727,
+          "recall": 0.5348837209302325
+        },
+        {
+          "roc_auc": 0.6841046277665996,
+          "f1": 0.5952380952380952,
+          "precision": 0.5952380952380952,
+          "recall": 0.5952380952380952
+        },
+        {
+          "roc_auc": 0.7102615694164991,
+          "f1": 0.5714285714285714,
+          "precision": 0.5306122448979592,
+          "recall": 0.6190476190476191
+        },
+        {
+          "roc_auc": 0.6395036887994635,
+          "f1": 0.4578313253012048,
+          "precision": 0.4634146341463415,
+          "recall": 0.4523809523809524
+        }
+      ],
+      "roc_auc_std": 0.03783125233323051,
+      "f1_std": 0.053490065362145546,
+      "true_positives": 115,
+      "true_negatives": 246,
+      "false_positives": 111,
+      "false_negatives": 97,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "breast_cancer",
+      "detector_name": "LocalOutlierFactor",
+      "roc_auc": 0.5439464955105309,
+      "pr_auc": 0.4315380578651048,
+      "f1": 0.40747304982599103,
+      "precision": 0.4004319722281127,
+      "recall": 0.41495016611295676,
+      "false_positive_rate": 0.36967918622848195,
+      "inference_latency_ms": 0.015107695251221654,
+      "train_time_ms": 12.024839000059728,
+      "n_samples": 569,
+      "n_features": 30,
+      "anomaly_ratio": 0.37258347978910367,
+      "timestamp": "2026-10-28T03:25:42.519028+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.5985142118863048,
+          "f1": 0.4545454545454546,
+          "precision": 0.4444444444444444,
+          "recall": 0.46511627906976744
+        },
+        {
+          "roc_auc": 0.4870801033591732,
+          "f1": 0.37777777777777777,
+          "precision": 0.3617021276595745,
+          "recall": 0.3953488372093023
+        },
+        {
+          "roc_auc": 0.5409121395036889,
+          "f1": 0.42857142857142855,
+          "precision": 0.42857142857142855,
+          "recall": 0.42857142857142855
+        },
+        {
+          "roc_auc": 0.6515761234071094,
+          "f1": 0.4705882352941176,
+          "precision": 0.46511627906976744,
+          "recall": 0.47619047619047616
+        },
+        {
+          "roc_auc": 0.4416498993963783,
+          "f1": 0.3058823529411765,
+          "precision": 0.3023255813953488,
+          "recall": 0.30952380952380953
+        }
+      ],
+      "roc_auc_std": 0.07519223353625448,
+      "f1_std": 0.05974438615300116,
+      "true_positives": 88,
+      "true_negatives": 225,
+      "false_positives": 132,
+      "false_negatives": 124,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "breast_cancer",
+      "detector_name": "EllipticEnvelope",
+      "roc_auc": 0.8879588902926605,
+      "pr_auc": 0.7939315508068729,
+      "f1": 0.7533843042020947,
+      "precision": 0.7621902188149747,
+      "recall": 0.7501661129568106,
+      "false_positive_rate": 0.14295774647887322,
+      "inference_latency_ms": 0.005284978731626595,
+      "train_time_ms": 71.2773363999986,
+      "n_samples": 569,
+      "n_features": 30,
+      "anomaly_ratio": 0.37258347978910367,
+      "timestamp": "2026-10-28T03:25:42.886278+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.9160206718346253,
+          "f1": 0.7555555555555555,
+          "precision": 0.723404255319149,
+          "recall": 0.7906976744186046
+        },
+        {
+          "roc_auc": 0.895671834625323,
+          "f1": 0.7532467532467532,
+          "precision": 0.8529411764705882,
+          "recall": 0.6744186046511628
+        },
+        {
+          "roc_auc": 0.8618376928236083,
+          "f1": 0.7272727272727272,
+          "precision": 0.6956521739130435,
+          "recall": 0.7619047619047619
+        },
+        {
+          "roc_auc": 0.9279007377598927,
+          "f1": 0.8235294117647058,
+          "precision": 0.813953488372093,
+          "recall": 0.8333333333333334
+        },
+        {
+          "roc_auc": 0.8383635144198525,
+          "f1": 0.7073170731707318,
+          "precision": 0.725,
+          "recall": 0.6904761904761905
+        }
+      ],
+      "roc_auc_std": 0.03341952285076996,
+      "f1_std": 0.03931685031207549,
+      "true_positives": 159,
+      "true_negatives": 306,
+      "false_positives": 51,
+      "false_negatives": 53,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "digits_8",
+      "detector_name": "Mercury-Agent",
+      "roc_auc": 0.5506581196581196,
+      "pr_auc": 0.11048422810166278,
+      "f1": 0.03704948646125116,
+      "precision": 0.0636111111111111,
+      "recall": 0.02890756302521008,
+      "false_positive_rate": 0.049310541310541314,
+      "inference_latency_ms": 0.051538674169081825,
+      "train_time_ms": 274.72418840006867,
+      "n_samples": 1797,
+      "n_features": 64,
+      "anomaly_ratio": 0.09682804674457429,
+      "timestamp": "2026-10-28T03:25:44.626124+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.5282637362637363,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.506021978021978,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.5424175824175823,
+          "f1": 0.0392156862745098,
+          "precision": 0.0625,
+          "recall": 0.02857142857142857
+        },
+        {
+          "roc_auc": 0.6349206349206349,
+          "f1": 0.08888888888888888,
+          "precision": 0.2,
+          "recall": 0.05714285714285714
+        },
+        {
+          "roc_auc": 0.5416666666666667,
+          "f1": 0.05714285714285714,
+          "precision": 0.05555555555555555,
+          "recall": 0.058823529411764705
+        }
+      ],
+      "roc_auc_std": 0.04414253664449321,
+      "f1_std": 0.03417919983006864,
+      "true_positives": 5,
+      "true_negatives": 1543,
+      "false_positives": 80,
+      "false_negatives": 169,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "digits_8",
+      "detector_name": "IsolationForest",
+      "roc_auc": 0.6532514336788846,
+      "pr_auc": 0.18665177613401474,
+      "f1": 0.02835572950641444,
+      "precision": 0.028113553113553114,
+      "recall": 0.02890756302521008,
+      "false_positive_rate": 0.10227540360873692,
+      "inference_latency_ms": 0.0271440569339357,
+      "train_time_ms": 107.04785599982642,
+      "n_samples": 1797,
+      "n_features": 64,
+      "anomaly_ratio": 0.09682804674457429,
+      "timestamp": "2026-10-28T03:25:45.333195+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.6870329670329671,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.6396483516483517,
+          "f1": 0.026666666666666665,
+          "precision": 0.025,
+          "recall": 0.02857142857142857
+        },
+        {
+          "roc_auc": 0.6959120879120879,
+          "f1": 0.02857142857142857,
+          "precision": 0.02857142857142857,
+          "recall": 0.02857142857142857
+        },
+        {
+          "roc_auc": 0.5765432098765432,
+          "f1": 0.031746031746031744,
+          "precision": 0.03571428571428571,
+          "recall": 0.02857142857142857
+        },
+        {
+          "roc_auc": 0.6671205519244735,
+          "f1": 0.0547945205479452,
+          "precision": 0.05128205128205128,
+          "recall": 0.058823529411764705
+        }
+      ],
+      "roc_auc_std": 0.042948041389352216,
+      "f1_std": 0.017420968263663697,
+      "true_positives": 5,
+      "true_negatives": 1457,
+      "false_positives": 166,
+      "false_negatives": 169,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "digits_8",
+      "detector_name": "OneClassSVM",
+      "roc_auc": 0.7672927370378352,
+      "pr_auc": 0.32092153877296004,
+      "f1": 0.026180836707152495,
+      "precision": 0.024057649667405766,
+      "recall": 0.028739495798319324,
+      "false_positive_rate": 0.12815574548907882,
+      "inference_latency_ms": 0.011050968764911994,
+      "train_time_ms": 15.223315199909848,
+      "n_samples": 1797,
+      "n_features": 64,
+      "anomaly_ratio": 0.09682804674457429,
+      "timestamp": "2026-10-28T03:25:45.527761+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.7658021978021978,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.802021978021978,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.680967032967033,
+          "f1": 0.05263157894736842,
+          "precision": 0.04878048780487805,
+          "recall": 0.05714285714285714
+        },
+        {
+          "roc_auc": 0.7691358024691358,
+          "f1": 0.05263157894736842,
+          "precision": 0.04878048780487805,
+          "recall": 0.05714285714285714
+        },
+        {
+          "roc_auc": 0.8185366739288308,
+          "f1": 0.02564102564102564,
+          "precision": 0.022727272727272728,
+          "recall": 0.029411764705882353
+        }
+      ],
+      "roc_auc_std": 0.047518011381243126,
+      "f1_std": 0.023539105112458995,
+      "true_positives": 5,
+      "true_negatives": 1415,
+      "false_positives": 208,
+      "false_negatives": 169,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "digits_8",
+      "detector_name": "LocalOutlierFactor",
+      "roc_auc": 0.5709526474977455,
+      "pr_auc": 0.11563525334280418,
+      "f1": 0.08862952368356639,
+      "precision": 0.08618832148243913,
+      "recall": 0.09210084033613446,
+      "false_positive_rate": 0.09797150997150997,
+      "inference_latency_ms": 0.008595005079141124,
+      "train_time_ms": 10.855662799895072,
+      "n_samples": 1797,
+      "n_features": 64,
+      "anomaly_ratio": 0.09682804674457429,
+      "timestamp": "2026-10-28T03:25:45.665742+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.5958681318681319,
+          "f1": 0.15584415584415584,
+          "precision": 0.14285714285714285,
+          "recall": 0.17142857142857143
+        },
+        {
+          "roc_auc": 0.5155164835164835,
+          "f1": 0.03278688524590164,
+          "precision": 0.038461538461538464,
+          "recall": 0.02857142857142857
+        },
+        {
+          "roc_auc": 0.5797802197802198,
+          "f1": 0.05797101449275362,
+          "precision": 0.058823529411764705,
+          "recall": 0.05714285714285714
+        },
+        {
+          "roc_auc": 0.5981481481481482,
+          "f1": 0.08695652173913045,
+          "precision": 0.08823529411764706,
+          "recall": 0.08571428571428572
+        },
+        {
+          "roc_auc": 0.5654502541757445,
+          "f1": 0.1095890410958904,
+          "precision": 0.10256410256410256,
+          "recall": 0.11764705882352941
+        }
+      ],
+      "roc_auc_std": 0.030138836270389425,
+      "f1_std": 0.04246940436509523,
+      "true_positives": 16,
+      "true_negatives": 1464,
+      "false_positives": 159,
+      "false_negatives": 158,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "digits_8",
+      "detector_name": "EllipticEnvelope",
+      "roc_auc": 0.5025363770579456,
+      "pr_auc": 0.09412517720341672,
+      "f1": 0.0060606060606060615,
+      "precision": 0.0064516129032258064,
+      "recall": 0.005714285714285714,
+      "false_positive_rate": 0.11398480531813866,
+      "inference_latency_ms": 0.0028181544773000487,
+      "train_time_ms": 651.8997138000486,
+      "n_samples": 1797,
+      "n_features": 64,
+      "anomaly_ratio": 0.09682804674457429,
+      "timestamp": "2026-10-28T03:25:48.946968+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.5076923076923077,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.47191208791208794,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.5055824175824175,
+          "f1": 0.030303030303030307,
+          "precision": 0.03225806451612903,
+          "recall": 0.02857142857142857
+        },
+        {
+          "roc_auc": 0.4417107583774251,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.5857843137254901,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        }
+      ],
+      "roc_auc_std": 0.04817402602345742,
+      "f1_std": 0.012121212121212121,
+      "true_positives": 1,
+      "true_negatives": 1438,
+      "false_positives": 185,
+      "false_negatives": 173,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "covtype",
+      "detector_name": "Mercury-Agent",
+      "roc_auc": 0.8985584856325277,
+      "pr_auc": 0.037918648737976006,
+      "f1": 0.051465182262198705,
+      "precision": 0.027976321204683564,
+      "recall": 0.3583333333333333,
+      "false_positive_rate": 0.05939026730876605,
+      "inference_latency_ms": 0.05951268676554905,
+      "train_time_ms": 731.6089907999412,
+      "n_samples": 9000,
+      "n_features": 54,
+      "anomaly_ratio": 0.004666666666666667,
+      "timestamp": "2026-10-28T03:25:55.336732+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.9046999007936507,
+          "f1": 0.05063291139240506,
+          "precision": 0.026845637583892617,
+          "recall": 0.4444444444444444
+        },
+        {
+          "roc_auc": 0.9216269841269841,
+          "f1": 0.042105263157894736,
+          "precision": 0.023255813953488372,
+          "recall": 0.2222222222222222
+        },
+        {
+          "roc_auc": 0.8602120535714286,
+          "f1": 0.058823529411764705,
+          "precision": 0.03333333333333333,
+          "recall": 0.25
+        },
+        {
+          "roc_auc": 0.916038525963149,
+          "f1": 0.049689440993788817,
+          "precision": 0.026143790849673203,
+          "recall": 0.5
+        },
+        {
+          "roc_auc": 0.890214963707426,
+          "f1": 0.05607476635514019,
+          "precision": 0.030303030303030304,
+          "recall": 0.375
+        }
+      ],
+      "roc_auc_std": 0.021979479624692197,
+      "f1_std": 0.005776634933515891,
+      "true_positives": 15,
+      "true_negatives": 8426,
+      "false_positives": 532,
+      "false_negatives": 27,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "covtype",
+      "detector_name": "IsolationForest",
+      "roc_auc": 0.9363773075446679,
+      "pr_auc": 0.09788873491281094,
+      "f1": 0.11839904420549582,
+      "precision": 0.08684128736760316,
+      "recall": 0.18888888888888888,
+      "false_positive_rate": 0.009376807150833532,
+      "inference_latency_ms": 0.007320846627171207,
+      "train_time_ms": 136.8645161999666,
+      "n_samples": 9000,
+      "n_features": 54,
+      "anomaly_ratio": 0.004666666666666667,
+      "timestamp": "2026-10-28T03:25:56.350104+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.9303695436507937,
+          "f1": 0.1290322580645161,
+          "precision": 0.09090909090909091,
+          "recall": 0.2222222222222222
+        },
+        {
+          "roc_auc": 0.9504588293650793,
+          "f1": 0.14814814814814814,
+          "precision": 0.1111111111111111,
+          "recall": 0.2222222222222222
+        },
+        {
+          "roc_auc": 0.9298270089285714,
+          "f1": 0.07142857142857144,
+          "precision": 0.05,
+          "recall": 0.125
+        },
+        {
+          "roc_auc": 0.9652428810720268,
+          "f1": 0.14814814814814814,
+          "precision": 0.10526315789473684,
+          "recall": 0.25
+        },
+        {
+          "roc_auc": 0.9059882747068677,
+          "f1": 0.09523809523809525,
+          "precision": 0.07692307692307693,
+          "recall": 0.125
+        }
+      ],
+      "roc_auc_std": 0.02016930116599759,
+      "f1_std": 0.03041624065433285,
+      "true_positives": 8,
+      "true_negatives": 8874,
+      "false_positives": 84,
+      "false_negatives": 34,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "covtype",
+      "detector_name": "OneClassSVM",
+      "roc_auc": 0.9011729032065088,
+      "pr_auc": 0.049359118619823075,
+      "f1": 0.08277538975530455,
+      "precision": 0.0493025493025493,
+      "recall": 0.2611111111111111,
+      "false_positive_rate": 0.024446513320571107,
+      "inference_latency_ms": 0.009992353517092049,
+      "train_time_ms": 78.72188579995054,
+      "n_samples": 9000,
+      "n_features": 54,
+      "anomaly_ratio": 0.004666666666666667,
+      "timestamp": "2026-10-28T03:25:57.318607+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.8814484126984127,
+          "f1": 0.07547169811320754,
+          "precision": 0.045454545454545456,
+          "recall": 0.2222222222222222
+        },
+        {
+          "roc_auc": 0.9291914682539681,
+          "f1": 0.09523809523809525,
+          "precision": 0.05555555555555555,
+          "recall": 0.3333333333333333
+        },
+        {
+          "roc_auc": 0.8526785714285714,
+          "f1": 0.03225806451612903,
+          "precision": 0.018518518518518517,
+          "recall": 0.125
+        },
+        {
+          "roc_auc": 0.9260189838079286,
+          "f1": 0.0909090909090909,
+          "precision": 0.05555555555555555,
+          "recall": 0.25
+        },
+        {
+          "roc_auc": 0.9165270798436628,
+          "f1": 0.12,
+          "precision": 0.07142857142857142,
+          "recall": 0.375
+        }
+      ],
+      "roc_auc_std": 0.029593493167142427,
+      "f1_std": 0.029025822266398757,
+      "true_positives": 11,
+      "true_negatives": 8739,
+      "false_positives": 219,
+      "false_negatives": 31,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "covtype",
+      "detector_name": "LocalOutlierFactor",
+      "roc_auc": 0.6672275221594081,
+      "pr_auc": 0.024808400404474705,
+      "f1": 0.04867167919799499,
+      "precision": 0.03952380952380953,
+      "recall": 0.06944444444444445,
+      "false_positive_rate": 0.008372218234027281,
+      "inference_latency_ms": 0.015058297152844952,
+      "train_time_ms": 85.82603519989789,
+      "n_samples": 9000,
+      "n_features": 54,
+      "anomaly_ratio": 0.004666666666666667,
+      "timestamp": "2026-10-28T03:25:58.439799+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.6280381944444444,
+          "f1": 0.10526315789473685,
+          "precision": 0.1,
+          "recall": 0.1111111111111111
+        },
+        {
+          "roc_auc": 0.5859375,
+          "f1": 0.06666666666666667,
+          "precision": 0.047619047619047616,
+          "recall": 0.1111111111111111
+        },
+        {
+          "roc_auc": 0.8330078125,
+          "f1": 0.07142857142857144,
+          "precision": 0.05,
+          "recall": 0.125
+        },
+        {
+          "roc_auc": 0.7023310999441652,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.586823003908431,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        }
+      ],
+      "roc_auc_std": 0.09308504015501205,
+      "f1_std": 0.04190979811686185,
+      "true_positives": 3,
+      "true_negatives": 8883,
+      "false_positives": 75,
+      "false_negatives": 39,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "covtype",
+      "detector_name": "EllipticEnvelope",
+      "roc_auc": 0.8985549725936227,
+      "pr_auc": 0.08433745475124181,
+      "f1": 0.11266427718040621,
+      "precision": 0.0826475279106858,
+      "recall": 0.18055555555555555,
+      "false_positive_rate": 0.00937724335965542,
+      "inference_latency_ms": 0.0011749622424373249,
+      "train_time_ms": 1015.5560576001335,
+      "n_samples": 9000,
+      "n_features": 54,
+      "anomaly_ratio": 0.004666666666666667,
+      "timestamp": "2026-10-28T03:26:03.582205+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.9478546626984126,
+          "f1": 0.16666666666666669,
+          "precision": 0.13333333333333333,
+          "recall": 0.2222222222222222
+        },
+        {
+          "roc_auc": 0.9800967261904762,
+          "f1": 0.3225806451612903,
+          "precision": 0.22727272727272727,
+          "recall": 0.5555555555555556
+        },
+        {
+          "roc_auc": 0.9011579241071428,
+          "f1": 0.07407407407407407,
+          "precision": 0.05263157894736842,
+          "recall": 0.125
+        },
+        {
+          "roc_auc": 0.8387772194304858,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.8248883305415968,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        }
+      ],
+      "roc_auc_std": 0.060143904604064824,
+      "f1_std": 0.12153750211146062,
+      "true_positives": 8,
+      "true_negatives": 8874,
+      "false_positives": 84,
+      "false_negatives": 34,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "kddcup99",
+      "detector_name": "Mercury-Agent",
+      "roc_auc": 0.7058954178296797,
+      "pr_auc": 0.05833838781664504,
+      "f1": 0.04759617372536266,
+      "precision": 0.03545425542564295,
+      "recall": 0.074926943308007,
+      "false_positive_rate": 0.07039944975339799,
+      "inference_latency_ms": 0.024452471899931577,
+      "train_time_ms": 383.1180336000216,
+      "n_samples": 9000,
+      "n_features": 38,
+      "anomaly_ratio": 0.03255555555555555,
+      "timestamp": "2026-10-28T03:26:06.588867+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.6826558212847107,
+          "f1": 0.0375586854460094,
+          "precision": 0.025974025974025976,
+          "recall": 0.06779661016949153
+        },
+        {
+          "roc_auc": 0.7104730584366303,
+          "f1": 0.05555555555555556,
+          "precision": 0.03821656050955414,
+          "recall": 0.1016949152542373
+        },
+        {
+          "roc_auc": 0.7058187871766665,
+          "f1": 0.06593406593406595,
+          "precision": 0.04878048780487805,
+          "recall": 0.1016949152542373
+        },
+        {
+          "roc_auc": 0.702598585830577,
+          "f1": 0.055944055944055944,
+          "precision": 0.047058823529411764,
+          "recall": 0.06896551724137931
+        },
+        {
+          "roc_auc": 0.7279308364198142,
+          "f1": 0.022988505747126436,
+          "precision": 0.017241379310344827,
+          "recall": 0.034482758620689655
+        }
+      ],
+      "roc_auc_std": 0.01454282150773412,
+      "f1_std": 0.015333660238829264,
+      "true_positives": 22,
+      "true_negatives": 8094,
+      "false_positives": 613,
+      "false_negatives": 271,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "kddcup99",
+      "detector_name": "IsolationForest",
+      "roc_auc": 0.9470499027402794,
+      "pr_auc": 0.46789875086281063,
+      "f1": 0.30593225144308733,
+      "precision": 0.29921588919356806,
+      "recall": 0.3140268848626534,
+      "false_positive_rate": 0.02492253089696659,
+      "inference_latency_ms": 0.008019591787426589,
+      "train_time_ms": 147.8009221999855,
+      "n_samples": 9000,
+      "n_features": 38,
+      "anomaly_ratio": 0.03255555555555555,
+      "timestamp": "2026-10-28T03:26:07.633330+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.9332055498258383,
+          "f1": 0.2982456140350877,
+          "precision": 0.3090909090909091,
+          "recall": 0.288135593220339
+        },
+        {
+          "roc_auc": 0.9477125454863882,
+          "f1": 0.30158730158730157,
+          "precision": 0.2835820895522388,
+          "recall": 0.3220338983050847
+        },
+        {
+          "roc_auc": 0.9484905421587049,
+          "f1": 0.31932773109243695,
+          "precision": 0.31666666666666665,
+          "recall": 0.3220338983050847
+        },
+        {
+          "roc_auc": 0.9651706312266038,
+          "f1": 0.28571428571428575,
+          "precision": 0.2647058823529412,
+          "recall": 0.3103448275862069
+        },
+        {
+          "roc_auc": 0.9406702450038623,
+          "f1": 0.3247863247863248,
+          "precision": 0.3220338983050847,
+          "recall": 0.3275862068965517
+        }
+      ],
+      "roc_auc_std": 0.010613590143503786,
+      "f1_std": 0.014294363076196605,
+      "true_positives": 92,
+      "true_negatives": 8490,
+      "false_positives": 217,
+      "false_negatives": 201,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "kddcup99",
+      "detector_name": "OneClassSVM",
+      "roc_auc": 0.966185658973178,
+      "pr_auc": 0.308792713318747,
+      "f1": 0.41307341300745426,
+      "precision": 0.33948571001686195,
+      "recall": 0.5312098188194039,
+      "false_positive_rate": 0.031698464334537275,
+      "inference_latency_ms": 0.01650457889203908,
+      "train_time_ms": 110.17474059990491,
+      "n_samples": 9000,
+      "n_features": 38,
+      "anomaly_ratio": 0.03255555555555555,
+      "timestamp": "2026-10-28T03:26:09.084544+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.9662184514195645,
+          "f1": 0.5128205128205129,
+          "precision": 0.41237113402061853,
+          "recall": 0.6779661016949152
+        },
+        {
+          "roc_auc": 0.96535250734593,
+          "f1": 0.4768211920529801,
+          "precision": 0.391304347826087,
+          "recall": 0.6101694915254238
+        },
+        {
+          "roc_auc": 0.9699568726331058,
+          "f1": 0.5234899328859061,
+          "precision": 0.43333333333333335,
+          "recall": 0.6610169491525424
+        },
+        {
+          "roc_auc": 0.9634573867575115,
+          "f1": 0.4645161290322581,
+          "precision": 0.3711340206185567,
+          "recall": 0.6206896551724138
+        },
+        {
+          "roc_auc": 0.9659430767097784,
+          "f1": 0.08771929824561403,
+          "precision": 0.08928571428571429,
+          "recall": 0.08620689655172414
+        }
+      ],
+      "roc_auc_std": 0.002117526145512547,
+      "f1_std": 0.16413818820791906,
+      "true_positives": 156,
+      "true_negatives": 8431,
+      "false_positives": 276,
+      "false_negatives": 137,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "kddcup99",
+      "detector_name": "LocalOutlierFactor",
+      "roc_auc": 0.5708648914675016,
+      "pr_auc": 0.060904422241074466,
+      "f1": 0.19208862440890498,
+      "precision": 0.19363870071556818,
+      "recall": 0.19117475160724723,
+      "false_positive_rate": 0.02698997831062951,
+      "inference_latency_ms": 0.0164295531165351,
+      "train_time_ms": 87.12921280002774,
+      "n_samples": 9000,
+      "n_features": 38,
+      "anomaly_ratio": 0.03255555555555555,
+      "timestamp": "2026-10-28T03:26:10.265865+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.6151900212107649,
+          "f1": 0.13333333333333336,
+          "precision": 0.13114754098360656,
+          "recall": 0.13559322033898305
+        },
+        {
+          "roc_auc": 0.5529782638307809,
+          "f1": 0.23636363636363636,
+          "precision": 0.2549019607843137,
+          "recall": 0.22033898305084745
+        },
+        {
+          "roc_auc": 0.5352223055130988,
+          "f1": 0.20338983050847462,
+          "precision": 0.2033898305084746,
+          "recall": 0.2033898305084746
+        },
+        {
+          "roc_auc": 0.6140743528293291,
+          "f1": 0.1206896551724138,
+          "precision": 0.1206896551724138,
+          "recall": 0.1206896551724138
+        },
+        {
+          "roc_auc": 0.5368595139535344,
+          "f1": 0.26666666666666666,
+          "precision": 0.25806451612903225,
+          "recall": 0.27586206896551724
+        }
+      ],
+      "roc_auc_std": 0.03627248477712966,
+      "f1_std": 0.056920778925284576,
+      "true_positives": 56,
+      "true_negatives": 8472,
+      "false_positives": 235,
+      "false_negatives": 237,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    },
+    {
+      "dataset_name": "kddcup99",
+      "detector_name": "EllipticEnvelope",
+      "roc_auc": 0.8512061671983921,
+      "pr_auc": 0.22470524641088682,
+      "f1": 0.1932668688010689,
+      "precision": 0.1952724358974359,
+      "recall": 0.19199298655756866,
+      "false_positive_rate": 0.027906682291278552,
+      "inference_latency_ms": 0.0006373845026035056,
+      "train_time_ms": 687.0846406000055,
+      "n_samples": 9000,
+      "n_features": 38,
+      "anomaly_ratio": 0.03255555555555555,
+      "timestamp": "2026-10-28T03:26:13.739512+00:00",
+      "fold_metrics": [
+        {
+          "roc_auc": 0.8329214423320166,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.8171593142501314,
+          "f1": 0,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        {
+          "roc_auc": 0.8543210116920921,
+          "f1": 0.3275862068965517,
+          "precision": 0.3333333333333333,
+          "recall": 0.3220338983050847
+        },
+        {
+          "roc_auc": 0.8530471983996515,
+          "f1": 0.32727272727272727,
+          "precision": 0.34615384615384615,
+          "recall": 0.3103448275862069
+        },
+        {
+          "roc_auc": 0.8985818693180694,
+          "f1": 0.31147540983606553,
+          "precision": 0.296875,
+          "recall": 0.3275862068965517
+        }
+      ],
+      "roc_auc_std": 0.027390027975728228,
+      "f1_std": 0.1579092644635497,
+      "true_positives": 56,
+      "true_negatives": 8464,
+      "false_positives": 243,
+      "false_negatives": 237,
+      "class_precision": {},
+      "class_recall": {},
+      "class_f1": {},
+      "data_source": "unknown"
+    }
+  ],
+  "summary": {
+    "per_detector": {
+      "Mercury-Agent": {
+        "mean_roc_auc": 0.7362087465554835,
+        "std_roc_auc": 0.12705229453985975,
+        "mean_f1": 0.13041673140673873,
+        "std_f1": 0.14739922246913278,
+        "mean_precision": 0.19928916334645375,
+        "mean_recall": 0.1863060795179665,
+        "mean_latency_ms": 0.04054202069804904
+      },
+      "IsolationForest": {
+        "mean_roc_auc": 0.8291703173840972,
+        "std_roc_auc": 0.1211959683170163,
+        "mean_f1": 0.2730872151542848,
+        "std_f1": 0.23413547305009,
+        "mean_precision": 0.2599054953304071,
+        "mean_recall": 0.29688163707347937,
+        "mean_latency_ms": 0.028857297750260216
+      },
+      "OneClassSVM": {
+        "mean_roc_auc": 0.8241644586383924,
+        "std_roc_auc": 0.11792996511370048,
+        "mean_f1": 0.26182500505356143,
+        "std_f1": 0.21205334570312975,
+        "mean_precision": 0.23081108959718766,
+        "mean_recall": 0.34092402116089077,
+        "mean_latency_ms": 0.01400781594738978
+      },
+      "LocalOutlierFactor": {
+        "mean_roc_auc": 0.5882478891587966,
+        "std_roc_auc": 0.04690866098317984,
+        "mean_f1": 0.18421571927911434,
+        "std_f1": 0.1391175095629972,
+        "mean_precision": 0.1799457009874824,
+        "mean_recall": 0.19191755062519572,
+        "mean_latency_ms": 0.013797637649935707
+      },
+      "EllipticEnvelope": {
+        "mean_roc_auc": 0.7850641017856552,
+        "std_roc_auc": 0.16406111918697505,
+        "mean_f1": 0.26634401406104397,
+        "std_f1": 0.28892621349924746,
+        "mean_precision": 0.26164044888158056,
+        "mean_recall": 0.28210723519605513,
+        "mean_latency_ms": 0.0024788699884918685
+      }
+    },
+    "rankings": {
+      "mean_roc_auc": [
+        "IsolationForest",
+        "OneClassSVM",
+        "EllipticEnvelope",
+        "Mercury-Agent",
+        "LocalOutlierFactor"
+      ],
+      "mean_f1": [
+        "IsolationForest",
+        "EllipticEnvelope",
+        "OneClassSVM",
+        "LocalOutlierFactor",
+        "Mercury-Agent"
+      ]
+    },
+    "omni_mercury_comparison": {
+      "omni_mercury_roc_auc": 0.7362087465554835,
+      "best_baseline_roc_auc": 0.8291703173840972,
+      "avg_baseline_roc_auc": 0.7566616917417354,
+      "vs_best_baseline": -0.09296157082861367,
+      "vs_avg_baseline": -0.020452945186251847,
+      "rank_by_roc_auc": 4
+    },
+    "honest_assessment": {
+      "methodology_notes": [
+        "Benchmarks use publicly available sklearn datasets",
+        "Anomaly labels derived from minority class designation",
+        "All detectors use same train/test splits for fair comparison",
+        "Contamination parameter set based on actual anomaly ratio"
+      ],
+      "limitations": [
+        "Datasets are proxies for real-world anomaly detection scenarios",
+        "Medical dataset (breast_cancer) is not actual clinical data",
+        "Cybersecurity dataset (KDDCup99) is from 1999, may not reflect modern attacks",
+        "A run is deterministic for a fixed --seed and dataset snapshot; absolute scores can shift across NumPy/scikit-learn versions and hyperparameters"
+      ],
+      "performance_verdict": "Mercury-Agent ranks #4, 0.093 ROC-AUC below best baseline",
+      "recommendation": "For production use, validate on domain-specific real-world data. These benchmarks provide directional guidance only."
+    }
+  },
+  "confusion_matrices": {
+    "breast_cancer": {
+      "Mercury-Agent": {
+        "tp": 60,
+        "tn": 326,
+        "fp": 31,
+        "fn": 152
+      },
+      "IsolationForest": {
+        "tp": 139,
+        "tn": 274,
+        "fp": 83,
+        "fn": 73
+      },
+      "OneClassSVM": {
+        "tp": 115,
+        "tn": 246,
+        "fp": 111,
+        "fn": 97
+      },
+      "LocalOutlierFactor": {
+        "tp": 88,
+        "tn": 225,
+        "fp": 132,
+        "fn": 124
+      },
+      "EllipticEnvelope": {
+        "tp": 159,
+        "tn": 306,
+        "fp": 51,
+        "fn": 53
+      }
+    },
+    "digits_8": {
+      "Mercury-Agent": {
+        "tp": 5,
+        "tn": 1543,
+        "fp": 80,
+        "fn": 169
+      },
+      "IsolationForest": {
+        "tp": 5,
+        "tn": 1457,
+        "fp": 166,
+        "fn": 169
+      },
+      "OneClassSVM": {
+        "tp": 5,
+        "tn": 1415,
+        "fp": 208,
+        "fn": 169
+      },
+      "LocalOutlierFactor": {
+        "tp": 16,
+        "tn": 1464,
+        "fp": 159,
+        "fn": 158
+      },
+      "EllipticEnvelope": {
+        "tp": 1,
+        "tn": 1438,
+        "fp": 185,
+        "fn": 173
+      }
+    },
+    "covtype": {
+      "Mercury-Agent": {
+        "tp": 15,
+        "tn": 8426,
+        "fp": 532,
+        "fn": 27
+      },
+      "IsolationForest": {
+        "tp": 8,
+        "tn": 8874,
+        "fp": 84,
+        "fn": 34
+      },
+      "OneClassSVM": {
+        "tp": 11,
+        "tn": 8739,
+        "fp": 219,
+        "fn": 31
+      },
+      "LocalOutlierFactor": {
+        "tp": 3,
+        "tn": 8883,
+        "fp": 75,
+        "fn": 39
+      },
+      "EllipticEnvelope": {
+        "tp": 8,
+        "tn": 8874,
+        "fp": 84,
+        "fn": 34
+      }
+    },
+    "kddcup99": {
+      "Mercury-Agent": {
+        "tp": 22,
+        "tn": 8094,
+        "fp": 613,
+        "fn": 271
+      },
+      "IsolationForest": {
+        "tp": 92,
+        "tn": 8490,
+        "fp": 217,
+        "fn": 201
+      },
+      "OneClassSVM": {
+        "tp": 156,
+        "tn": 8431,
+        "fp": 276,
+        "fn": 137
+      },
+      "LocalOutlierFactor": {
+        "tp": 56,
+        "tn": 8472,
+        "fp": 235,
+        "fn": 237
+      },
+      "EllipticEnvelope": {
+        "tp": 56,
+        "tn": 8464,
+        "fp": 243,
+        "fn": 237
+      }
+    }
+  }
+}

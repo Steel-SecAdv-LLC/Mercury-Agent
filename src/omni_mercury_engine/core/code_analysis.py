@@ -187,7 +187,7 @@ class NeurosymbolicEngine:
                     "max": feature_max,
                     "complexity_score": complexity_score,
                 },
-                "confidence": 0.7,
+                "confidence": 0.7,  # fixed method prior, not computed
                 "message": "Using statistical analysis (neural model not trained)",
             }
 
@@ -195,7 +195,7 @@ class NeurosymbolicEngine:
             "method": "neural",
             "available": True,
             "neural_model_trained": True,
-            "confidence": 0.9,
+            "confidence": 0.9,  # fixed method prior, not computed
         }
 
     def hybrid_analysis(self, code_ast: ast.AST) -> dict[str, Any]:

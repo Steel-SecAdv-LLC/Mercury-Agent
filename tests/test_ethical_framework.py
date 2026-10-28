@@ -123,35 +123,44 @@ class TestEthicalAutonomyGovernor:
         assert isinstance(decision, EthicalDecision)
         assert decision.ethical_score > 0.0
         assert isinstance(decision.bias_audit_passed, bool)
-        assert decision.p_value >= 0.0
+        # No protected attributes and no score sample were supplied, so the
+        # honest record is "not audited / not tested", not invented numbers.
+        assert decision.bias_audit_performed is False
+        assert decision.p_value is None
         assert decision.rollback_triggered is False
 
     def test_bias_auditing(self) -> None:
-        """Test bias auditing functionality."""
+        """Demographic parity is computed across supplied groups, else not at all."""
         governor = EthicalAutonomyGovernor()
+        groups = np.array(["a"] * 50 + ["b"] * 50)
 
-        np.random.seed(123)
-        fair_data = np.concatenate([np.random.randn(50) * 1.0, np.random.randn(50) * 1.0])
+        fair_data = np.concatenate([np.full(50, 0.5), np.full(50, 0.5)])
+        biased_data = np.concatenate([np.full(50, 0.9), np.full(50, 0.1)])
 
-        np.random.seed(456)
-        biased_data = np.concatenate([np.random.randn(50) * 0.5, np.random.randn(50) * 2.0])
-
-        fair_metrics = governor._audit_bias(fair_data, {})
-        biased_metrics = governor._audit_bias(biased_data, {})
+        fair_metrics = governor._audit_bias(fair_data, {"protected_attributes": groups})
+        biased_metrics = governor._audit_bias(biased_data, {"protected_attributes": groups})
 
         assert isinstance(fair_metrics, BiasMetrics)
-        assert isinstance(biased_metrics, BiasMetrics)
-        assert biased_metrics.demographic_parity_diff >= fair_metrics.demographic_parity_diff * 0.5
+        assert fair_metrics.audit_performed and biased_metrics.audit_performed
+        assert fair_metrics.demographic_parity_diff == pytest.approx(0.0)
+        assert biased_metrics.demographic_parity_diff == pytest.approx(0.8)
+        assert biased_metrics.bias_detected and not fair_metrics.bias_detected
+
+        # Without protected attributes the audit does not run.
+        assert governor._audit_bias(fair_data, {}).audit_performed is False
 
     def test_statistical_validation(self) -> None:
         """Test p<0.05 statistical validation."""
         governor = EthicalAutonomyGovernor(p_value_threshold=0.05)
 
-        context = {"fairness_score": 0.9}
+        # Without a score sample there is no test: None, never a p-value
+        # manufactured from RNG draws (the previous behaviour).
+        assert governor._statistical_validation(1.5, {"fairness_score": 0.9}) is None
 
-        high_score = 1.5
-        p_value = governor._statistical_validation(high_score, context)
-
+        p_value = governor._statistical_validation(
+            1.5, {"score_sample": [1.4, 1.45, 1.55, 1.5, 1.6]}
+        )
+        assert p_value is not None
         assert 0.0 <= p_value <= 1.0
 
     def test_rollback_mechanism(self) -> None:

@@ -213,9 +213,11 @@ def _fetch_wayback(url: str, dest: Path, *, timeout: float = 240.0) -> tuple[Pat
                 logger.warning("transient fetch failure for %s (%s); retrying", url, exc)
                 time.sleep(5.0 * (attempt + 1))
         if resp is None:  # pragma: no cover - loop breaks with a response or raises
-            raise RuntimeError(f"unreachable: no response and no exception for {url}")
+            raise RuntimeError(
+                f"unreachable: no response and no exception for {url}"
+            ) from direct_exc
         if not resp.content:
-            raise RuntimeError(f"empty response body from {url}; refusing to cache")
+            raise RuntimeError(f"empty response body from {url}; refusing to cache") from direct_exc
         dest.parent.mkdir(parents=True, exist_ok=True)
         tmp = dest.with_suffix(dest.suffix + ".part")
         tmp.write_bytes(resp.content)

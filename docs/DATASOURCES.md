@@ -8,8 +8,8 @@ tables below still derive from the legacy 2026-02-15 sweep — the
 here as the auditable starting point). The canonical public
 benchmarking figure is the committed `mercury_benchmark_results.json`
 run documented in the README "Latest Benchmark Results" section:
-**67 successful / 76 attempted**, Mean AUC **0.8545**, Median
-**0.9052**, Mean Oracle F1 **0.6425** (2026-10-14, commit 27d2293).
+**67 successful / 76 attempted**, Mean AUC **0.8610**, Median
+**0.9077**, Mean Oracle F1 **0.6476** (2026-10-26, commit a2d7f99).
 The 11 watch-listed loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR,
 SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA
 HazardMitigation) are tracked by a two-lane reachability harness

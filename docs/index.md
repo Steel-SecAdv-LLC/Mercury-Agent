@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `3.0.0` — Steel-SecAdv-LLC. Last updated: 2026-10-21.
+Version `3.0.0` — Steel-SecAdv-LLC. Last updated: 2026-10-27.
 
 Mercury Agent is a standalone **neuro-symbolic AI** with a
 **Civilization-First** mission — a hybrid of deep-learning detectors, an
@@ -14,14 +14,23 @@ attribution to code transferred from its former agent layer.)
 
 ## What you should know first
 
-- **Decision-boundary contract (Wave B, PR #179).** Every public
+- **Decision-boundary contract.** Every public
   `detect` / `analyze` / `predict` surface runs **two independent
-  mandatory hard ethical gates** — Benevolence, then σ_Immutable —
-  and raises `EthicalConstraintViolationError(check=…)` on failure.
-  There is no advisory mode. See the top-level
+  mandatory hard ethical gates** — the harm-uplift gate
+  (`check="harm_uplift"`, scored on a structured `DecisionSubject`,
+  never an engine-written string), then σ_Immutable
+  (`check="sigma_immutable"` / `check="gosnn_unavailable"`) — and
+  raises `EthicalConstraintViolationError(check=…)` on failure.
+  Neither gate has a public disable flag. Benevolence is computed as
+  an **advisory** score at these boundaries — logged, deciding
+  nothing — and `check="benevolence"` is retired as a boundary
+  pass-bar; its one remaining enforcing use is the assessment purpose
+  screen (`omni_mercury_engine.assessment.policy.gate`). See the
+  top-level
   [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Dual-Gate Hard Ethical
-  Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
-  "σ_Immutable Hard Gate (Wave B, PR #179)".
+  Enforcement", [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5 and §2.7.3, and
+  the module docstring of `src/omni_mercury_engine/ethical/__init__.py`
+  for the full contract and why the benevolence pass-bar was removed.
 - **Sole PQC backend, hard-gated at import.**
   AMA Cryptography (pinned to **v5.0.0** in
   `.github/workflows/pqc-production-check.yml` and the `[pqc]` extra
@@ -44,12 +53,12 @@ attribution to code transferred from its former agent layer.)
   contract.
 - **Committed benchmark run.** The README headline is the committed
   `mercury_benchmark_results.json` run — **67 successful / 76
-  attempted**, Mean AUC **0.8545**, Median **0.9052**, Mean Oracle
-  F1 **0.6425** (2026-10-14) — surfaced in the README "Latest
+  attempted**, Mean AUC **0.8610**, Median **0.9077**, Mean Oracle
+  F1 **0.6476** (2026-10-26) — surfaced in the README "Latest
   Benchmark Results" block. CI's coarse regression-gate floors are
   **ROC-AUC 0.75 / F1 0.55** (`.github/workflows/benchmark.yml`), ~7%
   below the historical **0.803 AUC / 0.589 F1** baseline.
-  Externally-comparable subset: ADBench Mean AUC 0.8515.
+  Externally-comparable subset: ADBench Mean AUC 0.8571.
   See [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Pickle removed from the training-data path; not a blanket ban.**
   PR #166 deleted the `pickle` code path from the training-data

@@ -287,8 +287,8 @@ class BatchDetectRequest(BaseModel):
                 ip = ipaddress.ip_address(sockaddr[0])
                 if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
                     raise ValueError("Callback URL must not target private or internal addresses")
-        except socket.gaierror:
-            raise ValueError("Callback URL hostname could not be resolved")
+        except socket.gaierror as exc:
+            raise ValueError("Callback URL hostname could not be resolved") from exc
         return v
 
     metadata: dict[str, Any] | None = Field(

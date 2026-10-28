@@ -1,13 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""DEPRECATED: This module uses Mercury's mercury_ml (DBSCAN, NearestNeighbors) and scipy for anomaly.
+"""Extended statistical detector: MAD, LOF, DBSCAN, MCD, CUSUM, Grubbs and GESD heads.
 
-detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This
-module is retained for reference only and will be removed in a future release.
-
-Do not import this module in production or benchmark code paths.
-
-Original: Enhanced Statistical Anomaly Detection Module.
+Built on Mercury's mercury_ml (DBSCAN, NearestNeighbors) and scipy. It is a
+production member of the detector suite: the manifest registers it as the
+BASE detector ``extended_statistical`` with engine and registry seams, which
+the seam tests drive. It is one ensemble of robust statistical heads, not a
+replacement for (or draft of) MercuryAnomalyDetector in
+detectors/statistical.py, which is a separate detector.
 
 Enhanced statistical methods for robust anomaly detection including:
 - Median Absolute Deviation (MAD) - robust to outliers
@@ -23,13 +23,6 @@ Enhanced statistical methods for robust anomaly detection including:
 from __future__ import annotations
 
 import warnings
-
-warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -377,10 +370,10 @@ class DBSCANDetector:
 
         try:
             from omni_mercury_engine.ml.mercury_ml import DBSCAN
-        except ImportError:
+        except ImportError as exc:
             raise DetectorException(
                 "omni_mercury_engine.ml.mercury_ml required for DBSCAN detection"
-            )
+            ) from exc
 
         X = np.asarray(X)
         if X.ndim == 1:

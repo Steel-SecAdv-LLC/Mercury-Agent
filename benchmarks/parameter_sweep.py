@@ -228,7 +228,7 @@ def _fallback_oae(
         Fused anomaly score ``A``.
     """
     weighted_sum = w_r * recursion_score + w_h * resonance_score + w_o * optimization_score
-    return weighted_sum * (eta**ethical_exponent)
+    return float(weighted_sum * (eta**ethical_exponent))
 
 
 # ============================================================================
@@ -441,7 +441,7 @@ def compute_lyapunov_stability(
 
 
 def objective(
-    trial: optuna.Trial,  # type: ignore[name-defined]
+    trial: optuna.Trial,
     x_data: NDArray[np.float64],
     y_data: NDArray[np.int64],
 ) -> float:
@@ -522,10 +522,12 @@ def objective(
     n_samples = x_data.shape[0]
     fusion_scores = np.empty(n_samples, dtype=np.float64)
 
-    # Simulated benevolence scores -- normal points get high benevolence,
-    # anomalies get slightly lower, reflecting real ethical-gate behaviour.
+    # Simulated benevolence scores: a label-independent uniform draw in
+    # [0.88, 0.99]. (An older comment claimed anomalies got lower scores
+    # "reflecting real ethical-gate behaviour" — the draw never looked at the
+    # labels, and it does not model the gate.)
     rng = np.random.default_rng(int(trial.number) + 7)
-    benevolence_base = rng.uniform(0.88, 0.99, size=n_samples)
+    benevolence_base = np.asarray(rng.uniform(0.88, 0.99, size=n_samples), dtype=np.float64)
 
     use_mercury = MERCURY_IMPORTS_AVAILABLE
 

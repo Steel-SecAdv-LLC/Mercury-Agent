@@ -1,9 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Matrix Profile Integration using STUMPY.
+"""Matrix Profile detection: STUMPY-accelerated, Mercury-native otherwise.
 
-Provides O(n log n) time complexity for pattern discovery and
-anomaly detection in time series data.
+Uses STUMPY (numba/GPU) when installed via the ``[foundation]`` extra, and
+the equivalent pure-numpy STOMP backend in
+:mod:`omni_mercury_engine.ml.matrix_profile` when it is not, so matrix
+profile detection needs no optional dependency.
 
 Matrix Profile is a data structure and algorithm that enables:
     - Discord detection (anomalies)
@@ -60,16 +62,17 @@ class MatrixProfileConfig(FoundationModelConfig):
 
 
 class MatrixProfileDetector(BaseFoundationModel):
-    """Matrix Profile-based anomaly detector using STUMPY.
+    """Matrix Profile-based anomaly detector.
 
     Uses the Matrix Profile algorithm for efficient time series
-    anomaly detection via discord discovery.
+    anomaly detection via discord discovery, on STUMPY when installed
+    and on the Mercury-native numpy STOMP backend otherwise.
 
     Features:
-        - O(n log n) complexity with GPU acceleration
         - Discord detection (anomalies = subsequences with no close match)
         - Motif discovery (repeated patterns)
         - No training required
+        - numba/GPU acceleration when STUMPY is installed
 
     Example:
         >>> detector = MatrixProfileDetector(window_size=50)
@@ -81,9 +84,11 @@ class MatrixProfileDetector(BaseFoundationModel):
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "Scores are STUMPY matrix-profile discord distances (nearest "
-            "non-trivial subsequence match; stumpy / UCR Matrix Profile, as "
-            "referenced in this module). Points are flagged above the "
+            "Scores are matrix-profile discord distances (nearest "
+            "non-trivial subsequence match; UCR Matrix Profile, as "
+            "referenced in this module; STUMPY or the Mercury-native "
+            "backend, which the tests pin as equivalent). Points are "
+            "flagged above the "
             "batch's own anomaly_threshold (default 0.95) quantile of those "
             "scores: a relative cut with no published threshold and no "
             "labelled corpus to calibrate one, so verdicts are experimental."
@@ -126,18 +131,29 @@ class MatrixProfileDetector(BaseFoundationModel):
         # If dict, it's from base class init - we already have typed config set
 
     def _initialize_model(self) -> None:
-        """Check STUMPY availability."""
+        """Pick the matrix profile backend: STUMPY when installed, Mercury-native otherwise.
+
+        Both backends compute the same self-join matrix profile (their
+        equivalence is pinned by ``tests/ml/test_matrix_profile_native.py``),
+        so this is a choice of implementation, not of result: STUMPY brings
+        numba/GPU acceleration, the native backend
+        (:mod:`omni_mercury_engine.ml.matrix_profile`) removes the optional
+        dependency from the detection path entirely.
+        """
         import importlib
 
         try:
             importlib.import_module("stumpy")
         except Exception as exc:
-            raise NotImplementedError(
-                "STUMPY not installed or not importable "
-                f"({type(exc).__name__}: {exc}). "
-                "Install with: pip install stumpy. "
-                "Silent mock degradation is not permitted."
-            ) from exc
+            self._stumpy_available = False
+            logger.info(
+                "STUMPY not importable (%s: %s); using the Mercury-native "
+                "numpy STOMP backend. Install the [foundation] extra for "
+                "numba/GPU acceleration on long series.",
+                type(exc).__name__,
+                exc,
+            )
+            return
 
         self._stumpy_available = True
         logger.info("STUMPY library loaded")
@@ -188,15 +204,20 @@ class MatrixProfileDetector(BaseFoundationModel):
                 "Provide a longer series or configure a smaller window_size."
             )
 
-        if not self._stumpy_available:
-            raise RuntimeError(
-                "STUMPY is not available for Matrix Profile computation. "
-                "Silent mock degradation is not permitted (Phase 2 audit cure)."
-            )
-
-        import stumpy
-
         try:
+            if not self._stumpy_available:
+                from omni_mercury_engine.ml.matrix_profile import matrix_profile
+
+                native = matrix_profile(series, window_size, normalize=self.mp_config.normalize)
+                return {
+                    "matrix_profile": native.profile,
+                    "profile_index": native.index,
+                    "left_index": native.left_index,
+                    "right_index": native.right_index,
+                }
+
+            import stumpy
+
             if self._gpu_available and self.mp_config.use_gpu:
                 import stumpy.gpu
 
@@ -211,6 +232,8 @@ class MatrixProfileDetector(BaseFoundationModel):
                 "right_index": result[:, 3].astype(int),
             }
 
+        except (InputModalityError, ValueError):
+            raise
         except Exception as e:
             raise RuntimeError(
                 f"Matrix Profile computation failed: {e}. "

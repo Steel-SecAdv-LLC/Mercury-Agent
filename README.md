@@ -13,10 +13,10 @@
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-19%2C066%20collected-brightgreen.svg)](tests/)
+[![Counter-AI Stand-Down](https://img.shields.io/badge/Counter--AI-Benevolent%20Stand--Down%20%E2%86%92%20Containment-b71c1c.svg)](#counter-ai-containment-rogue-agent-tripwires)
+[![STEAM Exploration](https://img.shields.io/badge/STEAM%20Exploration-Real%20Labeled%20Data%3A%20Robotics%20%C2%B7%20Med%20%C2%B7%20Earth%20%C2%B7%20Space-2e7d32.svg)](#current-benchmarks-and-visual-proof)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
-[![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![AMA-Cryptography](https://img.shields.io/badge/AMA--Cryptography-PQC%20Adapter-4fc3f7.svg)](#ama-cryptography-integration)
 
 </div>
@@ -125,17 +125,17 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8545 | 0.8546 | -0.0000 |
-| Median ROC-AUC | 0.9052 | 0.9052 | +0.0000 |
-| Mean Oracle F1 | 0.6425 | 0.6430 | -0.0005 |
+| Mean ROC-AUC | 0.8610 | 0.8548 | +0.0062 |
+| Median ROC-AUC | 0.9077 | 0.9052 | +0.0025 |
+| Mean Oracle F1 | 0.6476 | 0.6430 | +0.0046 |
 | Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
-| Run timestamp (UTC) | 2026-10-14T20:27:14.966442+00:00 | 2026-10-14T20:04:58.109883+00:00 | — |
-| Commit | `27d2293` | `5569e83` | — |
+| Run timestamp (UTC) | 2026-10-26T23:01:08.701481+00:00 | 2026-10-14T20:27:14.966442+00:00 | — |
+| Commit | `a2d7f99` | `27d2293` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
 
-**Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8515**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
+**Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8571**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
 
 **Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7634 (+2.37 pts, 14 W / 2 tie / 2 L)** from base `e118e1f` to the hardened detector (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`.
 
@@ -151,15 +151,15 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and gated in C
 
 | Measurement | Value |
 |---|---|
-| Python source files in `src/omni_mercury_engine/` | **856** |
-| Source lines of code (LOC) | **~472,000** |
+| Python source files in `src/omni_mercury_engine/` | **866** |
+| Source lines of code (LOC) | **~477,000** |
 | Top-level subpackages (true Python packages with `__init__.py`) | **52** |
 | Files importing PyTorch (optional `[ml]` extra) | **175** |
 | Distinct `torch.nn.Module` subclasses | **174** |
 | Detector classes (`class *Detector`) in `detectors/` | **110** |
 | Public detector classes package-wide (`class *Detector`, not `Base*` or `_private`) | **169 in 17 subpackages** |
-| Data-loader classes (`class *Loader`) in `loaders/` | **21** |
-| Test modules (`test_*.py`) / total test LOC | **871 modules / ~252,000 LOC** |
+| Data-loader classes (`class *Loader`) in `loaders/` | **22** |
+| Test modules (`test_*.py`) / total test LOC | **893 modules / ~255,000 LOC** |
 | GitHub Actions workflows | **24** |
 
 _Generated by `python scripts/measure_codebase_scale.py --update README.md` and gated in CI (`scripts/measure_codebase_scale.py --check README.md`); do not hand-edit between the markers._
@@ -211,7 +211,7 @@ opt-in — see `cognitive/__init__.py`).
 <details>
 <summary><strong>Detailed benchmarks and methodology</strong></summary>
 
-Snapshot of the committed `mercury_benchmark_results.json` run (2026-10-14). The
+Snapshot of the committed `mercury_benchmark_results.json` run (2026-10-26). The
 [*Latest Benchmark Results*](#latest-benchmark-results) block at the top of this
 README is the CI-refreshed current headline; the tables here are the detailed
 breakdown. All numbers are measured on real data — no synthetic substitution, no
@@ -228,7 +228,7 @@ detectors:
 - **Externally-labeled (comparable).** Labels come from a source independent of
   the scored features (ADBench, NSL-KDD, BATADAL, SMD/NAB, CWRU, ADRepository,
   DTU AIS). The
-  headline is the 47-dataset ADBench result: **Mean AUC 0.8515 / Mean F1 0.6415**.
+  headline is the 47-dataset ADBench result: **Mean AUC 0.8571 / Mean F1 0.6443**.
 - **Self-labeled / threshold-derived (not comparable).** Some environmental
   loaders manufacture labels by thresholding a feature they also score, so the
   detector recovers them almost trivially (0.97–1.00 AUC). That is **label
@@ -250,13 +250,13 @@ governed self-improvement rollout.
 | ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7665 | 0.8008 |
 | KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6013 | 0.5719 |
 | InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8265 | 0.8671 |
-| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8545** | **0.9052** |
+| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8610** | **0.9077** |
 
 | Aggregate (54 genuine-label datasets of 67 successful) | Value |
 |---------------------------------------------------------|-------|
-| Mean AUC / Median AUC | 0.8545 / 0.9052 |
+| Mean AUC / Median AUC | 0.8610 / 0.9077 |
 | Std AUC | 0.1460 |
-| Mean / Median Oracle F1 | 0.6425 / 0.7074 |
+| Mean / Median Oracle F1 | 0.6476 / 0.7005 |
 
 *Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
 operational performance.*
@@ -269,13 +269,13 @@ against other detectors.
 <!-- BENCHMARK-DOMAINS:START -->
 | Domain | Datasets | Mean AUC | Mean oracle F1 |
 |--------|----------|----------|----------------|
-| ADBench | 47 | 0.8515 | 0.6415 |
-| Time series (SMD, NAB) | 2 | 0.7558 | 0.4580 |
+| ADBench | 47 | 0.8571 | 0.6443 |
+| Time series (SMD, NAB) | 2 | 0.7738 | 0.4690 |
 | Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
-| General (ADRepository) | 1 | 0.8657 | 0.5150 |
-| Industrial (BATADAL) | 1 | 0.9095 | 0.5548 |
-| Maritime (DTU_AIS_Abnormal) | 1 | 0.8613 | 0.6000 |
-| Security (NSL-KDD) | 1 | 0.9750 | 0.9567 |
+| General (ADRepository) | 1 | 0.9116 | 0.6162 |
+| Industrial (BATADAL) | 1 | 0.8976 | 0.5548 |
+| Maritime (DTU_AIS_Abnormal) | 1 | 0.8750 | 0.6250 |
+| Security (NSL-KDD) | 1 | 0.9741 | 0.9544 |
 
 *Generated from `benchmarks/mercury_benchmark_results.json` by
 `scripts/update_readme_benchmarks.py`: the 54 successful datasets whose
@@ -285,55 +285,83 @@ datasets are easy to separate at that size; the comparable figure is the
 47-dataset ADBench row.*
 <!-- BENCHMARK-DOMAINS:END -->
 
+**Robotics / UAV (ALFA, event ground truth, per-flight protocol).** The CMU AIR
+Lab ALFA corpus — 46 real fixed-wing flights, 36 with a mid-flight injected
+actuator fault whose injection instant the onboard `failure_status` topics
+record — is measured by its own streaming protocol
+(`benchmarks/alfa_uav_benchmark.py`) rather than this table's pooled split,
+which crosses flights and collapses the signal. Fitting each flight's first
+30 s and OR-fusing the per-flight ensemble with the stuck-actuator statistic
+(`detectors/drone/actuator_health.py`) detects **35/36 fault flights at 0.68%
+per-tick false-alarm rate with 8.0 s median delay** across engine, aileron,
+rudder and elevator faults (recorded in `artifacts/alfa_uav.eval.json`).
+
+**Robotics / manipulator (UCI Robot Execution Failures, event ground truth).**
+463 real manipulator executions with observed task outcomes (UCI 138, CC BY
+4.0) — force/torque sensing, the contact modality of robot arms and humanoid
+limbs. Fitting only on nominal runs (20 seeded splits per problem, nothing
+tuned on failures): **AUROC 1.000 / 0.984 / 1.000 / 0.922 across the four
+distinct problems, pooled 0.968**
+(`benchmarks/robot_failures_benchmark.py`, recorded in
+`artifacts/robot_failures.eval.json`).
+
 ### Competitive positioning (ADBench, one identical unsupervised protocol)
 
 Against PyOD baselines on the full 57-dataset ADBench suite, Mercury's tier
-detector places **3rd of 8 by mean rank (3.79)** — behind `knn` (2.40) and
-`local_outlier_factor` (3.69), and **ahead of** `isolation_forest` (3.94),
-`hbos` (5.14), `copod` (5.62), and `ecod` (6.11). Mercury is strong-to-dominant
-on high-dimensional sets where distance methods collapse, and weaker on
-low-dimensional local-density sets. Full method-by-method tables:
+detector places **2nd of 8 by mean rank (2.72)** — behind `knn` (2.52) and
+**ahead of** `local_outlier_factor` (3.61), `isolation_forest` (4.55),
+`hbos` (5.55), `copod` (5.60), and `ecod` (6.06) — with the **highest mean
+ROC-AUC of all eight methods** (0.8341 vs `knn`'s 0.8316). The LOF
+head-to-head reads 34W/23L and the 34 losses to `knn` carry a median margin
+of 0.008 AUC; `knn` still leads on low-dimensional local-density sets, its
+native turf. Full method-by-method tables and every loss enumerated:
 [benchmarks/COMPETITIVE_BENCHMARK.md](benchmarks/COMPETITIVE_BENCHMARK.md).
 
 Untuned 5-fold-CV spot check versus standard baselines (regenerated from
 license-clean scikit-learn datasets, deterministic at `--seed 42`, via
-`python -m benchmarks.empirical_benchmark --readme-subset`):
+`python -m benchmarks.empirical_benchmark --readme-subset`; run of
+2026-10-28):
 
-| Detector | breast_cancer | covtype | digits_8 |
-|----------|---------------|---------|----------|
-| **Mercury-Agent** | 0.796 | 0.896 | 0.489 |
-| One-Class SVM | 0.662 | **0.901** | **0.767** |
-| LOF | 0.544 | 0.667 | 0.571 |
-| Elliptic Envelope | 0.888 | 0.899 | 0.503 |
-| TranAD (supervised SOTA ref) | 0.940 | 0.892 | 0.742 |
-| MAAT (supervised SOTA ref) | **0.946** | — | 0.747 |
+| Detector | breast_cancer | covtype | digits_8 | kddcup99 |
+|----------|---------------|---------|----------|----------|
+| **Mercury-Agent** | 0.790 | 0.899 | 0.551 | 0.706 |
+| Isolation Forest | 0.780 | **0.936** | 0.653 | 0.947 |
+| One-Class SVM | 0.662 | 0.901 | **0.767** | **0.966** |
+| LOF | 0.544 | 0.667 | 0.571 | 0.571 |
+| Elliptic Envelope | **0.888** | 0.899 | 0.503 | 0.851 |
 
-*AUC; bold = best per column, "—" = not evaluated. Mercury is unsupervised and
-untuned; TranAD/MAAT (Tuli et al., VLDB 2022; Kang & Kang, 2023) are supervised
-published references marking the ceiling, not re-run here.*
+*AUC; bold = best per column. Mercury is unsupervised and untuned, and on this
+small sklearn spot check it ranks mid-pack (#4 of 5 by mean AUC, 0.736 vs the
+0.829 best baseline) — its measured strength is the 76-dataset harness above,
+not this subset. A previous version of this table also carried "published
+reference" rows for TranAD/MAAT on these datasets; no such published numbers
+exist (those papers evaluate time-series corpora), so the rows are removed.*
 
 ### Calibration and conformal validation
 
+All figures from the committed `benchmarks/calibration_validation_results.json`
+(2026-10-26, 55 datasets):
+
 | Validation | Result |
 |------------|--------|
-| Threshold calibration (MD-011) | 33/52 datasets improved (71.2%), mean F1 +0.097 |
-| Fusion-weight CV (MD-003) | adaptive weights within 0.007 F1 of L-BFGS optimal; 82.7% of datasets within 0.02 F1 |
-| Conformal coverage (MD-005, CrossConformal @0.90/0.95) | 69.2% empirical (36/52 datasets) |
+| Threshold calibration (MD-011) | 50/55 datasets improved (92.7% improved-or-same), mean ΔF1 +0.220 |
+| Fusion-weight adaptation (MD-003) | adaptive weights measured on all 55 datasets; mean weights R 0.47 / K 0.21 / IG 0.32 (see the MD-003 panel below for the CV validation) |
+| Conformal coverage (MD-005) | per-dataset results in the committed JSON; no aggregate summary is committed, so none is quoted here |
 
 ### Domain-specific hazard benchmarks
 
-Per-domain results from `run_all_benchmarks.py`:
+Per-domain AUROC from the committed
+`research/engine_calibration/results.json` (a previous version of this table
+cited `run_all_benchmarks.py`, whose output is not committed, and carried
+several values — including a Flood row — that matched no committed artifact):
 
-| Domain | Mean AUC | Domain | Mean AUC |
-|--------|----------|--------|----------|
-| Earthquake | 0.9367 | Network Security | 0.7983 |
-| Tsunami | 0.8905 | Hurricane | 0.7233 |
-| Tornado | 0.8803 | Flood | 0.6837 |
-| Pandemic | 0.8588 | FEMA | 0.6573 |
-| Energy | 0.8038 | Marine | 0.3540 (gate fail) |
-
-*Wildfire, Volcanic, Landslide, Sepsis, and Financial reported no data in this
-run (API key required or upstream unavailable).*
+| Domain | AUROC | Domain | AUROC |
+|--------|-------|--------|-------|
+| Earthquake | 0.9367 | Network Security | 0.7925 |
+| Pandemic | 0.9256 | Hurricane | 0.7792 |
+| Energy | 0.9237 | FEMA | 0.7598 |
+| Tsunami | 0.8905 | Marine | 0.5412 |
+| Tornado | 0.8803 | Overall | 0.8501 |
 
 ### Transparency: self-labeled loaders (leakage-flagged, not comparable)
 
@@ -361,15 +389,27 @@ AUC (ensemble inversion on high-dimensional data); no tuning was performed.
 ### Visual proof
 
 The benchmark panels below are generated from the current committed
-`mercury_benchmark_results.json` run (2026-10-14; Mean AUC 0.8545 over the 54
-genuinely labelled of 67 successful datasets) by `benchmarks/generate_benchmark_visuals.py`; the
-calibration panel comes from the MD-011/MD-005 calibration-validation run
-(52 datasets).
+`mercury_benchmark_results.json` run (2026-10-26; Mean AUC 0.8610 over the 54
+genuinely labelled of 67 successful datasets) by
+`scripts/generate_docs_images.py`; the calibration panels come from
+`scripts/generate_calibration_visuals.py` over the committed
+calibration-validation run (2026-10-26, 55 datasets). A single-writer test
+(`tests/test_docs_images_single_writer.py`) pins which script owns each
+committed chart.
 
-*Neuro-symbolic report — AUC/F1 distributions, component boxplots, domain performance, dataset rankings:*
-![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
+*Neuro-symbolic cognitive-stack integration demo (authored scenarios, **not** a performance
+benchmark) — confidence/benevolence evolution, real per-type memory growth, and neural/symbolic
+contribution over epochs. For measured neuro-symbolic anomaly performance on **real labeled data**,
+see the NAB streaming benchmark below:*
+![Neuro-Symbolic Integration Demo](docs/images/neuro_symbolic_benchmark_report.png)
 
-*Anomaly-detection analysis — per-component AUC breakdown, ensemble-vs-best scatter, threshold usage:*
+**Real-data neuro-symbolic result (NAB, Numenta Anomaly Benchmark — MIT).** On four committed,
+real labeled streaming fixtures with leak-free causal features fitted on a warmup prefix, the
+`MercuryAnomalyDetector` scores per-stream AUROC 0.840 / 0.661 / 0.686 / 0.728 (**mean 0.729**).
+Re-runnable: `python benchmarks/nab_streaming_benchmark.py` · results in
+[`artifacts/nab_streaming.eval.json`](artifacts/nab_streaming.eval.json).
+
+*Anomaly-detection analysis — per-category AUC, oracle-F1 distribution (upper bound, not operational), component correlation, fit/detect timing:*
 ![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
 *Performance dashboard — timing, AUC by category, dataset size, adaptive weights, precision-recall:*
@@ -575,6 +615,50 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 | 2. ML/AI Pipeline | Detection intelligence | 169 detector classes, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
+### Counter-AI Containment (Rogue-Agent Tripwires)
+
+An opt-in defensive posture for the case where the thing probing Mercury is
+itself an automated or rogue agent. It is **containment-only** — it protects
+Mercury's own surface and never contacts, probes, disables, or alters any
+other system, including one attacking it. Enabled with
+`MERCURY_DECEPTION_ENABLED`; off by default.
+
+How it works today (`security/deception.py`, `security/counterintelligence.py`,
+`security/deception_store.py`, `api/routes/decoys.py`):
+
+- **Decoy tripwires.** Paths served by no real route and absent from every
+  OpenAPI schema, doc, and client. A touch is therefore evidence of probing,
+  not normal traffic — recorded as a tamper-evident audit event.
+- **Bounded tarpit.** Persistent probing is answered with a capped exponential
+  delay (0 → 0.5 → 1 → 2 → … → 8 s, hard-capped), per source and per aggregate
+  (`/64`, `/48` IPv6; `/24` IPv4), so address rotation is met in depth and the
+  one signal rotation can't suppress — the window's distinct-source count —
+  raises a `campaign` flag.
+- **Counterintelligence adjudication.** A decoy touch becomes evidence against
+  the source in a Beta-Bernoulli reliability model (NATO Admiralty Code priors,
+  AJP-2.1), with circular-reporting and independence screens on any intelligence
+  that source later supplies. It never synthesizes a report, score, or threat
+  level; when inputs don't support a test, it abstains and records why.
+- **Flood-proof audit.** Tripwire audits are capped per window; past the cap
+  they're counted, not written, and an attacker spending addresses to spam the
+  tamper-evident chain buys one summary line.
+
+- **Benevolent-first stand-down greeting.** A probing agent's first contact —
+  while it is still inside the no-delay free window, before any containment
+  escalates — is met with an explicit, logged stand-down notice
+  (`STAND_DOWN_NOTICE`, carried in the `X-Mercury-Advisory` response header):
+  *you have reached a monitored decoy; cease probing; if you stop now no
+  further action is taken; this system takes no action against yours.* A normal
+  client reads an ordinary 401 auth challenge; an agent parsing headers gets a
+  clear chance to change course. The offer is a one-time grace — it lapses the
+  moment a tarpit delay applies and never reappears to signal a reset — it is
+  recorded in the tamper-evident audit (`stand_down_offered`), it drives no
+  outbound action (it is a header on Mercury's own response, naming no host,
+  URL, or command), and it can be disabled (`TarpitPolicy(stand_down=False)`)
+  for operators who want silent containment. This is Mercury's fail-closed
+  **but benevolent** ethic applied to hostile automation: offer the chance to
+  stop before you contain.
+
 ### Ethical AI Governance
 
 The signature innovation providing transparent, auditable AI decision-making:
@@ -648,8 +732,8 @@ See `examples/decision_abstention_response_demo.py` and
 | Multi-Domain Coverage | 169 detector classes in 17 subpackages: natural hazards (`detectors/geological`, `detectors/meteorological`, `detectors/marine`), space weather (`space/`), energy and critical infrastructure (`detectors/energy`, `infrastructure/`), medical and biometric, security, finance (`detectors/economic`), vision (`detectors/visual`, `detectors/vlm`), and general-purpose time-series and tabular methods |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 19,066 tests collected (2026-10-21) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning, and full-enumeration mutation testing with kill-rate floors enforced in CI on ten module sets |
-| Benchmark Coverage | 67 reproducible datasets (of 76 attempted; 47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8545** / Median **0.9052** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8515** |
+| Verification Rigor | Rigor over raw count: property-based testing (Hypothesis), full-enumeration mutation testing with kill-rate floors enforced in CI on ten module sets, security scanning, and label-provenance/leakage and drift gates. Structural test-module counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block — the headline is the method, not a test tally |
+| Benchmark Coverage | 67 reproducible datasets (of 76 attempted; 47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8610** / Median **0.9077** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8571** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`: a design-time proof certified by `tools/lyapunov_validator.py`, *monitored* at runtime and not enforced by default — `LyapunovRuntimeEnforcer` has `halt_on_violation=False`; see [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
@@ -668,7 +752,7 @@ See `examples/decision_abstention_response_demo.py` and
 | JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v5.0.0's native HMAC (its ACVP-Server known-answer vectors pass bit-for-bit), fail-closed (no stdlib downgrade) |
 | Property Testing | **Complete** | Hypothesis-based test suite |
 | Post-Quantum Crypto | **Complete** | AMA Cryptography (sole PQC backend) |
-| Real-Data Validation | **Partial** | NSL-KDD benchmarked (AUC 0.975, table above); medical modules still require MIMIC-III clinical validation |
+| Real-Data Validation | **Partial** | NSL-KDD benchmarked (AUC 0.974, table above); medical modules still require MIMIC-III clinical validation |
 
 **Legend:**
 - **Complete**: Implemented and tested
@@ -753,8 +837,8 @@ provenance: `benchmarks/results/fusion_latency.json`; Python 3.13, numpy
 committed, so no GPU figure is claimed. Reproduce the CPU-side core
 claim on your host with ``mercury-agent tool detector_profiler``, which
 emits a provenance-stamped JSON latency/RSS profile (schema
-``mercury.tools.detector_profiler/v1``; most recent sandbox re-run: median
-47.7 ms, p95 56.3 ms — the ``<100ms`` fast-path claim holds).*
+``mercury.tools.detector_profiler/v1``). No profiler run is committed to the
+repo, so no median/p95 figure is quoted here — run it on your host for one.*
 
 </details>
 
@@ -771,7 +855,7 @@ not at import.
 
 | Component | Memory | Basis |
 |-----------|--------|-------|
-| Engine import + construction (shipped checkpoint) | **611 MB** peak RSS | Measured 2026-10-21, Python 3.13, x86-64 (`resource.getrusage` after `OmniMercuryEngine(mode="fusion")`) |
+| Engine import + construction (shipped checkpoint) | ~611 MB peak RSS | Historical local measurement (2026-10-21, Python 3.13, x86-64, `resource.getrusage`); no artifact is committed, so treat as indicative |
 | Harmonic Encoder | ~10 MB | Estimate, not yet measured |
 | Fusion Network | ~50 MB | Estimate, not yet measured |
 | DeepFace (VGG-Face) | ~200 MB | Estimate, not yet measured (optional dependency) |
@@ -781,15 +865,19 @@ not at import.
 <details>
 <summary><strong>Module Performance</strong></summary>
 
-| Operation | Latency | Throughput |
-|-----------|---------|------------|
-| Module Instantiation (1) | 0.020ms | 49,932 ops/sec |
-| Module Instantiation (12) | 0.057ms | 17,697 ops/sec |
-| Space Exploration | 0.206ms | 2,919,469 samples/sec |
-| Cosmic Ray Detection | 0.324ms | 3,081,781 samples/sec |
-| Collatz Exploration | 67.07ms | 74,544 cases/sec |
+All figures from the committed `benchmarks/comprehensive_benchmark_results.json`
+(2026-10-27; synthetic labelled data, as that artifact's `data_source` fields
+state):
 
-*Module performance benchmarks measured on synthetic data (2026-01-27). Results may vary by hardware.*
+| Operation | Runtime | Throughput |
+|-----------|---------|------------|
+| Module Instantiation (1 module) | 0.012 ms | — |
+| Module Instantiation (all 12) | 0.047 ms | — |
+| Space Exploration | 0.160 ms | 3,744,914 samples/sec |
+| Cosmic Ray Detection | 0.247 ms | 4,040,755 samples/sec |
+| Collatz Exploration | — | 103,062 cases/sec |
+
+*Synthetic-data micro-benchmarks; results vary by hardware.*
 
 </details>
 
@@ -810,14 +898,18 @@ pip install -e .                   # analytic core only — no native PQC build
 python examples/mercury_quickstart.py
 ```
 
+Sample output from a local run of 2026-10-21 (the cross-fit line varies
+slightly run to run; the harness-protocol 0.8750 is the committed
+`DTU_AIS_Abnormal` figure):
+
 ```text
-[3/4] Harness protocol: ... scored 273 tracks incl. all 25 abnormal: ROC-AUC 0.8613 [95% CI 0.763-0.937] ...
+[3/4] Harness protocol: ... scored 273 tracks incl. all 25 abnormal: ROC-AUC 0.8750 [95% CI 0.788-0.942] ...
 [4/4] Label-free 5-fold cross-fit over all 521 tracks ...
-      no label reaches a fit: ROC-AUC 0.8617 [95% CI 0.776-0.935], AP 0.3271 (base rate 0.048)
+      no label reaches a fit: ROC-AUC 0.8739 [95% CI 0.796-0.940], AP 0.3352 (base rate 0.048)
 
       All 521 labelled tracks, ROC-AUC (protocols differ; see caveats):
+      Mercury label-free cross-fit ROC-AUC 0.8739   this run, no labels <-- you
       VRNN (GeoTrackNet arch.)     ROC-AUC 0.8700   JMSE 2023 Fig. 12a
-      Mercury label-free cross-fit ROC-AUC 0.8617   this run, no labels <-- you
       RAE                          ROC-AUC 0.8600   thesis 2023 Fig. 6.1
       Seq-2-Seq                    ROC-AUC 0.8400   thesis 2023 Fig. 6.1
       Seq-2-Seq with attention     ROC-AUC 0.8300   thesis 2023 Fig. 6.1
@@ -830,14 +922,14 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
 ~800 MB cached) and scored on all 521 tracks:
 
 ```text
-  Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8785 [95% CI 0.788-0.951], AP 0.3827
+  Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8934 [95% CI 0.821-0.955], AP 0.3541
     GeoTrackNet                ROC-AUC 0.87   inside Mercury's interval
     RAE                        ROC-AUC 0.86   inside Mercury's interval
     Seq-2-Seq                  ROC-AUC 0.84   inside Mercury's interval
     Seq-2-Seq with attention   ROC-AUC 0.83   inside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
 
-  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8751 [95% CI 0.792-0.944], AP 0.3085
+  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8779 [95% CI 0.809-0.938], AP 0.2746
     VRNN (GeoTrackNet arch.)   ROC-AUC 0.87   inside Mercury's interval
     Two-step clustering        ROC-AUC 0.73   outside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
@@ -845,7 +937,7 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
 
 Four protocols, all seed-pinned and deterministic:
 
-- **Published protocols (0.8785, 0.8751)** are the numbers to read beside the
+- **Published protocols (0.8934, 0.8779)** are the numbers to read beside the
   published ones. Each fits on the training file that paper's models were
   trained on: 1 June to 30 November 2021 for Figure 6.1 of Kristoffer Vinther
   Olesen's DTU PhD thesis (2023, p. 48), and December 2021 without the 13th
@@ -853,13 +945,14 @@ Four protocols, all seed-pinned and deterministic:
   section 4.7 (the file holds no point on that day). Both score all 521
   tracks. With 25 positives the intervals span about 0.16 of AUC: the
   strongest published model (GeoTrackNet / VRNN, 0.87) lies inside both, so
-  the result is parity, not superiority. The models still differ: Mercury
+  the honest reading is parity: Mercury's point estimates sit above every
+  published figure, but not statistically separably. The models still differ: Mercury
   scores 22 track-level features, the published models score sequences.
-- **Label-free cross-fit (0.8617)** needs no download beyond the labelled
+- **Label-free cross-fit (0.8739)** needs no download beyond the labelled
   set. It scores all 521 tracks, each by a model fitted without labels on
   the other four of five folds, so it trains on the 13th's own unlabelled
   traffic: neither paper's protocol.
-- **Harness protocol (0.8613)** is the `DTU_AIS_Abnormal` row of the committed
+- **Harness protocol (0.8750)** is the `DTU_AIS_Abnormal` row of the committed
   benchmark results. It fits on half of the *normal* tracks, picked with the
   labels, and scores the remaining 273, so it is **not** a score on the full
   evaluation set and is not comparable to published figures.
@@ -879,19 +972,19 @@ written and matches its pinned SHA-256. Details:
 
 Prerequisites: Python ≥ 3.11. The demo runs entirely on the AMA-free
 analytic leaves (dataset loader, statistical detector, metrics) under the
-scoped production gate — no C compiler, no native PQC build. Measured end
-to end in a clean virtualenv with no AMA Cryptography installed at all:
-26 s `pip install -e .`, 51 s total from install to the printed table
-(including the 38 MB first-run download), ROC-AUC 0.8613 reproduced
-exactly. This is a
+scoped production gate — no C compiler, no native PQC build. Indicative end-to-end timing from a clean-virtualenv local run (no committed
+artifact): ~26 s `pip install -e .`, ~51 s from install to the printed table
+(including the 38 MB first-run download). The ROC-AUC 0.8750 it prints IS
+committed (`DTU_AIS_Abnormal` in `mercury_benchmark_results.json`). This is a
 deliberate, scoped fast path, not a bypass of the agent's crypto mandate:
 the Mercury *agent* surfaces (engine, CLI, API, crypto, and every AMA-backed
 security export) fail closed at import without the native AMA Cryptography
 backend (`omni_mercury_engine/_pqc_gate.py`; pinned by
 `tests/test_pqc_startup_gate.py::TestScopedGateContract`). To run the full
 agent, install with `pip install -e ".[pqc]"` instead — measured end to end
-in a clean virtualenv on a stock Linux container: 121 s, no environment
-variables, no manual build steps. If that automatic build fails on your
+in a clean virtualenv on a stock Linux container: ~121 s (indicative local
+timing, no committed artifact), no environment variables, no manual build
+steps. If that automatic build fails on your
 platform, use the explicit path below.
 
 <details>
@@ -1096,8 +1189,10 @@ mercury-agent train --data features.npz --install
 <details>
 <summary><strong>Live Anomaly Detection Demo</strong></summary>
 
-A live demonstration script showcases real-time anomaly detection across
-security, medical, and environmental domains.
+A live demonstration script showcases the detection pipeline across
+security, medical, and environmental domains — on SYNTHETIC streams it
+generates itself (`np.random`), so the printed detection rate characterises
+the demo data, not field performance.
 
 ```bash
 # Run a single-domain demo (security / medical / environmental)
@@ -1546,16 +1641,8 @@ bandit -r src/ -f txt
 
 ### Test Coverage
 
-The test suite includes:
-- **19,066 tests collected** (2026-10-21, with the optional `torch` /
-  `scikit-learn` / `hypothesis` / `fastapi` / `h5py` dependencies
-  installed; `plotly` was absent, so one dashboard module skipped at
-  collection) across
-  the test modules counted in the CI-gated
-  [Codebase Scale](#codebase-scale-measured-not-estimated) block (the exact
-  module count is measured from disk, never hand-typed). A minimal install
-  collects fewer tests because modules gated behind those optional imports
-  skip at collection time.
+The test suite is characterized by its methods, not a headline count (a
+raw test tally measures volume, not rigor):
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Mutation testing**: ten module sets are mutation-tested by full
   enumeration (`scripts/run_sigma_mutation_gate.py`), with kill-rate floors
@@ -2164,7 +2251,7 @@ The **AMA Cryptography adapter** provides post-quantum cryptographic security wi
 - **ML-DSA-65 (Dilithium-3)**: Post-quantum digital signatures, FIPS 204 §5.2 (context-aware deterministic signing), NIST Level 3 (≈ 192-bit classical security strength)
 - **SLH-DSA-SHAKE-128s / SHA2-256f**: Hash-based digital signatures, FIPS 205, NIST Level 1 / Level 5 respectively
 - **SPHINCS+-SHA2-256f-simple**: Legacy pre-FIPS-205 hash-based signatures, retained for backward compatibility
-- **EWMA/MAD Timing Monitor**: <2% overhead crypto-operation anomaly detection
+- **EWMA/MAD Timing Monitor**: crypto-operation anomaly detection (<2% overhead is the design target; no committed measurement)
 
 **Correctness evidence (in-repo, measured-and-published):**
 - **Known-Answer Tests:** `tests/security/test_ama_kat.py` pins
@@ -2181,7 +2268,9 @@ The **AMA Cryptography adapter** provides post-quantum cryptographic security wi
   publishes pytest-cov coverage for `security/crypto_api.py` +
   `security/pqc_backends.py` + `security/pqc_guards.py` as a CI
   artifact (`pqc-coverage`).  Without the AMA native C library:
-  `crypto_api.py` 62%, `pqc_backends.py` 43%, `pqc_guards.py` 24%.
+  `crypto_api.py` 62%, `pqc_backends.py` 43%, `pqc_guards.py` 24%
+  (from a CI-run coverage artifact that expires; the repo itself holds no
+  copy, so verify against a fresh CI run before citing).
   With AMA native lib installed (CI `verify-real-pqc` job): all PQC
   codepaths are exercised, raising coverage to its measured ceiling.
   Published, not "unaudited" framing.
@@ -2577,6 +2666,10 @@ Mercury-Agent benchmarks use the following publicly available datasets:
 | BATADAL | Taormina et al., "Battle of the Attack Detection Algorithms", ASCE 2018 | [GitHub](https://github.com/SYChen123/Baseline-outlier-detection-algorithms-on-BATADAL-dataset) |
 | Covtype | Blackard & Dean, 1999; UCI ML Repository | [sklearn.datasets](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_covtype.html) |
 | KDDCup99 | Tavallaee et al., IEEE 2009 (NSL-KDD variant) | [sklearn.datasets](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_kddcup99.html) |
+| ALFA (UAV faults) | Keipour, Mousaei & Scherer, "ALFA: A Dataset for UAV Fault and Anomaly Detection", IJRR 2021; CMU AIR Lab; CC0 | [DOI 10.1184/R1/12707963](https://doi.org/10.1184/R1/12707963) |
+| Robot Execution Failures | Lopes & Camarinha-Matos, 1998; UCI Machine Learning Repository (dataset 138); CC BY 4.0 | [DOI 10.24432/C5M89N](https://doi.org/10.24432/C5M89N) |
+| NAB (Numenta Anomaly Benchmark) | Lavin & Ahmad, "Evaluating Real-time Anomaly Detection Algorithms — the Numenta Anomaly Benchmark", ICMLA 2015; MIT | [numenta/NAB](https://github.com/numenta/NAB) |
+| OpenSky Network (ADS-B state vectors) | Schäfer et al., "Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research", IPSN 2014; used under the OpenSky terms of use | [opensky-network.org](https://opensky-network.org) |
 
 ### Data Source Transparency
 
@@ -2617,8 +2710,8 @@ The human architect does not hold formal credentials in machine learning or medi
 
 ### What We Did Right
 
-- **Measured, not asserted:** headline numbers regenerate from a command. CI rewrites the [Latest Benchmark Results](#latest-benchmark-results) block from a live run, the [Codebase Scale](#codebase-scale-measured-not-estimated) block fails the build if it drifts from disk, and the ten-minute quickstart reproduces the DTU AIS result (ROC-AUC 0.8613) bit for bit. Figures that are still estimates are labelled as estimates.
-- **Tests that are themselves tested:** 19,066 tests collected (2026-10-21) — unit, property-based (Hypothesis), known-answer vectors (RFC 8032, NIST ACVP-Server) and load-test SLOs (k6 + locust) — and ten module sets are mutation-tested by full enumeration, with kill-rate floors enforced in CI, so a suite that stops catching injected defects fails the build.
+- **Measured, not asserted:** headline numbers regenerate from a command. CI rewrites the [Latest Benchmark Results](#latest-benchmark-results) block from a live run, the [Codebase Scale](#codebase-scale-measured-not-estimated) block fails the build if it drifts from disk, and the ten-minute quickstart reproduces the DTU AIS result (ROC-AUC 0.8750) bit for bit. Figures that are still estimates are labelled as estimates.
+- **Tests that are themselves tested:** the suite spans unit, property-based (Hypothesis), known-answer vectors (RFC 8032, NIST ACVP-Server) and load-test SLOs (k6 + locust) — and ten module sets are mutation-tested by full enumeration, with kill-rate floors enforced in CI, so a suite that stops catching injected defects fails the build. The headline is the method, not a test tally; structural module counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block.
 - **Fail closed, never fabricate:** detectors refuse unmeasurable input rather than grade it safe; a missing oracle reports *unavailable* under the three-state contract instead of guessing; benchmarks skip an unreachable dataset rather than substitute synthetic data.
 - **Ethics that are enforced, and honestly scoped:** a fail-closed harm-uplift gate and the σ_Immutable configuration-integrity gate stand at every gated decision surface; benevolence is reported as an advisory score, never presented as a control it is not — its one enforcing use is the human-subject purpose screen, which scores the caller's own stated purpose and refuses stalking and harassment the weapons-scoped gate does not cover. The autonomy layer recommends and escalates and never executes a destructive action — a test invariant, not a promise.
 - **Evidence that cannot be quietly edited:** authentication events and deception-layer tripwires are written to a hash-linked, tamper-evident audit chain whose verification is itself tested — across process restarts, segment rotation and multi-writer deployments, with tests proving a tampered record is detected, not merely that an intact one verifies.
@@ -2631,7 +2724,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on 67 of 76 attempted real datasets (figures in [Latest Benchmark Results](#latest-benchmark-results); the externally comparable figure is ADBench Mean AUC **0.8515**). The 9 unreachable sources are tracked by a two-lane reachability harness (offline + nightly network). Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on 67 of 76 attempted real datasets (figures in [Latest Benchmark Results](#latest-benchmark-results); the externally comparable figure is ADBench Mean AUC **0.8571**). The 9 unreachable sources are tracked by a two-lane reachability harness (offline + nightly network). Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

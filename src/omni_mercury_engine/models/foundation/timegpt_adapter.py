@@ -173,11 +173,11 @@ class TimeGPTAdapter(BaseFoundationModel):
                 self._client = NixtlaClient(api_key=api_key)
                 logger.info("TimeGPT client initialized successfully")
 
-        except ImportError:
+        except ImportError as exc:
             raise NotImplementedError(
                 "nixtla package not installed. Install with: pip install nixtla. "
                 "Silent mock degradation is not permitted (Phase 2 audit cure)."
-            )
+            ) from exc
 
     def _to_dataframe(
         self,

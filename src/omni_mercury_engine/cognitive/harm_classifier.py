@@ -288,8 +288,10 @@ def real_harm_classifier_available() -> bool:
 
         if meaning_level_available():
             return True
-    except Exception:  # pragma: no cover - fail-safe
-        pass
+    except Exception:  # fail-safe: fall through to the served-model check
+        logger.warning(
+            "Meaning-level availability check failed; using the served-model check", exc_info=True
+        )
     return served_model_available()
 
 

@@ -3007,20 +3007,30 @@ def load_usgs_earthquake_catalog(
     min_magnitude: float = 4.0,
     n_freq_bins: int = 64,
     n_time_bins: int = 64,
+    label_magnitude: float = 5.0,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] | None:
-    """Load earthquake data from USGS Earthquake Catalog API.
+    """Load earthquake events from the USGS catalog; synthesize spectrograms.
 
-    Converts earthquake metadata into synthetic spectrograms based on
-    magnitude, depth, and location for training seismic analyzers.
+    Only the event metadata (magnitude, depth, location, count) is real; the
+    spectrograms are SYNTHESIZED from it (noise plus magnitude/depth-shaped
+    P/S-wave bands) because the catalog API carries no waveforms. Training on
+    this output must say so — see the ``data_source`` string in
+    :func:`train_seismic_wave_analyzer`.
+
+    Labels use ``label_magnitude``, a strictly higher bar than the
+    ``min_magnitude`` query floor: labeling at the query floor made every
+    label 1.0 (the API had already filtered below it), so training
+    "accuracy" was measured against a single-class target.
 
     Data source: USGS Earthquake Hazards Program
     https://earthquake.usgs.gov/fdsnws/event/1/
 
     Args:
         days_back: Number of days of historical data
-        min_magnitude: Minimum earthquake magnitude
+        min_magnitude: Minimum earthquake magnitude in the API query
         n_freq_bins: Number of frequency bins for spectrograms
         n_time_bins: Number of time bins for spectrograms
+        label_magnitude: Magnitude at or above which an event is labeled 1.0
 
     Returns:
         Tuple of (spectrograms, labels, magnitudes) or None if API unavailable
@@ -3067,7 +3077,7 @@ def load_usgs_earthquake_catalog(
             depth = float(geom[2]) if len(geom) > 2 else 10.0
 
             magnitudes[i] = mag
-            labels[i] = 1.0 if mag >= min_magnitude else 0.0
+            labels[i] = 1.0 if mag >= label_magnitude else 0.0
 
             spectrogram = rng.normal(0, 0.1, (n_freq_bins, n_time_bins))
 
@@ -3308,8 +3318,14 @@ def train_seismic_analyzer(
         real_data = load_usgs_earthquake_catalog()
         if real_data is not None:
             spectrograms, labels, magnitudes = real_data
-            data_source = "real (USGS catalog)"
-            logger.info(f"Loaded {len(spectrograms)} real earthquake samples")
+            # Not "real": only the catalog events (magnitude/depth/count) are
+            # real — the spectrograms are synthesized from them, because the
+            # catalog API carries no waveforms.
+            data_source = "synthetic spectrograms from real USGS catalog events"
+            logger.info(
+                f"Loaded {len(spectrograms)} USGS catalog events "
+                "(spectrograms synthesized from magnitude/depth)"
+            )
 
     if spectrograms is None:
         if not allow_synthetic_fallback:

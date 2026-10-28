@@ -629,7 +629,10 @@ class SimulationModule:
         normalized = (data_arr - np.mean(data_arr, axis=0)) / (np.std(data_arr, axis=0) + 1e-8)
 
         if data_dim < self.embedding_dim:
-            padding = self._rng.randn(batch_size, self.embedding_dim - data_dim) * 0.1
+            # Zero padding: random padding columns fed straight into the
+            # mean(|features|) anomaly score, adding noise that had nothing
+            # to do with the input.
+            padding = np.zeros((batch_size, self.embedding_dim - data_dim))
             features = np.concatenate([normalized, padding], axis=1)
         else:
             features = normalized[:, : self.embedding_dim]
@@ -690,4 +693,11 @@ class SimulationModule:
             "num_branches_explored": self.num_branches,
             "ethical_risk_indices": ethical_risk_flags,
             "ethical_risk_detected": len(ethical_risk_flags) > 0,
+            # Declared basis: the branches are RNG perturbations of the
+            # features (an uncertainty heuristic), and branch_variance is the
+            # spread of those perturbations — not a measured model ensemble.
+            "anomaly_score_basis": (
+                "mean |feature| over RNG-perturbed branches; simulation "
+                "heuristic, no trained model and no labelled validation"
+            ),
         }

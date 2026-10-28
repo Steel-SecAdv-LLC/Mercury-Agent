@@ -22,7 +22,7 @@ def test_quantum_extract_features() -> None:
 
 def test_quantum_predict() -> None:
     """Test quantum anomaly prediction"""
-    model = QuantumAnomalyModel()
+    model = QuantumAnomalyModel().fit(np.random.randn(32, 15))
     data = np.random.randn(5, 15)
     result = model.predict(data)
 
@@ -46,7 +46,7 @@ def test_quantum_entanglement_measurement() -> None:
 
 def test_quantum_single_sample() -> None:
     """Test quantum model with single sample"""
-    model = QuantumAnomalyModel()
+    model = QuantumAnomalyModel().fit(np.random.randn(32, 10))
     data = np.random.randn(10)
 
     result = model.predict(data)

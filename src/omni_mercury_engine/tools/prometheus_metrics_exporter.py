@@ -67,19 +67,46 @@ def _collect_metrics() -> dict[str, Any]:
     w_R = phi / phi_sum
     w_H = w_O = 1.0 / phi_sum
 
+    # Advisory benevolence reporting floor from its single source of truth
+    # (the 0.99 literal this used to export is the retired pass-bar).
+    benevolence_floor: float | None
+    try:
+        from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
+
+        benevolence_floor = float(MINIMUM_BENEVOLENCE_FLOOR)
+    except ImportError:
+        benevolence_floor = None
+
+    # PQC availability is genuinely measurable from a sidecar: the native
+    # backends either import or they do not.
+    pqc_ml_kem: float | None
+    pqc_ml_dsa: float | None
+    try:
+        from ama_cryptography.pqc_backends import DILITHIUM_AVAILABLE, KYBER_AVAILABLE
+
+        pqc_ml_kem = 1.0 if KYBER_AVAILABLE else 0.0
+        pqc_ml_dsa = 1.0 if DILITHIUM_AVAILABLE else 0.0
+    except ImportError:
+        # Backend not importable in this process: unknown, not 0.0.
+        pqc_ml_kem = None
+        pqc_ml_dsa = None
+
     return {
         "mercury_oae_weight_r": w_R,
         "mercury_oae_weight_h": w_H,
         "mercury_oae_weight_o": w_O,
         "mercury_oae_weight_sum": w_R + w_H + w_O,
-        "mercury_benevolence_floor": 0.99,
+        "mercury_benevolence_floor": benevolence_floor,
         "mercury_sigma_band_min": 0.0,
         "mercury_sigma_band_max": 1.0,
-        "mercury_disconnect_engaged_total": 0.0,
-        "mercury_gate_fires_total": 0.0,
-        "mercury_cache_hit_rate": 0.0,
-        "mercury_pqc_ml_kem_1024_available": 0.0,
-        "mercury_pqc_ml_dsa_65_available": 0.0,
+        # No sidecar-safe source exists for these runtime counters; per the
+        # docstring they are None (reported as unavailable), never a
+        # hardcoded 0.0 pretending the counter was read.
+        "mercury_disconnect_engaged_total": None,
+        "mercury_gate_fires_total": None,
+        "mercury_cache_hit_rate": None,
+        "mercury_pqc_ml_kem_1024_available": pqc_ml_kem,
+        "mercury_pqc_ml_dsa_65_available": pqc_ml_dsa,
     }
 
 
@@ -89,6 +116,11 @@ def _exposition(metrics: dict[str, Any]) -> str:
         kind = "gauge"
         if name.endswith("_total"):
             kind = "counter"
+        if value is None:
+            # Prometheus exposition has no null: an unavailable source is a
+            # comment, never a fabricated sample.
+            lines.append(f"# {name} unavailable: no metric source in this process")
+            continue
         lines.append(f"# HELP {name} mercury runtime metric")
         lines.append(f"# TYPE {name} {kind}")
         lines.append(f"{name} {value}")

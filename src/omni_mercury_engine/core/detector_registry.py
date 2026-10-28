@@ -664,7 +664,11 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         feature_dim=1,
         tags=["systems", "association-rules", "frequent-pattern", "tabular"],
         seams=("engine", "registry"),
-        modality="series_1d",
+        # Measured truth (2026-10-27): on a 1-D series it emitted a single
+        # score for the whole stream; its documented contract is an
+        # (n_transactions, n_items) matrix scored per transaction.
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "srcnn",
@@ -700,7 +704,12 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Quantum state anomalies",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): scores ROWS of a feature matrix, and
+        # the fitted-reference score demands a fitted normal baseline; the
+        # old series_1d/fit-free declaration served a fixed-direction
+        # heuristic that measured below chance on a planted burst.
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "astrophysical",
@@ -709,7 +718,11 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Cosmic signal anomalies",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): row-wise scoring over a fitted
+        # reference; the old series_1d/fit-free declaration served an
+        # inverted proximity-to-horizon heuristic (burst AUROC 0.000).
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "biometric",
@@ -727,7 +740,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Emotional state anomalies",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): on series input it returned the neutral
+        # constant; its real contract is a record carrying AFFECTIVE_EMOTIONS_KEY.
+        modality="record",
     ),
     DetectorManifestEntry(
         "neural_cognitive",
@@ -745,7 +760,11 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Consciousness preservation analysis",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): row-wise scoring over a fitted
+        # reference; the old series_1d/fit-free declaration served unfitted
+        # constant thresholds that separated nothing (burst AUROC 0.644).
+        modality="matrix_2d",
+        fit_required=True,
     ),
     DetectorManifestEntry(
         "neurosymbolic",
@@ -763,7 +782,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Chemical anomaly detection",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): series input parsed 0 elements (constant
+        # output); its real contract is a composition/isotope/kinetics record.
+        modality="record",
     ),
     DetectorManifestEntry(
         "parapsychology",
@@ -772,7 +793,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.MODEL,
         "Psi phenomena detection",
         seams=("registry",),
-        modality="series_1d",
+        # Measured truth (2026-10-27): series input held no trials (constant
+        # output); its real contract is an experiment-trial record.
+        modality="record",
     ),
     # -- Security detectors ---------------------------------------------------
     DetectorManifestEntry(
@@ -1420,7 +1443,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "omni_mercury_engine.models.foundation",
         "MatrixProfileAdapter",
         DetectorCategory.FOUNDATION,
-        "STUMPY Matrix Profile for time-series anomalies",
+        "Matrix Profile for time-series anomalies (STUMPY-accelerated when installed)",
         tags=["foundation", "time-series", "matrix-profile"],
         seams=("registry",),
         modality="series_1d",

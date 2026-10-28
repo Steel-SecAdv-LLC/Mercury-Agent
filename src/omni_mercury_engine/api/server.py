@@ -526,7 +526,7 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             endpoint = getattr(route, "path", None) or "__unmatched__"
             record_http_request(request.method, endpoint, status_code, duration_ms / 1000.0)
         except Exception:  # pragma: no cover - metrics must never break a request
-            pass
+            logger.debug("Recording the HTTP request metric failed", exc_info=True)
 
 
 # Register correlation ID middleware (runs before rate limiting)

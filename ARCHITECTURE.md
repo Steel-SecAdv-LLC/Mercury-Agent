@@ -640,16 +640,25 @@ Infrastructure modules integrate seamlessly with the core detector classes:
 
 Every public detect / analyze / predict surface in Mercury-Agent runs
 **two independent hard ethical gates** in order before returning any
-prediction.  There is no advisory mode and no public flag that disables
-either gate; failure modes raise
-`EthicalConstraintViolationError` with a machine-checkable `check=…`
-field and abort the call.
+prediction.  There is no public flag that disables either gate; failure
+modes raise `EthicalConstraintViolationError` with a machine-checkable
+`check=…` field and abort the call.  The first gate is the **harm-uplift
+choke point** (`cognitive/decision_gate.enforce_decision_boundary`),
+which scores a structured `DecisionSubject` — the caller's real request,
+never an engine-written description of its own intentions.  Benevolence
+is computed as an **advisory** score at these boundaries: logged on the
+verdict, deciding nothing.  `check="benevolence"` is retired as a
+boundary pass-bar; its one remaining enforcing use is the assessment
+purpose screen (`omni_mercury_engine.assessment.policy.gate`), which
+scores the caller's own stated purpose for a human-subject measurement.
+See `src/omni_mercury_engine/ethical/__init__.py` for the full contract
+and the history of the removed pass-bar.
 
 ```
 caller → boundary surface
               │
-              ├── Gate 1: BenevolenceScorer.enforce(action, context)
-              │     └── raises check="benevolence" if score < threshold
+              ├── Gate 1: enforce_decision_boundary(DecisionSubject)
+              │     └── raises check="harm_uplift" if the decision is impermissible
               │
               ├── Gate 2: SigmaImmutableGate.enforce(scalar_vector)
               │     └── raises check="sigma_immutable" if score < threshold
@@ -658,14 +667,18 @@ caller → boundary surface
               └── return prediction
 ```
 
+Both gates run through the single shared primitive
+`security.sigma_immutable_gate.enforce_dual_ethical_gate`, so the
+harm-first / σ_Immutable-second contract cannot drift between boundaries.
+
 Boundary surfaces:
 
 | Surface                                                    | Gate 1                | Gate 2                       |
 | ---------------------------------------------------------- | --------------------- | ---------------------------- |
-| `OmniMercuryEngine.detect_with_fusion`                     | `check="benevolence"` | `check="sigma_immutable"` / `gosnn_unavailable` |
-| `OmniMercuryEngine.detect_with_fusion_calibrated`          | `check="benevolence"` | `check="sigma_immutable"` / `gosnn_unavailable` |
-| `CognitiveOrchestrator.analyze`                            | `check="benevolence"` | `check="sigma_immutable"`    |
-| `NeuroSymbolicHub.predict`                                 | `check="benevolence"` | `check="sigma_immutable"`    |
+| `OmniMercuryEngine.detect_with_fusion`                     | `check="harm_uplift"` | `check="sigma_immutable"` / `gosnn_unavailable` |
+| `OmniMercuryEngine.detect_with_fusion_calibrated`          | `check="harm_uplift"` | `check="sigma_immutable"` / `gosnn_unavailable` |
+| `CognitiveOrchestrator.analyze`                            | `check="harm_uplift"` | `check="sigma_immutable"`    |
+| `NeuroSymbolicHub.predict`                                 | `check="harm_uplift"` | `check="sigma_immutable"`    |
 
 **σ_Immutable layout** (constants in
 `omni_mercury_engine.security.sigma_immutable_gate`):
@@ -1098,7 +1111,7 @@ time, and the domain-model stage per model) is measured by
 
 ### Unit Tests
 
-The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (766 `test_*.py` modules as of 2026-10-17).
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md); read the current number there rather than from any copy here (copies in this file have gone stale before).
 
 ```bash
 # Run specific test
@@ -1219,7 +1232,8 @@ if delta_V > 0 and t > 5:  # Stability violation
    ||f(𝔄_t) - 𝔄_target|| ≤ α ||𝔄_t - 𝔄_target||
    ```
 
-   where α < 1 is the contraction factor (approximately 0.87 empirically).
+   where α < 1 is the contraction factor (a design assumption; no committed
+   measurement of α exists).
 
 4. **Exponential Convergence Rate**:
 
@@ -1237,19 +1251,11 @@ if delta_V > 0 and t > 5:  # Stability violation
 
 5. **Convergence Rate Eigenvalue Analysis**:
 
-   The dominant eigenvalue λ_max of the Jacobian ∂f/∂𝔄 determines convergence rate. Empirically measured:
-
-   ```
-   λ_max ≈ 0.87
-   ```
-
-   This yields the exponential decay rate:
-
-   ```
-   Rate = O(e^{-0.13t})
-   ```
-
-   where 0.13 ≈ -ln(0.87).
+   The dominant eigenvalue λ_max of the Jacobian ∂f/∂𝔄 determines the
+   convergence rate. No committed measurement of λ_max exists (an earlier
+   version of this section called λ_max ≈ 0.87 "empirically measured"); the
+   canonical design-target decay schedule is λ = 0.25 per
+   docs/MATH_SPEC.md §2.2, which the runtime monitors rather than assumes.
 
 ### Stability Monitoring and Optional Rollback
 
@@ -1313,14 +1319,14 @@ This ensures the state evolution remains in the **ethical manifold** defined by 
 
 ### Numerical Validation
 
-Empirical convergence validation (from quick_validation.py):
-
-```
-✓ Exponential convergence: O(e^{-0.13t})
-✓ Lyapunov stability: ΔV < 0 for 99.8% of iterations
-✓ Purity Invariant: σ_Immutable > 0 for 100% of tested states
-✓ Rollback triggered: 0.2% of iterations (safety mechanism works)
-```
+`benchmarks/quick_validation.py` is a symbolic check of the Lyapunov
+construction, not an empirical iteration study — it prints no per-iteration
+percentages. (An earlier version of this section quoted "ΔV < 0 for 99.8% of
+iterations", "σ_Immutable > 0 for 100%", and "rollback 0.2%" as empirical
+results from that script; no committed artifact holds such a run, so those
+figures are withdrawn.) At runtime the engine *monitors* the contraction via
+`verify_lyapunov_stability` and reports what it measures, returning
+not-measurable on degenerate windows.
 
 ### References
 
@@ -1333,7 +1339,7 @@ Empirical convergence validation (from quick_validation.py):
 1. **Mathematical Rigor**: Lyapunov theory provides a *design-time* convergence proof; at runtime it is *monitored*, not enforced by default (`halt_on_violation=False`)
 2. **Ethical Alignment**: the purity invariant is checked within ethical constraints
 3. **Safety Mechanism**: when halting is enabled, a detected violation triggers rollback rather than allowing continued divergence
-4. **Verified Performance**: Exponential O(e^{-0.13t}) convergence rate empirically confirmed
+4. **Monitored Performance**: the λ = 0.25 decay schedule is a design target the runtime monitors and reports (docs/MATH_SPEC.md §2.2); no committed artifact certifies an empirical rate
 
 This combination of **classical control theory**, **ethical AI principles**, and **modern deep learning** ensures both mathematical soundness and ethical alignment in adaptive anomaly detection systems.
 
@@ -1397,7 +1403,7 @@ The authoritative per-capability status (Designed / Stubbed / Functional, with t
 
 ## Conclusion
 
-The Mercury Agent integrates **166 detector classes** in 17 subpackages (the measured, CI-gated count of public `class *Detector` definitions; 87 in `detectors/`, the rest in `space/`, `medical/`, `infrastructure/`, `security/` and other domain packages) with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent integrates the detector classes counted in the CI-gated README Codebase Scale block (public `class *Detector` definitions across `detectors/`, `space/`, `medical/`, `infrastructure/`, `security/` and other domain packages; an earlier copy of the numbers here had drifted from the gated block, so this file now defers to it) with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention
@@ -1442,12 +1448,12 @@ The Mercury Agent integrates **166 detector classes** in 17 subpackages (the mea
   quantum_computing, reasoning, resilience, safeguards, scaling,
   security, space, streaming, tools, utils, validation, verifiers,
   vision)
-- **~435,000 LOC** in `src/omni_mercury_engine/` (801 source files)
-- **777 test modules** under `tests/`; 16,717 tests collected with the
-  full optional-dependency surface (2026-10-17) — fewer on a
-  minimal install because optional-import-gated modules skip. See the
-  README "Testing and Quality Assurance" section for the collection
-  methodology.
+- LOC, source-file, test-module and subpackage counts: see the CI-gated
+  README Codebase Scale block (the copies formerly pinned here — ~435,000
+  LOC / 801 files / 777 test modules / 16,717 collected, 2026-10-17 — had
+  drifted from the gated numbers and are withdrawn in favour of the single
+  gated source). Collection methodology is in the README "Testing and
+  Quality Assurance" section.
 - **Coverage:** measured per release — see the per-PR coverage report
   artefacts, not a stale pinned percentage. CI merge gates enforce
   CORE ≥ 33 % / FULL ≥ 62 %; the aspirational target is 85 %.

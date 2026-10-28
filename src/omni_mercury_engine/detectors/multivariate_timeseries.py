@@ -32,6 +32,7 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.core.exceptions import InputModalityError
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -75,12 +76,42 @@ class MultivariateTSDetector:
         self.mean_features: np.ndarray[Any, Any] | None = None
         self.std_features: np.ndarray[Any, Any] | None = None
 
+    def _validated(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Check the windowed-input contract before any arithmetic touches it.
+
+        Without this, a 2-D array dies inside ``np.concatenate`` with a bare
+        ``AxisError`` and a 3-D array with the wrong trailing dimensions is
+        silently reshaped against the configured ``num_features``, mixing
+        columns across features.
+        """
+        data = np.asarray(data)
+        if data.ndim != 3:
+            raise InputModalityError(
+                "MultivariateTSDetector expects windowed input with shape "
+                f"[n_windows, window_size={self.window_size}, "
+                f"num_features={self.num_features}]; got shape {tuple(data.shape)}. "
+                "Window a 2-D series [n_samples, n_features] into overlapping "
+                "windows first (e.g. numpy sliding_window_view)."
+            )
+        if data.shape[0] == 0:
+            raise InputModalityError("MultivariateTSDetector got an empty batch (0 windows).")
+        if data.shape[1] != self.window_size or data.shape[2] != self.num_features:
+            raise InputModalityError(
+                "MultivariateTSDetector is configured for "
+                f"window_size={self.window_size} and num_features={self.num_features} "
+                f"but got windows of shape {tuple(data.shape[1:])}. Pass matching "
+                "windows, or construct the detector with config "
+                f"{{'window_size': {data.shape[1]}, 'num_features': {data.shape[2]}}}."
+            )
+        return data
+
     def fit(self, time_series_data: np.ndarray[Any, Any]) -> None:
         """Fit LTG model on training time-series data.
 
         Args:
             time_series_data: Training data (n_samples, window_size, num_features)
         """
+        time_series_data = self._validated(time_series_data)
         lstm_features = self._extract_lstm_features(time_series_data)
 
         temporal_features = self._extract_temporal_conv_features(time_series_data)
@@ -112,6 +143,7 @@ class MultivariateTSDetector:
         if not self.trained:
             raise ValueError("Model must be fit before prediction")
 
+        time_series_data = self._validated(time_series_data)
         lstm_features = self._extract_lstm_features(time_series_data)
         temporal_features = self._extract_temporal_conv_features(time_series_data)
         graph_features = self._extract_graph_features(time_series_data)
@@ -230,11 +262,23 @@ class ChaosMultivariateFusion:
         }
 
     def _apply_chaos_refinement(self, scores: np.ndarray[Any, Any], base_threshold: float) -> float:
-        """Apply chaotic perturbation to threshold for adaptive detection."""
+        """Deterministic, score-seeded logistic-map perturbation of the threshold.
+
+        The map is seeded from the scores themselves, so identical inputs give
+        identical thresholds. The previous implementation seeded it from an
+        RNG draw and ignored ``scores`` entirely, which moved the decision
+        threshold by up to ±10% between identical calls — nondeterministic
+        predictions presented as a "chaos_refined" method. The perturbation is
+        a bounded heuristic, not a measured improvement.
+        """
         from omni_mercury_engine.core.chaos_evolutionary import ChaoticMap
 
-        chaos_value = self._rng.rand(1)[0]
-        chaos_value = ChaoticMap.logistic_map(chaos_value)
+        # Seed in (0, 1) from the data, clear of the logistic fixed points.
+        mean_score = float(np.mean(scores)) if scores.size else 0.0
+        seed = 0.1 + 0.8 * (abs(mean_score) % 1.0)
+        chaos_value = seed
+        for _ in range(8):
+            chaos_value = ChaoticMap.logistic_map(chaos_value)
 
         perturbation = 0.1 * (2 * chaos_value - 1)
         refined_threshold = base_threshold * (1 + perturbation)

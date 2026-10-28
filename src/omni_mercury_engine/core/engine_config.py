@@ -199,8 +199,9 @@ class ThreeRConfig(BaseModel):
         ge=0.01,
         le=1.0,
         description=(
-            "Lyapunov convergence rate (elevated from 0.18; see benchmarks/ab_dominance.py "
-            "for the measured comparison)."
+            "Lyapunov convergence rate: a design target the engine monitors "
+            "and reports, not a measured guarantee (docs/MATH_SPEC.md "
+            "section 2.2)."
         ),
     )
     lyapunov_epsilon: float = Field(

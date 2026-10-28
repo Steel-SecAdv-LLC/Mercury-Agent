@@ -13,12 +13,15 @@ certificate rather than a code review.
 from __future__ import annotations
 
 import argparse
+import logging
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 
 from omni_mercury_engine.tools._base import Certificate, DependencyMissing, run_tool
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA = "mercury.tools.federated_round_simulator/v1"
 
@@ -137,8 +140,14 @@ def _collect(args: argparse.Namespace) -> Certificate:
                 method_used = method
                 break
             except Exception:
+                logger.debug(
+                    "Aggregator %s failed on the keyword-free call; trying the next method",
+                    method,
+                    exc_info=True,
+                )
                 continue
         except Exception:
+            logger.debug("Aggregator %s failed; trying the next method", method, exc_info=True)
             continue
 
     if aggregated is None:

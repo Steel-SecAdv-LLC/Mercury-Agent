@@ -317,15 +317,21 @@ class MarineLoader(BaseDomainLoader):
 
         all_frames = baseline_frames + event_frames
         if not all_frames:
+            # Synthetic fallback: never cached (a later load would silently
+            # serve it as real under the same cache key), never logged as
+            # "fetched", and marked on the frame.
             logger.warning(
                 "marine: no occurrence data retrieved for event '%s'. "
-                "Generating synthetic data.",
+                "Returning SYNTHETIC stand-in data (not cached).",
                 event_id,
             )
             df = self._synthesize_event(event)
-        else:
-            df = pd.concat(all_frames, ignore_index=True)
-            df = self._normalize_columns(df)
+            df["is_real_data"] = False
+            return df
+
+        df = pd.concat(all_frames, ignore_index=True)
+        df = self._normalize_columns(df)
+        df["is_real_data"] = True
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info("marine: fetched %d records for event '%s'.", len(df), event_id)

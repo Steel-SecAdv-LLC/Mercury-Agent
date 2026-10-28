@@ -22,7 +22,7 @@ Quick Start:
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from omni_mercury_engine.detectors.advanced.adversarial_ae import (
     AdversarialAEConfig,
@@ -36,10 +36,6 @@ from omni_mercury_engine.detectors.advanced.copod_detector import (
     COPODConfig,
     COPODDetector,
 )
-from omni_mercury_engine.detectors.advanced.gwo_ensemble import (
-    GWOEnsembleConfig,
-    GWOEnsembleDetector,
-)
 from omni_mercury_engine.detectors.advanced.multi_scale_transformer import (
     MultiScaleTransformerConfig,
     MultiScaleTransformerDetector,
@@ -51,6 +47,26 @@ from omni_mercury_engine.detectors.advanced.point_adjustment import (
     compute_adjusted_metrics,
     find_anomaly_segments,
 )
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.detectors.advanced.gwo_ensemble import (
+        GWOEnsembleConfig,
+        GWOEnsembleDetector,
+    )
+
+#: Names served lazily from the ``gwo_ensemble`` module (a library-role
+#: detector since the 2026-10-26 measurement in its docstring; no longer
+#: deprecated). The lazy load is kept so importing this package stays cheap.
+_LAZY_GWO_NAMES = frozenset({"GWOEnsembleConfig", "GWOEnsembleDetector"})
+
+
+def __getattr__(name: str) -> Any:
+    if name in _LAZY_GWO_NAMES:
+        from omni_mercury_engine.detectors.advanced import gwo_ensemble
+
+        return getattr(gwo_ensemble, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # Type alias for detector types
 DetectorType = Literal["timeseries", "industrial", "contrastive", "copod", "ensemble", "fast"]
@@ -97,6 +113,8 @@ def create_detector(
     elif detector_type in ("copod", "fast"):
         return COPODDetector(**kwargs)
     elif detector_type == "ensemble":
+        from omni_mercury_engine.detectors.advanced.gwo_ensemble import GWOEnsembleDetector
+
         return GWOEnsembleDetector(**kwargs)
     else:
         raise ValueError(

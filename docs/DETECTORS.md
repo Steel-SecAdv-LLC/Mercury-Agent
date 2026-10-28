@@ -35,7 +35,7 @@ an adapter entry and names the domain detector behind it.
 | `echo_state` | `EchoStateDetector` | base | series_1d | -- | Echo-State-Network reservoir-computing predictive residual detector (fixed spectral-radius reservoir + ridge readout; Jaeger, 2001) |
 | `energy_based` | `EnergyBasedDetector` | base | series_1d | -- | Explicit energy-based model detector: delay-embedding quadratic (Gaussian-family) energy fitted by score matching; anomaly score is the calibrated free energy |
 | `extended_statistical` | `ExtendedStatisticalDetector` | base | series_1d | fit | Ensemble over MAD, LOF, DBSCAN, MCD, CUSUM, Grubbs and GESD statistical methods |
-| `frequent_pattern` | `FrequentPatternDetector` | base | series_1d | -- | Frequent-pattern / association-rule mining detector: flags transactions violating high-confidence rules mined from normal traces (Apriori) |
+| `frequent_pattern` | `FrequentPatternDetector` | base | matrix_2d | fit | Frequent-pattern / association-rule mining detector: flags transactions violating high-confidence rules mined from normal traces (Apriori) |
 | `gaussian_process` | `GaussianProcessDetector` | base | series_1d | -- | Windowed RBF Gaussian-Process one-step-ahead residual detector with calibrated predictive variance (Rasmussen & Williams, 2006) |
 | `geo_movement` | `GeoMovementAnomalyDetector` | base | trajectory | fit | Trajectory movement plausibility: velocity, jump, and silence channels |
 | `graph_based` | `GraphAnomalyDetector` | base | graph | fit | Graph structure anomaly detection |
@@ -107,7 +107,7 @@ an adapter entry and names the domain detector behind it.
 | `dual_student` | `DualStudentDistillation` | distillation | image_batch | fit | Dual-student knowledge distillation for AD |
 | `chronos` | `ChronosAdapter` | foundation | series_1d | -- | Amazon Chronos time-series foundation model |
 | `foundation_ensemble` | `FoundationEnsemble` | foundation | series_1d | -- | Ensemble of foundation model adapters |
-| `matrix_profile` | `MatrixProfileAdapter` | foundation | series_1d | -- | STUMPY Matrix Profile for time-series anomalies |
+| `matrix_profile` | `MatrixProfileAdapter` | foundation | series_1d | -- | Matrix Profile for time-series anomalies (STUMPY-accelerated when installed) |
 | `earthquake` | `EarthquakeDetector` | geological | series_1d | -- | P/S-wave spectrogram + STA/LTA earthquake detection (USGS live catalog wiring) |
 | `flood` | `FloodDetector` | geological | series_1d | -- | Flood prediction with refactoring engine optimization |
 | `hurricane` | `HurricaneDetector` | geological | series_1d | -- | Hurricane/cyclone/typhoon prediction with SST and resonance amplification |
@@ -126,16 +126,16 @@ an adapter entry and names the domain detector behind it.
 | `lightning` | `LightningDetector` | meteorological | series_1d | -- | 2-sigma lightning jump severe-weather precursor (Schultz et al. 2009) |
 | `winter_storm` | `WinterStormDetector` | meteorological | series_1d | -- | Winter/ice-storm detector (precip-type + FRAM ice accretion) |
 | `adversarial_autoencoder` | `AdversarialAutoencoderDetector` | model | matrix_2d | fit | Adversarial autoencoder reconstruction error with a latent discriminator |
-| `affective` | `AffectiveAnomalyModel` | model | series_1d | -- | Emotional state anomalies |
-| `astrophysical` | `AstrophysicalAnomalyModel` | model | series_1d | -- | Cosmic signal anomalies |
+| `affective` | `AffectiveAnomalyModel` | model | record | -- | Emotional state anomalies |
+| `astrophysical` | `AstrophysicalAnomalyModel` | model | matrix_2d | fit | Cosmic signal anomalies |
 | `biometric` | `BiometricAnomalyModel` | model | series_1d | -- | Face/biometric anomalies |
-| `chemistry` | `ChemistryAnomalyDetector` | model | series_1d | -- | Chemical anomaly detection |
-| `consciousness` | `ConsciousnessPreservationModel` | model | series_1d | -- | Consciousness preservation analysis |
+| `chemistry` | `ChemistryAnomalyDetector` | model | record | -- | Chemical anomaly detection |
+| `consciousness` | `ConsciousnessPreservationModel` | model | matrix_2d | fit | Consciousness preservation analysis |
 | `copod` | `COPODDetector` | model | matrix_2d | fit | Copula-based outlier detection over per-feature tail ECDFs |
 | `lstm_autoencoder` | `LSTMAutoencoderDetector` | model | series_1d | fit | Trained LSTM-autoencoder multivariate sequence reconstruction |
 | `neural_cognitive` | `NeuralCognitiveModel` | model | series_1d | -- | Brain activity anomalies |
-| `parapsychology` | `ParapsychologyDetector` | model | series_1d | -- | Psi phenomena detection |
-| `quantum` | `QuantumAnomalyModel` | model | series_1d | -- | Quantum state anomalies |
+| `parapsychology` | `ParapsychologyDetector` | model | record | -- | Psi phenomena detection |
+| `quantum` | `QuantumAnomalyModel` | model | matrix_2d | fit | Quantum state anomalies |
 | `neurosymbolic` | `NeurosymbolicEngine` | neurosymbolic | series_1d | -- | Hybrid neural-symbolic reasoning |
 | `realtime_threat` | `RealTimeThreatDetector` | security | matrix_2d | -- | Projection + kNN + robust-covariance ensemble, training-calibrated |
 | `schumann_resonance` | `SchumannResonanceDetector` | space | series_1d | -- | Earth resonance detection |
@@ -165,7 +165,7 @@ named here is not a numeric seam: it is a part of something else, a base, or a
 detector with its own API that is reached by importing it.
 
 
-### Detectors with their own domain API (import them; no numeric seam) (27)
+### Detectors with their own domain API (import them; no numeric seam) (28)
 
 Each has at least one test and a declared ``decision_source``.
 
@@ -175,6 +175,7 @@ Each has at least one test and a declared ``decision_source``.
 | `OSHAComplianceDetector` | `compliance.osha_anomaly` | OSHA compliance anomaly detector for industry-specific safety monitoring |
 | `ConformalAnomalyDetector` | `core.conformal_prediction` | Wrapper for anomaly detectors with conformal prediction |
 | `ContrastiveLearningDetector` | `detectors.advanced.contrastive_detector` | Contrastive Learning Detector for Anomaly Detection |
+| `GWOEnsembleDetector` | `detectors.advanced.gwo_ensemble` | GWO-Enhanced Ensemble Detector for Anomaly Detection |
 | `MultiScaleTransformerDetector` | `detectors.advanced.multi_scale_transformer` | Multi-Scale Transformer Detector for Time-Series Anomaly Detection |
 | `BLIPVLMDetector` | `detectors.vlm.blip_vlm` | BLIP-based zero-shot anomaly detector |
 | `StatisticalVLMDetector` | `detectors.vlm.statistical_vlm` | Offline, deterministic concrete VLM detector (no network, no weights) |
@@ -207,13 +208,12 @@ A subclass, reached by importing it.
 |---|---|---|---|
 | `AdaptiveThreatDetector` | `security.realtime_threat_detection` | Adaptive threat detector that updates based on new threats | `RealTimeThreatDetector` |
 
-### Deprecated (1)
+### Deprecated (0)
 
 The module warns on import and names its replacement; kept for compatibility.
 
 | class | module | what it is |
 |---|---|---|
-| `GWOEnsembleDetector` | `detectors.advanced.gwo_ensemble` | GWO-Enhanced Ensemble Detector for Anomaly Detection |
 
 ### Components (constructed by another class) (53)
 
@@ -267,7 +267,7 @@ Built and driven by the class(es) in the last column; not seams of their own.
 | `TemporalVitalSignsDetector` | `medical.medical_cure_predictor` | Temporal vital signs anomaly detector using LSTM | `MedicalCurePredictor` |
 | `StreamingAlarmDetector` | `ml.alarm_policy` | The streaming pipeline's detector: the learned alarm policy, per numeric field | `StreamingAnomalyPipeline` |
 | `ZeroShotAnomalyDetector` | `models.foundation.llm_adapter` | Zero-shot anomaly detector using LLM prompting | `OmniMercuryEngine`, `TextLogAnomalyDetector` |
-| `MatrixProfileDetector` | `models.foundation.matrix_profile` | Matrix Profile-based anomaly detector using STUMPY | `FoundationEnsemble` |
+| `MatrixProfileDetector` | `models.foundation.matrix_profile` | Matrix Profile-based anomaly detector | `FoundationEnsemble` |
 | `QAOAAnomalyDetector` | `quantum_computing.hybrid` | Quantum Approximate Optimization Algorithm for anomaly detection | `QuantumAnomalyDetector` |
 | `VQEAnomalyDetector` | `quantum_computing.hybrid` | Variational one-class anomaly detector | `QuantumAnomalyDetector` |
 | `C2InfrastructureDetector` | `security.cybint_subprocessor` | Command & Control infrastructure detection | `CYBINTSubProcessor` |

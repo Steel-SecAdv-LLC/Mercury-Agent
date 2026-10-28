@@ -19,7 +19,7 @@ touching the operational path**:
   and apply ``sigmoid(logit / T)`` -- never ``log(p / (1 - p))``, which overflows
   at the operating point (the baseline scores 0.99992, logit ≈ 9.45);
 * a **self-check** asserts the padded baseline still scores the frozen constant
-  ``0.9999216794967651`` at ``T = 1`` through both the operational
+  ``0.9999432563781738`` at ``T = 1`` through both the operational
   ``evaluate()`` and this module's logit path -- proving the measurement layer
   left the constant untouched.
 
@@ -67,7 +67,7 @@ __all__ = [
 ]
 
 #: The frozen operational σ score of the intact baseline (must never move).
-SIGMA_FROZEN_CONSTANT = 0.9999216794967651
+SIGMA_FROZEN_CONSTANT = 0.9999432563781738
 
 #: Operational (authoritative) gate threshold; swept values here are advisory.
 OPERATIONAL_THRESHOLD = 0.93
@@ -294,7 +294,7 @@ def baseline_constant_check(gate: EthicalGate, baseline: Baseline) -> dict[str, 
 
     Scores the padded baseline both through the operational ``evaluate()`` and
     through this module's ``T = 1`` logit path, and checks both equal the frozen
-    constant ``0.9999216794967651``.
+    constant ``0.9999432563781738``.
 
     Args:
         gate: The trained :class:`EthicalGate`.

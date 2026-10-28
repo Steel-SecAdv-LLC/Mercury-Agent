@@ -361,6 +361,11 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
     # --- Industrial (conditional — may need download) ---
     ("SWaT", "industrial", "SWaTLoader", "industrial", {}),
     ("WADI", "industrial", "WADILoader", "industrial", {}),
+    # --- Deliberately excluded: ALFA UAV (datasets/uav_flight.py). Its
+    # ground-truth faults are per-flight streaming events; this harness's
+    # pooled i.i.d. split crosses flights, which measurably collapses the
+    # signal (AUROC 0.57 pooled vs 0.80/0.91 per-flight). The canonical
+    # measurement is benchmarks/alfa_uav_benchmark.py. ---
 ]
 
 # ---------------------------------------------------------------------------

@@ -70,6 +70,7 @@ from .environmental import (
 )
 from .epa_air import EPAAirQualityLoader
 from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError
+from .hurricane import NOAAHurricaneLoader
 from .industrial import BATADALLoader, SWaTLoader, WADILoader
 from .medical import CardiologyDataset, MIMICLoader, PhysioNetLoader, SepsisDataset
 from .metadata import LoaderDataset, LoaderDatasetMetadata
@@ -77,10 +78,13 @@ from .mitbih import MITBIHLoader
 from .noaa_erddap import NOAAERDDAPLoader
 from .noaa_gsod import NOAAGSODLoader
 from .noaa_storm import NOAAStormEventsLoader
-from .ocean import NOAABuoyLoader
+from .ocean import NOAABuoyLoader, NOAACoOpsStationLoader
+from .robot_failures import RobotExecutionFailuresLoader
 from .security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from .space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
+from .space_weather import NOAASpaceWeatherLoader
 from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
+from .uav_flight import ALFAUAVLoader
 from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
 
 __all__ = [
@@ -91,6 +95,8 @@ __all__ = [
     "ALLOW_SYNTHETIC",
     "ADBenchLoader",
     "ADRepositoryLoader",
+    # ALFA UAV fault flights (CMU AIR Lab)
+    "ALFAUAVLoader",
     "BATADALLoader",
     # Visual anomaly detection base classes (from data/benchmarks)
     "BaseDatasetConfig",
@@ -124,16 +130,23 @@ __all__ = [
     "NABLoader",
     "NASAExoplanetLoader",
     "NOAABuoyLoader",
+    "NOAACoOpsStationLoader",
     # NOAA ERDDAP (replaces Copernicus/SimonsCMAP/WorldOcean)
     "NOAAERDDAPLoader",
     # NOAA GSOD
     "NOAAGSODLoader",
+    # NOAA NHC HURDAT2 best tracks
+    "NOAAHurricaneLoader",
+    # NOAA SWPC space weather
+    "NOAASpaceWeatherLoader",
     # NOAA Storm Events
     "NOAAStormEventsLoader",
     "NOAAWeatherLoader",
     "NSLKDDLoader",
     "PhysioNetLoader",
     "RealWorldBenchmarkSuite",
+    # UCI Robot Execution Failures (manipulator force/torque)
+    "RobotExecutionFailuresLoader",
     "SETILoader",
     "SMAPMSLLoader",
     "SMDLoader",

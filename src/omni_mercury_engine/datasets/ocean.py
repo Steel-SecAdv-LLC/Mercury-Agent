@@ -14,6 +14,7 @@ All data sources are free and require no authentication.
 from __future__ import annotations
 
 import io
+import json
 import logging
 from typing import Any
 
@@ -217,7 +218,7 @@ class NOAABuoyLoader(DatasetLoader):
                 loader_name="NOAABuoy",
                 source_url="https://www.ndbc.noaa.gov/",
                 reason=f"NOAA Buoy download failed: {e}",
-            )
+            ) from e
 
     def _process_buoy_data(
         self, df: pd.DataFrame
@@ -553,6 +554,267 @@ class NOAABuoyLoader(DatasetLoader):
         }
 
 
+class NOAACoOpsStationLoader(DatasetLoader):
+    """NOAA CO-OPS tide-station loader over real per-product observations.
+
+    Canonical port of ``validation.data_loaders.NOAAOceanLoader``, rebuilt on
+    the products the CO-OPS API actually serves. The validation-era loader
+    fetched one real channel (station water temperature) and generated the
+    other seventeen features with a seeded RNG while naming them
+    ``salinity_psu``, ``chlorophyll_mg_m3``, ``ph_level`` and so on, under
+    ``source="NOAA National Ocean Service"``. This loader fetches each real
+    product for one station (water temperature, air temperature, barometric
+    pressure, wind, water level), buckets them onto a shared hourly UTC grid,
+    and keeps only hours observed by every product — no value is imputed or
+    invented.
+
+    Labels mark marine-heatwave-like hours: water temperature at or above
+    the per-calendar-month 90th percentile *within the fetched window* (a
+    documented in-sample proxy, not a climatological baseline), i.e. a
+    threshold on a feature, so ``LABEL_SOURCE`` is ``"statistical"``.
+
+    API reference: https://api.tidesandcurrents.noaa.gov/api/prod/
+    (response schemas verified live 2026-10-26: scalar products carry
+    ``{"t": ..., "v": ...}`` rows; wind carries ``s``/``d``/``g``;
+    water level stays at 6-minute cadence whatever ``interval`` asks).
+    """
+
+    DATASET_NAME = "noaa_coops_station"
+    LABEL_SOURCE = "statistical"  # labels = SST >= in-window monthly p90 (threshold on a feature)
+    DATASET_URL = "https://tidesandcurrents.noaa.gov/"
+    LICENSE = "Public Domain (U.S. Government Work)"
+    CITATION = """NOAA Center for Operational Oceanographic Products and Services (CO-OPS).
+    https://tidesandcurrents.noaa.gov/"""
+    REQUIRES_CREDENTIALS = False
+
+    COOPS_API_URL = TrustedEndpoints.NOAA_NOS_API
+
+    #: (product, response value keys) fetched per station. Wind contributes
+    #: three channels from one call; the others one channel each.
+    #: ``hourly_height`` is the verified hourly water level; the 6-minute
+    #: ``water_level`` product refuses ranges beyond 31 days (HTTP 400).
+    SCALAR_PRODUCTS = ("water_temperature", "air_temperature", "air_pressure", "hourly_height")
+
+    FEATURE_NAMES = [
+        "water_temp_c",
+        "air_temp_c",
+        "air_pressure_mb",
+        "water_level_m",
+        "wind_speed_m_s",
+        "wind_dir_deg",
+        "wind_gust_m_s",
+        "hour_of_day",
+        "day_of_year",
+    ]
+
+    #: In-window percentile defining the heatwave-like label.
+    HEATWAVE_PERCENTILE = 90.0
+
+    def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
+        super().__init__(config)
+        self.station = str(config.preprocessing.get("station", "8454000"))
+        self.days_back = int(config.preprocessing.get("days_back", 60))
+        self._is_real_data = False
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real data was loaded."""
+        return self._is_real_data
+
+    def _real_cache_name(self) -> str:
+        """Cache name carries the station and window: both shape the matrix."""
+        return f"noaa_coops_real_{self.station}_{self.days_back}d.npz"
+
+    def download(self) -> bool:
+        """Fetch every product for the station and cache the aligned matrix."""
+        if self._download_from_coops():
+            return True
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("NOAACoOpsStation", "CO-OPS API failed")
+            return self._create_synthetic()
+        raise DataSourceUnavailableError(
+            loader_name="NOAACoOpsStation",
+            source_url=self.COOPS_API_URL,
+            reason="CO-OPS API failed",
+        )
+
+    def _fetch_product(self, product: str) -> list[dict[str, Any]]:
+        import urllib.parse
+        from datetime import UTC, datetime, timedelta
+
+        end = datetime.now(UTC)
+        begin = end - timedelta(days=self.days_back)
+        params = {
+            "begin_date": begin.strftime("%Y%m%d"),
+            "end_date": end.strftime("%Y%m%d"),
+            "station": self.station,
+            "product": product,
+            "datum": "MLLW",
+            "units": "metric",
+            "time_zone": "gmt",
+            "interval": "h",
+            "application": "Mercury-Agent",
+            "format": "json",
+        }
+        TrustedEndpoints.validate_url(self.COOPS_API_URL)
+        url = f"{self.COOPS_API_URL}?{urllib.parse.urlencode(params)}"
+        content = http_get_with_retry(url, timeout=120, timeout_per_attempt=30, retries=1)
+        payload = json.loads(content.decode("utf-8"))
+        rows = payload.get("data")
+        if not isinstance(rows, list) or not rows:
+            raise DataSourceUnavailableError(
+                loader_name="NOAACoOpsStation",
+                source_url=self.COOPS_API_URL,
+                reason=(
+                    f"CO-OPS returned no '{product}' rows for station {self.station}: "
+                    f"{str(payload)[:200]}"
+                ),
+            )
+        return rows
+
+    @staticmethod
+    def _bucket_scalar(rows: list[dict[str, Any]], key: str) -> dict[int, list[float]]:
+        """Hourly-bucketed finite samples of ``key`` keyed on whole UTC hours."""
+        from datetime import UTC, datetime
+
+        buckets: dict[int, list[float]] = {}
+        for row in rows:
+            stamp = row.get("t")
+            if not isinstance(stamp, str):
+                continue
+            try:
+                moment = datetime.strptime(stamp, "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
+                value = float(row[key])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not np.isfinite(value):
+                continue
+            buckets.setdefault(int(moment.timestamp() // 3600), []).append(value)
+        return buckets
+
+    def _download_from_coops(self) -> bool:
+        cache_file = self.data_path / self._real_cache_name()
+        if cache_file.exists():
+            logger.info(f"CO-OPS station data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+        try:
+            channels: dict[str, dict[int, list[float]]] = {}
+            for product in self.SCALAR_PRODUCTS:
+                channels[product] = self._bucket_scalar(self._fetch_product(product), "v")
+            wind_rows = self._fetch_product("wind")
+            channels["wind_speed"] = self._bucket_scalar(wind_rows, "s")
+            channels["wind_dir"] = self._bucket_scalar(wind_rows, "d")
+            channels["wind_gust"] = self._bucket_scalar(wind_rows, "g")
+
+            shared = sorted(set.intersection(*(set(b) for b in channels.values())))
+            if not shared:
+                logger.warning("CO-OPS products fetched but no hour was observed by every product")
+                return False
+            from datetime import UTC, datetime
+
+            order = (
+                "water_temperature",
+                "air_temperature",
+                "air_pressure",
+                "hourly_height",
+                "wind_speed",
+                "wind_dir",
+                "wind_gust",
+            )
+            rows: list[list[float]] = []
+            for bucket in shared:
+                moment = datetime.fromtimestamp(bucket * 3600, tz=UTC)
+                rows.append(
+                    [float(np.mean(channels[name][bucket])) for name in order]
+                    + [float(moment.hour), float(moment.timetuple().tm_yday)]
+                )
+            features = np.asarray(rows, dtype=np.float64)
+            labels = self._heatwave_labels(features, shared)
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._is_real_data = True
+            logger.info(
+                f"CO-OPS station {self.station} loaded: {len(features)} fully-observed "
+                f"hours, {int(labels.sum())} heatwave-like (is_real_data=True)"
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"CO-OPS download failed: {e}")
+            return False
+
+    def _heatwave_labels(
+        self, features: np.ndarray[Any, Any], buckets: list[int]
+    ) -> np.ndarray[Any, Any]:
+        """Water temperature at/above its in-window monthly p90."""
+        from datetime import UTC, datetime
+
+        months = np.asarray(
+            [datetime.fromtimestamp(b * 3600, tz=UTC).month for b in buckets], dtype=np.int64
+        )
+        water_temp = features[:, 0]
+        labels = np.zeros(len(features), dtype=np.int64)
+        for month in np.unique(months):
+            mask = months == month
+            cut = float(np.percentile(water_temp[mask], self.HEATWAVE_PERCENTILE))
+            labels[mask] = (water_temp[mask] >= cut).astype(np.int64)
+        return labels
+
+    def _create_synthetic(self) -> bool:
+        """Create a labelled synthetic station matrix (policy-gated callers only)."""
+        rng = np.random.default_rng(self.config.random_seed)
+        n = self.config.max_samples or 2000
+        day = rng.integers(1, 366, size=n).astype(np.float64)
+        seasonal = 12 + 8 * np.sin(2 * np.pi * (day - 120) / 365.0)
+        water_temp = seasonal + rng.normal(0, 1.2, size=n)
+        air_temp = water_temp + rng.normal(0, 3.0, size=n)
+        pressure = rng.normal(1015, 8, size=n)
+        water_level = rng.normal(0.6, 0.5, size=n)
+        wind_speed = np.clip(rng.gamma(2.0, 2.0, size=n), 0, 40)
+        wind_dir = rng.uniform(0, 360, size=n)
+        wind_gust = wind_speed * rng.uniform(1.1, 1.8, size=n)
+        hour = rng.integers(0, 24, size=n).astype(np.float64)
+        features = np.column_stack(
+            [
+                water_temp,
+                air_temp,
+                pressure,
+                water_level,
+                wind_speed,
+                wind_dir,
+                wind_gust,
+                hour,
+                day,
+            ]
+        ).astype(np.float64)
+        cut = float(np.percentile(water_temp, self.HEATWAVE_PERCENTILE))
+        labels = (water_temp >= cut).astype(np.int64)
+        cache_file = self.data_path / "noaa_coops_synthetic.npz"  # station-independent
+        np.savez_compressed(cache_file, features=features, labels=labels)
+        self._is_real_data = False
+        return True
+
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load the cached matrix (real preferred over synthetic)."""
+        for name, is_real in (
+            (self._real_cache_name(), True),
+            ("noaa_coops_synthetic.npz", False),
+        ):
+            cache_file = self.data_path / name
+            if cache_file.exists():
+                data = np.load(cache_file)
+                self._is_real_data = is_real
+                return data["features"], data["labels"]
+        raise FileNotFoundError(
+            f"No cached CO-OPS data under {self.data_path}; call download() first."
+        )
+
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """No-op: rows are already aligned, fully observed and finite."""
+        return data
+
+
 # Register ocean loaders
 DatasetRegistry.register("noaa_buoy", NOAABuoyLoader)
 DatasetRegistry.register("ocean-buoy", NOAABuoyLoader)
+DatasetRegistry.register("noaa_coops_station", NOAACoOpsStationLoader)

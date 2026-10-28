@@ -259,14 +259,18 @@ class _FallbackVoice:
                 "message": "Mercury Agent operational. Running in fallback mode. "
                 "Full narrative capabilities require numpy installation.",
                 "confidence": 0.9,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
                 "intent": "status",
-                "sources": ["system_status"],
+                # No status source is consulted on this fallback path; the
+                # old ["system_status"] claimed one was.
+                "sources": [],
             }
         elif any(kw in message_lower for kw in ["hello", "hi", "hey"]):
             return {
                 "message": "Hello. Mercury Agent at your service. "
                 "Currently running with limited conversational capability.",
                 "confidence": 0.95,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
                 "intent": "greeting",
                 "sources": [],
             }
@@ -275,6 +279,7 @@ class _FallbackVoice:
                 "message": "I can help with anomaly detection and monitoring. "
                 "Ask about system status, recent detections, or submit data for analysis.",
                 "confidence": 0.9,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
                 "intent": "help",
                 "sources": [],
             }
@@ -283,6 +288,7 @@ class _FallbackVoice:
                 "message": f"I received your query: '{message[:100]}'. "
                 "For detailed analysis, please use the detection endpoints.",
                 "confidence": 0.7,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
                 "intent": "unknown",
                 "sources": [],
             }
@@ -292,6 +298,7 @@ class _FallbackVoice:
         return {
             "message": "Mercury Agent online and monitoring. How can I assist you?",
             "confidence": 1.0,
+            "confidence_basis": "fixed greeting; not a calibrated NLU score",
             "intent": "greeting",
             "sources": [],
         }
@@ -376,7 +383,7 @@ async def speak(request: SpeakRequest) -> VoiceResponseModel:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred while processing the message.",
-        )
+        ) from e
 
 
 @router.post(
@@ -463,7 +470,7 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred while generating narration.",
-        )
+        ) from e
 
 
 @router.get(

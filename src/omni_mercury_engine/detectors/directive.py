@@ -1,8 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""DEPRECATED: This module uses Mercury's mercury_ml (PCA) for anomaly detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This module is retained for reference only.
+"""Sigma Directive detector: the PCP, GSIS, RMD and EOA protocols, with optional quantum containment and nano-scale detection.
 
-Original: Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
+It is a production member of the detector suite: the engine's default detector
+map, the multi-agent orchestrator's default agents, and the detector registry all
+construct it. It is one detector in the ensemble, not a replacement for
+MercuryAnomalyDetector (detectors/statistical.py), which is a separate detector.
 
 Enhanced with quantum pattern containment and nano-scale detection for
 critical applications in medical diagnostics, geological monitoring,
@@ -19,16 +22,9 @@ Memory Management:
 
 from __future__ import annotations
 
-import math
-import warnings
-
-warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
-    DeprecationWarning,
-    stacklevel=2,
-)
 import hashlib
 import logging
+import math
 import threading
 from collections import deque
 from dataclasses import dataclass, field

@@ -179,78 +179,49 @@ class TestMatrixProfileAdapter:
         adapter = MatrixProfileAdapter(config=config)
         assert adapter.config.window_size == 50
 
-    def test_matrix_profile_detect_without_package_hard_fails(
+    def test_matrix_profile_detect_works_with_or_without_stumpy(
         self, time_series_with_anomaly: Any
     ) -> None:
-        """``MatrixProfileAdapter.detect`` must raise ``NotImplementedError``
-        when ``stumpy`` is not installed.
+        """``MatrixProfileAdapter.detect`` runs on either backend.
 
-        Phase 2 audit cure (commit 4d29bf1) doctrine: the silent
-        mock-fallback path that synthesised matrix-profile scores when
-        STUMPY was missing was removed.  An anomaly-detection adapter
-        that pretends to be working when its core dependency is absent
-        is a worse failure mode than a hard error — it leaks
-        scientifically meaningless scores into downstream consumers.
-        This test pins the post-cure contract: no STUMPY → hard fail.
-
-        When ``stumpy`` *is* installed, exercise the real detection path
-        and assert the schema of the result so the contract is positive
-        (rather than degrading to xfail when the dep happens to be
-        present).
+        Phase 2 audit cure (commit 4d29bf1) doctrine stands: an adapter
+        must never synthesise scores when its computation is unavailable.
+        The computation is now always available — STUMPY when installed,
+        the Mercury-native numpy STOMP backend otherwise, pinned
+        equivalent by ``tests/ml/test_matrix_profile_native.py`` — so the
+        contract is positive in both environments: real detection with a
+        full result schema, no import branch.
         """
         from omni_mercury_engine.models.foundation import MatrixProfileAdapter
 
         adapter = MatrixProfileAdapter()
-        try:
-            import stumpy  # noqa: F401
-        except ImportError:
-            with pytest.raises(NotImplementedError, match="STUMPY not installed"):
-                adapter.detect(time_series_with_anomaly)
-            return
-
         result = adapter.detect(time_series_with_anomaly)
         assert "scores" in result
         assert "is_anomaly" in result
         assert "discords" in result
 
-    def test_matrix_profile_find_motifs_without_package_hard_fails(
+    def test_matrix_profile_find_motifs_works_with_or_without_stumpy(
         self, univariate_data: Any
     ) -> None:
-        """``MatrixProfileAdapter.find_motifs`` must raise
-        ``NotImplementedError`` without ``stumpy`` — same contract as
-        ``detect``.  See ``test_matrix_profile_detect_without_package_hard_fails``.
+        """``find_motifs`` runs on either backend — same contract as
+        ``detect``.  See ``test_matrix_profile_detect_works_with_or_without_stumpy``.
         """
         from omni_mercury_engine.models.foundation import MatrixProfileAdapter
 
         adapter = MatrixProfileAdapter()
-        try:
-            import stumpy  # noqa: F401
-        except ImportError:
-            with pytest.raises(NotImplementedError, match="STUMPY not installed"):
-                adapter.find_motifs(univariate_data, top_k=3)
-            return
-
         motifs = adapter.find_motifs(univariate_data, top_k=3)
         assert motifs is not None
         assert isinstance(motifs, list)
 
-    def test_matrix_profile_find_discords_without_package_hard_fails(
+    def test_matrix_profile_find_discords_works_with_or_without_stumpy(
         self, time_series_with_anomaly: Any
     ) -> None:
-        """``MatrixProfileAdapter.find_discords`` must raise
-        ``NotImplementedError`` without ``stumpy`` — same contract as
-        ``detect``.  See ``test_matrix_profile_detect_without_package_hard_fails``.
+        """``find_discords`` runs on either backend — same contract as
+        ``detect``.  See ``test_matrix_profile_detect_works_with_or_without_stumpy``.
         """
         from omni_mercury_engine.models.foundation import MatrixProfileAdapter
 
         adapter = MatrixProfileAdapter()
-        try:
-            import stumpy  # noqa: F401
-        except ImportError:
-            with pytest.raises(NotImplementedError, match="STUMPY not installed"):
-                adapter.find_discords(time_series_with_anomaly, top_k=5)
-            return
-
         discords = adapter.find_discords(time_series_with_anomaly, top_k=5)
         assert discords is not None
         assert isinstance(discords, list)
@@ -347,12 +318,9 @@ class TestFoundationEnsemble:
 
     def test_ensemble_detect(self, time_series_with_anomaly: Any) -> None:
         """Test Foundation Ensemble anomaly detection."""
-        # The default ensemble's only member is matrix_profile, which
-        # deliberately hard-fails without stumpy (no silent mock degradation),
-        # so the default ensemble is unusable when stumpy is absent. Skip to
-        # match the optional-dependency contract of the sibling ensemble and
-        # matrix_profile tests.
-        pytest.importorskip("stumpy")
+        # The default ensemble's only member is matrix_profile, which now
+        # runs on the Mercury-native backend when stumpy is absent, so the
+        # default ensemble is operational in both environments.
         from omni_mercury_engine.models.foundation import FoundationEnsemble
 
         ensemble = FoundationEnsemble()

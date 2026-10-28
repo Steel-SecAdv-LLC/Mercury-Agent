@@ -1517,7 +1517,10 @@ class MetaLearningAdapter:
         return {
             "epochs": epochs,
             "loss": losses[-1] if losses else 0.0,
-            "accuracy": 1.0 - (losses[-1] if losses else 0.0),  # Approximate accuracy
+            # No accuracy field: 1 - loss is not an accuracy (it could go
+            # negative, and read 1.0 when nothing trained). Accuracy here
+            # would need a labelled evaluation this method does not run.
+            "accuracy": None,
             "final_loss": losses[-1] if losses else 0.0,
             "loss_history": losses,
         }

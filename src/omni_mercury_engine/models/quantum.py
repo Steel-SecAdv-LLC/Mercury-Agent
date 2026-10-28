@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.detectors.provenance import DecisionSource
+from omni_mercury_engine.models.fitted_reference import FittedReferenceScorer
 
 
 class ErrorCorrectionCode(Enum):
@@ -56,17 +57,26 @@ class DecoherenceConfig:
     t2_time: float = 50.0  # Dephasing time (microseconds)
 
 
-class QuantumAnomalyModel:
-    """Quantum-inspired anomaly detection using quantum state representations."""
+class QuantumAnomalyModel(FittedReferenceScorer):
+    """Quantum-inspired features scored as deviation from a fitted reference.
+
+    The pre-2026-10-27 score averaged three fixed-direction heuristics
+    (amplitude std, phase std, entanglement) with no fitted notion of
+    normal - measured *below chance* (0.33) against clean windows on a
+    planted 12-sigma burst, because clean noise carries more raw spread
+    than real telemetry. The quantum-state feature embedding is kept; the
+    anomaly score is now the calibrated deviation of those features from a
+    reference fitted on normal data (:class:`FittedReferenceScorer`).
+    """
 
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "Anomaly score is the mean of three quantum-state heuristics "
-            "(amplitude std, phase std, 1 - 2^-entanglement over an "
-            "amplitude-encoded embedding of the input): a quantum-inspired "
-            "heuristic with no published threshold and no labelled corpus "
-            "to calibrate one; verdicts are experimental."
+            "Calibrated robust deviation of quantum-state features "
+            "(amplitudes, phases, entanglement, coherence) from a reference "
+            "fitted on normal data; direction-free by construction; no "
+            "labelled quantum-domain corpus backs a domain tier yet, so "
+            "verdicts remain experimental."
         ),
     )
 
@@ -159,11 +169,18 @@ class QuantumAnomalyModel:
 
         quantum_states = self._create_quantum_state(data)
 
+        # Pad ONCE at the state level so every derived quantity (amplitudes,
+        # phases, probs, phasor coherence) shares one width. Padding only the
+        # amplitude array left ``quantum_states`` narrower and crashed the
+        # phasor product on any input with fewer than 8 columns (latent until
+        # tabular inputs reached this model on 2026-10-27).
+        if quantum_states.shape[1] < 8:
+            quantum_states = np.pad(
+                quantum_states, ((0, 0), (0, 8 - quantum_states.shape[1])), mode="constant"
+            )
+
         amplitudes = np.abs(quantum_states).astype(np.float32)
         phases = np.angle(quantum_states).astype(np.float32)
-
-        if amplitudes.shape[1] < 8:
-            amplitudes = np.pad(amplitudes, ((0, 0), (0, 8 - amplitudes.shape[1])), mode="constant")
 
         if phases.shape[1] < 4:
             phases = np.pad(phases, ((0, 0), (0, 4 - phases.shape[1])), mode="constant")
@@ -238,8 +255,17 @@ class QuantumAnomalyModel:
         }
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
-        """Predict anomalies using quantum state analysis."""
-        return self._score_feature_matrix(self.extract_features(data))
+        """Score rows as calibrated deviation from the fitted reference.
+
+        Raises:
+            RuntimeError: Called before :meth:`fit` - the retired
+                fixed-direction heuristic is refused, never served.
+        """
+        features = self.extract_features(data)
+        result = self._score_feature_matrix(features)
+        result.update(self.score_features(features.astype(np.float64)))
+        result["anomaly_score_basis"] = self.decision_source.description
+        return result
 
     def apply_decoherence_resilience(
         self, noise_level: float = 0.01, error_correction: bool = True
@@ -589,8 +615,12 @@ class QuantumAnomalyModel:
             # Update features with corrected states
             features[:, :8] = np.real(quantum_states)
 
-        # Continue with normal prediction using (possibly corrected) features
+        # Continue with normal prediction using (possibly corrected) features:
+        # the fitted-reference score is computed on the SAME noise-modified
+        # matrix the payload describes, never silently re-extracted.
         result: dict[str, Any] = self._score_feature_matrix(features)
+        result.update(self.score_features(np.asarray(features, dtype=np.float64)))
+        result["anomaly_score_basis"] = self.decision_source.description
 
         # Add decoherence metrics if enabled
         if self._decoherence_config is not None:

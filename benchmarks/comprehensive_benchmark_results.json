@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-10-27 00:22:55 UTC",
+  "benchmarks": {
+    "module_instantiation": {
+      "1_module_ms": 0.012159347534179688,
+      "5_modules_ms": 0.07748603820800781,
+      "all_modules_ms": 0.04696846008300781,
+      "module_count": 12
+    },
+    "space_exploration": {
+      "runtime_ms": 0.16021728515625,
+      "throughput_samples_per_sec": 3744914.285714286,
+      "anomaly_detected": true,
+      "severity": "low",
+      "data_source": "synthetic_orbit"
+    },
+    "simulation": {
+      "collatz_exploration_ms": 48.514604568481445,
+      "collatz_cases_per_sec": 103061.74902326953,
+      "millennium_analysis_ms": 0.021696090698242188,
+      "multiverse_prediction_ms": 3.649473190307617,
+      "prediction_throughput_samples_per_sec": 27401.215130332526
+    },
+    "cosmic_ray": {
+      "runtime_ms": 0.24747848510742188,
+      "throughput_samples_per_sec": 4040755.2986512524,
+      "precision": 1.0,
+      "recall": 0.85,
+      "f1": 0.9189189189189189,
+      "cosmic_ray_events_detected": 176,
+      "expected_anomalies": 100,
+      "severity": "critical",
+      "data_source": "synthetic_labeled"
+    },
+    "nsl_kdd": {
+      "dataset": "NSL-KDD",
+      "domain": "security",
+      "num_samples": 10000,
+      "num_features": 41,
+      "precision": 0.19211102994886778,
+      "recall": 0.1315,
+      "f1": 0.15612941525675272,
+      "roc_auc": 0.49822106250000003,
+      "runtime_seconds": 5.01055383682251,
+      "data_source": "synthetic-fallback",
+      "bias_metrics": {}
+    },
+    "mimic_demo": {
+      "dataset": "MIMIC-III Demo",
+      "domain": "medical",
+      "num_samples": 1000,
+      "num_features": 30,
+      "precision": 0.9803921568627451,
+      "recall": 1.0,
+      "f1": 0.99009900990099,
+      "roc_auc": 1.0,
+      "runtime_seconds": 0.4293179512023926,
+      "data_source": "synthetic-mimic-demo",
+      "bias_metrics": {}
+    }
+  }
+}

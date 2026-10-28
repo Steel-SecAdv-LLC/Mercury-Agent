@@ -668,13 +668,13 @@ async def detect_three_r(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="3R module is not available.",
-        )
+        ) from e
     except Exception as e:
         logger.error("3R detection failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during detection.",
-        )
+        ) from e
 
 
 class TierDetectRequest(BaseModel):
@@ -786,13 +786,13 @@ async def detect_tier(
 
     except ValueError as e:
         # Bad request: unknown detector name, stacking-without-labels, bad alpha.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         logger.error("Tier detection failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during tier detection.",
-        )
+        ) from e
 
 
 class FlagshipDetectRequest(BaseModel):

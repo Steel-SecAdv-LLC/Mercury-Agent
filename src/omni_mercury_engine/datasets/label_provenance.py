@@ -41,6 +41,7 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
+import logging
 import pkgutil
 from dataclasses import dataclass
 
@@ -49,6 +50,8 @@ from omni_mercury_engine.datasets.metadata import (
     GENUINE_LABEL_SOURCES,
     VALID_LABEL_SOURCES,
 )
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # The committed audit. Key: "<module_basename>.<ClassName>". Value:
@@ -151,10 +154,41 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "independent of the kinematic features Mercury scores. "
         "DOI 10.11583/DTU.21511815.",
     ),
+    "robot_failures.RobotExecutionFailuresLoader": (
+        "ground_truth",
+        "Each of the 463 manipulator executions carries its observed task "
+        "outcome (normal/ok vs collision, obstruction, part lost, ...) "
+        "annotated by the dataset authors at run time - event ground truth "
+        "independent of the force/torque features Mercury scores. UCI 138, "
+        "DOI 10.24432/C5M89N (CC BY 4.0).",
+    ),
+    "uav_flight.ALFAUAVLoader": (
+        "ground_truth",
+        "Fault windows recorded by the onboard failure_status ROS topics at "
+        "the instant the safety pilot injected each real actuator fault "
+        "(engine, aileron, rudder, elevator) mid-flight; event ground truth "
+        "independent of the telemetry features Mercury scores. "
+        "DOI 10.1184/R1/12707963 (CC0).",
+    ),
     # --- Manufactured / synthetic (statistical) -- excluded from headline -
     "environmental.USGSEarthquakeLoader": (
         "statistical",
-        "Labels = magnitude>=5 OR depth>300 threshold on feature columns.",
+        "Labels = magnitude>=significant_magnitude (default 5) OR "
+        "depth>deep_focus_km (default 300) threshold on feature columns.",
+    ),
+    "hurricane.NOAAHurricaneLoader": (
+        "statistical",
+        "Labels = HURDAT2 max wind >= 96 kt (Saffir-Simpson Category 3), a "
+        "threshold on the wind feature itself.",
+    ),
+    "ocean.NOAACoOpsStationLoader": (
+        "statistical",
+        "Labels = station water temperature >= the in-window monthly 90th "
+        "percentile, a threshold on the temperature feature itself.",
+    ),
+    "space_weather.NOAASpaceWeatherLoader": (
+        "statistical",
+        "Labels = hourly Kp >= storm_threshold (G1 = 5), a threshold on the " "Kp feature itself.",
     ),
     "environmental.NOAAWeatherLoader": (
         "statistical",
@@ -275,6 +309,9 @@ def discover_loaders() -> dict[str, type[DatasetLoader]]:
         try:
             importlib.import_module(mod.name)
         except Exception:
+            logger.debug(
+                "Loader module %s not importable; no classes contributed", mod.name, exc_info=True
+            )
             # A loader whose optional deps are absent still has its class
             # defined once imported elsewhere; an unimportable module simply
             # contributes no classes here. Import hygiene is covered by other

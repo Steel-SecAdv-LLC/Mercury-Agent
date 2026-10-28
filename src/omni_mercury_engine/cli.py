@@ -35,7 +35,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
                 )
             else:
                 click.echo(f"Error: Failed to load ML engine - {e}")
-            raise SystemExit(1)
+            raise SystemExit(1) from e
     return OmniMercuryEngine(*args, **kwargs)
 
 
@@ -1036,10 +1036,10 @@ def physics_spectral(
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         click.echo(f"Error during spectral analysis: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @physics.command("dynamics")
@@ -1117,10 +1117,10 @@ def physics_dynamics(
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         click.echo(f"Error during dynamics analysis: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @physics.command("uiux")
@@ -1253,13 +1253,13 @@ def physics_uiux(
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except json.JSONDecodeError as e:
         click.echo(f"Error: Invalid JSON in input file - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         click.echo(f"Error during UI/UX analysis: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @physics.command("integrated")
@@ -1424,10 +1424,10 @@ def physics_integrated(
 
     except ImportError as e:
         click.echo(f"Error: Required dependencies not available - {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         click.echo(f"Error during integrated analysis: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @physics.command("list")
@@ -1564,14 +1564,14 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
             reload=reload,
             log_level=log_level,
         )
-    except ImportError:
+    except ImportError as exc:
         click.echo(
             "Error: uvicorn is required for the API server. " "Install with: pip install uvicorn"
         )
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
     except Exception as e:
         click.echo(f"Error starting server: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
 
 @main.command()
@@ -2305,23 +2305,27 @@ class _FallbackVoice:
             return {
                 "message": "Mercury Agent operational. Running in fallback mode.",
                 "confidence": 0.9,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
             }
         elif any(kw in msg_lower for kw in ["hello", "hi"]):
             return {
                 "message": "Hello. Mercury Agent at your service.",
                 "confidence": 0.95,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
             }
         elif any(kw in msg_lower for kw in ["help", "what can"]):
             return {
                 "message": "I can help with anomaly detection and monitoring. "
                 "Use the detect command for analysis, or ask about system status.",
                 "confidence": 0.9,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
             }
         else:
             return {
                 "message": "I received your query. For detailed analysis, "
                 "please use the detect command with your data file.",
                 "confidence": 0.7,
+                "confidence_basis": "keyword-rule match; not a calibrated NLU score",
             }
 
     def greet(self, domain: str | None = None) -> dict[str, Any]:
@@ -2329,6 +2333,7 @@ class _FallbackVoice:
         return {
             "message": "Mercury Agent online. How can I assist you?",
             "confidence": 1.0,
+            "confidence_basis": "fixed greeting; not a calibrated NLU score",
         }
 
     def get_conversation_history(self) -> list[Any]:

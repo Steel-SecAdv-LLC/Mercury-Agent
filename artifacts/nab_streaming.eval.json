@@ -1,0 +1,42 @@
+{
+  "dataset": "NAB (Numenta Anomaly Benchmark, MIT; committed fixture)",
+  "detector": "MercuryAnomalyDetector (trained statistical ensemble)",
+  "protocol": {
+    "feature_window": 20,
+    "warmup_fraction": 0.15,
+    "features": [
+      "value",
+      "rolling_zscore",
+      "first_difference",
+      "rolling_std"
+    ],
+    "leak_free": "causal features; fitted on warmup prefix preceding all labeled windows"
+  },
+  "per_stream": {
+    "realTraffic/speed_7578.csv": {
+      "n_points": 1127,
+      "n_anomalous": 116,
+      "warmup": 169,
+      "auroc": 0.8395855516422311
+    },
+    "realKnownCause/rogue_agent_key_hold.csv": {
+      "n_points": 1882,
+      "n_anomalous": 190,
+      "warmup": 282,
+      "auroc": 0.6613885778275476
+    },
+    "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+      "n_points": 1243,
+      "n_anomalous": 126,
+      "warmup": 186,
+      "auroc": 0.6862479327570628
+    },
+    "realAdExchange/exchange-3_cpc_results.csv": {
+      "n_points": 1538,
+      "n_anomalous": 153,
+      "warmup": 230,
+      "auroc": 0.7284441049146931
+    }
+  },
+  "mean_auroc": 0.7289165417853837
+}

@@ -593,6 +593,8 @@ class TrustedEndpoints:
             "simonscmap.com",
             # Copernicus Climate Data Store
             "cds.climate.copernicus.eu",
+            # OpenSky Network (live ADS-B aircraft states; anonymous REST)
+            "opensky-network.org",
             # Academic/Research Datasets
             "archive.ics.uci.edu",
             "ndownloader.figshare.com",  # DTU Data AIS sets (DOI 10.11583/DTU.21511815, .21511842)
@@ -811,13 +813,28 @@ class TrustedEndpoints:
     NOAA_SWPC_PROTONS = (
         "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json"
     )
+    NOAA_SWPC_PROTONS_7DAY = (
+        "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-7-day.json"
+    )
     NOAA_SWPC_KP_PRODUCTS = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+    # Maintained combined plasma+IMF product (header row + value rows:
+    # time_tag, speed, density, temperature, bx, by, bz, bt, vx, vy, vz,
+    # propagated_time_tag), ~7 days at 1-minute cadence. The older
+    # products/solar-wind/* paths 404 since 2026. Verified live 2026-10-26.
+    NOAA_SWPC_SOLAR_WIND = (
+        "https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind.json"
+    )
 
     # ==========================================================================
     # NOAA - National Hurricane Center
     # ==========================================================================
     NOAA_NHC_ARCHIVE = "https://www.nhc.noaa.gov/gis/forecast/archive"
-    NOAA_NHC_HURDAT2 = "https://www.nhc.noaa.gov/gis/forecast/archive/hurdat2-1851-2023-052424.txt"
+    # HURDAT2 best-track home. Filenames are date-stamped and churn with each
+    # reanalysis release; loaders resolve the newest ``hurdat2-1851-*.txt``
+    # from the index and fall back to the pinned known-good file. The old
+    # gis/forecast/archive copy 404s (verified 2026-10-26).
+    NOAA_NHC_HURDAT2_INDEX = "https://www.nhc.noaa.gov/data/hurdat/"
+    NOAA_NHC_HURDAT2 = "https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2024-040425.txt"
 
     # ==========================================================================
     # NOAA - National Ocean Service / Tides
@@ -1010,6 +1027,30 @@ class TrustedEndpoints:
     # ==========================================================================
     BATADAL_TRAIN = "https://www.batadal.net/data/BATADAL_dataset03.csv"
     BATADAL_TEST = "https://www.batadal.net/data/BATADAL_dataset04.csv"
+
+    # ==========================================================================
+    # OpenSky Network — live ADS-B aircraft state vectors
+    # ==========================================================================
+    # Anonymous REST access (rate-limited); crowd-sourced real ADS-B/Mode S
+    # receptions. https://openskynetwork.github.io/opensky-api/rest.html
+    OPENSKY_STATES = "https://opensky-network.org/api/states/all"
+
+    # ==========================================================================
+    # UCI ML Repository — Robot Execution Failures (dataset 138, CC BY 4.0)
+    # ==========================================================================
+    # Real manipulator force/torque with observed execution outcomes; the
+    # loader pins the archive's SHA-256 and reads only the lp*.data members.
+    UCI_ROBOT_FAILURES = (
+        "https://archive.ics.uci.edu/static/public/138/robot+execution+failures.zip"
+    )
+
+    # ==========================================================================
+    # ALFA — CMU AIR Lab UAV Failure and Anomaly Dataset (CC0)
+    # ==========================================================================
+    # ``processed.zip`` of figshare article 12707963 (DOI
+    # 10.1184/R1/12707963): 47 fixed-wing flight sequences with real
+    # mid-flight actuator faults. The loader pins the archive's SHA-256.
+    ALFA_UAV_PROCESSED = "https://ndownloader.figshare.com/files/24095870"
 
     # ==========================================================================
     # Domain Loader Endpoints (added for Mercury domain wiring)

@@ -864,7 +864,14 @@ def create_weather_service(
         "stub": WeatherAPIProvider.STUB,
     }
 
-    provider_enum = provider_map.get(provider.lower(), WeatherAPIProvider.STUB)
+    # An unrecognised provider string must not silently become stub data:
+    # with use_real_api=True a typo would otherwise serve RNG prices as real.
+    try:
+        provider_enum = provider_map[provider.lower()]
+    except KeyError:
+        raise ValueError(
+            f"unknown provider {provider!r}; expected one of {sorted(provider_map)}"
+        ) from None
 
     return WeatherService(
         provider=provider_enum,

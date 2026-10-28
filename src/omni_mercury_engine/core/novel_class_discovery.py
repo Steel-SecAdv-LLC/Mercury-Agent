@@ -22,7 +22,9 @@ from __future__ import annotations
 import warnings
 
 warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    f"{__name__} is deprecated: no shipped module replaces its novel-class "
+    "discovery (AnomalyNCD-style clustering); it is retained for reference "
+    "until a port or a removal is announced for a specific release.",
     DeprecationWarning,
     stacklevel=2,
 )

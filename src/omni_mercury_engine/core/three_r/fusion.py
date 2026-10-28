@@ -44,11 +44,25 @@ class OmniAvaEquation:
        contract.
     3. Golden-ratio (Φ) weight proportions across the three components.
 
-    What it is NOT: an ethical gate. The historical ``* η_Ethical^Φ`` factor is
-    removed — see :meth:`compute`. No claim of "superiority over baselines" is
-    made here either; measured head-to-head figures live in
-    ``CAPABILITY_MATRIX.md``, which currently records fusion *below* the PyOD
-    baselines on the ADBench quick subset.
+    Ethics in the equation. The served form is a gate composition, not a
+    soft multiplier::
+
+        A = [Gate_harm-uplift ∘ Gate_σ-Immutable](w_R·R(x) + w_H·H(ω) + w_O·O(θ))
+
+    where the gates are hard preconditions at every decision surface
+    (``cognitive/decision_gate.py``; ``security/sigma_immutable_gate.py``,
+    threshold 0.93): a refused sample raises
+    ``EthicalConstraintViolationError`` and no score is served at all. That
+    is strictly stronger than the historical ``* η_Ethical^Φ`` factor this
+    class used to apply, which on every production path was a per-instance
+    constant (0.96^1.618 = 0.9359) — it rescaled every score identically,
+    could not change a ranking or block anything, and implied an ethics
+    control was acting where none was (see :meth:`compute`). η_Ethical
+    itself is retained: validated, clamped, sealed against mutation at
+    construction, and reported on every result as provenance.
+
+    No claim of "superiority over baselines" is made here either; measured
+    head-to-head figures live in ``CAPABILITY_MATRIX.md``.
 
     The weights w_R, w_H, w_O are learned via attention fusion and sum to 1.0.
     Default initialization uses golden ratio proportions for optimal harmony.
@@ -333,9 +347,13 @@ class OmniAvaEquation:
             if ratio > 0:
                 estimated_lambda = -np.log(ratio) / self.time_step
             else:
-                estimated_lambda = self.lambda_lyapunov
+                # Degenerate recent window (zero variance): no rate is
+                # measurable. Returning the configured target here reported
+                # the goal as the measurement.
+                return False, 0.0
         else:
-            estimated_lambda = self.lambda_lyapunov
+            # Degenerate initial window: nothing to measure against.
+            return False, 0.0
 
         is_stable = bool(estimated_lambda > 0)
         return is_stable, float(estimated_lambda)

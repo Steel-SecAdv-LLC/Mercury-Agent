@@ -1,15 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Neuro-Symbolic Benchmark Suite - 200 Epoch Training with Visualization.
+"""Neuro-symbolic cognitive-stack integration demo (NOT a performance benchmark).
 
-This module runs comprehensive benchmarks for the neuro-symbolic evolution,
-generating publication-quality visualizations for:
-- Confidence evolution over epochs
-- Domain competence heatmaps
-- Anomaly detection precision/recall
-- Ethical benevolence scores
-- Memory growth curves
-- Neural-symbolic fusion metrics
+Scope, stated plainly: this exercises the full cognitive stack (agent
+planning, neuro-symbolic fusion, benevolence scoring, memory) over a small
+set of **hand-authored illustrative scenarios** and visualizes how its
+internal signals evolve across epochs. The scenarios are built to be
+separable, so the precision/recall and per-domain numbers here are an
+integration smoke, not a measure of real anomaly-detection skill. On real
+labeled streams the neuro-symbolic memory layer's own point score is at
+chance - its token vectorizer bins numeric values coarsely and loses the
+signal. For a real-data measurement of Mercury's detection -> symbolic
+decision pipeline, see ``benchmarks/nab_streaming_benchmark.py`` (NAB
+labeled streams, AUROC 0.73 mean).
+
+The panels (confidence/benevolence evolution, memory-type growth, domain
+heatmap, fusion contribution) are aggregated from the run's real internal
+signals - no fabricated numbers - but they describe behavior on the
+authored scenarios, not field performance.
 """
 
 import json
@@ -26,6 +34,7 @@ import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 from matplotlib.gridspec import GridSpec
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -36,11 +45,12 @@ from omni_mercury_engine.agentic.mercury_a_agent import (
     create_mercury_agent,
 )
 from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
     BenevolenceScorer,
 )
+from omni_mercury_engine.cognitive.neural_memory_layer import MemoryType
 from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
     FusionStrategy,
-    MemoryType,
     NeurosymbolicFusionEngine,
 )
 
@@ -101,6 +111,10 @@ class EpochMetrics:
     anomaly_precision: float
     anomaly_recall: float
     memory_entries: int
+    short_term_count: int
+    long_term_count: int
+    episodic_count: int
+    semantic_count: int
     patterns_detected: int
     rules_fired: int
     execution_time_ms: float
@@ -249,12 +263,11 @@ def register_mock_tools(agent: MercuryAgent) -> None:
     agent.register_tool("query_database", query_database)
 
 
-def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
-    """
-    Run the full neuro-symbolic benchmark suite.
+def run_neuro_symbolic_benchmark(epochs: int = 50) -> dict[str, Any]:
+    """Run the full neuro-symbolic benchmark suite.
 
     Args:
-        epochs: Number of training epochs (default 200)
+        epochs: Number of demo epochs (default 50)
 
     Returns:
         Complete benchmark results with metrics and visualizations
@@ -270,13 +283,17 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
         embedding_dim=64,
         n_clusters=8,
         confidence_threshold=0.7,
-        benevolence_threshold=0.99,
+        # Renamed from benevolence_threshold when the float stopped being a
+        # pass-bar (it is advisory; the harm-uplift gate decides) — this
+        # benchmark was left calling the old name and could not run.
+        benevolence_review_threshold=0.99,
         fusion_strategy=FusionStrategy.CONFIDENCE_WEIGHTED,
     )
 
-    benevolence_scorer = BenevolenceScorer(
-        benevolence_threshold=0.99,
-    )
+    # Default threshold = MINIMUM_BENEVOLENCE_FLOOR (0.70), the advisory
+    # reporting floor. The 0.99 this demo used to pass is the retired
+    # pass-bar; only score_action is called here, never enforce.
+    benevolence_scorer = BenevolenceScorer()
 
     agent = create_mercury_agent(
         name="Mercury-NeuroSymbolic",
@@ -289,6 +306,19 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
 
     # Tracking metrics
     epoch_metrics: list[EpochMetrics] = []
+
+    # Real per-domain accumulation for the competence heatmap. Each
+    # scenario's domain records the actual confidence, benevolence and
+    # anomaly-call correctness it produced, aggregated across every epoch
+    # - replacing an earlier np.random fabrication of these numbers.
+    # ``success_rate`` is intentionally not a heatmap axis here: these
+    # scenarios are pure-reasoning plans that bind no tools, so the
+    # agent's honest success_rate is a structural 0.0 (no task executes),
+    # which would read as failure rather than "not applicable".
+    domain_metrics: dict[str, dict[str, list[float]]] = {
+        domain: {"confidence": [], "benevolence": [], "anomaly_correct": []}
+        for domain in DOMAIN_COLORS
+    }
 
     # Simulated ground truth for precision/recall
     true_positives = 0
@@ -330,8 +360,10 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
             )
 
             # Collect metrics
-            epoch_confidences.append(result.get("plan_confidence", 0.76))
-            epoch_success_rates.append(result.get("execution", {}).get("success_rate", 1.0))
+            scenario_confidence = result.get("plan_confidence", 0.76)
+            scenario_success = result.get("execution", {}).get("success_rate", 1.0)
+            epoch_confidences.append(scenario_confidence)
+            epoch_success_rates.append(scenario_success)
             epoch_neural_contrib.append(fusion_result.neural_contribution)
             epoch_symbolic_contrib.append(fusion_result.symbolic_contribution)
             epoch_benevolence.append(ethical_score.benevolence_score)
@@ -351,6 +383,15 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
             else:
                 true_negatives += 1
 
+            # Record the real per-domain metrics for the heatmap.
+            domain_key = scenario["domain"].value
+            if domain_key in domain_metrics:
+                domain_metrics[domain_key]["confidence"].append(scenario_confidence)
+                domain_metrics[domain_key]["benevolence"].append(ethical_score.benevolence_score)
+                domain_metrics[domain_key]["anomaly_correct"].append(
+                    1.0 if predicted_anomaly == actual_anomaly else 0.0
+                )
+
         epoch_time = (time.perf_counter() - epoch_start) * 1000
 
         # Calculate precision/recall for this epoch
@@ -360,14 +401,11 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
         # Get memory stats
         agent_state = agent.get_state()
         memory_stats = agent_state.get("memory", {})
-        total_memory = sum(
-            [
-                memory_stats.get("short_term_count", 0),
-                memory_stats.get("long_term_count", 0),
-                memory_stats.get("episodic_count", 0),
-                memory_stats.get("semantic_count", 0),
-            ]
-        )
+        short_term_count = int(memory_stats.get("short_term_count", 0))
+        long_term_count = int(memory_stats.get("long_term_count", 0))
+        episodic_count = int(memory_stats.get("episodic_count", 0))
+        semantic_count = int(memory_stats.get("semantic_count", 0))
+        total_memory = short_term_count + long_term_count + episodic_count + semantic_count
 
         metrics = EpochMetrics(
             epoch=epoch + 1,
@@ -379,6 +417,10 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
             anomaly_precision=precision,
             anomaly_recall=recall,
             memory_entries=total_memory,
+            short_term_count=short_term_count,
+            long_term_count=long_term_count,
+            episodic_count=episodic_count,
+            semantic_count=semantic_count,
             patterns_detected=epoch_patterns,
             rules_fired=epoch_rules,
             execution_time_ms=epoch_time,
@@ -428,11 +470,13 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
         "epoch_summaries": [asdict(m) for m in epoch_metrics],
         "domain_performance": {
             domain: {
-                "avg_confidence": 0.85 + 0.1 * np.random.random(),
-                "avg_success_rate": 0.9 + 0.08 * np.random.random(),
-                "avg_benevolence": 0.95 + 0.04 * np.random.random(),
+                "avg_confidence": float(np.mean(metrics["confidence"])),
+                "avg_benevolence": float(np.mean(metrics["benevolence"])),
+                "anomaly_accuracy": float(np.mean(metrics["anomaly_correct"])),
+                "n_observations": len(metrics["confidence"]),
             }
-            for domain in DOMAIN_COLORS
+            for domain, metrics in domain_metrics.items()
+            if metrics["confidence"]
         },
     }
 
@@ -446,7 +490,7 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
     return results
 
 
-def plot_confidence_evolution(results: dict[str, Any], ax: plt.Axes) -> None:
+def plot_confidence_evolution(results: dict[str, Any], ax: Axes) -> None:
     """Plot confidence evolution over epochs."""
     epochs = [s["epoch"] for s in results["epoch_summaries"]]
     confidences = [s["avg_confidence"] for s in results["epoch_summaries"]]
@@ -483,32 +527,40 @@ def plot_confidence_evolution(results: dict[str, Any], ax: plt.Axes) -> None:
 
     final_conf = confidences[-1]
     improvement = final_conf - 0.76
+    # Signed and colored by direction: a drop is annotated as a drop, never
+    # rendered as "+-0.xxx" in success green.
+    delta_color = COLORS["success"] if improvement >= 0 else COLORS["danger"]
     ax.annotate(
-        f"+{improvement:.3f}",
+        f"{improvement:+.3f}",
         xy=(epochs[-1], final_conf),
         xytext=(epochs[-1] - 20, final_conf + 0.05),
         fontsize=9,
-        color=COLORS["success"],
+        color=delta_color,
         fontweight="bold",
-        arrowprops=dict(arrowstyle="->", color=COLORS["success"], alpha=0.7),
+        arrowprops=dict(arrowstyle="->", color=delta_color, alpha=0.7),
     )
 
 
-def plot_benevolence_evolution(results: dict[str, Any], ax: plt.Axes) -> None:
+def plot_benevolence_evolution(results: dict[str, Any], ax: Axes) -> None:
     """Plot ethical benevolence scores over epochs."""
     epochs = [s["epoch"] for s in results["epoch_summaries"]]
     benevolence = [s["benevolence_score"] for s in results["epoch_summaries"]]
 
+    # The 0.99 pass-bar is retired (benevolence is advisory at detection
+    # boundaries; see src/omni_mercury_engine/ethical/__init__.py). The
+    # reference line is the advisory reporting floor, and the y-axis covers
+    # the measured series instead of hiding it below the frame.
     ax.axhline(
-        y=0.99,
+        y=MINIMUM_BENEVOLENCE_FLOOR,
         color=COLORS["danger"],
         linestyle="--",
         linewidth=1.5,
-        label="Benevolence Threshold (0.99)",
+        label=f"Advisory reporting floor ({MINIMUM_BENEVOLENCE_FLOOR:.2f})",
         alpha=0.7,
     )
 
-    ax.fill_between(epochs, [0.9] * len(epochs), benevolence, alpha=0.2, color=COLORS["ethical"])
+    y_lo = min(min(benevolence) - 0.02, MINIMUM_BENEVOLENCE_FLOOR - 0.05)
+    ax.fill_between(epochs, [y_lo] * len(epochs), benevolence, alpha=0.2, color=COLORS["ethical"])
     ax.plot(
         epochs,
         benevolence,
@@ -516,19 +568,19 @@ def plot_benevolence_evolution(results: dict[str, Any], ax: plt.Axes) -> None:
         linewidth=2,
         marker="s",
         markersize=2,
-        label="Benevolence Score",
+        label="Benevolence Score (advisory)",
     )
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Benevolence Score")
-    ax.set_title("Ethical Benevolence Scores Over Epochs")
+    ax.set_title("Advisory Benevolence Scores Over Epochs")
     ax.legend(loc="lower right")
-    ax.set_ylim(0.9, 1.02)
+    ax.set_ylim(y_lo, 1.02)
     ax.set_xlim(1, max(epochs))
     ax.grid(True, alpha=0.3)
 
 
-def plot_anomaly_precision_recall(results: dict[str, Any], ax: plt.Axes) -> None:
+def plot_anomaly_precision_recall(results: dict[str, Any], ax: Axes) -> None:
     """Plot anomaly detection precision/recall over epochs."""
     epochs = [s["epoch"] for s in results["epoch_summaries"]]
     precision = [s["anomaly_precision"] for s in results["epoch_summaries"]]
@@ -566,48 +618,65 @@ def plot_anomaly_precision_recall(results: dict[str, Any], ax: plt.Axes) -> None
     ax.grid(True, alpha=0.3)
 
 
-def plot_domain_heatmap(results: dict[str, Any], ax: plt.Axes) -> None:
+def plot_domain_heatmap(results: dict[str, Any], ax: Axes) -> None:
     """Plot domain competence heatmap."""
-    domains = list(DOMAIN_COLORS.keys())
-    metrics = ["confidence", "success_rate", "benevolence"]
+    performance = results.get("domain_performance", {})
+    # Only domains with real observations are shown; no fabricated cell
+    # stands in for a domain the run never measured.
+    domains = [d for d in DOMAIN_COLORS if d in performance]
+    metrics = ["confidence", "anomaly_accuracy", "benevolence"]
 
-    data = np.zeros((len(domains), len(metrics)))
+    data = np.full((len(domains), len(metrics)), np.nan)
     for i, domain in enumerate(domains):
-        perf = results.get("domain_performance", {}).get(domain, {})
-        data[i, 0] = perf.get("avg_confidence", 0.85)
-        data[i, 1] = perf.get("avg_success_rate", 0.9)
-        data[i, 2] = perf.get("avg_benevolence", 0.95)
+        perf = performance[domain]
+        data[i, 0] = perf["avg_confidence"]
+        data[i, 1] = perf["anomaly_accuracy"]
+        data[i, 2] = perf["avg_benevolence"]
 
-    im = ax.imshow(data, cmap="RdYlGn", aspect="auto", vmin=0.7, vmax=1.0)
+    cmap = plt.get_cmap("RdYlGn").copy()
+    cmap.set_bad(color="#d1d5db")  # grey for any unmeasured cell
+    # Full score range: all three metrics live in [0, 1]. A narrower window
+    # (this was vmin=0.7) clips every sub-window value to one saturated
+    # color, so 0.24 and 0.69 rendered identically and the colorbar lied.
+    im = ax.imshow(data, cmap=cmap, aspect="auto", vmin=0.0, vmax=1.0)
 
     cbar = plt.colorbar(im, ax=ax, shrink=0.8)
     cbar.set_label("Score", fontsize=9)
 
     ax.set_xticks(range(len(metrics)))
-    ax.set_xticklabels(["Confidence", "Success", "Benevolence"], rotation=45, ha="right")
+    ax.set_xticklabels(["Confidence", "Anomaly Acc.", "Benevolence"], rotation=45, ha="right")
     ax.set_yticks(range(len(domains)))
     ax.set_yticklabels([d.capitalize() for d in domains])
 
     for i in range(len(domains)):
         for j in range(len(metrics)):
             value = data[i, j]
-            color = "white" if value < 0.85 else "black"
+            if np.isnan(value):
+                ax.text(j, i, "n/a", ha="center", va="center", color="black", fontsize=8)
+                continue
+            # RdYlGn over [0, 1] is dark at both extremes and light in the
+            # middle, so text is white at the ends and black in the middle.
+            color = "white" if (value < 0.30 or value > 0.85) else "black"
             ax.text(j, i, f"{value:.2f}", ha="center", va="center", color=color, fontsize=8)
 
     ax.set_title("Domain Competence Heatmap")
 
 
-def plot_memory_growth(results: dict[str, Any], ax: plt.Axes) -> None:
+def plot_memory_growth(results: dict[str, Any], ax: Axes) -> None:
     """Plot memory system growth over epochs."""
     epochs = [s["epoch"] for s in results["epoch_summaries"]]
-    memory = [s["memory_entries"] for s in results["epoch_summaries"]]
 
-    # Simulate different memory types
-    n = len(epochs)
-    episodic = [int(m * 0.4) for m in memory]
-    semantic = [int(m * 0.35) for m in memory]
-    short_term = [min(100, int(100 * (e / n) * 1.5)) for e in epochs]
-    long_term = [int(m * 0.25) for m in memory]
+    # Real per-type counts reported by the agent's memory system each
+    # epoch (replacing an earlier fixed-ratio split of the total). Older
+    # result files without the per-type fields fall back to the total so
+    # the panel still renders.
+    def series(key: str) -> list[int]:
+        return [int(s.get(key, 0)) for s in results["epoch_summaries"]]
+
+    episodic = series("episodic_count")
+    semantic = series("semantic_count")
+    short_term = series("short_term_count")
+    long_term = series("long_term_count")
 
     ax.fill_between(epochs, 0, episodic, alpha=0.3, color=COLORS["primary"])
     ax.plot(epochs, episodic, color=COLORS["primary"], linewidth=2, label="Episodic")
@@ -630,7 +699,7 @@ def plot_memory_growth(results: dict[str, Any], ax: plt.Axes) -> None:
     ax.grid(True, alpha=0.3)
 
 
-def plot_neural_symbolic_contribution(results: dict[str, Any], ax: plt.Axes) -> None:
+def plot_neural_symbolic_contribution(results: dict[str, Any], ax: Axes) -> None:
     """Plot neural vs symbolic contribution over epochs."""
     epochs = [s["epoch"] for s in results["epoch_summaries"]]
     neural = [s["neural_contribution"] for s in results["epoch_summaries"]]
@@ -718,9 +787,10 @@ def create_comprehensive_report(results: dict[str, Any], output_dir: Path) -> No
     )
 
     fig.suptitle(
-        "Mercury-Agent Neuro-Symbolic Evolution\n"
-        "7-Phase Cognitive Architecture Benchmark Report",
-        fontsize=16,
+        "Mercury-Agent Neuro-Symbolic Cognitive-Stack Integration Demo\n"
+        "Authored illustrative scenarios — not field performance "
+        "(real-data: nab_streaming_benchmark.py)",
+        fontsize=15,
         fontweight="bold",
         y=0.98,
     )
@@ -765,7 +835,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Neuro-Symbolic Benchmark Suite")
     parser.add_argument(
-        "--epochs", type=int, default=200, help="Number of training epochs (default: 200)"
+        "--epochs",
+        type=int,
+        default=50,
+        help=(
+            "Number of demo epochs (default: 50). Panels converge by ~epoch 20; "
+            "the per-ingest clusterer refit makes higher counts cost quadratically "
+            "more for no added signal."
+        ),
     )
     parser.add_argument("--output-dir", type=str, default=None, help="Output directory for results")
     args = parser.parse_args()
@@ -790,9 +867,12 @@ if __name__ == "__main__":
     docs_images.mkdir(parents=True, exist_ok=True)
     import shutil
 
-    for img in output_dir.glob("*.png"):
-        shutil.copy(img, docs_images / img.name)
-        print(f"Copied to docs/images: {img.name}")
+    # Only the committed report is installed into docs/images; copying every
+    # PNG left six uncommitted strays there on each run.
+    report = output_dir / "neuro_symbolic_benchmark_report.png"
+    if report.exists():
+        shutil.copy(report, docs_images / report.name)
+        print(f"Copied to docs/images: {report.name}")
 
     print("\n" + "=" * 70)
     print("NEURO-SYMBOLIC BENCHMARK COMPLETE")

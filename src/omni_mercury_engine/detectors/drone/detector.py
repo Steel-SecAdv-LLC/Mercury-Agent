@@ -74,6 +74,7 @@ import numpy as np
 import numpy.typing as npt
 
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.drone import actuator_health
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -321,6 +322,25 @@ class DroneAnomalyDetector:
                 "flagged every time)"
             ),
         ),
+        DecisionSource(
+            kind="calibrated",
+            description=(
+                "ActuatorHealth faults fire when an actuation channel's "
+                "rolling std collapses below (1 - stuck_gate) of the "
+                "activity it demonstrated earlier in the flight "
+                "(detectors/drone/actuator_health.py)."
+            ),
+            false_alarm_rate=0.005,
+            calibration_data=(
+                "ALFA UAV dataset (DOI 10.1184/R1/12707963): 46 real "
+                "fixed-wing flights with mid-flight injected faults "
+                "(datasets/uav_flight.py). The stuck statistic alone "
+                "scores per-tick AUROC 0.907 on aileron locks; the 0.95 "
+                "gate holds <0.5% per-tick false alarms on the ten "
+                "no-failure flights (pooled p99.5 = 0.941). Protocol: "
+                "benchmarks/alfa_uav_benchmark.py"
+            ),
+        ),
     )
 
     DEFAULT_HISTORY_WINDOW: Final[int] = 100
@@ -349,6 +369,9 @@ class DroneAnomalyDetector:
         random_state: int = 0,
         refit_interval: int | None = None,
         z_gate: float | None = None,
+        enable_actuator_health: bool = True,
+        stuck_window: int | None = None,
+        stuck_gate: float | None = None,
     ) -> None:
         """Initialise the detector.
 
@@ -368,6 +391,18 @@ class DroneAnomalyDetector:
                 window (default :attr:`DEFAULT_REFIT_INTERVAL`).
             z_gate: Robust z a stream must reach to raise an ensemble fault
                 (default :attr:`DEFAULT_Z_GATE`).
+            enable_actuator_health: Enable the stuck-actuator monitor over
+                ``motor_speeds`` (variance collapse against demonstrated
+                activity; see
+                :mod:`omni_mercury_engine.detectors.drone.actuator_health`).
+            stuck_window: Rolling window (ticks) of the stuck-actuator
+                monitor (default
+                :data:`~omni_mercury_engine.detectors.drone.actuator_health.DEFAULT_STUCK_WINDOW`).
+            stuck_gate: Stuck score in ``(0, 1]`` that raises an actuator
+                fault (default
+                :data:`~omni_mercury_engine.detectors.drone.actuator_health.DEFAULT_STUCK_GATE`,
+                measured at <0.5% per-tick false alarms on the ALFA
+                no-failure flights).
         """
         self.enable_radd = enable_radd
         self.enable_dronlomaly = enable_dronlomaly
@@ -391,6 +426,17 @@ class DroneAnomalyDetector:
         self.z_gate = float(z_gate if z_gate is not None else self.DEFAULT_Z_GATE)
         if self.z_gate <= 0:
             raise ValueError("z_gate must be positive")
+
+        self.enable_actuator_health = enable_actuator_health
+        self.stuck_gate = float(
+            stuck_gate if stuck_gate is not None else actuator_health.DEFAULT_STUCK_GATE
+        )
+        if not 0.0 < self.stuck_gate <= 1.0:
+            raise ValueError("stuck_gate must be in (0, 1]")
+        self._actuator_monitor = actuator_health.ActuatorHealthMonitor(
+            n_channels=4,
+            window=int(stuck_window or actuator_health.DEFAULT_STUCK_WINDOW),
+        )
 
         self._random_state = random_state
         self.invariant_rules = self._initialize_invariant_rules()
@@ -426,6 +472,8 @@ class DroneAnomalyDetector:
         # state is never part of its own reference.
         if self.enable_radd:
             faults.extend(self._detect_with_radd(drone_state))
+        if self.enable_actuator_health:
+            faults.extend(self._detect_stuck_actuator(drone_state))
         self.state_history.append(drone_state)
         if len(self.state_history) > self.MAX_HISTORY:
             self.state_history = self.state_history[-self.MAX_HISTORY :]
@@ -461,6 +509,7 @@ class DroneAnomalyDetector:
             "detection_methods": {
                 "RADD_Rules": sum(1 for f in faults if f.detected_by == "RADD_Rules"),
                 "RADD_Ensemble": sum(1 for f in faults if f.detected_by == "RADD_Ensemble"),
+                "ActuatorHealth": sum(1 for f in faults if f.detected_by == "ActuatorHealth"),
                 "DronLomaly": sum(1 for f in faults if f.detected_by == "DronLomaly"),
             },
             "critical_fault_details": [
@@ -784,6 +833,50 @@ class DroneAnomalyDetector:
         if len(distances) < 3:
             return False
         return distances[-1] >= distances[0]
+
+    # -- actuator health ------------------------------------------------------
+
+    def _detect_stuck_actuator(self, drone_state: DroneState) -> list[DroneFault]:
+        """Raise an actuator fault when a motor channel's variance collapses.
+
+        The monitor compares each ``motor_speeds`` channel's rolling std
+        against the activity that channel has already demonstrated this
+        flight (a running maximum, so a fault inside a later window cannot
+        normalise itself away). A frozen servo or dead motor output is in
+        range per-tick but flat over the window - the signature per-tick
+        outlier scoring misses, measured on ALFA's real aileron locks
+        (stuck-statistic AUROC 0.907 where the per-flight ensemble scores
+        0.60; see :mod:`.actuator_health`).
+        """
+        score = self._actuator_monitor.update(
+            np.asarray(drone_state.motor_speeds, dtype=np.float64)
+        )
+        if score < self.stuck_gate:
+            return []
+        fault_type = FaultType.ACTUATOR_FAILURE
+        return [
+            DroneFault(
+                fault_id=self._make_fault_id("STUCK"),
+                fault_type=fault_type,
+                mission_phase=drone_state.mission_phase,
+                # Severity rises from 0.85 at the gate toward 1.0 at full
+                # variance collapse; a stuck control effector is critical.
+                severity=(
+                    min(1.0, 0.85 + 0.15 * (score - self.stuck_gate) / (1.0 - self.stuck_gate))
+                    if self.stuck_gate < 1.0
+                    else 1.0
+                ),
+                confidence=float(score),
+                description=(
+                    f"Actuation channel variance collapse: stuck score {score:.3f} "
+                    f">= gate {self.stuck_gate:.3f} over the last "
+                    f"{self._actuator_monitor.window} ticks"
+                ),
+                detected_by="ActuatorHealth",
+                sensor_data=self._extract_sensor_data(drone_state),
+                recommendations=self._get_fault_recommendations(fault_type),
+            )
+        ]
 
     # -- ensemble -----------------------------------------------------------
 

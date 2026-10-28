@@ -25,48 +25,62 @@ def separated_data() -> tuple[np.ndarray, np.ndarray]:
     return X, y
 
 
+def _f1(preds: np.ndarray, y: np.ndarray) -> float:
+    tp = np.sum(preds & (y == 1))
+    fp = np.sum(preds & (y == 0))
+    fn = np.sum(~preds & (y == 1))
+    prec = tp / (tp + fp) if (tp + fp) > 0 else 0
+    rec = tp / (tp + fn) if (tp + fn) > 0 else 0
+    return float(2 * prec * rec / (prec + rec)) if (prec + rec) > 0 else 0.0
+
+
 class TestCalibrationWiring:
     """Verify the calibration pipeline integration."""
 
-    def test_baseline_f1_is_low(self, separated_data: tuple[np.ndarray, np.ndarray]) -> None:
-        """Without calibration, the default 0.5 threshold yields near-zero F1."""
+    def test_default_threshold_is_conservative(
+        self, separated_data: tuple[np.ndarray, np.ndarray]
+    ) -> None:
+        """Uncalibrated, the default threshold flags only a small minority.
+
+        Historically this pinned a near-zero baseline F1; the kNN dimensional
+        fusion gate lifted the uncalibrated operating point on this fixture
+        (21/250 positives, 13 of them true anomalies), so the live invariant
+        is the one calibration actually closes: the label-free default stays
+        conservative (recall 0.26 here vs 50 true anomalies) until
+        ``fit_with_labels`` sets a supervised operating point.
+        """
         X, y = separated_data
         det = MercuryAnomalyDetector()
         det.fit(X)
-        r = det.detect(X)
-        preds = r["is_anomaly"]
-        # With default 0.5 threshold, almost nothing is predicted positive
-        assert np.sum(preds) < 20, "Default threshold should produce very few positives"
+        preds = np.asarray(det.detect(X)["is_anomaly"])
+        assert np.sum(preds) < 0.15 * len(X), "Default threshold should flag a small minority"
+        assert np.sum(preds & (y == 1)) < 0.5 * np.sum(y == 1), (
+            "Default threshold should recall well under half the anomalies; "
+            "calibration below is what closes that gap"
+        )
 
     def test_youden_j_improves_f1(self, separated_data: tuple[np.ndarray, np.ndarray]) -> None:
         """Youden's J calibration must push F1 significantly above baseline."""
         X, y = separated_data
         det = MercuryAnomalyDetector()
         det.fit_with_labels(X, y, strategy="youden_j")
-        r = det.detect(X)
-        preds = r["is_anomaly"]
-        tp = np.sum(preds & (y == 1))
-        fp = np.sum(preds & (y == 0))
-        fn = np.sum(~preds & (y == 1))
-        prec = tp / (tp + fp) if (tp + fp) > 0 else 0
-        rec = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0
+        f1 = _f1(np.asarray(det.detect(X)["is_anomaly"]), y)
         assert f1 > 0.30, f"Youden-J F1 should be > 0.30, got {f1:.4f}"
 
     def test_f1_optimal_improves_f1(self, separated_data: tuple[np.ndarray, np.ndarray]) -> None:
         """F1-optimal calibration must push F1 significantly above baseline."""
         X, y = separated_data
         det = MercuryAnomalyDetector()
+        baseline = MercuryAnomalyDetector().fit(X)
+        baseline_f1 = _f1(np.asarray(baseline.detect(X)["is_anomaly"]), y)
         det.fit_with_labels(X, y, strategy="f1_optimal")
-        r = det.detect(X)
-        preds = r["is_anomaly"]
-        tp = np.sum(preds & (y == 1))
-        fp = np.sum(preds & (y == 0))
-        fn = np.sum(~preds & (y == 1))
-        prec = tp / (tp + fp) if (tp + fp) > 0 else 0
-        rec = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0
+        f1 = _f1(np.asarray(det.detect(X)["is_anomaly"]), y)
         assert f1 > 0.30, f"F1-optimal F1 should be > 0.30, got {f1:.4f}"
+        # F1-optimal calibrates on this very data, so it must not do worse
+        # than the uncalibrated default operating point.
+        assert (
+            f1 >= baseline_f1
+        ), f"F1-optimal ({f1:.4f}) fell below the uncalibrated baseline ({baseline_f1:.4f})"
 
     def test_supervised_threshold_stored(
         self, separated_data: tuple[np.ndarray, np.ndarray]

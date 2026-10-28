@@ -55,7 +55,7 @@ class TestRealToolDispatch:
         agent = MercuryAgent(name="t")
         seen = {}
 
-        def detect(data=None):
+        def detect(data: Any = None) -> dict[str, int]:
             seen["data"] = data
             return {"anomalies": int(np.sum(np.asarray(data) > 2.0))}
 
@@ -80,7 +80,7 @@ class TestRealToolDispatch:
     def test_raising_tool_yields_genuine_failure(self) -> None:
         agent = MercuryAgent(name="t")
 
-        def boom():
+        def boom() -> None:
             raise RuntimeError("kaboom")
 
         agent.register_tool("boom", boom)
@@ -127,7 +127,7 @@ class TestExecutionEthicalGate:
         agent = MercuryAgent(name="t")
         ran = {"tool": False}
 
-        def detect(data=None):
+        def detect(data: Any = None) -> dict[str, Any]:
             ran["tool"] = True
             return {}
 
@@ -213,3 +213,67 @@ class TestAnalyzeFlow:
         agent = MercuryAgent(name="t")
         agent.register_tool("detect", lambda: None)
         assert "detect" in agent.get_state()["registered_tools"]
+
+
+class TestCalibrationEvidence:
+    """No executed task means no calibration observation, never a failure.
+
+    A plan whose tasks were all transparently skipped (no tool bound)
+    reports ``success_rate = 0.0`` as "not applicable". Feeding that to the
+    Bayesian calibrator as a failed Bernoulli trial poisoned the Beta
+    posterior toward its 0.5 clamp on every pure-reasoning run — the
+    committed demo report showed plan confidence collapsing 0.76 -> 0.500
+    from this alone. These tests pin the repaired contract.
+    """
+
+    @staticmethod
+    def _execution(completed: int, failed: int, skipped: int) -> dict[str, Any]:
+        executed = completed + failed
+        return {
+            "plan_id": "p1",
+            "tasks_completed": completed,
+            "tasks_failed": failed,
+            "tasks_skipped": skipped,
+            "task_results": [],
+            "success_rate": completed / executed if executed else 0.0,
+        }
+
+    def _agent_with_plan(self) -> MercuryAgent:
+        agent = MercuryAgent(name="t")
+        agent.current_plan = agent.planner.plan("analyze stream health", domain=DomainType.GENERAL)
+        return agent
+
+    def test_skipped_only_execution_records_no_observation(self) -> None:
+        agent = self._agent_with_plan()
+        assert agent.confidence_calibrator is not None
+        agent._learn_from_execution(self._execution(completed=0, failed=0, skipped=3))
+        assert all(
+            s.total_observations == 0 for s in agent.confidence_calibrator.contexts.values()
+        ), "a skipped-only plan produced a calibration observation"
+
+    def test_pure_reasoning_analyze_does_not_erode_confidence(self) -> None:
+        """End to end: repeated no-tool analyze calls leave confidence at the prior."""
+        agent = create_mercury_agent(name="t")
+        data = np.random.default_rng(0).standard_normal((10, 4))
+        confidences = [
+            agent.analyze(data, domain=DomainType.GENERAL)["plan_confidence"] for _ in range(6)
+        ]
+        assert all(
+            c == pytest.approx(0.76, abs=1e-9) for c in confidences
+        ), f"pure-reasoning runs moved confidence off the prior: {confidences}"
+
+    def test_executed_failure_still_counts(self) -> None:
+        agent = self._agent_with_plan()
+        assert agent.confidence_calibrator is not None
+        agent._learn_from_execution(self._execution(completed=0, failed=2, skipped=1))
+        stats = list(agent.confidence_calibrator.contexts.values())
+        assert sum(s.total_observations for s in stats) == 1
+        assert sum(s.failures for s in stats) == 1
+
+    def test_executed_success_still_counts(self) -> None:
+        agent = self._agent_with_plan()
+        assert agent.confidence_calibrator is not None
+        agent._learn_from_execution(self._execution(completed=2, failed=0, skipped=1))
+        stats = list(agent.confidence_calibrator.contexts.values())
+        assert sum(s.total_observations for s in stats) == 1
+        assert sum(s.successes for s in stats) == 1

@@ -676,16 +676,17 @@ def evaluate_detector(
     if len(np.unique(y_true)) < 2:
         return {"error": "Only one class in y_true"}
 
-    # AUC scores
+    # AUC scores. Single-class input cannot measure AUC: NaN states that
+    # (the old fallbacks wrote 0.5 / the base rate into results as measured).
     try:
         auc_roc = roc_auc_score(y_true, y_scores)
     except (ValueError, TypeError):
-        auc_roc = 0.5
+        auc_roc = float("nan")
 
     try:
         auc_pr = average_precision_score(y_true, y_scores)
     except (ValueError, TypeError):
-        auc_pr = np.mean(y_true)
+        auc_pr = float("nan")
 
     # Find best F1 threshold
     precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)

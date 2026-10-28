@@ -78,6 +78,7 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
+import logging
 import pkgutil
 from dataclasses import dataclass
 
@@ -86,6 +87,8 @@ from omni_mercury_engine.datasets.metadata import (
     VALID_LABEL_SOURCES,
 )
 from omni_mercury_engine.loaders.base import BaseDomainLoader
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # The committed audit. Key: "<module_basename>.<ClassName>". Value:
@@ -162,6 +165,13 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "statistical",
         "Labels = (fatality_count > 0) OR (size_code >= large); both are scored features.",
     ),
+    "airspace_loader.AirspaceLoader": (
+        "statistical",
+        "Kinematic-envelope outliers over live OpenSky state vectors are "
+        "statistical by construction; the genuine event channel (emergency "
+        "squawks 7500/7600/7700) is excluded from the scored features and "
+        "carried as a separate column, never manufactured into labels.",
+    ),
     "wildfire_loader.WildfireLoader": (
         "statistical",
         "Labels = ``FRP >= 90th percentile`` per-dataset on the scored ``frp`` feature.",
@@ -225,6 +235,9 @@ def discover_loaders() -> dict[str, type[BaseDomainLoader]]:
         try:
             importlib.import_module(mod.name)
         except Exception:
+            logger.debug(
+                "Loader module %s not importable; no classes contributed", mod.name, exc_info=True
+            )
             # An unimportable optional-dep loader contributes no classes here.
             # Import hygiene is covered by other CI lanes, not this gate.
             continue

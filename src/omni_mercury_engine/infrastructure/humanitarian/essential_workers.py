@@ -139,6 +139,13 @@ class EssentialWorkersMonitor:
     def model_crisis_scenario(self, scenario_type: str) -> dict[str, Any]:
         """Model workforce impacts under crisis scenarios.
 
+        The capacity multipliers are uncited planning assumptions, not
+        fitted or measured quantities; the result says so in
+        ``prediction_basis``. Only 'pandemic', 'natural_disaster' and
+        'cyber_attack' have scenario-specific tables — any other scenario
+        type (including the documented 'civil_unrest') falls back to a flat
+        0.85 multiplier, which the result also names.
+
         Args:
             scenario_type: 'pandemic', 'natural_disaster', 'cyber_attack', 'civil_unrest'
 
@@ -178,6 +185,7 @@ class EssentialWorkersMonitor:
             },
         }
 
+        scenario_specific = scenario_type in impact_multipliers
         multipliers = impact_multipliers.get(
             scenario_type, dict.fromkeys(self.worker_categories, 0.85)
         )
@@ -211,6 +219,11 @@ class EssentialWorkersMonitor:
             "critical_categories": critical_categories,
             "overall_resilience_score": 1.0
             - (len(critical_categories) / len(self.worker_categories)),
+            "prediction_basis": (
+                "uncited planning-assumption multipliers"
+                if scenario_specific
+                else "flat 0.85 fallback multiplier (no table for this scenario)"
+            ),
         }
 
     def _calculate_ethical_priority(self, category: str, current_capacity: float) -> float:

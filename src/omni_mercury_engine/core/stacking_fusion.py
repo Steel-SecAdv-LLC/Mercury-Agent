@@ -16,7 +16,10 @@ from __future__ import annotations
 import warnings
 
 warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    f"{__name__} is deprecated: the trained fusion pipeline "
+    "(OmniMercuryEngine.fit_fusion / OmniFusionModel) is the production "
+    "fusion. This legacy stacking/Bayesian-averaging ensemble is retained "
+    "for reference until a removal is announced for a specific release.",
     DeprecationWarning,
     stacklevel=2,
 )

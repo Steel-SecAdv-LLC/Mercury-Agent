@@ -1,0 +1,2867 @@
+{
+ "detectors": {
+  "acceleration_dynamics": {
+   "cannot_detect": [],
+   "category": "PHYSICS",
+   "detects": [
+    "fault_signature",
+    "point",
+    "variance_change"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "adaptive_anomaly": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "distributional_outlier",
+    "point",
+    "correlation_break"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "adbench_mean_auroc": 0.883,
+    "note": "rev-2 harness correction (never broken)"
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.883",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.883 (3rd; rev-2 harness correction)"
+    }
+   ]
+  },
+  "adversarial_autoencoder": {
+   "cannot_detect": [],
+   "category": "MODEL",
+   "detects": [
+    "reconstruction_outlier",
+    "distributional_outlier",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "adbench_mean_auroc": 0.9972,
+    "datasets": {
+     "breastw": "timeout",
+     "cardio": "timeout",
+     "pima_real": "timeout",
+     "thyroid": "timeout",
+     "wbc": 0.9972
+    },
+    "n_datasets_scored": 1
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "Sweep graded one set (wbc 1.00); four timed out at 90s - needs a budgeted re-grade before any mean is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "single-dataset grade (0.9972); tier capped pending full grading",
+   "validated": []
+  },
+  "affective": {
+   "cannot_detect": [
+    "point",
+    "trend_drift"
+   ],
+   "category": "MODEL",
+   "detects": [
+    "contextual",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "burst_auroc": 0.5,
+    "datasets": {
+     "realAWSCloudwatch": "no_per_point_scores",
+     "realAdExchange": "no_per_point_scores",
+     "realKnownCause": "no_per_point_scores",
+     "realTraffic": "no_per_point_scores"
+    }
+   },
+   "modality": "record",
+   "not_validated_note": "Scores declared affective records only; on undeclared series input it returns the neutral prior (measured constant). Needs an affective corpus.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T0",
+   "tier_basis": "constant output on declared modality (measured); input contract fix pending",
+   "validated": []
+  },
+  "anyanomaly": {
+   "cannot_detect": [],
+   "category": "VLM",
+   "detects": [
+    "novel_pattern",
+    "contextual"
+   ],
+   "external": true,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "video_frames",
+   "not_validated_note": "External LVLM backend; nothing is claimed without it.",
+   "seams": [
+    "engine"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "astrophysical": {
+   "cannot_detect": [],
+   "category": "MODEL",
+   "detects": [
+    "distributional_outlier",
+    "point",
+    "amplitude_collapse",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "adbench_mean_auroc": 0.803,
+    "burst_auroc": 1.0,
+    "note": "fitted-reference retrofit, re-measured 2026-10-27"
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.803",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.803 post fitted-reference retrofit"
+    },
+    {
+     "domain": "generic_tabular",
+     "evidence": "tests/models/test_fitted_reference_models.py",
+     "note": "burst competency both directions"
+    }
+   ]
+  },
+  "atmospheric_river": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "avalanche": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "biometric": {
+   "cannot_detect": [],
+   "category": "MODEL",
+   "detects": [
+    "distributional_outlier",
+    "point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "burst_auroc": 1.0,
+    "datasets": {
+     "realAWSCloudwatch": "no_per_point_scores",
+     "realAdExchange": "no_per_point_scores",
+     "realKnownCause": "no_per_point_scores",
+     "realTraffic": "no_per_point_scores"
+    }
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Window-level tabular route separates a planted burst (1.000) but has no per-point contract and no biometric-domain corpus evaluation.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "window-level burst separation 1.0; no per-point grade",
+   "validated": []
+  },
+  "bocpd": {
+   "cannot_detect": [
+    "point"
+   ],
+   "category": "BASE",
+   "detects": [
+    "change_point",
+    "level_shift",
+    "variance_change"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.879,
+     "realAdExchange": 0.6865,
+     "realKnownCause": 0.3713,
+     "realTraffic": 0.6431
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.645
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.645",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.645 under a point-wise protocol that under-credits change-point statistics"
+    }
+   ]
+  },
+  "case_surge": {
+   "cannot_detect": [],
+   "category": "MEDICAL",
+   "detects": [
+    "burst_rate",
+    "trend_drift",
+    "physical_criterion"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "window",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "cflow": {
+   "cannot_detect": [],
+   "category": "VISUAL",
+   "detects": [
+    "distributional_outlier",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "image_batch",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "validated": [
+    {
+     "domain": "visual_industrial",
+     "evidence": "tests/test_visual_detectors.py",
+     "note": "driven on real image tensors; MVTec-grade pack pending"
+    }
+   ]
+  },
+  "chemistry": {
+   "cannot_detect": [
+    "point",
+    "trend_drift"
+   ],
+   "category": "MODEL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "burst_auroc": 0.5,
+    "datasets": {
+     "realAWSCloudwatch": "no_per_point_scores",
+     "realAdExchange": "no_per_point_scores",
+     "realKnownCause": "no_per_point_scores",
+     "realTraffic": "no_per_point_scores"
+    }
+   },
+   "modality": "record",
+   "not_validated_note": "Parses chemical composition records; series input yields no elements (measured constant 0). Needs composition corpora.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T0",
+   "tier_basis": "constant output on declared modality (measured); input contract fix pending",
+   "validated": []
+  },
+  "chronos": {
+   "cannot_detect": [
+    "change_point"
+   ],
+   "category": "FOUNDATION",
+   "detects": [
+    "point",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.1079,
+     "realAdExchange": 0.2841,
+     "realKnownCause": 0.4822,
+     "realTraffic": 0.6083
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.3706
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.371 on real NAB streams (0.11 on AWS telemetry): the foundation label currently outranks its evidence.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.3706)",
+   "validated": []
+  },
+  "cme_arrival": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "consciousness": {
+   "cannot_detect": [
+    "amplitude_collapse"
+   ],
+   "category": "MODEL",
+   "detects": [
+    "distributional_outlier",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "adbench_mean_auroc": 0.717,
+    "burst_auroc": 1.0,
+    "note": "fitted-reference retrofit, re-measured 2026-10-27"
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.717",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.717 post fitted-reference retrofit"
+    },
+    {
+     "domain": "generic_tabular",
+     "evidence": "tests/models/test_fitted_reference_models.py",
+     "note": "burst competency + held-out-normal FAR pins"
+    }
+   ]
+  },
+  "copod": {
+   "cannot_detect": [],
+   "category": "MODEL",
+   "detects": [
+    "distributional_outlier",
+    "point"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "adbench_mean_auroc": 0.864,
+    "datasets": {
+     "breastw": 0.9893,
+     "cardio": 0.9051,
+     "pima_real": 0.66,
+     "thyroid": 0.7712,
+     "wbc": 0.9944
+    },
+    "n_datasets_scored": 5
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.864",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.864"
+    }
+   ]
+  },
+  "deep_svdd": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "distributional_outlier",
+    "point",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.6083,
+     "realAdExchange": 0.5979,
+     "realKnownCause": 0.6711,
+     "realTraffic": 0.7558
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.6583
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6583",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.658"
+    }
+   ]
+  },
+  "deeplog_sequence": {
+   "cannot_detect": [
+    "point",
+    "trend_drift"
+   ],
+   "category": "BASE",
+   "detects": [
+    "sequence_grammar_violation",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "event",
+   "not_validated_note": "Needs labeled log corpora (its seam drives a key grammar); Awaits its domain evaluation pack; graded generically only.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "derecho": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "diffusion_ad": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "reconstruction_outlier",
+    "point",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.5108,
+     "realAdExchange": 0.67,
+     "realKnownCause": 0.5677,
+     "realTraffic": 0.845
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.6484
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6484",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.648"
+    }
+   ]
+  },
+  "digital_twin": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "contextual",
+    "trend_drift"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.5759,
+     "realAdExchange": 0.5012,
+     "realKnownCause": 0.6319,
+     "realTraffic": 0.7201
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.6073
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6073",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.607"
+    }
+   ]
+  },
+  "dimensional": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "correlation_break",
+    "distributional_outlier"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.5537,
+     "realAdExchange": 0.5663,
+     "realKnownCause": 0.4292,
+     "realTraffic": 0.604
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5383
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.538 on 1-D NAB streams: its correlation-break specialty needs multivariate input.",
+   "seams": [
+    "engine"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.5383)",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "tests/detectors/test_base_detector_discrimination.py",
+     "note": "Mahalanobis channel floors"
+    }
+   ]
+  },
+  "directive": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "threshold_exceedance",
+    "distributional_outlier",
+    "point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "adbench_mean_auroc": 0.9012,
+    "datasets": {
+     "breastw": 0.9945,
+     "cardio": 0.9232,
+     "pima_real": 0.7155,
+     "thyroid": 0.9047,
+     "wbc": 0.9681
+    },
+    "n_datasets_scored": 5
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.9012",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.901 (1st of all graded)"
+    }
+   ]
+  },
+  "drone": {
+   "cannot_detect": [],
+   "category": "UAV",
+   "detects": [
+    "fault_signature",
+    "variance_change",
+    "point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T4",
+   "tier_basis": "domain artifact: artifacts/alfa_uav.eval.json (aviation_uav)",
+   "validated": [
+    {
+     "domain": "aviation_uav",
+     "evidence": "artifacts/alfa_uav.eval.json",
+     "note": "ALFA real-fault corpus: 35/36 at 0.68% FPR, 8.0s median delay"
+    }
+   ]
+  },
+  "drought": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "trend_drift"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "dual_student": {
+   "cannot_detect": [],
+   "category": "DISTILLATION",
+   "detects": [
+    "reconstruction_outlier",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "image_batch",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "dust_storm": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "earthquake": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "burst_rate",
+    "change_point",
+    "physical_criterion"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "STA/LTA + spectrogram; USGS live wiring loader-tested, labeled seismic-event evaluation pending its domain pack.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "echo_state": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "contextual",
+    "change_point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.6958,
+     "realAdExchange": 0.7143,
+     "realKnownCause": 0.706,
+     "realTraffic": 0.6496
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.6914
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6914",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.691"
+    }
+   ]
+  },
+  "emp": {
+   "cannot_detect": [],
+   "category": "ENERGY",
+   "detects": [
+    "burst_rate",
+    "physical_criterion"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "energy_based": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "distributional_outlier",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.7175,
+     "realAdExchange": 0.5704,
+     "realKnownCause": 0.6454,
+     "realTraffic": 0.7447
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.6695
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6695",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.670"
+    }
+   ]
+  },
+  "eq_tsunami_cascade": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "event",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "extended_statistical": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "distributional_outlier",
+    "change_point",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.6518,
+     "realAdExchange": 0.5219,
+     "realKnownCause": 0.6479,
+     "realTraffic": 0.6682
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.6225
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6225",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.622"
+    }
+   ]
+  },
+  "financial_crisis": {
+   "cannot_detect": [],
+   "category": "ECONOMIC",
+   "detects": [
+    "contextual",
+    "trend_drift",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "financial_stress": {
+   "cannot_detect": [],
+   "category": "ECONOMIC",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "fire_debris_flow_cascade": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "flood": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "flood_precipitation": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "foundation_ensemble": {
+   "cannot_detect": [
+    "level_shift"
+   ],
+   "category": "FOUNDATION",
+   "detects": [
+    "novel_pattern",
+    "point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.5347,
+     "realAdExchange": 0.3493,
+     "realKnownCause": 0.4657,
+     "realTraffic": 0.0728
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.3556
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Inherits matrix_profile's measured weaknesses (sweep 0.356).",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.3556)",
+   "validated": []
+  },
+  "frequent_pattern": {
+   "cannot_detect": [
+    "point",
+    "trend_drift"
+   ],
+   "category": "BASE",
+   "detects": [
+    "sequence_grammar_violation",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": "no_per_point_scores",
+     "realAdExchange": "no_per_point_scores",
+     "realKnownCause": "no_per_point_scores",
+     "realTraffic": "no_per_point_scores"
+    }
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "Transaction/itemset detector: emits per-transaction verdicts, no per-point series scores; needs a transaction corpus.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "gaussian_process": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.6636,
+     "realAdExchange": 0.5801,
+     "realKnownCause": 0.3963,
+     "realTraffic": 0.6108
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5627
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.563; below the T2 bar on real streams.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.5627)",
+   "validated": []
+  },
+  "geo_movement": {
+   "cannot_detect": [
+    "distributional_outlier"
+   ],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "contextual",
+    "trend_drift"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "trajectory",
+   "not_validated_note": "Trajectory plausibility channels; Awaits its domain evaluation pack; graded generically only.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "gic": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "window",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "gic_minute_series": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "graph_based": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "graph_structure",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "graph",
+   "not_validated_note": "Needs graph-domain labeled data; Awaits its domain evaluation pack; graded generically only.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "hail": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "hawkes": {
+   "cannot_detect": [
+    "point",
+    "level_shift"
+   ],
+   "category": "BASE",
+   "detects": [
+    "burst_rate",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.4534,
+     "realAdExchange": 0.4857,
+     "realKnownCause": 0.6171,
+     "realTraffic": 0.5748
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5328
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Event-rate detector driven with value streams in the sweep; needs count/event-stream evaluation.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "graded 0.5328 under a mismatched point-wise protocol",
+   "validated": []
+  },
+  "heatwave": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "hurricane": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "trend_drift"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "hurricane_pressure": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "imm": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "change_point",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.4624,
+     "realAdExchange": 0.5077,
+     "realKnownCause": 0.3703,
+     "realTraffic": 0.6614
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5004
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.500 on real streams.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.5004)",
+   "validated": []
+  },
+  "info_geometry": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "distributional_outlier",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "adbench_mean_auroc": 0.891,
+    "note": "rev-2 harness correction (never broken)"
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.891",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.891 (rev-2 harness correction: never broken)"
+    }
+   ]
+  },
+  "intelligence_fusion": {
+   "cannot_detect": [],
+   "category": "INTELLIGENCE",
+   "detects": [
+    "collective",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "ionospheric_scintillation": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "kmeans_distance": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "distributional_outlier",
+    "point",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "adbench_mean_auroc": 0.851,
+    "datasets": {
+     "breastw": 0.9664,
+     "cardio": 0.7397,
+     "pima_real": 0.6443,
+     "thyroid": 0.9265,
+     "wbc": 0.9779
+    },
+    "n_datasets_scored": 5
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.851",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.851"
+    }
+   ]
+  },
+  "landslide": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "lavad": {
+   "cannot_detect": [],
+   "category": "VLM",
+   "detects": [
+    "novel_pattern",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "video_frames",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "lightning": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "burst_rate"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "lstm_autoencoder": {
+   "cannot_detect": [],
+   "category": "MODEL",
+   "detects": [
+    "reconstruction_outlier",
+    "contextual",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.7872,
+     "realAdExchange": 0.994,
+     "realKnownCause": 0.5857,
+     "realTraffic": 0.9495
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.8291
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.8291",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.829"
+    }
+   ]
+  },
+  "marine_biodiversity": {
+   "cannot_detect": [],
+   "category": "MARINE",
+   "detects": [
+    "trend_drift",
+    "collective",
+    "physical_criterion"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "matrix_profile": {
+   "cannot_detect": [
+    "level_shift"
+   ],
+   "category": "FOUNDATION",
+   "detects": [
+    "novel_pattern",
+    "collective",
+    "point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.5347,
+     "realAdExchange": 0.3493,
+     "realKnownCause": 0.4657,
+     "realTraffic": 0.0728
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.3556
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.356; 0.07 on realTraffic - a repeating anomaly earns a LOW discord score. Orientation/motif handling needs root-cause before any claim.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.3556)",
+   "validated": []
+  },
+  "medical_abms": {
+   "cannot_detect": [],
+   "category": "MEDICAL",
+   "detects": [
+    "contextual",
+    "physical_criterion"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "meteor": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "multivariate_ts": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "correlation_break",
+    "contextual",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "windows_3d",
+   "not_validated_note": "Windowed multivariate contract (windows_3d); Awaits its domain evaluation pack; graded generically only.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "nano_safeguard": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "burst_rate"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": "no_per_point_scores",
+     "realAdExchange": "no_per_point_scores",
+     "realKnownCause": "no_per_point_scores",
+     "realTraffic": "no_per_point_scores"
+    }
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Window-level score only (no per-point contract); ungraded by the sweep for that reason.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "neural_cognitive": {
+   "cannot_detect": [],
+   "category": "MODEL",
+   "detects": [
+    "distributional_outlier",
+    "point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "burst_auroc": 0.999,
+    "datasets": {
+     "realAWSCloudwatch": "no_per_point_scores",
+     "realAdExchange": "no_per_point_scores",
+     "realKnownCause": "no_per_point_scores",
+     "realTraffic": "no_per_point_scores"
+    }
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Window-level score separates a planted burst (0.999); no per-point contract, no EEG-domain evaluation committed (CHB-MIT fixtures exist for a future pack).",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "window-level burst separation 0.999; no per-point grade",
+   "validated": []
+  },
+  "neurosymbolic": {
+   "cannot_detect": [],
+   "category": "NEUROSYMBOLIC",
+   "detects": [
+    "point",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Cognitive-stack component; engine-level NAB evidence lives in artifacts/nab_streaming.eval.json, standalone detector grading pending.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "padim": {
+   "cannot_detect": [],
+   "category": "VISUAL",
+   "detects": [
+    "distributional_outlier",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "image_batch",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "validated": [
+    {
+     "domain": "visual_industrial",
+     "evidence": "tests/test_visual_detectors.py",
+     "note": "driven on real image tensors; MVTec-grade pack pending"
+    }
+   ]
+  },
+  "page_hinkley": {
+   "cannot_detect": [
+    "point"
+   ],
+   "category": "BASE",
+   "detects": [
+    "change_point",
+    "level_shift",
+    "trend_drift"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.7592,
+     "realAdExchange": 0.5246,
+     "realKnownCause": 0.6056,
+     "realTraffic": 0.4131
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5756
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Same protocol mismatch as sprt.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "graded 0.5756 under a mismatched point-wise protocol",
+   "validated": []
+  },
+  "parapsychology": {
+   "cannot_detect": [
+    "point",
+    "trend_drift"
+   ],
+   "category": "MODEL",
+   "detects": [
+    "distributional_outlier"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "burst_auroc": 0.5,
+    "datasets": {
+     "realAWSCloudwatch": "no_per_point_scores",
+     "realAdExchange": "no_per_point_scores",
+     "realKnownCause": "no_per_point_scores",
+     "realTraffic": "no_per_point_scores"
+    }
+   },
+   "modality": "record",
+   "not_validated_note": "Scores experiment trial records; series input yields no trials (measured constant). Experimental by its own decision_source.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T0",
+   "tier_basis": "constant output on declared modality (measured); input contract fix pending",
+   "validated": []
+  },
+  "particle_filter": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "change_point",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.7104,
+     "realAdExchange": 0.5575,
+     "realKnownCause": 0.4361,
+     "realTraffic": 0.6547
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5897
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.590; below the T2 bar on real streams.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.5897)",
+   "validated": []
+  },
+  "patchcore": {
+   "cannot_detect": [],
+   "category": "VISUAL",
+   "detects": [
+    "reconstruction_outlier",
+    "novel_pattern",
+    "point"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "image_batch",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "validated": [
+    {
+     "domain": "visual_industrial",
+     "evidence": "tests/test_visual_detectors.py",
+     "note": "driven on real image tensors; MVTec-grade pack pending"
+    }
+   ]
+  },
+  "physics_integrated": {
+   "cannot_detect": [],
+   "category": "PHYSICS",
+   "detects": [
+    "physical_criterion",
+    "distributional_outlier"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "matrix_2d",
+   "not_validated_note": "Set-level verdict pinned in tests/core/test_declared_modality_false_alarm_rate.py; domain grading pending.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "pm25_air_quality": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "psyop": {
+   "cannot_detect": [],
+   "category": "INTELLIGENCE",
+   "detects": [
+    "contextual",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "quantum": {
+   "cannot_detect": [
+    "amplitude_collapse"
+   ],
+   "category": "MODEL",
+   "detects": [
+    "distributional_outlier",
+    "point",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "adbench_mean_auroc": 0.827,
+    "burst_auroc": 1.0,
+    "note": "fitted-reference retrofit, re-measured 2026-10-27"
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.827",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.827 post fitted-reference retrofit"
+    },
+    {
+     "domain": "generic_tabular",
+     "evidence": "tests/models/test_fitted_reference_models.py",
+     "note": "burst competency + held-out-normal FAR pins"
+    }
+   ]
+  },
+  "rca": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "correlation_break",
+    "collective",
+    "distributional_outlier"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "adbench_mean_auroc": 0.894,
+    "datasets": {
+     "breastw": 0.9648,
+     "cardio": 0.9322,
+     "pima_real": 0.6726,
+     "thyroid": 0.926,
+     "wbc": 0.9744
+    },
+    "n_datasets_scored": 5
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T3",
+   "tier_basis": "real-data mean AUROC 0.894",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench mean 0.894 (2nd of all graded)"
+    }
+   ]
+  },
+  "realtime_threat": {
+   "cannot_detect": [],
+   "category": "SECURITY",
+   "detects": [
+    "distributional_outlier",
+    "point",
+    "integrity_tamper"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "matrix_2d",
+   "not_validated_note": "Training-calibrated ensemble; false-alarm rate pinned in tests/core/test_declared_modality_false_alarm_rate.py, domain grading pending.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "reverse_distillation": {
+   "cannot_detect": [],
+   "category": "VISUAL",
+   "detects": [
+    "reconstruction_outlier",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "image_batch",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "validated": [
+    {
+     "domain": "visual_industrial",
+     "evidence": "tests/test_visual_detectors.py",
+     "note": "driven on real image tensors; MVTec-grade pack pending"
+    }
+   ]
+  },
+  "rockfall": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "trend_drift"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "schumann_resonance": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "contextual",
+    "variance_change"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Stability tests exist (tests/space/); no labeled corpus.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "sep_storm": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "window",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "sepsis": {
+   "cannot_detect": [],
+   "category": "MEDICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "Sepsis-3 qSOFA/SOFA implementation; PhysioNet 2019 fixtures are committed for the clinical pack, evaluation not yet recorded.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "solar_flare": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance",
+    "burst_rate"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "solar_gic_cascade": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "event",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "solar_storm": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "solar_wind_geomag": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "spatial": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "spatial_outlier",
+    "distributional_outlier"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "adbench_mean_auroc": 0.6713,
+    "datasets": {
+     "breastw": 0.444,
+     "cardio": 0.5464,
+     "pima_real": 0.5741,
+     "thyroid": 0.8405,
+     "wbc": 0.9516
+    },
+    "n_datasets_scored": 5
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6713",
+   "validated": [
+    {
+     "domain": "generic_tabular",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "ADBench clinical sets, 2026-10-27 sweep"
+    }
+   ]
+  },
+  "spectral_domain_frequency": {
+   "cannot_detect": [],
+   "category": "PHYSICS",
+   "detects": [
+    "contextual",
+    "variance_change",
+    "point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "spectral_residual": {
+   "cannot_detect": [
+    "trend_drift",
+    "level_shift"
+   ],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.4789,
+     "realAdExchange": 0.4853,
+     "realKnownCause": 0.5246,
+     "realTraffic": 0.4874
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.494
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.494 on real NAB streams - at chance; its saliency formulation needs sharp local deviations.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.494)",
+   "validated": []
+  },
+  "spectral_vibration": {
+   "cannot_detect": [],
+   "category": "PHYSICS",
+   "detects": [
+    "fault_signature",
+    "variance_change",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Bearing/vibration territory; needs CWRU-style pack (fixtures exist under tests/fixtures/cwru).",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "spiking": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "burst_rate"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.405,
+     "realAdExchange": 0.5787,
+     "realKnownCause": 0.66,
+     "realTraffic": 0.6972
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5852
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.585; below the T2 bar on real streams.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.5852)",
+   "validated": []
+  },
+  "spot_evt": {
+   "cannot_detect": [
+    "change_point",
+    "trend_drift"
+   ],
+   "category": "BASE",
+   "detects": [
+    "threshold_exceedance",
+    "point"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.4995,
+     "realAdExchange": 0.5159,
+     "realKnownCause": 0.4986,
+     "realTraffic": 0.497
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5027
+   },
+   "modality": "series_1d",
+   "not_validated_note": "EVT tail thresholding; sweep 0.503 under a protocol that scores its calibrated threshold as a constant.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "graded 0.5027 under a mismatched point-wise protocol",
+   "validated": []
+  },
+  "sprt": {
+   "cannot_detect": [
+    "point",
+    "variance_change"
+   ],
+   "category": "BASE",
+   "detects": [
+    "change_point",
+    "level_shift"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.5999,
+     "realAdExchange": 0.5775,
+     "realKnownCause": 0.4821,
+     "realTraffic": 0.3101
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.4924
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Point-wise AUROC mismatches a sequential decision test; needs a detection-delay protocol.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "graded 0.4924 under a mismatched point-wise protocol",
+   "validated": []
+  },
+  "srcnn": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.6347,
+     "realAdExchange": 0.8174,
+     "realKnownCause": 0.4771,
+     "realTraffic": 0.7423
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.6679
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6679",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.668"
+    }
+   ]
+  },
+  "statistical": {
+   "cannot_detect": [
+    "change_point",
+    "trend_drift",
+    "sequence_grammar_violation"
+   ],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "distributional_outlier",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.4991,
+     "realAdExchange": 0.522,
+     "realKnownCause": 0.6171,
+     "realTraffic": 0.6318
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5675
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Sweep mean 0.567 on NAB: ~chance on real streams; engine fusion carries it, standalone claims none.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.5675)",
+   "validated": []
+  },
+  "stfpm": {
+   "cannot_detect": [],
+   "category": "VISUAL",
+   "detects": [
+    "reconstruction_outlier",
+    "novel_pattern"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "image_batch",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "validated": [
+    {
+     "domain": "visual_industrial",
+     "evidence": "tests/test_visual_detectors.py",
+     "note": "driven on real image tensors; MVTec-grade pack pending"
+    }
+   ]
+  },
+  "subsidence": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "trend_drift",
+    "physical_criterion"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "surge_flood_cascade": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "collective"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "event",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "survival": {
+   "cannot_detect": [
+    "point"
+   ],
+   "category": "BASE",
+   "detects": [
+    "trend_drift",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.4879,
+     "realAdExchange": 0.5731,
+     "realKnownCause": 0.6402,
+     "realTraffic": 0.6863
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.5969
+   },
+   "modality": "series_1d",
+   "not_validated_note": "Hazard-model framing; sweep 0.597 under a point-wise protocol.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "~chance on real data (0.5969)",
+   "validated": []
+  },
+  "temporal": {
+   "cannot_detect": [],
+   "category": "BASE",
+   "detects": [
+    "change_point",
+    "level_shift",
+    "trend_drift",
+    "point",
+    "variance_change"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {
+    "datasets": {
+     "realAWSCloudwatch": 0.6059,
+     "realAdExchange": 0.5544,
+     "realKnownCause": 0.6643,
+     "realTraffic": 0.7451
+    },
+    "n_datasets_scored": 4,
+    "nab_mean_auroc": 0.6425
+   },
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "real-data mean AUROC 0.6425",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "artifacts/detector_evidence/2026-10-27_ledger_seed.json",
+     "note": "NAB mean 0.642"
+    },
+    {
+     "domain": "generic_series",
+     "evidence": "tests/detectors/test_base_detector_discrimination.py",
+     "note": "planted point/variance/level-shift floors"
+    }
+   ]
+  },
+  "threat_detection": {
+   "cannot_detect": [],
+   "category": "SECURITY",
+   "detects": [
+    "integrity_tamper",
+    "sequence_grammar_violation",
+    "contextual"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "text",
+   "not_validated_note": "Text/log threat screen; needs labeled security corpora (NSL-KDD engine results exist at engine level only).",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "timegpt": {
+   "cannot_detect": [],
+   "category": "FOUNDATION",
+   "detects": [
+    "point",
+    "contextual"
+   ],
+   "external": true,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "External service adapter; no seams declared, nothing claimed.",
+   "seams": [],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "topological": {
+   "cannot_detect": [
+    "point"
+   ],
+   "category": "BASE",
+   "detects": [
+    "collective",
+    "novel_pattern",
+    "correlation_break"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {
+    "datasets": {
+     "breastw": "refused",
+     "cardio": "timeout",
+     "pima_real": "timeout",
+     "thyroid": "timeout",
+     "wbc": "refused"
+    }
+   },
+   "modality": "matrix_2d",
+   "not_validated_note": "Persistent-homology profile; exceeded the sweep's 90s/dataset budget on every tabular set - needs a budgeted fast path before grading.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "tornado": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "burst_rate"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "tornado_conditions": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "tsunami": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "change_point"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "uiux_anomaly": {
+   "cannot_detect": [],
+   "category": "UIUX",
+   "detects": [
+    "contextual",
+    "sequence_grammar_violation"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "No committed evaluation on labeled data yet; nothing is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "volcanic": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "burst_rate"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "wildfire": {
+   "cannot_detect": [],
+   "category": "GEOLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "record",
+   "not_validated_note": "FIRMS live wiring is loader-tested; detector-level labeled evaluation pending its domain pack.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "winter_storm": {
+   "cannot_detect": [],
+   "category": "METEOROLOGICAL",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  },
+  "xray_flare": {
+   "cannot_detect": [],
+   "category": "SPACE",
+   "detects": [
+    "physical_criterion",
+    "threshold_exceedance"
+   ],
+   "external": false,
+   "fit_required": false,
+   "metrics": {},
+   "modality": "rows",
+   "not_validated_note": "Implements a published domain criterion (provenance in its docstring); no labeled domain corpus evaluation is committed yet, so no domain is claimed.",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T1",
+   "tier_basis": "runs; no committed grade on labeled data",
+   "validated": []
+  }
+ },
+ "generated_from": {
+  "manifest": "src/omni_mercury_engine/core/detector_registry.py",
+  "ontology": "src/omni_mercury_engine/core/detector_ontology.py",
+  "seed": "artifacts/detector_evidence/2026-10-27_ledger_seed.json"
+ },
+ "schema": "detector_evidence_ledger/v1",
+ "tier_counts": {
+  "T0": 3,
+  "T1": 83,
+  "T2": 17,
+  "T3": 9,
+  "T4": 1
+ },
+ "tier_rules": "computed by scripts/generate_detector_evidence.py; never hand-assigned"
+}

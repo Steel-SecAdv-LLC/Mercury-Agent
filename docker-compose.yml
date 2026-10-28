@@ -75,7 +75,7 @@ services:
   # Prometheus — metrics collection
   # ---------------------------------------------------------------------------
   prometheus:
-    image: prom/prometheus:v3.13.4
+    image: prom/prometheus:v3.13.5
     container_name: mercury-prometheus
     restart: unless-stopped
     ports:

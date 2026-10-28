@@ -1,0 +1,53 @@
+{
+  "dataset": "ALFA (DOI 10.1184/R1/12707963)",
+  "protocol": {
+    "baseline_s": 30.0,
+    "threshold_percentile": 99.5,
+    "stuck_window": 32,
+    "sample_hz": 4.0
+  },
+  "thresholds": {
+    "ensemble": 0.914073701905344,
+    "stuck": 0.941059427158313
+  },
+  "joint_normal_fpr": 0.006815968841285297,
+  "auroc_overall_ensemble": 0.7957445380826669,
+  "auroc_overall_stuck": 0.7123777880214103,
+  "per_fault_type": {
+    "aileron": {
+      "n_flights": 7,
+      "auroc_ensemble": 0.6010834357198704,
+      "auroc_stuck": 0.9071116757883764
+    },
+    "aileron+rudder": {
+      "n_flights": 1,
+      "auroc_ensemble": 0.8809983896940419,
+      "auroc_stuck": 0.8391841116478798
+    },
+    "elevator": {
+      "n_flights": 2,
+      "auroc_ensemble": 0.9243710834619926,
+      "auroc_stuck": 0.7149668513304877
+    },
+    "engines": {
+      "n_flights": 23,
+      "auroc_ensemble": 0.9062047112027592,
+      "auroc_stuck": 0.5504965014664811
+    },
+    "rudder": {
+      "n_flights": 3,
+      "auroc_ensemble": 0.9939674523007856,
+      "auroc_stuck": 0.6096480679814014
+    }
+  },
+  "detected_flights": 35,
+  "missed_flights": [
+    "carbonZ_2018-10-18-11-04-35_engine_failure_with_emr_traj"
+  ],
+  "skipped_too_short": [
+    "carbonZ_2018-07-18-16-37-39_1_no_failure",
+    "carbonZ_2018-10-18-11-08-24_no_failure"
+  ],
+  "delay_median_s": 8.0,
+  "delay_p90_s": 8.4
+}

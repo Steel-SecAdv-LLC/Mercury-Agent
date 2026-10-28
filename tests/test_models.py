@@ -16,7 +16,7 @@ from omni_mercury_engine.models.quantum import QuantumAnomalyModel
 
 def test_quantum_model(sample_data: Any) -> None:
     """Test quantum-inspired anomaly model"""
-    model = QuantumAnomalyModel()
+    model = QuantumAnomalyModel().fit(sample_data)
     result = model.predict(sample_data)
 
     assert "anomaly_scores" in result
@@ -36,7 +36,7 @@ def test_quantum_features(sample_data: Any) -> None:
 
 def test_astrophysical_model(sample_data: Any) -> None:
     """Test astrophysical anomaly model"""
-    model = AstrophysicalAnomalyModel()
+    model = AstrophysicalAnomalyModel().fit(sample_data)
     result = model.predict(sample_data)
 
     assert "anomaly_scores" in result

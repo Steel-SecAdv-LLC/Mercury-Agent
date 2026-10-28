@@ -1,0 +1,47 @@
+{
+  "dataset": "UCI Robot Execution Failures (138, DOI 10.24432/C5M89N)",
+  "protocol": {
+    "n_splits": 20,
+    "fit": "half of the nominal runs per problem",
+    "score": "held-out nominals + all failures"
+  },
+  "per_problem": {
+    "lp1": {
+      "n_nominal": 21,
+      "n_failure": 67,
+      "n_splits": 20,
+      "auroc_mean": 1.0,
+      "auroc_std": 0.0
+    },
+    "lp2": {
+      "n_nominal": 20,
+      "n_failure": 27,
+      "n_splits": 20,
+      "auroc_mean": 0.9844444444444445,
+      "auroc_std": 0.010317324649766021
+    },
+    "lp3": {
+      "n_nominal": 20,
+      "n_failure": 27,
+      "n_splits": 20,
+      "auroc_mean": 0.9844444444444445,
+      "auroc_std": 0.010317324649766021
+    },
+    "lp4": {
+      "n_nominal": 24,
+      "n_failure": 93,
+      "n_splits": 20,
+      "auroc_mean": 0.9999551971326165,
+      "auroc_std": 0.00019529117130559362
+    },
+    "lp5": {
+      "n_nominal": 44,
+      "n_failure": 120,
+      "n_splits": 20,
+      "auroc_mean": 0.9219128787878788,
+      "auroc_std": 0.02120646400481926
+    }
+  },
+  "pooled_auroc": 0.9677662125172597,
+  "pooled_note": "lp3 excluded from pooling: it relabels lp2's 47 executions"
+}

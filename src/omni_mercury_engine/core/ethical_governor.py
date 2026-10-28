@@ -3,9 +3,10 @@
 """Ethical Autonomy Governor with Bias Audits and ΣDirective Overrides.
 
 Implements comprehensive ethical oversight with:
-- Bias detection and mitigation (Fairlearn-compatible)
+- Bias detection (demographic parity, Fairlearn definition) when the caller
+  supplies protected attributes; no automatic mitigation is performed
 - ΣDirective (Sigma Directive) overrides for justice/altruism
-- Statistical validation (p<0.05) for all decisions
+- Statistical validation (p<0.05) when a real score sample is supplied
 - Automatic rollback for ethical violations
 
 References:
@@ -32,27 +33,44 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 @dataclass
 class EthicalDecision:
-    """Record of ethical decision with validation."""
+    """Record of ethical decision with validation.
+
+    ``p_value`` is None when no score sample was supplied: a single score is
+    not a sample, so no test is run (this field previously carried a t-test
+    over RNG-drawn stand-in scores). ``bias_audit_performed`` is False when
+    no protected attributes were supplied, in which case
+    ``bias_audit_passed`` is a default, not a finding.
+    """
 
     decision_id: str
     action: str
     ethical_score: float
     bias_audit_passed: bool
-    p_value: float
+    p_value: float | None
     sigma_directive_applied: bool
     timestamp: datetime = field(default_factory=datetime.now)
     rollback_triggered: bool = False
+    bias_audit_performed: bool = False
 
 
 @dataclass
 class BiasMetrics:
-    """Bias audit metrics."""
+    """Bias audit metrics.
 
-    demographic_parity_diff: float
-    equalized_odds_diff: float
-    statistical_parity: float
+    ``audit_performed`` is False when the caller supplied no protected
+    attributes; every metric field is then None rather than a number invented
+    from an arbitrary split of the data. ``equalized_odds_diff`` is always
+    None: computing it needs ground-truth labels this seam does not receive.
+    ``mitigation_applied`` is always False — no automatic mitigation exists
+    here, and this field previously claimed one had been applied.
+    """
+
+    audit_performed: bool
+    demographic_parity_diff: float | None
+    equalized_odds_diff: float | None
+    statistical_parity: float | None
     bias_detected: bool
-    mitigation_applied: bool
+    mitigation_applied: bool = False
 
 
 class SigmaDirective:
@@ -235,8 +253,10 @@ class EthicalAutonomyGovernor:
         ethical_score = self._compute_ethical_score(action, context)
 
         bias_audit_passed = True
+        bias_audit_performed = False
         if data is not None:
             bias_metrics = self._audit_bias(data, context)
+            bias_audit_performed = bias_metrics.audit_performed
             bias_audit_passed = not bias_metrics.bias_detected
 
         p_value = self._statistical_validation(ethical_score, context)
@@ -255,6 +275,7 @@ class EthicalAutonomyGovernor:
             bias_audit_passed=bias_audit_passed,
             p_value=p_value,
             sigma_directive_applied=sigma_directive_applied,
+            bias_audit_performed=bias_audit_performed,
         )
 
         if self._should_rollback(decision):
@@ -353,61 +374,100 @@ class EthicalAutonomyGovernor:
         return float(base_score * behaviour_modifier * context_modifier)
 
     def _audit_bias(self, data: np.ndarray[Any, Any], context: dict[str, Any]) -> BiasMetrics:
-        """Audit for bias using Fairlearn-compatible metrics.
+        """Audit demographic parity across caller-supplied protected groups.
+
+        The audit runs only when ``context["protected_attributes"]`` supplies a
+        group label per row of ``data``; demographic parity difference is then
+        the absolute difference of mean outcomes between the two largest
+        groups (the Fairlearn definition). Without protected attributes no
+        audit is possible — this method previously split the array in half
+        and reported the halves' mean difference as a "Fairlearn-compatible"
+        audit, and claimed ``mitigation_applied`` although no mitigation
+        exists. Now it returns ``audit_performed=False`` with None metrics.
 
         Args:
-            data: Data to audit
-            context: Context with protected attributes
+            data: Per-row outcome scores to audit.
+            context: Decision context; ``protected_attributes`` (array-like of
+                group labels, one per row) enables the audit.
 
         Returns:
-            BiasMetrics
+            BiasMetrics; ``audit_performed`` says whether anything was audited.
         """
-        if len(data.shape) == 1:
-            data = data.reshape(-1, 1)
+        outcomes = np.asarray(data, dtype=float)
+        if outcomes.ndim > 1:
+            outcomes = outcomes.mean(axis=tuple(range(1, outcomes.ndim)))
 
-        n_samples = data.shape[0]
-        n_groups = 2
+        groups_raw = context.get("protected_attributes")
+        if groups_raw is None:
+            return BiasMetrics(
+                audit_performed=False,
+                demographic_parity_diff=None,
+                equalized_odds_diff=None,
+                statistical_parity=None,
+                bias_detected=False,
+            )
 
-        group_size = n_samples // n_groups
-        group1 = data[:group_size]
-        group2 = data[group_size : 2 * group_size]
+        groups = np.asarray(groups_raw)
+        if groups.shape[0] != outcomes.shape[0]:
+            raise ValueError(
+                f"protected_attributes has {groups.shape[0]} labels for "
+                f"{outcomes.shape[0]} data rows"
+            )
+        unique, counts = np.unique(groups, return_counts=True)
+        if unique.size < 2:
+            return BiasMetrics(
+                audit_performed=False,
+                demographic_parity_diff=None,
+                equalized_odds_diff=None,
+                statistical_parity=None,
+                bias_detected=False,
+            )
 
-        demographic_parity_diff = abs(np.mean(group1) - np.mean(group2))
-
-        equalized_odds_diff = abs(np.std(group1) - np.std(group2))
-
+        # Two largest groups carry the comparison.
+        top_two = unique[np.argsort(counts)[::-1][:2]]
+        mean_a = float(np.mean(outcomes[groups == top_two[0]]))
+        mean_b = float(np.mean(outcomes[groups == top_two[1]]))
+        demographic_parity_diff = abs(mean_a - mean_b)
         statistical_parity = 1.0 - min(demographic_parity_diff, 1.0)
-
         bias_detected = demographic_parity_diff > self._thresholds.bias_detection
 
-        mitigation_applied = False
-        if bias_detected:
-            mitigation_applied = True
-
         return BiasMetrics(
+            audit_performed=True,
             demographic_parity_diff=demographic_parity_diff,
-            equalized_odds_diff=equalized_odds_diff,
+            # Needs ground-truth labels this seam does not receive.
+            equalized_odds_diff=None,
             statistical_parity=statistical_parity,
             bias_detected=bias_detected,
-            mitigation_applied=mitigation_applied,
         )
 
-    def _statistical_validation(self, ethical_score: float, context: dict[str, Any]) -> float:
-        """Perform statistical validation (p<0.05).
+    def _statistical_validation(
+        self, ethical_score: float, context: dict[str, Any]
+    ) -> float | None:
+        """One-sample t-test of a real score sample against the 1.0 baseline.
 
         Args:
-            ethical_score: Ethical score to validate
-            context: Decision context
+            ethical_score: Ethical score to validate (appended to the sample).
+            context: Decision context; ``score_sample`` (iterable of prior
+                real scores) enables the test.
 
         Returns:
-            p-value
+            p-value when a sample of at least two distinct scores exists,
+            None otherwise — never a value manufactured from RNG draws.
         """
+        # A single score is not a sample, so without a caller-supplied sample
+        # there is nothing to test. This method previously padded the score
+        # with RNG draws around the baseline and ran a t-test on the mixture,
+        # which manufactured a p-value out of noise.
+        history = context.get("score_sample")
+        if history is None:
+            return None
+
+        sample = np.asarray(list(history) + [ethical_score], dtype=float)
+        if sample.size < 2 or float(np.std(sample)) == 0.0:
+            return None
+
         baseline_score = 1.0
-
-        sample_scores = [ethical_score] * 10 + self._rng.normal(baseline_score, 0.1, 20).tolist()
-
-        _t_stat, p_value = stats.ttest_1samp(sample_scores, baseline_score)
-
+        _t_stat, p_value = stats.ttest_1samp(sample, baseline_score)
         return float(p_value)
 
     def _should_rollback(self, decision: EthicalDecision) -> bool:
@@ -425,7 +485,13 @@ class EthicalAutonomyGovernor:
         if not decision.bias_audit_passed:
             return True
 
-        if decision.p_value < self.p_value_threshold and decision.ethical_score < 1.0:
+        # Only a real test can trip this clause; None means no sample was
+        # supplied so no test ran.
+        if (
+            decision.p_value is not None
+            and decision.p_value < self.p_value_threshold
+            and decision.ethical_score < 1.0
+        ):
             return True
 
         return bool(decision.sigma_directive_applied)

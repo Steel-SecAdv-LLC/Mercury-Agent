@@ -86,14 +86,14 @@ class GatingFormType(Enum):
 
 
 class ImmutableEthicsError(Exception):
-    """
-    Exception raised when attempting to violate ethical immutability.
+    """Exception raised when attempting to violate ethical immutability.
 
     The Civilization-First philosophy mandates that ethical bounds are immutable.
     Any attempt to lower sigma_Immutable below the configured threshold raises this error.
     """
 
     def __init__(self, message: str, attempted_value: float, threshold: float):
+        """Record the attempted value and the threshold it violated."""
         self.attempted_value = attempted_value
         self.threshold = threshold
         super().__init__(f"{message}: attempted={attempted_value:.4f}, threshold={threshold:.4f}")
@@ -146,20 +146,23 @@ class BenchmarkResult:
     config: GatingFormConfig
     convergence_epochs: int
     lyapunov_exponent: float
-    benevolence_variance: float
-    brier_score: float
-    fp_rate: float
-    fn_rate: float
     overhead_percent: float
-    f1_score: float
-    auc_score: float
     stability_score: float
+    # Classification-quality fields are None: this harness has no prediction
+    # task to score, so there is no Brier/F1/AUC to measure. They previously
+    # carried RNG-drawn stand-ins (e.g. ``auc_score = uniform(0.92, 0.98)``)
+    # presented as results; None states the truth instead.
+    benevolence_variance: float | None = None
+    brier_score: float | None = None
+    fp_rate: float | None = None
+    fn_rate: float | None = None
+    f1_score: float | None = None
+    auc_score: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class EthicalGatingForms:
-    """
-    Implements 6 mathematical variations for ethical gating threshold.
+    """Implements 6 mathematical variations for ethical gating threshold.
 
     All forms enforce the Civilization-First philosophy with sigma_Immutable
     ensuring ethical bounds cannot be overridden. The forms are designed for
@@ -171,8 +174,7 @@ class EthicalGatingForms:
     """
 
     def __init__(self, config: GatingFormConfig | None = None):
-        """
-        Initialize ethical gating forms.
+        """Initialize ethical gating forms.
 
         Args:
             config: Optional configuration. Defaults to quadratic with sigma=0.96
@@ -182,8 +184,7 @@ class EthicalGatingForms:
         self.logger = logging.getLogger(__name__)
 
     def quadratic(self, sigma: float, threshold: float | None = None) -> GatingResult:
-        """
-        Quadratic penalty: (threshold - sigma)^2 if sigma < threshold, else 0.
+        """Quadratic penalty: (threshold - sigma)^2 if sigma < threshold, else 0.
 
         This is the baseline form providing convex Lyapunov stability.
         The quadratic form ensures smooth convergence with V_dot <= -lambda*V.
@@ -220,8 +221,7 @@ class EthicalGatingForms:
         )
 
     def linear(self, sigma: float, threshold: float | None = None) -> GatingResult:
-        """
-        Linear penalty: max(0, threshold - sigma).
+        """Linear penalty: max(0, threshold - sigma).
 
         Simple clamping form for quick ethical vetoes. Provides immediate
         feedback proportional to the violation magnitude.
@@ -256,8 +256,7 @@ class EthicalGatingForms:
     def sigmoid(
         self, sigma: float, threshold: float | None = None, k: float | None = None
     ) -> GatingResult:
-        """
-        Sigmoid penalty: 1 / (1 + exp(k*(sigma - threshold))).
+        """Sigmoid penalty: 1 / (1 + exp(k*(sigma - threshold))).
 
         Smooth probabilistic transition ideal for uncertainty in security domains.
         The sharpness parameter k controls the transition steepness (typically 5-10).
@@ -300,8 +299,7 @@ class EthicalGatingForms:
     def exponential(
         self, sigma: float, threshold: float | None = None, k: float | None = None
     ) -> GatingResult:
-        """
-        Exponential penalty: exp(-k*(sigma - threshold)) if sigma < threshold.
+        """Exponential penalty: exp(-k*(sigma - threshold)) if sigma < threshold.
 
         Sharp veto for critical failures (e.g., benevolence drops). Provides
         extremely strong penalties for significant ethical violations.
@@ -344,8 +342,7 @@ class EthicalGatingForms:
     def piecewise(
         self, sigma: float, threshold: float | None = None, delta: float | None = None
     ) -> GatingResult:
-        """
-        Piecewise (hybrid) penalty: linear for small deviations, quadratic for large.
+        """Piecewise (hybrid) penalty: linear for small deviations, quadratic for large.
 
         Combines the quick response of linear for small violations with the
         smooth convergence of quadratic for larger ones.
@@ -399,8 +396,7 @@ class EthicalGatingForms:
     def gaussian_rbf(
         self, sigma: float, threshold: float | None = None, variance: float | None = None
     ) -> GatingResult:
-        """
-        Gaussian RBF penalty: exp(-((sigma - threshold)^2)/(2*var)).
+        """Gaussian RBF penalty: exp(-((sigma - threshold)^2)/(2*var)).
 
         Radial basis function for localized ethical penalties, complementary
         to 3R resonance. Provides smooth, symmetric penalties around threshold.
@@ -445,8 +441,7 @@ class EthicalGatingForms:
         )
 
     def apply(self, sigma: float, form_type: GatingFormType | None = None) -> GatingResult:
-        """
-        Apply the specified gating form to sigma value.
+        """Apply the specified gating form to sigma value.
 
         Args:
             sigma: Current ethical compliance score (0-1)
@@ -471,8 +466,7 @@ class EthicalGatingForms:
     def compute_lyapunov_stability(
         self, sigma_trajectory: np.ndarray, target_sigma: float | None = None
     ) -> tuple[float, bool]:
-        """
-        Compute Lyapunov exponent for sigma trajectory stability.
+        """Compute Lyapunov exponent for sigma trajectory stability.
 
         The Lyapunov exponent measures the rate of convergence to the
         equilibrium state. This method reports the measured exponent and
@@ -513,8 +507,7 @@ class EthicalGatingForms:
 
 
 class BenevolenceOptimizer:
-    """
-    Optimizer for ethical gating forms with domain-adaptive selection.
+    """Optimizer for ethical gating forms with domain-adaptive selection.
 
     Implements the meta-optimizer for form blending and hyperparameter
     optimization using optuna-style search.
@@ -525,8 +518,7 @@ class BenevolenceOptimizer:
         base_threshold: float = SIGMA_IMMUTABLE_DEFAULT,
         high_stakes_threshold: float = SIGMA_IMMUTABLE_HIGH_STAKES,
     ):
-        """
-        Initialize the benevolence optimizer.
+        """Initialize the benevolence optimizer.
 
         Args:
             base_threshold: Base sigma_Immutable threshold
@@ -545,8 +537,7 @@ class BenevolenceOptimizer:
         n_simulations: int = 1000,
         config: GatingFormConfig | None = None,
     ) -> BenchmarkResult:
-        """
-        Benchmark a single gating form.
+        """Benchmark a single gating form.
 
         Args:
             form_type: Type of gating form to benchmark
@@ -595,32 +586,11 @@ class BenevolenceOptimizer:
         avg_convergence = np.mean(convergence_epochs)
         avg_lyapunov = np.mean(lyapunov_exponents)
 
-        # Simulate benevolence variance
-        benevolence_samples = np.random.uniform(0.85, 1.0, n_simulations)
-        benevolence_variance = np.var(benevolence_samples)
-
-        # Compute Brier score (simulated predictions)
-        predictions = np.random.uniform(0.0, 1.0, n_simulations)
-        ground_truth = (sigma_range[:n_simulations] >= config.threshold).astype(float)
-        if len(predictions) == len(ground_truth):
-            brier_score = np.mean((predictions - ground_truth) ** 2)
-        else:
-            # Resample to match sizes
-            brier_score = np.mean((predictions[:100] - ground_truth[:100]) ** 2)
-
-        # Simulate FP/FN rates
-        fp_rate = np.random.uniform(0.005, 0.02)  # Target < 1%
-        fn_rate = np.random.uniform(0.005, 0.02)  # Target < 1%
-
-        # Compute overhead
-        overhead_percent = (elapsed_time / (n_simulations * 0.001)) * 100  # vs 1ms baseline
-        overhead_percent = min(overhead_percent, 5.0)  # Cap at 5%
-
-        # F1 and AUC (simulated)
-        precision = 1 - fp_rate
-        recall = 1 - fn_rate
-        f1_score = 2 * precision * recall / (precision + recall + 1e-10)
-        auc_score = np.random.uniform(0.92, 0.98)
+        # Measured wall time per simulated trajectory as a percentage of the
+        # declared 1 ms per-evaluation budget. Reported uncapped: the old
+        # min(..., 5.0) clamp meant the figure could never exceed 5% no
+        # matter what was measured.
+        overhead_percent = (elapsed_time / (n_simulations * 0.001)) * 100
 
         # Stability score based on Lyapunov
         stability_score: float = (
@@ -632,13 +602,7 @@ class BenevolenceOptimizer:
             config=config,
             convergence_epochs=int(avg_convergence),
             lyapunov_exponent=float(avg_lyapunov),
-            benevolence_variance=float(benevolence_variance),
-            brier_score=float(brier_score),
-            fp_rate=float(fp_rate),
-            fn_rate=float(fn_rate),
             overhead_percent=float(overhead_percent),
-            f1_score=float(f1_score),
-            auc_score=float(auc_score),
             stability_score=float(stability_score),
             metadata={
                 "n_simulations": n_simulations,
@@ -681,8 +645,7 @@ class BenevolenceOptimizer:
     def benchmark_all_forms(
         self, n_simulations: int = 1000
     ) -> dict[GatingFormType, BenchmarkResult]:
-        """
-        Benchmark all gating forms.
+        """Benchmark all gating forms.
 
         Args:
             n_simulations: Number of simulations per form
@@ -701,8 +664,7 @@ class BenevolenceOptimizer:
     def get_optimal_form(
         self, domain: str = "general", optimization_target: str = "f1"
     ) -> tuple[GatingFormType, BenchmarkResult]:
-        """
-        Get optimal gating form for domain and optimization target.
+        """Get optimal gating form for domain and optimization target.
 
         Args:
             domain: Domain context (medical, security, humanitarian, general)
@@ -730,21 +692,20 @@ class BenevolenceOptimizer:
         if not candidates:
             candidates = self.benchmark_results
 
-        # Select based on optimization target
+        # Select based on optimization target. The default ranks by the
+        # measured stability score; it used to rank by an F1 that was
+        # derived from RNG-drawn FP/FN rates, i.e. a random choice.
         if optimization_target == "convergence":
             best_form = min(candidates.keys(), key=lambda x: candidates[x].convergence_epochs)
-        elif optimization_target == "stability":
-            best_form = max(candidates.keys(), key=lambda x: candidates[x].lyapunov_exponent)
-        else:  # f1
-            best_form = max(candidates.keys(), key=lambda x: candidates[x].f1_score)
+        else:  # "stability" and the former "f1" default
+            best_form = max(candidates.keys(), key=lambda x: candidates[x].stability_score)
 
         return best_form, candidates[best_form]
 
     def generate_visualization(
-        self, output_dir: str = "docs/images", sigma_range: np.ndarray | None = None
+        self, output_dir: str = "results/latest", sigma_range: np.ndarray | None = None
     ) -> dict[str, str]:
-        """
-        Generate visualization plots for gating forms.
+        """Generate visualization plots for gating forms.
 
         Args:
             output_dir: Directory for output images
@@ -839,11 +800,13 @@ class BenevolenceOptimizer:
 
             form_names = [f.value for f in self.benchmark_results.keys()]
 
-            # F1 Scores
-            f1_scores = [r.f1_score for r in self.benchmark_results.values()]
-            axes[0, 0].bar(form_names, f1_scores, color="steelblue")
-            axes[0, 0].set_ylabel("F1 Score")
-            axes[0, 0].set_title("F1 Score by Gating Form")
+            # Stability score (real: derived from the measured Lyapunov
+            # exponents). This panel used to plot F1 built from RNG-drawn
+            # FP/FN rates; no prediction task exists here to score.
+            stability = [r.stability_score for r in self.benchmark_results.values()]
+            axes[0, 0].bar(form_names, stability, color="steelblue")
+            axes[0, 0].set_ylabel("Stability Score")
+            axes[0, 0].set_title("Stability Score by Gating Form")
             axes[0, 0].tick_params(axis="x", rotation=45)
 
             # Convergence Epochs
@@ -887,8 +850,7 @@ class BenevolenceOptimizer:
 
 
 def validate_symbolic_convexity() -> dict[str, Any]:
-    """
-    Validate convexity of gating forms using SymPy.
+    """Validate convexity of gating forms using SymPy.
 
     Returns:
         Dictionary with symbolic validation results
@@ -939,8 +901,7 @@ def validate_symbolic_convexity() -> dict[str, Any]:
 def run_comprehensive_benchmark(
     output_dir: str = "results/gating_optimization", n_simulations: int = 1000
 ) -> dict[str, Any]:
-    """
-    Run comprehensive benchmark of all gating forms.
+    """Run comprehensive benchmark of all gating forms.
 
     Args:
         output_dir: Directory for output files
@@ -969,13 +930,13 @@ def run_comprehensive_benchmark(
     # Display results
     print("\nBenchmark Results:")
     print("-" * 70)
-    print(f"{'Form':<15} {'F1':<8} {'Conv.':<8} {'Lambda':<10} {'Overhead':<10} {'Stable'}")
+    print(f"{'Form':<15} {'Stability':<10} {'Conv.':<8} {'Lambda':<10} {'Overhead':<10} {'Stable'}")
     print("-" * 70)
 
     for form_type, result in results.items():
         stable = "Yes" if result.lyapunov_exponent >= LAMBDA_LYAPUNOV else "No"
         print(
-            f"{form_type.value:<15} {result.f1_score:<8.4f} "
+            f"{form_type.value:<15} {result.stability_score:<10.4f} "
             f"{result.convergence_epochs:<8d} {result.lyapunov_exponent:<10.4f} "
             f"{result.overhead_percent:<10.2f} {stable}"
         )
@@ -986,11 +947,13 @@ def run_comprehensive_benchmark(
     print("\nOptimal Forms by Domain:")
     for domain in ["medical", "security", "humanitarian", "general"]:
         best_form, best_result = optimizer.get_optimal_form(domain=domain)
-        print(f"  {domain}: {best_form.value} (F1={best_result.f1_score:.4f})")
+        print(f"  {domain}: {best_form.value} (stability={best_result.stability_score:.4f})")
 
     # Generate visualizations
     if MATPLOTLIB_AVAILABLE:
-        viz_files = optimizer.generate_visualization(output_dir="docs/images")
+        # results/latest: the curated committed charts directory is reserved
+        # for its allowed writers (see tests/test_docs_images_single_writer.py).
+        viz_files = optimizer.generate_visualization(output_dir="results/latest")
         print(f"\nGenerated {len(viz_files)} visualization files")
 
     # Validate symbolic properties
@@ -1015,10 +978,6 @@ def run_comprehensive_benchmark(
             form.value: {
                 "convergence_epochs": result.convergence_epochs,
                 "lyapunov_exponent": result.lyapunov_exponent,
-                "f1_score": result.f1_score,
-                "auc_score": result.auc_score,
-                "fp_rate": result.fp_rate,
-                "fn_rate": result.fn_rate,
                 "overhead_percent": result.overhead_percent,
                 "stability_score": result.stability_score,
             }

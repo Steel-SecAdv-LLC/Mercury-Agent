@@ -11,11 +11,14 @@ state, and emits it as JSON for review.
 from __future__ import annotations
 
 import argparse
+import logging
 from typing import Any
 
 import numpy as np
 
 from omni_mercury_engine.tools._base import Certificate, run_tool
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA = "mercury.tools.gosnn_scalar_dump/v1"
 
@@ -65,7 +68,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
             try:
                 probe(X)
             except Exception:
-                pass
+                logger.debug("Scalar probe failed; continuing without it", exc_info=True)
 
     operational_named: dict[str, dict[str, float]] = {}
     diagnostic_named: dict[str, dict[str, float]] = {}

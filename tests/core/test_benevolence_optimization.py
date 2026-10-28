@@ -104,7 +104,7 @@ class TestEthicalGatingForms:
     """Tests for EthicalGatingForms class."""
 
     @pytest.fixture
-    def gating_forms(self):
+    def gating_forms(self) -> Any:
         """Create a gating forms instance with default config."""
         config = GatingFormConfig(form_type=GatingFormType.QUADRATIC)
         return EthicalGatingForms(config)
@@ -293,7 +293,7 @@ class TestBenevolenceOptimizer:
     """Tests for BenevolenceOptimizer class."""
 
     @pytest.fixture
-    def optimizer(self):
+    def optimizer(self) -> Any:
         """Create a benevolence optimizer instance."""
         return BenevolenceOptimizer()
 
@@ -303,8 +303,14 @@ class TestBenevolenceOptimizer:
 
         assert result.form_type == GatingFormType.QUADRATIC
         assert result.convergence_epochs > 0
-        assert 0 <= result.f1_score <= 1
+        # Not-measured contract: no prediction task exists in this harness,
+        # so the classification-quality fields must be None — they used to
+        # carry RNG-drawn stand-ins presented as results.
+        assert result.f1_score is None
+        assert result.auc_score is None
+        assert result.brier_score is None
         assert result.overhead_percent >= 0
+        assert 0 <= result.stability_score <= 1
 
     def test_benchmark_all_forms(self, optimizer: Any) -> None:
         """Test benchmarking all forms."""
@@ -378,7 +384,7 @@ class TestPropertyBased:
     """Property-based tests for gating forms."""
 
     @pytest.fixture
-    def gating_forms(self):
+    def gating_forms(self) -> Any:
         """Create a gating forms instance."""
         config = GatingFormConfig(form_type=GatingFormType.QUADRATIC)
         return EthicalGatingForms(config)
@@ -445,7 +451,7 @@ class TestGatingFormGradients:
     """Tests for gradient computations."""
 
     @pytest.fixture
-    def gating_forms(self):
+    def gating_forms(self) -> Any:
         """Create a gating forms instance."""
         config = GatingFormConfig(form_type=GatingFormType.QUADRATIC)
         return EthicalGatingForms(config)
@@ -483,7 +489,7 @@ class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
     @pytest.fixture
-    def gating_forms(self):
+    def gating_forms(self) -> Any:
         """Create a gating forms instance."""
         config = GatingFormConfig(form_type=GatingFormType.QUADRATIC)
         return EthicalGatingForms(config)

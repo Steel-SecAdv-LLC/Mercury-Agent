@@ -95,7 +95,10 @@ MEASURED_RATE: dict[str, float] = {
 MEASURED_VERDICT: dict[str, float] = {
     "nano_safeguard": 1.0,
     "acceleration_dynamics": 0.0,
-    "frequent_pattern": 0.0,
+    # frequent_pattern left this gate on 2026-10-27: its manifest modality
+    # was corrected to matrix_2d (the documented per-transaction contract)
+    # and its false-alarm rate is pinned in
+    # tests/core/test_declared_modality_false_alarm_rate.py instead.
     "spectral_domain_frequency": 0.0,
     "spectral_vibration": 0.0,
     "uiux_anomaly": 0.0,

@@ -927,7 +927,14 @@ def create_financial_service(
         "stub": FinancialAPIProvider.STUB,
     }
 
-    provider_enum = provider_map.get(provider.lower(), FinancialAPIProvider.STUB)
+    # An unrecognised provider string must not silently become stub data:
+    # with use_real_api=True a typo would otherwise serve RNG prices as real.
+    try:
+        provider_enum = provider_map[provider.lower()]
+    except KeyError:
+        raise ValueError(
+            f"unknown provider {provider!r}; expected one of {sorted(provider_map)}"
+        ) from None
 
     return FinancialService(
         provider=provider_enum,

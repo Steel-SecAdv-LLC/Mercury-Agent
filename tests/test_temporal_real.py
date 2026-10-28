@@ -74,27 +74,28 @@ class TestTrendDetection:
         assert scores[50] >= scores[30] - 0.1  # Medium >= Small (with tolerance)
 
     def test_trend_uses_rolling_window(self) -> None:
-        """Trend detection should use rolling window for baseline."""
+        """The trend channel tests the rolling window's level against the fit.
+
+        2026-10 rebuild contract: the rolling (median) level is compared with
+        the level LEARNED BY fit(), so a sustained shift stays flagged for as
+        long as it lasts. The previous statistic compared each point with the
+        batch's own trailing window, which adapts INTO a shift within one
+        window length and then reported the shifted regime as normal — that
+        adaptive decay is exactly what the rebuild removed.
+        """
         detector = TemporalAnomalyDetector({"window_size": 10})
 
-        # Create data with shift in mean at position 50
-        data = np.concatenate(
-            [
-                np.ones(50) * 0,  # First half: mean 0
-                np.ones(50) * 10,  # Second half: mean 10
-            ]
-        )
-        detector.fit(data)
+        rng = np.random.default_rng(0)
+        detector.fit(rng.normal(0.0, 1.0, size=200))
 
-        result = detector.detect(data)
+        shifted = rng.normal(0.0, 1.0, size=100)
+        shifted[50:] += 10.0
+        result = detector.detect(shifted)
 
-        # First point after shift should have high score
-        shift_score = result["scores"][50]
-
-        # Later points (after window adapts) should have lower scores
-        adapted_score = result["scores"][65]  # After 15 points of new regime
-
-        assert shift_score > adapted_score
+        # The whole shifted regime scores above the pre-shift regime, and the
+        # score does NOT decay once the window has filled with the new level.
+        assert result["scores"][55:].min() > result["scores"][:45].max()
+        assert result["scores"][65] >= result["scores"][55] - 1e-9
 
     def test_trend_continuous_not_binary(self) -> None:
         """Trend scores should be continuous, not binary flags."""
@@ -116,32 +117,33 @@ class TestSuddenChangeDetection:
     """Test sudden change detection accuracy."""
 
     def test_detects_step_change(self) -> None:
-        """Should detect sudden step changes in values."""
+        """A step is flagged from its onset for as long as the new level holds.
+
+        2026-10 rebuild contract: the channels are specialized, so the step's
+        ONSET registers through the prediction channel (the point departs the
+        local level) and the shifted REGIME stays flagged through the trend
+        channel (the rolling median departs the fitted level). The previous
+        expectation — one spike at the change point, decaying afterwards —
+        came from the self-adapting window the rebuild removed. The detector
+        is fitted on stationary data at the pre-step level; a noiseless ramp
+        is no longer an interesting fit, since fit() floors the innovation
+        scale against exactly that degenerate case.
+        """
         detector = TemporalAnomalyDetector({"change_threshold": 2.0})
 
-        # Gradual changes
-        gradual = np.linspace(0, 10, 50)
-        # Sudden step change
-        step = np.concatenate(
-            [
-                np.zeros(25),
-                np.ones(25) * 10,  # Jump from 0 to 10
-            ]
-        )
+        rng = np.random.default_rng(1)
+        detector.fit(rng.normal(0.0, 1.0, size=200))
 
-        detector.fit(gradual)
-
+        step = rng.normal(0.0, 1.0, size=50)
+        step[25:] += 10.0
         result_step = detector.detect(step)
 
-        # The step change point should have high change score
-        change_point_score = result_step["scores"][25]
+        onset_score = result_step["scores"][25]
+        before_change = float(np.mean(result_step["scores"][:20]))
+        shifted_regime = float(np.mean(result_step["scores"][30:]))
 
-        # Points away from change should have lower scores
-        before_change = np.mean(result_step["scores"][:20])
-        after_change = np.mean(result_step["scores"][30:])
-
-        assert change_point_score > before_change
-        assert change_point_score > after_change
+        assert onset_score > before_change
+        assert shifted_regime > before_change
 
     def test_change_magnitude_affects_score(self) -> None:
         """Larger sudden changes should produce higher scores."""

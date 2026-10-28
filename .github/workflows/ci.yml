@@ -153,7 +153,7 @@ jobs:
           # the exact drift class the ruff incident demonstrated.  All six
           # lint/format/type pins are cross-checked by
           # scripts/check_pinned_tool_versions.py in Workflow Hardening.
-          pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.1 pydocstyle==6.3.0
+          pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.2 pydocstyle==6.3.0
 
       - name: Run Black (formatting)
         run: black --check --diff src/ tests/
@@ -566,7 +566,7 @@ jobs:
           # ``py.typed``, so installing it lets mypy resolve the decorator
           # signatures; without it the [[tool.mypy.overrides]] boundary turns
           # them into ``Any`` and the strict lane flags [untyped-decorator].
-          pip install mypy==2.4.0 types-requests==2.33.0.20260712 \
+          pip install mypy==2.4.0 types-requests==2.33.0.20261006 \
             "pytest>=9.0.3" pytest-asyncio pytest-mock "hypothesis>=6.0.0"
 
       - name: Dependency license gate ([ml] runtime closure)
@@ -722,7 +722,6 @@ jobs:
             scripts/update_readme_benchmarks.py \
             scripts/run_api.py \
             scripts/normalize_headers.py \
-            scripts/generate_anomaly_panel.py \
             scripts/run_sigma_mutation_gate.py \
             scripts/check_benchmark_integrity.py \
             scripts/render_prometheus_rules.py \
@@ -2091,24 +2090,42 @@ jobs:
           done
           [ "$(count staging PrometheusRule)" -eq 0 ] \
             || { echo "::error::staging must not install the production-namespaced rules"; exit 1; }
+          # Render-only values: production mode requires a secret source (templates/secret.yaml).
+          # These are never deployed; the rendered manifests are discarded.
+          RENDER_ONLY_SECRETS=(--set config.secrets.JWT_SECRET_KEY=render-only
+            --set config.secrets.API_KEY_HASH_SALT=render-only)
           for values in production staging; do
             helm template mercury-agent ./helm/mercury-agent \
-              -f "helm/mercury-agent/values-${values}.yaml" | grep -q "^kind: PrometheusRule$" \
+              -f "helm/mercury-agent/values-${values}.yaml" "${RENDER_ONLY_SECRETS[@]}" \
+              | grep -q "^kind: PrometheusRule$" \
               || { echo "::error::Helm ${values} values render no PrometheusRule"; exit 1; }
           done
 
       - name: Lint and render the Helm chart
         run: |
           set -euo pipefail
+          # Render-only values: production mode requires a secret source (templates/secret.yaml).
+          # These are never deployed; the rendered manifests are discarded.
+          RENDER_ONLY_SECRETS=(--set config.secrets.JWT_SECRET_KEY=render-only
+            --set config.secrets.API_KEY_HASH_SALT=render-only)
           helm lint ./helm/mercury-agent
           # No `-f` renders the chart exactly as `helm install mercury-agent
           # ./helm/mercury-agent` would -- the command the README publishes.
           helm template mercury-agent ./helm/mercury-agent > /dev/null
           for values in helm/mercury-agent/values-*.yaml; do
             echo "::group::helm template -f ${values}"
-            helm template mercury-agent ./helm/mercury-agent -f "${values}" > /dev/null
+            helm template mercury-agent ./helm/mercury-agent -f "${values}" "${RENDER_ONLY_SECRETS[@]}" > /dev/null
             echo "::endgroup::"
           done
+          # A production-mode render with no secret source must be refused, and
+          # the refusal must name the missing key.
+          if helm template mercury-agent ./helm/mercury-agent \
+              -f helm/mercury-agent/values-production.yaml > /dev/null 2> refusal.txt; then
+            echo "::error::production renders without JWT_SECRET_KEY; the render guard is gone"
+            exit 1
+          fi
+          grep -q "JWT_SECRET_KEY" refusal.txt \
+            || { echo "::error::production refusal does not name JWT_SECRET_KEY"; cat refusal.txt; exit 1; }
 
       - name: Assert the Prometheus Operator integration renders
         # The chart declares no monitoring subcharts; it integrates with an
@@ -2222,7 +2239,14 @@ jobs:
               ("helm/mercury-agent/values-staging.yaml", "production"),
               ("helm/mercury-agent/values-production.yaml", "production"),
           ):
-              docs = render(["helm", "template", "mercury-agent", "./helm/mercury-agent", "-f", values])
+              # Production mode requires a secret source (templates/secret.yaml).
+              # Naming an existing Secret satisfies the guard without rendering
+              # any key material, so the ships-no-key-material check below
+              # still sees no Secret documents.
+              docs = render([
+                  "helm", "template", "mercury-agent", "./helm/mercury-agent", "-f", values,
+                  "--set", "config.secrets.existingSecret=ci-render-placeholder",
+              ])
               data = app_config(docs)
               if data.get("MERCURY_ENV") != expected_env:
                   failures.append(f"{values}: MERCURY_ENV={data.get('MERCURY_ENV')!r}, expected {expected_env!r}")

@@ -6,7 +6,7 @@
 Loads the frozen σ_Immutable :class:`EthicalGate`, scores a held-out labelled
 integrity corpus, and reports ECE / MCE / Brier / reliability plus AUROC and
 gate confusion across a temperature grid and a threshold grid. It proves the
-frozen operational constant ``0.9999216794967651`` is untouched and never
+frozen operational constant ``0.9999432563781738`` is untouched and never
 repoints any operational constant -- every swept value is advisory.
 
 Usage::

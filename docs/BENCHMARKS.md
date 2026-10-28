@@ -1,11 +1,11 @@
 # Mercury Agent Benchmark Results
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-14.
+Applies to Mercury Agent **v3.0.x**. Last updated: 2026-10-28.
 
 > **Current committed run (v2.1.x).** The public headline is the committed
 > `benchmarks/mercury_benchmark_results.json` run — **67 successful /
-> 76 attempted**, Mean ROC-AUC **0.8545**, Median **0.9052**, Mean
-> Oracle F1 **0.6425** (54 genuine-label datasets, now including the
+> 76 attempted**, Mean ROC-AUC **0.8610**, Median **0.9077**, Mean
+> Oracle F1 **0.6476** (54 genuine-label datasets, now including the
 > expert-annotated `DTU_AIS_Abnormal` maritime set; regenerated on
 > `steel/version-cov4` with the kNN density stream and its minimum-
 > reference gate) — surfaced in the
@@ -19,13 +19,13 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-14.
 >
 > **Label-provenance of the headline.** The committed run records
 > `headline_label_policy = genuine_labels_only`: the headline AUC/F1 are
-> computed over the **53** datasets carrying genuine labels
-> (`n_genuine_labeled = 53`; ground-truth or expert-annotated), with
-> Median Oracle F1 **0.6747**. A separate 13-dataset **unsupervised**
+> computed over the **54** datasets carrying genuine labels
+> (`n_genuine_labeled = 54`; ground-truth or expert-annotated), with
+> Median Oracle F1 **0.7005**. A separate 13-dataset **unsupervised**
 > subset (`USGS_Earthquake`, `NOAA_Weather`, `Wildfire`, `NOAA_Buoy`,
 > `NOAA_StormEvents`, `NOAA_GSOD`, `NOAA_ERDDAP`, `EPA_AirQuality`,
 > `FEMA_Disaster`, `NASA_Exoplanet`, `SolarDynamics`, `MSDS`, `ThreatIntel`)
-> scores Mean AUC **0.9281** but is **excluded from the headline as
+> scores Mean AUC **0.9325** but is **excluded from the headline as
 > circular**: its labels are manufactured by thresholding a detector-like
 > score/feature, so they are reported for unsupervised evaluation only and
 > never folded into the graded headline. All figures are from the `summary`
@@ -41,7 +41,7 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-14.
 > authoritative current figures see the committed
 > `mercury_benchmark_results.json` (this committed run: 67/76 scored) and
 > the CI-refreshed README "Latest Benchmark Results" block. The externally-
-> comparable ADBench subset is Mean AUC **0.8515** on the hardened detector (0.8251 before the kNN density stream)
+> comparable ADBench subset is Mean AUC **0.8571** on the hardened detector (0.8251 before the kNN density stream)
 > (base `e118e1f` 0.8180; see the base-vs-current section below).
 
 > **Ensemble changes prepared for v2.1.0 (2026-07-08; never released, ship in v3.0.0).** The `[2.1.0]`
@@ -389,7 +389,8 @@ function of the scored signal.
 2. **Ensemble inversion on high-dimensional / mis-gated data.**
    On high-dimensional image-like features (optdigits, landsat, WPBC), the ensemble
    score can invert (anomalies score lower than normal). This manifests as
-   ROC-AUC < 0.5 on 6 datasets.
+   ROC-AUC < 0.5 on 2 datasets of the committed 2026-10-26 run (ADBench-46,
+   ADBench-47; the count was 6 on older runs before the mitigation below).
    *Mitigation (prepared for v2.1.0, 2026-07-08; ships in v3.0.0):* a substantial part of the optdigits (ADBench-26)
    inversion was the temporal `_residual_frequency_filter` firing on tabular rows
    via a shape proxy — measured to drag optdigits from 0.52 to 0.39. The filter
@@ -444,6 +445,11 @@ Results are saved to `benchmarks/calibration_validation_results.json`.
 
 ### MD-011: Threshold Calibration Pipeline
 
+> **Legacy table (40-dataset run).** The current committed run is
+> `benchmarks/calibration_validation_results.json` (2026-10-26, 55 datasets):
+> 50 improved / 1 same / 4 degraded, mean ΔF1 **+0.220**. The table below is
+> the earlier 40-dataset run, kept for history.
+
 `fit_with_labels()` triggers `ThresholdCalibrationPipeline` to select the best
 threshold via Youden's J or F1-optimal strategy. Compared against the default 0.5
 threshold on the same test scores:
@@ -465,6 +471,10 @@ where the default 0.5 happened to be near-optimal for a high-AUC detector).
 ![Calibration Improvement](images/calibration_improvement.png)
 
 ### MD-005: Conformal Coverage
+
+> **Legacy table (40-dataset run).** The current committed JSON (2026-10-26,
+> 55 datasets) carries per-dataset conformal results but no aggregate
+> summary; the aggregate below is from the earlier 40-dataset run.
 
 **Corrected metric:** The prior measurement used `evaluate_coverage()` which computes
 overall prediction accuracy (predictions == labels), NOT the conformal coverage guarantee.
@@ -509,6 +519,11 @@ the standalone `conformal_coverage.png` was retired in PR #139 when the
 two views were merged into a single six-panel image.
 
 ### MD-003: Fusion Weight Cross-Validation
+
+> **Legacy table (40-dataset run).** The current committed run (2026-10-26,
+> 55 datasets) records adaptive weights on all 55 datasets (mean R 0.47 /
+> K 0.21 / IG 0.32); see `docs/images/adaptive_weight_distribution.png` for
+> its CV validation. The table below is the earlier 40-dataset run.
 
 **L-BFGS-B cross-validation** via `run_fusion_weight_cv()` replicates the exact
 optimization mechanism from `NeuroSymbolicHub._learn_fusion_weights()` (BCE loss,
@@ -572,14 +587,14 @@ seeded input and must never be quoted as skill.
 | `ci/hazard-regression` — solar row | 83 windows of measured SWPC/GOES data, cached in-repo | **real, measured** | real-data floor |
 | `ci/hazard-regression` — other 6 domains | 124 constructed scenarios (seeded, physics-shaped, disclosed per-row in `docs/HAZARD_REGRESSION.md`) | constructed | behavior pin — **not** skill |
 | Fusion AUC/F1 + conformal coverage gate | seeded synthetic corpus (stated in workflow header) | synthetic | math/behavior pin — **not** skill |
-| `ci/rolling-corpus-eval` (weapons gate) | 362 template-expanded text cases; adversarial paraphrase recall measured separately (`docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`: recall 0.256, precision 1.00) | constructed text | control-calibration pin; the measured paraphrase gap is open and documented |
+| `ci/rolling-corpus-eval` (weapons gate) | 362 template-expanded text cases; adversarial paraphrase recall measured separately (`docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`: shipped two-layer posture recall 0.714; the lexical layer alone floors at 0.256, precision 1.00) | constructed text | control-calibration pin; the measured paraphrase gap is open and documented |
 | `ci/red-team` | deterministic mutation registry over seed prompts | constructed | control-survival pin |
 | CI `Performance Benchmark` latency asserts | `np.random.randn` arrays | synthetic | latency pin only |
 | Governed-fusion promotion gate | external_label live events only (2: `nsl_kdd`, `batadal`; AUROC 0.7704) | **real, external labels** | the only fusion skill claim |
 
 Counting individual blocking thresholds: **~24 rest on real data, ~40 on
 constructed/synthetic input.** The published headline numbers (ADBench
-0.8515/0.6415, governed-fusion external-label 0.7704) rest exclusively on
+0.8571/0.6443, governed-fusion external-label 0.7704) rest exclusively on
 the real side; every constructed lane above is a pin, and quoting one as
 skill is a documentation bug — report it.
 
@@ -593,12 +608,12 @@ skill is a documentation bug — report it.
 
 ## Seven-Axis Evaluation Matrix
 
-_Generated by `python -m benchmarks.seven_axis_runner` (seed=20260504). Do not hand-edit — regenerate with `python -m benchmarks.seven_axis_runner --regenerate-docs`._
+_Generated by `python -m benchmarks.seven_axis_runner` (seed=20260504), on **synthetic seeded noisy-logistic workloads** — these scores characterise behaviour on that synthetic family, not field performance on real data. Do not hand-edit — regenerate with `python -m benchmarks.seven_axis_runner --regenerate-docs`._
 
 | Axis | Score (higher is better) | Notes |
 | --- | --- | --- |
 | Generalization | 0.934 | OOD AUROC under bias / noise shift (ID=0.997 → OOD=0.934, Δ=+0.063). |
-| Scalability | 0.942 | Empirical complexity slope d log(t) / d log(n) = 1.058 over N ∈ [200, 800, 3200] (min of 5 timings per N). |
+| Scalability | 0.946 | Empirical complexity slope d log(t) / d log(n) = 1.054 over N ∈ [200, 800, 3200] (min of 5 timings per N). |
 | Data Efficiency | 1.000 | AUROC(N=50) / AUROC(N=1000) — measures how quickly the composer reaches asymptotic ranking quality (got 1.000 / 0.995). |
 | Reasoning | 0.940 | Fraction of correctly-flagged anomalies for which the symbolic channel independently crossed the decision threshold. |
 | Robustness | 0.964 | AUROC retention under additive noise σ ∈ [0.05, 0.15] (clean=0.996, worst-noise=0.959). |

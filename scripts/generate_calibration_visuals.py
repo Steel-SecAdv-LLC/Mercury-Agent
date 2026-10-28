@@ -87,130 +87,23 @@ def generate_calibration_improvement(data: dict[str, Any]) -> None:
     ax.set_yticks(y_pos)
     ax.set_yticklabels(names, fontsize=7)
     ax.set_xlabel("F1 Score")
-    ax.set_title("Calibration Improvement: Calibrated vs Default Threshold (MD-011)")
+    # The summary lives in the title: as a corner annotation it shared the
+    # lower-right corner with the legend, which rendered on top of it and
+    # hid the numbers in the committed image.
+    n_improved = sum(1 for d in deltas if d > 0)
+    mean_delta = np.mean(deltas)
+    ax.set_title(
+        "Calibration Improvement: Calibrated vs Default Threshold (MD-011)\n"
+        f"Improved: {n_improved}/{len(deltas)} | Mean \u0394F1: {mean_delta:+.3f}"
+    )
     ax.legend(loc="lower right")
     ax.invert_yaxis()
     ax.set_xlim(0, 1.05)
-
-    # Add summary annotation
-    n_improved = sum(1 for d in deltas if d > 0)
-    mean_delta = np.mean(deltas)
-    ax.annotate(
-        f"Improved: {n_improved}/{len(deltas)} | Mean \u0394F1: {mean_delta:+.3f}",
-        xy=(0.98, 0.02),
-        xycoords="axes fraction",
-        ha="right",
-        fontsize=9,
-        bbox={"boxstyle": "round", "fc": "wheat", "alpha": 0.8},
-    )
 
     plt.tight_layout()
     plt.savefig(IMAGES_DIR / "calibration_improvement.png", dpi=150)
     plt.close()
     print(f"  Saved: {IMAGES_DIR / 'calibration_improvement.png'}")
-
-
-def generate_conformal_coverage(data: dict[str, Any]) -> None:
-    """Generate conformal coverage scatter plot using score-based metric (MD-005)."""
-    results = [
-        r
-        for r in data["results"]
-        if r.get("error") is None
-        and "conformal_score_based" in r
-        and "score_coverage_results" in r.get("conformal_score_based", {})
-    ]
-
-    if not results:
-        print("  SKIPPED: No score-based conformal coverage data available")
-        return
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-
-    # Collect split and cross conformal score-based coverage
-    split_targets: list[float] = []
-    split_coverages: list[float] = []
-    cross_targets: list[float] = []
-    cross_coverages: list[float] = []
-
-    for r in results:
-        for cov in r["conformal_score_based"]["score_coverage_results"]:
-            if "error" in cov:
-                continue
-            tgt = cov["target_coverage"]
-            split_targets.append(tgt)
-            split_coverages.append(cov["split_score_coverage"])
-            cross_targets.append(tgt)
-            cross_coverages.append(cov["cross_score_coverage"])
-
-    split_targets_arr = np.array(split_targets)
-    split_coverages_arr = np.array(split_coverages)
-    cross_targets_arr = np.array(cross_targets)
-    cross_coverages_arr = np.array(cross_coverages)
-
-    # Color by target level, shape by method
-    colors = {0.90: "#4C72B0", 0.95: "#DD8452", 0.99: "#55A868"}
-    for tgt in [0.90, 0.95, 0.99]:
-        s_mask = split_targets_arr == tgt
-        c_mask = cross_targets_arr == tgt
-        ax.scatter(
-            split_targets_arr[s_mask],
-            split_coverages_arr[s_mask],
-            c=colors[tgt],
-            alpha=0.4,
-            s=30,
-            marker="o",
-            label=f"Split @ {tgt:.0%}",
-            edgecolors="white",
-            linewidth=0.5,
-        )
-        ax.scatter(
-            cross_targets_arr[c_mask],
-            cross_coverages_arr[c_mask],
-            c=colors[tgt],
-            alpha=0.6,
-            s=50,
-            marker="D",
-            label=f"Cross @ {tgt:.0%}",
-            edgecolors="white",
-            linewidth=0.5,
-        )
-
-    # Diagonal reference line
-    ax.plot([0.5, 1.0], [0.5, 1.0], "k--", linewidth=1, alpha=0.5, label="Perfect calibration")
-
-    ax.set_xlabel("Target Coverage")
-    ax.set_ylabel("Score-Based Coverage")
-    ax.set_title("Conformal Coverage (Score-Based): Split vs Cross (MD-005)")
-    ax.legend(loc="upper left", fontsize=7, ncol=2)
-    ax.set_xlim(0.85, 1.02)
-    ax.set_ylim(0.4, 1.05)
-
-    # Count meets for split and cross conformal
-    total_per_level = sum(1 for t in split_targets if t == 0.90)
-    split_meets_90 = sum(1 for t, c in zip(split_targets, split_coverages) if t == 0.90 and c >= t)
-    split_meets_95 = sum(1 for t, c in zip(split_targets, split_coverages) if t == 0.95 and c >= t)
-    split_meets_99 = sum(1 for t, c in zip(split_targets, split_coverages) if t == 0.99 and c >= t)
-    cross_meets_90 = sum(1 for t, c in zip(cross_targets, cross_coverages) if t == 0.90 and c >= t)
-    cross_meets_95 = sum(1 for t, c in zip(cross_targets, cross_coverages) if t == 0.95 and c >= t)
-    cross_meets_99 = sum(1 for t, c in zip(cross_targets, cross_coverages) if t == 0.99 and c >= t)
-
-    n = total_per_level
-    ax.annotate(
-        f"SplitConformal meets: 90%={split_meets_90}/{n}, "
-        f"95%={split_meets_95}/{n}, 99%={split_meets_99}/{n}\n"
-        f"CrossConformal meets: 90%={cross_meets_90}/{n}, "
-        f"95%={cross_meets_95}/{n}, 99%={cross_meets_99}/{n}\n"
-        f"Above diagonal = exceeds guarantee",
-        xy=(0.02, 0.02),
-        xycoords="axes fraction",
-        fontsize=7,
-        bbox={"boxstyle": "round", "fc": "wheat", "alpha": 0.8},
-    )
-
-    plt.tight_layout()
-    plt.savefig(IMAGES_DIR / "conformal_coverage.png", dpi=150)
-    plt.close()
-    print(f"  Saved: {IMAGES_DIR / 'conformal_coverage.png'}")
 
 
 def generate_weight_distribution(data: dict[str, Any]) -> None:
@@ -305,8 +198,12 @@ def generate_weight_distribution(data: dict[str, Any]) -> None:
     ax.set_xticklabels(component_names)
     ax.set_ylabel("Weight")
     ax.set_title("Ensemble Weight Distribution: Adaptive vs CV-Optimal (MD-003)")
-    ax.set_ylim(-0.05, 1.05)
-    ax.legend(loc="upper right", fontsize=8)
+    # Headroom above the 1.0 whiskers so the mu/sigma boxes sit inside the
+    # axes instead of spilling into the title.
+    ax.set_ylim(-0.05, 1.18)
+    # Below the axes: at upper right the legend rendered on top of the
+    # third component's mu/sigma annotation in the committed image.
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.08), ncols=3, fontsize=8)
 
     # Summary stats
     for i, name in enumerate(component_names):
@@ -314,7 +211,7 @@ def generate_weight_distribution(data: dict[str, Any]) -> None:
         std = np.std(weights[:, i])
         ax.annotate(
             f"\u03bc={mean:.2f}\n\u03c3={std:.2f}",
-            xy=(i, 1.0),
+            xy=(i, 1.10),
             ha="center",
             fontsize=8,
             bbox={"boxstyle": "round", "fc": "white", "alpha": 0.8},
@@ -353,7 +250,9 @@ def main() -> None:
     data = load_results()
 
     generate_calibration_improvement(data)
-    generate_conformal_coverage(data)
+    # The standalone conformal_coverage.png was retired in PR #139: its
+    # empirical-vs-target scatter is a panel of calibration_improvement.png
+    # (docs/BENCHMARKS.md, MD-005).
     generate_weight_distribution(data)
 
     print("Done.")

@@ -220,13 +220,15 @@ class EnergyDamsDetector:
         if critical_count >= 1 or high_count >= 2:
             return {
                 "risk": "HIGH",
-                "probability": min(1.0, (critical_count * 0.4 + high_count * 0.2)),
+                # A severity-count heuristic index, not a probability
+                # estimated from any model or data.
+                "heuristic_risk_index": min(1.0, (critical_count * 0.4 + high_count * 0.2)),
                 "message": (
                     "Energy sector failure will cascade to ALL critical " "infrastructure sectors"
                 ),
             }
 
-        return {"risk": "LOW", "probability": 0.1}
+        return {"risk": "LOW", "heuristic_risk_index": 0.1}
 
     def _identify_affected_sectors(self, cascading_risk: dict[str, Any]) -> list[str]:
         """Identify which sectors would be affected by energy failure."""

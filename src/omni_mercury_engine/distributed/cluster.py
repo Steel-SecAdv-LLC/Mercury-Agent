@@ -160,7 +160,6 @@ class WorkStealingScheduler:
 
     async def submit(self, task: DistributedTask) -> None:
         """Submit a task to the local queue."""
-
         async with self._lock:
             task.assigned_node = self._node_id
             task.status = TaskStatus.ASSIGNED
@@ -191,7 +190,6 @@ class WorkStealingScheduler:
 
     async def complete_task(self, task_id: str, result: TaskResult) -> None:
         """Mark a task as completed."""
-
         async with self._lock:
             task = self._running_tasks.pop(task_id, None)
             if task:
@@ -200,7 +198,6 @@ class WorkStealingScheduler:
 
     async def get_stealable_tasks(self, count: int) -> list[DistributedTask]:
         """Get tasks that can be stolen by other nodes."""
-
         async with self._lock:
             if len(self._local_queue) <= 1:
                 return []
@@ -454,7 +451,7 @@ class DistributedAnomalyDetector:
                 "mean": mean,
                 "std": std,
                 "threshold": threshold,
-                "confidence": 0.8,
+                "confidence": 0.8,  # fixed rule prior, not calibrated
             }
 
         self._task_handlers["anomaly_detection"] = anomaly_detection_handler

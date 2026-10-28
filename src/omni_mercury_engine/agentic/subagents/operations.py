@@ -1254,9 +1254,11 @@ def _op_hyperion(agent: CoordinatorSubAgent, task: SubAgentTask) -> OperationRes
             "calibrated": False,
             "impact_keys": sorted(impact)[:8] if isinstance(impact, dict) else [],
         }
+        # Confidence 0.3, not 1.0: the estimate is an uncalibrated heuristic
+        # and the confidence must say so.
         return (
             output,
-            1.0,
+            0.3,
             f"Hyperion_XXXII heuristic power estimate (uncalibrated): {power:.1f}W",
         )
 

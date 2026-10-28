@@ -177,6 +177,9 @@ class EmergingTechMonitor:
         Returns:
             Multiple scenario projections (optimistic, pessimistic, disruptive)
         """
+        # Fixed scenario template: the probabilities are uncited planning
+        # priors, identical for EVERY technology (so the recommended posture
+        # never varies with the input). They are not forecasts.
         scenarios: dict[str, dict[str, Any]] = {
             "optimistic": {
                 "description": "Technology matures safely, benefits widely distributed",
@@ -209,6 +212,9 @@ class EmergingTechMonitor:
             "technology": technology,
             "timeframe_years": timeframe_years,
             "scenarios": scenarios,
+            "scenario_basis": (
+                "fixed planning-prior template, identical for every " "technology; not a forecast"
+            ),
             "recommended_posture": (
                 "monitor_and_adapt" if float(disruptive_prob) < 0.10 else "proactive_intervention"  # type: ignore[arg-type, unused-ignore]
             ),

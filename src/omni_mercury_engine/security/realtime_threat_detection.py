@@ -356,6 +356,9 @@ class RealTimeThreatDetector(LoggerMixin):
             try:
                 s = self._raw_score(detector, X)
             except Exception:
+                logger.warning(
+                    "Threat detector %s failed; excluded from this score", name, exc_info=True
+                )
                 continue
             if s is None:
                 continue

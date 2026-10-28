@@ -306,8 +306,8 @@ class SGDOnlineLearner(OnlineLearner):
                 tol=None,
                 random_state=42,
             )
-        except ImportError:
-            raise RuntimeError("mercury_ml SGDClassifier required for SGDOnlineLearner")
+        except ImportError as exc:
+            raise RuntimeError("mercury_ml SGDClassifier required for SGDOnlineLearner") from exc
 
         self._fitted = False
         self._classes = np.array([0, 1])
@@ -364,10 +364,10 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
                 tol=None,
                 random_state=42,
             )
-        except ImportError:
+        except ImportError as exc:
             raise RuntimeError(
                 "mercury_ml PassiveAggressiveClassifier required for PassiveAggressiveOnlineLearner"
-            )
+            ) from exc
 
         self._fitted = False
         self._classes = np.array([0, 1])

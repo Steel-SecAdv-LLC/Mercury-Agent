@@ -300,9 +300,11 @@ class _LegacyOmniAvaEquation:
             if ratio > 0:
                 estimated_lambda = -np.log(ratio) / self.time_step
             else:
-                estimated_lambda = self.lambda_lyapunov
+                # Degenerate window: no rate is measurable. Returning the
+                # configured target here reported the goal as the measurement.
+                return False, 0.0
         else:
-            estimated_lambda = self.lambda_lyapunov
+            return False, 0.0
 
         # Stable if estimated decay rate is positive and close to target
         is_stable = bool(estimated_lambda > 0 and estimated_lambda >= self.lambda_lyapunov * 0.5)
@@ -330,13 +332,20 @@ class _LegacyOmniAvaEquation:
                 "convergence_bound": f"V(S_t) <= epsilon * e^(-{self.convergence_rate_param}*t)",
             },
             "baseline_comparison": {
-                "nsl_kdd_f1": 0.797,
-                "target_f1": 0.92,
-                "improvement_factor": 0.92 / 0.797,  # ~1.154 (15.4% improvement)
+                # Aspiration, not a result: 0.92 is a design target and the
+                # "improvement factor" is target/baseline, not anything
+                # measured. The measured NSL-KDD figure lives in
+                # benchmarks/mercury_benchmark_results.json (AUC 0.9741).
+                "nsl_kdd_f1_historical_baseline": 0.797,
+                "target_f1_aspiration": 0.92,
+                "basis": "design target vs historical baseline; not a measured improvement",
             },
             "ethical_scaling": {
                 "eta_ethical_phi": self.ethical_compliance_threshold**self.golden_ratio,
-                "fp_reduction_estimate": "10-15% via stricter ethical gating",
+                "fp_reduction_estimate": (
+                    "unmeasured design hypothesis (previously stated as "
+                    "'10-15%' with no measurement behind it)"
+                ),
             },
             # Backward-compatible keys
             "phi": self.phi,
@@ -2457,7 +2466,8 @@ class ThreeRMechanism:
         A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Immutable^phi
 
     This provides:
-    - Mathematical superiority over baselines (NSL-KDD F1=0.797 -> target 0.92+)
+    - A design target of F1 0.92+ against the historical NSL-KDD baseline of
+      0.797 (an aspiration, not a measured superiority claim)
     - A Lyapunov-style decay schedule (reference envelope) V(S_t) <= epsilon *
       e^(-0.25t) — a monitored design target, NOT a proven guarantee.
     - Ethical gating via sigma_Immutable^phi scaling

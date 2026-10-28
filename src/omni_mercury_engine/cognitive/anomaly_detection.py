@@ -578,7 +578,10 @@ class SimulatedGeologicalSource(ExternalDataSource):
                     "latitude": self._rng.uniform(-90, 90),
                     "longitude": self._rng.uniform(-180, 180),
                 },
-                confidence=0.9,
+                # Module convention for simulated data: confidence 0.0, and
+                # the point says it is simulated. These carried 0.9 before.
+                confidence=0.0,
+                metadata={"simulated": True},
             )
         ]
 
@@ -612,7 +615,8 @@ class SimulatedEnvironmentalSource(ExternalDataSource):
                     "wind_speed_kmh": self._rng.uniform(0, 150),
                     "precipitation_mm": self._rng.uniform(0, 100),
                 },
-                confidence=0.85,
+                confidence=0.0,
+                metadata={"simulated": True},
             )
         ]
 
@@ -1148,7 +1152,7 @@ class IntegratedAnomalyDetector:
         self,
         benevolence_advisory_threshold: float = MINIMUM_BENEVOLENCE_FLOOR,
         hmm_states: int = 3,
-        use_simulated_sources: bool = True,
+        use_simulated_sources: bool = False,
     ):
         """Initialize enhanced anomaly detector.
 
@@ -1158,9 +1162,12 @@ class IntegratedAnomalyDetector:
                 filters nothing. It is not a pass-bar; the enforced control is
                 the harm-uplift gate at the decision boundary.
             hmm_states: Number of HMM states
-            use_simulated_sources: If True, register simulated data sources for
-                development/testing. Set to False in production and register
-                real data sources using register_external_source().
+            use_simulated_sources: Explicit dev/test opt-in: register RNG
+                stand-in sources (confidence 0.0, ``metadata.simulated``).
+                Off by default — a default-on simulated USGS/NOAA feed was
+                flowing into predictions with confidence 0.9 as if real.
+                In production register real sources via
+                register_external_source().
         """
         self.benevolence_advisory_threshold = benevolence_advisory_threshold
         self.use_simulated_sources = use_simulated_sources
@@ -1303,7 +1310,12 @@ class IntegratedAnomalyDetector:
         if include_external:
             external_data = self.external_integrator.fetch_all()
             if external_data:
-                contributing_factors.append(f"External data points: {len(external_data)}")
+                n_sim = sum(1 for d in external_data if d.metadata.get("simulated"))
+                n_real = len(external_data) - n_sim
+                label = f"External data points: {n_real}"
+                if n_sim:
+                    label += f" (+{n_sim} simulated, excluded from confidence)"
+                contributing_factors.append(label)
 
         explanation = self._generate_prediction_explanation(
             prediction_type, combined_prob, contributing_factors

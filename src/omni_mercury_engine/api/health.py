@@ -585,7 +585,7 @@ async def health_metrics() -> Response:
             f"mercury_agent_benevolence_score {snapshot['benevolence_score']:.6f}",
         ]
     except Exception:  # pragma: no cover - metrics must never break the scrape
-        pass
+        logger.debug("Rendering the benevolence metric failed", exc_info=True)
 
     content = "\n".join(lines) + "\n"
 
@@ -601,7 +601,7 @@ async def health_metrics() -> Response:
         if rendered is not None:
             content += rendered[0].decode("utf-8")
     except Exception:  # pragma: no cover - exposition must never break the scrape
-        pass
+        logger.debug("Rendering the metrics exposition failed", exc_info=True)
 
     return Response(
         content=content,

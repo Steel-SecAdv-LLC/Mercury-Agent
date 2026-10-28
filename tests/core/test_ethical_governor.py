@@ -253,32 +253,64 @@ class TestEthicalAutonomyGovernor:
 
         assert critical_score > base_score
 
-    def test_audit_bias(self) -> None:
-        """Test bias auditing."""
-        governor = EthicalAutonomyGovernor()
-        data = np.random.randn(100)
+    def test_audit_bias_requires_protected_attributes(self) -> None:
+        """No protected attributes means no audit — not a number from a half-split.
 
-        metrics = governor._audit_bias(data, {})
+        The audit previously split the array in half and reported the halves'
+        mean difference as a "Fairlearn-compatible" metric, and claimed
+        ``mitigation_applied`` although no mitigation exists.
+        """
+        governor = EthicalAutonomyGovernor()
+        metrics = governor._audit_bias(np.random.randn(100), {})
 
         assert isinstance(metrics, BiasMetrics)
-        assert 0 <= metrics.statistical_parity <= 1
+        assert metrics.audit_performed is False
+        assert metrics.demographic_parity_diff is None
+        assert metrics.statistical_parity is None
+        assert metrics.bias_detected is False
+        assert metrics.mitigation_applied is False
 
-    def test_audit_bias_1d_data(self) -> None:
-        """Test bias auditing with 1D data."""
+    def test_audit_bias_with_protected_attributes(self) -> None:
+        """Real demographic parity across caller-supplied groups."""
         governor = EthicalAutonomyGovernor()
-        data = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        outcomes = np.array([1.0] * 50 + [0.0] * 50)
+        groups = np.array(["a"] * 50 + ["b"] * 50)
 
-        metrics = governor._audit_bias(data, {})
+        metrics = governor._audit_bias(outcomes, {"protected_attributes": groups})
 
-        assert isinstance(metrics, BiasMetrics)
+        assert metrics.audit_performed is True
+        assert metrics.demographic_parity_diff == pytest.approx(1.0)
+        assert metrics.statistical_parity == pytest.approx(0.0)
+        assert metrics.bias_detected is True
+        assert metrics.mitigation_applied is False
+        # Needs ground-truth labels this seam does not receive.
+        assert metrics.equalized_odds_diff is None
 
-    def test_statistical_validation(self) -> None:
-        """Test statistical validation."""
+    def test_audit_bias_rejects_mismatched_groups(self) -> None:
+        """Group labels must align one-per-row with the data."""
         governor = EthicalAutonomyGovernor()
+        with pytest.raises(ValueError, match="protected_attributes"):
+            governor._audit_bias(np.zeros(10), {"protected_attributes": np.zeros(7)})
 
-        p_value = governor._statistical_validation(1.0, {})
+    def test_statistical_validation_without_sample_is_none(self) -> None:
+        """A single score is not a sample: no test, no manufactured p-value.
 
+        This method previously padded the score with RNG draws around the
+        baseline and t-tested the mixture.
+        """
+        governor = EthicalAutonomyGovernor()
+        assert governor._statistical_validation(1.0, {}) is None
+
+    def test_statistical_validation_with_real_sample(self) -> None:
+        """A caller-supplied score sample yields a real one-sample t-test."""
+        governor = EthicalAutonomyGovernor()
+        p_value = governor._statistical_validation(
+            0.4, {"score_sample": [0.5, 0.45, 0.55, 0.5, 0.48]}
+        )
+        assert p_value is not None
         assert 0 <= p_value <= 1
+        # Far below the 1.0 baseline with low spread: strongly significant.
+        assert p_value < 0.01
 
     def test_should_rollback_low_score(self) -> None:
         """Test rollback triggered by low ethical score."""
@@ -359,15 +391,17 @@ class TestBiasMetrics:
     def test_creation(self) -> None:
         """Test creating BiasMetrics."""
         metrics = BiasMetrics(
+            audit_performed=True,
             demographic_parity_diff=0.1,
-            equalized_odds_diff=0.05,
+            equalized_odds_diff=None,
             statistical_parity=0.9,
             bias_detected=False,
-            mitigation_applied=False,
         )
 
         assert metrics.demographic_parity_diff == 0.1
         assert metrics.bias_detected is False
+        # No automatic mitigation exists; the field can only ever be False.
+        assert metrics.mitigation_applied is False
 
 
 class TestEthicalDecision:

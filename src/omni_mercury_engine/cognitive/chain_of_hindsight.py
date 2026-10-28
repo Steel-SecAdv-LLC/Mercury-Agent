@@ -469,14 +469,16 @@ class HindsightRelabeler:
         else:  # RANDOM
             best_alt = self._rng.choice(alternatives)
 
-        expected_improvement = abs(credit) * 0.5  # Conservative estimate
+        # Heuristic: half the negative credit. Not an estimate from any
+        # model; confidence is a fixed rule prior.
+        expected_improvement = abs(credit) * 0.5
 
         return HindsightRelabeling(
             original_action=step.output_action,
             relabeled_action=best_alt,
             strategy=strategy,
             expected_improvement=expected_improvement,
-            confidence=0.7,
+            confidence=0.7,  # fixed rule prior, not calibrated
             reasoning=f"Step had negative credit ({credit:.3f}), suggesting {best_alt} might be better",
         )
 
@@ -641,7 +643,10 @@ class FeedbackProcessor:
             # This was a bad step - learn from it
             positive_example = {
                 "input": step.input_state,
-                "output": "better_alternative",  # Placeholder
+                # A label meaning "any action but the one taken": no concrete
+                # better action is known here, and the training consumer
+                # must treat it as that counterfactual class, not a value.
+                "output": "counterfactual_not_the_taken_action",
                 "context": step.metadata,
             }
             negative_example = {
@@ -1396,26 +1401,34 @@ class AnomalyChainOfHindsight:
                     else:
                         fn_count += 1
 
-        # Generate recommendation
+        # Confidence grows with the evidence behind the recommendation and is
+        # 0.0 with no errors observed at all — the old fixed 0.8/0.9 literals
+        # reported 0.9 confidence on zero evidence.
+        n_errors = fp_count + fn_count
+        evidence_confidence = n_errors / (n_errors + 5.0)
+
         if fn_count > fp_count * 2:
             return {
                 "recommendation": "lower_threshold",
                 "reasoning": f"High false negative rate ({fn_count} FN vs {fp_count} FP)",
                 "suggested_delta": -0.05,
-                "confidence": 0.8,
+                "confidence": evidence_confidence,
+                "confidence_basis": "error-count evidence (n/(n+5)); heuristic",
             }
         elif fp_count > fn_count * 2:
             return {
                 "recommendation": "raise_threshold",
                 "reasoning": f"High false positive rate ({fp_count} FP vs {fn_count} FN)",
                 "suggested_delta": 0.05,
-                "confidence": 0.8,
+                "confidence": evidence_confidence,
+                "confidence_basis": "error-count evidence (n/(n+5)); heuristic",
             }
         else:
             return {
                 "recommendation": "maintain",
                 "reasoning": f"Balanced error rate ({fp_count} FP, {fn_count} FN)",
-                "confidence": 0.9,
+                "confidence": evidence_confidence,
+                "confidence_basis": "error-count evidence (n/(n+5)); heuristic",
             }
 
     def learn_from_history(self, history: list[dict[str, Any]]) -> dict[str, Any]:

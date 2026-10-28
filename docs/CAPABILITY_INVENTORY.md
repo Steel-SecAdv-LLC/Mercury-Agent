@@ -7,29 +7,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,068
-- **Capability-bearing classes:** 2,052 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,084
+- **Capability-bearing classes:** 2,066 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,201 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,206 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1201 |
-| Support types (config / result / enum / error) | 1016 |
+| Other capability classes | 1206 |
+| Support types (config / result / enum / error) | 1018 |
 | Detection | 180 |
 | Neural models & layers | 162 |
-| Data sources & loaders | 106 |
+| Data sources & loaders | 113 |
 | Engines & orchestration | 102 |
 | Adapters & backends | 97 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
-| Monitoring | 26 |
+| Monitoring | 27 |
 | Prediction & forecasting | 21 |
 | Ethics & governance | 14 |
-| Solvers & scorers | 11 |
+| Solvers & scorers | 12 |
 | Biometric & recognition | 8 |
 
 ## Classes by subsystem
@@ -659,7 +659,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 344 classes (215 capability)
+### `core/` — 346 classes (217 capability)
 
 **Adapters & backends**
 
@@ -769,6 +769,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DecisionCurve` (`core.decision_curve`) — A decision curve: net benefit of the model vs the treat-all/none envelopes.
 - `DetectorManifestEntry` (`core.detector_registry`) — Declarative entry describing a discoverable detector.
 - `DetectorMetrics` (`core.base`) — Metrics for detector performance tracking.
+- `DetectorOntology` (`core.detector_ontology`) — The declared capability contract of one manifest detector.
 - `DetectorRegistry` (`core.detector_registry`) — Central registry for all anomaly detectors and models.
 - `DetectorRole` (`core.detector_roles`) — One detector class's role outside the manifest.
 - `DetectorTask` (`core.parallel_detectors`) — One unit of work.
@@ -876,6 +877,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `TriadicPhiWeighting` (`core.global_omni_scalar_network`) — Triadic phi-weighting layer for harmonic synergy in attention fusion.
 - `USLawPolling` (`core.ethical_risk_matrix`) — Dynamic US-only law compliance polling.
 - `UncertaintyEstimate` (`core.adaptive_fusion`) — Uncertainty quantification result with confidence intervals.
+- `ValidationEvidence` (`core.detector_ontology`) — One admissible validation claim: a domain plus its committed proof.
 - `_CallTicket` (`core.detector_registry`) — Agreement between a registry call's worker and its caller on who reports it.
 - `_GuardedDetectorMeta` (`core.base`) — Builds each detector class with its own ``detect`` already guarded.
 - `_IdentityCalibration` (`core.calibration`) — No-op calibrator (exact-reducing fallback for the accept-gate).
@@ -962,12 +964,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `datasets/` — 70 classes (57 capability)
+### `datasets/` — 76 classes (63 capability)
 
 **Data sources & loaders**
 
 - `ADBenchLoader` (`datasets.adbench`) — ADBench tabular anomaly detection dataset loader.
 - `ADRepositoryLoader` (`datasets.adrepository`) — Loader for ADRepository real-world anomaly detection datasets.
+- `ALFAUAVLoader` (`datasets.uav_flight`) — ALFA fixed-wing UAV fault flights with injection-time ground truth.
 - `BATADALLoader` (`datasets.industrial`) — BATADAL (Battle of Attack Detection Algorithms) Dataset Loader.
 - `CICIDSLoader` (`datasets.security`) — CICIDS 2017 Network Intrusion Detection Dataset Loader.
 - `CWRUBearingLoader` (`datasets.ucr_archive`) — Alias for MBA loader (CWRU Bearing Data).
@@ -987,12 +990,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `NABLoader` (`datasets.timeseries`) — Numenta Anomaly Benchmark (NAB) Dataset Loader.
 - `NASAExoplanetLoader` (`datasets.space`) — NASA Exoplanet Archive Data Loader.
 - `NOAABuoyLoader` (`datasets.ocean`) — NOAA National Data Buoy Center (NDBC) Real-Time Data Loader.
+- `NOAACoOpsStationLoader` (`datasets.ocean`) — NOAA CO-OPS tide-station loader over real per-product observations.
 - `NOAAERDDAPLoader` (`datasets.noaa_erddap`) — NOAA ERDDAP oceanographic data loader.
 - `NOAAGSODLoader` (`datasets.noaa_gsod`) — NOAA Global Summary of the Day (GSOD) weather data loader.
+- `NOAAHurricaneLoader` (`datasets.hurricane`) — NOAA NHC HURDAT2 best-track loader over the fields the record carries.
+- `NOAASpaceWeatherLoader` (`datasets.space_weather`) — NOAA SWPC space-weather loader over real multi-instrument channels.
 - `NOAAStormEventsLoader` (`datasets.noaa_storm`) — NOAA Storm Events Database loader.
 - `NOAAWeatherLoader` (`datasets.environmental`) — Weather/Climate Data Loader using Open-Meteo API.
 - `NSLKDDLoader` (`datasets.security`) — NSL-KDD Network Intrusion Detection Dataset Loader.
 - `PhysioNetLoader` (`datasets.medical`) — Generic PhysioNet dataset loader for vital sign data.
+- `RobotExecutionFailuresLoader` (`datasets.robot_failures`) — UCI Robot Execution Failures with observed-outcome ground truth.
 - `SETILoader` (`datasets.space`) — SETI Signal Dataset Loader.
 - `SMAPMSLLoader` (`datasets.timeseries`) — NASA SMAP and MSL Spacecraft Telemetry Dataset Loader.
 - `SMDLoader` (`datasets.timeseries`) — Server Machine Dataset (SMD) Loader.
@@ -1009,6 +1016,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Other capability classes**
 
+- `ALFASequence` (`datasets.uav_flight`) — One resampled ALFA flight sequence with ground-truth fault labels.
 - `BaseImageDataset` (`datasets.benchmarks.base_dataset`) — Abstract base class for image anomaly detection datasets.
 - `BaseVideoDataset` (`datasets.benchmarks.base_dataset`) — Abstract base class for video anomaly detection datasets.
 - `BenchmarkComparison` (`datasets.benchmarks.suite`) — Comparison between multiple benchmark results.
@@ -1052,7 +1060,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 462 classes (335 capability)
+### `detectors/` — 463 classes (336 capability)
 
 **Adapters & backends**
 
@@ -1235,6 +1243,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Monitoring**
 
+- `ActuatorHealthMonitor` (`detectors.drone.actuator_health`) — Streaming stuck-actuator monitor over per-tick actuation vectors.
 - `PressureGradientMonitor` (`detectors.geological.tornado_detector`) — Atmospheric pressure gradient monitoring for tornado precursors.
 - `PressureTracker` (`detectors.geological.hurricane_detector`) — Central pressure tracking for cyclone intensity monitoring.
 - `RiverGaugeMonitor` (`detectors.geological.flood_detector`) — River gauge monitoring for flood stage detection.
@@ -1862,10 +1871,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `loaders/` — 24 classes (23 capability)
+### `loaders/` — 28 classes (26 capability)
 
 **Data sources & loaders**
 
+- `AirspaceLoader` (`loaders.airspace_loader`) — Loader for live OpenSky airspace state vectors.
 - `BaseDomainLoader` (`loaders.base`) — Base class for all domain data loaders.
 - `DroughtLoader` (`loaders.drought_loader`) — Loader for drought data from NOAA NCEI GSOM monthly summaries.
 - `EarthquakeLoader` (`loaders.earthquake_loader`) — Loader for earthquake data from the USGS Earthquake Hazards Program.
@@ -1890,12 +1900,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Other capability classes**
 
+- `GCNNotice` (`loaders.gcn_notices`) — One normalized GCN notice.
+- `GCNNoticeConsumer` (`loaders.gcn_notices`) — Consume GCN Kafka topics as normalized :class:`GCNNotice` records.
 - `ProvenanceFinding` (`loaders.label_provenance`) — One label-provenance gate finding (a leak or inconsistency).
 - `_Cursor` (`loaders.format_readers.pmu`) — Bounded reader over a frame payload, failing loudly with positions.
 
-<details><summary>Support types (1)</summary>
+<details><summary>Support types (2)</summary>
 
-`FetchHTTPError`
+`FetchHTTPError`, `GCNIngestError`
 
 </details>
 
@@ -2007,7 +2019,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `ml/` — 323 classes (259 capability)
+### `ml/` — 324 classes (259 capability)
 
 **Adapters & backends**
 
@@ -2301,13 +2313,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Trainer` (`ml.training`) — General-purpose trainer for PyTorch models.
 - `WeightOptimizer` (`ml.ensemble_coordinator`) — Abstract base class for weight optimization.
 
-<details><summary>Support types (64)</summary>
+<details><summary>Support types (65)</summary>
 
-`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `ValueFeatureState`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
+`Activation`, `ActiveLearningState`, `AdaptationResult`, `AdaptationStrategy`, `AggregationMethod`, `BiasAuditConfig`, `BiasReport`, `CompressionConfig`, `CompressionMethod`, `ConceptDriftEvaluationResult`, `CorticalConfig`, `CorticalLayer`, `DegradationTrend`, `DetectorState`, `DomainAdaptationMethod`, `DomainData`, `DualStudentConfig`, `EnsembleConfig`, `EnsembleMethod`, `EnsembleResult`, `EnsembleStrategy`, `EpisodeSamplingStrategy`, `EvolutionResult`, `ExplainabilityMethod`, `FairnessMetric`, `FairnessMetric`, `FairnessReport`, `FairnessResult`, `FewShotMethod`, `FewShotResult`, `FirmsYearData`, `FitnessReport`, `GenerationRecord`, `GlcEvent`, `HazardDataUnavailableError`, `HourRecord`, `LabelType`, `LayerParams`, `MLPConfig`, `MatrixProfileResult`, `MeritGateError`, `MetaLearningAlgorithm`, `MetaTrainingResult`, `MitigationStrategy`, `ModelProtocol`, `MutationConfig`, `NotFittedError`, `OptimizationConfig`, `OptimizationResult`, `PPOConfig`, `QueryBatch`, `RetrainingEvent`, `RetrainingTrigger`, `RuleExplanation`, `SamplingStrategy`, `SecurityDataset`, `SymbolicExplanation`, `TemporalSplitStrategy`, `TrainingConfig`, `TransferResult`, `UpdateStrategy`, `ValueFeatureState`, `VectorEnv`, `_CachedCallable`, `_UncacheableArgumentError`
 
 </details>
 
-### `models/` — 139 classes (102 capability)
+### `models/` — 140 classes (103 capability)
 
 **Adapters & backends**
 
@@ -2340,7 +2352,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Detection**
 
 - `ChemistryAnomalyDetector` (`models.chemistry`) — Chemistry Discipline Anomaly Detector.
-- `MatrixProfileDetector` (`models.foundation.matrix_profile`) — Matrix Profile-based anomaly detector using STUMPY.
+- `MatrixProfileDetector` (`models.foundation.matrix_profile`) — Matrix Profile-based anomaly detector.
 - `ParapsychologyDetector` (`models.parapsychology`) — REG statistical-deviation detector (parapsychology-research tooling).
 - `TextLogAnomalyDetector` (`models.foundation.llm_adapter`) — Specialized detector for text and log anomalies.
 - `ZeroShotAnomalyDetector` (`models.foundation.llm_adapter`) — Zero-shot anomaly detector using LLM prompting.
@@ -2366,10 +2378,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `AnomalyTransformerEncoderLayer` (`models.sota.association_discrepancy`) — Single encoder layer with Association Discrepancy attention.
 - `AssociationDiscrepancyLoss` (`models.sota.association_discrepancy`) — Loss function for Anomaly Transformer with minimax strategy.
 - `AssociationDiscrepancyModule` (`models.sota.association_discrepancy`) — Association Discrepancy computation module.
-- `AstrophysicalAnomalyModel` (`models.astrophysical`) — Astrophysical anomaly detection using black hole physics and cosmic event modeling.
+- `AstrophysicalAnomalyModel` (`models.astrophysical`) — Astrophysical feature mapping scored as deviation from a fitted reference.
 - `BaseFoundationModel` (`models.foundation.base_foundation`) — Abstract base class for foundation model adapters.
 - `BiometricAnomalyModel` (`models.biometric`) — Biometric anomaly detection for facial recognition and analysis.
-- `ConsciousnessPreservationModel` (`models.consciousness`) — Model for consciousness state preservation and anomaly detection.
+- `ConsciousnessPreservationModel` (`models.consciousness`) — Pattern-coherence features scored as deviation from a fitted reference.
 - `Discriminator` (`models.sota.tranad`) — Discriminator for TranAD adversarial training.
 - `FocusScoreConditioning` (`models.sota.tranad`) — Focus Score-Based Self-Conditioning Module.
 - `GatedFeatureFusion` (`models.sota.maat`) — Gated Feature Fusion for combining attention and SSM pathways.
@@ -2387,7 +2399,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `PositionalEncoding` (`models.sota.tranad`) — Sinusoidal positional encoding.
 - `PriorAssociation` (`models.sota.association_discrepancy`) — Prior-Association Distribution based on temporal proximity.
 - `ProbabilisticLogicLayer` (`models.neurosymbolic_temporal`) — Probabilistic logic for handling uncertainty.
-- `QuantumAnomalyModel` (`models.quantum`) — Quantum-inspired anomaly detection using quantum state representations.
+- `QuantumAnomalyModel` (`models.quantum`) — Quantum-inspired features scored as deviation from a fitted reference.
 - `SelectiveSSM` (`models.sota.maat`) — Selective State Space Model (S6) approximation.
 - `SeriesAssociation` (`models.sota.association_discrepancy`) — Series-Association via learned multi-head self-attention.
 - `SparseAttention` (`models.sota.maat`) — Sparse Attention Module for efficient long-sequence processing.
@@ -2432,6 +2444,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Prediction & forecasting**
 
 - `IsotopePredictor` (`models.isotope_predictor`) — Comprehensive isotope prediction and nuclear forensics system.
+
+**Solvers & scorers**
+
+- `FittedReferenceScorer` (`models.fitted_reference`) — Mixin: robust fitted-reference scoring over ``extract_features``.
 
 **Training & optimization**
 
@@ -2931,17 +2947,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `validation/` — 22 classes (14 capability)
+### `validation/` — 23 classes (15 capability)
 
 **Data sources & loaders**
 
 - `DatasetLoader` (`validation.data_loaders`) — Abstract base class for dataset loaders.
 - `MIMICLoader` (`validation.data_loaders`) — MIMIC-III Medical ICU Data Loader (IRB Placeholder Simulation).
-- `NOAAHurricaneLoader` (`validation.data_loaders`) — NOAA National Hurricane Center Data Loader.
-- `NOAAOceanLoader` (`validation.data_loaders`) — NOAA National Ocean Service Data Loader.
-- `NOAASpaceWeatherLoader` (`validation.data_loaders`) — NOAA Space Weather Prediction Center Data Loader.
+- `NOAAHurricaneLoader` (`validation.data_loaders`) — NOAA NHC HURDAT2 loader (validation interface).
+- `NOAAOceanLoader` (`validation.data_loaders`) — NOAA CO-OPS station loader (validation interface).
+- `NOAASpaceWeatherLoader` (`validation.data_loaders`) — NOAA SWPC space-weather loader (validation interface).
 - `NSLKDDLoader` (`validation.data_loaders`) — NSL-KDD Network Intrusion Detection Dataset Loader.
 - `USGSEarthquakeLoader` (`validation.data_loaders`) — USGS Earthquake Data Loader.
+- `_CanonicalNOAALoader` (`validation.data_loaders`) — Validation-interface wrapper over a canonical ``datasets/`` loader.
 
 **Engines & orchestration**
 

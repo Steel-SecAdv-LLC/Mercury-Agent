@@ -327,7 +327,15 @@ def consumer_config(creds: Credentials, group_id: str = "mercury-gcn-keepalive")
         "sasl.oauthbearer.client.id": creds.client_id,
         "sasl.oauthbearer.client.secret": creds.client_secret,
         "sasl.oauthbearer.token.endpoint.url": creds.token_endpoint,
-        **({"ssl.ca.location": ca} if (ca := ca_bundle_location()) else {}),
+        # ssl.ca.location covers the Kafka TLS link only. The OIDC token
+        # fetch runs over librdkafka's own HTTPS client, which trusts the CA
+        # path baked into the wheel at build time (a manylinux path that does
+        # not exist on Ubuntu runners since confluent-kafka 2.16), so the
+        # token endpoint needs its own CA property or every fetch fails with
+        # "error adding trust anchors".
+        **(
+            {"ssl.ca.location": ca, "https.ca.location": ca} if (ca := ca_bundle_location()) else {}
+        ),
     }
 
 
