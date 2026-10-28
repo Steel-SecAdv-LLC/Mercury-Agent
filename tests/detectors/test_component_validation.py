@@ -445,10 +445,10 @@ class TestPerComponentValidation:
         ), f"Ensemble AUC on validation: {result['ensemble_auc']:.4f}"
 
     def test_validate_unfitted_returns_safe(self) -> None:
-        """Validate on unfitted detector should return safe defaults."""
+        """Unfitted validate reports no AUC — None, never a made-up 0.5."""
         det = MercuryAnomalyDetector()
         result = det.validate()
-        assert result["ensemble_auc"] == 0.5
+        assert result["ensemble_auc"] is None
         assert result["is_inverted"] is False
 
     def test_auto_validate_flag(self) -> None:

@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import math
 import threading
+from typing import Any
 
 import numpy as np
 import pytest
@@ -52,6 +53,35 @@ def _fresh_network() -> GlobalOmniScalarNetwork:
 def _all_group_snapshots(network: GlobalOmniScalarNetwork) -> dict[ScalarGroup, dict[str, float]]:
     """Snapshot every group's registered scalars for before/after diffing."""
     return {group: network.get_group_scalars(group) for group in ScalarGroup}
+
+
+def _record_real_crypto_anomaly(adapter: Any) -> None:
+    """Register adapter scalars through the real recording seam.
+
+    ``simulate_attack`` no longer fabricates replay/side-channel detections
+    (no such detectors exist), so lifecycle tests trigger the GOSNN
+    registration with a genuinely recorded anomaly instead.
+    """
+    import time as _time
+
+    from omni_mercury_engine.integrations.mercury_amacrypto import (
+        CryptoAnomaly,
+        CryptoAnomalyType,
+    )
+
+    adapter._record_anomaly(
+        CryptoAnomaly(
+            anomaly_type=CryptoAnomalyType.SIDE_CHANNEL_SUSPECTED,
+            severity=0.85,
+            timestamp=_time.time(),
+            operation="lifecycle_test_record",
+            details={"message": "lifecycle test record"},
+            omni_scalars={
+                "omni_crypto_side_channel": 1.0,
+                "omni_crypto_attack_severity": 0.85,
+            },
+        )
+    )
 
 
 class TestGateInputSanitation:
@@ -478,7 +508,7 @@ class TestAdapterLifecycle:
         baseline_security = network.get_group_scalars(ScalarGroup.SECURITY)
 
         adapter = MercuryGuardianAdapter()
-        adapter.simulate_attack(attack_type="replay")
+        _record_real_crypto_anomaly(adapter)
         assert "ama_cryptography_pqc" in network.registered_scalars
 
         adapter.close()
@@ -505,7 +535,7 @@ class TestAdapterLifecycle:
 
         network = _fresh_network()
         with MercuryGuardianAdapter() as adapter:
-            adapter.simulate_attack(attack_type="side_channel")
+            _record_real_crypto_anomaly(adapter)
             assert "ama_cryptography_pqc" in network.registered_scalars
 
         assert "ama_cryptography_pqc" not in network.registered_scalars
