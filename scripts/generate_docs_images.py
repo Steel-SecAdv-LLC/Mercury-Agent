@@ -240,9 +240,14 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
 
     _stamp(fig)
     plt.subplots_adjust(wspace=0.30, hspace=0.35, left=0.07, right=0.97, top=0.93, bottom=0.05)
-    fig.savefig(OUTPUT_DIR / "neuro_symbolic_benchmark_report.png", bbox_inches="tight")
+    # Named for its content (the ensemble report). It used to save as
+    # neuro_symbolic_benchmark_report.png, the same filename
+    # benchmarks/neuro_symbolic_benchmark.py writes its cognitive-stack
+    # demo figure to — the one README embeds — so a run of this script
+    # silently replaced the demo image with a different figure.
+    fig.savefig(OUTPUT_DIR / "ensemble_benchmark_report.png", bbox_inches="tight")
     plt.close(fig)
-    print("  Saved neuro_symbolic_benchmark_report.png")
+    print("  Saved ensemble_benchmark_report.png")
 
 
 # ---------------------------------------------------------------------------

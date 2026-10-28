@@ -1285,8 +1285,17 @@ class MercuryAgent:
         """Learn from execution results and update confidence calibrator."""
         success_rate = execution_results.get("success_rate", 0.0)
 
-        # Update Bayesian confidence calibrator with execution outcome
-        if self.confidence_calibrator is not None and self.current_plan is not None:
+        # Update Bayesian confidence calibrator with execution outcome.
+        # Only when at least one task actually executed: a plan whose tasks
+        # were all transparently skipped (no tool bound — the pure-reasoning
+        # case) reports success_rate 0.0 as "not applicable", not as failure.
+        # Feeding that 0.0 to the calibrator as a failed Bernoulli trial
+        # poisoned the Beta posterior toward its 0.5 clamp on every
+        # pure-reasoning run; no evidence must mean no observation.
+        executed = int(execution_results.get("tasks_completed", 0)) + int(
+            execution_results.get("tasks_failed", 0)
+        )
+        if self.confidence_calibrator is not None and self.current_plan is not None and executed:
             goal = self.current_plan.metadata.get("goal", "")
             domain = self.current_plan.domain.value
             success = success_rate >= 0.99  # Consider 99%+ as success

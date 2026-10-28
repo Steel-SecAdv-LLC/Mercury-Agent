@@ -45,6 +45,7 @@ from omni_mercury_engine.agentic.mercury_a_agent import (
     create_mercury_agent,
 )
 from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
     BenevolenceScorer,
 )
 from omni_mercury_engine.cognitive.neural_memory_layer import MemoryType
@@ -290,9 +291,10 @@ def run_neuro_symbolic_benchmark(epochs: int = 50) -> dict[str, Any]:
         fusion_strategy=FusionStrategy.CONFIDENCE_WEIGHTED,
     )
 
-    benevolence_scorer = BenevolenceScorer(
-        benevolence_threshold=0.99,
-    )
+    # Default threshold = MINIMUM_BENEVOLENCE_FLOOR (0.70), the advisory
+    # reporting floor. The 0.99 this demo used to pass is the retired
+    # pass-bar; only score_action is called here, never enforce.
+    benevolence_scorer = BenevolenceScorer()
 
     agent = create_mercury_agent(
         name="Mercury-NeuroSymbolic",
@@ -526,14 +528,17 @@ def plot_confidence_evolution(results: dict[str, Any], ax: Axes) -> None:
 
     final_conf = confidences[-1]
     improvement = final_conf - 0.76
+    # Signed and colored by direction: a drop is annotated as a drop, never
+    # rendered as "+-0.xxx" in success green.
+    delta_color = COLORS["success"] if improvement >= 0 else COLORS["danger"]
     ax.annotate(
-        f"+{improvement:.3f}",
+        f"{improvement:+.3f}",
         xy=(epochs[-1], final_conf),
         xytext=(epochs[-1] - 20, final_conf + 0.05),
         fontsize=9,
-        color=COLORS["success"],
+        color=delta_color,
         fontweight="bold",
-        arrowprops=dict(arrowstyle="->", color=COLORS["success"], alpha=0.7),
+        arrowprops=dict(arrowstyle="->", color=delta_color, alpha=0.7),
     )
 
 
@@ -542,16 +547,21 @@ def plot_benevolence_evolution(results: dict[str, Any], ax: Axes) -> None:
     epochs = [s["epoch"] for s in results["epoch_summaries"]]
     benevolence = [s["benevolence_score"] for s in results["epoch_summaries"]]
 
+    # The 0.99 pass-bar is retired (benevolence is advisory at detection
+    # boundaries; see src/omni_mercury_engine/ethical/__init__.py). The
+    # reference line is the advisory reporting floor, and the y-axis covers
+    # the measured series instead of hiding it below the frame.
     ax.axhline(
-        y=0.99,
+        y=MINIMUM_BENEVOLENCE_FLOOR,
         color=COLORS["danger"],
         linestyle="--",
         linewidth=1.5,
-        label="Benevolence Threshold (0.99)",
+        label=f"Advisory reporting floor ({MINIMUM_BENEVOLENCE_FLOOR:.2f})",
         alpha=0.7,
     )
 
-    ax.fill_between(epochs, [0.9] * len(epochs), benevolence, alpha=0.2, color=COLORS["ethical"])
+    y_lo = min(min(benevolence) - 0.02, MINIMUM_BENEVOLENCE_FLOOR - 0.05)
+    ax.fill_between(epochs, [y_lo] * len(epochs), benevolence, alpha=0.2, color=COLORS["ethical"])
     ax.plot(
         epochs,
         benevolence,
@@ -559,14 +569,14 @@ def plot_benevolence_evolution(results: dict[str, Any], ax: Axes) -> None:
         linewidth=2,
         marker="s",
         markersize=2,
-        label="Benevolence Score",
+        label="Benevolence Score (advisory)",
     )
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Benevolence Score")
-    ax.set_title("Ethical Benevolence Scores Over Epochs")
+    ax.set_title("Advisory Benevolence Scores Over Epochs")
     ax.legend(loc="lower right")
-    ax.set_ylim(0.9, 1.02)
+    ax.set_ylim(y_lo, 1.02)
     ax.set_xlim(1, max(epochs))
     ax.grid(True, alpha=0.3)
 
@@ -626,7 +636,10 @@ def plot_domain_heatmap(results: dict[str, Any], ax: Axes) -> None:
 
     cmap = plt.get_cmap("RdYlGn").copy()
     cmap.set_bad(color="#d1d5db")  # grey for any unmeasured cell
-    im = ax.imshow(data, cmap=cmap, aspect="auto", vmin=0.7, vmax=1.0)
+    # Full score range: all three metrics live in [0, 1]. A narrower window
+    # (this was vmin=0.7) clips every sub-window value to one saturated
+    # color, so 0.24 and 0.69 rendered identically and the colorbar lied.
+    im = ax.imshow(data, cmap=cmap, aspect="auto", vmin=0.0, vmax=1.0)
 
     cbar = plt.colorbar(im, ax=ax, shrink=0.8)
     cbar.set_label("Score", fontsize=9)
@@ -642,7 +655,9 @@ def plot_domain_heatmap(results: dict[str, Any], ax: Axes) -> None:
             if np.isnan(value):
                 ax.text(j, i, "n/a", ha="center", va="center", color="black", fontsize=8)
                 continue
-            color = "white" if value < 0.85 else "black"
+            # RdYlGn over [0, 1] is dark at both extremes and light in the
+            # middle, so text is white at the ends and black in the middle.
+            color = "white" if (value < 0.30 or value > 0.85) else "black"
             ax.text(j, i, f"{value:.2f}", ha="center", va="center", color=color, fontsize=8)
 
     ax.set_title("Domain Competence Heatmap")

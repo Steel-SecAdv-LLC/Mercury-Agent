@@ -27,6 +27,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — pure-reasoning plans no longer poison the Bayesian confidence
+calibrator, and the neuro-symbolic demo report stops misrendering its own
+data.** `MercuryAgent._learn_from_execution` recorded a *failure* observation
+whenever a plan's tasks were all transparently skipped (no tool bound), because
+the skipped-only `success_rate` of 0.0 — which means "not applicable" — was
+compared against the 0.99 success bar. Every pure-reasoning run therefore drove
+the Beta posterior toward the calibrator's 0.5 clamp; the committed demo report
+showed plan confidence collapsing 0.76 → 0.500 from this alone, and its heatmap
+confidence column sat at a dead 0.52. Now a plan with zero executed tasks
+records no calibration observation (no evidence is not failure), pinned by
+`tests/test_mercury_a_agent.py::TestCalibrationEvidence` end to end. The demo
+figure (`benchmarks/neuro_symbolic_benchmark.py`, embedded in the README) had
+three rendering defects on top: the domain-competence heatmap clipped at
+`vmin=0.7` while its data spans 0.24–0.76, so every cell rendered the same
+saturated red and the colorbar misrepresented the data (now the full [0, 1]
+range); the benevolence panel's y-axis (0.90–1.02) hid the ~0.64 advisory
+series entirely while drawing the retired 0.99 pass-bar as its reference line
+(now scaled to the data, against the 0.70 advisory reporting floor, labeled
+advisory); and the confidence panel annotated a negative delta as `+-0.260` in
+success green (now signed and colored by direction). The demo's scorer also
+dropped its retired `benevolence_threshold=0.99` for the default advisory
+floor. Separately, `scripts/generate_docs_images.py` wrote a *different*
+figure (the ensemble report) to the same
+`docs/images/neuro_symbolic_benchmark_report.png` the README embeds as the
+cognitive-stack demo, so running it silently replaced one figure with the
+other; it now saves as `ensemble_benchmark_report.png`. The committed demo
+image is regenerated under the fixed engine and renderer. Three pre-existing
+untyped test helpers in `tests/test_mercury_a_agent.py` are annotated.
+
 **Fixed — stale ethics-gate documentation brought back to the code.** Four
 documents still described the retired benevolence pass-bar as the first hard
 gate at the detection boundaries, contradicting the enforced code
