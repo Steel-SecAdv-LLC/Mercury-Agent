@@ -27,11 +27,12 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import TypeAlias
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-FloatArray = NDArray[np.float64]
+FloatArray: TypeAlias = NDArray[np.float64]
 
 #: Points used for the fit; longer recordings are subsampled evenly.
 MAX_FIT_POINTS = 50_000

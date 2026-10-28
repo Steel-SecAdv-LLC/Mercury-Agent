@@ -10,7 +10,7 @@ the degenerate ones.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import pytest
@@ -22,7 +22,7 @@ from omni_mercury_engine.models.multiverse import MultiverseOmniEngine, Universe
 from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
 from omni_mercury_engine.models.quantum import QuantumAnomalyModel
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 
 
 def _data(

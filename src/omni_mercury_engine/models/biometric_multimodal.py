@@ -586,6 +586,33 @@ class MultimodalBiometricEngine:
         return float(proximity)
 
 
+def _gaussian_blur_5x5(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Blur with OpenCV's 5x5 ``sigma=0`` kernel, or SciPy's equivalent sigma.
+
+    The legacy-noise age filter used to be skipped outright when OpenCV was
+    absent, which made the whole filter return its input unchanged -- an
+    unprocessed face served as an age-progressed one, with nothing on the
+    result saying so.  Only this one blur ever needed OpenCV, and the sibling
+    :meth:`AgeProgressionEngine.apply_detail_age_filter` already blurs through
+    SciPy (a core dependency), so the filter now always runs.
+
+    OpenCV derives ``sigma = 0.3 * ((ksize - 1) * 0.5 - 1) + 0.8 = 1.1`` for a
+    5x5 kernel; the SciPy path uses that same sigma per spatial axis, leaving
+    any channel axis untouched.  When OpenCV is installed the original code
+    path is kept, so existing deployments see byte-identical output.
+    """
+    work = np.clip(image, 0, 255).astype(np.uint8)
+    if CV2_AVAILABLE:
+        return np.asarray(cv2.GaussianBlur(work, (5, 5), 0)).astype(float)
+
+    from scipy import ndimage
+
+    sigma: float | tuple[float, ...] = 1.1
+    if work.ndim == 3:
+        sigma = (1.1, 1.1, 0.0)
+    return np.asarray(ndimage.gaussian_filter(work.astype(float), sigma))
+
+
 class AgeProgressionEngine:
     """Age-progression engine: published growth geometry, deterministic texture, audited output.
 
@@ -749,43 +776,34 @@ class AgeProgressionEngine:
         Returns:
             Age-progressed face image
         """
-        if not CV2_AVAILABLE:
-            return face
+        aged = face.astype(float)
 
-        try:
-            aged = face.astype(float)
+        if age_delta > 0:
+            brightness_adj = 1.0 - (0.02 * age_delta)
+            contrast_adj = 1.0 + (0.01 * age_delta)
 
-            if age_delta > 0:
-                brightness_adj = 1.0 - (0.02 * age_delta)
-                contrast_adj = 1.0 + (0.01 * age_delta)
+            aged = aged * brightness_adj
+            aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
 
-                aged = aged * brightness_adj
-                aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
+            wrinkle_intensity = min(age_delta * 0.5, 20)
+            noise = self._rng.standard_normal(face.shape) * wrinkle_intensity
+            aged = aged + noise
 
-                wrinkle_intensity = min(age_delta * 0.5, 20)
-                noise = self._rng.standard_normal(face.shape) * wrinkle_intensity
-                aged = aged + noise
+        else:
+            age_delta_abs = abs(age_delta)
+            brightness_adj = 1.0 + (0.02 * age_delta_abs)
+            contrast_adj = 1.0 - (0.01 * age_delta_abs)
 
-            else:
-                age_delta_abs = abs(age_delta)
-                brightness_adj = 1.0 + (0.02 * age_delta_abs)
-                contrast_adj = 1.0 - (0.01 * age_delta_abs)
+            aged = aged * brightness_adj
+            aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
 
-                aged = aged * brightness_adj
-                aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
+            aged = _gaussian_blur_5x5(aged)
 
-                aged = cv2.GaussianBlur(aged.astype(np.uint8), (5, 5), 0)
-                aged = aged.astype(float)
+        # quantum_factor is a legacy-named seeded-noise amplitude.
+        seeded_noise = self._rng.standard_normal(face.shape) * self.quantum_factor
+        aged = aged + seeded_noise
 
-            # quantum_factor is a legacy-named seeded-noise amplitude.
-            seeded_noise = self._rng.standard_normal(face.shape) * self.quantum_factor
-            aged = aged + seeded_noise
-
-            return np.clip(aged, 0, 255).astype(np.uint8)
-
-        except Exception as e:
-            logger.error(f"Age filter error: {e}")
-            return face
+        return np.clip(aged, 0, 255).astype(np.uint8)
 
     def apply_detail_age_filter(
         self, face: np.ndarray[Any, Any], age_delta: int

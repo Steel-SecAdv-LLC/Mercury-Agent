@@ -247,7 +247,7 @@ def main() -> int:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(artifact, indent=2) + "\n")
-    print(f"positive_fraction={pos_frac:.3f}  per_seed_auc={[round(a,4) for a in aucs]}")
+    print(f"positive_fraction={pos_frac:.3f}  per_seed_auc={[round(a, 4) for a in aucs]}")
     print(f"mean_auc(synthetic)={mean_auc:.4f}")
     print("VERDICT: QUARANTINE (synthetic signal; real ELF corpus required to lift)")
     print(f"artifact: {out}")

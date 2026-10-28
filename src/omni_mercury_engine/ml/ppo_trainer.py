@@ -46,7 +46,7 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 import numpy as np
 import torch
@@ -92,7 +92,7 @@ _WINDOW = 100
 #: Upper bound on the copies :meth:`PPOTrainer.evaluate` steps together.
 _MAX_EVAL_ENVS = 16
 
-FloatArray = np.ndarray[Any, np.dtype[np.float32]]
+FloatArray: TypeAlias = np.ndarray[Any, np.dtype[np.float32]]
 
 
 def _positive_int(name: str, value: Any) -> None:

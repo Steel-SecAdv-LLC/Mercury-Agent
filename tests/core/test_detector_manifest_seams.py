@@ -497,17 +497,41 @@ _FOUNDATION_EXTRA_MODULE: dict[str, str] = {
 }
 
 
+#: Modalities whose detectors are built on a torchvision backbone, which ships
+#: in the optional ``[ml]`` extra.  They used to raise ``ImportError`` at
+#: construction in a lane without it -- 21 red tests that were a missing extra,
+#: not a defect -- while every other optional backend in these suites skipped.
+_ML_EXTRA_MODALITIES: frozenset[str] = frozenset({"image_batch"})
+
+
+def skip_without_detector_extras(entry: DetectorManifestEntry) -> None:
+    """Skip when the entry's backend ships in an optional extra that is absent.
+
+    One rule for every seam suite, so a detector is never red merely because
+    the lane installed a smaller dependency set than it needs.
+    """
+    if entry.name in _FOUNDATION_EXTRA_MODULE:
+        pytest.importorskip(
+            _FOUNDATION_EXTRA_MODULE[entry.name],
+            reason=f"{entry.name} needs the [foundation] extra, not installed in this lane",
+        )
+    if entry.modality in _ML_EXTRA_MODALITIES:
+        pytest.importorskip(
+            "torchvision",
+            reason=(
+                f"{entry.name} ({entry.modality}) needs the torchvision backbone "
+                "from the [ml] extra, not installed in this lane"
+            ),
+        )
+
+
 class TestSeamTruth:
     """Every declared seam is re-driven with its declared modality."""
 
     @pytest.mark.parametrize("name", _driven("registry"))
     def test_registry_seam_yields_output(self, name: str) -> None:
         entry = ENTRIES[name]
-        if name in _FOUNDATION_EXTRA_MODULE:
-            pytest.importorskip(
-                _FOUNDATION_EXTRA_MODULE[name],
-                reason=f"{name} needs the [foundation] extra, not installed in this lane",
-            )
+        skip_without_detector_extras(entry)
         detector = _construct(entry)
         payload = _payload(entry)
         if entry.fit_required:
@@ -520,6 +544,7 @@ class TestSeamTruth:
     @pytest.mark.parametrize("name", _driven("engine"))
     def test_engine_seam_fit_detect(self, name: str) -> None:
         entry = ENTRIES[name]
+        skip_without_detector_extras(entry)
         detector = _construct(entry)
         assert isinstance(
             detector, BaseDetector

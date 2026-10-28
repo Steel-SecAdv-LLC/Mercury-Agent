@@ -19,6 +19,7 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
+from omni_mercury_engine.models import biometric_multimodal
 from omni_mercury_engine.models.biometric_multimodal import (
     FACENET_AVAILABLE,
     AgeProgressionEngine,
@@ -107,3 +108,32 @@ def test_multimodal_engine_never_fabricates(tmp_path: Path) -> None:
     # Symbolic fusion refuses rather than fusing random stand-in features.
     with pytest.raises(ValueError, match="refusing"):
         engine.fuse_with_symbolic(path, {"csdm": 0.9})
+
+
+def test_age_filter_never_silently_returns_its_input_without_opencv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The legacy-noise filter runs on both branches with OpenCV absent.
+
+    It used to return ``face`` unchanged whenever ``CV2_AVAILABLE`` was false,
+    so an unprocessed image was served as an age-progressed one with nothing
+    saying so. Only the rejuvenation blur ever needed OpenCV, and it now has a
+    SciPy path, so neither direction may no-op.
+    """
+    monkeypatch.setattr(biometric_multimodal, "CV2_AVAILABLE", False)
+    engine = AgeProgressionEngine(seed=3)
+
+    for delta in (10, -10):
+        out = engine.apply_polynomial_age_filter(_FACE, delta)
+        assert out.shape == _FACE.shape
+        assert out.dtype == _FACE.dtype
+        assert not np.array_equal(out, _FACE), f"age_delta={delta} returned its input unchanged"
+
+
+def test_age_filter_blur_matches_opencv_kernel_sigma(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The SciPy fallback smooths, like the OpenCV 5x5 ``sigma=0`` kernel it replaces."""
+    monkeypatch.setattr(biometric_multimodal, "CV2_AVAILABLE", False)
+    blurred = biometric_multimodal._gaussian_blur_5x5(_FACE.astype(float))
+
+    assert blurred.shape == _FACE.shape
+    assert float(np.var(blurred)) < float(np.var(_FACE.astype(float)))

@@ -822,7 +822,11 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
             return np.array([data])
 
     elif path.suffix == ".csv":
-        data = np.loadtxt(path, delimiter=",", dtype=np.float32, skiprows=_csv_header_rows(path))
+        # float64, not float32: a finite float64 cell above the float32 range
+        # (~3.4e38) silently becomes +/-inf under a float32 cast, and the
+        # detector then reports "N rows contained non-finite values; imputed"
+        # -- blaming the operator's data for an infinity the loader created.
+        data = np.loadtxt(path, delimiter=",", dtype=np.float64, skiprows=_csv_header_rows(path))
         if data.ndim == 1:
             data = data.reshape(1, -1)
         return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
@@ -831,7 +835,9 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
         data = np.load(path, allow_pickle=False)
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        return np.asarray(data, dtype=np.float32)
+        # float64 for the same reason as the CSV path above, and so a .npy
+        # written as float64 round-trips at the precision it was saved with.
+        return np.asarray(data, dtype=np.float64)
 
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")

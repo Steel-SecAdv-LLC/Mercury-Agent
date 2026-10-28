@@ -156,7 +156,13 @@ jobs:
           pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.2 pydocstyle==6.3.0
 
       - name: Run Black (formatting)
-        run: black --check --diff src/ tests/
+        # ``benchmarks/``, ``examples/`` and ``research/`` joined src/ and
+        # tests/ in the v3 audit: ``research/engine_calibration/results.json``
+        # and ``research/omni_equation/harness_adbench.py`` produce numbers the
+        # README quotes, so the scripts behind a published claim are held to
+        # the same bar as the library.  They were 113 ruff findings and 8
+        # unformatted files while out of scope.
+        run: black --check --diff src/ tests/ scripts/ tools/ benchmarks/ examples/ research/
 
       - name: Run Ruff (fast linting)
         # Ruff linting is now blocking - codebase has been cleaned up.
@@ -166,13 +172,19 @@ jobs:
         # documented in ``pyproject.toml [tool.ruff.lint.per-file-ignores]``.
         # ``tools/`` is also in scope: the CLI primitives in that directory
         # ship as part of Mercury's operator surface and must lint clean.
-        run: ruff check src/ tests/ scripts/ tools/ --output-format=github
+        # ``benchmarks/``, ``examples/`` and ``research/`` are in scope for the
+        # reason given on the Black step above.
+        run: >-
+          ruff check src/ tests/ scripts/ tools/ benchmarks/ examples/ research/
+          --output-format=github
 
       - name: Run Flake8 (linting)
         # Flake8 linting is now blocking - codebase has been cleaned up
         # Ignoring E402 (module level import not at top), E501 (line too long, handled by Black)
         # F841 (unused variable) is handled by ruff which respects underscore convention
-        run: flake8 src/ tests/ scripts/ tools/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
+        run: >-
+          flake8 src/ tests/ scripts/ tools/ benchmarks/ examples/ research/
+          --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
 
       - name: Run canonical header/content check
         run: python scripts/normalize_headers.py --check

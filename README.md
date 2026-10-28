@@ -139,6 +139,18 @@ Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the co
 
 **Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7634 (+2.37 pts, 14 W / 2 tie / 2 L)** from base `e118e1f` to the hardened detector (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`.
 
+> **This ledger is a historical measurement, not the current tree.** Both sides were
+> recorded at `bdcdf6a` (PR #302). `detectors/statistical.py` has had 7 commits
+> (+1,199 / −105 lines) since, and re-running the harness on the current tree measures
+> **mean AUROC 0.7745**, differing on 17 of the 18 sets (swings to ±0.13). The harness
+> itself is deterministic — two runs on one tree are byte-identical — so the gap is the
+> seven detector revisions, not noise. The delta is left at its recorded value rather
+> than mixed across revisions: a sound refresh re-measures *both* sides on one tree, and
+> the base side needs the AMA release of its era. Runs from now on stamp their commit,
+> detector commit and library versions into the result file (`summary.detector_commit`),
+> and `tests/docs/test_readme_claims_match_artifacts.py` fails when the committed run is
+> older than the detector it is quoted for.
+
 ---
 
 <a id="codebase-scale-measured-not-estimated"></a>
@@ -220,8 +232,13 @@ hyperparameter tuning.
 ### Methodology and comparability
 
 `MercuryAnomalyDetector` was run untuned over **67 of 76 attempted real-world
-datasets** across 13 domains (the 9 failures were unreachable external sources,
-tracked by a two-lane reachability harness, `.github/workflows/dataset-reachability.yml`).
+datasets** across 13 domains. Of the 9 failures, 7 were unreachable external
+sources (tracked by a two-lane reachability harness,
+`.github/workflows/dataset-reachability.yml`) and 2 — `UCR` and
+`USGS_Geochemistry` — reached their source but resolved to a single label
+value, so no AUC is computable and the run reports them as errors rather than
+scoring a meaningless number. Every failure, with its own message, is in
+`per_dataset` of the committed result file.
 Results fall into two regimes, and **only the first is comparable** to published
 detectors:
 
@@ -234,7 +251,7 @@ detectors:
   detector recovers them almost trivially (0.97–1.00 AUC). That is **label
   leakage**, not accuracy — reported below for pipeline transparency only.
 
-The same provenance discipline extends to the live-API loaders: of 20 concrete
+The same provenance discipline extends to the live-API loaders: of 21 concrete
 loaders, only 2 (`network_security`, `sepsis`) produce labels independent of any
 scored feature, and the governed-fusion suite gates self-improvement on those 2
 alone. CI enforces the split (`python -m omni_mercury_engine.loaders.label_provenance --check`);
@@ -255,7 +272,7 @@ governed self-improvement rollout.
 | Aggregate (54 genuine-label datasets of 67 successful) | Value |
 |---------------------------------------------------------|-------|
 | Mean AUC / Median AUC | 0.8610 / 0.9077 |
-| Std AUC | 0.1460 |
+| Std AUC | 0.1438 |
 | Mean / Median Oracle F1 | 0.6476 / 0.7005 |
 
 *Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
@@ -2724,7 +2741,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on 67 of 76 attempted real datasets (figures in [Latest Benchmark Results](#latest-benchmark-results); the externally comparable figure is ADBench Mean AUC **0.8571**). The 9 unreachable sources are tracked by a two-lane reachability harness (offline + nightly network). Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on 67 of 76 attempted real datasets (figures in [Latest Benchmark Results](#latest-benchmark-results); the externally comparable figure is ADBench Mean AUC **0.8571**). Of the 9 failures, 7 are unreachable sources tracked by a two-lane reachability harness (offline + nightly network); the other 2 resolve to a single label value and are reported as errors, not scored. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

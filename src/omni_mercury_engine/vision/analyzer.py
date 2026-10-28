@@ -54,7 +54,7 @@ from collections import deque
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from scipy import ndimage
@@ -75,7 +75,7 @@ from omni_mercury_engine.vision.imaging import (
     to_canonical,
 )
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 DeepMapProvider = Callable[[Array], Array]
 
 MODEL_SCHEMA = "mercury_visual_normal_model/v2"

@@ -3,7 +3,9 @@
     "n_datasets": 18,
     "n_scored": 18,
     "mean_auroc": 0.7634,
-    "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets"
+    "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
+    "detector_commit": "bdcdf6af1d31a49e27d3078cf34fa471acc9c55f",
+    "provenance_note": "detector_commit was back-filled by the v3 audit from git history (the run itself recorded none). harness_adbench.py now stamps commit, detector_commit, timestamp and library versions on every run, so a later disagreement is attributable rather than unexplained."
   },
   "results": [
     {

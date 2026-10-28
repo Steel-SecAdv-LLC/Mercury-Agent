@@ -22,10 +22,10 @@ import pytest
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 from tests.core.test_detector_manifest_seams import (
-    _FOUNDATION_EXTRA_MODULE,
     DRIVEN_MODALITIES,
     _construct,
     _payload,
+    skip_without_detector_extras,
 )
 
 if TYPE_CHECKING:
@@ -82,11 +82,7 @@ def test_fitted_state_round_trips_exactly(entry: Any, tmp_path: Path) -> None:
     Each detector is fitted and probed on its declared modality's example
     payload (the seam suite's), so every learning detector is round-tripped.
     """
-    if entry.name in _FOUNDATION_EXTRA_MODULE:
-        pytest.importorskip(
-            _FOUNDATION_EXTRA_MODULE[entry.name],
-            reason=f"{entry.name} needs the [foundation] extra, not installed in this lane",
-        )
+    skip_without_detector_extras(entry)
     detector = _construct(entry)
     payload = (
         SAVE_LOAD_PAYLOADS[entry.name]() if entry.name in SAVE_LOAD_PAYLOADS else _payload(entry)

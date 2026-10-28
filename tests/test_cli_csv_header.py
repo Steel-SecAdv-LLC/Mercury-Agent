@@ -50,7 +50,7 @@ def test_data_with_header_equals_data_without(tmp_path: Path) -> None:
     plain = _load_data(_write(tmp_path / "plain.csv", body))
     headed = _load_data(_write(tmp_path / "headed.csv", "a,b,c\n" + body))
     np.testing.assert_array_equal(headed, plain)
-    assert headed.shape == (3, 3) and headed.dtype == np.float32
+    assert headed.shape == (3, 3) and headed.dtype == np.float64
 
 
 def test_a_single_row_after_the_header_stays_two_dimensional(tmp_path: Path) -> None:
@@ -85,3 +85,30 @@ def test_detect_runs_on_a_csv_with_a_header(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert json.loads(out.read_text(encoding="utf-8"))
+
+
+def test_csv_load_keeps_float64_range(tmp_path: Path) -> None:
+    """A finite cell above the float32 range survives the load.
+
+    The loader used to read CSVs as ``float32``, so ``1e39`` became ``inf``
+    and the detector then warned that the operator's data held non-finite
+    values -- blaming the input for an infinity the loader had created.
+    """
+    path = _write(tmp_path / "big.csv", "a,b\n1e39,1\n1,1\n2,2\n3,3\n")
+    data = _load_data(path)
+
+    assert data.dtype == np.float64
+    assert np.isfinite(data).all()
+    assert data[0, 0] == pytest.approx(1e39)
+
+
+def test_npy_load_keeps_float64_precision(tmp_path: Path) -> None:
+    """A ``.npy`` saved as float64 round-trips at the precision it was saved with."""
+    saved = np.array([[1e39, 1.0 + 1e-12], [2.0, 3.0]], dtype=np.float64)
+    path = tmp_path / "big.npy"
+    np.save(path, saved)
+
+    loaded = _load_data(str(path))
+
+    assert loaded.dtype == np.float64
+    assert np.array_equal(loaded, saved)

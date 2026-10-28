@@ -43,7 +43,7 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 import numpy as np
 from scipy import ndimage
@@ -58,7 +58,7 @@ from omni_mercury_engine.vision.simulation import SIMULATED_TYPES, simulate_anom
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 RESULTS_PATH = REPO_ROOT / "benchmarks" / "results" / "vision_synthetic_heldout.json"
 SIZE = 192
 

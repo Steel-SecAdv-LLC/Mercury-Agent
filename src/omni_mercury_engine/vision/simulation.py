@@ -19,12 +19,12 @@ testing.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from scipy import ndimage
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 
 #: Synthesisable anomaly types, keyed by the analyser's taxonomy name.
 SIMULATED_TYPES: tuple[str, ...] = (

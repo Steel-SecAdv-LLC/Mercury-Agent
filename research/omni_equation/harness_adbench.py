@@ -27,9 +27,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
+import shutil
+import subprocess
 import sys
 import time
 import warnings
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +120,44 @@ def run_one(name: str, data_dir: str) -> dict[str, Any]:
     }
 
 
+def _provenance() -> dict[str, Any]:
+    """Which tree and interpreter produced this run.
+
+    ``detector_commit`` is the last commit touching the detector under test,
+    which is the field that dates the measurement: the protocol is fixed, so
+    only the detector moves the numbers. Missing git (a source tarball, say)
+    degrades to ``None`` rather than failing the run.
+    """
+    detector = _SRC / "omni_mercury_engine" / "detectors" / "statistical.py"
+
+    def _git(*argv: str) -> str | None:
+        try:
+            git = shutil.which("git")
+            if git is None:
+                return None
+            out = subprocess.run(  # noqa: S603
+                [git, *argv],
+                cwd=_SRC.parent,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return out.stdout.strip() or None
+
+    return {
+        "commit": _git("rev-parse", "HEAD"),
+        "detector_commit": _git("log", "-1", "--format=%H", "--", str(detector)),
+        "timestamp": datetime.now(tz=UTC).isoformat(),
+        "versions": {
+            "python": platform.python_version(),
+            "numpy": np.__version__,
+        },
+    }
+
+
 def main() -> None:
     """Run the fixed ADBench suite and persist per-dataset + mean AUROC."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -161,6 +203,15 @@ def main() -> None:
         "n_scored": len(scored),
         "mean_auroc": mean_auroc,
         "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
+        # Provenance, the way ``benchmarks/mercury_benchmark_results.json``
+        # records it. The committed run carried none, so when the v3 audit
+        # re-ran this harness and measured a different mean there was nothing
+        # in the file to say which detector revision the old number belonged
+        # to -- it turned out to be seven commits of ``detectors/statistical``
+        # earlier. The harness is deterministic on a fixed tree (two runs are
+        # byte-identical), so a disagreement is always a tree or environment
+        # difference, and these fields are what make that attributable.
+        **_provenance(),
     }
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

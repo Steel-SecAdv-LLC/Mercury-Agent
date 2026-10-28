@@ -109,7 +109,11 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         "age_progression",
         "cardioidal craniofacial growth geometry, deterministic texture aging, audited output",
         ("omni_mercury_engine.models.biometric_multimodal",),
-        requires=("numpy", "scipy", "cv2"),
+        # No cv2: the growth geometry, both texture models and the audit all
+        # run on numpy + scipy. OpenCV is only needed to read a face out of an
+        # image *file*, which is the biometric_match capability's surface, not
+        # this one's.
+        requires=("numpy", "scipy"),
     ),
     CapabilitySpec(
         "findoyou_evidence_bridge",

@@ -13,7 +13,7 @@ the combined channels once.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import pytest
@@ -21,7 +21,7 @@ import pytest
 from omni_mercury_engine.detectors import temporal
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 
 
 def _reference_trend(data: Array, window_size: int) -> Array:

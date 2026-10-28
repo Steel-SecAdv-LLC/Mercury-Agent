@@ -27,7 +27,7 @@ analyser's job, by comparing these values against the normal set.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
@@ -38,7 +38,7 @@ from scipy import (
 
 from omni_mercury_engine.vision.imaging import immerkaer_residual
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 
 
 def noise_level_map(luminance: Array, block: int = 32) -> tuple[Array, Array, Array]:

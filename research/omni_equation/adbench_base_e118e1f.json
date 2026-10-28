@@ -5,7 +5,8 @@
     "mean_auroc": 0.7397,
     "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
     "commit": "e118e1f3ec34fddbaf246d3b2898ebb4d2f56ccf",
-    "note": "Base (pre-hardening) run of harness_adbench.py at commit e118e1f, the PR-302 merge base. Regenerate byte-for-byte on a base worktree with the AMA backend built: `git worktree add /tmp/base e118e1f && (cd /tmp/base && LD_LIBRARY_PATH=<ama-build-lib> python research/omni_equation/harness_adbench.py --out adbench_base_e118e1f.json)`. Consumed by --baseline to produce adbench_base_vs_current.json. Note the base data-type gate mislabels 11/18 tabular sets as TEMPORAL (the exact bug PR-302 fixes)."
+    "note": "Base (pre-hardening) run of harness_adbench.py against the detector at commit e118e1f, the PR-302 merge base. NOTE: harness_adbench.py does not exist at e118e1f -- it was added by PR 302 to measure the hardening -- so a base worktree does not contain it and the harness must be copied in; the worktree supplies the detector, the harness supplies the protocol: `git worktree add /tmp/base e118e1f && cp research/omni_equation/harness_adbench.py research/omni_equation/_compare.py /tmp/base/research/omni_equation/ && (cd /tmp/base && LD_LIBRARY_PATH=<ama-build-lib> python research/omni_equation/harness_adbench.py --out adbench_base_e118e1f.json)`. That tree also needs the AMA release of its era (its security/pqc_backends imports `slhdsa_sign_internal`, which AMA 5.0.0 no longer exports), so a same-environment re-measurement of both sides needs that build alongside. Consumed by --baseline to produce adbench_base_vs_current.json. Note the base data-type gate mislabels 11/18 tabular sets as TEMPORAL (the exact bug PR-302 fixes).",
+    "detector_commit": "e118e1f3ec34fddbaf246d3b2898ebb4d2f56ccf"
   },
   "results": [
     {

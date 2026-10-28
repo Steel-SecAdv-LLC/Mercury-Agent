@@ -85,7 +85,7 @@ class TestCanonicalForm:
         assert np.isfinite(canonical.pixels).all()
 
     def test_path_round_trip_reorders_to_rgb(self, tmp_path: Path) -> None:
-        import cv2
+        cv2 = pytest.importorskip("cv2")
 
         rgb = (woven_surface(5) * 255).astype(np.uint8)
         path = tmp_path / "surface.png"

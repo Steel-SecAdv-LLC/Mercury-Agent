@@ -21,6 +21,7 @@ import pytest
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+from tests.core.test_detector_manifest_seams import skip_without_detector_extras
 
 
 def _engine_seam_base_detectors() -> list[Any]:
@@ -43,6 +44,7 @@ PROBE_NAN[5, 2] = np.nan
 @pytest.mark.parametrize("entry", _engine_seam_base_detectors())
 def test_nan_sample_is_never_silent_and_never_a_nan_score(entry: Any) -> None:
     """One NaN sample: reported (partial/nan_rows) or refused -- never silent."""
+    skip_without_detector_extras(entry)
     cls = getattr(importlib.import_module(entry.module_path), entry.class_name)
     detector = cls()
     try:
