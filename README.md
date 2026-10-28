@@ -400,7 +400,7 @@ real labeled streaming fixtures with leak-free causal features fitted on a warmu
 Re-runnable: `python benchmarks/nab_streaming_benchmark.py` · results in
 [`artifacts/nab_streaming.eval.json`](artifacts/nab_streaming.eval.json).
 
-*Anomaly-detection analysis — per-component AUC breakdown, ensemble-vs-best scatter, threshold usage:*
+*Anomaly-detection analysis — per-category AUC, oracle-F1 distribution (upper bound, not operational), component correlation, fit/detect timing:*
 ![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
 *Performance dashboard — timing, AUC by category, dataset size, adaptive weights, precision-recall:*

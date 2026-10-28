@@ -87,22 +87,18 @@ def generate_calibration_improvement(data: dict[str, Any]) -> None:
     ax.set_yticks(y_pos)
     ax.set_yticklabels(names, fontsize=7)
     ax.set_xlabel("F1 Score")
-    ax.set_title("Calibration Improvement: Calibrated vs Default Threshold (MD-011)")
+    # The summary lives in the title: as a corner annotation it shared the
+    # lower-right corner with the legend, which rendered on top of it and
+    # hid the numbers in the committed image.
+    n_improved = sum(1 for d in deltas if d > 0)
+    mean_delta = np.mean(deltas)
+    ax.set_title(
+        "Calibration Improvement: Calibrated vs Default Threshold (MD-011)\n"
+        f"Improved: {n_improved}/{len(deltas)} | Mean \u0394F1: {mean_delta:+.3f}"
+    )
     ax.legend(loc="lower right")
     ax.invert_yaxis()
     ax.set_xlim(0, 1.05)
-
-    # Add summary annotation
-    n_improved = sum(1 for d in deltas if d > 0)
-    mean_delta = np.mean(deltas)
-    ax.annotate(
-        f"Improved: {n_improved}/{len(deltas)} | Mean \u0394F1: {mean_delta:+.3f}",
-        xy=(0.98, 0.02),
-        xycoords="axes fraction",
-        ha="right",
-        fontsize=9,
-        bbox={"boxstyle": "round", "fc": "wheat", "alpha": 0.8},
-    )
 
     plt.tight_layout()
     plt.savefig(IMAGES_DIR / "calibration_improvement.png", dpi=150)
@@ -202,8 +198,12 @@ def generate_weight_distribution(data: dict[str, Any]) -> None:
     ax.set_xticklabels(component_names)
     ax.set_ylabel("Weight")
     ax.set_title("Ensemble Weight Distribution: Adaptive vs CV-Optimal (MD-003)")
-    ax.set_ylim(-0.05, 1.05)
-    ax.legend(loc="upper right", fontsize=8)
+    # Headroom above the 1.0 whiskers so the mu/sigma boxes sit inside the
+    # axes instead of spilling into the title.
+    ax.set_ylim(-0.05, 1.18)
+    # Below the axes: at upper right the legend rendered on top of the
+    # third component's mu/sigma annotation in the committed image.
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.08), ncols=3, fontsize=8)
 
     # Summary stats
     for i, name in enumerate(component_names):
@@ -211,7 +211,7 @@ def generate_weight_distribution(data: dict[str, Any]) -> None:
         std = np.std(weights[:, i])
         ax.annotate(
             f"\u03bc={mean:.2f}\n\u03c3={std:.2f}",
-            xy=(i, 1.0),
+            xy=(i, 1.10),
             ha="center",
             fontsize=8,
             bbox={"boxstyle": "round", "fc": "white", "alpha": 0.8},

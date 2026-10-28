@@ -65,6 +65,17 @@ def _fmt(value: object, decimals: int = 4) -> str:
     return str(value) if value is not None else "N/A"
 
 
+def _failed_dataset_lines(data: dict[str, Any], per_line: int = 3) -> list[str]:
+    """Name every failed dataset, wrapped a few per line; empty when none failed."""
+    failed = [r.get("name", "?") for r in data.get("per_dataset", []) if r.get("error")]
+    if not failed:
+        return []
+    lines = [f"  Failed ({len(failed)}):"]
+    for i in range(0, len(failed), per_line):
+        lines.append("    " + ", ".join(failed[i : i + per_line]))
+    return lines
+
+
 def _apply_theme() -> None:
     plt.rcParams.update(
         {
@@ -111,6 +122,7 @@ def _stamp(fig: Figure) -> None:
 # Chart 1: Neuro-Symbolic Benchmark Report
 # ---------------------------------------------------------------------------
 def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
+    """Render the ensemble benchmark report (component/ensemble AUC, distribution, extremes)."""
     summary = data.get("summary", {})
     comp = data.get("component_summary", {})
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
@@ -254,6 +266,7 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
 # Chart 2: Anomaly Detection Panel
 # ---------------------------------------------------------------------------
 def generate_anomaly_detection_panel(data: dict[str, Any]) -> None:
+    """Render per-category AUC, oracle-F1 distribution, component correlation and timing."""
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
 
     fig, axes = plt.subplots(2, 2, figsize=(20, 14))
@@ -361,6 +374,7 @@ def generate_anomaly_detection_panel(data: dict[str, Any]) -> None:
 # Chart 3: Performance Dashboard
 # ---------------------------------------------------------------------------
 def generate_performance_dashboard(data: dict[str, Any]) -> None:
+    """Render the domain performance, component heatmap, oracle P/R and key-metrics panels."""
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
     summary = data.get("summary", {})
     domain_summary = data.get("domain_summary", {})
@@ -383,7 +397,10 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
         ax.set_xlabel("Score")
         ax.set_title("Domain Performance (AUC & F1)")
         ax.set_xlim(0, 1.15)
-        ax.legend(fontsize=9, loc="lower right")
+        # Upper right: the top rows carry the shortest bars, so the legend
+        # sits in whitespace. At lower right it covered the bottom row's
+        # value labels (academic 1.000/0.998 in the committed image).
+        ax.legend(fontsize=9, loc="upper right")
         for i, (auc_v, f1_v) in enumerate(zip(d_aucs, d_f1s)):
             if auc_v > 0:
                 ax.text(auc_v + 0.01, i - bar_h / 2, f"{auc_v:.3f}", va="center", fontsize=7)
@@ -492,6 +509,7 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
 # Chart 4: Benchmark Summary (Live Data)
 # ---------------------------------------------------------------------------
 def generate_benchmark_summary(data: dict[str, Any]) -> None:
+    """Render the per-dataset AUC bars with run metadata, failures named."""
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
     summary = data.get("summary", {})
     meta = data.get("metadata", {})
@@ -531,6 +549,9 @@ def generate_benchmark_summary(data: dict[str, Any]) -> None:
         "",
         "AGGREGATE RESULTS",
         f"  Datasets:       {summary.get('successful', 0)} / {summary.get('total_datasets', 0)}",
+        # The bar chart shows successes only; the failures are named here
+        # so the gap between the two counts is never silent.
+        *_failed_dataset_lines(data),
         f"  Mean AUC:       {_fmt(summary.get('mean_auc'))}",
         f"  Median AUC:     {_fmt(summary.get('median_auc'))}",
         f"  Std AUC:        {_fmt(summary.get('std_auc'))}",
@@ -562,6 +583,7 @@ def generate_benchmark_summary(data: dict[str, Any]) -> None:
 # Main
 # ---------------------------------------------------------------------------
 def main() -> None:
+    """Generate every docs chart from the committed benchmark JSON."""
     _apply_theme()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 

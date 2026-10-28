@@ -27,6 +27,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Removed — the fabricated anomaly-panel generator; every committed docs chart
+audited and regenerated from measured data.** A full audit of
+`docs/images/` found that the committed `anomaly_detection_panel.png` was
+produced by `scripts/generate_anomaly_panel.py`, which fabricated three of its
+six panels: hardcoded per-domain F1 literals under a comment claiming they were
+"based on comprehensive benchmark", analytic formula curves titled "Threshold
+Sensitivity Analysis", and a pie chart of invented severity counts
+(`[45, 28, 15, 12]  # Simulated distribution`) titled as 100 real events — plus
+a hardcoded "(200 epochs)" label and an undisclosed `synthetic_labeled` data
+source behind its headline F1. The honest rendering of that figure already
+existed in `scripts/generate_docs_images.py` (every panel computed from the
+CI-integrity-gated `benchmarks/mercury_benchmark_results.json`), and the
+fabricated script had silently overwritten its output via the same
+filename-collision defect fixed for the demo report. The fabricated script is
+deleted (its in-repo replacement is the real-data panel, now the committed
+image), the README caption is corrected to describe the actual panels, and the
+remaining four charts were audited and re-rendered with their defects fixed:
+the dashboard legend no longer covers the academic row's value labels, the
+MD-011 figure's Improved/ΔF1 summary moved into the title where the legend had
+rendered on top of it, the MD-003 figure's legend moved below the axes so all
+three μ/σ boxes are visible, and the benchmark summary now names all 9 failed
+datasets beside the 67/76 count instead of leaving the gap silent. Five
+pre-existing missing docstrings in `generate_docs_images.py` are added.
+
 **Fixed — pure-reasoning plans no longer poison the Bayesian confidence
 calibrator, and the neuro-symbolic demo report stops misrendering its own
 data.** `MercuryAgent._learn_from_execution` recorded a *failure* observation
