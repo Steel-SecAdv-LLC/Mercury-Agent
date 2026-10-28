@@ -49,12 +49,14 @@ def statistical_analysis(
 
 
 if __name__ == "__main__":
+    # Demo of the analysis machinery on SYNTHETIC draws — the printed
+    # improvement is a property of the demo inputs, not a measurement.
     baseline_times = np.random.normal(10.0, 2.0, 100)
     improved_times = np.random.normal(8.0, 1.5, 100)
 
     results = statistical_analysis(baseline_times, improved_times)
 
-    print("=== STATISTICAL VALIDATION ===")
+    print("=== STATISTICAL VALIDATION (demo on synthetic draws) ===")
     print(f"Improvement: {results['improvement_percent']:.2f}%")
     print(f"T-statistic: {results['t_statistic']:.3f}")
     print(f"P-value: {results['p_value']:.6f}")

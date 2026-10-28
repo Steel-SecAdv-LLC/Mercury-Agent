@@ -126,7 +126,7 @@ class AdaptiveDefenseSystem:
             feature_vector=feature_vector,
             timestamp=float(np.datetime64("now").astype("datetime64[s]").astype(int)),
             detection_count=1,
-            confidence=0.95,
+            confidence=0.95,  # fixed rule prior, not calibrated
             metadata=metadata or {},
         )
 

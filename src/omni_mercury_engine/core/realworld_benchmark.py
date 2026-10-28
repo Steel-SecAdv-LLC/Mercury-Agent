@@ -558,15 +558,18 @@ class RealWorldBenchmarkRunner:
                 y_pred = (y_pred == -1).astype(int)
 
             # Compute metrics
+            # A single-class fold cannot measure AUC. NaN (excluded from the
+            # aggregate by nanmean below) states that; the old 0.5/0.25
+            # constants entered the mean as if measured.
             try:
                 roc_auc = roc_auc_score(y_test, y_proba)
             except ValueError:
-                roc_auc = 0.5
+                roc_auc = float("nan")
 
             try:
                 pr_auc = average_precision_score(y_test, y_proba)
             except ValueError:
-                pr_auc = 0.0
+                pr_auc = float("nan")
 
             f1 = f1_score(y_test, y_pred, zero_division=0.0)
             precision = precision_score(y_test, y_pred, zero_division=0.0)
@@ -575,7 +578,7 @@ class RealWorldBenchmarkRunner:
             try:
                 brier = brier_score_loss(y_test, y_proba)
             except ValueError:
-                brier = 0.25
+                brier = float("nan")
 
             # Event-based metrics for time-series
             event_f1, ttd = self._compute_event_metrics(y_test, y_pred)
@@ -599,8 +602,8 @@ class RealWorldBenchmarkRunner:
 
         # Aggregate results
         metrics = BenchmarkMetrics(
-            roc_auc=float(np.mean([f["roc_auc"] for f in fold_results])),
-            pr_auc=float(np.mean([f["pr_auc"] for f in fold_results])),
+            roc_auc=float(np.nanmean([f["roc_auc"] for f in fold_results])),
+            pr_auc=float(np.nanmean([f["pr_auc"] for f in fold_results])),
             f1=float(np.mean([f["f1"] for f in fold_results])),
             precision=float(np.mean([f["precision"] for f in fold_results])),
             recall=float(np.mean([f["recall"] for f in fold_results])),

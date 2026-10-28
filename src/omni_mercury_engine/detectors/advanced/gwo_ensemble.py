@@ -252,7 +252,7 @@ class GWOEnsembleDetector:
             "Label-supervised weight search over base-detector scores; verdicts cut at the "
             "threshold_percentile (default 95) of the weighted training scores, so about 5% of "
             "training rows alarm by construction and no false-alarm rate is recorded for the "
-            "cut. The ranking is measured: held-out ROC-AUC 0.8292 mean over six ADBench sets "
+            "cut. The ranking was measured in-session (recorded in CHANGELOG.md; no result artifact is committed, so treat as unreproduced): held-out ROC-AUC 0.8292 mean over six ADBench sets "
             "x 3 seeds (semi-supervised, IForest/LOF/OCSVM bases) vs 0.7852 for equal weights "
             "over the same detectors, winning 17 of 18 runs. Torch-free; the trained fusion "
             "pipeline (fit_fusion) is the supported path when torch is available."

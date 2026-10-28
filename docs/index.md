@@ -53,12 +53,12 @@ attribution to code transferred from its former agent layer.)
   contract.
 - **Committed benchmark run.** The README headline is the committed
   `mercury_benchmark_results.json` run — **67 successful / 76
-  attempted**, Mean AUC **0.8545**, Median **0.9052**, Mean Oracle
-  F1 **0.6425** (2026-10-14) — surfaced in the README "Latest
+  attempted**, Mean AUC **0.8610**, Median **0.9077**, Mean Oracle
+  F1 **0.6476** (2026-10-26) — surfaced in the README "Latest
   Benchmark Results" block. CI's coarse regression-gate floors are
   **ROC-AUC 0.75 / F1 0.55** (`.github/workflows/benchmark.yml`), ~7%
   below the historical **0.803 AUC / 0.589 F1** baseline.
-  Externally-comparable subset: ADBench Mean AUC 0.8515.
+  Externally-comparable subset: ADBench Mean AUC 0.8571.
   See [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Pickle removed from the training-data path; not a blanket ban.**
   PR #166 deleted the `pickle` code path from the training-data

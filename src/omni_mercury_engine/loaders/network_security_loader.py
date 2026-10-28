@@ -144,7 +144,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
     UNSW-NB15, and BATADAL datasets through the unified
     :class:`BaseDomainLoader` interface.
 
-    The existing NSL-KDD pipeline already achieves AUC 0.972 via the core
+    The existing NSL-KDD pipeline measures AUC 0.9741 in the committed
+    benchmarks/mercury_benchmark_results.json via the core
     Mercury detector.  This loader wires those same datasets into the
     domain loader pattern used by the broader Mercury framework.
 

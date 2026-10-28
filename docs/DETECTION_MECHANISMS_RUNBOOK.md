@@ -76,13 +76,15 @@ scores = ensemble.score(live_series)          # calibrated per-point probabiliti
 uncertainty = ensemble.ensemble_uncertainty(live_series)
 ```
 
-On real streaming data without up-front labels, `average` is the recommended
-default combiner: on the label-free 29-dataset NAB aggregate it reaches mean
-ROC-AUC 0.613. The two evaluations must be read on their own footing — on the
-15-dataset supervised subset (where the meta-learners can be fit) the three
-combiners are close and none dominates: `average` 0.569, `stacking` 0.571,
-`bma` 0.563 mean AUC. Use `stacking` / `bma` only when abundant point labels are
-available to fit the meta-learner; even then they do not reliably beat `average`.
+On real streaming data without up-front labels, the rank-calibrated
+`consensus` combiner is the measured best on the committed 30-series NAB run
+(mean ROC-AUC 0.635 vs `average` 0.604 and best member `echo_state` 0.623 —
+see the `detection_tier` block of `mercury_benchmark_results.json`). On the
+16-series supervised subset (where the meta-learners can be fit) none of the
+combiners dominates: `average` 0.570, `stacking` 0.592, `bma` 0.557 mean AUC.
+Use `stacking` / `bma` only when abundant point labels are available to fit
+the meta-learner; even then they do not reliably beat the unsupervised
+options.
 
 ### 3.3 Bound the false-positive rate
 

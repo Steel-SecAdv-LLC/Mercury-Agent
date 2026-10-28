@@ -823,7 +823,9 @@ class AffectiveStateModel:
         for i in range(batch_size):
             sample = data[i]
 
-            # Simulate emotion probabilities from data
+            # Not emotion recognition: the first raw input columns are
+            # normalised and TREATED AS emotion-probability stand-ins so the
+            # entropy/distress features have defined inputs.
             emotion_probs = (
                 np.abs(sample[: self.n_emotions])
                 if len(sample) >= self.n_emotions

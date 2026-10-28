@@ -3,7 +3,12 @@
 Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 
 Every intelligence-layer stream ships a **measured** value metric with a
-**baseline** and a **target**. A stream that cannot state, and measure, the value
+**baseline** and a **target** — measured on **authored synthetic workloads**
+(`benchmarks/confidence_cascade_report.py`,
+`benchmarks/self_consistency_signal_report.py`): the numbers characterise the
+machinery on those authored cases, and parameters such as the workloads'
+easy-case fraction directly shape figures like `compute_saved_fraction`. They
+are not field measurements. A stream that cannot state, and measure, the value
 it delivers is theater. This document is the operator/reviewer view of that value
 board: what each stream measures, what "good" is, and which command produces the
 number.

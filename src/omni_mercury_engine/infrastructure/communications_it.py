@@ -67,10 +67,18 @@ class CommunicationsITDetector:
         Returns:
             Anomaly detection results
         """
+        # Missing inputs are missing, not nominal traffic: inventing
+        # 1000 pps / 1 MB/s / 100 connections fed fabricated values into
+        # detection and history.
+        if len(data) < 3:
+            raise ValueError(
+                "communications_it.detect needs [packets_per_sec, "
+                f"bytes_per_sec, connections]; got {len(data)} value(s)"
+            )
         traffic_data = {
-            "packets_per_sec": float(data[0]) if len(data) > 0 else 1000,
-            "bytes_per_sec": float(data[1]) if len(data) > 1 else 1000000,
-            "connections": int(data[2]) if len(data) > 2 else 100,
+            "packets_per_sec": float(data[0]),
+            "bytes_per_sec": float(data[1]),
+            "connections": int(data[2]),
         }
         return self.detect_network_anomaly(traffic_data, timestamp)
 

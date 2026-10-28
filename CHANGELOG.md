@@ -27,6 +27,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — fabrication audit waves 3-5: theater benchmarks removed, docs trued
+to committed evidence, remaining disclosures landed.** Seven benchmark scripts
+that scripted their own results were deleted (none referenced by code):
+`ab_dominance`/`ab_sigma` wrote per-epoch F1 curves toward hardcoded targets
+plus noise and printed "BENCHMARK PASSED"; `ethical_scalar_experiments` drew
+execution time, memory and accuracy from RNG; `ethical_scalar_validation`
+separated random toy data by construction and printed "VALIDATED FOR
+PRODUCTION DEPLOYMENT"; `comprehensive_equation_optimization` scored toy
+formulas with noise added "for realism" and `quick_benchmark_validation`
+consumed its output as "the optimized config"; `plot_mercury_training` drew
+invented calibration/memory/uncertainty curves. The two engine comments citing
+`ab_dominance.py` as "the measured comparison" behind the Lyapunov constant
+now state the truth (design target per MATH_SPEC §2.2). The hand-entered
+`mercury_agent` row (0.85/0.80) in `benchmarks/baseline_results.json` is
+removed and its provenance note states the peer rows are uncited
+approximations. The seven-axis runner and its committed artifact/docs section
+now disclose the synthetic workload. Docs trued to committed artifacts: the
+stale 2026-10-14 headline (0.8545/0.9052/0.6425, ADBench 0.8515/0.6415) is
+replaced by the committed 2026-10-26 run (0.8610/0.9077/0.6476, ADBench
+0.8571/0.6443) across README, BENCHMARKS, LIVE_DATA_VALIDATION, DATASOURCES,
+SELF_IMPROVEMENT_LOOP, ROADMAP and docs/index; the README spot-check table is
+regenerated from a real 2026-10-28 run (Mercury ranks #4 of 5 on it — stated
+plainly) and its unsourceable TranAD/MAAT "published reference" rows are
+removed; the calibration block now quotes the committed 55-dataset run; the
+hazard table is rebuilt from `research/engine_calibration/results.json` (its
+unsourced Flood row removed); the NAB detection-tier tables are rebuilt from
+the committed 30-series run, which reverses the old claim — consensus (0.635)
+beats the best member, the unsupervised average (0.604) does not;
+ARCHITECTURE's unsourced "empirical validation" percentages and λ_max ≈ 0.87
+claims are withdrawn and its stale scale copies defer to the CI-gated README
+block; perf/memory/install/PQC-coverage claims are labelled indicative or
+CI-artifact-sourced; the live demo discloses its synthetic streams. Remaining
+adjudications: the chronos adapter's fail-closed raise was caught by its own
+except (any failure became score 0.0 "normal") — it now propagates; the legacy
+three-R "dominance proof" table and docstring now label the 0.92 figure an
+aspiration; single-class folds in `realworld_benchmark`/`lstm_ae` metrics are
+NaN-excluded instead of entering means as 0.5/0.25; the unfitted statistical
+ensemble diagnostic returns None instead of a made-up 0.5 and labels its
+synthetic-OOD basis; MSDS (a synthetic stand-in sharing the real TranAD
+dataset's name) now goes through the `check_synthetic_allowed` gate; the
+tsunami loader marks reconstructed BPR series on the frame;
+`communications_it` raises on missing inputs instead of inventing nominal
+traffic; fixed confidence literals across infrastructure/narrative/
+distributed/hindsight/vibration/code-analysis outputs are labelled as
+uncalibrated rule priors (and the operations power estimate drops its 1.0
+confidence to 0.3); energy_dams renames its count formula to
+`heuristic_risk_index`; INTEL_VALUE_METRICS and the detector-evidence seed
+disclose their authored-workload/non-committed-harness provenance; and the
+in-session gwo/dimensional measurements are marked CHANGELOG-recorded, not
+artifact-backed.
+
 **Fixed — full-repo fabrication audit, wave 1/2: engine code that invented
 measurements now measures, discloses, or fails closed.** A four-auditor sweep
 of the whole repository found fabrication beyond the chart generators; every

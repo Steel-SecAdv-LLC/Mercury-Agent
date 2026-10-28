@@ -217,8 +217,11 @@ class TsunamiLoader(BaseDomainLoader):
 
         # NDBC real-time files only cover the most recent ~45 days, so
         # historical events (all of which predate that window) must be
-        # reconstructed from characteristic BPR patterns.
+        # reconstructed from characteristic BPR patterns. The frame carries
+        # that provenance so downstream outputs cannot present the series
+        # as recorded sensor data.
         df = self._synthesize_event(event)
+        df["bpr_series_source"] = "reconstructed"
         self._write_cache(cache_key, df.to_dict(orient="list"))
         return df
 

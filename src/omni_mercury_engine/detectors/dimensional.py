@@ -484,8 +484,9 @@ class DimensionalAnalyzer(BaseDetector):
         # Optionally blend in DB term spectral analysis. The DB term refines
         # the reconstruction view, so it blends into the base BEFORE the
         # Mahalanobis channel: blended after, it re-diluted that channel's
-        # weight share (measured: correlation-break ROC-AUC 0.763 with the
-        # dilution against 0.901 for the channel's own ranking).
+        # weight share (measured in-session, recorded in CHANGELOG.md — no
+        # result artifact is committed: correlation-break ROC-AUC 0.763 with
+        # the dilution against 0.901 for the channel's own ranking).
         db_scores: NDArray[np.float64] | None = None
         if self.use_db_term and self.baseline_spectral_signature is not None:
             db_scores = self._dimensional_code_breaking(data_np)

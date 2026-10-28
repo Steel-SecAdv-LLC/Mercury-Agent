@@ -469,14 +469,16 @@ class HindsightRelabeler:
         else:  # RANDOM
             best_alt = self._rng.choice(alternatives)
 
-        expected_improvement = abs(credit) * 0.5  # Conservative estimate
+        # Heuristic: half the negative credit. Not an estimate from any
+        # model; confidence is a fixed rule prior.
+        expected_improvement = abs(credit) * 0.5
 
         return HindsightRelabeling(
             original_action=step.output_action,
             relabeled_action=best_alt,
             strategy=strategy,
             expected_improvement=expected_improvement,
-            confidence=0.7,
+            confidence=0.7,  # fixed rule prior, not calibrated
             reasoning=f"Step had negative credit ({credit:.3f}), suggesting {best_alt} might be better",
         )
 
@@ -641,7 +643,10 @@ class FeedbackProcessor:
             # This was a bad step - learn from it
             positive_example = {
                 "input": step.input_state,
-                "output": "better_alternative",  # Placeholder
+                # A label meaning "any action but the one taken": no concrete
+                # better action is known here, and the training consumer
+                # must treat it as that counterfactual class, not a value.
+                "output": "counterfactual_not_the_taken_action",
                 "context": step.metadata,
             }
             negative_example = {

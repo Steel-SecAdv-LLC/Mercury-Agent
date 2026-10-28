@@ -470,7 +470,7 @@ class ProactiveMonitor:
                     detection_result={
                         "anomaly_detected": True,
                         "anomaly_score": avg_severity,
-                        "confidence": 0.8,  # Pattern accumulation increases confidence
+                        "confidence": 0.8,  # fixed rule prior, not calibrated
                         "severity": avg_severity,
                     },
                     domain=domain,

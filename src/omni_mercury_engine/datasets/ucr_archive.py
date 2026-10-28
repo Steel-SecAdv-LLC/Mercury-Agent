@@ -481,7 +481,20 @@ class MSDSLoader(DatasetLoader):
         return result
 
     def download(self) -> bool:
-        """Generate synthetic MSDS data."""
+        """Generate synthetic MSDS stand-in data (gated like every synthetic source).
+
+        This is NOT the TranAD MSDS dataset, despite sharing its name and
+        URL; it is a seeded synthetic stand-in, and loading it goes through
+        the same ``check_synthetic_allowed`` opt-in gate as every other
+        synthetic source (it used to skip that gate).
+        """
+        from .exceptions import check_synthetic_allowed
+
+        check_synthetic_allowed(
+            "MSDS",
+            "the real TranAD MSDS corpus is not fetched by this loader; "
+            "only a seeded synthetic stand-in is available",
+        )
         logger.info("MSDS: Generating synthetic multi-source data...")
 
         self.data_path.mkdir(parents=True, exist_ok=True)

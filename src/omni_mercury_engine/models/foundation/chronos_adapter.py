@@ -306,6 +306,11 @@ class ChronosAdapter(BaseFoundationModel):
                             "(Phase 2 audit cure)."
                         )
 
+                except RuntimeError:
+                    # The fail-closed raise above must propagate: this except
+                    # used to catch it too, turning "no pipeline" into a
+                    # silent score of 0.0 ("normal") for every point.
+                    raise
                 except Exception as e:
                     logger.debug(f"Prediction at t={t} failed: {e}")
                     scores[t] = 0.0

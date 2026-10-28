@@ -2035,8 +2035,10 @@ class MercuryAnomalyDetector(BaseDetector):
               - ``weights``: list — Current adaptive weights.
         """
         if not self._is_fitted or self._train_data is None:
+            # Unfitted: no AUC exists to report. None states that (this used
+            # to return a made-up 0.5).
             return {
-                "ensemble_auc": 0.5,
+                "ensemble_auc": None,
                 "component_aucs": {},
                 "is_inverted": False,
                 "recommended_action": "Fit detector first",
@@ -2101,12 +2103,17 @@ class MercuryAnomalyDetector(BaseDetector):
                 "(3) Use supervised calibration if labels available."
             )
         else:
-            recommended = "No action needed — ensemble is performing correctly."
+            recommended = (
+                "No inversion detected on the synthetic-OOD probe "
+                "(uniform draws over the feature ranges — a separability "
+                "smoke check, not a labelled-data validation)."
+            )
 
         weights = self._adaptive_weights
 
         diagnostics: dict[str, Any] = {
             "ensemble_auc": float(ensemble_auc),
+            "ensemble_auc_basis": "normal train rows vs synthetic uniform-OOD draws",
             "component_aucs": component_aucs,
             "is_inverted": is_inverted,
             "recommended_action": recommended,

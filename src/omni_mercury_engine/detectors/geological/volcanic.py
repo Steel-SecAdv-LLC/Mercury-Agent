@@ -626,7 +626,10 @@ class VolcanicStateHMM:
         # Observables: seismic_swarm, thermal_anomaly, gas_flux, deformation
         self.emission_matrix = self._initialize_emission_matrix()
 
-        # Initial state distribution (most volcanoes start quiescent)
+        # Initial state distribution: an uncited expert-set prior (most
+        # volcanoes start quiescent), like the transition/emission tables
+        # above — hand-set modelling assumptions, not fitted to eruption
+        # catalogs.
         self.initial_distribution = np.array([0.7, 0.2, 0.05, 0.03, 0.02])
 
         # Current state belief (probability distribution over states)

@@ -382,10 +382,13 @@ non-finite robustness, or a correctness fix) and its post-hardening coverage.
 | `deeplog_sequence` | anomalous log/template sequences | numeric-only streams | output finite guard (no confirmed defect) | — |
 | `frequent_pattern` | rule / co-occurrence violations in traces | continuous-valued signals | **narrower-batch `IndexError`**; empty `fit` | 96% |
 
-**Ensemble improvement (already measured on real NAB, 29 series):** the
-unsupervised `average` ensemble reaches ROC-AUC **0.613** (median 0.617), edging
-the best single member (`echo_state`, 0.610) — the complementarity lift the tier
-is designed for. See [Validation & benchmarks](#validation--benchmarks) for the
+**Ensemble improvement (measured on real NAB, 30 series; committed
+`detection_tier` block of `mercury_benchmark_results.json`):** the
+rank-calibrated `consensus` combiner reaches ROC-AUC **0.635** (median 0.621),
++0.012 over the best single member (`echo_state`, 0.623). The unsupervised
+`average` combiner does **not** edge the best member on this run (0.604 vs
+0.623) — an earlier version of this section said it did, from a stale
+29-series run. See [Validation & benchmarks](#validation--benchmarks) for the
 full per-member table and the transparent note on the supervised combiners. Coverage
 column is from the tier robustness suite (`_calibration.py` is at 100%); torch
 members and `deeplog_sequence` are not exercised in the pure-NumPy lane.
@@ -422,33 +425,33 @@ Aggregate results across **29 real NAB series** (seed 0), sorted by mean ROC-AUC
 
 | Detector / ensemble | mean F1 | mean ROC-AUC | n series |
 |---|---:|---:|---:|
-| **ensemble:average** (unsup.) | 0.280 | **0.613** | 29 |
-| echo_state | 0.280 | 0.610 | 29 |
-| deep_svdd | 0.268 | 0.588 | 29 |
-| energy_based | 0.283 | 0.577 | 29 |
-| spiking | 0.252 | 0.575 | 29 |
-| survival | 0.233 | 0.575 | 29 |
-| digital_twin | 0.244 | 0.551 | 29 |
-| particle_filter | 0.220 | 0.539 | 29 |
-| gaussian_process | 0.223 | 0.535 | 29 |
-| imm | 0.224 | 0.535 | 29 |
-| spot_evt | 0.063 | 0.522 | 29 |
-| bocpd | 0.217 | 0.514 | 29 |
-| hawkes | 0.224 | 0.513 | 29 |
-| spectral_residual | 0.169 | 0.500 | 29 |
-| ensemble:stacking (sup., subset) | 0.261 | 0.571 | 15 |
-| ensemble:bma (sup., subset) | 0.270 | 0.563 | 15 |
+| **ensemble:consensus** (rank-calibrated) | 0.289 | **0.635** | 30 |
+| echo_state | 0.297 | 0.623 | 30 |
+| ensemble:average (unsup.) | 0.261 | 0.604 | 30 |
+| deep_svdd | 0.280 | 0.596 | 30 |
+| energy_based | 0.299 | 0.590 | 30 |
+| spiking | 0.271 | 0.589 | 30 |
+| survival | 0.236 | 0.573 | 30 |
+| digital_twin | 0.245 | 0.568 | 30 |
+| particle_filter | 0.223 | 0.539 | 30 |
+| imm | 0.227 | 0.533 | 30 |
+| hawkes | 0.240 | 0.527 | 30 |
+| gaussian_process | 0.226 | 0.524 | 30 |
+| spot_evt | 0.064 | 0.521 | 30 |
+| bocpd | 0.221 | 0.507 | 30 |
+| spectral_residual | 0.171 | 0.500 | 30 |
+| ensemble:stacking (sup., subset) | 0.294 | 0.592 | 16 |
+| ensemble:bma (sup., subset) | 0.286 | 0.557 | 16 |
 
-**Real-data transparency note.** These are *unsupervised streaming* numbers on real
-NAB, not the controlled synthetic signals used during development — per-point
-AUC on NAB is a hard, strict metric. The **unsupervised `average` ensemble
-(ROC-AUC 0.613, median 0.617) is the strongest combiner**, edging the best single
-member (`echo_state`, 0.610): the ensemble lift the tier is designed to deliver,
-now demonstrated on real data. The supervised `stacking` / `bma` combiners are
-measurable only where NAB's clustered labels leave anomalies in the training fold
-(15 of 29 series); with the sparse up-front labels streaming NAB provides they do
-not beat the unsupervised average — a transparent reflection of the setting, not a
-defect. Per-detector robustness is covered by the contract tests under
+**Real-data transparency note.** These are *streaming* numbers on real NAB,
+not the controlled synthetic signals used during development — per-point AUC
+on NAB is a hard, strict metric. The **rank-calibrated `consensus` combiner
+(ROC-AUC 0.635, median 0.621) is the strongest**, beating the best single
+member by +0.012; the unsupervised `average` combiner trails the best member
+(0.604 vs 0.623) on this run. The supervised `stacking` / `bma` combiners are
+measurable only where NAB's clustered labels leave anomalies in the training
+fold (16 of 30 series); they do not reliably beat the unsupervised options —
+a transparent reflection of the sparse-label setting, not a defect. Per-detector robustness is covered by the contract tests under
 `tests/detectors/`.
 
 ## Scope

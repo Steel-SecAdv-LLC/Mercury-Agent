@@ -136,7 +136,9 @@ class PhysicsGOSNNScalars:
     Provides ethical governance scalars specific to the advanced physics detection modules.
     """
 
-    # Physics domain scalars
+    # Physics domain scalars: design constants (uncited); despite the
+    # measurement-style names, none of these is a measured precision or
+    # accuracy figure.
     SPECTRAL_INTEGRITY = 0.95  # Integrity of spectral analysis
     KINEMATIC_PRECISION = 0.94  # Precision of kinematic calculations
     UIUX_FAIRNESS = 0.93  # Fairness in user behavior analysis

@@ -77,8 +77,10 @@ from omni_mercury_engine.core.centralized_constants import (
 # P2: Now references centralized constant
 PHI: float = MATH.GOLDEN_RATIO
 
-# Lyapunov stability constant (elevated from 0.18; see benchmarks/ab_dominance.py
-# for the measured comparison)
+# Lyapunov stability constant. A design target the engine monitors and
+# reports, not a measured guarantee (docs/MATH_SPEC.md section 2.2). The old
+# citation of benchmarks/ab_dominance.py as "the measured comparison" was
+# false provenance: that script scripted its own curves and is deleted.
 # P2: Now references centralized constant
 LAMBDA_LYAPUNOV: float = LYAPUNOV.LAMBDA_CONVERGENCE
 

@@ -108,7 +108,7 @@ class SpaceInfrastructureMonitor:
             "asset_id": asset_id,
             "anomaly_detected": anomaly_detected,
             "anomaly_score": anomaly_score,
-            "confidence": 0.85,
+            "confidence": 0.85,  # fixed rule prior, not calibrated
             "threat_type": threat_type,
             "anomalies": anomalies,
             "severity": (
