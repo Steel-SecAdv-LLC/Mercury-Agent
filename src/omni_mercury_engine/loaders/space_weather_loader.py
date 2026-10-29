@@ -134,6 +134,16 @@ class SpaceWeatherLoader(BaseDomainLoader):
         "h_dev_from_daily_median",
     ]
 
+    #: No exclusion needed: the labels come from an external catalogue, not
+    #: from these columns. DONKI GST reports observed planetary Kp for 3-hour
+    #: synoptic windows; the features are ground-magnetometer dB/dt. The two
+    #: describe the same geomagnetic disturbance, so they correlate strongly --
+    #: but correlation is not circularity, and nothing here thresholds a column
+    #: the detector is also handed. Declared explicitly so this loader stops
+    #: reading as one of the self-labelled ones purely because its labels are
+    #: a thresholded index.
+    LABEL_FEATURE_DISJOINT: bool = True
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------

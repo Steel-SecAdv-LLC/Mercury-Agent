@@ -167,7 +167,7 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and gated in C
 | Measurement | Value |
 |---|---|
 | Python source files in `src/omni_mercury_engine/` | **866** |
-| Source lines of code (LOC) | **~477,000** |
+| Source lines of code (LOC) | **~478,000** |
 | Top-level subpackages (true Python packages with `__init__.py`) | **52** |
 | Files importing PyTorch (optional `[ml]` extra) | **175** |
 | Distinct `torch.nn.Module` subclasses | **174** |
@@ -376,13 +376,50 @@ Per-domain AUROC from the committed
 cited `run_all_benchmarks.py`, whose output is not committed, and carried
 several values — including a Flood row — that matched no committed artifact):
 
-| Domain | AUROC | Domain | AUROC |
-|--------|-------|--------|-------|
-| Earthquake | 0.9367 | Network Security | 0.7925 |
-| Pandemic | 0.9256 | Hurricane | 0.7792 |
-| Energy | 0.9237 | FEMA | 0.7598 |
-| Tsunami | 0.8905 | Marine | 0.5412 |
-| Tornado | 0.8803 | Overall | 0.8501 |
+> **Eight of these nine rows are self-labelled, and the table never said so.**
+> Only Network Security has labels independent of the scored features
+> (`ground_truth`: NSL-KDD `label`, BATADAL `ATT_FLAG`); the other eight are
+> `statistical` — the label is a threshold on a column the detector was also
+> handed. `Overall` pools both regimes over all 30 events, which is exactly what
+> the leakage-flagged section below says is never done. The loaders declared this
+> at source the whole time; this table did not carry it. Measured impact and the
+> limits of that measurement:
+> [`deleak_impact.json`](research/engine_calibration/deleak_impact.json).
+
+| Domain | AUROC | Labels | Label rule |
+|--------|-------|--------|------------|
+| Network Security | 0.7925 | **independent** | per-row attack flags (NSL-KDD `label`, BATADAL `ATT_FLAG`) |
+| Earthquake | 0.9367 | self-labelled | `magnitude >= mainshock_mag - 1.0`, and `magnitude` is feature[0] |
+| Pandemic | 0.9256 | self-labelled | 7d rolling cases > 2x 30d baseline, on the same smoothed series |
+| Energy | 0.9237 | self-labelled | `kp >= 7` on feature[0]; series also reconstructed — "doubly circular" in the loader |
+| Tsunami | 0.8905 | external labels, reconstructed series | arrival-time windows; BPR series reconstructed |
+| Tornado | 0.8803 | self-labelled | `mag >= 3` (EF3+) on the raw magnitude behind `ef_scale` |
+| Hurricane | 0.7792 | self-labelled | 24h wind delta >= 30 kt, which is also scored |
+| FEMA | 0.7598 | self-labelled | the DR/IA/PA declaration flags themselves |
+| Marine | 0.5412 | self-labelled | richness-decline threshold on scored `richness_loss` |
+| *Overall* | *0.8501* | *mixed* | *pools all nine; not a comparable figure* |
+
+**What the leak was worth, measured.** Every loader now declares its
+label-derived columns and the scored matrix excludes them
+(`BaseDomainLoader.engineer_scored_features`), so this is re-measurable rather
+than argued. Re-run on the events present in both runs, Earthquake falls
+**0.9367 → 0.3387 (−0.598)** — below chance on four of its five events once
+`magnitude` is excluded, so that figure was almost entirely the leak. Read the
+rest with the control in mind: domains with *no* exclusions moved by up to
+0.119 on the same events, because this artifact is also stale against the
+current detector and the live feeds, so only a delta well outside that band is
+attributable to de-leaking. FEMA (−0.055), Pandemic (−0.033) and Hurricane
+(+0.004) sit inside it. Exclusion also removes identity, not correlation:
+Tornado *rose* with `ef_scale` dropped, because path length, injuries and
+fatalities covary with EF scale — distinct measurements, still physically
+downstream of the labelled quantity.
+
+**Energy cannot currently be reproduced at all.** All four of its events
+predate the live SWPC window, so the loader refuses rather than reconstructing;
+the committed 0.9237 was measured on a reconstructed series with circular
+labels. The table above is retained as the record of what was published, not as
+a performance claim, and the numbers are not restated anywhere as domain
+accuracy.
 
 ### Transparency: self-labeled loaders (leakage-flagged, not comparable)
 

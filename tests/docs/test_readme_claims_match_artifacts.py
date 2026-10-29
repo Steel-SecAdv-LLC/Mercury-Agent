@@ -241,8 +241,72 @@ def test_hazard_domain_table_matches_the_engine_calibration_run() -> None:
         value = float(_one(rf"\|\s*{re.escape(label)}\s*\|\s*([0-9.]+)\s*\|", text=text))
         assert value == pytest.approx(results["per_domain"][key]["auroc"], abs=_TOL), label
 
-    overall = float(_one(r"\|\s*Overall\s*\|\s*([0-9.]+)\s*\|", text=text))
+    overall = float(_one(r"\|\s*\*Overall\*\s*\|\s*\*([0-9.]+)\*\s*\|", text=text))
     assert overall == pytest.approx(results["overall"]["auroc"], abs=_TOL)
+
+
+def test_each_hazard_row_states_its_loaders_declared_provenance() -> None:
+    """The table's Labels column is the loader's own ``LABEL_SOURCE``.
+
+    The table used to print nine AUROCs with no provenance at all, while eight
+    of the nine loaders declared ``statistical`` at source -- the label is a
+    threshold on a column that is also scored. Pinning the column to the
+    declaration is what stops the two drifting apart again.
+    """
+    import importlib
+
+    from omni_mercury_engine.loaders.label_provenance import (
+        GENUINE_LABEL_SOURCES,
+        LABEL_PROVENANCE_REGISTRY,
+    )
+
+    rows = re.findall(
+        r"\|\s*(Network Security|Earthquake|Pandemic|Energy|Tsunami|Tornado|Hurricane|FEMA|"
+        r"Marine)\s*\|\s*[0-9.]+\s*\|\s*([^|]+?)\s*\|",
+        _text(),
+    )
+    assert len(rows) == 9, f"expected 9 hazard rows, matched {len(rows)}"
+
+    for label, stated in rows:
+        key = next(
+            k for k in LABEL_PROVENANCE_REGISTRY if k.split("_loader")[0] == _loader_stem(label)
+        )
+        mod, cname = key.split(".")
+        cls = getattr(importlib.import_module(f"omni_mercury_engine.loaders.{mod}"), cname)
+        genuine = cls.LABEL_SOURCE in GENUINE_LABEL_SOURCES
+        says_independent = "independent" in stated.lower()
+        assert says_independent == genuine, (
+            f"{label}: README says {stated!r} but the loader declares "
+            f"LABEL_SOURCE={cls.LABEL_SOURCE!r}"
+        )
+
+
+def _loader_stem(readme_label: str) -> str:
+    """Map a README domain label onto its loader module stem."""
+    return readme_label.lower().replace(" ", "_")
+
+
+def test_deleak_impact_figures_match_the_evidence_artifact() -> None:
+    """The quoted de-leak deltas are the measured ones, including the control.
+
+    The claim that matters is comparative -- earthquake's fall against the
+    drift of the domains that excluded nothing -- so both halves are pinned.
+    """
+    impact = _artifact("research/engine_calibration/deleak_impact.json")
+    eq = impact["per_domain"]["earthquake"]
+    text = _text()
+
+    before, after, delta = _groups(
+        r"Earthquake falls\s*\n?\*\*(0\.\d+) → (0\.\d+) \(−(0\.\d+)\)\*\*", text=text
+    )
+    assert float(before) == pytest.approx(eq["auroc_circular"], abs=_TOL)
+    assert float(after) == pytest.approx(eq["auroc_deleaked"], abs=_TOL)
+    assert float(delta) == pytest.approx(abs(eq["delta"]), abs=_TOL)
+
+    band = float(_one(r"moved by up to\s*\n?(0\.\d+) on the same events", text=text))
+    # Quoted to 3 decimals ("0.119"), so held to half an ulp of that.
+    assert band == pytest.approx(impact["no_exclusion_control_band"]["max_abs_delta"], abs=5e-4)
+    assert abs(eq["delta"]) > band, "the headline claim requires the delta to exceed the band"
 
 
 # ---------------------------------------------------------------------------

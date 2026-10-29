@@ -171,7 +171,11 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "Kinematic-envelope outliers over live OpenSky state vectors are "
         "statistical by construction; the genuine event channel (emergency "
         "squawks 7500/7600/7700) is excluded from the scored features and "
-        "carried as a separate column, never manufactured into labels.",
+        "carried as a separate column, never manufactured into labels. "
+        "``get_ground_truth`` also raises ``NotImplementedError`` "
+        "unconditionally, so this loader yields no labels at all and therefore "
+        "no circular measurement: it is 'statistical' because any labelling of "
+        "a live snapshot would be, not because a published number leaks.",
     ),
     "wildfire_loader.WildfireLoader": (
         "statistical",
