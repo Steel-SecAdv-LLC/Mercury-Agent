@@ -334,43 +334,6 @@ class ChronosAdapter(BaseFoundationModel):
             "threshold": self.foundation_config.anomaly_threshold,
         }
 
-    def _mock_forecast(
-        self,
-        series: np.ndarray[Any, Any],
-        horizon: int,
-    ) -> dict[str, np.ndarray[Any, Any]]:
-        """Mock forecast using simple methods.
-
-        Args:
-            series: Input series [B, T]
-            horizon: Forecast horizon
-
-        Returns:
-            Forecast dict
-        """
-        batch_size = series.shape[0]
-        forecasts = []
-        lowers = []
-        uppers = []
-
-        for i in range(batch_size):
-            s = series[i]
-
-            # Simple seasonal naive + trend
-            seasonal = s[-horizon:] if len(s) > horizon else np.full(horizon, s[-1])
-
-            # Add small noise for intervals
-            noise = np.std(s) * 0.1
-            forecasts.append(seasonal)
-            lowers.append(seasonal - 2 * noise)
-            uppers.append(seasonal + 2 * noise)
-
-        return {
-            "forecast": np.stack(forecasts),
-            "lower": np.stack(lowers),
-            "upper": np.stack(uppers),
-        }
-
     def detect(
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,

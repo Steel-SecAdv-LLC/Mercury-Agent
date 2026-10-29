@@ -10,7 +10,7 @@ around that engine.
 * :class:`ReasoningBackend` — the Mercury-owned interface; its public methods
   speak Mercury's vocabulary and every call is governed by Mercury's dual hard
   ethical gate before any output is surfaced.
-* :class:`MockReasoningBackend` / :class:`LocalReasoningBackend` /
+* :class:`DeterministicReasoningBackend` / :class:`LocalReasoningBackend` /
   :class:`RemoteReasoningBackend` — a network-free test double, an
   offline-first local backend (free to run, air-gap-safe), and an
   operator-declared network-capable backend.
@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from omni_mercury_engine.reasoning.backend import ReasoningBackend
 from omni_mercury_engine.reasoning.backends import (
+    DeterministicReasoningBackend,
     LocalReasoningBackend,
     MockReasoningBackend,
     ReasoningBackendUnavailableError,
@@ -39,6 +40,7 @@ from omni_mercury_engine.reasoning.schemas import (
 )
 
 __all__ = [
+    "DeterministicReasoningBackend",
     "Explanation",
     "Hypothesis",
     "LocalReasoningBackend",

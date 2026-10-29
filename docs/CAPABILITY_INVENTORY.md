@@ -2574,8 +2574,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Adapters & backends**
 
+- `DeterministicReasoningBackend` (`reasoning.backends`) — Deterministic, offline, network-free backend for tests and CI.
 - `LocalReasoningBackend` (`reasoning.backends`) — Offline-first reasoning over Mercury's local LLM chain.
-- `MockReasoningBackend` (`reasoning.backends`) — Deterministic, offline, network-free backend for tests and CI.
 - `ReasoningBackend` (`reasoning.backend`) — Abstract reasoning engine Mercury calls; never the front of the system.
 - `RemoteReasoningBackend` (`reasoning.backends`) — Network-capable reasoning over an operator-declared frontier model.
 
