@@ -26,6 +26,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from defusedxml import ElementTree as DefusedET
 
 from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 from omni_mercury_engine.loaders.base import BaseDomainLoader
@@ -40,9 +41,17 @@ logger = logging.getLogger(__name__)
 # server (the previous zip URLs returned HTTP 404 on every fetch, so this
 # loader's download path was a dead wire). The transport lists the directory
 # index once, then fetches individual PSV files up to ``max_patients``.
-_BASE_DATA_URL = "https://physionet.org/files/challenge-2019/1.0.0/"
+# PhysioNet 302-redirects ``/files/`` downloads to its open-data S3 bucket, and
+# the SafeHTTPClient does not follow redirects, so every sepsis fetch failed.
+# This is the redirect destination, requested directly. ``SOURCE_URL`` below
+# stays on physionet.org: that is the human-facing landing page and the right
+# thing to cite, not to download from.
+_BASE_DATA_URL = "https://physionet-open.s3.amazonaws.com/challenge-2019/1.0.0/"
 _TRAINING_A_URL = f"{_BASE_DATA_URL}training/training_setA/"
 _TRAINING_B_URL = f"{_BASE_DATA_URL}training/training_setB/"
+
+#: Per-patient PSV filename, e.g. ``p000001.psv``.
+_PSV_NAME_RE = re.compile(r"p\d+\.psv")
 
 # ---------------------------------------------------------------------------
 # Canonical column names from the challenge PSV files
@@ -492,6 +501,84 @@ class SepsisLoader(BaseDomainLoader):
     # Private helpers -- data download and parsing
     # ------------------------------------------------------------------
 
+    #: S3 caps a single ListObjectsV2 response at 1000 keys.
+    _S3_PAGE_SIZE = 1000
+
+    def _list_psv_keys(self, url: str, set_label: str, max_patients: int) -> list[str]:
+        """Enumerate the ``p*.psv`` filenames in a training set directory.
+
+        PhysioNet 302-redirects ``/files/`` to its open-data S3 bucket and the
+        SafeHTTPClient will not follow redirects, so the download path had to
+        move to the bucket. The bucket serves no HTML directory index for this
+        loader to scrape for ``href="pNNNNNN.psv"`` -- the directory URL
+        answers 404 -- so the listing uses the S3 ListObjectsV2 API, which
+        returns XML and paginates.
+
+        Parsed with :mod:`defusedxml` (a core dependency) rather than
+        ``xml.etree``: this is third-party input and the stdlib parser is
+        vulnerable to entity expansion.
+
+        Paging stops as soon as ``max_patients`` names are in hand, so the
+        common capped call costs one request instead of twenty.
+        """
+        from urllib.parse import quote, urlencode, urlsplit
+
+        parts = urlsplit(url)
+        bucket_root = f"{parts.scheme}://{parts.netloc}/"
+        prefix = parts.path.lstrip("/")
+
+        names: list[str] = []
+        token: str | None = None
+        while True:
+            query = {"list-type": "2", "prefix": prefix, "max-keys": str(self._S3_PAGE_SIZE)}
+            if token:
+                query["continuation-token"] = token
+            listing_url = f"{bucket_root}?{urlencode(query, quote_via=quote)}"
+            try:
+                payload = self._fetch_url(listing_url)
+            except ConnectionError as exc:
+                raise DataSourceUnavailableError(
+                    loader_name="SepsisLoader",
+                    source_url=listing_url,
+                    reason=f"Failed to list training set {set_label}: {exc}",
+                ) from exc
+
+            try:
+                root = DefusedET.fromstring(payload)
+            except Exception as exc:
+                raise DataSourceUnavailableError(
+                    loader_name="SepsisLoader",
+                    source_url=listing_url,
+                    reason=(
+                        f"Training set {set_label} listing is not parseable S3 XML; "
+                        f"the upstream layout has changed: {exc}"
+                    ),
+                ) from exc
+
+            ns = {"s3": "http://s3.amazonaws.com/doc/2006-03-01/"}
+            for key_el in root.findall("s3:Contents/s3:Key", ns):
+                key = (key_el.text or "").rsplit("/", 1)[-1]
+                if _PSV_NAME_RE.fullmatch(key):
+                    names.append(key)
+            if 0 < max_patients <= len(names):
+                break
+            truncated = root.findtext("s3:IsTruncated", default="false", namespaces=ns)
+            token = root.findtext("s3:NextContinuationToken", namespaces=ns)
+            if truncated.strip().lower() != "true" or not token:
+                break
+
+        psv_names = sorted(set(names))
+        if not psv_names:
+            raise DataSourceUnavailableError(
+                loader_name="SepsisLoader",
+                source_url=url,
+                reason=(
+                    f"Training set {set_label} listing contains no p*.psv keys; "
+                    "the upstream layout has changed."
+                ),
+            )
+        return psv_names
+
     def _download_and_parse_training_set(
         self,
         url: str,
@@ -524,25 +611,7 @@ class SepsisLoader(BaseDomainLoader):
                 inconsistency and fails loud rather than silently
                 shrinking the cohort.
         """
-        try:
-            index_html = self._fetch_url(url).decode("utf-8", errors="replace")
-        except ConnectionError as exc:
-            raise DataSourceUnavailableError(
-                loader_name="SepsisLoader",
-                source_url=url,
-                reason=(f"Failed to list training set {set_label} from " f"PhysioNet: {exc}"),
-            ) from exc
-
-        psv_names = sorted(set(re.findall(r'href="(p\d+\.psv)"', index_html)))
-        if not psv_names:
-            raise DataSourceUnavailableError(
-                loader_name="SepsisLoader",
-                source_url=url,
-                reason=(
-                    f"Training set {set_label} index at PhysioNet lists no "
-                    "p*.psv files; the upstream layout has changed."
-                ),
-            )
+        psv_names = self._list_psv_keys(url, set_label, max_patients)
         if max_patients > 0:
             psv_names = psv_names[:max_patients]
 

@@ -236,8 +236,20 @@ class _MockLoader:
         rng = np.random.RandomState(hash(event_id) % 2**31)
         return rng.randn(self._n_samples, self._n_features)
 
+    #: No column here helps build the labels (``get_ground_truth`` draws them
+    #: independently below), so the scored view is the full matrix. Declared
+    #: explicitly rather than letting the benchmark fall back to
+    #: ``engineer_features`` when the method is absent: a silent fallback
+    #: would hand the leaky matrix to any loader that forgot to implement the
+    #: de-leaked one, which is the failure mode the exclusion exists to stop.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = ()
+    LABEL_FEATURE_DISJOINT = True
+
     def engineer_features(self, raw_data: np.ndarray) -> np.ndarray:
         return raw_data
+
+    def engineer_scored_features(self, raw_data: np.ndarray) -> np.ndarray:
+        return self.engineer_features(raw_data)
 
     def get_ground_truth(self, event_id: str) -> np.ndarray:
         rng = np.random.RandomState(hash(event_id) % 2**31 + 1)

@@ -23,7 +23,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # USGS Water Services endpoints
 # ---------------------------------------------------------------------------
-_USGS_IV_URL = "https://waterservices.usgs.gov/nwis/iv/"
+# USGS 301-redirects ``waterservices.usgs.gov`` to the ``nwis.`` host. The
+# SafeHTTPClient refuses to follow redirects by design, so every flood fetch
+# failed with UnsafeURLError; request the final destination directly.
+_USGS_IV_URL = "https://nwis.waterservices.usgs.gov/nwis/iv/"
 
 # USGS parameter codes
 _PARAM_GAUGE_HEIGHT = "00065"  # Gauge height, ft

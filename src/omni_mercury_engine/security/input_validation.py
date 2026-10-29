@@ -648,6 +648,10 @@ class TrustedEndpoints:
             "aqs.epa.gov",
             # PhysioNet — MIT-BIH Arrhythmia Database
             "physionet.org",
+            # PhysioNet 302-redirects open-access file downloads to its S3 bucket.
+            # The bucket host is listed exactly, not as an ``amazonaws.com``
+            # wildcard, so trusting it grants nothing beyond this dataset.
+            "physionet-open.s3.amazonaws.com",  # PhysioNet open-data downloads
             # TimeEval HiDrive — SMAP/MSL/SMD mirrors
             "my.hidrive.com",
             # Zenodo — SMAP/MSL TimeEval archive (DOI: 10.5281/zenodo.5899270)
@@ -660,6 +664,10 @@ class TrustedEndpoints:
             "volcanoes.usgs.gov",  # USGS Volcano Hazards Program
             "volcano.si.edu",  # Smithsonian Global Volcanism Program
             "waterservices.usgs.gov",  # USGS Water Services (flood gauges)
+            # USGS 301-redirects the bare waterservices host to this one; the
+            # SafeHTTPClient does not follow redirects, so the destination has to
+            # be trusted and requested directly.
+            "nwis.waterservices.usgs.gov",  # USGS NWIS instantaneous values
             "water.weather.gov",  # NOAA AHPS (hydrologic prediction)
             "www.spc.noaa.gov",  # NOAA Storm Prediction Center (tornadoes)
             "api.stlouisfed.org",  # FRED (Federal Reserve Economic Data)
@@ -1061,7 +1069,7 @@ class TrustedEndpoints:
     USGS_VOLCANO_LIST = "https://volcanoes.usgs.gov/vsc/api/volcanoApi/volcanoList"
 
     # USGS Water Services (flood gauge data)
-    USGS_WATER_SERVICES = "https://waterservices.usgs.gov/nwis/iv/"
+    USGS_WATER_SERVICES = "https://nwis.waterservices.usgs.gov/nwis/iv/"
 
     # NOAA Storm Prediction Center (tornado data)
     NOAA_SPC_TORNADO_ARCHIVE = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
