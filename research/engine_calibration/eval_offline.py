@@ -23,6 +23,7 @@ from pathlib import Path
 
 warnings.filterwarnings("ignore")
 import numpy as np
+from _workspace import cache_dir
 
 from omni_mercury_engine.ml.mercury_ml import (
     average_precision_score,
@@ -32,7 +33,7 @@ from omni_mercury_engine.ml.mercury_ml import (
     roc_auc_score,
 )
 
-CACHE = "/home/user/eqlab/cache"
+CACHE = cache_dir()
 
 
 def _auc(y, s):

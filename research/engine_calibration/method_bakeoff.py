@@ -17,6 +17,7 @@ from pathlib import Path
 
 warnings.filterwarnings("ignore")
 import numpy as np
+from _workspace import cache_dir
 
 from omni_mercury_engine.core.score_calibration import (
     AutoThresholdOptimizer,
@@ -25,7 +26,7 @@ from omni_mercury_engine.core.score_calibration import (
 )
 from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
 
-CACHE = "/home/user/eqlab/cache"
+CACHE = cache_dir()
 _OPT = AutoThresholdOptimizer(
     default_contamination=0.05, min_contamination=0.001, max_contamination=0.5
 )

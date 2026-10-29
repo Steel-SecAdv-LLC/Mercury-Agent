@@ -11,15 +11,14 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
 import time
 import warnings
 
 warnings.filterwarnings("ignore")
 import numpy as np
+from _workspace import cache_dir
 
-CACHE = "/home/user/eqlab/cache"
-os.makedirs(CACHE, exist_ok=True)
+CACHE = cache_dir()
 
 LOADERS = {
     "earthquake": ("earthquake_loader", "EarthquakeLoader"),
@@ -54,7 +53,12 @@ for dom, (mod, cls) in LOADERS.items():
         t = time.time()
         try:
             raw = L.fetch_historical(eid)
-            feats = np.asarray(L.engineer_features(raw), float)
+            # De-leaked view -- see BaseDomainLoader.engineer_scored_features.
+            # This cache is what research/engine_calibration/results.json is
+            # measured from, and that file backs the README's per-domain
+            # hazard table, so the exclusion has to apply here or the table
+            # keeps reporting circular numbers.
+            feats = np.asarray(L.engineer_scored_features(raw), float)
             y = np.asarray(L.get_ground_truth(eid)).astype(int).reshape(-1)
             m = min(len(feats), len(y))
             feats = feats[:m]

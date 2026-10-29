@@ -113,6 +113,16 @@ class EarthquakeLoader(BaseDomainLoader):
         "mag_deviation",
     ]
 
+    #: De-leak: labels threshold ``magnitude``; ``mag_deviation`` is computed from it.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "magnitude",
+        "mag_deviation",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------

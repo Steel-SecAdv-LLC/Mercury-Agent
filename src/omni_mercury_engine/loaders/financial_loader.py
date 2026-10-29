@@ -135,6 +135,21 @@ class FinancialLoader(BaseDomainLoader):
         "funding_rate_zscore",
     ]
 
+    #: De-leak: labels threshold VIX and the yield curve; these are those two series.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "vix",
+        "vix_roc",
+        "vix_zscore",
+        "yield_curve",
+        "yield_curve_inverted",
+        "yc_zscore",
+        "vix_yc_corr",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     def _require_api_key(self) -> None:
         """Raise EnvironmentError if the FRED API key is not configured."""
         if not self._api_key:

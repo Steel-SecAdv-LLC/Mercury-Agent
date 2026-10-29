@@ -22,6 +22,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 import numpy as np
+from _workspace import workspace_file
 
 from omni_mercury_engine.ml.mercury_ml import (
     average_precision_score,
@@ -33,7 +34,7 @@ from omni_mercury_engine.ml.mercury_ml import (
 
 stat = importlib.import_module("omni_mercury_engine.detectors.statistical")
 DET = stat.MercuryAnomalyDetector()
-S = pickle.load(open("/home/user/eqlab/scores.pkl", "rb"))
+S = pickle.load(open(workspace_file("scores.pkl"), "rb"))
 doms = sorted({d for d, _ in S})
 
 

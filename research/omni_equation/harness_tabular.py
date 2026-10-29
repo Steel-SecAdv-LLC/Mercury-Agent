@@ -22,6 +22,7 @@ import time
 import warnings
 
 import numpy as np
+from _workspace import workspace_file
 
 warnings.filterwarnings("ignore")
 # Mercury builds its own ML (mercury_ml); scikit-learn is never imported in the
@@ -154,7 +155,7 @@ def main():
             r = {"dataset": name, "error": f"{type(e).__name__}: {str(e)[:140]}"}
         rows.append(r)
         print(json.dumps(r))
-    with open("/home/user/eqlab/results.json", "w") as f:
+    with open(workspace_file("results.json"), "w") as f:
         json.dump(rows, f, indent=2)
 
     ok = [r for r in rows if "auroc_ensemble_N" in r]

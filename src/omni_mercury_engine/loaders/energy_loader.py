@@ -174,6 +174,19 @@ class EnergyLoader(BaseDomainLoader):
         "xray_class",
     ]
 
+    #: De-leak: labels are ``kp >= 7`` and every one of these is a function of ``kp``.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "kp",
+        "kp_rate_of_change",
+        "kp_sum_24h",
+        "delta_kp_6h",
+        "max_kp_24h",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the energy loader.
 

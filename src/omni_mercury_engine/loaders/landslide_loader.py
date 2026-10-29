@@ -159,6 +159,16 @@ class LandslideLoader(BaseDomainLoader):
         "day_of_year",
     ]
 
+    #: De-leak: labels are ``fatality_count > 0`` OR ``size_code >= large``.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "fatality_count",
+        "size_code",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------

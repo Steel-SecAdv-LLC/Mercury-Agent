@@ -17,6 +17,7 @@ import json
 import warnings
 
 import numpy as np
+from _workspace import workspace_file
 
 warnings.filterwarnings("ignore")
 # Mercury builds its own ML (mercury_ml); scikit-learn is never imported.
@@ -175,7 +176,7 @@ def main():
                 print(dom, eid, "EVENT_ERR", type(e).__name__, str(e)[:90], flush=True)
         if ev_recs:
             out[dom] = ev_recs
-    json.dump(out, open("/home/user/eqlab/real_results.json", "w"), indent=2, default=str)
+    json.dump(out, open(workspace_file("real_results.json"), "w"), indent=2, default=str)
     rows = [(d, r) for d, v in out.items() if isinstance(v, list) for r in v]
 
     def mean(key):

@@ -236,6 +236,20 @@ class HurricaneLoader(BaseDomainLoader):
         "ri_interaction_6h",
     ]
 
+    #: De-leak: labels threshold the 24h wind delta; every wind-derived feature is excluded, not just the 24h one, because the shorter deltas partially determine it.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "delta_wind_6h",
+        "delta_wind_12h",
+        "delta_wind_24h",
+        "ri_interaction_6h",
+        "ri_interaction_24h",
+        "wind_pressure_deficit",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     # Cache for 6 hours since IBTrACS updates less frequently
     CACHE_TTL: int = 21600
 

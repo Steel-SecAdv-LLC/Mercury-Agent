@@ -120,6 +120,90 @@ class BaseDomainLoader(ABC):
     # and the CI gate in ``tests/loaders/test_label_provenance_gate.py``.
     LABEL_SOURCE: str = "ground_truth"
 
+    #: Column names documented in :attr:`FEATURE_COLUMNS`, for the loaders that
+    #: declare one. Declared on the base so the de-leak contract below has a
+    #: single place to read from; every loader that engineers features
+    #: overrides it.
+    FEATURE_COLUMNS: list[str] = []
+
+    #: The feature columns that participate in building this loader's labels --
+    #: directly (the thresholded column itself) **or by derivation** (anything
+    #: computed from it).
+    #:
+    #: A label manufactured by thresholding a column that is also scored is
+    #: circular: the detector is asked to recover a cut of a number it was
+    #: handed, and the resulting AUROC measures the cut, not the detection.
+    #: ``energy`` is the clearest case -- labels are ``kp >= 7`` while ``kp``,
+    #: ``kp_rate_of_change``, ``kp_sum_24h``, ``delta_kp_6h`` and
+    #: ``max_kp_24h`` are *all* functions of ``kp``, so dropping ``kp`` alone
+    #: would resolve nothing. Derivation is why this list is per-loader and
+    #: hand-declared rather than inferred from the label expression.
+    #:
+    #: Nothing is deleted: :meth:`engineer_features` still computes and returns
+    #: every column, so callers that want the full matrix keep it.
+    #: :meth:`engineer_scored_features` is the one that drops these, and it is
+    #: what benchmarking and the governed-fusion fitness signal read, so the
+    #: labels become independent of what is scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = ()
+
+    #: Set by a loader that asserts no scored feature helps build its labels.
+    #: Gated, not taken on trust: the provenance audit rejects the claim unless
+    #: every name in :attr:`LABEL_DERIVED_FEATURES` really appears in
+    #: :attr:`FEATURE_COLUMNS` (a typo would silently exclude nothing) and the
+    #: remaining scored set is non-empty (excluding everything is not a fix).
+    #: Orthogonal to :attr:`LABEL_SOURCE`: a ``statistical`` label can be
+    #: perfectly non-circular, and that distinction is the whole point --
+    #: "derived from data" and "derived from the thing being scored" are
+    #: different defects and only the second one invalidates a measurement.
+    LABEL_FEATURE_DISJOINT: bool = False
+
+    @classmethod
+    def scored_feature_columns(cls) -> list[str]:
+        """:attr:`FEATURE_COLUMNS` minus the columns that build the labels."""
+        excluded = set(cls.LABEL_DERIVED_FEATURES)
+        return [c for c in cls.FEATURE_COLUMNS if c not in excluded]
+
+    @classmethod
+    def scored_feature_indices(cls) -> list[int]:
+        """Positions in the engineered matrix that survive the exclusion."""
+        excluded = set(cls.LABEL_DERIVED_FEATURES)
+        return [i for i, c in enumerate(cls.FEATURE_COLUMNS) if c not in excluded]
+
+    def engineer_scored_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
+        """Engineered features with every label-bearing column dropped.
+
+        The de-leaked view. Use this wherever a number is going to be
+        published or fed to the self-improvement loop;
+        :meth:`engineer_features` remains the full matrix for callers who want
+        every column (including the labelled one) for inspection or display.
+
+        A loader that declares no :attr:`LABEL_DERIVED_FEATURES` gets the full
+        matrix back unchanged, so this is safe to call everywhere.
+        """
+        full = self.engineer_features(raw_data)
+        if not self.LABEL_DERIVED_FEATURES:
+            return full
+        full = np.asarray(full)
+        if full.ndim != 2:
+            return full
+        keep = self.scored_feature_indices()
+        if not self.FEATURE_COLUMNS or full.shape[1] != len(self.FEATURE_COLUMNS):
+            # The engineered width does not match the declared columns, so the
+            # positional mapping cannot be trusted. Refuse rather than drop
+            # the wrong columns and quietly report a de-leaked measurement.
+            raise ValueError(
+                f"{type(self).__name__}: engineered {full.shape[1]} columns but "
+                f"FEATURE_COLUMNS declares {len(self.FEATURE_COLUMNS)}; cannot map "
+                "LABEL_DERIVED_FEATURES onto the matrix"
+            )
+        if not keep:
+            raise ValueError(
+                f"{type(self).__name__}: every declared feature is label-derived, so "
+                "no disjoint scored set exists; this loader needs an independent "
+                "channel rather than an exclusion"
+            )
+        return np.asarray(full[:, keep])
+
     def __init__(
         self,
         cache_dir: Path | None = None,

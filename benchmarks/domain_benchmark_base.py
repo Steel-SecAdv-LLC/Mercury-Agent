@@ -167,7 +167,12 @@ def run_domain_benchmark(
         try:
             # Fetch real data
             raw_data = loader.fetch_historical(event_id)
-            features = loader.engineer_features(raw_data)
+            # De-leaked view: columns that help build the labels are
+            # excluded from the scored matrix, so this AUROC measures
+            # detection rather than the recovery of a threshold on a
+            # column the detector was handed. engineer_features() still
+            # returns everything for callers that want the full matrix.
+            features = loader.engineer_scored_features(raw_data)
             ground_truth = loader.get_ground_truth(event_id)
 
             if len(features) == 0:

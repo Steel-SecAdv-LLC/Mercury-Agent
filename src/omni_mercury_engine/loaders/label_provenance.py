@@ -80,6 +80,7 @@ import importlib
 import inspect
 import logging
 import pkgutil
+import textwrap
 from dataclasses import dataclass
 
 from omni_mercury_engine.datasets.metadata import (
@@ -211,7 +212,8 @@ class ProvenanceFinding:
     """One label-provenance gate finding (a leak or inconsistency)."""
 
     loader: str
-    kind: str  # "unregistered" | "missing_class" | "mismatch" | "invalid" | "circular"
+    kind: str  # "unregistered" | "missing_class" | "mismatch" | "invalid" |
+    # "circular" | "bad_exclusion" | "empty_scored_set" | "undeclared_exclusion"
     detail: str
 
     def __str__(self) -> str:
@@ -280,6 +282,29 @@ _FEATURE_BASE_NAMES = {
 }
 
 
+def _engineered_from_columns(cls: type) -> frozenset[str]:
+    """Raw column names the loader's feature engineering reads.
+
+    Scanned off ``engineer_features`` (and any ``*feature*`` helper) so a
+    label thresholding ``df["mag"]`` is recognised as circular even though the
+    engineered column is called ``ef_scale``.
+    """
+    out: set[str] = set()
+    for name, member in vars(cls).items():
+        lname = name.lower()
+        if "feature" not in lname and lname != "engineer_features":
+            continue
+        try:
+            src = inspect.getsource(member)
+        except (OSError, TypeError):
+            continue
+        try:
+            out |= _columns_read(ast.parse(textwrap.dedent(src)))
+        except SyntaxError:
+            continue
+    return frozenset(out)
+
+
 def scan_circular_label_construction(cls: type) -> bool:
     """Return whether a loader manufactures labels from a feature threshold.
 
@@ -304,6 +329,14 @@ def scan_circular_label_construction(cls: type) -> bool:
     except SyntaxError:
         return False
 
+    # Two names for the same quantity: the label thresholds the *raw* column
+    # (``mag``) while FEATURE_COLUMNS names the *engineered* one (``ef_scale``),
+    # so membership in FEATURE_COLUMNS alone under-detects. The columns that
+    # feature engineering actually reads close that gap -- if the label and the
+    # feature matrix consume the same raw column, that is circularity whatever
+    # the engineered column ends up called.
+    scored = frozenset(getattr(cls, "FEATURE_COLUMNS", []) or ()) | _engineered_from_columns(cls)
+
     class _Visitor(ast.NodeVisitor):
         found = False
 
@@ -311,13 +344,18 @@ def scan_circular_label_construction(cls: type) -> bool:
             lname = node.name.lower()
             if "synthetic" in lname or "reconstruct" in lname:
                 return
-            self.generic_visit(node)
-
-        def visit_Assign(self, node: ast.Assign) -> None:
-            targets = {t.id.lower() for t in node.targets if isinstance(t, ast.Name)}
-            if targets & {"labels", "y", "label"}:
-                if _expr_compares_feature(node.value):
-                    self.found = True
+            # Per-function taint: the feature read is routinely a line or two
+            # above the comparison, so the comparison alone shows nothing.
+            tainted = _tainted_locals(node)
+            for sub in ast.walk(node):
+                if not isinstance(sub, ast.Assign):
+                    continue
+                if not _label_targets(sub):
+                    continue
+                if not _expr_compares_feature(sub.value, tainted, scored):
+                    continue
+                self.found = True
+                return
             self.generic_visit(node)
 
     v = _Visitor()
@@ -325,13 +363,136 @@ def scan_circular_label_construction(cls: type) -> bool:
     return v.found
 
 
-def _expr_compares_feature(value: ast.AST) -> bool:
-    """True iff ``value`` contains a comparison whose operands touch a feature."""
+def _label_targets(node: ast.Assign) -> bool:
+    """True iff this assignment writes something named like a label vector.
+
+    Covers ``labels = ...``, ``y = ...`` and the attribute/subscript forms
+    (``self.labels = ...``, ``out["labels"] = ...``) that a plain ``ast.Name``
+    check walked straight past.
+    """
+    names = set()
+    for t in node.targets:
+        if isinstance(t, ast.Name):
+            names.add(t.id.lower())
+        elif isinstance(t, ast.Attribute):
+            names.add(t.attr.lower())
+        elif isinstance(t, ast.Subscript) and isinstance(t.slice, ast.Constant):
+            if isinstance(t.slice.value, str):
+                names.add(t.slice.value.lower())
+    return bool(names & {"labels", "y", "label", "y_true", "anomaly_labels"})
+
+
+def _columns_read(node: ast.AST) -> set[str]:
+    """Column names this expression reads off a feature-like container.
+
+    ``df["kp"]`` yields ``{"kp"}``; ``df.columns`` yields nothing, which is the
+    point -- comparing against the *column index* (``if "label" not in
+    df.columns``) is a schema check, not a threshold on a scored value, and
+    reading it as one is what put a false positive on ``network_security``.
+    """
+    out: set[str] = set()
+    for sub in ast.walk(node):
+        if not isinstance(sub, ast.Subscript):
+            continue
+        base = sub.value
+        owner = None
+        if isinstance(base, ast.Name):
+            owner = base.id.lower()
+        elif isinstance(base, ast.Attribute):
+            owner = base.attr.lower()
+        if owner not in _FEATURE_BASE_NAMES:
+            continue
+        key = sub.slice
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            out.add(key.value)
+    return out
+
+
+def _tainted_locals(func: ast.AST) -> dict[str, set[str]]:
+    """Local names that carry feature data, to a fixed point.
+
+    ``kp_values = df["kp"].values`` then ``labels = (_g_levels(kp_values) >= 7)``
+    is the shape that defeated the original single-expression check: the
+    comparison's operand is a call over a local, and nothing syntactically
+    inside it touches a feature accessor. Propagating the taint forward --
+    including through calls, so ``f(tainted)`` stays tainted -- is what makes
+    the comparison legible.
+    """
+    tainted: dict[str, set[str]] = {}
+    for _ in range(6):  # fixed point; depth beyond this does not occur in tree
+        grew = False
+        for sub in ast.walk(func):
+            if not isinstance(sub, ast.Assign):
+                continue
+            cols = _columns_read(sub.value) | _tainted_columns(sub.value, tainted)
+            if not cols and not _touches_feature(sub.value):
+                continue
+            for t in sub.targets:
+                if not isinstance(t, ast.Name):
+                    continue
+                before = tainted.get(t.id, set())
+                after = before | cols
+                if after != before or t.id not in tainted:
+                    tainted[t.id] = after
+                    grew = True
+        if not grew:
+            break
+    return tainted
+
+
+def _tainted_columns(node: ast.AST, tainted: dict[str, set[str]]) -> set[str]:
+    """Columns reachable through the already-tainted locals this node reads."""
+    out: set[str] = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name) and sub.id in tainted:
+            out |= tainted[sub.id]
+    return out
+
+
+def _reads_tainted(node: ast.AST, tainted: dict[str, set[str]]) -> bool:
+    """True iff ``node`` reads any name already known to carry feature data."""
+    return any(isinstance(sub, ast.Name) and sub.id in tainted for sub in ast.walk(node))
+
+
+def _expr_compares_feature(
+    value: ast.AST,
+    tainted: dict[str, set[str]] | None = None,
+    scored: frozenset[str] | None = None,
+) -> bool:
+    """True iff ``value`` contains a comparison whose operands touch a feature.
+
+    The ``Compare`` requirement is load-bearing, not incidental: it is what
+    separates "thresholds a scored column" from "reads the genuine label
+    column". ``labels = df["SepsisLabel"].values`` reads a dataframe and is
+    perfectly honest; ``labels = df["kp"] >= 7`` reads one and is circular.
+    Only the second has a comparison, which is why ``network_security`` and
+    ``sepsis`` stay clean under a scan tuned for high recall.
+
+    ``tainted`` carries the locals that already hold feature data, so a
+    comparison over ``_g_levels(kp_values)`` is recognised even though nothing
+    inside it is a feature accessor.
+    """
+    tainted = tainted or {}
+    scored = frozenset(scored or ())
     for sub in ast.walk(value):
-        if isinstance(sub, ast.Compare):
-            operands = [sub.left, *sub.comparators]
-            if any(_touches_feature(op) for op in operands):
+        if not isinstance(sub, ast.Compare):
+            continue
+        operands = [sub.left, *sub.comparators]
+        columns: set[str] = set()
+        for op in operands:
+            columns |= _columns_read(op) | _tainted_columns(op, tainted)
+        if scored:
+            # Circularity is specifically "the label thresholds a column that
+            # is also scored", so membership in the loader's own declared
+            # FEATURE_COLUMNS is the test. A threshold on a column nobody
+            # scores -- a genuine attack flag, an external index -- is honest.
+            if columns & scored:
                 return True
+            continue
+        # No declared columns to check against (a loader that engineers its
+        # matrix dynamically): fall back to the shape-only heuristic.
+        if any(_touches_feature(op) or _reads_tainted(op, tainted) for op in operands):
+            return True
         # ``np.where(features[...] > c, 1, 0)`` -- the comparison sits inside
         # a call; walking the full subtree above already catches it.
     return False
@@ -427,6 +588,68 @@ def audit_label_provenance(
                     "false positive that needs an explicit waiver.",
                 )
             )
+
+        # 5. the de-leak claim is verified, never taken on trust. A loader may
+        #    declare LABEL_FEATURE_DISJOINT only if the exclusion it ships
+        #    actually does something and actually leaves something.
+        findings.extend(_audit_feature_disjointness(key, cls))
+
+    return findings
+
+
+def _audit_feature_disjointness(key: str, cls: type) -> list[ProvenanceFinding]:
+    """Check a loader's ``LABEL_FEATURE_DISJOINT`` claim against its columns.
+
+    Three ways the claim can be hollow, and all three used to be invisible:
+
+    * a name in ``LABEL_DERIVED_FEATURES`` that is not in ``FEATURE_COLUMNS``
+      excludes nothing -- one typo and a circular loader reads as de-leaked;
+    * excluding *every* column leaves no scored set, which is not a fix but an
+      empty measurement;
+    * claiming disjointness while the AST scan still finds labels built from a
+      feature, having declared no exclusions at all, is the original leak with
+      a flag on top.
+    """
+    findings: list[ProvenanceFinding] = []
+    if not getattr(cls, "LABEL_FEATURE_DISJOINT", False):
+        return findings
+
+    declared = list(getattr(cls, "FEATURE_COLUMNS", []) or [])
+    excluded = tuple(getattr(cls, "LABEL_DERIVED_FEATURES", ()) or ())
+
+    unknown = [name for name in excluded if name not in declared]
+    if unknown:
+        findings.append(
+            ProvenanceFinding(
+                key,
+                "bad_exclusion",
+                f"LABEL_DERIVED_FEATURES names {unknown} which are not in "
+                "FEATURE_COLUMNS, so they exclude nothing -- fix the names or the "
+                "disjointness claim is hollow",
+            )
+        )
+
+    if declared and not [c for c in declared if c not in set(excluded)]:
+        findings.append(
+            ProvenanceFinding(
+                key,
+                "empty_scored_set",
+                "every declared feature is label-derived, so excluding them leaves "
+                "nothing to score; this loader needs an independent channel, not an "
+                "exclusion",
+            )
+        )
+
+    if not excluded and scan_circular_label_construction(cls):
+        findings.append(
+            ProvenanceFinding(
+                key,
+                "undeclared_exclusion",
+                "claims LABEL_FEATURE_DISJOINT with no LABEL_DERIVED_FEATURES while "
+                "its real-path code still builds labels from a feature threshold -- "
+                "declare the label-bearing columns or drop the claim",
+            )
+        )
 
     return findings
 

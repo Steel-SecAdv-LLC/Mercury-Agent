@@ -296,6 +296,19 @@ class PandemicLoader(BaseDomainLoader):
         "death_acceleration",
     ]
 
+    #: De-leak: labels threshold the 7d-smoothed case series; these all derive from it.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "new_cases_smoothed",
+        "rolling_avg_7d",
+        "new_cases_per_million",
+        "case_growth_rate",
+        "case_acceleration",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     #: Cache the large OWID dataset for 6 hours
     CACHE_TTL: int = 21600
 
