@@ -28,7 +28,7 @@ from unittest.mock import patch
 
 import pytest
 
-from omni_mercury_engine.integrations.stubs.cache import (
+from tools.service_doubles.cache import (
     DOMAIN_TTL,
     CacheIntegrityError,
     CacheStub,

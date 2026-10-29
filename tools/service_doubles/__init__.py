@@ -8,15 +8,15 @@ without actual service dependencies.
 
 from __future__ import annotations
 
-from omni_mercury_engine.integrations.stubs.cache import CacheEntry, CacheStub
-from omni_mercury_engine.integrations.stubs.database import DatabaseStub, QueryResult
-from omni_mercury_engine.integrations.stubs.financial import (
+from tools.service_doubles.cache import CacheEntry, CacheStub
+from tools.service_doubles.database import DatabaseStub, QueryResult
+from tools.service_doubles.financial import (
     FinancialServiceStub,
     MarketData,
     SecurityPrice,
     TradingSignal,
 )
-from omni_mercury_engine.integrations.stubs.weather import (
+from tools.service_doubles.weather import (
     WeatherCondition,
     WeatherData,
     WeatherServiceStub,

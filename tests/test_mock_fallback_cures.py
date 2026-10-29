@@ -50,7 +50,7 @@ def test_financial_service_alpha_vantage_no_key_raises() -> None:
     # Ensure no env key leaks in
     env_backup = os.environ.pop("ALPHA_VANTAGE_API_KEY", None)
     try:
-        from omni_mercury_engine.integrations.stubs.financial import (
+        from tools.service_doubles.financial import (
             FinancialAPIProvider,
             FinancialService,
         )
@@ -66,7 +66,7 @@ def test_financial_service_no_fallback_to_stub_param() -> None:
     """The ``fallback_to_stub`` parameter was removed."""
     import inspect
 
-    from omni_mercury_engine.integrations.stubs.financial import FinancialService
+    from tools.service_doubles.financial import FinancialService
 
     sig = inspect.signature(FinancialService.__init__)
     assert "fallback_to_stub" not in sig.parameters
@@ -82,7 +82,7 @@ def test_weather_service_openweathermap_no_key_raises() -> None:
 
     env_backup = os.environ.pop("OPENWEATHERMAP_API_KEY", None)
     try:
-        from omni_mercury_engine.integrations.stubs.weather import (
+        from tools.service_doubles.weather import (
             WeatherAPIProvider,
             WeatherService,
         )
@@ -98,7 +98,7 @@ def test_weather_service_no_fallback_to_stub_param() -> None:
     """The ``fallback_to_stub`` parameter was removed."""
     import inspect
 
-    from omni_mercury_engine.integrations.stubs.weather import WeatherService
+    from tools.service_doubles.weather import WeatherService
 
     sig = inspect.signature(WeatherService.__init__)
     assert "fallback_to_stub" not in sig.parameters

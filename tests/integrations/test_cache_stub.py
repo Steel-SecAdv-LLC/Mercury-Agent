@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Tests for integrations/stubs/cache.py module. Comprehensive test coverage for cache stub functionality."""
+"""Tests for tools/service_doubles/cache.py. Comprehensive test coverage for cache stub functionality."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from omni_mercury_engine.integrations.stubs.cache import CacheEntry, CacheStub
+from tools.service_doubles.cache import CacheEntry, CacheStub
 
 
 class TestCacheEntry:
