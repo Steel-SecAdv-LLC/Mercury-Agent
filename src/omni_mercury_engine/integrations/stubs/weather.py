@@ -380,7 +380,7 @@ class WeatherService:
 
     def __init__(
         self,
-        provider: WeatherAPIProvider = WeatherAPIProvider.STUB,
+        provider: WeatherAPIProvider = WeatherAPIProvider.NOAA,
         api_key: str | None = None,
         timeout: int = 30,
         cache_ttl: int = 300,  # 5 minutes

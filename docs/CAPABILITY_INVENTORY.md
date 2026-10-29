@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,059
-- **Capability-bearing classes:** 2,052 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,085
+- **Capability-bearing classes:** 2,066 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,192 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,206 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1192 |
-| Support types (config / result / enum / error) | 1007 |
+| Other capability classes | 1206 |
+| Support types (config / result / enum / error) | 1019 |
 | Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 113 |
@@ -1776,7 +1776,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `integrations/` — 40 classes (22 capability)
+### `integrations/` — 66 classes (36 capability)
 
 **Adapters & backends**
 
@@ -1804,20 +1804,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Other capability classes**
 
+- `AsyncDatabase` (`integrations.stubs.database`) — Production-ready async database client.
+- `AsyncTransactionContext` (`integrations.stubs.database`) — Async database transaction context manager.
+- `CacheEntry` (`integrations.stubs.cache`) — Cache entry with metadata.
+- `CacheStub` (`integrations.stubs.cache`) — Stub implementation of cache service.
 - `CryptoAnomaly` (`integrations.mercury_amacrypto`) — Detected cryptographic anomaly for GOSNN synapse.
+- `DatabaseStub` (`integrations.stubs.database`) — Stub implementation of database connection.
 - `FallbackHandler` (`integrations.routing.fallback`) — Individual fallback handler.
 - `FallbackRegistry` (`integrations.routing.fallback`) — Registry of fallback chains.
+- `FinancialService` (`integrations.stubs.financial`) — Production-ready financial data service with multiple API backends.
+- `FinancialServiceStub` (`integrations.stubs.financial`) — Stub implementation of financial data service.
 - `FindoyouEvidenceBridge` (`integrations.findoyou_bridge`) — Produce and verify signed missing-person image evidence for FINDΩYOU™.
 - `HTTPCircuitBreaker` (`integrations.http.client`) — Circuit breaker for HTTP requests.
+- `HistoricalBar` (`integrations.stubs.financial`) — Historical price bar (OHLCV).
+- `RedisCache` (`integrations.stubs.cache`) — Production-ready Redis cache client.
 - `Route` (`integrations.routing.router`) — Route definition.
 - `RouteMatch` (`integrations.routing.router`) — Result of route matching.
 - `RouterGroup` (`integrations.routing.router`) — Group of routes with shared prefix and middleware.
+- `SecurityPrice` (`integrations.stubs.financial`) — Security price data.
 - `TimingStats` (`integrations.mercury_amacrypto`) — EWMA/MAD timing statistics for anomaly detection.
+- `TransactionContext` (`integrations.stubs.database`) — Database transaction context manager.
+- `WeatherForecast` (`integrations.stubs.weather`) — Weather forecast for a future time period.
+- `WeatherService` (`integrations.stubs.weather`) — Production-ready weather data service with multiple API backends.
+- `WeatherServiceStub` (`integrations.stubs.weather`) — Stub implementation of weather service.
 - `_TimingAnomaly` (`integrations.mercury_amacrypto`) — Timing anomaly data for security reports.
 
-<details><summary>Support types (18)</summary>
+<details><summary>Support types (30)</summary>
 
-`AnomalyEvent`, `CircuitOpenError`, `CryptoAnomalyType`, `DataFormat`, `FallbackError`, `FallbackReason`, `FallbackResult`, `HTTPClientConfig`, `HTTPError`, `HTTPMethod`, `HTTPResponse`, `MethodNotAllowedError`, `PlatformConfig`, `PlatformType`, `ProtocolType`, `RouteMethod`, `RouteNotFoundError`, `USGSErosError`
+`AnomalyEvent`, `CacheBackend`, `CacheIntegrityError`, `CircuitOpenError`, `CryptoAnomalyType`, `DataFormat`, `DatabaseBackend`, `DatabaseError`, `FallbackError`, `FallbackReason`, `FallbackResult`, `FinancialAPIProvider`, `HTTPClientConfig`, `HTTPError`, `HTTPMethod`, `HTTPResponse`, `MarketData`, `MarketStatus`, `MethodNotAllowedError`, `PlatformConfig`, `PlatformType`, `ProtocolType`, `QueryResult`, `RouteMethod`, `RouteNotFoundError`, `TradingSignal`, `USGSErosError`, `WeatherAPIProvider`, `WeatherCondition`, `WeatherData`
 
 </details>
 

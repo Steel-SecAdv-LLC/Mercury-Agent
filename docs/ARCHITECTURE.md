@@ -302,14 +302,26 @@ Health check: `await db.health_check()` → `{"status": "healthy"|"degraded"|"un
 
 | Setting | Default | Override |
 |---------|---------|----------|
-| Provider | Open-Meteo (free, no key) | `provider="openweathermap"` |
+| Provider | NOAA/NWS (free, no key) | `provider="openweathermap"` |
 | API Key | — | Required for OpenWeatherMap |
+
+NOAA serves `get_current_by_coords(lat, lon)`. `get_current(name)` raises
+`ValueError` on this provider — the NWS API is coordinate-addressed and has no
+geocoder — so a by-name caller must either supply coordinates or select
+OpenWeatherMap. The previous default was the fabricating stub, which answered
+by-name calls with `gauss`-drawn readings; an actionable refusal replaces it.
+Open-Meteo was documented here but is not implemented; it would be the way to
+serve by-name lookups keylessly.
 
 ### Financial (`integrations/stubs/financial.py`)
 
 | Setting | Default | Override |
 |---------|---------|----------|
 | Provider | Yahoo Finance (no key) | Alpha Vantage with API key |
+
+Yahoo Finance is now genuinely the default. It was documented as such while the
+constructor defaulted to `FinancialAPIProvider.STUB`, so a no-argument
+`FinancialService()` returned seeded-RNG prices.
 
 ## Cross-Domain Frequency Correlation
 

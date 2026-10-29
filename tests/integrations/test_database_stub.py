@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Tests for tools/service_doubles/database.py. Comprehensive test coverage for database stub functionality."""
+"""Tests for integrations/stubs/database.py module. Comprehensive test coverage for database stub functionality."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from tools.service_doubles.database import (
+from omni_mercury_engine.integrations.stubs.database import (
     DatabaseError,
     DatabaseStub,
     QueryResult,

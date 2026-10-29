@@ -4,12 +4,7 @@
 
 This package provides:
 - HTTP client with circuit breaker and retry logic
-- External service doubles have MOVED OUT of the installed package to
-  ``tools/service_doubles/`` (repo-only, not shipped in the wheel). They were
-  143 KB of test scaffolding inside ``src/``: nothing in the engine imported
-  them, the financial and weather doubles fabricated prices and readings with
-  a seeded RNG, and the ``RedisCache`` they defined was a second class of that
-  name shadowing the real one in ``core/feature_pipeline.py``.
+- External service stubs for testing and development
 - Request routing and fallback handling
 - AMA Cryptography post-quantum cryptography adapter
 """

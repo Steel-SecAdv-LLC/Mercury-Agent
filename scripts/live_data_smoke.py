@@ -133,7 +133,7 @@ def _domain_rows(cls: type, **kwargs: Any) -> int:
 
 def _alpha_vantage_ok() -> int:
     """Fetch one real Alpha Vantage quote; return 1 on a valid quote."""
-    from tools.service_doubles.financial import (
+    from omni_mercury_engine.integrations.stubs.financial import (
         FinancialAPIProvider,
         FinancialService,
     )
@@ -145,7 +145,7 @@ def _alpha_vantage_ok() -> int:
 
 def _openweather_ok() -> int:
     """Fetch one real OpenWeatherMap current-conditions record; 1 on success."""
-    from tools.service_doubles.weather import (
+    from omni_mercury_engine.integrations.stubs.weather import (
         WeatherAPIProvider,
         WeatherService,
     )

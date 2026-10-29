@@ -754,7 +754,7 @@ class TestRedisCacheOfflineGate:
     async def test_external_redis_suppressed(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
-        from tools.service_doubles.cache import RedisCache
+        from omni_mercury_engine.integrations.stubs.cache import RedisCache
 
         cache = RedisCache(host="redis.example.com")
         monkeypatch.setenv("MERCURY_OFFLINE", "1")
