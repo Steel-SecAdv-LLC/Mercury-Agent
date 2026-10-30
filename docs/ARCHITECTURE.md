@@ -302,16 +302,23 @@ Health check: `await db.health_check()` → `{"status": "healthy"|"degraded"|"un
 
 | Setting | Default | Override |
 |---------|---------|----------|
-| Provider | NOAA/NWS (free, no key) | `provider="openweathermap"` |
+| Provider | Open-Meteo (free, no key) | `provider="noaa"\|"openweathermap"` |
 | API Key | — | Required for OpenWeatherMap |
 
-NOAA serves `get_current_by_coords(lat, lon)`. `get_current(name)` raises
-`ValueError` on this provider — the NWS API is coordinate-addressed and has no
-geocoder — so a by-name caller must either supply coordinates or select
-OpenWeatherMap. The previous default was the fabricating stub, which answered
-by-name calls with `gauss`-drawn readings; an actionable refusal replaces it.
-Open-Meteo was documented here but is not implemented; it would be the way to
-serve by-name lookups keylessly.
+Open-Meteo is implemented and is the default: keyless current conditions, a
+keyless geocoder, and a daily forecast. It is the only provider here that
+resolves a place name, so `get_current("Boston")` works without coordinates;
+an unresolvable name raises `ValueError` rather than falling back to a default
+coordinate. NOAA/NWS remains available and is coordinate-addressed —
+`get_current(name)` raises on it and names `get_current_by_coords()`.
+
+**Readings a provider does not carry are `None`, never a constant.** The NWS
+hourly forecast has no pressure, visibility or UV index; Open-Meteo's current
+block has no visibility or UV. Those fields previously held 1013 hPa, 10 km,
+UV 0 and a humidity default of 50, with `feels_like` copied from temperature —
+values a caller could not distinguish from measurements. Every numeric field
+on `WeatherData` and `WeatherForecast` is nullable. Locked by
+`tests/integrations/test_open_meteo_provider.py`.
 
 ### Financial (`integrations/stubs/financial.py`)
 

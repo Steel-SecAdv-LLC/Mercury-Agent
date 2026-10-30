@@ -616,6 +616,10 @@ class TrustedEndpoints:
             "api.open-meteo.com",
             # OpenWeatherMap current-conditions / forecast (weather loader)
             "api.openweathermap.org",
+            # Open-Meteo: keyless current/forecast plus a keyless geocoder, which
+            # is what lets a by-name weather lookup resolve for real instead of
+            # being answered by fabricated readings.
+            "geocoding-api.open-meteo.com",
             # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects,
             # fireball archive — meteor loader)
             "ssd-api.jpl.nasa.gov",

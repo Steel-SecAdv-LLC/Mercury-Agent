@@ -151,10 +151,11 @@ def test_financial_service_defaults_to_a_real_provider() -> None:
 def test_weather_service_defaults_to_a_real_provider() -> None:
     """``WeatherService()`` must not default to the fabricating stub.
 
-    NOAA needs no API key and serves ``get_current_by_coords`` for real. It
-    cannot serve ``get_current(name)`` -- that raises a ``ValueError`` naming
-    the coordinate method -- and an actionable refusal is the right answer
-    where the previous default returned ``gauss``-drawn temperatures.
+    The default is Open-Meteo: keyless, and the only provider here with a
+    geocoder, so ``get_current(name)`` resolves for real rather than being
+    answered with ``gauss``-drawn temperatures. NOAA remains available and
+    keyless but is coordinate-addressed. Provider behaviour is covered in
+    ``tests/integrations/test_open_meteo_provider.py``.
     """
     import inspect
 
@@ -165,5 +166,5 @@ def test_weather_service_defaults_to_a_real_provider() -> None:
 
     default = inspect.signature(WeatherService.__init__).parameters["provider"].default
     assert default is not WeatherAPIProvider.STUB, "default provider fabricates data"
-    assert default is WeatherAPIProvider.NOAA
-    assert WeatherService().provider is WeatherAPIProvider.NOAA
+    assert default is WeatherAPIProvider.OPEN_METEO
+    assert WeatherService().provider is WeatherAPIProvider.OPEN_METEO
