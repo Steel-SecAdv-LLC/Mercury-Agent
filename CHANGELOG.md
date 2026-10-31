@@ -50,6 +50,18 @@ deployment while the voice route advertised a `detection` intent.
 `record_detection` now mirrors each record into the live voice's retriever
 with the fields the search reads (`tests/api/test_voice_recent_detections.py`).
 
+**Fixed — `POST /api/v1/voice/speak` carried a thinned copy of what the voice said.**
+`MercuryVoice.speak` returns a `VoiceResponse` whose fields are named
+`intent_understood` and `sources_cited` and which also carries a reasoning
+summary, suggested follow-ups, an uncertainty note and the memory-search
+counters. The route read `intent` and `sources` off that object — attributes
+it never had — so every live reply reported intent `unknown` with no sources,
+and the rest was dropped. `VoiceResponseModel` now carries `reasoning_summary`,
+`search_performed`, `search_results_count`, `suggested_follow_ups`,
+`uncertainty_note` and `response_time_ms` (all optional; existing clients are
+unaffected), and the route normalises both the narrative voice's object and the
+fallback voice's dict through one path (`tests/api/test_voice_speak_passthrough.py`).
+
 **Fixed — `POST /api/v1/batch/detect` scored every sample against itself**
 (see commit `ec828fe`): one-feature rows always scored 0.0 and no sample was
 ever compared with the data set. Batch now uses data-set statistics with the

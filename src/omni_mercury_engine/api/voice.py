@@ -96,6 +96,28 @@ class VoiceResponseModel(BaseModel):
         default_factory=dict,
         description="Additional metadata",
     )
+    # Everything below is what MercuryVoice produces beyond the message. The
+    # route used to drop all of it (and read ``intent``/``sources`` from attribute
+    # names the voice never had, so every live reply said intent "unknown" with
+    # no sources). A client that only knows the five fields above is unaffected.
+    reasoning_summary: str | None = Field(
+        default=None, description="Brief explanation of how the answer was formed"
+    )
+    search_performed: bool = Field(
+        default=False, description="Whether Mercury searched its memory for this reply"
+    )
+    search_results_count: int = Field(
+        default=0, ge=0, description="Memory results the reply was built from"
+    )
+    suggested_follow_ups: list[str] = Field(
+        default_factory=list, description="Questions Mercury suggests asking next"
+    )
+    uncertainty_note: str | None = Field(
+        default=None, description="What Mercury is unsure about, when it says so"
+    )
+    response_time_ms: float | None = Field(
+        default=None, ge=0.0, description="Time the voice took to answer"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -108,10 +130,55 @@ class VoiceResponseModel(BaseModel):
                     "sources": ["system_status", "detection_log"],
                     "timestamp": 1704067200.0,
                     "metadata": {"session_id": "sess_abc123"},
+                    "reasoning_summary": "Answered from the live system status.",
+                    "search_performed": False,
+                    "search_results_count": 0,
+                    "suggested_follow_ups": ["What anomalies were detected today?"],
+                    "uncertainty_note": None,
+                    "response_time_ms": 4.2,
                 }
             ]
         }
     }
+
+
+def _voice_payload(response: Any) -> dict[str, Any]:
+    """Normalise whatever a voice returns into one dict the response model reads.
+
+    ``MercuryVoice.speak`` returns a ``VoiceResponse`` whose fields are named
+    ``intent_understood`` and ``sources_cited``; ``_FallbackVoice.speak`` returns
+    a dict with ``intent`` and ``sources``. Both end up with the same keys here.
+    """
+    if hasattr(response, "to_dict"):
+        payload = dict(response.to_dict())
+    elif isinstance(response, dict):
+        payload = dict(response)
+    else:  # an object that exposes attributes only
+        payload = {
+            key: getattr(response, key)
+            for key in (
+                "message",
+                "confidence",
+                "intent",
+                "sources",
+                "intent_understood",
+                "sources_cited",
+                "reasoning_summary",
+                "search_performed",
+                "search_results_count",
+                "suggested_follow_ups",
+                "uncertainty_note",
+                "response_time_ms",
+            )
+            if hasattr(response, key)
+        }
+    intent = payload.get("intent") or payload.get("intent_understood") or "unknown"
+    payload["intent"] = getattr(intent, "value", intent)
+    sources = payload.get("sources")
+    if not sources:
+        sources = payload.get("sources_cited") or []
+    payload["sources"] = [str(item) for item in sources]
+    return payload
 
 
 class DetectionNarrationRequest(BaseModel):
@@ -350,33 +417,31 @@ async def speak(request: SpeakRequest) -> VoiceResponseModel:
     """
     try:
         voice = _get_voice()
-        response = voice.speak(request.message, domain=request.domain)
-
-        # Handle both VoiceResponse objects and dicts
-        if hasattr(response, "message"):
-            return VoiceResponseModel(
-                message=response.message,
-                confidence=getattr(response, "confidence", 0.8),
-                intent=getattr(response, "intent", "unknown"),
-                sources=getattr(response, "sources", []),
-                timestamp=time.time(),
-                metadata={
-                    "session_id": request.session_id,
-                    "domain": request.domain,
-                },
-            )
-        else:
-            return VoiceResponseModel(
-                message=response.get("message", ""),
-                confidence=response.get("confidence", 0.8),
-                intent=response.get("intent", "unknown"),
-                sources=response.get("sources", []),
-                timestamp=time.time(),
-                metadata={
-                    "session_id": request.session_id,
-                    "domain": request.domain,
-                },
-            )
+        payload = _voice_payload(voice.speak(request.message, domain=request.domain))
+        confidence = float(payload.get("confidence", 0.8))
+        return VoiceResponseModel(
+            message=str(payload.get("message", "")),
+            confidence=min(1.0, max(0.0, confidence)),
+            intent=str(payload["intent"]),
+            sources=payload["sources"],
+            timestamp=time.time(),
+            metadata={
+                "session_id": request.session_id,
+                "domain": request.domain,
+            },
+            reasoning_summary=payload.get("reasoning_summary"),
+            search_performed=bool(payload.get("search_performed", False)),
+            search_results_count=max(0, int(payload.get("search_results_count") or 0)),
+            suggested_follow_ups=[
+                str(q) for q in (payload.get("suggested_follow_ups") or []) if str(q).strip()
+            ],
+            uncertainty_note=payload.get("uncertainty_note"),
+            response_time_ms=(
+                None
+                if payload.get("response_time_ms") is None
+                else max(0.0, float(payload["response_time_ms"]))
+            ),
+        )
 
     except Exception as e:
         logger.error("Voice processing error: %s", e)
