@@ -377,6 +377,15 @@ async def process_batch_job(
         processed = 0
         failed = 0
 
+        # Data-set statistics, computed once: every sample is scored against
+        # the data set, with the same formulas the synchronous routes use.
+        # (The previous implementation normalized each sample against its own
+        # mean/std, so a 1-feature row always scored 0.0 and nothing was ever
+        # compared with the rest of the data.)
+        data_arr = np.asarray(data, dtype=float)
+        ds_mean = np.mean(data_arr, axis=0)
+        ds_std = np.std(data_arr, axis=0) + 1e-8
+
         for chunk_start in range(0, total, chunk_size):
             job = await store.get_job(job_id)
             if job and job.status == JobStatus.CANCELLED:
@@ -386,8 +395,9 @@ async def process_batch_job(
             chunk_end = min(chunk_start + chunk_size, total)
             chunk = data[chunk_start:chunk_end]
 
+            prev_row = data[chunk_start - 1] if chunk_start > 0 else None
             chunk_results = await _process_chunk(
-                chunk, method, sensitivity, feature_names, chunk_start
+                chunk, method, sensitivity, chunk_start, ds_mean, ds_std, prev_row
             )
 
             for result in chunk_results:
@@ -434,63 +444,60 @@ async def _process_chunk(
     chunk: list[list[float]],
     method: BatchDetectionMethod,
     sensitivity: float,
-    feature_names: list[str] | None,
     offset: int,
+    ds_mean: np.ndarray,
+    ds_std: np.ndarray,
+    prev_row: list[float] | None,
 ) -> list[dict[str, Any]]:
-    """Process a chunk of data samples."""
-    results = []
+    """Score one chunk of samples against the data-set statistics.
+
+    The formulas mirror the synchronous routes so that batch and sync agree on
+    the same data:
+
+    * ``univariate``   -- |z| of feature 0 against the data-set mean/std
+                          (``POST /api/v1/detect/univariate``, zscore).
+    * ``multivariate`` -- L2 norm of the per-feature-normalized sample
+                          (``POST /api/v1/detect/multivariate``).
+    * ``statistical``  -- max per-feature |z| against the data set.
+    * ``temporal``     -- max per-feature |delta from the previous sample| in
+                          data-set std units; the first sample scores 0.
+    * ``fusion``       -- 0.6 * statistical + 0.4 * temporal, the synchronous
+                          fusion route's weighting of the same components.
+
+    ``neurosymbolic`` never reaches here: it is refused at submission rather
+    than silently scored with statistics under that name.
+    """
+    results: list[dict[str, Any]] = []
     threshold = 2.0 + (1.0 - sensitivity) * 3.0
 
+    prev = np.asarray(prev_row, dtype=float) if prev_row is not None else None
     for i, sample in enumerate(chunk):
         try:
-            arr = np.array(sample)
+            arr = np.asarray(sample, dtype=float)
+            z = np.abs((arr - ds_mean) / ds_std)
 
             if method == BatchDetectionMethod.UNIVARIATE:
-                mean = np.mean(arr)
-                std = np.std(arr) + 1e-8
-                z_scores = np.abs((arr - mean) / std)
-                score = float(np.max(z_scores))
-                is_anomaly = score > threshold
-
+                score = float(z[0])
             elif method == BatchDetectionMethod.MULTIVARIATE:
-                mean = np.mean(arr)
-                std = np.std(arr) + 1e-8
-                normalized = (arr - mean) / std
-                score = float(np.linalg.norm(normalized))
-                is_anomaly = score > threshold
-
-            elif method == BatchDetectionMethod.FUSION:
-                mean = np.mean(arr)
-                std = np.std(arr) + 1e-8
-                z_score = float(np.max(np.abs((arr - mean) / std)))
-                fft_score = float(np.max(np.abs(np.fft.fft(arr))))
-                score = 0.6 * z_score + 0.4 * min(fft_score / len(arr), 1.0)
-                is_anomaly = score > threshold
-
+                score = float(np.linalg.norm((arr - ds_mean) / ds_std))
             elif method == BatchDetectionMethod.TEMPORAL:
-                if len(arr) > 1:
-                    diff = np.diff(arr)
-                    score = float(np.max(np.abs(diff)) / (np.std(arr) + 1e-8))
-                else:
-                    score = 0.0
-                is_anomaly = score > threshold
-
-            else:
-                mean = np.mean(arr)
-                std = np.std(arr) + 1e-8
-                z_scores = np.abs((arr - mean) / std)
-                score = float(np.max(z_scores))
-                is_anomaly = score > threshold
+                score = float(np.max(np.abs(arr - prev) / ds_std)) if prev is not None else 0.0
+            elif method == BatchDetectionMethod.FUSION:
+                temporal = float(np.max(np.abs(arr - prev) / ds_std)) if prev is not None else 0.0
+                score = 0.6 * float(np.max(z)) + 0.4 * temporal
+            else:  # STATISTICAL
+                score = float(np.max(z))
 
             results.append(
                 {
                     "index": offset + i,
-                    "is_anomaly": is_anomaly,
+                    "is_anomaly": bool(score > threshold),
                     "score": round(score, 6),
                     "threshold": round(threshold, 6),
                     "method": method.value,
                 }
             )
+            prev = arr
 
         except Exception:
             results.append(
@@ -626,6 +633,16 @@ async def submit_batch_job(
     user: User | None = Depends(_get_optional_user),
 ) -> BatchJobSubmitResponse:
     """Submit a batch anomaly detection job."""
+    if request.method == BatchDetectionMethod.NEUROSYMBOLIC:
+        # The neuro-symbolic detector is not available in the batch pipeline;
+        # running z-scores under that name would be a silent substitution.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "method 'neurosymbolic' is not available on the batch endpoint; "
+                "use POST /api/v1/detect/neurosymbolic."
+            ),
+        )
     if len(request.data) > 10000:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
