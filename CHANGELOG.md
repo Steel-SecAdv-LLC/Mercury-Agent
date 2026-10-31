@@ -62,6 +62,11 @@ and the rest was dropped. `VoiceResponseModel` now carries `reasoning_summary`,
 unaffected), and the route normalises both the narrative voice's object and the
 fallback voice's dict through one path (`tests/api/test_voice_speak_passthrough.py`).
 
+**Fixed — browser clients could not read `X-Correlation-ID` or `Retry-After`.**
+CORS exposed only the three `X-RateLimit-*` headers, so a browser client saw no
+correlation id and no `Retry-After` on a 429, although the API sends both.
+Both are now exposed (`tests/api/test_cors_expose_headers.py`).
+
 **Fixed — `POST /api/v1/batch/detect` scored every sample against itself**
 (see commit `ec828fe`): one-feature rows always scored 0.0 and no sample was
 ever compared with the data set. Batch now uses data-set statistics with the

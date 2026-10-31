@@ -596,7 +596,17 @@ if _allowed_origins:
         allow_credentials=_cors_allow_credentials,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
-        expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+        # A browser client can only read the response headers listed here. The
+        # console shows the rate budget, honours Retry-After on a 429 and keeps
+        # the correlation id beside every result so an operator can match a row
+        # to the server log; without these two entries it saw neither.
+        expose_headers=[
+            "X-RateLimit-Limit",
+            "X-RateLimit-Remaining",
+            "X-RateLimit-Reset",
+            "Retry-After",
+            "X-Correlation-ID",
+        ],
     )
     logger.info(f"CORS enabled for origins: {len(_allowed_origins)} configured")
 
