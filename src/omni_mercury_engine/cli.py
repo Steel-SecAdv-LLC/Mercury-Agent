@@ -3213,5 +3213,178 @@ def observatory_collatz(limit: int, top: int, as_json: bool) -> None:
     _emit(result, as_json, lines)
 
 
+# ---------------------------------------------------------------------------
+# decoupling switches (fragment the kin systems without estranging them)
+# ---------------------------------------------------------------------------
+@main.group()
+def decouple() -> None:
+    """Decouple Mercury from its kin systems, or from this machine.
+
+    Switches: `findoyou` (the FINDΩYOU™ evidence bridge) and `ama-optional`
+    (AMA-backed surfaces Mercury can run without). The AMA core gate is not a
+    switch -- it is mandatory for the engine to import, pinned by
+    `tests/test_pqc_startup_gate.py`; total decoupling from AMA is `uninstall`.
+
+    Destructive commands are dry-run unless given their exact confirmation
+    phrase, and they list what they will remove, with sizes, first.
+    """
+
+
+def _decouple_switch(name: str, action: str, as_json: bool) -> None:
+    from omni_mercury_engine import decouple as dc
+
+    if action == "status":
+        state = dc.read_switches()[name]
+        payload = {"switch": name, "enabled": state, "off_means": dc.SWITCHES[name][1]}
+        _emit(
+            payload,
+            as_json,
+            [f"{name}: {'ON' if state else 'OFF'}", f"  off means: {dc.SWITCHES[name][1]}"],
+        )
+        return
+    path = dc.set_switch(name, action == "on")
+    _emit(
+        {"switch": name, "enabled": action == "on", "config_file": str(path)},
+        as_json,
+        [f"{name}: {'ON' if action == 'on' else 'OFF'}", f"  written to {path}"],
+    )
+
+
+@decouple.command("findoyou")
+@click.argument("action", type=click.Choice(["on", "off", "status"]))
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_findoyou(action: str, as_json: bool) -> None:
+    """Switch the FINDΩYOU™ evidence bridge on or off."""
+    _decouple_switch("findoyou", action, as_json)
+
+
+@decouple.command("ama-optional")
+@click.argument("action", type=click.Choice(["on", "off", "status"]))
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_ama_optional(action: str, as_json: bool) -> None:
+    """Switch the AMA-backed optional surfaces on or off (core gate unaffected)."""
+    _decouple_switch("ama_optional", action, as_json)
+
+
+@decouple.command("status")
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_status(as_json: bool) -> None:
+    """Show switch state, AMA facts, and every place Mercury keeps work."""
+    from omni_mercury_engine import decouple as dc
+
+    st = dc.status()
+    lines = ["switches:"]
+    for name, info in st["switches"].items():
+        pin = f"  (env override {info['env_override']})" if info["env_override"] else ""
+        lines.append(f"  {name:<13} {'ON ' if info['enabled'] else 'OFF'}{pin}")
+    ama = st["ama"]
+    lines += [
+        "ama:",
+        f"  core gate      {ama['core_gate']}",
+        f"  version        installed {ama.get('installed_version')} / required {ama['required_version']}",
+    ]
+    for prim, ok in (ama.get("native_primitives") or {}).items():
+        lines.append(f"  {prim:<22} {'available' if ok else 'MISSING'}")
+    lines.append(f"  per-primitive  {ama.get('per_primitive_switches', 'n/a')}")
+    lines.append("state on this machine:")
+    for item in st["state"]:
+        mark = "present" if item["exists"] else "absent "
+        size = f"{item['bytes'] / 1024:,.0f} KB" if item["exists"] else ""
+        lines.append(f"  {mark} {item['path']}  [{item['label']}; {item['source']}] {size}")
+    d = st["distribution"]
+    lines.append(
+        f"install: {d['name']} {d.get('version', '')} {'editable at ' + d['editable_source'] if d.get('editable_source') else d.get('location', '')}"
+    )
+    lines.append(
+        "console localStorage keys (clear in the browser): "
+        + ", ".join(st["console_local_storage_keys"])
+    )
+    _emit(st, as_json, lines)
+
+
+@decouple.command("detach")
+@click.option(
+    "--save",
+    "save_dir",
+    required=True,
+    type=click.Path(file_okay=False),
+    help="Directory to write the state archive into.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_detach(save_dir: str, as_json: bool) -> None:
+    """Save every byte of Mercury's work into one verifiable archive. Nothing is removed."""
+    from omni_mercury_engine import decouple as dc
+
+    archive = dc.snapshot(Path(save_dir))
+    _emit(
+        {"archive": str(archive), "manifest": str(archive).replace(".tar.gz", ".manifest.json")},
+        as_json,
+        [
+            f"saved: {archive}",
+            "  MANIFEST.json inside carries a SHA-256 per file and the switch state",
+        ],
+    )
+
+
+@decouple.command("purge-work")
+@click.option("--confirm", "confirm", default=None, help='Type exactly "PURGE WORK" to execute.')
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_purge_work(confirm: str | None, as_json: bool) -> None:
+    """Delete all of Mercury's work on this machine. Code is untouched. Dry-run without --confirm."""
+    from omni_mercury_engine import decouple as dc
+
+    execute = confirm == dc.CONFIRM_PURGE
+    targets = dc.purge_work(confirm, dry_run=not execute)
+    verb = "removed" if execute else "would remove"
+    lines = [f"{verb}:"] + [f"  {t.path}  ({t.bytes / 1024:,.0f} KB; {t.label})" for t in targets]
+    if not execute:
+        lines.append(
+            f'dry run. To execute: mercury-agent decouple purge-work --confirm "{dc.CONFIRM_PURGE}"'
+        )
+    _emit({"executed": execute, "targets": [t.to_dict() for t in targets]}, as_json, lines)
+
+
+@decouple.command("uninstall")
+@click.option(
+    "--confirm", "confirm", default=None, help='Type exactly "DELETE MERCURY AGENT" to execute.'
+)
+@click.option(
+    "--remove-source",
+    is_flag=True,
+    help="Also delete the editable source checkout, if the install is editable.",
+)
+@click.option(
+    "--save",
+    "save_dir",
+    default=None,
+    type=click.Path(file_okay=False),
+    help="Write a state archive here first.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_uninstall(
+    confirm: str | None, remove_source: bool, save_dir: str | None, as_json: bool
+) -> None:
+    """Remove Mercury Agent: all work, the package, and optionally its source. Dry-run without --confirm."""
+    from omni_mercury_engine import decouple as dc
+
+    execute = confirm == dc.CONFIRM_UNINSTALL
+    saved = dc.snapshot(Path(save_dir)) if (save_dir and execute) else None
+    plan = dc.uninstall(confirm, remove_source=remove_source, dry_run=not execute)
+    verb = "did" if plan["executed"] else "would do"
+    lines = [f"uninstall {verb}:"]
+    if saved:
+        lines.append(f"  saved state first: {saved}")
+    lines.append(f"  purge work: {len(plan['state_removed'])} location(s)")
+    lines.append(f"  pip: {' '.join(plan['pip_command'])}")
+    lines.append(f"  source checkout: {plan['source_removed'] or 'left in place'}")
+    if plan.get("source_note"):
+        lines.append(f"  note: {plan['source_note']}")
+    if not plan["executed"]:
+        lines.append(
+            f'dry run. To execute: mercury-agent decouple uninstall --confirm "{dc.CONFIRM_UNINSTALL}"'
+        )
+    _emit(plan, as_json, lines)
+
+
 if __name__ == "__main__":
     main()

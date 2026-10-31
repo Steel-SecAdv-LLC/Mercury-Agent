@@ -366,6 +366,56 @@ async def record_detection(
 
     schedule_alert(record)
 
+    # Let the conversational agent remember it. ``KnowledgeRetriever`` has had
+    # a ``log_detection`` hook and a detection-log search path since it was
+    # written, but nothing ever called the hook, so "have there been any
+    # anomalies?" was answered from an empty log on every deployment. The
+    # fields below are the ones ``_search_detection_log`` reads.
+    _remember_in_voice(record, results, metadata)
+
+
+def _remember_in_voice(
+    record: DetectionRecord, results: dict[str, Any], metadata: dict[str, Any] | None
+) -> None:
+    """Mirror a recorded detection into the live voice's retriever.
+
+    Best-effort by design: the narrative layer must never be able to fail a
+    detection request, so every failure here is logged and swallowed.
+    """
+    try:
+        from omni_mercury_engine.api.voice import _get_voice
+
+        voice = _get_voice()
+        retriever = getattr(voice, "retriever", None)
+        if retriever is None or not hasattr(retriever, "log_detection"):
+            return
+        scores = [s for s in results.get("scores", []) if isinstance(s, (int, float))]
+        max_score = max(scores) if scores else record.max_score
+        # The voice sanitizes every query's domain through the same whitelist
+        # before searching (an unknown label becomes "general"), and the
+        # detection-log search filters on strict equality. Store the domain
+        # as the voice will ask for it, or the record can never be found.
+        from omni_mercury_engine.cognitive.ethical_bounding import sanitize_domain
+
+        raw_domain = (metadata or {}).get("domain") or record.summary.get("domain")
+        retriever.log_detection(
+            {
+                "detection_id": record.detection_id,
+                "method": record.method,
+                "anomaly_detected": record.anomaly_count > 0,
+                "anomaly_count": record.anomaly_count,
+                "anomaly_score": float(max_score),
+                "severity": float(max_score),
+                "confidence": 1.0 if record.anomaly_count > 0 else 0.5,
+                "n_samples": len(results.get("anomalies", [])),
+                "is_batch": record.is_batch,
+                "summary": record.summary,
+            },
+            domain=sanitize_domain(raw_domain),
+        )
+    except Exception as exc:  # pragma: no cover - defensive by contract
+        logger.debug("voice memory mirror skipped: %s", exc)
+
 
 async def record_audit_log(
     user_id: str,

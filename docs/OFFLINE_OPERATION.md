@@ -170,3 +170,33 @@ Two suites pin the whole contract:
   sources, the NIST CSF fetcher (uncached refused, fresh cache served
   offline), the batch webhook (suppressed without touching a socket), the
   integrations `HTTPClient`, and the cross-platform hub adapters.
+
+## Decoupling switches
+
+Mercury Agent, AMA Cryptography and FINDΩYOU™ are separate applications
+designed as kin. `mercury-agent decouple` pulls them apart cleanly, and each
+command is a real action with a visible result:
+
+| Command | What it does |
+|---|---|
+| `decouple status` | Switch state, the AMA build's native primitives, and every location Mercury writes work to (default and env-pointed), with sizes. |
+| `decouple findoyou on\|off` | Off: `integrations/findoyou_bridge.py` refuses to import with the switch named and the remedy; the self-model reports the capability as *disabled by the operator*. |
+| `decouple ama-optional on\|off` | Off: the AMA-backed surfaces Mercury can run without refuse — `AuthKeyManager` (HD key derivation/rotation) and the bridge. |
+| `decouple detach --save DIR` | Archives all work into one `.tar.gz` with a `MANIFEST.json` (SHA-256 per file, switch state). Removes nothing. |
+| `decouple purge-work` | Deletes all work on this machine; code untouched. Dry-run until `--confirm "PURGE WORK"`. |
+| `decouple uninstall` | Purges work, `pip uninstall`s the package, and with `--remove-source` deletes an editable checkout. Dry-run until `--confirm "DELETE MERCURY AGENT"`. `--save DIR` archives first. |
+
+Switch state lives in `~/.config/omni_mercury/decouple.json` (`XDG_CONFIG_HOME`
+honoured). `MERCURY_DECOUPLE_FINDOYOU=0|1` and `MERCURY_DECOUPLE_AMA_OPTIONAL=0|1`
+override the file for one process.
+
+**What is not a switch.** The AMA core gate (`_pqc_gate`) makes AMA mandatory
+for the engine to import at all, and `tests/test_pqc_startup_gate.py` pins that
+no environment flag may create an AMA-less mode. `decouple` does not add one;
+`status` says so, and the only total decoupling from AMA is `uninstall`.
+Individual AMA primitives (ML-DSA-65, Kyber-1024, SPHINCS+, Ed25519) are
+reported as the AMA build provides them; Mercury does not select them one by
+one. The browser console keeps its own state in `localStorage`
+(`mercury_cli_state_v1`, `mercury_cli_capture_v1`, `mercury_cli_conn_v1`,
+`mercury_cli_mcp_order`); a CLI cannot clear another program's storage, so
+`status` lists the keys for the operator to clear in the browser.

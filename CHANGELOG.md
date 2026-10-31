@@ -27,6 +27,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — decoupling switches (`mercury-agent decouple`, `omni_mercury_engine.decouple`).**
+The three kin systems can now be pulled apart by the operator with real,
+read-at-the-surface switches: `findoyou on|off` (the FINDΩYOU™ evidence
+bridge refuses to import and the self-model reports it as disabled by the
+operator) and `ama-optional on|off` (the AMA-backed surfaces Mercury can run
+without — `AuthKeyManager` and the bridge — refuse with a named reason).
+State persists in `~/.config/omni_mercury/decouple.json`; `MERCURY_DECOUPLE_<NAME>`
+pins a switch for one process. `status` reports switch state, the AMA build's
+native primitives, and every location Mercury writes work to. `detach --save`
+archives all of it with a SHA-256 manifest and removes nothing; `purge-work`
+and `uninstall` are dry-run until given their exact confirmation phrase.
+What is not a switch is stated plainly: the AMA core gate is mandatory for the
+engine to import (pinned by `tests/test_pqc_startup_gate.py`), and the only
+total decoupling from AMA is `uninstall`. Covered by `tests/test_decouple.py`.
+
+**Fixed — the conversational agent now remembers detections.**
+`KnowledgeRetriever.log_detection` and its detection-log search existed, and
+`record_detection` recorded every API detection, but nothing connected them:
+"have there been any anomalies?" was answered from an empty log on every
+deployment while the voice route advertised a `detection` intent.
+`record_detection` now mirrors each record into the live voice's retriever
+with the fields the search reads (`tests/api/test_voice_recent_detections.py`).
+
+**Fixed — `POST /api/v1/batch/detect` scored every sample against itself**
+(see commit `ec828fe`): one-feature rows always scored 0.0 and no sample was
+ever compared with the data set. Batch now uses data-set statistics with the
+synchronous routes' formulas; `neurosymbolic` is refused at submission
+instead of silently approximated.
+
 **Added — measured σ-threshold ablation replacing the deleted `ab_sigma`
 theater (`benchmarks/sigma_threshold_ablation.py` +
 `sigma_threshold_ablation_results.json`).** The deleted script claimed

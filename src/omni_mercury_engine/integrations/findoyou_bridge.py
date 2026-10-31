@@ -46,6 +46,14 @@ from typing import Any
 
 import numpy as np
 
+# Operator decoupling: both switches must be on for this surface to exist.
+# A refusal here is a named decision with its remedy, not an ImportError.
+from omni_mercury_engine.decouple import require_enabled as _require_enabled
+
+_require_enabled("findoyou", "the FINDΩYOU™ evidence bridge")
+_require_enabled("ama_optional", "the FINDΩYOU™ evidence bridge (AMA-signed)")
+del _require_enabled
+
 from omni_mercury_engine.security.crypto_api import MLDSAProvider
 from omni_mercury_engine.verifiers.three_state import ThreeState
 
