@@ -374,6 +374,11 @@ async def record_detection(
     _remember_in_voice(record, results, metadata)
 
 
+#: Flagged sample positions kept per remembered detection (the voice names
+#: the first few; the full list stays in the export history).
+_REMEMBERED_INDICES = 8
+
+
 def _remember_in_voice(
     record: DetectionRecord, results: dict[str, Any], metadata: dict[str, Any] | None
 ) -> None:
@@ -413,6 +418,19 @@ def _remember_in_voice(
                 "severity": severity,
                 "severity_label": severity_label,
                 "n_samples": len(results.get("anomalies", [])),
+                # The threshold the scores were judged against and the first
+                # flagged sample positions: what the voice needs to say "1 of
+                # 60 flagged (sample 42), 1.8x the threshold" rather than a
+                # bare score.
+                "threshold": (
+                    float(results["threshold"])
+                    if isinstance(results.get("threshold"), (int, float))
+                    and not isinstance(results.get("threshold"), bool)
+                    else None
+                ),
+                "indices": [i for i, flag in enumerate(results.get("anomalies", [])) if flag][
+                    :_REMEMBERED_INDICES
+                ],
                 "is_batch": record.is_batch,
                 "summary": record.summary,
             },

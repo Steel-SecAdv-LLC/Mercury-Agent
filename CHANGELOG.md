@@ -27,6 +27,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — the agent answers questions about its detection record with the
+record, not a search score.** "How many anomalies today?" (also per hour,
+yesterday, week, month, or all) is answered with the run count, how many
+flagged at least one sample, the per-method tally and the highest-scoring run.
+"What was the latest anomaly?" names the newest flagged run and how many clean
+runs followed it. Status reports what memory holds and when the newest run was
+recorded. Every recalled run is described as a run: method, how long ago, how
+many of how many samples were flagged and which, and the peak score against its
+threshold with the API's severity band ("multivariate run 3 minutes ago: 1 of
+60 samples flagged (sample 42); peak score 6.21, 1.8x the 3.50 threshold
+(medium)"). The memory mirror now keeps the threshold and the first flagged
+sample positions; an empty window or an empty memory is stated as such, with
+what memory covers. The console's agent quick prompts include the two
+questions. Verified in Chromium against the live server
+(`tests/api/test_voice_recent_detections.py`).
+
 **Fixed — the API rate limiter metered the console's own assets.** One
 console page load is 21 same-origin requests (17 scripts and stylesheets, 3
 images, the page) against a default burst of 20. Measured against

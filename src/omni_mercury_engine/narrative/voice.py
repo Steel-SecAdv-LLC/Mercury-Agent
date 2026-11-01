@@ -42,6 +42,7 @@ from omni_mercury_engine.narrative.personality import (
 from omni_mercury_engine.narrative.retriever import (
     KnowledgeRetriever,
     QueryIntent,
+    RetrievalSource,
     SearchResponse,
 )
 from omni_mercury_engine.security.sigma_immutable_gate import (
@@ -495,6 +496,19 @@ class MercuryVoice:
             self._record_turn(ConversationType.QUERY, "mercury", response.message)
             return response
 
+        # Questions about the detection record are answered from the record
+        # itself (counts, time windows, the newest run), not from the
+        # free-text relevance scorer, so "how many anomalies today?" gets a
+        # number and "what was the latest anomaly?" gets that run.
+        if _is_detection_summary_query(input_lower):
+            response = self._handle_detection_summary(input_lower, domain)
+            self._record_turn(ConversationType.QUERY, "mercury", response.message)
+            return response
+        if _is_latest_detection_query(input_lower):
+            response = self._handle_latest_detection(domain)
+            self._record_turn(ConversationType.QUERY, "mercury", response.message)
+            return response
+
         # General search for other queries
         search_response = self.retriever.search(user_input, domain=domain)
 
@@ -688,6 +702,18 @@ class MercuryVoice:
             f"Queries handled: {stats['queries_handled']}.",
             f"Detections narrated: {stats['detections_narrated']}.",
         ]
+        remembered = self.retriever.detections()
+        if remembered:
+            flagged = sum(1 for e in remembered if e["detection"].get("anomaly_detected", False))
+            message_parts.append(
+                f"Detection runs in memory: {len(remembered)} ({flagged} flagged at least "
+                f"one sample); the newest was recorded {_ago(remembered[0]['timestamp'])}."
+            )
+        else:
+            message_parts.append(
+                "No detection runs in memory yet: memory holds the runs made through this "
+                "server since it started."
+            )
 
         retriever_stats = self.retriever.get_statistics()
         if retriever_stats["knowledge_graph_connected"]:
@@ -744,6 +770,123 @@ class MercuryVoice:
                 "Show me recent patterns",
                 "Explain your confidence levels",
             ],
+        )
+
+    def _handle_detection_summary(self, input_lower: str, domain: str | None) -> VoiceResponse:
+        """Count and summarise the recorded detection runs in the asked window.
+
+        Every number comes from the retriever's detection log; nothing is
+        estimated. When the window holds no runs the answer says so and says
+        what memory covers, instead of apologising generically.
+        """
+        start_time = time.time()
+        window_label, since = _parse_window(input_lower)
+        entries = self.retriever.detections(domain=domain, since=since)
+        flagged = [e for e in entries if e["detection"].get("anomaly_detected", False)]
+
+        if not entries:
+            message = (
+                f"No detection runs are recorded in memory for {window_label}. Memory holds "
+                "the runs made through this server since it started; run detect, or ask "
+                "me about a different period."
+            )
+            follow_ups = ["Summarize all detections", "What can you do?"]
+        else:
+            by_method: dict[str, list[int]] = {}
+            for e in entries:
+                det = e["detection"]
+                method = str(det.get("method") or "unknown")
+                tally = by_method.setdefault(method, [0, 0])
+                tally[0] += 1
+                if det.get("anomaly_detected", False):
+                    tally[1] += 1
+            per_method = "; ".join(
+                f"{m}: {n} run{'s' if n != 1 else ''}, {k} flagged"
+                for m, (n, k) in sorted(by_method.items())
+            )
+            parts = [
+                f"For {window_label}, {len(entries)} detection run"
+                f"{'s' if len(entries) != 1 else ''} recorded: {len(flagged)} flagged at least "
+                f"one sample, {len(entries) - len(flagged)} clean.",
+                f"By method, {per_method}.",
+            ]
+            if flagged:
+                peak = max(flagged, key=lambda e: float(e["detection"].get("anomaly_score") or 0.0))
+                parts.append(
+                    "Highest-scoring run: "
+                    + _describe_detection(peak["detection"], peak["timestamp"])
+                )
+            message = " ".join(parts)
+            follow_ups = [
+                "What was the latest anomaly?",
+                "Narrate the latest detection",
+                "Which samples were flagged?",
+            ]
+
+        return VoiceResponse(
+            message=message,
+            confidence=1.0 if entries else None,
+            sources_cited=["detection_log"] if entries else [],
+            reasoning_summary=(
+                f"Counted {len(entries)} recorded run(s) for {window_label}"
+                + (f" in domain {domain}" if domain and domain != "general" else "")
+                + "."
+            ),
+            intent_understood=QueryIntent.SEARCH_EVENTS,
+            search_performed=True,
+            search_results_count=len(entries),
+            response_time_ms=(time.time() - start_time) * 1000,
+            suggested_follow_ups=follow_ups,
+        )
+
+    def _handle_latest_detection(self, domain: str | None) -> VoiceResponse:
+        """Describe the newest run that flagged an anomaly, or the newest run if none did."""
+        start_time = time.time()
+        flagged = self.retriever.detections(domain=domain, anomalous_only=True)
+        every = self.retriever.detections(domain=domain)
+
+        if flagged:
+            entry = flagged[0]
+            message = "Latest anomaly: " + _describe_detection(
+                entry["detection"], entry["timestamp"]
+            )
+            if every and every[0] is not entry:
+                message += (
+                    f" {len(every) - every.index(entry) - 1} clean run(s) have been recorded "
+                    "since."
+                )
+            follow_ups = [
+                "Narrate the latest detection",
+                "How many anomalies today?",
+                "Explain this detection",
+            ]
+            count = len(flagged)
+        elif every:
+            entry = every[0]
+            message = (
+                "No recorded run has flagged an anomaly. The newest run was "
+                + _describe_detection(entry["detection"], entry["timestamp"])
+            )
+            follow_ups = ["Summarize all detections", "What should I run next?"]
+            count = len(every)
+        else:
+            message = (
+                "No detection runs are recorded in memory yet. Memory holds the runs made "
+                "through this server since it started; run detect and ask again."
+            )
+            follow_ups = ["What can you do?", "How do I collect data?"]
+            count = 0
+
+        return VoiceResponse(
+            message=message,
+            confidence=1.0 if every else None,
+            sources_cited=["detection_log"] if every else [],
+            reasoning_summary=f"Read the newest of {len(every)} recorded run(s).",
+            intent_understood=QueryIntent.SEARCH_EVENTS,
+            search_performed=True,
+            search_results_count=count,
+            response_time_ms=(time.time() - start_time) * 1000,
+            suggested_follow_ups=follow_ups,
         )
 
     def _handle_general_query(
@@ -811,6 +954,22 @@ class MercuryVoice:
             parts.append(f"Found {n_results} relevant fact(s).")
         else:
             parts.append(f"Found {n_results} result(s).")
+
+        # Detection-log hits are described as runs, newest first: what ran,
+        # when, how many samples were flagged and which, and the peak score
+        # against its threshold. A bare score was the previous answer.
+        detection_hits = [
+            r.content
+            for r in search_response.results
+            if r.source == RetrievalSource.DETECTION_LOG and isinstance(r.content, dict)
+        ]
+        if detection_hits:
+            detection_hits.sort(key=lambda c: float(c.get("timestamp") or 0.0), reverse=True)
+            for content in detection_hits[:3]:
+                parts.append(_describe_detection(content, content.get("timestamp")))
+            if len(detection_hits) > 3:
+                parts.append(f"{len(detection_hits) - 3} older run(s) matched as well.")
+            return " ".join(parts)
 
         # Top result detail
         content = top_result.content
@@ -927,7 +1086,8 @@ class MercuryVoice:
         follow_ups = []
 
         if search_response.intent == QueryIntent.SEARCH_EVENTS:
-            follow_ups.append("Show event timeline")
+            follow_ups.append("What was the latest anomaly?")
+            follow_ups.append("How many anomalies today?")
         elif search_response.intent == QueryIntent.SEARCH_PATTERNS:
             follow_ups.append("Analyze pattern frequency")
 
@@ -1026,3 +1186,98 @@ def create_mercury_voice(
         llm_api_key=llm_api_key,
         llm_base_url=llm_base_url,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Detection-record wording: shared by the summary, latest and search answers
+# --------------------------------------------------------------------------- #
+
+_DETECTION_STEMS = ("anomal", "detect", "flag", "alert", "event", "incident", "run")
+_COUNT_STEMS = ("how many", "count", "number of", "summar", "overview", "tally", "total")
+_LATEST_STEMS = ("latest", "last ", "most recent", "newest", "last?")
+
+
+def _is_detection_summary_query(text: str) -> bool:
+    """True for "how many anomalies today?", "summarize the detections", and the like."""
+    return any(c in text for c in _COUNT_STEMS) and any(d in text for d in _DETECTION_STEMS)
+
+
+def _is_latest_detection_query(text: str) -> bool:
+    """True for "what was the latest anomaly?", "last detection?", and the like."""
+    return any(w in text for w in _LATEST_STEMS) and any(d in text for d in _DETECTION_STEMS)
+
+
+def _parse_window(text: str) -> tuple[str, float | None]:
+    """Map the time words in a question to ``(label, since_epoch_seconds)``."""
+    now = time.time()
+    if "hour" in text:
+        return "the last hour", now - 3600.0
+    if "today" in text:
+        return "today (UTC)", now - (now % 86400.0)
+    if "yesterday" in text:
+        start = now - (now % 86400.0) - 86400.0
+        return "yesterday (UTC)", start
+    if "week" in text:
+        return "the last 7 days", now - 7 * 86400.0
+    if "month" in text:
+        return "the last 30 days", now - 30 * 86400.0
+    return "all recorded runs", None
+
+
+def _ago(timestamp: Any) -> str:
+    """Relative time in plain words, from an epoch-seconds timestamp."""
+    if not isinstance(timestamp, (int, float)):
+        return "at an unrecorded time"
+    delta = max(0.0, time.time() - float(timestamp))
+    if delta < 60:
+        return "just now"
+    if delta < 3600:
+        minutes = int(delta // 60)
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    if delta < 86400:
+        hours = int(delta // 3600)
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    days = int(delta // 86400)
+    return f"{days} day{'s' if days != 1 else ''} ago"
+
+
+def _describe_detection(record: dict[str, Any], timestamp: Any) -> str:
+    """One sentence about a recorded run, built only from the fields it carries.
+
+    Example: ``multivariate run 3 minutes ago: 1 of 60 samples flagged (sample
+    42); peak score 6.21, 1.8x the 3.50 threshold (medium).`` Fields the run
+    did not report are left out rather than filled.
+    """
+    method = str(record.get("method") or "detection")
+    count = record.get("anomaly_count")
+    total = record.get("n_samples")
+    score = record.get("anomaly_score")
+    threshold = record.get("threshold")
+    indices = record.get("indices") or []
+    label = record.get("severity_label")
+
+    parts = [f"{method} run {_ago(timestamp)}:"]
+    if isinstance(count, int) and isinstance(total, int) and total > 0:
+        flagged = f"{count} of {total} sample{'s' if total != 1 else ''} flagged"
+        if indices:
+            shown = ", ".join(str(i) for i in indices[:5])
+            more = (
+                f" and {count - min(len(indices), 5)} more" if count > min(len(indices), 5) else ""
+            )
+            flagged += f" (sample{'s' if len(indices) > 1 else ''} {shown}{more})"
+        parts.append(flagged + ";")
+    elif isinstance(count, int):
+        parts.append(f"{count} sample{'s' if count != 1 else ''} flagged;")
+    if isinstance(score, (int, float)) and not isinstance(score, bool):
+        peak = f"peak score {float(score):.2f}"
+        if (
+            isinstance(threshold, (int, float))
+            and not isinstance(threshold, bool)
+            and threshold > 0
+        ):
+            peak += f", {float(score) / float(threshold):.1f}x the {float(threshold):.2f} threshold"
+        if label:
+            peak += f" ({label})"
+        parts.append(peak + ".")
+    sentence = " ".join(parts)
+    return sentence[:-1] + "." if sentence.endswith(";") else sentence

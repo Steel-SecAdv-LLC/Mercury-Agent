@@ -209,6 +209,14 @@ MODULE_PATCHES["mercury-cli-api.js"] = (
 
 LOGIC_PATCHES = LOGIC_PATCHES + (
     (
+        "agent quick prompts include the questions the voice answers from its detection record",
+        'chips: ["Explain this detection", "Why did it clear the gate?", "Recommend an action", '
+        '"Summarize threat posture", "What should I run next?", "How do I collect data?"]',
+        'chips: ["What was the latest anomaly?", "How many anomalies today?", '
+        '"Explain this detection", "Why did it clear the gate?", "Recommend an action", '
+        '"Summarize threat posture", "What should I run next?", "How do I collect data?"]',
+    ),
+    (
         "no invented confidence: the server's value or none (was min(0.99, 0.5 + |score - thr|))",
         'conf: typeof d.confidence === "number" ? d.confidence : '
         "+Math.min(0.99, 0.5 + Math.abs(sc - thr)).toFixed(3)",

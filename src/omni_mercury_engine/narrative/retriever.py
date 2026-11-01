@@ -248,6 +248,35 @@ class KnowledgeRetriever:
         if len(self._detection_log) > 1000:
             self._detection_log = self._detection_log[-1000:]
 
+    def detections(
+        self,
+        domain: str | None = None,
+        since: float | None = None,
+        anomalous_only: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Logged detection entries, newest first.
+
+        Each entry is ``{"detection": {...}, "domain": str | None, "timestamp":
+        float}`` exactly as :meth:`log_detection` stored it. ``domain`` filters
+        with the same wildcard rule the search uses (``general`` on either side
+        matches); ``since`` is an epoch-seconds lower bound; ``anomalous_only``
+        keeps the runs that flagged at least one sample.
+
+        This is what the voice's counting, summary and "latest detection"
+        answers read, so those answers are built from the record and never
+        from the free-text scorer.
+        """
+        out: list[dict[str, Any]] = []
+        for entry in reversed(self._detection_log):
+            if since is not None and float(entry.get("timestamp", 0.0)) < since:
+                continue
+            if not _domains_compatible(domain, str(entry.get("domain") or "")):
+                continue
+            if anomalous_only and not entry.get("detection", {}).get("anomaly_detected", False):
+                continue
+            out.append(entry)
+        return out
+
     def search(
         self,
         query: str,
@@ -551,6 +580,16 @@ class KnowledgeRetriever:
                                 "severity_label": detection.get("severity_label"),
                                 "confidence": detection.get("confidence", 0),
                                 "domain": domain,
+                                # The record itself, so the voice can say what
+                                # ran, when, how many samples were flagged and
+                                # which, instead of a bare score.
+                                "method": detection.get("method"),
+                                "anomaly_count": detection.get("anomaly_count"),
+                                "n_samples": detection.get("n_samples"),
+                                "threshold": detection.get("threshold"),
+                                "indices": detection.get("indices"),
+                                "timestamp": log_entry.get("timestamp"),
+                                "detection_id": detection.get("detection_id"),
                             },
                             relevance_score=min(1.0, relevance),
                             confidence=detection.get("confidence", 0.5),
