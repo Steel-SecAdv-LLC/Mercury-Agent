@@ -166,3 +166,23 @@ def test_greet_lists_what_this_server_has(fresh_voice: MercuryVoice) -> None:
     assert any(c.endswith("domain data loaders") for c in body["capabilities"])
     assert "Proactive alerts as each run lands" in body["capabilities"]
     assert "Historical event lookup" not in body["capabilities"]
+
+
+def test_speak_route_passes_the_session_to_the_voice(fresh_voice: MercuryVoice) -> None:
+    with TestClient(app) as client:
+        client.post(
+            "/api/v1/voice/speak",
+            json={
+                "message": "What was the latest anomaly?",
+                "domain": "general",
+                "session_id": "s1",
+            },
+        )
+        other = client.post(
+            "/api/v1/voice/speak", json={"message": "why?", "domain": "general", "session_id": "s2"}
+        ).json()
+        same = client.post(
+            "/api/v1/voice/speak", json={"message": "why?", "domain": "general", "session_id": "s1"}
+        ).json()
+    assert other["message"].startswith("I answer from this server's own record and code")
+    assert same["message"].startswith(("Explaining", "There is no recorded run"))

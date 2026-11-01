@@ -216,9 +216,10 @@ class MercuryVoice:
         # Conversation state
         self._conversation_history: list[ConversationTurn] = []
         self._turn_counter = 0
-        #: Per-principal memory of the last grounded answer (kind, argument and
-        #: the runs it listed), so "why?", "and yesterday?" and "run 2" resolve
-        #: against that account's own previous turn and nobody else's.
+        #: Per-conversation memory of the last grounded answer (kind, argument
+        #: and the runs it listed), keyed by principal and session, so "why?",
+        #: "and yesterday?" and "run 2" resolve against that conversation's own
+        #: previous turn and nobody else's.
         self._context: dict[str, dict[str, Any]] = {}
         self._session_start = time.time()
 
@@ -456,6 +457,7 @@ class MercuryVoice:
         user_input: str,
         domain: str | None = None,
         principal: str | None = None,
+        session_id: str | None = None,
     ) -> VoiceResponse:
         """Process user input and generate response.
 
@@ -466,6 +468,10 @@ class MercuryVoice:
             domain: Optional domain context
             principal: The account asking (``"anonymous"`` when none);
                 detection-record answers are bounded to that account's runs
+            session_id: The conversation this turn belongs to; follow-ups
+                ("why?", "run 2") resolve against the previous turn of the same
+                principal *and* session, so two anonymous browsers never share
+                one context
 
         Returns:
             VoiceResponse with truth-dense communication
@@ -496,11 +502,11 @@ class MercuryVoice:
         if kind == "search":
             follow = _conv.follow_up(user_input)
             if follow is not None:
-                kind, argument = self._resolve_follow_up(follow, domain, principal)
+                kind, argument = self._resolve_follow_up(follow, domain, principal, session_id)
         response = self._dispatch(
             kind, argument, user_input, input_lower, domain, principal, profile
         )
-        self._remember_context(kind, argument, domain, principal)
+        self._remember_context(kind, argument, domain, principal, session_id)
 
         # Record Mercury's response
         self._record_turn(ConversationType.QUERY, "mercury", response.message, principal)
@@ -1233,11 +1239,21 @@ class MercuryVoice:
         }
     )
 
+    @staticmethod
+    def _context_key(principal: str | None, session_id: str | None) -> str:
+        """One follow-up context per principal and session."""
+        return f"{principal or 'anonymous'}|{session_id or ''}"
+
     def _remember_context(
-        self, kind: str, argument: Any, domain: str | None, principal: str | None
+        self,
+        kind: str,
+        argument: Any,
+        domain: str | None,
+        principal: str | None,
+        session_id: str | None = None,
     ) -> None:
-        """Keep what this principal was just told, bounded to the newest 256 principals."""
-        key = principal or "anonymous"
+        """Keep what this conversation was just told, bounded to the newest 256 conversations."""
+        key = self._context_key(principal, session_id)
         context: dict[str, Any] = {"kind": kind, "argument": argument}
         if kind == "last_n":
             context["listing"] = self._entries(domain, principal)[: int(argument)]
@@ -1250,10 +1266,14 @@ class MercuryVoice:
             self._context.pop(next(iter(self._context)))
 
     def _resolve_follow_up(
-        self, follow: tuple[str, Any], domain: str | None, principal: str | None
+        self,
+        follow: tuple[str, Any],
+        domain: str | None,
+        principal: str | None,
+        session_id: str | None = None,
     ) -> tuple[str, Any]:
         """Turn "why?", "and yesterday?" or "run 2" into a grounded answer using the last turn."""
-        context = self._context.get(principal or "anonymous") or {}
+        context = self._context.get(self._context_key(principal, session_id)) or {}
         previous = str(context.get("kind") or "")
         mode, value = follow
         if mode == "ordinal":

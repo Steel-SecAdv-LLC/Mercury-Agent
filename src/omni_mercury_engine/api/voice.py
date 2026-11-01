@@ -150,10 +150,17 @@ class VoiceResponseModel(BaseModel):
     }
 
 
-def _speak(voice: Any, message: str, domain: str | None, principal: str) -> Any:
-    """Call the voice with the caller's principal; the fallback voice takes none."""
+def _speak(
+    voice: Any, message: str, domain: str | None, principal: str, session_id: str | None = None
+) -> Any:
+    """Call the voice with the caller's principal and session; the fallback voice takes neither.
+
+    The session id keeps "why?" and "run 2" tied to the browser that asked:
+    every unauthenticated console is the same principal (``anonymous``), so
+    without it two anonymous browsers would share one follow-up context.
+    """
     try:
-        return voice.speak(message, domain=domain, principal=principal)
+        return voice.speak(message, domain=domain, principal=principal, session_id=session_id)
     except TypeError:
         return voice.speak(message, domain=domain)
 
@@ -453,7 +460,7 @@ async def speak(
     try:
         voice = _get_voice()
         payload = _voice_payload(
-            _speak(voice, request.message, request.domain, _principal_of(user))
+            _speak(voice, request.message, request.domain, _principal_of(user), request.session_id)
         )
         raw_conf = payload.get("confidence")
         # A missing confidence is reported as null, not filled with 0.8.

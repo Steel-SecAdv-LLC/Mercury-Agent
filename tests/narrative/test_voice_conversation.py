@@ -395,3 +395,16 @@ def test_follow_up_context_is_per_principal(voice_with_runs: MercuryVoice) -> No
     # a principal with no previous turn gets the menu, not another account's run
     cold = voice_with_runs.speak("why?", domain="general", principal="third")
     assert cold.message.startswith("I answer from this server's own record and code")
+
+
+def test_follow_up_context_is_per_session_within_a_principal(voice_with_runs: MercuryVoice) -> None:
+    """Two browsers of one account are one principal; their sessions must not share "why?"."""
+    voice_with_runs.speak(
+        "What was the latest anomaly?", domain="general", principal="test", session_id="tab-a"
+    )
+    other_tab = voice_with_runs.speak(
+        "why?", domain="general", principal="test", session_id="tab-b"
+    )
+    assert other_tab.message.startswith("I answer from this server's own record and code")
+    same_tab = voice_with_runs.speak("why?", domain="general", principal="test", session_id="tab-a")
+    assert same_tab.message.startswith("Explaining multivariate run")
