@@ -204,8 +204,8 @@ def main() -> None:
         "mean_auroc": mean_auroc,
         "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
         # Provenance, the way ``benchmarks/mercury_benchmark_results.json``
-        # records it. The committed run carried none, so when the v3 audit
-        # re-ran this harness and measured a different mean there was nothing
+        # records it. The committed run carried none, so when this harness was
+        # re-run and measured a different mean there was nothing
         # in the file to say which detector revision the old number belonged
         # to -- it turned out to be seven commits of ``detectors/statistical``
         # earlier. The harness is deterministic on a fixed tree (two runs are

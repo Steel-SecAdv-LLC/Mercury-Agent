@@ -657,7 +657,7 @@ def test_spot_check_standing_matches_the_committed_run() -> None:
 def test_head_to_head_and_loss_margin_match_the_competitive_run() -> None:
     """The LOF record and the median margin of the losses to knn are the run's.
 
-    Verified by hand during the v3 audit and guarded here so the next
+    Verified by hand against the committed artifacts and guarded here so the next
     competitive run cannot leave them behind.
     """
     doc = _artifact("benchmarks/competitive_results.json")
@@ -693,7 +693,7 @@ def test_quickstart_transcript_matches_a_real_run() -> None:
 
     The harness row the transcript prints is the ``DTU_AIS_Abnormal`` row of
     ``mercury_benchmark_results.json``, which the quickstart's own closing line
-    promises. Re-running the quickstart during the v3 audit reproduced the
+    promises. Re-running the quickstart reproduced the
     whole transcript, interval bounds included.
     """
     gen = _genuine_rows()

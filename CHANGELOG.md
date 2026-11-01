@@ -231,7 +231,7 @@ not end-task F1 — no committed experiment measures that). A real
 Lyapunov-constant A/B (what `ab_dominance` faked) would need the fusion
 training loop with λ varied and remains an open task rather than a claim.
 
-**Fixed — fabrication audit waves 3-5: theater benchmarks removed, docs trued
+**Fixed — fabrication audit, continued: theater benchmarks removed, docs trued
 to committed evidence, remaining disclosures landed.** Seven benchmark scripts
 that scripted their own results were deleted (none referenced by code):
 `ab_dominance`/`ab_sigma` wrote per-epoch F1 curves toward hardcoded targets
@@ -282,7 +282,7 @@ disclose their authored-workload/non-committed-harness provenance; and the
 in-session gwo/dimensional measurements are marked CHANGELOG-recorded, not
 artifact-backed.
 
-**Fixed — full-repo fabrication audit, wave 1/2: engine code that invented
+**Fixed — repository-wide fabrication audit: engine code that invented
 measurements now measures, discloses, or fails closed.** A four-auditor sweep
 of the whole repository found fabrication beyond the chart generators; every
 confirmed finding in `src/` is fixed at the root, with the ratifying tests

@@ -167,7 +167,7 @@ LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
 LABEL security.hardened="true"
-LABEL security.scan-date="2026-09-27"
+LABEL security.scan-date="2026-11-01"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level

@@ -31,10 +31,17 @@
 # HIGH findings (util-linux x4, systemd x1): the runtime stage's OS layer was
 # rebuilt and scanned with trivy 0.70.0, which reproduced the CI failure
 # 1:1, and each finding was cross-checked against the Debian Security
-# Tracker. The built runtime image now carries 7 distinct unfixed
-# CRITICAL/HIGH OS CVEs (0 CRITICAL, 7 HIGH); every one is trixie
-# `<no-dsa>` ("Minor issue", no fixed version published) and each package
-# is a hard dependency of CPython, bash, coreutils/tar or apt/dpkg.
+# Tracker. RE-REVIEWED 2026-11-01 (Debian 13.7) after the Docker Build gate
+# went red between two pushes on the same day with no
+# Dockerfile or dependency change: the vulnerability DB had published two new
+# unfixed HIGH findings against libsqlite3-0 (CVE-2026-119373,
+# CVE-2026-119586), reproduced 1:1 by the security.yml table-format scan
+# (run 41335629579) and cross-checked against the Debian Security Tracker
+# (vulnerable in bookworm, trixie, forky and sid; the upstream fix is SQLite
+# 3.54.0, which no Debian suite ships). The built runtime image now carries
+# 9 distinct unfixed CRITICAL/HIGH OS CVEs (0 CRITICAL, 9 HIGH); none has a
+# fixed version published for trixie and each package is a hard dependency
+# of CPython, bash, coreutils/tar or apt/dpkg.
 #
 # DROPPED in the 2026-09-27 re-review (not carried inert):
 #   * CVE-2026-53615 (util-linux libblkid) — FIXED in trixie
@@ -135,6 +142,28 @@ CVE-2026-76642 exp:2026-12-26
 CVE-2026-78408 exp:2026-12-26
 CVE-2026-78409 exp:2026-12-26
 CVE-2026-78410 exp:2026-12-26
+
+# sqlite3 (libsqlite3-0 3.46.1-7+deb13u2) — two HIGH findings published
+# 2026-11-01, both "vulnerable" in every Debian suite including sid (the
+# upstream fix is SQLite 3.54.0; Debian has published no DSA and no fixed
+# version). libsqlite3-0 backs CPython's own `_sqlite3` module, which the
+# shipped API uses for the shared rate-limit store, the key store and the
+# usage ledger, so the package is irreducible. The two conditions below are
+# machine-checked by tests/security/test_sqlite_cve_acceptance_conditions.py.
+#   * CVE-2026-119373 — heap buffer overflow in fts5MergeRowidLists() when a
+#     detail=none FTS5 table holding negative rowids is queried with a prefix
+#     MATCH. Mercury creates no FTS table of any kind (no `CREATE VIRTUAL
+#     TABLE ... USING fts*` anywhere in src/), its SQL is fixed statements
+#     with bound parameters, and no request body is ever executed as SQL, so
+#     the vulnerable code path has no caller in the image.
+#   * CVE-2026-119586 — command injection in the sqlite3 command-line
+#     shell's `.recover` dot-command (shell.c), not in the library. The image
+#     does not install the `sqlite3` CLI package (the scan lists only
+#     libsqlite3-0), and nothing in Mercury pipes `.recover` output anywhere.
+# Added 2026-11-01 (owner-approved; reproduced by security.yml run
+# 41335629579 and cross-checked against the Debian Security Tracker).
+CVE-2026-119373 exp:2027-01-30
+CVE-2026-119586 exp:2027-01-30
 
 # Mesa GL stack (CVE-2026-40393): REMOVED, not accepted. It was installed
 # only as OpenCV's libGL dependency, but Mercury uses

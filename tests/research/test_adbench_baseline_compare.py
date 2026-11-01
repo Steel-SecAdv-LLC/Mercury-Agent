@@ -9,7 +9,7 @@ run (``adbench_results.json``) yields the ledger the README cites, and that
 ``adbench_base_vs_current.json`` stays in sync with a fresh recompute from
 those two sources.
 
-**The ledger moved in the v3 audit, and this suite is why that was visible.**
+**The ledger moved when the harness was re-run, and this suite is why that was visible.**
 It pinned the PR-302 headline (14 W / 2 tie / 2 L, +0.0237 to a mean of
 0.7634), which was recorded at ``bdcdf6a``. Seven commits of
 ``detectors/statistical.py`` (+1,199 / −105 lines) later, re-running the

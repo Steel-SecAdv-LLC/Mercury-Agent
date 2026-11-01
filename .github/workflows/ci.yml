@@ -156,8 +156,8 @@ jobs:
           pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.2 pydocstyle==6.3.0
 
       - name: Run Black (formatting)
-        # ``benchmarks/``, ``examples/`` and ``research/`` joined src/ and
-        # tests/ in the v3 audit: ``research/engine_calibration/results.json``
+        # ``benchmarks/``, ``examples/`` and ``research/`` are in scope alongside
+        # src/ and tests/: ``research/engine_calibration/results.json``
         # and ``research/omni_equation/harness_adbench.py`` produce numbers the
         # README quotes, so the scripts behind a published claim are held to
         # the same bar as the library.  They were 113 ruff findings and 8

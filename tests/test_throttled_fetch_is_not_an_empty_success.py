@@ -8,7 +8,7 @@ returned an empty list and the base funnel rendered that as
 ``FetchResult(success=True, data_points=[], rate_limited=False,
 unreachable=False)``.  A caller reading that sees "no near-Earth close
 approaches this week"; the truth was an upstream ``HTTP 429
-OVER_RATE_LIMIT``.  The v3 audit's network lane caught it as a hard failure in
+OVER_RATE_LIMIT``.  The network test lane caught it as a hard failure in
 ``tests/test_live_wiring_network.py::TestRealSourcesLive::test_nasa_neows`` --
 whose helper skips only on ``result.unreachable``, and so never got the
 chance, because the source claimed success.
