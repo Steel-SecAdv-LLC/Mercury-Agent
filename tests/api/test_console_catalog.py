@@ -176,7 +176,6 @@ _FORBIDDEN_JS = {
     "new Function": re.compile(r"new\s+Function\s*\("),
     "setAttribute('style')": re.compile(r"""setAttribute\(\s*["']style["']"""),
     "cross-origin fetch": re.compile(r"""fetch\(\s*["']https?://"""),
-    "WebSocket": re.compile(r"new\s+WebSocket\s*\("),
 }
 
 
@@ -187,15 +186,47 @@ def test_console_scripts_obey_the_page_csp(script: str) -> None:
         assert not pattern.search(text), f"{script}: {label}"
 
 
-def test_app_writes_no_inline_style_markup() -> None:
-    """``app.js`` builds DOM nodes; it never writes ``style=`` into markup."""
-    text = (_CONSOLE / "app.js").read_text(encoding="utf-8")
-    assert 'style="' not in text and "style='" not in text
-    assert text.count("innerHTML") == 1  # the one sink: viz.js chart SVG
+def test_runtime_writes_styles_only_through_the_cssom() -> None:
+    """dc-runtime.js sets styles with element.style; its one innerHTML sink is chart SVG."""
+    text = (_CONSOLE / "dc-runtime.js").read_text(encoding="utf-8")
+    assert "style.setProperty" in text
+    assert 'setAttribute("style"' not in text and "cssText" not in text
+    assert text.count("innerHTML") == 1 and "dangerouslySetInnerHTML" in text
 
 
-def test_stylesheet_fetches_nothing() -> None:
-    css = (_CONSOLE / "console.css").read_text(encoding="utf-8")
+def test_alerts_socket_stays_closed() -> None:
+    """The prototype opens a WebSocket only for alertsUrl(); the server has no such route."""
+    api = (_CONSOLE / "api.js").read_text(encoding="utf-8")
+    assert "alertsUrl() { return null;" in api
+    logic = (_CONSOLE / "logic.js").read_text(encoding="utf-8")
+    assert logic.count("new WebSocket(") == 1
+    assert "const url = this.A.alertsUrl && this.A.alertsUrl(); if (!url" in logic
+
+
+def test_committed_port_is_current() -> None:
+    """Regenerate with ``python scripts/build_console_port.py`` when this fails."""
+    spec = importlib.util.spec_from_file_location(
+        "build_console_port", _REPO / "scripts" / "build_console_port.py"
+    )
+    assert spec and spec.loader
+    port = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(port)
+    for name, text in port.build().items():
+        assert (_CONSOLE / name).read_text(encoding="utf-8") == text, name
+    for image in port.IMAGES:
+        assert (_CONSOLE / image).read_bytes() == (port.DESIGN / image).read_bytes(), image
+
+
+def test_template_carries_no_raw_style_markup() -> None:
+    """The template is a JSON tree; styles are data the runtime applies via the CSSOM."""
+    text = (_CONSOLE / "template.js").read_text(encoding="utf-8")
+    assert "window.MCLI_TEMPLATE = [" in text
+    assert "<div" not in text and "style=" not in text
+
+
+@pytest.mark.parametrize("sheet", ["tokens.css", "port.css"])
+def test_stylesheet_fetches_nothing(sheet: str) -> None:
+    css = re.sub(r"/\*.*?\*/", "", (_CONSOLE / sheet).read_text(encoding="utf-8"), flags=re.S)
     assert "@import" not in css
     assert "url(" not in css
 
@@ -264,8 +295,10 @@ def test_page_loads_every_console_script_in_dependency_order() -> None:
         encoding="utf-8"
     )
     order = re.findall(r'<script src="/static/console/([\w-]+\.js)" defer></script>', page)
-    assert set(order) == {p.name for p in _CONSOLE.glob("*.js")}
-    assert order[0] == "catalog.js" and order[1] == "api.js" and order[-1] == "app.js"
+    shipped = {p.name for p in _CONSOLE.glob("*.js")} - {"diag.js"}  # diag.js loads on :diag
+    assert set(order) == shipped
+    assert order[:2] == ["catalog.js", "api.js"]
+    assert order[-3:] == ["dc-runtime.js", "template.js", "logic.js"]
     assert order.index("figure-trace.js") < order.index("figure.js")
 
 

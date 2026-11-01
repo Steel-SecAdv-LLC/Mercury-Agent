@@ -135,7 +135,8 @@ def test_static_assets_resolve(site: Site) -> None:
         "/static/auth.js",
         "/static/dashboard.js",
         "/static/vendor/qrcode.js",
-        "/static/console/console.css",
+        "/static/console/tokens.css",
+        "/static/console/port.css",
         "/static/console/catalog.js",
         "/static/console/api.js",
         "/static/console/mass.js",
@@ -144,7 +145,12 @@ def test_static_assets_resolve(site: Site) -> None:
         "/static/console/capture.js",
         "/static/console/figure-trace.js",
         "/static/console/figure.js",
-        "/static/console/app.js",
+        "/static/console/dc-runtime.js",
+        "/static/console/template.js",
+        "/static/console/logic.js",
+        "/static/console/diag.js",
+        "/static/console/omega-cross.png",
+        "/static/console/ama-monogram.png",
     ):
         response = client.get(path)
         assert response.status_code == 200, path
@@ -305,9 +311,13 @@ def test_pages_are_csp_compatible_and_self_contained() -> None:
 
 def test_pages_have_accessible_status_regions() -> None:
     """Interactive pages announce results via aria-live regions; forms label inputs."""
-    for name in ("register", "login", "verify-email", "reset-password", "dashboard", "console"):
+    for name in ("register", "login", "verify-email", "reset-password", "dashboard"):
         html = (frontend._PAGES_DIR / f"{name}.html").read_text(encoding="utf-8")
         assert 'aria-live="polite"' in html, name
-    for name in ("register", "login", "reset-password", "dashboard", "console"):
+    # The console's markup is its template (rendered by dc-runtime.js), not the page shell.
+    console_tpl = (frontend._STATIC_DIR / "console" / "template.js").read_text(encoding="utf-8")
+    assert '"aria-live":"polite"' in console_tpl
+    assert '["label",' in console_tpl
+    for name in ("register", "login", "reset-password", "dashboard"):
         html = (frontend._PAGES_DIR / f"{name}.html").read_text(encoding="utf-8")
         assert "<label" in html, name

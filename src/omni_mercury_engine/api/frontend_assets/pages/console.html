@@ -1,16 +1,17 @@
 <!DOCTYPE html>
 <!-- Copyright (C) 2025 Steel Security Advisors LLC
      SPDX-License-Identifier: AGPL-3.0-or-later
-     Mercury Console: browser front end for mercury-agent serve. Static markup only; every script and style is a
-     same-origin file (no inline script, style or handler attributes), as FRONTEND_CSP requires. -->
+     Mercury Console: browser front end for mercury-agent serve. The interface is the design prototype
+     (docs/design/mercury_console/design/Mercury CLI.dc.html) built by scripts/build_console_port.py and rendered by
+     dc-runtime.js. Same-origin scripts and stylesheets only; no inline script, style or handler attributes. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Mercury Agent console: command builder, agent, detection results, captures and catalog for a running mercury-agent serve.">
-  <meta name="color-scheme" content="dark light">
   <title>Mercury Console</title>
-  <link rel="stylesheet" href="/static/console/console.css">
+  <link rel="stylesheet" href="/static/console/tokens.css">
+  <link rel="stylesheet" href="/static/console/port.css">
   <script src="/static/console/catalog.js" defer></script>
   <script src="/static/console/api.js" defer></script>
   <script src="/static/console/mass.js" defer></script>
@@ -19,115 +20,12 @@
   <script src="/static/console/capture.js" defer></script>
   <script src="/static/console/figure-trace.js" defer></script>
   <script src="/static/console/figure.js" defer></script>
-  <script src="/static/console/app.js" defer></script>
+  <script src="/static/console/dc-runtime.js" defer></script>
+  <script src="/static/console/template.js" defer></script>
+  <script src="/static/console/logic.js" defer></script>
 </head>
 <body>
-  <div class="mc-page">
-    <div id="mercury-console" class="mc-frame" data-ready="false">
-      <div id="mc-boot" class="mc-boot" role="dialog" aria-modal="true" aria-labelledby="mc-boot-name">
-        <div class="mc-boot-sigil" aria-hidden="true">&#x2671;</div>
-        <h1 id="mc-boot-name" class="mc-boot-name"><span class="mc-brand-m">M</span><span class="mc-brand-c">ercury</span> <span class="mc-brand-m">A</span>gent</h1>
-        <p class="mc-boot-sub">Omni Mercury Engine &middot; <span id="mc-boot-version">&mdash;</span></p>
-        <div class="mc-boot-bar" aria-hidden="true"><div id="mc-boot-fill" class="mc-boot-fill"></div></div>
-        <p id="mc-boot-status" class="mc-boot-status" aria-live="polite">Loading the catalog&hellip;</p>
-        <button id="mc-boot-enter" class="mc-btn mc-btn-primary" type="button">Enter console</button>
-      </div>
-
-      <header class="mc-top">
-        <div class="mc-brand" aria-label="Mercury Agent">
-          <span class="mc-brand-sigil" aria-hidden="true">&#x2671;</span>
-          <span><span class="mc-brand-m">M</span><span class="mc-brand-c">ERCURY</span> <span class="mc-brand-m">A</span>GENT</span>
-          <span id="mc-version" class="mc-brand-v"></span>
-        </div>
-        <button id="mc-search" class="mc-search" type="button" aria-haspopup="dialog" aria-controls="mc-palette">
-          <span class="mc-search-g" aria-hidden="true">&#x2315;</span>
-          <span class="mc-search-t">Search commands, domains, detectors, tools, MCP, API</span>
-          <span class="mc-kbd">Ctrl K</span>
-        </button>
-        <span id="mc-run-pill" class="mc-pill" data-state="idle" role="status" aria-live="polite"><span class="mc-dot" aria-hidden="true"></span><span id="mc-run-text">Idle</span></span>
-        <button id="mc-conn" class="mc-pill" type="button" data-state="idle" aria-haspopup="dialog" aria-controls="mc-conn-dialog"><span class="mc-dot" aria-hidden="true"></span><span id="mc-conn-text">Engine</span></button>
-        <button id="mc-chat-toggle" class="mc-iconbtn" type="button" aria-pressed="false" aria-controls="mc-panel" title="Mercury Agent conversation">@</button>
-        <button id="mc-settings" class="mc-iconbtn" type="button" aria-haspopup="dialog" aria-controls="mc-settings-dialog" title="Settings">&#x2699;</button>
-      </header>
-
-      <div id="mc-body" class="mc-body" data-panel="closed">
-        <nav id="mc-nav" class="mc-nav" aria-label="Console"></nav>
-        <main id="mc-main" class="mc-main" tabindex="-1">
-          <section id="mc-view-term" class="mc-view mc-view-term" aria-labelledby="mc-term-title">
-            <h1 id="mc-term-title" class="mc-sr">Terminal</h1>
-            <div id="mc-term-out" class="mc-term-out" role="log" aria-live="polite" aria-relevant="additions"></div>
-            <div id="mc-opts" class="mc-opts"></div>
-            <div id="mc-suggest" class="mc-suggest" aria-label="Completions"></div>
-            <form id="mc-prompt" class="mc-prompt" autocomplete="off">
-              <label for="mc-prompt-in" class="mc-prompt-ps">$<span class="mc-sr"> command</span></label>
-              <input id="mc-prompt-in" class="mc-prompt-in" type="text" spellcheck="false" autocapitalize="off" placeholder="type a command &middot; Tab completes &middot; &uarr;&darr; history &middot; Enter runs" aria-describedby="mc-prompt-hint">
-              <span id="mc-prompt-hint" class="mc-hint">Ctrl-R search &middot; Ctrl-L clear &middot; Ctrl-C cancel</span>
-            </form>
-          </section>
-          <section id="mc-view" class="mc-view" hidden aria-live="polite"></section>
-        </main>
-        <aside id="mc-panel" class="mc-panel" aria-label="Mercury Agent">
-          <div class="mc-panel-tabs" role="tablist" aria-label="Panel">
-            <button id="mc-tab-chat" class="mc-tab" type="button" role="tab" aria-selected="true" aria-controls="mc-panel-chat">Agent</button>
-            <button id="mc-tab-ref" class="mc-tab" type="button" role="tab" aria-selected="false" aria-controls="mc-panel-ref">Reference</button>
-            <span class="mc-spacer"></span>
-            <button id="mc-panel-close" class="mc-iconbtn" type="button" title="Close panel">&times;</button>
-          </div>
-          <div id="mc-panel-chat" class="mc-panel-body" role="tabpanel" aria-labelledby="mc-tab-chat">
-            <div class="mc-presence">
-              <canvas id="mcli-presence" role="img" aria-label="Mercury Agent presence. The figure follows the engine, the work in flight and the pointer."></canvas>
-              <span id="mcli-presence-cap" class="mc-presence-cap" aria-live="off">starting</span>
-            </div>
-            <p id="mc-mode" class="mc-mode"></p>
-            <div id="mc-chat-log" role="log" aria-live="polite"></div>
-          </div>
-          <div id="mc-panel-ref" class="mc-panel-body" role="tabpanel" aria-labelledby="mc-tab-ref" hidden></div>
-          <form id="mc-composer" class="mc-composer" autocomplete="off">
-            <label for="mcli-chat-input" class="mc-sr">Message to Mercury Agent</label>
-            <input id="mcli-chat-input" class="mc-input" type="text" placeholder="Ask Mercury Agent&hellip;" maxlength="2000">
-            <button class="mc-btn mc-btn-primary" type="submit">Send</button>
-          </form>
-        </aside>
-      </div>
-
-      <div id="mc-live" class="mc-sr" role="status" aria-live="polite"></div>
-    </div>
-  </div>
-
-  <dialog id="mc-palette" class="mc-dialog" aria-label="Command palette">
-    <div class="mc-dialog-head">
-      <label for="mc-palette-in" class="mc-search-g">&#x2315;<span class="mc-sr"> Search</span></label>
-      <input id="mc-palette-in" class="mc-palette-in" type="search" placeholder="Search commands, domains, detectors, tools, MCP, API" role="combobox" aria-controls="mc-palette-list" aria-expanded="true" aria-autocomplete="list">
-      <span class="mc-kbd">Esc</span>
-    </div>
-    <ul id="mc-palette-list" class="mc-palette-list" role="listbox" aria-label="Results"></ul>
-  </dialog>
-
-  <dialog id="mc-conn-dialog" class="mc-dialog" aria-labelledby="mc-conn-title">
-    <form method="dialog">
-      <div class="mc-dialog-head"><h2 id="mc-conn-title" class="mc-h1">Engine connection</h2><span class="mc-spacer"></span><button class="mc-iconbtn" value="close" title="Close">&times;</button></div>
-      <div class="mc-dialog-body">
-        <p class="mc-help">The console talks only to the server that served this page (<span id="mc-conn-origin"></span>). Routes that need a key read it from <code>X-API-Key</code>.</p>
-        <div class="mc-field"><label for="mc-conn-key" class="mc-label">API key</label><input id="mc-conn-key" class="mc-input" type="password" autocomplete="off" spellcheck="false"></div>
-        <div class="mc-field"><label class="mc-row"><input id="mc-conn-remember" type="checkbox"> <span class="mc-help">Remember the key in this browser (otherwise it lasts for this tab)</span></label></div>
-        <div class="mc-field"><label for="mc-conn-timeout" class="mc-label">Request timeout (ms)</label><input id="mc-conn-timeout" class="mc-input" type="number" min="1000" max="600000" step="1000"></div>
-        <div id="mc-conn-status" class="mc-help" aria-live="polite"></div>
-        <div class="mc-row"><button id="mc-conn-save" class="mc-btn mc-btn-primary" type="button">Save &amp; probe</button><button class="mc-btn" value="close">Close</button></div>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="mc-settings-dialog" class="mc-dialog" aria-labelledby="mc-settings-title">
-    <form method="dialog">
-      <div class="mc-dialog-head"><h2 id="mc-settings-title" class="mc-h1">Settings</h2><span class="mc-spacer"></span><button class="mc-iconbtn" value="close" title="Close">&times;</button></div>
-      <div class="mc-dialog-body">
-        <div class="mc-field"><label for="mc-set-theme" class="mc-label">Theme</label><select id="mc-set-theme" class="mc-select"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Follow system</option></select></div>
-        <div class="mc-field"><label class="mc-row"><input id="mc-set-contrast" type="checkbox"> <span class="mc-help">High contrast</span></label></div>
-        <div class="mc-field"><label class="mc-row"><input id="mc-set-motion" type="checkbox"> <span class="mc-help">Reduce motion</span></label></div>
-        <div class="mc-field"><label class="mc-row"><input id="mc-set-focus" type="checkbox"> <span class="mc-help">Always show focus outlines</span></label></div>
-        <div class="mc-field"><label for="mc-set-scale" class="mc-label">Text scale</label><select id="mc-set-scale" class="mc-select"><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option></select></div>
-      </div>
-    </form>
-  </dialog>
+  <div id="mercury-console" data-ready="false"></div>
+  <noscript><p>The Mercury Console needs JavaScript. The API is at <a href="/docs">/docs</a>.</p></noscript>
 </body>
 </html>

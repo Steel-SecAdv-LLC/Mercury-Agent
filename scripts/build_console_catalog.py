@@ -159,13 +159,33 @@ _EXAMPLE = re.compile(r"^\s*(?:\$\s*)?mercury-agent\s+(.+?)\s*$")
 
 
 def _examples(doc: str | None) -> list[str]:
+    """``mercury-agent ...`` lines in a docstring, continuations joined, comments dropped."""
+    lines: list[str] = []
+    pending = ""
+    for raw in (doc or "").splitlines():
+        line = raw.strip()
+        if pending:
+            pending += " " + line.rstrip("\\").strip()
+            if not line.endswith("\\"):
+                lines.append(pending)
+                pending = ""
+            continue
+        if _EXAMPLE.match(raw):
+            if line.endswith("\\"):
+                pending = line.rstrip("\\").strip()
+            else:
+                lines.append(line)
+    if pending:
+        lines.append(pending)
     out: list[str] = []
-    for line in (doc or "").splitlines():
+    for line in lines:
         match = _EXAMPLE.match(line)
-        if match:
-            example = match.group(1).rstrip("\\").strip()
-            if example and example not in out:
-                out.append(example)
+        if not match:
+            continue
+        example = re.sub(r"\s+#.*$", "", match.group(1)).strip()
+        example = re.sub(r"\s{2,}", " ", example)
+        if example and example not in out:
+            out.append(example)
     return out
 
 
@@ -433,11 +453,13 @@ def _field(schema: dict[str, Any], required: bool, components: dict[str, Any]) -
     return out
 
 
-def _object_fields(schema: dict[str, Any], components: dict[str, Any]) -> dict[str, Any]:
+def _object_fields(
+    schema: dict[str, Any], components: dict[str, Any], *, raw_body: bool = True
+) -> dict[str, Any]:
     ref = schema.get("$ref")
     if ref:
         schema = components.get(ref.rsplit("/", 1)[-1], {})
-    if schema.get("type") == "object" and not schema.get("properties"):
+    if raw_body and schema.get("type") == "object" and not schema.get("properties"):
         # A free-form JSON body (``dict[str, Any]``): the console sends the
         # user's object as the whole body.
         return {"body": {"type": "object", "req": 1, "raw": 1, "desc": "Free-form JSON body"}}
@@ -459,7 +481,7 @@ def build_mcp() -> tuple[list[dict[str, str]], dict[str, Any]]:
         spec = tools[name]
         sentence = _first_line(spec.description).split(". ")[0].rstrip(".")
         listing.append({"n": name, "d": sentence})
-        schemas[name] = _object_fields(spec.input_schema, {})
+        schemas[name] = _object_fields(spec.input_schema, {}, raw_body=False)
     return listing, schemas
 
 
@@ -497,6 +519,11 @@ def build_api() -> tuple[list[dict[str, str]], dict[str, Any]]:
                 fields[param["name"]] = field
             if method != "get" or fields:
                 schemas[key] = fields
+    # The hazard route takes ``hazard: str`` and validates it against
+    # KNOWN_HAZARDS at run time (400 otherwise); state the legal values.
+    hazard = schemas.get("POST /api/v1/hazard/visualize", {}).get("hazard")
+    if hazard is not None:
+        hazard.update({"type": "enum", "enum": build_hazards()})
     return listing, schemas
 
 
@@ -578,9 +605,7 @@ def build_runs() -> list[dict[str, Any]]:
                 "cat": _run_category(rel),
                 "s": _first_line(ast.get_docstring(tree)),
             }
-            flags = _argparse_flags(tree)
-            if flags:
-                row["a"] = flags
+            row["a"] = _argparse_flags(tree)  # always a list: the console iterates it
             rows.append(row)
     return rows
 
