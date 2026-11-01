@@ -66,10 +66,17 @@ dashboard's redirect to login.
 and temporal components (0.583/0.417) while the batch job's `fusion` method
 hard coded 0.6/0.4, so eleven zeros followed by a 10 at sensitivity 0.52 was
 an anomaly over HTTP (3.442 against 3.44) and clean as a batch job (3.437).
-Both routes now read one table (`api/fusion_weights.py`), and
-`tests/api/test_fusion_batch_parity.py` pins the reviewer's series, an
-isolated spike, and the bound that a batch peak never exceeds the synchronous
-score.
+On multi-feature input the synchronous route also standardised every value
+against one global mean and standard deviation and differenced the flattened
+matrix (a "step" ran from the last column of one row to the first of the
+next) while the batch path standardised per column and stepped row to row,
+so `[[0, 1000]] * 11 + [[10, 1000]]` was anomalous as a batch job (3.442) and
+clean over HTTP (1.418). Both routes now take their components from one
+kernel (`api/fusion_weights.py`: per-feature standardisation, row-to-row
+steps, per-feature spectral scores, one weight table), and
+`tests/api/test_fusion_batch_parity.py` pins the reviewer's series and
+matrix, an isolated spike, a constant-column invariance, and the bound that a
+batch peak never exceeds the synchronous score.
 
 **Fixed — a running worker recalls runs another worker recorded.** The
 retriever loaded `MERCURY_AGENT_MEMORY_PATH` only at construction, so a worker

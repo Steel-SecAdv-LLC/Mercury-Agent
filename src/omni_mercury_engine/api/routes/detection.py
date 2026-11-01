@@ -19,7 +19,14 @@ from pydantic import BaseModel, Field
 from scipy.special import ndtri_exp
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
-from omni_mercury_engine.api.fusion_weights import fuse, normalized_weights
+from omni_mercury_engine.api.fusion_weights import (
+    as_matrix,
+    column_statistics,
+    fuse,
+    normalized_weights,
+    statistical_scores,
+    temporal_scores,
+)
 from omni_mercury_engine.api.routes.export import record_detection
 
 logger = logging.getLogger(__name__)
@@ -453,39 +460,37 @@ async def detect_fusion(
 ) -> FusionResponse:
     """Perform multi-detector fusion analysis."""
     try:
-        data = np.array(request.data)
-
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
+        # Rows of features (a 1-D series is one feature), standardised per
+        # feature: the components the batch job's fusion scores per sample,
+        # so the two routes agree on multi-feature input too.
+        matrix = as_matrix(request.data)
+        mean, std = column_statistics(matrix)
 
         threshold = 2.0 + (1.0 - request.sensitivity) * 3.0
         detector_scores: dict[str, float] = {}
 
         if "statistical" in request.detectors:
-            mean = np.mean(data)
-            std = np.std(data) + 1e-8
-            z_scores = np.abs((data - mean) / std)
-            detector_scores["statistical"] = float(np.max(z_scores))
+            detector_scores["statistical"] = float(np.max(statistical_scores(matrix, mean, std)))
 
         if "temporal" in request.detectors:
-            if data.size > 1:
-                diff = np.diff(data.flatten())
-                temporal_score = float(np.max(np.abs(diff)) / (np.std(data) + 1e-8))
-            else:
-                temporal_score = 0.0
-            detector_scores["temporal"] = temporal_score
+            detector_scores["temporal"] = (
+                float(np.max(temporal_scores(matrix, std))) if matrix.shape[0] > 1 else 0.0
+            )
 
         if "dimensional" in request.detectors:
-            if data.ndim == 2 and data.shape[1] > 1:
-                normalized = (data - np.mean(data, axis=0)) / (np.std(data, axis=0) + 1e-8)
+            if matrix.shape[1] > 1:
+                normalized = (matrix - mean) / std
                 dimensional_score = float(np.max(np.linalg.norm(normalized, axis=1)))
             else:
-                dimensional_score = detector_scores.get("statistical", 0.0)
+                dimensional_score = float(np.max(statistical_scores(matrix, mean, std)))
             detector_scores["dimensional"] = dimensional_score
 
         if "spectral" in request.detectors:
-            spectral_score = _spectral_peak_z(data.flatten())
-            detector_scores["spectral"] = spectral_score
+            # Per feature, never over the flattened matrix (which would splice
+            # the columns into one false series).
+            detector_scores["spectral"] = max(
+                _spectral_peak_z(matrix[:, j]) for j in range(matrix.shape[1])
+            )
 
         # The weights are the table the batch route's fusion reads too, so the
         # same data reaches the same verdict whichever route scores it.

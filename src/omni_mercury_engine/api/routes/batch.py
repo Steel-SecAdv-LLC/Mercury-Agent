@@ -32,7 +32,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from pydantic import BaseModel, Field, field_validator
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
-from omni_mercury_engine.api.fusion_weights import fuse
+from omni_mercury_engine.api.fusion_weights import fuse, statistical_scores, temporal_scores
 
 logger = logging.getLogger(__name__)
 
@@ -490,9 +490,16 @@ async def _process_chunk(
             elif method == BatchDetectionMethod.TEMPORAL:
                 score = float(np.max(np.abs(arr - prev) / ds_std)) if prev is not None else 0.0
             elif method == BatchDetectionMethod.FUSION:
-                temporal = float(np.max(np.abs(arr - prev) / ds_std)) if prev is not None else 0.0
+                row = arr.reshape(1, -1)
                 score = fuse(
-                    {"statistical": float(np.max(z)), "temporal": temporal},
+                    {
+                        "statistical": float(statistical_scores(row, ds_mean, ds_std)[0]),
+                        "temporal": (
+                            float(temporal_scores(row, ds_std, previous=prev)[0])
+                            if prev is not None
+                            else 0.0
+                        ),
+                    },
                     _BATCH_FUSION_COMPONENTS,
                 )
             else:  # STATISTICAL

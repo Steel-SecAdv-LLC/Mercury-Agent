@@ -23,14 +23,16 @@ SERIES = [0.0] * 11 + [10.0]
 SENSITIVITY = 0.52
 
 
-def _sync_fused(series: list[float], detectors: list[str]) -> tuple[float, bool]:
+def _sync_fused(
+    series: list[float] | list[list[float]], detectors: list[str]
+) -> tuple[float, bool]:
     request = detection.FusionRequest(data=series, detectors=detectors, sensitivity=SENSITIVITY)
     response = asyncio.run(detection.detect_fusion(request, None))
     return response.fused_score, response.is_anomaly
 
 
-def _batch_fused(series: list[float]) -> tuple[float, bool]:
-    rows = [[v] for v in series]
+def _batch_fused(series: list[float] | list[list[float]]) -> tuple[float, bool]:
+    rows = [[v] for v in series] if not isinstance(series[0], list) else [list(r) for r in series]
     arr = np.asarray(rows, dtype=float)
     results = asyncio.run(
         batch._process_chunk(
@@ -104,3 +106,42 @@ def test_synchronous_route_reports_the_shared_weights() -> None:
     assert response.detector_contributions == pytest.approx(
         fusion_weights.normalized_weights(["statistical", "temporal"])
     )
+
+
+def test_two_column_input_reaches_the_same_verdict_on_both_routes() -> None:
+    """The reviewer's matrix: a 10-step in one column beside a constant 1000 in the other.
+
+    The synchronous route standardised against one global mean and std and
+    differenced the flattened matrix (a "step" ran from 1000 to 0 across the
+    row boundary), scoring 1.418 and clean; the batch job standardised per
+    column and differenced row to row, scoring 3.442 and anomalous. Both now
+    standardise per feature and step row to row.
+    """
+    matrix = [[0.0, 1000.0]] * 11 + [[10.0, 1000.0]]
+    sync_score, sync_flag = _sync_fused(matrix, ["statistical", "temporal"])
+    batch_score, batch_flag = _batch_fused(matrix)
+    assert sync_flag is True and batch_flag is True
+    assert batch_score == pytest.approx(sync_score, abs=5e-7)
+
+
+def test_the_constant_feature_does_not_dominate_the_fused_score() -> None:
+    """A constant column scores 0 on every component rather than inf or a false step."""
+    matrix = [[v, 1000.0] for v in [0.0] * 10 + [10.0] + [0.0] * 10]
+    fused_two, _ = _sync_fused(matrix, ["statistical", "temporal"])
+    fused_one, _ = _sync_fused([0.0] * 10 + [10.0] + [0.0] * 10, ["statistical", "temporal"])
+    assert fused_two == pytest.approx(fused_one, abs=1e-9)
+
+
+def test_spectral_component_is_taken_per_feature() -> None:
+    """A tone in one column is found whether or not a constant column sits beside it."""
+    t = np.arange(256)
+    tone = list(np.sin(2 * np.pi * 20 * t / 256))
+    alone = asyncio.run(
+        detection.detect_fusion(detection.FusionRequest(data=tone, detectors=["spectral"]), None)
+    )
+    beside = asyncio.run(
+        detection.detect_fusion(
+            detection.FusionRequest(data=[[v, 5.0] for v in tone], detectors=["spectral"]), None
+        )
+    )
+    assert beside.detector_scores["spectral"] == pytest.approx(alone.detector_scores["spectral"])
