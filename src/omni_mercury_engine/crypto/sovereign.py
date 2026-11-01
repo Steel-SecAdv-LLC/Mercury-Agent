@@ -25,8 +25,9 @@ Scope — deliberately asymmetric:
   Rust backend are both down gets a loud error, never a silent algorithm
   swap. Output format is ``ciphertext || 16-byte tag`` — byte-compatible
   with the Rust and AMA tiers, so any tier decrypts any tier's output.
-* **KDF**: HKDF-SHA256 (RFC 5869) over stdlib ``hmac``/``hashlib``
-  (the repository's accepted hash base — e.g. the corpus SHA3 digests).
+* **KDF**: HKDF-SHA256 (RFC 5869) over a repository-owned HMAC (RFC 2104)
+  on CPython's built-in HACL* SHA-256 -- not ``hashlib``/``hmac``, which
+  dispatch to OpenSSL on any OpenSSL-linked interpreter.
 * **Signatures**: Ed25519 **verification only** (RFC 8032). Verification
   handles public inputs, so Python's variable-time arithmetic leaks nothing
   secret; it keeps Mercury's *read* paths alive (corpus-signature checks,
@@ -40,7 +41,8 @@ Honest limitations, stated rather than hidden:
 
 * Poly1305 runs on Python big integers; its timing varies with operand
   values. The MAC key is single-use per nonce (RFC 8439 §2.6) and the tag
-  comparison is ``hmac.compare_digest``, which bounds the exposure, but this
+  comparison is constant-time (CPython's own ``_compare_digest``, not
+  OpenSSL's), which bounds the exposure, but this
   tier is an emergency measure, not a constant-time implementation.
 * Throughput is pure-Python throughput (measured ~0.1 MB/s-class, versus
   hundreds of MB/s native). The emergency tier trades speed for existence.
@@ -52,9 +54,16 @@ independent implementation.
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import struct
+
+# CPython's constant-time comparison, taken from ``_operator`` directly:
+# ``hmac.compare_digest`` is rebound at import to OpenSSL's CRYPTO_memcmp
+# whenever ``_hashlib`` is present, which is exactly the dependency this tier
+# exists to avoid. ``_operator._compare_digest`` is the interpreter's own
+# implementation (present since CPython 3.3) and what ``hmac`` falls back to.
+from _operator import _compare_digest
+from collections.abc import Callable
+from typing import Any
 
 __all__ = [
     "chacha20poly1305_decrypt",
@@ -62,6 +71,71 @@ __all__ = [
     "ed25519_verify",
     "hkdf_sha256",
 ]
+
+# =============================================================================
+# SHA-2 and HMAC, bound to the interpreter's own code -- not OpenSSL
+# =============================================================================
+#
+# ``hashlib.sha256`` / ``hashlib.sha512`` resolve to ``openssl_sha256`` /
+# ``openssl_sha512`` on every CPython built against OpenSSL, and ``hmac.new``
+# with them runs OpenSSL's HMAC. This tier previously used both, so its
+# "repository-owned, no third-party crypto" emergency path executed every
+# HKDF, HMAC and Ed25519 challenge hash inside OpenSSL. The constructors
+# below are CPython's bundled HACL* implementations (formally verified,
+# shipped in the interpreter since 3.12 as ``_sha2``; 3.11 has the older
+# ``_sha256`` / ``_sha512`` modules). They are resolved once, here; if the
+# interpreter was built without them the tier fails closed at call time
+# rather than borrowing OpenSSL.
+
+_HashFactory = Callable[..., Any]
+
+
+def _builtin_sha2(name: str) -> _HashFactory | None:
+    """Return the interpreter's non-OpenSSL ``sha256`` / ``sha512`` constructor, if built."""
+    try:
+        import _sha2  # CPython >= 3.12 (HACL*)
+
+        return getattr(_sha2, name, None)
+    except ImportError:
+        pass
+    try:  # CPython 3.11
+        module = __import__(f"_{name}")
+        return getattr(module, name, None)
+    except ImportError:
+        return None
+
+
+_SHA256: _HashFactory | None = _builtin_sha2("sha256")
+_SHA512: _HashFactory | None = _builtin_sha2("sha512")
+
+
+def _require(factory: _HashFactory | None, name: str) -> _HashFactory:
+    if factory is None:
+        raise RuntimeError(
+            f"sovereign crypto tier unavailable: this interpreter has no built-in "
+            f"{name} (CPython built with --without-builtin-hashlib-hashes); the tier "
+            "refuses to fall back to OpenSSL"
+        )
+    return factory
+
+
+def _sha512_digest(data: bytes) -> bytes:
+    return bytes(_require(_SHA512, "sha512")(data).digest())
+
+
+def _hmac_sha256(key: bytes, message: bytes) -> bytes:
+    """HMAC-SHA256 (RFC 2104) over the built-in SHA-256."""
+    sha256 = _require(_SHA256, "sha256")
+    block_size = 64
+    if len(key) > block_size:
+        key = bytes(sha256(key).digest())
+    key = key.ljust(block_size, b"\x00")
+    inner = sha256(bytes(b ^ 0x36 for b in key))
+    inner.update(message)
+    outer = sha256(bytes(b ^ 0x5C for b in key))
+    outer.update(inner.digest())
+    return bytes(outer.digest())
+
 
 # =============================================================================
 # ChaCha20 stream cipher (RFC 8439 §2.1-2.4)
@@ -184,7 +258,7 @@ def chacha20poly1305_decrypt(
 
     Raises:
         ValueError: On a short input, or when the authentication tag does
-            not verify (checked with ``hmac.compare_digest`` **before** any
+            not verify (checked in constant time **before** any
             plaintext is produced).
     """
     if len(key) != 32:
@@ -197,7 +271,7 @@ def chacha20poly1305_decrypt(
     tag = ciphertext_and_tag[-16:]
     one_time_key = _chacha20_block(key, 0, nonce)[:32]
     expected = _poly1305_tag(one_time_key, _aead_mac_data(aad, ciphertext))
-    if not hmac.compare_digest(expected, tag):
+    if not _compare_digest(expected, tag):
         raise ValueError("Decryption failed: authentication tag mismatch")
     return _chacha20_xor(key, nonce, ciphertext, 1)
 
@@ -217,12 +291,12 @@ def hkdf_sha256(ikm: bytes, length: int, salt: bytes | None = None, info: bytes 
         raise ValueError("HKDF-SHA256 output length must be in [1, 8160]")
     if salt is None:
         salt = b"\x00" * 32
-    prk = hmac.new(salt, ikm, hashlib.sha256).digest()
+    prk = _hmac_sha256(salt, ikm)
     okm = b""
     previous = b""
     counter = 1
     while len(okm) < length:
-        previous = hmac.new(prk, previous + info + bytes([counter]), hashlib.sha256).digest()
+        previous = _hmac_sha256(prk, previous + info + bytes([counter]))
         okm += previous
         counter += 1
     return okm[:length]
@@ -339,10 +413,7 @@ def ed25519_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     s = int.from_bytes(signature[32:], "little")
     if s >= _L:
         return False
-    k = (
-        int.from_bytes(hashlib.sha512(signature[:32] + public_key + message).digest(), "little")
-        % _L
-    )
+    k = int.from_bytes(_sha512_digest(signature[:32] + public_key + message), "little") % _L
     left = _scalar_mult(s, _BASE)
     right = _edwards_add(r_point, _scalar_mult(k, a_point))
     return _point_encode(left) == _point_encode(right)
