@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from omni_mercury_engine.narrative.detection_memory import DetectionMemoryStore
+
 logger = logging.getLogger(__name__)
 
 
@@ -231,7 +233,13 @@ class KnowledgeRetriever:
         self._agent_memory = None
         self._memory_surface = None
         self._pattern_registry: dict[str, list[dict[str, Any]]] = {}
-        self._detection_log: list[dict[str, Any]] = []
+        # Durable when MERCURY_AGENT_MEMORY_PATH is set: the newest entries are
+        # loaded here and every logged detection is appended, so recall
+        # survives a restart. Unset, the log is this list alone.
+        self._detection_store = DetectionMemoryStore.from_env()
+        self._detection_log: list[dict[str, Any]] = (
+            self._detection_store.load() if self._detection_store is not None else []
+        )
 
         # Statistics
         self._search_count = 0
@@ -266,14 +274,18 @@ class KnowledgeRetriever:
         now visible only to its principal, and an entry recorded without one
         (narrated directly, no account involved) stays visible to all.
         """
-        self._detection_log.append(
-            {
-                "detection": detection,
-                "domain": domain,
-                "principal": principal,
-                "timestamp": time.time(),
-            }
-        )
+        entry = {
+            "detection": detection,
+            "domain": domain,
+            "principal": principal,
+            "timestamp": time.time(),
+        }
+        self._detection_log.append(entry)
+        if self._detection_store is not None:
+            try:
+                self._detection_store.append(entry)
+            except Exception as exc:  # pragma: no cover - disk faults must not fail a detection
+                logger.warning("detection memory not persisted: %s", exc)
 
         # Keep last 1000 detections
         if len(self._detection_log) > 1000:

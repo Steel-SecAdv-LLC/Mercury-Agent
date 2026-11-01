@@ -260,6 +260,7 @@ def state_inventory() -> list[InventoryItem]:
         ("MERCURY_MODEL_DIR", "model directory"),
         ("MERCURY_CACHE_DIR", "cache directory"),
         ("MERCURY_SELF_MODEL_PATH", "self-model"),
+        ("MERCURY_AGENT_MEMORY_PATH", "agent detection memory"),
         ("MERCURY_ADJUDICATION_PATH", "adjudication ledger"),
         ("MERCURY_CALIBRATION_CACHE", "calibration cache"),
     ):

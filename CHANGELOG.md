@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — durable agent memory (`MERCURY_AGENT_MEMORY_PATH`).** The detection
+log the agent answers from lived only in the process, so every restart emptied
+it and the first answer after a deploy was always "no detection runs are
+recorded yet". When the variable names a SQLite file (the interpreter's own
+`sqlite3`, fixed statements only, no virtual tables), every logged detection is
+appended there with its domain and principal and a new process loads the newest
+1,000 at start, so recall survives restarts and is shared across workers on the
+same path. Unset, behaviour is unchanged. The location is listed by
+`mercury-agent decouple status` and removed by `purge-work`
+(`tests/narrative/test_detection_memory_store.py`).
+
 **Added — the agent explains its newest run and describes the engine from code.**
 "Explain the latest detection" (an example the voice route has documented
 since it was written) narrates the newest recorded run of the asking account

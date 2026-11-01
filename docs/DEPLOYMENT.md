@@ -320,6 +320,7 @@ See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
 |----------|---------|-------------|
 | `MERCURY_AGENT_ENV` | `development` | Set to `production` for strict mode |
 | `MERCURY_HOST` | `127.0.0.1` | Bind address for `mercury-agent serve`; set `0.0.0.0` for all interfaces |
+| `MERCURY_AGENT_MEMORY_PATH` | unset | SQLite file for the agent's detection memory (the runs behind "what was the latest anomaly?" and "how many anomalies today?"). Unset, memory is per process and empties on restart; set, the newest 1,000 runs persist and are shared by every worker on the path. Listed by `mercury-agent decouple status` and removed by `purge-work`. |
 
 Port and worker count are **CLI flags**, not environment variables: `mercury-agent serve --port <n> --workers <n>` (defaults 8000 / 1). The shipped container image bypasses the CLI and serves uvicorn on a fixed `0.0.0.0:8000` via its `CMD` (single process). There are no `OMNI_API_HOST`/`OMNI_API_PORT`/`OMNI_API_WORKERS` hooks in the application.
 

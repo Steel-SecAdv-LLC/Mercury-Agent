@@ -43,6 +43,7 @@ def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "MERCURY_MODEL_DIR",
         "MERCURY_CACHE_DIR",
         "MERCURY_SELF_MODEL_PATH",
+        "MERCURY_AGENT_MEMORY_PATH",
         "MERCURY_ADJUDICATION_PATH",
         "MERCURY_CALIBRATION_CACHE",
         "MERCURY_DECOUPLE_FINDOYOU",
