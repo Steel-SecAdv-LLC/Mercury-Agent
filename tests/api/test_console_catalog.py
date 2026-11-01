@@ -194,13 +194,30 @@ def test_runtime_writes_styles_only_through_the_cssom() -> None:
     assert text.count("innerHTML") == 1 and "dangerouslySetInnerHTML" in text
 
 
-def test_alerts_socket_stays_closed() -> None:
-    """The prototype opens a WebSocket only for alertsUrl(); the server has no such route."""
+def test_alert_dock_reads_the_server_sent_event_stream() -> None:
+    """The dock consumes ``GET /api/v1/voice/alerts`` over a streaming fetch, not a WebSocket.
+
+    A browser WebSocket cannot carry the API-key header the rest of the console
+    sends, and the server has no WebSocket route; the stream is server-sent
+    events. The URL follows an http(s) engine and is ``null`` for the simulated
+    one, and the header shows the state the logic computes.
+    """
     api = (_CONSOLE / "api.js").read_text(encoding="utf-8")
-    assert "alertsUrl() { return null;" in api
+    assert 'b.replace(/\\/$/, "") + "/api/v1/voice/alerts" : null' in api
+    assert (
+        'alertsHeaders() { return Object.assign({ Accept: "text/event-stream" }, headers(false)); }'
+        in api
+    )
     logic = (_CONSOLE / "logic.js").read_text(encoding="utf-8")
-    assert logic.count("new WebSocket(") == 1
+    assert "new WebSocket(" not in logic
     assert "const url = this.A.alertsUrl && this.A.alertsUrl(); if (!url" in logic
+    assert (
+        "headers: this.A.alertsHeaders ? this.A.alertsHeaders() : {}, signal: ctl.signal" in logic
+    )
+    assert 'm.initiative_type === "heartbeat"' in logic
+    assert "SSE /api/v1/voice/alerts" in logic and "WS /api/v1/voice/alerts" not in logic
+    template = (_CONSOLE / "template.js").read_text(encoding="utf-8")
+    assert "{{ alertsLabel }}" in template and "{{ alertsColor }}" in template
 
 
 def test_committed_port_is_current() -> None:

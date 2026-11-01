@@ -139,6 +139,44 @@ class DetectionMemoryStore:
             )
         return entries
 
+    def latest_id(self) -> int:
+        """The newest row id, or 0 when the store is empty (a stream cursor's start)."""
+        with self._lock:
+            row = self._conn.execute("SELECT MAX(id) FROM detection_memory").fetchone()
+        return int(row[0] or 0) if row else 0
+
+    def load_after(self, after_id: int, limit: int = 100) -> list[tuple[int, dict[str, Any]]]:
+        """Rows appended after ``after_id``, oldest first, as ``(id, entry)`` pairs.
+
+        This is how a stream on one worker sees a detection recorded on
+        another: the in-process bus only reaches the worker that recorded it,
+        the store reaches them all.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, ts, domain, principal, detection FROM detection_memory "
+                "WHERE id > ? ORDER BY id ASC LIMIT ?",
+                (int(after_id), max(1, int(limit))),
+            ).fetchall()
+        out: list[tuple[int, dict[str, Any]]] = []
+        for row_id, ts, domain, principal, detection in rows:
+            try:
+                parsed = json.loads(detection)
+            except ValueError:
+                continue
+            out.append(
+                (
+                    int(row_id),
+                    {
+                        "detection": parsed if isinstance(parsed, dict) else {},
+                        "domain": domain,
+                        "principal": principal,
+                        "timestamp": float(ts),
+                    },
+                )
+            )
+        return out
+
     def count(self) -> int:
         """Rows currently stored."""
         with self._lock:

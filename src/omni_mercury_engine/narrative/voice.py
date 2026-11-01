@@ -482,7 +482,7 @@ class MercuryVoice:
         domain = sanitize_domain(domain or self.default_domain)
 
         # Record user turn
-        self._record_turn(ConversationType.QUERY, "user", user_input)
+        self._record_turn(ConversationType.QUERY, "user", user_input, principal)
 
         # Get personality profile
         profile = self.personality_engine.get_profile(domain)
@@ -503,7 +503,7 @@ class MercuryVoice:
         self._remember_context(kind, argument, domain, principal)
 
         # Record Mercury's response
-        self._record_turn(ConversationType.QUERY, "mercury", response.message)
+        self._record_turn(ConversationType.QUERY, "mercury", response.message, principal)
 
         return response
 
@@ -1846,8 +1846,13 @@ class MercuryVoice:
         turn_type: ConversationType,
         speaker: str,
         content: str,
+        principal: str | None = None,
     ) -> None:
-        """Record a conversation turn."""
+        """Record a conversation turn, tagged with the account it belongs to.
+
+        The voice is one object per process, so without the tag one account's
+        questions were readable by every other through the history route.
+        """
         self._turn_counter += 1
 
         turn = ConversationTurn(
@@ -1856,6 +1861,7 @@ class MercuryVoice:
             speaker=speaker,
             content=content[:500],  # Truncate for memory
             timestamp=time.time(),
+            metadata={"principal": principal} if principal is not None else {},
         )
 
         self._conversation_history.append(turn)
@@ -1867,8 +1873,18 @@ class MercuryVoice:
     def get_conversation_history(
         self,
         n_turns: int = 10,
+        principal: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Get recent conversation history."""
+        """Recent turns, newest last.
+
+        With ``principal`` only that account's turns are returned (turns
+        recorded without an account, such as a greeting, belong to nobody and
+        are included); without it every turn is, for in-process callers such
+        as the CLI's single-user session.
+        """
+        turns = self._conversation_history
+        if principal is not None:
+            turns = [t for t in turns if t.metadata.get("principal") in (None, principal)]
         return [
             {
                 "turn_id": t.turn_id,
@@ -1877,7 +1893,7 @@ class MercuryVoice:
                 "content": t.content,
                 "timestamp": t.timestamp,
             }
-            for t in self._conversation_history[-n_turns:]
+            for t in turns[-n_turns:]
         ]
 
     def get_statistics(self) -> dict[str, Any]:

@@ -286,6 +286,14 @@ class KnowledgeRetriever:
                 self._detection_store.append(entry)
             except Exception as exc:  # pragma: no cover - disk faults must not fail a detection
                 logger.warning("detection memory not persisted: %s", exc)
+        # Live listeners (the console's alert dock through GET /api/v1/voice/alerts)
+        # hear about the run now rather than when they next ask.
+        try:
+            from omni_mercury_engine.narrative.alert_bus import get_alert_bus
+
+            get_alert_bus().publish(entry)
+        except Exception as exc:  # pragma: no cover - a listener must not fail a detection
+            logger.debug("alert fan-out skipped: %s", exc)
 
         # Keep last 1000 detections
         if len(self._detection_log) > 1000:

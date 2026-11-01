@@ -297,6 +297,84 @@ MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
     ),
 )
 
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "proactive alerts: GET /api/v1/voice/alerts is a server-sent event stream, consumed with a "
+        "streaming fetch so the API key travels as a header (a browser WebSocket cannot send one)",
+        "    alertsUrl() { return null; /* api/voice.py has no WebSocket route on main; the dock "
+        "shows alerts as absent instead of opening a socket that cannot connect */ },",
+        '    alertsUrl() { const b = String(cfg.baseUrl || ""); return /^https?:/.test(b) ? '
+        'b.replace(/\\/$/, "") + "/api/v1/voice/alerts" : null; },\n'
+        '    alertsHeaders() { return Object.assign({ Accept: "text/event-stream" }, headers(false)); },',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the alert dock reads the server-sent event stream instead of a WebSocket the server never had",
+        '    const url = this.A.alertsUrl && this.A.alertsUrl(); if (!url || typeof WebSocket === "undefined") return;\n'
+        '    let opened = false, ws; try { ws = new WebSocket(url); } catch (e) { this.setState({ alerts: { st: "absent" } }); return; }\n'
+        '    this._ws = ws; this.setState({ alerts: { st: "connecting" } });\n'
+        '    ws.onopen = () => { opened = true; this.setState({ alerts: { st: "live" } }); };\n'
+        "    ws.onmessage = (ev) => { let m = null; try { m = JSON.parse(ev.data); } catch (e) { return; } "
+        'if (!m || typeof m !== "object") return; const e2 = m.event || {}, typ = m.initiative_type || '
+        'e2.initiative_type || "alert", sev = m.severity != null ? m.severity : e2.severity, txt = m.message || '
+        "e2.message || e2.summary || JSON.stringify(m).slice(0, 400);\n",
+        '    const url = this.A.alertsUrl && this.A.alertsUrl(); if (!url || typeof fetch === "undefined" || '
+        'typeof AbortController === "undefined") return;\n'
+        "    // Server-sent events over a streaming fetch: the API key goes in a header, which a browser\n"
+        "    // WebSocket cannot carry. `ws` keeps the shape alertsClose() expects (close(), onclose).\n"
+        "    let opened = false; const ctl = new AbortController(), ws = { onclose: null, close: () => ctl.abort() };\n"
+        '    this._ws = ws; this.setState({ alerts: { st: "connecting" } });\n'
+        '    const onLine = (line) => { if (!line.startsWith("data:")) return; let m = null; try { m = '
+        'JSON.parse(line.slice(5).trim()); } catch (e) { return; } if (!m || typeof m !== "object" || '
+        'm.initiative_type === "heartbeat") return; const e2 = m.event || {}, typ = m.initiative_type || '
+        'e2.initiative_type || "alert", sev = m.severity != null ? m.severity : e2.severity, txt = m.message || '
+        "e2.message || e2.summary || JSON.stringify(m).slice(0, 400);\n",
+    ),
+    (
+        "alert events are labelled with the route that really serves them",
+        '" · WS /api/v1/voice/alerts"], text: txt }]);',
+        '" · SSE /api/v1/voice/alerts"], text: txt }]);',
+    ),
+    (
+        "alert results cite the stream route and its status",
+        'route: "WS /api/v1/voice/alerts", status: "ok", http: 101, data: m }); };\n'
+        "    ws.onclose = () => { if (this._ws !== ws) return; this._ws = null; if (!opened) { "
+        'this.setState({ alerts: { st: "absent" } }); return; }',
+        'route: "GET /api/v1/voice/alerts", status: "ok", http: 200, data: m }); };\n'
+        "    const closed = () => { if (this._ws !== ws) return; this._ws = null; if (!opened) { "
+        'this.setState({ alerts: { st: "absent" } }); return; }',
+    ),
+    (
+        "the stream is read line by line and reconnects with the same back-off the socket used",
+        "this._wsT = setTimeout(() => this.alertsConnect(n), Math.min(30000, 1000 * 2 ** n)); };\n"
+        "  }\n"
+        "  async pickEvent(ref) {",
+        "this._wsT = setTimeout(() => this.alertsConnect(n), Math.min(30000, 1000 * 2 ** n)); };\n"
+        "    (async () => { try { const r = await fetch(url, { headers: this.A.alertsHeaders ? "
+        'this.A.alertsHeaders() : {}, signal: ctl.signal, cache: "no-store" }); if (!r.ok || !r.body) '
+        '{ closed(); return; } opened = true; this.setState({ alerts: { st: "live" } }); const rd = '
+        'r.body.getReader(), td = new TextDecoder(); let buf = ""; for (;;) { const { value, done } = '
+        "await rd.read(); if (done) break; buf += td.decode(value, { stream: true }); let i; while ((i = "
+        'buf.indexOf("\\n")) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (line) '
+        "onLine(line); } } } catch (e) { if (ctl.signal.aborted) return; } closed(); })();\n"
+        "  }\n"
+        "  async pickEvent(ref) {",
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the agent panel header shows the alert stream state the logic already computed but never rendered",
+        '<span style="color:{{ connFg }};">{{ agentMode }}</span></span>',
+        '<span style="color:{{ connFg }};">{{ agentMode }}</span>'
+        '<span title="Proactive alerts · GET /api/v1/voice/alerts" '
+        'style="color:{{ alertsColor }};white-space:nowrap;margin-left:auto;">'
+        "{{ alertsLabel }}</span></span>",
+    ),
+)
+
 MODULE_PATCHES["mercury-cli-agent.js"] = (
     (
         "narrate payload: no severity derived from a clipped score",
@@ -410,6 +488,28 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
 )
 
 #: Design modules shipped unchanged apart from MODULE_PATCHES.
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "diagnostics expect the alert stream URL for http(s) engines and none for the simulated one",
+        "      const saved = A0.cfg.baseUrl; // api/voice.py has no WebSocket route on main, so the alerts "
+        "URL is null for every base URL and the dock reports alerts as absent.\n"
+        '      A0.set({ baseUrl: "https://m.example:8443" }); s.ok(A0.alertsUrl() === null, "no alerts socket '
+        'on main (https base)", A0.alertsUrl()); A0.set({ baseUrl: "http://127.0.0.1:8000" }); '
+        's.ok(A0.alertsUrl() === null, "no alerts socket on main (http base)", A0.alertsUrl()); '
+        'A0.set({ baseUrl: "sim://engine" }); s.ok(A0.alertsUrl() === null, "simulated engine has no alerts '
+        'socket", A0.alertsUrl()); A0.set({ baseUrl: saved });',
+        "      const saved = A0.cfg.baseUrl; // GET /api/v1/voice/alerts streams server-sent events; the "
+        "served console pins its origin, so the URL follows the page.\n"
+        '      A0.set({ baseUrl: "https://m.example:8443" }); s.ok(/^https?:\\/\\/.+\\/api\\/v1\\/voice\\/alerts$/'
+        '.test(A0.alertsUrl() || ""), "alert stream URL follows the http(s) engine", A0.alertsUrl()); '
+        'A0.set({ baseUrl: "sim://engine" }); s.ok(A0.simulated() ? A0.alertsUrl() === null : '
+        '/\\/api\\/v1\\/voice\\/alerts$/.test(A0.alertsUrl() || ""), "simulated engine has no alert stream '
+        '(a served console keeps its origin)", A0.alertsUrl()); s.ok(typeof A0.alertsHeaders === "function" && '
+        "A0.alertsHeaders().Accept === "
+        '"text/event-stream", "alert stream asks for text/event-stream", ""); A0.set({ baseUrl: saved });',
+    ),
+)
+
 MODULES = {
     "mercury-cli-api.js": "api.js",
     "mercury-cli-viz.js": "viz.js",

@@ -1277,15 +1277,17 @@ class Component extends DCLogic {
   alertsClose(reset) { const w = this._ws; this._ws = null; clearTimeout(this._wsT); if (w) { try { w.onclose = null; w.close(); } catch (e) {} } if (reset && this.state.alerts && this.state.alerts.st !== "idle") this.setState({ alerts: { st: "idle" } }); }
   alertsConnect(attempt) {
     if (!this.A || !this.live()) return; if (this.A.simulated && this.A.simulated()) { this.setState({ alerts: { st: "sim" } }); return; }
-    const url = this.A.alertsUrl && this.A.alertsUrl(); if (!url || typeof WebSocket === "undefined") return;
-    let opened = false, ws; try { ws = new WebSocket(url); } catch (e) { this.setState({ alerts: { st: "absent" } }); return; }
+    const url = this.A.alertsUrl && this.A.alertsUrl(); if (!url || typeof fetch === "undefined" || typeof AbortController === "undefined") return;
+    // Server-sent events over a streaming fetch: the API key goes in a header, which a browser
+    // WebSocket cannot carry. `ws` keeps the shape alertsClose() expects (close(), onclose).
+    let opened = false; const ctl = new AbortController(), ws = { onclose: null, close: () => ctl.abort() };
     this._ws = ws; this.setState({ alerts: { st: "connecting" } });
-    ws.onopen = () => { opened = true; this.setState({ alerts: { st: "live" } }); };
-    ws.onmessage = (ev) => { let m = null; try { m = JSON.parse(ev.data); } catch (e) { return; } if (!m || typeof m !== "object") return; const e2 = m.event || {}, typ = m.initiative_type || e2.initiative_type || "alert", sev = m.severity != null ? m.severity : e2.severity, txt = m.message || e2.message || e2.summary || JSON.stringify(m).slice(0, 400);
-      this.say([{ role: "agent", steps: ["proactive · " + String(typ).replace(/_/g, " ") + (sev != null ? " · severity " + (typeof sev === "number" ? sev.toFixed(2) : sev) : "") + (m.domain || e2.domain ? " · " + (m.domain || e2.domain) : "") + " · WS /api/v1/voice/alerts"], text: txt }]);
+    const onLine = (line) => { if (!line.startsWith("data:")) return; let m = null; try { m = JSON.parse(line.slice(5).trim()); } catch (e) { return; } if (!m || typeof m !== "object" || m.initiative_type === "heartbeat") return; const e2 = m.event || {}, typ = m.initiative_type || e2.initiative_type || "alert", sev = m.severity != null ? m.severity : e2.severity, txt = m.message || e2.message || e2.summary || JSON.stringify(m).slice(0, 400);
+      this.say([{ role: "agent", steps: ["proactive · " + String(typ).replace(/_/g, " ") + (sev != null ? " · severity " + (typeof sev === "number" ? sev.toFixed(2) : sev) : "") + (m.domain || e2.domain ? " · " + (m.domain || e2.domain) : "") + " · SSE /api/v1/voice/alerts"], text: txt }]);
       this.append([this.row("◆ Mercury · " + String(typ).replace(/_/g, " ") + " · " + String(txt).slice(0, 160), "var(--brand-gold)")]);
-      this.pushResult({ kind: "AGENT · ALERT", label: "Alert · " + String(typ).replace(/_/g, " "), route: "WS /api/v1/voice/alerts", status: "ok", http: 101, data: m }); };
-    ws.onclose = () => { if (this._ws !== ws) return; this._ws = null; if (!opened) { this.setState({ alerts: { st: "absent" } }); return; } const n = (attempt || 0) + 1; if (n > 5 || !this.live()) { this.setState({ alerts: { st: "absent" } }); return; } this.setState({ alerts: { st: "closed" } }); this._wsT = setTimeout(() => this.alertsConnect(n), Math.min(30000, 1000 * 2 ** n)); };
+      this.pushResult({ kind: "AGENT · ALERT", label: "Alert · " + String(typ).replace(/_/g, " "), route: "GET /api/v1/voice/alerts", status: "ok", http: 200, data: m }); };
+    const closed = () => { if (this._ws !== ws) return; this._ws = null; if (!opened) { this.setState({ alerts: { st: "absent" } }); return; } const n = (attempt || 0) + 1; if (n > 5 || !this.live()) { this.setState({ alerts: { st: "absent" } }); return; } this.setState({ alerts: { st: "closed" } }); this._wsT = setTimeout(() => this.alertsConnect(n), Math.min(30000, 1000 * 2 ** n)); };
+    (async () => { try { const r = await fetch(url, { headers: this.A.alertsHeaders ? this.A.alertsHeaders() : {}, signal: ctl.signal, cache: "no-store" }); if (!r.ok || !r.body) { closed(); return; } opened = true; this.setState({ alerts: { st: "live" } }); const rd = r.body.getReader(), td = new TextDecoder(); let buf = ""; for (;;) { const { value, done } = await rd.read(); if (done) break; buf += td.decode(value, { stream: true }); let i; while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (line) onLine(line); } } } catch (e) { if (ctl.signal.aborted) return; } closed(); })();
   }
   async pickEvent(ref) {
     const r = ref.recs[ref.idx]; if (!r) return; this.setState({ ev: ref, panel: true, tab: "chat" });

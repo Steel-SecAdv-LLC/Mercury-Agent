@@ -6,7 +6,7 @@ Provides REST API endpoints for Mercury's voice/conversational interface:
 - Natural language queries
 - Detection result narration
 - Status inquiries
-- Proactive alerts (via WebSocket)
+- Proactive alerts (server-sent events on ``GET /api/v1/voice/alerts``)
 
 Usage:
     curl -X POST "http://localhost:8000/api/v1/voice/speak" \
@@ -16,14 +16,20 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
@@ -592,27 +598,45 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
     summary="Get Voice Interface Status",
     description="Get the current status of Mercury's voice interface and related components.",
 )
-async def get_status() -> StatusResponse:
+async def get_status(user: User | None = Depends(_get_optional_user)) -> StatusResponse:
     """Get voice interface status.
+
+    Conversation and detection figures are the caller's own: the voice is one
+    object per process, so unscoped counts would describe every account.
 
     Returns:
         StatusResponse with component status and statistics
     """
     voice = _get_voice()
+    principal = _principal_of(user)
 
     components = {
         "voice_interface": "operational",
         "narrative_engine": "operational" if _get_narrative_engine() else "fallback",
         "conversation_history": (
-            len(voice.get_conversation_history())
+            len(voice.get_conversation_history(1000, principal=principal))
             if hasattr(voice, "get_conversation_history")
             else 0
         ),
+        "alerts": "operational",
     }
 
-    statistics = {
+    statistics: dict[str, Any] = {
         "conversation_turns": components.get("conversation_history", 0),
     }
+    retriever = getattr(voice, "retriever", None)
+    if retriever is not None and hasattr(retriever, "detections"):
+        runs = retriever.detections(principal=principal)
+        statistics["detection_runs"] = len(runs)
+        statistics["flagged_runs"] = sum(
+            1 for e in runs if e["detection"].get("anomaly_detected", False)
+        )
+    try:
+        from omni_mercury_engine.narrative.alert_bus import get_alert_bus
+
+        statistics["alert_listeners"] = get_alert_bus().subscriber_count
+    except Exception:  # pragma: no cover - bus import failure
+        pass
 
     return StatusResponse(
         status="operational",
@@ -628,25 +652,25 @@ async def get_status() -> StatusResponse:
     summary="Get Mercury Greeting",
     description="Get an initial greeting from Mercury with available capabilities.",
 )
-async def greet(domain: str | None = None) -> GreetingResponse:
+async def greet(
+    domain: str | None = None, user: User | None = Depends(_get_optional_user)
+) -> GreetingResponse:
     """Get Mercury's greeting.
+
+    The capabilities are read from this installation (the detector manifest,
+    the loader package, the caller's own detection memory) rather than a
+    fixed list, so the console's header states what this server really has.
 
     Args:
         domain: Optional domain context
+        user: The caller, when an API key or token is presented
 
     Returns:
         GreetingResponse with greeting and capabilities
     """
     voice = _get_voice()
     response = voice.greet(domain=domain)
-
-    capabilities = [
-        "Natural language conversation",
-        "Anomaly detection analysis",
-        "System status reporting",
-        "Detection result explanation",
-        "Historical event lookup",
-    ]
+    capabilities = _grounded_capabilities(voice, _principal_of(user))
 
     message = response.message if hasattr(response, "message") else response.get("message", "")
 
@@ -661,11 +685,18 @@ async def greet(domain: str | None = None) -> GreetingResponse:
     summary="Get Conversation History",
     description="Get the recent conversation history for the current session.",
 )
-async def get_history(limit: int = 10) -> dict[str, Any]:
+async def get_history(
+    limit: int = 10, user: User | None = Depends(_get_optional_user)
+) -> dict[str, Any]:
     """Get recent conversation history.
+
+    Only the caller's own turns are returned (plus turns recorded without an
+    account, such as the greeting): the voice is shared by every account on
+    the server, and the route used to hand each of them all the others' turns.
 
     Args:
         limit: Maximum number of turns to return
+        user: The caller, when an API key or token is presented
 
     Returns:
         Dictionary with conversation history
@@ -673,13 +704,156 @@ async def get_history(limit: int = 10) -> dict[str, Any]:
     voice = _get_voice()
 
     if hasattr(voice, "get_conversation_history"):
-        history = voice.get_conversation_history()
+        history = voice.get_conversation_history(1000, principal=_principal_of(user))
         return {
-            "history": history[-limit:] if history else [],
+            "history": history[-max(0, limit) :] if history else [],
             "total_turns": len(history) if history else 0,
         }
 
     return {"history": [], "total_turns": 0}
+
+
+def _grounded_capabilities(voice: Any, principal: str) -> list[str]:
+    """What this installation can do, as short facts read from the code and the record."""
+    caps: list[str] = []
+    try:
+        from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+
+        families = {e.category.value for e in DETECTOR_MANIFEST}
+        caps.append(f"{len(DETECTOR_MANIFEST)} detectors across {len(families)} families")
+    except Exception:  # pragma: no cover - registry import failure
+        caps.append("Anomaly detection across the detector manifest")
+    try:
+        from omni_mercury_engine.narrative.voice import MercuryVoice
+
+        caps.append(f"{len(MercuryVoice._loader_domains())} domain data loaders")
+    except Exception:  # pragma: no cover - loader package missing
+        pass
+    retriever = getattr(voice, "retriever", None)
+    if retriever is not None and hasattr(retriever, "detections"):
+        runs = retriever.detections(principal=principal)
+        flagged = sum(1 for e in runs if e["detection"].get("anomaly_detected", False))
+        caps.append(
+            f"{len(runs)} of your runs in memory ({flagged} flagged)"
+            if runs
+            else "Your detection runs remembered as you make them"
+        )
+    caps.append("Narration through two hard ethical gates")
+    caps.append("Proactive alerts as each run lands")
+    return caps
+
+
+#: Seconds between keep-alive frames when nothing was recorded.
+ALERT_HEARTBEAT_SECONDS = 15.0
+#: Seconds between polls of the durable store for runs recorded on other workers.
+ALERT_STORE_POLL_SECONDS = 2.0
+
+
+def _sse(event: str, payload: dict[str, Any]) -> bytes:
+    return f"event: {event}\ndata: {json.dumps(payload, default=str)}\n\n".encode()
+
+
+async def alert_events(
+    principal: str,
+    *,
+    heartbeat: float = ALERT_HEARTBEAT_SECONDS,
+    store_poll: float = ALERT_STORE_POLL_SECONDS,
+    max_events: int | None = None,
+) -> AsyncIterator[bytes]:
+    """Server-sent events for every flagged run ``principal`` may see.
+
+    Runs recorded in this process arrive through the alert bus; runs recorded
+    by another worker on the same ``MERCURY_AGENT_MEMORY_PATH`` are picked
+    up from the store by id. Each detection is sent once (the store's copy of
+    a bus delivery is recognised by its detection id), clean runs are not
+    sent, and a keep-alive comment goes out every ``heartbeat`` seconds so
+    proxies hold the connection open. ``max_events`` ends the stream after
+    that many alerts (tests).
+    """
+    from omni_mercury_engine.narrative.alert_bus import get_alert_bus, to_alert
+
+    bus = get_alert_bus()
+    token, queue = bus.subscribe(principal)
+    voice = _get_voice()
+    retriever = getattr(voice, "retriever", None)
+    store = getattr(retriever, "_detection_store", None)
+    cursor = store.latest_id() if store is not None else 0
+    seen: dict[str, float] = {}
+    sent = 0
+    yield b": connected\n\n"
+    try:
+        while max_events is None or sent < max_events:
+            fresh: list[dict[str, Any]] = []
+            try:
+                fresh.append(await asyncio.wait_for(queue.get(), timeout=store_poll))
+                while not queue.empty():
+                    fresh.append(queue.get_nowait())
+            except TimeoutError:
+                pass
+            if store is not None:
+                try:
+                    for row_id, entry in store.load_after(cursor):
+                        cursor = max(cursor, row_id)
+                        from omni_mercury_engine.narrative.alert_bus import principal_may_see
+
+                        if principal_may_see(principal, entry.get("principal")):
+                            fresh.append(entry)
+                except Exception as exc:  # pragma: no cover - store fault must not end the stream
+                    logger.debug("alert store poll skipped: %s", exc)
+            now = time.time()
+            for entry in fresh:
+                record = entry.get("detection") or {}
+                if not record.get("anomaly_detected", False):
+                    continue
+                key = str(record.get("detection_id") or id(entry))
+                if key in seen:
+                    continue
+                seen[key] = now
+                yield _sse("alert", to_alert(entry))
+                sent += 1
+                if max_events is not None and sent >= max_events:
+                    break
+            if len(seen) > 2048:
+                seen = {k: t for k, t in seen.items() if now - t < 3600}
+            if not fresh and heartbeat > 0 and (now - _last_beat.get(token, 0.0)) >= heartbeat:
+                _last_beat[token] = now
+                yield b": keep-alive\n\n"
+    finally:
+        _last_beat.pop(token, None)
+        bus.unsubscribe(token)
+
+
+_last_beat: dict[int, float] = {}
+
+
+@router.get(
+    "/alerts",
+    summary="Proactive alert stream",
+    description=(
+        "Server-sent events: one `alert` event for each detection run that flags a sample, "
+        "as it is recorded, bounded to the caller's own runs. Keep-alive comments every "
+        "15 seconds. Consume with a streaming fetch; the console's agent dock does."
+    ),
+    response_class=StreamingResponse,
+)
+async def alerts(
+    request: Request,
+    limit: int | None = Query(
+        None, ge=1, le=1000, description="End the stream after this many alerts (scripts, curl)."
+    ),
+    user: User | None = Depends(_get_optional_user),
+) -> StreamingResponse:
+    """Stream the caller's flagged runs as server-sent events."""
+    principal = _principal_of(user)
+    return StreamingResponse(
+        alert_events(principal, max_events=limit),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # Function to add voice routes to main app

@@ -27,6 +27,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — proactive alerts reach the console.** The agent panel has carried an
+alert dock since its first release and the voice API's docstring promised
+"proactive alerts", but no server route produced any: the console's
+`alertsUrl()` returned `null` and the dock read "not served by this engine".
+`GET /api/v1/voice/alerts` now streams server-sent events, one `alert` per
+detection run that flags a sample, as it is recorded, bounded to the caller's
+own runs exactly as the voice's answers are; keep-alive comments every 15
+seconds; `?limit=N` ends the stream after N alerts for scripts. Runs recorded
+in-process arrive through a new alert bus the retriever publishes to
+(`narrative/alert_bus.py`); runs recorded by another worker on the same
+`MERCURY_AGENT_MEMORY_PATH` are picked up from the store by row id. The
+console consumes the stream with a streaming fetch so the API key travels as a
+header (a browser WebSocket cannot carry one), the agent header now shows the
+dock state the logic always computed but never rendered, and the console's
+own diagnostics assert the new contract (`tests/narrative/test_alert_bus.py`,
+`tests/api/test_voice_alert_stream.py`, `tests/api/test_console_catalog.py`).
+
+**Fixed — the voice routes kept accounts apart only in `speak`.**
+`GET /api/v1/voice/history` returned every account's turns to every caller and
+`/status` counted them all; each turn now carries its principal and both
+routes answer for the caller alone. `/greet` listed five fixed phrases
+whatever the server had; it now states what this installation really has (the
+manifest's detector count and families, the loader count, the caller's runs in
+memory, the gates, the alert stream).
+
 **Added — a conversation layer that answers every console question from the
 record or the code.** Seventeen of the thirty-one questions a first session
 asks the agent (greetings and identity, "what threshold did you use?", "which
