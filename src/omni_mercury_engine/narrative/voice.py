@@ -1890,6 +1890,26 @@ class MercuryVoice:
         if len(self._conversation_history) > 100:
             self._conversation_history = self._conversation_history[-100:]
 
+    def clear_conversation(
+        self, principal: str | None = None, session_id: str | None = None
+    ) -> int:
+        """Forget one conversation's turns and follow-up context; returns turns removed.
+
+        With neither argument (the CLI's single-user session) everything is
+        cleared; with a principal only that account's turns go, and the
+        follow-up context of that principal and session.
+        """
+        before = len(self._conversation_history)
+        if principal is None:
+            self._conversation_history = []
+            self._context.clear()
+        else:
+            self._conversation_history = [
+                t for t in self._conversation_history if t.metadata.get("principal") != principal
+            ]
+            self._context.pop(self._context_key(principal, session_id), None)
+        return before - len(self._conversation_history)
+
     def get_conversation_history(
         self,
         n_turns: int = 10,

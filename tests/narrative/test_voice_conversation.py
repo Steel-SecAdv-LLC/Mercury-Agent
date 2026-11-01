@@ -408,3 +408,24 @@ def test_follow_up_context_is_per_session_within_a_principal(voice_with_runs: Me
     assert other_tab.message.startswith("I answer from this server's own record and code")
     same_tab = voice_with_runs.speak("why?", domain="general", principal="test", session_id="tab-a")
     assert same_tab.message.startswith("Explaining multivariate run")
+
+
+def test_clear_conversation_forgets_turns_and_context(voice_with_runs: MercuryVoice) -> None:
+    _ask(voice_with_runs, "What was the latest anomaly?")
+    voice_with_runs.speak("What is AMA?", domain="general", principal="other")
+    removed = voice_with_runs.clear_conversation(principal="test")
+    assert removed == 2
+    assert all(
+        t["content"] != "What was the latest anomaly?"
+        for t in voice_with_runs.get_conversation_history(100, principal="test")
+    )
+    assert any(
+        "AMA" in t["content"]
+        for t in voice_with_runs.get_conversation_history(100, principal="other")
+    )
+    # the follow-up context went with the turns: "why?" now gets the menu
+    assert _ask(voice_with_runs, "why?").message.startswith(
+        "I answer from this server's own record"
+    )
+    assert voice_with_runs.clear_conversation() >= 2
+    assert voice_with_runs.get_conversation_history(100) == []

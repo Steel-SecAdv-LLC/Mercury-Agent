@@ -364,6 +364,23 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
     ),
 )
 
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the agent status rows show the caller's runs in memory and the alert stream, which "
+        "/voice/status now reports",
+        '["server turns", comp.conversation_history != null ? String(comp.conversation_history) : "—", '
+        '"var(--fg)"], ["reasoning",',
+        '["server turns", comp.conversation_history != null ? String(comp.conversation_history) : "—", '
+        '"var(--fg)"], ["runs in memory", (V.status && V.status.statistics && '
+        'V.status.statistics.detection_runs != null) ? V.status.statistics.detection_runs + " (" + '
+        '(V.status.statistics.flagged_runs || 0) + " flagged)" : "—", "var(--fg)"], ["alerts", '
+        '(s.alerts || {}).st === "live" ? "live · " + ((V.status && V.status.statistics && '
+        'V.status.statistics.alert_listeners) || 1) + " listener" + (((V.status && V.status.statistics && '
+        'V.status.statistics.alert_listeners) || 1) === 1 ? "" : "s") : comp.alerts || "—", '
+        '(s.alerts || {}).st === "live" ? "var(--normal)" : "var(--fg-2)"], ["reasoning",',
+    ),
+)
+
 TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     (
         "the agent panel header shows the alert stream state the logic already computed but never rendered",

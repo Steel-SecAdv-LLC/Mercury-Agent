@@ -2233,7 +2233,12 @@ def _start_voice_conversation(
                     continue
 
                 elif command == "/clear":
-                    click.echo("\n[Conversation history cleared]\n")
+                    cleared = (
+                        voice_instance.clear_conversation()
+                        if hasattr(voice_instance, "clear_conversation")
+                        else 0
+                    )
+                    click.echo(f"\n[Conversation history cleared: {cleared} turn(s)]\n")
                     continue
 
                 elif command == "/help":
@@ -2252,11 +2257,15 @@ def _start_voice_conversation(
                 if hasattr(response, "message"):
                     message = response.message
                     confidence = getattr(response, "confidence", None)
+                    sources = list(getattr(response, "sources_cited", None) or [])
+                    follow_ups = list(getattr(response, "suggested_follow_ups", None) or [])
                 else:
                     message = response.get("message", "I received your message.")
                     confidence = response.get("confidence")
+                    sources = list(response.get("sources") or response.get("sources_cited") or [])
+                    follow_ups = list(response.get("suggested_follow_ups") or [])
 
-                # Format response
+                # Format response: the answer, what it was built from, what to ask next
                 click.echo()
                 click.echo(click.style("Mercury: ", fg="green") + message)
 
@@ -2266,6 +2275,14 @@ def _start_voice_conversation(
                             f"  [Confidence: {confidence:.0%}]",
                             fg="yellow",
                             dim=True,
+                        )
+                    )
+                if sources:
+                    click.echo(click.style(f"  [Sources: {', '.join(sources)}]", dim=True))
+                if follow_ups:
+                    click.echo(
+                        click.style(
+                            "  Ask next: " + " | ".join(follow_ups[:3]), fg="cyan", dim=True
                         )
                     )
 
@@ -2318,10 +2335,12 @@ def _show_help() -> None:
     click.echo("  /help             - Show this help")
     click.echo()
     click.echo("  You can ask Mercury:")
-    click.echo("    - 'What is my system status?'")
-    click.echo("    - 'What anomalies have been detected?'")
-    click.echo("    - 'Explain the last detection'")
-    click.echo("    - 'Search for pattern information'")
+    click.echo("    - 'What was the latest anomaly?'  (also: which samples, what threshold)")
+    click.echo("    - 'Explain the latest detection'  then 'why?' or 'tell me more'")
+    click.echo("    - 'How many anomalies today?'     then 'and yesterday?'")
+    click.echo("    - 'Show me the last 3 runs'       then 'run 2'")
+    click.echo("    - 'Which detectors do you have?'  'What should I run next?'")
+    click.echo("    - 'What is a z-score?'            (severity, threshold, AMA, the gate)")
     click.echo("-" * 40 + "\n")
 
 

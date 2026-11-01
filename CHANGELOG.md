@@ -44,6 +44,16 @@ dock state the logic always computed but never rendered, and the console's
 own diagnostics assert the new contract (`tests/narrative/test_alert_bus.py`,
 `tests/api/test_voice_alert_stream.py`, `tests/api/test_console_catalog.py`).
 
+**Changed — the conversation surfaces show what the agent knows.** The
+console's agent status rows now include the caller's runs in memory and the
+alert stream's state, which `/status` reports; the CLI `voice` session prints
+each answer's sources and the follow-up prompts, its `/clear` really clears
+the conversation (a new `MercuryVoice.clear_conversation`) and reports how
+many turns went, and its help lists the questions the voice answers
+(`tests/test_cli_voice_repl.py`). Follow-up context is keyed by principal
+and session, so two browsers of one account (every unauthenticated console
+is the same principal) never share a "why?".
+
 **Fixed — the voice routes kept accounts apart only in `speak`.**
 `GET /api/v1/voice/history` returned every account's turns to every caller and
 `/status` counted them all; each turn now carries its principal and both
