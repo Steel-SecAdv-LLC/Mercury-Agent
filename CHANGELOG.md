@@ -46,6 +46,15 @@ The handoff's catalog snapshot overstated three facts the generator corrects:
 `cli.py` has 9 docstring examples (not 31), `loaders/` has 21 loader classes
 (`gcn_notices` is a parser module), and `detect --detector` takes free text.
 
+**Fixed — `decouple purge-work` / `uninstall` could delete the home directory.**
+Env-pointed state locations were handed to `shutil.rmtree` verbatim, so
+`MERCURY_DATA_DIR=~` made a confirmed purge delete the home directory
+(reproduced on a sandboxed `HOME`); `/`, `.` or the Python prefix were no
+safer. Such locations are now listed as refused and never deleted or
+archived wholesale, symlinks are unlinked rather than followed, and
+`state_inventory()` no longer walks a refused location (it used to walk `/`
+and crash on the first unreadable directory).
+
 **Fixed — `mercury-agent detect -d <unknown>` reported "no anomaly".** The engine
 skips detector names it does not hold, so a typo printed `"is_anomaly": false`
 and exited 0. It is now a usage error listing the valid names.

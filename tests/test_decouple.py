@@ -199,3 +199,114 @@ class TestCli:
         result = CliRunner().invoke(main, ["decouple", "uninstall", "--remove-source"])
         assert result.exit_code == 0, result.output
         assert "would do" in result.output and "dry run" in result.output
+
+
+@pytest.fixture
+def deletions(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record every deletion purge attempts, and perform none.
+
+    The dangerous-path tests below must be safe against *any* implementation,
+    including one without the guard: with this fixture, a regression shows up
+    as a recorded ``rmtree('/')`` and a failed assertion, never as a deletion.
+    """
+    calls: list[str] = []
+
+    class _NoShutil:
+        @staticmethod
+        def rmtree(path: object, *args: object, **kwargs: object) -> None:
+            calls.append(f"rmtree {path}")
+
+    def _no_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        calls.append(f"unlink {self}")
+
+    monkeypatch.setattr(dc, "shutil", _NoShutil)
+    monkeypatch.setattr(Path, "unlink", _no_unlink)
+    return calls
+
+
+class TestPurgeNeverDeletesWhatIsNotMercurys:
+    """An env-pointed location is operator input: purge must refuse the dangerous ones.
+
+    ``MERCURY_DATA_DIR=~`` used to make ``purge-work --confirm "PURGE WORK"``
+    run ``shutil.rmtree`` on the home directory (reproduced on a sandboxed
+    HOME before the fix).
+    """
+
+    def test_home_directory_is_refused(
+        self, isolated_home: Path, monkeypatch: pytest.MonkeyPatch, deletions: list[str]
+    ) -> None:
+        monkeypatch.setenv("MERCURY_DATA_DIR", str(isolated_home))
+        targets = dc.purge_work(dc.CONFIRM_PURGE, dry_run=False)
+        item = next(t for t in targets if t.path == isolated_home)
+        assert item.refused and "home directory" in item.refused
+        assert not any(str(isolated_home) == c.split(" ", 1)[1] for c in deletions), deletions
+
+    @pytest.mark.parametrize("value", ["/", "~/..", "."])
+    def test_root_ancestors_and_cwd_are_refused(
+        self,
+        isolated_home: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        deletions: list[str],
+        value: str,
+    ) -> None:
+        work = tmp_path / "checkout"
+        work.mkdir()
+        monkeypatch.chdir(work)
+        monkeypatch.setenv("MERCURY_CACHE_DIR", value)
+        item = next(i for i in dc.state_inventory() if i.source == "MERCURY_CACHE_DIR")
+        assert item.refused, item
+        dc.purge_work(dc.CONFIRM_PURGE, dry_run=False)
+        assert not any(c.endswith(" " + str(item.path)) for c in deletions), deletions
+
+    def test_python_installation_is_refused(
+        self, isolated_home: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MERCURY_MODEL_DIR", sys.prefix)
+        item = next(i for i in dc.state_inventory() if i.source == "MERCURY_MODEL_DIR")
+        assert item.refused and "Python" in item.refused
+
+    def test_a_dedicated_directory_is_still_purged(
+        self, isolated_home: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        cache = tmp_path / "srv" / "mercury-cache"
+        cache.mkdir(parents=True)
+        (cache / "blob.bin").write_bytes(b"x")
+        monkeypatch.setenv("MERCURY_CACHE_DIR", str(cache))
+        item = next(i for i in dc.state_inventory() if i.source == "MERCURY_CACHE_DIR")
+        assert item.refused is None
+        dc.purge_work(dc.CONFIRM_PURGE, dry_run=False)
+        assert not cache.exists()
+
+    def test_symlink_is_unlinked_not_followed(
+        self, isolated_home: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        target = tmp_path / "elsewhere"
+        target.mkdir()
+        (target / "data.csv").write_text("a\n1\n")
+        link = tmp_path / "srv" / "mercury-data"
+        link.parent.mkdir()
+        link.symlink_to(target, target_is_directory=True)
+        monkeypatch.setenv("MERCURY_DATA_DIR", str(link))
+        # Inventory resolves ``~`` but not links; refusal checks the real path.
+        monkeypatch.setattr(dc, "_purge_refusal", lambda path: None)
+        dc.purge_work(dc.CONFIRM_PURGE, dry_run=False)
+        assert not link.is_symlink() and (target / "data.csv").exists()
+
+    def test_cli_reports_refusals(
+        self, isolated_home: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MERCURY_DATA_DIR", str(isolated_home))
+        result = CliRunner().invoke(main, ["decouple", "purge-work"])  # dry run
+        assert result.exit_code == 0, result.output
+        assert "refused (never deleted)" in result.output
+
+    def test_snapshot_skips_a_refused_location(
+        self, isolated_home: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MERCURY_DATA_DIR", str(isolated_home))
+        archive = dc.snapshot(isolated_home / "backups")
+        manifest = json.loads(
+            (archive.parent / (archive.stem.replace(".tar", "") + ".manifest.json")).read_text()
+        )
+        assert any(s["path"] == str(isolated_home) for s in manifest["skipped"])

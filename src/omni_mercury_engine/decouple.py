@@ -186,6 +186,8 @@ class InventoryItem:
     source: str  # "default" or the env var that pointed here
     exists: bool
     bytes: int
+    #: Why purge will not delete this location, or ``None`` if it may.
+    refused: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-ready mapping, with ``path`` as a string."""
@@ -195,18 +197,28 @@ class InventoryItem:
 
 
 def _size(path: Path) -> int:
-    if path.is_file():
-        return path.stat().st_size
-    if path.is_dir():
-        total = 0
-        for p in path.rglob("*"):
-            if p.is_file():
-                try:
-                    total += p.stat().st_size
-                except OSError:
-                    pass
-        return total
-    return 0
+    """Bytes under ``path``; unreadable entries are skipped, never fatal.
+
+    ``os.walk`` with an error handler rather than ``Path.rglob``: rglob raised
+    ``PermissionError`` on the first unreadable directory, so ``decouple
+    status`` crashed on any location containing one. Symlinked directories are
+    not followed.
+    """
+    try:
+        if path.is_file():
+            return path.stat().st_size
+        if not path.is_dir():
+            return 0
+    except OSError:
+        return 0
+    total = 0
+    for dirpath, _dirs, files in os.walk(path, onerror=lambda _err: None, followlinks=False):
+        for name in files:
+            try:
+                total += os.lstat(os.path.join(dirpath, name)).st_size
+            except OSError:
+                continue
+    return total
 
 
 def state_inventory() -> list[InventoryItem]:
@@ -261,8 +273,45 @@ def state_inventory() -> list[InventoryItem]:
         if resolved in seen:
             continue
         seen.add(resolved)
-        out.append(InventoryItem(label, resolved, source, resolved.exists(), _size(resolved)))
+        refused = _purge_refusal(resolved)
+        # A refused location (a home directory, the filesystem root) is not
+        # sized: walking it would read the whole disk to report a number.
+        size = 0 if refused else _size(resolved)
+        out.append(InventoryItem(label, resolved, source, resolved.exists(), size, refused))
     return out
+
+
+def _purge_refusal(path: Path) -> str | None:
+    """Why ``path`` must never be deleted by purge, or ``None`` if it may be.
+
+    The env-pointed locations are operator input. ``MERCURY_DATA_DIR=~`` (or
+    ``/``, ``.``, a shared ``/srv/data``) used to be handed straight to
+    ``shutil.rmtree``: purge then deleted the home directory, the filesystem,
+    or the source checkout. A location is refused when deleting it would
+    remove the filesystem root or a top-level directory, the home directory or
+    any directory containing it, the working directory or any directory
+    containing it, or the Python installation running this code.
+    """
+    try:
+        real = path.expanduser().resolve()
+    except (OSError, RuntimeError):
+        return "path cannot be resolved"
+    if real == Path(real.anchor) or len(real.parts) <= 2:
+        return "filesystem root or a top-level directory"
+    protected = {
+        "home directory": Path.home(),
+        "working directory": Path.cwd(),
+        "Python installation": Path(sys.prefix),
+        "Python base installation": Path(sys.base_prefix),
+    }
+    for name, guarded in protected.items():
+        try:
+            guarded = guarded.resolve()
+        except (OSError, RuntimeError):
+            continue
+        if guarded == real or guarded.is_relative_to(real):
+            return f"it is, or contains, the {name} ({guarded})"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -286,11 +335,21 @@ def snapshot(dest_dir: Path) -> Path:
         "switches": read_switches(),
         "distribution": _distribution_info(),
         "items": [],
+        "skipped": [],
         "files": {},
     }
     with tarfile.open(archive, "w:gz") as tar:
         for item in state_inventory():
             if not item.exists:
+                continue
+            # A refused location is not Mercury's to archive wholesale (a
+            # home directory, the filesystem, the checkout), and archiving a
+            # directory that contains the archive would read its own output.
+            inside = dest_dir.resolve().is_relative_to(item.path.resolve())
+            if item.refused or (item.path.is_dir() and inside):
+                manifest["skipped"].append(
+                    {**item.to_dict(), "why": item.refused or "contains the archive directory"}
+                )
                 continue
             arcroot = item.path.name if item.path.is_dir() else item.path.name
             arcroot = f"{item.source}/{arcroot}" if item.source != "default" else arcroot
@@ -324,15 +383,22 @@ def purge_work(confirm: str | None = None, *, dry_run: bool = True) -> list[Inve
     ``confirm`` must equal :data:`CONFIRM_PURGE` and ``dry_run`` must be
     ``False`` for anything to be removed; otherwise the list of what *would*
     be removed is returned unchanged. Code is never touched here.
+
+    Locations with :attr:`InventoryItem.refused` set (the home directory, the
+    filesystem root, the working directory, the Python installation, or
+    anything containing one of them) are listed but never deleted. A symlink
+    is removed as a link; its target is left alone.
     """
     targets = [item for item in state_inventory() if item.exists]
     if dry_run or confirm != CONFIRM_PURGE:
         return targets
     for item in targets:
-        if item.path.is_dir():
-            shutil.rmtree(item.path, ignore_errors=False)
-        else:
+        if item.refused:
+            continue
+        if item.path.is_symlink() or not item.path.is_dir():
             item.path.unlink()
+        else:
+            shutil.rmtree(item.path, ignore_errors=False)
     return targets
 
 

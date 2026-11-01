@@ -3346,7 +3346,13 @@ def decouple_purge_work(confirm: str | None, as_json: bool) -> None:
     execute = confirm == dc.CONFIRM_PURGE
     targets = dc.purge_work(confirm, dry_run=not execute)
     verb = "removed" if execute else "would remove"
-    lines = [f"{verb}:"] + [f"  {t.path}  ({t.bytes / 1024:,.0f} KB; {t.label})" for t in targets]
+    lines = [f"{verb}:"] + [
+        f"  {t.path}  ({t.bytes / 1024:,.0f} KB; {t.label})" for t in targets if not t.refused
+    ]
+    refused = [t for t in targets if t.refused]
+    if refused:
+        lines.append("refused (never deleted):")
+        lines += [f"  {t.path}  ({t.source}): {t.refused}" for t in refused]
     if not execute:
         lines.append(
             f'dry run. To execute: mercury-agent decouple purge-work --confirm "{dc.CONFIRM_PURGE}"'
