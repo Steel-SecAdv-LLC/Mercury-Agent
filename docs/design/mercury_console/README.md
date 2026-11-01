@@ -13,7 +13,7 @@ Claude Code works in your local clone. It cannot see the design project, so you 
 3. Make sure `gh auth status` shows you logged in (GitHub CLI). Claude Code uses it to open the PR. Without it, Claude Code pushes the branch and you open the PR in the browser.
 4. Start Claude Code in the repo and paste the contents of `PROMPT.md`.
 
-To see the design yourself, serve `design/` (see below) and open the prototype page in a browser.
+To see the design yourself, open `Mercury Console.html` in any browser. It is the whole prototype in one file and works offline, with no server.
 
 ---
 
@@ -36,7 +36,7 @@ The files in `design/` are **design references built in HTML**: a working protot
 
 The framework-free modules (`design/mercury-cli-*.js`) hold most of the logic and can be ported nearly as-is, with the changes listed in §6.
 
-To view the prototype, serve the sources: `cd design && python -m http.server 8765`, then open `http://localhost:8765/Mercury%20CLI.dc.html`. Type `:diag` in the Terminal to run its 8,740-check self-test. The prototype includes an in-browser **simulated engine** so it works without a server; results from it are labelled SIMULATED.
+To view the prototype, open `Mercury Console.html`: a packed single-file build of `design/` that works offline. Or serve the sources: `cd design && python -m http.server 8765`, then open `http://localhost:8765/Mercury%20CLI.dc.html`. Type `:diag` in the Terminal to run its 8,787-check self-test. The prototype includes an in-browser **simulated engine** so it works without a server; results from it are labelled SIMULATED.
 
 ## 4. Fidelity
 
@@ -54,7 +54,7 @@ To view the prototype, serve the sources: `cd design && python -m http.server 87
 | Enabling | The frontend router is mounted only when `MERCURY_FRONTEND_ENABLED=true` (`frontend_enabled()`, default off). Keep that: `MERCURY_FRONTEND_ENABLED=true mercury-agent serve`, then open `http://localhost:8000/console`. Static files are served under `/static` by `register_frontend()`. |
 | Packaging | `pyproject.toml` `[tool.setuptools.package-data]` lists only `api/frontend_assets/pages/*.html`, `static/*.css`, `static/*.js`, `static/vendor/*.js`. Add `static/console/*.js`, `static/console/*.css`, `static/console/fonts/*.woff2` and the font licence file, or the wheel will ship without them. |
 | Catalog generator | `scripts/build_console_catalog.py` (new), writes `static/console/catalog.js` |
-| Tests | update `tests/api/test_frontend.py`, add `tests/api/test_console_catalog.py`; `tests/api/test_security_headers.py` only if the CSP changes (§6.3) |
+| Tests | update `tests/api/test_frontend.py`, add a console-catalog test beside it; `tests/api/test_security_headers.py` only if the CSP changes (§6.3) |
 
 ---
 
@@ -109,7 +109,7 @@ What that means for the console:
 | `mercury-cli-agent.js` (agent capabilities, Python snippets) | `static/console/agent.js` | As-is. |
 | `Mercury CLI.dc.html` (template + `Component` logic class) | `pages/console.html` + `static/console/app.js` + `static/console/console.css` | Rebuild in plain JS. The logic class methods (`build`, `parse`, `fromInput`, `execute`, `runLive`, `items`, `refCard`, `optViews` construction in `renderVals`, …) port directly; the template becomes DOM built once plus targeted updates. |
 | `mercury-cli-sim.js` (simulated engine) | — | **Do not ship.** The installed console always has the real server. |
-| `mercury-cli-diag.js` (8,740-check self-test) | `static/console/diag.js` (optional) | Port the pure-function and wiring checks; replace the simulated-engine scenarios with live checks against the same-origin server. Lazy-load on `:diag`. |
+| `mercury-cli-diag.js` (8,783-check self-test) | `static/console/diag.js` (optional) | Port the pure-function and wiring checks; replace the simulated-engine scenarios with live checks against the same-origin server. Lazy-load on `:diag`. |
 | `support.js`, `_ds/…/_ds_bundle.js` | — | Design-tool runtime and design-system bundle. Not shipped (the console uses no bundle components). |
 
 ---
@@ -225,7 +225,7 @@ If you want energy as a conversation domain, that is a **separate PR**: add `ENE
 ## 14. Tests to add / update
 
 - `tests/api/test_frontend.py`: `_PAGE_MARKERS["/console"]`, console assets in `test_static_assets_resolve`, `console` in the accessibility loops.
-- `tests/api/test_console_catalog.py` (new):
+- a new console-catalog test under `tests/api/` (not yet written):
   - the committed `catalog.js` equals a fresh generator run (staleness gate);
   - every command and option in the catalog exists in the click group with the same flags, type, default and choices, and vice versa;
   - every detector name is in the registry; every library class and method exists (`find_spec` + `ast`, no torch import);
@@ -276,6 +276,7 @@ No images. Icons are Unicode glyphs (`$ @ Σ ◧ ⊡ ● › ▸ ◎ ◇ φ ⌗ 
 
 - `README.md`: this document.
 - `PROMPT.md`: the instruction to paste into Claude Code.
+- `Mercury Console.html`: the whole prototype packed into one file for viewing (works offline). It is not readable source; read `design/` instead.
 - `design/Mercury CLI.dc.html`: the prototype (template + logic class).
 - `design/mercury-cli-data.js`, `-api.js`, `-mass.js`, `-viz.js`, `-capture.js`, `-agent.js`: logic modules to port.
 - `design/mercury-cli-sim.js`, `-diag.js`: simulated engine and self-test (reference only).
@@ -293,4 +294,4 @@ Added after the original handoff, all in `design/`. Nothing here changes how det
 - **Other additions**: world map (needs `lat`/`lon` columns), stacked histogram, fusion network, batch lifecycle strip, event dossier, agent prompts, rate-limit budget and 429 countdown, correlation ids. The self-test is now 8,739 checks (`:diag`).
 - **Engine side** (`mercury-agent serve`): CORS now exposes `X-Correlation-ID` and `Retry-After`, and `POST /api/v1/voice/speak` returns the voice's full reply (intent, sources, reasoning summary, follow-ups, uncertainty note) instead of message and confidence only.
 - **Porting**: the new template markup uses inline `style=` like the rest of the prototype, so it falls under the §6.1 clean-up. `mercury-cli-figure*.js` can be ported as-is.
-- **Removed file**: the original packed single-file build (`Mercury Console.html`) is no longer part of this folder; it predated everything above. `design/` is the source of truth.
+- **Stale file**: `Mercury Console.html` (the packed single file) is the original handoff pack and does **not** include any of the above. Use `design/` as the source of truth.

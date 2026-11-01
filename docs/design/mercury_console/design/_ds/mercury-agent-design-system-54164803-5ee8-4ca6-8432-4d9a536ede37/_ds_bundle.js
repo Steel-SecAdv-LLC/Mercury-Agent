@@ -13081,7 +13081,7 @@ function KinView() {
     className: "cx-kin-bk"
   }, "SHARED"), /*#__PURE__*/React.createElement("span", {
     className: "cx-kin-bv"
-  }, "cryptographic backbone ", /*#__PURE__*/React.createElement("span", null, "\xB7"), " ethical alignment posture ", /*#__PURE__*/React.createElement("span", null, "\xB7"), " survivor-first mission")), /*#__PURE__*/React.createElement("div", {
+  }, "cryptographic backbone ", /*#__PURE__*/React.createElement("span", null, "\xB7"), " ethical alignment posture ", /*#__PURE__*/React.createElement("span", null, "\xB7"), " civilization-first mission")), /*#__PURE__*/React.createElement("div", {
     className: "cx-view-note"
   }, "Mercury Agent, FIND\u03A9YOU\u2122, and AMA Cryptography form a single ", /*#__PURE__*/React.createElement("b", null, "civilization-first lineage"), ". Each is independently deployable, but they are designed as kin \u2014 both Mercury Agent and FIND\u03A9YOU\u2122 derive their post-quantum security from ", /*#__PURE__*/React.createElement("b", null, "AMA"), ", the foundation the other two stand on."));
 }
@@ -13471,7 +13471,7 @@ const KIN = [{
   wm: "findoyou",
   role: "BIOMETRIC PLATFORM",
   name: "FINDΩYOU™",
-  desc: "Survivor-first recovery of the lost & missing. Geo-consent, bias-audited.",
+  desc: "People-first recovery of the lost & missing. Geo-consent, bias-audited.",
   lic: "Near-future · US-focused",
   hue: "var(--brand-gold)"
 }, {

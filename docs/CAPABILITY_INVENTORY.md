@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,085
-- **Capability-bearing classes:** 2,066 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,087
+- **Capability-bearing classes:** 2,067 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,206 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,207 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1206 |
-| Support types (config / result / enum / error) | 1019 |
+| Other capability classes | 1207 |
+| Support types (config / result / enum / error) | 1020 |
 | Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 113 |
@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Classes by subsystem
 
-### `(top-level)/` — 65 classes (46 capability)
+### `(top-level)/` — 67 classes (47 capability)
 
 **Adapters & backends**
 
@@ -74,6 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ExcludedQuestion` (`truth_decipher`) — A question that was not scored, and why.
 - `FeatureCache` (`engine`) — Thread-safe LRU cache for computed features.
 - `HaversineTravelCheck` (`truth_decipher`) — Default travel check: haversine distance and a single speed limit.
+- `InventoryItem` (`decouple`) — One place Mercury keeps work on this machine.
 - `ItemWeight` (`truth_decipher`) — One evidence item's weight within its cluster.
 - `LocatedObservation` (`truth_decipher`) — One subject at one place over one time interval.
 - `Location` (`truth_decipher`) — A circular location: centre in decimal degrees and an uncertainty radius in km.
@@ -100,9 +101,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `StatementVerifier` (`truth_decipher`) — Verifies statements against evidence and reports evidence-grounded findings.
 
-<details><summary>Support types (19)</summary>
+<details><summary>Support types (20)</summary>
 
-`AdaptationEvent`, `AllenRelation`, `CITConfig`, `CITQuestionResult`, `CITResult`, `Channel`, `ConsentRecord`, `ConsentRequiredError`, `ContradictionKind`, `ContradictionScope`, `CorroborationStatus`, `InsufficientDataError`, `MercuryProductionConfigError`, `Stance`, `ToolError`, `TravelFeasibilityCheck`, `VerifiabilityResult`, `VerificationReport`, `VerifierConfig`
+`AdaptationEvent`, `AllenRelation`, `CITConfig`, `CITQuestionResult`, `CITResult`, `Channel`, `ConsentRecord`, `ConsentRequiredError`, `ContradictionKind`, `ContradictionScope`, `CorroborationStatus`, `InsufficientDataError`, `MercuryDecoupledError`, `MercuryProductionConfigError`, `Stance`, `ToolError`, `TravelFeasibilityCheck`, `VerifiabilityResult`, `VerificationReport`, `VerifierConfig`
 
 </details>
 
