@@ -33,8 +33,6 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-from omni_mercury_engine.security.ama_hmac import ama_constant_time_compare, ama_hmac_sha256
-
 
 def constant_time_compare(a: bytes | str, b: bytes | str) -> bool:
     """Compare two values in constant time to prevent timing attacks.
@@ -54,6 +52,11 @@ def constant_time_compare(a: bytes | str, b: bytes | str) -> bool:
         a = a.encode("utf-8")
     if isinstance(b, str):
         b = b.encode("utf-8")
+
+    # First-use import keeps this module importable without a PQC build (the
+    # security package's scoped-gate contract); the compare itself runs only
+    # on AMA's native routine.
+    from omni_mercury_engine.security.ama_hmac import ama_constant_time_compare
 
     return ama_constant_time_compare(a, b)
 
@@ -173,6 +176,8 @@ def secure_signature_verify(
         True if signature is valid, False otherwise
     """
     if key is not None:
+        from omni_mercury_engine.security.ama_hmac import ama_hmac_sha256
+
         expected = ama_hmac_sha256(key, expected)
 
     return constant_time_compare(signature, expected)
@@ -316,6 +321,8 @@ def secure_hash(data: bytes | str, salt: bytes | None = None) -> bytes:
 
     if salt is None:
         salt = secrets.token_bytes(16)
+
+    from omni_mercury_engine.security.ama_hmac import ama_hmac_sha256
 
     return ama_hmac_sha256(salt, data)
 

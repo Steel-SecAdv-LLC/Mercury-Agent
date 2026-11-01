@@ -294,6 +294,7 @@ class TestScopedGateContract:
             "from omni_mercury_engine.security import RateLimiter, SafeHTTPClient\n"
             "from omni_mercury_engine.security import SecureAuditLogger\n"
             "from omni_mercury_engine.security.input_validation import TrustedEndpoints\n"
+            "from omni_mercury_engine.security.constant_time import constant_time_compare\n"
             "print('PRIMITIVES_OK')\n",
         )
         assert result.returncode == 0, result.stderr[-2000:]

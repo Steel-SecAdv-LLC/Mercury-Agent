@@ -67,12 +67,6 @@ from itertools import pairwise
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
-from omni_mercury_engine.security.ama_hmac import (
-    ama_constant_time_compare,
-    ama_hmac_sha3_256,
-    ama_sha3_256,
-)
-
 try:
     import fcntl
 except ImportError:  # pragma: no cover - Windows: no advisory locks, single writer assumed
@@ -522,6 +516,12 @@ class SecureHashChain:
         the shipped interpreter. Same bytes (FIPS 202 + RFC 2104), so chains
         written before the change still verify.
         """
+        # Imported at first use, not at module import: the security package's
+        # scoped-gate contract (tests/test_pqc_startup_gate.py) keeps the audit
+        # logger importable without a PQC build; the keyed hash itself still
+        # refuses to run on anything but AMA.
+        from omni_mercury_engine.security.ama_hmac import ama_hmac_sha3_256
+
         return ama_hmac_sha3_256(self.hmac_key, data).hex()
 
     def compute_event_hash(self, event_data: dict[str, Any]) -> tuple[str, str, int]:
@@ -622,6 +622,8 @@ class SecureHashChain:
         Returns:
             Tuple of ``(is_valid, sorted_list_of_invalid_indices)``.
         """
+        from omni_mercury_engine.security.ama_hmac import ama_constant_time_compare
+
         invalid_indices: set[int] = set()
 
         for i, event in enumerate(events):
@@ -758,6 +760,8 @@ def _verify_writer_chain(
     files: list[Path], hash_chain: SecureHashChain, label: str
 ) -> dict[str, Any]:
     """Verify one writer's files (oldest first) and the links between them."""
+    from omni_mercury_engine.security.ama_hmac import ama_constant_time_compare
+
     report: dict[str, Any] = {"writer": label, "ok": True, "files": [], "notes": []}
     last: AuditEvent | None = None
     last_name = ""
@@ -974,6 +978,8 @@ class SecureAuditLogger:
         preview) and preserved next to the log as ``<name>.torn-<usec>`` for
         forensics. The caller must own ``path`` (writer lock held).
         """
+        from omni_mercury_engine.security.ama_hmac import ama_sha3_256
+
         with open(path, "rb+") as f:
             f.seek(0, os.SEEK_END)
             size = f.tell()
