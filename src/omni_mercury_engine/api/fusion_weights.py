@@ -100,7 +100,7 @@ def statistical_scores(
 ) -> np.ndarray[Any, Any]:
     """Each row's largest per-feature |z| against ``mean`` and ``std``."""
     z = np.abs((matrix - mean) / std)
-    return np.max(z, axis=1)
+    return np.asarray(np.max(z, axis=1), dtype=float)
 
 
 def temporal_scores(
@@ -118,8 +118,8 @@ def temporal_scores(
         return np.zeros(0)
     if previous is None:
         starts = np.vstack([matrix[:1], matrix[:-1]])
-        steps = np.max(np.abs(matrix - starts) / std, axis=1)
+        steps = np.asarray(np.max(np.abs(matrix - starts) / std, axis=1), dtype=float)
         steps[0] = 0.0
         return steps
     starts = np.vstack([np.asarray(previous, dtype=float).reshape(1, -1), matrix[:-1]])
-    return np.max(np.abs(matrix - starts) / std, axis=1)
+    return np.asarray(np.max(np.abs(matrix - starts) / std, axis=1), dtype=float)
