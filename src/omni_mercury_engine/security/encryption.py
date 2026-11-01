@@ -163,13 +163,11 @@ class QuantumResistantEncryption:
         return ama_hmac_sha256(self._mac_key, data)
 
     def verify_signature(self, data: bytes, signature: bytes) -> bool:
-        """Constant-time verification of a :meth:`sign_data` tag."""
-        import hmac
-
-        from omni_mercury_engine.security.ama_hmac import ama_hmac_sha256
+        """Constant-time verification of a :meth:`sign_data` tag (AMA memcmp)."""
+        from omni_mercury_engine.security.ama_hmac import ama_constant_time_compare, ama_hmac_sha256
 
         expected = ama_hmac_sha256(self._mac_key, data)
-        return hmac.compare_digest(expected, signature)
+        return ama_constant_time_compare(expected, signature)
 
 
 class SecureDataHandler:

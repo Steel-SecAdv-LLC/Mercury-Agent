@@ -27,6 +27,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the API rate limiter metered the console's own assets.** One
+console page load is 21 same-origin requests (17 scripts and stylesheets, 3
+images, the page) against a default burst of 20. Measured against
+`mercury-agent serve`: 30 concurrent asset requests from one address answered
+10 of them 429 and left the bucket at zero with `Retry-After: 60`, so a reload
+within a minute came up with its scripts refused. Assets under the frontend's
+`/static` mount are exempt from the API budget; the pages and every API route
+stay metered (`tests/api/test_static_assets_not_rate_limited.py`).
+
+**Fixed — the agent could not recall a detection the console had just run.**
+"Have there been any anomalies recently?" classified as `UNKNOWN` and the
+detection-log scorer matched only the literal token `anomaly`, so the reply
+apologised with the log full; and the console asks under its CONTEXT domain
+while `/detect/univariate` and `/detect/multivariate` carry no domain, so the
+strict domain filter hid every record the console produced. Intent and
+relevance now match stems (`anomal`, `flag`, `alert`, `recent`, ...), and
+`general` is a wildcard on either side of the domain comparison. Reproduced
+and verified end to end in Chromium: the same question now answers with the
+detection record (`tests/api/test_voice_recent_detections.py`).
+
+**Fixed — five console controls had no accessible name.** The command
+prompt, the agent composer, the menu filter, the MCP tool-arguments field and
+the command-palette search were named only by a placeholder (WCAG 2.1 SC
+1.3.1 / 4.1.2). They carry `aria-label`s through the port's template patches;
+`tests/api/test_console_inputs_are_labelled.py` walks the compiled template so
+the property holds across rebuilds.
+
+**Fixed — `decouple detach --save` merged two state directories into one.**
+`~/.local/state/mercury-agent` and `~/.cache/mercury-agent` share a basename
+and were archived under one member root, so an extraction overwrote one with
+the other. Every item now has a unique root recorded in the manifest.
+`decouple uninstall --remove-source` applies purge's refusal guard before
+deleting a checkout.
+
+**Changed — operational HMAC, HKDF, SHA-3, PBKDF2 and constant-time compare
+now run on AMA Cryptography, not OpenSSL.** The at-rest secret sealer's
+HKDF-SHA-256, the constant-time helpers' HMAC-SHA-256, the audit chain's
+HMAC-SHA3-256 and torn-fragment SHA3-256, legacy password-row PBKDF2 and every
+`hmac.compare_digest` in those modules used the stdlib, which on the shipped
+OpenSSL-linked interpreter is `openssl_sha256`/`openssl_sha3_256`, OpenSSL's
+HMAC and `CRYPTO_memcmp`. They route through `security/ama_hmac.py` to AMA's
+native, ACVP-validated primitives with no stdlib fallback. Outputs are
+byte-identical (pinned against the stdlib on fixed vectors and RFC 5869 A.1),
+so sealed secrets, audit chains and stored password rows written before the
+change open and verify unchanged. With `hashlib`/`hmac` tripwired, every
+module still reproduces its reference values
+(`tests/security/test_operational_crypto_routes_through_ama.py`). Still on the
+stdlib, each for a stated reason: scrypt password hashing (AMA ships no
+scrypt; a switch to AMA argon2id changes the stored row format and needs an
+owner decision), TOTP's HMAC-SHA-1 (RFC 6238's default; AMA ships no SHA-1),
+and the streamed SHA3-256 of whole audit files (AMA exposes no incremental
+hash; the 100 MB rotation size rules out a one-shot read).
+
 **Added — Mercury Console at `/console` (`MERCURY_FRONTEND_ENABLED=true mercury-agent serve`): the design prototype, served.**
 `scripts/build_console_port.py` builds the console from
 `docs/design/mercury_console/design/` verbatim: the prototype's template is
