@@ -27,8 +27,9 @@ the one layer present in every deployment topology.
 Three policies, selected by what the response actually is
 -----------------------------------------------------------------
 ``Content-Security-Policy`` is not one-size-fits-all, so this middleware
-selects between three fixed policies (:data:`API_CSP`, :data:`FRONTEND_CSP`,
-:data:`DOCS_CSP`) rather than shipping the loosest one everywhere:
+selects between four fixed policies (:data:`API_CSP`, :data:`FRONTEND_CSP`,
+:data:`CONSOLE_CSP`, :data:`DOCS_CSP`) rather than shipping the loosest one
+everywhere:
 
 * **API responses** (JSON, plain text, anything that is not HTML) get
   ``default-src 'none'`` — an API response has no legitimate need to load a
@@ -42,6 +43,11 @@ selects between three fixed policies (:data:`API_CSP`, :data:`FRONTEND_CSP`,
   ``/static/mercury.css``. ``tests/api/test_security_headers.py`` asserts
   that property against the shipped assets so the policy cannot silently
   become unenforceable.
+* **The Mercury Console page** (``/console`` only) gets :data:`FRONTEND_CSP`
+  with ``img-src 'self' data:`` and nothing else changed. The hazard route
+  returns its PNG as base64 and the console previews it as a ``data:`` URL;
+  ``data:`` images cannot execute script, and the widening reaches no other
+  page and no other directive.
 * **The OpenAPI viewers** (``/docs``, ``/redoc``) get a narrowly widened
   policy. FastAPI serves Swagger UI and ReDoc from jsDelivr with an inline
   bootstrap script it generates itself; a policy without the CDN origin and
@@ -97,6 +103,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "API_CSP",
+    "CONSOLE_CSP",
+    "CONSOLE_PATHS",
     "DOCS_CSP",
     "DOCS_PATHS",
     "FRONTEND_CSP",
@@ -126,6 +134,14 @@ FRONTEND_CSP = (
     "base-uri 'none'; "
     "form-action 'self'"
 )
+
+#: Policy for the Mercury Console page: :data:`FRONTEND_CSP` with ``data:``
+#: images (the hazard PNG preview). Derived, so it cannot drift from the
+#: frontend policy in any other directive.
+CONSOLE_CSP = FRONTEND_CSP.replace("img-src 'self';", "img-src 'self' data:;")
+
+#: Paths served the console policy.
+CONSOLE_PATHS: frozenset[str] = frozenset({"/console"})
 
 #: The one CDN FastAPI's bundled viewers load their bundles from.
 _DOCS_CDN = "https://cdn.jsdelivr.net"
@@ -248,10 +264,13 @@ def _csp_for(path: str, content_type: str) -> str:
         content_type: The response's ``Content-Type``, lower-cased.
 
     Returns:
-        One of :data:`DOCS_CSP`, :data:`FRONTEND_CSP` or :data:`API_CSP`.
+        One of :data:`DOCS_CSP`, :data:`CONSOLE_CSP`, :data:`FRONTEND_CSP` or
+        :data:`API_CSP`.
     """
     if path in DOCS_PATHS:
         return DOCS_CSP
+    if path in CONSOLE_PATHS and content_type.startswith("text/html"):
+        return CONSOLE_CSP
     if path.startswith(STATIC_PREFIX) or content_type.startswith("text/html"):
         return FRONTEND_CSP
     return API_CSP

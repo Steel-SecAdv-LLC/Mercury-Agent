@@ -112,6 +112,7 @@ _PAGE_MARKERS = {
     "/reset-password": 'id="reset-request-form"',
     "/confirm-email-change": 'id="confirm-status"',
     "/dashboard": 'id="api-key-form"',
+    "/console": 'id="mercury-console"',
 }
 
 
@@ -134,6 +135,16 @@ def test_static_assets_resolve(site: Site) -> None:
         "/static/auth.js",
         "/static/dashboard.js",
         "/static/vendor/qrcode.js",
+        "/static/console/console.css",
+        "/static/console/catalog.js",
+        "/static/console/api.js",
+        "/static/console/mass.js",
+        "/static/console/agent.js",
+        "/static/console/viz.js",
+        "/static/console/capture.js",
+        "/static/console/figure-trace.js",
+        "/static/console/figure.js",
+        "/static/console/app.js",
     ):
         response = client.get(path)
         assert response.status_code == 200, path
@@ -294,9 +305,9 @@ def test_pages_are_csp_compatible_and_self_contained() -> None:
 
 def test_pages_have_accessible_status_regions() -> None:
     """Interactive pages announce results via aria-live regions; forms label inputs."""
-    for name in ("register", "login", "verify-email", "reset-password", "dashboard"):
+    for name in ("register", "login", "verify-email", "reset-password", "dashboard", "console"):
         html = (frontend._PAGES_DIR / f"{name}.html").read_text(encoding="utf-8")
         assert 'aria-live="polite"' in html, name
-    for name in ("register", "login", "reset-password", "dashboard"):
+    for name in ("register", "login", "reset-password", "dashboard", "console"):
         html = (frontend._PAGES_DIR / f"{name}.html").read_text(encoding="utf-8")
         assert "<label" in html, name

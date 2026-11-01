@@ -1,5 +1,12 @@
 # Handoff: Mercury Console (browser front end for `mercury-agent serve`)
 
+> **Status: implemented** at `/console` (`src/omni_mercury_engine/api/frontend_assets/pages/console.html`,
+> `static/console/`, catalog generator `scripts/build_console_catalog.py`, tests `tests/api/test_console_catalog.py`).
+> CSP option (a) was taken (`CONSOLE_CSP`). Fonts use the token fallback stack (nothing vendored).
+> Facts below that the code contradicts: `cli.py` has 9 `mercury-agent …` docstring examples, not 31;
+> `loaders/` has 21 loader classes, not 22; `detect --detector` has no `click.Choice`; the batch route
+> refuses `neurosymbolic` although its enum lists it. The generated catalog follows the code.
+
 Checked against `Steel-SecAdv-LLC/Mercury-Agent` **main on 2026-10-30** (package `mercury-agent-global` 3.0.0, Python ≥ 3.11). Every repo path, test name and policy quoted below was read from that tree. If main has moved, re-verify the sections marked **(repo fact)** before relying on them.
 
 ---

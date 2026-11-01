@@ -556,6 +556,8 @@ omni_mercury_engine = [
     "api/frontend_assets/static/*.css",
     "api/frontend_assets/static/*.js",
     "api/frontend_assets/static/vendor/*.js",
+    "api/frontend_assets/static/console/*.js",
+    "api/frontend_assets/static/console/*.css",
 ]
 
 # =============================================================================
