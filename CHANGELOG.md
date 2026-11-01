@@ -55,6 +55,16 @@ archived wholesale, symlinks are unlinked rather than followed, and
 `state_inventory()` no longer walks a refused location (it used to walk `/`
 and crash on the first unreadable directory).
 
+**Fixed — the agent answered "what happened recently?" with the oldest detection, and with severities over 100 %.**
+Every anomalous detection-log entry has the same relevance, so the stable sort
+kept log order and the voice reported the oldest record; ties now break
+toward the newest. The memory mirror stored the raw max score as `severity`,
+which the voice prints as a percentage (a z-score of 9 read as 900 %); it now
+stores the score-to-threshold ratio on the API's own severity bands (1.0 is
+the critical boundary) plus the band name, and no longer stores a constant
+`confidence` the detectors never produced. The console's severity bands were
+corrected to the server's (1.5 / 2.5 / 4.0).
+
 **Fixed — `mercury-agent detect -d <unknown>` reported "no anomaly".** The engine
 skips detector names it does not hold, so a typo printed `"is_anomaly": false`
 and exited 0. It is now a usage error listing the valid names.

@@ -391,6 +391,7 @@ def _remember_in_voice(
             return
         scores = [s for s in results.get("scores", []) if isinstance(s, (int, float))]
         max_score = max(scores) if scores else record.max_score
+        severity, severity_label = _severity_fraction(max_score, results.get("threshold"))
         # The voice sanitizes every query's domain through the same whitelist
         # before searching (an unknown label becomes "general"), and the
         # detection-log search filters on strict equality. Store the domain
@@ -405,8 +406,12 @@ def _remember_in_voice(
                 "anomaly_detected": record.anomaly_count > 0,
                 "anomaly_count": record.anomaly_count,
                 "anomaly_score": float(max_score),
-                "severity": float(max_score),
-                "confidence": 1.0 if record.anomaly_count > 0 else 0.5,
+                # A score is not a severity: z-scores and norms are unbounded,
+                # and the voice renders ``severity`` as a percentage ("640%").
+                # No confidence is stored: these detectors produce none, and a
+                # constant would read as one.
+                "severity": severity,
+                "severity_label": severity_label,
                 "n_samples": len(results.get("anomalies", [])),
                 "is_batch": record.is_batch,
                 "summary": record.summary,
@@ -415,6 +420,22 @@ def _remember_in_voice(
         )
     except Exception as exc:  # pragma: no cover - defensive by contract
         logger.debug("voice memory mirror skipped: %s", exc)
+
+
+def _severity_fraction(score: float, threshold: Any) -> tuple[float | None, str | None]:
+    """Severity in [0, 1] and its band, from the score-to-threshold ratio.
+
+    Uses the API's own bands (``api.server._classify_severity``: ratio < 1.5
+    low, < 2.5 medium, < 4.0 high, else critical), so 1.0 is the critical
+    boundary. Without a usable threshold there is no severity, only a score.
+    """
+    if not isinstance(threshold, (int, float)) or threshold <= 0 or not math.isfinite(score):
+        return None, None
+    ratio = float(score) / float(threshold)
+    label = (
+        "low" if ratio < 1.5 else "medium" if ratio < 2.5 else "high" if ratio < 4.0 else "critical"
+    )
+    return round(min(1.0, max(0.0, ratio / 4.0)), 4), label
 
 
 async def record_audit_log(

@@ -266,7 +266,10 @@ class KnowledgeRetriever:
         filtered_results = [r for r in all_results if r.relevance_score >= min_relevance]
 
         # Rank by relevance
-        filtered_results.sort(key=lambda x: x.relevance_score, reverse=True)
+        # Equal relevance is common (every anomalous detection-log entry scores
+        # the same); break ties toward the most recent, or "what happened
+        # recently?" is answered with the oldest record in the log.
+        filtered_results.sort(key=lambda x: (x.relevance_score, x.timestamp or 0.0), reverse=True)
 
         # Limit results
         final_results = filtered_results[:max_results]
@@ -490,7 +493,8 @@ class KnowledgeRetriever:
                             source=RetrievalSource.DETECTION_LOG,
                             content={
                                 "anomaly_score": detection.get("anomaly_score", 0),
-                                "severity": detection.get("severity", 0),
+                                "severity": detection.get("severity"),
+                                "severity_label": detection.get("severity_label"),
                                 "confidence": detection.get("confidence", 0),
                                 "domain": domain,
                             },

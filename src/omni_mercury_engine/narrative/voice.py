@@ -820,10 +820,14 @@ class MercuryVoice:
             elif "event" in content:
                 parts.append(f"Top event: {content['event']}.")
             elif "anomaly_score" in content:
-                parts.append(
-                    f"Detection record: anomaly_score={content['anomaly_score']:.2f}, "
-                    f"severity={content.get('severity', 0):.0%}."
-                )
+                severity = content.get("severity")
+                label = content.get("severity_label")
+                detail = f"Detection record: anomaly_score={content['anomaly_score']:.2f}"
+                if isinstance(severity, (int, float)):
+                    detail += (
+                        f", severity {label + ' ' if label else ''}({severity:.0%} of critical)"
+                    )
+                parts.append(detail + ".")
         else:
             parts.append(f"Top result: {str(content)[:100]}.")
 

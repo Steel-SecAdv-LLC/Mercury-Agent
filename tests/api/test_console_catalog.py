@@ -267,3 +267,17 @@ def test_page_loads_every_console_script_in_dependency_order() -> None:
     assert set(order) == {p.name for p in _CONSOLE.glob("*.js")}
     assert order[0] == "catalog.js" and order[1] == "api.js" and order[-1] == "app.js"
     assert order.index("figure-trace.js") < order.index("figure.js")
+
+
+def test_console_severity_bands_match_the_server() -> None:
+    """api.js SEVERITY mirrors api.server._classify_severity's ratio bands."""
+    from omni_mercury_engine.api.server import _classify_severity
+
+    text = (_CONSOLE / "api.js").read_text(encoding="utf-8")
+    line = next(x for x in text.splitlines() if "const SEVERITY" in x)
+    bands = [float(b) for b in re.findall(r"r >= ([\d.]+)", line)]
+    assert bands == [4.0, 2.5, 1.5], line
+    names = ["critical", "high", "medium"]
+    for edge, name in zip(bands, names, strict=True):
+        assert _classify_severity(edge, 1.0).value == name
+        assert _classify_severity(edge - 1e-9, 1.0).value != name

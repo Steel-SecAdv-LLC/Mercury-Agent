@@ -100,8 +100,8 @@
     certainty: (s) => (s >= 0.9 ? "Observed" : s >= 0.7 ? "Likely" : s >= 0.5 ? "Possible" : "Unlikely"),
     urgency: (s) => (s >= 0.9 ? "Immediate" : s >= 0.7 ? "Expected" : s >= 0.5 ? "Future" : "Unknown"),
   };
-  /* api/server.py _classify_severity(score, threshold): ratio bands */
-  const SEVERITY = (score, thr) => { const r = thr > 0 ? score / thr : score; return r >= 3 ? "critical" : r >= 2 ? "high" : r >= 1.5 ? "medium" : "low"; };
+  /* api/server.py _classify_severity(score, threshold): ratio < 1.5 low, < 2.5 medium, < 4.0 high, else critical */
+  const SEVERITY = (score, thr) => { const r = thr > 0 ? score / thr : score; return r >= 4 ? "critical" : r >= 2.5 ? "high" : r >= 1.5 ? "medium" : "low"; };
 
   /* Request schemas (field -> {type, def, min, max, enum, req, desc, p, q, raw}), generated. */
   const SCHEMAS = CAT.schemas || {};
