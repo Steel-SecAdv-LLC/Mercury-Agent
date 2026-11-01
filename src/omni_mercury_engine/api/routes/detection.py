@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from scipy.special import ndtri_exp
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.api.fusion_weights import fuse, normalized_weights
 from omni_mercury_engine.api.routes.export import record_detection
 
 logger = logging.getLogger(__name__)
@@ -459,14 +460,12 @@ async def detect_fusion(
 
         threshold = 2.0 + (1.0 - request.sensitivity) * 3.0
         detector_scores: dict[str, float] = {}
-        detector_contributions: dict[str, float] = {}
 
         if "statistical" in request.detectors:
             mean = np.mean(data)
             std = np.std(data) + 1e-8
             z_scores = np.abs((data - mean) / std)
             detector_scores["statistical"] = float(np.max(z_scores))
-            detector_contributions["statistical"] = 0.35
 
         if "temporal" in request.detectors:
             if data.size > 1:
@@ -475,7 +474,6 @@ async def detect_fusion(
             else:
                 temporal_score = 0.0
             detector_scores["temporal"] = temporal_score
-            detector_contributions["temporal"] = 0.25
 
         if "dimensional" in request.detectors:
             if data.ndim == 2 and data.shape[1] > 1:
@@ -484,20 +482,15 @@ async def detect_fusion(
             else:
                 dimensional_score = detector_scores.get("statistical", 0.0)
             detector_scores["dimensional"] = dimensional_score
-            detector_contributions["dimensional"] = 0.20
 
         if "spectral" in request.detectors:
             spectral_score = _spectral_peak_z(data.flatten())
             detector_scores["spectral"] = spectral_score
-            detector_contributions["spectral"] = 0.20
 
-        total_weight = sum(detector_contributions.values())
-        detector_contributions = {k: v / total_weight for k, v in detector_contributions.items()}
-
-        fused_score = sum(
-            detector_scores.get(d, 0.0) * detector_contributions.get(d, 0.0)
-            for d in request.detectors
-        )
+        # The weights are the table the batch route's fusion reads too, so the
+        # same data reaches the same verdict whichever route scores it.
+        detector_contributions = normalized_weights(request.detectors)
+        fused_score = fuse(detector_scores, request.detectors)
 
         is_anomaly = fused_score > threshold
 

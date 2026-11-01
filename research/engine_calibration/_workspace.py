@@ -52,6 +52,26 @@ def cache_dir() -> str:
     return str(path)
 
 
+#: Suffix of the de-leak measurement's archives (``X_full``/``X_scored``/``y``),
+#: which share the cache directory with the per-event ``X``/``y`` archives.
+DELEAK_SUFFIX = ".deleak.npz"
+
+
+def cache_archives() -> list[str]:
+    """The per-event ``{domain}__{event}.npz`` archives, sorted, as strings.
+
+    The de-leak measurement (``deleak_impact.py``) writes ``*.deleak.npz``
+    into the same directory with a different schema (``X_full``, ``X_scored``,
+    ``y`` rather than ``X``, ``y``). A bare ``*.npz`` glob picked those up and
+    the evaluation scripts failed at ``d["X"]`` after a documented
+    ``deleak_impact.py --fetch``; every script that reads the per-event
+    archives goes through this filter instead.
+    """
+    return sorted(
+        str(p) for p in Path(cache_dir()).glob("*.npz") if not p.name.endswith(DELEAK_SUFFIX)
+    )
+
+
 def workspace_file(name: str) -> str:
     """Path to a named intermediate (``scores.pkl``, ``real_results.json``)."""
     return str(workspace() / name)

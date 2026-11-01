@@ -240,6 +240,14 @@ class KnowledgeRetriever:
         self._detection_log: list[dict[str, Any]] = (
             self._detection_store.load() if self._detection_store is not None else []
         )
+        # Where this process has read the shared store up to. Every read path
+        # (``detections``, the detection-log search) pulls the rows other
+        # workers appended since, so an already-running worker answers from
+        # the same record as the one that recorded the run, not from the
+        # state of the store when it started.
+        self._store_cursor: int = (
+            self._detection_store.latest_id() if self._detection_store is not None else 0
+        )
 
         # Statistics
         self._search_count = 0
@@ -283,7 +291,12 @@ class KnowledgeRetriever:
         self._detection_log.append(entry)
         if self._detection_store is not None:
             try:
+                # Pull other workers' rows first so the cursor advances past
+                # them, then append ours and move the cursor past it too: the
+                # next refresh must not read back the row we just wrote.
+                self._refresh_from_store()
                 self._detection_store.append(entry)
+                self._store_cursor = self._detection_store.latest_id()
             except Exception as exc:  # pragma: no cover - disk faults must not fail a detection
                 logger.warning("detection memory not persisted: %s", exc)
         # Live listeners (the console's alert dock through GET /api/v1/voice/alerts)
@@ -298,6 +311,44 @@ class KnowledgeRetriever:
         # Keep last 1000 detections
         if len(self._detection_log) > 1000:
             self._detection_log = self._detection_log[-1000:]
+
+    def _refresh_from_store(self) -> int:
+        """Merge rows other workers appended to the shared store; returns how many.
+
+        Rows are read by id after this process's cursor, so each is seen once;
+        a row whose detection id is already in the log (this process's own
+        write racing the cursor) is skipped. Store faults leave the in-process
+        log as it is: recall degrades to this worker's own view, it never
+        fails an answer.
+        """
+        store = self._detection_store
+        if store is None:
+            return 0
+        try:
+            rows = store.load_after(self._store_cursor)
+        except Exception as exc:  # pragma: no cover - store fault must not fail a read
+            logger.debug("detection memory refresh skipped: %s", exc)
+            return 0
+        if not rows:
+            return 0
+        known = {
+            str(e["detection"].get("detection_id"))
+            for e in self._detection_log
+            if isinstance(e.get("detection"), dict) and e["detection"].get("detection_id")
+        }
+        added = 0
+        for row_id, entry in rows:
+            self._store_cursor = max(self._store_cursor, row_id)
+            detection_id = entry.get("detection", {}).get("detection_id")
+            if detection_id and str(detection_id) in known:
+                continue
+            self._detection_log.append(entry)
+            added += 1
+        if added:
+            self._detection_log.sort(key=lambda e: float(e.get("timestamp") or 0.0))
+            if len(self._detection_log) > 1000:
+                self._detection_log = self._detection_log[-1000:]
+        return added
 
     def detections(
         self,
@@ -319,6 +370,7 @@ class KnowledgeRetriever:
         answers read, so those answers are built from the record and never
         from the free-text scorer.
         """
+        self._refresh_from_store()
         out: list[dict[str, Any]] = []
         for entry in reversed(self._detection_log):
             if since is not None and float(entry.get("timestamp", 0.0)) < since:
@@ -603,6 +655,7 @@ class KnowledgeRetriever:
         # Query words available via context.query.lower().split() for future keyword matching
 
         query_lower = context.query.lower()
+        self._refresh_from_store()
         for log_entry in self._detection_log[-100:]:  # Last 100 entries
             detection = log_entry.get("detection", {})
             domain = log_entry.get("domain", "")

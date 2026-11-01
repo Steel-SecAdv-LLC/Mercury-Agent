@@ -530,7 +530,11 @@ def describe_detection(record: dict[str, Any], timestamp: Any) -> str:
     label = record.get("severity_label")
 
     parts = [f"{method} run {relative_time(timestamp)}:"]
-    if isinstance(count, int) and isinstance(total, int) and total > 0:
+    if record.get("scope") == "series":
+        verdict = "anomalous" if record.get("anomaly_detected") else "clean"
+        over = f" over {total} sample{'s' if total != 1 else ''}" if isinstance(total, int) else ""
+        parts.append(f"whole-series verdict {verdict}{over} (no sample positions);")
+    elif isinstance(count, int) and isinstance(total, int) and total > 0:
         flagged = f"{count} of {total} sample{'s' if total != 1 else ''} flagged"
         if indices:
             shown = ", ".join(str(i) for i in indices[:5])
@@ -562,7 +566,13 @@ def detection_result_from_record(record: dict[str, Any], timestamp: Any) -> dict
         f"method: {record.get('method') or 'detection'}",
         f"recorded {relative_time(timestamp)}",
     ]
-    if isinstance(count, int) and isinstance(total, int):
+    if record.get("scope") == "series":
+        steps.append(
+            f"whole-series verdict: {'anomalous' if record.get('anomaly_detected') else 'clean'}"
+            + (f" over {total} samples" if isinstance(total, int) else "")
+            + "; no sample positions are identified"
+        )
+    elif isinstance(count, int) and isinstance(total, int):
         steps.append(f"{count} of {total} samples flagged")
     indices = record.get("indices") or []
     if indices:
@@ -602,6 +612,15 @@ def run_detail(aspect: str, entry: dict[str, Any] | None) -> tuple[str, list[str
         indices = rec.get("indices") or []
         count = rec.get("anomaly_count")
         total = rec.get("n_samples")
+        if rec.get("scope") == "series":
+            verdict = "anomalous" if rec.get("anomaly_detected") else "clean"
+            return (
+                f"The newest run ({method}, {relative_time(ts)}) returned one verdict for the "
+                f"whole series{f' of {total} samples' if isinstance(total, int) else ''}: "
+                f"{verdict}. It does not identify sample positions; a per-sample run "
+                "(detect, tier-detect, or the multivariate route) does.",
+                follow,
+            )
         if not indices:
             return (
                 f"The newest run ({method}, {relative_time(ts)}) flagged no sample"

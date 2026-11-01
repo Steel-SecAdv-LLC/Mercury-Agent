@@ -32,6 +32,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from pydantic import BaseModel, Field, field_validator
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+from omni_mercury_engine.api.fusion_weights import fuse
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,11 @@ class BatchDetectionMethod(StrEnum):
     STATISTICAL = "statistical"
     TEMPORAL = "temporal"
     NEUROSYMBOLIC = "neurosymbolic"
+
+
+#: The components a batch job can score per sample; dimensional and spectral
+#: are whole-series measures the synchronous route alone offers.
+_BATCH_FUSION_COMPONENTS: tuple[str, ...] = ("statistical", "temporal")
 
 
 @dataclass
@@ -461,8 +467,9 @@ async def _process_chunk(
     * ``statistical``  -- max per-feature |z| against the data set.
     * ``temporal``     -- max per-feature |delta from the previous sample| in
                           data-set std units; the first sample scores 0.
-    * ``fusion``       -- 0.6 * statistical + 0.4 * temporal, the synchronous
-                          fusion route's weighting of the same components.
+    * ``fusion``       -- the statistical and temporal components combined with
+                          the synchronous fusion route's own weights
+                          (``api.fusion_weights``), so the two routes agree.
 
     ``neurosymbolic`` never reaches here: it is refused at submission rather
     than silently scored with statistics under that name.
@@ -484,7 +491,10 @@ async def _process_chunk(
                 score = float(np.max(np.abs(arr - prev) / ds_std)) if prev is not None else 0.0
             elif method == BatchDetectionMethod.FUSION:
                 temporal = float(np.max(np.abs(arr - prev) / ds_std)) if prev is not None else 0.0
-                score = 0.6 * float(np.max(z)) + 0.4 * temporal
+                score = fuse(
+                    {"statistical": float(np.max(z)), "temporal": temporal},
+                    _BATCH_FUSION_COMPONENTS,
+                )
             else:  # STATISTICAL
                 score = float(np.max(z))
 

@@ -371,7 +371,7 @@ async def record_detection(
     # written, but nothing ever called the hook, so "have there been any
     # anomalies?" was answered from an empty log on every deployment. The
     # fields below are the ones ``_search_detection_log`` reads.
-    _remember_in_voice(record, results, metadata)
+    _remember_in_voice(record, results, metadata, n_input=len(data))
 
 
 #: Flagged sample positions kept per remembered detection (the voice names
@@ -380,12 +380,23 @@ _REMEMBERED_INDICES = 8
 
 
 def _remember_in_voice(
-    record: DetectionRecord, results: dict[str, Any], metadata: dict[str, Any] | None
+    record: DetectionRecord,
+    results: dict[str, Any],
+    metadata: dict[str, Any] | None,
+    n_input: int | None = None,
 ) -> None:
     """Mirror a recorded detection into the live voice's retriever.
 
     Best-effort by design: the narrative layer must never be able to fail a
     detection request, so every failure here is logged and swallowed.
+
+    ``n_input`` is the number of rows the caller sent. A route that returns
+    one verdict for the whole input (``/detect/fusion``, ``/detect/three-r``,
+    ``/detect/flagship``) records ``anomalies=[is_anomaly]``: one flag for
+    ``n_input`` rows. That is a series-scoped verdict, remembered as such,
+    with the input size as ``n_samples`` and no sample positions, so the
+    agent never says "1 of 1 sample flagged (sample 0)" about a run that
+    identified no row.
     """
     try:
         from omni_mercury_engine.api.voice import _get_voice
@@ -404,6 +415,8 @@ def _remember_in_voice(
         from omni_mercury_engine.cognitive.ethical_bounding import sanitize_domain
 
         raw_domain = (metadata or {}).get("domain") or record.summary.get("domain")
+        anomalies = list(results.get("anomalies", []))
+        series_scoped = n_input is not None and n_input > 0 and len(anomalies) != n_input
         retriever.log_detection(
             {
                 "detection_id": record.detection_id,
@@ -417,7 +430,10 @@ def _remember_in_voice(
                 # constant would read as one.
                 "severity": severity,
                 "severity_label": severity_label,
-                "n_samples": len(results.get("anomalies", [])),
+                # "sample": one flag per input row; "series": one verdict for
+                # the whole input, so positions are meaningless and omitted.
+                "scope": "series" if series_scoped else "sample",
+                "n_samples": n_input if series_scoped else len(anomalies),
                 # The threshold the scores were judged against and the first
                 # flagged sample positions: what the voice needs to say "1 of
                 # 60 flagged (sample 42), 1.8x the threshold" rather than a
@@ -428,9 +444,11 @@ def _remember_in_voice(
                     and not isinstance(results.get("threshold"), bool)
                     else None
                 ),
-                "indices": [i for i, flag in enumerate(results.get("anomalies", [])) if flag][
-                    :_REMEMBERED_INDICES
-                ],
+                "indices": (
+                    []
+                    if series_scoped
+                    else [i for i, flag in enumerate(anomalies) if flag][:_REMEMBERED_INDICES]
+                ),
                 "is_batch": record.is_batch,
                 "summary": record.summary,
             },

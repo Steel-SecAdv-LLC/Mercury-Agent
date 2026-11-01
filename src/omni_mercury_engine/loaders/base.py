@@ -71,6 +71,25 @@ class FetchHTTPError(ConnectionError):
         self.status_code = status_code
 
 
+#: Frame attribute a loader sets on data it manufactured rather than fetched.
+#: Read by :meth:`BaseDomainLoader.engineer_scored_features`, which refuses to
+#: produce a "de-leaked" matrix from such a frame, and persisted through the
+#: frame cache so the mark survives a process restart.
+SYNTHETIC_ATTR = "mercury_synthetic"
+
+
+class SyntheticDataNotDeleakable(ValueError):
+    """A de-leaked feature matrix was requested from a synthetic frame.
+
+    Synthetic fallbacks build every channel from the same profile that
+    builds the labels (the energy loader's solar-wind speed is ``350 + 50 *
+    kp``, its density ``10 - 0.5 * kp``, its flare classes a function of the
+    same Kp series), so dropping the declared label-derived columns leaves a
+    matrix that is still a function of the label. No disjoint view exists;
+    the measurement is refused rather than reported.
+    """
+
+
 class BaseDomainLoader(ABC):
     """Base class for all domain data loaders.
 
@@ -157,6 +176,64 @@ class BaseDomainLoader(ABC):
     #: different defects and only the second one invalidates a measurement.
     LABEL_FEATURE_DISJOINT: bool = False
 
+    @staticmethod
+    def mark_synthetic(frame: pd.DataFrame) -> pd.DataFrame:
+        """Mark ``frame`` as manufactured rather than fetched; returns it."""
+        frame.attrs[SYNTHETIC_ATTR] = True
+        return frame
+
+    @staticmethod
+    def is_synthetic(frame: pd.DataFrame) -> bool:
+        """Whether ``frame`` carries the synthetic mark (survives copies and sorts)."""
+        return bool(getattr(frame, "attrs", {}).get(SYNTHETIC_ATTR, False))
+
+    def _write_frame_cache(self, key: str, frame: pd.DataFrame) -> None:
+        """Cache ``frame`` with its provenance, so a synthetic mark outlives the process.
+
+        Datetime columns are written as ISO-8601 strings with their time zone
+        recorded: the JSON writer below drops any payload it cannot
+        serialise, so a frame with a tz-aware ``timestamp`` column was never
+        cached at all before this (the write failed silently on every call).
+        """
+        columns: dict[str, list[Any]] = {}
+        datetime_columns: dict[str, str | None] = {}
+        for name in frame.columns:
+            series = frame[name]
+            if pd.api.types.is_datetime64_any_dtype(series):
+                tz = getattr(series.dt, "tz", None)
+                datetime_columns[str(name)] = str(tz) if tz is not None else None
+                columns[str(name)] = [None if pd.isna(t) else t.isoformat() for t in series]
+            else:
+                columns[str(name)] = series.tolist()
+        self._write_cache(
+            key,
+            {
+                "frame": columns,
+                "datetime_columns": datetime_columns,
+                "synthetic": self.is_synthetic(frame),
+            },
+        )
+
+    def _read_frame_cache(self, key: str) -> pd.DataFrame | None:
+        """The cached frame with its provenance and datetime columns restored, or ``None``.
+
+        A payload in the pre-provenance shape (a bare column dict) is treated
+        as absent so it is fetched again and re-cached with its mark: its
+        provenance is unknown, and an unknown frame must not be scored as a
+        real one.
+        """
+        cached = self._read_cache(key)
+        if not isinstance(cached, dict) or "frame" not in cached:
+            return None
+        frame = pd.DataFrame(cached["frame"])
+        for name, tz in (cached.get("datetime_columns") or {}).items():
+            if name in frame.columns:
+                parsed = pd.to_datetime(frame[name], utc=tz is not None)
+                frame[name] = parsed.dt.tz_convert(tz) if tz not in (None, "UTC") else parsed
+        if cached.get("synthetic"):
+            self.mark_synthetic(frame)
+        return frame
+
     @classmethod
     def scored_feature_columns(cls) -> list[str]:
         """:attr:`FEATURE_COLUMNS` minus the columns that build the labels."""
@@ -180,6 +257,12 @@ class BaseDomainLoader(ABC):
         A loader that declares no :attr:`LABEL_DERIVED_FEATURES` gets the full
         matrix back unchanged, so this is safe to call everywhere.
         """
+        if self.is_synthetic(raw_data):
+            raise SyntheticDataNotDeleakable(
+                f"{type(self).__name__}: the frame is synthetic (every channel derives from "
+                "the profile that also builds the labels), so no label-disjoint scored matrix "
+                "exists; engineer_features() still returns the full matrix for display"
+            )
         full = self.engineer_features(raw_data)
         if not self.LABEL_DERIVED_FEATURES:
             return full

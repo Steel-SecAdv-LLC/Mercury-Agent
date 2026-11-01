@@ -43,6 +43,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 from _workspace import cache_dir
 
+from omni_mercury_engine.loaders.base import SyntheticDataNotDeleakable
 from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 HERE = Path(__file__).resolve().parent
@@ -75,7 +76,14 @@ def fetch(domain: str) -> None:
         started = time.time()
         raw = loader.fetch_historical(eid)
         x_full = np.asarray(loader.engineer_features(raw), float)
-        x_scored = np.asarray(loader.engineer_scored_features(raw), float)
+        try:
+            x_scored = np.asarray(loader.engineer_scored_features(raw), float)
+        except SyntheticDataNotDeleakable as exc:
+            # A synthetic frame has no label-disjoint view (every channel is
+            # built from the label profile); it is kept out of the measurement
+            # rather than written as a "de-leaked" archive.
+            print(f"{domain}/{eid}: quarantined, synthetic frame ({exc})")
+            continue
         y = np.asarray(loader.get_ground_truth(eid)).astype(int).reshape(-1)
         m = min(len(x_full), len(y))
         np.savez_compressed(

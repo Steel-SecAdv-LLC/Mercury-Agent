@@ -19,7 +19,7 @@ from pathlib import Path
 
 warnings.filterwarnings("ignore")
 import numpy as np
-from _workspace import cache_dir
+from _workspace import cache_archives, cache_dir
 
 from omni_mercury_engine.ml.mercury_ml import (
     average_precision_score,
@@ -59,7 +59,7 @@ def main():
     stat = importlib.import_module("omni_mercury_engine.detectors.statistical")
     MAD = stat.MercuryAnomalyDetector
     rows = []
-    for fn in sorted(str(p) for p in Path(CACHE).glob("*.npz")):
+    for fn in cache_archives():
         dom = Path(fn).name.split("__")[0]
         eid = Path(fn).name[len(dom) + 2 : -4]
         d = np.load(fn)

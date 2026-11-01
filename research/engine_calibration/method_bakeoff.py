@@ -17,7 +17,7 @@ from pathlib import Path
 
 warnings.filterwarnings("ignore")
 import numpy as np
-from _workspace import cache_dir
+from _workspace import cache_archives, cache_dir
 
 from omni_mercury_engine.core.score_calibration import (
     AutoThresholdOptimizer,
@@ -227,7 +227,7 @@ def _adapt_cap(s, k):
 def main():
     stat = importlib.import_module("omni_mercury_engine.detectors.statistical")
     MAD = stat.MercuryAnomalyDetector
-    files = sorted(str(p) for p in Path(CACHE).glob("*.npz"))
+    files = cache_archives()
     # method -> list of (dom, f1, prec, rec)
     acc: dict[str, list] = {m: [] for m in METHODS}
     acc["ORACLE"] = []

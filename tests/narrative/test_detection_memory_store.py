@@ -85,3 +85,57 @@ def test_unusable_path_degrades_to_in_process(
 
 def test_default_window_matches_the_retriever_log() -> None:
     assert DEFAULT_KEEP == 1000
+
+
+def test_running_worker_sees_runs_another_worker_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two retrievers share one store: a run logged by one is recalled by the other at once.
+
+    The retriever loaded the store only at construction, so a worker started
+    before a run was recorded answered from an empty history until restarted
+    even though the alert stream on the same worker polled the store. Every
+    read path now merges the rows appended since this process's cursor.
+    """
+    from omni_mercury_engine.narrative.retriever import KnowledgeRetriever
+
+    monkeypatch.setenv("MERCURY_AGENT_MEMORY_PATH", str(tmp_path / "shared.sqlite"))
+    worker_a = KnowledgeRetriever()
+    worker_b = KnowledgeRetriever()  # started before any run exists
+    assert worker_b.detections(principal="ops") == []
+
+    worker_a.log_detection(
+        {
+            "detection_id": "run-1",
+            "anomaly_detected": True,
+            "anomaly_count": 1,
+            "method": "univariate",
+        },
+        domain="general",
+        principal="ops",
+    )
+    seen = worker_b.detections(principal="ops")
+    assert [e["detection"]["detection_id"] for e in seen] == ["run-1"]
+    # The search path refreshes too, and the recording worker does not read its own row back.
+    hits = worker_b.search("any anomalies recently?", domain="general", principal="ops")
+    assert hits.results, "search did not see the other worker's run"
+    assert [e["detection"]["detection_id"] for e in worker_a.detections(principal="ops")] == [
+        "run-1"
+    ]
+
+    worker_b.log_detection(
+        {
+            "detection_id": "run-2",
+            "anomaly_detected": False,
+            "anomaly_count": 0,
+            "method": "univariate",
+        },
+        domain="general",
+        principal="ops",
+    )
+    ids_a = [e["detection"]["detection_id"] for e in worker_a.detections(principal="ops")]
+    ids_b = [e["detection"]["detection_id"] for e in worker_b.detections(principal="ops")]
+    assert ids_a == ids_b == ["run-2", "run-1"]
+    for worker in (worker_a, worker_b):
+        if worker._detection_store is not None:
+            worker._detection_store.close()

@@ -431,3 +431,27 @@ def test_clear_conversation_forgets_turns_and_context(voice_with_runs: MercuryVo
     )
     assert voice_with_runs.clear_conversation() >= 2
     assert voice_with_runs.get_conversation_history(100) == []
+
+
+def test_series_scoped_verdicts_report_no_sample_positions(voice_with_runs: MercuryVoice) -> None:
+    """/detect/fusion records one flag for the whole input; the agent must not invent a sample."""
+    asyncio.run(
+        record_detection(
+            user_id="test",
+            method="fusion",
+            data=[float(i) for i in range(12)],
+            results={"anomalies": [True], "scores": [3.9], "threshold": 3.5},
+            sensitivity=0.5,
+            metadata={"domain": "general"},
+        )
+    )
+    newest = voice_with_runs.retriever.detections(principal="test")[0]["detection"]
+    assert newest["scope"] == "series" and newest["n_samples"] == 12 and newest["indices"] == []
+    latest = _ask(voice_with_runs, "What was the latest anomaly?").message
+    assert "whole-series verdict anomalous over 12 samples (no sample positions)" in latest
+    assert "sample 0" not in latest
+    samples = _ask(voice_with_runs, "Which samples were flagged?").message
+    assert "one verdict for the whole series of 12 samples: anomalous" in samples
+    explained = _ask(voice_with_runs, "Show full reasoning chain").message
+    assert "whole-series verdict: anomalous over 12 samples; no sample positions" in explained
+    assert "1 of 1" not in explained

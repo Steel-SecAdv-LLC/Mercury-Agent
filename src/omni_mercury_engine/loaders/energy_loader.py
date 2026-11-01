@@ -177,7 +177,10 @@ class EnergyLoader(BaseDomainLoader):
     #: De-leak: labels are ``kp >= 7`` and every one of these is a function of ``kp``.
     #: Still computed and returned by ``engineer_features``; excluded only
     #: from the scored matrix, so nothing is lost and the labels stop
-    #: describing the thing being scored.
+    #: describing the thing being scored. This holds for fetched frames only:
+    #: a synthetic historical frame derives its solar-wind and flare channels
+    #: from the same Kp profile, so ``engineer_scored_features`` refuses it
+    #: (``SyntheticDataNotDeleakable``) rather than report a disjoint matrix.
     LABEL_DERIVED_FEATURES: tuple[str, ...] = (
         "kp",
         "kp_rate_of_change",
@@ -267,11 +270,11 @@ class EnergyLoader(BaseDomainLoader):
             )
 
         cache_key = f"energy_historical_{event_id}"
-        cached = self._read_cache(cache_key)
+        cached_frame = self._read_frame_cache(cache_key)
 
-        if cached is not None:
+        if cached_frame is not None:
             logger.debug("Returning cached historical data for '%s'.", event_id)
-            return pd.DataFrame(cached)
+            return cached_frame
 
         event = _EVENT_CATALOG[event_id]
 
@@ -292,7 +295,7 @@ class EnergyLoader(BaseDomainLoader):
         # Sort chronologically
         df = df.sort_values("timestamp").reset_index(drop=True)
 
-        self._write_cache(cache_key, df.to_dict(orient="list"))
+        self._write_frame_cache(cache_key, df)
         logger.info(
             "Fetched %d historical records for event '%s'.",
             len(df),
@@ -843,7 +846,10 @@ class EnergyLoader(BaseDomainLoader):
                 "xray_class": xray,
             }
         )
-        return df
+        # Every channel above is a function of ``kp_values``, the series the
+        # labels threshold; the mark makes engineer_scored_features refuse a
+        # "de-leaked" matrix from it (see SyntheticDataNotDeleakable).
+        return self.mark_synthetic(df)
 
     @staticmethod
     def _build_storm_profile(

@@ -61,6 +61,47 @@ read that cookie first and call `/api/v1/auth/me` only when it is present,
 removing a 401 from every anonymous page view and one round trip from the
 dashboard's redirect to login.
 
+**Fixed — batch fusion and synchronous fusion agree.** `POST
+/api/v1/detect/fusion` normalised weights of 0.35/0.25 for the statistical
+and temporal components (0.583/0.417) while the batch job's `fusion` method
+hard coded 0.6/0.4, so eleven zeros followed by a 10 at sensitivity 0.52 was
+an anomaly over HTTP (3.442 against 3.44) and clean as a batch job (3.437).
+Both routes now read one table (`api/fusion_weights.py`), and
+`tests/api/test_fusion_batch_parity.py` pins the reviewer's series, an
+isolated spike, and the bound that a batch peak never exceeds the synchronous
+score.
+
+**Fixed — a running worker recalls runs another worker recorded.** The
+retriever loaded `MERCURY_AGENT_MEMORY_PATH` only at construction, so a worker
+started before a run was recorded answered "no runs in memory" until it
+restarted, even though its alert stream polled the store. Every store-backed
+read path now merges the rows appended since the worker's cursor
+(`tests/narrative/test_detection_memory_store.py`).
+
+**Fixed — series-scoped verdicts are not described as sample positions.**
+`/detect/fusion`, `/detect/three-r` and `/detect/flagship` record one flag for
+the whole input; the memory mirror turned that into "1 of 1 sample flagged
+(sample 0)". The record now carries the verdict's scope, the input size and no
+positions, and every answer and alert says "whole-series verdict anomalous
+over N samples (no sample positions)".
+
+**Fixed — synthetic frames are quarantined from de-leaked measurements.** The
+energy loader's synthetic historical series builds solar-wind speed, density
+and flare classes from the same Kp profile that builds the `kp >= 7` labels,
+so dropping the five declared Kp columns still left a label-derived matrix.
+A loader now marks the frames it manufactures (energy, pandemic), the mark
+survives the loader cache (whose JSON writer had been dropping every frame
+with a tz-aware timestamp column, so that cache never persisted),
+`engineer_scored_features` refuses such a frame with
+`SyntheticDataNotDeleakable`, and `deleak_impact.py` quarantines the event
+instead of writing a "de-leaked" archive (`tests/loaders/test_synthetic_quarantine.py`).
+
+**Fixed — the calibration scripts no longer read the de-leak archives.**
+`deleak_impact.py` writes `*.deleak.npz` (`X_full`, `X_scored`, `y`) into the
+same cache as the per-event `*.npz` (`X`, `y`); `eval_offline.py`,
+`measure.py` and `method_bakeoff.py` globbed both and failed at `d["X"]`.
+They share one filtered listing (`tests/research/test_calibration_cache_archives.py`).
+
 **Fixed — the voice routes kept accounts apart only in `speak`.**
 `GET /api/v1/voice/history` returned every account's turns to every caller and
 `/status` counted them all; each turn now carries its principal and both
