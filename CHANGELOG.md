@@ -54,6 +54,13 @@ many turns went, and its help lists the questions the voice answers
 and session, so two browsers of one account (every unauthenticated console
 is the same principal) never share a "why?".
 
+**Changed — anonymous account pages no longer probe the session.** Login
+sets a readable CSRF cookie beside the httpOnly session cookie, so a visitor
+without it cannot be signed in; the header nav and the dashboard guard now
+read that cookie first and call `/api/v1/auth/me` only when it is present,
+removing a 401 from every anonymous page view and one round trip from the
+dashboard's redirect to login.
+
 **Fixed — the voice routes kept accounts apart only in `speak`.**
 `GET /api/v1/voice/history` returned every account's turns to every caller and
 `/status` counted them all; each turn now carries its principal and both

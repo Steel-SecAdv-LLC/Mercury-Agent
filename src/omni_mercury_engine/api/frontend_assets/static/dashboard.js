@@ -71,6 +71,11 @@ function appendRevealBox(modal, labelText, value) {
 /* ---------------------------------------------------------------- profile */
 
 async function loadProfile() {
+  // No readable CSRF cookie means no session: go to login without a 401 round trip.
+  if (!readCookie("mercury_csrf")) {
+    window.location.href = "/login";
+    return false;
+  }
   const me = await api("GET", "/me");
   if (!me.ok) {
     window.location.href = "/login";
