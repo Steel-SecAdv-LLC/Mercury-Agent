@@ -79,6 +79,19 @@ LOGIC_PATCHES: tuple[tuple[str, str, str], ...] = (
     ),
 )
 
+#: (description, old, new) applied to the prototype's helmet stylesheet.
+HELMET_CSS_PATCHES: tuple[tuple[str, str, str], ...] = (
+    (
+        "the boot progress bar yields to reduced motion: the prototype restored its infinite "
+        "animation with !important, which outranked the token sheet's reduced-motion guards",
+        ".mcli-progress, .mcli-progress{animation:mcliBootFill 1.9s ease-in-out infinite !important;}",
+        "@media (prefers-reduced-motion: no-preference){html:not(.mn-reduce-motion) .mcli-progress"
+        "{animation:mcliBootFill 1.9s ease-in-out infinite;}} "
+        "@media (prefers-reduced-motion: reduce){.mcli-progress{animation:none;}} "
+        "html.mn-reduce-motion .mcli-progress{animation:none !important;}",
+    ),
+)
+
 #: (description, old, new) applied to the template markup before it is compiled.
 #:
 #: The five ``aria-label`` patches give an accessible name to the controls the
@@ -531,6 +544,7 @@ def build() -> dict[str, str]:
         + logic.strip("\n")
         + "\n  return Component;\n})(window.DCLogic, window.DCLogic, window.React);\n"
     )
+    helmet_css = _apply(helmet_css, HELMET_CSS_PATCHES, "helmet css")
     files["port.css"] = (
         HEADER_CSS.format(src="Mercury CLI.dc.html (helmet style + style-* rules)")
         + helmet_css.strip()

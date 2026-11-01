@@ -435,6 +435,10 @@ def _remember_in_voice(
                 "summary": record.summary,
             },
             domain=sanitize_domain(raw_domain),
+            # The account the run belongs to: the voice shows it only to that
+            # account (``anonymous`` for unauthenticated runs), the same
+            # boundary the export history enforces per user.
+            principal=record.user_id,
         )
     except Exception as exc:  # pragma: no cover - defensive by contract
         logger.debug("voice memory mirror skipped: %s", exc)

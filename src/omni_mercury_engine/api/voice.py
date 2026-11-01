@@ -20,8 +20,10 @@ import logging
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+
+from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +142,14 @@ class VoiceResponseModel(BaseModel):
             ]
         }
     }
+
+
+def _speak(voice: Any, message: str, domain: str | None, principal: str) -> Any:
+    """Call the voice with the caller's principal; the fallback voice takes none."""
+    try:
+        return voice.speak(message, domain=domain, principal=principal)
+    except TypeError:
+        return voice.speak(message, domain=domain)
 
 
 def _voice_payload(response: Any) -> dict[str, Any]:
@@ -376,6 +386,23 @@ class _FallbackVoice:
 
 
 # API Endpoints
+def _get_optional_user(
+    api_key_user: User | None = Depends(APIKeyAuth(auto_error=False)),
+    jwt_user: User | None = Depends(JWTAuth(auto_error=False)),
+) -> User | None:
+    """The caller's account when a valid API key or JWT is presented, else ``None``."""
+    return api_key_user or jwt_user
+
+
+def _principal_of(user: User | None) -> str:
+    """The principal the voice answers for: the account id, or ``anonymous``.
+
+    ``isinstance`` rather than ``is not None``: tests and the warm-up call the
+    handler directly, and then ``user`` is the unresolved ``Depends`` marker.
+    """
+    return user.id if isinstance(user, User) else "anonymous"
+
+
 @router.post(
     "/speak",
     response_model=VoiceResponseModel,
@@ -406,7 +433,9 @@ Mercury automatically detects the intent of your message:
         500: {"description": "Processing error"},
     },
 )
-async def speak(request: SpeakRequest) -> VoiceResponseModel:
+async def speak(
+    request: SpeakRequest, user: User | None = Depends(_get_optional_user)
+) -> VoiceResponseModel:
     """Send a message to Mercury and receive a response.
 
     Args:
@@ -417,7 +446,9 @@ async def speak(request: SpeakRequest) -> VoiceResponseModel:
     """
     try:
         voice = _get_voice()
-        payload = _voice_payload(voice.speak(request.message, domain=request.domain))
+        payload = _voice_payload(
+            _speak(voice, request.message, request.domain, _principal_of(user))
+        )
         raw_conf = payload.get("confidence")
         # A missing confidence is reported as null, not filled with 0.8.
         confidence = (

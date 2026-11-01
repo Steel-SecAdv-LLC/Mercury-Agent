@@ -79,6 +79,9 @@ class SearchContext:
     query: str
     intent: QueryIntent
     domain: str | None = None
+    #: Who is asking. Detection-log entries are visible only to the principal
+    #: that recorded them (or to everyone when recorded without one).
+    principal: str | None = None
     time_range_start: float | None = None
     time_range_end: float | None = None
     max_results: int = 10
@@ -119,6 +122,20 @@ _GENERAL_DOMAIN = "general"
 _ANOMALY_STEMS: tuple[str, ...] = ("anomal", "outlier", "unusual", "flag", "alert", "incident")
 _DETECTION_STEMS: tuple[str, ...] = ("detect", "event", "finding", "result")
 _RECENCY_STEMS: tuple[str, ...] = ("recent", "lately", "today", "latest", "last", "happened")
+
+
+def _principal_may_see(requested: str | None, recorded: Any) -> bool:
+    """Whether the asking principal may read an entry recorded by ``recorded``.
+
+    An entry recorded without a principal (narrated directly; no account was
+    involved) is visible to everyone. Every other entry is visible only to the
+    principal that recorded it, ``"anonymous"`` included: unauthenticated
+    callers see unauthenticated detections and nothing else. A request without
+    a principal is treated as anonymous rather than as unrestricted.
+    """
+    if recorded is None:
+        return True
+    return str(recorded) == (requested or "anonymous")
 
 
 def _domains_compatible(requested: str | None, recorded: str) -> bool:
@@ -234,12 +251,26 @@ class KnowledgeRetriever:
         """Set memory surface for retrieval."""
         self._memory_surface = surface
 
-    def log_detection(self, detection: dict[str, Any], domain: str | None = None) -> None:
-        """Log a detection for future retrieval."""
+    def log_detection(
+        self,
+        detection: dict[str, Any],
+        domain: str | None = None,
+        principal: str | None = None,
+    ) -> None:
+        """Log a detection for future retrieval.
+
+        ``principal`` is the account the detection belongs to (``"anonymous"``
+        for an unauthenticated request). The retriever is one object per
+        process, shared by every caller of the voice, so without this the
+        detections of one account were recallable by any other; an entry is
+        now visible only to its principal, and an entry recorded without one
+        (narrated directly, no account involved) stays visible to all.
+        """
         self._detection_log.append(
             {
                 "detection": detection,
                 "domain": domain,
+                "principal": principal,
                 "timestamp": time.time(),
             }
         )
@@ -253,6 +284,7 @@ class KnowledgeRetriever:
         domain: str | None = None,
         since: float | None = None,
         anomalous_only: bool = False,
+        principal: str | None = None,
     ) -> list[dict[str, Any]]:
         """Logged detection entries, newest first.
 
@@ -260,7 +292,8 @@ class KnowledgeRetriever:
         float}`` exactly as :meth:`log_detection` stored it. ``domain`` filters
         with the same wildcard rule the search uses (``general`` on either side
         matches); ``since`` is an epoch-seconds lower bound; ``anomalous_only``
-        keeps the runs that flagged at least one sample.
+        keeps the runs that flagged at least one sample; ``principal`` keeps the
+        entries that principal may see (see :meth:`log_detection`).
 
         This is what the voice's counting, summary and "latest detection"
         answers read, so those answers are built from the record and never
@@ -271,6 +304,8 @@ class KnowledgeRetriever:
             if since is not None and float(entry.get("timestamp", 0.0)) < since:
                 continue
             if not _domains_compatible(domain, str(entry.get("domain") or "")):
+                continue
+            if not _principal_may_see(principal, entry.get("principal")):
                 continue
             if anomalous_only and not entry.get("detection", {}).get("anomaly_detected", False):
                 continue
@@ -284,6 +319,7 @@ class KnowledgeRetriever:
         max_results: int | None = None,
         min_relevance: float | None = None,
         sources: list[RetrievalSource] | None = None,
+        principal: str | None = None,
     ) -> SearchResponse:
         """Search across all connected knowledge sources.
 
@@ -293,6 +329,8 @@ class KnowledgeRetriever:
             max_results: Maximum results to return
             min_relevance: Minimum relevance score
             sources: Specific sources to search (None = all)
+            principal: Who is asking; bounds the detection-log results to the
+                entries that principal recorded (see :meth:`log_detection`)
 
         Returns:
             SearchResponse with ranked results
@@ -311,6 +349,7 @@ class KnowledgeRetriever:
             query=query,
             intent=intent,
             domain=domain,
+            principal=principal,
             max_results=max_results,
             min_relevance=min_relevance,
             sources=sources,
@@ -549,6 +588,8 @@ class KnowledgeRetriever:
             domain = log_entry.get("domain", "")
 
             if not _domains_compatible(context.domain, domain):
+                continue
+            if not _principal_may_see(context.principal, log_entry.get("principal")):
                 continue
 
             # Check for anomaly-related queries

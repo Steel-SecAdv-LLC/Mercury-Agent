@@ -76,6 +76,10 @@ class CapabilitySpec:
         switch: Name of the operator decoupling switch
             (:mod:`omni_mercury_engine.decouple`) that can turn this
             capability off; ``None`` when it has none.
+        switches: Every further switch the capability also needs on. The
+            FINDΩYOU™ bridge refuses to import unless both ``findoyou`` and
+            ``ama_optional`` are on, so a probe that read only the first
+            reported it grounded while its import raised.
     """
 
     name: str
@@ -85,6 +89,12 @@ class CapabilitySpec:
     grounding_requires: tuple[str, ...] = ()
     evidence: tuple[str, ...] = ()
     switch: str | None = None
+    switches: tuple[str, ...] = ()
+
+    @property
+    def all_switches(self) -> tuple[str, ...]:
+        """Every decoupling switch this capability depends on, in order."""
+        return tuple(s for s in (self.switch, *self.switches) if s)
 
 
 CAPABILITIES: tuple[CapabilitySpec, ...] = (
@@ -126,6 +136,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         ("omni_mercury_engine.integrations.findoyou_bridge",),
         requires=("ama_cryptography",),
         switch="findoyou",
+        switches=("ama_optional",),
     ),
     CapabilitySpec(
         "post_quantum_signing",
@@ -160,19 +171,24 @@ def _probe_capability(spec: CapabilitySpec) -> dict[str, Any]:
     missing_modules = [m for m in spec.modules if not _module_present(m)]
     missing = [r for r in spec.requires if not _module_present(r)]
     missing_grounding = [r for r in spec.grounding_requires if not _module_present(r)]
-    switch_name = spec.switch
-    switched_off = False
-    if switch_name is not None:
+    switched_off: list[str] = []
+    if spec.all_switches:
         from omni_mercury_engine.decouple import is_enabled
 
-        switched_off = not is_enabled(switch_name)
-    if switched_off and switch_name is not None:
+        switched_off = [name for name in spec.all_switches if not is_enabled(name)]
+    if switched_off:
         # An operator decision, reported as such: the code is present, the
         # dependencies may be present, and it is off because someone said so.
+        # Every switch that is off is named, each with its remedy.
         state = ThreeState.UNAVAILABLE
+        remedies = "; ".join(
+            f"`mercury-agent decouple {name.replace('_', '-')} on`" for name in switched_off
+        )
         reason = (
-            f"disabled by the operator (decoupling switch {switch_name!r}; "
-            f"re-enable with `mercury-agent decouple {switch_name.replace('_', '-')} on`)"
+            "disabled by the operator (decoupling switch"
+            f"{'es' if len(switched_off) > 1 else ''} "
+            + ", ".join(repr(n) for n in switched_off)
+            + f"; re-enable with {remedies})"
         )
     elif missing_modules or missing:
         state = ThreeState.UNAVAILABLE

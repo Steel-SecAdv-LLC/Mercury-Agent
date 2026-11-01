@@ -27,6 +27,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — seven review findings on the console and crypto changes.** The
+agent's memory is scoped by principal: a detection is recalled only by the
+account that ran it (``anonymous`` for unauthenticated runs), and the voice
+route resolves an optional API key or JWT so an anonymous caller can no longer
+read another account's detections. The core ``/detect/univariate`` and
+``/detect/multivariate`` routes record an authenticated caller's run under that
+account, where the caller's own export history finds it. Legacy
+``pbkdf2_sha256`` password rows are verified at the fixed 32-byte digest
+length (deriving to the stored length let a truncated row verify a wrong
+password with 1-in-256 odds). The self-model probes every switch the FINDΩYOU™
+bridge needs, so ``ama_optional`` off is reported as the operator decision it is
+rather than as a grounded capability. The console's boot progress bar yields to
+both reduced-motion preferences. Two more label-derived channels are excluded
+from the scored matrices: the earthquake loader's rolling ``b_value`` (its
+window includes the current event's magnitude) and the volcanic loader's
+``days_since_last_change`` (reset by the alert level). The earthquake de-leak
+figure was re-measured on events re-fetched from USGS with the current
+detector: **0.8995 → 0.3276 (−0.5718)**, still far outside the no-exclusion
+control band; the measurement is now reproducible
+(`research/engine_calibration/deleak_impact.py`) where the artifact had been
+produced by hand.
+
 **Added — the agent answers questions about its detection record with the
 record, not a search score.** "How many anomalies today?" (also per hour,
 yesterday, week, month, or all) is answered with the run count, how many

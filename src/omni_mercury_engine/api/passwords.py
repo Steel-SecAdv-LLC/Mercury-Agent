@@ -157,9 +157,16 @@ def _verify_pbkdf2(password: str, fields: list[str]) -> bool:
         return False
     if not (1 <= iterations <= 10_000_000):
         return False
+    # A legacy row holds the full 32-byte digest. Deriving to the stored length
+    # would let a truncated row (one byte: 1-in-256 odds) verify a wrong
+    # password, so the length is fixed and any other stored length is refused.
+    if len(expected) != _DERIVED_KEY_BYTES:
+        return False
     # AMA's native PBKDF2-HMAC-SHA-256 (SP 800-132): byte-identical to the
     # stdlib derivation it replaced, which ran inside OpenSSL.
-    candidate = ama_pbkdf2_hmac_sha256(password.encode("utf-8"), salt, iterations, len(expected))
+    candidate = ama_pbkdf2_hmac_sha256(
+        password.encode("utf-8"), salt, iterations, _DERIVED_KEY_BYTES
+    )
     return ama_constant_time_compare(candidate, expected)
 
 

@@ -1,18 +1,33 @@
 {
   "schema": "mercury.research.engine_calibration.deleak_impact/v1",
-  "what": "Per-event AUROC before and after excluding label-derived features from the scored matrix, restricted to the events present in BOTH runs so the comparison is like-for-like.",
-  "provenance": {
-    "commit": "eacfef507ef2f6436804682ca913103f48c2cfde",
-    "python": "3.13.17",
-    "numpy": "2.5.3",
-    "baseline_artifact": "research/engine_calibration/results.json (canonical, pre-de-leak)"
-  },
+  "what": "Per-event AUROC of the real MercuryAnomalyDetector before and after excluding each loader's LABEL_DERIVED_FEATURES from the scored matrix, on the same fetched rows. Produced by research/engine_calibration/deleak_impact.py; domains listed under provenance.carried_over_domains keep the figures of the previous measurement because their sources could not be re-fetched.",
   "honest_limits": {
     "not_a_replacement_table": "7 of the 9 canonical domains could not be re-fetched here (wildfire needs a NASA FIRMS key, financial a FRED key, landslide's host does not resolve, flood and CICIDS are stale URLs the SafeHTTPClient refuses to redirect to, volcanic's USGS endpoint was unavailable). This file is evidence of the de-leak's impact, not a new canonical measurement.",
     "energy_unmeasurable": "All four energy events predate the live SWPC window, so the loader refuses rather than reconstructing. The canonical 0.9237 was therefore measured on a reconstructed series with circular labels - 'doubly circular' in the loader's own words - and cannot be reproduced without permitting synthetic data.",
     "confound": "Domains with ZERO exclusions also moved (max |delta| 0.119), so the canonical artifact is stale against both the current detector and the live data. Only a delta materially larger than that band is attributable to de-leaking.",
     "attributable": "earthquake -0.5980 is five times the largest no-exclusion drift, so the magnitude leak explains the bulk of its canonical 0.9367. fema, pandemic and hurricane move within the drift band, so de-leaking's effect there is not separable on this evidence.",
-    "correlation_remains": "Exclusion removes identity, not correlation. tornado rose despite dropping ef_scale because fatalities, injuries and path_length covary strongly with EF scale; they are distinct measurements, but physically downstream of the labelled quantity."
+    "correlation_remains": "Exclusion removes identity, not correlation. tornado rose despite dropping ef_scale because fatalities, injuries and path_length covary strongly with EF scale; they are distinct measurements, but physically downstream of the labelled quantity.",
+    "earthquake_remeasured_2026_11_01": "Earthquake was re-fetched from USGS and re-scored with the current detector after b_value joined its exclusion list (the rolling Gutenberg-Richter estimate includes the current event's magnitude). Both views moved against the previous artifact (circular 0.9367 -> 0.8995) because the detector and the live catalog both changed since that measurement; the delta is the comparable quantity and it remains far outside the no-exclusion control band.",
+    "volcanic_unmeasurable": "volcanoes.usgs.gov/vsc/api/volcanoApi/alerts answered HTTP 404 on 2026-11-01, so the volcanic loader's widened exclusion (days_since_last_change) has no measured impact figure; it is declared, gated by the provenance audit, and not quoted anywhere."
+  },
+  "provenance": {
+    "commit": "24ee86aaccace475701f9185151e4531da1e4c0c",
+    "python": "3.13.18",
+    "numpy": "2.5.3",
+    "script": "research/engine_calibration/deleak_impact.py",
+    "measured_domains": [
+      "earthquake"
+    ],
+    "carried_over_domains": [
+      "fema",
+      "hurricane",
+      "marine",
+      "network_security",
+      "pandemic",
+      "tornado",
+      "tsunami"
+    ],
+    "baseline_artifact": "research/engine_calibration/results.json (canonical, pre-de-leak)"
   },
   "no_exclusion_control_band": {
     "domains": [
@@ -25,19 +40,20 @@
   "per_domain": {
     "earthquake": {
       "n_events": 5,
-      "auroc_circular": 0.9367,
-      "auroc_deleaked": 0.3387,
-      "delta": -0.598,
+      "auroc_circular": 0.8995,
+      "auroc_deleaked": 0.3276,
+      "delta": -0.5718,
       "excluded_features": [
         "magnitude",
-        "mag_deviation"
+        "mag_deviation",
+        "b_value"
       ]
     },
     "fema": {
       "n_events": 1,
       "auroc_circular": 0.7394,
       "auroc_deleaked": 0.6841,
-      "delta": -0.0554,
+      "delta": -0.0553,
       "excluded_features": [
         "ia_program",
         "hm_program",
@@ -97,7 +113,7 @@
     "tsunami": {
       "n_events": 3,
       "auroc_circular": 0.8905,
-      "auroc_deleaked": 0.9754,
+      "auroc_deleaked": 0.9753,
       "delta": 0.0848,
       "excluded_features": []
     }
@@ -106,37 +122,37 @@
     {
       "domain": "earthquake",
       "event": "haiti_2010",
-      "auroc_circular": 0.7453,
-      "auroc_deleaked": 0.1402,
-      "delta": -0.6051
+      "auroc_circular": 0.7804,
+      "auroc_deleaked": 0.0794,
+      "delta": -0.7009
     },
     {
       "domain": "earthquake",
       "event": "nepal_2015",
-      "auroc_circular": 0.9972,
-      "auroc_deleaked": 0.1528,
-      "delta": -0.8444
+      "auroc_circular": 0.9694,
+      "auroc_deleaked": 0.1167,
+      "delta": -0.8528
     },
     {
       "domain": "earthquake",
       "event": "noto_2024",
-      "auroc_circular": 0.9608,
-      "auroc_deleaked": 0.0271,
+      "auroc_circular": 0.991,
+      "auroc_deleaked": 0.0572,
       "delta": -0.9337
     },
     {
       "domain": "earthquake",
       "event": "tohoku_2011",
-      "auroc_circular": 0.9993,
-      "auroc_deleaked": 0.9799,
-      "delta": -0.0195
+      "auroc_circular": 0.9893,
+      "auroc_deleaked": 0.9819,
+      "delta": -0.0074
     },
     {
       "domain": "earthquake",
       "event": "turkey_syria_2023",
-      "auroc_circular": 0.9806,
-      "auroc_deleaked": 0.3933,
-      "delta": -0.5873
+      "auroc_circular": 0.7672,
+      "auroc_deleaked": 0.403,
+      "delta": -0.3642
     },
     {
       "domain": "fema",

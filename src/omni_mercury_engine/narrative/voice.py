@@ -450,6 +450,7 @@ class MercuryVoice:
         self,
         user_input: str,
         domain: str | None = None,
+        principal: str | None = None,
     ) -> VoiceResponse:
         """Process user input and generate response.
 
@@ -458,6 +459,8 @@ class MercuryVoice:
         Args:
             user_input: Natural language input from user
             domain: Optional domain context
+            principal: The account asking (``"anonymous"`` when none);
+                detection-record answers are bounded to that account's runs
 
         Returns:
             VoiceResponse with truth-dense communication
@@ -484,7 +487,7 @@ class MercuryVoice:
 
         # Check for status queries directly
         if any(kw in input_lower for kw in ["status", "health", "running", "operational"]):
-            response = self._handle_status_query(profile)
+            response = self._handle_status_query(profile, principal)
             self._record_turn(ConversationType.QUERY, "mercury", response.message)
             return response
 
@@ -501,16 +504,16 @@ class MercuryVoice:
         # free-text relevance scorer, so "how many anomalies today?" gets a
         # number and "what was the latest anomaly?" gets that run.
         if _is_detection_summary_query(input_lower):
-            response = self._handle_detection_summary(input_lower, domain)
+            response = self._handle_detection_summary(input_lower, domain, principal)
             self._record_turn(ConversationType.QUERY, "mercury", response.message)
             return response
         if _is_latest_detection_query(input_lower):
-            response = self._handle_latest_detection(domain)
+            response = self._handle_latest_detection(domain, principal)
             self._record_turn(ConversationType.QUERY, "mercury", response.message)
             return response
 
         # General search for other queries
-        search_response = self.retriever.search(user_input, domain=domain)
+        search_response = self.retriever.search(user_input, domain=domain, principal=principal)
 
         # General query handling with search
         response = self._handle_general_query(user_input, search_response, profile, domain)
@@ -690,7 +693,9 @@ class MercuryVoice:
             response_time_ms=0.0,
         )
 
-    def _handle_status_query(self, profile: PersonalityProfile) -> VoiceResponse:
+    def _handle_status_query(
+        self, profile: PersonalityProfile, principal: str | None = None
+    ) -> VoiceResponse:
         """Handle status query."""
         start_time = time.time()
 
@@ -702,7 +707,7 @@ class MercuryVoice:
             f"Queries handled: {stats['queries_handled']}.",
             f"Detections narrated: {stats['detections_narrated']}.",
         ]
-        remembered = self.retriever.detections()
+        remembered = self.retriever.detections(principal=principal)
         if remembered:
             flagged = sum(1 for e in remembered if e["detection"].get("anomaly_detected", False))
             message_parts.append(
@@ -772,7 +777,9 @@ class MercuryVoice:
             ],
         )
 
-    def _handle_detection_summary(self, input_lower: str, domain: str | None) -> VoiceResponse:
+    def _handle_detection_summary(
+        self, input_lower: str, domain: str | None, principal: str | None = None
+    ) -> VoiceResponse:
         """Count and summarise the recorded detection runs in the asked window.
 
         Every number comes from the retriever's detection log; nothing is
@@ -781,7 +788,7 @@ class MercuryVoice:
         """
         start_time = time.time()
         window_label, since = _parse_window(input_lower)
-        entries = self.retriever.detections(domain=domain, since=since)
+        entries = self.retriever.detections(domain=domain, since=since, principal=principal)
         flagged = [e for e in entries if e["detection"].get("anomaly_detected", False)]
 
         if not entries:
@@ -839,11 +846,13 @@ class MercuryVoice:
             suggested_follow_ups=follow_ups,
         )
 
-    def _handle_latest_detection(self, domain: str | None) -> VoiceResponse:
+    def _handle_latest_detection(
+        self, domain: str | None, principal: str | None = None
+    ) -> VoiceResponse:
         """Describe the newest run that flagged an anomaly, or the newest run if none did."""
         start_time = time.time()
-        flagged = self.retriever.detections(domain=domain, anomalous_only=True)
-        every = self.retriever.detections(domain=domain)
+        flagged = self.retriever.detections(domain=domain, anomalous_only=True, principal=principal)
+        every = self.retriever.detections(domain=domain, principal=principal)
 
         if flagged:
             entry = flagged[0]

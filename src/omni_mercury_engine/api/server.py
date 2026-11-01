@@ -36,7 +36,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
@@ -54,6 +54,7 @@ correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
 )
 
 from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
+from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
     ValidationConfig,
@@ -193,6 +194,20 @@ tags_metadata = [
 # patching.
 
 
+def _get_optional_user(
+    api_key_user: User | None = Depends(APIKeyAuth(auto_error=False)),
+    jwt_user: User | None = Depends(JWTAuth(auto_error=False)),
+) -> User | None:
+    """The caller's account when a valid API key or JWT is presented, else ``None``.
+
+    The core detection routes are open, but a caller who does authenticate
+    has the run recorded under their account (export history, agent memory)
+    instead of under ``anonymous``, where their own history filter could not
+    find it.
+    """
+    return api_key_user or jwt_user
+
+
 #: True while :func:`_warmup` drives the detection handlers.
 _WARMUP: contextvars.ContextVar[bool] = contextvars.ContextVar("mercury_api_warmup", default=False)
 
@@ -233,13 +248,13 @@ async def _warm_detection_paths() -> None:
     # Pydantic model + validator warmup via the univariate path.
     univariate_data = [float(i % 7) for i in range(16)]
     univariate_req = UnivariateRequest(data=univariate_data, sensitivity=0.5)
-    await detect_univariate(univariate_req)
+    await detect_univariate(univariate_req, user=None)
 
     # Multivariate path warms a different numpy code path (L2 norm,
     # axis-wise mean/std) plus a different validator branch.
     multivariate_data = [[float(i + j) for j in range(3)] for i in range(8)]
     multivariate_req = MultivariateRequest(data=multivariate_data, sensitivity=0.5)
-    await detect_multivariate(multivariate_req)
+    await detect_multivariate(multivariate_req, user=None)
 
 
 @asynccontextmanager
@@ -1027,6 +1042,7 @@ async def _record_core_detection(
     data: list[list[float]],
     results: dict[str, Any],
     sensitivity: float | None,
+    user: User | None = None,
 ) -> None:
     """Record a univariate/multivariate detection like every other detection route.
 
@@ -1034,8 +1050,11 @@ async def _record_core_detection(
     (export history, alert egress, the agent's memory); these two endpoints,
     the console's default ``detect`` path, recorded nothing, so their
     detections never reached history, alerts or the agent. They are
-    unauthenticated, so the record is attributed to ``anonymous``, as the
-    other routes do without a user. Recording must never fail a detection.
+    open, so an unauthenticated run is attributed to ``anonymous`` as the
+    other routes do without a user; a caller presenting a valid API key or
+    JWT is recorded under that account so the run shows in its own history
+    (``isinstance``, because a direct call hands the unresolved ``Depends``
+    marker). Recording must never fail a detection.
     """
     if _WARMUP.get():
         return
@@ -1043,7 +1062,7 @@ async def _record_core_detection(
         from omni_mercury_engine.api.routes.export import record_detection
 
         await record_detection(
-            user_id="anonymous",
+            user_id=user.id if isinstance(user, User) else "anonymous",
             method=method,
             data=data,
             results=results,
@@ -1149,7 +1168,9 @@ A validation failure (bad input) returns HTTP 400 with structured detail.
         },
     },
 )
-async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
+async def detect_univariate(
+    request: UnivariateRequest, user: User | None = Depends(_get_optional_user)
+) -> UnivariateResponse:
     """Detect anomalies in univariate time-series data.
 
     This endpoint performs statistical anomaly detection on single-variable
@@ -1283,6 +1304,7 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
             [[float(v)] for v in data],
             {"anomalies": anomalies, "scores": scores, "threshold": threshold, "summary": summary},
             request.sensitivity,
+            user,
         )
         return UnivariateResponse(
             anomalies=anomalies,
@@ -1356,7 +1378,9 @@ not be detectable in individual features.
         },
     },
 )
-async def detect_multivariate(request: MultivariateRequest) -> MultivariateResponse:
+async def detect_multivariate(
+    request: MultivariateRequest, user: User | None = Depends(_get_optional_user)
+) -> MultivariateResponse:
     """Detect anomalies in multivariate time-series data.
 
     This endpoint performs statistical anomaly detection on multi-dimensional
@@ -1462,6 +1486,7 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
             [list(map(float, row)) for row in data],
             {"anomalies": anomalies, "scores": scores, "threshold": threshold, "summary": summary},
             request.sensitivity,
+            user,
         )
         return MultivariateResponse(
             anomalies=anomalies,

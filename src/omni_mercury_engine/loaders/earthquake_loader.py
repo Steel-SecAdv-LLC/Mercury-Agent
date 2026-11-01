@@ -120,6 +120,11 @@ class EarthquakeLoader(BaseDomainLoader):
     LABEL_DERIVED_FEATURES: tuple[str, ...] = (
         "magnitude",
         "mag_deviation",
+        # The rolling Gutenberg-Richter estimate is computed over a window
+        # that *includes the current event's magnitude* (``magnitudes[start :
+        # i + 1]``), so the labelled column reaches the scored matrix through
+        # it. Excluding the two direct columns alone left this channel open.
+        "b_value",
     )
     LABEL_FEATURE_DISJOINT: bool = True
 
