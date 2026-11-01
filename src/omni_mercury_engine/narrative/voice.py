@@ -216,6 +216,10 @@ class MercuryVoice:
         # Conversation state
         self._conversation_history: list[ConversationTurn] = []
         self._turn_counter = 0
+        #: Per-principal memory of the last grounded answer (kind, argument and
+        #: the runs it listed), so "why?", "and yesterday?" and "run 2" resolve
+        #: against that account's own previous turn and nobody else's.
+        self._context: dict[str, dict[str, Any]] = {}
         self._session_start = time.time()
 
         # Callbacks for external handlers
@@ -489,9 +493,14 @@ class MercuryVoice:
         # apology.
         input_lower = user_input.lower()
         kind, argument = _conv.classify(user_input)
+        if kind == "search":
+            follow = _conv.follow_up(user_input)
+            if follow is not None:
+                kind, argument = self._resolve_follow_up(follow, domain, principal)
         response = self._dispatch(
             kind, argument, user_input, input_lower, domain, principal, profile
         )
+        self._remember_context(kind, argument, domain, principal)
 
         # Record Mercury's response
         self._record_turn(ConversationType.QUERY, "mercury", response.message)
@@ -796,7 +805,11 @@ class MercuryVoice:
         )
 
     def _handle_explain_latest(
-        self, domain: str | None, principal: str | None, variant: str = "narrative"
+        self,
+        domain: str | None,
+        principal: str | None,
+        variant: str = "narrative",
+        entry: dict[str, Any] | None = None,
     ) -> VoiceResponse:
         """Narrate the newest recorded run through the narrative engine.
 
@@ -806,9 +819,8 @@ class MercuryVoice:
         ethical gate. Nothing is re-logged: the run is already in memory.
         """
         start_time = time.time()
-        flagged = self.retriever.detections(domain=domain, anomalous_only=True, principal=principal)
-        every = self.retriever.detections(domain=domain, principal=principal)
-        entry = flagged[0] if flagged else (every[0] if every else None)
+        if entry is None:
+            entry = self._newest(domain, principal)
         if entry is None:
             return VoiceResponse(
                 message=(
@@ -1024,8 +1036,10 @@ class MercuryVoice:
         what memory covers, instead of apologising generically.
         """
         start_time = time.time()
-        window_label, since = _conv.parse_window(input_lower)
-        entries = self.retriever.detections(domain=domain, since=since, principal=principal)
+        window_label, since, until = _conv.parse_window(input_lower)
+        entries = _conv.within(
+            self.retriever.detections(domain=domain, since=since, principal=principal), until
+        )
         flagged = [e for e in entries if e["detection"].get("anomaly_detected", False)]
 
         if not entries:
@@ -1178,6 +1192,22 @@ class MercuryVoice:
             return self._handle_last_runs(int(argument), domain, principal)
         if kind == "explain":
             return self._handle_explain_latest(domain, principal, variant=str(argument))
+        if kind == "explain_entry":
+            variant, entry = argument
+            return self._handle_explain_latest(domain, principal, variant=str(variant), entry=entry)
+        if kind == "no_such_entry":
+            asked, shown = argument
+            return self._grounded(
+                (
+                    f"The last list had {shown} run{'s' if shown != 1 else ''}, so there is no run "
+                    f"{asked}. Ask for 1 to {shown}, or 'Show me the last 10 runs' for a longer list.",
+                    ["Show me the last 10 runs", "What was the latest anomaly?"],
+                ),
+                ["detection_log"],
+                QueryIntent.SEARCH_EVENTS,
+                "Ordinal outside the last listing.",
+                time.time(),
+            )
         if kind == "confidence":
             return self._handle_confidence(domain, principal)
         if kind == "summary":
@@ -1188,6 +1218,79 @@ class MercuryVoice:
             return self._handle_capability_query(input_lower)
         search_response = self.retriever.search(user_input, domain=domain, principal=principal)
         return self._handle_general_query(user_input, search_response, profile, domain)
+
+    _RECORD_KINDS = frozenset(
+        {
+            "latest",
+            "detail",
+            "summary",
+            "last_n",
+            "posture",
+            "compare",
+            "recommend",
+            "confidence",
+            "gate",
+        }
+    )
+
+    def _remember_context(
+        self, kind: str, argument: Any, domain: str | None, principal: str | None
+    ) -> None:
+        """Keep what this principal was just told, bounded to the newest 256 principals."""
+        key = principal or "anonymous"
+        context: dict[str, Any] = {"kind": kind, "argument": argument}
+        if kind == "last_n":
+            context["listing"] = self._entries(domain, principal)[: int(argument)]
+        elif key in self._context and "listing" in self._context[key]:
+            # "run 2" then "the first one" both refer to the last list shown
+            context["listing"] = self._context[key]["listing"]
+        self._context.pop(key, None)
+        self._context[key] = context
+        while len(self._context) > 256:
+            self._context.pop(next(iter(self._context)))
+
+    def _resolve_follow_up(
+        self, follow: tuple[str, Any], domain: str | None, principal: str | None
+    ) -> tuple[str, Any]:
+        """Turn "why?", "and yesterday?" or "run 2" into a grounded answer using the last turn."""
+        context = self._context.get(principal or "anonymous") or {}
+        previous = str(context.get("kind") or "")
+        mode, value = follow
+        if mode == "ordinal":
+            listing = list(context.get("listing") or [])
+            if not listing:
+                return "last_n", 5
+            index = len(listing) - 1 if value == -1 else int(value) - 1
+            if 0 <= index < len(listing):
+                return "explain_entry", ("narrative", listing[index])
+            return "no_such_entry", (value, len(listing))
+        if mode == "window":
+            return ("compare", None) if previous == "compare" else ("summary", None)
+        if previous == "explain":
+            return "explain", "dossier"
+        if previous == "explain_entry":
+            return "explain_entry", ("dossier", context["argument"][1])
+        if previous in self._RECORD_KINDS:
+            return "explain", "narrative"
+        if previous == "glossary":
+            term = str(context.get("argument") or "")
+            related = {
+                "gate": ("gate", None),
+                "ama": ("glossary", "decoupling"),
+                "findoyou": ("glossary", "decoupling"),
+                "decoupling": ("glossary", "ama"),
+                "severity": ("glossary", "threshold"),
+                "threshold": ("glossary", "z-score"),
+                "z-score": ("glossary", "anomaly score"),
+                "anomaly score": ("glossary", "severity"),
+                "confidence": ("confidence", None),
+                "contamination": ("glossary", "conformal"),
+                "conformal": ("glossary", "contamination"),
+            }
+            return related.get(term, ("capability", None))
+        if previous in {"capability", "identity", "next_run", "collect", "run_command"}:
+            return "capability", None
+        return "help", None
 
     @staticmethod
     def _grounded(

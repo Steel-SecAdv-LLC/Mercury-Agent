@@ -31,6 +31,7 @@ __all__ = [
     "describe_detection",
     "detection_result_from_record",
     "fallback_menu",
+    "follow_up",
     "glossary_answer",
     "parse_window",
     "relative_time",
@@ -258,6 +259,56 @@ def classify(text: str) -> tuple[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
+# Follow-ups that lean on the previous turn
+# --------------------------------------------------------------------------- #
+
+_ELABORATE = (
+    "why",
+    "explain",
+    "tell me more",
+    "more",
+    "details",
+    "go on",
+    "elaborate",
+    "what does that mean",
+    "how so",
+    "meaning",
+    "and",
+)
+_WINDOW_WORDS = ("today", "yesterday", "hour", "week", "month")
+_ORDINAL_WORDS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5}
+_ORDINAL_RE = re.compile(r"\b(?:run|number|no\.?|entry|item)\s*#?(\d{1,2})\b|^#?(\d{1,2})$")
+
+
+def follow_up(text: str) -> tuple[str, Any] | None:
+    """Recognise a short reply that only makes sense against the previous turn.
+
+    ``("ordinal", n)`` picks run ``n`` from the last listing (``-1`` the last
+    one shown), ``("window", text)`` asks the previous question about another
+    period ("and yesterday?"), ``("elaborate", None)`` asks for more ("why?",
+    "tell me more"). ``None`` means the reply stands on its own. Only
+    consulted when :func:`classify` found nothing, so a full question is
+    never mistaken for a follow-up.
+    """
+    bare = text.strip().lower().rstrip("?!. ")
+    if not bare or len(bare) > 40:
+        return None
+    m = _ORDINAL_RE.search(bare)
+    if m:
+        return "ordinal", int(m.group(1) or m.group(2))
+    for word, n in _ORDINAL_WORDS.items():
+        if re.search(rf"\b{word}\b", bare):
+            return "ordinal", n
+    if "last one" in bare or "latest one" in bare:
+        return "ordinal", -1
+    if any(w in bare for w in _WINDOW_WORDS):
+        return "window", bare
+    if bare in _ELABORATE or any(bare.startswith(w + " ") for w in _ELABORATE):
+        return "elaborate", None
+    return None
+
+
+# --------------------------------------------------------------------------- #
 # Glossary
 # --------------------------------------------------------------------------- #
 
@@ -434,20 +485,32 @@ def relative_time(timestamp: Any) -> str:
     return f"{days} day{'s' if days != 1 else ''} ago"
 
 
-def parse_window(text: str) -> tuple[str, float | None]:
-    """Map the time words in a question to ``(label, since_epoch_seconds)``."""
+def parse_window(text: str) -> tuple[str, float | None, float | None]:
+    """Map the time words in a question to ``(label, since, until)`` in epoch seconds.
+
+    ``until`` is ``None`` for windows that run up to now; "yesterday" ends at
+    the start of today, so today's runs are not counted twice.
+    """
     now = time.time()
+    day_start = now - (now % 86400.0)
     if "hour" in text:
-        return "the last hour", now - 3600.0
+        return "the last hour", now - 3600.0, None
     if "today" in text:
-        return "today (UTC)", now - (now % 86400.0)
+        return "today (UTC)", day_start, None
     if "yesterday" in text:
-        return "yesterday (UTC)", now - (now % 86400.0) - 86400.0
+        return "yesterday (UTC)", day_start - 86400.0, day_start
     if "week" in text:
-        return "the last 7 days", now - 7 * 86400.0
+        return "the last 7 days", now - 7 * 86400.0, None
     if "month" in text:
-        return "the last 30 days", now - 30 * 86400.0
-    return "all recorded runs", None
+        return "the last 30 days", now - 30 * 86400.0, None
+    return "all recorded runs", None, None
+
+
+def within(entries: Sequence[dict[str, Any]], until: float | None) -> list[dict[str, Any]]:
+    """Drop entries recorded at or after ``until`` (``None`` keeps all)."""
+    if until is None:
+        return list(entries)
+    return [e for e in entries if float(e.get("timestamp") or 0.0) < until]
 
 
 def _number(value: Any) -> float | None:

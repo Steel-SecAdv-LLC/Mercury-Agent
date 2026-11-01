@@ -46,9 +46,15 @@ reasoning chain, uncertainty disclosure, dossier, recommendations and urgency
 for the newest flagged run). A command request is handed back as the exact
 command, never executed. The empty-search fallback is a menu of what can be
 asked instead of an apology, and no answer suggests the question just asked.
-The console's quick prompts and the help text list the new questions
-(`tests/narrative/test_voice_conversation.py`, which also pins the quoted bands
-and formula to `api/server.py` and the loader domains to the loader classes).
+Short replies that lean on the previous turn resolve against that account's
+own last answer and nobody else's: "why?" and "tell me more" narrate or
+expand the run just discussed, "and yesterday?" re-asks the count for another
+period (bounded, so yesterday no longer includes today), "run 2" or "the first
+one" picks from the last list shown, and a term's "tell me more" moves to the
+related term. The console's quick prompts and the help text list the new
+questions (`tests/narrative/test_voice_conversation.py`, which also pins the
+quoted bands and formula to `api/server.py` and the loader domains to the
+loader classes).
 
 **Added — durable agent memory (`MERCURY_AGENT_MEMORY_PATH`).** The detection
 log the agent answers from lived only in the process, so every restart emptied

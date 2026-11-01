@@ -320,3 +320,78 @@ def test_detailed_status_reports_components(voice_with_runs: MercuryVoice) -> No
     assert "Retriever:" in message
     assert "Components:" in message
     assert "Language model:" in message
+
+
+# --------------------------------------------------------------------------- #
+# Follow-ups that lean on the previous turn, per principal
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("why?", ("elaborate", None)),
+        ("tell me more", ("elaborate", None)),
+        ("and yesterday?", ("window", "and yesterday")),
+        ("this week?", ("window", "this week")),
+        ("run 2", ("ordinal", 2)),
+        ("#3", ("ordinal", 3)),
+        ("the first one", ("ordinal", 1)),
+        ("the last one", ("ordinal", -1)),
+        ("What was the latest anomaly?", None),
+        ("a question far too long to be a follow-up about anything at all", None),
+    ],
+)
+def test_follow_up_recogniser(text: str, expected: tuple[str, object] | None) -> None:
+    assert conv.follow_up(text) == expected
+
+
+def test_yesterday_window_ends_at_today() -> None:
+    label, since, until = conv.parse_window("and yesterday?")
+    assert label == "yesterday (UTC)"
+    assert since is not None and until is not None and until - since == 86400.0
+    now = __import__("time").time()
+    rows = [{"timestamp": now}, {"timestamp": until - 1.0}]
+    assert conv.within(rows, until) == [rows[1]]
+
+
+def test_why_after_latest_explains_it(voice_with_runs: MercuryVoice) -> None:
+    _ask(voice_with_runs, "What was the latest anomaly?")
+    why = _ask(voice_with_runs, "why?")
+    assert why.message.startswith("Explaining multivariate run")
+    more = _ask(voice_with_runs, "tell me more")
+    assert more.message.startswith("Detailed analysis of the multivariate run")
+
+
+def test_and_yesterday_counts_only_yesterday(voice_with_runs: MercuryVoice) -> None:
+    today = _ask(voice_with_runs, "How many anomalies today?").message
+    assert today.startswith("For today (UTC), 2 detection runs recorded")
+    yesterday = _ask(voice_with_runs, "and yesterday?").message
+    assert yesterday.startswith("No detection runs are recorded in memory for yesterday (UTC)")
+
+
+def test_ordinals_pick_from_the_last_listing(voice_with_runs: MercuryVoice) -> None:
+    _ask(voice_with_runs, "Show me the last 3 runs")
+    second = _ask(voice_with_runs, "run 2")
+    assert second.message.startswith("Explaining multivariate run")
+    first = _ask(voice_with_runs, "the first one")
+    assert first.message.startswith("Explaining univariate run")
+    missing = _ask(voice_with_runs, "run 9")
+    assert "The last list had 2 runs, so there is no run 9" in missing.message
+    last = _ask(voice_with_runs, "the last one")
+    assert last.message.startswith("Explaining multivariate run")
+
+
+def test_glossary_follow_up_moves_to_a_related_term(voice_with_runs: MercuryVoice) -> None:
+    _ask(voice_with_runs, "What is AMA?")
+    more = _ask(voice_with_runs, "tell me more")
+    assert more.message.startswith("Decoupling switches")
+
+
+def test_follow_up_context_is_per_principal(voice_with_runs: MercuryVoice) -> None:
+    _ask(voice_with_runs, "Show me the last 3 runs")
+    other = voice_with_runs.speak("run 2", domain="general", principal="someone-else")
+    assert "No detection runs are recorded" in other.message
+    # a principal with no previous turn gets the menu, not another account's run
+    cold = voice_with_runs.speak("why?", domain="general", principal="third")
+    assert cold.message.startswith("I answer from this server's own record and code")
