@@ -188,7 +188,9 @@ def test_describe_detection_omits_unreported_fields() -> None:
 def _voice(monkeypatch: pytest.MonkeyPatch) -> MercuryVoice:
     monkeypatch.setattr(voice_module, "_mercury_voice", None)
     voice = voice_module._get_voice()
-    if not hasattr(voice, "retriever"):
+    from omni_mercury_engine.narrative.voice import MercuryVoice
+
+    if not isinstance(voice, MercuryVoice):
         pytest.skip("narrative voice unavailable")
     return voice
 

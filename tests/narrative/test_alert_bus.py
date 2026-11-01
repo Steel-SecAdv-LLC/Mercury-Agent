@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.narrative import alert_bus
 from omni_mercury_engine.narrative.detection_memory import DetectionMemoryStore
@@ -59,7 +59,7 @@ def test_alert_payload_is_built_from_the_record() -> None:
 
 
 def test_publish_reaches_only_subscribers_allowed_to_see() -> None:
-    async def run() -> tuple[list[object], list[object]]:
+    async def run() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         bus = alert_bus.AlertBus()
         t_alice, q_alice = bus.subscribe("alice")
         t_bob, q_bob = bus.subscribe("bob")
@@ -78,7 +78,7 @@ def test_publish_reaches_only_subscribers_allowed_to_see() -> None:
 
 
 def test_publish_from_another_thread_lands_on_the_subscriber_loop() -> None:
-    async def run() -> dict[str, object]:
+    async def run() -> dict[str, Any]:
         bus = alert_bus.AlertBus()
         token, queue = bus.subscribe("alice")
         worker = threading.Thread(target=lambda: bus.publish(_entry("alice")))
@@ -92,7 +92,7 @@ def test_publish_from_another_thread_lands_on_the_subscriber_loop() -> None:
 
 
 def test_slow_subscriber_loses_oldest_not_the_publisher() -> None:
-    async def run() -> tuple[int, int, object]:
+    async def run() -> tuple[int, int, Any]:
         bus = alert_bus.AlertBus()
         token, queue = bus.subscribe(None)
         for i in range(alert_bus.QUEUE_SIZE + 5):
@@ -113,7 +113,7 @@ def test_retriever_publishes_every_logged_detection(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(alert_bus, "_bus", bus)
     monkeypatch.delenv("MERCURY_AGENT_MEMORY_PATH", raising=False)
 
-    async def run() -> object:
+    async def run() -> dict[str, Any]:
         token, queue = bus.subscribe("alice")
         retriever = KnowledgeRetriever()
         retriever.log_detection({"anomaly_detected": True}, domain="general", principal="alice")

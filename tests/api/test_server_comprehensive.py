@@ -30,6 +30,7 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 if TYPE_CHECKING:
+    from omni_mercury_engine.api.auth import User
     from omni_mercury_engine.api.server import UnivariateRequest, UnivariateResponse
 
 
@@ -520,8 +521,12 @@ class TestLifespanWarmup:
 
         original_detect = server.detect_univariate
 
-        async def broken_detect(request: UnivariateRequest) -> UnivariateResponse:
-            _ = request
+        # Same signature as the real handler, which resolves an optional caller
+        # so an authenticated run is recorded under its account.
+        async def broken_detect(
+            request: UnivariateRequest, user: User | None = None
+        ) -> UnivariateResponse:
+            _ = (request, user)
             raise RuntimeError("simulated warmup failure")
 
         try:

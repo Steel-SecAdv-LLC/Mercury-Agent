@@ -32,7 +32,9 @@ def fresh_voice(monkeypatch: pytest.MonkeyPatch) -> MercuryVoice:
     monkeypatch.setattr(voice_module, "_mercury_voice", None)
     monkeypatch.setattr(alert_bus, "_bus", alert_bus.AlertBus())
     voice = voice_module._get_voice()
-    if not hasattr(voice, "retriever"):
+    from omni_mercury_engine.narrative.voice import MercuryVoice
+
+    if not isinstance(voice, MercuryVoice):
         pytest.skip("narrative voice unavailable")
     return voice
 
