@@ -255,10 +255,8 @@ def test_each_hazard_row_states_its_loaders_declared_provenance() -> None:
     """
     import importlib
 
-    from omni_mercury_engine.loaders.label_provenance import (
-        GENUINE_LABEL_SOURCES,
-        LABEL_PROVENANCE_REGISTRY,
-    )
+    from omni_mercury_engine.datasets.metadata import GENUINE_LABEL_SOURCES
+    from omni_mercury_engine.loaders.label_provenance import LABEL_PROVENANCE_REGISTRY
 
     rows = re.findall(
         r"\|\s*(Network Security|Earthquake|Pandemic|Energy|Tsunami|Tornado|Hurricane|FEMA|"

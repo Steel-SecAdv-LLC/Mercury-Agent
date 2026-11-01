@@ -11,6 +11,8 @@ This pins the exposed set.
 
 from __future__ import annotations
 
+from typing import cast
+
 from fastapi.middleware.cors import CORSMiddleware
 
 from omni_mercury_engine.api.server import app
@@ -25,8 +27,11 @@ REQUIRED = {
 
 
 def test_cors_exposes_rate_limit_retry_after_and_correlation_headers() -> None:
-    cors = [m for m in app.user_middleware if m.cls is CORSMiddleware]
+    # ``Middleware.cls`` is typed as a factory protocol; compare it as an object.
+    cors = [m for m in app.user_middleware if cast("object", m.cls) is CORSMiddleware]
     assert cors, "CORS middleware is not registered (no allowed origins configured)"
-    exposed = set(cors[0].kwargs["expose_headers"])
+    raw = cors[0].kwargs["expose_headers"]
+    assert isinstance(raw, (list, tuple)), f"expose_headers is {type(raw).__name__}"
+    exposed = {str(name) for name in raw}
     missing = REQUIRED - exposed
     assert not missing, f"browser clients cannot read: {sorted(missing)}"

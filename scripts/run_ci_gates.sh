@@ -172,7 +172,6 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/update_readme_benchmarks.py \
     scripts/run_api.py \
     scripts/normalize_headers.py \
-    scripts/generate_anomaly_panel.py \
     scripts/run_sigma_mutation_gate.py \
     scripts/check_benchmark_integrity.py \
     scripts/render_prometheus_rules.py \

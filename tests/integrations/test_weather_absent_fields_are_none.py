@@ -23,13 +23,13 @@ from typing import Any
 
 import pytest
 
-from omni_mercury_engine.integrations.stubs import weather as weather_mod
 from omni_mercury_engine.integrations.stubs.weather import (
     WeatherAPIProvider,
     WeatherCondition,
     WeatherService,
     _parse_nws_wind_speed,
 )
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 
 def _owm_service() -> WeatherService:
@@ -75,7 +75,7 @@ class TestOpenWeatherMapAbsentFields:
 
     def test_fetch_routes_through_the_shared_parse(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            weather_mod.SafeHTTPClient,
+            SafeHTTPClient,
             "get_json",
             staticmethod(lambda *a, **k: {"cod": 200, "main": {}, "weather": [{}]}),
         )
@@ -93,7 +93,7 @@ def _noaa_fetch(monkeypatch: pytest.MonkeyPatch, period: dict[str, Any]) -> Any:
             return {"properties": {"forecastHourly": "https://api.weather.gov/f"}}
         return {"properties": {"periods": [period]}}
 
-    monkeypatch.setattr(weather_mod.SafeHTTPClient, "get_json", staticmethod(fake_get_json))
+    monkeypatch.setattr(SafeHTTPClient, "get_json", staticmethod(fake_get_json))
     service = WeatherService(provider=WeatherAPIProvider.NOAA)
     return asyncio.run(service._fetch_noaa(40.0, -75.0))
 

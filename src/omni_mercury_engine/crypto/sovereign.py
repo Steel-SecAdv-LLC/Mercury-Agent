@@ -54,6 +54,7 @@ independent implementation.
 
 from __future__ import annotations
 
+import importlib
 import struct
 
 # CPython's constant-time comparison, taken from ``_operator`` directly:
@@ -63,7 +64,7 @@ import struct
 # implementation (present since CPython 3.3) and what ``hmac`` falls back to.
 from _operator import _compare_digest
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 __all__ = [
     "chacha20poly1305_decrypt",
@@ -92,17 +93,17 @@ _HashFactory = Callable[..., Any]
 
 def _builtin_sha2(name: str) -> _HashFactory | None:
     """Return the interpreter's non-OpenSSL ``sha256`` / ``sha512`` constructor, if built."""
-    try:
-        import _sha2  # CPython >= 3.12 (HACL*)
-
-        return getattr(_sha2, name, None)
-    except ImportError:
-        pass
-    try:  # CPython 3.11
-        module = __import__(f"_{name}")
-        return getattr(module, name, None)
-    except ImportError:
-        return None
+    # CPython >= 3.12 ships both in ``_sha2`` (HACL*); 3.11 has ``_sha256`` /
+    # ``_sha512``. Imported by name: these private modules have no stubs.
+    for module_name in ("_sha2", f"_{name}"):
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            continue
+        factory = getattr(module, name, None)
+        if factory is not None:
+            return cast("_HashFactory", factory)
+    return None
 
 
 _SHA256: _HashFactory | None = _builtin_sha2("sha256")

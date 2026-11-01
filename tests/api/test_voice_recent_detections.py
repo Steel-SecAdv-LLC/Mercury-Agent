@@ -65,7 +65,7 @@ def test_recorded_detection_lands_in_the_retriever_with_searchable_fields(fresh_
 def test_voice_now_finds_the_anomaly_instead_of_apologising(fresh_voice) -> None:  # type: ignore[no-untyped-def]
     _record([False, True, False, False], [0.1, 7.4, 0.2, 0.1])
     response = fresh_voice.speak("What anomaly detection events happened recently?")
-    message = getattr(response, "message", None) or response.get("message")  # type: ignore[union-attr]
+    message = getattr(response, "message", None) or response.get("message")
     count = getattr(response, "search_results_count", None)
     if count is None and isinstance(response, dict):
         count = response.get("search_results_count")
