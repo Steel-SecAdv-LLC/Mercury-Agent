@@ -77,11 +77,11 @@ class VoiceResponseModel(BaseModel):
     """
 
     message: str = Field(..., description="Mercury's response message")
-    confidence: float = Field(
+    confidence: float | None = Field(
         ...,
         ge=0.0,
         le=1.0,
-        description="Confidence level in the response",
+        description="Confidence level in the response; null when the voice reported none",
     )
     intent: str = Field(..., description="Detected intent of user message")
     sources: list[str] = Field(
@@ -418,10 +418,16 @@ async def speak(request: SpeakRequest) -> VoiceResponseModel:
     try:
         voice = _get_voice()
         payload = _voice_payload(voice.speak(request.message, domain=request.domain))
-        confidence = float(payload.get("confidence", 0.8))
+        raw_conf = payload.get("confidence")
+        # A missing confidence is reported as null, not filled with 0.8.
+        confidence = (
+            min(1.0, max(0.0, float(raw_conf)))
+            if isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool)
+            else None
+        )
         return VoiceResponseModel(
             message=str(payload.get("message", "")),
-            confidence=min(1.0, max(0.0, confidence)),
+            confidence=confidence,
             intent=str(payload["intent"]),
             sources=payload["sources"],
             timestamp=time.time(),
@@ -487,7 +493,12 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
             detection = request.detection_result
             is_anomaly = detection.get("anomaly_detected", False)
             score = detection.get("anomaly_score", 0)
-            confidence = detection.get("confidence", 0.5)
+            raw_conf = detection.get("confidence")
+            confidence = (
+                float(raw_conf)
+                if isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool)
+                else None
+            )
 
             if is_anomaly:
                 summary = f"Anomaly detected with score {score:.2f}"
@@ -503,10 +514,16 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
                 recommendations = []
                 severity = "low"
 
-            confidence_stmt = (
-                f"Confidence: {confidence:.0%}. "
-                f"{'High confidence in this assessment.' if confidence > 0.8 else 'Moderate confidence - additional verification recommended.'}"
-            )
+            if confidence is None:
+                confidence_stmt = (
+                    "Confidence was not reported for this detection, so it has not been "
+                    "assessed. Treat the finding as unverified."
+                )
+            else:
+                confidence_stmt = (
+                    f"Confidence: {confidence:.0%}. "
+                    f"{'High confidence in this assessment.' if confidence > 0.8 else 'Moderate confidence - additional verification recommended.'}"
+                )
 
             return NarrationResponse(
                 summary=summary,

@@ -105,3 +105,21 @@ def test_real_voice_reply_is_no_longer_thin(monkeypatch: pytest.MonkeyPatch) -> 
     assert out.message
     assert out.intent != "unknown"
     assert isinstance(out.suggested_follow_ups, list)
+
+
+def test_missing_confidence_is_null_not_point_eight(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """A voice reply without a confidence used to be reported as 0.8."""
+    from fastapi.testclient import TestClient
+
+    from omni_mercury_engine.api import voice as voice_api
+    from omni_mercury_engine.api.server import app
+
+    class _Voice:
+        def speak(self, message: str, domain: str | None = None) -> dict[str, object]:
+            return {"message": "ok", "intent": "status", "sources": []}
+
+    monkeypatch.setattr(voice_api, "_get_voice", _Voice)
+    with TestClient(app) as client:
+        response = client.post("/api/v1/voice/speak", json={"message": "status"})
+    assert response.status_code == 200, response.text
+    assert response.json()["confidence"] is None

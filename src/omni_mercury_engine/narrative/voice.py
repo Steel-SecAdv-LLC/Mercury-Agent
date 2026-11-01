@@ -81,7 +81,7 @@ class VoiceResponse:
     """Response from Mercury's voice."""
 
     message: str  # Main response text
-    confidence: float  # Confidence in response
+    confidence: float | None  # Confidence in response; None when not reported
     sources_cited: list[str]  # Evidence sources
     reasoning_summary: str | None  # Brief reasoning explanation
 
@@ -568,7 +568,9 @@ class MercuryVoice:
             response_time_ms=response_time,
             suggested_follow_ups=self._generate_detection_follow_ups(narrative),
             uncertainty_note=(
-                narrative.uncertainty_disclosure if narrative.confidence_score < 0.7 else None
+                narrative.uncertainty_disclosure
+                if narrative.confidence_score is None or narrative.confidence_score < 0.7
+                else None
             ),
         )
 
@@ -878,7 +880,11 @@ class MercuryVoice:
             parts.append(narrative.historical_context)
 
         # Confidence
-        parts.append(f"Confidence: {narrative.confidence_score:.0%}.")
+        parts.append(
+            f"Confidence: {narrative.confidence_score:.0%}."
+            if narrative.confidence_score is not None
+            else "Confidence: not reported."
+        )
 
         # Top recommendation
         if narrative.recommendations:
@@ -909,7 +915,7 @@ class MercuryVoice:
         if narrative.historical_context:
             follow_ups.append("Show similar historical events")
 
-        if narrative.confidence_score < 0.7:
+        if narrative.confidence_score is None or narrative.confidence_score < 0.7:
             follow_ups.append("Explain uncertainty sources")
 
         follow_ups.append("View detailed analysis")

@@ -57,6 +57,15 @@ history, alert egress, agent memory); these two did not, so the console's
 default `detect` path was invisible to history, alerts and the agent. The
 start-up warm-up's synthetic calls are excluded.
 
+**Fixed — narration invented "confidence 50%" and "severity 0%" for detections that reported neither.**
+`NarrativeEngine.synthesize` defaulted confidence to 0.5 and severity to 0.0,
+and the narrate route's fallback did the same. Unreported values now stay
+unreported: `ConfidenceLevel.UNREPORTED`, "Detection confidence: not reported",
+urgency `unassessed`, verification-first recommendations, and
+`NarrativeResult.confidence_score` / `VoiceResponse.confidence` are `None`.
+`POST /api/v1/voice/speak` reports a missing confidence as `null` instead of
+filling 0.8.
+
 **Fixed — `POST /api/v1/voice/narrate` returned 500 for plain-text reasoning
 steps** (`reasoning_chain: ["1 of 60 flagged"]`, which the console sends on
 every run). Unscored steps are no longer reported as "confidence: 50%".
