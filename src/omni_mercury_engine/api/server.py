@@ -375,13 +375,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Skip rate limiting if disabled, for health checks, docs, and the
         # Prometheus scrape target (scrapers poll on a fixed interval and
         # must not drain the service budget of the scraper's IP).
-        if not self.enabled or request.url.path in [
-            "/health",
-            "/metrics",
-            "/docs",
-            "/redoc",
-            "/openapi.json",
-        ]:
+        #
+        # The frontend's static assets are exempt too. The budget protects
+        # detection compute; a stylesheet or script read is served by the
+        # framework without touching the engine. The Mercury Console page
+        # references 20 same-origin assets, so one page load was 21 requests
+        # against a burst of 20 -- measured: a reload within a minute had its
+        # scripts answered 429, and the page came up broken. The pages
+        # themselves (one request each) and every API route stay metered.
+        if (
+            not self.enabled
+            or request.url.path
+            in [
+                "/health",
+                "/metrics",
+                "/docs",
+                "/redoc",
+                "/openapi.json",
+            ]
+            or request.url.path.startswith(STATIC_PREFIX)
+        ):
             return await call_next(request)
 
         client_id = self._get_client_id(request)
@@ -662,7 +675,7 @@ async def redoc_html() -> HTMLResponse:
 # never reach a route handler, and a CORS preflight is answered by
 # CORSMiddleware itself -- all three are browser-reachable responses that must
 # still carry the header set.
-from omni_mercury_engine.api.security_headers import SecurityHeadersMiddleware
+from omni_mercury_engine.api.security_headers import STATIC_PREFIX, SecurityHeadersMiddleware
 
 app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type, unused-ignore]
 

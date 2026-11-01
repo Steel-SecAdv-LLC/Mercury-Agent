@@ -338,6 +338,7 @@ def snapshot(dest_dir: Path) -> Path:
         "skipped": [],
         "files": {},
     }
+    used_roots: set[str] = set()
     with tarfile.open(archive, "w:gz") as tar:
         for item in state_inventory():
             if not item.exists:
@@ -351,8 +352,7 @@ def snapshot(dest_dir: Path) -> Path:
                     {**item.to_dict(), "why": item.refused or "contains the archive directory"}
                 )
                 continue
-            arcroot = item.path.name if item.path.is_dir() else item.path.name
-            arcroot = f"{item.source}/{arcroot}" if item.source != "default" else arcroot
+            arcroot = _archive_root(item, used_roots)
             tar.add(item.path, arcname=arcroot)
             manifest["items"].append({**item.to_dict(), "arcname": arcroot})
             paths = (
@@ -375,6 +375,28 @@ def snapshot(dest_dir: Path) -> Path:
         json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8")
     )
     return archive
+
+
+def _archive_root(item: InventoryItem, used: set[str]) -> str:
+    """A member root for ``item`` that no earlier item in this archive uses.
+
+    Two default locations share the basename ``mercury-agent``
+    (``~/.local/state/mercury-agent`` and ``~/.cache/mercury-agent``), and
+    archiving both under that one name merged them on extraction, with the
+    later item's files overwriting the earlier item's. An env-pointed location
+    is rooted under its variable name as before; a default one under its
+    basename; and a basename already taken is suffixed with a counter, so
+    every item extracts to its own directory and the manifest's ``arcname``
+    identifies it unambiguously.
+    """
+    base = item.path.name or "root"
+    root = f"{item.source}/{base}" if item.source != "default" else base
+    candidate, counter = root, 2
+    while candidate in used:
+        candidate = f"{root}-{counter}"
+        counter += 1
+    used.add(candidate)
+    return candidate
 
 
 def purge_work(confirm: str | None = None, *, dry_run: bool = True) -> list[InventoryItem]:
@@ -465,7 +487,14 @@ def uninstall(
     src = plan["source_removed"]
     if src:
         src_path = Path(src)
-        if (src_path / ".git").is_dir() and (src_path / "pyproject.toml").is_file():
+        refusal = _purge_refusal(src_path)
+        if refusal:
+            # The same guard purge applies: an editable install recorded
+            # against the home directory, the working directory or the
+            # interpreter prefix is never deleted as "the source checkout".
+            plan["source_removed"] = None
+            plan["source_note"] = f"{src} refused: {refusal}; left in place"
+        elif (src_path / ".git").is_dir() and (src_path / "pyproject.toml").is_file():
             shutil.rmtree(src_path)
         else:
             plan["source_removed"] = None

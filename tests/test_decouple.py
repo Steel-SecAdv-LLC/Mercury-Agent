@@ -148,6 +148,37 @@ class TestInventoryAndDetach:
         # detach saves; it never removes
         assert (work / "weights.bin").exists()
 
+    def test_detach_keeps_same_named_locations_apart(self, isolated_home: Path) -> None:
+        """Two default locations share the basename ``mercury-agent``.
+
+        ``~/.local/state/mercury-agent`` (ethical-gate audit) and
+        ``~/.cache/mercury-agent`` (calibration cache) were both archived under
+        the member name ``mercury-agent``, so the archive held two top-level
+        directories with one name and an extraction merged them, overwriting
+        any file both held. Every item must land under its own member root,
+        and the manifest must name that root per item.
+        """
+        audit = isolated_home / ".local" / "state" / "mercury-agent"
+        cache = isolated_home / ".cache" / "mercury-agent"
+        audit.mkdir(parents=True)
+        cache.mkdir(parents=True)
+        (audit / "ledger.json").write_text("audit")
+        (cache / "ledger.json").write_text("cache")
+
+        archive = dc.snapshot(isolated_home / "out")
+        with tarfile.open(archive) as tar:
+            names = tar.getnames()
+            manifest = json.loads(tar.extractfile("MANIFEST.json").read())  # type: ignore[union-attr]
+            roots = {n.split("/", 1)[0] for n in names if n != "MANIFEST.json"}
+            ledgers = sorted(n for n in names if n.endswith("ledger.json"))
+            contents = sorted(tar.extractfile(n).read() for n in ledgers)  # type: ignore[union-attr]
+        assert len(ledgers) == 2, names
+        assert ledgers[0] != ledgers[1]
+        assert contents == [b"audit", b"cache"]
+        arcnames = [item["arcname"] for item in manifest["items"]]
+        assert len(arcnames) == len(set(arcnames)) == len(roots) == 2
+        assert set(arcnames) == roots
+
 
 class TestDestructiveOpsAreGated:
     def test_purge_is_dry_run_without_the_phrase(self, isolated_home: Path) -> None:

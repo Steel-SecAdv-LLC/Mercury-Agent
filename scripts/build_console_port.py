@@ -80,11 +80,45 @@ LOGIC_PATCHES: tuple[tuple[str, str, str], ...] = (
 )
 
 #: (description, old, new) applied to the template markup before it is compiled.
+#:
+#: The five ``aria-label`` patches give an accessible name to the controls the
+#: prototype names only through a placeholder (WCAG 2.1 SC 1.3.1 / 4.1.2: a
+#: placeholder is not a label, and it vanishes once the field has a value).
+#: Every other control in the template is wrapped in a ``<label>`` or carries
+#: its own ``aria-label``; ``tests/api/test_console_inputs_are_labelled.py``
+#: walks the compiled tree so the property holds across rebuilds.
 TEMPLATE_PATCHES: tuple[tuple[str, str, str], ...] = (
     (
         "footer states where the catalog came from instead of a fixed design snapshot date",
         "catalog · main · synced 2026-10-29 · v3.0.0 · AGPL-3.0-or-later",
         "catalog · generated from this server's code · {{ bootVersion }} · AGPL-3.0-or-later",
+    ),
+    (
+        "menu filter input is named after the menu it filters",
+        'onChange="{{ onMq }}" placeholder="{{ m.ph }}"',
+        'onChange="{{ onMq }}" placeholder="{{ m.ph }}" aria-label="Filter {{ m.label }}"',
+    ),
+    (
+        "MCP tool-arguments input has an accessible name",
+        'placeholder="tool arguments, e.g. --strict"',
+        'placeholder="tool arguments, e.g. --strict" aria-label="Tool arguments"',
+    ),
+    (
+        "terminal prompt has an accessible name",
+        'placeholder="type a command · Tab completes · ↑↓ history · Enter runs"',
+        'placeholder="type a command · Tab completes · ↑↓ history · Enter runs" '
+        'aria-label="Command prompt"',
+    ),
+    (
+        "agent composer has an accessible name",
+        'placeholder="Ask Mercury Agent…"',
+        'placeholder="Ask Mercury Agent…" aria-label="Message to Mercury Agent"',
+    ),
+    (
+        "command palette search has an accessible name",
+        'placeholder="Search everything the CLI covers"',
+        'placeholder="Search everything the CLI covers" '
+        'aria-label="Search commands, domains, detectors, tools, MCP and API routes"',
     ),
 )
 

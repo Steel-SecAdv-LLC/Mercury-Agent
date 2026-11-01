@@ -129,3 +129,48 @@ def test_spoken_reply_names_the_newest_detection_and_no_percent_over_100(fresh_v
     assert "critical" in message
     percents = [int(p) for p in re.findall(r"(\d+)%", message)]
     assert all(p <= 100 for p in percents), message
+
+
+def test_plural_question_finds_the_recorded_anomaly(fresh_voice) -> None:  # type: ignore[no-untyped-def]
+    """ "Have there been any anomalies recently?" is the console's wording.
+
+    Reproduced against ``mercury-agent serve``: after a detection with one
+    flagged sample, this exact question answered "I couldn't find specific
+    information" with ``search_results_count`` 0, because the detection-log
+    scorer looked for the literal token ``anomaly`` (``anomalies`` does not
+    contain it) and the intent table had no entry for the word at all.
+    """
+    _record([False, True, False], [0.2, 8.1, 0.1], domain="general")
+    for question in (
+        "Have there been any anomalies recently?",
+        "anything flagged today?",
+        "Were there any alerts lately?",
+    ):
+        response = fresh_voice.speak(question, domain="general")
+        message = response.message if hasattr(response, "message") else response["message"]
+        count = getattr(response, "search_results_count", None)
+        assert "couldn't find" not in message.lower(), (question, message)
+        assert count is None or count >= 1, (question, count)
+
+
+def test_console_domain_does_not_hide_a_domainless_detection(fresh_voice) -> None:  # type: ignore[no-untyped-def]
+    """A detection recorded without a domain is visible from any domain.
+
+    ``/detect/univariate`` and ``/detect/multivariate`` carry no domain, so
+    the mirror stores them under ``general``; the console asks under its
+    CONTEXT domain (``network_security`` by default). The log search filtered
+    on strict equality, so the console could never see a detection it had
+    just run. ``general`` is the collapse of "unknown", not a peer domain, and
+    is treated as a wildcard on both sides of the comparison.
+    """
+    _record([False, True], [0.2, 8.1], domain="general")
+    response = fresh_voice.speak(
+        "What anomaly detection events happened recently?", domain="network_security"
+    )
+    message = response.message if hasattr(response, "message") else response["message"]
+    assert "couldn't find" not in message.lower(), message
+    # And a domain-specific record is still hidden from an unrelated domain,
+    # while a ``general`` question sees everything.
+    _record([False, True], [0.2, 7.0], domain="medical")
+    assert fresh_voice.retriever.search("anomaly events", domain="financial").total_found == 1
+    assert fresh_voice.retriever.search("anomaly events", domain="general").total_found == 2

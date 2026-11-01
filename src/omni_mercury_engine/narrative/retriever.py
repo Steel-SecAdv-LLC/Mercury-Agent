@@ -109,6 +109,34 @@ class SearchResponse:
         }
 
 
+#: The whitelist's catch-all label (``cognitive.ethical_bounding.sanitize_domain``
+#: collapses every unknown domain to it). It means "no domain was known", not
+#: a domain of its own, so it matches everything on either side.
+_GENERAL_DOMAIN = "general"
+
+#: Query stems that name an anomaly, a detection, or a time frame. Substring
+#: matched against the lower-cased query so inflections count.
+_ANOMALY_STEMS: tuple[str, ...] = ("anomal", "outlier", "unusual", "flag", "alert", "incident")
+_DETECTION_STEMS: tuple[str, ...] = ("detect", "event", "finding", "result")
+_RECENCY_STEMS: tuple[str, ...] = ("recent", "lately", "today", "latest", "last", "happened")
+
+
+def _domains_compatible(requested: str | None, recorded: str) -> bool:
+    """Whether a detection recorded under ``recorded`` answers a ``requested`` query.
+
+    Strict equality was the previous rule, and it hid every detection the
+    console ran from the console's own questions: ``/detect/univariate`` and
+    ``/detect/multivariate`` carry no domain, so the mirror files them under
+    ``general``, while the console asks under its CONTEXT domain. ``general``
+    on either side is a wildcard; two specific domains must still agree.
+    """
+    if not requested or requested == _GENERAL_DOMAIN:
+        return True
+    if not recorded or recorded == _GENERAL_DOMAIN:
+        return True
+    return recorded == requested
+
+
 class KnowledgeRetriever:
     """Unified Knowledge Search for Mercury Agent.
 
@@ -138,7 +166,26 @@ class KnowledgeRetriever:
     # Intent classification keywords
     INTENT_KEYWORDS = {
         QueryIntent.SEARCH_FACTS: ["what", "who", "where", "which", "define", "explain"],
-        QueryIntent.SEARCH_EVENTS: ["when", "happened", "occurred", "event", "incident", "history"],
+        # Stems, matched as substrings: "anomal" covers anomaly/anomalies/
+        # anomalous, "flag" covers flagged, "alert" covers alerts. The table
+        # used to carry only "event"/"happened"/..., so the console's own
+        # wording ("Have there been any anomalies recently?") classified as
+        # UNKNOWN and the reply apologised with the detection log full.
+        QueryIntent.SEARCH_EVENTS: [
+            "when",
+            "happened",
+            "occurred",
+            "event",
+            "incident",
+            "history",
+            "anomal",
+            "flag",
+            "alert",
+            "recent",
+            "lately",
+            "today",
+            "latest",
+        ],
         QueryIntent.SEARCH_PATTERNS: ["pattern", "trend", "similar", "like", "recurring"],
         QueryIntent.EXPLAIN_CONCEPT: ["why", "how", "explain", "understand", "meaning"],
         QueryIntent.FIND_SIMILAR: ["similar", "like", "related", "comparable", "match"],
@@ -467,24 +514,31 @@ class KnowledgeRetriever:
         results = []
         # Query words available via context.query.lower().split() for future keyword matching
 
+        query_lower = context.query.lower()
         for log_entry in self._detection_log[-100:]:  # Last 100 entries
             detection = log_entry.get("detection", {})
             domain = log_entry.get("domain", "")
 
-            # Filter by domain if specified
-            if context.domain and domain != context.domain:
+            if not _domains_compatible(context.domain, domain):
                 continue
 
             # Check for anomaly-related queries
             if detection.get("anomaly_detected", False):
-                # Score based on query relevance
+                # Score based on query relevance. Stems rather than whole
+                # words: "anomalies", "anomalous", "detected", "flagged" and
+                # "alerts" all name a detection; the exact-token match that
+                # preceded this left the base score alone, which the
+                # ``>`` floor below rejects, so the console's own question
+                # ("any anomalies recently?") returned nothing.
                 relevance = 0.3  # Base relevance for anomalies
 
-                if "anomaly" in context.query.lower():
+                if any(stem in query_lower for stem in _ANOMALY_STEMS):
                     relevance += 0.3
-                if "detection" in context.query.lower():
+                if any(stem in query_lower for stem in _DETECTION_STEMS):
                     relevance += 0.2
-                if domain and domain.lower() in context.query.lower():
+                if any(stem in query_lower for stem in _RECENCY_STEMS):
+                    relevance += 0.1
+                if domain and domain != _GENERAL_DOMAIN and domain.lower() in query_lower:
                     relevance += 0.2
 
                 if relevance > context.min_relevance:
