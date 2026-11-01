@@ -226,8 +226,8 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         'chips: ["Explain this detection", "Why did it clear the gate?", "Recommend an action", '
         '"Summarize threat posture", "What should I run next?", "How do I collect data?"]',
         'chips: ["What was the latest anomaly?", "Explain the latest detection", '
-        '"How many anomalies today?", "Which detectors do you have?", '
-        '"Explain this detection", "Why did it clear the gate?", "Recommend an action", '
+        '"Which samples were flagged?", "How many anomalies today?", '
+        '"Which detectors do you have?", "Why did it clear the gate?", "Recommend an action", '
         '"Summarize threat posture", "What should I run next?", "How do I collect data?"]',
     ),
     (

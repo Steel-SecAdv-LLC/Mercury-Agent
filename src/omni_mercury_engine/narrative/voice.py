@@ -34,6 +34,7 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
     sanitize_domain,
 )
+from omni_mercury_engine.narrative import conversation as _conv
 from omni_mercury_engine.narrative.engine import NarrativeEngine, NarrativeResult
 from omni_mercury_engine.narrative.personality import (
     PersonalityEngine,
@@ -482,49 +483,15 @@ class MercuryVoice:
         # Get personality profile
         profile = self.personality_engine.get_profile(domain)
 
-        # Direct intent detection for special cases (before general search)
+        # One classifier names the grounded answer a question gets (record,
+        # code, narrative engine); only a question none of them covers reaches
+        # the free-text search, and an empty search ends in a menu, not an
+        # apology.
         input_lower = user_input.lower()
-
-        # Check for status queries directly
-        if any(kw in input_lower for kw in ["status", "health", "running", "operational"]):
-            response = self._handle_status_query(profile, principal)
-            self._record_turn(ConversationType.QUERY, "mercury", response.message)
-            return response
-
-        # Check for help queries directly
-        if any(
-            kw in input_lower for kw in ["help", "how do you work", "what can you do", "guide me"]
-        ):
-            response = self._handle_help_query(user_input, profile)
-            self._record_turn(ConversationType.QUERY, "mercury", response.message)
-            return response
-
-        # Questions about the detection record are answered from the record
-        # itself (counts, time windows, the newest run), not from the
-        # free-text relevance scorer, so "how many anomalies today?" gets a
-        # number and "what was the latest anomaly?" gets that run.
-        if _is_detection_summary_query(input_lower):
-            response = self._handle_detection_summary(input_lower, domain, principal)
-            self._record_turn(ConversationType.QUERY, "mercury", response.message)
-            return response
-        if _is_explain_latest_query(input_lower):
-            response = self._handle_explain_latest(domain, principal)
-            self._record_turn(ConversationType.QUERY, "mercury", response.message)
-            return response
-        if _is_latest_detection_query(input_lower):
-            response = self._handle_latest_detection(domain, principal)
-            self._record_turn(ConversationType.QUERY, "mercury", response.message)
-            return response
-        if _is_capability_query(input_lower):
-            response = self._handle_capability_query(input_lower)
-            self._record_turn(ConversationType.QUERY, "mercury", response.message)
-            return response
-
-        # General search for other queries
-        search_response = self.retriever.search(user_input, domain=domain, principal=principal)
-
-        # General query handling with search
-        response = self._handle_general_query(user_input, search_response, profile, domain)
+        kind, argument = _conv.classify(user_input)
+        response = self._dispatch(
+            kind, argument, user_input, input_lower, domain, principal, profile
+        )
 
         # Record Mercury's response
         self._record_turn(ConversationType.QUERY, "mercury", response.message)
@@ -702,9 +669,9 @@ class MercuryVoice:
         )
 
     def _handle_status_query(
-        self, profile: PersonalityProfile, principal: str | None = None
+        self, profile: PersonalityProfile, principal: str | None = None, detailed: bool = False
     ) -> VoiceResponse:
-        """Handle status query."""
+        """Handle status query; ``detailed`` adds component and retriever figures."""
         start_time = time.time()
 
         stats = self.get_statistics()
@@ -720,7 +687,7 @@ class MercuryVoice:
             flagged = sum(1 for e in remembered if e["detection"].get("anomaly_detected", False))
             message_parts.append(
                 f"Detection runs in memory: {len(remembered)} ({flagged} flagged at least "
-                f"one sample); the newest was recorded {_ago(remembered[0]['timestamp'])}."
+                f"one sample); the newest was recorded {_conv.relative_time(remembered[0]['timestamp'])}."
             )
         else:
             message_parts.append(
@@ -733,6 +700,33 @@ class MercuryVoice:
             message_parts.append("Knowledge graph connected.")
         if retriever_stats["agent_memory_connected"]:
             message_parts.append("Agent memory connected.")
+        if detailed:
+            message_parts.append(
+                f"Retriever: {retriever_stats['search_count']} searches, "
+                f"{retriever_stats['total_results_returned']} results returned, "
+                f"{retriever_stats['detection_log_size']} runs in the detection log; "
+                f"knowledge graph {'connected' if retriever_stats['knowledge_graph_connected'] else 'not connected'}, "
+                f"agent memory {'connected' if retriever_stats['agent_memory_connected'] else 'not connected'}, "
+                f"memory surface {'connected' if retriever_stats['memory_surface_connected'] else 'not connected'}."
+            )
+            message_parts.append(
+                "Language model: "
+                + (
+                    "attached."
+                    if self._llm_adapter is not None
+                    else "none attached; answers are template-built from the record and the code."
+                )
+            )
+            try:
+                from omni_mercury_engine import self_model
+
+                states = []
+                for spec in self_model.CAPABILITIES:
+                    probe = self_model._probe_capability(spec)
+                    states.append(f"{spec.name.replace('_', ' ')} {probe.get('state', 'unknown')}")
+                message_parts.append("Components: " + "; ".join(states) + ".")
+            except Exception:  # pragma: no cover - self-model probe failure
+                message_parts.append("Components: self-model probe unavailable.")
 
         message = " ".join(message_parts)
         response_time = (time.time() - start_time) * 1000
@@ -746,7 +740,19 @@ class MercuryVoice:
             search_performed=False,
             search_results_count=0,
             response_time_ms=response_time,
-            suggested_follow_ups=["View detailed statistics", "Check component health"],
+            suggested_follow_ups=(
+                [
+                    "What was the latest anomaly?",
+                    "What are your capabilities?",
+                    "What should I run next?",
+                ]
+                if detailed
+                else [
+                    "View detailed statistics",
+                    "Check component health",
+                    "What was the latest anomaly?",
+                ]
+            ),
         )
 
     def _handle_help_query(
@@ -758,15 +764,17 @@ class MercuryVoice:
         start_time = time.time()
 
         message = (
-            "I answer from this server's own record and code. Ask me: "
-            '"What was the latest anomaly?" or "Explain the latest detection" (the '
-            "newest run your account made, narrated with its reasoning); "
-            '"How many anomalies today?" (also this hour, yesterday, this week); '
-            '"Which detectors do you have?" or "Can you detect space weather?" '
-            "(the detector manifest by family and input type); "
-            '"What are your capabilities?" (the self-model, with what each needs); '
-            'and "status" for system health. Every answer states what it is built from, '
-            "and a field a run did not report is left out rather than filled."
+            "I answer from this server's own record and code. About the record: "
+            '"What was the latest anomaly?", "Which samples were flagged?", "What threshold '
+            'did you use?", "Show me the last 3 runs", "How many anomalies today?" (also this '
+            'hour, yesterday, this week), "Compare today with yesterday", "Summarize threat '
+            'posture". Through the narrative engine: "Explain the latest detection", "Show full '
+            'reasoning chain", "Explain uncertainty sources", "Recommend an action". About the '
+            'code: "Which detectors do you have?", "Can you detect space weather?", "What are '
+            'your capabilities?", "What should I run next?", "How do I collect data?", and '
+            'definitions ("What is a z-score?", severity, threshold, AMA, FINDΩYOU, the gate). '
+            '"Status" gives system health. Every answer names what it is built from; a field a '
+            "run did not report is left out rather than filled, and I never execute a command."
         )
 
         response_time = (time.time() - start_time) * 1000
@@ -787,7 +795,9 @@ class MercuryVoice:
             ],
         )
 
-    def _handle_explain_latest(self, domain: str | None, principal: str | None) -> VoiceResponse:
+    def _handle_explain_latest(
+        self, domain: str | None, principal: str | None, variant: str = "narrative"
+    ) -> VoiceResponse:
         """Narrate the newest recorded run through the narrative engine.
 
         The record is turned into the detection result the engine reads
@@ -816,23 +826,70 @@ class MercuryVoice:
             )
 
         record = entry["detection"]
-        detection_result = _detection_result_from_record(record, entry["timestamp"])
-        domain = sanitize_domain(domain or self.default_domain)
-        self._enforce_voice_ethics(
-            "MercuryVoice.explain_latest",
-            domain,
-            severity=float(detection_result.get("severity") or 0.0),
-            anomaly_prob=min(1.0, float(detection_result.get("anomaly_score") or 0.0)),
-            extra_details={"is_anomaly": bool(detection_result.get("anomaly_detected"))},
-            request=str(detection_result.get("summary", "")),
-        )
-        narrative = self.narrative_engine.synthesize(detection_result, domain=domain)
-        message = (
-            "Explaining "
-            + _describe_detection(record, entry["timestamp"])
-            + " "
-            + self._build_detection_message(narrative, detection_result)
-        )
+        narrative, detection_result = self._narrate_entry(entry, domain)
+        described = _conv.describe_detection(record, entry["timestamp"])
+        if variant == "reasoning":
+            chain = narrative.reasoning_chain
+            steps = chain.steps if chain else []
+            message = (
+                f"Reasoning for the {described} "
+                + (
+                    " ".join(f"({i + 1}) {step}" for i, step in enumerate(steps))
+                    if steps
+                    else "The engine recorded no reasoning steps for this run."
+                )
+                + (
+                    f" Conclusion: {chain.final_conclusion}"
+                    if chain and chain.final_conclusion
+                    else ""
+                )
+                + (f" {chain.confidence_rationale}" if chain and chain.confidence_rationale else "")
+            )
+        elif variant == "uncertainty":
+            message = (
+                f"Uncertainty for the {described} {narrative.uncertainty_disclosure} "
+                + (
+                    f"Confidence reported: {narrative.confidence_score:.0%}."
+                    if narrative.confidence_score is not None
+                    else "The detector reported no confidence, so none is stated; the severity band "
+                    "(peak score against threshold) is the only strength signal."
+                )
+                + (
+                    " Fields the run did not report are left out of every answer rather than filled."
+                )
+            )
+        elif variant == "dossier":
+            chain = narrative.reasoning_chain
+            parts = [f"Detailed analysis of the {described}", narrative.summary]
+            if (
+                narrative.detailed_explanation
+                and narrative.detailed_explanation != narrative.summary
+            ):
+                parts.append(narrative.detailed_explanation)
+            if chain and chain.steps:
+                parts.append(
+                    "Reasoning: " + " ".join(f"({i + 1}) {s}" for i, s in enumerate(chain.steps))
+                )
+            parts.append(narrative.uncertainty_disclosure)
+            parts.append(f"Urgency: {narrative.urgency_level}.")
+            if narrative.recommendations:
+                parts.append(
+                    "Recommendations: "
+                    + " ".join(f"({i + 1}) {r}" for i, r in enumerate(narrative.recommendations))
+                )
+            if narrative.next_steps:
+                parts.append(
+                    "Next steps: "
+                    + " ".join(f"({i + 1}) {r}" for i, r in enumerate(narrative.next_steps))
+                )
+            message = " ".join(p for p in parts if p)
+        else:
+            message = (
+                "Explaining "
+                + described
+                + " "
+                + self._build_detection_message(narrative, detection_result)
+            )
         return VoiceResponse(
             message=message,
             confidence=narrative.confidence_score,
@@ -842,7 +899,7 @@ class MercuryVoice:
             search_performed=True,
             search_results_count=1,
             response_time_ms=(time.time() - start_time) * 1000,
-            suggested_follow_ups=self._generate_detection_follow_ups(narrative),
+            suggested_follow_ups=self._generate_detection_follow_ups(narrative, variant),
             uncertainty_note=(
                 narrative.uncertainty_disclosure
                 if narrative.confidence_score is None or narrative.confidence_score < 0.7
@@ -865,8 +922,11 @@ class MercuryVoice:
         parts: list[str] = []
         sources: list[str] = []
 
-        # Detectors: a named family or input type narrows the list.
-        family_hits = [f for f in _FAMILY_WORDS if any(w in input_lower for w in _FAMILY_WORDS[f])]
+        # Detectors: a named family or input type narrows the list. "Space
+        # weather" names the space family, so the phrase is matched whole before
+        # "weather" can pull in the meteorological one.
+        family_text = input_lower.replace("space weather", "space")
+        family_hits = [f for f in _FAMILY_WORDS if any(w in family_text for w in _FAMILY_WORDS[f])]
         modality_hits = [
             m for m in _MODALITY_WORDS if any(w in input_lower for w in _MODALITY_WORDS[m])
         ]
@@ -943,10 +1003,15 @@ class MercuryVoice:
             search_results_count=len(entries) if "detector_manifest" in sources else 0,
             response_time_ms=(time.time() - start_time) * 1000,
             suggested_follow_ups=[
-                "What are your capabilities?",
-                "Which detectors handle images?",
-                "What was the latest anomaly?",
-            ],
+                prompt
+                for prompt in (
+                    "What are your capabilities?",
+                    "Which detectors handle images?",
+                    "Can you detect space weather?",
+                    "What was the latest anomaly?",
+                )
+                if prompt.lower().rstrip("?") not in input_lower
+            ][:3],
         )
 
     def _handle_detection_summary(
@@ -959,7 +1024,7 @@ class MercuryVoice:
         what memory covers, instead of apologising generically.
         """
         start_time = time.time()
-        window_label, since = _parse_window(input_lower)
+        window_label, since = _conv.parse_window(input_lower)
         entries = self.retriever.detections(domain=domain, since=since, principal=principal)
         flagged = [e for e in entries if e["detection"].get("anomaly_detected", False)]
 
@@ -993,7 +1058,7 @@ class MercuryVoice:
                 peak = max(flagged, key=lambda e: float(e["detection"].get("anomaly_score") or 0.0))
                 parts.append(
                     "Highest-scoring run: "
-                    + _describe_detection(peak["detection"], peak["timestamp"])
+                    + _conv.describe_detection(peak["detection"], peak["timestamp"])
                 )
             message = " ".join(parts)
             follow_ups = [
@@ -1028,7 +1093,7 @@ class MercuryVoice:
 
         if flagged:
             entry = flagged[0]
-            message = "Latest anomaly: " + _describe_detection(
+            message = "Latest anomaly: " + _conv.describe_detection(
                 entry["detection"], entry["timestamp"]
             )
             if every and every[0] is not entry:
@@ -1046,7 +1111,7 @@ class MercuryVoice:
             entry = every[0]
             message = (
                 "No recorded run has flagged an anomaly. The newest run was "
-                + _describe_detection(entry["detection"], entry["timestamp"])
+                + _conv.describe_detection(entry["detection"], entry["timestamp"])
             )
             follow_ups = ["Summarize all detections", "What should I run next?"]
             count = len(every)
@@ -1070,6 +1135,398 @@ class MercuryVoice:
             suggested_follow_ups=follow_ups,
         )
 
+    def _dispatch(
+        self,
+        kind: str,
+        argument: Any,
+        user_input: str,
+        input_lower: str,
+        domain: str,
+        principal: str | None,
+        profile: PersonalityProfile,
+    ) -> VoiceResponse:
+        """Route a classified question to the handler that answers it."""
+        if kind == "status":
+            return self._handle_status_query(profile, principal, detailed=argument == "detailed")
+        if kind == "help":
+            return self._handle_help_query(user_input, profile)
+        if kind == "greeting":
+            return self._social("greeting", domain)
+        if kind == "thanks":
+            return self._social("thanks", domain)
+        if kind == "identity":
+            return self._handle_identity()
+        if kind == "glossary":
+            return self._handle_glossary(str(argument))
+        if kind == "gate":
+            return self._handle_gate(domain, principal)
+        if kind == "recommend":
+            return self._handle_recommend(domain, principal)
+        if kind == "next_run":
+            return self._handle_next_run(domain, principal)
+        if kind == "collect":
+            return self._handle_collect()
+        if kind == "run_command":
+            return self._handle_run_command(str(argument), user_input)
+        if kind == "posture":
+            return self._handle_posture(domain, principal)
+        if kind == "compare":
+            return self._handle_compare(input_lower, domain, principal)
+        if kind == "detail":
+            return self._handle_run_detail(str(argument), domain, principal)
+        if kind == "last_n":
+            return self._handle_last_runs(int(argument), domain, principal)
+        if kind == "explain":
+            return self._handle_explain_latest(domain, principal, variant=str(argument))
+        if kind == "confidence":
+            return self._handle_confidence(domain, principal)
+        if kind == "summary":
+            return self._handle_detection_summary(input_lower, domain, principal)
+        if kind == "latest":
+            return self._handle_latest_detection(domain, principal)
+        if kind == "capability":
+            return self._handle_capability_query(input_lower)
+        search_response = self.retriever.search(user_input, domain=domain, principal=principal)
+        return self._handle_general_query(user_input, search_response, profile, domain)
+
+    @staticmethod
+    def _grounded(
+        answer: tuple[str, list[str]],
+        sources: list[str],
+        intent: QueryIntent,
+        reasoning: str,
+        started: float,
+        *,
+        results: int = 0,
+        confidence: float | None = 1.0,
+    ) -> VoiceResponse:
+        """Wrap a builder's ``(message, follow_ups)`` in a response that names its sources."""
+        message, follow_ups = answer
+        return VoiceResponse(
+            message=message,
+            confidence=confidence,
+            sources_cited=sources,
+            reasoning_summary=reasoning,
+            intent_understood=intent,
+            search_performed=bool(results),
+            search_results_count=results,
+            response_time_ms=(time.time() - started) * 1000,
+            suggested_follow_ups=follow_ups,
+        )
+
+    def _entries(self, domain: str | None, principal: str | None) -> list[dict[str, Any]]:
+        """The caller's recorded runs, newest first."""
+        return list(self.retriever.detections(domain=domain, principal=principal))
+
+    def _newest(self, domain: str | None, principal: str | None) -> dict[str, Any] | None:
+        """The newest flagged run, or the newest run when none flagged, or ``None``."""
+        flagged = self.retriever.detections(domain=domain, anomalous_only=True, principal=principal)
+        if flagged:
+            return dict(flagged[0])
+        every = self._entries(domain, principal)
+        return every[0] if every else None
+
+    def _social(self, kind: str, domain: str) -> VoiceResponse:
+        """Greetings and thanks: short, and pointed at what the agent answers."""
+        started = time.time()
+        if kind == "greeting":
+            message = (
+                f"Hello. I am Mercury Agent, answering from this server's detection record and "
+                f"its code in the {domain} domain. Ask what ran, what was flagged, what to run "
+                "next, or what any of Mercury's terms mean."
+            )
+        else:
+            message = "You are welcome. Ask again whenever a run lands in memory."
+        return self._grounded(
+            (
+                message,
+                ["What was the latest anomaly?", "What can you do?", "What should I run next?"],
+            ),
+            [],
+            QueryIntent.HELP,
+            "Conversational opener.",
+            started,
+        )
+
+    def _handle_identity(self) -> VoiceResponse:
+        """Who the agent is, from the installed package."""
+        started = time.time()
+        from omni_mercury_engine import __version__
+
+        return self._grounded(
+            _conv.identity(__version__, self._installation_facts()),
+            ["self_model", "detector_manifest"],
+            QueryIntent.HELP,
+            "Read from the package version, the detector manifest and the loader package.",
+            started,
+        )
+
+    def _handle_glossary(self, term: str) -> VoiceResponse:
+        """Define one of Mercury's terms with the numbers read from the code that uses it."""
+        started = time.time()
+        return self._grounded(
+            _conv.glossary_answer(term, self._installation_facts()),
+            ["code"],
+            QueryIntent.EXPLAIN_CONCEPT,
+            f"Definition of '{term}' read from the module that implements it.",
+            started,
+        )
+
+    def _handle_gate(self, domain: str | None, principal: str | None) -> VoiceResponse:
+        """Explain the two hard ethical gates every reply passes."""
+        started = time.time()
+        latest = self._newest(domain, principal)
+        return self._grounded(
+            _conv.gate_explanation(latest),
+            ["code"] + (["detection_log"] if latest else []),
+            QueryIntent.EXPLAIN_CONCEPT,
+            "Read from cognitive/ethical_bounding.py and security/sigma_immutable_gate.py.",
+            started,
+            results=1 if latest else 0,
+        )
+
+    def _handle_confidence(self, domain: str | None, principal: str | None) -> VoiceResponse:
+        """What confidence means here and what the newest run reported."""
+        started = time.time()
+        latest = self._newest(domain, principal)
+        return self._grounded(
+            _conv.confidence_answer(latest),
+            ["code"] + (["detection_log"] if latest else []),
+            QueryIntent.EXPLAIN_CONCEPT,
+            "Confidence policy from the narrative engine; run facts from the detection log.",
+            started,
+            results=1 if latest else 0,
+        )
+
+    def _handle_run_detail(
+        self, aspect: str, domain: str | None, principal: str | None
+    ) -> VoiceResponse:
+        """One field of the newest run: flagged samples, threshold, method, score or time."""
+        started = time.time()
+        latest = self._newest(domain, principal)
+        return self._grounded(
+            _conv.run_detail(aspect, latest),
+            ["detection_log"] if latest else [],
+            QueryIntent.SEARCH_EVENTS,
+            f"Read the {aspect} of the newest recorded run.",
+            started,
+            results=1 if latest else 0,
+            confidence=1.0 if latest else None,
+        )
+
+    def _handle_last_runs(self, n: int, domain: str | None, principal: str | None) -> VoiceResponse:
+        """Number the newest ``n`` runs, newest first."""
+        started = time.time()
+        entries = self._entries(domain, principal)
+        return self._grounded(
+            _conv.last_runs(entries, n),
+            ["detection_log"] if entries else [],
+            QueryIntent.SEARCH_EVENTS,
+            f"Listed the newest {min(n, len(entries))} of {len(entries)} recorded run(s).",
+            started,
+            results=min(n, len(entries)),
+            confidence=1.0 if entries else None,
+        )
+
+    def _handle_posture(self, domain: str | None, principal: str | None) -> VoiceResponse:
+        """The whole record at a glance."""
+        started = time.time()
+        entries = self._entries(domain, principal)
+        return self._grounded(
+            _conv.posture(entries),
+            ["detection_log"] if entries else [],
+            QueryIntent.SEARCH_PATTERNS,
+            f"Band distribution over {len(entries)} recorded run(s).",
+            started,
+            results=len(entries),
+            confidence=1.0 if entries else None,
+        )
+
+    def _handle_compare(
+        self, input_lower: str, domain: str | None, principal: str | None
+    ) -> VoiceResponse:
+        """Counts for two time windows side by side."""
+        started = time.time()
+
+        def fetch(since: float | None) -> list[dict[str, Any]]:
+            return list(self.retriever.detections(domain=domain, since=since, principal=principal))
+
+        entries = self._entries(domain, principal)
+        return self._grounded(
+            _conv.compare_windows(input_lower, fetch),
+            ["detection_log"] if entries else [],
+            QueryIntent.COMPARE,
+            "Counted the recorded runs in each window.",
+            started,
+            results=len(entries),
+            confidence=1.0 if entries else None,
+        )
+
+    def _handle_recommend(self, domain: str | None, principal: str | None) -> VoiceResponse:
+        """The narrative engine's recommendations for the newest flagged run."""
+        started = time.time()
+        latest = self._newest(domain, principal)
+        if latest is None or not latest["detection"].get("anomaly_detected", False):
+            lead = (
+                "No recorded run has flagged a sample, so there is nothing to act on from the record. "
+                if latest is not None
+                else "Nothing has been recorded yet, so there is nothing to act on from the record. "
+            )
+            message, follow_ups = _conv.next_steps(
+                self._entries(domain, principal), self._cli_commands()
+            )
+            return self._grounded(
+                (lead + message, follow_ups),
+                ["detection_log", "cli"] if latest else ["cli"],
+                QueryIntent.PREDICT,
+                "No flagged run; recommended the CLI's next commands instead.",
+                started,
+            )
+        narrative, result = self._narrate_entry(latest, domain)
+        parts = [
+            "For the " + _conv.describe_detection(latest["detection"], latest["timestamp"]),
+            f"Urgency: {narrative.urgency_level}.",
+        ]
+        if narrative.recommendations:
+            parts.append(
+                "Recommendations: "
+                + " ".join(f"({i + 1}) {r}" for i, r in enumerate(narrative.recommendations[:4]))
+            )
+        if narrative.next_steps:
+            parts.append(
+                "Next steps: "
+                + " ".join(f"({i + 1}) {r}" for i, r in enumerate(narrative.next_steps[:4]))
+            )
+        return self._grounded(
+            (
+                " ".join(parts),
+                [
+                    "What should I run next?",
+                    "Explain the latest detection",
+                    "Which samples were flagged?",
+                ],
+            ),
+            ["detection_log", "narrative_synthesis"],
+            QueryIntent.PREDICT,
+            self._summarize_reasoning(narrative) or "Narrative engine recommendations.",
+            started,
+            results=1,
+            confidence=narrative.confidence_score,
+        )
+
+    def _handle_next_run(self, domain: str | None, principal: str | None) -> VoiceResponse:
+        """What to run next, naming only commands the CLI really has."""
+        started = time.time()
+        entries = self._entries(domain, principal)
+        return self._grounded(
+            _conv.next_steps(entries, self._cli_commands()),
+            ["cli"] + (["detection_log"] if entries else []),
+            QueryIntent.HELP,
+            "Commands verified against the mercury-agent click group.",
+            started,
+            results=len(entries),
+        )
+
+    def _handle_collect(self) -> VoiceResponse:
+        """How data reaches Mercury."""
+        started = time.time()
+        return self._grounded(
+            _conv.collect_data(self._loader_domains(), self._cli_commands()),
+            ["cli", "loaders"],
+            QueryIntent.HELP,
+            "Loader domains read from the loaders package; commands from the CLI.",
+            started,
+        )
+
+    def _handle_run_command(self, name: str, user_input: str) -> VoiceResponse:
+        """Hand back the exact command; the agent never executes one."""
+        started = time.time()
+        return self._grounded(
+            _conv.run_command(name, self._cli_commands(), user_input),
+            ["cli"],
+            QueryIntent.HELP,
+            "Command assembled from the CLI's own option table.",
+            started,
+        )
+
+    def _narrate_entry(
+        self, entry: dict[str, Any], domain: str | None
+    ) -> tuple[NarrativeResult, dict[str, Any]]:
+        """Synthesise a recorded run through the narrative engine, behind the ethical gate."""
+        record = entry["detection"]
+        detection_result = _conv.detection_result_from_record(record, entry["timestamp"])
+        domain = sanitize_domain(domain or self.default_domain)
+        self._enforce_voice_ethics(
+            "MercuryVoice.explain_latest",
+            domain,
+            severity=float(detection_result.get("severity") or 0.0),
+            anomaly_prob=min(1.0, float(detection_result.get("anomaly_score") or 0.0)),
+            extra_details={"is_anomaly": bool(detection_result.get("anomaly_detected"))},
+            request=str(detection_result.get("summary", "")),
+        )
+        return self.narrative_engine.synthesize(detection_result, domain=domain), detection_result
+
+    @staticmethod
+    def _cli_commands() -> dict[str, list[str]]:
+        """Each mercury-agent command and its option names, read from the click group."""
+        try:
+            from omni_mercury_engine.cli import main as group
+        except Exception:  # pragma: no cover - CLI extras missing
+            return {}
+        commands = getattr(group, "commands", {})
+        return {
+            name: [opt for param in cmd.params for opt in param.opts if opt.startswith("--")]
+            for name, cmd in commands.items()
+        }
+
+    @staticmethod
+    def _loader_domains() -> list[str]:
+        """Domain names of the shipped loaders, from the package's module files.
+
+        The loaders package is not imported (it pulls in every domain's
+        dependencies); each ``<domain>_loader`` module name is its loader's
+        ``DOMAIN``, which ``tests/narrative/test_voice_conversation.py`` pins.
+        """
+        import importlib.util
+        import pkgutil
+
+        spec = importlib.util.find_spec("omni_mercury_engine.loaders")
+        if spec is None or not spec.submodule_search_locations:
+            return []
+        names = sorted(
+            m.name[: -len("_loader")]
+            for m in pkgutil.iter_modules(list(spec.submodule_search_locations))
+            if m.name.endswith("_loader")
+        )
+        return names
+
+    def _installation_facts(self) -> dict[str, Any]:
+        """Live facts about this installation for the identity and glossary answers."""
+        facts: dict[str, Any] = {"loader_count": len(self._loader_domains())}
+        try:
+            from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+
+            facts["manifest_size"] = len(DETECTOR_MANIFEST)
+        except Exception:  # pragma: no cover - registry import failure
+            pass
+        try:
+            import ama_cryptography
+
+            facts["ama_version"] = str(getattr(ama_cryptography, "__version__", "") or "")
+        except Exception:  # pragma: no cover - AMA absent
+            pass
+        try:
+            from omni_mercury_engine import decouple
+
+            facts["findoyou_enabled"] = decouple.is_enabled("findoyou")
+            facts["switches"] = ", ".join(
+                f"{name} {'on' if decouple.is_enabled(name) else 'off'}"
+                for name in decouple.SWITCHES
+            )
+        except Exception:  # pragma: no cover - decouple state unreadable
+            pass
+        return facts
+
     def _handle_general_query(
         self,
         user_input: str,
@@ -1086,14 +1543,14 @@ class MercuryVoice:
             sources = list({r.source.value for r in search_response.results})
             confidence = max(r.relevance_score for r in search_response.results)
         else:
-            # No results found
+            # No results found: say what can be asked instead of apologising
             message = self._build_no_results_response(user_input, profile)
             sources = []
-            confidence = 0.3
+            confidence = None
 
         # Add uncertainty note if low confidence
         uncertainty_note = None
-        if confidence < 0.5:
+        if confidence is not None and confidence < 0.5:
             uncertainty_note = (
                 f"Low confidence ({confidence:.0%}) in this response. "
                 "Consider rephrasing your query or providing more context."
@@ -1110,7 +1567,11 @@ class MercuryVoice:
             search_performed=True,
             search_results_count=len(search_response.results),
             response_time_ms=response_time,
-            suggested_follow_ups=self._generate_follow_ups(search_response),
+            suggested_follow_ups=(
+                self._generate_follow_ups(search_response)
+                if search_response.results
+                else _conv.fallback_menu(user_input)[1]
+            ),
             uncertainty_note=uncertainty_note,
         )
 
@@ -1147,7 +1608,7 @@ class MercuryVoice:
         if detection_hits:
             detection_hits.sort(key=lambda c: float(c.get("timestamp") or 0.0), reverse=True)
             for content in detection_hits[:3]:
-                parts.append(_describe_detection(content, content.get("timestamp")))
+                parts.append(_conv.describe_detection(content, content.get("timestamp")))
             if len(detection_hits) > 3:
                 parts.append(f"{len(detection_hits) - 3} older run(s) matched as well.")
             return " ".join(parts)
@@ -1189,14 +1650,8 @@ class MercuryVoice:
         query: str,
         profile: PersonalityProfile,
     ) -> str:
-        """Build response when no results found."""
-        return (
-            f"I couldn't find specific information matching '{query}'. "
-            "This could mean: (1) no relevant data in my knowledge base, "
-            "(2) the query could be rephrased, or "
-            "(3) more context might help. "
-            "Can you provide more details or rephrase your question?"
-        )
+        """Build response when no results found: what can be asked, not an apology."""
+        return _conv.fallback_menu(query)[0]
 
     def _build_detection_message(
         self,
@@ -1245,22 +1700,26 @@ class MercuryVoice:
             f"Conclusion: {chain.final_conclusion[:50]}..."
         )
 
-    def _generate_detection_follow_ups(self, narrative: NarrativeResult) -> list[str]:
-        """Generate follow-up suggestions for detection."""
-        follow_ups = []
+    def _generate_detection_follow_ups(
+        self, narrative: NarrativeResult, answered: str = "narrative"
+    ) -> list[str]:
+        """Follow-up prompts for a narrated run, never repeating the one just answered."""
+        follow_ups: list[tuple[str, str]] = []
 
         if narrative.reasoning_chain:
-            follow_ups.append("Show full reasoning chain")
+            follow_ups.append(("reasoning", "Show full reasoning chain"))
 
         if narrative.historical_context:
-            follow_ups.append("Show similar historical events")
+            follow_ups.append(("history", "Show similar historical events"))
 
         if narrative.confidence_score is None or narrative.confidence_score < 0.7:
-            follow_ups.append("Explain uncertainty sources")
+            follow_ups.append(("uncertainty", "Explain uncertainty sources"))
 
-        follow_ups.append("View detailed analysis")
+        follow_ups.append(("dossier", "View detailed analysis"))
+        follow_ups.append(("recommend", "Recommend an action"))
+        follow_ups.append(("samples", "Which samples were flagged?"))
 
-        return follow_ups[:3]
+        return [text for key, text in follow_ups if key != answered][:3]
 
     def _generate_follow_ups(self, search_response: SearchResponse) -> list[str]:
         """Generate follow-up suggestions for search."""
@@ -1275,7 +1734,7 @@ class MercuryVoice:
         if search_response.total_found > len(search_response.results):
             follow_ups.append(f"Show more results ({search_response.total_found} total)")
 
-        follow_ups.append("Refine search")
+        follow_ups.append("What can you do?")
 
         return follow_ups[:3]
 
@@ -1373,22 +1832,7 @@ def create_mercury_voice(
 # Detection-record wording: shared by the summary, latest and search answers
 # --------------------------------------------------------------------------- #
 
-_DETECTION_STEMS = ("anomal", "detect", "flag", "alert", "event", "incident", "run")
-_COUNT_STEMS = ("how many", "count", "number of", "summar", "overview", "tally", "total")
-_LATEST_STEMS = ("latest", "last ", "most recent", "newest", "last?")
-
-
-_EXPLAIN_WORDS = ("explain", "narrate", "why", "walk me through", "interpret")
 _CAPABILITY_WORDS = ("capabilit", "what can you do", "are you able", "can you do")
-_DETECTOR_WORDS = (
-    "detector",
-    "detect ",
-    "detect?",
-    "what can you detect",
-    "do you support",
-    "do you handle",
-    "cover",
-)
 
 #: Manifest family -> words a question uses for it (``DetectorCategory`` values).
 _FAMILY_WORDS: dict[str, tuple[str, ...]] = {
@@ -1446,139 +1890,3 @@ _MODALITY_LABELS: dict[str, str] = {
     "text": "text",
     "windows_3d": "3-D windows",
 }
-
-
-def _is_explain_latest_query(text: str) -> bool:
-    """True for "explain the latest detection", "narrate the last anomaly", "why was it flagged"."""
-    about_run = any(d in text for d in ("detection", "anomal", "run", "flag", "alert", "result"))
-    return any(w in text for w in _EXPLAIN_WORDS) and about_run
-
-
-def _is_capability_query(text: str) -> bool:
-    """True for "which detectors do you have", "can you detect X", "what are your capabilities"."""
-    return any(w in text for w in _CAPABILITY_WORDS) or any(w in text for w in _DETECTOR_WORDS)
-
-
-def _detection_result_from_record(record: dict[str, Any], timestamp: Any) -> dict[str, Any]:
-    """The detection result the narrative engine reads, built from a memory record.
-
-    Only reported fields are carried: a run without a threshold has no
-    severity and no step about one, and no confidence is ever supplied.
-    """
-    count = record.get("anomaly_count")
-    total = record.get("n_samples")
-    threshold = record.get("threshold")
-    score = record.get("anomaly_score")
-    steps: list[str] = [
-        f"method: {record.get('method') or 'detection'}",
-        f"recorded {_ago(timestamp)}",
-    ]
-    if isinstance(count, int) and isinstance(total, int):
-        steps.append(f"{count} of {total} samples flagged")
-    indices = record.get("indices") or []
-    if indices:
-        steps.append("flagged samples: " + ", ".join(str(i) for i in indices[:8]))
-    if isinstance(threshold, (int, float)) and not isinstance(threshold, bool) and threshold > 0:
-        steps.append(f"threshold: {float(threshold):.3f}")
-        if isinstance(score, (int, float)) and not isinstance(score, bool):
-            steps.append(
-                f"peak score {float(score):.3f} is {float(score) / float(threshold):.1f}x the threshold"
-            )
-    result: dict[str, Any] = {
-        "anomaly_detected": bool(record.get("anomaly_detected", False)),
-        "anomaly_score": (
-            float(score) if isinstance(score, (int, float)) and not isinstance(score, bool) else 0.0
-        ),
-        "reasoning_chain": steps,
-        "summary": _describe_detection(record, timestamp),
-    }
-    severity = record.get("severity")
-    if isinstance(severity, (int, float)) and not isinstance(severity, bool):
-        result["severity"] = float(severity)
-    return result
-
-
-def _is_detection_summary_query(text: str) -> bool:
-    """True for "how many anomalies today?", "summarize the detections", and the like."""
-    return any(c in text for c in _COUNT_STEMS) and any(d in text for d in _DETECTION_STEMS)
-
-
-def _is_latest_detection_query(text: str) -> bool:
-    """True for "what was the latest anomaly?", "last detection?", and the like."""
-    return any(w in text for w in _LATEST_STEMS) and any(d in text for d in _DETECTION_STEMS)
-
-
-def _parse_window(text: str) -> tuple[str, float | None]:
-    """Map the time words in a question to ``(label, since_epoch_seconds)``."""
-    now = time.time()
-    if "hour" in text:
-        return "the last hour", now - 3600.0
-    if "today" in text:
-        return "today (UTC)", now - (now % 86400.0)
-    if "yesterday" in text:
-        start = now - (now % 86400.0) - 86400.0
-        return "yesterday (UTC)", start
-    if "week" in text:
-        return "the last 7 days", now - 7 * 86400.0
-    if "month" in text:
-        return "the last 30 days", now - 30 * 86400.0
-    return "all recorded runs", None
-
-
-def _ago(timestamp: Any) -> str:
-    """Relative time in plain words, from an epoch-seconds timestamp."""
-    if not isinstance(timestamp, (int, float)):
-        return "at an unrecorded time"
-    delta = max(0.0, time.time() - float(timestamp))
-    if delta < 60:
-        return "just now"
-    if delta < 3600:
-        minutes = int(delta // 60)
-        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-    if delta < 86400:
-        hours = int(delta // 3600)
-        return f"{hours} hour{'s' if hours != 1 else ''} ago"
-    days = int(delta // 86400)
-    return f"{days} day{'s' if days != 1 else ''} ago"
-
-
-def _describe_detection(record: dict[str, Any], timestamp: Any) -> str:
-    """One sentence about a recorded run, built only from the fields it carries.
-
-    Example: ``multivariate run 3 minutes ago: 1 of 60 samples flagged (sample
-    42); peak score 6.21, 1.8x the 3.50 threshold (medium).`` Fields the run
-    did not report are left out rather than filled.
-    """
-    method = str(record.get("method") or "detection")
-    count = record.get("anomaly_count")
-    total = record.get("n_samples")
-    score = record.get("anomaly_score")
-    threshold = record.get("threshold")
-    indices = record.get("indices") or []
-    label = record.get("severity_label")
-
-    parts = [f"{method} run {_ago(timestamp)}:"]
-    if isinstance(count, int) and isinstance(total, int) and total > 0:
-        flagged = f"{count} of {total} sample{'s' if total != 1 else ''} flagged"
-        if indices:
-            shown = ", ".join(str(i) for i in indices[:5])
-            more = (
-                f" and {count - min(len(indices), 5)} more" if count > min(len(indices), 5) else ""
-            )
-            flagged += f" (sample{'s' if len(indices) > 1 else ''} {shown}{more})"
-        parts.append(flagged + ";")
-    elif isinstance(count, int):
-        parts.append(f"{count} sample{'s' if count != 1 else ''} flagged;")
-    if isinstance(score, (int, float)) and not isinstance(score, bool):
-        peak = f"peak score {float(score):.2f}"
-        if (
-            isinstance(threshold, (int, float))
-            and not isinstance(threshold, bool)
-            and threshold > 0
-        ):
-            peak += f", {float(score) / float(threshold):.1f}x the {float(threshold):.2f} threshold"
-        if label:
-            peak += f" ({label})"
-        parts.append(peak + ".")
-    sentence = " ".join(parts)
-    return sentence[:-1] + "." if sentence.endswith(";") else sentence

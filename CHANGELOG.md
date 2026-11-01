@@ -27,6 +27,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — a conversation layer that answers every console question from the
+record or the code.** Seventeen of the thirty-one questions a first session
+asks the agent (greetings and identity, "what threshold did you use?", "which
+samples were flagged?", "show me the last 3 runs", "summarize threat posture",
+"recommend an action", "what should I run next?", "how do I collect data?",
+"why did it clear the gate?", definitions of severity, z-score, AMA and
+FINDΩYOU, "run detect on sample.csv", "compare today with yesterday", and the
+follow-up prompts the agent itself suggested) came back as the generic apology
+or as the wrong answer. `narrative/conversation.py` now classifies a question
+once and builds the answer from one of three named sources: the detection
+record (per-run threshold, flagged indices, method, score, time; the newest N
+runs; severity-band posture; two-window comparison), the code (the detector
+manifest, the CLI's own command table so a recommended command always exists,
+the loader package's domains, the API's severity bands and threshold formula,
+the ethical gates, the decoupling switches), or the narrative engine (full
+reasoning chain, uncertainty disclosure, dossier, recommendations and urgency
+for the newest flagged run). A command request is handed back as the exact
+command, never executed. The empty-search fallback is a menu of what can be
+asked instead of an apology, and no answer suggests the question just asked.
+The console's quick prompts and the help text list the new questions
+(`tests/narrative/test_voice_conversation.py`, which also pins the quoted bands
+and formula to `api/server.py` and the loader domains to the loader classes).
+
 **Added — durable agent memory (`MERCURY_AGENT_MEMORY_PATH`).** The detection
 log the agent answers from lived only in the process, so every restart emptied
 it and the first answer after a deploy was always "no detection runs are
