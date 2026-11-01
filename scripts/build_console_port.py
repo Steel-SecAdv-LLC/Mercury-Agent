@@ -120,6 +120,21 @@ TEMPLATE_PATCHES: tuple[tuple[str, str, str], ...] = (
         'placeholder="Search everything the CLI covers" '
         'aria-label="Search commands, domains, detectors, tools, MCP and API routes"',
     ),
+    (
+        "the served console's base URL is its own origin and cannot be edited into "
+        "something the page CSP (connect-src 'self') would refuse",
+        'onChange="{{ onConnUrl }}" placeholder="http://127.0.0.1:8000"',
+        'onChange="{{ onConnUrl }}" placeholder="http://127.0.0.1:8000" readonly="true" '
+        'title="The served console talks to the server that serves it"',
+    ),
+    (
+        "the CORS hint is for the stand-alone prototype; the served console is same-origin",
+        "Dev servers allow localhost origins. For any other origin, start the server with "
+        '<code style="font-family:var(--font-mono);color:var(--mercury-200);">'
+        "MERCURY_CORS_ORIGINS={{ origin }}</code>.",
+        "This console is served by the engine it talks to, so the base URL is this page's "
+        "origin; the page's Content-Security-Policy allows no other.",
+    ),
 )
 
 #: Module patches: file -> (description, old, new).
@@ -240,6 +255,13 @@ MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
         'r >= 3 ? "critical" : r >= 2 ? "high" : r >= 1.5 ? "medium" : "low"',
         'r >= 4 ? "critical" : r >= 2.5 ? "high" : r >= 1.5 ? "medium" : "low"',
     ),
+    (
+        "a saved connection keeps the page origin as its base URL (connect-src 'self'); "
+        "the key and the remember flag are what the dialog really sets",
+        "    set(o) { Object.assign(cfg, o); save(); },",
+        '    set(o) { Object.assign(cfg, o); if (typeof location !== "undefined" && '
+        "/^https?:/.test(location.protocol)) cfg.baseUrl = location.origin; save(); },",
+    ),
 )
 
 MODULE_PATCHES["mercury-cli-agent.js"] = (
@@ -340,6 +362,17 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
         "detect -d lists the engine's detectors plus fusion, with the default inline",
         'dt && dt.isChoice && dt.choices.length === 2 && dt.meta === "default statistical"',
         'dt && dt.isChoice && dt.choices.length >= 2 && dt.meta === "default statistical"',
+    ),
+    (
+        "the served console pins the base URL to its origin, so a non-http URL cannot be set "
+        "at all (the prototype expected the request layer to refuse it)",
+        'const saved = A.cfg; A.set({ baseUrl: "javascript:alert(1)" }); const bad = await '
+        "A.health(); A.set({ baseUrl: saved.baseUrl, apiKey: saved.apiKey }); s.ok(!bad.ok && "
+        'bad.kind === "config", "non-http base URLs are refused", bad.kind);',
+        'const saved = A.cfg; A.set({ baseUrl: "javascript:alert(1)" }); const pinned = '
+        "A.cfg.baseUrl; A.set({ baseUrl: saved.baseUrl, apiKey: saved.apiKey }); "
+        's.ok(pinned === location.origin, "non-http base URLs cannot be set: the served console '
+        'is pinned to its origin", pinned);',
     ),
 )
 

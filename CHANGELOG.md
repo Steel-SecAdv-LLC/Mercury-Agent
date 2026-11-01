@@ -52,7 +52,11 @@ prompt, the agent composer, the menu filter, the MCP tool-arguments field and
 the command-palette search were named only by a placeholder (WCAG 2.1 SC
 1.3.1 / 4.1.2). They carry `aria-label`s through the port's template patches;
 `tests/api/test_console_inputs_are_labelled.py` walks the compiled template so
-the property holds across rebuilds.
+the property holds across rebuilds. The connection dialog's BASE URL is
+read-only and its CORS hint is replaced: the served console talks to the
+origin that serves it and the page CSP (`connect-src 'self'`) allows no other,
+so an editable field and a `MERCURY_CORS_ORIGINS` hint described a
+configuration the page cannot use. The landing page now links the console.
 
 **Fixed — `decouple detach --save` merged two state directories into one.**
 `~/.local/state/mercury-agent` and `~/.cache/mercury-agent` share a basename

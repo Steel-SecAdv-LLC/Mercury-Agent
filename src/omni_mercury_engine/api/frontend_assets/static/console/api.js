@@ -184,7 +184,7 @@
   window.MercuryCLIAPI = {
     get cfg() { return Object.assign({}, cfg); },
     budget: () => Object.assign({}, budget),
-    set(o) { Object.assign(cfg, o); save(); },
+    set(o) { Object.assign(cfg, o); if (typeof location !== "undefined" && /^https?:/.test(location.protocol)) cfg.baseUrl = location.origin; save(); },
     connected: () => !!cfg.baseUrl,
     simulated: () => cfg.baseUrl.startsWith("sim://"),
     health: () => call("GET", "/health"),
