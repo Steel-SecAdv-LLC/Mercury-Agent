@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — Mercury Console design reference (`docs/design/mercury_console/`).**
+The browser console prototype and its handoff notes (`README.md` §20 lists what
+was added after the original handoff): a presence figure traced from the supplied
+reference image and driven by real request events, a settings dialog whose six
+controls all act, world map and stacked-histogram charts, a batch lifecycle strip,
+and narrow-width fixes (wrapping top bar, overlay agent panel). It is design
+reference only: not packaged, not served, no engine code changed. The prototype's
+`:diag` self-test runs 8,740 checks in a browser against its simulated engine.
+
 **Added — decoupling switches (`mercury-agent decouple`, `omni_mercury_engine.decouple`).**
 The three kin systems can now be pulled apart by the operator with real,
 read-at-the-surface switches: `findoyou on|off` (the FINDΩYOU™ evidence
