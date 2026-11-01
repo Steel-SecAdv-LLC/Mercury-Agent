@@ -615,7 +615,10 @@ class NarrativeEngine:
         # Reasoning chain summary
         reasoning_chain = detection_result.get("reasoning_chain", [])
         if reasoning_chain:
-            parts.append(f"This conclusion is based on {len(reasoning_chain)} reasoning steps.")
+            n_steps = len(reasoning_chain)
+            parts.append(
+                f"This conclusion is based on {n_steps} reasoning step{'' if n_steps == 1 else 's'}."
+            )
 
             if style in (NarrativeStyle.EXPLANATORY, NarrativeStyle.ANALYTICAL):
                 # Include key reasoning steps

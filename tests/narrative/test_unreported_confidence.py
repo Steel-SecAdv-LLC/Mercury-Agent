@@ -38,6 +38,11 @@ def test_unreported_confidence_and_severity_are_not_invented() -> None:
     assert result.urgency_level == "unassessed"
 
 
+def test_single_reasoning_step_is_singular() -> None:
+    result = NarrativeEngine().synthesize(dict(_BARE, reasoning_chain=["1 of 60 flagged"]))
+    assert "1 reasoning step." in result.detailed_explanation
+
+
 def test_reported_values_are_still_narrated() -> None:
     result = NarrativeEngine().synthesize(dict(_BARE, confidence=0.82, severity=0.6))
     assert result.confidence_score == 0.82
