@@ -18,8 +18,9 @@
 #   * the Code Quality job ("Run Black/Ruff/Flake8", header + docstring gates)
 #   * the Type Checking job (mypy src lane, lenient tests lane, and the
 #     graduated strict lane's directory list)
-# Tool pins (black==26.5.1, mypy==2.3.1, ruff==0.16.4, pydocstyle==6.3.0) are mirrored in
-# pyproject and enforced across surfaces by scripts/check_pinned_tool_versions.py.
+# Tool pins (black==26.10.1, mypy==2.4.0, ruff==0.17.2, flake8==7.4.1,
+# pydocstyle==6.3.0) are mirrored in pyproject and enforced across surfaces by
+# scripts/check_pinned_tool_versions.py.
 #
 # Behaviour: every gate runs (no fail-fast), failures are summarised at the
 # end, and the exit code is non-zero if any gate failed — one local run shows
@@ -48,15 +49,18 @@ run_gate() {
 }
 
 # --- Code Quality job ------------------------------------------------------
-# format.yml checks a superset of ci.yml's black scope; mirror the superset.
-run_gate "black --check (ci.yml: Run Black; format.yml scope)" \
-  black --check src/ tests/ benchmarks/ scripts/ examples/
+# ci.yml widened all three lint scopes to benchmarks/, examples/ and research/
+# (the scripts behind published numbers are held to the library's bar); the
+# mirror lagged on tools/ and research/ for black and on all three for ruff
+# and flake8, so a research/ or examples/ finding passed here and failed in CI.
+run_gate "black --check (ci.yml: Run Black)" \
+  black --check src/ tests/ scripts/ tools/ benchmarks/ examples/ research/
 
 run_gate "ruff (ci.yml: Run Ruff)" \
-  ruff check src/ tests/ scripts/ tools/
+  ruff check src/ tests/ scripts/ tools/ benchmarks/ examples/ research/
 
 run_gate "flake8 (ci.yml: Run Flake8)" \
-  flake8 src/ tests/ scripts/ tools/ \
+  flake8 src/ tests/ scripts/ tools/ benchmarks/ examples/ research/ \
   --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
 
 run_gate "canonical headers (ci.yml: normalize_headers --check)" \

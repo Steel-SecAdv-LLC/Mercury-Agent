@@ -108,6 +108,12 @@ _REQ_SURFACES: tuple[str, ...] = (
     "pyproject.toml",
     ".github/workflows/ci.yml",
     ".github/workflows/format.yml",
+    # The local mirror of the CI matrix states the pins in its header so a
+    # developer reading it knows which versions to install. It was outside this
+    # registry and drifted three bumps behind (black 26.5.1, mypy 2.3.1, ruff
+    # 0.16.4 while CI ran 26.10.1 / 2.4.0 / 0.17.2); a pin written there is now
+    # a pin like any other.
+    "scripts/run_ci_gates.sh",
 )
 _PRECOMMIT_SURFACE = ".pre-commit-config.yaml"
 
