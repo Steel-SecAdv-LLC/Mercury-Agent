@@ -97,6 +97,16 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
     # override `detect -d fusion` would raise RuntimeError on every run (the 5
     # base detectors are always constructed unfitted; see _init_detectors).
     engine = _get_engine(mode=detector, require_explicit_fit=False)
+    # engine.detect skips detector names it does not hold, so an unknown -d
+    # (a typo such as "statisical") used to print {"detectors": {},
+    # "is_anomaly": false} and exit 0 -- "no anomaly" from a detector that
+    # never ran. The valid set is the engine's own, so it tracks the build.
+    known = sorted(engine.detectors)
+    if detector != "fusion" and detector not in engine.detectors:
+        raise click.BadParameter(
+            f"unknown detector {detector!r}; choose one of: fusion, " + ", ".join(known),
+            param_hint="'--detector' / '-d'",
+        )
 
     data = _load_data(input)
 
