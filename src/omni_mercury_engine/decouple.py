@@ -188,6 +188,7 @@ class InventoryItem:
     bytes: int
 
     def to_dict(self) -> dict[str, Any]:
+        """JSON-ready mapping, with ``path`` as a string."""
         data = asdict(self)
         data["path"] = str(self.path)
         return data
