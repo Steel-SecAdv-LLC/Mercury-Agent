@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,087
-- **Capability-bearing classes:** 2,067 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,088
+- **Capability-bearing classes:** 2,068 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,207 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,208 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1207 |
+| Other capability classes | 1208 |
 | Support types (config / result / enum / error) | 1020 |
 | Detection | 180 |
 | Neural models & layers | 162 |
@@ -2461,7 +2461,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `narrative/` — 51 classes (27 capability)
+### `narrative/` — 52 classes (28 capability)
 
 **Data sources & loaders**
 
@@ -2486,6 +2486,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `CommunicationModifiers` (`narrative.personality`) — Modifiers for communication generation.
 - `ConversationContext` (`narrative.interface`) — Context for a conversation session.
 - `ConversationTurn` (`narrative.voice`) — A single turn in conversation.
+- `DetectionMemoryStore` (`narrative.detection_memory`) — Append-only SQLite log of detection entries, bounded to the newest ``keep``.
 - `InitiativeThreshold` (`narrative.proactive`) — Configuration for when to take initiative.
 - `MemoryContext` (`narrative.memory_surface`) — Complete memory context for a detection.
 - `MemorySurface` (`narrative.memory_surface`) — Surfaces Memory Context in Communications.
