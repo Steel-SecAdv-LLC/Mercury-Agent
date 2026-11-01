@@ -27,6 +27,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — the agent explains its newest run and describes the engine from code.**
+"Explain the latest detection" (an example the voice route has documented
+since it was written) narrates the newest recorded run of the asking account
+through the narrative engine: the run's verdict, peak score, severity fraction
+and facts (method, flagged samples, threshold ratio) become the detection the
+engine synthesises, behind the same ethical gate as any detection and without
+re-logging it. "Which detectors do you have?" answers from the detector
+manifest with counts by family and input type; naming a family or input
+("Can you detect earthquakes?", "Which detectors handle images?") lists the
+matching detectors with their one-line descriptions. "What are your
+capabilities?" reports every self-model capability as probed on this machine,
+with the reason when one is unavailable or switched off. Help names these
+questions instead of a fixed paragraph, and the console's agent quick prompts
+include them (`tests/api/test_voice_engine_grounded_answers.py`).
+
 **Fixed — seven review findings on the console and crypto changes.** The
 agent's memory is scoped by principal: a detection is recalled only by the
 account that ran it (``anonymous`` for unauthenticated runs), and the voice

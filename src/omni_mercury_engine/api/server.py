@@ -248,13 +248,16 @@ async def _warm_detection_paths() -> None:
     # Pydantic model + validator warmup via the univariate path.
     univariate_data = [float(i % 7) for i in range(16)]
     univariate_req = UnivariateRequest(data=univariate_data, sensitivity=0.5)
-    await detect_univariate(univariate_req, user=None)
+    # Called with the request only: the warm-up never records (``_WARMUP`` is
+    # set), and the test double that pins the fail-loud contract has the
+    # handler's one-argument shape.
+    await detect_univariate(univariate_req)
 
     # Multivariate path warms a different numpy code path (L2 norm,
     # axis-wise mean/std) plus a different validator branch.
     multivariate_data = [[float(i + j) for j in range(3)] for i in range(8)]
     multivariate_req = MultivariateRequest(data=multivariate_data, sensitivity=0.5)
-    await detect_multivariate(multivariate_req, user=None)
+    await detect_multivariate(multivariate_req)
 
 
 @asynccontextmanager

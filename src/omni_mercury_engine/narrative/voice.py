@@ -507,8 +507,16 @@ class MercuryVoice:
             response = self._handle_detection_summary(input_lower, domain, principal)
             self._record_turn(ConversationType.QUERY, "mercury", response.message)
             return response
+        if _is_explain_latest_query(input_lower):
+            response = self._handle_explain_latest(domain, principal)
+            self._record_turn(ConversationType.QUERY, "mercury", response.message)
+            return response
         if _is_latest_detection_query(input_lower):
             response = self._handle_latest_detection(domain, principal)
+            self._record_turn(ConversationType.QUERY, "mercury", response.message)
+            return response
+        if _is_capability_query(input_lower):
+            response = self._handle_capability_query(input_lower)
             self._record_turn(ConversationType.QUERY, "mercury", response.message)
             return response
 
@@ -750,13 +758,15 @@ class MercuryVoice:
         start_time = time.time()
 
         message = (
-            "I can help with anomaly detection, pattern analysis, and STEAM exploration. "
-            "You can ask me about: "
-            "(1) Detection results and their meaning, "
-            "(2) Historical patterns and trends, "
-            "(3) Knowledge graph relationships, "
-            "(4) System status and health. "
-            "I provide transparent, evidence-backed responses with explicit confidence levels."
+            "I answer from this server's own record and code. Ask me: "
+            '"What was the latest anomaly?" or "Explain the latest detection" (the '
+            "newest run your account made, narrated with its reasoning); "
+            '"How many anomalies today?" (also this hour, yesterday, this week); '
+            '"Which detectors do you have?" or "Can you detect space weather?" '
+            "(the detector manifest by family and input type); "
+            '"What are your capabilities?" (the self-model, with what each needs); '
+            'and "status" for system health. Every answer states what it is built from, '
+            "and a field a run did not report is left out rather than filled."
         )
 
         response_time = (time.time() - start_time) * 1000
@@ -771,9 +781,171 @@ class MercuryVoice:
             search_results_count=0,
             response_time_ms=response_time,
             suggested_follow_ups=[
-                "What anomalies have you detected?",
-                "Show me recent patterns",
-                "Explain your confidence levels",
+                "What was the latest anomaly?",
+                "Which detectors do you have?",
+                "What are your capabilities?",
+            ],
+        )
+
+    def _handle_explain_latest(self, domain: str | None, principal: str | None) -> VoiceResponse:
+        """Narrate the newest recorded run through the narrative engine.
+
+        The record is turned into the detection result the engine reads
+        (verdict, score, severity fraction, the run's facts as observation
+        steps) and synthesised like any other detection, behind the same
+        ethical gate. Nothing is re-logged: the run is already in memory.
+        """
+        start_time = time.time()
+        flagged = self.retriever.detections(domain=domain, anomalous_only=True, principal=principal)
+        every = self.retriever.detections(domain=domain, principal=principal)
+        entry = flagged[0] if flagged else (every[0] if every else None)
+        if entry is None:
+            return VoiceResponse(
+                message=(
+                    "There is no recorded run to explain yet. Memory holds the runs made "
+                    "through this server since it started; run detect and ask again."
+                ),
+                confidence=None,
+                sources_cited=[],
+                reasoning_summary="No recorded run.",
+                intent_understood=QueryIntent.EXPLAIN_CONCEPT,
+                search_performed=True,
+                search_results_count=0,
+                response_time_ms=(time.time() - start_time) * 1000,
+                suggested_follow_ups=["How do I collect data?", "What can you do?"],
+            )
+
+        record = entry["detection"]
+        detection_result = _detection_result_from_record(record, entry["timestamp"])
+        domain = sanitize_domain(domain or self.default_domain)
+        self._enforce_voice_ethics(
+            "MercuryVoice.explain_latest",
+            domain,
+            severity=float(detection_result.get("severity") or 0.0),
+            anomaly_prob=min(1.0, float(detection_result.get("anomaly_score") or 0.0)),
+            extra_details={"is_anomaly": bool(detection_result.get("anomaly_detected"))},
+            request=str(detection_result.get("summary", "")),
+        )
+        narrative = self.narrative_engine.synthesize(detection_result, domain=domain)
+        message = (
+            "Explaining "
+            + _describe_detection(record, entry["timestamp"])
+            + " "
+            + self._build_detection_message(narrative, detection_result)
+        )
+        return VoiceResponse(
+            message=message,
+            confidence=narrative.confidence_score,
+            sources_cited=["detection_log", "narrative_synthesis"],
+            reasoning_summary=self._summarize_reasoning(narrative),
+            intent_understood=QueryIntent.EXPLAIN_CONCEPT,
+            search_performed=True,
+            search_results_count=1,
+            response_time_ms=(time.time() - start_time) * 1000,
+            suggested_follow_ups=self._generate_detection_follow_ups(narrative),
+            uncertainty_note=(
+                narrative.uncertainty_disclosure
+                if narrative.confidence_score is None or narrative.confidence_score < 0.7
+                else None
+            ),
+        )
+
+    def _handle_capability_query(self, input_lower: str) -> VoiceResponse:
+        """Answer "which detectors / what can you detect / what are your capabilities" from code.
+
+        Detector facts come from ``core.detector_registry.DETECTOR_MANIFEST``
+        (name, family, input modality, one-line description); capability facts
+        from ``self_model.CAPABILITIES`` probed on this machine, so an
+        unavailable backend or an operator switch is reported as such.
+        """
+        start_time = time.time()
+        from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+
+        wants_capabilities = any(w in input_lower for w in _CAPABILITY_WORDS)
+        parts: list[str] = []
+        sources: list[str] = []
+
+        # Detectors: a named family or input type narrows the list.
+        family_hits = [f for f in _FAMILY_WORDS if any(w in input_lower for w in _FAMILY_WORDS[f])]
+        modality_hits = [
+            m for m in _MODALITY_WORDS if any(w in input_lower for w in _MODALITY_WORDS[m])
+        ]
+        entries = list(DETECTOR_MANIFEST)
+        if family_hits:
+            entries = [e for e in entries if e.category.value in family_hits]
+        if modality_hits:
+            entries = [e for e in entries if e.modality in modality_hits]
+        if family_hits or modality_hits or not wants_capabilities:
+            sources.append("detector_manifest")
+            total = len(DETECTOR_MANIFEST)
+            if family_hits or modality_hits:
+                scope = " and ".join(
+                    [f"the {f} family" for f in family_hits]
+                    + [f"{_MODALITY_LABELS[m]} input" for m in modality_hits]
+                )
+                if entries:
+                    listed = "; ".join(
+                        f"{e.name} ({e.description.rstrip('.')})" for e in entries[:8]
+                    )
+                    more = f"; and {len(entries) - 8} more" if len(entries) > 8 else ""
+                    parts.append(
+                        f"{len(entries)} of the {total} manifest detectors cover {scope}: "
+                        f"{listed}{more}."
+                    )
+                else:
+                    parts.append(
+                        f"None of the {total} manifest detectors is registered for {scope}."
+                    )
+            else:
+                by_family: dict[str, int] = {}
+                for e in DETECTOR_MANIFEST:
+                    by_family[e.category.value] = by_family.get(e.category.value, 0) + 1
+                families = ", ".join(
+                    f"{k} {v}" for k, v in sorted(by_family.items(), key=lambda kv: -kv[1])
+                )
+                by_modality: dict[str, int] = {}
+                for e in DETECTOR_MANIFEST:
+                    by_modality[e.modality] = by_modality.get(e.modality, 0) + 1
+                modalities = ", ".join(
+                    f"{_MODALITY_LABELS.get(k, k)} {v}"
+                    for k, v in sorted(by_modality.items(), key=lambda kv: -kv[1])
+                )
+                parts.append(
+                    f"The manifest registers {total} detectors. By family: {families}. "
+                    f"By input: {modalities}. Name a family or an input type and I will list them."
+                )
+
+        if wants_capabilities or not parts:
+            from omni_mercury_engine import self_model
+
+            sources.append("self_model")
+            lines = []
+            for spec in self_model.CAPABILITIES:
+                probe = self_model._probe_capability(spec)
+                state = str(probe.get("state", "unknown"))
+                reason = probe.get("reason")
+                # The reason is the interesting part only when the capability
+                # is not grounded (a missing backend, an operator switch).
+                lines.append(
+                    f"{spec.name.replace('_', ' ')}: {state}"
+                    + (f" ({reason})" if reason and state != "grounded" else "")
+                    + f" — {spec.description}"
+                )
+            parts.append("Capabilities on this machine: " + "; ".join(lines) + ".")
+
+        return VoiceResponse(
+            message=" ".join(parts),
+            confidence=1.0,
+            sources_cited=sources,
+            reasoning_summary="Read from the detector manifest and the self-model probe.",
+            intent_understood=QueryIntent.SEARCH_FACTS,
+            search_performed=False,
+            search_results_count=len(entries) if "detector_manifest" in sources else 0,
+            response_time_ms=(time.time() - start_time) * 1000,
+            suggested_follow_ups=[
+                "What are your capabilities?",
+                "Which detectors handle images?",
+                "What was the latest anomaly?",
             ],
         )
 
@@ -1204,6 +1376,126 @@ def create_mercury_voice(
 _DETECTION_STEMS = ("anomal", "detect", "flag", "alert", "event", "incident", "run")
 _COUNT_STEMS = ("how many", "count", "number of", "summar", "overview", "tally", "total")
 _LATEST_STEMS = ("latest", "last ", "most recent", "newest", "last?")
+
+
+_EXPLAIN_WORDS = ("explain", "narrate", "why", "walk me through", "interpret")
+_CAPABILITY_WORDS = ("capabilit", "what can you do", "are you able", "can you do")
+_DETECTOR_WORDS = (
+    "detector",
+    "detect ",
+    "detect?",
+    "what can you detect",
+    "do you support",
+    "do you handle",
+    "cover",
+)
+
+#: Manifest family -> words a question uses for it (``DetectorCategory`` values).
+_FAMILY_WORDS: dict[str, tuple[str, ...]] = {
+    "geological": ("geolog", "earthquake", "seismic", "volcan", "landslide", "tsunami"),
+    "space": ("space", "solar", "geomagnetic", "kp", "satellite", "orbit"),
+    "meteorological": (
+        "weather",
+        "meteorolog",
+        "storm",
+        "hurricane",
+        "tornado",
+        "flood",
+        "wildfire",
+        "drought",
+    ),
+    "medical": ("medical", "clinical", "sepsis", "ecg", "patient", "health record"),
+    "security": ("security", "cyber", "network", "intrusion", "malware"),
+    "visual": ("visual", "image", "picture", "photo", "camera"),
+    "physics": ("physics", "vibration", "spectral", "dynamics"),
+    "economic": ("econom", "financ", "market", "price"),
+    "energy": ("energy", "grid", "power", "emp"),
+    "marine": ("marine", "vessel", "ship", "ais", "maritime"),
+    "foundation": ("foundation model", "chronos", "timegpt"),
+    "neurosymbolic": ("neurosymbolic", "neuro-symbolic", "symbolic"),
+    "intelligence": ("intelligence", "osint", "intel"),
+    "uav": ("uav", "drone"),
+    "vlm": ("vision-language", "vlm", "language model"),
+    "uiux": ("uiux", "ui/ux", "interaction", "rage click"),
+    "model": ("model-based", "autoencoder", "isolation forest", "transformer"),
+}
+
+#: Manifest input modality -> words a question uses for it.
+_MODALITY_WORDS: dict[str, tuple[str, ...]] = {
+    "series_1d": ("time series", "timeseries", "series", "signal", "univariate"),
+    "matrix_2d": ("matrix", "multivariate", "tabular", "table"),
+    "image_batch": ("images", "image batch", "pictures", "photos"),
+    "video_frames": ("video", "frames", "footage"),
+    "text": ("text", "document", "log line"),
+    "graph": ("graph", "network topology"),
+    "trajectory": ("trajectory", "track", "path"),
+    "event": ("events", "event stream"),
+}
+
+_MODALITY_LABELS: dict[str, str] = {
+    "series_1d": "1-D series",
+    "matrix_2d": "2-D matrix",
+    "record": "record",
+    "rows": "row batch",
+    "image_batch": "image batch",
+    "event": "event",
+    "window": "window",
+    "video_frames": "video frames",
+    "trajectory": "trajectory",
+    "graph": "graph",
+    "text": "text",
+    "windows_3d": "3-D windows",
+}
+
+
+def _is_explain_latest_query(text: str) -> bool:
+    """True for "explain the latest detection", "narrate the last anomaly", "why was it flagged"."""
+    about_run = any(d in text for d in ("detection", "anomal", "run", "flag", "alert", "result"))
+    return any(w in text for w in _EXPLAIN_WORDS) and about_run
+
+
+def _is_capability_query(text: str) -> bool:
+    """True for "which detectors do you have", "can you detect X", "what are your capabilities"."""
+    return any(w in text for w in _CAPABILITY_WORDS) or any(w in text for w in _DETECTOR_WORDS)
+
+
+def _detection_result_from_record(record: dict[str, Any], timestamp: Any) -> dict[str, Any]:
+    """The detection result the narrative engine reads, built from a memory record.
+
+    Only reported fields are carried: a run without a threshold has no
+    severity and no step about one, and no confidence is ever supplied.
+    """
+    count = record.get("anomaly_count")
+    total = record.get("n_samples")
+    threshold = record.get("threshold")
+    score = record.get("anomaly_score")
+    steps: list[str] = [
+        f"method: {record.get('method') or 'detection'}",
+        f"recorded {_ago(timestamp)}",
+    ]
+    if isinstance(count, int) and isinstance(total, int):
+        steps.append(f"{count} of {total} samples flagged")
+    indices = record.get("indices") or []
+    if indices:
+        steps.append("flagged samples: " + ", ".join(str(i) for i in indices[:8]))
+    if isinstance(threshold, (int, float)) and not isinstance(threshold, bool) and threshold > 0:
+        steps.append(f"threshold: {float(threshold):.3f}")
+        if isinstance(score, (int, float)) and not isinstance(score, bool):
+            steps.append(
+                f"peak score {float(score):.3f} is {float(score) / float(threshold):.1f}x the threshold"
+            )
+    result: dict[str, Any] = {
+        "anomaly_detected": bool(record.get("anomaly_detected", False)),
+        "anomaly_score": (
+            float(score) if isinstance(score, (int, float)) and not isinstance(score, bool) else 0.0
+        ),
+        "reasoning_chain": steps,
+        "summary": _describe_detection(record, timestamp),
+    }
+    severity = record.get("severity")
+    if isinstance(severity, (int, float)) and not isinstance(severity, bool):
+        result["severity"] = float(severity)
+    return result
 
 
 def _is_detection_summary_query(text: str) -> bool:

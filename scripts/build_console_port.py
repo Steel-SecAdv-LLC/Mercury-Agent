@@ -225,7 +225,8 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         "agent quick prompts include the questions the voice answers from its detection record",
         'chips: ["Explain this detection", "Why did it clear the gate?", "Recommend an action", '
         '"Summarize threat posture", "What should I run next?", "How do I collect data?"]',
-        'chips: ["What was the latest anomaly?", "How many anomalies today?", '
+        'chips: ["What was the latest anomaly?", "Explain the latest detection", '
+        '"How many anomalies today?", "Which detectors do you have?", '
         '"Explain this detection", "Why did it clear the gate?", "Recommend an action", '
         '"Summarize threat posture", "What should I run next?", "How do I collect data?"]',
     ),
@@ -262,6 +263,17 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         "results summary says when the server reported no confidence",
         '["mean conf", sm.meanConf.toFixed(4)]',
         '["mean conf", sm.meanConf == null ? "not reported" : sm.meanConf.toFixed(4)]',
+    ),
+    (
+        "event sentence: a server detection reports no confidence; say so instead of "
+        "calling toFixed on null (the render loop threw and the dossier went blank)",
+        '"), confidence " + e.conf.toFixed(3) + ". "',
+        '"), confidence " + (e.conf == null ? "not reported" : e.conf.toFixed(3)) + ". "',
+    ),
+    (
+        "event dossier row: same null-safe confidence",
+        '["confidence", E.conf.toFixed(3)]',
+        '["confidence", E.conf == null ? "not reported" : E.conf.toFixed(3)]',
     ),
     (
         "severity band legend matches api.server._classify_severity",
