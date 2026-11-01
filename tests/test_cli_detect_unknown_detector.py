@@ -36,8 +36,8 @@ def data_file(tmp_path: Path) -> Path:
 def test_unknown_detector_is_refused(data_file: Path) -> None:
     result = CliRunner().invoke(main, ["detect", "-i", str(data_file), "-d", "statisical"])
     assert result.exit_code == 2, result.output
-    assert "unknown detector 'statisical'" in result.output
-    assert "statistical" in result.output  # the valid names are listed
+    assert "'statisical' is not one of" in result.output
+    assert "'statistical'" in result.output  # the valid names are listed
     assert "is_anomaly" not in result.output
 
 
@@ -46,3 +46,13 @@ def test_known_detector_still_runs(data_file: Path) -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output[result.output.index("{") :])
     assert "statistical" in payload["detectors"]
+
+
+def test_choices_are_the_engines_detectors_plus_fusion() -> None:
+    """``detect -d`` choices track the engine's own detector table."""
+    from omni_mercury_engine.cli import DETECT_DETECTORS
+    from omni_mercury_engine.engine import OmniMercuryEngine
+
+    engine = OmniMercuryEngine(mode="statistical", require_explicit_fit=False)
+    assert set(DETECT_DETECTORS) == set(engine.detectors) | {"fusion"}
+    assert DETECT_DETECTORS[0] == "statistical"  # the documented default comes first

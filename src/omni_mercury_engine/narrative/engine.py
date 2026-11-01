@@ -231,6 +231,7 @@ class NarrativeEngine:
         start_time = time.time()
         self._synthesis_count += 1
         context = context or {}
+        detection_result = _normalize_reasoning_chain(detection_result)
 
         # Extract core detection values
         anomaly_detected = detection_result.get("anomaly_detected", False)
@@ -390,8 +391,14 @@ class NarrativeEngine:
         for i, step in enumerate(reasoning_chain[: self.max_reasoning_steps]):
             rule = step.get("rule", "unknown_rule")
             conclusion = step.get("conclusion", "")
-            conf = step.get("confidence", 0.5)
+            conf = step.get("confidence")
 
+            if not isinstance(conf, (int, float)):
+                # An observation with no stated confidence: reported as given,
+                # not labelled 50 % and not filed as a rejected hypothesis.
+                steps.append(f"Step {i + 1}: {rule} -> {conclusion}")
+                hypotheses_considered.append(conclusion)
+                continue
             step_text = f"Step {i + 1}: Applied {rule} -> {conclusion} (confidence: {conf:.0%})"
             steps.append(step_text)
 
@@ -430,8 +437,15 @@ class NarrativeEngine:
         if not reasoning_chain:
             return "Confidence limited by insufficient reasoning data."
 
-        avg_step_conf = np.mean([s.get("confidence", 0.5) for s in reasoning_chain])
+        scored = [
+            s["confidence"]
+            for s in reasoning_chain
+            if isinstance(s.get("confidence"), (int, float))
+        ]
         n_steps = len(reasoning_chain)
+        if not scored:
+            return f"Based on {n_steps} observation(s); no step-level confidence was reported."
+        avg_step_conf = float(np.mean(scored))
         n_rejected = len(rejected)
 
         rationale_parts = []
@@ -741,3 +755,23 @@ class NarrativeEngine:
             "gosnn_connected": self._gosnn is not None,
             "memory_surface_connected": self._memory_surface is not None,
         }
+
+
+def _normalize_reasoning_chain(detection_result: dict[str, Any]) -> dict[str, Any]:
+    """Accept plain-text reasoning steps alongside rule dictionaries.
+
+    ``POST /api/v1/voice/narrate`` takes a free-form ``detection_result``. A
+    client that sends ``reasoning_chain: ["1 of 60 flagged"]`` (the console
+    does) made every ``step.get(...)`` raise, and the route answered 500. A
+    string becomes an observation step with no confidence attached.
+    """
+    chain = detection_result.get("reasoning_chain")
+    if not isinstance(chain, list) or all(isinstance(s, dict) for s in chain):
+        return detection_result
+    steps: list[dict[str, Any]] = []
+    for item in chain:
+        if isinstance(item, dict):
+            steps.append(item)
+        elif item is not None:
+            steps.append({"rule": "observation", "conclusion": str(item)})
+    return {**detection_result, "reasoning_chain": steps}

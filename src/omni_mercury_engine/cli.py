@@ -19,6 +19,20 @@ from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
 OmniMercuryEngine: Any = None
 
 
+#: ``detect --detector`` values: the engine's base detectors plus the fusion
+#: path. Kept equal to ``OmniMercuryEngine(...).detectors`` by
+#: tests/test_cli_detect_unknown_detector.py; ``detect`` also re-checks at run
+#: time against the engine it built.
+DETECT_DETECTORS: tuple[str, ...] = (
+    "statistical",
+    "fusion",
+    "temporal",
+    "dimensional",
+    "spatial",
+    "directive",
+)
+
+
 def _get_engine(*args: Any, **kwargs: Any) -> Any:
     """Lazy load OmniMercuryEngine to defer torch import."""
     global OmniMercuryEngine
@@ -67,6 +81,7 @@ def main() -> None:
     "--detector",
     "-d",
     default="statistical",
+    type=click.Choice(DETECT_DETECTORS),
     help=(
         "Detector type. Defaults to 'statistical' (the trained Mercury "
         "ensemble). Use 'fusion' for the neural fusion path."
@@ -981,9 +996,9 @@ def physics_spectral(
     distortion, signature) are the input's own either way.
 
     Examples:
-        mercury physics spectral -i machine.csv --reference healthy.csv
-        mercury physics spectral -i sensor.json -r healthy.json -m phonon -t 0.6
-        mercury physics spectral -i machine.csv -r healthy.csv -o results.json
+        mercury-agent physics spectral -i machine.csv --reference healthy.csv
+        mercury-agent physics spectral -i sensor.json -r healthy.json -m phonon -t 0.6
+        mercury-agent physics spectral -i machine.csv -r healthy.csv -o results.json
     """
     try:
         from omni_mercury_engine.detectors.spectral_vibration import (
@@ -1080,9 +1095,9 @@ def physics_dynamics(
     and energy conservation monitoring.
 
     Examples:
-        mercury physics dynamics -i motion_data.csv
-        mercury physics dynamics -i trajectory.json --time-step 0.001
-        mercury physics dynamics -i sensor.csv --chaos-threshold 0.05 -o results.json
+        mercury-agent physics dynamics -i motion_data.csv
+        mercury-agent physics dynamics -i trajectory.json --time-step 0.001
+        mercury-agent physics dynamics -i sensor.csv --chaos-threshold 0.05 -o results.json
     """
     try:
         from omni_mercury_engine.detectors.acceleration_dynamics import (
@@ -1159,9 +1174,9 @@ def physics_uiux(
         [{"timestamp": 0.0, "type": "click", "x": 100, "y": 200, ...}, ...]
 
     Examples:
-        mercury physics uiux -i interactions.json
-        mercury physics uiux -i session.json --rage-threshold 0.2 --bot-threshold 0.8
-        mercury physics uiux -i user_data.json -o analysis.json
+        mercury-agent physics uiux -i interactions.json
+        mercury-agent physics uiux -i session.json --rage-threshold 0.2 --bot-threshold 0.8
+        mercury-agent physics uiux -i user_data.json -o analysis.json
     """
     try:
         from omni_mercury_engine.detectors.uiux_anomaly import (
@@ -1301,9 +1316,9 @@ def physics_integrated(
     with golden-ratio weighted fusion aligned with GOSNN ethical governance.
 
     Examples:
-        mercury physics integrated -s vibration.csv -d motion.csv
-        mercury physics integrated -s sensor.csv -u interactions.json -o report.json
-        mercury physics integrated -s data.csv -d data.csv -u session.json -w 0.5,0.3,0.2
+        mercury-agent physics integrated -s vibration.csv -d motion.csv
+        mercury-agent physics integrated -s sensor.csv -u interactions.json -o report.json
+        mercury-agent physics integrated -s data.csv -d data.csv -u session.json -w 0.5,0.3,0.2
     """
     if not any([spectral_input, dynamics_input, uiux_input]):
         click.echo("Error: At least one input file required (-s, -d, or -u)")
@@ -1545,10 +1560,10 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
     model management, and data export.
 
     Examples:
-        mercury serve
-        mercury serve --port 8080
-        mercury serve --workers 4 --log-level debug
-        mercury serve --reload  # Development mode with auto-reload
+        mercury-agent serve
+        mercury-agent serve --port 8080
+        mercury-agent serve --workers 4 --log-level debug
+        mercury-agent serve --reload  # Development mode with auto-reload
     """
     click.echo("\n" + "=" * 60)
     click.echo("  Mercury Agent API Server")
@@ -1921,8 +1936,8 @@ def stream(
     SIGTERM/SIGINT, at which point it drains and shuts the pipeline down cleanly.
 
     Examples:
-        mercury stream                              # in-memory dev worker
-        mercury stream --backend kafka \\
+        mercury-agent stream                              # in-memory dev worker
+        mercury-agent stream --backend kafka \\
             --input-topic mercury-detections \\
             --output-topic mercury-anomalies \\
             --consumer-group mercury-streaming-workers
@@ -2120,10 +2135,10 @@ def voice(domain: str, model: str, offline: bool) -> None:
     """Start interactive voice conversation with Mercury.
 
     Examples:
-        mercury voice
-        mercury voice --domain medical
-        mercury voice --model mistral:7b
-        mercury voice --offline
+        mercury-agent voice
+        mercury-agent voice --domain medical
+        mercury-agent voice --model mistral:7b
+        mercury-agent voice --offline
     """
     _start_voice_conversation(domain, model, offline)
 

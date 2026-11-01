@@ -193,6 +193,10 @@ tags_metadata = [
 # patching.
 
 
+#: True while :func:`_warmup` drives the detection handlers.
+_WARMUP: contextvars.ContextVar[bool] = contextvars.ContextVar("mercury_api_warmup", default=False)
+
+
 async def _warmup(app_instance: FastAPI) -> None:
     """Drive synthetic detection calls so the first real request is warm.
 
@@ -209,6 +213,23 @@ async def _warmup(app_instance: FastAPI) -> None:
     monkey-patch one of ``detect_univariate`` / ``detect_multivariate``
     / ``health_check`` and assert that ``await _warmup(...)`` raises.
     """
+    # Synthetic warm-up results are not detections: keep them out of the
+    # export history, alert egress and the agent's memory.
+    token = _WARMUP.set(True)
+    try:
+        await _warm_detection_paths()
+    finally:
+        _WARMUP.reset(token)
+
+    # Health path warms the middleware chain (correlation-ID,
+    # rate-limit bypass, logger format).
+    await health_check()
+
+    logger.info("API warmup completed; first request will not pay cold-start cost")
+
+
+async def _warm_detection_paths() -> None:
+    """The univariate and multivariate calls :func:`_warmup` drives."""
     # Pydantic model + validator warmup via the univariate path.
     univariate_data = [float(i % 7) for i in range(16)]
     univariate_req = UnivariateRequest(data=univariate_data, sensitivity=0.5)
@@ -219,12 +240,6 @@ async def _warmup(app_instance: FastAPI) -> None:
     multivariate_data = [[float(i + j) for j in range(3)] for i in range(8)]
     multivariate_req = MultivariateRequest(data=multivariate_data, sensitivity=0.5)
     await detect_multivariate(multivariate_req)
-
-    # Health path warms the middleware chain (correlation-ID,
-    # rate-limit bypass, logger format).
-    await health_check()
-
-    logger.info("API warmup completed; first request will not pay cold-start cost")
 
 
 @asynccontextmanager
@@ -994,6 +1009,37 @@ def _classify_severity(score: float, threshold: float) -> SeverityLevel:
         return SeverityLevel.CRITICAL
 
 
+async def _record_core_detection(
+    method: str,
+    data: list[list[float]],
+    results: dict[str, Any],
+    sensitivity: float | None,
+) -> None:
+    """Record a univariate/multivariate detection like every other detection route.
+
+    ``routes/detection.py`` sends each result through ``record_detection``
+    (export history, alert egress, the agent's memory); these two endpoints,
+    the console's default ``detect`` path, recorded nothing, so their
+    detections never reached history, alerts or the agent. They are
+    unauthenticated, so the record is attributed to ``anonymous``, as the
+    other routes do without a user. Recording must never fail a detection.
+    """
+    if _WARMUP.get():
+        return
+    try:
+        from omni_mercury_engine.api.routes.export import record_detection
+
+        await record_detection(
+            user_id="anonymous",
+            method=method,
+            data=data,
+            results=results,
+            sensitivity=sensitivity if sensitivity is not None else 0.5,
+        )
+    except Exception as exc:  # pragma: no cover - defensive by contract
+        logger.warning("detection record skipped for %s: %s", method, exc)
+
+
 # API Endpoints
 @app.get(
     "/health",
@@ -1219,6 +1265,12 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
             **method_stats,
         }
 
+        await _record_core_detection(
+            "univariate",
+            [[float(v)] for v in data],
+            {"anomalies": anomalies, "scores": scores, "threshold": threshold, "summary": summary},
+            request.sensitivity,
+        )
         return UnivariateResponse(
             anomalies=anomalies,
             scores=scores,
@@ -1392,6 +1444,12 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
             },
         }
 
+        await _record_core_detection(
+            "multivariate",
+            [list(map(float, row)) for row in data],
+            {"anomalies": anomalies, "scores": scores, "threshold": threshold, "summary": summary},
+            request.sensitivity,
+        )
         return MultivariateResponse(
             anomalies=anomalies,
             scores=scores,
