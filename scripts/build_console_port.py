@@ -888,6 +888,39 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
     ),
 )
 
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "a blocked mass-run row explains itself when clicked instead of ignoring the click",
+        'leave: () => this.hideTip(), on: onC, kl: onC ? "var(--mercury-400)" : "transparent", bg: onC ? "var(--surface-2)" : "transparent", '
+        'box: onC ? "var(--mercury-400)" : "transparent", bd: onC ? "var(--mercury-400)" : "var(--border-strong)", '
+        "toggle: () => { if (blocked) return; setSel((cur) => { if (cur[c.id]) delete cur[c.id]; else cur[c.id] = true; }); } }; }) })),",
+        'leave: () => this.hideTip(), on: onC, dis: blocked ? "true" : "false", kl: onC ? "var(--mercury-400)" : "transparent", '
+        'bg: onC ? "var(--surface-2)" : "transparent", box: onC ? "var(--mercury-400)" : "transparent", '
+        'bd: onC ? "var(--mercury-400)" : "var(--border-strong)", '
+        'toggle: (e) => { if (blocked) { this.showTip(e && e.currentTarget, String(c.group).toUpperCase() + " · " + c.id, '
+        '"Cannot run from this dataset: " + why, "Load a dataset of the shape it needs, or send it from the API form in the reference card."); return; } '
+        "setSel((cur) => { if (cur[c.id]) delete cur[c.id]; else cur[c.id] = true; }); } }; }) })),",
+    ),
+    (
+        "sample-count chips expose their pressed state",
+        "[20, 50, 100, 200].map((v) => { const st = s.samples === v ? on : off; return { v: String(v), bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setState({ samples: v }) }; }),",
+        '[20, 50, 100, 200].map((v) => { const st = s.samples === v ? on : off; return { v: String(v), on: s.samples === v ? "true" : "false", bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setState({ samples: v }) }; }),',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "blocked mass-run rows are announced as disabled",
+        '<button role="checkbox" aria-checked="{{ mc.on }}" aria-label="{{ mc.label }}" title="{{ mc.route }}" onClick="{{ mc.toggle }}"',
+        '<button role="checkbox" aria-checked="{{ mc.on }}" aria-disabled="{{ mc.dis }}" aria-label="{{ mc.label }}" title="{{ mc.route }}" onClick="{{ mc.toggle }}"',
+    ),
+    (
+        "sample-count chips carry aria-pressed",
+        '<button onClick="{{ so.pick }}" style="flex:none;cursor:pointer;',
+        '<button onClick="{{ so.pick }}" aria-pressed="{{ so.on }}" style="flex:none;cursor:pointer;',
+    ),
+)
+
 #: Design modules shipped unchanged apart from MODULE_PATCHES.
 MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
     (

@@ -109,10 +109,19 @@ as hover notes, and every control does something.**
 - "Use simulated engine" (Session menu and connection dialog) did nothing on
   the served console because the simulated engine is not shipped with it;
   both now say so and are disabled.
-- Right-panel tabs are `role=tab` with `aria-selected`; form enum chips and
-  option presets carry `aria-pressed`; Mass Run rows carry an accessible
-  name. Assistive technology, and the control audit, can now tell an
-  already-active toggle from a dead one.
+- A blocked Mass Run capability (a hazard whose array shape the loaded
+  dataset lacks, an assessment route without a detect-permission key) used to
+  swallow the click; it now opens its hover note with the reason and what to
+  do, and is announced `aria-disabled`.
+- Right-panel tabs are `role=tab` with `aria-selected`; form enum chips,
+  option presets and the sample-count chips carry `aria-pressed`; Mass Run
+  rows carry an accessible name. Assistive technology, and the control audit,
+  can now tell an already-active toggle from a dead one.
+- A Playwright crawler (`restoring the console's state before every click and
+  following revealed controls to depth two`) drove every view against the
+  live server; the controls it found dead are the ones above, and the two it
+  flagged in the Agent workspace (QUEUE, SEND) were replayed by hand and
+  change state and send as designed.
 - The agent chat offers "Tell me about the <context domain> domain" as a
   quick question, and the collect-data answer points to the per-domain
   profiles.
