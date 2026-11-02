@@ -1720,6 +1720,17 @@ except ImportError as e:
     logger.warning(f"Source offer route not available: {e}")
 
 
+# Include the catalog (always on: read-only, unauthenticated declarations of
+# what every domain and detector is and whose knowledge it carries)
+try:
+    from omni_mercury_engine.api.routes.catalog import router as catalog_router
+
+    app.include_router(catalog_router)
+    logger.info("Catalog routes registered")
+except ImportError as e:
+    logger.warning(f"Catalog routes not available: {e}")
+
+
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)
 try:

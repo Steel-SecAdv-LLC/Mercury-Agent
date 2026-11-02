@@ -1178,6 +1178,12 @@ class MercuryVoice:
             return self._handle_identity()
         if kind == "glossary":
             return self._handle_glossary(str(argument))
+        if kind == "domain":
+            subject, aspect = argument
+            return self._handle_domain_profile(str(subject), str(aspect))
+        if kind == "detector_profile":
+            subject, aspect = argument
+            return self._handle_detector_profile(str(subject), str(aspect))
         if kind == "gate":
             return self._handle_gate(domain, principal)
         if kind == "recommend":
@@ -1392,6 +1398,44 @@ class MercuryVoice:
             ["code"],
             QueryIntent.EXPLAIN_CONCEPT,
             f"Definition of '{term}' read from the module that implements it.",
+            started,
+        )
+
+    def _handle_domain_profile(self, subject: str, aspect: str) -> VoiceResponse:
+        """Describe a data domain from its knowledge profile and its loader's declared contract."""
+        started = time.time()
+        from dataclasses import asdict
+
+        from omni_mercury_engine.core.loader_declarations import loader_declarations
+        from omni_mercury_engine.detectors.hazard_diagnostics import KNOWN_HAZARDS
+
+        declaration = loader_declarations().get(subject)
+        return self._grounded(
+            _conv.domain_answer(
+                subject,
+                aspect,
+                asdict(declaration) if declaration else None,
+                subject in KNOWN_HAZARDS,
+            ),
+            ["knowledge_profiles"] + (["loader_declarations"] if declaration else []),
+            QueryIntent.EXPLAIN_CONCEPT,
+            f"The {subject} domain's knowledge profile (core/knowledge_profiles.py)"
+            + (" and its loader's declared contract." if declaration else "."),
+            started,
+        )
+
+    def _handle_detector_profile(self, subject: str, aspect: str) -> VoiceResponse:
+        """Describe a manifest detector from its knowledge profile, manifest entry and ontology."""
+        started = time.time()
+        from omni_mercury_engine.core.detector_ontology import ONTOLOGY
+        from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+
+        entry = next(e for e in DETECTOR_MANIFEST if e.name == subject)
+        return self._grounded(
+            _conv.detector_profile_answer(subject, aspect, entry, ONTOLOGY[subject]),
+            ["knowledge_profiles", "detector_manifest", "detector_ontology"],
+            QueryIntent.EXPLAIN_CONCEPT,
+            f"{subject}'s knowledge profile, manifest entry and ontology row.",
             started,
         )
 

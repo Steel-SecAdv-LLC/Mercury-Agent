@@ -42,6 +42,8 @@ import tokenize
 from pathlib import Path
 from typing import Any
 
+from omni_mercury_engine.core.knowledge_profiles import DETECTOR_PROFILES, DOMAIN_PROFILES
+
 REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "src" / "omni_mercury_engine"
 OUTPUT = SRC / "api" / "frontend_assets" / "static" / "console" / "catalog.js"
@@ -315,7 +317,7 @@ def _evidence(item: Any) -> dict[str, Any]:
 
 
 def build_detectors() -> list[dict[str, Any]]:
-    """Registry manifest joined with the detector ontology."""
+    """Registry manifest joined with the detector ontology and the knowledge profile."""
     from omni_mercury_engine.core.detector_ontology import ONTOLOGY
     from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 
@@ -345,14 +347,36 @@ def build_detectors() -> list[dict[str, Any]]:
                 "validated": [_evidence(v) for v in ont.validated],
                 "note": ont.not_validated_note or "",
             }
+        profile = DETECTOR_PROFILES.get(entry.name)
+        if profile is not None:
+            row["prof"] = {
+                "disc": profile.discipline,
+                "lineage": profile.lineage,
+                "mech": profile.mechanism,
+                "who": profile.practitioners,
+                "use": profile.use_when,
+                "not": profile.not_for,
+                "refs": [[r.citation, r.url] for r in profile.references],
+            }
         out.append(row)
     return out
 
 
-def build_loaders() -> list[dict[str, str]]:
-    """``from ...loaders.x_loader import XLoader`` lines in ``loaders/__init__.py``."""
+def build_loaders() -> list[dict[str, Any]]:
+    """Every ``loaders/*_loader.py`` with its declared contract and its knowledge profile.
+
+    The loader ids come from the ``from ...loaders.x_loader import XLoader``
+    lines in ``loaders/__init__.py`` (what the package exports); the contract
+    (source URL, key, label provenance, feature columns) is parsed from the
+    module by ``core.loader_declarations`` without importing it; the profile
+    (discipline, professions, institutions, expertise, method, limits,
+    references) comes from ``core.knowledge_profiles``.
+    """
+    from omni_mercury_engine.core.loader_declarations import loader_declarations
+
     tree = ast.parse((SRC / "loaders" / "__init__.py").read_text(encoding="utf-8"))
-    out: list[dict[str, str]] = []
+    declared = loader_declarations()
+    out: list[dict[str, Any]] = []
     for node in tree.body:
         if not (isinstance(node, ast.ImportFrom) and node.module):
             continue
@@ -361,14 +385,51 @@ def build_loaders() -> list[dict[str, str]]:
             continue
         for alias in node.names:
             if alias.name.endswith("Loader") and alias.name != "BaseDomainLoader":
-                out.append(
-                    {
-                        "id": leaf.removesuffix("_loader"),
-                        "file": f"loaders/{leaf}.py",
-                        "cls": alias.name,
-                    }
-                )
+                loader_id = leaf.removesuffix("_loader")
+                row: dict[str, Any] = {
+                    "id": loader_id,
+                    "file": f"loaders/{leaf}.py",
+                    "cls": alias.name,
+                }
+                decl = declared.get(loader_id)
+                if decl is not None:
+                    row["src"] = decl.source_url
+                    row["key"] = decl.api_key_env_var if decl.requires_api_key else ""
+                    row["label"] = decl.label_source
+                    row["cols"] = list(decl.feature_columns)
+                    row["scored"] = list(decl.scored_feature_columns)
+                    row["ttl"] = decl.cache_ttl
+                prof = _domain_profile_row(loader_id)
+                if prof is not None:
+                    row["prof"] = prof
+                out.append(row)
     return sorted(out, key=lambda r: r["id"])
+
+
+def _domain_profile_row(domain: str) -> dict[str, Any] | None:
+    """The console's compact form of a domain's knowledge profile."""
+    profile = DOMAIN_PROFILES.get(domain)
+    if profile is None:
+        return None
+    return {
+        "title": profile.title,
+        "disc": profile.discipline,
+        "who": list(profile.professions),
+        "inst": [[i.name, i.role, i.url] for i in profile.institutions],
+        "know": list(profile.expertise),
+        "obs": profile.observables,
+        "method": profile.method,
+        "labels": profile.label_rule,
+        "limits": list(profile.limits),
+        "refs": [[r.citation, r.url] for r in profile.references],
+        "dets": list(profile.detectors),
+        "std": list(profile.standards),
+    }
+
+
+def build_domain_profiles() -> dict[str, dict[str, Any]]:
+    """Every domain profile (loader and hazard domains alike), keyed by domain."""
+    return {d: row for d in sorted(DOMAIN_PROFILES) if (row := _domain_profile_row(d)) is not None}
 
 
 def _module_constant(path: Path, name: str) -> Any:
@@ -758,6 +819,7 @@ def build() -> dict[str, Any]:
         "ontologyVocab": sorted(ANOMALY_CLASSES),
         "loaders": build_loaders(),
         "hazards": build_hazards(),
+        "domainProfiles": build_domain_profiles(),
         "tier": build_tier(),
         "mcp": mcp,
         "mcpSchemas": mcp_schemas,

@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,091
-- **Capability-bearing classes:** 2,071 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,096
+- **Capability-bearing classes:** 2,076 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,211 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,216 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1211 |
+| Other capability classes | 1216 |
 | Support types (config / result / enum / error) | 1020 |
 | Detection | 180 |
 | Neural models & layers | 162 |
@@ -660,7 +660,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 346 classes (217 capability)
+### `core/` — 351 classes (222 capability)
 
 **Adapters & backends**
 
@@ -771,6 +771,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DetectorManifestEntry` (`core.detector_registry`) — Declarative entry describing a discoverable detector.
 - `DetectorMetrics` (`core.base`) — Metrics for detector performance tracking.
 - `DetectorOntology` (`core.detector_ontology`) — The declared capability contract of one manifest detector.
+- `DetectorProfile` (`core.knowledge_profiles`) — The discipline, lineage and practitioner knowledge behind one manifest detector.
 - `DetectorRegistry` (`core.detector_registry`) — Central registry for all anomaly detectors and models.
 - `DetectorRole` (`core.detector_roles`) — One detector class's role outside the manifest.
 - `DetectorTask` (`core.parallel_detectors`) — One unit of work.
@@ -778,6 +779,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DomainFeatureExtractorFactory` (`core.domain_feature_extractors`) — Factory for creating domain-specific feature extractors.
 - `DomainHarmonicConstants` (`core.centralized_constants`) — Domain-specific fundamental frequencies for harmonic analysis.
 - `DomainMetrics` (`core.base_domains`) — Comprehensive metrics for a detection domain.
+- `DomainProfile` (`core.knowledge_profiles`) — The profession, institutions and expertise behind one data domain.
 - `DomainSpecificMetrics` (`core.domain_metrics`) — Domain-specific metrics for specialized detectors.
 - `EthicalConstants` (`core.centralized_constants`) — Ethical governance thresholds and constants.
 - `EthicalDecision` (`core.ethical_governor`) — Record of ethical decision with validation.
@@ -806,10 +808,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `InfoGeometryCertificate` (`core.governed_fusion`) — Mahalanobis certified-radius/witness for the info-geometry component.
 - `InfrastructureConstants` (`core.centralized_constants`) — Infrastructure domain-specific constants.
 - `InfrastructureFeatureExtractor` (`core.domain_feature_extractors`) — Infrastructure domain feature extractor.
+- `Institution` (`core.knowledge_profiles`) — An organisation that publishes, governs or defines the data of a domain.
 - `IntelligenceMeritConstants` (`core.centralized_constants`) — Held-out merit gate for intelligence-fusion weights.
 - `IsotonicCalibration` (`core.calibration`) — Isotonic regression calibration (non-parametric).
 - `KnowledgeGraph` (`core.neurosymbolic_hub`) — NetworkX-based knowledge graph for symbolic reasoning.
 - `LearnableGOSNN` (`core.learnable_gosnn`) — Learnable Global Omni-Scalar Network.
+- `LoaderDeclaration` (`core.loader_declarations`) — The declared contract of one domain loader.
 - `LyapunovConstants` (`core.centralized_constants`) — Lyapunov stability framework constants.
 - `LyapunovViolation` (`core.system_coherence`) — Record of a Lyapunov stability violation.
 - `Manifold` (`core.riemannian_optimization`) — Abstract base class for a Riemannian manifold.
@@ -840,6 +844,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `RealWorldBenchmarkRunner` (`core.realworld_benchmark`) — Benchmark runner for real-world datasets.
 - `RecursionConvergenceConstants` (`core.centralized_constants`) — Convergence bounds for recursive computations.
 - `RedisCache` (`core.feature_pipeline`) — Redis cache backend implementation.
+- `Reference` (`core.knowledge_profiles`) — One citation: a paper, standard, dataset paper or authoritative document.
 - `RegenerativeArchitecture` (`core.regenerative`) — Implements regenerative design principles for net-positive AI systems.
 - `ReliabilityWeightedFusion` (`core.stacking_fusion`) — Stacking fusion that weights each detector by a per-detector reliability score.
 - `RiemannianAdam` (`core.riemannian_optimization`) — Adam optimiser adapted for Riemannian manifolds.

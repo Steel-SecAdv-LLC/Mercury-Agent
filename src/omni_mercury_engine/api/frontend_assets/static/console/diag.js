@@ -74,10 +74,10 @@
 
     /* 4. Menus: every item actionable */
     { const s = S("Menus");
-      ["commands", "domains", "detectors", "physics", "runs", "tools", "mcp", "api", "session"].forEach((k) => s.guard(k, () => {
+      ["commands", "domains", "detectors", "physics", "runs", "tools", "mcp", "api", "session", "ama"].forEach((k) => s.guard(k, () => {
         const gs = C.items(k); const n = gs.reduce((a, g) => a + g.items.length, 0);
         s.ok(n > 0, k + " has items", n);
-        gs.forEach((g) => g.items.forEach((i) => { s.ok(typeof i.act === "function", k + " · " + i.t + " is actionable", ""); s.ok(i.t && !bad(i.t) && !bad(i.s || ""), k + " · " + i.t + " labels clean", i.s); if (i.off) s.ok(/disabled|nothing|empty/.test(i.s || ""), k + " · " + i.t + " states why it is disabled", i.s); }));
+        gs.forEach((g) => g.items.forEach((i) => { s.ok(typeof i.act === "function", k + " · " + i.t + " is actionable", ""); if (!i.off && !/Run diagnostics|Evidence pack|Record session|Stop recording/.test(i.t)) { const T = mk(); const it = T.items(k).flatMap((g2) => g2.items).find((x) => x.t === i.t && x.k === i.k && !x.off); T.state.ref = null; T.state.menu = null; const sig = () => JSON.stringify([T.state.sel, T.state.ref && (T.state.ref.kind + (T.state.ref.n ? T.state.ref.n.t : "")), T.state.menu, T.state.ws, T.state.tool, T.state.domain, T.state.input, T.state.showAdmin, T.state.lines.length, T.state.script.length, T.state.browse, T.state.pal, T.state.panel, T.state.tab]); const b0 = sig(); if (it) it.act(); s.ok(!it || sig() !== b0 || T._exec || T._dl || T._said, k + " · " + i.t + " does something when picked", "no state change"); } s.ok(i.t && !bad(i.t) && !bad(i.s || ""), k + " · " + i.t + " labels clean", i.s); if (i.off) s.ok(/disabled|nothing|empty/.test(i.s || ""), k + " · " + i.t + " states why it is disabled", i.s); }));
         if (k === "detectors") s.ok(n === D.detectors.length + (D.library || []).length, "detectors menu lists all " + D.detectors.length + " manifest detectors and " + (D.library || []).length + " library classes", n);
         if (k === "runs") s.ok(n === D.runs.length + D.predictors.length, "runs menu lists all runs + predictors", n);
         if (k === "tools") s.ok(n === D.tools.reduce((a, t) => a + t[1].length, 0), "tools menu lists all tools", n);
@@ -97,6 +97,26 @@
         s.ok((r.code || []).every((l) => typeof l === "string" && !bad(l)), id + " code clean", (r.code || []).join("\\n").slice(0, 200));
         s.ok((r.acts || []).length > 0 && r.acts.every((a) => a[0] && typeof a[1] === "function"), id + " has working actions", (r.acts || []).length);
       }));
+    }
+
+    /* 5b. Knowledge profiles: whose knowledge every domain and detector is */
+    { const s = S("Knowledge profiles");
+      const noProf = D.detectors.filter((d) => !d.prof); s.ok(!noProf.length, "every manifest detector carries a knowledge profile", noProf.map((d) => d.name).join(","));
+      const noLP = D.loaders.filter((l) => !l.prof); s.ok(!noLP.length, "every data loader carries a knowledge profile", noLP.map((l) => l.id).join(","));
+      const noHP = D.hazards.filter((h) => !C.domainProf(h)); s.ok(!noHP.length, "every hazard domain carries a knowledge profile", noHP.join(","));
+      const mech = D.detectors.map((d) => d.prof && d.prof.mech); s.ok(new Set(mech).size === mech.length, "no two detectors share a mechanism", "");
+      const lin = D.detectors.map((d) => d.prof && d.prof.lineage); s.ok(new Set(lin).size === lin.length, "no two detectors share a lineage", "");
+      const meth = D.loaders.map((l) => l.prof && l.prof.method); s.ok(new Set(meth).size === meth.length, "no two domains share a method", "");
+      D.loaders.forEach((l) => s.ok(l.prof && l.prof.inst.length && l.prof.inst.some((i) => /^https:\/\//.test(i[2])), l.id + " names an institution with an https URL", ""));
+      D.detectors.forEach((d) => s.ok(d.prof && d.prof.refs.length > 0, d.name + " cites a reference", ""));
+      const T = mk(); T.state.ws = "browse"; T.state.panel = false;
+      ["detectors", "domains", "runs", "commands", "api", "mcp", "tools"].forEach((k) => { T.state.browse = k; T.state.bq = ""; T.state.bgrp = ""; T.state.bmore = 0; const o = T.renderVals(); const rows = (o.brSections || []).flatMap((g) => g.items); s.ok(rows.length > 0, k + " view renders rows", rows.length); s.ok(rows.every((r) => typeof r.enter === "function" && typeof r.leave === "function" && Array.isArray(r.chips)), k + " rows carry hover notes and chips", ""); const prof = rows.filter((r) => !(r.chips[0] && /library class/.test(r.chips[0].t))); if (k === "detectors" || k === "domains") s.ok(prof.every((r) => r.chips.length >= 2), k + " rows carry at least two chips (discipline, state)", prof.filter((r) => r.chips.length < 2).map((r) => r.t).join(",")); });
+      const dk = T.refCard({ kind: "detector", d: D.detectors.find((d) => d.name === "bocpd") }); s.ok(dk.kv.some((kv) => kv[0] === "lineage" && /Adams/.test(kv[1])) && dk.acts.some((a) => a[0] === "Ask Mercury Agent"), "a detector card carries its lineage and hands off to the agent", JSON.stringify(dk.kv.map((kv) => kv[0])));
+      const lk = T.refCard({ kind: "domain", l: D.loaders.find((l) => l.id === "sepsis") }); s.ok(lk.kv.some((kv) => kv[0] === "institutions" && /PhysioNet/.test(kv[1])) && lk.acts.some((a) => a[0] === "Ask Mercury Agent"), "a domain card names its institutions and hands off to the agent", JSON.stringify(lk.kv.map((kv) => kv[0])));
+      const hk = T.refCard({ kind: "domain", l: { id: "schumann", file: "", cls: "", prof: T.domainProf("schumann") } }); s.ok(!!hk && /HAZARD DOMAIN/.test(hk.k) && hk.code.join(" ").includes("hazard-viz -d schumann") && hk.kv.some((kv) => kv[0] === "institutions"), "a hazard-only domain renders a profile card", hk && hk.k);
+      const T3 = mk(); const notes = T3.items("ama").flatMap((g) => g.items); const dead = notes.filter((it) => { T3.state.ref = null; it.act(); return !T3.state.ref || T3.state.ref.kind !== "note"; }); s.ok(notes.length > 20 && !dead.length, "every AMA note opens a reference card", dead.map((d) => d.t).join(","));
+      const nk = T3.refCard({ kind: "note", group: "Contract", n: { t: "ML-DSA-65", s: "post-quantum signatures", k: "PRIMITIVE" } }); s.ok(!!nk && nk.acts.length === 3 && !bad(nk.k + nk.t + nk.d), "a note card renders with three actions", nk && nk.k);
+      const T4 = mk(); T4.state.ws = "mass"; const mo = T4.renderVals(); const mrows = (mo.massGroups || []).flatMap((g) => g.caps); s.ok(mrows.length > 0 && mrows.every((r) => typeof r.enter === "function" && r.route), "mass-run rows keep their route for the hover note", mrows.length);
     }
 
     /* 6. Runs: argparse forms */

@@ -213,6 +213,9 @@ def classify(text: str) -> tuple[str, Any]:
         return "status", None
     if any(w in t for w in _HELP):
         return "help", None
+    subject = _profile_subject(bare)
+    if subject is not None:
+        return subject
     term = _glossary_term(bare)
     if term is not None:
         return "glossary", term
@@ -311,6 +314,266 @@ def follow_up(text: str) -> tuple[str, Any] | None:
 # --------------------------------------------------------------------------- #
 # Glossary
 # --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# Knowledge profiles: "tell me about the sepsis domain", "what is bocpd"
+# --------------------------------------------------------------------------- #
+_PROFILE_LEAD = re.compile(
+    r"^(?:what(?:'s| is| are| does| do)|tell me about|describe|explain|introduce|"
+    r"who (?:uses|publishes|works with|governs|owns|relies on|maintains|reads)|"
+    r"which (?:institutions?|professions?|disciplines?|authorit|bod(?:y|ies)|organi[sz]ations?)|"
+    r"where (?:does|do|is|are)|how (?:does|do|is|are)|lineage of|references? (?:for|on|behind)|"
+    r"literature (?:for|on|behind)|cite|what (?:profession|discipline|institution|expertise)|"
+    r"limits? of|limitations? of|when (?:should|do|would) i use|"
+    r"which (?:features|columns|inputs|detectors? serves?))"
+)
+_PROFILE_RECORD_WORDS = (
+    "latest",
+    "today",
+    "yesterday",
+    "flagged",
+    "last run",
+    "this run",
+    "did it",
+)
+_PROFILE_DOMAIN_HINTS = (
+    " domain ",
+    " loader ",
+    " data ",
+    " dataset ",
+    " source ",
+    " sources ",
+    " feed ",
+    " institution",
+    " publishes ",
+    " who ",
+    " authority ",
+)
+_PROFILE_DETECTOR_HINTS = (" detector", " method ", " algorithm", " model ")
+_ASPECT_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "people",
+        (
+            "who ",
+            "institution",
+            "publish",
+            "profession",
+            "authority",
+            "organi",
+            "works with",
+            "expertise",
+            "practitioner",
+        ),
+    ),
+    (
+        "references",
+        (
+            "reference",
+            "literature",
+            "cite",
+            "citation",
+            "lineage",
+            "paper",
+            "published",
+            "where does it come from",
+            "origin",
+        ),
+    ),
+    ("limits", ("limit", "cannot", "can't", "weak", "blind", "not for", "caveat", "fail")),
+    ("detectors", ("which detectors", "detectors serve", "detector serves", "what detects")),
+    (
+        "data",
+        ("feature", "column", "input", "measure", "observable", "what data", "which data", "label"),
+    ),
+)
+
+
+def _profile_aspect(text: str) -> str:
+    for aspect, words in _ASPECT_WORDS:
+        if any(w in text for w in words):
+            return aspect
+    return "overview"
+
+
+def _profile_subject(bare: str) -> tuple[str, tuple[str, str]] | None:
+    """A domain or detector a question is *about*, or ``None``.
+
+    Only questions led by a describing phrase qualify ("what is", "tell me
+    about", "who publishes", "limits of"...), never questions about the record
+    ("what was the latest anomaly in the energy domain" stays a record
+    question). Names are matched whole, with underscores read as spaces
+    (``spot evt`` names ``spot_evt``); when a name is both a domain and a
+    detector (``sepsis``, ``earthquake``), words about data, sources or
+    institutions pick the domain and words about detectors or methods pick
+    the detector, with the domain as the default because the same word names
+    the broader subject.
+    """
+    if not _PROFILE_LEAD.match(bare) or any(w in bare for w in _PROFILE_RECORD_WORDS):
+        return None
+    from omni_mercury_engine.core.knowledge_profiles import DETECTOR_PROFILES, DOMAIN_PROFILES
+
+    text = re.sub(r"[^a-z0-9 ]+", " ", bare.replace("_", " ").replace("-", " "))
+    padded = f" {' '.join(text.split())} "
+
+    def present(name: str) -> bool:
+        return f" {name.replace('_', ' ')} " in padded
+
+    domains = sorted((d for d in DOMAIN_PROFILES if present(d)), key=len, reverse=True)
+    detectors = sorted((n for n in DETECTOR_PROFILES if present(n)), key=len, reverse=True)
+    if not domains and not detectors:
+        return None
+    aspect = _profile_aspect(padded)
+    wants_domain = any(w in padded for w in _PROFILE_DOMAIN_HINTS)
+    wants_detector = any(w in padded for w in _PROFILE_DETECTOR_HINTS)
+    if aspect == "detectors" and domains:
+        return "domain", (domains[0], aspect)
+    if domains and detectors and detectors[0] == domains[0]:
+        kind = "detector_profile" if wants_detector and not wants_domain else "domain"
+        return kind, (domains[0], aspect)
+    if detectors and (wants_detector or not domains or len(detectors[0]) > len(domains[0])):
+        return "detector_profile", (detectors[0], aspect)
+    return "domain", (domains[0], aspect)
+
+
+def _join(items: Sequence[str], limit: int = 3) -> str:
+    items = list(items)[:limit]
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def domain_answer(
+    domain: str, aspect: str, loader: Mapping[str, Any] | None, hazard: bool
+) -> tuple[str, list[str]]:
+    """Describe a data domain from its knowledge profile and its loader's declaration.
+
+    ``aspect`` is ``overview``, ``people``, ``references``, ``limits`` or
+    ``data``; it decides which part of the profile leads, so a follow-up asks
+    for something new instead of the same paragraph again.
+    """
+    from omni_mercury_engine.core.knowledge_profiles import DOMAIN_PROFILES
+
+    profile = DOMAIN_PROFILES[domain]
+    institutions = _join([f"{i.name} ({i.role})" for i in profile.institutions])
+    professions = _join(profile.professions)
+    follow_ups = [
+        f"Who publishes the {domain} data?",
+        f"What are the limits of the {domain} domain?",
+        f"What are the references for {domain}?",
+        f"Which features does the {domain} loader produce?",
+    ]
+    if aspect == "people":
+        text = (
+            f"{profile.title} belongs to {profile.discipline.lower()}. The people who work with this "
+            f"data are {professions}. Its institutions are {institutions}. A practitioner brings: "
+            + "; ".join(profile.expertise[:3])
+            + "."
+        )
+        follow_ups = [
+            f"Tell me about the {domain} domain",
+            f"What are the references for {domain}?",
+        ] + follow_ups[1:2]
+    elif aspect == "references":
+        refs = "; ".join(r.citation for r in profile.references[:4])
+        text = f"The {domain} domain rests on this literature: {refs}."
+        if profile.standards:
+            text += " Standards: " + "; ".join(profile.standards) + "."
+        follow_ups = [f"Tell me about the {domain} domain", f"Who publishes the {domain} data?"]
+    elif aspect == "limits":
+        text = (
+            f"Limits of the {domain} domain as Mercury ships it: "
+            + "; ".join(profile.limits)
+            + f". Labels: {profile.label_rule}"
+        )
+        follow_ups = [f"Tell me about the {domain} domain", f"Which detectors serve {domain}?"]
+    elif aspect == "detectors":
+        from omni_mercury_engine.core.knowledge_profiles import DETECTOR_PROFILES
+
+        listed = "; ".join(
+            f"{d} ({DETECTOR_PROFILES[d].discipline.lower()})"
+            for d in profile.detectors
+            if d in DETECTOR_PROFILES
+        )
+        text = f"Detectors that serve the {domain} domain: {listed}. Ask 'what is <name>' for any of them."
+        follow_ups = [f"What is {profile.detectors[0]}?", f"Tell me about the {domain} domain"]
+    elif aspect == "data":
+        text = f"The {domain} loader reads {profile.observables} {profile.method}"
+        if loader:
+            cols = list(loader.get("feature_columns") or [])
+            scored = list(loader.get("scored_feature_columns") or [])
+            if cols:
+                text += f" It engineers {len(cols)} feature columns ({_join(cols, 6)}{', ...' if len(cols) > 6 else ''})"
+                excluded = [c for c in cols if c not in scored]
+                if excluded:
+                    text += f"; {len(excluded)} of them ({_join(excluded, 5)}) feed the label and are excluded from scoring"
+                text += "."
+            if loader.get("requires_api_key"):
+                text += f" It needs the {loader.get('api_key_env_var')} key."
+        text += f" Labels: {profile.label_rule}"
+        follow_ups = [
+            f"Tell me about the {domain} domain",
+            f"What are the limits of the {domain} domain?",
+        ]
+    else:
+        text = (
+            f"{profile.title}: {profile.discipline}, worked with by {professions}. "
+            f"Data authority: {institutions}. {profile.method} Labels: {profile.label_rule} "
+            f"Detectors that serve it: {_join(profile.detectors, 6)}."
+        )
+        if hazard:
+            text += f" `mercury-agent hazard-viz -d {domain}` renders its diagnostics."
+        if loader and loader.get("requires_api_key"):
+            text += f" The loader needs the {loader.get('api_key_env_var')} key."
+    return text, follow_ups[:3]
+
+
+def detector_profile_answer(
+    name: str, aspect: str, entry: Any, ontology: Any
+) -> tuple[str, list[str]]:
+    """Describe a manifest detector from its knowledge profile, manifest entry and ontology row."""
+    from omni_mercury_engine.core.knowledge_profiles import DETECTOR_PROFILES
+
+    profile = DETECTOR_PROFILES[name]
+    label = f"{name} ({entry.class_name}, {entry.category.value} family, {entry.modality} input)"
+    follow_ups = [
+        f"What are the references for {name}?",
+        f"What are the limits of {name}?",
+        f"Who uses {name}?",
+        "Which detectors do you have?",
+    ]
+    if aspect == "references":
+        refs = "; ".join(r.citation for r in profile.references)
+        text = f"{name}: {profile.lineage} References: {refs}."
+        follow_ups = [f"What is {name}?", f"What are the limits of {name}?"]
+    elif aspect == "people":
+        text = f"{label} comes from {profile.discipline.lower()}. {profile.practitioners}"
+        follow_ups = [f"What is {name}?", f"What are the references for {name}?"]
+    elif aspect == "limits":
+        cannot = ", ".join(c.replace("_", " ") for c in ontology.cannot_detect) or "none declared"
+        text = f"{name} is not for {profile.not_for[0].lower() + profile.not_for[1:]} Declared blind spots: {cannot}."
+        if ontology.validated:
+            text += (
+                " Validated on "
+                + "; ".join(f"{v.domain} ({v.evidence})" for v in ontology.validated)
+                + "."
+            )
+        else:
+            text += f" Not validated: {ontology.not_validated_note or 'no committed evaluation.'}"
+        follow_ups = [f"What is {name}?", f"Who uses {name}?"]
+    else:
+        detects = ", ".join(c.replace("_", " ") for c in ontology.detects)
+        text = (
+            f"{label} is {profile.discipline.lower()}: {profile.lineage} {profile.mechanism} "
+            f"Use it when {profile.use_when[0].lower() + profile.use_when[1:]} It detects {detects}."
+        )
+        if entry.wraps:
+            text += f" It serves {entry.wraps.rsplit(':', 1)[-1]} through the numeric seams."
+        if ontology.validated:
+            text += " Validated: " + "; ".join(v.domain for v in ontology.validated) + "."
+        else:
+            text += " No domain validation is claimed yet."
+    return text, follow_ups[:3]
+
 
 _GLOSSARY_KEYS: tuple[tuple[str, str], ...] = (
     ("severity", r"\bseverity\b|\b(?:low|medium|high|critical) mean"),
@@ -424,7 +687,7 @@ def glossary_answer(term: str, facts: dict[str, Any]) -> tuple[str, list[str]]:
             f"(core/detector_registry.py), with a family, an input type and the data shape its "
             f"seams were proven on. The manifest holds {facts.get('manifest_size', '?')} of "
             f"them; `mercury-agent detect --detector` chooses among the engine's base set.",
-            ["Which detectors do you have?", "Which detectors handle images?"],
+            ["Which detectors do you have?", "What is bocpd?", "Tell me about the sepsis domain"],
         ),
         "neurosymbolic": (
             "Neurosymbolic detection pairs the neural detectors with a symbolic reasoning layer "
@@ -855,11 +1118,16 @@ def collect_data(
         + f". For live sources, the package ships {len(domains)} domain loaders "
         f"(omni_mercury_engine/loaders/): {', '.join(domains)}. Each fetches from its public "
         "source through the egress-policed HTTP client, engineers features, and declares which "
-        "columns its labels derive from so benchmarks stay honest."
+        "columns its labels derive from so benchmarks stay honest. Ask me about any of them by "
+        "name ('tell me about the sepsis domain') for its discipline, institutions, labels and limits."
     )
     return (
         text,
-        ["What should I run next?", "Which detectors do you have?", "What are your capabilities?"],
+        [
+            "Tell me about the sepsis domain",
+            "What should I run next?",
+            "Which detectors do you have?",
+        ],
     )
 
 

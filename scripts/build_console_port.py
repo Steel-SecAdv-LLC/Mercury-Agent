@@ -549,6 +549,345 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
     ),
 )
 
+# --------------------------------------------------------------------------- #
+# Knowledge profiles, hover notes and compact rows (2026-11): the catalog rows
+# show a title and chips and keep their description for the hover note; the
+# domain and detector reference cards read the knowledge profiles compiled
+# into catalog.js (discipline, institutions, lineage, references) and hand
+# the question to the agent; informational AMA items open a note card instead
+# of doing nothing; toggles and tabs expose their state to assistive tech and
+# to the control audit.
+# --------------------------------------------------------------------------- #
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "knowledge-profile helpers: chips, hover notes, profile-driven domain and detector cards, "
+        "note cards for informational items",
+        "  detRunner(d) {",
+        "  /* Knowledge profiles (core/knowledge_profiles.py, compiled into catalog.js): whose knowledge a domain or detector is. */\n"
+        "  domainProf(id) { const l = this.D.loaders.find((q) => q.id === id); return (l && l.prof) || ((this.D.domainProfiles || {})[id]) || null; }\n"
+        '  shortDisc(disc) { return String(disc || "").split(/ \\(|; | and /)[0].slice(0, 34); }\n'
+        '  chip(t, tone) { const T = { on: ["var(--mercury-900)", "var(--mercury-200)", "var(--mercury-700)"], warn: ["var(--warning-bg)", "var(--warning)", "var(--warning-deep)"], ok: ["transparent", "var(--normal)", "var(--normal)"], dim: ["transparent", "var(--fg-3)", "var(--border)"] }[tone || "dim"]; return { t, bg: T[0], fg: T[1], bd: T[2] }; }\n'
+        "  itemChips(kind, i) {\n"
+        "    const D = this.D, chips = [];\n"
+        '    if (kind === "detectors" && i.k === "DETECTOR") { const d = D.detectors.find((x) => x.name === i.t.split(" · ")[0] || x.c === i.t); if (d) { if (d.prof) chips.push(this.chip(this.shortDisc(d.prof.disc), "on")); chips.push(this.chip(d.modality || "record")); if (d.fit) chips.push(this.chip("fit")); if (d.ext) chips.push(this.chip("external backend", "warn")); chips.push(d.ont && d.ont.validated.length ? this.chip("validated", "ok") : this.chip("not validated")); } }\n'
+        '    else if (kind === "detectors") chips.push(this.chip("library class · Python"));\n'
+        '    else if (kind === "domains" && i.k === "DOMAIN") { const l = D.loaders.find((x) => x.id === i.t); if (l) { if (l.prof) chips.push(this.chip(this.shortDisc(l.prof.disc), "on")); if (l.prof && l.prof.inst && l.prof.inst.length) chips.push(this.chip(l.prof.inst[0][0].split(" (")[0].slice(0, 30))); chips.push(this.chip(l.label === "ground_truth" ? "ground-truth labels" : "statistical labels", l.label === "ground_truth" ? "ok" : "dim")); if (l.key) chips.push(this.chip("needs " + l.key, "warn")); if (D.hazards.includes(l.id)) chips.push(this.chip("hazard-viz")); } }\n'
+        '    else if (kind === "domains") { const p = this.domainProf(i.t); if (p) chips.push(this.chip(this.shortDisc(p.disc), "on")); chips.push(this.chip("hazard-viz -d " + i.t)); }\n'
+        '    else if (kind === "runs") { const r = D.runs.find((x) => x.p === i.t); if (r) { chips.push(this.chip(r.cat)); if (r.a && r.a.length) chips.push(this.chip(r.a.length + " flags")); if (r.net) chips.push(this.chip("network", "warn")); if (r.torch) chips.push(this.chip("torch", "warn")); } else chips.push(this.chip("Python API")); }\n'
+        '    else if (kind === "api") chips.push(this.chip(String(i.s || "").split(" · ")[0]));\n'
+        '    else if (kind === "mcp") chips.push(this.chip("mercury-agent mcp · stdio"));\n'
+        '    else if (kind === "tools") chips.push(this.chip("mercury-agent tool"));\n'
+        '    else if (kind === "commands" || kind === "physics") { const c = D.commands.find((x) => x.path === i.t); if (c) chips.push(this.chip(c.kind === "group" ? this.children(c.path).length + " subcommands" : (c.opts || []).length + " options")); }\n'
+        '    else if (kind === "session") { if (i.off) chips.push(this.chip("disabled")); }\n'
+        "    else if (i.k) chips.push(this.chip(String(i.k).toLowerCase()));\n"
+        "    return chips;\n"
+        "  }\n"
+        "  itemTip(kind, i) {\n"
+        '    const D = this.D; let head = i.k || kind.toUpperCase(), text = i.s || "", meta = "";\n'
+        '    if (kind === "detectors" && i.k === "DETECTOR") { const d = D.detectors.find((x) => x.name === i.t.split(" · ")[0] || x.c === i.t); if (d) { head = d.fam.toUpperCase() + " · " + (d.name || d.c); text = (d.desc || "") + (d.prof ? ". " + d.prof.mech : ""); meta = d.prof ? d.prof.lineage : (i.s || ""); } }\n'
+        '    else if (kind === "domains") { const p = this.domainProf(i.t); if (p) { head = p.title; text = p.disc + " · " + p.who.slice(0, 3).join(", "); meta = p.method; } else head = (i.k || "DOMAIN") + " · " + i.t; }\n'
+        '    else if (kind === "runs") { const r = D.runs.find((x) => x.p === i.t); if (r) { head = "RUN · " + r.cat; text = r.s || "entry point in the repository"; meta = (r.a && r.a.length ? r.a.length + " flags" : "no flags catalogued") + (r.net ? " · network" : "") + (r.torch ? " · torch" : ""); } }\n'
+        '    else if (kind === "commands" || kind === "physics") { const c = D.commands.find((x) => x.path === i.t); if (c) { head = "mercury-agent " + c.path; text = c.doc || ""; meta = c.kind === "group" ? this.children(c.path).length + " subcommands" : (c.opts || []).length + " options · click to load the form"; } }\n'
+        '    else if (kind === "session") { head = "SESSION · " + i.t; }\n'
+        "    return { head, text, meta };\n"
+        "  }\n"
+        "  rowEnter(kind, i) { return (e) => { const t = this.itemTip(kind, i); if (t.text || t.meta) this.showTip(e && e.currentTarget, t.head, t.text, t.meta); }; }\n"
+        '  noteActs(groups) { return groups.map((g) => Object.assign({}, g, { items: g.items.map((it) => Object.assign({}, it, { act: () => this.setRef({ kind: "note", group: g.label, n: it }) })) })); }\n'
+        '  domainDesc(l) { const p = l.prof || this.domainProf(l.id); return p ? p.title + " — " + p.disc + ". " + p.method : "Data loader on main. fetch_realtime() pulls live data from its public source (network required); the CSV it writes can be dropped into this console or passed to detect -i."; }\n'
+        "  domainKv(l, isHaz) {\n"
+        "    const p = l.prof || this.domainProf(l.id); const kv = [];\n"
+        '    if (p) { kv.push(["discipline", p.disc], ["worked with by", p.who.join(", ")], ["institutions", p.inst.map((x) => x[0] + " (" + x[1] + ")").join("; ")], ["practitioner knows", p.know.join(" · ")], ["observables", p.obs], ["labels", p.labels], ["limits", p.limits.join(" · ")], ["detectors", p.dets.join(", ")]); if (p.std && p.std.length) kv.push(["standards", p.std.join("; ")]); kv.push(["references", p.refs.map((r) => r[0]).join(" | ")]); }\n'
+        '    if (l.src) kv.push(["source", l.src]); if (l.key) kv.push(["needs key", l.key]); if (l.label) kv.push(["label provenance", l.label === "ground_truth" ? "ground truth · published by the source" : "statistical · thresholded from a scored column; those columns are excluded from scoring"]); if (l.cols && l.cols.length) kv.push(["feature columns", l.cols.length + " (" + (l.scored || l.cols).length + " scored): " + l.cols.join(", ")]);\n'
+        '    kv.push(["file", l.file ? "src/omni_mercury_engine/" + l.file : "no loader · hazard-viz only"], ["class", l.cls || (l.file ? "module (no Loader class exported)" : "—")], ["interface", l.cls ? "fetch_realtime() · fetch_historical(event_id) · get_ground_truth(event_id)" : "—"], ["hazard-viz", isHaz ? "yes · -d " + l.id : "no"], ["served at", "GET /api/v1/catalog/domains/" + l.id]);\n'
+        "    return kv;\n"
+        "  }\n"
+        '  domainActs(l) { const p = l.prof || this.domainProf(l.id); const acts = [["Ask Mercury Agent", () => { this.setState({ panel: true, tab: "chat" }); this.ask("Tell me about the " + l.id.replace(/_/g, " ") + " domain"); }]]; if (p && p.inst.length && /^https:\\/\\//.test(p.inst[0][2])) acts.push(["Open " + p.inst[0][0].split(" (")[0].slice(0, 28), () => { window.open(p.inst[0][2], "_blank", "noopener"); }]); return acts; }\n'
+        '  detectorKv(d) { const p = d.prof; if (!p) return []; return [["discipline", p.disc], ["lineage", p.lineage], ["mechanism", p.mech], ["read by", p.who], ["use when", p.use], ["not for", p.not], ["references", p.refs.map((r) => r[0]).join(" | ")], ["served at", "GET /api/v1/catalog/detectors/" + d.name]]; }\n'
+        '  detectorActs(d) { const p = d.prof; const acts = [["Ask Mercury Agent", () => { this.setState({ panel: true, tab: "chat" }); this.ask("What is " + d.name.replace(/_/g, " ") + "?"); }]]; if (p && p.refs.length && /^https:\\/\\//.test(p.refs[0][1] || "")) acts.push(["Open reference", () => { window.open(p.refs[0][1], "_blank", "noopener"); }]); return acts; }\n'
+        "  detRunner(d) {",
+    ),
+    (
+        "hazard-only domains render a hazard-viz command instead of a loader snippet",
+        '  loaderSnippet(l) { const mod = "omni_mercury_engine." + l.file.replace(/\\.py$/, "").replace(/\\//g, ".");',
+        '  loaderSnippet(l) { if (!l.file) return ["mercury-agent hazard-viz -d " + l.id + " --data " + l.id + ".npz -o " + l.id + ".png"]; '
+        'const mod = "omni_mercury_engine." + l.file.replace(/\\.py$/, "").replace(/\\//g, ".");',
+    ),
+    (
+        "catalog rows carry chips and a hover note instead of an inline description",
+        'items: items.map((i) => { const ok = canPick(i), on = ok && !!cs[i.k + ":" + i.t]; '
+        'return Object.assign({ t: i.t, s: i.s || "", off: !!i.off,',
+        'items: items.map((i) => { const ok = canPick(i), on = ok && !!cs[i.k + ":" + i.t]; '
+        'return Object.assign({ t: i.t, s: i.s || "", chips: this.itemChips(kind, i), enter: this.rowEnter(kind, i), '
+        "leave: () => this.hideTip(), off: !!i.off,",
+    ),
+    (
+        "mass-run rows keep the route and the blocking reason for the hover note",
+        'return { label: c.label + (blocked ? " · " + why : ""), route: c.route + (c.per ? " · per-sample" : "") + '
+        '(c.fixture ? " · payload from " + c.fixture : ""), on: onC,',
+        'return { label: c.label + (blocked ? " · blocked" : ""), route: c.route + (c.per ? " · per-sample" : "") + '
+        '(c.fixture ? " · payload from " + c.fixture : ""), enter: (e) => this.showTip(e && e.currentTarget, '
+        'String(c.group).toUpperCase() + " · " + c.id, c.label + " → " + c.route + (c.per ? " · per-sample" : ""), '
+        'blocked ? "blocked: " + why : c.fixture ? "payload from " + c.fixture : (onC ? "selected · click to exclude" : "click to include")), '
+        "leave: () => this.hideTip(), on: onC,",
+    ),
+    (
+        "AMA items open a note card instead of doing nothing",
+        'if (kind === "ama") return [',
+        'if (kind === "ama") return this.noteActs([',
+    ),
+    (
+        "AMA items open a note card instead of doing nothing (list end)",
+        '{ t: "Timing overhead < 2%", s: "EWMA/MAD timing anomaly detection", k: "MEASURED", act: () => {} } ] } ];',
+        '{ t: "Timing overhead < 2%", s: "EWMA/MAD timing anomaly detection", k: "MEASURED", act: () => {} } ] } ]);',
+    ),
+    (
+        "note reference card for informational items",
+        '    if (F.kind === "run") {',
+        '    if (F.kind === "note") { const n = F.n; ref = { k: "AMA CRYPTOGRAPHY · " + String(F.group || "").toUpperCase(), t: n.t, d: n.s, '
+        'kv: [["kind", n.k], ["section", F.group || "—"], ["source", "AMA-Cryptography README · NIST FIPS 203/204/205 · pyproject.toml pin"]], '
+        'code: n.k === "MODULE" ? ["grep -rn \\"ama_cryptography\\" src/omni_mercury_engine/" + n.t.split(" · ")[0]] : ["mercury-agent decouple status", "mercury-agent verify-corpus"], '
+        'acts: [["Copy note", () => { try { navigator.clipboard.writeText(n.t + " — " + n.s); } catch (e) {} }], '
+        '["Ask Mercury Agent", () => { this.setState({ panel: true, tab: "chat" }); this.ask("What is AMA?"); }], '
+        '["Load decouple status", () => { this.loadCmd("mercury-agent decouple status"); this.setState({ ws: "term" }); }]] }; }\n'
+        '    if (F.kind === "run") {',
+    ),
+    (
+        "domain reference card reads the knowledge profile",
+        'ref = { k: "DATA-LOADER DOMAIN", t: F.l.id, d: "Data loader on main. fetch_realtime() pulls live data from its public source '
+        '(network required); the CSV it writes can be dropped into this console or passed to detect -i.", '
+        'kv: [["file", "src/omni_mercury_engine/" + F.l.file], ["class", F.l.cls || "module (no Loader class exported)"], '
+        '["interface", F.l.cls ? "fetch_realtime() · fetch_historical(event_id) · get_ground_truth(event_id)" : "—"], '
+        '["hazard-viz", isHaz ? "yes · -d " + F.l.id : "no"]], code: this.loaderSnippet(F.l), acts: [["Set as context",',
+        'const dp = F.l.prof || this.domainProf(F.l.id); ref = { k: (F.l.file ? "DATA-LOADER DOMAIN" : "HAZARD DOMAIN") + '
+        '(dp ? " · " + this.shortDisc(dp.disc).toUpperCase() : ""), t: dp ? F.l.id + " · " + dp.title : F.l.id, d: this.domainDesc(F.l), '
+        'kv: this.domainKv(F.l, isHaz), code: this.loaderSnippet(F.l), acts: this.domainActs(F.l).concat([["Set as context",',
+    ),
+    (
+        "domain reference card reads the knowledge profile (actions end)",
+        '["Copy snippet", () => { try { navigator.clipboard.writeText(this.loaderSnippet(F.l).join("\\n")); } catch (e) {} }]]'
+        '.concat(isHaz ? [["Use in hazard-viz",',
+        '["Copy snippet", () => { try { navigator.clipboard.writeText(this.loaderSnippet(F.l).join("\\n")); } catch (e) {} }]])'
+        '.concat(isHaz ? [["Use in hazard-viz",',
+    ),
+    (
+        "detector reference card reads the knowledge profile",
+        'ref = { k: "MANIFEST DETECTOR · " + F.d.fam.toUpperCase() + (O.validated.length ? " · VALIDATED" : " · NOT VALIDATED"), '
+        't: (F.d.name ? F.d.name + " · " : "") + F.d.c, d: (F.d.desc ? F.d.desc + ". " : "")',
+        'ref = { k: "MANIFEST DETECTOR · " + F.d.fam.toUpperCase() + (F.d.prof ? " · " + this.shortDisc(F.d.prof.disc).toUpperCase() : "") + '
+        '(O.validated.length ? " · VALIDATED" : " · NOT VALIDATED"), t: (F.d.name ? F.d.name + " · " : "") + F.d.c, '
+        'd: (F.d.prof ? F.d.prof.lineage + " " : "") + (F.d.desc ? F.d.desc + ". " : "")',
+    ),
+    (
+        "detector reference card reads the knowledge profile (fields and actions)",
+        '.concat([["source", "core/detector_ontology.py · main"]]), code: this.detRunner(F.d), acts: [["Queue runner",',
+        '.concat([["source", "core/detector_ontology.py · main"]]).concat(this.detectorKv(F.d)), code: this.detRunner(F.d), '
+        'acts: this.detectorActs(F.d).concat([["Queue runner",',
+    ),
+    (
+        "detector reference card reads the knowledge profile (actions end)",
+        '["Copy import", () => { try { navigator.clipboard.writeText("from " + F.d.mod + " import " + F.d.c); } catch (e) {} }]] }; }',
+        '["Copy import", () => { try { navigator.clipboard.writeText("from " + F.d.mod + " import " + F.d.c); } catch (e) {} }]]) }; }',
+    ),
+    (
+        "domain rows describe the domain by its profile, not by its file name",
+        'items: D.loaders.map((l) => ({ t: l.id, s: l.file, k: "DOMAIN",',
+        'items: D.loaders.map((l) => ({ t: l.id, s: l.prof ? l.prof.title + " · " + l.prof.disc : l.file, k: "DOMAIN",',
+    ),
+    (
+        "hazard rows open the domain's reference card as well as the hazard-viz form",
+        'items: D.hazards.map((h) => ({ t: h, s: "mercury-agent hazard-viz -d " + h, k: "HAZARD", act: () => { '
+        'this.selectCmd("hazard-viz", true); this.setVal("hazard-viz", "--detector", h); } })) }];',
+        'items: D.hazards.map((h) => ({ t: h, s: (this.domainProf(h) ? this.domainProf(h).disc + " · " : "") + "mercury-agent hazard-viz -d " + h, '
+        'k: "HAZARD", act: () => { this.selectCmd("hazard-viz", true); this.setVal("hazard-viz", "--detector", h); '
+        'const l = D.loaders.find((q) => q.id === h); this.setRef({ kind: "domain", l: l || { id: h, file: "", cls: "", prof: this.domainProf(h) } }); } })) }];',
+    ),
+    (
+        "right-panel tabs expose their selected state",
+        "return { label, bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setState({ tab: id }) }; }),",
+        'return { label, sel: tab === id ? "true" : "false", bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setState({ tab: id }) }; }),',
+    ),
+    (
+        "form enum chips expose their pressed state",
+        'return { v: x, bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setForm(fsx.key, k, v === x ? "" : x) }; });',
+        'return { v: x, sel: (v || fd.def) === x ? "true" : "false", bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setForm(fsx.key, k, v === x ? "" : x) }; });',
+    ),
+    (
+        "option preset chips expose their pressed state",
+        'return { v: p.v, tip: p.tip, bg: st.bg, fg: st.fg, bd: st.bd, pick: () => set(String(v) === p.v ? "" : p.v) }; });',
+        'return { v: p.v, tip: p.tip, sel: String(v) === p.v ? "true" : "false", bg: st.bg, fg: st.fg, bd: st.bd, pick: () => set(String(v) === p.v ? "" : p.v) }; });',
+    ),
+    (
+        "the simulated engine is not shipped with the served console: its session item says so and is disabled",
+        '{ t: "Use simulated engine", s: "in-browser stand-in for mercury-agent serve · results labelled SIMULATED", k: "SESSION", act: () => this.useSim() }',
+        '{ t: "Use simulated engine", s: window.MercuryCLISim ? "in-browser stand-in for mercury-agent serve · results labelled SIMULATED" : '
+        '"disabled · the simulated engine is not shipped with the served console; this server is the engine", k: "SESSION", off: !window.MercuryCLISim, act: () => this.useSim() }',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "catalog rows: title + chips, description on hover (and on keyboard focus)",
+        '<button onClick="{{ bi.pick }}" disabled="{{ bi.off }}" style="cursor:pointer;font-family:var(--font-mono);border-radius:0;'
+        "display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:4px 16px;align-items:baseline;flex:1;min-width:0;"
+        "box-sizing:border-box;text-align:left;border:none;padding:7px 8px;background:transparent;opacity:{{ bi.op }};cursor:{{ bi.cur }};"
+        'white-space:normal;" style-hover="background:var(--surface-2);"><span style="font-size:12px;color:var(--fg);overflow-wrap:anywhere;">'
+        '{{ bi.t }}</span><span style="font-size:11px;color:var(--fg-3);overflow-wrap:anywhere;">{{ bi.s }}</span></button>',
+        '<button onClick="{{ bi.pick }}" onMouseEnter="{{ bi.enter }}" onMouseLeave="{{ bi.leave }}" onFocus="{{ bi.enter }}" onBlur="{{ bi.leave }}" '
+        'disabled="{{ bi.off }}" style="cursor:pointer;font-family:var(--font-mono);border-radius:0;display:grid;'
+        "grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:4px 14px;align-items:center;flex:1;min-width:0;box-sizing:border-box;"
+        'text-align:left;border:none;padding:5px 8px;background:transparent;opacity:{{ bi.op }};cursor:{{ bi.cur }};white-space:normal;" '
+        'style-hover="background:var(--surface-2);"><span style="font-size:12px;color:var(--fg);overflow-wrap:anywhere;">{{ bi.t }}</span>'
+        '<span style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;min-width:0;"><sc-for list="{{ bi.chips }}" as="bc" hint-placeholder-count="2">'
+        '<span style="font-size:9.5px;letter-spacing:.06em;line-height:1.5;padding:0 7px;border-radius:999px;white-space:nowrap;overflow:hidden;'
+        'text-overflow:ellipsis;max-width:220px;background:{{ bc.bg }};color:{{ bc.fg }};border:1px solid {{ bc.bd }};">{{ bc.t }}</span></sc-for></span></button>',
+    ),
+    (
+        "mass-run rows: label only, route and blocking reason on hover",
+        '<button role="checkbox" aria-checked="{{ mc.on }}" onClick="{{ mc.toggle }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:normal;min-width:0;border-radius:var(--r-sm);display:grid;grid-template-columns:14px minmax(0,1fr);gap:4px 10px;"
+        "align-items:start;text-align:left;width:100%;box-sizing:border-box;padding:7px 12px;",
+        '<button role="checkbox" aria-checked="{{ mc.on }}" aria-label="{{ mc.label }}" title="{{ mc.route }}" onClick="{{ mc.toggle }}" '
+        'onMouseEnter="{{ mc.enter }}" onMouseLeave="{{ mc.leave }}" onFocus="{{ mc.enter }}" onBlur="{{ mc.leave }}" '
+        'style="cursor:pointer;font-family:var(--font-mono);white-space:normal;min-width:0;border-radius:var(--r-sm);display:grid;'
+        "grid-template-columns:14px minmax(0,1fr);gap:4px 10px;align-items:start;text-align:left;width:100%;box-sizing:border-box;padding:5px 12px;",
+    ),
+    (
+        "mass-run rows: the route moves to the hover note",
+        '<span style="font-size:12px;color:var(--fg);white-space:normal;">{{ mc.label }}</span><span style="font-size:10.5px;color:var(--fg-3);'
+        'overflow-wrap:anywhere;">{{ mc.route }}</span></span>',
+        '<span style="font-size:12px;color:var(--fg);white-space:normal;">{{ mc.label }}</span></span>',
+    ),
+    (
+        "right-panel tabs are tabs",
+        '<button onClick="{{ tb.pick }}" style="cursor:pointer;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;'
+        'border-radius:var(--r-xs);padding:4px 10px;background:{{ tb.bg }};color:{{ tb.fg }};border:1px solid {{ tb.bd }};">{{ tb.label }}</button>',
+        '<button role="tab" aria-selected="{{ tb.sel }}" onClick="{{ tb.pick }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "font-size:10.5px;letter-spacing:.14em;border-radius:var(--r-xs);padding:4px 10px;background:{{ tb.bg }};color:{{ tb.fg }};"
+        'border:1px solid {{ tb.bd }};">{{ tb.label }}</button>',
+    ),
+    (
+        "form enum chips (reference card) expose their pressed state",
+        '<button onClick="{{ fo.pick }}" style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);'
+        "font-size:10.5px;border-radius:var(--r-xs);padding:2px 7px;",
+        '<button onClick="{{ fo.pick }}" aria-pressed="{{ fo.sel }}" style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;'
+        "border-radius:var(--r-sm);font-size:10.5px;border-radius:var(--r-xs);padding:2px 7px;",
+    ),
+    (
+        "form enum chips (run form) expose their pressed state",
+        '<button onClick="{{ fo.pick }}" style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);'
+        "font-size:10.5px;border-radius:var(--r-xs);padding:2px 8px;",
+        '<button onClick="{{ fo.pick }}" aria-pressed="{{ fo.sel }}" style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;'
+        "border-radius:var(--r-sm);font-size:10.5px;border-radius:var(--r-xs);padding:2px 8px;",
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "menu items are exercised, not just typed: picking one must change the sandbox or run something",
+        'gs.forEach((g) => g.items.forEach((i) => { s.ok(typeof i.act === "function", k + " · " + i.t + " is actionable", "");',
+        'gs.forEach((g) => g.items.forEach((i) => { s.ok(typeof i.act === "function", k + " · " + i.t + " is actionable", ""); '
+        "if (!i.off && !/Run diagnostics|Evidence pack|Record session|Stop recording/.test(i.t)) { const T = mk(); "
+        "const it = T.items(k).flatMap((g2) => g2.items).find((x) => x.t === i.t && x.k === i.k && !x.off); T.state.ref = null; T.state.menu = null; "
+        'const sig = () => JSON.stringify([T.state.sel, T.state.ref && (T.state.ref.kind + (T.state.ref.n ? T.state.ref.n.t : "")), T.state.menu, '
+        "T.state.ws, T.state.tool, T.state.domain, T.state.input, T.state.showAdmin, T.state.lines.length, T.state.script.length, T.state.browse, "
+        "T.state.pal, T.state.panel, T.state.tab]); const b0 = sig(); if (it) it.act(); "
+        's.ok(!it || sig() !== b0 || T._exec || T._dl || T._said, k + " · " + i.t + " does something when picked", "no state change"); }',
+    ),
+    (
+        "the AMA notes are menu items too",
+        '["commands", "domains", "detectors", "physics", "runs", "tools", "mcp", "api", "session"].forEach((k) => s.guard(k, () => {',
+        '["commands", "domains", "detectors", "physics", "runs", "tools", "mcp", "api", "session", "ama"].forEach((k) => s.guard(k, () => {',
+    ),
+    (
+        "knowledge-profile suite: every domain and detector is distinguishable and the rows carry hover notes",
+        "    /* 6. Runs: argparse forms */",
+        "    /* 5b. Knowledge profiles: whose knowledge every domain and detector is */\n"
+        '    { const s = S("Knowledge profiles");\n'
+        '      const noProf = D.detectors.filter((d) => !d.prof); s.ok(!noProf.length, "every manifest detector carries a knowledge profile", noProf.map((d) => d.name).join(","));\n'
+        '      const noLP = D.loaders.filter((l) => !l.prof); s.ok(!noLP.length, "every data loader carries a knowledge profile", noLP.map((l) => l.id).join(","));\n'
+        '      const noHP = D.hazards.filter((h) => !C.domainProf(h)); s.ok(!noHP.length, "every hazard domain carries a knowledge profile", noHP.join(","));\n'
+        '      const mech = D.detectors.map((d) => d.prof && d.prof.mech); s.ok(new Set(mech).size === mech.length, "no two detectors share a mechanism", "");\n'
+        '      const lin = D.detectors.map((d) => d.prof && d.prof.lineage); s.ok(new Set(lin).size === lin.length, "no two detectors share a lineage", "");\n'
+        '      const meth = D.loaders.map((l) => l.prof && l.prof.method); s.ok(new Set(meth).size === meth.length, "no two domains share a method", "");\n'
+        '      D.loaders.forEach((l) => s.ok(l.prof && l.prof.inst.length && l.prof.inst.some((i) => /^https:\\/\\//.test(i[2])), l.id + " names an institution with an https URL", ""));\n'
+        '      D.detectors.forEach((d) => s.ok(d.prof && d.prof.refs.length > 0, d.name + " cites a reference", ""));\n'
+        '      const T = mk(); T.state.ws = "browse"; T.state.panel = false;\n'
+        '      ["detectors", "domains", "runs", "commands", "api", "mcp", "tools"].forEach((k) => { T.state.browse = k; T.state.bq = ""; T.state.bgrp = ""; T.state.bmore = 0; '
+        'const o = T.renderVals(); const rows = (o.brSections || []).flatMap((g) => g.items); s.ok(rows.length > 0, k + " view renders rows", rows.length); '
+        's.ok(rows.every((r) => typeof r.enter === "function" && typeof r.leave === "function" && Array.isArray(r.chips)), k + " rows carry hover notes and chips", ""); '
+        'const prof = rows.filter((r) => !(r.chips[0] && /library class/.test(r.chips[0].t))); if (k === "detectors" || k === "domains") s.ok(prof.every((r) => r.chips.length >= 2), k + " rows carry at least two chips (discipline, state)", prof.filter((r) => r.chips.length < 2).map((r) => r.t).join(",")); });\n'
+        '      const dk = T.refCard({ kind: "detector", d: D.detectors.find((d) => d.name === "bocpd") }); s.ok(dk.kv.some((kv) => kv[0] === "lineage" && /Adams/.test(kv[1])) && dk.acts.some((a) => a[0] === "Ask Mercury Agent"), "a detector card carries its lineage and hands off to the agent", JSON.stringify(dk.kv.map((kv) => kv[0])));\n'
+        '      const lk = T.refCard({ kind: "domain", l: D.loaders.find((l) => l.id === "sepsis") }); s.ok(lk.kv.some((kv) => kv[0] === "institutions" && /PhysioNet/.test(kv[1])) && lk.acts.some((a) => a[0] === "Ask Mercury Agent"), "a domain card names its institutions and hands off to the agent", JSON.stringify(lk.kv.map((kv) => kv[0])));\n'
+        '      const hk = T.refCard({ kind: "domain", l: { id: "schumann", file: "", cls: "", prof: T.domainProf("schumann") } }); s.ok(!!hk && /HAZARD DOMAIN/.test(hk.k) && hk.code.join(" ").includes("hazard-viz -d schumann") && hk.kv.some((kv) => kv[0] === "institutions"), "a hazard-only domain renders a profile card", hk && hk.k);\n'
+        '      const T3 = mk(); const notes = T3.items("ama").flatMap((g) => g.items); const dead = notes.filter((it) => { T3.state.ref = null; it.act(); return !T3.state.ref || T3.state.ref.kind !== "note"; }); s.ok(notes.length > 20 && !dead.length, "every AMA note opens a reference card", dead.map((d) => d.t).join(","));\n'
+        '      const nk = T3.refCard({ kind: "note", group: "Contract", n: { t: "ML-DSA-65", s: "post-quantum signatures", k: "PRIMITIVE" } }); s.ok(!!nk && nk.acts.length === 3 && !bad(nk.k + nk.t + nk.d), "a note card renders with three actions", nk && nk.k);\n'
+        '      const T4 = mk(); T4.state.ws = "mass"; const mo = T4.renderVals(); const mrows = (mo.massGroups || []).flatMap((g) => g.caps); s.ok(mrows.length > 0 && mrows.every((r) => typeof r.enter === "function" && r.route), "mass-run rows keep their route for the hover note", mrows.length);\n'
+        "    }\n\n"
+        "    /* 6. Runs: argparse forms */",
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the agent chat offers the context domain's own profile as a question",
+        'chips: ["What was the latest anomaly?", "Explain the latest detection", "Which samples were flagged?", "How many anomalies today?", '
+        '"Which detectors do you have?", "Why did it clear the gate?", "Recommend an action", "Summarize threat posture", "What should I run next?", '
+        '"How do I collect data?"].map((label) => ({ label, act: () => this.ask(label) })),',
+        'chips: ["What was the latest anomaly?", "Explain the latest detection", "Which samples were flagged?", "How many anomalies today?", '
+        '"Which detectors do you have?", "Tell me about the " + String(s.domain || "network_security").replace(/_/g, " ") + " domain", '
+        '"Why did it clear the gate?", "Recommend an action", "Summarize threat posture", "What should I run next?", '
+        '"How do I collect data?"].map((label) => ({ label, act: () => this.ask(label) })),',
+    ),
+    (
+        "the connection dialog's simulated-engine button is disabled with a reason when the engine is not shipped",
+        "useSimBtn: () => this.useSim(), testConn: () => this.testConn(),",
+        "useSimBtn: () => this.useSim(), noSim: !window.MercuryCLISim, simOp: window.MercuryCLISim ? 1 : 0.45, "
+        'simTip: window.MercuryCLISim ? "in-browser stand-in for mercury-agent serve" : '
+        '"the simulated engine is not shipped with the served console; this server is the engine", testConn: () => this.testConn(),',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "option preset chips expose their pressed state",
+        '<button onClick="{{ pz.pick }}" title="{{ pz.tip }}" style="cursor:pointer;',
+        '<button onClick="{{ pz.pick }}" title="{{ pz.tip }}" aria-pressed="{{ pz.sel }}" style="cursor:pointer;',
+    ),
+    (
+        "the simulated-engine button states why it is disabled on the served console",
+        '<button onClick="{{ useSimBtn }}" style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);'
+        'font-size:11px;letter-spacing:.1em;padding:7px 12px;background:transparent;color:var(--warning);border:1px solid var(--warning-deep);">'
+        "USE SIMULATED ENGINE</button>",
+        '<button onClick="{{ useSimBtn }}" disabled="{{ noSim }}" title="{{ simTip }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);font-size:11px;letter-spacing:.1em;padding:7px 12px;background:transparent;"
+        'color:var(--warning);border:1px solid var(--warning-deep);opacity:{{ simOp }};">USE SIMULATED ENGINE</button>',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the loader count on the terminal is the catalog's, not the design snapshot's",
+        "      dataSub: s.data ? (s.data.truncated ?",
+        "      nLoaders: String(this.D.loaders.length), dataSub: s.data ? (s.data.truncated ?",
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "LIVE LOADERS button reads the catalog's loader count",
+        'border:1px solid var(--border-strong);">22 LIVE LOADERS</button>',
+        'border:1px solid var(--border-strong);">{{ nLoaders }} LIVE LOADERS</button>',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "collect-data copy reads the catalog's loader count",
+        "Live data can also come from the package's 22 loaders or Kafka/Redis streams.\",",
+        'Live data can also come from the package\'s " + this.D.loaders.length + " loaders or Kafka/Redis streams.",',
+    ),
+)
+
 #: Design modules shipped unchanged apart from MODULE_PATCHES.
 MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
     (

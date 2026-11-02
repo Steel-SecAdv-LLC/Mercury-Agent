@@ -27,6 +27,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — every domain and detector now carries its own profession,
+institutions and lineage (knowledge profiles).** The console and the agent
+described 30 domains and 113 detectors with one template each: a loader was
+its file name, a detector was its one-line manifest description plus a
+20-word ontology vocabulary in which 21 detectors shared an identical
+signature, and "what is a detector" had one answer for all 113.
+`core/knowledge_profiles.py` is the missing layer, hand-authored and
+test-enforced:
+
+- A `DomainProfile` for each of the 21 data-loader domains and the 9
+  `hazard-viz` domains (22 distinct profiles): discipline, the professions
+  that work with the data, the institutions that publish or govern it (name,
+  role, `https` URL), what a practitioner brings, the raw observables, how
+  Mercury turns the source into features and labels, the detectors that
+  serve it, the limits and the literature.
+- A `DetectorProfile` for each of the 113 manifest detectors: discipline,
+  lineage (who published the method, when, in which tradition), the mechanism
+  in plain words as the code does it, who reads its output and what they need
+  to know, when to use it, when not to, and references (Adams & MacKay 2007
+  for `bocpd`, Siffer et al. 2017 for `spot_evt`, Singer et al. 2016 for the
+  Sepsis-3 screen, Staley et al. 2017 for the post-fire debris-flow cascade,
+  Pulkkinen et al. 2013 for the GIC tiers, and so on).
+- `core/loader_declarations.py` reads each loader's declared contract
+  (source URL, key, label provenance, feature columns, label-derived columns)
+  from source with `ast`, so the API, the console catalog and the agent say
+  where a domain's data comes from without importing the loaders package.
+- Authoring rules enforced by `tests/core/test_knowledge_profiles.py`: exact
+  coverage against the manifest and the loader/hazard domains; no two
+  profiles share a mechanism, lineage, practitioner description, method,
+  label rule or observables sentence; a reference for every profile; an
+  `https` institution with a stated role for every domain; adapter profiles
+  name the detector they serve; `use_when` never claims an ontology blind
+  spot; label rules match the loader's declared provenance; keyed loaders say
+  which key.
+- Served at `GET /api/v1/catalog/domains[/{domain}]` and
+  `GET /api/v1/catalog/detectors[/{name}]` (`api/routes/catalog.py`:
+  read-only, anonymous, in the OpenAPI document), each record carrying the
+  manifest entry, the ontology row, the loader declaration and the profile
+  together (`tests/api/test_catalog_routes.py`).
+- The agent answers "tell me about the sepsis domain", "what is bocpd", "who
+  publishes the earthquake data", "what are the references for spot_evt",
+  "what are the limits of the drought domain", "which features does the
+  wildfire loader produce" and "which detectors serve space weather" from the
+  profiles (`narrative/conversation.py` `domain_answer`,
+  `detector_profile_answer`; routed before the glossary and never hijacking a
+  record question that merely mentions a domain), naming its sources
+  (`knowledge_profiles`, `loader_declarations`, `detector_manifest`,
+  `detector_ontology`). Every one of the 22 domains and 113 detectors gets an
+  answer no other gets, and every follow-up a profile answer suggests is
+  itself answered (`tests/narrative/test_knowledge_answers.py`).
+- `docs/KNOWLEDGE_PROFILES.md` documents the layer, where it flows and how to
+  author an entry.
+
+**Changed — the console is organised around the profiles, with descriptions
+as hover notes, and every control does something.**
+
+- Catalog rows (Detectors, Domains, Runs, Commands, Physics, API, MCP,
+  Tools) show the title and chips (discipline, institution, input modality,
+  label provenance, validation state, needed key, hazard-viz, flag counts)
+  and keep the description, mechanism and lineage for the hover note, which
+  also opens on keyboard focus; the inline description column is gone and
+  rows are tighter.
+- The Domains view names a domain by its profile title and discipline
+  instead of its file name; hazard rows carry the discipline and open the
+  domain's card as well as the `hazard-viz` form.
+- Domain cards show discipline, worked with by, institutions (with roles),
+  practitioner knowledge, observables, labels, limits, serving detectors,
+  standards, references, source URL, needed key, label provenance and the
+  feature columns (scored versus label-derived), with two new actions: "Ask
+  Mercury Agent" (hands the question to the live voice) and "Open
+  <institution>". A hazard-only domain (`schumann`) renders a card with its
+  `hazard-viz` command instead of a loader snippet.
+- Detector cards show discipline, lineage, mechanism, read by, use when, not
+  for and references, with "Ask Mercury Agent" and "Open reference".
+- Mass Run rows show the label only; the route, per-sample flag, payload
+  fixture and the blocking reason are the hover note and the row's title.
+- The 38 AMA items that did nothing when clicked open a note card (kind,
+  section, source, the related commands, "Copy note", "Ask Mercury Agent",
+  "Load decouple status").
+- "Use simulated engine" (Session menu and connection dialog) did nothing on
+  the served console because the simulated engine is not shipped with it;
+  both now say so and are disabled.
+- Right-panel tabs are `role=tab` with `aria-selected`; form enum chips and
+  option presets carry `aria-pressed`; Mass Run rows carry an accessible
+  name. Assistive technology, and the control audit, can now tell an
+  already-active toggle from a dead one.
+- The agent chat offers "Tell me about the <context domain> domain" as a
+  quick question, and the collect-data answer points to the per-domain
+  profiles.
+- `:diag` gains a Knowledge profiles suite (coverage, distinctness, `https`
+  institutions, references, hover notes and chips on every catalog row,
+  profile-driven domain, hazard and detector cards, note cards, Mass Run
+  hover notes), and its Menus suite now picks every item on a sandbox and
+  fails when picking it changes nothing; 9,179 checks pass against the live
+  engine.
+- `scripts/build_console_catalog.py` compiles the loader declarations and
+  both profile registries into `catalog.js` (`loaders[].src/key/label/cols/
+  scored`, `loaders[].prof`, `detectors[].prof`, `domainProfiles`).
+
 **Fixed — the detection thresholds mean what they say at every width and
 length, and the routes hold up under adversarial shapes (measured).** Driving
 the served routes through hostile inputs found the point detectors wide but
