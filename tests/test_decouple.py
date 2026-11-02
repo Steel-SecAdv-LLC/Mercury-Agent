@@ -342,3 +342,32 @@ class TestPurgeNeverDeletesWhatIsNotMercurys:
             (archive.parent / (archive.stem.replace(".tar", "") + ".manifest.json")).read_text()
         )
         assert any(s["path"] == str(isolated_home) for s in manifest["skipped"])
+
+
+class TestMailerOutboxIsState:
+    """The development mailer's outbox holds live links and is Mercury's work."""
+
+    def test_configured_outbox_is_inventoried_and_archived(
+        self, isolated_home: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        outbox = isolated_home / "elsewhere" / "outbox"
+        outbox.mkdir(parents=True)
+        (outbox / "20260101T000000.000000Z-abcd1234.txt").write_text(
+            "To: who@example.test\nSubject: Verify\n\nhttps://x/verify-email?token=t\n"
+        )
+        monkeypatch.setenv("MERCURY_MAIL_OUTBOX", str(outbox))
+
+        items = {i.path: i for i in dc.state_inventory()}
+        assert items[outbox].source == "MERCURY_MAIL_OUTBOX"
+        assert items[outbox].exists is True
+
+        archive = dc.snapshot(isolated_home / "out")
+        with tarfile.open(archive) as tar:
+            names = tar.getnames()
+        assert any(n.endswith("20260101T000000.000000Z-abcd1234.txt") for n in names), names
+
+    def test_default_outbox_lives_under_an_inventoried_root(self, isolated_home: Path) -> None:
+        from omni_mercury_engine.api.mailer import default_outbox
+
+        roots = [i.path for i in dc.state_inventory()]
+        assert any(root in default_outbox().parents for root in roots)

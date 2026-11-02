@@ -241,7 +241,7 @@ def state_inventory() -> list[InventoryItem]:
             "default",
         ),
         (
-            "ethical-gate audit (XDG state)",
+            "ethical-gate audit, development mailer outbox (XDG state)",
             (Path(xdg_state) if xdg_state else home / ".local" / "state") / "mercury-agent",
             "default",
         ),
@@ -263,6 +263,7 @@ def state_inventory() -> list[InventoryItem]:
         ("MERCURY_AGENT_MEMORY_PATH", "agent detection memory"),
         ("MERCURY_ADJUDICATION_PATH", "adjudication ledger"),
         ("MERCURY_CALIBRATION_CACHE", "calibration cache"),
+        ("MERCURY_MAIL_OUTBOX", "development mailer outbox"),
     ):
         raw = os.environ.get(var, "").strip()
         if raw:

@@ -27,6 +27,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — four review findings on the agent's memory and the mailer outbox.**
+A route that returns no verdict (`/detect/rca` reports root causes) was
+mirrored into the agent's memory as a clean run with a score of zero; such
+records stay in the export history and are no longer mirrored. The fusion
+route left its threshold out of its recording payload and the detector tier
+recorded it only inside `summary`, so those runs carried no threshold and no
+severity band; both record it at the top level and the mirror reads either
+place, with route-to-memory regressions
+(`tests/api/test_route_memory_thresholds.py`). A development mailer outbox
+pointed outside the XDG state tree by `MERCURY_MAIL_OUTBOX` was missing from
+`decouple status`, `detach` and `purge-work`; it is inventoried and archived
+(`tests/test_decouple.py`). The legacy-cache rejection test wrote a payload
+JSON could not serialise, so nothing was cached and its assertion was vacuous;
+it now writes the old text-timestamp shape, reads it back, and then checks the
+frame reader refuses it.
+
 **Fixed — the README ledger guard holds in a depth-1 checkout.** The test that
 flags an ADBench ledger quoted past the detector that produced it dated the
 detector with `git log`, which in CI's single-commit checkout names the merge

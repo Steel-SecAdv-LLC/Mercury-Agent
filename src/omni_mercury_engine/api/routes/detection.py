@@ -513,6 +513,9 @@ async def detect_fusion(
             results={
                 "anomalies": [is_anomaly],
                 "scores": [fused_score],
+                # The threshold the fused score was judged against: the agent
+                # derives the severity band from the score-to-threshold ratio.
+                "threshold": threshold,
                 "summary": {"fused_score": fused_score, "detector_scores": detector_scores},
             },
             sensitivity=request.sensitivity,
@@ -772,6 +775,7 @@ async def detect_tier(
                 # these, so they must be the tier's own flags and scores.
                 "anomalies": result["flags"],
                 "scores": result["scores"],
+                "threshold": result["threshold"],
                 "summary": {
                     "n_flagged": result["n_flagged"],
                     "n_points": result["n_points"],

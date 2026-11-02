@@ -77,7 +77,13 @@ def test_a_pre_provenance_cache_entry_is_not_trusted(
     monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "1")
     monkeypatch.delenv("EIA_API_KEY", raising=False)
     loader = EnergyLoader(cache_dir=tmp_path)
-    loader._write_cache("energy_historical_quebec_1989", _real_frame().to_dict(orient="list"))
+    frame = _real_frame()
+    # The old shape, as the previous writer produced it: a column dict with
+    # timestamps already rendered as text (``_write_cache`` writes nothing for
+    # a payload JSON cannot serialise, which would make this test vacuous).
+    legacy = frame.assign(timestamp=frame["timestamp"].astype(str)).to_dict(orient="list")
+    loader._write_cache("energy_historical_quebec_1989", legacy)
+    assert loader._read_cache("energy_historical_quebec_1989") == legacy
     assert loader._read_frame_cache("energy_historical_quebec_1989") is None
     frame = loader.fetch_historical("quebec_1989")
     assert loader.is_synthetic(frame)

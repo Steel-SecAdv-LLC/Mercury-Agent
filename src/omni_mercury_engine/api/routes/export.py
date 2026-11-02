@@ -405,9 +405,16 @@ def _remember_in_voice(
         retriever = getattr(voice, "retriever", None)
         if retriever is None or not hasattr(retriever, "log_detection"):
             return
+        # A route that returns no verdict (``/detect/rca`` reports root causes,
+        # not flags) has nothing the voice can call clean or anomalous; it is
+        # kept in the export history and never mirrored, so the agent does not
+        # invent a clean run with a score of zero.
+        if not isinstance(results.get("anomalies"), list):
+            return
         scores = [s for s in results.get("scores", []) if isinstance(s, (int, float))]
         max_score = max(scores) if scores else record.max_score
-        severity, severity_label = _severity_fraction(max_score, results.get("threshold"))
+        threshold = _recorded_threshold(results)
+        severity, severity_label = _severity_fraction(max_score, threshold)
         # The voice sanitizes every query's domain through the same whitelist
         # before searching (an unknown label becomes "general"), and the
         # detection-log search filters on strict equality. Store the domain
@@ -438,12 +445,7 @@ def _remember_in_voice(
                 # flagged sample positions: what the voice needs to say "1 of
                 # 60 flagged (sample 42), 1.8x the threshold" rather than a
                 # bare score.
-                "threshold": (
-                    float(results["threshold"])
-                    if isinstance(results.get("threshold"), (int, float))
-                    and not isinstance(results.get("threshold"), bool)
-                    else None
-                ),
+                "threshold": threshold,
                 "indices": (
                     []
                     if series_scoped
@@ -460,6 +462,19 @@ def _remember_in_voice(
         )
     except Exception as exc:  # pragma: no cover - defensive by contract
         logger.debug("voice memory mirror skipped: %s", exc)
+
+
+def _recorded_threshold(results: dict[str, Any]) -> float | None:
+    """The threshold a route judged its scores against, wherever it recorded it.
+
+    Routes record it at the top level; the detector tier put it inside
+    ``summary`` only, so its runs were remembered with no threshold and no
+    severity band. Both places are read, top level first.
+    """
+    for candidate in (results.get("threshold"), (results.get("summary") or {}).get("threshold")):
+        if isinstance(candidate, (int, float)) and not isinstance(candidate, bool):
+            return float(candidate)
+    return None
 
 
 def _severity_fraction(score: float, threshold: Any) -> tuple[float | None, str | None]:

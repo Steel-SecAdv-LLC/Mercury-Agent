@@ -460,3 +460,42 @@ def test_series_scoped_verdicts_report_no_sample_positions(voice_with_runs: Merc
     explained = _ask(voice_with_runs, "Show full reasoning chain").message
     assert "whole-series verdict: anomalous over 12 samples; no sample positions" in explained
     assert "1 of 1" not in explained
+
+
+def test_a_route_without_a_verdict_is_not_remembered_as_a_clean_run(
+    voice_with_runs: MercuryVoice,
+) -> None:
+    """/detect/rca records root causes, not flags; the agent must not count it as clean."""
+    before = len(voice_with_runs.retriever.detections(principal="test"))
+    asyncio.run(
+        record_detection(
+            user_id="test",
+            method="rca",
+            data=[[float(i), float(i) * 2] for i in range(8)],
+            results={"n_nodes": 2, "top_root_cause": "node_1"},
+            metadata={"domain": "general"},
+        )
+    )
+    assert len(voice_with_runs.retriever.detections(principal="test")) == before
+
+
+def test_a_threshold_recorded_in_the_summary_still_gives_a_severity(
+    voice_with_runs: MercuryVoice,
+) -> None:
+    """The detector tier recorded its threshold inside ``summary`` only; both places are read."""
+    asyncio.run(
+        record_detection(
+            user_id="test",
+            method="detector_tier",
+            data=[0.4] * 7 + [10.0],
+            results={
+                "anomalies": [False] * 7 + [True],
+                "scores": [0.3] * 7 + [0.9],
+                "summary": {"threshold": 0.6, "n_flagged": 1, "n_points": 8, "combiner": "average"},
+            },
+            metadata={"domain": "general"},
+        )
+    )
+    newest = voice_with_runs.retriever.detections(principal="test")[0]["detection"]
+    assert newest["threshold"] == 0.6
+    assert newest["severity"] is not None and newest["severity_label"] == "medium"
