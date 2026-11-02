@@ -163,6 +163,14 @@ the Docker builder gained `curl` so the image build downloads too
 (`tests/scripts/test_fetch_ama_prebuilt.py` drives the script against a
 `file://` mirror and pins the shared archive contract).
 
+**Fixed — the logging bootstrap tests read the developer's own log settings.**
+`ensure_logging_configured` honours `MERCURY_LOG_LEVEL` and `MERCURY_LOG_FORMAT`,
+and the tests of its text-format default asserted on the formatter without
+clearing them, so a suite run with the documented `MERCURY_LOG_FORMAT=json`
+failed while logging worked as configured. Every bootstrap test now starts from
+the documented default and sets its own override, and the JSON configuration
+has its own test (`tests/test_logging_utils.py`).
+
 **Fixed — the Security Scan lane could run out of disk.** Its audit-target
 environment installs the engine with the `[api]` extra, which resolves torch
 and its CUDA libraries, beside the Semgrep environment and the engine's own

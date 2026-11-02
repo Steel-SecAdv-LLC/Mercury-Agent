@@ -635,13 +635,23 @@ class TestEnsureLoggingConfigured:
         logger.setLevel(logging.NOTSET)
         logger.propagate = True
 
-    def test_installs_when_the_host_configured_nothing(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """No handler anywhere (a bare uvicorn worker) → the package gets one at the given level."""
-        logging.getLogger().handlers.clear()
+    @pytest.fixture(autouse=True)
+    def _documented_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Every test starts from the documented default: no level or format override.
+
+        ``ensure_logging_configured`` reads ``MERCURY_LOG_LEVEL`` and
+        ``MERCURY_LOG_FORMAT`` from the process environment, so a developer or
+        a deployment running the suite with ``MERCURY_LOG_FORMAT=json`` (the
+        documented JSON configuration) saw the text-format assertions fail
+        while logging worked exactly as configured. A test that wants an
+        override sets it explicitly.
+        """
         monkeypatch.delenv(LOG_LEVEL_ENV, raising=False)
         monkeypatch.delenv(LOG_FORMAT_ENV, raising=False)
+
+    def test_installs_when_the_host_configured_nothing(self) -> None:
+        """No handler anywhere (a bare uvicorn worker) → the package gets one at the given level."""
+        logging.getLogger().handlers.clear()
 
         assert ensure_logging_configured(logging.WARNING) is True
 
@@ -696,3 +706,20 @@ class TestEnsureLoggingConfigured:
         record = logging.LogRecord("t", logging.WARNING, "t.py", 1, "plain", (), None)
         assert "\033[" not in formatter.format(record)
         assert "WARNING" in formatter.format(record)
+
+    def test_json_format_is_structured_off_a_terminal(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The documented JSON configuration yields one JSON object per record, no ANSI."""
+        logging.getLogger().handlers.clear()
+        monkeypatch.setattr("sys.stdout.isatty", lambda: False)
+        monkeypatch.setenv(LOG_FORMAT_ENV, "json")
+
+        assert ensure_logging_configured() is True
+
+        formatter = logging.getLogger("omni_mercury_engine").handlers[0].formatter
+        assert isinstance(formatter, StructuredFormatter)
+        record = logging.LogRecord("t", logging.WARNING, "t.py", 1, "plain", (), None)
+        rendered = formatter.format(record)
+        assert "\033[" not in rendered
+        assert json.loads(rendered)["level"] == "WARNING"
