@@ -83,7 +83,12 @@ on collective anomalies change: they were wrong.
 **Fixed — three test modules switched the rate limiter off for the whole
 process at import.** They now use a per-test fixture that flips the live
 middleware and restores it, so later tests that assert on the limiter run
-against it (`tests/conftest.py::rate_limit_off`).
+against it (`tests/conftest.py::rate_limit_off`). The fixture builds the
+middleware stack under the process's own configuration before it patches
+anything: patching the environment first would have made an unbuilt stack
+construct the middleware disabled, recorded that as the original, and left
+the limiter off for every later test
+(`tests/api/test_rate_limit_fixture_isolation.py`).
 
 **Fixed — the score bimodality check refused a span below float resolution.**
 `np.histogram` raised on scores such as 10000 and 10000 + 1e-13 (found by the

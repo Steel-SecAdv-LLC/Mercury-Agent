@@ -585,6 +585,40 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "foundation: marks foundation model tests")
 
 
+def _rate_limit_layer() -> object | None:
+    """The live ``RateLimitMiddleware`` instance in the app's built middleware stack, or None."""
+    from omni_mercury_engine.api.server import RateLimitMiddleware, app
+
+    layer = app.middleware_stack
+    while layer is not None and not isinstance(layer, RateLimitMiddleware):
+        layer = getattr(layer, "app", None)
+    return layer
+
+
+def switch_rate_limiter_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch the API's rate limiter off until ``monkeypatch`` is undone.
+
+    The stack is built first, under the process's own configuration, so the
+    middleware instance carries the real ``enabled`` value when the attribute
+    is patched; patching the environment first would make an unbuilt stack
+    construct the middleware with ``enabled=False``, the patch would record
+    that as the original, and teardown would leave the limiter off for every
+    later test (``tests/api/test_rate_limit_fixture_isolation.py``).
+    """
+    try:
+        from omni_mercury_engine.api.server import app
+    except ImportError:  # the [api] extra is optional
+        return
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as client:
+        client.get("/health")  # builds the middleware stack as configured
+    layer = _rate_limit_layer()
+    monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "false")
+    if layer is not None:
+        monkeypatch.setattr(layer, "enabled", False)
+
+
 @pytest.fixture
 def rate_limit_off(monkeypatch: pytest.MonkeyPatch) -> None:
     """Switch the API's rate limiter off for one test, and only that test.
@@ -593,20 +627,8 @@ def rate_limit_off(monkeypatch: pytest.MonkeyPatch) -> None:
     built, so a module that set the variable at import both leaked it into
     every later test in the process (disabling the limiter for tests that
     assert on it) and had no effect at all when another module had already
-    imported the app. This fixture sets the variable for the test's duration
-    and flips the live middleware instance, restoring it afterwards.
+    imported the app. This fixture flips the live middleware instance for the
+    test's duration and restores it afterwards (see
+    :func:`switch_rate_limiter_off`).
     """
-    monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "false")
-    try:
-        from omni_mercury_engine.api.server import RateLimitMiddleware, app
-    except ImportError:  # the [api] extra is optional
-        return
-    from fastapi.testclient import TestClient
-
-    with TestClient(app) as client:
-        client.get("/health")  # builds the middleware stack
-    layer = app.middleware_stack
-    while layer is not None and not isinstance(layer, RateLimitMiddleware):
-        layer = getattr(layer, "app", None)
-    if layer is not None:
-        monkeypatch.setattr(layer, "enabled", False)
+    switch_rate_limiter_off(monkeypatch)
