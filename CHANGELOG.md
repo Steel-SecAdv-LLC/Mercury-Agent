@@ -137,7 +137,13 @@ while leaving `uv pip install` outside the pip rules it does not run. The AMA
 build script and composite action install through uv's pip front end when the
 environment has no pip (`tests/test_uv_lock_contract.py`, the extended
 hardening tests; the installation and contributing guides describe the path).
-The other workflows still install with pip and are unchanged.
+uv resolves one version per package across every Python where it can, and
+TensorFlow (installable only below 3.14) caps h5py at a release with no 3.14
+wheel, so the unified choice made the 3.14 lanes build h5py from source and
+fail on the missing HDF5 library; a `[tool.uv]` constraint applies to the 3.14
+fork only and `tests/test_uv_lock_contract.py` now checks that every binary
+package in the lock has a wheel for each supported Python on Linux. The other
+workflows still install with pip and are unchanged.
 
 **Added — the AMA native backend installs from a prebuilt release archive
 before it builds from source.** `scripts/fetch_ama_prebuilt.sh` downloads

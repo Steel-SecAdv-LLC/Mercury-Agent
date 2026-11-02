@@ -212,8 +212,8 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          ls -1 *.tar.gz || { echo "no archive built on any platform" >&2; exit 1; }
-          sha256sum *.tar.gz > SHA256SUMS
+          ls -1 ./*.tar.gz || { echo "no archive built on any platform" >&2; exit 1; }
+          sha256sum ./*.tar.gz > SHA256SUMS
           cat SHA256SUMS
           {
             echo "Prebuilt AMA Cryptography native PQC backend, tag ${AMA_REF}."
