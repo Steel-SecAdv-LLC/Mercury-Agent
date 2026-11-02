@@ -22,17 +22,23 @@ import re
 import time
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.narrative.languages import frame as _frame
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
 __all__ = [
     "SEVERITY_BANDS",
+    "acknowledgement",
     "classify",
+    "correction",
     "describe_detection",
     "detection_result_from_record",
     "fallback_menu",
+    "farewell",
     "follow_up",
     "glossary_answer",
+    "how_to",
     "parse_window",
     "relative_time",
 ]
@@ -76,8 +82,177 @@ _GREETING = (
     "greetings",
 )
 _THANKS = ("thank", "thx", "cheers", "appreciate")
+_FAREWELL = re.compile(
+    r"^(?:bye|goodbye|good bye|see you|see ya|good night|stop|never mind|nevermind|forget it|"
+    r"that'?s all|that is all|i'?m done|done for now|talk later|later)\b"
+)
+#: Whole-message acknowledgements: the user is reacting, not asking.
+_ACK = frozenset(
+    {
+        "ok",
+        "okay",
+        "k",
+        "yes",
+        "yeah",
+        "yep",
+        "yup",
+        "no",
+        "nope",
+        "cool",
+        "nice",
+        "great",
+        "got it",
+        "sure",
+        "alright",
+        "all right",
+        "fine",
+        "understood",
+        "right",
+        "perfect",
+        "good",
+        "noted",
+        "ok thanks",
+        "makes sense",
+        "i see",
+        "oh",
+        "ah",
+        "hmm",
+        "hm",
+        "mhm",
+        "roger",
+        "copy",
+        "sounds good",
+        "will do",
+        "good to know",
+        "interesting",
+    }
+)
+_CONFUSION = (
+    "i don't understand",
+    "i dont understand",
+    "don't understand",
+    "what do you mean",
+    "what does that mean",
+    "huh",
+    "sorry?",
+    "come again",
+    "pardon",
+    "confused",
+    "unclear",
+    "didn't get that",
+    "didnt get that",
+    "not clear",
+    "say it simpler",
+    "simpler",
+    "plain english",
+    "in plain",
+    "eli5",
+)
+#: Whole-message requests about the previous answer, not about the record.
+_REPEAT = frozenset(
+    {
+        "repeat that",
+        "say that again",
+        "say again",
+        "again",
+        "once more",
+        "repeat",
+        "what did you say",
+        "what did you just say",
+        "can you repeat that",
+        "could you repeat that",
+    }
+)
+_BRIEF = frozenset(
+    {
+        "in short",
+        "summarize that",
+        "summarise that",
+        "summarize",
+        "summarise",
+        "tl dr",
+        "tldr",
+        "short version",
+        "briefly",
+        "shorter",
+        "in brief",
+        "in a sentence",
+        "one line",
+        "keep it short",
+        "shorter please",
+        "too long",
+        "the short version",
+        "give me the short version",
+        "just the gist",
+        "the gist",
+    }
+)
+_CORRECTION = (
+    "that's wrong",
+    "thats wrong",
+    "that is wrong",
+    "not what i asked",
+    "not what i meant",
+    "you already said",
+    "wrong answer",
+    "that's not right",
+    "thats not right",
+    "not right",
+    "no, i meant",
+    "i meant",
+    "i asked",
+    "you misunderstood",
+    "that's not it",
+    "incorrect",
+)
+_WORRY = (
+    "should i be worried",
+    "should i worry",
+    "do i need to worry",
+    "is it serious",
+    "how serious",
+    "is this bad",
+    "is it bad",
+    "is it dangerous",
+    "is this dangerous",
+    "am i safe",
+    "are we safe",
+)
+_CHECK_IN = re.compile(
+    r"\b(?:anything new|any news|any problems?|any issues|is everything ok(?:ay)?|everything "
+    r"ok(?:ay)?|all good|what'?s wrong|what did you find|what have you found|show me what you "
+    r"found|any anomalies|anything flagged|any alerts|any detections|anything detected|did you "
+    r"find anything|find anything|did you detect|detect anything|found anything)\b"
+)
+_HOWTO = (
+    "how do i run",
+    "how do i use",
+    "how does this work",
+    "how do i get started",
+    "getting started",
+    "give me an example",
+    "example command",
+    "show me an example",
+    "tutorial",
+    "how to run",
+    "how to use",
+    "how to start",
+    "quick start",
+    "quickstart",
+)
+#: "detect anomalies in sensor.csv", "score this file": a run request in plain words.
+_NATURAL_RUN = re.compile(
+    r"\b(?:detect|score|scan|analy[sz]e|check|process)\b.*"
+    r"(?:\b[\w./-]+\.(?:csv|json|npy)\b|\b(?:this|my|the)\s+(?:file|data|dataset|csv|series|matrix)\b)"
+)
+_DO_YOU_COVER = re.compile(
+    r"\b(?:do you|can you|does mercury|does it|do we) (?:do|cover|handle|support|monitor|track|"
+    r"watch|know|have|work with)\b"
+)
 _IDENTITY = re.compile(
-    r"\b(?:who are you|what are you(?!r)|your name|introduce yourself|tell me about yourself)\b"
+    r"\b(?:who are you|what are you(?!r)|your name|introduce yourself|tell me about yourself|"
+    r"what is mercury agent|what is mercury\b|who (?:made|built|created|wrote|developed|trained) "
+    r"you|what is this(?: thing| console| tool| agent)?\s*\??$)"
 )
 _GATE = re.compile(r"\bgates?\b")
 _RECOMMEND = (
@@ -91,6 +266,10 @@ _NEXT_RUN = (
     "what should i run",
     "run next",
     "what next",
+    "what now",
+    "now what",
+    "what's next",
+    "whats next",
     "next step",
     "where do i start",
     "how do i start",
@@ -103,7 +282,13 @@ _COLLECT = (
     "loaders",
     "which domains",
     "what domains",
+    "list domains",
+    "list the domains",
+    "all domains",
+    "domains do you",
+    "domain list",
     "data sources",
+    "data source",
     "ingest",
     "how do i collect",
 )
@@ -205,17 +390,40 @@ def classify(text: str) -> tuple[str, Any]:
         return "greeting", None
     if any(w in t for w in _THANKS) and len(bare) <= 40:
         return "thanks", None
+    if _FAREWELL.match(bare):
+        return "farewell", None
+    plain = " ".join(re.sub(r"[^a-z' ]+", " ", bare).split())
+    if plain in _ACK:
+        return "ack", None
     if _IDENTITY.search(t):
         return "identity", None
+    if any(w in t for w in _CORRECTION):
+        return "correction", None
+    if plain in _REPEAT:
+        return "repeat", None
+    if plain in _BRIEF:
+        return "brief", None
+    if any(w in t for w in _CONFUSION) and len(bare) <= 40:
+        return "confusion", None
+    if any(w in t for w in _WORRY):
+        return "posture", None
     if any(w in t for w in _HEALTH_DETAIL) or any(w in t for w in _STATS):
         return "status", "detailed"
     if any(w in t for w in _STATUS):
         return "status", None
     if any(w in t for w in _HELP):
         return "help", None
+    if any(w in t for w in _COLLECT):
+        return "collect", None
+    if any(w in t for w in _HOWTO):
+        return "howto", None
     subject = _profile_subject(bare)
     if subject is not None:
         return subject
+    if _DO_YOU_COVER.search(t):
+        named = _named_domain(bare)
+        if named is not None:
+            return "domain", (named, "overview")
     term = _glossary_term(bare)
     if term is not None:
         return "glossary", term
@@ -225,11 +433,13 @@ def classify(text: str) -> tuple[str, Any]:
         return "recommend", None
     if any(w in t for w in _NEXT_RUN):
         return "next_run", None
-    if any(w in t for w in _COLLECT):
-        return "collect", None
     m = _RUN_COMMAND.match(bare)
     if m:
         return "run_command", m.group(1)
+    if _NATURAL_RUN.search(t) and not any(
+        w in t for w in ("did you", "have you", "how many", "what ", "which ", "when ")
+    ):
+        return "run_command", "detect"
     if any(w in t for w in _POSTURE):
         return "posture", None
     if any(w in t for w in _COMPARE) and any(
@@ -244,6 +454,8 @@ def classify(text: str) -> tuple[str, Any]:
         return "last_n", max(1, min(int(m.group(1)), 20))
     if any(w in t for w in _LIST_RUNS):
         return "last_n", 5
+    if _CHECK_IN.search(t) and not any(w in t for w in _COUNT):
+        return "latest", None
     for variant, words in _EXPLAIN_VARIANTS.items():
         if any(w in t for w in words):
             return "explain", variant
@@ -252,6 +464,8 @@ def classify(text: str) -> tuple[str, Any]:
         return "explain", "narrative"
     if any(w in t for w in _CONFIDENCE):
         return "confidence", None
+    if any(w in t for w in _COUNT) and ("detector" in t or "capabilit" in t):
+        return "capability", None
     if any(w in t for w in _COUNT) and any(d in t for d in _DETECTION_STEMS):
         return "summary", None
     if any(w in t for w in _LATEST) and any(d in t for d in _DETECTION_STEMS):
@@ -383,7 +597,17 @@ _ASPECT_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("detectors", ("which detectors", "detectors serve", "detector serves", "what detects")),
     (
         "data",
-        ("feature", "column", "input", "measure", "observable", "what data", "which data", "label"),
+        (
+            "feature",
+            "column",
+            "input",
+            "measure",
+            "observable",
+            "what data",
+            "which data",
+            "label",
+            " source",
+        ),
     ),
 )
 
@@ -433,6 +657,24 @@ def _profile_subject(bare: str) -> tuple[str, tuple[str, str]] | None:
     if detectors and (wants_detector or not domains or len(detectors[0]) > len(domains[0])):
         return "detector_profile", (detectors[0], aspect)
     return "domain", (domains[0], aspect)
+
+
+def _named_domain(bare: str) -> str | None:
+    """The longest knowledge-profile domain named whole in ``bare``, or ``None``."""
+    from omni_mercury_engine.core.knowledge_profiles import DOMAIN_PROFILES
+
+    text = re.sub(r"[^a-z0-9 ]+", " ", bare.replace("_", " ").replace("-", " "))
+    padded = f" {' '.join(text.split())} "
+    named = sorted(
+        (
+            d
+            for d in DOMAIN_PROFILES
+            if f" {d.replace('_', ' ')} " in padded or f" {d.replace('_', ' ')}s " in padded
+        ),
+        key=len,
+        reverse=True,
+    )
+    return named[0] if named else None
 
 
 def _join(items: Sequence[str], limit: int = 3) -> str:
@@ -590,6 +832,10 @@ _GLOSSARY_KEYS: tuple[tuple[str, str], ...] = (
     ("fusion", r"\bfusion\b"),
     ("contamination", r"\bcontamination\b"),
     ("conformal", r"\bconformal\b"),
+    ("hazard", r"\bhazards?\b"),
+    ("anomaly", r"\ban anomaly\b|\banomalies\b|\banomaly mean|\banomaly\s*\??$"),
+    ("domain", r"\ba domain\b|\bdomain mean|\bdomains\b"),
+    ("loader", r"\ba loader\b|\bdata loaders?\b|\bloader mean"),
 )
 
 
@@ -721,6 +967,45 @@ def glossary_answer(term: str, facts: dict[str, Any]) -> tuple[str, list[str]]:
             "data stays at or below a chosen level (`tier-detect --conformal-alpha`); the "
             "visual analyzer applies it to image anomalies.",
             ["What is contamination?", "Which detectors handle images?"],
+        ),
+        "hazard": (
+            "A hazard is a physical threat Mercury monitors through a domain loader and its "
+            "detectors: an earthquake, a flood, a wildfire, a solar storm, a sepsis onset. Each "
+            "hazard domain declares where its data comes from, how its labels are derived and "
+            "which detectors serve it (the knowledge profiles), and `mercury-agent hazard-viz "
+            "-d <domain>` renders a hazard detector's diagnostics. Ask 'tell me about the "
+            "<domain> domain' for any of them.",
+            [
+                "Tell me about the earthquake domain",
+                "How do I collect data?",
+                "What is a detector?",
+            ],
+        ),
+        "anomaly": (
+            "An anomaly is a sample, or a stretch of samples, whose score exceeds the run's "
+            "threshold: a value the detector judges unlikely under the pattern of the rest of the "
+            "series. Mercury reports where it is (the flagged indices), how far above the threshold "
+            "it sits (the score and the severity band), and which detector found it; a narrative "
+            "run then says why. One anomaly is a finding, not a verdict: the recommendation and "
+            "the gate decide what follows.",
+            ["What was the latest anomaly?", "What is severity?", "What is the threshold?"],
+        ),
+        "domain": (
+            f"A domain is one field of data Mercury knows how to read: this installation has "
+            f"{facts.get('loader_count', '?')} domain loaders (earthquake, flood, sepsis, space "
+            "weather, network security and so on), each with its public source, feature columns, "
+            "label rule and the institutions and professions behind it. The domain you set in "
+            "the console labels the preview, the agent and the mapping of detections to "
+            "capabilities. Ask 'which domains do you cover' for the list.",
+            ["How do I collect data?", "Tell me about the sepsis domain", "What is a hazard?"],
+        ),
+        "loader": (
+            "A loader is the module that fetches one domain's data from its public source "
+            "through the egress-policed HTTP client, engineers the feature columns and declares "
+            "which of them its labels derive from, so a benchmark never scores a label-derived "
+            "feature. Every loader is catalogued with its source URL, the key it needs and its "
+            "knowledge profile; 'which loaders need an API key' answers from those declarations.",
+            ["How do I collect data?", "Which loaders need an API key?", "What is a domain?"],
         ),
     }
     return answers[term]
@@ -1216,14 +1501,122 @@ def identity(version: str, facts: dict[str, Any]) -> tuple[str, list[str]]:
 
 def fallback_menu(query: str) -> tuple[str, list[str]]:
     """Said when neither the record, the code nor the free-text search has an answer."""
+    return (
+        _frame("en", "fallback", query=query.strip()),
+        ["What can you do?", "What was the latest anomaly?", "Which detectors do you have?"],
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Conversational turns that are about the conversation, not the record
+# --------------------------------------------------------------------------- #
+
+#: Kinds that answer from the record; an acknowledgement after one of them
+#: offers the next record question rather than the general menu.
+_RECORD_KINDS = frozenset(
+    {
+        "latest",
+        "detail",
+        "summary",
+        "last_n",
+        "posture",
+        "compare",
+        "recommend",
+        "confidence",
+        "gate",
+        "explain",
+        "explain_entry",
+    }
+)
+_CODE_KINDS = frozenset(
+    {
+        "capability",
+        "collect",
+        "next_run",
+        "howto",
+        "identity",
+        "help",
+        "glossary",
+        "domain",
+        "detector_profile",
+        "run_command",
+    }
+)
+
+
+def acknowledgement(previous: str | None) -> tuple[str, list[str]]:
+    """Reply to "ok", "got it", "nice": offer the step that follows the last answer."""
+    if previous in _RECORD_KINDS:
+        prompts = [
+            "Explain the latest detection",
+            "What should I run next?",
+            "Show me the last 5 runs",
+        ]
+    elif previous in _CODE_KINDS:
+        prompts = [
+            "What was the latest anomaly?",
+            "Which detectors do you have?",
+            "How do I collect data?",
+        ]
+    else:
+        prompts = ["What was the latest anomaly?", "What can you do?", "What should I run next?"]
+    return _frame("en", "ack"), prompts
+
+
+def farewell() -> tuple[str, list[str]]:
+    """Reply to "bye" or "never mind": close the turn without a menu the user did not ask for."""
+    return _frame("en", "farewell"), []
+
+
+def correction(previous: str | None) -> tuple[str, list[str]]:
+    """Reply to "that's not what I asked": offer the other sources, never the same answer."""
+    if previous in _RECORD_KINDS:
+        prompts = [
+            "Which detectors do you have?",
+            "What can you do?",
+            "Tell me about the sepsis domain",
+        ]
+    elif previous in _CODE_KINDS:
+        prompts = [
+            "What was the latest anomaly?",
+            "Explain the latest detection",
+            "How many anomalies today?",
+        ]
+    else:
+        prompts = [
+            "What was the latest anomaly?",
+            "Which detectors do you have?",
+            "Explain the latest detection",
+        ]
+    return _frame("en", "correction"), prompts
+
+
+def how_to(commands: Mapping[str, Sequence[str]]) -> tuple[str, list[str]]:
+    """Three concrete steps to a first result, naming only commands the CLI really has."""
+    detect = "detect" in commands
+    tier = "tier-detect" in commands
     text = (
-        f"I have nothing in the detection record or the code that answers '{query.strip()}'. I can "
-        "tell you what ran and when (latest anomaly, flagged samples, threshold, how many today), "
-        "explain a run through the narrative engine, describe the detectors and capabilities this "
-        "server has, define Mercury's terms (severity, threshold, z-score, AMA, FINDΩYOU, the gate), "
-        "and say what to run next or how to collect data."
+        "Three steps. 1. Get data in: drop a CSV or JSON file (a header row, numeric columns, up "
+        "to 10 MB) on the console's COLLECT DATA zone"
+        + (
+            ", or point the CLI at one with `mercury-agent detect --input <file.csv>`"
+            if detect
+            else ""
+        )
+        + ". 2. Run it: press RUN in the console, or run the command in your shell; the rows go "
+        "to the connected server and the result lands in Results and in my memory. 3. Ask me: "
+        "'What was the latest anomaly?', 'Which samples were flagged?', 'Explain the latest "
+        "detection'. "
+        + (
+            "For a 1-D series without torch, `mercury-agent tier-detect --input <file.csv>` runs "
+            "the detector tier with conformal false-alarm control. "
+            if tier
+            else ""
+        )
+        + "Example: `mercury-agent detect --input sensor.csv -d statistical` scores sensor.csv "
+        "with the statistical ensemble; in the console, type it in the terminal and press RUN."
     )
     return (
         text,
-        ["What can you do?", "What was the latest anomaly?", "Which detectors do you have?"],
+        ["What should I run next?", "How do I collect data?", "Which detectors do you have?"],
     )

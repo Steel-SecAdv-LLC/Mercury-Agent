@@ -172,21 +172,32 @@ def main() -> int:
     """Write or check the catalog; returns a process exit code."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--check", action="store_true", help="fail if docs/DETECTORS.md is stale")
+    ap.add_argument(
+        "--path",
+        type=Path,
+        default=OUT,
+        help=(
+            "the catalog file to write or check (default docs/DETECTORS.md); a test checks a "
+            "temporary copy so the committed catalog is never touched while another worker "
+            "verifies it"
+        ),
+    )
     args = ap.parse_args()
+    out: Path = args.path
+    shown = out.relative_to(REPO) if out.is_relative_to(REPO) else out
     content = render()
     if args.check:
-        current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
+        current = out.read_text(encoding="utf-8") if out.exists() else ""
         if current != content:
             print(
-                "DRIFT: docs/DETECTORS.md is stale. "
-                "Run `python scripts/generate_detector_catalog.py`.",
+                f"DRIFT: {shown} is stale. Run `python scripts/generate_detector_catalog.py`.",
                 file=sys.stderr,
             )
             return 1
-        print("docs/DETECTORS.md is fresh.")
+        print(f"{shown} is fresh.")
         return 0
-    OUT.write_text(content, encoding="utf-8")
-    print(f"wrote {OUT.relative_to(REPO)}")
+    out.write_text(content, encoding="utf-8")
+    print(f"wrote {shown}")
     return 0
 
 

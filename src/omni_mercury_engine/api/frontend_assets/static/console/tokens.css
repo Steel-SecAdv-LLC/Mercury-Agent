@@ -624,3 +624,29 @@ html.mn-reduce-motion .ms-state--loading .ms-state-ico{animation:none;}
 .ms-state-btn:hover{border-color:var(--border-strong);color:var(--fg);}
 .ms-state-btn.primary{color:var(--mercury-100);background:var(--mercury-900);border-color:var(--mercury-700);}
 .ms-state-btn.primary:hover{box-shadow:var(--glow-mercury);}
+
+/* ---- GREY THEME (console) --------------------------------------------------
+   A mid register between the dark instrument and the light reading theme:
+   neutral slate greys, the same signal hues. Applied as html.ds-grey by the
+   console's MercurySettings (dc-runtime.js). */
+html.ds-grey {
+  --void:#2A2E33; --bg:#31363C; --surface-1:#383E45; --surface-2:#41484F;
+  --surface-3:#4B535B; --surface-4:#565F68;
+  --border-faint:#454D55; --border:#525B64; --border-strong:#6B7681;
+  --fg:#EEF1F4; --fg-2:#CBD2D9; --fg-3:#A3ADB8; --fg-muted:#8893A0; --fg-faint:#6F7A86;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.18); --shadow-md:0 4px 14px rgba(0,0,0,.22);
+  --shadow-lg:0 14px 40px rgba(0,0,0,.30);
+  background:#31363C;
+}
+html.ds-contrast.ds-grey {
+  --fg:#FFFFFF; --fg-2:#EEF1F4; --fg-3:#D5DBE1; --fg-muted:#B6BFC9;
+  --border-faint:#5A636C; --border:#6E7882; --border-strong:#8C97A2;
+}
+
+/* ---- VISUAL ALERT CUE (console) -------------------------------------------
+   The frame flashes when an alert lands; under reduced motion it holds the
+   outline instead of animating. */
+@keyframes mcliAlertFlash { 0%,100% { box-shadow: inset 0 0 0 0 transparent; } 50% { box-shadow: inset 0 0 0 4px var(--warning); } }
+html.mcli-alert-flash #mercury-console { animation: mcliAlertFlash .6s ease-in-out 3; }
+html.mn-reduce-motion.mcli-alert-flash #mercury-console { animation: none; box-shadow: inset 0 0 0 4px var(--warning); }
+@media (prefers-reduced-motion: reduce) { html.mcli-alert-flash #mercury-console { animation: none; box-shadow: inset 0 0 0 4px var(--warning); } }

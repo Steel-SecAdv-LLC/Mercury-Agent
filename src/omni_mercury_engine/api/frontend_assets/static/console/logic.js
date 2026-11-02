@@ -447,6 +447,24 @@ class Component extends DCLogic {
   domainActs(l) { const p = l.prof || this.domainProf(l.id); const acts = [["Ask Mercury Agent", () => { this.setState({ panel: true, tab: "chat" }); this.ask("Tell me about the " + l.id.replace(/_/g, " ") + " domain"); }]]; if (p && p.inst.length && /^https:\/\//.test(p.inst[0][2])) acts.push(["Open " + p.inst[0][0].split(" (")[0].slice(0, 28), () => { window.open(p.inst[0][2], "_blank", "noopener"); }]); return acts; }
   detectorKv(d) { const p = d.prof; if (!p) return []; return [["discipline", p.disc], ["lineage", p.lineage], ["mechanism", p.mech], ["read by", p.who], ["use when", p.use], ["not for", p.not], ["references", p.refs.map((r) => r[0]).join(" | ")], ["served at", "GET /api/v1/catalog/detectors/" + d.name]]; }
   detectorActs(d) { const p = d.prof; const acts = [["Ask Mercury Agent", () => { this.setState({ panel: true, tab: "chat" }); this.ask("What is " + d.name.replace(/_/g, " ") + "?"); }]]; if (p && p.refs.length && /^https:\/\//.test(p.refs[0][1] || "")) acts.push(["Open reference", () => { window.open(p.refs[0][1], "_blank", "noopener"); }]); return acts; }
+  /* Accessibility and language (settings: language, speak, visualAlerts, announce). */
+  agentLang() { const v = this.settingVal("language"); return v && v !== "auto" ? String(v) : null; }
+  langTag(code) { return ({ en: "en-US", es: "es-ES", fr: "fr-FR", de: "de-DE", it: "it-IT", pt: "pt-PT", nl: "nl-NL" })[code] || "en-US"; }
+  speakAloud(text, code) {
+    const S = typeof window !== "undefined" ? window.speechSynthesis : null; if (!S || !text) return false;
+    try { S.cancel(); const u = new SpeechSynthesisUtterance(String(text).replace(/`/g, "").slice(0, 1200)); u.lang = this.langTag(code || this._lastLang || this.agentLang() || "en"); const voices = S.getVoices ? S.getVoices() : []; const v = voices.find((x) => x.lang && x.lang.toLowerCase().slice(0, 2) === u.lang.slice(0, 2).toLowerCase()); if (v) u.voice = v; S.speak(u); return true; } catch (e) { return false; }
+  }
+  isProactive(m) { return !!(m && (m.proactive || (m.steps && /^proactive/.test(String(m.steps[0] || ""))))); }
+  afterSay(msgs) {
+    const list = [].concat(msgs).filter((m) => m && m.role === "agent" && m.text); if (!list.length) return;
+    if (this.settingVal("speak")) this.speakAloud(list.map((m) => m.text).join(". "), this._lastLang);
+    const alerts = list.filter((m) => this.isProactive(m)); if (!alerts.length) return;
+    const text = alerts.map((m) => m.text).join(" · ");
+    if (this.settingVal("visualAlerts") !== false) { this.setState({ alertBanner: { text, at: Date.now() } }); this.flashFrame(); }
+    if (this.settingVal("announce") !== false) this.setState({ announceText: "Mercury alert: " + text });
+  }
+  flashFrame() { try { const el = document.documentElement; el.classList.add("mcli-alert-flash"); clearTimeout(this._flashT); this._flashT = setTimeout(() => el.classList.remove("mcli-alert-flash"), 2000); } catch (e) { /* no document */ } }
+  dismissAlertBanner() { this.setState({ alertBanner: null }); }
   detRunner(d) { const fit = d.fit ? ["ref = np.loadtxt('reference.csv', delimiter=',', skiprows=1)", "if hasattr(det, 'fit'): det.fit(ref)"] : []; return ["python - <<'PY'", "import numpy as np", "from omni_mercury_engine.core.detector_registry import get_global_registry", "reg = get_global_registry()", "det = reg.get('" + d.name + "')", "X = np.loadtxt('data.csv', delimiter=',', skiprows=1)" + (d.modality === "series_1d" ? "[:, 0]" : "")].concat(fit, ["print(det.predict(X))", "PY"]); }
   formSchema(F) { if (!F || !this.A) return null; if (F.kind === "run") return F.r.a && F.r.a.length ? { key: F.r.p, schema: this.runSchema(F.r), mode: "run" } : null; if (F.kind === "api") { const key = F.a.m + " " + F.a.path; const base = this.A.SCHEMAS[key]; if (!base && !this.A.pathParams(key).length) return null; return { key, schema: this.A.withParams(key, base || {}), mode: "api", typed: !!base }; } if (F.kind === "mcp") { const sc = this.A.MCP[F.m.n]; return sc ? { key: F.m.n, schema: sc, mode: "mcp" } : null; } return null; }
   runEntry(raw, path, rest) {
@@ -666,10 +684,10 @@ class Component extends DCLogic {
     const text = n ? "Three actions, in order: capture the flagged span as evidence (it exports with a labels file), run the tier ensemble on the same data to see whether independent detectors agree, then narrate the result through /voice/narrate for the record. None of these changes the detection." : "Nothing is flagged in this result. Compare against a second route before calling the window clean; the tier ensemble is the cheapest check.";
     return { grounded: true, steps, text, acts: [{ label: "Open in RESULTS", act: () => this.setState({ ws: "res", resSel: cur.id }) }, { label: "Mass run · tier ensemble", act: () => this.setState({ ws: "mass" }) }, { label: "Narrate this result", act: () => this.narrateData(cur.data, cur.label) }] };
   }
-  switchVals(prefix, on) { return { [prefix + "Bg"]: on ? "var(--mercury-700)" : "var(--surface-3)", [prefix + "Knob"]: on ? "20px" : "2px", [prefix + "On"]: on }; }
+  switchVals(prefix, on) { return { [prefix + "Bg"]: on ? "var(--mercury-700)" : "var(--surface-3)", [prefix + "Knob"]: on ? "20px" : "2px", [prefix + "On"]: on ? "true" : "false" }; }
   settingVal(k) { try { return window.MercurySettings ? window.MercurySettings.get(k) : undefined; } catch (e) { return undefined; } }
   settingSet(k, v) { try { if (window.MercurySettings) { window.MercurySettings.set(k, v); window.MercurySettings.apply(); } } catch (e) { /* storage may be blocked; the change still applies for this page */ } this.setState({ setTick: Date.now() }); }
-  settingOpts(k, list) { const cur = this.settingVal(k); return list.map(([v, t]) => { const on = cur === v; return { t, on, bg: on ? "var(--mercury-900)" : "transparent", fg: on ? "var(--mercury-100)" : "var(--fg-2)", bd: on ? "var(--mercury-500)" : "var(--border)", pick: () => this.settingSet(k, v) }; }); }
+  settingOpts(k, list) { const cur = this.settingVal(k); return list.map(([v, t]) => { const on = cur === v; return { t, on: on ? "true" : "false", title: t, bg: on ? "var(--mercury-900)" : "transparent", fg: on ? "var(--mercury-100)" : "var(--fg-2)", bd: on ? "var(--mercury-500)" : "var(--border)", pick: () => this.settingSet(k, v) }; }); }
   accentOpts() { const cur = this.settingVal("accent") || "cyan"; return [["cyan", "Quicksilver", "#00BCD4"], ["azure", "Azure", "#3E8EF7"], ["viridis", "Viridian", "#2FD686"], ["violet", "Cognitive", "#8B7FE8"], ["gold", "Benevolence", "#E0B341"]].map(([v, label, hex]) => { const on = cur === v; return { v, label, hex, on, bd: on ? "var(--fg)" : "transparent", pick: () => this.settingSet("accent", v) }; }); }
   vizVals(cur, on, off) {
     const V = window.MercuryCLIViz; if (!V) return {}; const s = this.state, av = V.available(cur.data, cur.body, cur.ds), offS = s.vizOff || {}, onS = s.vizOn || {};
@@ -1325,7 +1343,7 @@ class Component extends DCLogic {
     return true;
   }
   loadCmd(cmd) { this.setState({ input: cmd }); this.fromInput(cmd); }
-  say(msgs) { this.setState((s) => ({ chat: s.chat.concat(msgs).slice(-60) })); if (this.state.rec) this.recEvs([].concat(msgs).filter((m) => m && m.text).map((m) => ({ k: m.role === "user" ? "user" : "agent", x: m.text }))); }
+  say(msgs) { this.setState((s) => ({ chat: s.chat.concat(msgs).slice(-60) })); this.afterSay(msgs); if (this.state.rec) this.recEvs([].concat(msgs).filter((m) => m && m.text).map((m) => ({ k: m.role === "user" ? "user" : "agent", x: m.text }))); }
   voiceDomOk(d) { const V = (this.D.vocab || {})["voice --domain"]; return !V || V.groups.some((g) => g.items.some((i) => i[0] === d)); }
   get A() { return this._A || window.MercuryCLIAPI; }
   set A(v) { this._A = v; }
@@ -1341,7 +1359,7 @@ class Component extends DCLogic {
     text = (text || "").trim(); if (!text) return; this.setState({ draft: "", panel: true, tab: "chat" });
     this.say([{ role: "user", text }]);
     if (this.live() && !this.state.agOffline) {
-      const sid0 = this.state.session || ("console-" + Math.random().toString(36).slice(2, 10)); if (!this.state.session) this.setState({ session: sid0 }); const r = await this.A.speak(text, this.agDom(), sid0, {}), local = this.answer(text);
+      const sid0 = this.state.session || ("console-" + Math.random().toString(36).slice(2, 10)); if (!this.state.session) this.setState({ session: sid0 }); const r = await this.A.speak(text, this.agDom(), sid0, { language: this.agentLang() }), local = this.answer(text);
       if (r.ok && r.data) { const sid = (r.data.metadata && r.data.metadata.session_id) || this.state.session; if (sid) this.setState({ session: sid }); this.say([this.voiceReply(r, local)]); if (this.agentWantsAction(text)) await this.agentAct(text, local); return; }
       this.say([{ role: "agent", steps: ["voice route " + (r.status || "unreachable") + " · " + (typeof r.error === "string" ? r.error : "error") + " · answering locally"].concat(r.status === 500 ? ["On main, speak() runs the harm-uplift + σ_Immutable gate on your message first and fails closed; the route reports a refusal and an internal error alike as HTTP 500."] : []), text: local.text, acts: local.acts }]); return;
     }
@@ -1353,7 +1371,7 @@ class Component extends DCLogic {
     const d = r.data || {}, md = d.metadata || {}, src = Array.isArray(d.sources) && d.sources.length ? d.sources : Array.isArray(d.sources_cited) ? d.sources_cited : [];
     const fu = Array.isArray(d.suggested_follow_ups) ? d.suggested_follow_ups.filter((q) => typeof q === "string" && q.trim()).slice(0, 4) : [];
     const steps = ["live · POST /api/v1/voice/speak" + (d.intent && d.intent !== "unknown" ? " · intent " + d.intent : "") + (typeof d.confidence === "number" ? " · confidence " + Math.round(d.confidence * 100) + "%" : "") + (r.meta ? " · " + r.meta.ms + " ms" : "")];
-    if (md.llm) steps.push("language model: " + md.llm); if (src.length) steps.push("sources: " + src.join(", ")); if (d.reasoning_summary) steps.push("reasoning: " + d.reasoning_summary);
+    if (md.llm) steps.push("language model: " + md.llm); if (md.language) { this._lastLang = md.language; if (md.language !== "en") steps.push("language · " + md.language + (md.understood_as ? " · understood as: " + md.understood_as : " · not understood; menu offered")); } if (src.length) steps.push("sources: " + src.join(", ")); if (d.reasoning_summary) steps.push("reasoning: " + d.reasoning_summary);
     if (typeof d.search_results_count === "number" && d.search_performed) steps.push("searched memory · " + d.search_results_count + " result" + (d.search_results_count === 1 ? "" : "s"));
     if (md.confidence_basis || d.confidence_basis) steps.push("confidence basis: " + (md.confidence_basis || d.confidence_basis));
     if (d.uncertainty_note) steps.push("⚠ " + d.uncertainty_note);
@@ -1556,9 +1574,9 @@ class Component extends DCLogic {
       // Opening screen. Shown on every load until ENTER CONSOLE; the status line reports the real catalog and
       // connection state rather than a scripted sequence.
       setOpen: !!s.setOpen, setClose: () => this.setState({ setOpen: false }), setOpenDlg: () => this.setState({ setOpen: true, menu: null, pal: false }),
-      setThemeOpts: this.settingOpts("theme", [["dark", "Dark"], ["light", "Light"]]),
+      setThemeOpts: this.settingOpts("theme", [["dark", "Dark"], ["grey", "Grey"], ["light", "Light"], ["system", "System"]]), setLangOpts: this.settingOpts("language", [["auto", "Auto"], ["en", "EN"], ["es", "ES"], ["fr", "FR"], ["de", "DE"], ["it", "IT"], ["pt", "PT"], ["nl", "NL"]]), ...this.switchVals("setSpeak", !!this.settingVal("speak")), setSpeakToggle: () => this.settingSet("speak", !this.settingVal("speak")), ...this.switchVals("setVisual", this.settingVal("visualAlerts") !== false), setVisualToggle: () => this.settingSet("visualAlerts", this.settingVal("visualAlerts") === false), ...this.switchVals("setAnnounce", this.settingVal("announce") !== false), setAnnounceToggle: () => this.settingSet("announce", this.settingVal("announce") === false), alertBanner: s.alertBanner || null, alertBannerText: s.alertBanner ? s.alertBanner.text : "", alertDismiss: () => this.dismissAlertBanner(), announceText: s.announceText || "",
       setAccentOpts: this.accentOpts(),
-      ...this.switchVals("setContrast", !!this.settingVal("highContrast")), ...this.switchVals("setMotion", !!this.settingVal("reduceMotion")), ...this.switchVals("setFocus", !!this.settingVal("keyboardFocus")), setContrastOn: !!this.settingVal("highContrast"), setContrastToggle: () => this.settingSet("highContrast", !this.settingVal("highContrast")),
+      ...this.switchVals("setContrast", !!this.settingVal("highContrast")), ...this.switchVals("setMotion", !!this.settingVal("reduceMotion")), ...this.switchVals("setFocus", !!this.settingVal("keyboardFocus")), setContrastToggle: () => this.settingSet("highContrast", !this.settingVal("highContrast")),
       setMotionToggle: () => this.settingSet("reduceMotion", !this.settingVal("reduceMotion")),
       setFocusToggle: () => this.settingSet("keyboardFocus", !this.settingVal("keyboardFocus")),
       setScaleV: String(this.settingVal("scale") || 1), setScaleText: Math.round((this.settingVal("scale") || 1) * 100) + "%", setScaleOn: (e) => this.settingSet("scale", Math.min(1.25, Math.max(0.85, +e.target.value || 1))),

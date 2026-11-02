@@ -21,6 +21,7 @@ Philosophy:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -34,7 +35,10 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
     sanitize_domain,
 )
-from omni_mercury_engine.narrative import conversation as _conv
+from omni_mercury_engine.narrative import (
+    conversation as _conv,
+    languages as _lang,
+)
 from omni_mercury_engine.narrative.engine import NarrativeEngine, NarrativeResult
 from omni_mercury_engine.narrative.personality import (
     PersonalityEngine,
@@ -99,6 +103,12 @@ class VoiceResponse:
     # Transparency
     uncertainty_note: str | None = None
 
+    # Language: the asker's language (ISO 639-1), how a non-English question
+    # was understood in English, and the grounded answer kind that was built
+    language: str = "en"
+    understood_as: str | None = None
+    answer_kind: str | None = None
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -112,6 +122,9 @@ class VoiceResponse:
             "response_time_ms": self.response_time_ms,
             "suggested_follow_ups": self.suggested_follow_ups,
             "uncertainty_note": self.uncertainty_note,
+            "language": self.language,
+            "understood_as": self.understood_as,
+            "answer_kind": self.answer_kind,
         }
 
 
@@ -458,6 +471,7 @@ class MercuryVoice:
         domain: str | None = None,
         principal: str | None = None,
         session_id: str | None = None,
+        language: str | None = None,
     ) -> VoiceResponse:
         """Process user input and generate response.
 
@@ -472,6 +486,12 @@ class MercuryVoice:
                 ("why?", "run 2") resolve against the previous turn of the same
                 principal *and* session, so two anonymous browsers never share
                 one context
+            language: The asker's language (``en``, ``es``, ``fr``, ``de``,
+                ``it``, ``pt``, ``nl``); detected from the message when
+                ``None``. A non-English question is rendered in the English
+                the classifier routes, the social and menu replies come back
+                in the asker's language, and a grounded answer carries a note
+                in that language saying how the question was understood.
 
         Returns:
             VoiceResponse with truth-dense communication
@@ -493,25 +513,112 @@ class MercuryVoice:
         # Get personality profile
         profile = self.personality_engine.get_profile(domain)
 
+        # The asker's language, and the question in the English the
+        # classifier routes (the question itself when it is English).
+        lang = language if language in _lang.SUPPORTED else _lang.detect_language(user_input)
+        english = _lang.to_english(user_input, lang)
+        if english is None and _conv.classify(user_input)[0] != "search":
+            # An explicit reply language with an English question: answer it,
+            # framed in that language.
+            english = user_input
+        question = english if english is not None else user_input
+
         # One classifier names the grounded answer a question gets (record,
         # code, narrative engine); only a question none of them covers reaches
         # the free-text search, and an empty search ends in a menu, not an
         # apology.
-        input_lower = user_input.lower()
-        kind, argument = _conv.classify(user_input)
+        input_lower = question.lower()
+        kind, argument = _conv.classify(question)
+        context = self._context.get(self._context_key(principal, session_id)) or {}
+        previous = str(context.get("kind") or "") or None
+        brief = False
+        if kind in {"repeat", "brief"} and previous:
+            # "say that again" / "in short": the previous answer, rebuilt
+            brief = kind == "brief"
+            kind, argument = previous, context.get("argument")
+        elif kind == "confusion" and previous:
+            # "what do you mean?": the plainer, fuller version of the last answer
+            kind, argument = self._resolve_follow_up(
+                ("elaborate", None), domain, principal, session_id
+            )
         if kind == "search":
-            follow = _conv.follow_up(user_input)
+            follow = _conv.follow_up(question)
             if follow is not None:
                 kind, argument = self._resolve_follow_up(follow, domain, principal, session_id)
         response = self._dispatch(
-            kind, argument, user_input, input_lower, domain, principal, profile
+            kind, argument, question, input_lower, domain, principal, profile, previous=previous
         )
-        self._remember_context(kind, argument, domain, principal, session_id)
+        response.answer_kind = (
+            "fallback"
+            if kind == "search" and response.search_performed and not response.search_results_count
+            else kind
+        )
+        if brief:
+            response.message = _lang.frame("en", "brief", summary=self._brief(response.message))
+        if kind not in self._META_KINDS:
+            self._remember_context(kind, argument, domain, principal, session_id)
+        self._frame_language(response, lang, user_input, english, domain)
 
         # Record Mercury's response
         self._record_turn(ConversationType.QUERY, "mercury", response.message, principal)
 
         return response
+
+    #: Turns about the conversation itself; they never replace the follow-up
+    #: context, so "ok" then "why?" still explains the run that was discussed.
+    _META_KINDS = frozenset({"ack", "farewell", "correction", "confusion", "repeat", "brief"})
+
+    @staticmethod
+    def _brief(message: str) -> str:
+        """The first two sentences of ``message``, for "in short"."""
+        parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", message.strip()) if p.strip()]
+        return " ".join(parts[:2]) if parts else message.strip()
+
+    @staticmethod
+    def _frame_language(
+        response: VoiceResponse,
+        lang: str,
+        user_input: str,
+        english: str | None,
+        domain: str,
+    ) -> None:
+        """Put the reply in the asker's language where the reply is a fixed frame.
+
+        Social turns, the acknowledgement, the correction and the fallback
+        menu are replaced by their frame in ``lang``; a grounded answer keeps
+        its English text and gains a one-line note in ``lang`` saying how the
+        question was understood (or that it was not). Follow-up prompts are
+        translated where a translation exists, and each maps back to English
+        when it is clicked.
+        """
+        response.language = lang
+        response.understood_as = english
+        if lang == "en":
+            return
+        kind = response.answer_kind or ""
+        framed = {
+            "greeting": {"domain": domain},
+            "thanks": {},
+            "farewell": {},
+            "ack": {},
+            "correction": {},
+            "confusion": {},
+            "repeat": {},
+        }
+        if kind == "fallback" or english is None:
+            response.message = _lang.frame(lang, "fallback", query=user_input)
+            response.answer_kind = "fallback"
+        elif kind in framed:
+            response.message = _lang.frame(lang, kind, **framed[kind])
+        else:
+            response.message = (
+                response.message.rstrip()
+                + "\n\n"
+                + _lang.frame(lang, "understood", english=english)
+            )
+        response.suggested_follow_ups = _lang.localise_follow_ups(
+            lang, response.suggested_follow_ups
+        )
 
     def process_detection(
         self,
@@ -1164,6 +1271,7 @@ class MercuryVoice:
         domain: str,
         principal: str | None,
         profile: PersonalityProfile,
+        previous: str | None = None,
     ) -> VoiceResponse:
         """Route a classified question to the handler that answers it."""
         if kind == "status":
@@ -1174,6 +1282,48 @@ class MercuryVoice:
             return self._social("greeting", domain)
         if kind == "thanks":
             return self._social("thanks", domain)
+        if kind == "farewell":
+            return self._social("farewell", domain)
+        if kind == "ack":
+            return self._grounded(
+                _conv.acknowledgement(previous),
+                [],
+                QueryIntent.HELP,
+                "Acknowledgement; the prompts continue the previous answer.",
+                time.time(),
+            )
+        if kind == "correction":
+            return self._grounded(
+                _conv.correction(previous),
+                [],
+                QueryIntent.HELP,
+                "The previous answer missed; the other sources are offered instead.",
+                time.time(),
+            )
+        if kind in {"confusion", "repeat", "brief"}:
+            # No previous turn to rephrase, repeat or shorten.
+            return self._grounded(
+                (
+                    _lang.frame("en", "confusion" if kind == "confusion" else "repeat"),
+                    [
+                        "What was the latest anomaly?",
+                        "What can you do?",
+                        "Which detectors do you have?",
+                    ],
+                ),
+                [],
+                QueryIntent.HELP,
+                "Nothing has been answered yet in this conversation.",
+                time.time(),
+            )
+        if kind == "howto":
+            return self._grounded(
+                _conv.how_to(self._cli_commands()),
+                ["cli"],
+                QueryIntent.HELP,
+                "Steps verified against the mercury-agent click group.",
+                time.time(),
+            )
         if kind == "identity":
             return self._handle_identity()
         if kind == "glossary":
@@ -1358,19 +1508,14 @@ class MercuryVoice:
     def _social(self, kind: str, domain: str) -> VoiceResponse:
         """Greetings and thanks: short, and pointed at what the agent answers."""
         started = time.time()
-        if kind == "greeting":
-            message = (
-                f"Hello. I am Mercury Agent, answering from this server's detection record and "
-                f"its code in the {domain} domain. Ask what ran, what was flagged, what to run "
-                "next, or what any of Mercury's terms mean."
-            )
-        else:
-            message = "You are welcome. Ask again whenever a run lands in memory."
+        message = _lang.frame("en", kind, domain=domain)
+        prompts = (
+            []
+            if kind == "farewell"
+            else ["What was the latest anomaly?", "What can you do?", "What should I run next?"]
+        )
         return self._grounded(
-            (
-                message,
-                ["What was the latest anomaly?", "What can you do?", "What should I run next?"],
-            ),
+            (message, prompts),
             [],
             QueryIntent.HELP,
             "Conversational opener.",

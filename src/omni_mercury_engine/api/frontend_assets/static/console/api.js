@@ -211,7 +211,7 @@
     post: (path, b, o) => call("POST", path, b, o),
     get: (path) => call("GET", path),
     del: (path) => call("DELETE", path),
-    speak: (message, domain, session_id, opts) => call("POST", "/api/v1/voice/speak", Object.assign({ message, domain: domain || null, session_id: session_id || null }, opts && opts.tone ? { tone: opts.tone } : {}, opts && opts.verbosity ? { verbosity: opts.verbosity } : {})),
+    speak: (message, domain, session_id, opts) => call("POST", "/api/v1/voice/speak", Object.assign({ message, domain: domain || null, session_id: session_id || null }, opts && opts.tone ? { tone: opts.tone } : {}, opts && opts.verbosity ? { verbosity: opts.verbosity } : {}, opts && opts.language ? { language: opts.language } : {})),
     alertsUrl() { const b = String(cfg.baseUrl || ""); return /^https?:/.test(b) ? b.replace(/\/$/, "") + "/api/v1/voice/alerts" : null; },
     alertsHeaders() { return Object.assign({ Accept: "text/event-stream" }, headers(false)); },
     narrate: (detection_result, domain, verbosity) => call("POST", "/api/v1/voice/narrate", { detection_result, domain: domain || null, verbosity: verbosity || "normal" }),

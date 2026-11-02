@@ -24,9 +24,10 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.narrative.languages import SUPPORTED as SUPPORTED_LANGUAGES
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -60,6 +61,31 @@ class SpeakRequest(BaseModel):
         default=None,
         description="Session ID for conversation continuity",
     )
+    language: str | None = Field(
+        default=None,
+        description=(
+            "The asker's language as an ISO 639-1 code (en, es, fr, de, it, pt, nl), or "
+            "'auto' / omitted to detect it from the message. Social and menu replies come back "
+            "in that language; a grounded answer stays in English with a note in that language "
+            "saying how the question was understood."
+        ),
+        json_schema_extra={"example": "es"},
+    )
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def _known_language(cls, value: Any) -> str | None:
+        """Accept a supported code (case-insensitively), 'auto' or nothing."""
+        if value is None:
+            return None
+        code = str(value).strip().lower()
+        if code in {"", "auto"}:
+            return None
+        if code not in SUPPORTED_LANGUAGES:
+            raise ValueError(
+                f"unsupported language {code!r}; one of {', '.join(sorted(SUPPORTED_LANGUAGES))}"
+            )
+        return code
 
     model_config = {
         "json_schema_extra": {
@@ -67,7 +93,8 @@ class SpeakRequest(BaseModel):
                 {
                     "message": "What is my system status?",
                     "domain": "security",
-                }
+                },
+                {"message": "¿Qué detectaste hoy?", "language": "es"},
             ]
         }
     }
@@ -151,18 +178,28 @@ class VoiceResponseModel(BaseModel):
 
 
 def _speak(
-    voice: Any, message: str, domain: str | None, principal: str, session_id: str | None = None
+    voice: Any,
+    message: str,
+    domain: str | None,
+    principal: str,
+    session_id: str | None = None,
+    language: str | None = None,
 ) -> Any:
-    """Call the voice with the caller's principal and session; the fallback voice takes neither.
+    """Call the voice with the caller's principal, session and language; the fallback voice takes none.
 
     The session id keeps "why?" and "run 2" tied to the browser that asked:
     every unauthenticated console is the same principal (``anonymous``), so
     without it two anonymous browsers would share one follow-up context.
     """
     try:
-        return voice.speak(message, domain=domain, principal=principal, session_id=session_id)
+        return voice.speak(
+            message, domain=domain, principal=principal, session_id=session_id, language=language
+        )
     except TypeError:
-        return voice.speak(message, domain=domain)
+        try:
+            return voice.speak(message, domain=domain, principal=principal, session_id=session_id)
+        except TypeError:
+            return voice.speak(message, domain=domain)
 
 
 def _voice_payload(response: Any) -> dict[str, Any]:
@@ -192,6 +229,9 @@ def _voice_payload(response: Any) -> dict[str, Any]:
                 "suggested_follow_ups",
                 "uncertainty_note",
                 "response_time_ms",
+                "language",
+                "understood_as",
+                "answer_kind",
             )
             if hasattr(response, key)
         }
@@ -432,12 +472,20 @@ Mercury automatically detects the intent of your message:
 - **help**: Guidance and assistance
 - **greeting**: Conversational greetings
 
+## Languages
+
+`language` names the asker's language (`en`, `es`, `fr`, `de`, `it`, `pt`, `nl`) or is
+omitted to detect it from the message. Greetings, thanks, acknowledgements and the
+fallback menu come back in that language; a grounded answer stays in English with a
+note in that language saying how the question was understood (`metadata.understood_as`).
+
 ## Examples
 
 ```json
 {"message": "What is my system status?"}
 {"message": "Have there been any anomalies today?"}
 {"message": "Explain the last detection"}
+{"message": "¿Qué detectaste hoy?", "language": "es"}
 ```
     """,
     responses={
@@ -460,7 +508,14 @@ async def speak(
     try:
         voice = _get_voice()
         payload = _voice_payload(
-            _speak(voice, request.message, request.domain, _principal_of(user), request.session_id)
+            _speak(
+                voice,
+                request.message,
+                request.domain,
+                _principal_of(user),
+                request.session_id,
+                request.language,
+            )
         )
         raw_conf = payload.get("confidence")
         # A missing confidence is reported as null, not filled with 0.8.
@@ -478,6 +533,9 @@ async def speak(
             metadata={
                 "session_id": request.session_id,
                 "domain": request.domain,
+                "language": str(payload.get("language") or request.language or "en"),
+                "understood_as": payload.get("understood_as"),
+                "answer_kind": payload.get("answer_kind"),
             },
             reasoning_summary=payload.get("reasoning_summary"),
             search_performed=bool(payload.get("search_performed", False)),

@@ -27,6 +27,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — the agent holds a conversation, in seven languages.** Measured
+before this change: of 70 realistic inputs a console user types ("ok",
+"anything new?", "should I be worried?", "what do you mean?", "say that
+again", "that's not what I asked", "how do I use this?", "detect anomalies in
+sensor.csv", "bye", and the same questions in Spanish, French, German,
+Italian, Portuguese and Dutch), 52 fell through to the free-text search and
+ended in the fallback menu. `narrative/conversation.py` now routes
+acknowledgements, farewells, check-ins ("any problems?"), worry ("is it
+serious?"), confusion ("what do you mean?" rebuilds the previous answer in
+its fuller form), "say that again" (the previous answer again), "in short"
+(its first two sentences), corrections (which never repeat the answer they
+correct), how-to questions (three concrete steps naming only commands the
+CLI has), plain-words run requests ("score this file"), "do you cover
+earthquakes?" (the domain's profile), "how many detectors" (the manifest,
+not the record), and four more glossary terms (hazard, anomaly, domain,
+loader); a reaction such as "ok" never replaces the follow-up context, so
+"ok" then "why?" still explains the run that was discussed.
+`narrative/languages.py` (new; lexicon and regular expressions, no model, no
+dependency) detects the asker's language from its own function words and
+spellings, renders the question in the English phrasing the classifier
+already routes (`¿cuántas anomalías hoy?` reaches the same builder as "how
+many anomalies today?"), answers greetings, thanks, acknowledgements,
+corrections and the fallback menu in that language, translates the follow-up
+prompts (each of which maps back to its English intent when clicked), and
+appends to a grounded answer a one-line note in the asker's language saying
+how the question was understood. What it does not do is stated in the
+module: a detection narrative or a knowledge profile is never machine
+translated, because that would be a second, unverified source; those stay in
+English under the note. `POST /api/v1/voice/speak` takes `language` (a
+supported ISO 639-1 code, or `auto`/omitted to detect it; an unknown code is
+a 422) and reports `metadata.language`, `metadata.understood_as` and
+`metadata.answer_kind`; `MercuryVoice.speak` takes the same `language` and
+`VoiceResponse` carries the three fields. Tests:
+`tests/narrative/test_conversation_breadth.py` (the battery's routing, the
+context rule, repeat/brief/correction end to end, no turn in the battery
+ends in the fallback), `tests/narrative/test_languages.py` (detection per
+language, every translated prompt round-trips to its English intent, every
+frame exists in every language, the voice end to end with a detected and an
+explicit language), `tests/api/test_voice_language.py`.
+
+**Added — console settings: grey and system themes, spoken replies, visual
+and assistive alert cues, the agent language.** The settings window gains a
+Grey theme (a mid register between the dark instrument and the light reading
+theme; `html.ds-grey` tokens) and a System theme that follows the operating
+system's preference and re-applies when it changes; an AGENT section with the
+language the agent answers in (Auto detects it from what is typed; EN, ES,
+FR, DE, IT, PT, NL are sent as `language` on every `/voice/speak` request,
+and the reply's language and reading are shown in the reply's steps); and
+three accessibility settings beside reduced motion, contrast, scale and focus
+rings: Spoken replies (the agent's replies and alerts read aloud through the
+browser's speech synthesis in the agent language, silent where the browser
+has none), Visual alert cues (a banner at the top of the console and a
+threefold flash of the frame when an alert lands, a held outline under
+reduced motion, for users who cannot hear an alert or are away from sound)
+and Announce alerts (an assertive live region read by a screen reader as the
+alert arrives). The theme and language option buttons and every switch now
+carry `aria-pressed` / `aria-checked` as strings, so the state survives being
+false. The self-test gains a Settings & accessibility suite (9,192 checks).
+
+**Added — the console control crawl is a repository script.**
+`scripts/console_control_crawl.js` (previously a session-only tool) drives
+every view of the served console in headless Chromium, restores the
+console's state before each click, follows revealed controls to a chosen
+depth and reports the controls with no observable effect; its verdicts and
+the replay discipline are documented in the console design notes.
+
+**Fixed — a flaky catalog test that rewrote the committed catalog.**
+`tests/scripts/test_generate_detector_catalog.py` appended a stale line to
+`docs/DETECTORS.md` to prove `--check` fails, while the freshness test ran
+`--check` in a subprocess; under xdist the two could overlap and the ML lane
+failed on 2026-11-02 with a catalog that was fresh. The generator takes
+`--path`, the stale copy lives under `tmp_path`, and the committed file is
+never touched.
+
 **Added — every domain and detector now carries its own profession,
 institutions and lineage (knowledge profiles).** The console and the agent
 described 30 domains and 113 detectors with one template each: a loader was

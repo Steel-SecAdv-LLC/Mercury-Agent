@@ -119,6 +119,24 @@
       const T4 = mk(); T4.state.ws = "mass"; const mo = T4.renderVals(); const mrows = (mo.massGroups || []).flatMap((g) => g.caps); s.ok(mrows.length > 0 && mrows.every((r) => typeof r.enter === "function" && r.route), "mass-run rows keep their route for the hover note", mrows.length);
     }
 
+    /* 5c. Settings and accessibility: themes, the agent language, spoken replies, alert cues */
+    { const s = S("Settings & accessibility");
+      const T = mk(); const o = T.renderVals();
+      s.ok((o.setThemeOpts || []).map((x) => x.t).join(",") === "Dark,Grey,Light,System", "theme choices are dark, grey, light and system", (o.setThemeOpts || []).map((x) => x.t).join(","));
+      s.ok((o.setLangOpts || []).length === 8 && o.setLangOpts[0].t === "Auto" && o.setLangOpts.every((x) => x.on === "true" || x.on === "false"), "the agent language offers auto plus seven languages with a pressed state", (o.setLangOpts || []).length);
+      s.ok(["setSpeakOn", "setVisualOn", "setAnnounceOn", "setContrastOn"].every((k) => o[k] === "true" || o[k] === "false"), "switches carry a checked state that survives being false", JSON.stringify([o.setSpeakOn, o.setVisualOn, o.setAnnounceOn, o.setContrastOn]));
+      s.ok(["setSpeakToggle", "setVisualToggle", "setAnnounceToggle", "alertDismiss"].every((k) => typeof o[k] === "function"), "spoken replies, visual cues, announcements and the banner have handlers", "");
+      const MS = window.MercurySettings; if (MS) { const saved = MS.all(); MS.set("theme", "grey"); s.ok(document.documentElement.classList.contains("ds-grey") && document.documentElement.getAttribute("data-theme") === "grey", "the grey theme applies as html.ds-grey", document.documentElement.className); MS.set("theme", saved.theme); s.ok(document.documentElement.getAttribute("data-theme") !== "grey" || saved.theme === "grey", "the previous theme is restored", saved.theme); }
+      const T2 = mk(); T2.settingVal = (k) => ({ visualAlerts: true, announce: true, speak: false })[k]; T2.afterSay([{ role: "agent", proactive: true, steps: ["proactive · test"], text: "flagged run in test" }]);
+      s.ok(!!(T2.state.alertBanner && /flagged run in test/.test(T2.state.alertBanner.text)), "a proactive reply raises the visual alert banner", JSON.stringify(T2.state.alertBanner));
+      s.ok(/flagged run in test/.test(T2.state.announceText || ""), "a proactive reply is announced to assistive technology", T2.state.announceText);
+      T2.dismissAlertBanner(); s.ok(!T2.state.alertBanner, "the banner dismisses", "");
+      const T2b = mk(); T2b.settingVal = () => false; T2b.afterSay([{ role: "agent", proactive: true, steps: ["proactive · test"], text: "quiet" }]); s.ok(!T2b.state.alertBanner && !T2b.state.announceText, "cues stay silent when switched off", "");
+      const T3 = mk(); T3.settingVal = (k) => (k === "language" ? "es" : undefined); s.ok(T3.agentLang() === "es" && T3.langTag("es") === "es-ES", "the language setting reaches the request and the speech voice", T3.agentLang());
+      const T4 = mk(); T4.settingVal = () => "auto"; s.ok(T4.agentLang() === null, "auto leaves detection to the engine", "");
+      s.ok(typeof T.speakAloud === "function" && (window.speechSynthesis ? true : T.speakAloud("x") === false), "spoken replies degrade to silence without speech synthesis", "");
+    }
+
     /* 6. Runs: argparse forms */
     { const s = S("Runs (" + D.runs.length + ")");
       D.runs.forEach((r) => s.guard(r.p, () => {

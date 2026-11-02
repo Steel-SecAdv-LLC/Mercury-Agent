@@ -47,13 +47,21 @@
       violet: { label: "Cognitive", hex: "#8B7FE8", ramp: ["#B3A9F2", "#9C90EC", "#8B7FE8", "#6B5BD6"] },
       gold: { label: "Benevolence", hex: "#E0B341", ramp: ["#ECCD7A", "#E6C05D", "#E0B341", "#B8902C"] },
     };
-    const DEFAULTS = { theme: "dark", highContrast: false, accent: "cyan", scale: 1, density: "comfortable", keyboardFocus: false, underlineLinks: false, reduceMotion: false };
+    // Console additions: language (the agent's reply language, "auto" = detect), speak (read agent
+    // replies and alerts aloud through the browser's speech synthesis), visualAlerts (a banner and a
+    // frame flash when an alert lands, for when sound cannot be heard), announce (alerts read by a
+    // screen reader as they arrive), theme "grey" (a mid register between dark and light) and
+    // "system" (follow the operating system's preference).
+    const DEFAULTS = { theme: "dark", highContrast: false, accent: "cyan", scale: 1, density: "comfortable", keyboardFocus: false, underlineLinks: false, reduceMotion: false, language: "auto", speak: false, visualAlerts: true, announce: true };
     let S;
     try { S = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(LS)) || {}); } catch (e) { S = Object.assign({}, DEFAULTS); }
     function persist() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { /* storage blocked */ } }
     function apply() {
       const el = document.documentElement;
-      el.classList.toggle("ds-light", S.theme === "light");
+      const theme = S.theme === "system" ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : S.theme;
+      el.classList.toggle("ds-light", theme === "light");
+      el.classList.toggle("ds-grey", theme === "grey");
+      el.setAttribute("data-theme", theme);
       el.classList.toggle("ds-contrast", !!S.highContrast);
       el.classList.toggle("ds-compact", S.density === "compact");
       el.classList.toggle("ds-underline", !!S.underlineLinks);
@@ -73,6 +81,7 @@
       all: () => Object.assign({}, S),
     };
     apply();
+    try { window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { if (S.theme === "system") apply(); }); } catch (e) { /* no matchMedia */ }
   })();
 
   /* ------------------------------------------------------------------ template compiler */

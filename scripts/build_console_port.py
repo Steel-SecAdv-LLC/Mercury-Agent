@@ -1000,6 +1000,167 @@ TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     ),
 )
 
+# --------------------------------------------------------------------------- #
+# Themes, accessibility and the agent language (2026-11): a grey theme and a
+# system-following theme beside dark and light; spoken replies through the
+# browser's speech synthesis; a visual banner and frame flash and an assertive
+# live region for alerts, for users who cannot hear or cannot see them land; a
+# language setting the agent answers in (POST /api/v1/voice/speak `language`).
+# --------------------------------------------------------------------------- #
+GREY_THEME_CSS = """
+/* ---- GREY THEME (console) --------------------------------------------------
+   A mid register between the dark instrument and the light reading theme:
+   neutral slate greys, the same signal hues. Applied as html.ds-grey by the
+   console's MercurySettings (dc-runtime.js). */
+html.ds-grey {
+  --void:#2A2E33; --bg:#31363C; --surface-1:#383E45; --surface-2:#41484F;
+  --surface-3:#4B535B; --surface-4:#565F68;
+  --border-faint:#454D55; --border:#525B64; --border-strong:#6B7681;
+  --fg:#EEF1F4; --fg-2:#CBD2D9; --fg-3:#A3ADB8; --fg-muted:#8893A0; --fg-faint:#6F7A86;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.18); --shadow-md:0 4px 14px rgba(0,0,0,.22);
+  --shadow-lg:0 14px 40px rgba(0,0,0,.30);
+  background:#31363C;
+}
+html.ds-contrast.ds-grey {
+  --fg:#FFFFFF; --fg-2:#EEF1F4; --fg-3:#D5DBE1; --fg-muted:#B6BFC9;
+  --border-faint:#5A636C; --border:#6E7882; --border-strong:#8C97A2;
+}
+
+/* ---- VISUAL ALERT CUE (console) -------------------------------------------
+   The frame flashes when an alert lands; under reduced motion it holds the
+   outline instead of animating. */
+@keyframes mcliAlertFlash { 0%,100% { box-shadow: inset 0 0 0 0 transparent; } 50% { box-shadow: inset 0 0 0 4px var(--warning); } }
+html.mcli-alert-flash #mercury-console { animation: mcliAlertFlash .6s ease-in-out 3; }
+html.mn-reduce-motion.mcli-alert-flash #mercury-console { animation: none; box-shadow: inset 0 0 0 4px var(--warning); }
+@media (prefers-reduced-motion: reduce) { html.mcli-alert-flash #mercury-console { animation: none; box-shadow: inset 0 0 0 4px var(--warning); } }
+"""
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the settings button names the new settings",
+        'title="Settings · theme, contrast, scale, motion"',
+        'title="Settings · theme, contrast, scale, motion, language, spoken replies, alert cues"',
+    ),
+    (
+        "spoken replies, visual alert cues, announcements and the agent language join the settings",
+        '<p style="margin:14px 0 0;font-size:11px;line-height:1.6;color:var(--fg-3);font-family:var(--font-sans);">Only settings that change this console are listed. The design system\'s other settings apply to its own hub pages, so they are not shown here.</p>',
+        '<div style="display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--border-faint);"><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;"><span style="font-size:13px;color:var(--fg);">Spoken replies</span><span style="font-size:11px;color:var(--fg-3);font-family:var(--font-sans);">reads the agent\'s replies and alerts aloud with the browser\'s speech, in the agent language</span></div><button role="switch" aria-checked="{{ setSpeakOn }}" aria-label="Spoken replies" onClick="{{ setSpeakToggle }}" style="flex:none;cursor:pointer;width:42px;height:24px;border-radius:999px;border:1px solid var(--border-strong);background:{{ setSpeakBg }};position:relative;padding:0;"><span style="position:absolute;top:2px;left:{{ setSpeakKnob }};width:18px;height:18px;border-radius:999px;background:var(--fg);transition:left .14s;"></span></button></div><div style="display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--border-faint);"><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;"><span style="font-size:13px;color:var(--fg);">Visual alert cues</span><span style="font-size:11px;color:var(--fg-3);font-family:var(--font-sans);">a banner and a flash of the frame when an alert lands, for when sound cannot be heard</span></div><button role="switch" aria-checked="{{ setVisualOn }}" aria-label="Visual alert cues" onClick="{{ setVisualToggle }}" style="flex:none;cursor:pointer;width:42px;height:24px;border-radius:999px;border:1px solid var(--border-strong);background:{{ setVisualBg }};position:relative;padding:0;"><span style="position:absolute;top:2px;left:{{ setVisualKnob }};width:18px;height:18px;border-radius:999px;background:var(--fg);transition:left .14s;"></span></button></div><div style="display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--border-faint);"><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;"><span style="font-size:13px;color:var(--fg);">Announce alerts</span><span style="font-size:11px;color:var(--fg-3);font-family:var(--font-sans);">alerts are read by a screen reader as they arrive (an assertive live region)</span></div><button role="switch" aria-checked="{{ setAnnounceOn }}" aria-label="Announce alerts" onClick="{{ setAnnounceToggle }}" style="flex:none;cursor:pointer;width:42px;height:24px;border-radius:999px;border:1px solid var(--border-strong);background:{{ setAnnounceBg }};position:relative;padding:0;"><span style="position:absolute;top:2px;left:{{ setAnnounceKnob }};width:18px;height:18px;border-radius:999px;background:var(--fg);transition:left .14s;"></span></button></div>'
+        + '<span style="font-size:10px;letter-spacing:.18em;color:var(--fg-3);padding-top:14px;">AGENT</span><div style="display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--border-faint);"><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;"><span style="font-size:13px;color:var(--fg);">Language</span><span style="font-size:11px;color:var(--fg-3);font-family:var(--font-sans);">the agent greets, acknowledges and offers its menus in it, says how it understood a question, and keeps its record answers in English; Auto detects it from what you type</span></div><div role="group" aria-label="Agent language" style="display:flex;flex-wrap:wrap;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;"><sc-for list="{{ setLangOpts }}" as="lo" hint-placeholder-count="8"><button aria-pressed="{{ lo.on }}" title="{{ lo.title }}" onClick="{{ lo.pick }}" style="cursor:pointer;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;padding:6px 10px;background:{{ lo.bg }};color:{{ lo.fg }};border:0;border-left:1px solid var(--border);">{{ lo.t }}</button></sc-for></div></div>'
+        + '<p style="margin:14px 0 0;font-size:11px;line-height:1.6;color:var(--fg-3);font-family:var(--font-sans);">Only settings that change this console are listed. The design system\'s other settings apply to its own hub pages, so they are not shown here.</p>',
+    ),
+    (
+        "an alert banner and an assertive live region sit above the shell",
+        '    <sc-if value="{{ setOpen }}" hint-placeholder-val="{{ false }}">',
+        '    <sc-if value="{{ alertBanner }}" hint-placeholder-val="{{ false }}">\n      <div role="alert" style="position:absolute;left:0;right:0;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--warning-bg);border-bottom:2px solid var(--warning);color:var(--fg);font-family:var(--font-mono);font-size:12px;"><span style="flex:none;font-size:10px;letter-spacing:.18em;color:var(--warning);">◆ MERCURY ALERT</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ alertBannerText }}</span><button onClick="{{ alertDismiss }}" aria-label="Dismiss alert" style="flex:none;cursor:pointer;font-family:var(--font-mono);font-size:12px;border-radius:var(--r-sm);padding:3px 9px;background:transparent;color:var(--fg-2);border:1px solid var(--border);">DISMISS</button></div>\n    </sc-if>\n    <div class="sr-only" aria-live="assertive" aria-atomic="true">{{ announceText }}</div>\n    <sc-if value="{{ setOpen }}" hint-placeholder-val="{{ false }}">',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "option buttons carry a pressed state the runtime keeps when it is false",
+        'return { t, on, bg: on ? "var(--mercury-900)" : "transparent", fg: on ? "var(--mercury-100)" : "var(--fg-2)", '
+        'bd: on ? "var(--mercury-500)" : "var(--border)", pick: () => this.settingSet(k, v) }; }); }',
+        'return { t, on: on ? "true" : "false", title: t, bg: on ? "var(--mercury-900)" : "transparent", '
+        'fg: on ? "var(--mercury-100)" : "var(--fg-2)", bd: on ? "var(--mercury-500)" : "var(--border)", '
+        "pick: () => this.settingSet(k, v) }; }); }",
+    ),
+    (
+        "switches carry a checked state the runtime keeps when it is false",
+        '[prefix + "Knob"]: on ? "20px" : "2px", [prefix + "On"]: on }; }',
+        '[prefix + "Knob"]: on ? "20px" : "2px", [prefix + "On"]: on ? "true" : "false" }; }',
+    ),
+    (
+        "the contrast switch reads its state from switchVals like the others",
+        'setContrastOn: !!this.settingVal("highContrast"), ',
+        "",
+    ),
+    (
+        "themes: grey and system; the agent language; spoken replies, visual alert cues and announcements",
+        'setThemeOpts: this.settingOpts("theme", [["dark", "Dark"], ["light", "Light"]]),',
+        'setThemeOpts: this.settingOpts("theme", [["dark", "Dark"], ["grey", "Grey"], ["light", "Light"], ["system", "System"]]), '
+        'setLangOpts: this.settingOpts("language", [["auto", "Auto"], ["en", "EN"], ["es", "ES"], ["fr", "FR"], ["de", "DE"], ["it", "IT"], ["pt", "PT"], ["nl", "NL"]]), '
+        '...this.switchVals("setSpeak", !!this.settingVal("speak")), setSpeakToggle: () => this.settingSet("speak", !this.settingVal("speak")), '
+        '...this.switchVals("setVisual", this.settingVal("visualAlerts") !== false), setVisualToggle: () => this.settingSet("visualAlerts", this.settingVal("visualAlerts") === false), '
+        '...this.switchVals("setAnnounce", this.settingVal("announce") !== false), setAnnounceToggle: () => this.settingSet("announce", this.settingVal("announce") === false), '
+        'alertBanner: s.alertBanner || null, alertBannerText: s.alertBanner ? s.alertBanner.text : "", alertDismiss: () => this.dismissAlertBanner(), announceText: s.announceText || "",',
+    ),
+    (
+        "say() speaks agent replies aloud and raises the visual and assistive cues for alerts",
+        "  say(msgs) { this.setState((s) => ({ chat: s.chat.concat(msgs).slice(-60) }));",
+        "  say(msgs) { this.setState((s) => ({ chat: s.chat.concat(msgs).slice(-60) })); this.afterSay(msgs);",
+    ),
+    (
+        "the agent language travels with every question; the reply's language and reading are shown",
+        "const r = await this.A.speak(text, this.agDom(), sid0, {}), local = this.answer(text);",
+        "const r = await this.A.speak(text, this.agDom(), sid0, { language: this.agentLang() }), local = this.answer(text);",
+    ),
+    (
+        "the reply names its language and how the question was understood",
+        'if (md.llm) steps.push("language model: " + md.llm);',
+        'if (md.llm) steps.push("language model: " + md.llm); if (md.language) { this._lastLang = md.language; '
+        'if (md.language !== "en") steps.push("language · " + md.language + (md.understood_as ? " · understood as: " + md.understood_as : " · not understood; menu offered")); }',
+    ),
+    (
+        "accessibility and language helpers: speech synthesis, the alert banner, the frame flash, the live region",
+        "  detRunner(d) {",
+        "  /* Accessibility and language (settings: language, speak, visualAlerts, announce). */\n"
+        '  agentLang() { const v = this.settingVal("language"); return v && v !== "auto" ? String(v) : null; }\n'
+        '  langTag(code) { return ({ en: "en-US", es: "es-ES", fr: "fr-FR", de: "de-DE", it: "it-IT", pt: "pt-PT", nl: "nl-NL" })[code] || "en-US"; }\n'
+        "  speakAloud(text, code) {\n"
+        '    const S = typeof window !== "undefined" ? window.speechSynthesis : null; if (!S || !text) return false;\n'
+        '    try { S.cancel(); const u = new SpeechSynthesisUtterance(String(text).replace(/`/g, "").slice(0, 1200)); u.lang = this.langTag(code || this._lastLang || this.agentLang() || "en"); '
+        "const voices = S.getVoices ? S.getVoices() : []; const v = voices.find((x) => x.lang && x.lang.toLowerCase().slice(0, 2) === u.lang.slice(0, 2).toLowerCase()); if (v) u.voice = v; S.speak(u); return true; } catch (e) { return false; }\n"
+        "  }\n"
+        '  isProactive(m) { return !!(m && (m.proactive || (m.steps && /^proactive/.test(String(m.steps[0] || ""))))); }\n'
+        "  afterSay(msgs) {\n"
+        '    const list = [].concat(msgs).filter((m) => m && m.role === "agent" && m.text); if (!list.length) return;\n'
+        '    if (this.settingVal("speak")) this.speakAloud(list.map((m) => m.text).join(". "), this._lastLang);\n'
+        "    const alerts = list.filter((m) => this.isProactive(m)); if (!alerts.length) return;\n"
+        '    const text = alerts.map((m) => m.text).join(" · ");\n'
+        '    if (this.settingVal("visualAlerts") !== false) { this.setState({ alertBanner: { text, at: Date.now() } }); this.flashFrame(); }\n'
+        '    if (this.settingVal("announce") !== false) this.setState({ announceText: "Mercury alert: " + text });\n'
+        "  }\n"
+        '  flashFrame() { try { const el = document.documentElement; el.classList.add("mcli-alert-flash"); clearTimeout(this._flashT); this._flashT = setTimeout(() => el.classList.remove("mcli-alert-flash"), 2000); } catch (e) { /* no document */ } }\n'
+        "  dismissAlertBanner() { this.setState({ alertBanner: null }); }\n"
+        "  detRunner(d) {",
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "the speak request carries the agent language when one is set",
+        "opts && opts.verbosity ? { verbosity: opts.verbosity } : {})),",
+        "opts && opts.verbosity ? { verbosity: opts.verbosity } : {}, opts && opts.language ? { language: opts.language } : {})),",
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "settings and accessibility suite: themes, language, spoken replies, visual and assistive alert cues",
+        "    /* 6. Runs: argparse forms */",
+        "    /* 5c. Settings and accessibility: themes, the agent language, spoken replies, alert cues */\n"
+        '    { const s = S("Settings & accessibility");\n'
+        "      const T = mk(); const o = T.renderVals();\n"
+        '      s.ok((o.setThemeOpts || []).map((x) => x.t).join(",") === "Dark,Grey,Light,System", "theme choices are dark, grey, light and system", (o.setThemeOpts || []).map((x) => x.t).join(","));\n'
+        '      s.ok((o.setLangOpts || []).length === 8 && o.setLangOpts[0].t === "Auto" && o.setLangOpts.every((x) => x.on === "true" || x.on === "false"), "the agent language offers auto plus seven languages with a pressed state", (o.setLangOpts || []).length);\n'
+        '      s.ok(["setSpeakOn", "setVisualOn", "setAnnounceOn", "setContrastOn"].every((k) => o[k] === "true" || o[k] === "false"), "switches carry a checked state that survives being false", JSON.stringify([o.setSpeakOn, o.setVisualOn, o.setAnnounceOn, o.setContrastOn]));\n'
+        '      s.ok(["setSpeakToggle", "setVisualToggle", "setAnnounceToggle", "alertDismiss"].every((k) => typeof o[k] === "function"), "spoken replies, visual cues, announcements and the banner have handlers", "");\n'
+        '      const MS = window.MercurySettings; if (MS) { const saved = MS.all(); MS.set("theme", "grey"); '
+        's.ok(document.documentElement.classList.contains("ds-grey") && document.documentElement.getAttribute("data-theme") === "grey", "the grey theme applies as html.ds-grey", document.documentElement.className); '
+        'MS.set("theme", saved.theme); s.ok(document.documentElement.getAttribute("data-theme") !== "grey" || saved.theme === "grey", "the previous theme is restored", saved.theme); }\n'
+        '      const T2 = mk(); T2.settingVal = (k) => ({ visualAlerts: true, announce: true, speak: false })[k]; T2.afterSay([{ role: "agent", proactive: true, steps: ["proactive · test"], text: "flagged run in test" }]);\n'
+        '      s.ok(!!(T2.state.alertBanner && /flagged run in test/.test(T2.state.alertBanner.text)), "a proactive reply raises the visual alert banner", JSON.stringify(T2.state.alertBanner));\n'
+        '      s.ok(/flagged run in test/.test(T2.state.announceText || ""), "a proactive reply is announced to assistive technology", T2.state.announceText);\n'
+        '      T2.dismissAlertBanner(); s.ok(!T2.state.alertBanner, "the banner dismisses", "");\n'
+        '      const T2b = mk(); T2b.settingVal = () => false; T2b.afterSay([{ role: "agent", proactive: true, steps: ["proactive · test"], text: "quiet" }]); s.ok(!T2b.state.alertBanner && !T2b.state.announceText, "cues stay silent when switched off", "");\n'
+        '      const T3 = mk(); T3.settingVal = (k) => (k === "language" ? "es" : undefined); s.ok(T3.agentLang() === "es" && T3.langTag("es") === "es-ES", "the language setting reaches the request and the speech voice", T3.agentLang());\n'
+        '      const T4 = mk(); T4.settingVal = () => "auto"; s.ok(T4.agentLang() === null, "auto leaves detection to the engine", "");\n'
+        '      s.ok(typeof T.speakAloud === "function" && (window.speechSynthesis ? true : T.speakAloud("x") === false), "spoken replies degrade to silence without speech synthesis", "");\n'
+        "    }\n\n"
+        "    /* 6. Runs: argparse forms */",
+    ),
+)
+
 #: Design modules shipped unchanged apart from MODULE_PATCHES.
 MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
     (
@@ -1608,6 +1769,7 @@ def build() -> dict[str, str]:
         HEADER_CSS.format(src="_ds/.../colors_and_type.css (font @import removed)")
         + tokens.strip()
         + "\n"
+        + GREY_THEME_CSS
     )
     for src_name, out_name in MODULES.items():
         text = (DESIGN / src_name).read_text(encoding="utf-8")
