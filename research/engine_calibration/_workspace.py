@@ -82,6 +82,19 @@ def quarantine_event(domain: str, event: str, reason: str) -> None:
     )
 
 
+def clear_quarantine(domain: str, event: str) -> bool:
+    """Remove the quarantine marker for an event that rebuilt successfully; True if one existed.
+
+    Called only after the validated archive has been written, so an event
+    whose loader later fetches real data returns to the evaluation set.
+    """
+    marker = Path(cache_dir()) / f"{domain}__{event}{QUARANTINE_SUFFIX}"
+    if marker.exists():
+        marker.unlink()
+        return True
+    return False
+
+
 def cache_archives() -> list[str]:
     """The per-event ``{domain}__{event}.npz`` archives, sorted, as strings.
 

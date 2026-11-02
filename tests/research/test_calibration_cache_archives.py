@@ -78,3 +78,23 @@ def test_build_cache_quarantines_a_refused_synthetic_frame() -> None:
     text = (_SCRIPTS / "build_cache.py").read_text(encoding="utf-8")
     assert "except SyntheticDataNotDeleakable" in text
     assert "quarantine_event(dom, eid" in text
+
+
+def test_a_recovered_event_leaves_quarantine_once_its_archive_is_rebuilt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Real data arriving later lifts the marker; a failed rebuild does not."""
+    ws = _workspace_module(tmp_path, monkeypatch)
+    cache = Path(ws.cache_dir())
+    ws.quarantine_event("energy", "quebec_1989", "synthetic frame")
+    assert ws.cache_archives() == []
+    # the rebuild path writes the validated archive, then lifts the marker
+    np.savez_compressed(cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4))
+    assert ws.clear_quarantine("energy", "quebec_1989") is True
+    assert not (cache / "energy__quebec_1989.quarantined.json").exists()
+    assert [Path(p).name for p in ws.cache_archives()] == ["energy__quebec_1989.npz"]
+    assert ws.clear_quarantine("energy", "quebec_1989") is False
+    text = (_SCRIPTS / "build_cache.py").read_text(encoding="utf-8")
+    assert text.index("np.savez_compressed(fn, X=feats, y=y)") < text.index(
+        "clear_quarantine(dom, eid)"
+    )

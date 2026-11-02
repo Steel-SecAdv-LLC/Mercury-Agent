@@ -16,7 +16,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 import numpy as np
-from _workspace import cache_dir, quarantine_event
+from _workspace import cache_dir, clear_quarantine, quarantine_event
 
 from omni_mercury_engine.loaders.base import SyntheticDataNotDeleakable
 
@@ -78,6 +78,11 @@ for dom, (mod, cls) in LOADERS.items():
                 continue
             fn = f"{CACHE}/{dom}__{eid}.npz"
             np.savez_compressed(fn, X=feats, y=y)
+            # A validated archive is on disk: an earlier quarantine (a
+            # synthetic frame that has since been replaced by real data) no
+            # longer applies, so the marker goes and the event is evaluated again.
+            if clear_quarantine(dom, eid):
+                print(f"  {dom}/{eid} recovered: quarantine lifted", flush=True)
             recs.append(
                 {
                     "event": eid,

@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,090
-- **Capability-bearing classes:** 2,070 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,091
+- **Capability-bearing classes:** 2,071 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,210 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,211 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1210 |
+| Other capability classes | 1211 |
 | Support types (config / result / enum / error) | 1020 |
 | Detection | 180 |
 | Neural models & layers | 162 |
@@ -2462,7 +2462,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `narrative/` — 53 classes (29 capability)
+### `narrative/` — 54 classes (30 capability)
 
 **Data sources & loaders**
 
@@ -2504,6 +2504,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `RegionOfInterest` (`narrative.multimodal`) — Region of interest in visual data.
 - `ResultCache` (`narrative.external_retrieval`) — Cache for external retrieval results.
 - `SearchContext` (`narrative.retriever`) — Context for a search operation.
+- `_Subscriber` (`narrative.alert_bus`) — One subscriber: its loop, its queue, and the bounded staging buffer feeding it.
 
 <details><summary>Support types (24)</summary>
 
