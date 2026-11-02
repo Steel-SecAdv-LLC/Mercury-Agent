@@ -646,6 +646,79 @@ class _TreeBuilder(HTMLParser):
         self.stack[-1][2].append(data)
 
 
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "the sample series satisfies every route's minimum length (the tier needs 8 points; the "
+        "generated schema carries minItems as `min`) and is long enough for its spike to score past "
+        "the univariate z-score threshold (16 points: z = 3.9 > 3.5)",
+        '      case "number[]": return [0.4, 0.5, 0.45, 10.0, 0.5];',
+        '      case "number[]": { const base = [0.4, 0.5, 0.45, 10.0, 0.5, 0.48, 0.47, 0.5, 0.46, 0.49, '
+        "0.51, 0.44, 0.47, 0.45, 0.5, 0.48], n = Math.max(base.length, field.min || 0), out = []; "
+        "for (let i = 0; i < n; i++) out.push(base[i % base.length]); return out; }",
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + (
+    (
+        "an error record's headline is the server's reason, not 'response received'",
+        "  function summarize(data) {\n",
+        "  // An API FORM error record keeps the server's answer under { error, kind, detail }; its\n"
+        "  // headline is that reason (a validation error names the field), not 'response received'.\n"
+        "  function errorHeadline(d) {\n"
+        '    const e = d.error, clip = (t) => (t.length > 90 ? t.slice(0, 88) + "…" : t);\n'
+        '    if (typeof e === "string") return clip(e);\n'
+        '    if (Array.isArray(e) && e.length && e[0] && typeof e[0] === "object") { const f = e[0], '
+        'at = Array.isArray(f.loc) ? f.loc.filter((x) => x !== "body").join(".") : ""; '
+        'return (e.length > 1 ? e.length + " validation errors · " : "") + clip((at ? at + ": " : "") + '
+        "(f.msg || JSON.stringify(f))); }\n"
+        '    return clip(String(d.kind) + " error" + (e ? " · " + JSON.stringify(e) : ""));\n'
+        "  }\n"
+        "  function summarize(data) {\n",
+    ),
+    (
+        "error headline branch",
+        '    else if (typeof d.message === "string") headline',
+        "    else if (d.kind && d.error !== undefined) headline = errorHeadline(d);\n"
+        '    else if (typeof d.message === "string") headline',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the hazard form sends the loaded file's arrays for the chosen hazard; the route's one-of "
+        "(diagnostics, or hazard + arrays) is checked before sending",
+        "  async sendForm(fs) {\n",
+        "  hazardFormInput(fs, b) {\n"
+        "    // POST /api/v1/hazard/visualize takes a prior `diagnostics` payload or `hazard` + `arrays`,\n"
+        "    // a one-of the request schema cannot mark required. Given neither, the loaded file supplies\n"
+        "    // the arrays the hazard's Mass Run capability builds, and a shape the hazard cannot use is\n"
+        "    // refused here with the terminal's reason instead of the server's 400.\n"
+        '    if (fs.key !== "POST /api/v1/hazard/visualize" || b.diagnostics || b.arrays) return "";\n'
+        '    if (!b.hazard) return "✗ not sent · choose a hazard (the loaded file supplies its arrays) '
+        'or paste a diagnostics payload";\n'
+        "    const M = window.MercuryCLIMass, d = this.state.data, cap = M && M.CAPS.find((c) => c.id === "
+        '"haz-" + b.hazard); if (!cap) return "";\n'
+        '    const why = cap.block ? cap.block(d) : null; if (why) return "✗ not sent · " + b.hazard + " " + '
+        'why.replace(/ \\(use API → hazard form\\)/, "") + " · paste them in arrays";\n'
+        '    if (!d) return "✗ not sent · load a file: " + b.hazard + " runs on its arrays";\n'
+        "    const built = cap.build(d, {}); b.arrays = built.arrays; if (b.params === undefined) b.params = "
+        "built.params || {};\n"
+        '    this.append([this.row("● hazard form · " + b.hazard + " arrays from " + d.name + " · " + d.rows + '
+        '" × " + d.cols, "var(--normal)")]);\n'
+        '    return "";\n'
+        "  }\n"
+        "  async sendForm(fs) {\n",
+    ),
+    (
+        "hazard form one-of check runs before the required-field check",
+        "    const pv = this.formParsed(fs), miss = this.A.missing(fs.schema, b, pv), u = this.A.url(fs.key, pv, fs.schema);\n",
+        "    const pv = this.formParsed(fs), hz = this.hazardFormInput(fs, b); if (hz) { this.setState({ resp: "
+        '{ title: hz, ok: false, text: "" } }); return; }\n'
+        "    const miss = this.A.missing(fs.schema, b, pv), u = this.A.url(fs.key, pv, fs.schema);\n",
+    ),
+)
+
+
 def _unescape(value: str) -> str:
     import html
 
@@ -662,6 +735,58 @@ def _extract(source: str) -> tuple[str, str, str]:
     logic = source[source.index(open_tag) + len(open_tag) :]
     logic = logic[: logic.rindex("</script>")]
     return template, css, logic
+
+
+OLD_GEOJSON_CHECK = '        const gj = M.summarize({ type: "FeatureCollection", features: [{}, {}] }); s.ok(gj.geojson === "2 features", "summarise GeoJSON response", gj.geojson);\n'
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "self-test: error headlines, schema-sized sample series, and the hazard form's one-of",
+        OLD_GEOJSON_CHECK,
+        OLD_GEOJSON_CHECK
+        + '        const eh = M.summarize({ error: [{ type: "too_short", loc: ["body", "data"], msg: "List should '
+        'have at least 8 items after validation, not 5" }], kind: "validation", detail: {} }); '
+        's.ok(eh.headline === "data: List should have at least 8 items after validation, not 5", '
+        '"summarise a validation error by field and reason", eh.headline);\n'
+        '        const eh2 = M.summarize({ error: "Not authenticated", kind: "http", detail: { detail: "Not '
+        'authenticated" } }); s.ok(eh2.headline === "Not authenticated", "summarise an HTTP error by the '
+        "server's reason\", eh2.headline);\n"
+        '        const A2 = window.MercuryCLIAPI; s.ok(A2.sample({ type: "number[]" }).length >= 8 && '
+        'A2.sample({ type: "number[]", min: 20 }).length === 20 && A2.sample({ type: "number[]", min: 20 })'
+        '.every((x) => typeof x === "number"), "sample series honours the schema minimum (the tier needs 8)", '
+        'String(A2.sample({ type: "number[]", min: 20 }).length));\n'
+        "        s.ok(Object.keys(A2.SCHEMAS).filter((k) => /\\/detect\\//.test(k)).every((k) => { const f = "
+        "A2.SCHEMAS[k].data; return !f || !/\\[\\]$/.test(f.type) || !f.min || A2.sample(f).length >= f.min; }), "
+        '"every detect route\'s sample series meets its minItems", "");\n'
+        '        { const T = mk(), fsH = { key: "POST /api/v1/hazard/visualize" }, b0 = { format: "png" }; '
+        's.ok(/not sent · choose a hazard/.test(T.hazardFormInput(fsH, b0)), "hazard form refuses a payload '
+        'with neither diagnostics nor hazard + arrays", ""); T.state.data = { name: "t.csv", rows: 16, cols: 1, '
+        'matrix: Array.from({ length: 16 }, (_, i) => [i % 5]) }; const b1 = { hazard: "tsunami", format: "png" }; '
+        's.ok(T.hazardFormInput(fsH, b1) === "" && b1.arrays && b1.arrays.series && b1.arrays.series.length === 16 '
+        '&& b1.params, "hazard form builds the chosen hazard\'s arrays from the loaded file", '
+        'JSON.stringify(Object.keys(b1.arrays))); const b2 = { hazard: "earthquake", format: "png" }; '
+        's.ok(/≥550 samples/.test(T.hazardFormInput(fsH, b2)) && !b2.arrays, "hazard form refuses a shape the '
+        'hazard cannot use, with the reason", T.hazardFormInput(fsH, b2)); const b3 = { hazard: "tsunami", '
+        'diagnostics: { x: 1 } }; s.ok(T.hazardFormInput(fsH, b3) === "" && !b3.arrays, "hazard form leaves a '
+        'diagnostics payload alone", ""); }\n',
+    ),
+)
+
+OLD_BRAND_CHECK = '      const body = document.body.innerText || ""; const crosses = (body.match(/♱/g) || []).length; s.ok(crosses <= 4, "the cross appears at most 4 times on screen (banner, description, the MERCURY AGENT ♱ button, Mercury Agent panel)", crosses + " on screen");'
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "the brand-mark count is a workspace rule: the opening dialog's own banner marks are not "
+        "counted, so :diag typed as the dialog closes cannot misreport",
+        OLD_BRAND_CHECK,
+        '      const openDlg = document.querySelector(\'[role="dialog"][aria-label="Mercury Agent opening"]\'), '
+        'dlgMarks = openDlg ? ((openDlg.innerText || "").match(/♱/g) || []).length : 0; '
+        'const body = document.body.innerText || ""; const crosses = (body.match(/♱/g) || []).length - dlgMarks; '
+        's.ok(crosses <= 4, "the cross appears at most 4 times in the workspace (introduction banner and '
+        'description, the MERCURY AGENT ♱ button, Mercury Agent panel; the opening dialog aside)", '
+        'crosses + " in the workspace");',
+    ),
+)
 
 
 def _apply(text: str, patches: tuple[tuple[str, str, str], ...], where: str) -> str:

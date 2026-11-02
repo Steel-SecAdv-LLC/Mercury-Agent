@@ -157,7 +157,7 @@
     if (field.def !== undefined) return field.def;
     if (field.type === "string" && key && STR[key] !== undefined) return STR[key];
     switch (field.type) {
-      case "number[]": return [0.4, 0.5, 0.45, 10.0, 0.5];
+      case "number[]": { const base = [0.4, 0.5, 0.45, 10.0, 0.5, 0.48, 0.47, 0.5, 0.46, 0.49, 0.51, 0.44, 0.47, 0.45, 0.5, 0.48], n = Math.max(base.length, field.min || 0), out = []; for (let i = 0; i < n; i++) out.push(base[i % base.length]); return out; }
       case "number[][]": case "number[]|number[][]": return [[0.3, 0.2], [0.4, 0.2], [4.0, 0.2], [0.3, 0.2]];
       case "integer[]": return [0, 0, 1, 0];
       case "string[]": return ["f0", "f1"];

@@ -27,6 +27,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the development mailer delivers a usable link.** `ConsoleMailer`
+logged each message, and once the engine's INFO records became visible the
+log formatters' credential redaction turned every verification and reset link
+into `token=<redacted>`, so a locally registered account could not be
+verified. The mailer now files each message as an owner-only text file (plus
+the HTML part) in `MERCURY_MAIL_OUTBOX`, default
+`~/.local/state/mercury-agent/outbox`, the state root `decouple status`
+already inventories; the log names the file and never carries the body, and a
+write failure surfaces to the delivery audit like an SMTP outage. The test
+suite files into a temporary outbox. Verified in Chromium: register → open the
+outbox → verify → log in → create an API key
+(`tests/api/test_maintenance_and_mailer.py`).
+
+**Fixed — three console API-form defects found by driving every route card
+against the live server.** The default sample series had 5 points, so the
+tier form's own default payload was refused with a 422 (the route needs 8);
+the series is now 16 points, sized up further by a route's `minItems` (which
+the generated schemas now carry), and long enough for its spike to score past
+the univariate z-score threshold. The hazard form sent `{format}` alone and
+got a 400: the route's one-of (a prior `diagnostics`, or `hazard` + `arrays`)
+is checked before sending, and the loaded file supplies the arrays the chosen
+hazard's Mass Run capability builds, refusing an unusable shape with the
+terminal's reason. Error results carried the headline "response received";
+the headline is now the server's reason, naming the field for a validation
+error. The self-test covers all three, and its brand-mark count is scoped to
+the workspace so `:diag` typed as the opening dialog closes cannot misreport
+(`scripts/build_console_port.py`, `scripts/build_console_catalog.py`).
+
 **Fixed — the engine's own log records reach the server log.** Under
 `uvicorn omni_mercury_engine.api.server:app` only uvicorn's loggers were
 configured; the `omni_mercury_engine` logger had no handler, so every record

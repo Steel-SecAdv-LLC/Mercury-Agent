@@ -436,6 +436,10 @@ def _field(schema: dict[str, Any], required: bool, components: dict[str, Any]) -
             out["type"] = f"{'number' if leaf in ('number', 'integer') else leaf}[][]"
         else:
             out["type"] = f"{inner or 'object'}[]"
+        # The console's sample series is sized from this; without it a form's
+        # default payload could be shorter than the route accepts.
+        if "minItems" in node:
+            out["min"] = int(node["minItems"])
     elif kind in ("number", "integer", "boolean", "string", "object"):
         out["type"] = kind
     else:

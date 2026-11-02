@@ -16,6 +16,8 @@ import warnings
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+import pytest
+
 from omni_mercury_engine.api import totp
 from omni_mercury_engine.api.auth_audit import AuthAuditor
 from omni_mercury_engine.api.auth_service import AuthService
@@ -30,8 +32,6 @@ from omni_mercury_engine.api.usage_ledger import SqliteUsageLedger, UsageEvent
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import pytest
 
 
 class ExplodingMailer:
@@ -273,3 +273,83 @@ class TestMaintenanceSweep:
         results = run_maintenance_sweep(now=datetime(2026, 6, 1, tzinfo=UTC))
         assert results["expired_sessions"] == 0
         assert results["usage_events"] == 0
+
+
+class TestConsoleMailerOutbox:
+    """The development mailer delivers to a file, so the link in it is usable."""
+
+    def test_files_the_message_with_the_link_intact(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The outbox file carries the full link; the log names the file, not the body."""
+        from omni_mercury_engine.api.mailer import ConsoleMailer
+
+        mailer = ConsoleMailer(tmp_path / "outbox")
+        link = "https://mercuryagent.global/verify-email?token=abc123SECRET"
+        with caplog.at_level("INFO", logger="omni_mercury_engine.api.mailer"):
+            mailer.send(
+                to="who@example.test",
+                subject="Verify",
+                body=f"Open {link} within 24 hours.",
+                html_body=f'<a href="{link}">verify</a>',
+                headers={"List-Unsubscribe": "<mailto:contact@example.test>"},
+            )
+
+        files = sorted((tmp_path / "outbox").iterdir())
+        assert [f.suffix for f in files] == [".html", ".txt"]
+        text = files[1].read_text(encoding="utf-8")
+        assert text.startswith("To: who@example.test\nSubject: Verify\nDate: ")
+        assert "List-Unsubscribe: <mailto:contact@example.test>" in text
+        assert f"\n\nOpen {link} within 24 hours." in text
+        assert link in files[0].read_text(encoding="utf-8")
+        assert all(f.stat().st_mode & 0o077 == 0 for f in files)
+        assert (tmp_path / "outbox").stat().st_mode & 0o077 == 0
+        record = caplog.records[-1].getMessage()
+        assert str(files[1]) in record
+        assert "SECRET" not in record
+
+    def test_environment_and_default_locations(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """MERCURY_MAIL_OUTBOX wins; otherwise the XDG state root Mercury already inventories."""
+        from omni_mercury_engine.api.mailer import OUTBOX_ENV, ConsoleMailer, build_mailer
+
+        monkeypatch.delenv("MERCURY_SMTP_HOST", raising=False)
+        monkeypatch.setenv(OUTBOX_ENV, str(tmp_path / "box"))
+        built = build_mailer()
+        assert isinstance(built, ConsoleMailer)
+        assert built.outbox == tmp_path / "box"
+
+        monkeypatch.delenv(OUTBOX_ENV)
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        assert ConsoleMailer().outbox == tmp_path / "state" / "mercury-agent" / "outbox"
+
+    def test_registration_link_is_recoverable_from_the_outbox(self, tmp_path: Path) -> None:
+        """The flow a developer runs: register, open the outbox, follow the link."""
+        from omni_mercury_engine.api.mailer import ConsoleMailer
+
+        store = InMemoryIdentityStore()
+        service = AuthService(store, ConsoleMailer(tmp_path), clock=FixedClock())
+        service.register("dev@example.test", "Correct-Horse-Battery-9!")
+
+        [message] = [f for f in tmp_path.iterdir() if f.suffix == ".txt"]
+        match = re.search(r"/verify-email\?token=([A-Za-z0-9_.~-]+)", message.read_text("utf-8"))
+        assert match, message.read_text("utf-8")
+        service.verify_email(match.group(1))
+        account = store.get_account_by_email("dev@example.test")
+        assert account is not None and account.is_verified
+
+    def test_unwritable_outbox_is_a_delivery_failure(self, tmp_path: Path) -> None:
+        """A write error surfaces to the caller's delivery audit instead of vanishing."""
+        from omni_mercury_engine.api.mailer import ConsoleMailer
+
+        blocker = tmp_path / "file-not-dir"
+        blocker.write_text("x", encoding="utf-8")
+        mailer = ConsoleMailer(blocker / "outbox")
+        with pytest.raises(OSError):
+            mailer.send(to="a@b.test", subject="s", body="b")
+
+        store = InMemoryIdentityStore()
+        service = AuthService(store, mailer, clock=FixedClock())
+        service.register("dev@example.test", "Correct-Horse-Battery-9!")
+        assert store.get_account_by_email("dev@example.test") is not None

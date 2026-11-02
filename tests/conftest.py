@@ -45,6 +45,14 @@ os.environ["MERCURY_MODEL_DIR"] = os.path.join(
     tempfile.gettempdir(), f"mercury-test-models-{os.getpid()}-absent"
 )
 
+# The development mailer files every message it is handed; account tests
+# register and reset accounts constantly, and none of that belongs in the
+# developer's own outbox.
+os.environ.setdefault(
+    "MERCURY_MAIL_OUTBOX",
+    os.path.join(tempfile.gettempdir(), f"mercury-test-outbox-{os.getpid()}"),
+)
+
 
 def _bootstrap_source_checkout() -> None:
     """Make an uninstalled clone testable: ``pytest`` with no ``pip install -e .``.

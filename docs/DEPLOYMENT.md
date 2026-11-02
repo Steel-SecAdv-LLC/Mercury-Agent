@@ -348,8 +348,8 @@ The API configures the engine's own logger at start-up when the host process
 has not (`omni_mercury_engine.utils.logging.ensure_logging_configured`, called
 from the ASGI lifespan once per worker). Without it, uvicorn configures only
 its own loggers and nothing the engine logs below WARNING is written: the
-warm-up record, the maintenance sweep, and the verification link the
-development mailer logs in place of sending email.
+warm-up record, the maintenance sweep, and the development mailer's record of
+where it filed each message.
 
 | Variable | Default | Description |
 |----------|---------|-------------|

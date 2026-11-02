@@ -238,7 +238,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `BatchJob` (`api.routes.batch`) — Batch job tracking record.
 - `BatchJobStore` (`api.routes.batch`) — In-memory batch job store with TTL-based cleanup.
 - `ComponentHealth` (`api.health`) — Health status of a single component.
-- `ConsoleMailer` (`api.mailer`) — Mailer that logs messages instead of sending them (dev/test default).
+- `ConsoleMailer` (`api.mailer`) — Mailer that files each message in a local outbox instead of sending it.
 - `CorrelationIDMiddleware` (`api.server`) — Middleware for request correlation ID tracking.
 - `DataStore` (`api.routes.export`) — In-memory data store for demonstration.
 - `EmailContent` (`api.email_templates`) — A fully rendered transactional email.

@@ -53,6 +53,14 @@
   const BATCH = ((((window.MERCURY_CLI || {}).schemas || {})["POST /api/v1/batch/detect"] || { method: { enum: [] } }).method.enum || []).filter((m) => m !== "neurosymbolic");
 
   const arr = (x) => (Array.isArray(x) ? x : null);
+  // An API FORM error record keeps the server's answer under { error, kind, detail }; its
+  // headline is that reason (a validation error names the field), not 'response received'.
+  function errorHeadline(d) {
+    const e = d.error, clip = (t) => (t.length > 90 ? t.slice(0, 88) + "…" : t);
+    if (typeof e === "string") return clip(e);
+    if (Array.isArray(e) && e.length && e[0] && typeof e[0] === "object") { const f = e[0], at = Array.isArray(f.loc) ? f.loc.filter((x) => x !== "body").join(".") : ""; return (e.length > 1 ? e.length + " validation errors · " : "") + clip((at ? at + ": " : "") + (f.msg || JSON.stringify(f))); }
+    return clip(String(d.kind) + " error" + (e ? " · " + JSON.stringify(e) : ""));
+  }
   function summarize(data) {
     const d = data || {}, kv = [];
     const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value)).filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null);
@@ -68,6 +76,7 @@
     else if (d.assessment && Array.isArray(d.assessment.independence)) headline = d.assessment.independence.filter((r) => r.independent).length + " of " + d.assessment.independence.length + " reports independent";
     else if (d.decides_with) headline = "decides with " + d.decides_with + (d.fused && d.fused.threat_score != null ? " · threat " + d.fused.threat_score : "");
     else if (Array.isArray(d.statements)) headline = d.statements.length + " statement" + (d.statements.length === 1 ? "" : "s") + " assessed" + (d.statements[0] && d.statements[0].corroboration ? " · log-odds " + d.statements[0].corroboration.log_odds : "");
+    else if (d.kind && d.error !== undefined) headline = errorHeadline(d);
     else if (typeof d.message === "string") headline = d.message.length > 90 ? d.message.slice(0, 88) + "…" : d.message;
     else if (d.status) headline = String(d.status);
     [["fused_score", 3], ["confidence", 3], ["threshold", 3], ["overall_score", 3], ["overall_confidence", 3], ["fusion_score", 3], ["recursion_score", 3], ["resonance_score", 3], ["lyapunov_bound", 3], ["neural_contribution", 3], ["symbolic_contribution", 3]].forEach(([k, p]) => { if (typeof d[k] === "number") kv.push([k, d[k].toFixed(p)]); });

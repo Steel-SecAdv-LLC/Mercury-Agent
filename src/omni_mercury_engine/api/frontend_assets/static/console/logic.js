@@ -993,11 +993,26 @@ class Component extends DCLogic {
   parseField(fd, raw) { if (raw === "" || raw == null) return undefined; if (typeof raw !== "string") return raw; if (fd.type === "number" || fd.type === "integer") { const n = +raw; return isNaN(n) ? raw : n; } if (/\[\]|object/.test(fd.type)) { try { return JSON.parse(raw); } catch (e) { return raw; } } return raw; }
   formParsed(fs) { const vals = this.formVals(fs.key), parsed = {}; Object.keys(vals).forEach((k) => { const v = this.parseField(fs.schema[k] || { type: "string" }, vals[k]); if (v !== undefined) parsed[k] = v; }); return parsed; }
   formBody(fs) { return this.A.body(fs.schema, this.formParsed(fs), { requiredOnly: this.state.reqOnly }); }
+  hazardFormInput(fs, b) {
+    // POST /api/v1/hazard/visualize takes a prior `diagnostics` payload or `hazard` + `arrays`,
+    // a one-of the request schema cannot mark required. Given neither, the loaded file supplies
+    // the arrays the hazard's Mass Run capability builds, and a shape the hazard cannot use is
+    // refused here with the terminal's reason instead of the server's 400.
+    if (fs.key !== "POST /api/v1/hazard/visualize" || b.diagnostics || b.arrays) return "";
+    if (!b.hazard) return "✗ not sent · choose a hazard (the loaded file supplies its arrays) or paste a diagnostics payload";
+    const M = window.MercuryCLIMass, d = this.state.data, cap = M && M.CAPS.find((c) => c.id === "haz-" + b.hazard); if (!cap) return "";
+    const why = cap.block ? cap.block(d) : null; if (why) return "✗ not sent · " + b.hazard + " " + why.replace(/ \(use API → hazard form\)/, "") + " · paste them in arrays";
+    if (!d) return "✗ not sent · load a file: " + b.hazard + " runs on its arrays";
+    const built = cap.build(d, {}); b.arrays = built.arrays; if (b.params === undefined) b.params = built.params || {};
+    this.append([this.row("● hazard form · " + b.hazard + " arrays from " + d.name + " · " + d.rows + " × " + d.cols, "var(--normal)")]);
+    return "";
+  }
   async sendForm(fs) {
     const b = this.formBody(fs);
     if (fs.mode === "run") { const r = this.D.runs.find((x) => x.p === fs.key); if (r) { const cmd = this.runCmd(r); try { navigator.clipboard.writeText(cmd); } catch (e) {} this.setState({ resp: { title: "command copied", ok: true, text: cmd } }); } return; }
     if (fs.mode === "mcp") { const txt = this.A.mcpCall(fs.key, b); try { navigator.clipboard.writeText(txt); } catch (e) {} this.setState({ resp: { title: "MCP · tools/call payload copied", ok: true, text: txt } }); return; }
-    const pv = this.formParsed(fs), miss = this.A.missing(fs.schema, b, pv), u = this.A.url(fs.key, pv, fs.schema);
+    const pv = this.formParsed(fs), hz = this.hazardFormInput(fs, b); if (hz) { this.setState({ resp: { title: hz, ok: false, text: "" } }); return; }
+    const miss = this.A.missing(fs.schema, b, pv), u = this.A.url(fs.key, pv, fs.schema);
     if (!this.live()) { const txt = this.A.curl(fs.key, b, pv, fs.schema); try { navigator.clipboard.writeText(txt); } catch (e) {} this.setState({ resp: { title: "curl copied · connect a server to send" + (miss.length ? " · fill " + miss.join(", ") + " first" : ""), ok: !miss.length, text: txt } }); return; }
     if (miss.length) { this.setState({ resp: { title: "✗ not sent · required: " + miss.join(", "), ok: false, text: "" } }); return; }
     const m = fs.key.split(" ")[0]; this.setState({ resp: { title: "sending…", ok: true, text: "" } });
