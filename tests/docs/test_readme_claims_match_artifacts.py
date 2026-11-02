@@ -436,8 +436,8 @@ def test_robot_failure_numbers_match_the_artifact() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _last_commit_touching(relative: str) -> str | None:
-    """The last commit that changed ``relative``, or None without git."""
+def _git(*argv: str) -> str | None:
+    """Run git in the repository and return its trimmed stdout, or None without git."""
     import shutil
     import subprocess
 
@@ -446,7 +446,7 @@ def _last_commit_touching(relative: str) -> str | None:
         return None
     try:
         done = subprocess.run(
-            [git, "log", "-1", "--format=%H", "--", relative],
+            [git, *argv],
             cwd=_REPO,
             capture_output=True,
             text=True,
@@ -456,6 +456,28 @@ def _last_commit_touching(relative: str) -> str | None:
     except (OSError, subprocess.SubprocessError):  # pragma: no cover - no git
         return None
     return done.stdout.strip() or None
+
+
+def _last_commit_touching(relative: str) -> str | None:
+    """The last commit that changed ``relative``, or None without git or history.
+
+    A depth-1 checkout (the default on CI) holds one commit, so ``git log``
+    names that commit for every file and the answer is meaningless; such a
+    repository reports None here and the content pairing below decides.
+    """
+    if _git("rev-parse", "--is-shallow-repository") == "true":
+        return None
+    return _git("log", "-1", "--format=%H", "--", relative)
+
+
+def _blob_hash(relative: str) -> str:
+    """The git blob hash of the file's content, computed without git or history."""
+    import hashlib
+
+    content = (_REPO / relative).read_bytes()
+    return hashlib.sha1(  # noqa: S324 - git's own object id, not a security digest
+        b"blob %d\0" % len(content) + content
+    ).hexdigest()
 
 
 def test_fusion_hardening_ledger_records_the_detector_it_measured() -> None:
@@ -472,6 +494,9 @@ def test_fusion_hardening_ledger_records_the_detector_it_measured() -> None:
     ):
         summary = _artifact(relative)["summary"]
         assert summary.get("detector_commit"), f"{relative} records no detector_commit"
+        assert re.fullmatch(
+            r"[0-9a-f]{40}", summary.get("detector_blob") or ""
+        ), f"{relative} records no detector_blob (the measured detector's content hash)"
 
 
 def test_readme_ledger_is_not_quoted_past_the_detector_that_produced_it() -> None:
@@ -482,13 +507,20 @@ def test_readme_ledger_is_not_quoted_past_the_detector_that_produced_it() -> Non
     no staleness caveat belongs there; the moment the detector moves ahead, the
     caveat becomes mandatory until someone refreshes both sides.
     """
-    recorded = _artifact("research/omni_equation/adbench_results.json")["summary"][
-        "detector_commit"
-    ]
-    live = _last_commit_touching("src/omni_mercury_engine/detectors/statistical.py")
-    if live is None:
-        pytest.skip("no git available to date the detector")
-    assert live is not None  # narrow for the checker: pytest.skip never returns
+    summary = _artifact("research/omni_equation/adbench_results.json")["summary"]
+    detector = "src/omni_mercury_engine/detectors/statistical.py"
+    # The pairing is by content: the ledger records the blob hash of the
+    # detector it measured, and the file on disk hashes the same way with no
+    # git and no history. The commit pairing stays as the second witness where
+    # history exists; a depth-1 checkout has none and must not invent a verdict.
+    recorded, live = summary["detector_blob"], _blob_hash(detector)
+    if recorded == live:
+        recorded_commit, live_commit = summary["detector_commit"], _last_commit_touching(detector)
+        if live_commit is not None:
+            assert recorded_commit == live_commit, (
+                f"the detector's content matches the ledger ({live[:7]}) but history says it "
+                f"last changed at {live_commit[:7]}, not the recorded {recorded_commit[:7]}"
+            )
 
     text = _text()
     caveat = "This ledger is a historical measurement, not the current tree."

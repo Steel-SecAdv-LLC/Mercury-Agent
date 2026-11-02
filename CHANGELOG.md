@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the README ledger guard holds in a depth-1 checkout.** The test that
+flags an ADBench ledger quoted past the detector that produced it dated the
+detector with `git log`, which in CI's single-commit checkout names the merge
+commit for every file, so the ML lane failed on a ledger that is in fact
+current. The ADBench harness now records the detector file's git blob hash
+(`detector_blob`) beside `detector_commit`, the two committed ledgers carry
+the blob of the detector at the commit each records, and the guard pairs by
+content first, keeping the commit pairing as a second witness only where
+history exists. Reproduced in a depth-1 clone: the old guard fails, the new
+one passes (`tests/docs/test_readme_claims_match_artifacts.py`).
+
 **Fixed — a user has the whole engine from the front end.** Driving every
 route card, terminal command and Mass Run capability against the live server
 with a real account found six gaps, each now closed and covered by the

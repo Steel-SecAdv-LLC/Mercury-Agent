@@ -125,8 +125,11 @@ def _provenance() -> dict[str, Any]:
 
     ``detector_commit`` is the last commit touching the detector under test,
     which is the field that dates the measurement: the protocol is fixed, so
-    only the detector moves the numbers. Missing git (a source tarball, say)
-    degrades to ``None`` rather than failing the run.
+    only the detector moves the numbers. ``detector_blob`` is the git blob
+    hash of that file's content, so a reader can tell whether the measured
+    detector is the one on disk without any history (a depth-1 checkout has
+    none). Missing git (a source tarball, say) degrades to ``None`` rather
+    than failing the run.
     """
     detector = _SRC / "omni_mercury_engine" / "detectors" / "statistical.py"
 
@@ -150,6 +153,7 @@ def _provenance() -> dict[str, Any]:
     return {
         "commit": _git("rev-parse", "HEAD"),
         "detector_commit": _git("log", "-1", "--format=%H", "--", str(detector)),
+        "detector_blob": _git("hash-object", str(detector)),
         "timestamp": datetime.now(tz=UTC).isoformat(),
         "versions": {
             "python": platform.python_version(),

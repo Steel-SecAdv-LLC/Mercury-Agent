@@ -6,6 +6,7 @@
     "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
     "commit": "211f5f2aa7111883217627d670ef8d251a7b64f2",
     "detector_commit": "8ce85ec9a0188718e626f3447d85c52a87474b4f",
+    "detector_blob": "9e05ac8e4cf419ae17ca64a416ff1b2d9337a78e",
     "timestamp": "2026-10-28T18:36:51.194774+00:00",
     "versions": {
       "python": "3.13.17",
