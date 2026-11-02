@@ -12,6 +12,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 WRITE_OK = {
+    # Publishes the prebuilt AMA native archives as a GitHub release (its
+    # ``publish`` job alone; the build jobs read).
+    "ama-prebuilt.yml",
     "benchmark.yml",
     "dependabot-auto-merge.yml",
     "release.yml",
@@ -38,7 +41,11 @@ MAPPING_KEY_RE = re.compile(
 # step.  ``[^#\n]*`` before the pattern allows leading shell tokens
 # like ``set -e &&`` while excluding everything past a ``#`` comment
 # (so ``# pip install x`` in a comment is not a false positive).
-PIP_INSTALL_RE = re.compile(r"(?<![\w-])(?:python3?\s+-m\s+)?pip\s+install\b")
+# ``uv pip install`` is uv's resolver and installer behind pip's command line;
+# no pip runs, so neither the pip floor nor the interpreter rule applies to it
+# (the ``(?<!uv\s)`` lookbehind). The uv-managed lanes pin uv itself through
+# ``astral-sh/setup-uv``'s ``version`` input and install from ``uv.lock``.
+PIP_INSTALL_RE = re.compile(r"(?<![\w-])(?<!uv\s)(?:python3?\s+-m\s+)?pip\s+install\b")
 PIP_UPGRADE_RE = re.compile(
     r"(?:python3?\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
 )
@@ -517,9 +524,15 @@ def _check_pip_uses_pinned_interpreter(path: Path, text: str) -> list[str]:
 # prefixed editable install bypass the gate entirely. The editable flag is
 # confined to the same command segment (no crossing ``;``, ``&`` or ``|``),
 # so ``pip install foo && rm -e .`` cannot false-positive across commands.
+# ``uv sync`` installs the project itself (editable unless ``--no-editable``,
+# and either way importable) from ``uv.lock``, so a job that runs it is an
+# engine install exactly like ``pip install -e .`` and needs the AMA composite
+# just the same. ``--no-install-project`` installs only the dependencies and is
+# therefore out of scope.
 ENGINE_EDITABLE_INSTALL_RE = re.compile(
     r"(?:^|[;&|(\s])(?:python3?\s+-m\s+)?pip\s+install\b[^;&|\n]*?"
     r"\s(?:-e|--editable)(?:=|\s+)[\"']?\.(?:[\"'\[\s/]|$)"
+    r"|(?:^|[;&|(\s])uv\s+sync\b(?![^;&|\n]*--no-install-project)"
 )
 AMA_COMPOSITE_RE = re.compile(r"uses:\s*\./\.github/actions/build-ama-cryptography\b")
 

@@ -146,6 +146,23 @@ class TestAcceptsPinnedAndExemptJobs:
         )
         assert _run(tmp_path, body) == []
 
+    def test_uv_pip_install_is_not_a_pip_install(self, tmp_path: Path) -> None:
+        """``uv pip install`` never runs pip, so it is out of this rule's scope.
+
+        The uv-managed lanes still pin their interpreter (``setup-python``
+        gives ``uv sync`` its Python), but the rule must not misclassify uv's
+        pip-compatible command line as pip itself.
+        """
+        body = (
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            f"      - uses: actions/checkout@{_SHA}\n"
+            "      - name: install\n"
+            "        run: uv pip install sympy\n"
+        )
+        assert _run(tmp_path, body) == []
+
     def test_echo_documentation_line_is_not_an_install(self, tmp_path: Path) -> None:
         """``echo "pip install ..." >> file`` writes text; it installs nothing.
 

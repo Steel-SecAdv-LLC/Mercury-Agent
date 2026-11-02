@@ -119,21 +119,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Cache pip dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - name: Set up uv
+        # uv installs from uv.lock: one cross-platform resolution of every
+        # extra, resolved and downloaded in parallel, with a global hardlinked
+        # cache keyed on the lockfile so a repeat install is near-instant. The
+        # uv version is pinned to the one the Dockerfile installs.
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          path: ${{ env.PIP_CACHE_DIR }}
-          # The Python version is part of the key: without it the four matrix
-          # entries race to save one key, the first finisher wins, and the
-          # other three versions' wheels (torch above all) are re-downloaded
-          # on every run while the save is skipped as "key exists".
-          key: ${{ runner.os }}-pip-quality-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-quality-py${{ matrix.python-version }}-
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Install quality tools
         run: |
-          python -m pip install --upgrade "pip>=26.1"
           # mypy + pydocstyle are PINNED (mirrored in pyproject [ml]/[dev] and
           # the Type Checking job) so the type-ignore set and the docstring
           # ruleset are identical locally and in CI.  An unpinned mypy flips
@@ -153,7 +151,13 @@ jobs:
           # the exact drift class the ruff incident demonstrated.  All six
           # lint/format/type pins are cross-checked by
           # scripts/check_pinned_tool_versions.py in Workflow Hardening.
-          pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.2 pydocstyle==6.3.0
+          # The tools are exact pins, not project dependencies, so they go
+          # into a uv environment directly (no lockfile entry to drift).
+          uv venv .venv --python "${{ matrix.python-version }}"
+          uv pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.2 pydocstyle==6.3.0
+          # Every later step in the job runs the project's environment.
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
 
       - name: Run Black (formatting)
         # ``benchmarks/``, ``examples/`` and ``research/`` are in scope alongside
@@ -380,6 +384,17 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Set up uv
+        # uv installs from uv.lock: one cross-platform resolution of every
+        # extra, resolved and downloaded in parallel, with a global hardlinked
+        # cache keyed on the lockfile so a repeat install is near-instant. The
+        # uv version is pinned to the one the Dockerfile installs.
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
       - name: Set up Go for actionlint
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -421,6 +436,12 @@ jobs:
         # pinning migration lands. Blocking workflow invariants are enforced
         # by scripts/check_workflow_hardening.py in the next step.
         run: zizmor --no-progress --format=plain --min-severity high --no-exit-codes .github/workflows
+
+      - name: Check uv.lock matches pyproject.toml
+        # The Dockerfile and the test lanes install with ``uv sync --locked``,
+        # which refuses a stale lockfile; this gate names the drift on the pull
+        # request instead of letting every lane fail on it. Fix with ``uv lock``.
+        run: uv lock --check
 
       - name: Run repository workflow hardening checks
         run: python scripts/check_workflow_hardening.py
@@ -545,20 +566,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Cache pip dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - name: Set up uv
+        # uv installs from uv.lock: one cross-platform resolution of every
+        # extra, resolved and downloaded in parallel, with a global hardlinked
+        # cache keyed on the lockfile so a repeat install is near-instant. The
+        # uv version is pinned to the one the Dockerfile installs.
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          path: ${{ env.PIP_CACHE_DIR }}
-          # Python version in the key for the same reason as the Code Quality
-          # lane: one shared key across the matrix caches only one version's
-          # wheels and silently skips the save for the rest.
-          key: ${{ runner.os }}-pip-types-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-types-py${{ matrix.python-version }}-
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
           # [ml] needed for torch type stubs used by mypy.
           # pytest (and its plugins) installed explicitly so mypy can
           # consume pytest's bundled ``py.typed`` stubs when checking
@@ -566,7 +586,9 @@ jobs:
           # cannot see fixture/mark decorator signatures and flags every
           # ``@pytest.fixture`` / ``@pytest.mark.parametrize`` as
           # ``[untyped-decorator]`` even though the stubs are correct.
-          pip install -e ".[ml]"
+          # [dev] carries pytest and its plugins, hypothesis, mypy and
+          # types-requests at the pins below; everything comes from uv.lock.
+          uv sync --locked --extra ml --extra dev
           # mypy + types-requests are PINNED (mirrored in pyproject [ml]/[dev]
           # and the Code Quality job) so the ``# type: ignore[...]`` set is
           # byte-identical locally and in CI.  Without the pin a newer
@@ -578,8 +600,10 @@ jobs:
           # ``py.typed``, so installing it lets mypy resolve the decorator
           # signatures; without it the [[tool.mypy.overrides]] boundary turns
           # them into ``Any`` and the strict lane flags [untyped-decorator].
-          pip install mypy==2.4.0 types-requests==2.33.0.20261006 \
-            "pytest>=9.0.3" pytest-asyncio pytest-mock "hypothesis>=6.0.0"
+          uv pip install mypy==2.4.0 types-requests==2.33.0.20261006
+          # Every later step in the job runs the project's environment.
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
 
       - name: Dependency license gate ([ml] runtime closure)
         # Mercury is AGPL-3.0-or-later: every runtime dependency must carry a
@@ -745,7 +769,7 @@ jobs:
             --pretty
 
       - name: Pin numpy to the declared floor (regression guard)
-        # The steps above type-check against whatever numpy ``pip`` resolves
+        # The steps above type-check against the numpy ``uv.lock`` resolves
         # (currently 2.4.6).  pyproject declares ``numpy>=2.4.0`` as the
         # supported minimum, so the strict mypy contract must also hold at
         # that floor -- numpy's ``ndarray`` typing changed across minor
@@ -753,7 +777,7 @@ jobs:
         # errors that 2.4.0 fixes).  Pinning the exact floor and re-running the
         # gate below stops the declared minimum from silently drifting away
         # from what actually type-checks.
-        run: pip install "numpy==2.4.0"
+        run: uv pip install "numpy==2.4.0"
 
       - name: Run MyPy at the numpy floor (src + tests)
         run: |
@@ -1063,28 +1087,32 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Cache pip dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - name: Set up uv
+        # uv installs from uv.lock: one cross-platform resolution of every
+        # extra, resolved and downloaded in parallel, with a global hardlinked
+        # cache keyed on the lockfile so a repeat install is near-instant. The
+        # uv version is pinned to the one the Dockerfile installs.
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          path: ${{ env.PIP_CACHE_DIR }}
-          # Python version in the key for the same reason as the Code Quality
-          # lane: one shared key across the matrix caches only one version's
-          # wheels and silently skips the save for the rest.
-          key: ${{ runner.os }}-pip-core-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-core-py${{ matrix.python-version }}-
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
           # [ml] provides torch/sklearn (moved out of core deps to keep
           # `pip install mercury-agent` lightweight).  Core tests exercise
           # engine, fusion, and detector code that needs the ML stack.
           # [api] supplies python-multipart + fastapi/uvicorn so the
           # API-surface tests added to the expanded core lane (see
           # ``Run core tests`` below) collect cleanly.
-          pip install -e ".[ml,dev,api]"
-          pip install pytest pytest-cov pytest-asyncio sympy
+          # [dev] carries pytest, pytest-cov and pytest-asyncio; all of it
+          # comes from uv.lock. sympy is a test-only import with no extra.
+          uv sync --locked --extra ml --extra dev --extra api
+          uv pip install sympy
+          # Every later step in the job runs the project's environment.
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # AMA takes a backseat to none: every test lane now runs against the
@@ -1405,15 +1433,16 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Cache pip dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - name: Set up uv
+        # uv installs from uv.lock: one cross-platform resolution of every
+        # extra, resolved and downloaded in parallel, with a global hardlinked
+        # cache keyed on the lockfile so a repeat install is near-instant. The
+        # uv version is pinned to the one the Dockerfile installs.
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          path: |
-            ${{ env.PIP_CACHE_DIR }}
-            ~/.cache/torch
-          key: ${{ runner.os }}-pip-ml-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-ml-
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Cache pinned HuggingFace models
         # Keyed on the SafeHFLoader pin table: the cache rolls over exactly
@@ -1427,9 +1456,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[all,dev]"
-          pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
+          # [dev] carries pytest, pytest-cov, pytest-asyncio, pytest-xdist and
+          # pytest-timeout; everything comes from uv.lock.
+          uv sync --locked --extra all --extra dev
+          # Every later step in the job runs the project's environment.
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
 
       - name: Dependency license gate ([all] runtime closure, as shipped)
         # The closure ``pip install ".[all]"`` and the Docker image ship.
