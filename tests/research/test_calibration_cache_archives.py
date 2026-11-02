@@ -36,8 +36,12 @@ def test_cache_archives_exclude_the_deleak_schema(
 ) -> None:
     ws = _workspace_module(tmp_path, monkeypatch)
     cache = Path(ws.cache_dir())
-    np.savez_compressed(cache / "earthquake__ev1.npz", X=np.zeros((4, 2)), y=np.zeros(4))
-    np.savez_compressed(cache / "flood__ev2.npz", X=np.zeros((4, 2)), y=np.zeros(4))
+    np.savez_compressed(
+        cache / "earthquake__ev1.npz", X=np.zeros((4, 2)), y=np.zeros(4), schema=np.array(2)
+    )
+    np.savez_compressed(
+        cache / "flood__ev2.npz", X=np.zeros((4, 2)), y=np.zeros(4), schema=np.array(2)
+    )
     np.savez_compressed(
         cache / "earthquake__ev1.deleak.npz",
         X_full=np.zeros((4, 3)),
@@ -63,14 +67,20 @@ def test_quarantined_events_are_removed_and_stay_out(
     """A rejected rebuild deletes the stale archive and a marker keeps the event out."""
     ws = _workspace_module(tmp_path, monkeypatch)
     cache = Path(ws.cache_dir())
-    np.savez_compressed(cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4))
-    np.savez_compressed(cache / "flood__ev2.npz", X=np.zeros((4, 2)), y=np.zeros(4))
+    np.savez_compressed(
+        cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4), schema=np.array(2)
+    )
+    np.savez_compressed(
+        cache / "flood__ev2.npz", X=np.zeros((4, 2)), y=np.zeros(4), schema=np.array(2)
+    )
     ws.quarantine_event("energy", "quebec_1989", "synthetic frame")
     assert not (cache / "energy__quebec_1989.npz").exists()
     assert (cache / "energy__quebec_1989.quarantined.json").exists()
     assert [Path(p).name for p in ws.cache_archives()] == ["flood__ev2.npz"]
     # even a stale archive copied back in stays out while the marker exists
-    np.savez_compressed(cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4))
+    np.savez_compressed(
+        cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4), schema=np.array(2)
+    )
     assert [Path(p).name for p in ws.cache_archives()] == ["flood__ev2.npz"]
 
 
@@ -89,12 +99,46 @@ def test_a_recovered_event_leaves_quarantine_once_its_archive_is_rebuilt(
     ws.quarantine_event("energy", "quebec_1989", "synthetic frame")
     assert ws.cache_archives() == []
     # the rebuild path writes the validated archive, then lifts the marker
-    np.savez_compressed(cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4))
+    np.savez_compressed(
+        cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4), schema=np.array(2)
+    )
     assert ws.clear_quarantine("energy", "quebec_1989") is True
     assert not (cache / "energy__quebec_1989.quarantined.json").exists()
     assert [Path(p).name for p in ws.cache_archives()] == ["energy__quebec_1989.npz"]
     assert ws.clear_quarantine("energy", "quebec_1989") is False
     text = (_SCRIPTS / "build_cache.py").read_text(encoding="utf-8")
-    assert text.index("np.savez_compressed(fn, X=feats, y=y)") < text.index(
+    assert text.index("np.savez_compressed(\n                fn,") < text.index(
         "clear_quarantine(dom, eid)"
     )
+
+
+def test_archives_written_before_the_exclusion_are_not_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pre-exclusion archive still holds the label-derived columns.
+
+    ``build_cache.py`` once wrote ``X`` from ``engineer_features`` (every
+    column, the labelled ones included). Such an archive carries no ``schema``
+    key; reading it would score a circular matrix, so the listing leaves it
+    out until the event is rebuilt with the de-leaked matrix and the schema.
+    """
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    ws = _workspace_module(tmp_path, monkeypatch)
+    np.savez_compressed(cache / "earthquake__old.npz", X=np.zeros((4, 3)), y=np.zeros(4))
+    np.savez_compressed(
+        cache / "earthquake__v1.npz", X=np.zeros((4, 3)), y=np.zeros(4), schema=np.array(1)
+    )
+    np.savez_compressed(
+        cache / "earthquake__new.npz",
+        X=np.zeros((4, 2)),
+        y=np.zeros(4),
+        schema=np.array(ws.ARCHIVE_SCHEMA),
+        scored_columns=np.array(["depth", "rate"], dtype=str),
+        label_derived_excluded=np.array(["magnitude"], dtype=str),
+    )
+    assert [Path(p).name for p in ws.cache_archives()] == ["earthquake__new.npz"]
+    assert ws.archive_schema(cache / "earthquake__old.npz") == 1
+    text = (_SCRIPTS / "build_cache.py").read_text(encoding="utf-8")
+    assert "schema=np.array(ARCHIVE_SCHEMA)" in text
+    assert "scored_columns=np.array(list(L.scored_feature_columns())" in text

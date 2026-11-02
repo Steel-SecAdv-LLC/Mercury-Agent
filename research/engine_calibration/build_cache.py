@@ -16,7 +16,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 import numpy as np
-from _workspace import cache_dir, clear_quarantine, quarantine_event
+from _workspace import ARCHIVE_SCHEMA, cache_dir, clear_quarantine, quarantine_event
 
 from omni_mercury_engine.loaders.base import SyntheticDataNotDeleakable
 
@@ -77,7 +77,17 @@ for dom, (mod, cls) in LOADERS.items():
                 print(f"  {dom}/{eid} skip(novar) n={len(feats)}", flush=True)
                 continue
             fn = f"{CACHE}/{dom}__{eid}.npz"
-            np.savez_compressed(fn, X=feats, y=y)
+            # The archive states what X holds (the de-leaked columns) and what
+            # was excluded; cache_archives() refuses archives without the
+            # schema, which is how a pre-exclusion archive stays out.
+            np.savez_compressed(
+                fn,
+                X=feats,
+                y=y,
+                schema=np.array(ARCHIVE_SCHEMA),
+                scored_columns=np.array(list(L.scored_feature_columns()), dtype=str),
+                label_derived_excluded=np.array(list(L.LABEL_DERIVED_FEATURES), dtype=str),
+            )
             # A validated archive is on disk: an earlier quarantine (a
             # synthetic frame that has since been replaced by real data) no
             # longer applies, so the marker goes and the event is evaluated again.

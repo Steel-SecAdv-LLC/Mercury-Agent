@@ -25,6 +25,10 @@ from fastapi.testclient import TestClient
 from omni_mercury_engine.api import frontend
 from omni_mercury_engine.api.server import RateLimitMiddleware
 
+# The global rate limiter stays live here: these tests assert on it (see
+# tests/api/conftest.py, which switches it off for every other API test).
+pytestmark = pytest.mark.rate_limited
+
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:

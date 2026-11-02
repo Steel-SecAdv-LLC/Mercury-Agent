@@ -30,8 +30,6 @@ from fastapi.testclient import TestClient
 
 from omni_mercury_engine.api.server import app
 
-pytestmark = pytest.mark.usefixtures("rate_limit_off")
-
 #: sensitivity 1.0 -> threshold 2.0 -> two-sided tail 4.55%: large enough to
 #: measure on a few hundred draws, and the same rule as the default 3.5.
 SENSITIVITY = 1.0

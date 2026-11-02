@@ -273,7 +273,6 @@ def test_frontend_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     assert frontend.frontend_enabled() is False  # only the documented literal
 
 
-@pytest.mark.usefixtures("rate_limit_off")
 def test_frontend_off_leaves_existing_routes_untouched(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

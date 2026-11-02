@@ -163,6 +163,31 @@ the Docker builder gained `curl` so the image build downloads too
 (`tests/scripts/test_fetch_ama_prebuilt.py` drives the script against a
 `file://` mirror and pins the shared archive contract).
 
+**Fixed — every API test ran against the process-wide rate limiter it was not
+testing.** The limiter's token bucket is shared by every test that drives the
+one `server.app`; a module's requests spent budget a later module in the same
+CI worker found exhausted, and that module answered 429 before its own
+assertions ran. `tests/api/conftest.py` now switches the middleware off for
+every API test and restores it afterwards; the modules that assert on the
+limiter keep it live with the new `rate_limited` marker, and the per-module
+opt-outs are gone.
+
+**Fixed — the calibration cache could hand a pre-exclusion archive to the
+evaluation scripts.** An archive written before the label-derived exclusion
+still holds the columns the labels are built from, and scoring it publishes a
+circular number. `build_cache.py` now stamps every archive with its schema,
+the scored columns and the excluded ones, and `cache_archives()` leaves out
+any archive without the de-leaked schema until the event is rebuilt
+(`research/engine_calibration/_workspace.py::ARCHIVE_SCHEMA`,
+`tests/research/test_calibration_cache_archives.py`).
+
+**Fixed — the SQLite CLI guard compared bare package tokens.** APT accepts
+`sqlite3:amd64`, `sqlite3=3.46.1-1` and `sqlite3/trixie`, each of which would
+have installed the shell behind CVE-2026-119586 while the acceptance check
+saw a different token; the guard now strips the architecture, version and
+release qualifiers before comparing
+(`tests/security/test_sqlite_cve_acceptance_conditions.py`).
+
 **Fixed — the test run could file test mail in, and purge, a developer's own
 outbox.** `tests/conftest.py` set `MERCURY_MAIL_OUTBOX` with `setdefault`, so a
 developer with the variable in their shell received every account test's

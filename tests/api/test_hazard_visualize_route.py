@@ -21,11 +21,6 @@ pytest.importorskip("matplotlib")
 import numpy as np
 from fastapi.testclient import TestClient
 
-# The rate limiter is switched off per test by the ``rate_limit_off`` fixture
-# (tests/conftest.py); setting the variable at import leaked it into every
-# later test in the process.
-pytestmark = pytest.mark.usefixtures("rate_limit_off")
-
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 

@@ -1018,6 +1018,7 @@ markers = [
     "ml: marks ML-dependent tests",
     "security: marks security tests",
     "network: marks tests requiring network access (deselect with '-m \"not network\"')",
+    "rate_limited: keeps the API's global rate limiter live for a test that asserts on it (tests/api/conftest.py switches it off for every other API test)",
 ]
 filterwarnings = [
     # Deprecations are reported, not hidden: a warning the suite never shows

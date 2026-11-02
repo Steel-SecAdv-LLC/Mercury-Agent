@@ -17,6 +17,10 @@ pytest.importorskip("fastapi", reason="fastapi (optional '[api]' extra) is requi
 from omni_mercury_engine.api.server import app
 from tests.conftest import _rate_limit_layer, switch_rate_limiter_off
 
+# The global rate limiter stays live here: these tests assert on it (see
+# tests/api/conftest.py, which switches it off for every other API test).
+pytestmark = pytest.mark.rate_limited
+
 
 def _enabled() -> bool:
     layer = _rate_limit_layer()

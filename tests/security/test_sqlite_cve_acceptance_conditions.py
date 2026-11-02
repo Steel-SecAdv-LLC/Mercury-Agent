@@ -66,16 +66,43 @@ def test_engine_creates_no_fts_virtual_table() -> None:
     )
 
 
-def test_dockerfile_installs_no_sqlite3_cli() -> None:
-    """CVE-2026-119586 is in the sqlite3 shell; the acceptance rests on it not being installed."""
-    text = _DOCKERFILE.read_text(encoding="utf-8")
+def _apt_package_names(text: str) -> set[str]:
+    """Package names an ``apt-get install`` in ``text`` would install, normalised.
+
+    APT accepts a qualified name: ``sqlite3:amd64`` (architecture),
+    ``sqlite3=3.46.1-1`` (version), ``sqlite3/trixie`` (release). Each would
+    install the shell while a bare-token comparison saw a different string, so
+    the qualifiers are stripped before the name is compared.
+    """
     installed: set[str] = set()
     for block in _APT_INSTALL.findall(text):
         # Strip comments and line continuations, then take the bare package tokens.
         body = "\n".join(line.split("#", 1)[0] for line in block.splitlines())
         for token in body.replace("\\", " ").split():
-            if not token.startswith("-") and token not in {"apt-get", "apt", "install", "&&"}:
-                installed.add(token.lower())
+            if token.startswith("-") or token in {"apt-get", "apt", "install", "&&"}:
+                continue
+            name = re.split(r"[:=/]", token, maxsplit=1)[0]
+            installed.add(name.lower())
+    return installed
+
+
+def test_qualified_apt_package_names_are_normalised() -> None:
+    """A qualified ``sqlite3`` spelling must be seen as the shell, not pass as another token."""
+    for qualified in (
+        "sqlite3:amd64",
+        "sqlite3=3.46.1-1",
+        "sqlite3/trixie",
+        "SQLite3:arm64=3.46.1",
+    ):
+        text = f"RUN apt-get update && apt-get install -y --no-install-recommends curl \\\n    {qualified} && rm -rf /var/lib/apt/lists/*\n"
+        assert "sqlite3" in _apt_package_names(text), qualified
+    assert _apt_package_names("RUN apt-get install -y libsqlite3-0\n") == {"libsqlite3-0"}
+
+
+def test_dockerfile_installs_no_sqlite3_cli() -> None:
+    """CVE-2026-119586 is in the sqlite3 shell; the acceptance rests on it not being installed."""
+    text = _DOCKERFILE.read_text(encoding="utf-8")
+    installed = _apt_package_names(text)
     assert "sqlite3" not in installed, (
         "the Dockerfile installs the sqlite3 command-line shell; CVE-2026-119586 is no "
         "longer unreachable and its ledger entry must be re-reviewed"

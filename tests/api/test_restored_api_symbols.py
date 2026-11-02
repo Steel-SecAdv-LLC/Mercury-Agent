@@ -19,6 +19,10 @@ from omni_mercury_engine.api.maintenance import (
     maintenance_interval_seconds,
 )
 
+# The global rate limiter stays live here: these tests assert on it (see
+# tests/api/conftest.py, which switches it off for every other API test).
+pytestmark = pytest.mark.rate_limited
+
 
 def test_over_limit_request_gets_429_with_retry_after(monkeypatch: pytest.MonkeyPatch) -> None:
     fastapi = pytest.importorskip("fastapi")

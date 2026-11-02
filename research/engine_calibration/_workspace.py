@@ -60,6 +60,14 @@ DELEAK_SUFFIX = ".deleak.npz"
 #: Suffix of the marker ``quarantine_event`` leaves beside a removed archive.
 QUARANTINE_SUFFIX = ".quarantined.json"
 
+#: Schema of a per-event archive the evaluation scripts may read. Version 2
+#: is the de-leaked matrix: ``X`` holds only ``scored_feature_columns`` and the
+#: archive records those columns and the excluded label-derived ones. Archives
+#: written before the exclusion carry no ``schema`` key and still hold the
+#: label-derived columns; reading one would score a circular matrix, so
+#: :func:`cache_archives` leaves them out until ``build_cache.py`` rewrites them.
+ARCHIVE_SCHEMA = 2
+
 
 def quarantine_event(domain: str, event: str, reason: str) -> None:
     """Remove ``{domain}__{event}.npz`` and leave a marker saying why.
@@ -104,15 +112,34 @@ def cache_archives() -> list[str]:
     the evaluation scripts failed at ``d["X"]`` after a documented
     ``deleak_impact.py --fetch``; every script that reads the per-event
     archives goes through this filter instead. An event with a quarantine
-    marker (see :func:`quarantine_event`) is left out as well.
+    marker (see :func:`quarantine_event`) is left out as well, and so is an
+    archive written before the label-derived exclusion (no ``schema`` key, see
+    :data:`ARCHIVE_SCHEMA`): it still holds the columns the labels are built
+    from, and scoring it would publish a circular number.
     """
     root = Path(cache_dir())
     quarantined = {p.name[: -len(QUARANTINE_SUFFIX)] for p in root.glob("*" + QUARANTINE_SUFFIX)}
     return sorted(
         str(p)
         for p in root.glob("*.npz")
-        if not p.name.endswith(DELEAK_SUFFIX) and p.name[: -len(".npz")] not in quarantined
+        if not p.name.endswith(DELEAK_SUFFIX)
+        and p.name[: -len(".npz")] not in quarantined
+        and archive_schema(p) >= ARCHIVE_SCHEMA
     )
+
+
+def archive_schema(path: Path) -> int:
+    """The ``schema`` an archive declares; 1 for one written before the exclusion.
+
+    Those archives were built from ``engineer_features`` and still hold the
+    label-derived columns, which is why they are not handed to the readers.
+    """
+    import numpy as np
+
+    with np.load(path, allow_pickle=False) as data:
+        if "schema" not in data.files:
+            return 1
+        return int(data["schema"])
 
 
 def workspace_file(name: str) -> str:
