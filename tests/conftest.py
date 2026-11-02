@@ -47,11 +47,13 @@ os.environ["MERCURY_MODEL_DIR"] = os.path.join(
 
 # The development mailer files every message it is handed; account tests
 # register and reset accounts constantly, and none of that belongs in the
-# developer's own outbox.
-os.environ.setdefault(
-    "MERCURY_MAIL_OUTBOX",
-    os.path.join(tempfile.gettempdir(), f"mercury-test-outbox-{os.getpid()}"),
-)
+# developer's own outbox. Assigned, not defaulted: with ``setdefault`` a
+# developer who had ``MERCURY_MAIL_OUTBOX`` set in their shell received every
+# test message there, and the decouple purge tests, which inventory that
+# variable, could have removed their mail
+# (tests/test_decouple.py::TestMailerOutboxIsState).
+TEST_MAIL_OUTBOX = os.path.join(tempfile.gettempdir(), f"mercury-test-outbox-{os.getpid()}")
+os.environ["MERCURY_MAIL_OUTBOX"] = TEST_MAIL_OUTBOX
 
 
 def _bootstrap_source_checkout() -> None:

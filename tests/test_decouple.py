@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
 import tarfile
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -24,6 +26,7 @@ from click.testing import CliRunner
 
 from omni_mercury_engine import decouple as dc
 from omni_mercury_engine.cli import main
+from tests import conftest
 
 
 @pytest.fixture
@@ -48,6 +51,9 @@ def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "MERCURY_CALIBRATION_CACHE",
         "MERCURY_DECOUPLE_FINDOYOU",
         "MERCURY_DECOUPLE_AMA_OPTIONAL",
+        # Inventoried by ``state_inventory`` and therefore reachable by the
+        # purge tests: a configured outbox must never be the developer's.
+        "MERCURY_MAIL_OUTBOX",
     ):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
@@ -371,3 +377,22 @@ class TestMailerOutboxIsState:
 
         roots = [i.path for i in dc.state_inventory()]
         assert any(root in default_outbox().parents for root in roots)
+
+    def test_the_test_run_never_points_the_mailer_at_a_developer_outbox(self) -> None:
+        """``tests/conftest.py`` assigns the outbox for the whole run.
+
+        It used ``setdefault``, so a developer with ``MERCURY_MAIL_OUTBOX`` in
+        their shell received every test message in their own outbox, and the
+        purge tests below could reach that mail.
+        """
+        configured = os.environ["MERCURY_MAIL_OUTBOX"]
+        assert configured == conftest.TEST_MAIL_OUTBOX
+        assert Path(configured).is_relative_to(Path(tempfile.gettempdir()))
+
+    def test_isolated_home_holds_no_configured_outbox(self, isolated_home: Path) -> None:
+        """Snapshot and purge tests see only the scratch tree's default outbox."""
+        from omni_mercury_engine.api.mailer import default_outbox
+
+        assert "MERCURY_MAIL_OUTBOX" not in os.environ
+        assert not any(i.source == "MERCURY_MAIL_OUTBOX" for i in dc.state_inventory())
+        assert default_outbox().is_relative_to(isolated_home)

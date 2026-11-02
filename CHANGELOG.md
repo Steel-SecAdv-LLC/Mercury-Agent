@@ -99,7 +99,40 @@ condition.
 
 **Fixed — the score bimodality check refused a span below float resolution.**
 `np.histogram` raised on scores such as 10000 and 10000 + 1e-13 (found by the
-BCa property test); such scores are one value and are not bimodal.
+BCa property test); such scores are one value and are not bimodal. The guard that replaced the crash compared the bin width with the
+floating-point spacing of `max(|low|, |high|, 1.0)`; the floor of 1.0 made the
+verdict depend on the scores' scale, so a two-peaked sample of order 1e-16
+read as one value while the same shape at order 1 read as bimodal. The guard
+now applies `np.histogram`'s own edge test (neighbouring `linspace` edges must
+differ), which is exactly as strict as the call it protects and scale-free
+(`tests/core/test_threshold_confidence_interval.py`).
+
+**Fixed — the face-detector error recommended an install that supplies no
+detector.** `FaceDetectorUnavailableError` sent operators to the `[ml]` extra
+for MTCNN, but no Mercury extra declares `facenet-pytorch`, so that install
+left the engine without a detector; and it offered the Haar cascade XMLs on an
+OpenCV 5.x `-headless` wheel, where `CascadeClassifier` itself is absent and
+no XML can help. The message now reports the installed state (whether
+`facenet_pytorch` imports, PyTorch, the OpenCV version, the classifier, the
+cascade found) and only the remedies that apply: `facenet-pytorch` together
+with `[ml]`; an OpenCV that carries the classifier (`opencv-python-headless<5`
+or a 5.x `opencv-contrib` wheel); or, when the classifier is present without
+bundled cascades, the XML itself. The Haar fallback now finds that XML in
+`MERCURY_HAARCASCADE_DIR`, OpenCV's bundled `cv2/data`, or
+`${DEEPFACE_HOME:-$HOME}/.deepface/weights` (where `docs/INSTALLATION.md` has
+operators download it), so supplying the file is a real remedy
+(`biometric_multimodal.haarcascade_directories`, `find_haarcascade`;
+`tests/models/test_wiring_age_progression.py`). The installation guide says the
+same.
+
+**Fixed — the test run could file test mail in, and purge, a developer's own
+outbox.** `tests/conftest.py` set `MERCURY_MAIL_OUTBOX` with `setdefault`, so a
+developer with the variable in their shell received every account test's
+message in their real outbox, and the decouple purge tests, which inventory
+that variable, could remove their mail. The run now assigns a per-process
+temporary outbox unconditionally, and the decouple tests' isolated home clears
+the variable so purge and snapshot see only the scratch tree
+(`tests/test_decouple.py::TestMailerOutboxIsState`).
 
 **Added — the console's `explain` runs on a connected server.** It sends the
 fusion route and narrates the run through `/api/v1/voice/narrate`, the two

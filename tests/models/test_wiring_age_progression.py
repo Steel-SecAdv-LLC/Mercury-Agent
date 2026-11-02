@@ -193,3 +193,47 @@ def test_a_detector_that_finds_nothing_still_reports_a_failed_detection(
     result = engine.progress_age(str(blank), 10)
     assert not result.success
     assert "Face detection failed" in str(result.message)
+
+
+def test_face_detector_requirement_names_remedies_that_supply_a_detector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every remedy in the message must really supply a detector.
+
+    The message used to send operators to the ``[ml]`` extra for MTCNN, but no
+    extra declares ``facenet-pytorch``, so that install left the engine where
+    it was; and it offered the cascade XMLs on an OpenCV with no
+    ``CascadeClassifier``, where no XML can help.
+    """
+    cv2 = pytest.importorskip("cv2")
+    monkeypatch.delenv(biometric_multimodal.HAARCASCADE_DIR_ENV, raising=False)
+    message = biometric_multimodal.face_detector_requirement()
+    assert "facenet-pytorch" in message
+    assert "the [ml] extra alone supplies PyTorch, not MTCNN" in message
+    if getattr(cv2, "CascadeClassifier", None) is None:
+        assert "cascade XMLs cannot help" in message
+        assert "opencv-python-headless<5" in message
+    else:
+        assert "cascade XMLs cannot help" not in message
+
+
+def test_cascade_search_honours_the_configured_and_documented_directories(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``MERCURY_HAARCASCADE_DIR`` is searched first, the DeepFace weights dir last."""
+    configured = tmp_path / "cascades"
+    configured.mkdir()
+    xml = configured / biometric_multimodal.FRONTAL_FACE_CASCADE
+    xml.write_text("<opencv_storage/>")
+    monkeypatch.setenv(biometric_multimodal.HAARCASCADE_DIR_ENV, str(configured))
+    assert biometric_multimodal.haarcascade_directories()[0] == str(configured)
+    assert biometric_multimodal.find_haarcascade() == str(xml)
+
+    monkeypatch.delenv(biometric_multimodal.HAARCASCADE_DIR_ENV)
+    home = tmp_path / "deepface_home"
+    weights = home / ".deepface" / "weights"
+    weights.mkdir(parents=True)
+    monkeypatch.setenv("DEEPFACE_HOME", str(home))
+    directories = biometric_multimodal.haarcascade_directories()
+    assert directories[-1] == str(weights)
+    assert str(configured) not in directories

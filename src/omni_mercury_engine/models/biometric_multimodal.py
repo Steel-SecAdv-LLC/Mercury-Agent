@@ -29,6 +29,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -593,27 +594,99 @@ class FaceDetectorUnavailableError(RuntimeError):
     """
 
 
+#: Directory an operator can point at the Haar cascade XMLs when the installed
+#: OpenCV does not bundle them (see :func:`haarcascade_directories`).
+HAARCASCADE_DIR_ENV = "MERCURY_HAARCASCADE_DIR"
+#: The frontal-face cascade the Haar fallback loads.
+FRONTAL_FACE_CASCADE = "haarcascade_frontalface_default.xml"
+
+
+def haarcascade_directories() -> list[str]:
+    """Directories searched, in order, for the Haar cascade XMLs.
+
+    1. ``MERCURY_HAARCASCADE_DIR`` when set.
+    2. The cascades bundled with OpenCV (``cv2.data.haarcascades``): present
+       on the 4.x wheels and on 5.x ``opencv-contrib`` builds.
+    3. ``${DEEPFACE_HOME:-$HOME}/.deepface/weights``, where
+       ``docs/INSTALLATION.md`` has operators download the two pinned cascades
+       that DeepFace's detector uses as well.
+    """
+    dirs: list[str] = []
+    configured = os.environ.get(HAARCASCADE_DIR_ENV, "").strip()
+    if configured:
+        dirs.append(str(Path(configured).expanduser()))
+    bundled = getattr(getattr(cv2, "data", None), "haarcascades", None)
+    if isinstance(bundled, str) and bundled:
+        dirs.append(bundled)
+    deepface_home = os.environ.get("DEEPFACE_HOME", "").strip()
+    home = Path(deepface_home) if deepface_home else Path.home()
+    dirs.append(str(home / ".deepface" / "weights"))
+    return dirs
+
+
+def find_haarcascade(name: str = FRONTAL_FACE_CASCADE) -> str | None:
+    """Path of the first cascade XML called ``name`` in :func:`haarcascade_directories`."""
+    for directory in haarcascade_directories():
+        candidate = Path(directory) / name
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
 def face_detector_requirement() -> str:
     """Why no face detector is available, and what supplies one.
 
-    Mercury has two: MTCNN from ``facenet_pytorch`` (needs the ``[ml]`` extra
-    for PyTorch), and OpenCV's Haar cascade. OpenCV 5.0 moved
-    ``CascadeClassifier`` and the bundled ``cv2.data.haarcascades`` into
-    ``opencv_contrib``, so the ``-headless`` 5.x wheel the core pin admits
-    carries neither -- a core-only install on 5.x therefore has *no* detector,
-    and the pin's ``<6`` ceiling is deliberate (see pyproject). Saying which
-    one to install beats returning ``None`` and letting the caller report "no
-    face in the image".
+    Mercury has two detectors: MTCNN from ``facenet_pytorch``, and OpenCV's
+    Haar cascade. Every remedy named here really supplies one:
+
+    * MTCNN needs the ``facenet-pytorch`` package, which no Mercury extra
+      declares, together with PyTorch (the ``[ml]`` extra). Installing
+      ``[ml]`` alone leaves MTCNN unavailable, so the message no longer
+      recommends it on its own.
+    * The Haar cascade needs ``cv2.CascadeClassifier`` *and* a cascade XML.
+      OpenCV 5.0 moved the classifier and the bundled XMLs into
+      ``opencv_contrib``, so the ``-headless`` 5.x wheel the core pin admits
+      has neither; on that build supplying XMLs cannot help, and the remedy is
+      an OpenCV that carries the classifier (the 4.x line, or a 5.x
+      ``opencv-contrib`` wheel). When the classifier exists but no XML is
+      found, the XML is the remedy, in any directory of
+      :func:`haarcascade_directories`.
+
+    Saying which applies beats returning ``None`` and letting the caller
+    report "no face in the image".
     """
     cascade = getattr(cv2, "CascadeClassifier", None) is not None
-    bundled = getattr(getattr(cv2, "data", None), "haarcascades", None) is not None
+    xml = find_haarcascade()
+    remedies = [
+        "install the facenet-pytorch package together with PyTorch "
+        '(pip install facenet-pytorch "mercury-agent-global[ml]"; the [ml] '
+        "extra alone supplies PyTorch, not MTCNN)"
+    ]
+    if not cascade:
+        remedies.append(
+            f"this OpenCV ({cv2.__version__}) has no CascadeClassifier, so "
+            "cascade XMLs cannot help; install an OpenCV that carries it "
+            '(pip install "opencv-python-headless<5", or a 5.x '
+            "opencv-contrib-python-headless wheel)"
+        )
+    elif xml is None:
+        remedies.append(
+            f"this OpenCV ({cv2.__version__}) has CascadeClassifier but no "
+            f"{FRONTAL_FACE_CASCADE} in {', '.join(haarcascade_directories())}; "
+            f"place the XML in one of those directories or point "
+            f"{HAARCASCADE_DIR_ENV} at it (docs/INSTALLATION.md gives the pinned "
+            "download and checksums)"
+        )
+    else:
+        remedies.append(
+            f"the cascade at {xml} did not load (CascadeClassifier is empty); "
+            "replace it with the pinned file from docs/INSTALLATION.md"
+        )
     return (
-        "no face detector is available in this install: MTCNN needs PyTorch "
-        '(pip install "mercury-agent-global[ml]"), and this OpenCV '
-        f"({cv2.__version__}) provides CascadeClassifier={cascade}, bundled "
-        f"cascades={bundled} -- OpenCV 5.x moved both into opencv_contrib. "
-        "Install the [ml] extra, or supply the cascade XMLs (see "
-        "docs/INSTALLATION.md)."
+        "no face detector is available in this install (facenet_pytorch "
+        f"importable={FACENET_AVAILABLE}, PyTorch={TORCH_AVAILABLE}, OpenCV "
+        f"{cv2.__version__} CascadeClassifier={cascade}, cascade XML="
+        f"{xml or 'none'}). Remedies: " + "; or ".join(remedies) + "."
     )
 
 
@@ -719,16 +792,13 @@ class AgeProgressionEngine:
             # skip the fallback cleanly when unavailable — the DNN detector above
             # stays the primary path.
             cascade_factory = getattr(cv2, "CascadeClassifier", None)
-            # ``cv2.data`` can exist while ``cv2.data.haarcascades`` does not
-            # (the 5.x headless/contrib split), so feature-detect the bundled
-            # cascade directory itself, not just the ``data`` module.
-            haarcascades_dir = getattr(getattr(cv2, "data", None), "haarcascades", None)
-            if cascade_factory is not None and haarcascades_dir is not None:
-                # ``os.path.join`` normalizes the separator: ``haarcascades_dir``
-                # is not guaranteed to carry a trailing slash across builds.
-                face_cascade = cascade_factory(
-                    os.path.join(haarcascades_dir, "haarcascade_frontalface_default.xml")
-                )
+            # The XML may be bundled with OpenCV, placed where the install
+            # guide says, or named by ``MERCURY_HAARCASCADE_DIR``; the 5.x
+            # headless/contrib split means ``cv2.data`` can exist with no
+            # cascades in it, so the file itself is what is looked for.
+            cascade_xml = find_haarcascade()
+            if cascade_factory is not None and cascade_xml is not None:
+                face_cascade = cascade_factory(cascade_xml)
                 # A missing/unreadable cascade XML yields an empty classifier
                 # rather than raising; run the fallback only when it loaded.
                 if not face_cascade.empty():

@@ -112,14 +112,26 @@ pip install -e ".[all]"
 > **The core pin alone does not guarantee a face _detector_.** OpenCV 5.0 moved
 > `CascadeClassifier` and the bundled cascades into `opencv_contrib`, so the
 > 5.x `-headless` wheel (which the `<6` ceiling admits) carries neither — a
-> core-only install resolving 5.x has no detector at all, and MTCNN from `[ml]`
-> is then the only one. That case now raises `FaceDetectorUnavailableError`
-> naming the OpenCV version, which symbols it provides, and what to install,
-> rather than returning `None` and reading as "no face in the image". Either
-> install `[ml]`, pin OpenCV to the 4.x line, or supply the cascade XMLs as
-> described under
-> [Biometric image analysis (DeepFace) assets](#biometric-image-analysis-deepface-assets)
-> below.
+> core-only install resolving 5.x has no detector at all. That case raises
+> `FaceDetectorUnavailableError` naming the installed state (whether
+> `facenet_pytorch` imports, whether PyTorch is present, the OpenCV version,
+> whether it has `CascadeClassifier`, which cascade XML was found) and only the
+> remedies that apply, rather than returning `None` and reading as "no face in
+> the image". The remedies that really supply a detector:
+>
+> * **MTCNN** needs the `facenet-pytorch` package, which no Mercury extra
+>   declares, together with PyTorch from `[ml]`:
+>   `pip install facenet-pytorch "mercury-agent-global[ml]"`. Installing `[ml]`
+>   alone supplies PyTorch and leaves MTCNN unavailable.
+> * **Haar cascade** needs `cv2.CascadeClassifier` *and* a cascade XML. On the
+>   5.x `-headless` wheel the classifier itself is absent, so XMLs cannot help;
+>   install an OpenCV that carries it (`pip install "opencv-python-headless<5"`,
+>   or a 5.x `opencv-contrib-python-headless` wheel). When the classifier is
+>   present but no XML is bundled, place the XMLs in `MERCURY_HAARCASCADE_DIR`
+>   or in `${DEEPFACE_HOME:-$HOME}/.deepface/weights` as described under
+>   [Biometric image analysis (DeepFace) assets](#biometric-image-analysis-deepface-assets)
+>   below; the engine searches the configured directory, OpenCV's bundled
+>   `cv2/data`, then the DeepFace weights directory.
 
 | Profile | Command | Includes |
 |---------|---------|----------|
@@ -159,7 +171,7 @@ other installs the first image analysis downloads, into
 |---|---|---|
 | `age_model_weights.h5`, `gender_model_weights.h5`, `facial_expression_model_weights.h5` | 539 MB, 537 MB, 6 MB | `predict()` on an image |
 | `facenet_weights.h5` | 92 MB | `extract_features()` and reference-vs-test matching |
-| `haarcascade_frontalface_default.xml`, `haarcascade_eye.xml` | 930 KB, 341 KB | face detection, **only with OpenCV 5.x**; 4.x wheels ship them in `cv2/data` |
+| `haarcascade_frontalface_default.xml`, `haarcascade_eye.xml` | 930 KB, 341 KB | face detection when the installed OpenCV has `CascadeClassifier` but no bundled cascades (a 5.x `opencv-contrib` build); 4.x wheels ship them in `cv2/data`; `MERCURY_HAARCASCADE_DIR` names another directory |
 
 A failed download does not raise: `predict()` returns the visual assessment with
 an `error` key and `attributes_measured: false`. On a host without GitHub

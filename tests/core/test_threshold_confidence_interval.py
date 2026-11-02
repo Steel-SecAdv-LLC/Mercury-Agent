@@ -191,6 +191,26 @@ def test_bimodality_still_detects_two_real_peaks() -> None:
     assert ScoreDiagnostics._detect_bimodality(two_peaks) is True
 
 
+@pytest.mark.parametrize("scale", [1e-20, 1e-8, 1.0, 1e8, 1e20])
+def test_bimodality_verdict_does_not_depend_on_the_scores_scale(scale: float) -> None:
+    """Multiplying every score by a constant must not change the verdict.
+
+    The degenerate-sample guard compared the bin width with the floating-point
+    spacing of ``max(|low|, |high|, 1.0)``; the floor of 1.0 made a two-peaked
+    sample of order 1e-16 read as a single value (its bin width is below the
+    spacing of 1.0 but far above the spacing of its own values), so the same
+    shape got a different verdict at a different scale. The guard now applies
+    ``np.histogram``'s own edge test, which is scale-free.
+    """
+    rng = np.random.default_rng(0)
+    two_peaks = np.concatenate([rng.normal(0.0, 0.1, 60), rng.normal(5.0, 0.1, 60)])
+    one_cloud = rng.normal(0.0, 1.0, 120)
+    assert ScoreDiagnostics._detect_bimodality(two_peaks * scale) is True
+    assert ScoreDiagnostics._detect_bimodality(one_cloud * scale) is (
+        ScoreDiagnostics._detect_bimodality(one_cloud)
+    )
+
+
 def test_compute_bca_survives_a_near_constant_sample() -> None:
     """End-to-end: the interval computes rather than raising."""
     scores = np.concatenate([np.zeros(39), np.array([1e-9])])
