@@ -115,8 +115,11 @@ as hover notes, and every control does something.**
   do, and is announced `aria-disabled`.
 - Right-panel tabs are `role=tab` with `aria-selected`; form enum chips,
   option presets and the sample-count chips carry `aria-pressed`; Mass Run
-  rows carry an accessible name. Assistive technology, and the control audit,
-  can now tell an already-active toggle from a dead one.
+  rows carry an accessible name; the connection pill and the domain-context
+  button carry `aria-haspopup` and an `aria-expanded` that reads `false` when
+  closed (the runtime drops a boolean `false`, so the design's own binding
+  vanished whenever the listbox was shut). Assistive technology, and the
+  control audit, can now tell an already-active toggle from a dead one.
 - A Playwright crawler (`restoring the console's state before every click and
   following revealed controls to depth two`) drove every view against the
   live server; the controls it found dead are the ones above, and the two it

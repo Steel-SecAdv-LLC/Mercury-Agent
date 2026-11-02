@@ -956,6 +956,50 @@ TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     ),
 )
 
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the connection pill declares the dialog it opens and whether it is open",
+        '<button onClick="{{ openConn }}" title="Server connection" style="flex:none;cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);font-size:10px;letter-spacing:.14em;border-radius:999px;padding:4px 10px;"
+        'background:{{ connBg }};color:{{ connFg }};border:1px solid {{ connBd }};">{{ connLabel }}</button>',
+        '<button onClick="{{ openConn }}" title="Server connection" aria-haspopup="dialog" aria-expanded="{{ connExpanded }}" '
+        'style="flex:none;cursor:pointer;font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);font-size:10px;'
+        "letter-spacing:.14em;border-radius:999px;padding:4px 10px;background:{{ connBg }};color:{{ connFg }};"
+        'border:1px solid {{ connBd }};">{{ connLabel }}</button>',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the connection pill's expanded state is a string the runtime keeps when the dialog is closed",
+        "connOpen: s.conn, closeConn:",
+        'connOpen: s.conn, connExpanded: s.conn ? "true" : "false", closeConn:',
+    ),
+    (
+        "the connection pill's expanded state before the console is ready",
+        "openConn: noop, connOpen: false,",
+        'openConn: noop, connOpen: false, connExpanded: "false",',
+    ),
+    (
+        "the domain-context button's expanded state before the console is ready",
+        "showConsole: false, ctxOpen: false,",
+        'showConsole: false, ctxOpen: false, ctxExpanded: "false",',
+    ),
+    (
+        "the domain-context button's expanded state is a string the runtime keeps when the listbox is closed",
+        'ctxOpen: s.menu === "ctx",',
+        'ctxOpen: s.menu === "ctx", ctxExpanded: s.menu === "ctx" ? "true" : "false",',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the domain-context button binds its expanded state to the string value",
+        'aria-haspopup="listbox" aria-expanded="{{ ctxOpen }}"',
+        'aria-haspopup="listbox" aria-expanded="{{ ctxExpanded }}"',
+    ),
+)
+
 #: Design modules shipped unchanged apart from MODULE_PATCHES.
 MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
     (
