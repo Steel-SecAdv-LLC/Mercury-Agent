@@ -163,6 +163,14 @@ the Docker builder gained `curl` so the image build downloads too
 (`tests/scripts/test_fetch_ama_prebuilt.py` drives the script against a
 `file://` mirror and pins the shared archive contract).
 
+**Fixed — the Security Scan lane could run out of disk.** Its audit-target
+environment installs the engine with the `[api]` extra, which resolves torch
+and its CUDA libraries, beside the Semgrep environment and the engine's own
+install; one run failed with "Disk quota exceeded" while installing torch. The
+lane now frees the runner's unused toolchains first, as the test lanes do, and
+installs the audit environment without pip's cache, which held a second copy
+of the torch stack.
+
 **Fixed — every API test ran against the process-wide rate limiter it was not
 testing.** The limiter's token bucket is shared by every test that drives the
 one `server.app`; a module's requests spent budget a later module in the same
