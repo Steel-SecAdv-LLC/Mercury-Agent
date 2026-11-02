@@ -296,6 +296,12 @@ api = [
     # the monitoring stack (monitoring/prometheus, Grafana dashboards, the API
     # HPA custom metrics) has no data source.
     "prometheus-client>=0.20.0",
+    # The served API exposes the neural detectors (fusion, neuro-symbolic,
+    # flagship) beside the statistical ones; without torch those routes
+    # refuse at request time and an operator who installed only ``[api]``
+    # has to discover the ``[ml]`` extra from a 503. Pinned here at the
+    # same floor as ``[ml]`` so one install onboards a full server.
+    "torch>=2.2.0",
 ]
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)

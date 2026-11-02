@@ -450,7 +450,9 @@ streaming-worker tier serves its own metrics on `:9090`, see the streaming
 section above). The `/metrics` endpoint merges the health gauges
 (`omni_mercury_up`, component status/latency) with the `prometheus_client`
 default registry, so a single scrape target covers both. This requires the
-`prometheus-client` dependency from the `[api]` extra (installed by `[all]`);
+`prometheus-client` dependency from the `[api]` extra (installed by `[all]`; the
+`[api]` extra also carries `torch>=2.2.0`, so a server installed with it serves the
+neural detection routes without a second install);
 without it the application metrics no-op and `/metrics` serves only the health
 gauges.
 

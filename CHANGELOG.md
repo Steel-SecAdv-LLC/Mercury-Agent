@@ -27,6 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Changed — the `[api]` extra installs torch.** The served API exposes the
+neural detection routes (fusion, neuro-symbolic, flagship) beside the
+statistical ones, but `pip install "mercury-agent-global[api]"` did not bring
+torch, so those routes refused at request time until the operator found the
+`[ml]` extra. `[api]` now pins `torch>=2.2.0` at the same floor as `[ml]`; one
+install onboards a full server. `[ml]` is unchanged.
+
+**Changed — the changelog records what changed, not the correspondence around
+it.** Pull-request and Dependabot numbers, review-tool names, AI session
+identifiers and branch-relative wording ("this branch", "this PR") are removed
+from every entry; the technical content of each entry is unchanged.
+
 **Added — proactive alerts reach the console.** The agent panel has carried an
 alert dock since its first release and the voice API's docstring promised
 "proactive alerts", but no server route produced any: the console's
@@ -74,8 +86,8 @@ so `[[0, 1000]] * 11 + [[10, 1000]]` was anomalous as a batch job (3.442) and
 clean over HTTP (1.418). Both routes now take their components from one
 kernel (`api/fusion_weights.py`: per-feature standardisation, row-to-row
 steps, per-feature spectral scores, one weight table), and
-`tests/api/test_fusion_batch_parity.py` pins the reviewer's series and
-matrix, an isolated spike, a constant-column invariance, and the bound that a
+`tests/api/test_fusion_batch_parity.py` pins the series and matrix that
+exposed it, an isolated spike, a constant-column invariance, and the bound that a
 batch peak never exceeds the synchronous score.
 
 **Fixed — a running worker recalls runs another worker recorded.** The
@@ -172,7 +184,7 @@ with the reason when one is unavailable or switched off. Help names these
 questions instead of a fixed paragraph, and the console's agent quick prompts
 include them (`tests/api/test_voice_engine_grounded_answers.py`).
 
-**Fixed — seven review findings on the console and crypto changes.** The
+**Fixed — seven defects in the console and crypto changes.** The
 agent's memory is scoped by principal: a detection is recalled only by the
 account that ran it (``anonymous`` for unauthenticated runs), and the voice
 route resolves an optional API key or JWT so an anonymous caller can no longer
@@ -722,7 +734,7 @@ were never broken; the sweep drove `detect()` on registry-seam detectors that ex
 `fit()+predict()`. They rank 2nd and 3rd of all graded detectors.
 
 **Changed — lint toolchain and README provenance.** `ruff` is bumped 0.17.1 → 0.17.2
-(rolls up Dependabot #383) across all three pin surfaces the parity gate enforces
+across all three pin surfaces the parity gate enforces
 (`ci.yml`, `pyproject.toml [dev]`, `.pre-commit-config.yaml`), verified clean tree-wide
 before the bump landed. The Dataset Attributions table now credits ALFA (CC0), UCI
 Robot Execution Failures (CC BY 4.0, which requires attribution), NAB (MIT) and OpenSky
@@ -809,8 +821,8 @@ added signal (see the memory-fix entry above). The image is an integration demo,
 not a performance benchmark; real neuro-symbolic anomaly numbers come from the
 NAB streaming benchmark.
 
-**Fixed — the wildfire loader's two FIRMS windowing defects (issue #382 and a
-silent historical mislabeling).** First, `fetch_realtime()`: FIRMS `day_range`
+**Fixed — the wildfire loader's two FIRMS windowing defects (a real-time
+window gap and a silent historical mislabeling).** First, `fetch_realtime()`: FIRMS `day_range`
 counts UTC calendar days ending today and VIIRS NRT processing lags ~3 hours,
 so the 1-day global query returned a header-only CSV when issued shortly after
 UTC midnight — the weekly keyed-loader smoke's recurring "0 rows" failure. Two
@@ -857,7 +869,7 @@ fabricated (OpenSky serves history only to authenticated accounts).
 `opensky-network.org` joins the SSRF allowlist with a pinned endpoint.
 
 **Fixed — `generate_calibration_visuals.py` no longer regenerates the retired
-`conformal_coverage.png`.** The standalone image was retired in PR #139 when its
+`conformal_coverage.png`.** The standalone image was retired when its
 empirical-vs-target scatter became a panel of `calibration_improvement.png`
 (docs/BENCHMARKS.md, MD-005), but the generator kept writing the orphan file to
 `docs/images/` on every run, contradicting the documented retirement.
@@ -1265,7 +1277,7 @@ between them. Every figure above was re-measured with the buffer cleared.
 `tests/core/test_declared_modality_false_alarm_rate.py` drives every `matrix_2d` manifest
 entry behind the registry seam on independent Gaussian rows and pins what each flags in a
 held-out half, where every flag is a false alarm. It is the generalisation of the
-`series_1d` gate that found five mis-declared modalities on this branch, and it has teeth:
+`series_1d` gate that found five mis-declared modalities, and it has teeth:
 against the previous `directive` it fails with "flags 0.8417 of held-out normal rows against
 the measured 0.0600" -- a flood live in a default-enabled detector that no existing test
 reported, because the manifest seam tests assert a detector *returned* something and never
@@ -1328,7 +1340,7 @@ quantile scores NAB 42.7 at an FPR of 0.1940 and is not the default, because cho
 would be tuning a threshold on the evaluation corpus. The stationary gate's pin moves from
 0.2725 to 0.1020; the NAB pin (12.2) is unchanged within its tolerance.
 
-**Removed the three `# type: ignore` markers this branch had added.** Two were on the
+**Removed the three `# type: ignore` markers an earlier commit had added.** Two were on the
 duplicated `self._oracle_detector.detect(...)` calls in `PhysicsIntegratedDetector.detect`
 and went with the `_run_oracle` helper that replaced them; the third, on
 `detector.detect(...)` in the CWRU recorded-data test, was there because the helper took
@@ -3320,7 +3332,7 @@ unrecognised string is ever reported as a threat indicator. Every action begins
 with trained human review. Free-text reports must be coded first.
 
 **Documented — three released-module removals (`DEPRECATION.md` §6.13-6.15).**
-This branch removes released public classes from three modules without
+This release removes released public classes from three modules without
 restoring them: `security.counterintelligence.OverwatchNexus` /
 `OverwatchNexusResult` (scored reports it fabricated: the same risk, 0.2766,
 for zeros, noise and x1000 noise), the `truth_decipher.TruthDecipherFramework`
@@ -3508,7 +3520,7 @@ the four Safety-policy tests added after it pass.
 ### Seven parallel reviews of the newest code, every finding reproduced before it was fixed
 
 Seven independent reviews covered the roughly 20,000 lines added after the
-third review round (engine concurrency and drift, the fusion decision path and
+previous pass (engine concurrency and drift, the fusion decision path and
 counterintelligence screening, the adjudication ledger, statement verification
 and the CIT, contactless vital signs, the API audit trail, and wiring). Every
 finding below was reproduced from the code or by experiment first, and each fix
@@ -3836,7 +3848,7 @@ generated domain table now fills), `PR335_AI_ALERT_REMEDIATION.md` and
 audit log with no references). Git history keeps all four.
 
 **Restored — removed result fields and modules, computed from cited
-methods.** Earlier commits on this branch removed released fields and modules
+methods.** Earlier commits removed released fields and modules
 that were never computed or were wrong; each is back under the Preservation
 Principle, and the new contract tests fail on the previous code.
 - Power: GIC averages 1-second data to 1-minute means before dB/dt (the
@@ -3894,7 +3906,7 @@ Principle, and the new contract tests fail on the previous code.
 - `slhdsa_sign_internal` stays removed as a security exception, aligned with
   AMA Cryptography v5 (DEPRECATION.md §6.11).
 
-**Restored — the symbols an earlier cleanup on this branch removed as
+**Restored — the symbols an earlier cleanup removed as
 uncalled, each with its defect fixed.** The removals (7ab59916, f498866a,
 f07b724e) are reverted under the Preservation Principle: every symbol is back
 under its released name and signature with a test, and the defect tests fail
@@ -4135,7 +4147,7 @@ bridge to FINDΩYOU™. See [`docs/VISION.md`](docs/VISION.md).
   - SHA3-256 image digests;
   - an ML-DSA-65 signature through AMA, verified against a pinned producer key.
 
-  Every FINDΩYOU™ import of Mercury resolves on this branch.
+  Every FINDΩYOU™ import of Mercury resolves.
 - **Self-model** (`self_model.py`).
   - Mercury's identity, probed capabilities, safeguards, measured performance
     and derived limitations.
@@ -4247,7 +4259,7 @@ the package root to every surface that can decide, serve, sign, or encrypt:
 
 The README scale gate's stability property ("a handful of added lines must
 not demand a README rewrite") was asserted of a pure rounding function — an
-impossible property at bucket boundaries, and this branch's source LOC landed
+impossible property at bucket boundaries, and the source LOC landed
 seven lines below one, turning the full-sweep lanes red over a documentation
 integer. Cured in the design, not the test pin: ``--check`` / ``--update``
 now keep a published, bucket-aligned LOC figure while it is within one
@@ -4257,9 +4269,9 @@ never accepted). The property is pinned deterministically at the boundary
 worst case — not against live-tree state — plus a fire test beyond the
 staleness limit and a freshness-rule unit test.
 
-### Final adversarial review: eleven findings triaged, nine fixed, every claim re-tested
+### Adversarial review: eleven findings triaged, nine fixed, every claim re-tested
 
-A hostile machine review of this branch's full diff produced eleven findings;
+An adversarial review of the full diff produced eleven findings;
 each was verified against a traced failure path before acting. Nine were real
 and are fixed; one was a docstring overclaim (corrected to the truth); one —
 re-inserting previously-removed parameters could mis-bind positional callers —
@@ -4651,8 +4663,8 @@ ever read), the `golden_ratio_weights` kwarg and the dead
 `create_omni_intelligence_scalars()` are removed; `_identify_sources` drops
 an `attention_weights` parameter it always ignored.
 
-**Fixed — kNN density stream diluted the ensemble on small fits (PR #376's
-red anomaly regression guard).** The stream's mean distance to `k = 10`
+**Fixed — kNN density stream diluted the ensemble on small fits (the
+anomaly regression guard went red).** The stream's mean distance to `k = 10`
 neighbours only estimates local density when the reference is an order of
 magnitude larger than `k`; on ADBench Lymphography (n_train = 71) the
 neighbourhood spanned a seventh of the sample and the 50/50 fusion dragged
@@ -4670,7 +4682,7 @@ crashed `fuse_intelligence`; two regression tests).
 **Measured — headline benchmark regenerated on the unified detector.**
 The committed headline predated the kNN density stream entirely (its
 glass/pendigits values are the stream-off figures), so it understated the
-shipped detector. Regenerated on this branch's tree (75 attempted / 66
+shipped detector. Regenerated on the current tree (75 attempted / 66
 reproducible / 53 genuine-label headline): mean ROC-AUC 0.8251 → 0.8544
 (+0.0293), median 0.8747 → 0.9095 (+0.0348), mean oracle F1
 0.5998 → 0.6433 (+0.0435). Per-dataset audit: the four sub-100-train sets
@@ -4682,7 +4694,7 @@ datasets excluded from the headline. ADBench-46/47 remain the known
 sub-0.5 stragglers (both marginally improved). README "Latest Benchmark
 Results" synced via `scripts/update_readme_benchmarks.py`;
 `check_benchmark_integrity` and the anomaly regression guard both pass. Also fixed: the two `[no-any-return]` errors (3.11
-numpy stubs) that failed PR #376's Type Checking lane, in
+numpy stubs) that failed the Type Checking lane, in
 `tests/ml/test_covariance_and_psi_drift.py` and
 `tests/core/test_registry_feature_cache.py`.
 
@@ -4859,7 +4871,7 @@ allow-rules.
 
 Separately, three scheduled lanes that were red on `main` are fixed at root
 cause (reproduced before each fix): `competitive-benchmark.yml` was the one
-engine-importing workflow without the AMA build step, so the PR-#360
+engine-importing workflow without the AMA build step, so the
 import-time PQC gate failed its first `import omni_mercury_engine`;
 `phase3-governance.yml` invoked `phase3_governance.py` by file path, which
 drops the repo root from `sys.path` and breaks its own
@@ -4965,24 +4977,24 @@ v5.0.0, with this tree's gates and tests holding them in place.
   operator tool now also holds `_pqc_gate._AMA_REQUIRED_VERSION` and every
   "pinned to" statement in an AMA paragraph to the `pyproject.toml` ref.
 
-**Changed — dependencies (consolidates Dependabot #367 and #371)**
+**Changed — dependencies**
 
 - `ruff` 0.16.0 → 0.16.4 and `mypy` 2.3.0 → 2.3.1 at every parity site
   (`pyproject.toml` `[ml]`/`[dev]`, both `ci.yml` install lines, both
-  pre-commit revs). #367 changed only `pyproject.toml` and so failed the
-  pin-parity gate. Every CI mypy lane and `ruff` are clean under the new pins.
-- Ten GitHub Actions bumps from #371, SHA-pinned; each new SHA was checked
+  pre-commit revs); a bump of `pyproject.toml` alone fails the pin-parity
+  gate. Every CI mypy lane and `ruff` are clean under the new pins.
+- Ten GitHub Actions bumps, SHA-pinned; each new SHA was checked
   against its upstream release tag with `git ls-remote`.
 
 **Assessed and not taken.** All 55 remote branches were triaged. Every merged
-branch tip equals its PR's final head except two benchmark-only commits;
+branch tip equals its final head except two benchmark-only commits;
 every closed-unmerged branch is either already on `main` in a stronger form
-or would regress a later fix (for example #328's BOCPD tail double-count and
-a `1e15` magnitude cap that clips nanosecond timestamps). #307's golden-ratio
+or would regress a later fix (for example a BOCPD tail double-count and
+a `1e15` magnitude cap that clips nanosecond timestamps). A golden-ratio
 removal was not taken: no stated score contract is violated and its
 replacement literals would move operating points without validation data.
-AMA #394/#407: no AMA tag newer than v4.0.0 exists, so the pin is unchanged;
-#407's reference-integrity and mutation-evidence practices are what rule 4
+AMA: no tag newer than v4.0.0 exists, so the pin is unchanged; its
+reference-integrity and mutation-evidence practices are what rule 4
 and the pillar mutation step bring over.
 
 ### GCN Kafka MCP server + credential keep-alive
@@ -5220,7 +5232,7 @@ accounting without weakening any guarantee:
 
 ### Platform completion: account frontend, usage endpoint, operator CLI, platform metrics, deployment profile
 
-The launch-facing half of the platform work (PR #350, continued): everything a
+The launch-facing half of the platform work: everything a
 public deployment still lacked on top of the hardened backend below. The
 additive/opt-in contract is unchanged — with no env vars set, behaviour is
 byte-identical (the frontend is off by default and `/` keeps returning 404).
@@ -5286,7 +5298,7 @@ byte-identical (the frontend is off by default and `/` keeps returning 404).
 
 ### Free-service platform hardening: auth abuse controls, at-rest 2FA, quotas, lifecycle, sessions
 
-Hardening pass over the account/persistence/auth/metering platform (PR #350) so
+Hardening pass over the account/persistence/auth/metering platform so
 Mercury Agent can run as a free, public, account-based service. **Additive and
 opt-in throughout** — a solo self-hoster who clones and runs the repo keeps
 byte-identical behaviour (in-memory, no accounts, no SMTP, no quotas); the
@@ -5723,11 +5735,10 @@ Full audit trail with measured before/after evidence:
   telemetry. Merit-gated by ``tests/test_sw_eng_metrics_collector.py`` (real
   values, sane bands, metric-only, σ untouched).
 
-### Changed: dependency bumps folded in (Dependabot #340, #341, #342)
+### Changed: dependency bumps
 
 - **mypy `2.1.0` → `2.3.0`** and **types-requests `2.33.0.20260518` →
-  `2.33.0.20260712`** (Dependabot #341, #342). Dependabot only edited
-  `pyproject.toml`; the repo pins these tools on four parity-checked
+  `2.33.0.20260712`**. The repo pins these tools on four parity-checked
   surfaces (`scripts/check_pinned_tool_versions.py` fails on drift), so all
   four were bumped in lockstep — `pyproject.toml` `[ml]` + `[dev]`,
   `.github/workflows/ci.yml` (Code Quality + Type Checking install lines),
@@ -5735,15 +5746,13 @@ Full audit trail with measured before/after evidence:
   `# type: ignore` set byte-identical: both lanes clean (`mypy src/` 748
   files, `mypy tests/` 644 files), no `unused-ignore` fallout on
   `datasets/mitbih.py:105/109`. Parity check + self-test green.
-- **redis Helm subchart `27.0.13` → `27.0.15`** (Dependabot #340,
-  helm-charts group) in `helm/mercury-agent/Chart.yaml`. Patch-level Bitnami
+- **redis Helm subchart `27.0.13` → `27.0.15`** (helm-charts group) in `helm/mercury-agent/Chart.yaml`. Patch-level Bitnami
   bump; infra-only, no Python runtime surface.
 
-### Changed: GitHub Actions group bump — 7 updates consolidated (Dependabot #345/#346; #341 superseded)
+### Changed: GitHub Actions group bump — 7 updates consolidated
 
-- **The full `github-actions` Dependabot group, applied as SHA pins** —
-  byte-identical to Dependabot #346's tree, every new SHA independently
-  re-resolved from its upstream repo via `git ls-remote` before adoption:
+- **The full `github-actions` group, applied as SHA pins** — every new SHA
+  independently re-resolved from its upstream repo via `git ls-remote` before adoption:
   - `actions/setup-python` **v6 → v7.0.0**
     (`5fda3b95a4ea91299a34e894583c3862153e4b97`, 38 `uses:` sites);
   - `actions/setup-go` **v6 → v7.0.0**
@@ -5757,13 +5766,6 @@ Full audit trail with measured before/after evidence:
   - `pypa/gh-action-pypi-publish` **release/v1 → v1.14.1 head**
     (`ba38be9e461d3875417946c167d0b5f3d385a247`, 1 site in
     `release.yml`).
-- **Why consolidated by hand:** Dependabot #345 proposed the setup-python /
-  setup-go bump against tag refs, went stale when the repository-wide SHA
-  pinning landed on `main`, and was auto-closed as conflicting; its
-  replacement #346 (this exact tree) supersedes it and auto-closes on
-  merge. The companion #341 (mypy `2.1.0` → `2.3.0`) needed no code
-  change — the dependency-bump fold recorded above already carried
-  mypy 2.3.0 onto `main`, and Dependabot auto-closed it.
 - **Compatibility audited before the bump:** setup-python / setup-go v7
   are the ESM / Node 24 migration — no workflow uses the `pip-install`
   input that setup-python v7 removed, every runner is GitHub-hosted
@@ -5799,13 +5801,11 @@ Full audit trail with measured before/after evidence:
   the guard stays in lockstep with the carve-out lexicon and the safety
   property is preserved exactly.
 
-### Fixed: doc drift left behind by the PR #339 coverage-floor graduation
+### Fixed: doc drift left behind by the coverage-floor graduation
 
-- A post-merge verify-first re-audit of the M1–M15 completion pass
-  (all 15 items re-verified against the merged head ``193b8e1``; 12/15
-  confirmed fully resolved in the merge) found nine doc locations still
+- A re-audit of the M1–M15 completion pass found nine doc locations still
   quoting the superseded ``CORE 25 / FULL 50`` coverage floors as
-  current after PR #339 graduated ``ci.yml`` to ``CORE 30 / FULL 55``
+  current after ``ci.yml`` graduated to ``CORE 30 / FULL 55``
   (README ×5, ARCHITECTURE ×3, ``docs/DEPLOYMENT.md``,
   ``docs/ROADMAP.md`` floor table, ``.coveragerc`` comment). All now
   quote the live gates; ROADMAP supersedes rather than overwrites the
@@ -5815,7 +5815,7 @@ Full audit trail with measured before/after evidence:
   the unfixed docs), so the next graduation cannot drift silently.
 - Cognitive-layer counts refreshed to measurement: ``cognitive/`` is
   30 modules (excluding ``__init__.py``) / ~32,000 LOC at HEAD — the
-  stale "23 modules / 30,073 LOC" predated the four modules PR #339
+  stale "23 modules / 30,073 LOC" predated the four modules
   added (README ×2, package docstring). ``truth_decipher.py``'s class
   docstring said "4-phase pipeline" while its module docstring, the
   Phase 1–5 dataclass comments, and the framework test
@@ -5837,7 +5837,7 @@ Full audit trail with measured before/after evidence:
 - ``docs/DORMANCY_LEDGER.md``'s "Last updated" header aligned with its
   own latest amendment date (2026-07-18).
 
-### Fixed: NumPy-2.0 crash in `harmonics/transform.py` + stale Legendre cache (PR #339)
+### Fixed: NumPy-2.0 crash in `harmonics/transform.py` + stale Legendre cache
 
 - ``np.math`` was removed in NumPy 2.0 (the project floor is
   ``numpy>=2.4``), so every ortho-normalized
@@ -5852,7 +5852,7 @@ Full audit trail with measured before/after evidence:
   (same length). The cache now invalidates when its grid changes; a
   reused transform is pinned bit-equal to a fresh instance.
 
-### Behaviour change: decision layer enabled at the served deploy entrypoints (PR #339)
+### Behaviour change: decision layer enabled at the served deploy entrypoints
 
 - The three served entrypoints — the ``/api/v1/detect/flagship`` HTTP
   route, the MCP ``mercury_detect_fusion`` tool, and
@@ -5870,7 +5870,7 @@ Full audit trail with measured before/after evidence:
   pre-existing wire format is pinned unchanged by test). Both are
   non-destructive and never auto-authorised.
 
-### Clarified: σ_Immutable threshold single source + hard/soft benevolence gates (PR #339)
+### Clarified: σ_Immutable threshold single source + hard/soft benevolence gates
 
 - ``ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD`` (0.93) is the new single
   authoritative declaration of the trained σ_Immutable network's decision
@@ -5885,10 +5885,10 @@ Full audit trail with measured before/after evidence:
   SOFT fusion-weighting term in ``core/three_r/fusion.py``. Comments and
   docstrings only; enforcement semantics identical.
 
-### Changed: coverage merge-gate floors graduated on re-measurement (PR #339)
+### Changed: coverage merge-gate floors graduated on re-measurement
 
 - ``COVERAGE_THRESHOLD_CORE`` 25 → **30** and ``COVERAGE_THRESHOLD_FULL``
-  50 → **55**, backed by fresh CI-identical measurements on the PR #339
+  50 → **55**, backed by fresh CI-identical measurements on the
   head (CORE 37.94% / FULL 67.97% combined stmt+branch, both lanes
   green at measurement; previous baselines 31.87% / 59.84%). Same
   cushion policy that set 25/50 (~7 points CORE / ~10 points FULL below
@@ -5897,7 +5897,7 @@ Full audit trail with measured before/after evidence:
   CI's ``[all,dev]`` lane. CONTRIBUTING.md and the ci.yml rationale
   comment updated together.
 
-### Behaviour change: `MatrixProfileAdapter.find_discords` default input interpretation (PR #339)
+### Behaviour change: `MatrixProfileAdapter.find_discords` default input interpretation
 
 - With ``is_matrix_profile=None`` (the default), ``find_discords`` now
   ALWAYS treats the input as a raw series and computes its matrix profile.
@@ -5909,7 +5909,7 @@ Full audit trail with measured before/after evidence:
   declare it with ``is_matrix_profile=True`` (the in-repo caller already
   does). Noted in the method docstring.
 
-### GOSNN role resolved: one scalar snapshot for both gates; observability audited (PR #339)
+### GOSNN role resolved: one scalar snapshot for both gates; observability audited
 
 - **The σ_Immutable path no longer collects the scalar vector twice per
   detect call.** ``detect_with_fusion`` used to walk the 127-scalar
@@ -5932,7 +5932,7 @@ Full audit trail with measured before/after evidence:
   independent of the engine's own fusion, and correctly never routed into
   a decision.
 
-### GOSNN fusion: consequential decision channel + labelled-outcome training (PR #339)
+### GOSNN fusion: consequential decision channel + labelled-outcome training
 
 - **`MultiHeadAttentionFusion` train/serve stacks unified.** The
   architecture and forward computation now live in one shared module
@@ -5993,7 +5993,7 @@ Full audit trail with measured before/after evidence:
   detector-score head clears — it would have shipped a cross-check weaker
   than the engine it guards.
 
-### Hazard/geophysical detectors: `(1, W)` batched-single-sample crash class swept (PR #339)
+### Hazard/geophysical detectors: `(1, W)` batched-single-sample crash class swept
 
 - The solar geomag fix generalised: an audit of every net-backed trained
   serving lane reproduced the same crash class in landslide
@@ -6009,7 +6009,7 @@ Full audit trail with measured before/after evidence:
   physics/neutral path or fails loud where no physics fallback exists.
   Each fix is pinned by ``tests/detectors/test_batched_single_sample_guards.py``.
 
-### Tooling: `ruff check` no longer auto-mutates (PR #339)
+### Tooling: `ruff check` no longer auto-mutates
 
 - ``[tool.ruff] fix`` is now ``false``: a plain ``ruff check`` used to
   rewrite files, so a file could change *after* a passing mypy run and ship
@@ -6018,7 +6018,7 @@ Full audit trail with measured before/after evidence:
   fix so later hooks re-run); ``scripts/run_ci_gates.sh`` orders the mypy
   lanes after ruff.
 
-### Product identity + uniform per-provider model selection (PR #339)
+### Product identity + uniform per-provider model selection
 
 - **Mercury Agent identifies as Mercury Agent.** A product-identity clause
   (``MERCURY_IDENTITY_CLAUSE``) now rides every system prompt Mercury sends
@@ -6041,7 +6041,7 @@ Full audit trail with measured before/after evidence:
   are preserved verbatim as documented opt-in ``EXAMPLE_OLLAMA_*``
   constants.
 
-### Provider neutrality: no vendor-default models, anywhere (PR #339)
+### Provider neutrality: no vendor-default models, anywhere
 
 - **Mercury ships no default model id for any provider — local or cloud.**
   Every adapter (OpenAI, Anthropic, HuggingFace, xAI, DeepSeek, Cursor,
@@ -6060,7 +6060,7 @@ Full audit trail with measured before/after evidence:
   require the operator to name the model (``MERCURY_ANTHROPIC_MODEL``), and
   the README presents every shipped provider as equally welcome.
 
-### Review-hardening: edge-window crashes, sizing consistency, honest docs (PR #339)
+### Hardening: edge-window crashes, sizing consistency, honest docs
 
 - **Schumann degenerate windows fixed end-to-end.** An empty ELF window
   reached ``scipy.fft.fft`` (which raises on empty input) before any guard,
@@ -6092,7 +6092,7 @@ Full audit trail with measured before/after evidence:
   closed redundantly on a broken install, and Mercury reads it only for
   diagnostics.
 
-### Merit gates enforced in both directions: seismic winner serves, GOSNN fusion refuses (PR #339)
+### Merit gates enforced in both directions: seismic winner serves, GOSNN fusion refuses
 
 - **EarthquakeDetector defaults to the shipped merit-gate winner.** The
   ``seismic_stead`` checkpoint (real STEAD data: held-out recall 0.9745 vs
@@ -6123,7 +6123,7 @@ Full audit trail with measured before/after evidence:
   pins that the artifact's decision and the shipped-checkpoint state can
   never disagree.
 
-### Follow-through: operational VLM backends, shipped model pins, honest failure semantics (PR #339)
+### Follow-through: operational VLM backends, shipped model pins, honest failure semantics
 
 - **Local VLM backends shipped (BSD-3-Clause BLIP), validated live.** New
   ``blip_vqa`` (Salesforce/blip-vqa-base) and ``blip_caption``
@@ -6167,7 +6167,7 @@ Full audit trail with measured before/after evidence:
   (``mercury-agent tool detector_profiler``; sandbox re-run: median
   47.7 ms — the ``<100ms`` claim holds).
 
-### Engineering audit: packaging, detector correctness, latency, torch-free cloud path (PR #339)
+### Engineering audit: packaging, detector correctness, latency, torch-free cloud path
 
 - **`pip install .[all]` / `.[test]` un-broken (lime dropped from the extras
   graph).** `lime==0.2.0.1` — its only release (2020, unmaintained) — fails to
@@ -6257,7 +6257,7 @@ Full audit trail with measured before/after evidence:
   `prange` sites carry dual-environment ignores. Bandit (CI configuration,
   medium+ severity): clean.
 
-### Dependency & static-analysis hardening (PR #336)
+### Dependency & static-analysis hardening
 
 - **OpenCV moved to the 5.x line.** `opencv-python-headless` is now pinned
   `>=4.8.0,<6`. OpenCV 5.0.0 (2026-07) relocated the Haar/HOG detectors —
@@ -6274,13 +6274,11 @@ Full audit trail with measured before/after evidence:
   `models/biometric_advanced.py`, and
   `space/ionospheric_scintillation_detector.py`.
 
-### AI/bot review-alert remediation — root-cause fixes, no suppressions
+### Static-analysis findings on the competitive-benchmark work fixed at the root
 
-A pass over every open Copilot review alert on the competitive-benchmark work,
-resolving each at the root (no debt-for-debt, no suppression, no silenced check)
-and proving the fix with an offline, deterministic test. Full triage table,
-per-alert root-cause notes, sandbox deployment steps and validation artifacts in
-[`docs/PR335_AI_ALERT_REMEDIATION.md`](docs/PR335_AI_ALERT_REMEDIATION.md).
+A pass over every open static-analysis finding on the competitive-benchmark
+work, resolving each at the root (no debt-for-debt, no suppression, no silenced
+check) and proving the fix with an offline, deterministic test.
 
 - **Credential-check transport errors were opaque.**
   `scripts/verify_data_credentials.py` collapsed a transport failure — `_get()`
@@ -6314,8 +6312,8 @@ per-alert root-cause notes, sandbox deployment steps and validation artifacts in
 - **Docstring / pydocstyle hygiene.** The four remaining `check_*` helpers and
   `run()` in `verify_data_credentials.py` gained one-line Google-style docstrings,
   making the module fully `pydocstyle --convention=google` clean.
-- The remaining open alerts were already fixed at the root in earlier commits of
-  this branch (the `data/adbench_embeddings` cache key, the forked-child metrics
+- The remaining open findings were already fixed at the root in earlier commits
+  (the `data/adbench_embeddings` cache key, the forked-child metrics
   reduction that keeps the full score vector off the IPC boundary, the
   `WildfireLoader` comment, the `"fail-softed"` typo, and the `git_commit`
   provenance-label clarification); this pass verified each against the current
@@ -6326,8 +6324,7 @@ per-alert root-cause notes, sandbox deployment steps and validation artifacts in
 
 ### Independent verification pass — CI red-to-green + fail-loud hardening
 
-An adversarial re-verification of this branch fixed every defect it surfaced
-at the root:
+An adversarial re-verification fixed every defect it surfaced at the root:
 
 - **CI failures fixed.** 16 mypy errors across 10 files (Optional detector
   source fields, explicit re-exports via module `__all__`, unused ignores,
@@ -6336,7 +6333,7 @@ at the root:
   `torch.load` is now hard-pinned to `weights_only=True` (house convention),
   including the shipped-checkpoint loader which previously passed
   `weights_only=False` explicitly.
-- **Review findings resolved without weakening.** (1) A stale last-good
+- **Findings resolved without weakening.** (1) A stale last-good
   posture evaluation no longer masks an actively failing evaluator:
   ``_reported_posture_level()`` reports ``UNKNOWN`` whenever consecutive
   evaluation failures exist, even when a prior success is cached
@@ -6619,7 +6616,7 @@ current `ci.yml` values (CORE 25 / FULL 50, not 15 / 35).
 
 ### Independent verification pass — reproduced results + fail-loud hardening
 
-An adversarial re-verification of this branch reproduced the two headline
+An adversarial re-verification reproduced the two headline
 research claims and fixed every defect it surfaced:
 
 - **Both committed research results reproduce exactly** and their artifacts
@@ -6669,7 +6666,7 @@ research claims and fixed every defect it surfaced:
   `swpc_planetary_kp_recent.json` fixture was removed; two pre-existing
   lint errors (F821 `Path` in tests/test_cli.py, SIM117 in the hail loader
   tests) were fixed.
-- New reviewer docs: `docs/HAZARD_VISUALIZATION.md` (incl. the transparent
+- New documentation: `docs/HAZARD_VISUALIZATION.md` (incl. the transparent
   Schumann 1-D-spectrum / no-track-cone / no-flood-GeoJSON scope notes) and
   `docs/COUNTERFACTUALS_AND_RULE_EVOLUTION.md` (reproduction commands).
 - **Typed test debt cleared for real.** The tests-lane mypy debt on this
@@ -7128,9 +7125,9 @@ adversarial audit's defects are fixed (no suppression; each fix carries a test).
   `MERCURY_GATE_AUDIT_DISABLED` into sibling suites (session `os.environ` mutation
   → function-scoped `monkeypatch`).
 
-#### Bot/AI alert resolution + live meaning-level harm classifier (review)
+#### Static-analysis alert resolution + live meaning-level harm classifier
 
-Full resolution of the open CodeQL/Copilot alerts against the intel layer — each
+Full resolution of the open CodeQL and static-analysis alerts against the intel layer — each
 verified against the running code and fixed with a regression test; no
 suppression, no weakening. All CI lanes green on the native AMA backend.
 
@@ -7182,7 +7179,7 @@ suppression, no weakening. All CI lanes green on the native AMA backend.
   Evidence recorded in `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md` and the
   `served_model_real` block of `benchmarks/weapons_gate_adversarial_sample_run.json`.
 
-### Merge-readiness hardening (PR #315 review)
+### Merge-readiness hardening
 
 A focused pass that reproduced the full CI pipeline locally, closed every red
 lane, and fixed the defects surfaced by an adversarial multi-lens review (each
@@ -7466,8 +7463,8 @@ unavailable backing stack returns an MCP `isError` result rather than a fabricat
 capability, and the server inherits Mercury's offline posture (self-hosted SearXNG
 search + local Ollama reasoning). See `docs/INTERCONNECT.md`.
 
-**Review-fix pass: CI gates, a CLI regression, and two silent-correctness gaps.**
-A full adversarial re-review of the branch above (8 independent finder passes,
+**Fix pass: CI gates, a CLI regression, and two silent-correctness gaps.**
+A full adversarial re-review (8 independent finder passes,
 each candidate verified against the actual call sites) turned up and closed:
 
 - *CI red.* `tests/test_search_provider_ladder.py`'s stub `__exit__` was typed
@@ -8390,7 +8387,7 @@ cloud adapter stay available, just never privileged.
   * `ReasoningRouter`: offline-first routing — the local backend is the floor
     and default, the remote backend is reached only on explicit opt-in, and
     hard-offline mode provably never selects or calls a network backend.
-  * Threads the PR #289 `UsageLedger` so token spend is accounted regardless of
+  * Threads the `UsageLedger` so token spend is accounted regardless of
     which backend serves a call.
   * **Wired into the engine (real consumer, not standalone substrate):**
     `OmniMercuryEngine.enable_reasoning()`, the lazy `reasoning_backend`
@@ -8416,23 +8413,23 @@ cloud adapter stay available, just never privileged.
   now uses a local open-weights model instead of a hosted one. Mercury presents
   as itself by default, not as any external AI.
 
-### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
+### Calibration — `StrictIsotonicCalibration` ported from the calibration brief (X1 survivor) (2026-06-12)
 
 * **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
   with a squeezed strictly-increasing tie-break, so the map preserves AUROC
-  exactly while keeping isotonic's ECE (PR #275 measured vanilla isotonic
+  exactly while keeping isotonic's ECE (the brief measured vanilla isotonic
   losing AUROC on 5/6 ADBench datasets, e.g. thyroid 0.9788 -> 0.9535).
   Exposed as `calibrate_detector(..., method="strict_isotonic")`; pinned by
   `tests/test_calibration_brief.py`.
 * Five factually wrong "requires scikit-learn" `ImportError` messages reworded
   to name the actual dependency (`omni_mercury_engine.ml.mercury_ml`, pure
-  numpy/scipy) — PR #275's V12c finding.
+  numpy/scipy) — the brief's V12c finding.
 * **Evidence suite** `benchmarks/calibration_brief/` (validation register
   V1–V11, explorations X1/X2/X8 with captured results) restored from the
-  deleted PR #275 branch (`refs/pull/275/head`, commit `bc211a0`), with a
+  brief's superseded source (commit `bc211a0`), with a
   disposition note reconciling it to what `main` has since shipped.
 * Deliberately not ported: the brief's `BetaCalibration` (superseded by the
-  accept-gated Beta landed in #278), the X12a eta-multiply lint (the eta^Phi
+  accept-gated Beta in the governed-fusion substrate), the X12a eta-multiply lint (the eta^Phi
   term was settled as an opt-in decoupling, R6 default-off), and the
   MATH_SPEC phi_sum patch (superseded by the `Φ + 2` canonical derivation).
 
@@ -8451,9 +8448,9 @@ pointing the host's session-start hook at this script.
 
 ### Reproducibility & API consolidation — deterministic construction of the fusion feature path's random components; conformal serialization moved behind a first-class API (2026-06-11)
 
-Consolidation follow-up to the checkpoint round-trip closure (ROADMAP row 16,
-PR #286): salvages the source-level pieces of the superseded competing
-implementation (PR #288) that remain advantageous on top of the shipped
+Consolidation follow-up to the checkpoint round-trip closure (ROADMAP row
+16): salvages the source-level pieces of a superseded competing
+implementation that remain advantageous on top of the shipped
 fitted-state persistence design. No checkpoint format change; the shipped
 `default_fusion.pt` is byte-unchanged and loads identically.
 
@@ -8482,8 +8479,8 @@ fitted-state persistence design. No checkpoint format change; the shipped
   temperature calibrator or conformal surface fitted against a previous
   fusion stack is dropped rather than silently misapplied to the loaded one
   (regression-pinned in `tests/test_fusion_checkpoint_roundtrip.py`).
-* **Auto-fit audit record kept truthful across load** (defect surfaced by
-  PR #288's review): restoring a detector's fitted state from a checkpoint
+* **Auto-fit audit record kept truthful across load** (defect surfaced in
+  review): restoring a detector's fitted state from a checkpoint
   now drops that detector from `_inference_auto_fit_detectors` — the
   first-batch leak it recorded no longer describes the engine, and a stale
   entry would also suppress the audit warning for any future post-load
@@ -8498,8 +8495,8 @@ fitted-state persistence design. No checkpoint format change; the shipped
 
 ### Performance & correctness — optimization/efficiency pass over the serving and checkpoint paths, with four pre-existing defect families fixed to completion (2026-06-11)
 
-Profile-first discipline: every change below is driven by a fresh measurement
-in this session, every fast path is a compiled form of pinned reference
+Profile-first discipline: every change below is driven by a fresh
+measurement, every fast path is a compiled form of pinned reference
 semantics, and the candidates the profile did *not* confirm are recorded as
 such instead of "optimized".
 
@@ -8718,7 +8715,7 @@ fidelity 600/600).
   (one async test erroring with "async def functions are not natively
   supported", and the `asyncio_mode` config warning on every run) is
   closed by installing the already-declared dev extras — no code change;
-  the failure predated this branch.
+  the failure predated this change.
 
 ### Multi-agent orchestration (pillar B) — the dormant planning/coordination/reflexion/chain-of-thought tier revived as a measured planner/critic/executor loop over the live ensemble (2026-06-11)
 
@@ -8946,8 +8943,8 @@ verifier/governance paths.
   a stream, recording each pass and fanning it out to an optional `FeedbackSink`
   (the seam for outcomes to flow back to calibration / learning / a human
   queue) — keeping the responder's `decide()` a pure function.
-* **Integrated onto merged #278.** The branch is rebased on the Phase‑2 governed
-  fusion substrate. #278's one new `detect_with_fusion` key,
+* **Integrated onto the Phase‑2 governed fusion substrate.** Its one new
+  `detect_with_fusion` key,
   `result["info_geometry_certificate"]`, was evaluated and is **deliberately a
   no‑op** in the gate (measured): it certifies a *component's* price level‑set,
   "NOT the fused/gated verdict", and is degenerate in the single‑sample serve
@@ -8975,7 +8972,7 @@ verifier/governance paths.
   yields less abstention), and structural soundness + `to_dict`/`from_dict`/JSON
   round‑trips. The gate, fail‑closed invariants, determinism, the
   non‑destructive response contract, the O(1)/thread‑safe/persistable ledger,
-  and the #278 no‑op contract are all pinned. Runnable demo:
+  and the substrate's no‑op contract are all pinned. Runnable demo:
   `examples/decision_abstention_response_demo.py`. A code‑grounded
   capability‑vs‑vision audit ships at `docs/capability_vs_vision_matrix.md`.
 
@@ -9132,7 +9129,7 @@ script directly so the documented invocation is real.
 
 ### Neuro-symbolic — `LogicTensorNetwork` re-wired to the canonical co-trained module (2026-06-02)
 
-Reverses PR #269's *retirement* of `LogicTensorNetwork` in favour of **wiring**
+Reverses the earlier *retirement* of `LogicTensorNetwork` in favour of **wiring**
 it (the mission's "do not retire — implement its predict to call the canonical
 co-trained symbolic module"). The original class was a never-trained `nn.Module`
 whose random-init noise fed fusion as if a neural confidence; rather than delete
@@ -9167,7 +9164,7 @@ clean on both changed source files.
 ### MLOps — fusion AUC/F1 + conformal-coverage CI regression gate (2026-06-02)
 
 Finishes the WS5/WS6 "MLOps train→eval→register CI regression gates" item
-deferred by PR #269. The fusion train→eval→register pipeline + AUC/ECE sweep
+deferred earlier. The fusion train→eval→register pipeline + AUC/ECE sweep
 artifacts existed, but **no CI gate pinned the fusion AUC/F1 or the conformal
 coverage floor**, so a fusion-stack regression could merge silently.
 
@@ -9201,7 +9198,7 @@ baseline).
 
 ### Explainability — IntegratedGradients + faithfulness on the fusion serve path (2026-06-02)
 
-Finishes the WS5 "explanations on the serve path" item deferred by PR #269: the
+Finishes the WS5 "explanations on the serve path" item deferred earlier: the
 validated `IntegratedGradientsExplainer` + `FaithfulnessEvaluator`
 (`cognitive/explainability.py`, DORMANCY_LEDGER #3) are now wired into the
 detection path instead of living only in the benchmark harness.
@@ -9489,7 +9486,7 @@ shape, softmax-normalised rows, fail-closed pre-forward, determinism, batched
 input, and that a wired+observed provider drives the metric while an
 unobserved one fails closed to a skip.
 
-### Neuro-symbolic — label-scarcity-adaptive co-training default + dormant-module revival (PR #265, 2026-06-01)
+### Neuro-symbolic — label-scarcity-adaptive co-training default + dormant-module revival (2026-06-01)
 
 `symbolic_weight="adaptive"` is the **default** for `OmniMercuryEngine.fit_fusion`.
 A *fixed* `λ` was quarantined (no full-data win), but the label-scarcity
@@ -9503,7 +9500,7 @@ dormant-module revival survey (`benchmarks/dormant_module_revival.py`,
 labels under the repo's fail-closed ablation discipline and records the
 keep / cut / quarantine verdict per module.
 
-### Neuro-symbolic — genuine co-training, conformal uncertainty, fail-closed AMA/PQC (PR #262, 2026-05-31)
+### Neuro-symbolic — genuine co-training, conformal uncertainty, fail-closed AMA/PQC (2026-05-31)
 
 * **Genuine neuro-symbolic co-training.** `ml/symbolic_constraint.py::SymbolicConstraintModule`
   — a differentiable fuzzy-logic constraint (product / Reichenbach /
@@ -9594,7 +9591,7 @@ because the supply-chain posture it tracked is now covered by:
 
 Cross-references in `SECURITY.md`, `.safety-policy.yml`,
 `.safety-policy-v2.yml`, `pyproject.toml`, and
-`.github/workflows/ci.yml` were updated in PR #238 to point at the
+`.github/workflows/ci.yml` were updated to point at the
 surviving sources of truth.  No supply-chain posture changed; only
 the location of the per-CVE documentation moved.
 
@@ -10128,7 +10125,7 @@ runbook.
      "ensemble" was first replaced with three scikit-learn estimators
      (``IsolationForest``, ``EllipticEnvelope``, ``LocalOutlierFactor``)
      during the initial port.  That implementation is itself superseded
-     in this PR by Mercury Agent's own first-class anomaly ensemble,
+     here by Mercury Agent's own first-class anomaly ensemble,
      :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
      which combines three deterministic ``numpy``/``scipy`` scorers —
      **Resonance** (40 %; FFT-based harmonic spectral anomaly),
@@ -10287,10 +10284,10 @@ runbook.
 upstream license matches Mercury's, and the user has full legal
 standing to relicense across both repositories.
 
-### Omni-AXA → Mercury port, PR 2 refinements (Copilot review follow-up)
+### Omni-AXA → Mercury port, refinements
 
-Round-3 refinement pass closing the twelve Copilot review alerts on
-PR #224.  Every alert is addressed in-code; no `# noqa`, no
+Refinement pass closing twelve static-analysis findings on the port.
+Every finding is addressed in-code; no `# noqa`, no
 `# type: ignore`, no `pragma: no cover`, no broad except, and no
 coverage-threshold lowering.  The changes harden SSRF / DNS-rebinding
 posture on every outbound HTTP call made by the ported modules,
@@ -10402,7 +10399,7 @@ module-level constant via the new clinical rule-pin harness.
   `omni_mercury_engine.anomaly` package is **retained** (with a
   policy docstring) for future multi-modal anomaly detectors that
   fuse two or more `detectors/<domain>/` outputs into a single
-  decision-support stream; no such detector ships in this PR.  All
+  decision-support stream; no such detector ships.  All
   existing imports continue to work via the new
   `omni_mercury_engine.detectors.drone` package's `__init__.py`,
   which re-exports the public API
@@ -10691,7 +10688,7 @@ and regression tests:
   than silently falling through to development mode, so deployment
   typos are loud.  Locked by `tests/test_env.py`.
 
-### Narrative voice — `MercuryVoice` LLM initialisation fixed (PR for #210 follow-up)
+### Narrative voice — `MercuryVoice` LLM initialisation fixed
 
 - **`narrative/voice.py:_init_llm` no longer crashes on
   `MercuryVoice(enable_llm=True)`.**  The pre-1.7.0 implementation
@@ -10729,7 +10726,7 @@ and regression tests:
 
 ### Migration guide — `docs/MIGRATION-1.6-to-1.7.md`
 
-- Consolidated migration notes for v1.6.x → v1.7.0: PR #210's
+- Consolidated migration notes for v1.6.x → v1.7.0: the
   `allow_untrusted=True` removal, σ_Immutable hard-gate semantics
   (already shipped at every boundary surface; documentation
   reconciled with code reality), the new `MERCURY_ENV` primitive,
@@ -10749,7 +10746,7 @@ and regression tests:
   `check="sigma_immutable"` / `check="gosnn_unavailable"` today,
   with regression coverage in `tests/ethical/test_hard_enforcement.py`).
 
-### Security — HTTP escape hatch removed (PR #210)
+### Security — HTTP escape hatch removed
 
 - **`allow_untrusted=True` is removed from every `SafeHTTPClient` method**
   (`validate_url`, `_request`, `get`, `get_bytes`, `get_json`, `get_text`,
@@ -10758,7 +10755,7 @@ and regression tests:
   The kwarg had no production caller; it was a per-call bypass of the
   `TrustedEndpoints.TRUSTED_DOMAINS` allowlist that could be misused
   to pivot through an off-allowlist host while staying inside the
-  hardened transport. PR #210 deletes it from the public API and
+  hardened transport. This release deletes it from the public API and
   asserts the removal via signature tests.
 - **Migration path for operators who were using it:** call
   `SafeHTTPClient` directly with `user_configured=True` so the
@@ -10782,7 +10779,7 @@ and regression tests:
   `validate_url` DNS short-circuit for trusted https URLs, and the
   IP-literal short-circuit in `_resolve_ips`.
 
-### Benchmark refresh (PR #210, via PR #203 source SHA `0f584529`)
+### Benchmark refresh (source SHA `0f584529`)
 
 - Mean ROC-AUC `0.8440` → `0.8464`; median ROC-AUC `0.9097` → `0.9100`;
   mean Oracle F1 `0.6383` → `0.6441`; datasets successful / total
@@ -10791,28 +10788,22 @@ and regression tests:
   F1 ≥ 0.50.
 
 
-### Branch Reconciliation (v1.6.0 stack — PRs #188–#191)
+### v1.6.0 corrective stack
 
-- **PR #189** (Devin session `a7bea1074fbd420f9c9af8e6b3eea01f`): v1.6.0
-  corrective sweep — PQC gate, FallbackChain ethical re-raise, RNG cure
+- **Corrective sweep** — PQC gate, FallbackChain ethical re-raise, RNG cure
   (138 sites across federated/climate/disaster/security), type-redef
-  elimination (7 files from `copilot/refactor-34`), documentation refresh.
-  Absorbs PR #188 (`claude/organize-project-directory-IIqcr`) in full.
-- **PR #190** (Claude session `audit-pqc-fallback-chain-Po2fD`): tracked-debt
-  sweep — remaining 17 type-redef suppressions eliminated across 8 files,
-  62 unseeded `np.random` sites cured in cognitive/ and models/ modules,
-  25-test RNG reproducibility regression suite added.
+  elimination (7 files), documentation refresh.
+- **Tracked-debt sweep** — remaining 17 type-redef suppressions eliminated
+  across 8 files, 62 unseeded `np.random` sites cured in cognitive/ and
+  models/ modules, 25-test RNG reproducibility regression suite added.
   `DifferentialPrivacy` dual-API (`rng=` / `seed=`) bridge.
-- **PR #191** (Claude session `in-house-anomaly-datasets-vLn30`): dataset
-  loader hardening — FEMA OData ISO-8601, NOAA Storm filename discovery,
-  ERDDAP date offsets, EPA/GSOD year fallback, NSL-KDD/CICIDS/MITRE mirror
-  failover. `http_get_with_retry` shared helper with SSRF default-deny.
-  `_ConstReplacer` type-narrowing fix in `core/three_r_mechanism.py`.
-- **PR #188** (Copilot session `organize-project-directory-IIqcr`): fully
-  absorbed into PR #189; closed with attestation of commit SHAs
-  (e198858, 12d2887, cc70fc9, 7e20c5b, c032c91, fd51186, 0553f1a).
+- **Dataset loader hardening** — FEMA OData ISO-8601, NOAA Storm filename
+  discovery, ERDDAP date offsets, EPA/GSOD year fallback,
+  NSL-KDD/CICIDS/MITRE mirror failover. `http_get_with_retry` shared helper
+  with SSRF default-deny. `_ConstReplacer` type-narrowing fix in
+  `core/three_r_mechanism.py`.
 
-### Wave B — σ_Immutable promoted to hard gate (deferred from PR #161)
+### Wave B — σ_Immutable promoted to hard gate
 
 - **σ_Immutable is now the second mandatory hard ethical gate** at every
   engine / hub / orchestrator decision boundary.  The Wave A landing
@@ -10861,8 +10852,7 @@ and regression tests:
 
 - **Project-wide documentation refresh (2026-05-05).** All 29 markdown
   files audited against current code state at v1.6.0; corrective
-  edits landed in a single sweep on
-  `claude/organize-project-directory-IIqcr`:
+  edits landed in a single sweep:
   - `SECURITY.md` — Supported-Versions table rewritten (was listing
     1.5.x as current with no v1.6.x entry); now declares 1.6.x as
     current, 1.5.x as previous (critical-CVE only), <1.5 EOL.
@@ -10874,8 +10864,8 @@ and regression tests:
     silent-fallback path). New decision-boundary contract callout
     added under the Status banner. Header date and footer
     `Last updated` refreshed.
-  - `docs/MATH_SPEC.md` — new §2.1.5 "σ_Immutable Hard Gate (Wave B,
-    PR #179)" added: boundary-contract piecewise definition, σ
+  - `docs/MATH_SPEC.md` — new §2.1.5 "σ_Immutable Hard Gate (Wave B)"
+    added: boundary-contract piecewise definition, σ
     vector layout (`SIGMA_IMMUTABLE_DIM=256`,
     `SIGMA_ETHICAL_BAND_END=27`, `SIGMA_USED_BAND_END=180`),
     threshold provenance, test-only bypass note, composition with
@@ -10923,7 +10913,7 @@ and regression tests:
   repeatedly breaking CI; that churn has been resolved (strict mode
   is on for `omni_mercury_engine.*` and the 569 surviving
   suppressions are `[unused-ignore]`-paired so they auto-clear as
-  third-party stubs improve). An interim CI run on this branch
+  third-party stubs improve). An interim CI run
   measured the actual full-suite line coverage at **36.03%**, so
   the transparent CI floor is set just below that — 35 — to defend the
   measured baseline without immediately failing CI for unrelated
@@ -10986,9 +10976,8 @@ and regression tests:
     hiding an integration test that should have always been running.
     Replaced the `pytest.skip(...)` with an `assert` that surfaces
     the integration coverage instead of silently masking it.
-- **Type-redefition suppressions eliminated (7 files).**
-  Integrated from `copilot/refactor-34-unpaired-type-redefinitions`:
-  function-stub fallbacks (`def Foo(*args): raise ImportError`) replaced
+- **Type-redefinition suppressions eliminated (7 files).**
+  Function-stub fallbacks (`def Foo(*args): raise ImportError`) replaced
   with proper stub classes that preserve type identity, and optional-dep
   import guards restructured to `if TYPE_CHECKING: ... else: try: ...`
   so mypy sees the real types without runtime cost.  Files refactored:
@@ -11027,8 +11016,8 @@ and regression tests:
   (2026-05-05).** Three findings:
   - The `on.push.paths` filter on the benchmark workflow restricted
     triggers to `benchmarks/**` or `src/omni_mercury_engine/**`
-    only.  Recent merges to `main` (e.g. PR #187 — Dependabot
-    consolidation, helm/Dockerfile/workflows-only) didn't touch
+    only.  Recent merges to `main` (a dependency consolidation touching
+    only helm/Dockerfile/workflows) didn't touch
     those paths, so the workflow never ran on those pushes and the
     auto-commit step never had a chance to fire.  Filter removed:
     every push to `main` / `develop` now triggers the benchmark
@@ -11068,7 +11057,7 @@ and regression tests:
   the workflow is reconfigured to use a Personal Access Token via
   `BENCHMARK_BOT_TOKEN`, those commits will land **unverified**;
   the alternative is to extend the persister to compute and submit
-  a detached PGP/SSH signature (out of scope for this branch).  The
+  a detached PGP/SSH signature (out of scope here).  The
   script then opens
   a PR into `main` (satisfies rule 1, *Changes must be made
   through a pull request*).  The 22 required status checks (rule
@@ -11507,7 +11496,7 @@ and regression tests:
 
 ### Cherry-picked
 
-- 10 commits salvaged from `devin/1771750539-mercury-strategic-improvements`:
+- 10 commits salvaged from a superseded strategic-improvements branch:
   strategic improvements, FrequencyDomainOracle implementation,
   SpectralDomainOracle rename, spectral flux/phase coherence/cepstral
   analysis, selective inference upgrade, and audit fixes.
