@@ -21,6 +21,11 @@ from omni_mercury_engine.compliance.tlp_handler import TLPColor
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+# The export and report routes are metered; the limiter is switched off per
+# test by the ``rate_limit_off`` fixture (tests/conftest.py) so the module's
+# request volume cannot trip it under any worker ordering.
+pytestmark = pytest.mark.usefixtures("rate_limit_off")
+
 _USER = "tlp_export_user"
 
 

@@ -89,6 +89,13 @@ anything: patching the environment first would have made an unbuilt stack
 construct the middleware disabled, recorded that as the original, and left
 the limiter off for every later test
 (`tests/api/test_rate_limit_fixture_isolation.py`).
+Removing the leak exposed two modules that had relied on it: the TLP export
+tests and the frontend-off route contract answered 429 when another module
+in the same CI worker had drained the per-client bucket first (ten
+failures on Core Tests, Python 3.13). They now switch the limiter off per
+test as well; reproduced locally by draining the bucket ahead of each
+module and re-checked across every API test module under the same
+condition.
 
 **Fixed — the score bimodality check refused a span below float resolution.**
 `np.histogram` raised on scores such as 10000 and 10000 + 1e-13 (found by the
