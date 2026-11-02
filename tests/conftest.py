@@ -189,6 +189,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
             "Remediation:\n"
             "  pip install -e '.[ml,dev]'        # full ML test surface\n"
             "  pip install -e '.[all,dev]'       # everything the ml-tests lane installs\n"
+            "  uv sync --locked --extra all --extra dev   # the same, from uv.lock\n"
             "\n"
             "If this lane intentionally does NOT need [ml], unset\n"
             "MERCURY_REQUIRES_ML in the workflow YAML and select the test\n"
