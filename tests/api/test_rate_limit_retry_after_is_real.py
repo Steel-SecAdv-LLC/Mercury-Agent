@@ -11,10 +11,17 @@ though the next token arrived 0.6 s later.
 
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from omni_mercury_engine.api.server import RateLimitMiddleware
+
+
+@pytest.fixture(autouse=True)
+def _limiter_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two route test modules switch the limiter off at import for the whole process."""
+    monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "true")
 
 
 def _app(rpm: int, burst: int) -> TestClient:
@@ -29,14 +36,17 @@ def _app(rpm: int, burst: int) -> TestClient:
 
 
 def test_denial_reports_the_shortfall_wait_not_sixty_seconds() -> None:
-    client = _app(rpm=600, burst=3)  # ten tokens a second: the next one is 0.1 s away
+    # One token every ten seconds: a loaded machine cannot refill the bucket
+    # between the burst and the denied request, and the real wait (at most
+    # 10 s, rounded up to whole seconds) is unmistakably not the old flat 60.
+    client = _app(rpm=6, burst=3)
     for _ in range(3):
         assert client.get("/api/v1/ping").status_code == 200
     denied = client.get("/api/v1/ping")
     assert denied.status_code == 429
-    assert denied.headers["Retry-After"] == "1"  # 0.1 s rounded up to the one-second floor
+    assert 1 <= int(denied.headers["Retry-After"]) <= 10
     assert denied.headers["X-RateLimit-Remaining"] == "0"
-    assert denied.headers["X-RateLimit-Limit"] == "600"
+    assert denied.headers["X-RateLimit-Limit"] == "6"
 
 
 def test_slow_refill_reports_the_longer_wait() -> None:
