@@ -125,7 +125,8 @@ def test_masking_is_gone(client: TestClient) -> None:
 
 def _fusion(series: list[Any], **kw: object) -> detection.FusionResponse:
     request = detection.FusionRequest(data=series, **kw)  # type: ignore[arg-type]
-    return asyncio.run(detection.detect_fusion(request, None))
+    response: detection.FusionResponse = asyncio.run(detection.detect_fusion(request, None))
+    return response
 
 
 def test_a_level_shift_is_a_collective_anomaly() -> None:

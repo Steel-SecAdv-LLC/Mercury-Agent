@@ -38,7 +38,8 @@ def _sync(
     series: list[float] | list[list[float]], detectors: list[str]
 ) -> detection.FusionResponse:
     request = detection.FusionRequest(data=series, detectors=detectors, sensitivity=SENSITIVITY)
-    return asyncio.run(detection.detect_fusion(request, None))
+    response: detection.FusionResponse = asyncio.run(detection.detect_fusion(request, None))
+    return response
 
 
 def _batch(series: list[float] | list[list[float]]) -> list[dict[str, Any]]:
