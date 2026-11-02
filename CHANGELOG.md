@@ -125,6 +125,38 @@ operators download it), so supplying the file is a real remedy
 `tests/models/test_wiring_age_progression.py`). The installation guide says the
 same.
 
+**Added — one cross-platform lockfile, installed with `uv sync`.** `uv.lock`
+resolves every extra for Linux, macOS and Windows on Python 3.11 to 3.14 (the
+git-pinned `[pqc]` extra included). The Dockerfile builder and the Code
+Quality, Type Checking, Core Tests and ML Tests lanes install with
+`uv sync --locked` (uv pinned to 0.11.32 in both places; the lanes cache uv's
+global hardlinked store keyed on the lockfile), the Workflow Hardening lane
+runs `uv lock --check` so a stale lock is named on the pull request, and the
+hardening gate treats `uv sync` as an engine install that must provision AMA
+while leaving `uv pip install` outside the pip rules it does not run. The AMA
+build script and composite action install through uv's pip front end when the
+environment has no pip (`tests/test_uv_lock_contract.py`, the extended
+hardening tests; the installation and contributing guides describe the path).
+The other workflows still install with pip and are unchanged.
+
+**Added — the AMA native backend installs from a prebuilt release archive
+before it builds from source.** `scripts/fetch_ama_prebuilt.sh` downloads
+`ama-cryptography-<ref>-<os>-<arch>.tar.gz` (the `ama_cryptography` wheels for
+Python 3.11 to 3.14, each bundling the native library whose digest AMA signs
+into it and tagged for the interpreter that built it) from the
+`ama-native-<ref>` release, verifies it against the release's `SHA256SUMS`, and
+unpacks it; `scripts/build_ama_native.sh` and the `build-ama-cryptography`
+composite action install the wheel matching their interpreter and run the PQC
+capability probe, and fall back to the clone-and-cmake build only when no
+archive exists for the platform, no wheel matches the Python, or the library
+does not load there. A failed checksum stops the install. The new
+`ama-prebuilt.yml` workflow (manual dispatch with the AMA tag) builds the four
+wheels on Linux x86_64 and aarch64, macOS aarch64 and x86_64 and Windows
+x86_64, proves each one in a fresh environment, and publishes the release;
+the Docker builder gained `curl` so the image build downloads too
+(`tests/scripts/test_fetch_ama_prebuilt.py` drives the script against a
+`file://` mirror and pins the shared archive contract).
+
 **Fixed — the test run could file test mail in, and purge, a developer's own
 outbox.** `tests/conftest.py` set `MERCURY_MAIL_OUTBOX` with `setdefault`, so a
 developer with the variable in their shell received every account test's
