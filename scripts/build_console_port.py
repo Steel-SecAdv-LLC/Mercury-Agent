@@ -84,7 +84,8 @@ HELMET_CSS_PATCHES: tuple[tuple[str, str, str], ...] = (
     (
         "the boot progress bar yields to reduced motion: the prototype restored its infinite "
         "animation with !important, which outranked the token sheet's reduced-motion guards",
-        ".mcli-progress, .mcli-progress{animation:mcliBootFill 1.9s ease-in-out infinite !important;}",
+        "html.mn-reduce-motion .mcli-progress, .mcli-progress{animation:mcliBootFill 1.9s "
+        "ease-in-out infinite !important;}",
         "@media (prefers-reduced-motion: no-preference){html:not(.mn-reduce-motion) .mcli-progress"
         "{animation:mcliBootFill 1.9s ease-in-out infinite;}} "
         "@media (prefers-reduced-motion: reduce){.mcli-progress{animation:none;}} "
@@ -306,6 +307,16 @@ MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
         '    alertsUrl() { const b = String(cfg.baseUrl || ""); return /^https?:/.test(b) ? '
         'b.replace(/\\/$/, "") + "/api/v1/voice/alerts" : null; },\n'
         '    alertsHeaders() { return Object.assign({ Accept: "text/event-stream" }, headers(false)); },',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the boot bar's inline animation respects reduced motion like the halo's does; an inline "
+        "animation outranks the stylesheet's reduced-motion rules",
+        'bootFillAnim: "mcliBootFill 1.9s ease-in-out infinite", bootHaloAnim: this.reducedMotion() ? "none"',
+        'bootFillAnim: this.reducedMotion() ? "none" : "mcliBootFill 1.9s ease-in-out infinite", '
+        'bootHaloAnim: this.reducedMotion() ? "none"',
     ),
 )
 

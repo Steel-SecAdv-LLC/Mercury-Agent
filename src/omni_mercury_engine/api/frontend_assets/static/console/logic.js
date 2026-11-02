@@ -1468,7 +1468,7 @@ class Component extends DCLogic {
       bootVersion: "v" + ((s.health && s.health.ok && s.health.data && s.health.data.version) || this.D.version || "3.0.0"),
       bootStatus: !s.ready ? "Loading detector manifest · " + this.D.detectors.length + " detectors" : "Detector manifest loaded · " + this.D.detectors.length + " detectors · " + (this.live() ? (this.A.simulated() ? "simulated engine" : "engine live") : "no server · browser preview"),
       // The manifest bar streams end to end the whole time the opening is up (reduced motion: a full static bar).
-      bootFillW: "38%", bootFillAnim: "mcliBootFill 1.9s ease-in-out infinite", bootHaloAnim: this.reducedMotion() ? "none" : "mcliBreathe 3.1s ease-in-out infinite",
+      bootFillW: "38%", bootFillAnim: this.reducedMotion() ? "none" : "mcliBootFill 1.9s ease-in-out infinite", bootHaloAnim: this.reducedMotion() ? "none" : "mcliBreathe 3.1s ease-in-out infinite",
       enterConsole: () => this.setState({ opened: true }, () => { try { const el = document.querySelector('input[placeholder^="type a command"]'); if (el) el.focus(); } catch (e) { /* focus is a courtesy */ } }),
       rows, menus, onMq: (e) => this.setState({ mq: e.target.value }),
       coverage: D.nCommands + " commands · " + nTools + " tools · " + D.detectors.length + " detectors · " + D.runs.length + " runs · " + D.loaders.length + " domains · " + D.mcp.length + " MCP · " + D.api.length + " routes",

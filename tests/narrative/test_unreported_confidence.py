@@ -13,10 +13,16 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
+from omni_mercury_engine.narrative.engine import ConfidenceLevel, NarrativeEngine
+
+# The route test below needs the optional ``[api]`` extra; the synthesis test
+# does not, so the import is guarded and only the route test skips without it.
+fastapi = pytest.importorskip("fastapi", reason="the narrate-route test needs the [api] extra")
 from fastapi.testclient import TestClient
 
 from omni_mercury_engine.api.server import app
-from omni_mercury_engine.narrative.engine import ConfidenceLevel, NarrativeEngine
 
 _BARE = {"anomaly_detected": True, "anomaly_score": 6.7, "summary": "1 of 60 flagged"}
 

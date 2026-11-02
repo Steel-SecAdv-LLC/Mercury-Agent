@@ -57,6 +57,31 @@ def cache_dir() -> str:
 DELEAK_SUFFIX = ".deleak.npz"
 
 
+#: Suffix of the marker ``quarantine_event`` leaves beside a removed archive.
+QUARANTINE_SUFFIX = ".quarantined.json"
+
+
+def quarantine_event(domain: str, event: str, reason: str) -> None:
+    """Remove ``{domain}__{event}.npz`` and leave a marker saying why.
+
+    A rebuild whose loader refuses a de-leaked matrix (a synthetic frame) must
+    not leave an older archive of the event in place for ``cache_archives()``
+    to hand to the evaluation scripts; the archive is deleted, and the marker
+    keeps the event out even if a stale archive is copied back in.
+    """
+    import json
+    import time
+
+    root = Path(cache_dir())
+    archive = root / f"{domain}__{event}.npz"
+    if archive.exists():
+        archive.unlink()
+    (root / f"{domain}__{event}{QUARANTINE_SUFFIX}").write_text(
+        json.dumps({"domain": domain, "event": event, "reason": reason, "at": time.time()}),
+        encoding="utf-8",
+    )
+
+
 def cache_archives() -> list[str]:
     """The per-event ``{domain}__{event}.npz`` archives, sorted, as strings.
 
@@ -65,10 +90,15 @@ def cache_archives() -> list[str]:
     ``y`` rather than ``X``, ``y``). A bare ``*.npz`` glob picked those up and
     the evaluation scripts failed at ``d["X"]`` after a documented
     ``deleak_impact.py --fetch``; every script that reads the per-event
-    archives goes through this filter instead.
+    archives goes through this filter instead. An event with a quarantine
+    marker (see :func:`quarantine_event`) is left out as well.
     """
+    root = Path(cache_dir())
+    quarantined = {p.name[: -len(QUARANTINE_SUFFIX)] for p in root.glob("*" + QUARANTINE_SUFFIX)}
     return sorted(
-        str(p) for p in Path(cache_dir()).glob("*.npz") if not p.name.endswith(DELEAK_SUFFIX)
+        str(p)
+        for p in root.glob("*.npz")
+        if not p.name.endswith(DELEAK_SUFFIX) and p.name[: -len(".npz")] not in quarantined
     )
 
 

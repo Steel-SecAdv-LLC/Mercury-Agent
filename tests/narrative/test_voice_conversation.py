@@ -19,9 +19,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from omni_mercury_engine.narrative import conversation as conv
+
+# The end-to-end half of this module drives the voice through the API's
+# detection mirror, which needs the optional ``[api]`` extra; without it the
+# module skips at collection instead of failing with ModuleNotFoundError.
+pytest.importorskip("fastapi", reason="the voice end-to-end tests need the [api] extra")
 from omni_mercury_engine.api import voice as voice_module
 from omni_mercury_engine.api.routes.export import record_detection
-from omni_mercury_engine.narrative import conversation as conv
 
 if TYPE_CHECKING:
     from omni_mercury_engine.narrative.voice import MercuryVoice

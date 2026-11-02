@@ -27,6 +27,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the alert bus cannot accumulate callbacks.** Each publish scheduled
+one loop callback per subscriber and the callback retained its entry, so a
+recording thread that outpaced a busy subscriber loop grew an unbounded
+backlog despite the bounded queue. Each subscriber now stages entries in a
+bounded, lock-guarded buffer and holds at most one pending drain callback;
+overflow drops the oldest staged entry and is counted
+(`tests/narrative/test_alert_bus.py`).
+
+**Fixed — a refused calibration rebuild cannot leave a stale archive
+selectable.** `build_cache.py` now quarantines an event whose loader refuses a
+de-leaked matrix: the old `.npz` is removed and a marker is left, and
+`cache_archives()` skips any event with a marker even if an archive is copied
+back (`tests/research/test_calibration_cache_archives.py`).
+
+**Fixed — narrative tests collect on an engine-only install.** Two narrative
+test modules imported the optional `[api]` extra at module level; they now
+skip their route-dependent half without it instead of failing collection.
+
+**Fixed — the console's boot progress bar animates again.** The reduced-motion
+patch matched a substring of the prototype's selector and left
+`html.mn-reduce-motion` in front of the generated `@media` rule, which
+browsers discard; the whole selector is matched now and the media rules sit
+at the top level, and the bar's inline animation honours reduced motion the
+way the halo's already did, so the stylesheet is no longer the only guard
+(`tests/api/test_console_catalog.py`; verified in Chromium under both
+preferences).
+
 **Changed — the `[api]` extra installs torch.** The served API exposes the
 neural detection routes (fusion, neuro-symbolic, flagship) beside the
 statistical ones, but `pip install "mercury-agent-global[api]"` did not bring

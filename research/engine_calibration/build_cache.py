@@ -16,7 +16,9 @@ import warnings
 
 warnings.filterwarnings("ignore")
 import numpy as np
-from _workspace import cache_dir
+from _workspace import cache_dir, quarantine_event
+
+from omni_mercury_engine.loaders.base import SyntheticDataNotDeleakable
 
 CACHE = cache_dir()
 
@@ -58,7 +60,15 @@ for dom, (mod, cls) in LOADERS.items():
             # measured from, and that file backs the README's per-domain
             # hazard table, so the exclusion has to apply here or the table
             # keeps reporting circular numbers.
-            feats = np.asarray(L.engineer_scored_features(raw), float)
+            try:
+                feats = np.asarray(L.engineer_scored_features(raw), float)
+            except SyntheticDataNotDeleakable as exc:
+                # A rejected rebuild must not leave an older archive of this
+                # event selectable: the archive is removed and a marker left,
+                # which cache_archives() also honours.
+                quarantine_event(dom, eid, str(exc))
+                print(f"  {dom}/{eid} quarantined: synthetic frame", flush=True)
+                continue
             y = np.asarray(L.get_ground_truth(eid)).astype(int).reshape(-1)
             m = min(len(feats), len(y))
             feats = feats[:m]

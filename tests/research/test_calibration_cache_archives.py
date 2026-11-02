@@ -55,3 +55,26 @@ def test_every_reader_goes_through_the_filtered_listing() -> None:
         text = (_SCRIPTS / script).read_text(encoding="utf-8")
         assert 'glob("*.npz")' not in text, script
         assert "cache_archives()" in text, script
+
+
+def test_quarantined_events_are_removed_and_stay_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rejected rebuild deletes the stale archive and a marker keeps the event out."""
+    ws = _workspace_module(tmp_path, monkeypatch)
+    cache = Path(ws.cache_dir())
+    np.savez_compressed(cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4))
+    np.savez_compressed(cache / "flood__ev2.npz", X=np.zeros((4, 2)), y=np.zeros(4))
+    ws.quarantine_event("energy", "quebec_1989", "synthetic frame")
+    assert not (cache / "energy__quebec_1989.npz").exists()
+    assert (cache / "energy__quebec_1989.quarantined.json").exists()
+    assert [Path(p).name for p in ws.cache_archives()] == ["flood__ev2.npz"]
+    # even a stale archive copied back in stays out while the marker exists
+    np.savez_compressed(cache / "energy__quebec_1989.npz", X=np.zeros((4, 2)), y=np.zeros(4))
+    assert [Path(p).name for p in ws.cache_archives()] == ["flood__ev2.npz"]
+
+
+def test_build_cache_quarantines_a_refused_synthetic_frame() -> None:
+    text = (_SCRIPTS / "build_cache.py").read_text(encoding="utf-8")
+    assert "except SyntheticDataNotDeleakable" in text
+    assert "quarantine_event(dom, eid" in text

@@ -331,3 +331,24 @@ def test_console_severity_bands_match_the_server() -> None:
     for edge, name in zip(bands, names, strict=True):
         assert _classify_severity(edge, 1.0).value == name
         assert _classify_severity(edge - 1e-9, 1.0).value != name
+
+
+def test_boot_progress_media_rules_start_at_the_top_level() -> None:
+    """The reduced-motion patch must replace the whole original selector.
+
+    A substring match left ``html.mn-reduce-motion `` in front of the first
+    ``@media``; browsers discard that block, so the boot bar never animated
+    even with reduced motion off. The rules now sit at the top level, and the
+    bar animates only under ``prefers-reduced-motion: no-preference`` on a
+    document without the user's reduce-motion class.
+    """
+    css = (_CONSOLE / "port.css").read_text(encoding="utf-8")
+    assert "html.mn-reduce-motion @media" not in css
+    assert ".mn-reduce-motion @media" not in css
+    first = css.index("@media (prefers-reduced-motion: no-preference)")
+    assert css[first - 3 : first] == "}} ", repr(css[first - 20 : first])
+    assert (
+        "@media (prefers-reduced-motion: no-preference){html:not(.mn-reduce-motion) "
+        ".mcli-progress{animation:mcliBootFill 1.9s ease-in-out infinite;}}" in css
+    )
+    assert "html.mn-reduce-motion .mcli-progress{animation:none !important;}" in css

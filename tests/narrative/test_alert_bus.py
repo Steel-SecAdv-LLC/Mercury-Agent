@@ -14,13 +14,15 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from omni_mercury_engine.narrative import alert_bus
 from omni_mercury_engine.narrative.detection_memory import DetectionMemoryStore
 from omni_mercury_engine.narrative.retriever import KnowledgeRetriever
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import pytest
 
 
@@ -139,3 +141,60 @@ def test_store_cursors_see_rows_appended_after_a_point(tmp_path) -> None:  # typ
     assert [e["detection"]["detection_id"] for _, e in rows] == ["b", "c"]
     assert rows[0][1]["principal"] == "bob"
     store.close()
+
+
+def test_a_busy_loop_gets_one_drain_callback_and_a_bounded_buffer() -> None:
+    """Publishing while the subscriber loop cannot run must not pile up callbacks."""
+
+    class StalledLoop:
+        """A loop stand-in that accepts callbacks but never runs them, like a busy one."""
+
+        def __init__(self) -> None:
+            self.calls: list[tuple[Callable[..., None], tuple[object, ...]]] = []
+
+        def is_closed(self) -> bool:
+            return False
+
+        def call_soon_threadsafe(self, fn: Callable[..., None], *args: object) -> None:
+            self.calls.append((fn, args))
+
+    async def run() -> tuple[int, int, int, int]:
+        bus = alert_bus.AlertBus()
+        token, queue = bus.subscribe(None)
+        stalled = StalledLoop()
+        # The stand-in replaces the real loop on the registered subscriber.
+        bus._subscribers[token].loop = cast("asyncio.AbstractEventLoop", stalled)
+        for i in range(alert_bus.QUEUE_SIZE * 3):
+            bus.publish(_entry(None, detection_id=f"d{i}"))
+        scheduled = len(stalled.calls)
+        staged = bus.pending(token)
+        dropped = bus.dropped
+        # The loop finally runs its one callback: the buffer lands in the queue.
+        fn, args = stalled.calls[0]
+        fn(*args)
+        in_queue = queue.qsize()
+        first = queue.get_nowait()["detection"]["detection_id"]
+        bus.unsubscribe(token)
+        assert first == f"d{alert_bus.QUEUE_SIZE * 2}"
+        return scheduled, staged, dropped, in_queue
+
+    scheduled, staged, dropped, in_queue = asyncio.run(run())
+    assert scheduled == 1
+    assert staged == alert_bus.QUEUE_SIZE
+    assert dropped == alert_bus.QUEUE_SIZE * 2
+    assert in_queue == alert_bus.QUEUE_SIZE
+
+
+def test_a_second_publish_after_a_drain_schedules_again() -> None:
+    async def run() -> list[str]:
+        bus = alert_bus.AlertBus()
+        token, queue = bus.subscribe(None)
+        bus.publish(_entry(None, detection_id="first"))
+        await asyncio.sleep(0)
+        bus.publish(_entry(None, detection_id="second"))
+        await asyncio.sleep(0)
+        got = [queue.get_nowait()["detection"]["detection_id"] for _ in range(queue.qsize())]
+        bus.unsubscribe(token)
+        return got
+
+    assert asyncio.run(run()) == ["first", "second"]
