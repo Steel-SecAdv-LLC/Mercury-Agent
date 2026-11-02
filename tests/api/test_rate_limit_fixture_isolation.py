@@ -57,3 +57,29 @@ def test_switching_off_a_built_stack_restores_it(monkeypatch: pytest.MonkeyPatch
     finally:
         inner.undo()
     assert _enabled() is True
+
+
+def test_switching_off_never_runs_the_application_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Building the stack must not start the app: the lifespan's maintenance sweep runs against whatever stores the process inherited."""
+    import contextlib
+
+    monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "true")
+    app.middleware_stack = None
+    entered: list[str] = []
+    original = app.router.lifespan_context
+
+    @contextlib.asynccontextmanager
+    async def recording(application):  # type: ignore[no-untyped-def]
+        entered.append("lifespan")
+        async with original(application):
+            yield
+
+    monkeypatch.setattr(app.router, "lifespan_context", recording)
+    inner = pytest.MonkeyPatch()
+    try:
+        switch_rate_limiter_off(inner)
+        assert _enabled() is False
+    finally:
+        inner.undo()
+    assert entered == [], "switch_rate_limiter_off entered the application lifespan"
+    assert _enabled() is True

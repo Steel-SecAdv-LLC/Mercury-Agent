@@ -607,15 +607,20 @@ def switch_rate_limiter_off(monkeypatch: pytest.MonkeyPatch) -> None:
     construct the middleware with ``enabled=False``, the patch would record
     that as the original, and teardown would leave the limiter off for every
     later test (``tests/api/test_rate_limit_fixture_isolation.py``).
+
+    The stack is built directly (``app.build_middleware_stack()``), never by
+    entering a ``TestClient``: entering the client runs the application
+    lifespan (warm-up, the maintenance sweep, alert shutdown) for every test
+    that uses the fixture, and before a test's own isolation is applied that
+    sweep would run against whatever stores the process inherited.
     """
     try:
         from omni_mercury_engine.api.server import app
     except ImportError:  # the [api] extra is optional
         return
-    from fastapi.testclient import TestClient
 
-    with TestClient(app) as client:
-        client.get("/health")  # builds the middleware stack as configured
+    if app.middleware_stack is None:
+        app.middleware_stack = app.build_middleware_stack()  # as configured; no lifespan
     layer = _rate_limit_layer()
     monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "false")
     if layer is not None:
