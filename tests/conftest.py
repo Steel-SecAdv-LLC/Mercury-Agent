@@ -55,6 +55,15 @@ os.environ["MERCURY_MODEL_DIR"] = os.path.join(
 TEST_MAIL_OUTBOX = os.path.join(tempfile.gettempdir(), f"mercury-test-outbox-{os.getpid()}")
 os.environ["MERCURY_MAIL_OUTBOX"] = TEST_MAIL_OUTBOX
 
+# The agent's durable detection memory (``MERCURY_AGENT_MEMORY_PATH``) is an
+# operator's own SQLite history. A retriever built under it appends every
+# recorded run there and prunes the store past its newest 1,000 rows, so a
+# test process that inherited the variable would write synthetic runs into,
+# and delete real runs from, the developer's store. The suite never inherits
+# it; the persistence tests set their own temporary paths
+# (tests/test_decouple.py::TestMailerOutboxIsState).
+os.environ.pop("MERCURY_AGENT_MEMORY_PATH", None)
+
 
 def _bootstrap_source_checkout() -> None:
     """Make an uninstalled clone testable: ``pytest`` with no ``pip install -e .``.

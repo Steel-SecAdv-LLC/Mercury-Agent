@@ -163,6 +163,25 @@ class TestAcceptsPinnedAndExemptJobs:
         )
         assert _run(tmp_path, body) == []
 
+    def test_pip_is_identified_by_its_executable_token(self, tmp_path: Path) -> None:
+        """``PIP_CACHE_DIR=/tmp/uv pip install`` is pip; ``uv  pip install`` is uv."""
+        steps = (
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            f"      - uses: actions/checkout@{_SHA}\n"
+            "      - name: install\n"
+        )
+        assert _run(tmp_path, steps + "        run: uv  pip install sympy\n") == []
+        assert (
+            _run(tmp_path, steps + "        run: env UV_CACHE_DIR=/tmp uv pip install sympy\n")
+            == []
+        )
+        errors = _run(tmp_path, steps + "        run: PIP_CACHE_DIR=/tmp/uv pip install requests\n")
+        assert len(errors) == 1 and "setup-python" in errors[0]
+        errors = _run(tmp_path, steps + "        run: sudo python3 -m pip install requests\n")
+        assert len(errors) == 1 and "setup-python" in errors[0]
+
     def test_echo_documentation_line_is_not_an_install(self, tmp_path: Path) -> None:
         """``echo "pip install ..." >> file`` writes text; it installs nothing.
 

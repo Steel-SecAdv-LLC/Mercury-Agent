@@ -277,6 +277,51 @@ class TestHardeningChecker:
         errors = module._check_pip_cve_2026_6357(mixed, mixed.read_text(encoding="utf-8"))
         assert len(errors) == 1 and "CVE-2026-6357" in errors[0]
 
+    def test_pip_is_identified_by_its_executable_token(self, tmp_path: Path) -> None:
+        """The exemption is decided by what runs, not by the characters before ``pip``.
+
+        ``PIP_CACHE_DIR=/tmp/uv pip install`` runs real pip behind an
+        environment assignment that happens to end in ``uv``; ``uv  pip install``
+        (two spaces) and ``env UV_CACHE_DIR=/tmp uv pip install`` run uv. A
+        prefix lookbehind got all three wrong.
+        """
+        module = _load_hardening_module()
+        header = (
+            "name: tokens\n"
+            "on: push\n"
+            "permissions:\n"
+            "  contents: read\n"
+            "concurrency:\n"
+            "  group: tokens-${{ github.ref }}\n"
+            "  cancel-in-progress: true\n"
+            "jobs:\n"
+            "  tokens:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - name: install\n"
+            "        run: |\n"
+        )
+        clean = tmp_path / "clean.yml"
+        clean.write_text(
+            header + "          uv  pip install sympy\n"
+            "          env UV_CACHE_DIR=/tmp uv pip install requests\n"
+            "          PIP_CACHE_DIR=/tmp/uv uv pip install numpy\n",
+            encoding="utf-8",
+        )
+        assert module._check_pip_cve_2026_6357(clean, clean.read_text(encoding="utf-8")) == []
+        for disguised in (
+            "PIP_CACHE_DIR=/tmp/uv pip install requests",
+            "sudo pip install requests",
+            "python3.12 -m pip install requests",
+            "set -e && /usr/bin/pip3 install requests >> install.log",
+        ):
+            bad = tmp_path / "bad.yml"
+            bad.write_text(header + f"          {disguised}\n", encoding="utf-8")
+            errors = module._check_pip_cve_2026_6357(bad, bad.read_text(encoding="utf-8"))
+            assert len(errors) == 1 and "CVE-2026-6357" in errors[0], disguised
+        assert module.pip_install_commands('echo "pip install x" && uv pip install y') == []
+        assert module.pip_install_commands("pipx install poetry") == []
+
     def test_guard_does_not_exempt_pip_install_with_redirect(self, tmp_path: Path) -> None:
         """``pip install ... >> install.log`` is a real install and must fail.
 

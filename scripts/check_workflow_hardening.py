@@ -35,17 +35,78 @@ MAPPING_KEY_RE = re.compile(
 # for example/docstring-style strings inside ``run:`` blocks (those are
 # detected because they appear inside quotes/printable strings rather
 # than as the leading executable token of a line).
-# Matches a ``pip install`` invocation appearing anywhere on a line —
-# both as the leading executable token of a ``run: |`` block line and
-# as the trailing payload of a single-line ``run: pip install ...``
-# step.  ``[^#\n]*`` before the pattern allows leading shell tokens
-# like ``set -e &&`` while excluding everything past a ``#`` comment
-# (so ``# pip install x`` in a comment is not a false positive).
-# ``uv pip install`` is uv's resolver and installer behind pip's command line;
-# no pip runs, so neither the pip floor nor the interpreter rule applies to it
-# (the ``(?<!uv\s)`` lookbehind). The uv-managed lanes pin uv itself through
-# ``astral-sh/setup-uv``'s ``version`` input and install from ``uv.lock``.
-PIP_INSTALL_RE = re.compile(r"(?<![\w-])(?<!uv\s)(?:python3?\s+-m\s+)?pip\s+install\b")
+# Whether a shell line runs pip is decided from the tokens of the command,
+# not from the characters around the word ``pip``: the executable token of
+# each shell segment (after ``&&``, ``||``, ``|``, ``;`` and subshell
+# parentheses) is classified once leading ``VAR=value`` assignments and
+# wrappers such as ``env``/``sudo`` are set aside. ``pip install``,
+# ``pip3 install`` and ``python -m pip install`` (any ``pythonX.Y``) run pip;
+# ``uv pip install`` runs uv's installer behind pip's command line, so no pip
+# executes and neither the pip floor nor the interpreter rule applies to it.
+# A lookbehind on the three characters before ``pip`` could not tell these
+# apart: ``PIP_CACHE_DIR=/tmp/uv pip install`` runs real pip and ``uv  pip
+# install`` (two spaces) runs uv. Words inside a quoted string (an ``echo``
+# that documents the command) are one token and never an executable.
+_SHELL_SEGMENT_RE = re.compile(r"\s*(?:&&|\|\||\||;|\(|\))\s*")
+_ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_PYTHON_EXECUTABLE_RE = re.compile(r"^python(?:3(?:\.\d+)?)?$")
+_PIP_EXECUTABLE_RE = re.compile(r"^pip3?$")
+_COMMAND_WRAPPERS = frozenset({"env", "sudo", "time", "nice", "exec", "command"})
+
+
+def pip_install_commands(text: str) -> list[str]:
+    """The shell segments in ``text`` whose executable is pip running ``install``.
+
+    Comments are dropped, an inline ``run:`` key is stripped, each line is
+    split into its shell segments, and a segment's executable is the first
+    token after any ``VAR=value`` assignments and wrapper commands. The
+    segment is reported when that executable is ``pip``/``pip3`` followed by
+    ``install``, or ``python``/``python3``/``pythonX.Y`` followed by
+    ``-m pip install``. ``uv pip install`` is uv, not pip.
+    """
+    import shlex
+
+    found: list[str] = []
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        line = re.split(r"\s#", raw, maxsplit=1)[0]
+        for segment in _SHELL_SEGMENT_RE.split(line):
+            command = segment.strip()
+            inline = re.match(r"(?:-\s*)?run:\s*(.*)", command)
+            if inline:
+                command = inline.group(1).strip()
+            if not command:
+                continue
+            try:
+                tokens = shlex.split(command, posix=True)
+            except ValueError:
+                tokens = command.split()
+            while tokens and (
+                _ENV_ASSIGNMENT_RE.match(tokens[0]) or tokens[0] in _COMMAND_WRAPPERS
+            ):
+                tokens.pop(0)
+            if not tokens:
+                continue
+            executable = tokens[0].rsplit("/", 1)[-1]
+            arguments = tokens[1:]
+            runs_pip = bool(_PIP_EXECUTABLE_RE.match(executable)) and arguments[:1] == ["install"]
+            runs_pip_module = bool(_PYTHON_EXECUTABLE_RE.match(executable)) and arguments[:3] == [
+                "-m",
+                "pip",
+                "install",
+            ]
+            if runs_pip or runs_pip_module:
+                found.append(command)
+    return found
+
+
+def has_pip_install(text: str) -> bool:
+    """Whether ``text`` runs ``pip install`` (see :func:`pip_install_commands`)."""
+    return bool(pip_install_commands(text))
+
+
 PIP_UPGRADE_RE = re.compile(
     r"(?:python3?\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
 )
@@ -360,7 +421,7 @@ def _check_pip_cve_2026_6357(path: Path, text: str) -> list[str]:
         leading_token = scan.lstrip().split(" ", 1)[0].strip()
         if leading_token in {"echo", "printf"}:
             continue
-        if PIP_INSTALL_RE.search(scan) and not pip_floored:
+        if has_pip_install(scan) and not pip_floored:
             job_hint = (
                 f" (in job ``{current_job_key}`` starting at line {job_start_line})"
                 if current_job_key
@@ -385,7 +446,7 @@ def _check_pip_uses_pinned_interpreter(path: Path, text: str) -> list[str]:
     the first ``pip install`` in the job.
 
     This walk deliberately reuses the exact same line-classification constants
-    as :func:`_check_pip_cve_2026_6357` -- ``PIP_INSTALL_RE`` for what counts as
+    as :func:`_check_pip_cve_2026_6357` -- :func:`has_pip_install` for what counts as
     an install, ``HEREDOC_OPEN_RE`` for heredoc bodies, and the
     ``echo``/``printf`` leading-token rule for documentation lines that merely
     *write* the string ``pip install`` into a file. The two checks keep
@@ -488,7 +549,7 @@ def _check_pip_uses_pinned_interpreter(path: Path, text: str) -> list[str]:
         if leading_token in {"echo", "printf"}:
             continue
 
-        if PIP_INSTALL_RE.search(scan) and not flagged:
+        if has_pip_install(scan) and not flagged:
             if in_jobs_block and current_job_key and not setup_python_seen and not job_is_container:
                 errors.append(
                     f"{path}:{lineno}: job ``{current_job_key}`` (starting at line "

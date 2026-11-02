@@ -389,6 +389,22 @@ class TestMailerOutboxIsState:
         assert configured == conftest.TEST_MAIL_OUTBOX
         assert Path(configured).is_relative_to(Path(tempfile.gettempdir()))
 
+    def test_the_test_run_never_inherits_an_operator_memory_store(self) -> None:
+        """``tests/conftest.py`` drops ``MERCURY_AGENT_MEMORY_PATH`` for the whole run.
+
+        A retriever built under that variable appends every recorded run to
+        the operator's SQLite history and prunes it past 1,000 rows; the test
+        process must never point at a real store, so a default retriever
+        keeps its memory in process only.
+        """
+        from omni_mercury_engine.narrative import detection_memory
+        from omni_mercury_engine.narrative.retriever import KnowledgeRetriever
+
+        assert detection_memory.ENV_VAR == "MERCURY_AGENT_MEMORY_PATH"
+        assert detection_memory.ENV_VAR not in os.environ
+        retriever = KnowledgeRetriever()
+        assert retriever._detection_store is None
+
     def test_isolated_home_holds_no_configured_outbox(self, isolated_home: Path) -> None:
         """Snapshot and purge tests see only the scratch tree's default outbox."""
         from omni_mercury_engine.api.mailer import default_outbox
