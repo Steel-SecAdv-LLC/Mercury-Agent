@@ -1672,7 +1672,7 @@ class Component extends DCLogic {
       chips: ["What was the latest anomaly?", "Explain the latest detection", "Which samples were flagged?", "How many anomalies today?", "Which detectors do you have?", "Tell me about the " + String(s.domain || "network_security").replace(/_/g, " ") + " domain", "Why did it clear the gate?", "Recommend an action", "Summarize threat posture", "What should I run next?", "How do I collect data?"].map((label) => ({ label, act: () => this.ask(label) })),
       draft: s.draft, onDraft: (e) => this.setState({ draft: e.target.value }),
       onDraftKey: (e) => { if (e.key === "Enter") { e.preventDefault(); this.ask(this.state.draft); } },
-      onAsk: () => this.ask(this.state.draft),
+      onAsk: () => this.ask(this.state.draft), askOff: !String(s.draft || "").trim(), askOp: String(s.draft || "").trim() ? 1 : 0.45,
       stats: [[D.nCommands, "commands"], [nTools, "operator tools"], [D.detectors.length, "manifest detectors"], [D.loaders.length, "data-loader domains"], [D.mcp.length, "MCP tools"], [D.api.length, "API routes"]].map(([n, k]) => ({ n: String(n), k })),
       quick: [
         ["01 · DETECT", "Detect anomalies in a file", "Score a CSV or JSON file with the statistical ensemble or the neural fusion path.", "mercury-agent detect -i data.csv -d fusion", "var(--brand-cyan)"],

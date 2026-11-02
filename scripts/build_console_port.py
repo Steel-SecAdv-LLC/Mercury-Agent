@@ -937,6 +937,25 @@ TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     ),
 )
 
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the chat send button is disabled while the draft is empty",
+        "      onAsk: () => this.ask(this.state.draft),",
+        '      onAsk: () => this.ask(this.state.draft), askOff: !String(s.draft || "").trim(), askOp: String(s.draft || "").trim() ? 1 : 0.45,',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the chat send button is named and disabled while the draft is empty",
+        '<button onClick="{{ onAsk }}" style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);width:28px;height:28px;'
+        'border-radius:50%;background:var(--mercury-500);color:var(--void);border:none;font-size:12px;">▸</button>',
+        '<button onClick="{{ onAsk }}" disabled="{{ askOff }}" aria-label="Send to Mercury Agent" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);width:28px;height:28px;border-radius:50%;background:var(--mercury-500);color:var(--void);"
+        'border:none;font-size:12px;opacity:{{ askOp }};">▸</button>',
+    ),
+)
+
 #: Design modules shipped unchanged apart from MODULE_PATCHES.
 MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
     (
