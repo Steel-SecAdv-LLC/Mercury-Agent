@@ -392,6 +392,40 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
     ),
 )
 
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "alerts that land within a few seconds of each other fold into one chat entry and one "
+        "terminal row with a count: a Mass Run of 45 capabilities produced 26 separate proactive "
+        "messages, which buried the conversation",
+        '      this.say([{ role: "agent", steps: ["proactive · " + String(typ).replace(/_/g, " ") + '
+        '(sev != null ? " · severity " + (typeof sev === "number" ? sev.toFixed(2) : sev) : "") + '
+        '(m.domain || e2.domain ? " · " + (m.domain || e2.domain) : "") + " · SSE /api/v1/voice/alerts"], '
+        "text: txt }]);\n"
+        '      this.append([this.row("◆ Mercury · " + String(typ).replace(/_/g, " ") + " · " + '
+        'String(txt).slice(0, 160), "var(--brand-gold)")]);',
+        '      const badge = String(typ).replace(/_/g, " ") + (sev != null ? " · severity " + '
+        '(typeof sev === "number" ? sev.toFixed(2) : sev) : "") + (m.domain || e2.domain ? " · " + '
+        '(m.domain || e2.domain) : ""), nowA = Date.now();\n'
+        "      const burst = this._alertBurst && nowA - this._alertBurst.at < 4000 ? this._alertBurst : null;\n"
+        "      if (burst) {\n"
+        "        // Same burst: update the entry already on screen instead of adding another.\n"
+        "        burst.n += 1; burst.at = nowA;\n"
+        "        this.setState((s) => { const chat = s.chat.slice(), lines = s.lines.slice(); const ci = "
+        "chat.map((c) => !!c.proactive).lastIndexOf(true); if (ci >= 0) chat[ci] = Object.assign({}, chat[ci], "
+        '{ steps: ["proactive · " + burst.n + " runs landed within a few seconds · latest: " + badge + '
+        '" · SSE /api/v1/voice/alerts"], text: txt }); const li = lines.map((l) => !!l.alert).lastIndexOf(true); '
+        'if (li >= 0) lines[li] = Object.assign(this.row("◆ Mercury · " + burst.n + " runs landed · latest: " + '
+        'badge + " · " + String(txt).slice(0, 120), "var(--brand-gold)"), { alert: true }); return { chat, lines }; });\n'
+        "      } else {\n"
+        "        this._alertBurst = { at: nowA, n: 1 };\n"
+        '        this.say([{ role: "agent", proactive: true, steps: ["proactive · " + badge + '
+        '" · SSE /api/v1/voice/alerts"], text: txt }]);\n'
+        '        this.append([Object.assign(this.row("◆ Mercury · " + badge + " · " + String(txt).slice(0, 160), '
+        '"var(--brand-gold)"), { alert: true })]);\n'
+        "      }",
+    ),
+)
+
 TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     (
         "the agent panel header shows the alert stream state the logic already computed but never rendered",

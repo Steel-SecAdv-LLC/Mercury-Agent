@@ -379,14 +379,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             request.headers.get("X-Forwarded-For"),
         )
 
-    def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, int]]:
-        """Check if request is within rate limit using unified rate limiter."""
+    def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, str]]:
+        """Check the request against the limiter; returns ``(allowed, response headers)``.
+
+        The headers are the limiter's own (``RateLimitInfo.to_headers``), so a
+        denial carries the ``Retry-After`` the bucket really needs: the time
+        to refill the shortfall at ``requests_per_minute / 60`` tokens per
+        second, never a flat 60. The console paces its Mass Run on that
+        header; with the flat value every burst stalled a full minute even
+        though the next token arrived within a second.
+        """
         info = self._limiter.check(client_id)
-        return info.allowed, {
-            "limit": info.limit,
-            "remaining": info.remaining,
-            "reset": info.reset_at,
-        }
+        return info.allowed, info.to_headers()
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with rate limiting."""
@@ -416,27 +420,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         client_id = self._get_client_id(request)
-        allowed, info = self._check_rate_limit(client_id)
+        allowed, headers = self._check_rate_limit(client_id)
 
         if not allowed:
             return Response(
                 content='{"error": "rate_limit_exceeded", "message": "Too many requests. Please retry later."}',
                 status_code=429,
                 media_type="application/json",
-                headers={
-                    "X-RateLimit-Limit": str(info["limit"]),
-                    "X-RateLimit-Remaining": str(info["remaining"]),
-                    "X-RateLimit-Reset": str(info["reset"]),
-                    "Retry-After": "60",
-                },
+                headers=headers,
             )
 
         response = await call_next(request)
 
         # Add rate limit headers to all responses
-        response.headers["X-RateLimit-Limit"] = str(info["limit"])
-        response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
-        response.headers["X-RateLimit-Reset"] = str(info["reset"])
+        for name, value in headers.items():
+            response.headers[name] = value
 
         return response
 
