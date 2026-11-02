@@ -921,6 +921,22 @@ TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     ),
 )
 
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "catalog family filter chips expose their pressed state",
+        "const st = q === g ? on : off; return { t, bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setState({ bgrp: g, bmore: 0 }) }; }) : [];",
+        'const st = q === g ? on : off; return { t, on: q === g ? "true" : "false", bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setState({ bgrp: g, bmore: 0 }) }; }) : [];',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "catalog family filter chips carry aria-pressed",
+        '<button onClick="{{ bg.pick }}" style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;padding:3px 9px;',
+        '<button onClick="{{ bg.pick }}" aria-pressed="{{ bg.on }}" style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;padding:3px 9px;',
+    ),
+)
+
 #: Design modules shipped unchanged apart from MODULE_PATCHES.
 MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
     (

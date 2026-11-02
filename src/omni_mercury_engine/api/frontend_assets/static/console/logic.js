@@ -538,7 +538,7 @@ class Component extends DCLogic {
       o.brShowFilter = !o.brHasIntro; o.brNote = TITLES[kind][1]; // An introduction is not an empty list, so it carries no count.
       o.brCount = o.brHasIntro ? "" : total + (s.bq || q ? " of " + this.items(kind).reduce((a, g) => a + g.items.length, 0) : "");
       o.bq = s.bq; o.onBq = (e) => this.setState({ bq: e.target.value, bmore: 0 }); o.brPh = "Filter " + TITLES[kind][0].replace(/\s*\u2020/g, "").toLowerCase();
-      o.brGroups = gl.length > 1 ? [["", "All"]].concat(gl.map((g) => [g, g])).map(([g, t]) => { const st = q === g ? on : off; return { t, bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setState({ bgrp: g, bmore: 0 }) }; }) : [];
+      o.brGroups = gl.length > 1 ? [["", "All"]].concat(gl.map((g) => [g, g])).map(([g, t]) => { const st = q === g ? on : off; return { t, on: q === g ? "true" : "false", bg: st.bg, fg: st.fg, bd: st.bd, pick: () => this.setState({ bgrp: g, bmore: 0 }) }; }) : [];
       const SELK = ["commands", "runs", "detectors", "domains", "physics", "tools"].includes(kind), cs = s.csel || {}, canPick = (i) => SELK && i.k && !(i.k === "COMMAND" && (this.cmdBy(i.t) || {}).kind === "group");
       const tickOf = (on) => ({ tick: on ? "✓" : "", box: on ? "var(--mercury-400)" : "transparent", bd: on ? "var(--mercury-400)" : "var(--border-strong)" });
       o.brSections = groups.map((g) => { const left = Math.max(0, cap - shown), items = g.items.slice(0, left); shown += items.length; const pickable = g.items.filter(canPick), nSel = pickable.filter((i) => cs[i.k + ":" + i.t]).length, all = pickable.length > 0 && nSel === pickable.length;
