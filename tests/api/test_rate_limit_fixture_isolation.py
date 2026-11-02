@@ -62,6 +62,8 @@ def test_switching_off_a_built_stack_restores_it(monkeypatch: pytest.MonkeyPatch
 def test_switching_off_never_runs_the_application_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
     """Building the stack must not start the app: the lifespan's maintenance sweep runs against whatever stores the process inherited."""
     import contextlib
+    from collections.abc import AsyncIterator
+    from typing import Any
 
     monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "true")
     app.middleware_stack = None
@@ -69,7 +71,7 @@ def test_switching_off_never_runs_the_application_lifespan(monkeypatch: pytest.M
     original = app.router.lifespan_context
 
     @contextlib.asynccontextmanager
-    async def recording(application):  # type: ignore[no-untyped-def]
+    async def recording(application: Any) -> AsyncIterator[None]:
         entered.append("lifespan")
         async with original(application):
             yield
