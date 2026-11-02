@@ -344,11 +344,20 @@ These configure the engine / streaming-worker tier. CLI flags
 
 ### Logging
 
-Log level is a **CLI flag** on the serve command, not an environment variable:
-`mercury-agent serve --log-level <debug|info|warning|error>` (default `info`).
-Structured-vs-text formatting is selected by the logging setup in
-`omni_mercury_engine.utils.logging`; there are no `OMNI_LOG_LEVEL`/
-`OMNI_LOG_FORMAT` environment hooks in the application.
+The API configures the engine's own logger at start-up when the host process
+has not (`omni_mercury_engine.utils.logging.ensure_logging_configured`, called
+from the ASGI lifespan once per worker). Without it, uvicorn configures only
+its own loggers and nothing the engine logs below WARNING is written: the
+warm-up record, the maintenance sweep, and the verification link the
+development mailer logs in place of sending email.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MERCURY_LOG_LEVEL` | uvicorn's `--log-level` (`info`) | Level for the engine's records: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. `mercury-agent serve --log-level <level>` sets the same level without this variable |
+| `MERCURY_LOG_FORMAT` | `text` | `json` for structured records (one object per line, PII redacted); `text` is human-readable and coloured only when stdout is a terminal |
+
+A host that configures logging itself, with `configure_logging(...)` or a
+handler on the root logger, is left alone.
 
 ### Rate Limiting
 

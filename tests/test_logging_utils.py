@@ -15,11 +15,14 @@ from typing import Any
 import pytest
 
 from omni_mercury_engine.utils.logging import (
+    LOG_FORMAT_ENV,
+    LOG_LEVEL_ENV,
     ColoredFormatter,
     PerformanceLogger,
     StructuredFormatter,
     configure_logging,
     correlation_context,
+    ensure_logging_configured,
     get_correlation_id,
     get_logger,
     log_function_call,
@@ -611,3 +614,85 @@ class TestCredentialScrubInFormatters:
         rendered = formatter.format(record)
         assert self._SECRET not in rendered
         assert "h.example/p" in rendered
+
+
+class TestEnsureLoggingConfigured:
+    """Tests for the start-up bootstrap the API lifespan calls."""
+
+    def setup_method(self) -> None:
+        """Start from a handler-free package logger and remember the root's handlers."""
+        self._root_handlers = logging.getLogger().handlers[:]
+        logger = logging.getLogger("omni_mercury_engine")
+        logger.handlers.clear()
+        logger.setLevel(logging.NOTSET)
+        logger.propagate = True
+
+    def teardown_method(self) -> None:
+        """Restore the root's handlers and the package logger's propagating state."""
+        logging.getLogger().handlers[:] = self._root_handlers
+        logger = logging.getLogger("omni_mercury_engine")
+        logger.handlers.clear()
+        logger.setLevel(logging.NOTSET)
+        logger.propagate = True
+
+    def test_installs_when_the_host_configured_nothing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No handler anywhere (a bare uvicorn worker) → the package gets one at the given level."""
+        logging.getLogger().handlers.clear()
+        monkeypatch.delenv(LOG_LEVEL_ENV, raising=False)
+        monkeypatch.delenv(LOG_FORMAT_ENV, raising=False)
+
+        assert ensure_logging_configured(logging.WARNING) is True
+
+        logger = logging.getLogger("omni_mercury_engine")
+        assert logger.level == logging.WARNING
+        assert len(logger.handlers) == 1
+        assert isinstance(logger.handlers[0].formatter, ColoredFormatter)
+
+    def test_environment_overrides_level_and_format(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """MERCURY_LOG_LEVEL and MERCURY_LOG_FORMAT win over the server's default."""
+        logging.getLogger().handlers.clear()
+        monkeypatch.setenv(LOG_LEVEL_ENV, "DEBUG")
+        monkeypatch.setenv(LOG_FORMAT_ENV, "JSON")
+
+        assert ensure_logging_configured("INFO") is True
+
+        logger = logging.getLogger("omni_mercury_engine")
+        assert logger.level == logging.DEBUG
+        assert isinstance(logger.handlers[0].formatter, StructuredFormatter)
+
+    def test_leaves_a_root_handler_alone(self) -> None:
+        """A host that configured the root logger (basicConfig, pytest) keeps its setup."""
+        root = logging.getLogger()
+        root.handlers.clear()
+        sentinel = logging.NullHandler()
+        root.addHandler(sentinel)
+
+        assert ensure_logging_configured() is False
+        assert logging.getLogger("omni_mercury_engine").handlers == []
+        assert root.handlers == [sentinel]
+
+    def test_leaves_configure_logging_alone(self) -> None:
+        """An explicit configure_logging() is never replaced."""
+        logging.getLogger().handlers.clear()
+        configure_logging(level="ERROR")
+        logger = logging.getLogger("omni_mercury_engine")
+        installed = logger.handlers[:]
+
+        assert ensure_logging_configured("INFO") is False
+        assert logger.handlers == installed
+        assert logger.level == logging.ERROR
+
+    def test_text_format_is_plain_off_a_terminal(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Redirected to a file, the text format carries no ANSI escapes."""
+        logging.getLogger().handlers.clear()
+        monkeypatch.setattr("sys.stdout.isatty", lambda: False)
+
+        assert ensure_logging_configured() is True
+
+        formatter = logging.getLogger("omni_mercury_engine").handlers[0].formatter
+        assert isinstance(formatter, ColoredFormatter)
+        record = logging.LogRecord("t", logging.WARNING, "t.py", 1, "plain", (), None)
+        assert "\033[" not in formatter.format(record)
+        assert "WARNING" in formatter.format(record)

@@ -27,6 +27,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the engine's own log records reach the server log.** Under
+`uvicorn omni_mercury_engine.api.server:app` only uvicorn's loggers were
+configured; the `omni_mercury_engine` logger had no handler, so every record
+below WARNING was dropped: the warm-up confirmation, the maintenance sweep,
+and the verification link the development mailer logs in place of sending
+email, which left a locally registered account impossible to verify. The
+ASGI lifespan now calls `utils.logging.ensure_logging_configured()` once per
+worker: it installs the package's handler at uvicorn's `--log-level` (or
+`MERCURY_LOG_LEVEL`, with `MERCURY_LOG_FORMAT=json|text`) and leaves a host
+that configured logging itself alone. The text format is coloured only when
+stdout is a terminal, so redirected and container logs stay plain. The
+previously unread `OMNI_LOG_LEVEL`/`OMNI_LOG_FORMAT` names in `.env.example`
+and `docker-compose.yml` were replaced by the live ones
+(`tests/test_logging_utils.py`, `tests/api/test_server_comprehensive.py`).
+
 **Fixed — the alert bus cannot accumulate callbacks.** Each publish scheduled
 one loop callback per subscriber and the callback retained its entry, so a
 recording thread that outpaced a busy subscriber loop grew an unbounded

@@ -55,6 +55,7 @@ correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
 
 from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.utils.logging import ensure_logging_configured
 from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
     ValidationConfig,
@@ -260,9 +261,26 @@ async def _warm_detection_paths() -> None:
     await detect_multivariate(multivariate_req)
 
 
+def _serving_log_level() -> int:
+    """The level uvicorn was started with, applied to the engine's own logger.
+
+    ``uvicorn --log-level`` (and ``mercury-agent serve --log-level``) sets the
+    level on uvicorn's loggers only. Reading it back here lets the one flag the
+    deployment guide documents govern the engine's records as well; a host
+    that did not set one gets INFO.
+    """
+    level = logging.getLogger("uvicorn").level
+    return level if level != logging.NOTSET else logging.INFO
+
+
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
-    """ASGI lifespan handler: warmup + maintenance on startup, cleanup on stop.
+    """ASGI lifespan handler: logging, warmup + maintenance on startup, cleanup on stop.
+
+    The engine's logger is configured first (see
+    :func:`omni_mercury_engine.utils.logging.ensure_logging_configured`) so
+    the warm-up, maintenance and mailer records that follow are written;
+    a host that configured logging itself is left alone.
 
     On stop, in-flight SIEM alerts (:mod:`omni_mercury_engine.api.alert_egress`)
     are awaited and the alert sinks closed.
@@ -273,6 +291,7 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     startup, then periodically. It is failure-isolated: a maintenance error
     is logged and never blocks serving.
     """
+    ensure_logging_configured(_serving_log_level())
     await _warmup(app_instance)
     from omni_mercury_engine.api.maintenance import start_maintenance_task
 
