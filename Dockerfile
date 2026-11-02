@@ -71,15 +71,20 @@ ENV AMA_NO_CYTHON=1
 # refuses to run when uv.lock no longer matches pyproject.toml (the Workflow
 # Hardening lane checks the same with ``uv lock --check``), installs exactly
 # the resolved set into /opt/venv (UV_PROJECT_ENVIRONMENT), and resolves and
-# downloads in parallel. uv is a build-stage tool: it is removed with pip
-# before the venv is copied into the runtime image. AMA (the [pqc] extra) is
+# downloads in parallel. ``--inexact`` keeps the packages the sync did not
+# resolve: pip, setuptools and wheel seeded by ``python -m venv`` and the uv
+# installed above, which the floor upgrade, the AMA build and the final
+# cleanup below still run through (an exact sync would be entitled to remove
+# them, and the later ``pip`` calls would then fall through to the base
+# interpreter). uv is a build-stage tool: it is removed with pip before the
+# venv is copied into the runtime image. AMA (the [pqc] extra) is
 # intentionally NOT installed here; the native build below is its sole
 # installer.
 RUN pip install --no-cache-dir "uv==0.11.32"
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_LINK_MODE=copy \
     UV_NO_CACHE=1
-RUN uv sync --locked --extra all --no-editable --no-dev
+RUN uv sync --locked --inexact --extra all --no-editable --no-dev
 
 # Re-apply the supply-chain floors AFTER the dependency resolver has run.
 #

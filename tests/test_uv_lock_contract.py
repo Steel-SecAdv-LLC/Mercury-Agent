@@ -55,6 +55,12 @@ def test_hardening_lane_checks_the_lock_and_builder_copies_it() -> None:
     assert "run: uv lock --check" in ci
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
     assert re.search(r"^COPY pyproject.toml uv.lock README.md /app/$", dockerfile, re.M)
+    # The builder's sync must keep the venv's pip, setuptools, wheel and the
+    # uv it installed: the floor upgrade, the AMA build and the final cleanup
+    # run through them, and an exact sync may remove anything the lock did not
+    # resolve.
+    builder_sync = re.search(r"^RUN uv sync[^\n]*$", dockerfile, re.M)
+    assert builder_sync is not None and "--inexact" in builder_sync.group(0)
     # uv is build tooling: removed with pip before the venv leaves the builder.
     assert "/opt/venv/bin/python -m pip uninstall -y uv" in dockerfile
 
