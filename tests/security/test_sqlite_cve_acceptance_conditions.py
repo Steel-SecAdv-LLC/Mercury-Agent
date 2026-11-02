@@ -19,6 +19,7 @@ torch-free security lane.
 from __future__ import annotations
 
 import re
+import shlex
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -76,13 +77,20 @@ def _apt_package_names(text: str) -> set[str]:
     """
     installed: set[str] = set()
     for block in _APT_INSTALL.findall(text):
-        # Strip comments and line continuations, then take the bare package tokens.
+        # Strip comments and line continuations, then tokenise as the shell
+        # would: a quoted name ("sqlite3", 'sqlite3') installs the same package
+        # as a bare one, so the quotes must not survive into the comparison.
         body = "\n".join(line.split("#", 1)[0] for line in block.splitlines())
-        for token in body.replace("\\", " ").split():
+        try:
+            tokens = shlex.split(body.replace("\\\n", " "), comments=False, posix=True)
+        except ValueError:
+            tokens = body.replace("\\", " ").split()
+        for token in tokens:
             if token.startswith("-") or token in {"apt-get", "apt", "install", "&&"}:
                 continue
             name = re.split(r"[:=/]", token, maxsplit=1)[0]
-            installed.add(name.lower())
+            if name:
+                installed.add(name.lower())
     return installed
 
 
@@ -93,10 +101,18 @@ def test_qualified_apt_package_names_are_normalised() -> None:
         "sqlite3=3.46.1-1",
         "sqlite3/trixie",
         "SQLite3:arm64=3.46.1",
+        '"sqlite3"',
+        "'sqlite3'",
+        '"sqlite3:amd64"',
+        "'sqlite3=3.46.1-1'",
     ):
         text = f"RUN apt-get update && apt-get install -y --no-install-recommends curl \\\n    {qualified} && rm -rf /var/lib/apt/lists/*\n"
         assert "sqlite3" in _apt_package_names(text), qualified
     assert _apt_package_names("RUN apt-get install -y libsqlite3-0\n") == {"libsqlite3-0"}
+    assert _apt_package_names("RUN apt-get install -y \"libsqlite3-0\" 'curl'\n") == {
+        "libsqlite3-0",
+        "curl",
+    }
 
 
 def test_dockerfile_installs_no_sqlite3_cli() -> None:
