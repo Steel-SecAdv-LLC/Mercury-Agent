@@ -93,7 +93,7 @@ services:
   # Grafana — dashboards
   # ---------------------------------------------------------------------------
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.3.0
     container_name: mercury-grafana
     restart: unless-stopped
     ports:
