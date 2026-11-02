@@ -60,7 +60,12 @@ test-enforced:
   `https` institution with a stated role for every domain; adapter profiles
   name the detector they serve; `use_when` never claims an ontology blind
   spot; label rules match the loader's declared provenance; keyed loaders say
-  which key.
+  which key; and the registry imports nothing but `dataclasses` and
+  `typing`, so the PhysioNet pages the sepsis and seizure profiles cite can
+  never be fetched from it. The clinical-data boundary test now tells a
+  citation from a request builder on that basis (a module with no I/O-capable
+  import holds a URL only as a citation) instead of counting every PhysioNet
+  URL literal as a download path.
 - Served at `GET /api/v1/catalog/domains[/{domain}]` and
   `GET /api/v1/catalog/detectors[/{name}]` (`api/routes/catalog.py`:
   read-only, anonymous, in the OpenAPI document), each record carrying the

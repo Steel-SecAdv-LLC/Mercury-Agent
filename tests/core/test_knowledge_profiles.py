@@ -23,7 +23,9 @@ lineage and the references. These tests make the authoring rules enforceable:
 
 from __future__ import annotations
 
+import ast
 import re
+from pathlib import Path
 
 import pytest
 
@@ -188,3 +190,36 @@ class TestSerialisation:
     def test_validation_reports_a_missing_detector(self) -> None:
         problems = validate_profiles(set(_MANIFEST) | {"phantom"}, _DOMAINS)
         assert any("phantom" in p for p in problems)
+
+
+#: Standard-library modules with no way to open a connection or a file. The
+#: registry is reference data; this is every import it is allowed.
+_REFERENCE_DATA_IMPORTS = frozenset({"__future__", "dataclasses", "typing"})
+
+
+def test_the_registry_imports_nothing_that_can_reach_the_network() -> None:
+    """The profiles cite institutions and papers; they can never fetch them.
+
+    The sepsis and seizure profiles cite PhysioNet pages, and every domain
+    cites its institutions by URL. Those are citations the console and the
+    agent show, not sources Mercury reads: the module imports only
+    ``dataclasses`` and ``typing``, so no client, reader or helper is in
+    scope to carry a URL to the network, and the clinical-data boundary test
+    reads it as citation-only on that basis. Adding any other import here is
+    a design change that must be made deliberately.
+    """
+    import omni_mercury_engine.core.knowledge_profiles as module
+
+    tree = ast.parse(Path(str(module.__file__)).read_text(encoding="utf-8"))
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            imported.add((node.module or "").split(".")[0] if node.level == 0 else ".")
+
+    assert imported <= _REFERENCE_DATA_IMPORTS, (
+        f"knowledge_profiles imports {sorted(imported - _REFERENCE_DATA_IMPORTS)}; "
+        "the registry is reference data and must stay free of anything that "
+        "could fetch the pages it cites"
+    )

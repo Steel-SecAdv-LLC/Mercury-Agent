@@ -101,6 +101,49 @@ def test_no_serving_surface_reaches_physionet() -> None:
     )
 
 
+#: Standard-library modules that cannot open a connection. A module whose
+#: every import is one of these can hold a URL only as a citation: there is
+#: no client, reader or helper in scope to carry it to the network.
+_CITATION_ONLY_IMPORTS = frozenset(
+    {
+        "__future__",
+        "collections",
+        "dataclasses",
+        "enum",
+        "functools",
+        "itertools",
+        "math",
+        "re",
+        "textwrap",
+        "types",
+        "typing",
+    }
+)
+
+
+def _imported_modules(tree: ast.AST) -> set[str]:
+    """Top-level names of every module ``tree`` imports, however deeply."""
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            # A relative import reaches the package itself, which has clients.
+            names.add((node.module or "").split(".")[0] if node.level == 0 else ".")
+    return names
+
+
+def _holds_url_to(tree: ast.AST, hosts: tuple[str, ...]) -> bool:
+    """Whether any string literal in ``tree`` is a URL on one of ``hosts``."""
+    return any(
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.startswith(("http://", "https://"))
+        and any(h in node.value for h in hosts)
+        for node in ast.walk(tree)
+    )
+
+
 def test_only_the_measurement_corpora_construct_a_physionet_url() -> None:
     """A PhysioNet *URL* appears only where a corpus is downloaded.
 
@@ -108,9 +151,19 @@ def test_only_the_measurement_corpora_construct_a_physionet_url() -> None:
     HTTP client's allowlist comment, the provenance registries and the
     row-mapping adapter all name it legitimately and fetch nothing from it.
     What would be a finding is a new module building a request to that host.
+
+    A citation is not a request. The knowledge profiles cite the Challenge
+    2019 and CHB-MIT pages as literature for the sepsis and seizure domains
+    and import nothing but ``dataclasses`` and ``typing``; a module that
+    imports only such non-I/O standard-library modules has no client,
+    reader or helper in scope that could carry the URL to the network, so it
+    is read as a citation. Any other import (``requests``, ``pandas``, a
+    relative import of the package's own fetch helpers) makes the module a
+    candidate builder that must be in the allowed set.
     """
     hosts = ("physionet.org", "physionet-open.s3")
     builders = []
+    citations = []
     for path in sorted(_SRC.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue
@@ -118,15 +171,19 @@ def test_only_the_measurement_corpora_construct_a_physionet_url() -> None:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):  # pragma: no cover
             continue
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.Constant)
-                and isinstance(node.value, str)
-                and node.value.startswith(("http://", "https://"))
-                and any(h in node.value for h in hosts)
-            ):
-                builders.append(str(path.relative_to(_SRC)))
-                break
+        if not _holds_url_to(tree, hosts):
+            continue
+        module = str(path.relative_to(_SRC))
+        if _imported_modules(tree) <= _CITATION_ONLY_IMPORTS:
+            citations.append(module)
+        else:
+            builders.append(module)
+
+    assert citations == ["core/knowledge_profiles.py"], (
+        "the modules citing a PhysioNet page without any means to fetch it "
+        f"changed: {citations}. A new citation-only module is fine; record it "
+        "here so the boundary stays deliberate."
+    )
 
     allowed = {
         "loaders/sepsis_loader.py",  # Challenge 2019 (sepsis)
