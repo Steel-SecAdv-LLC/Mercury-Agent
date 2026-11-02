@@ -32,7 +32,16 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from pydantic import BaseModel, Field, field_validator
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
-from omni_mercury_engine.api.fusion_weights import fuse, statistical_scores, temporal_scores
+from omni_mercury_engine.api.fusion_weights import (
+    TEMPORAL_STEP_SCALE,
+    calibrated_max_z,
+    chi_norm_z,
+    column_statistics,
+    deseasonalize,
+    fuse_calibrated,
+    null_dof,
+    row_components,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +72,7 @@ class BatchDetectionMethod(StrEnum):
 
 #: The components a batch job can score per sample; dimensional and spectral
 #: are whole-series measures the synchronous route alone offers.
-_BATCH_FUSION_COMPONENTS: tuple[str, ...] = ("statistical", "temporal")
+_BATCH_FUSION_COMPONENTS: tuple[str, ...] = ("statistical", "temporal", "collective")
 
 
 @dataclass
@@ -389,8 +398,18 @@ async def process_batch_job(
         # mean/std, so a 1-feature row always scored 0.0 and nothing was ever
         # compared with the rest of the data.)
         data_arr = np.asarray(data, dtype=float)
-        ds_mean = np.mean(data_arr, axis=0)
-        ds_std = np.std(data_arr, axis=0) + 1e-8
+        # The data-set location and scale every sample is judged against: the
+        # shared kernel's robust pair (median, scaled MAD), as the synchronous
+        # routes use, so a batch and a synchronous run standardise alike.
+        # A dominant periodic component is removed first, as the synchronous
+        # routes do; ``baseline`` is what each sample loses before scoring.
+        residual, _periods = deseasonalize(data_arr)
+        baseline = data_arr - residual
+        ds_mean, ds_std = column_statistics(residual)
+        dof = null_dof(data_arr.shape[0])
+        # The collective component needs a sample's neighbours: scored once
+        # over the whole residual and handed to each chunk by position.
+        collective_rows = row_components(residual, ds_mean, ds_std, dof=dof)["collective"]
 
         for chunk_start in range(0, total, chunk_size):
             job = await store.get_job(job_id)
@@ -403,7 +422,16 @@ async def process_batch_job(
 
             prev_row = data[chunk_start - 1] if chunk_start > 0 else None
             chunk_results = await _process_chunk(
-                chunk, method, sensitivity, chunk_start, ds_mean, ds_std, prev_row
+                chunk,
+                method,
+                sensitivity,
+                chunk_start,
+                ds_mean,
+                ds_std,
+                prev_row,
+                dof,
+                baseline=baseline,
+                collective_rows=collective_rows,
             )
 
             for result in chunk_results:
@@ -454,6 +482,10 @@ async def _process_chunk(
     ds_mean: np.ndarray,
     ds_std: np.ndarray,
     prev_row: list[float] | None,
+    dof: float | None = None,
+    *,
+    baseline: np.ndarray | None = None,
+    collective_rows: np.ndarray | None = None,
 ) -> list[dict[str, Any]]:
     """Score one chunk of samples against the data-set statistics.
 
@@ -462,14 +494,28 @@ async def _process_chunk(
 
     * ``univariate``   -- |z| of feature 0 against the data-set mean/std
                           (``POST /api/v1/detect/univariate``, zscore).
-    * ``multivariate`` -- L2 norm of the per-feature-normalized sample
-                          (``POST /api/v1/detect/multivariate``).
-    * ``statistical``  -- max per-feature |z| against the data set.
-    * ``temporal``     -- max per-feature |delta from the previous sample| in
-                          data-set std units; the first sample scores 0.
-    * ``fusion``       -- the statistical and temporal components combined with
-                          the synchronous fusion route's own weights
-                          (``api.fusion_weights``), so the two routes agree.
+    * ``multivariate`` -- the z-equivalent of the L2 norm of the per-feature-
+                          normalized sample, chi-distributed with one degree of
+                          freedom per feature (``POST /api/v1/detect/multivariate``).
+    * ``statistical``  -- the z-equivalent of the max per-feature |z| over the
+                          sample's features.
+    * ``temporal``     -- the z-equivalent of the max per-feature step from the
+                          previous sample (a step has sqrt(2) the feature's
+                          spread); the first sample scores 0.
+    * ``fusion``       -- the calibrated statistical, temporal and collective
+                          components combined with the synchronous fusion
+                          route's own weights (``api.fusion_weights``); the
+                          collective component (a stretch of samples departing
+                          together) is scored over the whole data set and
+                          handed in as ``collective_rows``.
+
+    ``baseline`` is the periodic component the job removed from the data set
+    (``deseasonalize``), subtracted from each sample before it is scored.
+
+    Every maximum is calibrated to the number of features it ranged over and
+    to the data set's degrees of freedom (``dof``, from ``null_dof``), so a
+    sample's score reads as a z at any width and the threshold keeps its
+    stated false-positive rate (``api.fusion_weights``).
 
     ``neurosymbolic`` never reaches here: it is refused at submission rather
     than silently scored with statistics under that name.
@@ -478,32 +524,41 @@ async def _process_chunk(
     threshold = 2.0 + (1.0 - sensitivity) * 3.0
 
     prev = np.asarray(prev_row, dtype=float) if prev_row is not None else None
+    if prev is not None and baseline is not None and offset > 0:
+        prev = prev - baseline[offset - 1]
     for i, sample in enumerate(chunk):
         try:
             arr = np.asarray(sample, dtype=float)
+            if baseline is not None:
+                arr = arr - baseline[offset + i]
             z = np.abs((arr - ds_mean) / ds_std)
+            width = arr.size
 
             if method == BatchDetectionMethod.UNIVARIATE:
                 score = float(z[0])
             elif method == BatchDetectionMethod.MULTIVARIATE:
-                score = float(np.linalg.norm((arr - ds_mean) / ds_std))
+                score = float(chi_norm_z(np.linalg.norm((arr - ds_mean) / ds_std), width, 1, dof))
             elif method == BatchDetectionMethod.TEMPORAL:
-                score = float(np.max(np.abs(arr - prev) / ds_std)) if prev is not None else 0.0
-            elif method == BatchDetectionMethod.FUSION:
-                row = arr.reshape(1, -1)
-                score = fuse(
-                    {
-                        "statistical": float(statistical_scores(row, ds_mean, ds_std)[0]),
-                        "temporal": (
-                            float(temporal_scores(row, ds_std, previous=prev)[0])
-                            if prev is not None
-                            else 0.0
-                        ),
-                    },
-                    _BATCH_FUSION_COMPONENTS,
+                score = (
+                    float(
+                        calibrated_max_z(
+                            np.max(np.abs(arr - prev) / ds_std) / TEMPORAL_STEP_SCALE, width, dof
+                        )
+                    )
+                    if prev is not None
+                    else 0.0
                 )
+            elif method == BatchDetectionMethod.FUSION:
+                parts = row_components(arr.reshape(1, -1), ds_mean, ds_std, previous=prev, dof=dof)
+                components = {
+                    "statistical": float(parts["statistical"][0]),
+                    "temporal": float(parts["temporal"][0]) if prev is not None else 0.0,
+                }
+                if collective_rows is not None:
+                    components["collective"] = float(collective_rows[offset + i])
+                score = fuse_calibrated(components, _BATCH_FUSION_COMPONENTS)
             else:  # STATISTICAL
-                score = float(np.max(z))
+                score = float(calibrated_max_z(np.max(z), width, dof))
 
             results.append(
                 {

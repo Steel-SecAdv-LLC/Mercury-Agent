@@ -247,7 +247,7 @@ class Component extends DCLogic {
     const W = "var(--warning)";
     if (p.path === "voice" && !this.validate(p).errors.length) { this.voiceHandoff(raw, p); return; }
     if (p.path.startsWith("observatory ") && this.observatory(raw, p)) return;
-    if (this.live() && this.A.CLI_TO_ROUTE[p.path]) { const chk0 = this.validate(p); if (!chk0.errors.length) { this.runLive(raw, p, chk0); return; } }
+    if (this.live() && this.A.CLI_TO_ROUTE[p.path]) { const chk0 = this.validate(p); if (!chk0.errors.length) { const run = this.runLive(raw, p, chk0); if (p.path === "explain" && run && run.then) run.then(() => this.narrateLatestRun(raw)); return; } }
     if (p.path === "hazard-viz" && !this.validate(p).errors.length) {
       const h = p.get("-d", "--detector") || "earthquake", f = p.get("-f", "--format") || "png", o = p.get("-o", "--output") || "out." + f;
       this.append([this.row("$ " + raw, "var(--normal)"), this.row("▲ simulated output · browser preview of this command", W), this.row("Rendering " + h + " diagnostics as " + f.toUpperCase() + " …"), this.row("Wrote " + o + "  (simulated · run locally to render the real " + f + ")", "var(--mercury-200)"), this.row("")]);
@@ -673,7 +673,7 @@ class Component extends DCLogic {
     const segs = String(entry && entry.inputs || "").split(/[,;]/).map((x) => x.trim().split("/")[0].trim().replace(/[\x60*]/g, "")).filter((x) => x && !/\s|\(|none/.test(x));
     segs.forEach((tok) => { if (/\?$/.test(tok)) return; const k = tok.replace(/\?$/, "");
       if (/^(data|X|X_train|points|raw_data)$/.test(k)) p[k] = "@file:" + (s.data ? s.data.name : "data.csv");
-      else if (k === "detection_result") p[k] = G.narratePayload(cur && cur.sum ? Object.assign({}, cur.sum, { chain: (cur.sum.kv || []).map((kv) => kv[0] + ": " + kv[1]) }) : {});
+      else if (k === "detection_result") p[k] = G.narratePayload(cur ? this.narrateSource(cur) : {});
       else if (/^(scores|y_score)$/.test(k)) p[k] = cur && cur.sum && cur.sum.scores ? cur.sum.scores.slice(0, 500) : [];
       else if (/^(labels|y_true)$/.test(k)) p[k] = [];
       else if (k === "headline") p[k] = cur && cur.sum ? cur.sum.headline : "Mercury finding";
@@ -696,16 +696,38 @@ class Component extends DCLogic {
     const r = await this.A.voiceHistory(30, this.state.session); if (!r.ok) { this.say([{ role: "agent", steps: ["GET /api/v1/voice/history · " + r.status], text: "History request failed: " + r.error }]); return; }
     const h = (r.data && r.data.history) || []; this.say([{ role: "agent", steps: ["live · GET /api/v1/voice/history · " + h.length + " of " + ((r.data && r.data.total_turns) || h.length) + " turns" + (this.A.simulated() ? " · simulated engine" : "")], text: h.length ? h.map((t) => (t.speaker === "mercury" ? "Mercury" : "You") + " · " + new Date((+t.timestamp || 0) * 1000).toISOString().slice(11, 19) + " · " + t.content).join("\n") : "The server has no conversation turns yet. Note that main keeps one shared voice instance per server process, so this history is not per session." }]);
   }
+  async narrateLatestRun(raw) {
+    // The TERMINAL RUN `explain` just produced is the newest result; narrate it and echo the
+    // narration into the terminal, so `explain` on a connected server explains.
+    const rec = this.state.results.find((r) => r.kind === "TERMINAL RUN" && r.label === raw.replace(/^mercury-agent /, ""));
+    if (!rec) return;
+    const r = await this.narrateRecord(rec, "detailed");
+    if (!r) return;
+    const G = window.MercuryCLIAgent, tx = r.ok && G ? G.narrationText(r.data) : null;
+    this.append([this.row("◆ explanation · POST /api/v1/voice/narrate · " + r.status, "var(--brand-gold)")].concat(tx ? String(tx.text).split("\n").filter(Boolean).slice(0, 12).map((l) => this.row("  " + l, "var(--fg-2)")) : [this.row("  narration failed: " + r.error, "var(--anomaly-soft)")]).concat([this.row("")]));
+  }
   async agentNarrate(verbosity) {
-    const G = window.MercuryCLIAgent, cur = this.agCur(); if (!cur || !G) return;
+    const cur = this.agCur(); if (!cur) return;
+    return this.narrateRecord(cur, verbosity);
+  }
+  narrateSource(cur) {
+    // What a result is narrated from: the server's response (verdict, score, threshold,
+    // positions) with the console's summary over it, and the summary's key-values as the
+    // reasoning chain. Narrating from the summary alone lost the verdict of a series-level run.
+    const sm = (cur && cur.sum) || {}, data = cur && cur.data && typeof cur.data === "object" && !Array.isArray(cur.data) ? cur.data : {};
+    return Object.assign({}, data, sm, { chain: (sm.kv || []).map((kv) => kv[0] + ": " + kv[1]) });
+  }
+  async narrateRecord(cur, verbosity) {
+    const G = window.MercuryCLIAgent; if (!cur || !G) return null;
     if (!this.live()) { this.setState({ conn: true }); return; }
-    const sm = cur.sum || {}, payload = G.narratePayload(Object.assign({}, sm, { chain: (sm.kv || []).map((kv) => kv[0] + ": " + kv[1]) }));
+    const payload = G.narratePayload(this.narrateSource(cur));
     this.setState((p) => ({ agBusy: Object.assign({}, p.agBusy, { narrate: true }) }));
     const r = await this.A.narrate(payload, this.state.domain, verbosity || "detailed");
     this.setState((p) => ({ agBusy: Object.assign({}, p.agBusy, { narrate: false }) }));
     this.pushResult({ kind: "AGENT · NARRATE", label: "Narration · " + cur.label, route: "POST /api/v1/voice/narrate", status: r.ok ? "ok" : "error", http: r.status, ms: r.meta && r.meta.ms, corr: (r.meta && r.meta.correlationId) || null, body: { detection_result: payload, domain: this.state.domain, verbosity }, data: r.ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, sum: { headline: r.ok && r.data ? String(r.data.summary || "narration") : String(r.error), kv: r.ok && r.data ? [["confidence level", String(r.data.severity || "")], ["recommendations", String((r.data.recommendations || []).length)]] : [] } });
     const tx = r.ok ? G.narrationText(r.data) : null;
     this.setState({ panel: true, tab: "chat" }); this.say([{ role: "user", text: "Narrate " + cur.label }, { role: "agent", steps: ["live · POST /api/v1/voice/narrate" + (r.meta ? " · " + r.meta.ms + " ms" : "")].concat(tx ? tx.chips : []), text: tx ? tx.text : "Narration failed: " + r.status + " " + r.error }]);
+    return r;
   }
   async agentTrust(kind) {
     const k = kind || "notice"; if (!this.live()) { this.setState({ agLive: { title: "Bundled from main · security/agent_notice.py v1.0 (2026-10-21)", text: JSON.stringify(window.MercuryCLIAgent.NOTICE, null, 2) } }); return; }
@@ -779,7 +801,7 @@ class Component extends DCLogic {
         let preview = "", note = "", noteC = "var(--fg-3)", acts = [];
         if (ch === "http") {
           const [m, path] = cap.http.split(" ");
-          const body = cap.id === "speak" ? { message: v.message, domain: s.domain || null, session_id: s.session || null } : cap.id === "narrate" ? (cur ? { detection_result: G.narratePayload(Object.assign({}, cur.sum || {}, { chain: ((cur.sum || {}).kv || []).map((kv) => kv[0] + ": " + kv[1]) })), domain: s.domain || null, verbosity: v.verbosity } : null) : null;
+          const body = cap.id === "speak" ? { message: v.message, domain: s.domain || null, session_id: s.session || null } : cap.id === "narrate" ? (cur ? { detection_result: G.narratePayload(this.narrateSource(cur)), domain: s.domain || null, verbosity: v.verbosity } : null) : null;
           preview = m + " " + (live ? A.cfg.baseUrl : "<engine>") + path + (body ? "\n" + JSON.stringify(body, null, 2) : "");
           const needRes = cap.needsResult && !cur;
           note = !live ? "Needs a connected engine." : needRes ? "Select a result in RESULTS first." : cap.id === "speak" ? "The reply comes back in the Agent chat with its intent, confidence and sources." : "The response lands in RESULTS" + (cap.id === "narrate" ? " and the chat." : ".");
@@ -1581,7 +1603,7 @@ class Component extends DCLogic {
       running: !!s.running, cursorEl: this._cursorEl, isLive: this.live(), liveDot: this._liveDot,
       runPill: this.runPillText(s), runPillFg: s.running ? "var(--normal)" : "var(--fg-3)", runPillBd: s.running ? "var(--normal-deep)" : "var(--border)", runPillGlow: s.running ? "0 0 10px rgba(47,214,134,0.35)" : "none",
       hasRows: s.lines.some((r) => r.rec), hasHidden: nHidden > 0, hiddenText: nHidden + " hidden", viewOpts: [["all", "All"], ["anom", "Anomalies"], ["norm", "Normal"]].map(([k, t]) => ({ t, on: vw === k, bg: vw === k ? "var(--normal)" : "transparent", fg: vw === k ? "var(--void)" : "var(--fg-2)", pick: () => this.setState({ view: k }) })),
-      connTitle: this.live() ? "Connected. RUN sends detect, tier-detect, rca, hazard-viz and physics to the server; the agent speaks through /api/v1/voice." : s.probed && !s.probed.ok && s.probed.kind === "network" ? "A server may be running, but this page's origin is not in its CORS allow-list." : this.A && this.A.connected() ? "Saved server is not answering." : "No engine connected. Output is a labelled browser preview.",
+      connTitle: this.live() ? "Connected. RUN sends detect, tier-detect, rca, hazard-viz, physics and explain to the server; the agent speaks through /api/v1/voice." : s.probed && !s.probed.ok && s.probed.kind === "network" ? "A server may be running, but this page's origin is not in its CORS allow-list." : this.A && this.A.connected() ? "Saved server is not answering." : "No engine connected. Output is a labelled browser preview.",
       connSub: this.live() ? "Base " + this.A.cfg.baseUrl + (this.A.cfg.apiKey ? " · API key set" : " · no API key: batch, models and export routes will return 401") : s.probed && !s.probed.ok && s.probed.kind === "network" ? "mercury-agent serve only allows localhost:3000/8000/8080 origins by default (api/server.py). Restart it with this page's origin allowed, then press FIND LOCAL ENGINE." : "Start mercury-agent serve -p 8000 on this machine, then press FIND LOCAL ENGINE, or open CONNECT for a remote URL and API key.",
       needsCors: !this.live() && !!(s.probed && !s.probed.ok && s.probed.kind === "network"), corsCmd: this.corsCmd(), copyCors: () => { try { navigator.clipboard.writeText(this.corsCmd()); } catch (e) {} this.setState({ corsCopied: true }); setTimeout(() => this.setState({ corsCopied: false }), 1500); }, corsCopyLabel: s.corsCopied ? "COPIED" : "COPY SERVE COMMAND",
       probe: () => this.probe(false), probeLabel: s.probing ? "PROBING…" : "FIND LOCAL ENGINE", connCta: this.live() ? "CONNECTION" : "CONNECT",

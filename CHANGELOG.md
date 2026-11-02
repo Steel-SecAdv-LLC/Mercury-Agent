@@ -27,6 +27,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the detection thresholds mean what they say at every width and
+length, and the routes hold up under adversarial shapes (measured).** Driving
+the served routes through hostile inputs found the point detectors wide but
+shallow:
+
+- On pure noise the multivariate route flagged 0.3% of rows at width 1, 14% at
+  8, 72% at 16 and 100% from 32 up, and the fusion route called every noise
+  matrix "anomaly": each compared a maximum statistic with a fixed 3.5. Every
+  component of the shared kernel (`api/fusion_weights.py`) is now the
+  z-equivalent of its maximum under the null given the values it ranged over
+  (Šidák over rows and features, chi tails for the row norm), with Student-t
+  tails for the estimated scale's degrees of freedom. Measured after: at or
+  below the nominal rate at every width and length tested.
+- The mean and standard deviation moved with the anomaly being scored, so a
+  100 among nine values near 1 scored a z of 3.0 (masking). The kernel's
+  location is the median and its scale the root mean square of the central
+  90% of absolute deviations (a tenth of the rows, and always at least one,
+  are ignored however extreme; 80% of the standard deviation's efficiency,
+  against the MAD's 38%, whose sampling error alone pushed 30-row noise to a
+  13% to 79% series false-positive rate). The univariate z-score, the
+  multivariate route, the fusion route and the batch job share it.
+- A spike riding a strong season was one seasonal amplitude above its crest,
+  a z of 2 against the whole series: ranked first, never flagged. A dominant
+  periodic component found by Fisher's test, and completing at least three
+  cycles, is removed before the point components score; the spectral
+  component still reads the original series.
+- A level shift, a ramp and a spike an attacker spread over five rows defeat
+  any per-row statistic (level-shift AUROC 0.03, spread-spike recall 0.4). A
+  `collective` component scores a stretch of rows departing together (the
+  standardised window mean at lengths 3 to 65, calibrated), in the fusion
+  route (default on) and the batch job. Measured: recall 1.00 on all three.
+- A weighted average diluted one decisive component (a spectral z of 15 beside
+  three near 1 averaged to 3.3 and read "normal"); the fused score is now the
+  larger of the weighted average and the largest component read as a maximum
+  over the selected count, and the explanation says when a component carried
+  the verdict.
+- The detector tier's flag count is the `contamination` parameter by
+  construction (measured slope 1.00 against it on data with a 5% anomaly
+  share); the API says so and points to `conformal_alpha`, whose flag rate is
+  evidence-controlled (0.047 at every setting). Two tier members (`rca`,
+  `frequent_pattern`) carry no information on one-dimensional shapes (AUROC
+  0.50) and three (`deep_svdd`, `energy_based`, `spiking`) carry the gain;
+  the measured attribution is published.
+
+The suite, its ledger and its page (`research/adversarial/served_routes.py`,
+`served_routes_results.json`, `docs/DETECTION_QUALITY.md`) are seeded and
+reproducible; `tests/research/test_served_routes_ledger.py` recomputes the
+hash of every file that decides the numbers, pins the floors, and on the ML
+lane reproduces the ledger to the digit. The fusion parity tests pin the
+kernel both routes share (`tests/api/test_fusion_batch_parity.py`,
+`tests/api/test_null_calibration.py`). Verdicts on wide or seasonal input and
+on collective anomalies change: they were wrong.
+
+**Fixed — three test modules switched the rate limiter off for the whole
+process at import.** They now use a per-test fixture that flips the live
+middleware and restores it, so later tests that assert on the limiter run
+against it (`tests/conftest.py::rate_limit_off`).
+
+**Fixed — the score bimodality check refused a span below float resolution.**
+`np.histogram` raised on scores such as 10000 and 10000 + 1e-13 (found by the
+BCa property test); such scores are one value and are not bimodal.
+
+**Added — the console's `explain` runs on a connected server.** It sends the
+fusion route and narrates the run through `/api/v1/voice/narrate`, the two
+server calls the CLI's `explain` stands for, echoing the narration into the
+terminal. Driving it found that every narration in the console was built from
+the result's summary alone, so a series-level run (fusion, three-r, flagship)
+with a fused score of 9.05 was narrated as "no anomaly detected, score 0";
+the three places that narrate a result now read the server's response under
+the summary, and the payload builder knows the fused score. Pinned by the
+console self-test (8,326 checks).
+
 **Fixed — four review findings on the agent's memory and the mailer outbox.**
 A route that returns no verdict (`/detect/rca` reports root causes) was
 mirrored into the agent's memory as a clean run with a score of zero; such

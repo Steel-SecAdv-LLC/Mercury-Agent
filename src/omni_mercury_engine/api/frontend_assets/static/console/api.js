@@ -164,6 +164,7 @@
     "tier-detect": () => "POST /api/v1/detect/tier",
     rca: () => "POST /api/v1/detect/rca",
     "hazard-viz": () => "POST /api/v1/hazard/visualize",
+    explain: () => "POST /api/v1/detect/fusion",
     "physics spectral": () => "POST /api/v1/detect/three-r",
     "physics dynamics": () => "POST /api/v1/detect/univariate",
     "physics uiux": () => "POST /api/v1/detect/multivariate",

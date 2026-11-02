@@ -950,6 +950,144 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
     ),
 )
 
+OLD_DISPATCH = "    if (this.live() && this.A.CLI_TO_ROUTE[p.path]) { const chk0 = this.validate(p); if (!chk0.errors.length) { this.runLive(raw, p, chk0); return; } }\n"
+OLD_NARRATE_HEAD = "  async agentNarrate(verbosity) {\n    const G = window.MercuryCLIAgent, cur = this.agCur(); if (!cur || !G) return;\n"
+OLD_NARRATE_TAIL = '    this.setState({ panel: true, tab: "chat" }); this.say([{ role: "user", text: "Narrate " + cur.label }, { role: "agent", steps: ["live · POST /api/v1/voice/narrate" + (r.meta ? " · " + r.meta.ms + " ms" : "")].concat(tx ? tx.chips : []), text: tx ? tx.text : "Narration failed: " + r.status + " " + r.error }]);\n'
+OLD_CONN_TITLE = 'connTitle: this.live() ? "Connected. RUN sends detect, tier-detect, rca, hazard-viz and physics to the server; the agent speaks through /api/v1/voice."'
+OLD_HAZ_ROUTE = '    "hazard-viz": () => "POST /api/v1/hazard/visualize",\n'
+
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "`explain` runs the fusion route when a server is connected (the CLI's explain runs the fusion "
+        "engine); the narration that follows comes from /api/v1/voice/narrate",
+        OLD_HAZ_ROUTE,
+        OLD_HAZ_ROUTE + '    explain: () => "POST /api/v1/detect/fusion",\n',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "a live `explain` runs the fusion route and then narrates the run through the narrative engine, "
+        "the two server calls the CLI's explain stands for",
+        OLD_DISPATCH,
+        "    if (this.live() && this.A.CLI_TO_ROUTE[p.path]) { const chk0 = this.validate(p); if (!chk0.errors.length) { "
+        'const run = this.runLive(raw, p, chk0); if (p.path === "explain" && run && run.then) run.then(() => '
+        "this.narrateLatestRun(raw)); return; } }\n",
+    ),
+    (
+        "narration is a method on a result record; the agent panel's NARRATE and the terminal's explain both use it",
+        OLD_NARRATE_HEAD,
+        "  async narrateLatestRun(raw) {\n"
+        "    // The TERMINAL RUN `explain` just produced is the newest result; narrate it and echo the\n"
+        "    // narration into the terminal, so `explain` on a connected server explains.\n"
+        '    const rec = this.state.results.find((r) => r.kind === "TERMINAL RUN" && r.label === raw.replace(/^mercury-agent /, ""));\n'
+        "    if (!rec) return;\n"
+        '    const r = await this.narrateRecord(rec, "detailed");\n'
+        "    if (!r) return;\n"
+        "    const G = window.MercuryCLIAgent, tx = r.ok && G ? G.narrationText(r.data) : null;\n"
+        '    this.append([this.row("◆ explanation · POST /api/v1/voice/narrate · " + r.status, "var(--brand-gold)")].concat(tx ? '
+        'String(tx.text).split("\\n").filter(Boolean).slice(0, 12).map((l) => this.row("  " + l, "var(--fg-2)")) : '
+        '[this.row("  narration failed: " + r.error, "var(--anomaly-soft)")]).concat([this.row("")]));\n'
+        "  }\n"
+        "  async agentNarrate(verbosity) {\n"
+        "    const cur = this.agCur(); if (!cur) return;\n"
+        "    return this.narrateRecord(cur, verbosity);\n"
+        "  }\n"
+        "  async narrateRecord(cur, verbosity) {\n"
+        "    const G = window.MercuryCLIAgent; if (!cur || !G) return null;\n",
+    ),
+    (
+        "narrateRecord hands its response back",
+        OLD_NARRATE_TAIL,
+        OLD_NARRATE_TAIL + "    return r;\n",
+    ),
+    (
+        "the connection title names explain among the commands RUN sends to the server",
+        OLD_CONN_TITLE,
+        'connTitle: this.live() ? "Connected. RUN sends detect, tier-detect, rca, hazard-viz, physics and explain to the server; '
+        'the agent speaks through /api/v1/voice."',
+    ),
+)
+
+OLD_NARRATE_TOP = "    const n = flags.filter(Boolean).length, top = scores.length ? Math.max.apply(null, scores) : num(x.score) ?? num(x.anomaly_score) ?? 0;\n"
+OLD_NARRATE_RECORD = '    const sm = cur.sum || {}, payload = G.narratePayload(Object.assign({}, sm, { chain: (sm.kv || []).map((kv) => kv[0] + ": " + kv[1]) }));\n'
+OLD_NARRATE_ACT_FIELD = 'p[k] = G.narratePayload(cur && cur.sum ? Object.assign({}, cur.sum, { chain: (cur.sum.kv || []).map((kv) => kv[0] + ": " + kv[1]) }) : {});'
+OLD_NARRATE_ACT_CAP = 'G.narratePayload(Object.assign({}, cur.sum || {}, { chain: ((cur.sum || {}).kv || []).map((kv) => kv[0] + ": " + kv[1]) })), domain: s.domain || null, verbosity: v.verbosity }'
+
+MODULE_PATCHES["mercury-cli-agent.js"] = MODULE_PATCHES["mercury-cli-agent.js"] + (
+    (
+        "a series-level verdict (fusion, three-r, flagship) narrates with its score: the fused score "
+        "is the score, not 0; measured: a fusion run of 9.05 was narrated as 'no anomaly detected'",
+        OLD_NARRATE_TOP,
+        "    const n = flags.filter(Boolean).length, top = scores.length ? Math.max.apply(null, scores) : "
+        "num(x.score) ?? num(x.anomaly_score) ?? num(x.fused_score) ?? num(x.fusion_score) ?? "
+        "num(x.overall_score) ?? 0;\n",
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "narration reads the response itself under the summary: the verdict, score and threshold of a "
+        "series-level run are in the response, not in the summary's headline (one source for the three "
+        "places that narrate a result)",
+        OLD_NARRATE_RECORD,
+        "    const payload = G.narratePayload(this.narrateSource(cur));\n",
+    ),
+    (
+        "the agent ACT form's detection_result field reads the same source",
+        OLD_NARRATE_ACT_FIELD,
+        "p[k] = G.narratePayload(cur ? this.narrateSource(cur) : {});",
+    ),
+    (
+        "the agent narrate capability reads the same source",
+        OLD_NARRATE_ACT_CAP,
+        "G.narratePayload(this.narrateSource(cur)), domain: s.domain || null, verbosity: v.verbosity }",
+    ),
+    (
+        "narrateSource: the response under the summary, plus the summary's key-values as the chain",
+        "  async narrateRecord(cur, verbosity) {\n",
+        "  narrateSource(cur) {\n"
+        "    // What a result is narrated from: the server's response (verdict, score, threshold,\n"
+        "    // positions) with the console's summary over it, and the summary's key-values as the\n"
+        "    // reasoning chain. Narrating from the summary alone lost the verdict of a series-level run.\n"
+        '    const sm = (cur && cur.sum) || {}, data = cur && cur.data && typeof cur.data === "object" && !Array.isArray(cur.data) ? cur.data : {};\n'
+        '    return Object.assign({}, data, sm, { chain: (sm.kv || []).map((kv) => kv[0] + ": " + kv[1]) });\n'
+        "  }\n"
+        "  async narrateRecord(cur, verbosity) {\n",
+    ),
+)
+
+OLD_ALERTS_CARD_CHECK = '"the alerts card reports the dock\'s live subscription instead of waiting on the stream", T4.state.resp && T4.state.resp.title); }\n'
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "self-test: a series-level run narrates with its verdict and score",
+        OLD_ALERTS_CARD_CHECK,
+        OLD_ALERTS_CARD_CHECK
+        + '        { const G5 = window.MercuryCLIAgent, T5 = mk(); const rec5 = { kind: "TERMINAL RUN", label: "detect -d fusion", '
+        "data: { is_anomaly: true, fused_score: 9.053, threshold: 3.5, detector_scores: { statistical: 6.7 } }, "
+        'sum: { headline: "ANOMALY", kv: [["fused_score", "9.053"]] } }; const p5 = G5 ? G5.narratePayload(T5.narrateSource(rec5)) : null; '
+        's.ok(p5 && p5.anomaly_detected === true && p5.anomaly_score === 9.053 && p5.reasoning_chain.includes("fused_score: 9.053"), '
+        '"a series-level run narrates with its verdict and fused score (was: no anomaly, score 0)", JSON.stringify(p5).slice(0, 120)); '
+        "const p6 = G5 ? G5.narratePayload(T5.narrateSource({ data: { anomalies: [false, true], scores: [0.2, 4.1], threshold: 3.5 }, sum: { kv: [] } })) : null; "
+        's.ok(p6 && p6.anomaly_detected === true && p6.anomaly_score === 4.1 && p6.flagged === 1, "a per-row run narrates its flags and peak", JSON.stringify(p6).slice(0, 100)); }\n',
+    ),
+)
+
+OLD_NARRATE_FLAGS = (
+    "    const scores = (x.scores || []).filter((v) => num(v) != null), flags = x.flags || [];\n"
+)
+
+MODULE_PATCHES["mercury-cli-agent.js"] = MODULE_PATCHES["mercury-cli-agent.js"] + (
+    (
+        "the per-row flags are read under the server's own name too (`anomalies`), so a response "
+        "narrated without the console's summary still reports its flagged count",
+        OLD_NARRATE_FLAGS,
+        "    const scores = (x.scores || []).filter((v) => num(v) != null), flags = x.flags || "
+        "(Array.isArray(x.anomalies) ? x.anomalies : []);\n",
+    ),
+)
+
 
 def _apply(text: str, patches: tuple[tuple[str, str, str], ...], where: str) -> str:
     for desc, old, new in patches:

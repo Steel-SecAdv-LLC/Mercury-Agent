@@ -9,7 +9,6 @@ the sibling detection routes (optional), and fail-loud 400/422 behavior.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import pytest
@@ -18,12 +17,14 @@ pytest.importorskip("fastapi")
 pytest.importorskip("torch")
 pytest.importorskip("matplotlib")
 
-# Disable rate limiting BEFORE importing the server module (it reads the env
-# var at module-load time), mirroring tests/api/test_routes_comprehensive.py.
-os.environ["OMNI_RATE_LIMIT_ENABLED"] = "false"
 
 import numpy as np
 from fastapi.testclient import TestClient
+
+# The rate limiter is switched off per test by the ``rate_limit_off`` fixture
+# (tests/conftest.py); setting the variable at import leaked it into every
+# later test in the process.
+pytestmark = pytest.mark.usefixtures("rate_limit_off")
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 

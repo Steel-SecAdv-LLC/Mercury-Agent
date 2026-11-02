@@ -55,6 +55,13 @@ correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
 
 from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.api.fusion_weights import (
+    calibrated_max_z,
+    chi_norm_z,
+    column_statistics,
+    deseasonalize,
+    null_dof,
+)
 from omni_mercury_engine.utils.logging import ensure_logging_configured
 from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
@@ -1148,9 +1155,16 @@ The `method` field selects the statistical algorithm (the algorithm actually
 run is echoed in `summary.algorithm`; the response `method` field is the fixed
 endpoint identity `"univariate"`):
 
-- **`zscore`** (default): z = |x - μ| / σ; flag points where z > threshold, with
-  `threshold = 2.0 + (1.0 - sensitivity) * 3.0` (sensitivity=1.0 → 2.0, most
-  sensitive; sensitivity=0.0 → 5.0, least sensitive).
+- **`zscore`** (default): a robust z, |x - location| / scale; flag points where z > threshold,
+  with `threshold = 2.0 + (1.0 - sensitivity) * 3.0` (sensitivity=1.0 → 2.0,
+  most sensitive; sensitivity=0.0 → 5.0, least sensitive). The location and
+  scale are robust (median; root mean square of the central 90% of absolute
+  deviations), so a single spike cannot inflate the spread it is judged
+  against (masking); a dominant periodic component found by Fisher's test is
+  removed first, so a spike riding a season is scored at its true size; and
+  the z is read against Student-t tails for the scale's degrees of freedom.
+  `summary` reports the location, scale and removed period beside the plain
+  mean and standard deviation.
 - **`iqr`**: score = distance outside the [Q1, Q3] box in IQR units; flag points
   above `threshold = 1.5 + (1.0 - sensitivity) * 3.0`.
 - **`isolation_forest`**: model-based and **not** served by this lightweight
@@ -1262,21 +1276,43 @@ async def detect_univariate(
         method_stats: dict[str, float]
         if algorithm == DetectionMethod.ZSCORE:
             threshold = 2.0 + (1.0 - sensitivity) * 3.0
-            mean = float(np.mean(data_arr))
-            std = float(np.std(data_arr))
-            score_arr = np.abs((data_arr - mean) / (std + 1e-8))
-            method_stats = {"mean": mean, "std": std}
+            # Robust standardisation from the shared kernel (median, scaled
+            # MAD): the mean and standard deviation moved with the anomaly
+            # itself, so a 100 among nine values near 1 scored a z of 3.0.
+            residual, periods = deseasonalize(data_arr.reshape(-1, 1))
+            location, scale = column_statistics(residual)
+            # Read against Student-t tails for the scale's degrees of freedom,
+            # expressed as the normal z the threshold is stated in.
+            score_arr = np.asarray(
+                calibrated_max_z(
+                    np.abs((residual[:, 0] - float(location[0])) / float(scale[0])),
+                    1,
+                    null_dof(data_arr.size),
+                ),
+                dtype=float,
+            )
+            method_stats = {
+                "location": float(location[0]),
+                "scale": float(scale[0]),
+                "seasonal_period": float(periods[0]),
+                "mean": float(np.mean(data_arr)),
+                "std": float(np.std(data_arr)),
+            }
         elif algorithm == DetectionMethod.IQR:
             # Score = distance outside the [Q1, Q3] box in IQR units; the
             # sensitivity-scaled threshold plays the role of the classic 1.5*IQR
             # fence (more sensitive -> lower fence).
             threshold = 1.5 + (1.0 - sensitivity) * 3.0
-            q1 = float(np.percentile(data_arr, 25))
-            q3 = float(np.percentile(data_arr, 75))
+            # The same seasonal residual the z-score reads, so a spike riding
+            # a season is outside the box by its true size.
+            residual_iqr, periods = deseasonalize(data_arr.reshape(-1, 1))
+            values = residual_iqr[:, 0]
+            q1 = float(np.percentile(values, 25))
+            q3 = float(np.percentile(values, 75))
             iqr = q3 - q1
-            outside = np.maximum.reduce([q1 - data_arr, data_arr - q3, np.zeros_like(data_arr)])
+            outside = np.maximum.reduce([q1 - values, values - q3, np.zeros_like(values)])
             score_arr = outside / (iqr + 1e-8)
-            method_stats = {"q1": q1, "q3": q3, "iqr": iqr}
+            method_stats = {"q1": q1, "q3": q3, "iqr": iqr, "seasonal_period": float(periods[0])}
         else:  # ISOLATION_FOREST -- model-based, not served by this endpoint
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1468,13 +1504,26 @@ async def detect_multivariate(
         # Calculate threshold based on sensitivity
         threshold = 2.0 + (1.0 - sensitivity) * 3.0
 
-        # Compute multivariate z-scores
-        mean = np.mean(data, axis=0)
-        std = np.std(data, axis=0) + 1e-8
-        normalized = (data - mean) / std
+        # Standardise per feature with the shared kernel's robust location and
+        # scale (median, scaled MAD), so the anomaly being scored does not
+        # inflate the spread it is judged against.
+        # A dominant periodic component is removed first (``deseasonalize``),
+        # so a spike riding a season is scored at its true size.
+        residual, seasonal_periods = deseasonalize(data)
+        mean, std = column_statistics(residual)
+        normalized = (residual - mean) / std
 
-        # Combined score using L2 norm
-        z_scores = np.linalg.norm(normalized, axis=1)
+        # Combined score: the L2 norm of the standardised row, read as the z
+        # whose two-sided tail equals the norm's chi tail with one degree of
+        # freedom per feature. The raw norm grows with the width (it averages
+        # sqrt(n_features) under the null), so against the fixed threshold
+        # every row of a 32-feature noise matrix was an anomaly; the
+        # calibrated score keeps the threshold's false-positive rate at any
+        # width and equals |z| for one feature.
+        z_scores = np.asarray(
+            chi_norm_z(np.linalg.norm(normalized, axis=1), n_features, 1, null_dof(n_samples)),
+            dtype=float,
+        )
 
         # Per-feature contributions - use sanitized feature names
         sanitized_features = validation_result.sanitized_data.get("features")
@@ -1495,6 +1544,9 @@ async def detect_multivariate(
             "anomaly_count": anomaly_count,
             "anomaly_rate": anomaly_count / n_samples if n_samples > 0 else 0,
             "max_score": float(max(scores)) if scores else 0,
+            # Periods (rows) of the periodic component removed per feature; 0
+            # where none was found.
+            "seasonal_periods": seasonal_periods,
             "feature_importance": {
                 name: float(np.mean(np.abs(normalized[:, i])))
                 for i, name in enumerate(feature_names)

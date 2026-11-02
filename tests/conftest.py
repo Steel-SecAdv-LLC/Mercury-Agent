@@ -583,3 +583,30 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "visual: marks visual anomaly detection tests")
     config.addinivalue_line("markers", "vlm: marks vision-language model tests")
     config.addinivalue_line("markers", "foundation: marks foundation model tests")
+
+
+@pytest.fixture
+def rate_limit_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch the API's rate limiter off for one test, and only that test.
+
+    ``RateLimitMiddleware`` reads ``OMNI_RATE_LIMIT_ENABLED`` when the app is
+    built, so a module that set the variable at import both leaked it into
+    every later test in the process (disabling the limiter for tests that
+    assert on it) and had no effect at all when another module had already
+    imported the app. This fixture sets the variable for the test's duration
+    and flips the live middleware instance, restoring it afterwards.
+    """
+    monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "false")
+    try:
+        from omni_mercury_engine.api.server import RateLimitMiddleware, app
+    except ImportError:  # the [api] extra is optional
+        return
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as client:
+        client.get("/health")  # builds the middleware stack
+    layer = app.middleware_stack
+    while layer is not None and not isinstance(layer, RateLimitMiddleware):
+        layer = getattr(layer, "app", None)
+    if layer is not None:
+        monkeypatch.setattr(layer, "enabled", False)

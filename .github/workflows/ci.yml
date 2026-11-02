@@ -1473,6 +1473,11 @@ jobs:
           # image/video real-model tiers must run; a missing model is a red,
           # not a skip (tests/conftest.py session gate).
           MERCURY_REQUIRES_HF_MODELS: "1"
+          # Re-run the adversarial suite of the served detection routes and
+          # require it to reproduce the committed ledger to the digit
+          # (tests/research/test_served_routes_ledger.py); the other lanes
+          # check the ledger's input hashes and floors without recomputing.
+          MERCURY_FULL_LEDGER_CHECK: "1"
         run: |
           # Run tests in parallel with 4 workers, 300s timeout per test
           # Coverage threshold enforced to ensure production readiness

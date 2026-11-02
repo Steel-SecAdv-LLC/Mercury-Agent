@@ -454,7 +454,11 @@ class ScoreDiagnostics:
             return False
         low, high = float(np.min(finite)), float(np.max(finite))
         span = high - low
-        if not np.isfinite(span) or span / ScoreDiagnostics._BIMODALITY_BINS <= 0.0:
+        # A span that is positive but below the floating-point resolution of
+        # the values themselves (e.g. 10000 and 10000 + 1e-13) cannot be cut
+        # into bins: ``np.histogram`` refuses. Such scores are one value.
+        resolution = 2.0 * np.spacing(max(abs(low), abs(high), 1.0))
+        if not np.isfinite(span) or span / ScoreDiagnostics._BIMODALITY_BINS <= resolution:
             return False
 
         hist, bin_edges = np.histogram(

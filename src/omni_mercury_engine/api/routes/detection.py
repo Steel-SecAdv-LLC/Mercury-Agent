@@ -16,16 +16,18 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
-from scipy.special import ndtri_exp
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.api.fusion_weights import (
     as_matrix,
     column_statistics,
+    deseasonalize,
     fuse,
+    fuse_calibrated,
     normalized_weights,
-    statistical_scores,
-    temporal_scores,
+    null_dof,
+    series_components,
+    spectral_peak_z,
 )
 from omni_mercury_engine.api.routes.export import record_detection
 
@@ -146,8 +148,13 @@ class FusionRequest(BaseModel):
         description="Time series data (univariate or multivariate)",
     )
     detectors: list[str] = Field(
-        default=["statistical", "temporal", "dimensional"],
-        description="Detectors to include in fusion",
+        default=["statistical", "temporal", "collective", "dimensional"],
+        description=(
+            "Detectors to include in fusion: statistical (largest per-feature |z|), temporal "
+            "(largest step between consecutive rows), collective (a stretch of rows departing "
+            "together: a spread spike, ramp, level shift or burst), dimensional (the row's "
+            "standardised norm) and spectral (a dominant frequency, Fisher's test)."
+        ),
     )
     sensitivity: float = Field(
         default=0.5,
@@ -429,18 +436,7 @@ def _spectral_peak_z(values: np.ndarray[Any, Any]) -> float:
     Returns:
         The z-score, ``0.0`` for fewer than four samples or a constant series.
     """
-    n = values.size
-    m = (n - 1) // 2  # ordinates strictly between DC and Nyquist
-    if m < 1:
-        return 0.0
-    std = float(np.std(values))
-    if std == 0.0:
-        return 0.0
-    ordinates = np.abs(np.fft.fft((values - np.mean(values)) / std)[1 : m + 1]) ** 2
-    x = float(np.max(ordinates) / np.mean(ordinates))
-    # log of 1 - (1 - e^-x)^m, evaluated without cancellation.
-    log_tail = float(np.log(-np.expm1(m * np.log1p(-np.exp(-x)))))
-    return float(max(0.0, -ndtri_exp(log_tail - np.log(2.0))))
+    return spectral_peak_z(np.asarray(values, dtype=float))[0]
 
 
 @router.post(
@@ -464,38 +460,40 @@ async def detect_fusion(
         # feature: the components the batch job's fusion scores per sample,
         # so the two routes agree on multi-feature input too.
         matrix = as_matrix(request.data)
-        mean, std = column_statistics(matrix)
+        # A dominant periodic component is removed before the point components
+        # score (a spike riding a strong season is one seasonal amplitude above
+        # the crest, a z of 2 against the whole series' spread); the spectral
+        # component reads the original series, where the season is its signal.
+        residual, seasonal_periods = deseasonalize(matrix)
+        mean, std = column_statistics(residual)
 
         threshold = 2.0 + (1.0 - request.sensitivity) * 3.0
-        detector_scores: dict[str, float] = {}
 
-        if "statistical" in request.detectors:
-            detector_scores["statistical"] = float(np.max(statistical_scores(matrix, mean, std)))
-
-        if "temporal" in request.detectors:
-            detector_scores["temporal"] = (
-                float(np.max(temporal_scores(matrix, std))) if matrix.shape[0] > 1 else 0.0
-            )
-
-        if "dimensional" in request.detectors:
-            if matrix.shape[1] > 1:
-                normalized = (matrix - mean) / std
-                dimensional_score = float(np.max(np.linalg.norm(normalized, axis=1)))
-            else:
-                dimensional_score = float(np.max(statistical_scores(matrix, mean, std)))
-            detector_scores["dimensional"] = dimensional_score
-
-        if "spectral" in request.detectors:
-            # Per feature, never over the flattened matrix (which would splice
-            # the columns into one false series).
-            detector_scores["spectral"] = max(
-                _spectral_peak_z(matrix[:, j]) for j in range(matrix.shape[1])
-            )
+        # Every component is the z-equivalent of its whole-series maximum under
+        # the null, given the number of values that maximum ranged over
+        # (``fusion_weights.series_components``). Before this calibration the
+        # raw maxima met a fixed threshold, so a wide or long noise matrix was
+        # "anomaly" by its size alone. The spectral peaks are taken per
+        # feature, never over the flattened matrix (which would splice the
+        # columns into one false series).
+        spectral_peaks = (
+            [_spectral_peak_z(matrix[:, j]) for j in range(matrix.shape[1])]
+            if "spectral" in request.detectors
+            else None
+        )
+        calibrated = series_components(
+            residual, mean, std, spectral_z=spectral_peaks, dof=null_dof(matrix.shape[0])
+        )
+        detector_scores: dict[str, float] = {
+            name: calibrated[name] for name in request.detectors if name in calibrated
+        }
 
         # The weights are the table the batch route's fusion reads too, so the
         # same data reaches the same verdict whichever route scores it.
         detector_contributions = normalized_weights(request.detectors)
-        fused_score = fuse(detector_scores, request.detectors)
+        # The weighted average, or one component decisive on its own (a
+        # weighted average diluted a spectral z of 15 to 3.3 and read "normal").
+        fused_score = fuse_calibrated(detector_scores, request.detectors)
 
         is_anomaly = fused_score > threshold
 
@@ -504,6 +502,16 @@ async def detect_fusion(
             for d in request.detectors
         ]
         explanation = f"Fused score {fused_score:.3f} from: " + ", ".join(explanation_parts)
+        removed = [p for p in seasonal_periods if p]
+        if removed:
+            explanation += (
+                "; a periodic component was removed before scoring (period "
+                + ", ".join(str(p) for p in removed)
+                + " rows)"
+            )
+        decisive = max((detector_scores.get(d, 0.0) for d in request.detectors), default=0.0)
+        if fused_score > fuse(detector_scores, request.detectors) + 1e-12:
+            explanation += f"; one component is decisive on its own ({decisive:.3f})"
 
         user_id = user.id if user else "anonymous"
         await record_detection(
@@ -698,7 +706,17 @@ class TierDetectRequest(BaseModel):
         default=None,
         description="Combiner: stacking | bma | average | consensus (default: auto)",
     )
-    contamination: float = Field(default=0.05, ge=0.0, le=0.5, description="Anomaly fraction")
+    contamination: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=0.5,
+        description=(
+            "Expected anomaly fraction. The tier thresholds at this quantile of its fused "
+            "score, so the flag count is this share of the points by construction (measured "
+            "slope 1.0 against the parameter); set conformal_alpha for flags whose false-positive "
+            "rate is controlled by the data instead."
+        ),
+    )
     conformal_alpha: float | None = Field(
         default=None,
         gt=0.0,

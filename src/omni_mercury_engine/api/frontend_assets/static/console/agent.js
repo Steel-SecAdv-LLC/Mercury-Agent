@@ -93,8 +93,8 @@
   const SEV = { CRITICAL: 1, HIGH: 0.8, MEDIUM: 0.5, LOW: 0.3, FLAGGED: 0.6 };
   function narratePayload(x) {
     x = x || {}; const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
-    const scores = (x.scores || []).filter((v) => num(v) != null), flags = x.flags || [];
-    const n = flags.filter(Boolean).length, top = scores.length ? Math.max.apply(null, scores) : num(x.score) ?? num(x.anomaly_score) ?? 0;
+    const scores = (x.scores || []).filter((v) => num(v) != null), flags = x.flags || (Array.isArray(x.anomalies) ? x.anomalies : []);
+    const n = flags.filter(Boolean).length, top = scores.length ? Math.max.apply(null, scores) : num(x.score) ?? num(x.anomaly_score) ?? num(x.fused_score) ?? num(x.fusion_score) ?? num(x.overall_score) ?? 0;
     const det = x.is_anomaly != null ? !!x.is_anomaly : flags.length ? n > 0 : top >= (num(x.threshold) ?? 0.5);
     const sev = num(x.severity) ?? (typeof x.severity === "string" && SEV[x.severity.toUpperCase()] != null ? SEV[x.severity.toUpperCase()] : null);
     const conf = num(x.confidence);
