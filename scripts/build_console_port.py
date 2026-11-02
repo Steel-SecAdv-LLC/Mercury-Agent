@@ -788,6 +788,168 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
     ),
 )
 
+OLD_HEADERS = '  const headers = (json) => { const h = {}; if (json) h["Content-Type"] = "application/json"; if (cfg.apiKey) h["X-API-Key"] = cfg.apiKey; return h; };\n'
+OLD_CLEAR = "      clearTimeout(to);\n      let data = null;"
+OLD_META = '      const meta = { ms: Math.round(performance.now() - t0), correlationId: res.headers.get("X-Correlation-ID"),'
+OLD_CAP = "  /* CAP 1.2 mappings — alerting/cap_generator.py */\n"
+OLD_EXPORT = "    SCHEMAS, MCP, CLI_TO_ROUTE, CAP, SEVERITY, sample, body, missing, pathParams, withParams, url,\n"
+OLD_WS_OPEN = "if (this.live() && !this._wsTried) { this._wsTried = true; this._wsUrl = wsUrl; this.alertsConnect(); }"
+OLD_CDU = '  componentDidUpdate() { const wsUrl = this.A ? this.A.cfg.baseUrl : ""; if (this._wsTried && this._wsUrl !== wsUrl)'
+OLD_SETREF = '  setRef(ref) { this.setState({ ref, resp: null, panel: true, tab: "ref", menu: null, pal: false }); }\n'
+OLD_PV = '    const pv = this.formParsed(fs), hz = this.hazardFormInput(fs, b); if (hz) { this.setState({ resp: { title: hz, ok: false, text: "" } }); return; }\n'
+OLD_PUT = "this.A.put(u, Object.keys(b).length ? b : null)"
+OLD_TITLE = '    this.setState({ resp: { title: (r.ok ? "● " : "✗ ") + r.status + " · " + fs.key + (r.meta ? " · " + r.meta.ms + " ms" : ""), ok: r.ok, text: JSON.stringify(r.ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, null, 2) } });\n'
+OLD_HAZ_END = '"hazard form leaves a diagnostics payload alone", ""); }\n'
+
+#: The console's canonical payloads for the free-form JSON routes (see RAW_SAMPLES).
+RAW = '  /* Canonical payloads for routes whose body is free-form JSON (the request schema cannot name their fields).\n     Statements, intel screening and intel fusion come from the Mass Run capabilities; these are the rest, lifted\n     from the routes\' own tests so each passes the route\'s purpose and consent gates. */\n  const radarSeries = (() => { const out = []; for (let i = 0; i < 1200; i++) { const t = i / 20; out.push(+(0.004 * Math.sin(2 * Math.PI * 0.25 * t) + 0.0003 * Math.sin(2 * Math.PI * 1.2 * t) + 0.00002 * Math.sin(i * 12.9898)).toFixed(7)); } return out; })();\n  const RAW_SAMPLES = {\n    "POST /api/v1/assessment/concealed-information-test": { subject_pseudonym: "subj-01", administered_at: 10.0, purpose: "University lab experiment with consenting volunteers, IRB protocol 2026-114", consent: { subject_pseudonym: "subj-01", obtained_at: 0.0, scope: ["concealed_information_test"], obtained_by: "examiner-7" }, questions: [0, 1, 2, 3, 4].map((i) => ({ question_id: "q" + i, probe: "probe-" + i, irrelevants: [0, 1, 2, 3].map((j) => "item-" + i + "-" + j), responses: { skin_conductance: [[3.0, 1.0, 1.2, 0.9, 1.1], [2.8, 1.1, 1.0, 1.2, 0.8]] } })) },\n    "POST /api/v1/assessment/vital-signs": { purpose: "Sleep-lab respiration study; volunteers signed informed consent forms", lawful_basis: "consent", fs: 20.0, recorded_at: 5.0, subject_pseudonym: "subj-02", consent: { subject_pseudonym: "subj-02", obtained_at: 0.0, scope: ["contactless_vital_signs"], obtained_by: "nurse-3" }, radar_displacement_m: radarSeries },\n    "POST /api/v1/assessment/adjudication/cases": { case_id: "case-console-1", intel_reports: { open_source: { confidence: 0.7, threat_score: 0.5 } }, report_source_ids: ["Reuters"], latest_report_at: "2026-01-01T00:00:00+00:00" },\n    "POST /api/v1/assessment/adjudication/outcomes": { case_id: "case-console-1", observed_at: "2026-01-02T00:00:00+00:00", description: "Border crossing closed for two days; no casualties reported.", outcome_source_ids: ["UN OCHA"] },\n    "POST /api/v1/assessment/adjudication/ratings": { case_id: "case-console-1", level: 2, rationale: "localised disruption only" },\n    "POST /api/v1/assessment/adjudication/decisions": { case_id: "case-console-1", level: 3, rationale: "resolved on the record" },\n  };\n'
+
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "same-origin requests carry the dashboard session's CSRF token (double-submit pair with the httpOnly "
+        "session cookie), so a logged-in user reaches the account routes from the console",
+        OLD_HEADERS,
+        "  // A dashboard session in this browser is a double-submit pair: the httpOnly session cookie travels with\n"
+        "  // a same-origin request and the readable `mercury_csrf` cookie goes back as X-CSRF-Token, as the account\n"
+        "  // pages send it. Nothing is added for another origin.\n"
+        '  const csrfCookie = () => { try { const c = document.cookie.split("; ").find((x) => x.startsWith('
+        '"mercury_csrf=")); return c ? decodeURIComponent(c.slice(13)) : ""; } catch (e) { return ""; } };\n'
+        '  const sameOrigin = () => typeof location !== "undefined" && base() === location.origin;\n'
+        '  const headers = (json) => { const h = {}; if (json) h["Content-Type"] = "application/json"; '
+        'if (cfg.apiKey) h["X-API-Key"] = cfg.apiKey; const csrf = sameOrigin() ? csrfCookie() : ""; '
+        'if (csrf) h["X-CSRF-Token"] = csrf; return h; };\n',
+    ),
+    (
+        "the request budget covers the body read: a stream that never ends times out instead of hanging the form",
+        OLD_CLEAR,
+        "      let data = null;",
+    ),
+    (
+        "request budget cleared after the body is read",
+        OLD_META,
+        "      clearTimeout(to);\n" + OLD_META,
+    ),
+    (
+        "canonical payloads for the free-form JSON routes",
+        OLD_CAP,
+        RAW + OLD_CAP,
+    ),
+    (
+        "RAW_SAMPLES and headers exported (the self-test reads both)",
+        OLD_EXPORT,
+        "    SCHEMAS, MCP, CLI_TO_ROUTE, CAP, SEVERITY, RAW_SAMPLES, sample, body, missing, pathParams, "
+        "withParams, url, headers,\n",
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the alert stream re-subscribes when the API key changes: the engine scopes alerts to the key's "
+        "principal, and a stream opened anonymously never carried the user's own detections",
+        OLD_CDU,
+        '  componentDidUpdate() { const wsUrl = this.A ? this.A.cfg.baseUrl : "", wsKey = this.A ? this.A.cfg.apiKey || "" '
+        ': ""; if (this._wsTried && (this._wsUrl !== wsUrl || this._wsKey !== wsKey))',
+    ),
+    (
+        "the stream remembers the key it was opened with",
+        OLD_WS_OPEN,
+        "if (this.live() && !this._wsTried) { this._wsTried = true; this._wsUrl = wsUrl; this._wsKey = wsKey; "
+        "this.alertsConnect(); }",
+    ),
+    (
+        "a free-form JSON route opens with its canonical payload in the body field",
+        OLD_SETREF,
+        "  prefillRaw(ref) {\n"
+        "    // A free-form JSON route (its request schema cannot name the fields) opens with a canonical payload in\n"
+        "    // the body field: the Mass Run capability's when one fits the loaded data, else the route's documented\n"
+        "    // example (api.RAW_SAMPLES). Nothing is sent until SEND, and a body already typed is left alone.\n"
+        '    if (!ref || ref.kind !== "api" || !ref.a) return; const key = ref.a.m + " " + ref.a.path, sch = '
+        "this.A.SCHEMAS[key] || {}, rk = Object.keys(sch).find((k) => sch[k].raw);\n"
+        '    if (!rk || (this.formVals(key)[rk] || "") !== "") return;\n'
+        "    const M = window.MercuryCLIMass, cap = M && M.CAPS.find((c) => c.route === key && c.build && "
+        "!(c.block && c.block(this.state.data))), body = cap ? cap.build(this.state.data, {}) : "
+        "(this.A.RAW_SAMPLES || {})[key];\n"
+        "    if (body) this.setForm(key, rk, JSON.stringify(body));\n"
+        "  }\n"
+        '  setRef(ref) { this.prefillRaw(ref); this.setState({ ref, resp: null, panel: true, tab: "ref", menu: null, '
+        "pal: false }); }\n",
+    ),
+    (
+        "the alerts card reports the dock's live subscription instead of waiting on an endless stream; a `limit` "
+        "sends the bounded one-shot read",
+        OLD_PV,
+        OLD_PV
+        + '    if (fs.key === "GET /api/v1/voice/alerts" && pv.limit == null) { const st = (this.state.alerts || {}).st '
+        '|| "closed", recent = this.state.results.filter((r) => r.kind === "AGENT · ALERT").slice(0, 5); '
+        'this.setState({ resp: { title: "● alerts · live stream " + st + " in the agent dock · " + recent.length + '
+        '" recent event" + (recent.length === 1 ? "" : "s") + " · set limit for a bounded one-shot read", ok: st === "live", '
+        "text: JSON.stringify({ stream: this.A.alertsUrl ? this.A.alertsUrl() : null, state: st, recent: "
+        "recent.map((r) => r.data) }, null, 2) } }); return; }\n",
+    ),
+    (
+        "PUT sends the body the schema declares, empty or not (an omitted body is a 422, not an empty update)",
+        OLD_PUT,
+        "this.A.put(u, Object.keys(fs.schema).some((k) => !fs.schema[k].p && !fs.schema[k].q) ? b : null)",
+    ),
+    (
+        "a 401 on an account route says how it opens: a dashboard session in this browser, not an API key",
+        OLD_TITLE,
+        '    this.setState({ resp: { title: (r.ok ? "● " : "✗ ") + r.status + " · " + fs.key + (r.meta ? " · " + '
+        'r.meta.ms + " ms" : "") + (!r.ok && r.status === 401 && /^\\/api\\/v1\\/auth\\//.test(u) ? " · account route: '
+        'log in at /login in this browser (session + CSRF); an API key does not open it" : ""), ok: r.ok, text: '
+        "JSON.stringify(r.ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, null, 2) } });\n",
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "self-test: canonical payloads, body prefill, CSRF header, the alerts card",
+        OLD_HAZ_END,
+        OLD_HAZ_END
+        + "        { const A3 = window.MercuryCLIAPI, M3 = window.MercuryCLIMass, covered = (k) => !!((A3.RAW_SAMPLES && "
+        "A3.RAW_SAMPLES[k]) || (M3 && M3.CAPS.some((c) => c.route === k && c.build))), rawKeys = "
+        "Object.keys(A3.SCHEMAS).filter((k) => Object.values(A3.SCHEMAS[k]).some((f) => f.raw)); "
+        's.ok(rawKeys.length > 0 && rawKeys.every(covered), "every free-form JSON route has a canonical payload '
+        '(RAW_SAMPLES or a Mass Run capability)", rawKeys.filter((k) => !covered(k)).join(", ") || rawKeys.length + " routes");\n'
+        '          const K3 = "POST /api/v1/assessment/adjudication/cases", T3 = mk(); T3.state.form = {}; '
+        'T3.prefillRaw({ kind: "api", a: { m: "POST", path: "/api/v1/assessment/adjudication/cases" } }); '
+        "let j3 = null; try { j3 = JSON.parse(T3.formVals(K3).body); } catch (e) {} "
+        's.ok(j3 && j3.case_id && j3.intel_reports, "opening a free-form route prefills its body with the canonical '
+        'payload", String(T3.formVals(K3).body).slice(0, 60));\n'
+        '          T3.setForm(K3, "body", "{\\"mine\\":1}"); T3.prefillRaw({ kind: "api", a: { m: "POST", path: '
+        '"/api/v1/assessment/adjudication/cases" } }); s.ok(T3.formVals(K3).body === "{\\"mine\\":1}", "a body already '
+        'typed is left alone", "");\n'
+        '          const cur3 = (document.cookie.split("; ").find((c) => c.startsWith("mercury_csrf=")) || "").slice(13); '
+        'if (!cur3) document.cookie = "mercury_csrf=diag-token; path=/; SameSite=Lax"; const h3 = A3.headers(true); '
+        's.ok(A3.cfg.baseUrl !== location.origin || h3["X-CSRF-Token"] === decodeURIComponent(cur3 || "diag-token"), '
+        '"same-origin requests carry the dashboard session\'s CSRF token", JSON.stringify(h3["X-CSRF-Token"] || null)); '
+        'if (!cur3) document.cookie = "mercury_csrf=; Max-Age=0; path=/";\n'
+        '          const T4 = mk(); T4.state.alerts = { st: "live" }; T4.state.results = [{ kind: "AGENT · ALERT", data: { initiative_type: "clean_run" } }]; '
+        'T4.state.form = {}; T4.sendForm({ key: "GET /api/v1/voice/alerts", schema: A3.SCHEMAS["GET /api/v1/voice/alerts"] || {}, mode: "api" }); '
+        "s.ok(T4.state.resp && /alerts · live stream live/.test(T4.state.resp.title) && /1 recent event/.test(T4.state.resp.title), "
+        '"the alerts card reports the dock\'s live subscription instead of waiting on the stream", T4.state.resp && T4.state.resp.title); }\n',
+    ),
+)
+
+OLD_URL_CHANGE_CHECK = (
+    's.ok(T._closed >= 1, "the old socket is closed on URL change", T._closed); });\n'
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "self-test: entering or changing the API key re-subscribes the alert stream",
+        OLD_URL_CHANGE_CHECK,
+        OLD_URL_CHANGE_CHECK
+        + '      s.guard("alerts key change", () => { const T = mk(), cfg = { baseUrl: "http://127.0.0.1:8000", apiKey: "" }; '
+        'T.A = Object.create(C.A); Object.defineProperty(T.A, "cfg", { get: () => cfg, configurable: true }); T.live = () => true; '
+        "let n = 0; T.alertsConnect = () => { n++; }; T.alertsClose = function (r) { if (r) this._closed = (this._closed || 0) + 1; }; "
+        'T.capSave = () => {}; T._wsTried = true; T._wsUrl = cfg.baseUrl; T._wsKey = ""; try { T.componentDidUpdate(); } catch (e) {} '
+        'const before = n; cfg.apiKey = "k-new"; try { T.componentDidUpdate(); } catch (e) {} '
+        's.ok(n === before + 1 && T._wsKey === "k-new", "entering or changing the API key re-subscribes alerts under that principal", '
+        '"connects " + before + "→" + n); s.ok(T._closed >= 1, "the anonymous stream is closed on key change", T._closed); });\n',
+    ),
+)
+
 
 def _apply(text: str, patches: tuple[tuple[str, str, str], ...], where: str) -> str:
     for desc, old, new in patches:

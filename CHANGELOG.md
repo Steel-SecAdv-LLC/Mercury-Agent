@@ -27,6 +27,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — a user has the whole engine from the front end.** Driving every
+route card, terminal command and Mass Run capability against the live server
+with a real account found six gaps, each now closed and covered by the
+console's self-test (`:diag`, 8,322 checks) or the page tests:
+
+- A dashboard-created API key held only `read` and `detect`, so the export
+  routes were unreachable from the front end. The dashboard's key form now
+  offers exactly the server's self-service whitelist (`read`, `detect`,
+  `export`; never `write`, `delete` or `admin`), defaults pre-checked, and the
+  key table shows what each key holds (`tests/api/test_frontend.py`).
+- The alert stream was opened once and never re-subscribed when an API key
+  was entered; the engine scopes alerts to the key's principal, so a user's
+  own detections never reached the dock. The console re-subscribes when the
+  key changes, and a Mass Run under a key now lands its alerts (24 alerts
+  folded into one proactive entry, verified in Chromium).
+- Console requests to the same origin carry the dashboard session's CSRF
+  token, so a user logged in at `/login` reaches the account routes from the
+  console (`/auth/me`, key listing and creation verified); a 401 on an
+  account route now says that a session, not an API key, opens it.
+- Free-form JSON routes (concealed-information test, vital signs, the
+  adjudication ledger) opened with an empty body; they now open with a
+  canonical payload, the Mass Run capability's where one exists and the
+  route's documented example otherwise, and a body already typed is kept.
+- `PUT` with an empty body sent no body and drew a 422 from the model
+  metrics route; the body the schema declares is sent, empty or not.
+- `GET /api/v1/voice/alerts` from the form waited on a stream that never
+  ends; the card now reports the dock's live subscription and recent events,
+  and a `limit` sends the bounded one-shot read. The request budget also
+  covers the body read, so no response can hang the form.
+
 **Fixed — the development mailer delivers a usable link.** `ConsoleMailer`
 logged each message, and once the engine's INFO records became visible the
 log formatters' credential redaction turned every verification and reset link

@@ -21,7 +21,12 @@
   function read() { let o = {}; try { o = JSON.parse(localStorage.getItem(LS) || "{}"); } catch (e) {} try { const k = sessionStorage.getItem(LS + "_key"); if (k && !o.apiKey) o.apiKey = k; } catch (e) {} return o; }
   function save() { try { localStorage.setItem(LS, JSON.stringify({ baseUrl: cfg.baseUrl, apiKey: cfg.remember ? cfg.apiKey : "", remember: !!cfg.remember, timeoutMs: cfg.timeoutMs })); sessionStorage.setItem(LS + "_key", cfg.apiKey || ""); } catch (e) {} }
   const base = () => cfg.baseUrl.replace(/\/+$/, "");
-  const headers = (json) => { const h = {}; if (json) h["Content-Type"] = "application/json"; if (cfg.apiKey) h["X-API-Key"] = cfg.apiKey; return h; };
+  // A dashboard session in this browser is a double-submit pair: the httpOnly session cookie travels with
+  // a same-origin request and the readable `mercury_csrf` cookie goes back as X-CSRF-Token, as the account
+  // pages send it. Nothing is added for another origin.
+  const csrfCookie = () => { try { const c = document.cookie.split("; ").find((x) => x.startsWith("mercury_csrf=")); return c ? decodeURIComponent(c.slice(13)) : ""; } catch (e) { return ""; } };
+  const sameOrigin = () => typeof location !== "undefined" && base() === location.origin;
+  const headers = (json) => { const h = {}; if (json) h["Content-Type"] = "application/json"; if (cfg.apiKey) h["X-API-Key"] = cfg.apiKey; const csrf = sameOrigin() ? csrfCookie() : ""; if (csrf) h["X-CSRF-Token"] = csrf; return h; };
 
   // The agent figure reads these: activity from start and end, the signal and the ripple from the reply.
   function announce(detail) { try { window.dispatchEvent(new CustomEvent("mcli:call", { detail: detail })); } catch (e) { /* no window in a non-browser host */ } }
@@ -45,8 +50,8 @@
     const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), path === "/health" ? PROBE_TIMEOUT : cfg.timeoutMs); const t0 = performance.now(); let userAbort = false; if (opts && opts.signal) { if (opts.signal.aborted) return { ok: false, status: 0, kind: "cancelled", error: "Cancelled" }; opts.signal.addEventListener("abort", () => { userAbort = true; ctrl.abort(); }, { once: true }); }
     try {
       const res = await fetch(base() + path, { method, headers: headers(body != null), body: body != null ? JSON.stringify(body) : undefined, signal: ctrl.signal });
-      clearTimeout(to);
       let data = null; const ct = res.headers.get("content-type") || ""; if (/^image\//.test(ct)) { const blob = await res.blob(); data = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok({ image: fr.result, content_type: ct, bytes: blob.size }); fr.readAsDataURL(blob); }); } else { const text = await res.text(); try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; } }
+      clearTimeout(to);
       const meta = { ms: Math.round(performance.now() - t0), correlationId: res.headers.get("X-Correlation-ID"), rateLimit: { limit: res.headers.get("X-RateLimit-Limit"), remaining: res.headers.get("X-RateLimit-Remaining"), reset: res.headers.get("X-RateLimit-Reset") }, retryAfter: res.headers.get("Retry-After") };
       if (!res.ok) return { ok: false, status: res.status, kind: res.status === 401 || res.status === 403 ? "auth" : res.status === 429 ? "ratelimit" : res.status === 422 ? "validation" : "http", error: (data && (data.detail || data.message)) || res.statusText, data, meta };
       return { ok: true, status: res.status, data, meta };
@@ -57,6 +62,18 @@
     }
   }
 
+  /* Canonical payloads for routes whose body is free-form JSON (the request schema cannot name their fields).
+     Statements, intel screening and intel fusion come from the Mass Run capabilities; these are the rest, lifted
+     from the routes' own tests so each passes the route's purpose and consent gates. */
+  const radarSeries = (() => { const out = []; for (let i = 0; i < 1200; i++) { const t = i / 20; out.push(+(0.004 * Math.sin(2 * Math.PI * 0.25 * t) + 0.0003 * Math.sin(2 * Math.PI * 1.2 * t) + 0.00002 * Math.sin(i * 12.9898)).toFixed(7)); } return out; })();
+  const RAW_SAMPLES = {
+    "POST /api/v1/assessment/concealed-information-test": { subject_pseudonym: "subj-01", administered_at: 10.0, purpose: "University lab experiment with consenting volunteers, IRB protocol 2026-114", consent: { subject_pseudonym: "subj-01", obtained_at: 0.0, scope: ["concealed_information_test"], obtained_by: "examiner-7" }, questions: [0, 1, 2, 3, 4].map((i) => ({ question_id: "q" + i, probe: "probe-" + i, irrelevants: [0, 1, 2, 3].map((j) => "item-" + i + "-" + j), responses: { skin_conductance: [[3.0, 1.0, 1.2, 0.9, 1.1], [2.8, 1.1, 1.0, 1.2, 0.8]] } })) },
+    "POST /api/v1/assessment/vital-signs": { purpose: "Sleep-lab respiration study; volunteers signed informed consent forms", lawful_basis: "consent", fs: 20.0, recorded_at: 5.0, subject_pseudonym: "subj-02", consent: { subject_pseudonym: "subj-02", obtained_at: 0.0, scope: ["contactless_vital_signs"], obtained_by: "nurse-3" }, radar_displacement_m: radarSeries },
+    "POST /api/v1/assessment/adjudication/cases": { case_id: "case-console-1", intel_reports: { open_source: { confidence: 0.7, threat_score: 0.5 } }, report_source_ids: ["Reuters"], latest_report_at: "2026-01-01T00:00:00+00:00" },
+    "POST /api/v1/assessment/adjudication/outcomes": { case_id: "case-console-1", observed_at: "2026-01-02T00:00:00+00:00", description: "Border crossing closed for two days; no casualties reported.", outcome_source_ids: ["UN OCHA"] },
+    "POST /api/v1/assessment/adjudication/ratings": { case_id: "case-console-1", level: 2, rationale: "localised disruption only" },
+    "POST /api/v1/assessment/adjudication/decisions": { case_id: "case-console-1", level: 3, rationale: "resolved on the record" },
+  };
   /* CAP 1.2 mappings — alerting/cap_generator.py */
   const CAP = {
     severity: (s) => (s >= 0.9 ? "Extreme" : s >= 0.7 ? "Severe" : s >= 0.5 ? "Moderate" : s >= 0.3 ? "Minor" : "Unknown"),
@@ -207,7 +224,7 @@
     batchStatus: (id) => call("GET", "/api/v1/batch/jobs/" + encodeURIComponent(id)),
     batchResults: (id, offset, limit) => call("GET", "/api/v1/batch/jobs/" + encodeURIComponent(id) + "/results" + (offset != null ? "?offset=" + offset + "&limit=" + (limit || 1000) : "")),
     batchCancel: (id) => call("DELETE", "/api/v1/batch/jobs/" + encodeURIComponent(id)),
-    SCHEMAS, MCP, CLI_TO_ROUTE, CAP, SEVERITY, sample, body, missing, pathParams, withParams, url,
+    SCHEMAS, MCP, CLI_TO_ROUTE, CAP, SEVERITY, RAW_SAMPLES, sample, body, missing, pathParams, withParams, url, headers,
     put: (path, b) => call("PUT", path, b),
     curl(route, b, vals, schema) { const m = route.split(" ")[0], p = url(route, vals, schema); const h = cfg.apiKey ? " \\\n  -H 'X-API-Key: " + cfg.apiKey.slice(0, 4) + "…'" : ""; return "curl -X " + m + " " + (base() || "http://localhost:8000") + p + h + (b ? " \\\n  -H 'Content-Type: application/json' \\\n  -d '" + JSON.stringify(b) + "'" : ""); },
     mcpCall(name, args) { return JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, null, 2); },

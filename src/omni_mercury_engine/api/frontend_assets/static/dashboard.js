@@ -142,6 +142,8 @@ async function loadApiKeys() {
     const idCode = document.createElement("code");
     idCode.textContent = key.key_id;
     id.appendChild(idCode);
+    const permissions = document.createElement("td");
+    permissions.textContent = (key.permissions || []).join(", ");
     const state = document.createElement("td");
     state.textContent = key.is_active ? "active" : "revoked";
     const created = document.createElement("td");
@@ -163,6 +165,7 @@ async function loadApiKeys() {
 
     row.appendChild(name);
     row.appendChild(id);
+    row.appendChild(permissions);
     row.appendChild(state);
     row.appendChild(created);
     row.appendChild(actions);
@@ -177,6 +180,14 @@ function initApiKeyForm() {
     event.preventDefault();
     setStatus(status, "Creating key…");
     const payload = { name: document.getElementById("api-key-name").value.trim() };
+    const granted = Array.from(
+      document.querySelectorAll('#api-key-permissions input[name="api-key-permission"]:checked'),
+    ).map((box) => box.value);
+    if (granted.length === 0) {
+      setStatus(status, "Grant the key at least one permission.", "error");
+      return;
+    }
+    payload.permissions = granted;
     const days = document.getElementById("api-key-days").value;
     if (days) { payload.expires_in_days = Number(days); }
     const result = await api("POST", "/api-keys", payload);

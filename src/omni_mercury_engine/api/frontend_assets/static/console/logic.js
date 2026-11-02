@@ -54,7 +54,7 @@ class Component extends DCLogic {
   tailEl() { return document.getElementById("mcli-tail"); }
   live() { return !!(this.A && this.A.connected() && this.state.health && this.state.health.ok); }
   componentWillUnmount() { clearTimeout(this._ic); this.alertsClose(); if (this._mup) document.removeEventListener("mouseup", this._mup); if (this._unload) window.removeEventListener("pagehide", this._unload); window.removeEventListener("keydown", this._key); document.removeEventListener("click", this._docClick); clearTimeout(this._t); (cancelAnimationFrame(this._run), clearTimeout(this._run)); clearTimeout(this._c); }
-  componentDidUpdate() { const wsUrl = this.A ? this.A.cfg.baseUrl : ""; if (this._wsTried && this._wsUrl !== wsUrl) { this._wsTried = false; this.alertsClose(true); } if (this.live() && !this._wsTried) { this._wsTried = true; this._wsUrl = wsUrl; this.alertsConnect(); } if (!this.live() && this._wsTried) { this._wsTried = false; this.alertsClose(true); } this.capSave(); if (!this.state.running) this.persist(); if (this._lastChat !== this.state.chat) { this._lastChat = this.state.chat; const ce = this.chatRef.current; if (ce) ce.scrollTop = ce.scrollHeight; } if (this._last !== this.state.lines) { this._last = this.state.lines; const el = this.bodyRef.current; if (el) el.scrollTop = el.scrollHeight; } }
+  componentDidUpdate() { const wsUrl = this.A ? this.A.cfg.baseUrl : "", wsKey = this.A ? this.A.cfg.apiKey || "" : ""; if (this._wsTried && (this._wsUrl !== wsUrl || this._wsKey !== wsKey)) { this._wsTried = false; this.alertsClose(true); } if (this.live() && !this._wsTried) { this._wsTried = true; this._wsUrl = wsUrl; this._wsKey = wsKey; this.alertsConnect(); } if (!this.live() && this._wsTried) { this._wsTried = false; this.alertsClose(true); } this.capSave(); if (!this.state.running) this.persist(); if (this._lastChat !== this.state.chat) { this._lastChat = this.state.chat; const ce = this.chatRef.current; if (ce) ce.scrollTop = ce.scrollHeight; } if (this._last !== this.state.lines) { this._last = this.state.lines; const el = this.bodyRef.current; if (el) el.scrollTop = el.scrollHeight; } }
 
   capInit() {
     const K = window.MercuryCLICapture; if (!K || this._capsLoaded) return;
@@ -129,7 +129,16 @@ class Component extends DCLogic {
   domSync(path, v) { return this.domainUse(path).arg === "--domain" && this.knownDom(v) ? { domain: v } : {}; }
   setDomain(x) { this.setState({ domain: x }); if (this.domainUse(this.state.sel).arg) this.setVal(this.state.sel, "--domain", x); }
   selectCmd(path, quiet) { this.setState({ sel: path, menu: null, pal: false }, () => { this.sync(); if (!quiet) this.append(this.helpBlock(path)); }); }
-  setRef(ref) { this.setState({ ref, resp: null, panel: true, tab: "ref", menu: null, pal: false }); }
+  prefillRaw(ref) {
+    // A free-form JSON route (its request schema cannot name the fields) opens with a canonical payload in
+    // the body field: the Mass Run capability's when one fits the loaded data, else the route's documented
+    // example (api.RAW_SAMPLES). Nothing is sent until SEND, and a body already typed is left alone.
+    if (!ref || ref.kind !== "api" || !ref.a) return; const key = ref.a.m + " " + ref.a.path, sch = this.A.SCHEMAS[key] || {}, rk = Object.keys(sch).find((k) => sch[k].raw);
+    if (!rk || (this.formVals(key)[rk] || "") !== "") return;
+    const M = window.MercuryCLIMass, cap = M && M.CAPS.find((c) => c.route === key && c.build && !(c.block && c.block(this.state.data))), body = cap ? cap.build(this.state.data, {}) : (this.A.RAW_SAMPLES || {})[key];
+    if (body) this.setForm(key, rk, JSON.stringify(body));
+  }
+  setRef(ref) { this.prefillRaw(ref); this.setState({ ref, resp: null, panel: true, tab: "ref", menu: null, pal: false }); }
   openPal() { this.setState({ pal: true, pq: "", pi: 0, menu: null }, () => setTimeout(() => { const el = this.palRef.current; if (el) el.focus(); }, 30)); }
 
   // ---------- catalog items (shared by menus + palette) ----------
@@ -1012,13 +1021,14 @@ class Component extends DCLogic {
     if (fs.mode === "run") { const r = this.D.runs.find((x) => x.p === fs.key); if (r) { const cmd = this.runCmd(r); try { navigator.clipboard.writeText(cmd); } catch (e) {} this.setState({ resp: { title: "command copied", ok: true, text: cmd } }); } return; }
     if (fs.mode === "mcp") { const txt = this.A.mcpCall(fs.key, b); try { navigator.clipboard.writeText(txt); } catch (e) {} this.setState({ resp: { title: "MCP · tools/call payload copied", ok: true, text: txt } }); return; }
     const pv = this.formParsed(fs), hz = this.hazardFormInput(fs, b); if (hz) { this.setState({ resp: { title: hz, ok: false, text: "" } }); return; }
+    if (fs.key === "GET /api/v1/voice/alerts" && pv.limit == null) { const st = (this.state.alerts || {}).st || "closed", recent = this.state.results.filter((r) => r.kind === "AGENT · ALERT").slice(0, 5); this.setState({ resp: { title: "● alerts · live stream " + st + " in the agent dock · " + recent.length + " recent event" + (recent.length === 1 ? "" : "s") + " · set limit for a bounded one-shot read", ok: st === "live", text: JSON.stringify({ stream: this.A.alertsUrl ? this.A.alertsUrl() : null, state: st, recent: recent.map((r) => r.data) }, null, 2) } }); return; }
     const miss = this.A.missing(fs.schema, b, pv), u = this.A.url(fs.key, pv, fs.schema);
     if (!this.live()) { const txt = this.A.curl(fs.key, b, pv, fs.schema); try { navigator.clipboard.writeText(txt); } catch (e) {} this.setState({ resp: { title: "curl copied · connect a server to send" + (miss.length ? " · fill " + miss.join(", ") + " first" : ""), ok: !miss.length, text: txt } }); return; }
     if (miss.length) { this.setState({ resp: { title: "✗ not sent · required: " + miss.join(", "), ok: false, text: "" } }); return; }
     const m = fs.key.split(" ")[0]; this.setState({ resp: { title: "sending…", ok: true, text: "" } });
-    const r = m === "GET" ? await this.A.get(u) : m === "DELETE" ? await this.A.del(u) : m === "PUT" ? await this.A.put(u, Object.keys(b).length ? b : null) : await this.A.post(u, b);
+    const r = m === "GET" ? await this.A.get(u) : m === "DELETE" ? await this.A.del(u) : m === "PUT" ? await this.A.put(u, Object.keys(fs.schema).some((k) => !fs.schema[k].p && !fs.schema[k].q) ? b : null) : await this.A.post(u, b);
     this.pushResult({ kind: "API FORM", label: fs.key, route: m + " " + u, status: r.ok ? "ok" : "error", http: r.status, ms: r.meta && r.meta.ms, corr: (r.meta && r.meta.correlationId) || null, body: b, data: r.ok ? r.data : { error: r.error, kind: r.kind, detail: r.data } });
-    this.setState({ resp: { title: (r.ok ? "● " : "✗ ") + r.status + " · " + fs.key + (r.meta ? " · " + r.meta.ms + " ms" : ""), ok: r.ok, text: JSON.stringify(r.ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, null, 2) } });
+    this.setState({ resp: { title: (r.ok ? "● " : "✗ ") + r.status + " · " + fs.key + (r.meta ? " · " + r.meta.ms + " ms" : "") + (!r.ok && r.status === 401 && /^\/api\/v1\/auth\//.test(u) ? " · account route: log in at /login in this browser (session + CSRF); an API key does not open it" : ""), ok: r.ok, text: JSON.stringify(r.ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, null, 2) } });
   }
     download(name, type, text) { try { const u = URL.createObjectURL(new Blob([text], { type })); const a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 500); } catch (e) {} }
   exportRun(fmt) {
