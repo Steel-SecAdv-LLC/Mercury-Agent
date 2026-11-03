@@ -93,6 +93,7 @@ def test_empty_strings_clear_fields_and_none_leaves_them(stable: None, tmp_path:
     store.set("azure_openai", api_key="k", base_url="https://res.openai.azure.com", model="dep")
     store.set("azure_openai", model="dep2")
     record = store.get("azure_openai")
+    assert record is not None
     assert record == {
         "has_key": True,
         "base_url": "https://res.openai.azure.com",
@@ -101,6 +102,7 @@ def test_empty_strings_clear_fields_and_none_leaves_them(stable: None, tmp_path:
     }
     store.set("azure_openai", api_key="", base_url="")
     record = store.get("azure_openai")
+    assert record is not None
     assert record["has_key"] is False and record["base_url"] is None and record["model"] == "dep2"
 
 

@@ -26,6 +26,7 @@ from omni_mercury_engine.narrative.retriever import (
     RetrievalSource,
     SearchResponse,
 )
+from omni_mercury_engine.narrative.voice import MercuryVoice
 
 pytest.importorskip("fastapi", reason="the voice end-to-end tests need the [api] extra")
 
@@ -76,9 +77,8 @@ def _results() -> SearchResponse:
 
 
 @pytest.fixture
-def voice(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
+def voice(monkeypatch: pytest.MonkeyPatch) -> MercuryVoice:
     from omni_mercury_engine.api import voice as voice_module
-    from omni_mercury_engine.narrative.voice import MercuryVoice
 
     monkeypatch.setattr(voice_module, "_mercury_voice", None)
     instance = voice_module._get_voice()
@@ -93,7 +93,7 @@ def _attach(voice: Any, adapter: _Adapter) -> None:
     voice._llm_model_name = "llama-3.3-70b"
 
 
-def test_the_model_sees_only_the_records_and_a_bounded_instruction(voice) -> None:  # type: ignore[no-untyped-def]
+def test_the_model_sees_only_the_records_and_a_bounded_instruction(voice: MercuryVoice) -> None:
     adapter = _Adapter("The energy run flagged one sample with a score of 6.2.")
     _attach(voice, adapter)
     composed = voice._compose_with_model("what did the energy run find", _results())
@@ -106,12 +106,14 @@ def test_the_model_sees_only_the_records_and_a_bounded_instruction(voice) -> Non
 @pytest.mark.parametrize(
     "reply", ["", "API error: rate limited", "Request failed: boom", RuntimeError("down")]
 )
-def test_a_failed_or_empty_reply_leaves_the_template_answer(voice, reply: Any) -> None:  # type: ignore[no-untyped-def]
+def test_a_failed_or_empty_reply_leaves_the_template_answer(
+    voice: MercuryVoice, reply: Any
+) -> None:
     _attach(voice, _Adapter(reply))
     assert voice._compose_with_model("q", _results()) is None
 
 
-def test_no_adapter_or_no_records_means_no_composition(voice) -> None:  # type: ignore[no-untyped-def]
+def test_no_adapter_or_no_records_means_no_composition(voice: MercuryVoice) -> None:
     voice._llm_adapter = None
     assert voice._compose_with_model("q", _results()) is None
     _attach(voice, _Adapter("x"))
@@ -121,7 +123,9 @@ def test_no_adapter_or_no_records_means_no_composition(voice) -> None:  # type: 
     assert voice._compose_with_model("q", empty) is None
 
 
-def test_a_search_answer_names_the_model_and_the_record_count(voice, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
+def test_a_search_answer_names_the_model_and_the_record_count(
+    voice: MercuryVoice, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _attach(voice, _Adapter("Composed from the records."))
     monkeypatch.setattr(voice.retriever, "search", lambda *a, **k: _results())
     reply = voice.speak(
@@ -133,7 +137,7 @@ def test_a_search_answer_names_the_model_and_the_record_count(voice, monkeypatch
     assert reply.reasoning_summary and "2 retrieved record(s)" in reply.reasoning_summary
 
 
-def test_grounded_answers_never_go_through_the_model(voice) -> None:  # type: ignore[no-untyped-def]
+def test_grounded_answers_never_go_through_the_model(voice: MercuryVoice) -> None:
     adapter = _Adapter("should never be used")
     _attach(voice, adapter)
     reply = voice.speak("Which detectors do you have?", domain="general", principal="compose")

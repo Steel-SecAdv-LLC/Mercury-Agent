@@ -91,6 +91,7 @@ def _route_to_service() -> dict[str, str]:
                 and deco.func.attr == "post"
                 and deco.args
                 and isinstance(deco.args[0], ast.Constant)
+                and isinstance(deco.args[0].value, str)
             ):
                 path = deco.args[0].value
         if path is None:

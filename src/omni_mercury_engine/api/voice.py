@@ -1130,8 +1130,14 @@ async def test_provider(
     result = probe_provider(
         code, api_key=overrides.api_key, base_url=overrides.base_url, model=overrides.model
     )
+    # Only the verdict and the HTTP status are logged: the detail text is
+    # derived from a request that carried the key and stays out of the log.
     logger.info(
-        "provider %s tested by %s: %s", code, user.id, "ok" if result["ok"] else result["detail"]
+        "provider %s tested by %s: ok=%s status=%s",
+        code,
+        user.id,
+        bool(result["ok"]),
+        result.get("status"),
     )
     return ProbeResult(provider=code, **result)
 

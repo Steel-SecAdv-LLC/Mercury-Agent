@@ -1,0 +1,9738 @@
+{
+ "results": {
+  "AI vendors": [
+   {
+    "tag": "button",
+    "text": "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 311,
+    "y": 27,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "● LIVE · 127.0.0.1:8765",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1248,
+    "y": 32,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "conn",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Settings",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1454,
+    "y": 30,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "setOpen",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Mercury Agent chat",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1494,
+    "y": 30,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "panel",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "All",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 269,
+    "y": 155,
+    "active": true,
+    "path": [],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP clients · attach an AI to Mercury (mercury-agent mcp)",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 312,
+    "y": 155,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 12,
+    "changed": [
+     "bgrp"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Language-model providers · the adapters the engine ships",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 695,
+    "y": 155,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 77,
+    "changed": [
+     "bgrp"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Claude Desktop and Claude Code mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 232,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Cursor mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 259,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "VS Code with GitHub Copilot mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 287,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Any other MCP client (stdio) mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 314,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OpenAI (ChatGPT models) cloud OPENAI_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 377,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Anthropic (Claude) cloud ANTHROPIC_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 404,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Hugging Face Inference API cloud HUGGINGFACE_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 432,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Ollama (local runtime) local not reachable · http://localhost:11434",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 459,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Built-in templates (no model) built-in",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 486,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "xAI (Grok) cloud XAI_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 513,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Google Gemini cloud GEMINI_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 541,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Cohere cloud COHERE_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 568,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DeepSeek cloud DEEPSEEK_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 595,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Cursor (OpenAI-compatible endpoint) cloud CURSOR_API_KEY not set endpo",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 622,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Mistral AI cloud MISTRAL_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 650,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Groq cloud key stored model llama-3.3-70b-versatile · store",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 677,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Together AI cloud TOGETHER_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 704,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Fireworks AI cloud FIREWORKS_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 731,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OpenRouter (one key, many vendors) cloud OPENROUTER_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 759,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Perplexity cloud PERPLEXITY_API_KEY not set",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 786,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Azure OpenAI cloud AZURE_OPENAI_API_KEY not set endpoint required base",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 813,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Any OpenAI-compatible endpoint cloud no key needed endpoint required b",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 840,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LM Studio (local server) local no key needed",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 868,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "vLLM (local server) local no key needed",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 895,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "llama.cpp server (local) local no key needed",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 922,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "×",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1618,
+    "y": 82,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "panel",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "AGENT",
+    "occ": 0,
+    "role": "tab",
+    "type": "",
+    "x": 1282,
+    "y": 456,
+    "active": true,
+    "path": [],
+    "verdict": "no-op (already active)",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "RUN",
+    "occ": 0,
+    "role": "tab",
+    "type": "",
+    "x": 1347,
+    "y": 456,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "EVENT",
+    "occ": 0,
+    "role": "tab",
+    "type": "",
+    "x": 1396,
+    "y": 456,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DETAILS",
+    "occ": 0,
+    "role": "tab",
+    "type": "",
+    "x": 1461,
+    "y": 456,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Open the Agent workspace",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 697,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 16,
+    "changed": [
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "What was the latest anomaly?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1282,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Explain the latest detection",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1483,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 16,
+    "changed": [
+     "vals",
+     "input",
+     "hist",
+     "lines",
+     "chat",
+     "running"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak",
+     "POST http://127.0.0.1:8765/api/v1/detect/multivariate"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Which samples were flagged?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1685,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "How many anomalies today?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1880,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 9,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Which detectors do you have?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 2062,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 9,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Tell me about the network security domain",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 2264,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 9,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Why did it clear the gate?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 2547,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Recommend an action",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 2736,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Summarize threat posture",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 2881,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "What should I run next?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 3057,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "How do I collect data?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 3227,
+    "y": 974,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "canvas.ptr",
+    "text": "Mercury Agent presence. The figure follows the engine, the work in fli",
+    "occ": 0,
+    "role": "img",
+    "type": "",
+    "x": 1270,
+    "y": 155,
+    "active": false,
+    "path": [],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND causal Discover causal structure (PC + Fisher-Z, or Granger te",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 140,
+    "active": true,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND detect Detect anomalies in data.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 171,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND explain Explain anomaly detection decision.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 202,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND rca Attribute a multivariate anomaly to its root-cause nodes (",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 233,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND stream Run a streaming anomaly-detection worker (consume -> de",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 264,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND tier-detect Run the streaming detector-tier ensemble on a 1-D ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 295,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND hazard-viz Render a hazard detector's persisted diagnostics to",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 326,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND physics Physics-inspired anomaly detection commands.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 357,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND physics dynamics Acceleration dynamics analysis with phase spa",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 388,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND physics integrated Integrated physics-inspired anomaly detecti",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 419,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND physics list List available physics-inspired detectors and the",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 450,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND physics spectral Spectral vibration analysis using GNN and CNN",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 481,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND physics uiux UI/UX behavioral anomaly detection.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 512,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND build-features Build a reusable fusion-training feature archiv",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 543,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND symbolic-rules Export the symbolic logic layer's rule graph (n",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 574,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND train Train the fusion model.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 605,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND tune Bayesian hyperparameter search for the fusion model (maxi",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 636,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND biometric Biometric face matching.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 667,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND security Security threat detection.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 698,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND verify-corpus Verify the σ_Immutable corpus signature bundle (",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 729,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND mcp Run Mercury as an MCP server on stdio (the universal inter",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 760,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND serve Start the Mercury Agent API server.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 791,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND voice Start interactive voice conversation with Mercury.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 822,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel Mercury intelligence layer: verifier, provenance, feedba",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 853,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel audit-log Dump the live gate-audit log as labelable even",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 884,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel cascade Route the measured cascade workload and report c",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 915,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel provenance Enforce provenance at the output boundary for",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 946,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel red-team Run the adversarial red-team harness against th",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 977,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel rollback One-command rollback of a staged model registry",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1008,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel self-consistency Score sampled ANSWERS for disagreement ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1039,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel value-board Print the intelligence-layer value board (ea",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1070,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND intel verify Route the checkable claims in TEXT through the or",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1101,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND assess Statement verification, CIT, intelligence screening and",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1132,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND assess cit Score a consented Concealed Information Test sessio",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1163,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND assess cit-plan Shortest CIT design whose simulated power (Wil",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1194,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND assess fuse All-source fusion of screened reports into a threa",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1225,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND assess fusion-status Which path the fusion engine decides with",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1256,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND assess screen Counterintelligence screens over a report batch ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1287,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND assess verify-statements Verify statements against evidence (c",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1318,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND assess vital-signs Estimate or track respiration and heart rat",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1349,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication The adjudication ledger: held-out threat-level la",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1380,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication add-case Record a case (its held-out/training spl",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1411,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication add-outcome Record what happened in a case.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1442,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication decide Record an adjudicator decision ({case_id, ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1473,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication export Write one split's labels (signed when MERC",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1504,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication keygen Create an owner-only ML-DSA-65 key file (n",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1535,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication rate Record a blind rating ({case_id, level, rati",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1566,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication rater-view What --rater may see of CASE_ID (other",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1597,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication repair Drop an unterminated last line left by a c",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1628,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication status Chain validity, agreement, counts and work",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1659,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND adjudication verify Verify the hash chain (and pinned signatur",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1690,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND decouple Decouple Mercury from its kin systems, or from this m",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1721,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND decouple ama-optional Switch the AMA-backed optional surfaces ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1752,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND decouple detach Save every byte of Mercury's work into one ver",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1783,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND decouple findoyou Switch the FINDΩYOU™ evidence bridge on or o",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1814,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND decouple purge-work Delete all of Mercury's work on this machi",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1845,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND decouple status Show switch state, AMA facts, and every place ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1876,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND decouple uninstall Remove Mercury Agent: all work, the package",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1907,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform Operate the account platform: accounts, quotas, usage",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1938,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform account Inspect and administer accounts (tier, enable",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 1969,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform account disable Deactivate an account (blocks login a",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2000,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform account enable Reactivate a previously disabled accou",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2031,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform account list List every account (operator-safe fields",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2062,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform account set-tier Move an account onto TIER and echo t",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2093,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform account show Show one account (by email or id) with i",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2124,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform audit Verify the tamper-evident audit trail.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2155,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform audit verify Verify the audit log's HMAC hash chain; ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2186,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform quota Manage per-account quota overrides.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2217,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform quota override Set, clear, or show one account's quot",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2248,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform quota override clear Remove an account's override; ti",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2279,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform quota override set Give an account its own ceilings, ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2310,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform quota override show Show an account's stored override",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2341,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform usage Report metered usage from the ledger.",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2372,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND platform usage report Summarise in-window usage — one account,",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2403,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND observatory Mathematical Observatory: verified solving + anoma",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2434,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND observatory collatz Collatz stopping-time and excursion record",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2465,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND observatory goldbach Goldbach comet vs the Hardy-Littlewood pr",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2496,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND observatory solve Solve EQUATION with every answer verified by",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2527,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND observatory zeta Zeta zero-spacing statistics vs the GUE law; ",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2558,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COMMAND tool Run an operator tool by name (see `mercury-agent tool lis",
+    "occ": 0,
+    "role": "option",
+    "type": "",
+    "x": 516,
+    "y": 2589,
+    "active": false,
+    "path": [
+     "⌕ Search commands, domains, detectors, tools, MCP, API ⌘K"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "pal",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "input",
+    "text": "on",
+    "occ": 0,
+    "role": "",
+    "type": "checkbox",
+    "x": 574,
+    "y": 345,
+    "active": false,
+    "path": [
+     "● LIVE · 127.0.0.1:8765"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "USE 127.0.0.1:8000",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 758,
+    "y": 538,
+    "active": false,
+    "path": [
+     "● LIVE · 127.0.0.1:8765"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "lines",
+     "chat",
+     "agVoice",
+     "agBusy",
+     "connUrl",
+     "health",
+     "<form>"
+    ],
+    "net": [
+     "GET http://127.0.0.1:8765/api/v1/voice/greet?domain=network_security",
+     "GET http://127.0.0.1:8765/api/v1/voice/status"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "SAVE & TEST",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 931,
+    "y": 538,
+    "active": false,
+    "path": [
+     "● LIVE · 127.0.0.1:8765"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "lines",
+     "chat",
+     "agVoice",
+     "agBusy",
+     "health"
+    ],
+    "net": [
+     "GET http://127.0.0.1:8765/api/v1/voice/greet?domain=network_security",
+     "GET http://127.0.0.1:8765/api/v1/voice/status"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DISCONNECT",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 570,
+    "y": 576,
+    "active": false,
+    "path": [
+     "● LIVE · 127.0.0.1:8765"
+    ],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "lines",
+     "alerts",
+     "connUrl",
+     "health",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLOSE",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1066,
+    "y": 576,
+    "active": false,
+    "path": [
+     "● LIVE · 127.0.0.1:8765"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "conn",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Close settings",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1092,
+    "y": 79,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "setOpen",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Dark",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 877,
+    "y": 151,
+    "active": true,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Grey",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 932,
+    "y": 151,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Light",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 987,
+    "y": 151,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "System",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1049,
+    "y": 151,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "High contrast",
+    "occ": 0,
+    "role": "switch",
+    "type": "",
+    "x": 1078,
+    "y": 211,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Quicksilver",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 968,
+    "y": 270,
+    "active": true,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Azure",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1000,
+    "y": 270,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Viridian",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1032,
+    "y": 270,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Cognitive",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1064,
+    "y": 270,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Benevolence",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1096,
+    "y": 270,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Reduced motion",
+    "occ": 0,
+    "role": "switch",
+    "type": "",
+    "x": 1078,
+    "y": 415,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Keyboard focus rings",
+    "occ": 0,
+    "role": "switch",
+    "type": "",
+    "x": 1078,
+    "y": 474,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Spoken replies",
+    "occ": 0,
+    "role": "switch",
+    "type": "",
+    "x": 1078,
+    "y": 533,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Visual alert cues",
+    "occ": 0,
+    "role": "switch",
+    "type": "",
+    "x": 1078,
+    "y": 592,
+    "active": true,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Announce alerts",
+    "occ": 0,
+    "role": "switch",
+    "type": "",
+    "x": 1078,
+    "y": 651,
+    "active": true,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Auto",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 816,
+    "y": 764,
+    "active": true,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "EN",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 867,
+    "y": 764,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "ES",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 903,
+    "y": 764,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "FR",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 939,
+    "y": 764,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DE",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 975,
+    "y": 764,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "IT",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1011,
+    "y": 764,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PT",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1047,
+    "y": 764,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "NL",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1083,
+    "y": 764,
+    "active": false,
+    "path": [
+     "Settings"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "setTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Copy config",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1286,
+    "y": 971,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines"
+    ],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Open MCP tools",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1387,
+    "y": 971,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio"
+    ],
+    "verdict": "effect",
+    "muts": 78,
+    "changed": [
+     "browse"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Build mcp command",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1286,
+    "y": 1005,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "sel",
+     "input",
+     "lines"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "REQUIRED ONLY",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1532,
+    "y": 944,
+    "active": false,
+    "path": [
+     "OpenAI (ChatGPT models) cloud OPENAI_API_KEY not set"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "reqOnly"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Connect",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1286,
+    "y": 1080,
+    "active": false,
+    "path": [
+     "OpenAI (ChatGPT models) cloud OPENAI_API_KEY not set"
+    ],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "lines",
+     "resp"
+    ],
+    "net": [
+     "PUT http://127.0.0.1:8765/api/v1/voice/backends/openai"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Test connection",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1360,
+    "y": 1080,
+    "active": false,
+    "path": [
+     "OpenAI (ChatGPT models) cloud OPENAI_API_KEY not set"
+    ],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "lines",
+     "resp"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/backends/openai/test"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Use for the agent",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1487,
+    "y": 1080,
+    "active": false,
+    "path": [
+     "OpenAI (ChatGPT models) cloud OPENAI_API_KEY not set"
+    ],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "lines",
+     "resp"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/backends/select"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Copy env line",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1286,
+    "y": 1114,
+    "active": false,
+    "path": [
+     "OpenAI (ChatGPT models) cloud OPENAI_API_KEY not set"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "lines"
+    ],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Build voice command",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1400,
+    "y": 1114,
+    "active": false,
+    "path": [
+     "OpenAI (ChatGPT models) cloud OPENAI_API_KEY not set"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "input",
+     "lines"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Refresh status",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1286,
+    "y": 1148,
+    "active": false,
+    "path": [
+     "OpenAI (ChatGPT models) cloud OPENAI_API_KEY not set"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "backends"
+    ],
+    "net": [
+     "GET http://127.0.0.1:8765/api/v1/voice/backends"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Forget stored settings",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1406,
+    "y": 1148,
+    "active": false,
+    "path": [
+     "Groq cloud key stored model llama-3.3-70b-versatile · store"
+    ],
+    "verdict": "effect",
+    "muts": 4,
+    "changed": [
+     "lines",
+     "resp"
+    ],
+    "net": [
+     "DELETE http://127.0.0.1:8765/api/v1/voice/backends/groq"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "REFRESH",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 647,
+    "y": 225,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "lines",
+     "chat",
+     "agVoice",
+     "agBusy"
+    ],
+    "net": [
+     "GET http://127.0.0.1:8765/api/v1/voice/greet?domain=network_security",
+     "GET http://127.0.0.1:8765/api/v1/voice/status"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "SERVER HISTORY",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 726,
+    "y": 225,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "GET http://127.0.0.1:8765/api/v1/voice/history?limit=30"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CONNECTION",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 857,
+    "y": 225,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "conn",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "ACT",
+    "occ": 0,
+    "role": "tab",
+    "type": "",
+    "x": 265,
+    "y": 327,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "ARCHITECTURE",
+    "occ": 0,
+    "role": "tab",
+    "type": "",
+    "x": 315,
+    "y": 327,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 87,
+    "changed": [
+     "agTab",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "SUBAGENTS",
+    "occ": 0,
+    "role": "tab",
+    "type": "",
+    "x": 439,
+    "y": 327,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "TRUST",
+    "occ": 0,
+    "role": "tab",
+    "type": "",
+    "x": 538,
+    "y": 327,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 92,
+    "changed": [
+     "agTab",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "IMPORT RESULT · JSON / JSONL",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1017,
+    "y": 391,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "file-picker (no effect headless)",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "HTTP",
+    "occ": 0,
+    "role": "radio",
+    "type": "",
+    "x": 654,
+    "y": 484,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 0,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 484,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 14,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "SEND",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 739,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "chat",
+     "session"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 343,
+    "y": 739,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 19,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "HTTP",
+    "occ": 1,
+    "role": "radio",
+    "type": "",
+    "x": 694,
+    "y": 832,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "brief",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 905,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "normal",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 466,
+    "y": 905,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "detailed",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 525,
+    "y": 905,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 0,
+    "role": "radio",
+    "type": "",
+    "x": 640,
+    "y": 1094,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PYTHON",
+    "occ": 0,
+    "role": "radio",
+    "type": "",
+    "x": 680,
+    "y": 1094,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 14,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "markdown",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 1239,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "html",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 484,
+    "y": 1239,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "text",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 532,
+    "y": 1239,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DOWNLOAD STDIO SCRIPT",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 1501,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 1,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY tools/call",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 468,
+    "y": 1501,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 607,
+    "y": 1501,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 1,
+    "role": "radio",
+    "type": "",
+    "x": 640,
+    "y": 1594,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PYTHON",
+    "occ": 1,
+    "role": "radio",
+    "type": "",
+    "x": 680,
+    "y": 1594,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 14,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DOWNLOAD STDIO SCRIPT",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 1972,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 1,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY tools/call",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 468,
+    "y": 1972,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 607,
+    "y": 1972,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PYTHON",
+    "occ": 2,
+    "role": "radio",
+    "type": "",
+    "x": 680,
+    "y": 2065,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY PYTHON",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 2427,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 395,
+    "y": 2427,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 2,
+    "role": "radio",
+    "type": "",
+    "x": 640,
+    "y": 2520,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PYTHON",
+    "occ": 3,
+    "role": "radio",
+    "type": "",
+    "x": 680,
+    "y": 2520,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 14,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "markdown",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 2683,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "html",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 484,
+    "y": 2683,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "text",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 532,
+    "y": 2683,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DOWNLOAD STDIO SCRIPT",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 2929,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 1,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY tools/call",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 468,
+    "y": 2929,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 3,
+    "role": "",
+    "type": "",
+    "x": 607,
+    "y": 2929,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 1,
+    "role": "radio",
+    "type": "",
+    "x": 661,
+    "y": 3022,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 3,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 3022,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 14,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "default",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 3149,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "hard",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 478,
+    "y": 3149,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "soft",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 525,
+    "y": 3149,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 3277,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 18,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 4,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 3277,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 3277,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 2,
+    "role": "radio",
+    "type": "",
+    "x": 661,
+    "y": 3370,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 4,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 3370,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 14,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "FALSE",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 3515,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 3643,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 18,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 5,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 3643,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 3643,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 3,
+    "role": "radio",
+    "type": "",
+    "x": 661,
+    "y": 3736,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 5,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 3736,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 14,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 3,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 3966,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 18,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 6,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 3966,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 3966,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 6,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 4059,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DOWNLOAD STDIO SCRIPT",
+    "occ": 3,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 4403,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 1,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY tools/call",
+    "occ": 3,
+    "role": "",
+    "type": "",
+    "x": 468,
+    "y": 4403,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 7,
+    "role": "",
+    "type": "",
+    "x": 607,
+    "y": 4403,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 7,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 4496,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 4,
+    "role": "radio",
+    "type": "",
+    "x": 661,
+    "y": 4938,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "MCP",
+    "occ": 8,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 4938,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 14,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 4,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 5093,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 18,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 8,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 5093,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "DEAD",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 3,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 5093,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 5,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 5186,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 5,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 5324,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 18,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 9,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 5324,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 4,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 5324,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 6,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 5417,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 6,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 5592,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 18,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 10,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 5592,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 5,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 5592,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PYTHON",
+    "occ": 4,
+    "role": "radio",
+    "type": "",
+    "x": 680,
+    "y": 5685,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "general",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 5793,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "medical",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 478,
+    "y": 5793,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "security",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 544,
+    "y": 5793,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "energy",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 617,
+    "y": 5793,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "infrastructure",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 5817,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "humanitarian",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 522,
+    "y": 5817,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "scientific",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 620,
+    "y": 5817,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "financial",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 5841,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY PYTHON",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 6088,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 11,
+    "role": "",
+    "type": "",
+    "x": 395,
+    "y": 6088,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PYTHON",
+    "occ": 5,
+    "role": "radio",
+    "type": "",
+    "x": 680,
+    "y": 6181,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "general",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 6325,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "medical",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 478,
+    "y": 6325,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "security",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 544,
+    "y": 6325,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "energy",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 617,
+    "y": 6325,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "infrastructure",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 6349,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "humanitarian",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 522,
+    "y": 6349,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "scientific",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 620,
+    "y": 6349,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "financial",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 6373,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY PYTHON",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 6620,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 12,
+    "role": "",
+    "type": "",
+    "x": 395,
+    "y": 6620,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PYTHON",
+    "occ": 6,
+    "role": "radio",
+    "type": "",
+    "x": 680,
+    "y": 6713,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "general",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 6839,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "medical",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 478,
+    "y": 6839,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "security",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 544,
+    "y": 6839,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "energy",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 617,
+    "y": 6839,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "infrastructure",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 6863,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "humanitarian",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 522,
+    "y": 6863,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "scientific",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 620,
+    "y": 6863,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "financial",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 6887,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY PYTHON",
+    "occ": 3,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 7244,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 13,
+    "role": "",
+    "type": "",
+    "x": 395,
+    "y": 7244,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 7,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 7337,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 7,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 7547,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 18,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 14,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 7547,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 6,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 7547,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 8,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 7640,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "LOAD IN TERMINAL",
+    "occ": 8,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 7814,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 18,
+    "changed": [
+     "sel",
+     "vals",
+     "input",
+     "ws",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 15,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 7814,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 7,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 7814,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "PYTHON",
+    "occ": 7,
+    "role": "radio",
+    "type": "",
+    "x": 680,
+    "y": 7907,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY PYTHON",
+    "occ": 4,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 8197,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 16,
+    "role": "",
+    "type": "",
+    "x": 395,
+    "y": 8197,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "CLI",
+    "occ": 9,
+    "role": "radio",
+    "type": "",
+    "x": 700,
+    "y": 8290,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "default",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 412,
+    "y": 8363,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "--append",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 478,
+    "y": 8363,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "--verify",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 551,
+    "y": 8363,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 7,
+    "changed": [
+     "agForm"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "QUEUE",
+    "occ": 17,
+    "role": "",
+    "type": "",
+    "x": 432,
+    "y": 8459,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [
+     "lines",
+     "script"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "COPY",
+    "occ": 8,
+    "role": "",
+    "type": "",
+    "x": 496,
+    "y": 8459,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 1,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "HTTP",
+    "occ": 2,
+    "role": "radio",
+    "type": "",
+    "x": 694,
+    "y": 8552,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "SEND",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 8692,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "DEAD",
+    "muts": 0,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "HTTP",
+    "occ": 3,
+    "role": "radio",
+    "type": "",
+    "x": 694,
+    "y": 8785,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "SEND",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 8908,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 12,
+    "changed": [
+     "agLive",
+     "results"
+    ],
+    "net": [
+     "GET http://127.0.0.1:8765/agent-notice"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "HTTP",
+    "occ": 4,
+    "role": "radio",
+    "type": "",
+    "x": 694,
+    "y": 9001,
+    "active": true,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "agChan",
+     "agFocus"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "SEND",
+    "occ": 3,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 9123,
+    "active": false,
+    "path": [
+     "Open the Agent workspace"
+    ],
+    "verdict": "effect",
+    "muts": 11,
+    "changed": [
+     "agLive",
+     "results"
+    ],
+    "net": [
+     "GET http://127.0.0.1:8765/.well-known/security.txt"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ Narrate the latest detection",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": -172,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ How many anomalies today?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": -141,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ Explain this detection",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": -110,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Detector · AnyAnomalyDetector",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": -79,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Detector · TopologicalAnomalyDetector",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": -48,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent explain",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": -17,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent physics integrated",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 14,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent physics uiux",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 45,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent rca",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 76,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ Show full reasoning chain",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 539,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ Explain uncertainty sources",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 570,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ View detailed analysis",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 601,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Run a detection · mercury-agent detect -i data.csv -d statistical",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 632,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "vals",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Open the Terminal",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 790,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Dismiss alert",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1564,
+    "y": 27,
+    "active": false,
+    "path": [
+     "Explain the latest detection"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ Explain the latest detection",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 806,
+    "active": false,
+    "path": [
+     "Which samples were flagged?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ What was the latest anomaly?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 837,
+    "active": false,
+    "path": [
+     "Which samples were flagged?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ Recommend an action",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 868,
+    "active": false,
+    "path": [
+     "Which samples were flagged?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ Which samples were flagged?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 727,
+    "active": false,
+    "path": [
+     "How many anomalies today?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent detect",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 758,
+    "active": false,
+    "path": [
+     "How many anomalies today?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Detector · TemporalAnomalyDetector",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 789,
+    "active": false,
+    "path": [
+     "How many anomalies today?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Detector · SpatialAnomalyDetector",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 820,
+    "active": false,
+    "path": [
+     "How many anomalies today?"
+    ],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Detector · DimensionalAnalyzer",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 851,
+    "active": false,
+    "path": [
+     "How many anomalies today?"
+    ],
+    "verdict": "effect",
+    "muts": 21,
+    "changed": [
+     "tab",
+     "chat",
+     "session",
+     "ref",
+     "<form>"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Detector · QuantumAnomalyModel",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 882,
+    "active": false,
+    "path": [
+     "How many anomalies today?"
+    ],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "tab",
+     "ref",
+     "rlTick",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Detector · AstrophysicalAnomalyModel",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 913,
+    "active": false,
+    "path": [
+     "How many anomalies today?"
+    ],
+    "verdict": "effect",
+    "muts": 23,
+    "changed": [
+     "tab",
+     "ref",
+     "rlTick",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ What are your capabilities?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 665,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ Which detectors handle images?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 696,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "effect",
+    "muts": 5,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ Can you detect space weather?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 727,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "chat",
+     "rlTick"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent hazard-viz",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 758,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "rlTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent physics list",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 789,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "effect",
+    "muts": 3,
+    "changed": [
+     "sel",
+     "input",
+     "lines",
+     "rlTick"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent tier-detect",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 820,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "sel",
+     "input",
+     "lines"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Tool · mercury-agent tool detector_profiler",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 851,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "effect",
+    "muts": 1,
+    "changed": [
+     "sel",
+     "tool",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Run · benchmarks/advanced_detector_auc.py",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 882,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "effect",
+    "muts": 22,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Run · benchmarks/anomaly_regression_guard.py",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 913,
+    "active": false,
+    "path": [
+     "Which detectors do you have?"
+    ],
+    "verdict": "effect",
+    "muts": 22,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ Who publishes the network_security data?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 595,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 9,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ What are the limits of the network_security domain?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 626,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 9,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ What are the references for network_security?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 671,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 9,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Run · benchmarks/network_security_honest_benchmark.py",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 716,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 22,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Domain · network_security (loaders/network_security_loader.py)",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 775,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 22,
+    "changed": [
+     "tab",
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent assess fusion-status",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 820,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "input",
+     "lines"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent assess screen",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 851,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "input",
+     "lines"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent intel value-board",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 882,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "input",
+     "lines"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Command · mercury-agent security",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 913,
+    "active": false,
+    "path": [
+     "Tell me about the network security domain"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "input",
+     "lines"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ What is the gate?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 716,
+    "active": false,
+    "path": [
+     "Why did it clear the gate?"
+    ],
+    "verdict": "effect",
+    "muts": 8,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Verify the σ_Immutable corpus signatures · mercury-agent verify-corpus",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 809,
+    "active": false,
+    "path": [
+     "Why did it clear the gate?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "vals",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Gate coverage report · mercury-agent tool ethical_gate_coverage_report",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 854,
+    "active": false,
+    "path": [
+     "Why did it clear the gate?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "tool",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Red-team the live harm gate · mercury-agent intel red-team",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 899,
+    "active": false,
+    "path": [
+     "Why did it clear the gate?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "vals",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ What should I run next?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 806,
+    "active": false,
+    "path": [
+     "Recommend an action"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ How do I collect data?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 730,
+    "active": false,
+    "path": [
+     "What should I run next?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "↳ Which detectors do you have?",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 761,
+    "active": false,
+    "path": [
+     "What should I run next?"
+    ],
+    "verdict": "unreachable: missing"
+   },
+   {
+    "tag": "button",
+    "text": "Score a file · mercury-agent detect -i data.csv -d fusion",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 823,
+    "active": false,
+    "path": [
+     "What should I run next?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "vals",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Streaming tier ensemble · mercury-agent tier-detect -i series.csv --at",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 868,
+    "active": false,
+    "path": [
+     "What should I run next?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "vals",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Serve the API · mercury-agent serve -p 8000",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 913,
+    "active": false,
+    "path": [
+     "What should I run next?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "vals",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "↳ Tell me about the sepsis domain",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 699,
+    "active": false,
+    "path": [
+     "How do I collect data?"
+    ],
+    "verdict": "effect",
+    "muts": 9,
+    "changed": [
+     "chat"
+    ],
+    "net": [
+     "POST http://127.0.0.1:8765/api/v1/voice/speak"
+    ],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Stream from Kafka · mercury-agent stream -b kafka -i mercury-input -o ",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 792,
+    "active": false,
+    "path": [
+     "How do I collect data?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "vals",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Build a feature archive · mercury-agent build-features -d data.csv -o ",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 837,
+    "active": false,
+    "path": [
+     "How do I collect data?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [
+     "sel",
+     "vals",
+     "input"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Pick a data-loader domain",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 882,
+    "active": false,
+    "path": [
+     "How do I collect data?"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "Connected · RUN sends your file to the server",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1298,
+    "y": 913,
+    "active": false,
+    "path": [
+     "How do I collect data?"
+    ],
+    "verdict": "effect",
+    "muts": 6,
+    "changed": [
+     "conn",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "○ SERVER DOWN · PREVIEW",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1248,
+    "y": 32,
+    "active": false,
+    "path": [
+     "● LIVE · 127.0.0.1:8765",
+     "DISCONNECT"
+    ],
+    "verdict": "effect",
+    "muts": 2,
+    "changed": [],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_detect_anomaly mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 202,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 44,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_detect_fusion mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 229,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 44,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_tier_detect mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 257,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 44,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_localize_root_cause mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 284,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 44,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_hazard_visualize mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 311,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 26,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_score_ethics mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 338,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 27,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_research mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 366,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 27,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_answer mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 393,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 27,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_write_document mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 420,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 30,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_calibrate_confidence mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 447,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 50,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_verify_claims mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 475,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 27,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_check_provenance mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 502,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 27,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_self_consistency mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 529,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 29,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_value_metrics mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 556,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 26,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_verify_statements mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 584,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 29,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_screen_intel_reports mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 611,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 27,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_fuse_intelligence mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 638,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 27,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_concealed_information_test mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 665,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 33,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_estimate_vital_signs mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 693,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 30,
+    "changed": [
+     "ref",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "mercury_adjudication_status mercury-agent mcp · stdio",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 261,
+    "y": 720,
+    "active": false,
+    "path": [
+     "Claude Desktop and Claude Code mcp · stdio",
+     "Open MCP tools"
+    ],
+    "verdict": "effect",
+    "muts": 26,
+    "changed": [
+     "ref"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN AGENT STATE",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 672,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 87,
+    "changed": [
+     "agTab",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN RESEARCH",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 779,
+    "y": 755,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 87,
+    "changed": [
+     "agTab",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN CONVERSE",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 779,
+    "y": 1057,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 87,
+    "changed": [
+     "agTab",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN SYMBOLIC RULES",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 1360,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 87,
+    "changed": [
+     "agTab",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN EXPLAIN",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 779,
+    "y": 1358,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 87,
+    "changed": [
+     "agTab",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN VERIFY",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 1603,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 87,
+    "changed": [
+     "agTab",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN SUBAGENTS",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 779,
+    "y": 1655,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 20,
+    "changed": [
+     "agTab",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN SELF-MODEL",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 779,
+    "y": 1883,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 87,
+    "changed": [
+     "agTab",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "OPEN TRUST",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 286,
+    "y": 2094,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "ARCHITECTURE"
+    ],
+    "verdict": "effect",
+    "muts": 21,
+    "changed": [
+     "agTab"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE THIS TASK",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1076,
+    "y": 562,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 0,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1083,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 1,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1155,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 2,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1242,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 3,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1314,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 4,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1399,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 5,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1472,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 6,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1544,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 7,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1617,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 8,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1703,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 9,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1775,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 10,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1847,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 11,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 1948,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 12,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2022,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 13,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2107,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 14,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2179,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 15,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2251,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 16,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2337,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 17,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2422,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 18,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2495,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 19,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2596,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 20,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2681,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 21,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2753,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 22,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2825,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 23,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2897,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 24,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 2970,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 25,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 3055,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 26,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 3140,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   },
+   {
+    "tag": "button",
+    "text": "DELEGATE",
+    "occ": 27,
+    "role": "",
+    "type": "",
+    "x": 1003,
+    "y": 3214,
+    "active": false,
+    "path": [
+     "Open the Agent workspace",
+     "SUBAGENTS"
+    ],
+    "verdict": "effect",
+    "muts": 91,
+    "changed": [
+     "agTab",
+     "agForm",
+     "agFocus",
+     "<form>"
+    ],
+    "net": [],
+    "clip": 0,
+    "dl": 0,
+    "errors": []
+   }
+  ]
+ },
+ "errors": []
+}
