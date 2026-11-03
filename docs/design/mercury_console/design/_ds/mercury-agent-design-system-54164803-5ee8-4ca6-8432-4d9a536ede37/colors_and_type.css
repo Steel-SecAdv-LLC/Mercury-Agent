@@ -1,0 +1,626 @@
+/* =============================================================================
+   MERCURY AGENT — Design System: Colors & Type
+   Steel Security Advisors LLC · Mercury Agent ♱ v2.0.0
+   Neuro-Symbolic AI for Autonomous Anomaly Detection · Civilization-First
+   -----------------------------------------------------------------------------
+   Terminal-native, defense-grade, scientific. The product speaks through a
+   command line, structured JSON, and mathematical notation — so the system is
+   monospace-forward, dark by default, with a quicksilver-cyan signal color and
+   a precise set of detection/ethics status hues.
+   ============================================================================= */
+
+/* Fonts loaded from Google Fonts CDN. See README "Visual Foundations" — if you
+   need self-hosted/offline copies, drop woff2 files in fonts/ and swap the
+   @import for @font-face. IBM Plex is the closest institutional match to the
+   project's IBM-flavored, engineering-serious character. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+/* BRAND LAYER fonts — the outward-facing classical identity (README wordmark &
+   moral quote). Cormorant Garamond gives the high-contrast serif caps of the
+   real wordmark; EB Garamond carries the italic tagline / long-form brand prose. */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap');
+
+:root {
+  /* ---------------------------------------------------------------------------
+     TYPEFACES
+     - Mono carries the brand: terminal output, data, scores, code, wordmark.
+     - Sans is the quiet UI/reading voice: chrome, prose, labels in docs.
+     --------------------------------------------------------------------------- */
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+
+  /* BRAND-LAYER serifs (outward-facing identity) */
+  --font-serif-display: 'Cormorant Garamond', 'EB Garamond', Georgia, 'Times New Roman', serif;
+  --font-serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
+
+  /* ---------------------------------------------------------------------------
+     BRAND PALETTE — the REAL identity, sampled from the README banner + logo.
+     Two registers live in this system:
+       • BRAND (light, classical, serif)  — logo, wordmark, decks, site, README
+       • PRODUCT-UI (dark terminal, below) — the CLI / Console app surfaces
+     Use brand tokens for anything outward-facing; the dark slate ladder for
+     the product itself.
+     --------------------------------------------------------------------------- */
+  --brand-gold:       #B4B124;  /* the gold of "M" and "A" in the wordmark */
+  --brand-gold-deep:  #8E8C1B;
+  --brand-gold-soft:  #C9C64A;
+  --brand-cyan:       #11AEED;  /* "ercury" + the underline rule */
+  --brand-cyan-deep:  #0B86B8;
+  --brand-blue:       #2E6DB4;  /* the royal blue of the AV monogram */
+  --brand-blue-deep:  #1F4E86;
+  --brand-ink:        #14171B;  /* "gent" — near-black on light; on dark use a grey */
+  --brand-ink-grey:   #8B97A6;  /* the "darker grey but seeable" gent, for dark grounds */
+
+  /* Marble / cosmic ground (light) */
+  --marble:        #F4F5F3;
+  --marble-2:      #E9EBE8;
+  --marble-3:      #DBDED9;
+  --marble-spot:   rgba(20, 23, 27, 0.55);  /* the dark "anomaly" blooms */
+  --marble-ink:    #1E2228;
+  --marble-ink-2:  #4A525C;
+
+  /* ---------------------------------------------------------------------------
+     CORE NEUTRALS — deep slate, cool. The "void → surface" elevation ladder.
+     --------------------------------------------------------------------------- */
+  --void:        #0D1218;  /* deepest backdrop, behind terminals */
+  --bg:          #121820;  /* terminal / app background */
+  --surface-1:   #1A212B;  /* primary panel */
+  --surface-2:   #222B37;  /* raised card */
+  --surface-3:   #2B3542;  /* overlay / hover */
+  --surface-4:   #36434F;  /* active / selected */
+
+  --border-faint:  #27313D;
+  --border:        #36434F;
+  --border-strong: #4B5B6E;
+
+  /* Foreground — cool near-white stepping down to faint grid lines */
+  --fg:        #E6EDF3;
+  --fg-2:      #B7C3D1;
+  --fg-3:      #8392A3;
+  --fg-muted:  #647084;
+  --fg-faint:  #47546A;
+
+  /* ---------------------------------------------------------------------------
+     MERCURY CYAN — the signal color. Quicksilver, electric, "live".
+     Sourced from the project's own badge palette (#00bcd4 / #4fc3f7).
+     --------------------------------------------------------------------------- */
+  --mercury-50:  #E3FAFF;
+  --mercury-100: #BDF0FA;
+  --mercury-200: #8AE3F5;
+  --mercury-300: #4FC3F7;  /* light-cyan accent (badge) */
+  --mercury-400: #18C8E0;
+  --mercury-500: #00BCD4;  /* PRIMARY (badge) */
+  --mercury-600: #00A0B6;
+  --mercury-700: #007E92;
+  --mercury-800: #0A5D6B;
+  --mercury-900: #0C3B44;
+  --mercury-glow: rgba(0, 188, 212, 0.35);
+
+  /* ---------------------------------------------------------------------------
+     DETECTION & ETHICS STATUS HUES
+     The CLI prints NORMAL in green, ANOMALY in red. We extend that into a full
+     operational status set plus the ethics-gate hues (benevolence / σ).
+     --------------------------------------------------------------------------- */
+  --anomaly:        #FF4D52;  /* ANOMALY / CRITICAL / threat HIGH */
+  --anomaly-soft:   #FF7A7E;
+  --anomaly-deep:   #B3231F;
+  --anomaly-bg:     rgba(255, 77, 82, 0.10);
+
+  --normal:         #2FD686;  /* NORMAL / PASS / nominal */
+  --normal-bright:  #4ADE80;  /* CLI bright-green status text */
+  --normal-deep:    #137A4E;
+  --normal-bg:      rgba(47, 214, 134, 0.10);
+
+  --warning:        #F5A623;  /* WARNING / MODERATE / MEDIUM — amber (canonical, per README) */
+  --warning-bright: #F8C46B;
+  --warning-deep:   #9A6310;
+  --warning-bg:     rgba(245, 166, 35, 0.12);
+
+  --cognitive:      #8B7FE8;  /* GOSNN / neuro-symbolic / cognitive layer */
+  --cognitive-soft: #B3A9F2;
+  --cognitive-bg:   rgba(139, 127, 232, 0.12);
+
+  --benevolence:      #E0B341;  /* ethical gate — Benevolence ≥ 0.99 — gold (canonical, per README) */
+  --benevolence-deep: #9A7B16;  /* gate border / deep gold */
+  --benevolence-bg:   rgba(224, 179, 65, 0.12);
+  --sigma:            #18C8E0;  /* σ_Immutable gate (cyan-adjacent) */
+
+  /* ---------------------------------------------------------------------------
+     VERIFIED — cryptographic / identity trust. A dedicated BLUE, held distinct
+     from NORMAL green (operational health) AND from Mercury cyan (live/active),
+     so "verified / attested / signed" never reads as "nominal" or "the brand
+     accent". This closes the NORMAL≈VERIFIED collision.
+     --------------------------------------------------------------------------- */
+  --verified:       #3E8EF7;
+  --verified-soft:  #8FBAFB;  /* badge text on dark */
+  --verified-deep:  #1C56A6;  /* badge border */
+  --verified-bg:    rgba(62, 142, 247, 0.12);
+
+  /* ---------------------------------------------------------------------------
+     WITHHELD — ethics-gate hold (η < 0.99). A resolved, suppressed state: a calm
+     LIGHT GREY — never an amber WARNING (a severity) or a red ANOMALY (a threat).
+     The gate doing its job is not an alarm. Lighter than --fg-3 neutral so it
+     reads as "held", not "low". This closes the WARNING≈WITHHELD collision.
+     --------------------------------------------------------------------------- */
+  --withheld:       #AAB4C0;
+  --withheld-soft:  #CCD4DE;  /* badge text on dark */
+  --withheld-deep:  #515C68;  /* badge border */
+  --withheld-bg:    rgba(170, 180, 192, 0.10);
+
+  /* ---------------------------------------------------------------------------
+     TLP 2.0 ladder (FIRST.org) — shipped by the compliance module. Real colors.
+     --------------------------------------------------------------------------- */
+  --tlp-red:    #FF2B2B;  /* official FIRST.org TLP 2.0 spec colors */
+  --tlp-amber:  #FFC000;
+  --tlp-green:  #33FF00;
+  --tlp-clear:  #FFFFFF;
+
+  /* ---------------------------------------------------------------------------
+     PAPER (light) — for documentation surfaces (Sphinx/MyST narrative docs).
+     Cool, high-contrast, ink-on-paper.
+     --------------------------------------------------------------------------- */
+  --paper:       #F6F8FB;
+  --paper-2:     #ECF0F5;
+  --paper-line:  #D9E0E9;
+  --ink:         #0C1219;
+  --ink-2:       #3C4A5A;
+  --ink-3:       #66758A;
+
+  /* ---------------------------------------------------------------------------
+     SPACING — 4px base grid
+     --------------------------------------------------------------------------- */
+  --sp-1: 4px;   --sp-2: 8px;   --sp-3: 12px;  --sp-4: 16px;
+  --sp-5: 20px;  --sp-6: 24px;  --sp-8: 32px;  --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px; --sp-20: 80px; --sp-24: 96px;
+
+  /* RADII — technical, tight. Terminals don't have pill buttons. */
+  --r-xs: 2px;  --r-sm: 4px;  --r-md: 6px;  --r-lg: 10px;  --r-pill: 999px;
+
+  /* ELEVATION — restrained shadows; cyan glow reserved for live/active states */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.45);
+  --shadow-lg: 0 18px 50px rgba(0,0,0,0.55);
+  --glow-mercury: 0 0 0 1px rgba(0,188,212,0.5), 0 0 18px var(--mercury-glow);
+  --glow-anomaly: 0 0 0 1px rgba(255,77,82,0.55), 0 0 18px rgba(255,77,82,0.30);
+
+  /* Hairline grid / scanline tint used on terminal chrome */
+  --grid-line: rgba(0, 188, 212, 0.06);
+
+  /* ---------------------------------------------------------------------------
+     MOTION — the system's timing language. Instrument-grade: quick, mechanical,
+     never bouncy. Durations climb with the distance a thing travels; easings are
+     restrained. Every kit animated ad hoc before these existed — use these so the
+     whole system moves with one hand. All are neutralised by the reduced-motion
+     block below, so consumers never need their own media query.
+     --------------------------------------------------------------------------- */
+  --dur-1:  90ms;   /* @kind other */ /* state flips: hover, focus, toggle tint   */
+  --dur-2:  140ms;  /* @kind other */ /* the default — buttons, nav items, reveals */
+  --dur-3:  240ms;  /* @kind other */ /* panels, popovers, dot flow on margin strip */
+  --dur-4:  420ms;  /* @kind other */ /* overlays, scrims, view transitions        */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);   /* @kind other */ /* enter + move       */
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);  /* @kind other */ /* decelerate to rest */
+  --ease-in:       cubic-bezier(0.4, 0, 1, 1);     /* @kind other */ /* accelerate to leave */
+  --ease-mech:     cubic-bezier(0.3, 0, 0.1, 1);   /* @kind other */ /* crisp, instrument  */
+
+  /* ---------------------------------------------------------------------------
+     TYPE SCALE  (px / line-height / tracking)
+     --------------------------------------------------------------------------- */
+  --t-display:   46px;
+  --t-h1:        34px;
+  --t-h2:        25px;
+  --t-h3:        19px;
+  --t-h4:        16px;
+  --t-body:      15px;
+  --t-small:     13px;
+  --t-micro:     11px;
+  --t-data:      14px;   /* tabular data / scores */
+}
+
+/* =============================================================================
+   SEMANTIC TYPOGRAPHY
+   Apply these classes (or copy the declarations into component styles).
+   Headings use mono for an instrument-panel feel; prose uses sans.
+   ============================================================================= */
+
+.ds-display {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--t-display);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.ds-h1 {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--t-h1);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+}
+
+.ds-h2 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--t-h2);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+
+.ds-h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--t-h3);
+  line-height: 1.3;
+  color: var(--fg);
+}
+
+.ds-h4 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--t-h4);
+  line-height: 1.4;
+  color: var(--fg);
+}
+
+.ds-body {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--t-body);
+  line-height: 1.6;
+  color: var(--fg-2);
+}
+
+.ds-small {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--t-small);
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+/* Eyebrow / overline — the system's signature label: mono, caps, wide tracking */
+.ds-label {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--t-micro);
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--mercury-300);
+}
+
+/* Inline code / data readouts */
+.ds-mono,
+.ds-code {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--t-data);
+  letter-spacing: 0;
+  color: var(--mercury-200);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tabular numerals helper for any score/metric grid */
+.ds-tnum { font-variant-numeric: tabular-nums; }
+
+/* =============================================================================
+   CANONICAL WORDMARK CODING
+   The AVM identity, embedded in the system names wherever they appear.
+   Three primary colors — gold #B4B124 · blue #11AEED · black #000000.
+   On dark grounds, the black portion becomes a legible grey (--brand-ink-grey).
+
+   Per-letter pattern (apply with these spans):
+     Mercury Agent →  M[g] ercury[c] · A[g] gent[k]
+     FINDΩYOU™     →  FIND[c] Ω[g] YOU™[k]
+     AMA Cryptography → A[g] M[k] A[g] · C[g] ryptography[c]
+   The ♱ honorific is always gold (.wm-sig); FINDΩYOU™ carries no ♱.
+   ============================================================================= */
+.wm        { white-space: nowrap; }
+.wm-g      { color: #B4B124; }   /* gold  */
+.wm-c      { color: #11AEED; }   /* blue  */
+.wm-k      { color: #000000; }   /* black — light grounds */
+.wm-sig    { color: #B4B124; }   /* the ♱ honorific */
+/* dark-ground context: black → seeable grey */
+.wm-dark .wm-k,
+.on-dark  .wm-k { color: var(--brand-ink-grey); }
+
+/* =============================================================================
+   STATUS ATOMS — the canonical operational status vocabulary, shared across the
+   CLI, Console, Cryptography kits, and the preview cards. The HUES are already
+   centralized as tokens (so every kit agrees on what a color means); these
+   classes centralize the MARKUP too, so a NORMAL/ANOMALY/severity/TLP atom is
+   rendered identically everywhere instead of being re-styled per kit. Status is
+   the system's most-repeated atom — this is its single source of truth.
+   ============================================================================= */
+.ms-dot { display:inline-block; width:7px; height:7px; border-radius:50%; vertical-align:1px; }
+.ms-dot--anomaly   { background: var(--anomaly);   box-shadow: 0 0 6px var(--anomaly); }
+.ms-dot--normal    { background: var(--normal); }
+.ms-dot--warning   { background: var(--warning);   box-shadow: 0 0 6px var(--warning); }
+.ms-dot--cognitive { background: var(--cognitive); }
+.ms-dot--verified  { background: var(--verified);  box-shadow: 0 0 6px var(--verified); }
+.ms-dot--withheld  { background: var(--withheld); }
+.ms-dot--live      { background: var(--normal);    box-shadow: 0 0 8px var(--normal); animation: ms-pulse 1.4s infinite; }
+@keyframes ms-pulse { 50% { opacity: .4; } }
+
+.ms-word { font-family: var(--font-mono); font-weight: 700; font-size: 10.5px; letter-spacing: .04em; display:inline-flex; align-items:center; gap:6px; }
+.ms-word--anomaly { color: var(--anomaly); }
+.ms-word--normal  { color: var(--normal-bright); }
+.ms-word--warning { color: var(--warning-bright); }
+.ms-word--verified { color: var(--verified-soft); }
+.ms-word--withheld { color: var(--withheld-soft); }
+
+/* Bordered status pill — the dot+word badge, centralized so kits stop
+   re-styling their own. Pair with a tone modifier below. */
+.ms-badge { font-family: var(--font-mono); font-weight: 600; font-size: 11px; letter-spacing: .06em;
+  display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius: var(--r-pill); border:1px solid; }
+.ms-badge--anomaly     { color: var(--anomaly-soft);   border-color: var(--anomaly-deep);     background: var(--anomaly-bg); }
+.ms-badge--normal      { color: var(--normal-bright);  border-color: var(--normal-deep);      background: var(--normal-bg); }
+.ms-badge--warning     { color: var(--warning-bright); border-color: var(--warning-deep);     background: var(--warning-bg); }
+.ms-badge--cognitive   { color: var(--cognitive-soft); border-color: var(--cognitive);        background: var(--cognitive-bg); }
+.ms-badge--verified    { color: var(--verified-soft);  border-color: var(--verified-deep);    background: var(--verified-bg); }
+.ms-badge--withheld    { color: var(--withheld-soft);  border-color: var(--withheld-deep);    background: var(--withheld-bg); }
+.ms-badge--benevolence { color: var(--benevolence);    border-color: var(--benevolence-deep); background: var(--benevolence-bg); }
+.ms-badge--mercury     { color: var(--mercury-200);    border-color: var(--mercury-800);      background: rgba(0,188,212,.1); }
+.ms-badge--neutral     { color: var(--fg-2);           border-color: var(--border-strong);    background: var(--surface-3); }
+
+.ms-sev { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: .04em; padding: 2px 6px; border-radius: var(--r-xs); }
+.ms-sev--critical { background: var(--anomaly-deep); color: #fff; box-shadow: inset 0 0 0 1px var(--anomaly); }
+.ms-sev--high   { background: var(--anomaly); color: #160404; }
+.ms-sev--medium { background: var(--warning-bg); color: var(--warning-bright); border: 1px solid var(--warning-deep); }
+.ms-sev--low    { background: var(--surface-3); color: var(--fg-3); }
+
+.ms-tlp { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .03em; border: 1px solid; border-radius: var(--r-xs); padding: 2px 7px; background: #000; }
+.ms-tlp--red   { color: var(--tlp-red);   border-color: var(--tlp-red); }
+.ms-tlp--amber { color: var(--tlp-amber); border-color: var(--tlp-amber); }
+.ms-tlp--green { color: var(--tlp-green); border-color: var(--tlp-green); }
+.ms-tlp--clear { color: var(--tlp-clear); border-color: var(--border-strong); }
+
+/* =============================================================================
+   MOTION — accessibility gate (review item: micro-interactions · #1)
+   The brand's motion is "minimal and mechanical": a blinking block cursor, a
+   typewriter detection stream, a soft pulse on LIVE. All of it must yield to a
+   user who asks for less. This honors prefers-reduced-motion across every kit —
+   the cursor and pulse freeze, the typewriter becomes an instant insert, and
+   continuous animation stops (also a CPU win on idle dashboards). Import the
+   token sheet and you inherit the gate; no per-kit opt-in needed.
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ms-dot--live { animation: none !important; }
+}
+
+/* User-toggled equivalent (Settings → Reduced motion in the system navigator).
+   Mirrors the media query so the preference works even where the OS setting is
+   off. Applied as html.mn-reduce-motion by components/mercury-nav.js. */
+html.mn-reduce-motion *, html.mn-reduce-motion *::before, html.mn-reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+html.mn-reduce-motion .ms-dot--live { animation: none !important; }
+
+/* =============================================================================
+   SETTINGS — appearance, theme & accessibility overrides
+   Driven by the system navigator's Settings panel (components/mercury-settings.js),
+   persisted in localStorage and applied as html classes / inline custom props.
+   Because every surface reads design tokens through var(), redefining the token
+   set under a theme class cascades to ALL kits from one place.
+   ============================================================================= */
+
+/* ---- LIGHT REGISTER -------------------------------------------------------
+   The outward-facing classical layer, expressed as a full token remap. The
+   Mercury ramp is re-pitched so accent TEXT stays legible on light, and the
+   deep "pill" steps become light tints. Reading surfaces (hub, review,
+   explorer, console) lighten fully; a few intentionally-dark instruments (the
+   hazard world-plot ocean) keep their own canvas by design. */
+html.ds-light {
+  --void:#E7EBEF; --bg:#F4F6F9; --surface-1:#FFFFFF; --surface-2:#EEF2F6;
+  --surface-3:#E2E8EE; --surface-4:#D2DBE4;
+  --border-faint:#E7ECF1; --border:#D2DAE2; --border-strong:#AAB5C1;
+  --fg:#16202C; --fg-2:#3D4A59; --fg-3:#5C6979; --fg-muted:#8290A0; --fg-faint:#AAB5C0;
+  --mercury-50:#053038; --mercury-100:#07414C; --mercury-200:#0A6173; --mercury-300:#0B7488;
+  --mercury-400:#0792AB; --mercury-500:#00A4BD; --mercury-600:#21B7CE; --mercury-700:#5FCEE0;
+  --mercury-800:#A7E6F0; --mercury-900:#D8F2F8; --mercury-glow:rgba(0,164,189,.28);
+  --anomaly:#D8362F; --anomaly-soft:#A6231D; --anomaly-deep:#EFB3AF; --anomaly-bg:rgba(216,54,47,.10);
+  --normal:#1E9E5B; --normal-bright:#157A45; --normal-deep:#A4DBBF; --normal-bg:rgba(30,158,91,.12);
+  --warning:#C77D00; --warning-bright:#946000; --warning-deep:#E9CF98; --warning-bg:rgba(199,125,0,.13);
+  --cognitive:#6B5BD6; --cognitive-soft:#4C3FB0; --cognitive-bg:rgba(107,91,214,.12);
+  --benevolence:#A87C12; --benevolence-deep:#7B5B0D; --benevolence-bg:rgba(168,124,18,.14);
+  --verified:#2A6FD6; --verified-soft:#1B55A5; --verified-deep:#AEC8F0; --verified-bg:rgba(42,111,214,.12);
+  --withheld:#6E7987; --withheld-soft:#4B5460; --withheld-deep:#C1C9D2; --withheld-bg:rgba(110,121,135,.12);
+  --brand-cyan:#0792AB; --brand-gold:#8C6F10; --brand-ink-grey:#5C6979;
+  --shadow-sm:0 1px 2px rgba(20,30,45,.08); --shadow-md:0 4px 14px rgba(20,30,45,.10);
+  --shadow-lg:0 14px 40px rgba(20,30,45,.16);
+  background:#F4F6F9;
+}
+
+/* ---- HIGH CONTRAST --------------------------------------------------------
+   Boost text and borders for low-vision use. Works on top of either theme. */
+html.ds-contrast {
+  --fg:#FFFFFF; --fg-2:#E6EDF3; --fg-3:#C2CCD6; --fg-muted:#A2AEBC;
+  --border-faint:#3A4656; --border:#4C5A6C; --border-strong:#6B7A8C;
+}
+html.ds-contrast.ds-light {
+  --fg:#000000; --fg-2:#16202C; --fg-3:#33404F; --fg-muted:#54616F;
+  --border-faint:#C2CAD3; --border:#9AA5B1; --border-strong:#6E7A88;
+}
+html.ds-contrast *:focus-visible { outline:2px solid var(--mercury-400) !important; outline-offset:2px; }
+
+/* ---- KEYBOARD FOCUS RINGS -------------------------------------------------
+   Strong, always-visible focus outline for keyboard navigation. */
+html.ds-focus a:focus-visible,
+html.ds-focus button:focus-visible,
+html.ds-focus input:focus-visible,
+html.ds-focus select:focus-visible,
+html.ds-focus [tabindex]:focus-visible {
+  outline:2px solid var(--mercury-400) !important; outline-offset:2px;
+  border-radius:3px;
+}
+
+/* ---- UNDERLINE LINKS (a11y) ----------------------------------------------- */
+html.ds-underline a[href] { text-decoration:underline; text-underline-offset:2px; }
+
+/* ---- COMPACT DENSITY ------------------------------------------------------
+   A lighter touch — tightens the hub & settings rhythm without reflowing the
+   data-dense product kits (which manage their own spacing). */
+html.ds-compact .wrap { padding-top:38px !important; padding-bottom:60px !important; }
+html.ds-compact .grid, html.ds-compact .fgrid { gap:10px !important; }
+html.ds-compact .card { padding:16px !important; }
+
+/* ---- SCREEN-READER-ONLY utility ------------------------------------------- */
+.sr-only {
+  position:absolute !important; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+
+/* =============================================================================
+   CHROME — the canonical surface header (.mc-*)
+   ONE header grammar across every horizontal-bar surface (Explorer, Emergency
+   Operations Console, …) so the kits read as one product (review axis:
+   uniformity). Left: ♱ sigil · MERCURY AGENT wordmark · surface subtitle.
+   Right: a row of stats, then the ⌘K button, then a reference/mode badge.
+   Sidebar kits (Console, Crypto) align their topbar metrics to these values.
+   ============================================================================= */
+.mc-chrome{display:flex;align-items:center;justify-content:space-between;gap:18px;
+  height:56px;padding:0 20px;border-bottom:1px solid var(--border);background:var(--surface-1);flex:none;}
+.mc-brand{display:flex;align-items:center;gap:12px;min-width:0;}
+.mc-sig{font-family:var(--font-serif);font-size:22px;line-height:1;color:var(--brand-gold);
+  text-shadow:0 0 12px rgba(180,177,36,.42);flex:none;}
+.mc-titles{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.mc-wm{font-family:var(--font-mono);font-weight:600;font-size:14px;letter-spacing:.01em;line-height:1;white-space:nowrap;}
+.mc-wm .g{color:var(--brand-gold);} .mc-wm .c{color:var(--brand-cyan);} .mc-wm .k{color:var(--brand-ink-grey);}
+.mc-sub{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--mercury-300);line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mc-right{display:flex;align-items:center;gap:14px;flex:none;}
+.mc-stat{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:12px;
+  color:var(--fg-2);font-variant-numeric:tabular-nums;letter-spacing:.02em;white-space:nowrap;}
+.mc-stat b{color:var(--mercury-200);font-size:15px;font-weight:600;}
+.mc-stat .of{color:var(--fg-muted);}
+.mc-stat-dot{width:6px;height:6px;border-radius:50%;background:var(--normal);box-shadow:0 0 7px var(--normal);}
+.mc-stat-k{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--normal-bright);}
+.mc-kbtn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;
+  letter-spacing:.04em;color:var(--fg-2);background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:6px 11px;cursor:pointer;transition:border-color .14s,color .14s;}
+.mc-kbtn:hover{border-color:var(--mercury-600);color:var(--mercury-200);}
+.mc-kbtn .kb{font-size:10px;color:var(--mercury-300);border:1px solid var(--border-strong);border-radius:var(--r-xs);padding:1px 5px;}
+@media(max-width:720px){.mc-chrome{padding:0 12px;gap:10px;}.mc-sub{display:none;}.mc-stat .of{display:none;}}
+
+/* =============================================================================
+   SIDEBAR — the canonical nav rail (.mc-side*)
+   The LEFT-edge companion to .mc-chrome: ONE rail grammar for every sidebar-shell
+   kit (Console, Cryptography), so the left edge matches the top edge exactly — a
+   56px brand header that lines up with the chrome bar, a scrolling nav whose
+   active item carries the inset mercury accent, an operator block, and a footer
+   pinned to the bottom. Single source of truth: adopt by adding the .mc-side*
+   classes alongside the kit's own .cn-*/.cx-* hooks, which carry only kit-specific
+   FOOTER CONTENT, never rail geometry — so the two rails can't drift.
+   (Supersedes the former duplicate .ms-side* rail, removed to end a
+   two-canonical-rails drift: the system now has one left rail for its one top
+   chrome.) Brand wordmark coding: .g gold M/A · .c cyan ercury · .k/.ig grey gent. */
+.mc-side{background:var(--surface-1);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;width:212px;flex:none;}
+.mc-side-brand{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-bottom:1px solid var(--border-faint);flex:none;}
+.mc-side-brand-t{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.mc-side-sig{font-family:var(--font-serif);font-size:21px;line-height:1;color:var(--brand-gold);text-shadow:0 0 12px rgba(180,177,36,.42);flex:none;}
+.mc-side-wm{font-family:var(--font-mono);font-weight:600;font-size:14px;letter-spacing:.01em;color:var(--fg);line-height:1.05;}
+.mc-side-wm .g{color:var(--brand-gold);} .mc-side-wm .c{color:var(--brand-cyan);} .mc-side-wm .k,.mc-side-wm .ig{color:var(--brand-ink-grey);}
+.mc-side-sub{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mercury-300);margin-top:3px;white-space:nowrap;}
+.mc-side-scroll{flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;}
+.mc-side-grp{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-muted);padding:4px 11px 8px;}
+.mc-nav{display:flex;flex-direction:column;gap:2px;}
+.mc-navitem{display:flex;align-items:center;gap:11px;font-family:var(--font-sans);font-size:13px;color:var(--fg-3);
+  background:transparent;border:none;border-radius:var(--r-sm);padding:9px 11px;cursor:pointer;text-align:left;transition:background var(--dur-2) var(--ease-standard),color var(--dur-2) var(--ease-standard),box-shadow var(--dur-2) var(--ease-standard);width:100%;}
+.mc-navitem .ico{flex:none;width:16px;text-align:center;font-family:var(--font-mono);font-size:13px;color:var(--fg-muted);}
+.mc-navitem svg{flex:none;}        /* kits using Lucide SVG icons inherit currentColor from the item */
+.mc-navitem span{white-space:nowrap;}
+.mc-navitem:hover{background:var(--surface-2);color:var(--fg);}
+.mc-navitem:hover .ico{color:var(--fg-2);}
+.mc-navitem.on{background:var(--surface-3);color:var(--mercury-200);box-shadow:inset 2px 0 0 var(--mercury-500);}
+.mc-navitem.on .ico{color:var(--mercury-300);}
+.mc-side-foot{margin-top:auto;padding:14px 16px;border-top:1px solid var(--border-faint);flex:none;}
+.mc-side-foot-h{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:8px;}
+/* operator block — pinned at the very bottom of the rail footer */
+.mc-side-user{display:flex;align-items:center;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);}
+.mc-side-avatar{width:30px;height:30px;flex:none;border-radius:var(--r-sm);background:var(--mercury-900);color:var(--mercury-200);
+  font-family:var(--font-mono);font-size:11px;display:flex;align-items:center;justify-content:center;border:1px solid var(--mercury-800);}
+.mc-side-avatar.cog{background:var(--cognitive-bg);color:var(--cognitive-soft);border-color:var(--cognitive);}
+.mc-side-uname{font-family:var(--font-mono);font-size:11px;color:var(--fg-2);}
+.mc-side-urole{font-size:9px;color:var(--fg-muted);margin-top:2px;}
+
+/* =============================================================================
+   ACTION BUTTON — the canonical action atom (.mc-action)
+   ONE button grammar for every "do something" control across the kits — the
+   topbar run buttons (RUN DETECTION / SIGN & STREAM), the live-request composer
+   (SEND REQUEST / SUBMIT), the drill-down actions, the connection controls.
+   Before this each kit re-declared its own byte-identical primary fill
+   (.cn-run / .cx-run / .cn-fire / .cn-dd-btn.primary) and its own ghost
+   secondary (.cn-dd-btn / .cx-detail-inspect); this is their single source.
+     • base            → quiet ghost secondary (Save · Disconnect · Ask)
+     • .primary        → mercury-fill activation (the "▸ run/send/submit" CTAs)
+     • .block          → full-width, chunkier — stacked panels & composers
+   Tones reuse the documented mercury ramp + glow token; no new color. Motion
+   rides the shared --dur-2 / --ease-standard timing, so it yields to
+   reduced-motion with everything else.
+   ============================================================================= */
+.mc-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  font-family:var(--font-mono);font-weight:600;font-size:11.5px;letter-spacing:.04em;line-height:1.2;
+  color:var(--fg-2);background:var(--surface-2);border:1px solid var(--border-strong);
+  border-radius:var(--r-sm);padding:8px 14px;cursor:pointer;white-space:nowrap;
+  transition:background var(--dur-2) var(--ease-standard),border-color var(--dur-2) var(--ease-standard),
+    color var(--dur-2) var(--ease-standard),box-shadow var(--dur-2) var(--ease-standard);}
+.mc-action:hover:not(:disabled){background:var(--surface-3);border-color:var(--mercury-600);color:var(--fg);}
+.mc-action:disabled{opacity:.45;cursor:not-allowed;}
+.mc-action.primary{font-weight:700;color:#02161a;background:var(--mercury-500);border-color:var(--mercury-400);}
+.mc-action.primary:hover:not(:disabled){background:var(--mercury-400);color:#02161a;box-shadow:var(--glow-mercury);}
+.mc-action.block{display:flex;width:100%;padding:10px 14px;}
+
+/* =============================================================================
+   EDGE STATES — the canonical empty / loading / error surface (.ms-state*)
+   Every kit hits the same handful of non-happy paths — an empty rolling window,
+   a detector still computing, a 4xx/5xx from the Detection API, the neurosymbolic
+   path 503-unavailable, an EthicalConstraintViolationError withhold, a fail-closed
+   quarantine. Before this they were drawn ad hoc per kit; this is the single
+   grammar so they read identically everywhere. A centered block: a toned glyph,
+   a title, one line of detail, an optional mono code chip (HTTP status / error
+   class / correlation id), and an optional action slot. Tone is carried by the
+   kind, drawn ONLY from existing status hues — no new color.
+   Rendered by <mercury-state> (components/mercury-state.js); usable as bare HTML. */
+.ms-state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  gap:11px;padding:40px 28px;min-height:180px;width:100%;box-sizing:border-box;}
+.ms-state-ico{width:42px;height:42px;flex:none;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:20px;line-height:1;background:var(--surface-2);color:var(--fg-3);border:1px solid var(--border);}
+.ms-state-title{font-family:var(--font-mono);font-size:13px;letter-spacing:.04em;color:var(--fg);}
+.ms-state-detail{font-family:var(--font-sans);font-size:12px;line-height:1.55;color:var(--fg-3);max-width:46ch;text-wrap:pretty;}
+.ms-state-code{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.02em;color:var(--fg-muted);
+  background:var(--void);border:1px solid var(--border-faint);border-radius:var(--r-sm);padding:5px 9px;word-break:break-all;max-width:100%;box-sizing:border-box;}
+.ms-state-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:3px;}
+/* tones — reuse the documented status hues, never a new color */
+.ms-state--loading .ms-state-ico{color:var(--mercury-300);border-color:var(--mercury-800);background:var(--mercury-900);}
+.ms-state--empty .ms-state-ico{color:var(--fg-muted);}
+.ms-state--error .ms-state-ico{color:var(--anomaly-soft);border-color:var(--anomaly-deep);background:var(--anomaly-bg);}
+.ms-state--offline .ms-state-ico{color:var(--warning-bright);border-color:var(--warning-deep);background:var(--warning-bg);}
+.ms-state--ethical .ms-state-ico{color:var(--benevolence);border-color:var(--benevolence-deep,#8E8C1B);background:var(--benevolence-bg,rgba(180,177,36,.1));}
+.ms-state--quarantined .ms-state-ico{color:var(--anomaly);border-color:var(--anomaly-deep);background:var(--anomaly-bg);}
+.ms-state--error .ms-state-title{color:var(--anomaly-soft);}
+.ms-state--offline .ms-state-title{color:var(--warning-bright);}
+.ms-state--ethical .ms-state-title{color:var(--benevolence);}
+.ms-state--quarantined .ms-state-title{color:var(--anomaly-soft);}
+/* loading glyph spins; the dot variant pulses — both stilled by reduced-motion */
+.ms-state--loading .ms-state-ico{animation:msStateSpin 1.05s linear infinite;}
+@keyframes msStateSpin{to{transform:rotate(360deg);}}
+html.mn-reduce-motion .ms-state--loading .ms-state-ico{animation:none;}
+.ms-state-btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11px;letter-spacing:.03em;
+  color:var(--fg-2);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 13px;cursor:pointer;
+  transition:border-color var(--dur-2) var(--ease-standard),color var(--dur-2) var(--ease-standard);}
+.ms-state-btn:hover{border-color:var(--border-strong);color:var(--fg);}
+.ms-state-btn.primary{color:var(--mercury-100);background:var(--mercury-900);border-color:var(--mercury-700);}
+.ms-state-btn.primary:hover{box-shadow:var(--glow-mercury);}
+

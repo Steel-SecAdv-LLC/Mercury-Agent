@@ -12,16 +12,93 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import random
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
+from urllib.parse import urlencode
 
 from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
+
+def _finite_or_none(value: Any) -> float | None:
+    """``value`` as a finite float, or ``None`` when absent or not numeric.
+
+    ``bool`` is rejected explicitly: it is an ``int`` subclass, and ``True``
+    must not read as a reading of 1.0.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _rounded(value: Any, digits: int = 1) -> float | None:
+    """:func:`_finite_or_none`, rounded to ``digits`` places."""
+    number = _finite_or_none(value)
+    return round(number, digits) if number is not None else None
+
+
+#: NWS ``windDirection`` is a 16-point compass abbreviation. The previous
+#: 8-point table mapped every intermediate point (NNE, ENE, ..., NNW) -- half
+#: the compass -- to 0 degrees (north) through its ``.get(..., 0)`` default.
+_NWS_COMPASS_DEGREES: dict[str, int] = {
+    name: round(index * 22.5) % 360
+    for index, name in enumerate(
+        (
+            "N",
+            "NNE",
+            "NE",
+            "ENE",
+            "E",
+            "ESE",
+            "SE",
+            "SSE",
+            "S",
+            "SSW",
+            "SW",
+            "WSW",
+            "W",
+            "WNW",
+            "NW",
+            "NNW",
+        )
+    )
+}
+
+_MPH_TO_MS = 0.44704
+
+
+def _parse_nws_wind_speed(value: Any) -> float | None:
+    """NWS ``windSpeed`` (``"10 mph"`` or ``"10 to 15 mph"``) in m/s, or ``None``.
+
+    A range reports its upper bound, the conservative reading for a hazard
+    consumer. ``km/h`` is honoured; an absent or unparseable value is ``None``
+    rather than 0 m/s (calm), which the previous ``"0 mph"`` default reported.
+    """
+    if not isinstance(value, str):
+        return None
+    tokens = value.replace("to", " ").split()
+    numbers = [float(t) for t in tokens if t.replace(".", "", 1).isdigit()]
+    if not numbers:
+        return None
+    speed = max(numbers)
+    unit = value.lower()
+    if "km/h" in unit:
+        return speed / 3.6
+    return speed * _MPH_TO_MS
+
+
 logger = logging.getLogger(__name__)
+
+
+#: Open-Meteo endpoints. Keyless, and the geocoder is what makes a by-name
+#: lookup resolvable without inventing a location.
+_OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast"
+_OPEN_METEO_GEOCODE_BASE = "https://geocoding-api.open-meteo.com/v1/search"
 
 
 class WeatherCondition(Enum):
@@ -45,28 +122,35 @@ class WeatherData:
 
     Attributes:
         location: Location name or coordinates.
-        temperature: Temperature in Celsius.
-        feels_like: Feels-like temperature.
-        humidity: Relative humidity percentage.
-        pressure: Atmospheric pressure in hPa.
-        wind_speed: Wind speed in m/s.
-        wind_direction: Wind direction in degrees.
+        temperature: Temperature in Celsius, or None if unreported.
+        feels_like: Feels-like temperature, or None if unreported.
+        humidity: Relative humidity percentage, or None if unreported.
+        pressure: Atmospheric pressure in hPa, or None if unreported.
+        wind_speed: Wind speed in m/s, or None if unreported.
+        wind_direction: Wind direction in degrees, or None if unreported.
         condition: Weather condition.
-        visibility: Visibility in km.
-        uv_index: UV index.
+        visibility: Visibility in km, or None if unreported.
+        uv_index: UV index, or None if unreported.
         timestamp: Data timestamp.
+
+    Every numeric field is nullable on purpose. Providers differ in what they
+    carry -- the NWS hourly forecast has no pressure, visibility or UV, and
+    Open-Meteo's current block has no visibility or UV -- and the previous
+    shape forced those gaps to be filled with constants (1013 hPa, 10 km, UV
+    0, humidity 50) that a caller could not tell apart from a measurement.
+    ``None`` says "not reported"; a number says "reported".
     """
 
     location: str
-    temperature: float
-    feels_like: float
-    humidity: float
-    pressure: float
-    wind_speed: float
-    wind_direction: int
+    temperature: float | None
+    feels_like: float | None
+    humidity: float | None
+    pressure: float | None
+    wind_speed: float | None
+    wind_direction: int | None
     condition: WeatherCondition
-    visibility: float
-    uv_index: float
+    visibility: float | None
+    uv_index: float | None
     timestamp: datetime = field(default_factory=datetime.now)
     raw_data: dict[str, Any] = field(default_factory=dict)
 
@@ -102,11 +186,11 @@ class WeatherForecast:
 
     location: str
     forecast_time: datetime
-    high_temp: float
-    low_temp: float
+    high_temp: float | None
+    low_temp: float | None
     condition: WeatherCondition
-    precipitation_chance: float
-    wind_speed: float
+    precipitation_chance: float | None
+    wind_speed: float | None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -253,6 +337,9 @@ class WeatherServiceStub:
 
         forecasts = []
         base_weather = self._generate_weather(location)
+        # The simulator always draws a temperature; the field is nullable only
+        # because real providers may omit it.
+        base_temp = base_weather.temperature if base_weather.temperature is not None else 15.0
 
         for day in range(days):
             forecast_time = datetime.now() + timedelta(days=day + 1)
@@ -262,8 +349,8 @@ class WeatherServiceStub:
                 WeatherForecast(
                     location=location,
                     forecast_time=forecast_time,
-                    high_temp=round(base_weather.temperature + 5 + temp_variation, 1),
-                    low_temp=round(base_weather.temperature - 5 + temp_variation, 1),
+                    high_temp=round(base_temp + 5 + temp_variation, 1),
+                    low_temp=round(base_temp - 5 + temp_variation, 1),
                     condition=self._rng.choice(list(WeatherCondition)),
                     precipitation_chance=round(self._rng.random() * 100, 1),
                     wind_speed=round(max(0, self._rng.gauss(5, 3)), 1),
@@ -322,6 +409,7 @@ class WeatherAPIProvider(Enum):
     OPENWEATHERMAP = "openweathermap"
     NOAA = "noaa"
     STUB = "stub"
+    OPEN_METEO = "open_meteo"
 
 
 class WeatherService:
@@ -380,7 +468,7 @@ class WeatherService:
 
     def __init__(
         self,
-        provider: WeatherAPIProvider = WeatherAPIProvider.STUB,
+        provider: WeatherAPIProvider = WeatherAPIProvider.OPEN_METEO,
         api_key: str | None = None,
         timeout: int = 30,
         cache_ttl: int = 300,  # 5 minutes
@@ -435,6 +523,44 @@ class WeatherService:
         """Map OpenWeatherMap condition code to WeatherCondition."""
         return self.OWM_CONDITION_MAP.get(code, WeatherCondition.CLOUDY)
 
+    def _parse_openweathermap(self, data: dict[str, Any], location: str) -> WeatherData:
+        """Map an OpenWeatherMap ``/weather`` body to :class:`WeatherData`.
+
+        A field the body does not carry is ``None``, never a plausible
+        constant: the previous parse reported 0 C, 0 % humidity, 1013 hPa,
+        10 km visibility and UV 0 for absent fields, and a missing condition
+        code became 800 ("clear sky"). The ``/weather`` endpoint never carries
+        a UV index (it needs a separate call), so that field is always
+        ``None`` here. An absent condition code maps to ``CLOUDY``, the same
+        "not recognised is not fair weather" rule the WMO mapping applies.
+        """
+        main = data.get("main") or {}
+        wind = data.get("wind") or {}
+        weather_list = data.get("weather") or [{}]
+        weather = weather_list[0] if isinstance(weather_list[0], dict) else {}
+
+        visibility_m = _finite_or_none(data.get("visibility"))
+        code = weather.get("id")
+        condition = (
+            self._condition_from_owm_code(code)
+            if isinstance(code, int) and not isinstance(code, bool)
+            else WeatherCondition.CLOUDY
+        )
+        direction = _finite_or_none(wind.get("deg"))
+        return WeatherData(
+            location=location,
+            temperature=_rounded(main.get("temp")),
+            feels_like=_rounded(main.get("feels_like")),
+            humidity=_rounded(main.get("humidity")),
+            pressure=_rounded(main.get("pressure")),
+            wind_speed=_rounded(wind.get("speed")),
+            wind_direction=int(direction) if direction is not None else None,
+            condition=condition,
+            visibility=round(visibility_m / 1000, 1) if visibility_m is not None else None,
+            uv_index=None,  # not carried by /weather
+            raw_data=data,
+        )
+
     async def _fetch_openweathermap(self, location: str) -> WeatherData:
         """Fetch weather from OpenWeatherMap API.
 
@@ -466,27 +592,7 @@ class WeatherService:
         if data.get("cod") != 200:
             raise ValueError(f"OpenWeatherMap API error: {data.get('message', 'Unknown')}")
 
-        main = data.get("main", {})
-        wind = data.get("wind", {})
-        weather = data.get("weather", [{}])[0]
-        visibility = data.get("visibility", 10000) / 1000  # Convert to km
-
-        condition_code = weather.get("id", 800)
-        condition = self._condition_from_owm_code(condition_code)
-
-        return WeatherData(
-            location=location,
-            temperature=round(main.get("temp", 0), 1),
-            feels_like=round(main.get("feels_like", main.get("temp", 0)), 1),
-            humidity=round(main.get("humidity", 0), 1),
-            pressure=round(main.get("pressure", 1013), 1),
-            wind_speed=round(wind.get("speed", 0), 1),
-            wind_direction=wind.get("deg", 0),
-            condition=condition,
-            visibility=round(visibility, 1),
-            uv_index=0,  # Requires separate API call
-            raw_data=data,
-        )
+        return self._parse_openweathermap(data, location)
 
     async def _fetch_openweathermap_by_coords(self, lat: float, lon: float) -> WeatherData:
         """Fetch weather from OpenWeatherMap by coordinates."""
@@ -515,27 +621,7 @@ class WeatherService:
         if data.get("cod") != 200:
             raise ValueError(f"OpenWeatherMap API error: {data.get('message', 'Unknown')}")
 
-        main = data.get("main", {})
-        wind = data.get("wind", {})
-        weather = data.get("weather", [{}])[0]
-        visibility = data.get("visibility", 10000) / 1000
-
-        condition_code = weather.get("id", 800)
-        condition = self._condition_from_owm_code(condition_code)
-
-        return WeatherData(
-            location=f"{lat},{lon}",
-            temperature=round(main.get("temp", 0), 1),
-            feels_like=round(main.get("feels_like", main.get("temp", 0)), 1),
-            humidity=round(main.get("humidity", 0), 1),
-            pressure=round(main.get("pressure", 1013), 1),
-            wind_speed=round(wind.get("speed", 0), 1),
-            wind_direction=wind.get("deg", 0),
-            condition=condition,
-            visibility=round(visibility, 1),
-            uv_index=0,
-            raw_data=data,
-        )
+        return self._parse_openweathermap(data, f"{lat},{lon}")
 
     async def _fetch_noaa_point_info(self, lat: float, lon: float) -> dict[str, Any]:
         """Get NOAA grid point information for coordinates."""
@@ -608,33 +694,232 @@ class WeatherService:
         elif "wind" in short_forecast:
             condition = WeatherCondition.WINDY
 
-        # Temperature conversion if in Fahrenheit
-        temp = current.get("temperature", 0)
+        # An absent temperature is None, not 0 F (= -17.8 C).
+        temp = _finite_or_none(current.get("temperature"))
         temp_unit = current.get("temperatureUnit", "F")
-        if temp_unit == "F":
+        if temp is not None and temp_unit == "F":
             temp = (temp - 32) * 5 / 9
 
-        # Parse wind
-        wind_speed_str = current.get("windSpeed", "0 mph")
-        wind_speed = float(wind_speed_str.split()[0]) * 0.44704  # mph to m/s
+        wind_speed = _parse_nws_wind_speed(current.get("windSpeed"))
+        wind_direction = _NWS_COMPASS_DEGREES.get(str(current.get("windDirection", "")).upper())
 
-        wind_direction_str = current.get("windDirection", "N")
-        wind_dirs = {"N": 0, "NE": 45, "E": 90, "SE": 135, "S": 180, "SW": 225, "W": 270, "NW": 315}
-        wind_direction = wind_dirs.get(wind_direction_str, 0)
-
+        # The NWS hourly forecast carries temperature, humidity, wind and a
+        # short text forecast -- and nothing else this dataclass holds. The
+        # previous shape filled the rest with 1013 hPa, 10 km visibility, UV 0
+        # and a humidity default of 50, and copied temperature into
+        # feels_like. Those were indistinguishable from readings; a caller
+        # charting "pressure" from this provider was charting a constant.
+        humidity_value = current.get("relativeHumidity")
+        humidity = (
+            float(humidity_value["value"])
+            if isinstance(humidity_value, dict)
+            and isinstance(humidity_value.get("value"), (int, float))
+            else None
+        )
         return WeatherData(
             location=f"{lat},{lon}",
-            temperature=round(temp, 1),
-            feels_like=round(temp, 1),  # NOAA doesn't provide feels-like
-            humidity=current.get("relativeHumidity", {}).get("value", 50),
-            pressure=1013,  # NOAA doesn't provide in hourly forecast
-            wind_speed=round(wind_speed, 1),
+            temperature=round(temp, 1) if temp is not None else None,
+            feels_like=None,  # not in the NWS hourly forecast
+            humidity=humidity,
+            pressure=None,  # not in the NWS hourly forecast
+            wind_speed=round(wind_speed, 1) if wind_speed is not None else None,
             wind_direction=wind_direction,
             condition=condition,
-            visibility=10,  # NOAA doesn't provide in hourly
-            uv_index=0,
+            visibility=None,  # not in the NWS hourly forecast
+            uv_index=None,  # not in the NWS hourly forecast
             raw_data=forecast_data,
         )
+
+    # ------------------------------------------------------------------
+    # Open-Meteo: keyless, and the only provider here that can resolve a
+    # place name. ``ARCHITECTURE.md`` documented it as the default long
+    # before it existed, while the constructor actually defaulted to the
+    # fabricating stub -- so a by-name lookup was answered with
+    # ``gauss``-drawn readings. This is that route, built.
+    # ------------------------------------------------------------------
+
+    #: WMO 4677 present-weather codes, as Open-Meteo reports them, mapped onto
+    #: this module's condition vocabulary. Grouped rather than exhaustive: the
+    #: distinctions WMO draws that ``WeatherCondition`` cannot represent
+    #: (drizzle intensity, freezing vs. not) collapse to the nearest member
+    #: instead of being invented as new ones.
+    _WMO_CONDITIONS: ClassVar[tuple[tuple[tuple[int, ...], WeatherCondition], ...]] = (
+        ((0,), WeatherCondition.CLEAR),
+        ((1, 2), WeatherCondition.PARTLY_CLOUDY),
+        ((3,), WeatherCondition.CLOUDY),
+        ((45, 48), WeatherCondition.FOG),
+        ((51, 53, 55, 56, 57, 61, 63, 66, 67, 80, 81), WeatherCondition.RAIN),
+        ((65, 82), WeatherCondition.HEAVY_RAIN),
+        ((71, 73, 75, 77, 85, 86), WeatherCondition.SNOW),
+        ((95, 96, 99), WeatherCondition.THUNDERSTORM),
+    )
+
+    @classmethod
+    def _condition_from_wmo_code(cls, code: int | None) -> WeatherCondition:
+        """Map a WMO weather code onto a :class:`WeatherCondition`.
+
+        An unrecognised or absent code resolves to ``CLOUDY``, not ``CLEAR``:
+        reporting "clear" for a code this mapping does not know would turn an
+        unknown into a benign-looking reading, and ``CLOUDY`` is the neutral
+        member of this vocabulary.
+        """
+        if code is None:
+            return WeatherCondition.CLOUDY
+        for codes, condition in cls._WMO_CONDITIONS:
+            if code in codes:
+                return condition
+        return WeatherCondition.CLOUDY
+
+    def _open_meteo_json(self, url: str) -> dict[str, Any]:
+        """Fetch JSON from Open-Meteo through the egress-policed client."""
+        return SafeHTTPClient.get_json(
+            url,
+            headers={"User-Agent": "Mercury-Agent/1.0"},
+            timeout=self.timeout,
+            user_configured=True,
+        )
+
+    async def _geocode_open_meteo(self, location: str) -> tuple[float, float, str]:
+        """Resolve a place name to coordinates via Open-Meteo's geocoder.
+
+        Returns ``(latitude, longitude, resolved_name)``. An unresolvable name
+        raises ``ValueError``: that is a real answer, and the alternative --
+        falling back to some default coordinate -- is how fabricated weather
+        ends up served under a real provider's name.
+        """
+        params = urlencode({"name": location, "count": "1", "format": "json"})
+        url = f"{_OPEN_METEO_GEOCODE_BASE}?{params}"
+
+        loop = asyncio.get_event_loop()
+        payload = await loop.run_in_executor(None, self._open_meteo_json, url)
+        results = payload.get("results") or []
+        if not results:
+            raise ValueError(
+                f"Open-Meteo geocoder found no match for {location!r}; "
+                "supply coordinates with get_current_by_coords() instead"
+            )
+        top = results[0]
+        lat, lon = top.get("latitude"), top.get("longitude")
+        if lat is None or lon is None:
+            raise ValueError(f"Open-Meteo geocoder returned no coordinates for {location!r}")
+        parts = [top.get("name"), top.get("admin1"), top.get("country_code")]
+        resolved = ", ".join(str(part) for part in parts if part)
+        return float(lat), float(lon), resolved or location
+
+    async def _fetch_open_meteo(
+        self, lat: float, lon: float, label: str | None = None
+    ) -> WeatherData:
+        """Fetch current conditions from Open-Meteo for a coordinate pair.
+
+        Every value is read from the response. The two this endpoint does not
+        carry -- visibility and UV index are absent from the ``current`` block
+        -- stay ``None`` rather than being filled with a plausible constant.
+        """
+        params = urlencode(
+            {
+                "latitude": f"{lat}",
+                "longitude": f"{lon}",
+                "current": ",".join(
+                    (
+                        "temperature_2m",
+                        "relative_humidity_2m",
+                        "apparent_temperature",
+                        "surface_pressure",
+                        "wind_speed_10m",
+                        "wind_direction_10m",
+                        "weather_code",
+                    )
+                ),
+                "wind_speed_unit": "ms",
+                "timezone": "UTC",
+            }
+        )
+        url = f"{_OPEN_METEO_BASE}?{params}"
+
+        loop = asyncio.get_event_loop()
+        payload = await loop.run_in_executor(None, self._open_meteo_json, url)
+        current = payload.get("current")
+        if not current:
+            raise ValueError("Open-Meteo returned no 'current' block")
+
+        def _num(key: str) -> float | None:
+            value = current.get(key)
+            return float(value) if isinstance(value, (int, float)) else None
+
+        code = current.get("weather_code")
+        direction = current.get("wind_direction_10m")
+        return WeatherData(
+            location=label or f"{lat},{lon}",
+            temperature=_num("temperature_2m"),
+            feels_like=_num("apparent_temperature"),
+            humidity=_num("relative_humidity_2m"),
+            pressure=_num("surface_pressure"),
+            wind_speed=_num("wind_speed_10m"),
+            wind_direction=(int(direction) if isinstance(direction, (int, float)) else None),
+            condition=self._condition_from_wmo_code(
+                int(code) if isinstance(code, (int, float)) else None
+            ),
+            visibility=None,
+            uv_index=None,
+            raw_data=payload,
+        )
+
+    async def _fetch_open_meteo_forecast(
+        self, lat: float, lon: float, days: int, label: str
+    ) -> list[WeatherForecast]:
+        """Fetch a daily forecast from Open-Meteo."""
+        params = urlencode(
+            {
+                "latitude": f"{lat}",
+                "longitude": f"{lon}",
+                "daily": ",".join(
+                    (
+                        "temperature_2m_max",
+                        "temperature_2m_min",
+                        "precipitation_probability_max",
+                        "wind_speed_10m_max",
+                        "weather_code",
+                    )
+                ),
+                "wind_speed_unit": "ms",
+                "forecast_days": str(max(1, min(days, 16))),
+                "timezone": "UTC",
+            }
+        )
+        url = f"{_OPEN_METEO_BASE}?{params}"
+
+        loop = asyncio.get_event_loop()
+        payload = await loop.run_in_executor(None, self._open_meteo_json, url)
+        daily = payload.get("daily") or {}
+        dates = daily.get("time") or []
+        if not dates:
+            raise ValueError("Open-Meteo returned no 'daily' block")
+
+        def _at(key: str, index: int) -> float | None:
+            series = daily.get(key) or []
+            if index >= len(series):
+                return None
+            value = series[index]
+            return float(value) if isinstance(value, (int, float)) else None
+
+        codes = daily.get("weather_code") or []
+        out: list[WeatherForecast] = []
+        for index, day in enumerate(dates[:days]):
+            code = codes[index] if index < len(codes) else None
+            out.append(
+                WeatherForecast(
+                    location=label,
+                    forecast_time=datetime.fromisoformat(str(day)).replace(tzinfo=UTC),
+                    high_temp=_at("temperature_2m_max", index),
+                    low_temp=_at("temperature_2m_min", index),
+                    condition=self._condition_from_wmo_code(
+                        int(code) if isinstance(code, (int, float)) else None
+                    ),
+                    precipitation_chance=_at("precipitation_probability_max", index),
+                    wind_speed=_at("wind_speed_10m_max", index),
+                )
+            )
+        return out
 
     async def get_current(self, location: str) -> WeatherData:
         """Get current weather for location.
@@ -658,10 +943,17 @@ class WeatherService:
         if self.provider == WeatherAPIProvider.STUB:
             return await self._stub.get_current(location)
 
-        if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
+        if self.provider == WeatherAPIProvider.OPEN_METEO:
+            lat, lon, resolved = await self._geocode_open_meteo(location)
+            data = await self._fetch_open_meteo(lat, lon, label=resolved)
+        elif self.provider == WeatherAPIProvider.OPENWEATHERMAP:
             data = await self._fetch_openweathermap(location)
         elif self.provider == WeatherAPIProvider.NOAA:
-            raise ValueError("NOAA API requires coordinates. Use get_current_by_coords() instead.")
+            raise ValueError(
+                "NOAA API requires coordinates (the NWS API is coordinate-addressed "
+                "and has no geocoder). Use get_current_by_coords(), or the default "
+                "OPEN_METEO provider, which resolves place names."
+            )
         else:
             raise ValueError(f"Unknown weather API provider: {self.provider}")
 
@@ -688,7 +980,9 @@ class WeatherService:
         if self.provider == WeatherAPIProvider.STUB:
             return await self._stub.get_current(cache_key)
 
-        if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
+        if self.provider == WeatherAPIProvider.OPEN_METEO:
+            data = await self._fetch_open_meteo(lat, lon)
+        elif self.provider == WeatherAPIProvider.OPENWEATHERMAP:
             data = await self._fetch_openweathermap_by_coords(lat, lon)
         elif self.provider == WeatherAPIProvider.NOAA:
             data = await self._fetch_noaa(lat, lon)
@@ -716,6 +1010,10 @@ class WeatherService:
 
         if self.provider == WeatherAPIProvider.STUB:
             return await self._stub.get_forecast(location, days)
+
+        if self.provider == WeatherAPIProvider.OPEN_METEO:
+            lat, lon, resolved = await self._geocode_open_meteo(location)
+            return await self._fetch_open_meteo_forecast(lat, lon, days, resolved)
 
         if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
             return await self._fetch_owm_forecast(location, days)

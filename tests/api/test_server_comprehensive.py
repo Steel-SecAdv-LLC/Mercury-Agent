@@ -16,6 +16,7 @@ Covers:
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
@@ -30,6 +31,7 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 if TYPE_CHECKING:
+    from omni_mercury_engine.api.auth import User
     from omni_mercury_engine.api.server import UnivariateRequest, UnivariateResponse
 
 
@@ -493,6 +495,40 @@ class TestLifespanWarmup:
         # module) exercises the lifespan automatically — if the hook
         # raised, every other test would be red.
 
+    def test_lifespan_configures_engine_logging(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Start-up bootstraps the engine's logger before the warm-up logs anything.
+
+        Under uvicorn only uvicorn's loggers are configured, so without this
+        call the warm-up, maintenance and mailer records (the development
+        mailer's verification link among them) were dropped below WARNING.
+        """
+        from omni_mercury_engine.api import server
+
+        calls: list[int | str] = []
+
+        def record(level: int | str = "INFO") -> bool:
+            calls.append(level)
+            return True
+
+        monkeypatch.setattr(server, "ensure_logging_configured", record)
+        with TestClient(server.app):
+            pass
+        assert calls == [logging.INFO]
+
+    def test_serving_log_level_follows_uvicorn(self) -> None:
+        """``--log-level`` on uvicorn governs the engine's records too."""
+        from omni_mercury_engine.api.server import _serving_log_level
+
+        uvicorn_logger = logging.getLogger("uvicorn")
+        previous = uvicorn_logger.level
+        try:
+            uvicorn_logger.setLevel(logging.NOTSET)
+            assert _serving_log_level() == logging.INFO
+            uvicorn_logger.setLevel(logging.DEBUG)
+            assert _serving_log_level() == logging.DEBUG
+        finally:
+            uvicorn_logger.setLevel(previous)
+
     @pytest.mark.asyncio
     async def test_warmup_runs_without_error(self) -> None:
         """``_warmup(app)`` returns cleanly under normal conditions."""
@@ -520,8 +556,12 @@ class TestLifespanWarmup:
 
         original_detect = server.detect_univariate
 
-        async def broken_detect(request: UnivariateRequest) -> UnivariateResponse:
-            _ = request
+        # Same signature as the real handler, which resolves an optional caller
+        # so an authenticated run is recorded under its account.
+        async def broken_detect(
+            request: UnivariateRequest, user: User | None = None
+        ) -> UnivariateResponse:
+            _ = (request, user)
             raise RuntimeError("simulated warmup failure")
 
         try:

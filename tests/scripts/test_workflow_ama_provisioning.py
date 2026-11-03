@@ -113,10 +113,30 @@ class TestFlagsUnprovisionedEngineInstalls:
         assert len(errors) == 1
         assert "``bare``" in errors[0]
 
+    def test_uv_sync_without_ama_is_flagged(self, tmp_path: Path) -> None:
+        """``uv sync`` installs the project from ``uv.lock`` and is an engine install."""
+        errors = _run(
+            tmp_path, _job("locked", "uv sync --locked --extra ml --extra dev", ama=False)
+        )
+        assert len(errors) == 1
+        assert "``locked``" in errors[0]
+        assert "build-ama-cryptography" in errors[0]
+
 
 class TestAcceptsProvisionedAndOutOfScopeJobs:
     def test_install_followed_by_ama_composite_passes(self, tmp_path: Path) -> None:
         assert _run(tmp_path, _job("ok", 'pip install -e ".[ml,dev]"', ama=True)) == []
+
+    def test_uv_sync_followed_by_ama_composite_passes(self, tmp_path: Path) -> None:
+        assert (
+            _run(tmp_path, _job("ok", "uv sync --locked --extra all --extra dev", ama=True)) == []
+        )
+
+    def test_uv_sync_without_the_project_is_out_of_scope(self, tmp_path: Path) -> None:
+        # ``--no-install-project`` installs only the dependencies; nothing in
+        # the job can import the engine.
+        body = _job("deps", "uv sync --locked --no-install-project", ama=False)
+        assert _run(tmp_path, body) == []
 
     def test_non_editable_and_third_party_installs_are_out_of_scope(self, tmp_path: Path) -> None:
         body = _job("tools", 'pip install "pyyaml>=6.0" ./dist/other.whl', ama=False)

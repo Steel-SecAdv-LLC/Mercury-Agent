@@ -113,6 +113,21 @@ class EarthquakeLoader(BaseDomainLoader):
         "mag_deviation",
     ]
 
+    #: De-leak: labels threshold ``magnitude``; ``mag_deviation`` is computed from it.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "magnitude",
+        "mag_deviation",
+        # The rolling Gutenberg-Richter estimate is computed over a window
+        # that *includes the current event's magnitude* (``magnitudes[start :
+        # i + 1]``), so the labelled column reaches the scored matrix through
+        # it. Excluding the two direct columns alone left this channel open.
+        "b_value",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------

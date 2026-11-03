@@ -266,6 +266,13 @@ engine to *call* — for explanation, hypothesis proposal, and report synthesis
 Mercury calls the backend from inside its loop; the backend never fronts
 Mercury.
 
+The voice's language model is a separate, narrower seam. An administrator
+selects it from the console's AI vendors view (`api/provider_store.py`, keys
+sealed at rest), and it only composes the free-text search answers from the
+records the retriever found; grounded answers never pass through it. The
+reasoning backend above does not read that store: it is configured by its
+own `LLMConfig`.
+
 ## Integration Backend Configuration
 
 ### Database (`integrations/stubs/database.py`)
@@ -302,14 +309,33 @@ Health check: `await db.health_check()` → `{"status": "healthy"|"degraded"|"un
 
 | Setting | Default | Override |
 |---------|---------|----------|
-| Provider | Open-Meteo (free, no key) | `provider="openweathermap"` |
+| Provider | Open-Meteo (free, no key) | `provider="noaa"\|"openweathermap"` |
 | API Key | — | Required for OpenWeatherMap |
+
+Open-Meteo is implemented and is the default: keyless current conditions, a
+keyless geocoder, and a daily forecast. It is the only provider here that
+resolves a place name, so `get_current("Boston")` works without coordinates;
+an unresolvable name raises `ValueError` rather than falling back to a default
+coordinate. NOAA/NWS remains available and is coordinate-addressed —
+`get_current(name)` raises on it and names `get_current_by_coords()`.
+
+**Readings a provider does not carry are `None`, never a constant.** The NWS
+hourly forecast has no pressure, visibility or UV index; Open-Meteo's current
+block has no visibility or UV. Those fields previously held 1013 hPa, 10 km,
+UV 0 and a humidity default of 50, with `feels_like` copied from temperature —
+values a caller could not distinguish from measurements. Every numeric field
+on `WeatherData` and `WeatherForecast` is nullable. Locked by
+`tests/integrations/test_open_meteo_provider.py`.
 
 ### Financial (`integrations/stubs/financial.py`)
 
 | Setting | Default | Override |
 |---------|---------|----------|
 | Provider | Yahoo Finance (no key) | Alpha Vantage with API key |
+
+Yahoo Finance is now genuinely the default. It was documented as such while the
+constructor defaulted to `FinancialAPIProvider.STUB`, so a no-argument
+`FinancialService()` returned seeded-RNG prices.
 
 ## Cross-Domain Frequency Correlation
 

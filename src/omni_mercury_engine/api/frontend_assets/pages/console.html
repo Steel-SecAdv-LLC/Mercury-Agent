@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!-- Copyright (C) 2025 Steel Security Advisors LLC
+     SPDX-License-Identifier: AGPL-3.0-or-later
+     Mercury Console: browser front end for mercury-agent serve. The interface is the design prototype
+     (docs/design/mercury_console/design/Mercury CLI.dc.html) built by scripts/build_console_port.py and rendered by
+     dc-runtime.js. Same-origin scripts and stylesheets only; no inline script, style or handler attributes. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Mercury Agent console: command builder, agent, detection results, captures and catalog for a running mercury-agent serve.">
+  <title>Mercury Console</title>
+  <link rel="stylesheet" href="/static/console/tokens.css">
+  <link rel="stylesheet" href="/static/console/port.css">
+  <script src="/static/console/catalog.js" defer></script>
+  <script src="/static/console/api.js" defer></script>
+  <script src="/static/console/mass.js" defer></script>
+  <script src="/static/console/agent.js" defer></script>
+  <script src="/static/console/viz.js" defer></script>
+  <script src="/static/console/capture.js" defer></script>
+  <script src="/static/console/figure-trace.js" defer></script>
+  <script src="/static/console/figure.js" defer></script>
+  <script src="/static/console/dc-runtime.js" defer></script>
+  <script src="/static/console/template.js" defer></script>
+  <script src="/static/console/logic.js" defer></script>
+</head>
+<body>
+  <div id="mercury-console" data-ready="false"></div>
+  <noscript><p>The Mercury Console needs JavaScript. The API is at <a href="/docs">/docs</a>.</p></noscript>
+</body>
+</html>

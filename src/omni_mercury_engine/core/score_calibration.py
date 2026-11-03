@@ -453,13 +453,22 @@ class ScoreDiagnostics:
         if len(finite) < 20:
             return False
         low, high = float(np.min(finite)), float(np.max(finite))
-        span = high - low
-        if not np.isfinite(span) or span / ScoreDiagnostics._BIMODALITY_BINS <= 0.0:
+        if not np.isfinite(high - low):
+            return False
+        # ``np.histogram`` lays its edges out with ``np.linspace`` and refuses
+        # the range when two neighbouring edges coincide (10000 and
+        # 10000 + 1e-13 cannot be cut into 50 bins). The guard applies that
+        # same test, so it is exactly as strict as the call it protects and
+        # no stricter: an earlier guard compared the bin width with the
+        # spacing of ``max(|low|, |high|, 1.0)``, and that floor of 1.0 made
+        # the verdict depend on the scores' scale -- a two-peaked sample of
+        # order 1e-16, well resolved at its own magnitude, was reported
+        # unimodal while the same shape at order 1 was reported bimodal.
+        edges = np.linspace(low, high, ScoreDiagnostics._BIMODALITY_BINS + 1)
+        if np.any(edges[:-1] >= edges[1:]):
             return False
 
-        hist, bin_edges = np.histogram(
-            finite, bins=ScoreDiagnostics._BIMODALITY_BINS, range=(low, high)
-        )
+        hist, _ = np.histogram(finite, bins=edges)
 
         # Smooth histogram
         kernel = np.array([1, 2, 3, 2, 1]) / 9.0

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """LLM model registry: capability/cost-aware model selection.
 
-Mercury ships real adapters for ten LLM providers but, until this module,
+Mercury ships real adapters for twenty-one LLM providers but, until this module,
 no unified place to answer "which configured model satisfies this call's
 requirements (capabilities, context, budget)?" — provider selection was
 manual (`LLMConfig(provider=...)`) and availability-ordered only
@@ -178,6 +178,88 @@ PROVIDER_CATALOG: dict[str, ProviderFacts] = {
         api_key_env_var="CURSOR_API_KEY",
         locality="cloud",
         requires_explicit_base_url=True,
+        reports_token_usage=True,
+    ),
+    # OpenAI-compatible cloud providers (2026-11): one wire format each, a
+    # default endpoint and a key variable; facts mirror the subclass constants
+    # in ollama_adapter.py (OPENAI_COMPATIBLE_ADAPTERS), which the drift gate
+    # checks adapter by adapter.
+    "mistral": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="MISTRAL_API_KEY",
+        locality="cloud",
+        requires_explicit_base_url=False,
+        reports_token_usage=True,
+    ),
+    "groq": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="GROQ_API_KEY",
+        locality="cloud",
+        requires_explicit_base_url=False,
+        reports_token_usage=True,
+    ),
+    "together": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="TOGETHER_API_KEY",
+        locality="cloud",
+        requires_explicit_base_url=False,
+        reports_token_usage=True,
+    ),
+    "fireworks": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="FIREWORKS_API_KEY",
+        locality="cloud",
+        requires_explicit_base_url=False,
+        reports_token_usage=True,
+    ),
+    "openrouter": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="OPENROUTER_API_KEY",
+        locality="cloud",
+        requires_explicit_base_url=False,
+        reports_token_usage=True,
+    ),
+    "perplexity": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="PERPLEXITY_API_KEY",
+        locality="cloud",
+        requires_explicit_base_url=False,
+        reports_token_usage=True,
+    ),
+    "azure_openai": ProviderFacts(
+        wire_format="azure-openai-chat-completions",
+        api_key_env_var="AZURE_OPENAI_API_KEY",
+        locality="cloud",
+        requires_explicit_base_url=True,
+        reports_token_usage=True,
+    ),
+    "openai_compatible": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="OPENAI_COMPATIBLE_API_KEY",
+        locality="cloud",
+        requires_explicit_base_url=True,
+        reports_token_usage=True,
+    ),
+    # OpenAI-compatible local servers: plain http on a loopback host, no key.
+    "lmstudio": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="LMSTUDIO_API_KEY",
+        locality="local",
+        requires_explicit_base_url=False,
+        reports_token_usage=True,
+    ),
+    "vllm": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="VLLM_API_KEY",
+        locality="local",
+        requires_explicit_base_url=False,
+        reports_token_usage=True,
+    ),
+    "llamacpp": ProviderFacts(
+        wire_format="openai-chat-completions",
+        api_key_env_var="LLAMACPP_API_KEY",
+        locality="local",
+        requires_explicit_base_url=False,
         reports_token_usage=True,
     ),
 }

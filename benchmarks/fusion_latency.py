@@ -94,6 +94,7 @@ def detection(sizes: list[int], features: int, repeats: int, seed: int) -> dict[
 
     batch = rng.normal(size=(sizes[-1], features)).astype(np.float32)
     per_model: dict[str, float] = {}
+    declined: dict[str, str] = {}
     models: dict[str, Any] = dict(engine.models)
     for name, model in models.items():
         reset = getattr(model, "reset_state", None)
@@ -106,9 +107,20 @@ def detection(sizes: list[int], features: int, repeats: int, seed: int) -> dict[
                 reset()
             model.predict(batch)
             per_model[name] = time.perf_counter() - started
-        except Exception:  # models that need a mapping input decline an array
-            continue
-    return {"detect_with_fusion_s": latency, "model_stage_s": per_model}
+        except Exception as exc:
+            # A model may decline this probe for two different reasons: it
+            # wants a mapping rather than an array, or it refuses to score
+            # unfitted (``astrophysical``, ``consciousness`` and ``quantum``
+            # now do, instead of serving an unfitted heuristic). Either way it
+            # contributes no time, but dropping it silently left the artifact
+            # unable to say whether a missing stage was skipped or forgotten,
+            # so the reason is recorded next to the timings.
+            declined[name] = f"{type(exc).__name__}: {exc}"
+    return {
+        "detect_with_fusion_s": latency,
+        "model_stage_s": per_model,
+        "model_stage_declined": declined,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:

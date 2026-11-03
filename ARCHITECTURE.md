@@ -1024,6 +1024,57 @@ async def detect_anomaly(data: AnomalyRequest):
     }
 ```
 
+### Console, Conversational Agent and Model Providers
+
+The served operator surface sits on top of the detection routes and never
+changes a detector's score. Each layer names its source.
+
+```
+Browser ── /console (api/frontend.py; static/console/, catalog.js built by
+   │        scripts/build_console_catalog.py and build_console_port.py)
+   │
+   ├─ detection routes ──► api/routes/export.py::record_detection
+   │                         └─► narrative retriever (+ optional SQLite
+   │                             DetectionMemoryStore, MERCURY_AGENT_MEMORY_PATH)
+   │                               └─► AlertBus ──► GET /api/v1/voice/alerts (SSE)
+   │
+   └─ POST /api/v1/voice/speak (api/voice.py)
+          └─► MercuryVoice (narrative/voice.py)
+                ├─ narrative/languages.py   detect the language, render the
+                │                           question in English phrasing
+                ├─ narrative/conversation.py::classify
+                │     ├─ the record    retriever, scoped to the caller
+                │     ├─ the code      manifest, CLI table, knowledge profiles
+                │     └─ the narrative engine (narrative/engine.py)
+                └─ optional model      free-text search answers only
+```
+
+- **Grounded answers** come from one of three named sources: the caller's
+  detection record, the code (detector manifest, the CLI's own command table,
+  `core/knowledge_profiles.py`), or the narrative engine. A command request is
+  handed back as the exact command, never executed. History, follow-up
+  context, memory and the alert stream are scoped to the authenticated
+  principal.
+- **Languages**: seven are understood (`narrative/languages.py::SUPPORTED`);
+  social turns, the fallback menu and follow-up prompts are answered in the
+  asker's language, grounded answers stay in English with a one-line note.
+- **Model providers**: 21 adapters on the shared bases in
+  `models/foundation/`, described by the code-grounded
+  `models/llm_registry.py::PROVIDER_CATALOG` (16 cloud, 4 local servers on a
+  loopback host, the built-in templates). `api/backends.py` reports each
+  provider's state (`provider_rows`), runs the read-only connection probe
+  (`probe_provider`) and the MCP client blocks (`backends_report`).
+  `api/provider_store.py` keeps what an administrator stores from the console:
+  keys sealed at rest, endpoints, models, and the voice's selection, which
+  survives a restart. A selected model composes only the free-text search
+  answers, from at most 8 retrieved records, and an adapter failure leaves the
+  template answer. The reasoning backend (`reasoning/`, see
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#reasoning-backend-subordinate-called-dependency))
+  is configured separately and does not read the provider store.
+- **MCP**: `mercury-agent mcp` serves the engine's tools over stdio to any MCP
+  client (Claude Desktop and Claude Code, Cursor, VS Code with Copilot); the
+  console's AI vendors view carries a ready configuration block for each.
+
 ## Windows Compatibility Notes
 
 ### DeepFace Installation
@@ -1158,11 +1209,16 @@ pytest tests/integration/test_detection_pipeline.py -v
 
 ### Logging
 
-```python
-import logging
+The API configures the engine's own logger at start-up when the host has not
+(`api/server.py` calls `utils/logging.py::ensure_logging_configured`), at
+uvicorn's `--log-level` or `MERCURY_LOG_LEVEL`, in `MERCURY_LOG_FORMAT` (`text`,
+or `json` with PII redacted). Modules log through `get_logger`:
 
-logger = logging.getLogger('omni_mercury_engine')
-logger.info(f"Detected anomaly: score={score}, components={components}")
+```python
+from omni_mercury_engine.utils.logging import get_logger
+
+logger = get_logger(__name__)
+logger.info("detection recorded", extra={"domain": domain, "n_samples": n})
 ```
 
 ## Lyapunov Stability Theory & Formal Proofs

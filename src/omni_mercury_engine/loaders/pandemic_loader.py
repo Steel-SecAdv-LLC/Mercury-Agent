@@ -296,6 +296,19 @@ class PandemicLoader(BaseDomainLoader):
         "death_acceleration",
     ]
 
+    #: De-leak: labels threshold the 7d-smoothed case series; these all derive from it.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "new_cases_smoothed",
+        "rolling_avg_7d",
+        "new_cases_per_million",
+        "case_growth_rate",
+        "case_acceleration",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     #: Cache the large OWID dataset for 6 hours
     CACHE_TTL: int = 21600
 
@@ -355,11 +368,11 @@ class PandemicLoader(BaseDomainLoader):
             )
 
         cache_key = f"pandemic_historical_{event_id}"
-        cached = self._read_cache(cache_key)
+        cached_frame = self._read_frame_cache(cache_key)
 
-        if cached is not None:
+        if cached_frame is not None:
             logger.debug("Returning cached historical data for '%s'.", event_id)
-            return pd.DataFrame(cached)
+            return cached_frame
 
         event = _EVENT_CATALOG[event_id]
         source = event["source"]
@@ -401,7 +414,7 @@ class PandemicLoader(BaseDomainLoader):
             df["date"] = pd.to_datetime(df["date"], errors="coerce")
             df = df.sort_values("date").reset_index(drop=True)
 
-        self._write_cache(cache_key, df.to_dict(orient="list"))
+        self._write_frame_cache(cache_key, df)
         logger.info("Fetched %d historical records for event '%s'.", len(df), event_id)
         return df
 
@@ -982,7 +995,7 @@ class PandemicLoader(BaseDomainLoader):
                     "PandemicLoader",
                     f"WHO GHO returned no records for indicator '{indicator}'",
                 )
-                return self._synthetic_ebola_2014()
+                return self.mark_synthetic(self._synthetic_ebola_2014())
 
             # Parse WHO GHO records into a DataFrame
             rows: list[dict[str, Any]] = []
@@ -1014,14 +1027,14 @@ class PandemicLoader(BaseDomainLoader):
                     "PandemicLoader",
                     "WHO GHO data empty after filtering to the event window",
                 )
-                return self._synthetic_ebola_2014()
+                return self.mark_synthetic(self._synthetic_ebola_2014())
 
             df = df.sort_values("date").reset_index(drop=True)
             return df
 
         except (ConnectionError, KeyError, TypeError) as exc:
             check_synthetic_allowed("PandemicLoader", f"WHO GHO fetch failed: {exc}")
-            return self._synthetic_ebola_2014()
+            return self.mark_synthetic(self._synthetic_ebola_2014())
 
     @staticmethod
     def _synthetic_ebola_2014() -> pd.DataFrame:

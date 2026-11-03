@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Rotate the at-rest encryption key for stored TOTP secrets.
+"""Rotate the at-rest encryption key for stored TOTP secrets and provider keys.
 
 Mercury seals 2FA (TOTP) secrets at rest under ``MERCURY_DATA_ENC_KEY`` (or a
 key derived from ``AMA_MASTER_SEED``) — see
@@ -10,6 +10,11 @@ already upgrades *plaintext* secrets to sealed ones, but it cannot rotate from
 one at-rest key to another: a sealed value only opens under the exact key it was
 sealed with, so simply changing ``MERCURY_DATA_ENC_KEY`` would make every
 enrolled account's second factor unopenable (fail-closed → nobody can pass 2FA).
+
+The language-model provider keys an administrator stores from the console
+(:mod:`omni_mercury_engine.api.provider_store`) are sealed under the same key,
+so the same run re-seals them too, by the same rules, when the provider store
+file exists; one rotation therefore leaves no secret behind.
 
 This script performs the rotation safely. For each account it:
 
@@ -52,6 +57,11 @@ from omni_mercury_engine.api.identity_store import (
     IdentityStore,
     build_identity_store,
     identity_store_is_durable,
+)
+from omni_mercury_engine.api.provider_store import (
+    ProviderResealReport,
+    ProviderStore,
+    default_store_path,
 )
 from omni_mercury_engine.api.secret_sealer import (
     DATA_ENC_KEY_ENV,
@@ -162,7 +172,7 @@ def _sealer_from_hex(label: str, raw: str) -> SecretSealer:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse the command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Rotate the at-rest encryption key for stored TOTP secrets."
+        description="Rotate the at-rest encryption key for stored TOTP secrets and provider keys."
     )
     parser.add_argument(
         "--new-key",
@@ -186,10 +196,15 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns a process exit code."""
     args = _parse_args(argv)
 
-    if not identity_store_is_durable():
+    durable = identity_store_is_durable()
+    provider_path = default_store_path()
+    has_provider_store = provider_path.is_file()
+    if not durable and not has_provider_store:
         print(
             f"Refusing to run: no durable identity store configured (${'MERCURY_KEYSTORE_PATH'} "
-            "is unset). Re-sealing an in-memory store would rewrite rows that vanish on exit.",
+            "is unset) and no provider store exists at "
+            f"{provider_path}. Re-sealing an in-memory store would rewrite rows that vanish "
+            "on exit.",
             file=sys.stderr,
         )
         return 2
@@ -211,24 +226,47 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    store = build_identity_store()
-    report = reseal_totp_secrets(
-        store, new_sealer=new_sealer, old_sealer=old_sealer, dry_run=args.dry_run
-    )
-
     verb = "would reseal" if args.dry_run else "resealed"
-    print(f"accounts scanned:        {report.total_accounts}")
-    print(f"accounts with 2FA:       {report.with_totp}")
-    print(f"{verb} (old→new key):   {report.resealed}")
-    print(f"{verb} (plaintext→new): {report.sealed_plaintext}")
-    print(f"already under new key:   {report.already_current}")
-    print(f"could not open:          {len(report.failed)}")
-    if report.failed:
-        print("  affected account ids (unopenable under either key):", file=sys.stderr)
-        for account_id in report.failed:
-            print(f"    {account_id}", file=sys.stderr)
-        return 1
-    return 0
+    failed = False
+
+    if durable:
+        store = build_identity_store()
+        report = reseal_totp_secrets(
+            store, new_sealer=new_sealer, old_sealer=old_sealer, dry_run=args.dry_run
+        )
+        print(f"accounts scanned:        {report.total_accounts}")
+        print(f"accounts with 2FA:       {report.with_totp}")
+        print(f"{verb} (old→new key):   {report.resealed}")
+        print(f"{verb} (plaintext→new): {report.sealed_plaintext}")
+        print(f"already under new key:   {report.already_current}")
+        print(f"could not open:          {len(report.failed)}")
+        if report.failed:
+            failed = True
+            print("  affected account ids (unopenable under either key):", file=sys.stderr)
+            for account_id in report.failed:
+                print(f"    {account_id}", file=sys.stderr)
+    else:
+        print("TOTP secrets: skipped (no durable identity store; MERCURY_KEYSTORE_PATH is unset)")
+
+    if has_provider_store:
+        preport: ProviderResealReport = ProviderStore(provider_path).reseal(
+            new_sealer=new_sealer, old_sealer=old_sealer, dry_run=args.dry_run
+        )
+        print(f"provider store:          {provider_path}")
+        print(f"providers with a key:    {preport.with_key}")
+        print(f"{verb} (old→new key):   {preport.resealed}")
+        print(f"{verb} (plaintext→new): {preport.sealed_plaintext}")
+        print(f"already under new key:   {preport.already_current}")
+        print(f"could not open:          {len(preport.failed)}")
+        if preport.failed:
+            failed = True
+            print("  affected providers (unopenable under either key):", file=sys.stderr)
+            for provider in preport.failed:
+                print(f"    {provider}", file=sys.stderr)
+    else:
+        print(f"provider store:          none at {provider_path}")
+
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, Self, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, Self, TypeAlias, runtime_checkable
 
 import numpy as np
 
@@ -44,7 +44,7 @@ __all__ = [
     "registered_envs",
 ]
 
-FloatArray = np.ndarray[Any, np.dtype[np.float32]]
+FloatArray: TypeAlias = np.ndarray[Any, np.dtype[np.float32]]
 
 
 @dataclass(frozen=True)

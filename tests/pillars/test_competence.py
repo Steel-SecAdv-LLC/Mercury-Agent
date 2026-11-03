@@ -107,7 +107,15 @@ class TestNoGreenWashedLane:
         assert "skipif" not in text.split("class TestSpatialDistanceScoring")[1].split("class ")[0]
 
     def test_the_full_suite_lane_installs_the_all_extra(self) -> None:
-        assert 'pip install -e ".[all,dev]"' in _ci_text()
+        """The ml-tests lane installs every runtime extra plus the dev tools.
+
+        It installs from the lockfile with ``uv sync --locked``; the extras it
+        names are the contract, so a lane that quietly narrowed to ``[ml]``
+        would fail here.
+        """
+        text = _ci_text()
+        assert "uv sync --locked --extra all --extra dev" in text
+        assert 'pip install -e ".[all,dev]"' not in text
 
     def test_the_parity_tests_exist_and_are_collected_by_the_full_lane(self) -> None:
         target = REPO_ROOT / "tests" / "test_native_acceleration.py"

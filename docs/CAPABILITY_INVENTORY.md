@@ -7,23 +7,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,084
-- **Capability-bearing classes:** 2,066 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,116
+- **Capability-bearing classes:** 2,090 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,206 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,219 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1206 |
-| Support types (config / result / enum / error) | 1018 |
+| Other capability classes | 1219 |
+| Support types (config / result / enum / error) | 1026 |
 | Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 113 |
+| Adapters & backends | 108 |
 | Engines & orchestration | 102 |
-| Adapters & backends | 97 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 27 |
@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Classes by subsystem
 
-### `(top-level)/` — 65 classes (46 capability)
+### `(top-level)/` — 67 classes (47 capability)
 
 **Adapters & backends**
 
@@ -74,6 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ExcludedQuestion` (`truth_decipher`) — A question that was not scored, and why.
 - `FeatureCache` (`engine`) — Thread-safe LRU cache for computed features.
 - `HaversineTravelCheck` (`truth_decipher`) — Default travel check: haversine distance and a single speed limit.
+- `InventoryItem` (`decouple`) — One place Mercury keeps work on this machine.
 - `ItemWeight` (`truth_decipher`) — One evidence item's weight within its cluster.
 - `LocatedObservation` (`truth_decipher`) — One subject at one place over one time interval.
 - `Location` (`truth_decipher`) — A circular location: centre in decimal degrees and an uncertainty radius in km.
@@ -100,9 +101,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `StatementVerifier` (`truth_decipher`) — Verifies statements against evidence and reports evidence-grounded findings.
 
-<details><summary>Support types (19)</summary>
+<details><summary>Support types (20)</summary>
 
-`AdaptationEvent`, `AllenRelation`, `CITConfig`, `CITQuestionResult`, `CITResult`, `Channel`, `ConsentRecord`, `ConsentRequiredError`, `ContradictionKind`, `ContradictionScope`, `CorroborationStatus`, `InsufficientDataError`, `MercuryProductionConfigError`, `Stance`, `ToolError`, `TravelFeasibilityCheck`, `VerifiabilityResult`, `VerificationReport`, `VerifierConfig`
+`AdaptationEvent`, `AllenRelation`, `CITConfig`, `CITQuestionResult`, `CITResult`, `Channel`, `ConsentRecord`, `ConsentRequiredError`, `ContradictionKind`, `ContradictionScope`, `CorroborationStatus`, `InsufficientDataError`, `MercuryDecoupledError`, `MercuryProductionConfigError`, `Stance`, `ToolError`, `TravelFeasibilityCheck`, `VerifiabilityResult`, `VerificationReport`, `VerifierConfig`
 
 </details>
 
@@ -200,7 +201,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 156 classes (57 capability)
+### `api/` — 165 classes (60 capability)
 
 **Adapters & backends**
 
@@ -237,7 +238,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `BatchJob` (`api.routes.batch`) — Batch job tracking record.
 - `BatchJobStore` (`api.routes.batch`) — In-memory batch job store with TTL-based cleanup.
 - `ComponentHealth` (`api.health`) — Health status of a single component.
-- `ConsoleMailer` (`api.mailer`) — Mailer that logs messages instead of sending them (dev/test default).
+- `ConsoleMailer` (`api.mailer`) — Mailer that files each message in a local outbox instead of sending it.
 - `CorrelationIDMiddleware` (`api.server`) — Middleware for request correlation ID tracking.
 - `DataStore` (`api.routes.export`) — In-memory data store for demonstration.
 - `EmailContent` (`api.email_templates`) — A fully rendered transactional email.
@@ -254,6 +255,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ModelRegistry` (`api.routes.models`) — Model registry with versioning and lifecycle management.
 - `ModelVersion` (`api.routes.models`) — Model version record.
 - `PIIMaskingFilter` (`api.server`) — Filter to mask PII data in log messages for security compliance.
+- `ProviderSelect` (`api.voice`) — The provider and model the served voice generates prose with.
+- `ProviderStore` (`api.provider_store`) — A small JSON store of sealed provider keys, endpoints, models and the selection.
+- `ProviderTest` (`api.voice`) — Optional overrides for a connection test; a key given here is used once and not stored.
 - `QuotaDecision` (`api.quota`) — The outcome of a quota check, including the usage it was based on.
 - `QuotaMiddleware` (`api.quota_middleware`) — Reserve-run-commit quota enforcement over the metered path prefixes.
 - `QuotaSnapshot` (`api.quota`) — An account's in-window usage next to its effective ceilings.
@@ -274,9 +278,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `User` (`api.auth`) — Authenticated user information.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (99)</summary>
+<details><summary>Support types (105)</summary>
 
-`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderResealReport`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
 
 </details>
 
@@ -659,7 +663,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 346 classes (217 capability)
+### `core/` — 351 classes (222 capability)
 
 **Adapters & backends**
 
@@ -770,6 +774,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DetectorManifestEntry` (`core.detector_registry`) — Declarative entry describing a discoverable detector.
 - `DetectorMetrics` (`core.base`) — Metrics for detector performance tracking.
 - `DetectorOntology` (`core.detector_ontology`) — The declared capability contract of one manifest detector.
+- `DetectorProfile` (`core.knowledge_profiles`) — The discipline, lineage and practitioner knowledge behind one manifest detector.
 - `DetectorRegistry` (`core.detector_registry`) — Central registry for all anomaly detectors and models.
 - `DetectorRole` (`core.detector_roles`) — One detector class's role outside the manifest.
 - `DetectorTask` (`core.parallel_detectors`) — One unit of work.
@@ -777,6 +782,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DomainFeatureExtractorFactory` (`core.domain_feature_extractors`) — Factory for creating domain-specific feature extractors.
 - `DomainHarmonicConstants` (`core.centralized_constants`) — Domain-specific fundamental frequencies for harmonic analysis.
 - `DomainMetrics` (`core.base_domains`) — Comprehensive metrics for a detection domain.
+- `DomainProfile` (`core.knowledge_profiles`) — The profession, institutions and expertise behind one data domain.
 - `DomainSpecificMetrics` (`core.domain_metrics`) — Domain-specific metrics for specialized detectors.
 - `EthicalConstants` (`core.centralized_constants`) — Ethical governance thresholds and constants.
 - `EthicalDecision` (`core.ethical_governor`) — Record of ethical decision with validation.
@@ -805,10 +811,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `InfoGeometryCertificate` (`core.governed_fusion`) — Mahalanobis certified-radius/witness for the info-geometry component.
 - `InfrastructureConstants` (`core.centralized_constants`) — Infrastructure domain-specific constants.
 - `InfrastructureFeatureExtractor` (`core.domain_feature_extractors`) — Infrastructure domain feature extractor.
+- `Institution` (`core.knowledge_profiles`) — An organisation that publishes, governs or defines the data of a domain.
 - `IntelligenceMeritConstants` (`core.centralized_constants`) — Held-out merit gate for intelligence-fusion weights.
 - `IsotonicCalibration` (`core.calibration`) — Isotonic regression calibration (non-parametric).
 - `KnowledgeGraph` (`core.neurosymbolic_hub`) — NetworkX-based knowledge graph for symbolic reasoning.
 - `LearnableGOSNN` (`core.learnable_gosnn`) — Learnable Global Omni-Scalar Network.
+- `LoaderDeclaration` (`core.loader_declarations`) — The declared contract of one domain loader.
 - `LyapunovConstants` (`core.centralized_constants`) — Lyapunov stability framework constants.
 - `LyapunovViolation` (`core.system_coherence`) — Record of a Lyapunov stability violation.
 - `Manifold` (`core.riemannian_optimization`) — Abstract base class for a Riemannian manifold.
@@ -839,6 +847,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `RealWorldBenchmarkRunner` (`core.realworld_benchmark`) — Benchmark runner for real-world datasets.
 - `RecursionConvergenceConstants` (`core.centralized_constants`) — Convergence bounds for recursive computations.
 - `RedisCache` (`core.feature_pipeline`) — Redis cache backend implementation.
+- `Reference` (`core.knowledge_profiles`) — One citation: a paper, standard, dataset paper or authoritative document.
 - `RegenerativeArchitecture` (`core.regenerative`) — Implements regenerative design principles for net-positive AI systems.
 - `ReliabilityWeightedFusion` (`core.stacking_fusion`) — Stacking fusion that weights each detector by a per-detector reliability score.
 - `RiemannianAdam` (`core.riemannian_optimization`) — Adam optimiser adapted for Riemannian manifolds.
@@ -1871,7 +1880,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `loaders/` — 28 classes (26 capability)
+### `loaders/` — 29 classes (27 capability)
 
 **Data sources & loaders**
 
@@ -1903,6 +1912,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `GCNNotice` (`loaders.gcn_notices`) — One normalized GCN notice.
 - `GCNNoticeConsumer` (`loaders.gcn_notices`) — Consume GCN Kafka topics as normalized :class:`GCNNotice` records.
 - `ProvenanceFinding` (`loaders.label_provenance`) — One label-provenance gate finding (a leak or inconsistency).
+- `SyntheticDataNotDeleakable` (`loaders.base`) — A de-leaked feature matrix was requested from a synthetic frame.
 - `_Cursor` (`loaders.format_readers.pmu`) — Bounded reader over a frame payload, failing loudly with positions.
 
 <details><summary>Support types (2)</summary>
@@ -2319,25 +2329,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `models/` — 140 classes (103 capability)
+### `models/` — 152 classes (114 capability)
 
 **Adapters & backends**
 
 - `AnthropicCloudAdapter` (`models.foundation.ollama_adapter`) — Anthropic cloud adapter for Claude models.
+- `AzureOpenAIAdapter` (`models.foundation.ollama_adapter`) — Azure OpenAI: the operator's resource endpoint, a deployment name and ``api-key``.
 - `BaseFoundationAdapter` (`models.foundation.base_foundation`) — Concrete adapter class for foundation models.
 - `BaseLLMAdapter` (`models.foundation.llm_adapter`) — Abstract base class for LLM adapters.
 - `ChronosAdapter` (`models.foundation.chronos_adapter`) — Chronos adapter for local time-series forecasting.
 - `CohereCloudAdapter` (`models.foundation.ollama_adapter`) — Cohere Chat v2 cloud adapter (api.cohere.com).
 - `CursorAdapter` (`models.foundation.ollama_adapter`) — Cursor cloud adapter (OpenAI-compatible).
 - `DeepSeekAdapter` (`models.foundation.ollama_adapter`) — DeepSeek cloud adapter (api.deepseek.com, OpenAI-compatible).
+- `FireworksAdapter` (`models.foundation.ollama_adapter`) — Fireworks AI (``api.fireworks.ai/inference``), OpenAI-compatible Chat Completions.
 - `GeminiCloudAdapter` (`models.foundation.ollama_adapter`) — Google Gemini cloud adapter (generativelanguage.googleapis.com).
+- `GroqAdapter` (`models.foundation.ollama_adapter`) — Groq (``api.groq.com/openai``), OpenAI-compatible Chat Completions.
 - `HuggingFaceCloudAdapter` (`models.foundation.ollama_adapter`) — HuggingFace Inference API adapter.
 - `HuggingFaceLLMAdapter` (`models.foundation.llm_adapter`) — HuggingFace Transformers LLM adapter for local models.
+- `LMStudioAdapter` (`models.foundation.ollama_adapter`) — LM Studio's local server (``http://localhost:1234/v1``), loopback-gated, no key.
+- `LlamaCppAdapter` (`models.foundation.ollama_adapter`) — The llama.cpp server (``http://localhost:8080/v1``), loopback-gated, no key.
+- `MistralAdapter` (`models.foundation.ollama_adapter`) — Mistral AI (``api.mistral.ai``), OpenAI-compatible Chat Completions.
 - `MockLLMAdapter` (`models.foundation.llm_adapter`) — Mock LLM adapter — hard-fails at construction.
 - `OllamaLLMAdapter` (`models.foundation.ollama_adapter`) — Ollama LLM adapter for local model inference.
 - `OpenAICloudAdapter` (`models.foundation.ollama_adapter`) — OpenAI cloud adapter for GPT models.
+- `OpenAICompatibleAdapter` (`models.foundation.ollama_adapter`) — Any OpenAI-compatible endpoint the operator names (``OPENAI_COMPATIBLE_BASE_URL``).
+- `OpenRouterAdapter` (`models.foundation.ollama_adapter`) — OpenRouter (``openrouter.ai/api``), one key in front of many vendors.
+- `PerplexityAdapter` (`models.foundation.ollama_adapter`) — Perplexity (``api.perplexity.ai``), OpenAI-compatible Chat Completions.
 - `TemplateLLMAdapter` (`models.foundation.ollama_adapter`) — Template-based fallback adapter for offline operation.
 - `TimeGPTAdapter` (`models.foundation.timegpt_adapter`) — TimeGPT adapter for time-series anomaly detection.
+- `TogetherAdapter` (`models.foundation.ollama_adapter`) — Together AI (``api.together.xyz``), OpenAI-compatible Chat Completions.
+- `VLLMAdapter` (`models.foundation.ollama_adapter`) — A vLLM OpenAI-compatible server (``http://localhost:8000/v1``), loopback-gated.
 - `XAIGrokAdapter` (`models.foundation.ollama_adapter`) — xAI Grok cloud adapter (api.x.ai, OpenAI-compatible).
 - `_OpenAICompatibleCloudAdapter` (`models.foundation.ollama_adapter`) — Shared base for OpenAI-compatible Chat Completions adapters.
 
@@ -2454,13 +2475,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `AdversarialTrainer` (`models.sota.tranad`) — Adversarial Training for TranAD.
 - `MAMLOptimizer` (`models.sota.tranad`) — Model-Agnostic Meta-Learning (MAML) for TranAD.
 
-<details><summary>Support types (37)</summary>
+<details><summary>Support types (38)</summary>
 
-`AgeProgressionResult`, `AnnealingResult`, `AssociationConfig`, `BiometricResult`, `ChemicalAnomalyResult`, `ChronosConfig`, `DecoherenceConfig`, `ElementGroup`, `EnsembleConfig`, `ErrorCorrectionCode`, `ForecastResult`, `FoundationModelConfig`, `FuzzySemantics`, `GroverSearchResult`, `IngestResult`, `IsotopePredictionResult`, `IsotopeType`, `LLMAnomalyResult`, `LLMConfig`, `LLMProvider`, `MAATConfig`, `MatchCategory`, `MatrixProfileConfig`, `ModelInfo`, `OllamaConfig`, `OllamaModel`, `ParapsychologyResult`, `QKDResult`, `QuantumState`, `ReasoningMode`, `ReasoningResult`, `ReasoningState`, `ThreatLevel`, `TimeGPTConfig`, `TranADConfig`, `UniverseState`, `_EgressKwargs`
+`AgeProgressionResult`, `AnnealingResult`, `AssociationConfig`, `BiometricResult`, `ChemicalAnomalyResult`, `ChronosConfig`, `DecoherenceConfig`, `ElementGroup`, `EnsembleConfig`, `ErrorCorrectionCode`, `FaceDetectorUnavailableError`, `ForecastResult`, `FoundationModelConfig`, `FuzzySemantics`, `GroverSearchResult`, `IngestResult`, `IsotopePredictionResult`, `IsotopeType`, `LLMAnomalyResult`, `LLMConfig`, `LLMProvider`, `MAATConfig`, `MatchCategory`, `MatrixProfileConfig`, `ModelInfo`, `OllamaConfig`, `OllamaModel`, `ParapsychologyResult`, `QKDResult`, `QuantumState`, `ReasoningMode`, `ReasoningResult`, `ReasoningState`, `ThreatLevel`, `TimeGPTConfig`, `TranADConfig`, `UniverseState`, `_EgressKwargs`
 
 </details>
 
-### `narrative/` — 51 classes (27 capability)
+### `narrative/` — 54 classes (30 capability)
 
 **Data sources & loaders**
 
@@ -2481,10 +2502,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Other capability classes**
 
+- `AlertBus` (`narrative.alert_bus`) — Fan a recorded detection out to every live subscriber that may see it.
 - `AudioSegment` (`narrative.multimodal`) — Segment of interest in audio data.
 - `CommunicationModifiers` (`narrative.personality`) — Modifiers for communication generation.
 - `ConversationContext` (`narrative.interface`) — Context for a conversation session.
 - `ConversationTurn` (`narrative.voice`) — A single turn in conversation.
+- `DetectionMemoryStore` (`narrative.detection_memory`) — Append-only SQLite log of detection entries, bounded to the newest ``keep``.
 - `InitiativeThreshold` (`narrative.proactive`) — Configuration for when to take initiative.
 - `MemoryContext` (`narrative.memory_surface`) — Complete memory context for a detection.
 - `MemorySurface` (`narrative.memory_surface`) — Surfaces Memory Context in Communications.
@@ -2500,6 +2523,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `RegionOfInterest` (`narrative.multimodal`) — Region of interest in visual data.
 - `ResultCache` (`narrative.external_retrieval`) — Cache for external retrieval results.
 - `SearchContext` (`narrative.retriever`) — Context for a search operation.
+- `_Subscriber` (`narrative.alert_bus`) — One subscriber: its loop, its queue, and the bounded staging buffer feeding it.
 
 <details><summary>Support types (24)</summary>
 
@@ -2574,8 +2598,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Adapters & backends**
 
+- `DeterministicReasoningBackend` (`reasoning.backends`) — Deterministic, offline, network-free backend for tests and CI.
 - `LocalReasoningBackend` (`reasoning.backends`) — Offline-first reasoning over Mercury's local LLM chain.
-- `MockReasoningBackend` (`reasoning.backends`) — Deterministic, offline, network-free backend for tests and CI.
 - `ReasoningBackend` (`reasoning.backend`) — Abstract reasoning engine Mercury calls; never the front of the system.
 - `RemoteReasoningBackend` (`reasoning.backends`) — Network-capable reasoning over an operator-declared frontier model.
 

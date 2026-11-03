@@ -49,7 +49,7 @@ services:
       MERCURY_AGENT_ENV: ${MERCURY_AGENT_ENV:-development}
       OMNI_API_HOST: "0.0.0.0"
       OMNI_API_PORT: "8000"
-      OMNI_LOG_FORMAT: ${OMNI_LOG_FORMAT:-text}
+      MERCURY_LOG_FORMAT: ${MERCURY_LOG_FORMAT:-text}
     volumes:
       # Persist model cache and on-disk detections between container restarts
       - mercury-cache:/app/cache
@@ -93,7 +93,7 @@ services:
   # Grafana — dashboards
   # ---------------------------------------------------------------------------
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.3.0
     container_name: mercury-grafana
     restart: unless-stopped
     ports:

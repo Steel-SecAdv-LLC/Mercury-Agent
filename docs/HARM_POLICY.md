@@ -469,7 +469,15 @@ limits plainly:
   point. Consequences for this section:
   * The default posture is meaning-level, not lexical-only. Held-out FN-rate
     falls **0.744 → 0.286** (recall 0.256 → 0.714) with precision held at 1.00
-    and 0 FP on the professional slice.
+    and 0 FP on the professional slice. Those two figures are the 2026-08-04
+    measurement at the moment the classifier shipped; the Axis-A routing
+    additions that followed carried it further, and the current tree measures
+    **FN-rate 0.211 / recall 0.789** on the same 163-row slice (precision 1.00,
+    0 FP on the professional slice). Per-axis numbers and the
+    before/after ledger live in
+    [`WEAPONS_GATE_ADVERSARIAL_EVAL.md`](WEAPONS_GATE_ADVERSARIAL_EVAL.md),
+    which is the figure of record; re-measure with
+    `pytest tests/ethical/test_weapons_gate_adversarial_eval.py`.
   * The FN-budget lane no longer skips. It previously recorded the gap loudly on
     every normal PR and measured nothing; `test_shipped_classifier_beats_the_lexical_floor`
     now pins the capability itself (≤ 0.30 FN-rate) so a weights file that loads

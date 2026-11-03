@@ -36,7 +36,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
@@ -54,6 +54,15 @@ correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
 )
 
 from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
+from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.api.fusion_weights import (
+    calibrated_max_z,
+    chi_norm_z,
+    column_statistics,
+    deseasonalize,
+    null_dof,
+)
+from omni_mercury_engine.utils.logging import ensure_logging_configured
 from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
     ValidationConfig,
@@ -193,6 +202,24 @@ tags_metadata = [
 # patching.
 
 
+def _get_optional_user(
+    api_key_user: User | None = Depends(APIKeyAuth(auto_error=False)),
+    jwt_user: User | None = Depends(JWTAuth(auto_error=False)),
+) -> User | None:
+    """The caller's account when a valid API key or JWT is presented, else ``None``.
+
+    The core detection routes are open, but a caller who does authenticate
+    has the run recorded under their account (export history, agent memory)
+    instead of under ``anonymous``, where their own history filter could not
+    find it.
+    """
+    return api_key_user or jwt_user
+
+
+#: True while :func:`_warmup` drives the detection handlers.
+_WARMUP: contextvars.ContextVar[bool] = contextvars.ContextVar("mercury_api_warmup", default=False)
+
+
 async def _warmup(app_instance: FastAPI) -> None:
     """Drive synthetic detection calls so the first real request is warm.
 
@@ -209,16 +236,13 @@ async def _warmup(app_instance: FastAPI) -> None:
     monkey-patch one of ``detect_univariate`` / ``detect_multivariate``
     / ``health_check`` and assert that ``await _warmup(...)`` raises.
     """
-    # Pydantic model + validator warmup via the univariate path.
-    univariate_data = [float(i % 7) for i in range(16)]
-    univariate_req = UnivariateRequest(data=univariate_data, sensitivity=0.5)
-    await detect_univariate(univariate_req)
-
-    # Multivariate path warms a different numpy code path (L2 norm,
-    # axis-wise mean/std) plus a different validator branch.
-    multivariate_data = [[float(i + j) for j in range(3)] for i in range(8)]
-    multivariate_req = MultivariateRequest(data=multivariate_data, sensitivity=0.5)
-    await detect_multivariate(multivariate_req)
+    # Synthetic warm-up results are not detections: keep them out of the
+    # export history, alert egress and the agent's memory.
+    token = _WARMUP.set(True)
+    try:
+        await _warm_detection_paths()
+    finally:
+        _WARMUP.reset(token)
 
     # Health path warms the middleware chain (correlation-ID,
     # rate-limit bypass, logger format).
@@ -227,9 +251,43 @@ async def _warmup(app_instance: FastAPI) -> None:
     logger.info("API warmup completed; first request will not pay cold-start cost")
 
 
+async def _warm_detection_paths() -> None:
+    """The univariate and multivariate calls :func:`_warmup` drives."""
+    # Pydantic model + validator warmup via the univariate path.
+    univariate_data = [float(i % 7) for i in range(16)]
+    univariate_req = UnivariateRequest(data=univariate_data, sensitivity=0.5)
+    # Called with the request only: the warm-up never records (``_WARMUP`` is
+    # set), and the test double that pins the fail-loud contract has the
+    # handler's one-argument shape.
+    await detect_univariate(univariate_req)
+
+    # Multivariate path warms a different numpy code path (L2 norm,
+    # axis-wise mean/std) plus a different validator branch.
+    multivariate_data = [[float(i + j) for j in range(3)] for i in range(8)]
+    multivariate_req = MultivariateRequest(data=multivariate_data, sensitivity=0.5)
+    await detect_multivariate(multivariate_req)
+
+
+def _serving_log_level() -> int:
+    """The level uvicorn was started with, applied to the engine's own logger.
+
+    ``uvicorn --log-level`` (and ``mercury-agent serve --log-level``) sets the
+    level on uvicorn's loggers only. Reading it back here lets the one flag the
+    deployment guide documents govern the engine's records as well; a host
+    that did not set one gets INFO.
+    """
+    level = logging.getLogger("uvicorn").level
+    return level if level != logging.NOTSET else logging.INFO
+
+
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
-    """ASGI lifespan handler: warmup + maintenance on startup, cleanup on stop.
+    """ASGI lifespan handler: logging, warmup + maintenance on startup, cleanup on stop.
+
+    The engine's logger is configured first (see
+    :func:`omni_mercury_engine.utils.logging.ensure_logging_configured`) so
+    the warm-up, maintenance and mailer records that follow are written;
+    a host that configured logging itself is left alone.
 
     On stop, in-flight SIEM alerts (:mod:`omni_mercury_engine.api.alert_egress`)
     are awaited and the alert sinks closed.
@@ -240,6 +298,7 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     startup, then periodically. It is failure-isolated: a maintenance error
     is logged and never blocks serving.
     """
+    ensure_logging_configured(_serving_log_level())
     await _warmup(app_instance)
     from omni_mercury_engine.api.maintenance import start_maintenance_task
 
@@ -346,51 +405,62 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             request.headers.get("X-Forwarded-For"),
         )
 
-    def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, int]]:
-        """Check if request is within rate limit using unified rate limiter."""
+    def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, str]]:
+        """Check the request against the limiter; returns ``(allowed, response headers)``.
+
+        The headers are the limiter's own (``RateLimitInfo.to_headers``), so a
+        denial carries the ``Retry-After`` the bucket really needs: the time
+        to refill the shortfall at ``requests_per_minute / 60`` tokens per
+        second, never a flat 60. The console paces its Mass Run on that
+        header; with the flat value every burst stalled a full minute even
+        though the next token arrived within a second.
+        """
         info = self._limiter.check(client_id)
-        return info.allowed, {
-            "limit": info.limit,
-            "remaining": info.remaining,
-            "reset": info.reset_at,
-        }
+        return info.allowed, info.to_headers()
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with rate limiting."""
         # Skip rate limiting if disabled, for health checks, docs, and the
         # Prometheus scrape target (scrapers poll on a fixed interval and
         # must not drain the service budget of the scraper's IP).
-        if not self.enabled or request.url.path in [
-            "/health",
-            "/metrics",
-            "/docs",
-            "/redoc",
-            "/openapi.json",
-        ]:
+        #
+        # The frontend's static assets are exempt too. The budget protects
+        # detection compute; a stylesheet or script read is served by the
+        # framework without touching the engine. The Mercury Console page
+        # references 20 same-origin assets, so one page load was 21 requests
+        # against a burst of 20 -- measured: a reload within a minute had its
+        # scripts answered 429, and the page came up broken. The pages
+        # themselves (one request each) and every API route stay metered.
+        if (
+            not self.enabled
+            or request.url.path
+            in [
+                "/health",
+                "/metrics",
+                "/docs",
+                "/redoc",
+                "/openapi.json",
+            ]
+            or request.url.path.startswith(STATIC_PREFIX)
+        ):
             return await call_next(request)
 
         client_id = self._get_client_id(request)
-        allowed, info = self._check_rate_limit(client_id)
+        allowed, headers = self._check_rate_limit(client_id)
 
         if not allowed:
             return Response(
                 content='{"error": "rate_limit_exceeded", "message": "Too many requests. Please retry later."}',
                 status_code=429,
                 media_type="application/json",
-                headers={
-                    "X-RateLimit-Limit": str(info["limit"]),
-                    "X-RateLimit-Remaining": str(info["remaining"]),
-                    "X-RateLimit-Reset": str(info["reset"]),
-                    "Retry-After": "60",
-                },
+                headers=headers,
             )
 
         response = await call_next(request)
 
         # Add rate limit headers to all responses
-        response.headers["X-RateLimit-Limit"] = str(info["limit"])
-        response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
-        response.headers["X-RateLimit-Reset"] = str(info["reset"])
+        for name, value in headers.items():
+            response.headers[name] = value
 
         return response
 
@@ -596,7 +666,17 @@ if _allowed_origins:
         allow_credentials=_cors_allow_credentials,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
-        expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+        # A browser client can only read the response headers listed here. The
+        # console shows the rate budget, honours Retry-After on a 429 and keeps
+        # the correlation id beside every result so an operator can match a row
+        # to the server log; without these two entries it saw neither.
+        expose_headers=[
+            "X-RateLimit-Limit",
+            "X-RateLimit-Remaining",
+            "X-RateLimit-Reset",
+            "Retry-After",
+            "X-Correlation-ID",
+        ],
     )
     logger.info(f"CORS enabled for origins: {len(_allowed_origins)} configured")
 
@@ -637,7 +717,7 @@ async def redoc_html() -> HTMLResponse:
 # never reach a route handler, and a CORS preflight is answered by
 # CORSMiddleware itself -- all three are browser-reachable responses that must
 # still carry the header set.
-from omni_mercury_engine.api.security_headers import SecurityHeadersMiddleware
+from omni_mercury_engine.api.security_headers import STATIC_PREFIX, SecurityHeadersMiddleware
 
 app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type, unused-ignore]
 
@@ -984,6 +1064,41 @@ def _classify_severity(score: float, threshold: float) -> SeverityLevel:
         return SeverityLevel.CRITICAL
 
 
+async def _record_core_detection(
+    method: str,
+    data: list[list[float]],
+    results: dict[str, Any],
+    sensitivity: float | None,
+    user: User | None = None,
+) -> None:
+    """Record a univariate/multivariate detection like every other detection route.
+
+    ``routes/detection.py`` sends each result through ``record_detection``
+    (export history, alert egress, the agent's memory); these two endpoints,
+    the console's default ``detect`` path, recorded nothing, so their
+    detections never reached history, alerts or the agent. They are
+    open, so an unauthenticated run is attributed to ``anonymous`` as the
+    other routes do without a user; a caller presenting a valid API key or
+    JWT is recorded under that account so the run shows in its own history
+    (``isinstance``, because a direct call hands the unresolved ``Depends``
+    marker). Recording must never fail a detection.
+    """
+    if _WARMUP.get():
+        return
+    try:
+        from omni_mercury_engine.api.routes.export import record_detection
+
+        await record_detection(
+            user_id=user.id if isinstance(user, User) else "anonymous",
+            method=method,
+            data=data,
+            results=results,
+            sensitivity=sensitivity if sensitivity is not None else 0.5,
+        )
+    except Exception as exc:  # pragma: no cover - defensive by contract
+        logger.warning("detection record skipped for %s: %s", method, exc)
+
+
 # API Endpoints
 @app.get(
     "/health",
@@ -1040,9 +1155,16 @@ The `method` field selects the statistical algorithm (the algorithm actually
 run is echoed in `summary.algorithm`; the response `method` field is the fixed
 endpoint identity `"univariate"`):
 
-- **`zscore`** (default): z = |x - μ| / σ; flag points where z > threshold, with
-  `threshold = 2.0 + (1.0 - sensitivity) * 3.0` (sensitivity=1.0 → 2.0, most
-  sensitive; sensitivity=0.0 → 5.0, least sensitive).
+- **`zscore`** (default): a robust z, |x - location| / scale; flag points where z > threshold,
+  with `threshold = 2.0 + (1.0 - sensitivity) * 3.0` (sensitivity=1.0 → 2.0,
+  most sensitive; sensitivity=0.0 → 5.0, least sensitive). The location and
+  scale are robust (median; root mean square of the central 90% of absolute
+  deviations), so a single spike cannot inflate the spread it is judged
+  against (masking); a dominant periodic component found by Fisher's test is
+  removed first, so a spike riding a season is scored at its true size; and
+  the z is read against Student-t tails for the scale's degrees of freedom.
+  `summary` reports the location, scale and removed period beside the plain
+  mean and standard deviation.
 - **`iqr`**: score = distance outside the [Q1, Q3] box in IQR units; flag points
   above `threshold = 1.5 + (1.0 - sensitivity) * 3.0`.
 - **`isolation_forest`**: model-based and **not** served by this lightweight
@@ -1080,7 +1202,9 @@ A validation failure (bad input) returns HTTP 400 with structured detail.
         },
     },
 )
-async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
+async def detect_univariate(
+    request: UnivariateRequest, user: User | None = Depends(_get_optional_user)
+) -> UnivariateResponse:
     """Detect anomalies in univariate time-series data.
 
     This endpoint performs statistical anomaly detection on single-variable
@@ -1152,21 +1276,43 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
         method_stats: dict[str, float]
         if algorithm == DetectionMethod.ZSCORE:
             threshold = 2.0 + (1.0 - sensitivity) * 3.0
-            mean = float(np.mean(data_arr))
-            std = float(np.std(data_arr))
-            score_arr = np.abs((data_arr - mean) / (std + 1e-8))
-            method_stats = {"mean": mean, "std": std}
+            # Robust standardisation from the shared kernel (median, scaled
+            # MAD): the mean and standard deviation moved with the anomaly
+            # itself, so a 100 among nine values near 1 scored a z of 3.0.
+            residual, periods = deseasonalize(data_arr.reshape(-1, 1))
+            location, scale = column_statistics(residual)
+            # Read against Student-t tails for the scale's degrees of freedom,
+            # expressed as the normal z the threshold is stated in.
+            score_arr = np.asarray(
+                calibrated_max_z(
+                    np.abs((residual[:, 0] - float(location[0])) / float(scale[0])),
+                    1,
+                    null_dof(data_arr.size),
+                ),
+                dtype=float,
+            )
+            method_stats = {
+                "location": float(location[0]),
+                "scale": float(scale[0]),
+                "seasonal_period": float(periods[0]),
+                "mean": float(np.mean(data_arr)),
+                "std": float(np.std(data_arr)),
+            }
         elif algorithm == DetectionMethod.IQR:
             # Score = distance outside the [Q1, Q3] box in IQR units; the
             # sensitivity-scaled threshold plays the role of the classic 1.5*IQR
             # fence (more sensitive -> lower fence).
             threshold = 1.5 + (1.0 - sensitivity) * 3.0
-            q1 = float(np.percentile(data_arr, 25))
-            q3 = float(np.percentile(data_arr, 75))
+            # The same seasonal residual the z-score reads, so a spike riding
+            # a season is outside the box by its true size.
+            residual_iqr, periods = deseasonalize(data_arr.reshape(-1, 1))
+            values = residual_iqr[:, 0]
+            q1 = float(np.percentile(values, 25))
+            q3 = float(np.percentile(values, 75))
             iqr = q3 - q1
-            outside = np.maximum.reduce([q1 - data_arr, data_arr - q3, np.zeros_like(data_arr)])
+            outside = np.maximum.reduce([q1 - values, values - q3, np.zeros_like(values)])
             score_arr = outside / (iqr + 1e-8)
-            method_stats = {"q1": q1, "q3": q3, "iqr": iqr}
+            method_stats = {"q1": q1, "q3": q3, "iqr": iqr, "seasonal_period": float(periods[0])}
         else:  # ISOLATION_FOREST -- model-based, not served by this endpoint
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1209,6 +1355,13 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
             **method_stats,
         }
 
+        await _record_core_detection(
+            "univariate",
+            [[float(v)] for v in data],
+            {"anomalies": anomalies, "scores": scores, "threshold": threshold, "summary": summary},
+            request.sensitivity,
+            user,
+        )
         return UnivariateResponse(
             anomalies=anomalies,
             scores=scores,
@@ -1281,7 +1434,9 @@ not be detectable in individual features.
         },
     },
 )
-async def detect_multivariate(request: MultivariateRequest) -> MultivariateResponse:
+async def detect_multivariate(
+    request: MultivariateRequest, user: User | None = Depends(_get_optional_user)
+) -> MultivariateResponse:
     """Detect anomalies in multivariate time-series data.
 
     This endpoint performs statistical anomaly detection on multi-dimensional
@@ -1349,13 +1504,26 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
         # Calculate threshold based on sensitivity
         threshold = 2.0 + (1.0 - sensitivity) * 3.0
 
-        # Compute multivariate z-scores
-        mean = np.mean(data, axis=0)
-        std = np.std(data, axis=0) + 1e-8
-        normalized = (data - mean) / std
+        # Standardise per feature with the shared kernel's robust location and
+        # scale (median, scaled MAD), so the anomaly being scored does not
+        # inflate the spread it is judged against.
+        # A dominant periodic component is removed first (``deseasonalize``),
+        # so a spike riding a season is scored at its true size.
+        residual, seasonal_periods = deseasonalize(data)
+        mean, std = column_statistics(residual)
+        normalized = (residual - mean) / std
 
-        # Combined score using L2 norm
-        z_scores = np.linalg.norm(normalized, axis=1)
+        # Combined score: the L2 norm of the standardised row, read as the z
+        # whose two-sided tail equals the norm's chi tail with one degree of
+        # freedom per feature. The raw norm grows with the width (it averages
+        # sqrt(n_features) under the null), so against the fixed threshold
+        # every row of a 32-feature noise matrix was an anomaly; the
+        # calibrated score keeps the threshold's false-positive rate at any
+        # width and equals |z| for one feature.
+        z_scores = np.asarray(
+            chi_norm_z(np.linalg.norm(normalized, axis=1), n_features, 1, null_dof(n_samples)),
+            dtype=float,
+        )
 
         # Per-feature contributions - use sanitized feature names
         sanitized_features = validation_result.sanitized_data.get("features")
@@ -1376,12 +1544,22 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
             "anomaly_count": anomaly_count,
             "anomaly_rate": anomaly_count / n_samples if n_samples > 0 else 0,
             "max_score": float(max(scores)) if scores else 0,
+            # Periods (rows) of the periodic component removed per feature; 0
+            # where none was found.
+            "seasonal_periods": seasonal_periods,
             "feature_importance": {
                 name: float(np.mean(np.abs(normalized[:, i])))
                 for i, name in enumerate(feature_names)
             },
         }
 
+        await _record_core_detection(
+            "multivariate",
+            [list(map(float, row)) for row in data],
+            {"anomalies": anomalies, "scores": scores, "threshold": threshold, "summary": summary},
+            request.sensitivity,
+            user,
+        )
         return MultivariateResponse(
             anomalies=anomalies,
             scores=scores,
@@ -1540,6 +1718,17 @@ try:
     logger.info("Source offer route registered")
 except ImportError as e:
     logger.warning(f"Source offer route not available: {e}")
+
+
+# Include the catalog (always on: read-only, unauthenticated declarations of
+# what every domain and detector is and whose knowledge it carries)
+try:
+    from omni_mercury_engine.api.routes.catalog import router as catalog_router
+
+    app.include_router(catalog_router)
+    logger.info("Catalog routes registered")
+except ImportError as e:
+    logger.warning(f"Catalog routes not available: {e}")
 
 
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left

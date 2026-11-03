@@ -23,12 +23,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from scipy import ndimage
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 
 #: Smallest side length any analysis accepts; below this, patch statistics are meaningless.
 MIN_SIDE = 32

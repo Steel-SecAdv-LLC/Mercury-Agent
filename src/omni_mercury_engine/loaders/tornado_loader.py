@@ -149,6 +149,13 @@ class TornadoLoader(BaseDomainLoader):
         "hour",
     ]
 
+    #: De-leak: labels are ``mag >= 3`` on the raw magnitude this column engineers.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = ("ef_scale",)
+    LABEL_FEATURE_DISJOINT: bool = True
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------

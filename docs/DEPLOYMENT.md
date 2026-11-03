@@ -320,6 +320,9 @@ See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
 |----------|---------|-------------|
 | `MERCURY_AGENT_ENV` | `development` | Set to `production` for strict mode |
 | `MERCURY_HOST` | `127.0.0.1` | Bind address for `mercury-agent serve`; set `0.0.0.0` for all interfaces |
+| `MERCURY_AGENT_MEMORY_PATH` | unset | SQLite file for the agent's detection memory (the runs behind "what was the latest anomaly?" and "how many anomalies today?"). Unset, memory is per process and empties on restart; set, the newest 1,000 runs persist and are shared by every worker on the path, and the proactive alert stream (`GET /api/v1/voice/alerts`, server-sent events) reports runs recorded by any worker rather than only the one serving the stream. Listed by `mercury-agent decouple status` and removed by `purge-work`. |
+| `MERCURY_PROVIDER_STORE_PATH` | `$XDG_STATE_HOME/mercury-agent/providers.json` | The provider store: language-model keys, endpoints and models an administrator connects from the console (INTERFACES → AI vendors) or with `PUT /api/v1/voice/backends/{provider}`, and the provider the voice generates with (`POST /api/v1/voice/backends/select`), kept across restarts. Keys are sealed with the engine's at-rest key (`MERCURY_DATA_ENC_KEY` or `AMA_MASTER_SEED`); without a stable one the store refuses to keep a key and says so, while endpoints and models are still stored. A stored value wins over the provider's environment variable; `GET /api/v1/voice/backends` says which is in effect. Rotating the at-rest key re-seals the stored keys in the same run as the TOTP secrets (`scripts/reseal_totp_secrets.py`; see `docs/PLATFORM_HARDENING.md`). Listed by `decouple status`, removed by `purge-work`. |
+| `<PROVIDER>_API_KEY`, `MERCURY_<PROVIDER>_MODEL`, endpoint variables | unset | The environment route to the same twenty-one providers (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY`, `COHERE_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `OPENROUTER_API_KEY`, `PERPLEXITY_API_KEY`, `HUGGINGFACE_API_KEY`, `CURSOR_API_KEY`, `AZURE_OPENAI_API_KEY` with `AZURE_OPENAI_ENDPOINT`, `OPENAI_COMPATIBLE_BASE_URL`; local servers `LMSTUDIO_BASE_URL`, `VLLM_BASE_URL`, `LLAMACPP_BASE_URL` and `MERCURY_OLLAMA_HOST` need no key and stay on the loopback). No model ships by default: name one per provider with `MERCURY_<PROVIDER>_MODEL`. See `.env.example`. |
 
 Port and worker count are **CLI flags**, not environment variables: `mercury-agent serve --port <n> --workers <n>` (defaults 8000 / 1). The shipped container image bypasses the CLI and serves uvicorn on a fixed `0.0.0.0:8000` via its `CMD` (single process). There are no `OMNI_API_HOST`/`OMNI_API_PORT`/`OMNI_API_WORKERS` hooks in the application.
 
@@ -343,11 +346,20 @@ These configure the engine / streaming-worker tier. CLI flags
 
 ### Logging
 
-Log level is a **CLI flag** on the serve command, not an environment variable:
-`mercury-agent serve --log-level <debug|info|warning|error>` (default `info`).
-Structured-vs-text formatting is selected by the logging setup in
-`omni_mercury_engine.utils.logging`; there are no `OMNI_LOG_LEVEL`/
-`OMNI_LOG_FORMAT` environment hooks in the application.
+The API configures the engine's own logger at start-up when the host process
+has not (`omni_mercury_engine.utils.logging.ensure_logging_configured`, called
+from the ASGI lifespan once per worker). Without it, uvicorn configures only
+its own loggers and nothing the engine logs below WARNING is written: the
+warm-up record, the maintenance sweep, and the development mailer's record of
+where it filed each message.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MERCURY_LOG_LEVEL` | uvicorn's `--log-level` (`info`) | Level for the engine's records: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. `mercury-agent serve --log-level <level>` sets the same level without this variable |
+| `MERCURY_LOG_FORMAT` | `text` | `json` for structured records (one object per line, PII redacted); `text` is human-readable and coloured only when stdout is a terminal |
+
+A host that configures logging itself, with `configure_logging(...)` or a
+handler on the root logger, is left alone.
 
 ### Rate Limiting
 
@@ -449,7 +461,9 @@ streaming-worker tier serves its own metrics on `:9090`, see the streaming
 section above). The `/metrics` endpoint merges the health gauges
 (`omni_mercury_up`, component status/latency) with the `prometheus_client`
 default registry, so a single scrape target covers both. This requires the
-`prometheus-client` dependency from the `[api]` extra (installed by `[all]`);
+`prometheus-client` dependency from the `[api]` extra (installed by `[all]`; the
+`[api]` extra also carries `torch>=2.2.0`, so a server installed with it serves the
+neural detection routes without a second install);
 without it the application metrics no-op and `/metrics` serves only the health
 gauges.
 

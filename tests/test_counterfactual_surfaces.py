@@ -11,15 +11,15 @@ own guarantee — see ``explainability/detection_counterfactuals.py``).
 from __future__ import annotations
 
 import json
-import os
 from typing import TYPE_CHECKING, Any
-
-# Disable rate limiting before the api modules import (middleware reads the
-# env var at module-load time; same pattern as tests/api/).
-os.environ["OMNI_RATE_LIMIT_ENABLED"] = "false"
 
 import numpy as np
 import pytest
+
+# The rate limiter is switched off per test by the ``rate_limit_off`` fixture
+# (tests/conftest.py); setting the variable at import leaked it into every
+# later test in the process.
+pytestmark = pytest.mark.usefixtures("rate_limit_off")
 
 if TYPE_CHECKING:
     from pathlib import Path

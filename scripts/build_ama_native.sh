@@ -21,31 +21,35 @@
 # ``AMA_REF`` in lockstep with that action and the pyproject ``ama-cryptography``
 # git pin.
 #
+# Prebuilt first, source second. The cmake build is the slow phase of every
+# install, so the script first asks ``scripts/fetch_ama_prebuilt.sh`` for the
+# release archive built for this OS and CPU (the ``ama_cryptography`` wheels
+# for every supported Python, each bundling the native library whose digest
+# AMA signs into it, verified against the release's SHA256SUMS). When the
+# archive has a wheel for this interpreter and its native backend loads here,
+# the install is a download; when no archive or no matching wheel exists, the
+# clone-and-cmake path below runs unchanged. A verification failure of a
+# downloaded archive stops the script: it is never a reason to build silently.
+#
 # After installing the Python package the freshly built ``libama_cryptography.so``
 # is co-located inside the installed ``ama_cryptography`` package directory, so
 # the backend loads from the module's own directory and needs no LD_LIBRARY_PATH
 # at runtime (``ama_cryptography._find_native_library`` searches there first).
 #
 # Environment overrides:
-#   AMA_REF        git tag/ref to build (default: v5.0.0)
-#   AMA_REPO       repository URL (default: upstream Steel-SecAdv-LLC/AMA-Cryptography)
-#   AMA_BUILD_DIR  scratch checkout/build directory (default: /tmp/ama-cryptography)
+#   AMA_REF                git tag/ref to build (default: v5.0.0)
+#   AMA_REPO               repository URL (default: upstream Steel-SecAdv-LLC/AMA-Cryptography)
+#   AMA_BUILD_DIR          scratch checkout/build directory (default: /tmp/ama-cryptography)
+#   AMA_PREBUILT           0 skips the prebuilt download and builds from source
+#   AMA_PREBUILT_BASE_URL  where the prebuilt archives are (see fetch_ama_prebuilt.sh)
 set -euo pipefail
 
-# Preflight: name every missing prerequisite at once instead of failing midway
-# with cmake's or git's own error. cmake itself is pip-installed below.
-missing=""
-command -v git >/dev/null 2>&1 || missing="${missing} git"
-command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1 \
-  || command -v clang >/dev/null 2>&1 || missing="${missing} a-C-compiler(gcc/clang)"
-command -v python >/dev/null 2>&1 || missing="${missing} python"
-if [ -n "${missing}" ]; then
-  echo "ERROR: cannot build the AMA native PQC backend; install:${missing}" >&2
-  echo "  Debian/Ubuntu: apt-get install git build-essential" >&2
-  echo "  RHEL/Fedora:   dnf install git gcc gcc-c++ make" >&2
-  echo "  macOS:         xcode-select --install" >&2
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+command -v python >/dev/null 2>&1 || {
+  echo "ERROR: cannot install the AMA native PQC backend; python is not on PATH" >&2
   exit 1
-fi
+}
 
 # Core count without Linux-only nproc (macOS has sysctl; POSIX has getconf).
 JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
@@ -53,6 +57,100 @@ JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSO
 AMA_REF="${AMA_REF:-v5.0.0}"
 AMA_REPO="${AMA_REPO:-https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git}"
 AMA_BUILD_DIR="${AMA_BUILD_DIR:-/tmp/ama-cryptography}"
+
+# Install into the active interpreter: pip when it has one, otherwise uv's pip
+# front end (an environment ``uv sync`` created ships no pip).
+py_install() {
+  if python -m pip --version >/dev/null 2>&1; then
+    python -m pip install "$@"
+  elif command -v uv >/dev/null 2>&1; then
+    uv pip install --python "$(command -v python)" "$@"
+  else
+    echo "ERROR: neither pip nor uv can install into $(command -v python)" >&2
+    exit 1
+  fi
+}
+
+# Install the ama_cryptography wheel in $1 that matches this interpreter
+# (``--no-index --find-links`` lets the installer pick by tag; AMA tags each
+# wheel for the Python that built it). Fails when no wheel fits.
+install_prebuilt_wheel() {
+  local version="${AMA_REF#v}"
+  if python -m pip --version >/dev/null 2>&1; then
+    python -m pip install --no-index --find-links "$1" --force-reinstall --no-deps \
+      "ama-cryptography==${version}"
+  else
+    uv pip install --python "$(command -v python)" --no-index --find-links "$1" \
+      --reinstall --no-deps "ama-cryptography==${version}"
+  fi
+}
+
+# Co-locate the native shared object with the installed package so it loads
+# without LD_LIBRARY_PATH (survives `COPY --from=builder /opt/venv` into the
+# runtime image, and read-only-rootfs containers). Searches $1 recursively.
+# .so on Linux, .dylib on macOS, .dll on Windows; plain loop instead of
+# mapfile so the script also runs under macOS's stock bash 3.2.
+colocate_native_library() {
+  local pkg_dir so found=0
+  pkg_dir="$(python -c 'import ama_cryptography, os; print(os.path.dirname(ama_cryptography.__file__))')"
+  for so in $(find "$1" \( -name 'libama_cryptography.so*' -o -name 'libama_cryptography*.dylib' -o -name '*ama_cryptography*.dll' \) -print); do
+    cp -P -p "${so}" "${pkg_dir}/"
+    echo "    co-located $(basename "${so}") -> ${pkg_dir}/"
+    found=1
+  done
+  [ "${found}" -eq 1 ]
+}
+
+# Fail loud unless all three mandatory PQC algorithms load via the native backend
+# (matches the engine's import-time gate and the build-ama-cryptography action).
+# Importing ``ama_cryptography`` also runs its own integrity check of the native
+# library against the digest signed into the installed package.
+verify_native_backend() {
+  python - <<'PY'
+from ama_cryptography.pqc_backends import get_pqc_backend_info
+
+info = get_pqc_backend_info()
+required = ("dilithium_available", "kyber_available", "sphincs_available")
+missing = [name for name in required if not info.get(name)]
+if missing:
+    raise SystemExit(f"AMA native PQC backend incomplete after install; missing {missing}: {info!r}")
+print("==> AMA native PQC backend verified (ML-DSA-65 + Kyber-1024 + SPHINCS+)")
+PY
+}
+
+# ---------------------------------------------------------------------------
+# Prebuilt release archive: the download replaces the clone and the cmake build.
+# ---------------------------------------------------------------------------
+if prebuilt_dir="$(bash "${SCRIPT_DIR}/fetch_ama_prebuilt.sh" "${AMA_BUILD_DIR}-prebuilt")"; then
+  echo "==> Installing AMA Cryptography ${AMA_REF} from the prebuilt archive"
+  # The wheel bundles the native library, so no co-location is needed here.
+  if install_prebuilt_wheel "${prebuilt_dir}" && verify_native_backend; then
+    exit 0
+  fi
+  echo "==> the prebuilt archive has no wheel for $(python -c 'import sys; print(sys.version.split()[0])') or its library did not load here; building from source" >&2
+else
+  rc=$?
+  # 2 = no archive for this platform (fall through to the source build);
+  # anything else is a failed verification and must stop here.
+  [ "${rc}" -eq 2 ] || exit "${rc}"
+fi
+
+# ---------------------------------------------------------------------------
+# Source build.
+# ---------------------------------------------------------------------------
+# Preflight: name every missing prerequisite at once instead of failing midway
+# with cmake's or git's own error. cmake itself is pip-installed below.
+missing=""
+command -v git >/dev/null 2>&1 || missing="${missing} git"
+command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1 \
+  || command -v clang >/dev/null 2>&1 || missing="${missing} a-C-compiler(gcc/clang)"
+if [ -n "${missing}" ]; then
+  echo "ERROR: cannot build the AMA native PQC backend; install:${missing}" >&2
+  echo "  Debian/Ubuntu: apt-get install git build-essential" >&2
+  echo "  RHEL/Fedora:   dnf install git gcc gcc-c++ make" >&2
+  echo "  macOS:         xcode-select --install" >&2
+  exit 1
+fi
 
 echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 
@@ -69,7 +167,8 @@ echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 # what CI builds with, this script is what the Dockerfile and the session setup
 # build with, and a floor raised in only one of them yields an image that fails
 # AMA's preflight on exactly the lanes CI does not cover.
-python -m pip install --upgrade "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
+py_install --upgrade \
+  "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
 
 rm -rf "${AMA_BUILD_DIR}"
 git clone --branch "${AMA_REF}" --depth 1 "${AMA_REPO}" "${AMA_BUILD_DIR}"
@@ -91,35 +190,12 @@ cmake --build "${AMA_BUILD_DIR}/build" -j "${JOBS}"
 # isolated (AMA has no runtime deps); --force-reinstall guarantees the installed
 # Python package is the one built from this exact checkout (ABI-matched to the
 # .so co-located below) even if a future change pre-installs it.
-( cd "${AMA_BUILD_DIR}" && AMA_NO_CYTHON=1 python -m pip install \
-    --no-build-isolation --force-reinstall --no-deps . )
+export AMA_NO_CYTHON=1
+( cd "${AMA_BUILD_DIR}" && py_install --no-build-isolation --force-reinstall --no-deps . )
 
-# Co-locate the native shared object with the installed package so it loads
-# without LD_LIBRARY_PATH (survives `COPY --from=builder /opt/venv` into the
-# runtime image, and read-only-rootfs containers).
-AMA_PKG_DIR="$(python -c 'import ama_cryptography, os; print(os.path.dirname(ama_cryptography.__file__))')"
-# .so on Linux, .dylib on macOS; plain loop instead of mapfile so the script
-# also runs under macOS's stock bash 3.2.
-found=0
-for so in $(find "${AMA_BUILD_DIR}/build" \( -name 'libama_cryptography.so*' -o -name 'libama_cryptography*.dylib' \) -print); do
-  cp -P -p "${so}" "${AMA_PKG_DIR}/"
-  echo "    co-located $(basename "${so}") -> ${AMA_PKG_DIR}/"
-  found=1
-done
-if [ "${found}" -eq 0 ]; then
+if ! colocate_native_library "${AMA_BUILD_DIR}/build"; then
   echo "ERROR: AMA build produced no libama_cryptography shared library under ${AMA_BUILD_DIR}/build" >&2
   exit 1
 fi
 
-# Fail loud unless all three mandatory PQC algorithms load via the native backend
-# (matches the engine's import-time gate and the build-ama-cryptography action).
-python - <<'PY'
-from ama_cryptography.pqc_backends import get_pqc_backend_info
-
-info = get_pqc_backend_info()
-required = ("dilithium_available", "kyber_available", "sphincs_available")
-missing = [name for name in required if not info.get(name)]
-if missing:
-    raise SystemExit(f"AMA native PQC backend incomplete after build; missing {missing}: {info!r}")
-print("==> AMA native PQC backend verified (ML-DSA-65 + Kyber-1024 + SPHINCS+)")
-PY
+verify_native_backend

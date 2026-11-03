@@ -36,9 +36,30 @@ pytest.importorskip("fastapi", reason="fastapi (optional '[api]' extra) is requi
 
 from omni_mercury_engine.api import quota
 from omni_mercury_engine.api.routes import accounts
+from tests.conftest import switch_rate_limiter_off
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+@pytest.fixture(autouse=True)
+def _global_rate_limiter_off_unless_marked(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Switch the global ``RateLimitMiddleware`` off for every API test that does not test it.
+
+    The limiter's token bucket lives in the process and is shared by every
+    test that drives the one ``server.app``; a module's requests spent budget
+    that a later module in the same worker then found exhausted, and that
+    module answered 429 before its own assertions ran (the TLP export and
+    frontend-off tests on CI's worker ordering, reproduced locally by draining
+    the bucket ahead of them). A route test is not a limiter test: the
+    middleware is switched off for the test's duration and restored afterwards
+    (:func:`tests.conftest.switch_rate_limiter_off`), and the tests that assert
+    on the limiter keep it live with ``@pytest.mark.rate_limited``.
+    """
+    if request.node.get_closest_marker("rate_limited") is None:
+        switch_rate_limiter_off(monkeypatch)
 
 
 @pytest.fixture(autouse=True)

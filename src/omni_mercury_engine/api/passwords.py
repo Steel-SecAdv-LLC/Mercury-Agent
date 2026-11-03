@@ -29,9 +29,13 @@ password is never stored or logged.
 from __future__ import annotations
 
 import hashlib
-import hmac
 import os
 import secrets
+
+from omni_mercury_engine.security.ama_hmac import (
+    ama_constant_time_compare,
+    ama_pbkdf2_hmac_sha256,
+)
 
 __all__ = [
     "DEFAULT_ITERATIONS",
@@ -140,7 +144,7 @@ def _verify_scrypt(password: str, fields: list[str]) -> bool:
         )
     except (ValueError, MemoryError):
         return False
-    return hmac.compare_digest(candidate, expected)
+    return ama_constant_time_compare(candidate, expected)
 
 
 def _verify_pbkdf2(password: str, fields: list[str]) -> bool:
@@ -153,8 +157,17 @@ def _verify_pbkdf2(password: str, fields: list[str]) -> bool:
         return False
     if not (1 <= iterations <= 10_000_000):
         return False
-    candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
-    return hmac.compare_digest(candidate, expected)
+    # A legacy row holds the full 32-byte digest. Deriving to the stored length
+    # would let a truncated row (one byte: 1-in-256 odds) verify a wrong
+    # password, so the length is fixed and any other stored length is refused.
+    if len(expected) != _DERIVED_KEY_BYTES:
+        return False
+    # AMA's native PBKDF2-HMAC-SHA-256 (SP 800-132): byte-identical to the
+    # stdlib derivation it replaced, which ran inside OpenSSL.
+    candidate = ama_pbkdf2_hmac_sha256(
+        password.encode("utf-8"), salt, iterations, _DERIVED_KEY_BYTES
+    )
+    return ama_constant_time_compare(candidate, expected)
 
 
 def verify_password(password: str, stored: str) -> bool:

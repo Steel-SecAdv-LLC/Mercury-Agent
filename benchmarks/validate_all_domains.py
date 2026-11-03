@@ -97,7 +97,7 @@ def _evaluate_event(
     """
     try:
         raw_data = loader.fetch_historical(event_id)
-        X = loader.engineer_features(raw_data)
+        X = loader.engineer_scored_features(raw_data)
         y = loader.get_ground_truth(event_id)
     except ConnectionError as exc:
         return {"status": f"NETWORK_ERROR: {exc}", "auc": None, "n": 0}
@@ -197,7 +197,7 @@ def _evaluate_domain_mondrian(
         eid = event_info["event_id"]
         try:
             raw_data = loader.fetch_historical(eid)
-            X = loader.engineer_features(raw_data)
+            X = loader.engineer_scored_features(raw_data)
             y = loader.get_ground_truth(eid)
         except Exception as exc:
             logger.warning("Mondrian: skipping event '%s': %s", eid, exc)

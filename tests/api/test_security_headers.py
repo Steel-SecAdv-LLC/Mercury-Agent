@@ -26,6 +26,7 @@ from fastapi.testclient import TestClient
 from omni_mercury_engine.api.frontend import register_frontend
 from omni_mercury_engine.api.security_headers import (
     API_CSP,
+    CONSOLE_CSP,
     DOCS_CSP,
     FRONTEND_CSP,
     SecurityHeadersMiddleware,
@@ -101,6 +102,19 @@ class TestPolicySelection:
     def test_static_assets_get_the_frontend_policy(self, client: TestClient) -> None:
         assert client.get("/static/mercury.css").headers["content-security-policy"] == FRONTEND_CSP
 
+    def test_console_page_alone_gets_data_images(self, client: TestClient) -> None:
+        """``/console`` previews the hazard PNG as a data: URL; nothing else widens."""
+        csp = client.get("/console").headers["content-security-policy"]
+        assert csp == CONSOLE_CSP
+        assert "img-src 'self' data:;" in csp
+        # Every other directive is the frontend policy's, byte for byte.
+        assert csp.replace("img-src 'self' data:;", "img-src 'self';") == FRONTEND_CSP
+        assert "unsafe-inline" not in csp and "unsafe-eval" not in csp
+
+    @pytest.mark.parametrize("path", ["/", "/login", "/dashboard", "/static/console/app.js"])
+    def test_console_widening_reaches_no_other_path(self, client: TestClient, path: str) -> None:
+        assert client.get(path).headers["content-security-policy"] == FRONTEND_CSP
+
     @pytest.mark.parametrize("path", ["/docs", "/redoc"])
     def test_only_the_viewers_get_the_widened_policy(self, client: TestClient, path: str) -> None:
         assert client.get(path).headers["content-security-policy"] == DOCS_CSP
@@ -119,7 +133,7 @@ class TestPolicySelection:
         assert "https://cdn.jsdelivr.net" in DOCS_CSP
 
     def test_only_the_docs_policy_carries_a_third_party_origin(self) -> None:
-        for policy in (API_CSP, FRONTEND_CSP):
+        for policy in (API_CSP, FRONTEND_CSP, CONSOLE_CSP):
             assert "http" not in policy
 
     @pytest.mark.parametrize("path", ["/docs", "/redoc"])

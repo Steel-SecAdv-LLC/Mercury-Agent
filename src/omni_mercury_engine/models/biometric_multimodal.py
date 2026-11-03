@@ -29,6 +29,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -88,17 +89,14 @@ except Exception as _face_recognition_exc:
         _face_recognition_exc,
     )
 
-CV2_AVAILABLE = False
-try:
-    import cv2
-
-    CV2_AVAILABLE = True
-except Exception as _cv2_exc:
-    logger.debug(
-        "OpenCV not available (%s: %s), age progression limited",
-        type(_cv2_exc).__name__,
-        _cv2_exc,
-    )
+# OpenCV is a core dependency (pyproject ``[project] dependencies``), not an
+# optional extra, so this is a hard import. It was optional, and the face path
+# paid for it twice: ``apply_polynomial_age_filter`` returned its input
+# unchanged, and ``detect_and_align_face`` reported "Face detection failed"
+# when the truth was that the decoder was missing. OpenCV supplies the
+# decoding, colour conversion, resize and blur this module needs, and -- on
+# the 4.x line -- the Haar cascade that detects a face without PyTorch.
+import cv2
 
 FACENET_AVAILABLE = False
 try:
@@ -586,6 +584,126 @@ class MultimodalBiometricEngine:
         return float(proximity)
 
 
+class FaceDetectorUnavailableError(RuntimeError):
+    """No face detector is installed, so no image was ever examined.
+
+    Distinct from ``detect_and_align_face`` returning ``None``, which means a
+    detector ran and found no face. Keeping the two apart is what stops
+    "Face detection failed" from being reported for a missing dependency --
+    the misdirection the removed ``CV2_AVAILABLE`` guard used to produce.
+    """
+
+
+#: Directory an operator can point at the Haar cascade XMLs when the installed
+#: OpenCV does not bundle them (see :func:`haarcascade_directories`).
+HAARCASCADE_DIR_ENV = "MERCURY_HAARCASCADE_DIR"
+#: The frontal-face cascade the Haar fallback loads.
+FRONTAL_FACE_CASCADE = "haarcascade_frontalface_default.xml"
+
+
+def haarcascade_directories() -> list[str]:
+    """Directories searched, in order, for the Haar cascade XMLs.
+
+    1. ``MERCURY_HAARCASCADE_DIR`` when set.
+    2. The cascades bundled with OpenCV (``cv2.data.haarcascades``): present
+       on the 4.x wheels and on 5.x ``opencv-contrib`` builds.
+    3. ``${DEEPFACE_HOME:-$HOME}/.deepface/weights``, where
+       ``docs/INSTALLATION.md`` has operators download the two pinned cascades
+       that DeepFace's detector uses as well.
+    """
+    dirs: list[str] = []
+    configured = os.environ.get(HAARCASCADE_DIR_ENV, "").strip()
+    if configured:
+        dirs.append(str(Path(configured).expanduser()))
+    bundled = getattr(getattr(cv2, "data", None), "haarcascades", None)
+    if isinstance(bundled, str) and bundled:
+        dirs.append(bundled)
+    deepface_home = os.environ.get("DEEPFACE_HOME", "").strip()
+    home = Path(deepface_home) if deepface_home else Path.home()
+    dirs.append(str(home / ".deepface" / "weights"))
+    return dirs
+
+
+def find_haarcascade(name: str = FRONTAL_FACE_CASCADE) -> str | None:
+    """Path of the first cascade XML called ``name`` in :func:`haarcascade_directories`."""
+    for directory in haarcascade_directories():
+        candidate = Path(directory) / name
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def face_detector_requirement() -> str:
+    """Why no face detector is available, and what supplies one.
+
+    Mercury has two detectors: MTCNN from ``facenet_pytorch``, and OpenCV's
+    Haar cascade. Every remedy named here really supplies one:
+
+    * MTCNN needs the ``facenet-pytorch`` package, which no Mercury extra
+      declares, together with PyTorch (the ``[ml]`` extra). Installing
+      ``[ml]`` alone leaves MTCNN unavailable, so the message no longer
+      recommends it on its own.
+    * The Haar cascade needs ``cv2.CascadeClassifier`` *and* a cascade XML.
+      OpenCV 5.0 moved the classifier and the bundled XMLs into
+      ``opencv_contrib``, so the ``-headless`` 5.x wheel the core pin admits
+      has neither; on that build supplying XMLs cannot help, and the remedy is
+      an OpenCV that carries the classifier (the 4.x line, or a 5.x
+      ``opencv-contrib`` wheel). When the classifier exists but no XML is
+      found, the XML is the remedy, in any directory of
+      :func:`haarcascade_directories`.
+
+    Saying which applies beats returning ``None`` and letting the caller
+    report "no face in the image".
+    """
+    cascade = getattr(cv2, "CascadeClassifier", None) is not None
+    xml = find_haarcascade()
+    remedies = [
+        "install the facenet-pytorch package together with PyTorch "
+        '(pip install facenet-pytorch "mercury-agent-global[ml]"; the [ml] '
+        "extra alone supplies PyTorch, not MTCNN)"
+    ]
+    if not cascade:
+        remedies.append(
+            f"this OpenCV ({cv2.__version__}) has no CascadeClassifier, so "
+            "cascade XMLs cannot help; install an OpenCV that carries it "
+            '(pip install "opencv-python-headless<5", or a 5.x '
+            "opencv-contrib-python-headless wheel)"
+        )
+    elif xml is None:
+        remedies.append(
+            f"this OpenCV ({cv2.__version__}) has CascadeClassifier but no "
+            f"{FRONTAL_FACE_CASCADE} in {', '.join(haarcascade_directories())}; "
+            f"place the XML in one of those directories or point "
+            f"{HAARCASCADE_DIR_ENV} at it (docs/INSTALLATION.md gives the pinned "
+            "download and checksums)"
+        )
+    else:
+        remedies.append(
+            f"the cascade at {xml} did not load (CascadeClassifier is empty); "
+            "replace it with the pinned file from docs/INSTALLATION.md"
+        )
+    return (
+        "no face detector is available in this install (facenet_pytorch "
+        f"importable={FACENET_AVAILABLE}, PyTorch={TORCH_AVAILABLE}, OpenCV "
+        f"{cv2.__version__} CascadeClassifier={cascade}, cascade XML="
+        f"{xml or 'none'}). Remedies: " + "; or ".join(remedies) + "."
+    )
+
+
+def _gaussian_blur_5x5(image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Blur with OpenCV's 5x5 ``sigma=0`` kernel (sigma 1.1, derived by OpenCV).
+
+    One implementation, because OpenCV is core. The previous arrangement --
+    skip the blur, and with it the whole filter, when OpenCV was absent -- made
+    an unprocessed face pass for an age-progressed one. A SciPy stand-in would
+    cure the silence but leave the pixels an operator gets depending on which
+    wheels they installed, which is the wrong property for a face a search may
+    be run against.
+    """
+    work = np.clip(image, 0, 255).astype(np.uint8)
+    return np.asarray(cv2.GaussianBlur(work, (5, 5), 0)).astype(float)
+
+
 class AgeProgressionEngine:
     """Age-progression engine: published growth geometry, deterministic texture, audited output.
 
@@ -650,10 +768,6 @@ class AgeProgressionEngine:
         Returns:
             Aligned face as numpy array (160x160) or None
         """
-        if not CV2_AVAILABLE:
-            logger.warning("OpenCV not available for face detection")
-            return None
-
         try:
             image = cv2.imread(image_path)
             if image is None:
@@ -678,16 +792,13 @@ class AgeProgressionEngine:
             # skip the fallback cleanly when unavailable — the DNN detector above
             # stays the primary path.
             cascade_factory = getattr(cv2, "CascadeClassifier", None)
-            # ``cv2.data`` can exist while ``cv2.data.haarcascades`` does not
-            # (the 5.x headless/contrib split), so feature-detect the bundled
-            # cascade directory itself, not just the ``data`` module.
-            haarcascades_dir = getattr(getattr(cv2, "data", None), "haarcascades", None)
-            if cascade_factory is not None and haarcascades_dir is not None:
-                # ``os.path.join`` normalizes the separator: ``haarcascades_dir``
-                # is not guaranteed to carry a trailing slash across builds.
-                face_cascade = cascade_factory(
-                    os.path.join(haarcascades_dir, "haarcascade_frontalface_default.xml")
-                )
+            # The XML may be bundled with OpenCV, placed where the install
+            # guide says, or named by ``MERCURY_HAARCASCADE_DIR``; the 5.x
+            # headless/contrib split means ``cv2.data`` can exist with no
+            # cascades in it, so the file itself is what is looked for.
+            cascade_xml = find_haarcascade()
+            if cascade_factory is not None and cascade_xml is not None:
+                face_cascade = cascade_factory(cascade_xml)
                 # A missing/unreadable cascade XML yields an empty classifier
                 # rather than raising; run the fallback only when it loaded.
                 if not face_cascade.empty():
@@ -699,9 +810,23 @@ class AgeProgressionEngine:
                         face = image_rgb[y : y + h, x : x + w]
                         face = cv2.resize(face, (160, 160))
                         return face
+                    return None
+
+            # Neither detector exists in this install, so nothing looked at the
+            # image. Returning ``None`` here would be read by ``progress_age``
+            # as "Face detection failed" -- the same wrong reason the removed
+            # ``CV2_AVAILABLE`` guard used to give. ``None`` is reserved for
+            # "a detector ran and found no face"; this is a configuration
+            # statement, and ``FaceDetectorUnavailableError`` carries it past
+            # the handler below so the caller reports the real cause.
+            if self.face_detector is None or not TORCH_AVAILABLE:
+                raise FaceDetectorUnavailableError(face_detector_requirement())
 
             return None
 
+        except FaceDetectorUnavailableError:
+            # A configuration fact, not a detection outcome: let it through.
+            raise
         except Exception as e:
             logger.error(f"Face detection error: {e}")
             return None
@@ -749,43 +874,34 @@ class AgeProgressionEngine:
         Returns:
             Age-progressed face image
         """
-        if not CV2_AVAILABLE:
-            return face
+        aged = face.astype(float)
 
-        try:
-            aged = face.astype(float)
+        if age_delta > 0:
+            brightness_adj = 1.0 - (0.02 * age_delta)
+            contrast_adj = 1.0 + (0.01 * age_delta)
 
-            if age_delta > 0:
-                brightness_adj = 1.0 - (0.02 * age_delta)
-                contrast_adj = 1.0 + (0.01 * age_delta)
+            aged = aged * brightness_adj
+            aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
 
-                aged = aged * brightness_adj
-                aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
+            wrinkle_intensity = min(age_delta * 0.5, 20)
+            noise = self._rng.standard_normal(face.shape) * wrinkle_intensity
+            aged = aged + noise
 
-                wrinkle_intensity = min(age_delta * 0.5, 20)
-                noise = self._rng.standard_normal(face.shape) * wrinkle_intensity
-                aged = aged + noise
+        else:
+            age_delta_abs = abs(age_delta)
+            brightness_adj = 1.0 + (0.02 * age_delta_abs)
+            contrast_adj = 1.0 - (0.01 * age_delta_abs)
 
-            else:
-                age_delta_abs = abs(age_delta)
-                brightness_adj = 1.0 + (0.02 * age_delta_abs)
-                contrast_adj = 1.0 - (0.01 * age_delta_abs)
+            aged = aged * brightness_adj
+            aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
 
-                aged = aged * brightness_adj
-                aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
+            aged = _gaussian_blur_5x5(aged)
 
-                aged = cv2.GaussianBlur(aged.astype(np.uint8), (5, 5), 0)
-                aged = aged.astype(float)
+        # quantum_factor is a legacy-named seeded-noise amplitude.
+        seeded_noise = self._rng.standard_normal(face.shape) * self.quantum_factor
+        aged = aged + seeded_noise
 
-            # quantum_factor is a legacy-named seeded-noise amplitude.
-            seeded_noise = self._rng.standard_normal(face.shape) * self.quantum_factor
-            aged = aged + seeded_noise
-
-            return np.clip(aged, 0, 255).astype(np.uint8)
-
-        except Exception as e:
-            logger.error(f"Age filter error: {e}")
-            return face
+        return np.clip(aged, 0, 255).astype(np.uint8)
 
     def apply_detail_age_filter(
         self, face: np.ndarray[Any, Any], age_delta: int

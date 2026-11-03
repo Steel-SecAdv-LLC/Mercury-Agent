@@ -366,6 +366,132 @@ async def record_detection(
 
     schedule_alert(record)
 
+    # Let the conversational agent remember it. ``KnowledgeRetriever`` has had
+    # a ``log_detection`` hook and a detection-log search path since it was
+    # written, but nothing ever called the hook, so "have there been any
+    # anomalies?" was answered from an empty log on every deployment. The
+    # fields below are the ones ``_search_detection_log`` reads.
+    _remember_in_voice(record, results, metadata, n_input=len(data))
+
+
+#: Flagged sample positions kept per remembered detection (the voice names
+#: the first few; the full list stays in the export history).
+_REMEMBERED_INDICES = 8
+
+
+def _remember_in_voice(
+    record: DetectionRecord,
+    results: dict[str, Any],
+    metadata: dict[str, Any] | None,
+    n_input: int | None = None,
+) -> None:
+    """Mirror a recorded detection into the live voice's retriever.
+
+    Best-effort by design: the narrative layer must never be able to fail a
+    detection request, so every failure here is logged and swallowed.
+
+    ``n_input`` is the number of rows the caller sent. A route that returns
+    one verdict for the whole input (``/detect/fusion``, ``/detect/three-r``,
+    ``/detect/flagship``) records ``anomalies=[is_anomaly]``: one flag for
+    ``n_input`` rows. That is a series-scoped verdict, remembered as such,
+    with the input size as ``n_samples`` and no sample positions, so the
+    agent never says "1 of 1 sample flagged (sample 0)" about a run that
+    identified no row.
+    """
+    try:
+        from omni_mercury_engine.api.voice import _get_voice
+
+        voice = _get_voice()
+        retriever = getattr(voice, "retriever", None)
+        if retriever is None or not hasattr(retriever, "log_detection"):
+            return
+        # A route that returns no verdict (``/detect/rca`` reports root causes,
+        # not flags) has nothing the voice can call clean or anomalous; it is
+        # kept in the export history and never mirrored, so the agent does not
+        # invent a clean run with a score of zero.
+        if not isinstance(results.get("anomalies"), list):
+            return
+        scores = [s for s in results.get("scores", []) if isinstance(s, (int, float))]
+        max_score = max(scores) if scores else record.max_score
+        threshold = _recorded_threshold(results)
+        severity, severity_label = _severity_fraction(max_score, threshold)
+        # The voice sanitizes every query's domain through the same whitelist
+        # before searching (an unknown label becomes "general"), and the
+        # detection-log search filters on strict equality. Store the domain
+        # as the voice will ask for it, or the record can never be found.
+        from omni_mercury_engine.cognitive.ethical_bounding import sanitize_domain
+
+        raw_domain = (metadata or {}).get("domain") or record.summary.get("domain")
+        anomalies = list(results.get("anomalies", []))
+        series_scoped = n_input is not None and n_input > 0 and len(anomalies) != n_input
+        retriever.log_detection(
+            {
+                "detection_id": record.detection_id,
+                "method": record.method,
+                "anomaly_detected": record.anomaly_count > 0,
+                "anomaly_count": record.anomaly_count,
+                "anomaly_score": float(max_score),
+                # A score is not a severity: z-scores and norms are unbounded,
+                # and the voice renders ``severity`` as a percentage ("640%").
+                # No confidence is stored: these detectors produce none, and a
+                # constant would read as one.
+                "severity": severity,
+                "severity_label": severity_label,
+                # "sample": one flag per input row; "series": one verdict for
+                # the whole input, so positions are meaningless and omitted.
+                "scope": "series" if series_scoped else "sample",
+                "n_samples": n_input if series_scoped else len(anomalies),
+                # The threshold the scores were judged against and the first
+                # flagged sample positions: what the voice needs to say "1 of
+                # 60 flagged (sample 42), 1.8x the threshold" rather than a
+                # bare score.
+                "threshold": threshold,
+                "indices": (
+                    []
+                    if series_scoped
+                    else [i for i, flag in enumerate(anomalies) if flag][:_REMEMBERED_INDICES]
+                ),
+                "is_batch": record.is_batch,
+                "summary": record.summary,
+            },
+            domain=sanitize_domain(raw_domain),
+            # The account the run belongs to: the voice shows it only to that
+            # account (``anonymous`` for unauthenticated runs), the same
+            # boundary the export history enforces per user.
+            principal=record.user_id,
+        )
+    except Exception as exc:  # pragma: no cover - defensive by contract
+        logger.debug("voice memory mirror skipped: %s", exc)
+
+
+def _recorded_threshold(results: dict[str, Any]) -> float | None:
+    """The threshold a route judged its scores against, wherever it recorded it.
+
+    Routes record it at the top level; the detector tier put it inside
+    ``summary`` only, so its runs were remembered with no threshold and no
+    severity band. Both places are read, top level first.
+    """
+    for candidate in (results.get("threshold"), (results.get("summary") or {}).get("threshold")):
+        if isinstance(candidate, (int, float)) and not isinstance(candidate, bool):
+            return float(candidate)
+    return None
+
+
+def _severity_fraction(score: float, threshold: Any) -> tuple[float | None, str | None]:
+    """Severity in [0, 1] and its band, from the score-to-threshold ratio.
+
+    Uses the API's own bands (``api.server._classify_severity``: ratio < 1.5
+    low, < 2.5 medium, < 4.0 high, else critical), so 1.0 is the critical
+    boundary. Without a usable threshold there is no severity, only a score.
+    """
+    if not isinstance(threshold, (int, float)) or threshold <= 0 or not math.isfinite(score):
+        return None, None
+    ratio = float(score) / float(threshold)
+    label = (
+        "low" if ratio < 1.5 else "medium" if ratio < 2.5 else "high" if ratio < 4.0 else "critical"
+    )
+    return round(min(1.0, max(0.0, ratio / 4.0)), 4), label
+
 
 async def record_audit_log(
     user_id: str,

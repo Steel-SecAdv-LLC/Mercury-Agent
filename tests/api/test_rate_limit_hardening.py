@@ -37,6 +37,10 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
+# The global rate limiter stays live here: these tests assert on it (see
+# tests/api/conftest.py, which switches it off for every other API test).
+pytestmark = pytest.mark.rate_limited
+
 
 class TestSqliteBucketBackend:
     """The shared token-bucket backend: atomic, shared, persistent."""

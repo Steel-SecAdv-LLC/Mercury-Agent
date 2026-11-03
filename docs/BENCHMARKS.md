@@ -548,9 +548,28 @@ data (consistent with its near-random AUC on shuffled data).
 | Kinematic | 0.30 | 0.191 | 0.158 | [0.000, 1.000] |
 | InfoGeometry | 0.30 | 0.448 | 0.184 | [0.000, 1.000] |
 
-**Status: RESOLVED.** Both default (72.5%) and adaptive (82.5%) weights are validated
-as near-optimal. The adaptive AUC-proportional weighting is closer to optimal than the
-fixed defaults, with mean delta of only +0.003 F1.
+**Status: measured on the test split; the fold validation is new.** On the test split
+both the default (72.5%) and the adaptive (82.5%) weights land within 0.02 F1 of the
+fold-averaged L-BFGS-B weights, and the adaptive weighting is the closer of the two
+(mean delta +0.003 F1). Two limits apply to those figures, found when flake8 7.5.0
+flagged the fold loop (2026-11):
+
+- **The folds did not validate anything.** Each fold split off its held-out rows and
+  never scored them; the "CV-optimal" weights are an average of per-fold optima, each
+  fitted on the fold's training rows only. `run_fusion_weight_cv()` now scores every
+  fold's optimum, the default weights and the fold's own adaptive weights on the rows
+  it held out, at a cut chosen on the fold's training rows (`cv_heldout` in each
+  dataset's result, held-out deltas in the `md_003_cv` summary). The committed
+  results predate this and carry no held-out figures; they appear on the next run of
+  `benchmarks/calibration_validation.py`.
+- **The test-split F1 uses an oracle cut** (the best cut on the test rows themselves,
+  applied identically to every weight scheme), so it ranks the schemes fairly but
+  overstates each one's F1 on unseen data.
+
+The current 55-dataset run also shows that on 28 datasets every fold's optimum sits
+on the optimiser's 0.05–0.95 box for all three components, with zero spread across
+folds: those "optimal" weights are set by the bounds, not the data. Each fold now
+reports this as `optimum_on_bounds`.
 
 ![Adaptive Weight Distribution](images/adaptive_weight_distribution.png)
 

@@ -6,7 +6,7 @@ Provides REST API endpoints for Mercury's voice/conversational interface:
 - Natural language queries
 - Detection result narration
 - Status inquiries
-- Proactive alerts (via WebSocket)
+- Proactive alerts (server-sent events on ``GET /api/v1/voice/alerts``)
 
 Usage:
     curl -X POST "http://localhost:8000/api/v1/voice/speak" \
@@ -16,12 +16,21 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field, field_validator
+
+from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+from omni_mercury_engine.narrative.languages import SUPPORTED as SUPPORTED_LANGUAGES
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +61,31 @@ class SpeakRequest(BaseModel):
         default=None,
         description="Session ID for conversation continuity",
     )
+    language: str | None = Field(
+        default=None,
+        description=(
+            "The asker's language as an ISO 639-1 code (en, es, fr, de, it, pt, nl), or "
+            "'auto' / omitted to detect it from the message. Social and menu replies come back "
+            "in that language; a grounded answer stays in English with a note in that language "
+            "saying how the question was understood."
+        ),
+        json_schema_extra={"example": "es"},
+    )
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def _known_language(cls, value: Any) -> str | None:
+        """Accept a supported code (case-insensitively), 'auto' or nothing."""
+        if value is None:
+            return None
+        code = str(value).strip().lower()
+        if code in {"", "auto"}:
+            return None
+        if code not in SUPPORTED_LANGUAGES:
+            raise ValueError(
+                f"unsupported language {code!r}; one of {', '.join(sorted(SUPPORTED_LANGUAGES))}"
+            )
+        return code
 
     model_config = {
         "json_schema_extra": {
@@ -59,7 +93,8 @@ class SpeakRequest(BaseModel):
                 {
                     "message": "What is my system status?",
                     "domain": "security",
-                }
+                },
+                {"message": "¿Qué detectaste hoy?", "language": "es"},
             ]
         }
     }
@@ -77,11 +112,11 @@ class VoiceResponseModel(BaseModel):
     """
 
     message: str = Field(..., description="Mercury's response message")
-    confidence: float = Field(
+    confidence: float | None = Field(
         ...,
         ge=0.0,
         le=1.0,
-        description="Confidence level in the response",
+        description="Confidence level in the response; null when the voice reported none",
     )
     intent: str = Field(..., description="Detected intent of user message")
     sources: list[str] = Field(
@@ -96,6 +131,28 @@ class VoiceResponseModel(BaseModel):
         default_factory=dict,
         description="Additional metadata",
     )
+    # Everything below is what MercuryVoice produces beyond the message. The
+    # route used to drop all of it (and read ``intent``/``sources`` from attribute
+    # names the voice never had, so every live reply said intent "unknown" with
+    # no sources). A client that only knows the five fields above is unaffected.
+    reasoning_summary: str | None = Field(
+        default=None, description="Brief explanation of how the answer was formed"
+    )
+    search_performed: bool = Field(
+        default=False, description="Whether Mercury searched its memory for this reply"
+    )
+    search_results_count: int = Field(
+        default=0, ge=0, description="Memory results the reply was built from"
+    )
+    suggested_follow_ups: list[str] = Field(
+        default_factory=list, description="Questions Mercury suggests asking next"
+    )
+    uncertainty_note: str | None = Field(
+        default=None, description="What Mercury is unsure about, when it says so"
+    )
+    response_time_ms: float | None = Field(
+        default=None, ge=0.0, description="Time the voice took to answer"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -108,10 +165,83 @@ class VoiceResponseModel(BaseModel):
                     "sources": ["system_status", "detection_log"],
                     "timestamp": 1704067200.0,
                     "metadata": {"session_id": "sess_abc123"},
+                    "reasoning_summary": "Answered from the live system status.",
+                    "search_performed": False,
+                    "search_results_count": 0,
+                    "suggested_follow_ups": ["What anomalies were detected today?"],
+                    "uncertainty_note": None,
+                    "response_time_ms": 4.2,
                 }
             ]
         }
     }
+
+
+def _speak(
+    voice: Any,
+    message: str,
+    domain: str | None,
+    principal: str,
+    session_id: str | None = None,
+    language: str | None = None,
+) -> Any:
+    """Call the voice with the caller's principal, session and language; the fallback voice takes none.
+
+    The session id keeps "why?" and "run 2" tied to the browser that asked:
+    every unauthenticated console is the same principal (``anonymous``), so
+    without it two anonymous browsers would share one follow-up context.
+    """
+    try:
+        return voice.speak(
+            message, domain=domain, principal=principal, session_id=session_id, language=language
+        )
+    except TypeError:
+        try:
+            return voice.speak(message, domain=domain, principal=principal, session_id=session_id)
+        except TypeError:
+            return voice.speak(message, domain=domain)
+
+
+def _voice_payload(response: Any) -> dict[str, Any]:
+    """Normalise whatever a voice returns into one dict the response model reads.
+
+    ``MercuryVoice.speak`` returns a ``VoiceResponse`` whose fields are named
+    ``intent_understood`` and ``sources_cited``; ``_FallbackVoice.speak`` returns
+    a dict with ``intent`` and ``sources``. Both end up with the same keys here.
+    """
+    if hasattr(response, "to_dict"):
+        payload = dict(response.to_dict())
+    elif isinstance(response, dict):
+        payload = dict(response)
+    else:  # an object that exposes attributes only
+        payload = {
+            key: getattr(response, key)
+            for key in (
+                "message",
+                "confidence",
+                "intent",
+                "sources",
+                "intent_understood",
+                "sources_cited",
+                "reasoning_summary",
+                "search_performed",
+                "search_results_count",
+                "suggested_follow_ups",
+                "uncertainty_note",
+                "response_time_ms",
+                "language",
+                "understood_as",
+                "answer_kind",
+            )
+            if hasattr(response, key)
+        }
+    intent = payload.get("intent") or payload.get("intent_understood") or "unknown"
+    payload["intent"] = getattr(intent, "value", intent)
+    sources = payload.get("sources")
+    if not sources:
+        sources = payload.get("sources_cited") or []
+    payload["sources"] = [str(item) for item in sources]
+    return payload
 
 
 class DetectionNarrationRequest(BaseModel):
@@ -190,6 +320,76 @@ class StatusResponse(BaseModel):
     )
 
 
+class BackendsResponse(BaseModel):
+    """What the engine can talk to: the active model, every shipped provider, Ollama and MCP.
+
+    Attributes:
+        active: The provider the served voice generates prose with, if any;
+            console answers need none.
+        providers: One row per shipped provider adapter (name, wire format,
+            locality, the key environment variable and whether it is set
+            here, never its value).
+        ollama: The local runtime's host, model and reachability with the
+            models it lists.
+        mcp: The ``mercury-agent mcp`` stdio command, protocol, tool count
+            and a ready-to-paste configuration block per client.
+    """
+
+    active: dict[str, Any] = Field(..., description="The voice's active language model, if any")
+    store: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Whether the provider store can keep a key sealed here, and why not",
+    )
+    providers: list[dict[str, Any]] = Field(..., description="Shipped provider adapters")
+    ollama: dict[str, Any] = Field(..., description="Local Ollama runtime status")
+    mcp: dict[str, Any] = Field(..., description="MCP server facts and client configuration")
+
+
+class ProviderUpdate(BaseModel):
+    """Fields an administrator stores for a provider; ``""`` clears a field, omitted leaves it."""
+
+    api_key: str | None = Field(
+        default=None,
+        max_length=4096,
+        description="The provider's API key; stored sealed, never returned. Empty string removes it.",
+    )
+    base_url: str | None = Field(
+        default=None,
+        max_length=1024,
+        description="The endpoint (required for Azure OpenAI and the generic endpoint). Empty string removes it.",
+    )
+    model: str | None = Field(
+        default=None,
+        max_length=256,
+        description="The model id (Azure: the deployment name). Empty string removes it.",
+    )
+
+
+class ProviderTest(BaseModel):
+    """Optional overrides for a connection test; a key given here is used once and not stored."""
+
+    api_key: str | None = Field(default=None, max_length=4096)
+    base_url: str | None = Field(default=None, max_length=1024)
+    model: str | None = Field(default=None, max_length=256)
+
+
+class ProviderSelect(BaseModel):
+    """The provider and model the served voice generates prose with."""
+
+    provider: str = Field(..., max_length=64)
+    model: str | None = Field(default=None, max_length=256)
+
+
+class ProbeResult(BaseModel):
+    """The outcome of a connection test."""
+
+    provider: str
+    ok: bool
+    status: int | None = None
+    models: list[str] = Field(default_factory=list)
+    detail: str = ""
+
+
 class GreetingResponse(BaseModel):
     """Response model for greeting endpoint."""
 
@@ -210,8 +410,50 @@ _voice_lock = __import__("threading").Lock()
 _narrative_lock = __import__("threading").Lock()
 
 
+def _voice_for_selection(provider: str, model: str | None) -> Any:
+    """Build a voice that generates prose with ``provider`` from the store and the environment.
+
+    Raises ``ValueError`` with the operator-facing reason when the adapter
+    cannot come up (no key, no endpoint, no model, provider unavailable), so
+    the caller can refuse the selection instead of serving a voice that
+    silently fell back to templates.
+    """
+    from omni_mercury_engine.api.backends import resolve_provider_config
+    from omni_mercury_engine.narrative.voice import create_mercury_voice
+
+    cfg = resolve_provider_config(provider)
+    chosen = model or cfg["model"]
+    if not chosen:
+        raise ValueError(
+            f"{provider} needs a model: name one in the request, the provider store or "
+            f"the provider's MERCURY_*_MODEL variable"
+        )
+    try:
+        voice = create_mercury_voice(
+            enable_llm=True,
+            llm_provider=provider,
+            llm_model_name=chosen,
+            llm_api_key=cfg["api_key"],
+            llm_base_url=cfg["base_url"],
+        )
+    except Exception as exc:
+        raise ValueError(f"{provider} could not be attached: {exc}") from exc
+    if getattr(voice, "_llm_adapter", None) is None:
+        raise ValueError(
+            f"{provider} reported itself unavailable with the stored configuration "
+            "(a missing key, endpoint or model, or an unsupported build); test the connection first"
+        )
+    return voice
+
+
 def _get_voice() -> Any:
-    """Get or create Mercury Voice instance (thread-safe)."""
+    """Get or create Mercury Voice instance (thread-safe).
+
+    A provider the administrator selected (``POST /api/v1/voice/backends/select``,
+    persisted in the provider store) is attached at start; if it cannot be
+    attached now, the voice starts without a model and the backends report
+    says so.
+    """
     global _mercury_voice
 
     if _mercury_voice is None:
@@ -221,12 +463,38 @@ def _get_voice() -> Any:
                 try:
                     from omni_mercury_engine.narrative.voice import create_mercury_voice
 
-                    _mercury_voice = create_mercury_voice()
+                    voice: Any = None
+                    try:
+                        from omni_mercury_engine.api.provider_store import get_provider_store
+
+                        selection = get_provider_store().selection()
+                    except Exception as exc:
+                        logger.warning("provider store unavailable at voice start: %s", exc)
+                        selection = None
+                    if selection:
+                        try:
+                            voice = _voice_for_selection(
+                                selection["provider"], selection.get("model")
+                            )
+                        except ValueError as exc:
+                            logger.warning(
+                                "the selected provider %s is not attached: %s",
+                                selection["provider"],
+                                exc,
+                            )
+                    _mercury_voice = voice if voice is not None else create_mercury_voice()
                 except ImportError:
                     logger.warning("Narrative module not available, using fallback")
                     _mercury_voice = _FallbackVoice()
 
     return _mercury_voice
+
+
+def _replace_voice(voice: Any) -> None:
+    """Swap the served voice for ``voice`` (keeps nothing of the old one)."""
+    global _mercury_voice
+    with _voice_lock:
+        _mercury_voice = voice
 
 
 def _get_narrative_engine() -> Any:
@@ -309,6 +577,23 @@ class _FallbackVoice:
 
 
 # API Endpoints
+def _get_optional_user(
+    api_key_user: User | None = Depends(APIKeyAuth(auto_error=False)),
+    jwt_user: User | None = Depends(JWTAuth(auto_error=False)),
+) -> User | None:
+    """The caller's account when a valid API key or JWT is presented, else ``None``."""
+    return api_key_user or jwt_user
+
+
+def _principal_of(user: User | None) -> str:
+    """The principal the voice answers for: the account id, or ``anonymous``.
+
+    ``isinstance`` rather than ``is not None``: tests and the warm-up call the
+    handler directly, and then ``user`` is the unresolved ``Depends`` marker.
+    """
+    return user.id if isinstance(user, User) else "anonymous"
+
+
 @router.post(
     "/speak",
     response_model=VoiceResponseModel,
@@ -325,12 +610,20 @@ Mercury automatically detects the intent of your message:
 - **help**: Guidance and assistance
 - **greeting**: Conversational greetings
 
+## Languages
+
+`language` names the asker's language (`en`, `es`, `fr`, `de`, `it`, `pt`, `nl`) or is
+omitted to detect it from the message. Greetings, thanks, acknowledgements and the
+fallback menu come back in that language; a grounded answer stays in English with a
+note in that language saying how the question was understood (`metadata.understood_as`).
+
 ## Examples
 
 ```json
 {"message": "What is my system status?"}
 {"message": "Have there been any anomalies today?"}
 {"message": "Explain the last detection"}
+{"message": "¿Qué detectaste hoy?", "language": "es"}
 ```
     """,
     responses={
@@ -339,7 +632,9 @@ Mercury automatically detects the intent of your message:
         500: {"description": "Processing error"},
     },
 )
-async def speak(request: SpeakRequest) -> VoiceResponseModel:
+async def speak(
+    request: SpeakRequest, user: User | None = Depends(_get_optional_user)
+) -> VoiceResponseModel:
     """Send a message to Mercury and receive a response.
 
     Args:
@@ -350,33 +645,49 @@ async def speak(request: SpeakRequest) -> VoiceResponseModel:
     """
     try:
         voice = _get_voice()
-        response = voice.speak(request.message, domain=request.domain)
-
-        # Handle both VoiceResponse objects and dicts
-        if hasattr(response, "message"):
-            return VoiceResponseModel(
-                message=response.message,
-                confidence=getattr(response, "confidence", 0.8),
-                intent=getattr(response, "intent", "unknown"),
-                sources=getattr(response, "sources", []),
-                timestamp=time.time(),
-                metadata={
-                    "session_id": request.session_id,
-                    "domain": request.domain,
-                },
+        payload = _voice_payload(
+            _speak(
+                voice,
+                request.message,
+                request.domain,
+                _principal_of(user),
+                request.session_id,
+                request.language,
             )
-        else:
-            return VoiceResponseModel(
-                message=response.get("message", ""),
-                confidence=response.get("confidence", 0.8),
-                intent=response.get("intent", "unknown"),
-                sources=response.get("sources", []),
-                timestamp=time.time(),
-                metadata={
-                    "session_id": request.session_id,
-                    "domain": request.domain,
-                },
-            )
+        )
+        raw_conf = payload.get("confidence")
+        # A missing confidence is reported as null, not filled with 0.8.
+        confidence = (
+            min(1.0, max(0.0, float(raw_conf)))
+            if isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool)
+            else None
+        )
+        return VoiceResponseModel(
+            message=str(payload.get("message", "")),
+            confidence=confidence,
+            intent=str(payload["intent"]),
+            sources=payload["sources"],
+            timestamp=time.time(),
+            metadata={
+                "session_id": request.session_id,
+                "domain": request.domain,
+                "language": str(payload.get("language") or request.language or "en"),
+                "understood_as": payload.get("understood_as"),
+                "answer_kind": payload.get("answer_kind"),
+            },
+            reasoning_summary=payload.get("reasoning_summary"),
+            search_performed=bool(payload.get("search_performed", False)),
+            search_results_count=max(0, int(payload.get("search_results_count") or 0)),
+            suggested_follow_ups=[
+                str(q) for q in (payload.get("suggested_follow_ups") or []) if str(q).strip()
+            ],
+            uncertainty_note=payload.get("uncertainty_note"),
+            response_time_ms=(
+                None
+                if payload.get("response_time_ms") is None
+                else max(0.0, float(payload["response_time_ms"]))
+            ),
+        )
 
     except Exception as e:
         logger.error("Voice processing error: %s", e)
@@ -422,7 +733,12 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
             detection = request.detection_result
             is_anomaly = detection.get("anomaly_detected", False)
             score = detection.get("anomaly_score", 0)
-            confidence = detection.get("confidence", 0.5)
+            raw_conf = detection.get("confidence")
+            confidence = (
+                float(raw_conf)
+                if isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool)
+                else None
+            )
 
             if is_anomaly:
                 summary = f"Anomaly detected with score {score:.2f}"
@@ -438,10 +754,16 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
                 recommendations = []
                 severity = "low"
 
-            confidence_stmt = (
-                f"Confidence: {confidence:.0%}. "
-                f"{'High confidence in this assessment.' if confidence > 0.8 else 'Moderate confidence - additional verification recommended.'}"
-            )
+            if confidence is None:
+                confidence_stmt = (
+                    "Confidence was not reported for this detection, so it has not been "
+                    "assessed. Treat the finding as unverified."
+                )
+            else:
+                confidence_stmt = (
+                    f"Confidence: {confidence:.0%}. "
+                    f"{'High confidence in this assessment.' if confidence > 0.8 else 'Moderate confidence - additional verification recommended.'}"
+                )
 
             return NarrationResponse(
                 summary=summary,
@@ -479,27 +801,45 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
     summary="Get Voice Interface Status",
     description="Get the current status of Mercury's voice interface and related components.",
 )
-async def get_status() -> StatusResponse:
+async def get_status(user: User | None = Depends(_get_optional_user)) -> StatusResponse:
     """Get voice interface status.
+
+    Conversation and detection figures are the caller's own: the voice is one
+    object per process, so unscoped counts would describe every account.
 
     Returns:
         StatusResponse with component status and statistics
     """
     voice = _get_voice()
+    principal = _principal_of(user)
 
     components = {
         "voice_interface": "operational",
         "narrative_engine": "operational" if _get_narrative_engine() else "fallback",
         "conversation_history": (
-            len(voice.get_conversation_history())
+            len(voice.get_conversation_history(1000, principal=principal))
             if hasattr(voice, "get_conversation_history")
             else 0
         ),
+        "alerts": "operational",
     }
 
-    statistics = {
+    statistics: dict[str, Any] = {
         "conversation_turns": components.get("conversation_history", 0),
     }
+    retriever = getattr(voice, "retriever", None)
+    if retriever is not None and hasattr(retriever, "detections"):
+        runs = retriever.detections(principal=principal)
+        statistics["detection_runs"] = len(runs)
+        statistics["flagged_runs"] = sum(
+            1 for e in runs if e["detection"].get("anomaly_detected", False)
+        )
+    try:
+        from omni_mercury_engine.narrative.alert_bus import get_alert_bus
+
+        statistics["alert_listeners"] = get_alert_bus().subscriber_count
+    except Exception:  # pragma: no cover - bus import failure
+        pass
 
     return StatusResponse(
         status="operational",
@@ -515,25 +855,25 @@ async def get_status() -> StatusResponse:
     summary="Get Mercury Greeting",
     description="Get an initial greeting from Mercury with available capabilities.",
 )
-async def greet(domain: str | None = None) -> GreetingResponse:
+async def greet(
+    domain: str | None = None, user: User | None = Depends(_get_optional_user)
+) -> GreetingResponse:
     """Get Mercury's greeting.
+
+    The capabilities are read from this installation (the detector manifest,
+    the loader package, the caller's own detection memory) rather than a
+    fixed list, so the console's header states what this server really has.
 
     Args:
         domain: Optional domain context
+        user: The caller, when an API key or token is presented
 
     Returns:
         GreetingResponse with greeting and capabilities
     """
     voice = _get_voice()
     response = voice.greet(domain=domain)
-
-    capabilities = [
-        "Natural language conversation",
-        "Anomaly detection analysis",
-        "System status reporting",
-        "Detection result explanation",
-        "Historical event lookup",
-    ]
+    capabilities = _grounded_capabilities(voice, _principal_of(user))
 
     message = response.message if hasattr(response, "message") else response.get("message", "")
 
@@ -544,15 +884,281 @@ async def greet(domain: str | None = None) -> GreetingResponse:
 
 
 @router.get(
+    "/backends",
+    response_model=BackendsResponse,
+    summary="Language-model providers and MCP clients",
+    description="""
+What this engine can talk to, as facts a console or a script can act on.
+
+* `providers`: the ten language-model adapters the engine ships (OpenAI, Anthropic, xAI Grok,
+  Google Gemini, Cohere, DeepSeek, Cursor, Hugging Face, Ollama, built-in templates), each with
+  the key environment variable its adapter reads and whether that variable is set on this
+  server. Values are never returned.
+* `ollama`: whether the local Ollama runtime is reachable on its loopback host and which models
+  it lists (cached for 30 seconds).
+* `mcp`: the `mercury-agent mcp` stdio command, the protocol version and tools it advertises,
+  and the configuration block each MCP client (Claude Desktop and Claude Code, Cursor, VS Code
+  with Copilot, any stdio client) takes, ready to paste.
+* `active`: the provider the served voice generates prose with, if an operator enabled one;
+  the console's grounded answers are built without a model.
+    """,
+)
+async def backends() -> BackendsResponse:
+    """Report the language-model providers, the local runtime and the MCP clients."""
+    from omni_mercury_engine.api.backends import backends_report
+
+    return BackendsResponse(**backends_report(_get_voice()))
+
+
+def _require_admin(user: User | None = Depends(_get_optional_user)) -> User:
+    """The administrator behind a key or a session; 401 without one, 403 without the permission."""
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Administrator authentication required (an admin API key or session)",
+        )
+    if not user.has_permission(Permission.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Permission required: admin"
+        )
+    return user
+
+
+def _known_provider(provider: str) -> str:
+    from omni_mercury_engine.models.llm_registry import PROVIDER_CATALOG
+
+    code = provider.strip().lower()
+    if code not in PROVIDER_CATALOG:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"no such provider {provider!r}; one of {', '.join(sorted(PROVIDER_CATALOG))}",
+        )
+    return code
+
+
+def _check_endpoint(provider: str, base_url: str | None) -> None:
+    """Refuse an endpoint the egress gate would refuse, before it is stored."""
+    if not base_url:
+        return
+    from omni_mercury_engine.models.llm_registry import PROVIDER_CATALOG
+    from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
+
+    local = PROVIDER_CATALOG[provider].locality == "local"
+    try:
+        SafeHTTPClient.validate_url(
+            base_url, allow_http=local, user_configured=True, loopback_only=local
+        )
+    except UnsafeURLError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"endpoint refused by the egress gate: {exc}",
+        ) from exc
+
+
+def _provider_row(provider: str) -> dict[str, Any]:
+    from omni_mercury_engine.api.backends import provider_rows
+
+    return next(row for row in provider_rows() if row["provider"] == provider)
+
+
+@router.post(
+    "/backends/select",
+    summary="Make a provider the voice's language model (admin)",
+    description="""
+Attach the provider to the served voice now and remember it across restarts. The provider must be
+configured (a key in the store or the environment, an endpoint where one is required, a model
+here, in the store or in its `MERCURY_*_MODEL` variable); otherwise the selection is refused with
+the reason and nothing changes. The voice keeps building its grounded answers from the record and
+the code; the selected provider composes the free-text search answers from the retrieved records.
+    """,
+)
+async def select_provider(
+    body: ProviderSelect, user: User = Depends(_require_admin)
+) -> dict[str, Any]:
+    """Attach ``body.provider`` to the voice, persist the choice and report the active model."""
+    from omni_mercury_engine.api.backends import backends_report
+    from omni_mercury_engine.api.provider_store import get_provider_store
+
+    code = _known_provider(body.provider)
+    try:
+        voice = _voice_for_selection(code, body.model)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    _replace_voice(voice)
+    get_provider_store().select(code, body.model or getattr(voice, "_llm_model_name", None))
+    logger.info("voice language model set to %s by %s", code, user.id)
+    return dict(backends_report(voice)["active"])
+
+
+@router.delete(
+    "/backends/select",
+    summary="Detach the voice's language model (admin)",
+)
+async def deselect_provider(user: User = Depends(_require_admin)) -> dict[str, Any]:
+    """Return the voice to its built-in templates and forget the selection."""
+    from omni_mercury_engine.api.backends import backends_report
+    from omni_mercury_engine.api.provider_store import get_provider_store
+    from omni_mercury_engine.narrative.voice import create_mercury_voice
+
+    _replace_voice(create_mercury_voice())
+    get_provider_store().select(None)
+    logger.info("voice language model detached by %s", user.id)
+    return dict(backends_report(_get_voice())["active"])
+
+
+@router.put(
+    "/backends/{provider}",
+    summary="Store a provider's key, endpoint or model (admin)",
+    description="""
+Connect a language-model provider from the console: store its API key (sealed at rest with the
+engine's data-encryption key, never returned), its endpoint and its model. Omitted fields are left
+as they are; an empty string clears a field. The stored values win over the environment for the
+voice and the connection test. Requires an administrator (admin API key or session). Without a
+stable at-rest key on the engine (`MERCURY_DATA_ENC_KEY` or `AMA_MASTER_SEED`) a key is refused
+with the reason; endpoint and model are still stored.
+    """,
+)
+async def store_provider(
+    provider: str, update: ProviderUpdate, user: User = Depends(_require_admin)
+) -> dict[str, Any]:
+    """Store what an administrator gave for ``provider`` and return its row."""
+    from omni_mercury_engine.api.provider_store import ProviderStoreError, get_provider_store
+
+    code = _known_provider(provider)
+    if update.api_key is None and update.base_url is None and update.model is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="give at least one of api_key, base_url or model",
+        )
+    _check_endpoint(code, update.base_url)
+    try:
+        get_provider_store().set(
+            code, api_key=update.api_key, base_url=update.base_url, model=update.model
+        )
+    except ProviderStoreError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    logger.info("provider %s updated by %s", code, user.id)
+    row = _provider_row(code)
+    row["reattached"] = _reattach_if_active(code)
+    return row
+
+
+def _reattach_if_active(provider: str) -> bool | None:
+    """Rebuild the served voice when ``provider`` is the active selection; ``None`` when not.
+
+    A key, endpoint or model stored for the provider the voice is composing
+    with must reach the running adapter now, not after a restart. When the
+    new configuration no longer qualifies (the key was cleared, say) the
+    voice falls back to its templates and the selection is dropped, so the
+    report never claims a model that cannot answer.
+    """
+    from omni_mercury_engine.api.provider_store import get_provider_store
+    from omni_mercury_engine.narrative.voice import create_mercury_voice
+
+    store = get_provider_store()
+    selection = store.selection()
+    if not selection or selection["provider"] != provider:
+        return None
+    try:
+        _replace_voice(_voice_for_selection(provider, selection["model"]))
+    except ValueError as exc:
+        logger.warning(
+            "provider %s no longer qualifies after the update: %s; detached", provider, exc
+        )
+        _replace_voice(create_mercury_voice())
+        store.select(None)
+        return False
+    return True
+
+
+@router.delete(
+    "/backends/{provider}",
+    summary="Forget a provider's stored key, endpoint and model (admin)",
+)
+async def forget_provider(provider: str, user: User = Depends(_require_admin)) -> dict[str, Any]:
+    """Remove everything stored for ``provider``; the environment, if any, remains."""
+    from omni_mercury_engine.api.provider_store import get_provider_store
+    from omni_mercury_engine.narrative.voice import create_mercury_voice
+
+    code = _known_provider(provider)
+    store = get_provider_store()
+    selection = store.selection()
+    was_active = bool(selection and selection["provider"] == code)
+    removed = store.delete(code)
+    if was_active:
+        _replace_voice(create_mercury_voice())
+    logger.info(
+        "provider %s stored configuration removed by %s (removed=%s, detached=%s)",
+        code,
+        user.id,
+        removed,
+        was_active,
+    )
+    return {
+        "provider": code,
+        "removed": removed,
+        "selection_cleared": was_active,
+        "row": _provider_row(code),
+    }
+
+
+@router.post(
+    "/backends/{provider}/test",
+    response_model=ProbeResult,
+    summary="Test a provider connection (admin)",
+    description="""
+One read-only call to the provider with the stored or environment configuration, or with the
+overrides in the body (a key given here is used for this call only and not stored): lists the
+provider's models where its API has a listing, sends a one-token completion where it has none
+(Perplexity), checks the token where there are no models (Hugging Face). Reports whether the
+provider answered, the HTTP status on refusal, and the models it lists. Requires an administrator.
+    """,
+)
+async def test_provider(
+    provider: str, body: ProviderTest | None = None, user: User = Depends(_require_admin)
+) -> ProbeResult:
+    """Probe ``provider`` once and report the outcome without the key."""
+    from omni_mercury_engine.api.backends import probe_provider
+
+    code = _known_provider(provider)
+    overrides = body or ProviderTest()
+    _check_endpoint(code, overrides.base_url)
+    result = probe_provider(
+        code, api_key=overrides.api_key, base_url=overrides.base_url, model=overrides.model
+    )
+    # Only the verdict and the HTTP status are logged: the detail text is
+    # derived from a request that carried the key and stays out of the log.
+    logger.info(
+        "provider %s tested by %s: ok=%s status=%s",
+        code,
+        user.id,
+        bool(result["ok"]),
+        result.get("status"),
+    )
+    return ProbeResult(provider=code, **result)
+
+
+@router.get(
     "/history",
     summary="Get Conversation History",
     description="Get the recent conversation history for the current session.",
 )
-async def get_history(limit: int = 10) -> dict[str, Any]:
+async def get_history(
+    limit: int = 10, user: User | None = Depends(_get_optional_user)
+) -> dict[str, Any]:
     """Get recent conversation history.
+
+    Only the caller's own turns are returned (plus turns recorded without an
+    account, such as the greeting): the voice is shared by every account on
+    the server, and the route used to hand each of them all the others' turns.
 
     Args:
         limit: Maximum number of turns to return
+        user: The caller, when an API key or token is presented
 
     Returns:
         Dictionary with conversation history
@@ -560,13 +1166,156 @@ async def get_history(limit: int = 10) -> dict[str, Any]:
     voice = _get_voice()
 
     if hasattr(voice, "get_conversation_history"):
-        history = voice.get_conversation_history()
+        history = voice.get_conversation_history(1000, principal=_principal_of(user))
         return {
-            "history": history[-limit:] if history else [],
+            "history": history[-max(0, limit) :] if history else [],
             "total_turns": len(history) if history else 0,
         }
 
     return {"history": [], "total_turns": 0}
+
+
+def _grounded_capabilities(voice: Any, principal: str) -> list[str]:
+    """What this installation can do, as short facts read from the code and the record."""
+    caps: list[str] = []
+    try:
+        from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+
+        families = {e.category.value for e in DETECTOR_MANIFEST}
+        caps.append(f"{len(DETECTOR_MANIFEST)} detectors across {len(families)} families")
+    except Exception:  # pragma: no cover - registry import failure
+        caps.append("Anomaly detection across the detector manifest")
+    try:
+        from omni_mercury_engine.narrative.voice import MercuryVoice
+
+        caps.append(f"{len(MercuryVoice._loader_domains())} domain data loaders")
+    except Exception:  # pragma: no cover - loader package missing
+        pass
+    retriever = getattr(voice, "retriever", None)
+    if retriever is not None and hasattr(retriever, "detections"):
+        runs = retriever.detections(principal=principal)
+        flagged = sum(1 for e in runs if e["detection"].get("anomaly_detected", False))
+        caps.append(
+            f"{len(runs)} of your runs in memory ({flagged} flagged)"
+            if runs
+            else "Your detection runs remembered as you make them"
+        )
+    caps.append("Narration through two hard ethical gates")
+    caps.append("Proactive alerts as each run lands")
+    return caps
+
+
+#: Seconds between keep-alive frames when nothing was recorded.
+ALERT_HEARTBEAT_SECONDS = 15.0
+#: Seconds between polls of the durable store for runs recorded on other workers.
+ALERT_STORE_POLL_SECONDS = 2.0
+
+
+def _sse(event: str, payload: dict[str, Any]) -> bytes:
+    return f"event: {event}\ndata: {json.dumps(payload, default=str)}\n\n".encode()
+
+
+async def alert_events(
+    principal: str,
+    *,
+    heartbeat: float = ALERT_HEARTBEAT_SECONDS,
+    store_poll: float = ALERT_STORE_POLL_SECONDS,
+    max_events: int | None = None,
+) -> AsyncIterator[bytes]:
+    """Server-sent events for every flagged run ``principal`` may see.
+
+    Runs recorded in this process arrive through the alert bus; runs recorded
+    by another worker on the same ``MERCURY_AGENT_MEMORY_PATH`` are picked
+    up from the store by id. Each detection is sent once (the store's copy of
+    a bus delivery is recognised by its detection id), clean runs are not
+    sent, and a keep-alive comment goes out every ``heartbeat`` seconds so
+    proxies hold the connection open. ``max_events`` ends the stream after
+    that many alerts (tests).
+    """
+    from omni_mercury_engine.narrative.alert_bus import get_alert_bus, to_alert
+
+    bus = get_alert_bus()
+    token, queue = bus.subscribe(principal)
+    voice = _get_voice()
+    retriever = getattr(voice, "retriever", None)
+    store = getattr(retriever, "_detection_store", None)
+    cursor = store.latest_id() if store is not None else 0
+    seen: dict[str, float] = {}
+    sent = 0
+    yield b": connected\n\n"
+    try:
+        while max_events is None or sent < max_events:
+            fresh: list[dict[str, Any]] = []
+            try:
+                fresh.append(await asyncio.wait_for(queue.get(), timeout=store_poll))
+                while not queue.empty():
+                    fresh.append(queue.get_nowait())
+            except TimeoutError:
+                pass
+            if store is not None:
+                try:
+                    for row_id, entry in store.load_after(cursor):
+                        cursor = max(cursor, row_id)
+                        from omni_mercury_engine.narrative.alert_bus import principal_may_see
+
+                        if principal_may_see(principal, entry.get("principal")):
+                            fresh.append(entry)
+                except Exception as exc:  # pragma: no cover - store fault must not end the stream
+                    logger.debug("alert store poll skipped: %s", exc)
+            now = time.time()
+            for entry in fresh:
+                record = entry.get("detection") or {}
+                if not record.get("anomaly_detected", False):
+                    continue
+                key = str(record.get("detection_id") or id(entry))
+                if key in seen:
+                    continue
+                seen[key] = now
+                yield _sse("alert", to_alert(entry))
+                sent += 1
+                if max_events is not None and sent >= max_events:
+                    break
+            if len(seen) > 2048:
+                seen = {k: t for k, t in seen.items() if now - t < 3600}
+            if not fresh and heartbeat > 0 and (now - _last_beat.get(token, 0.0)) >= heartbeat:
+                _last_beat[token] = now
+                yield b": keep-alive\n\n"
+    finally:
+        _last_beat.pop(token, None)
+        bus.unsubscribe(token)
+
+
+_last_beat: dict[int, float] = {}
+
+
+@router.get(
+    "/alerts",
+    summary="Proactive alert stream",
+    description=(
+        "Server-sent events: one `alert` event for each detection run that flags a sample, "
+        "as it is recorded, bounded to the caller's own runs. Keep-alive comments every "
+        "15 seconds. Consume with a streaming fetch; the console's agent dock does."
+    ),
+    response_class=StreamingResponse,
+)
+async def alerts(
+    request: Request,
+    limit: int | None = Query(
+        None, ge=1, le=1000, description="End the stream after this many alerts (scripts, curl)."
+    ),
+    user: User | None = Depends(_get_optional_user),
+) -> StreamingResponse:
+    """Stream the caller's flagged runs as server-sent events."""
+    principal = _principal_of(user)
+    return StreamingResponse(
+        alert_events(principal, max_events=limit),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # Function to add voice routes to main app

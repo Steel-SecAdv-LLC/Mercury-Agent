@@ -1,0 +1,149 @@
+{
+  "_comment": "Hand-written catalog entries the generator cannot introspect. scripts/build_console_catalog.py verifies every class and method named here exists (ast, no import), so an entry cannot outlive its code.",
+  "library": [
+    {
+      "c": "EMPDetector",
+      "mod": "omni_mercury_engine.detectors.energy.emp_detector",
+      "fam": "Energy",
+      "call": "predict_emp(emp_data) → EMPPredictionResult",
+      "what": "E1/E2/E3 HEMP, intentional EMI and geomagnetic-disturbance (GIC) classification with threat level, grid impact and protective actions.",
+      "code": [
+        "import numpy as np",
+        "fs = 1e10  # 10 GS/s",
+        "t = np.arange(0, 200e-9, 1 / fs)",
+        "# IEC 61000-2-9 E1 benchmark from the module docstring: 50 kV/m x 1.3 (exp(-4e7 t) - exp(-6e8 t))",
+        "e1 = 50e3 * 1.3 * (np.exp(-4e7 * t) - np.exp(-6e8 * t))",
+        "from omni_mercury_engine.detectors.energy.emp_detector import EMPDetector",
+        "det = EMPDetector()  # enable_e1_detection, enable_e3_detection, enable_attack_classification default True",
+        "r = det.predict_emp({",
+        "    \"sensor_data\": {\"waveform_vm\": e1, \"sample_rate_hz\": fs},",
+        "    \"magnetometer_data\": {\"db_dt_nt_s\": 450.0, \"duration_seconds\": 10.0},  # E3 floor: >= 450 nT/s for >= 1 s",
+        "})",
+        "print(r.emp_detected, r.emp_type, r.threat_level, r.grid_impact_assessment, r.partial)"
+      ],
+      "via": "the registry detector emp (EMPRecordAdapter wraps EMPDetector)",
+      "viaDet": "emp"
+    },
+    {
+      "c": "E1PulseDetector",
+      "mod": "omni_mercury_engine.detectors.energy.emp_detector",
+      "fam": "Energy",
+      "call": "detect_e1_pulse(sensor_data) → dict",
+      "what": "E1 (HEMP early time) from a field sensor: peak field above 10 kV/m, 10-90% rise below 10 ns, content within 1-1000 MHz. Takes a sampled record or summary values.",
+      "code": [
+        "import numpy as np",
+        "fs = 1e10  # 10 GS/s",
+        "t = np.arange(0, 200e-9, 1 / fs)",
+        "# IEC 61000-2-9 E1 benchmark from the module docstring: 50 kV/m x 1.3 (exp(-4e7 t) - exp(-6e8 t))",
+        "e1 = 50e3 * 1.3 * (np.exp(-4e7 * t) - np.exp(-6e8 * t))",
+        "from omni_mercury_engine.detectors.energy.emp_detector import E1PulseDetector",
+        "print(E1PulseDetector().detect_e1_pulse({\"waveform_vm\": e1, \"sample_rate_hz\": fs}))"
+      ],
+      "via": "the registry detector emp (EMPDetector runs it)",
+      "viaDet": "emp"
+    },
+    {
+      "c": "E2PulseDetector",
+      "mod": "omni_mercury_engine.detectors.energy.emp_detector",
+      "fam": "Energy",
+      "call": "detect_e2_pulse(sensor_data, *, e1_detected) → dict",
+      "what": "E2 (HEMP intermediate time), 10-100 V/m from about 0.01 µs to 1 ms. Reported only after a detected E1, since alone it looks like lightning.",
+      "code": [
+        "from omni_mercury_engine.detectors.energy.emp_detector import E2PulseDetector",
+        "print(E2PulseDetector().detect_e2_pulse({\"e2_field_vm\": 100.0, \"e2_time_us\": 10.0}, e1_detected=True))"
+      ],
+      "via": "the registry detector emp (EMPDetector runs it)",
+      "viaDet": "emp"
+    },
+    {
+      "c": "E3PulseDetector",
+      "mod": "omni_mercury_engine.detectors.energy.emp_detector",
+      "fam": "Energy",
+      "call": "detect_e3_pulse(magnetometer_data) → dict",
+      "what": "E3 (HEMP late time) from a magnetometer: |dB/dt| of at least 450 nT/s for at least 1 s. Below that floor it grades geomagnetic-disturbance grid impact on 1-minute tiers.",
+      "code": [
+        "from omni_mercury_engine.detectors.energy.emp_detector import E3PulseDetector",
+        "# dbdt_cadence_s other than 60 reports grid impact as \"unassessed\"",
+        "print(E3PulseDetector().detect_e3_pulse({\"db_dt_nt_s\": 450.0, \"duration_seconds\": 10.0}))"
+      ],
+      "via": "the registry detector emp (EMPDetector runs it)",
+      "viaDet": "emp"
+    },
+    {
+      "c": "IntentionalEMIDetector",
+      "mod": "omni_mercury_engine.detectors.energy.emp_detector",
+      "fam": "Energy",
+      "torch": true,
+      "call": "forward(em_signature: Tensor) → Tensor",
+      "what": "Neural intentional-EMI classifier (torch nn.Module). Train it with train_iemi_network; EMPDetector.load_neural_weights(path) loads the weights. Until then intentional_attack_probability stays None.",
+      "code": [
+        "from omni_mercury_engine.detectors.energy.emp_detector import IntentionalEMIDetector, train_iemi_network",
+        "net = IntentionalEMIDetector()  # requires torch",
+        "help(train_iemi_network)"
+      ],
+      "via": "the registry detector emp, once EMPDetector.load_neural_weights(path) has loaded trained weights",
+      "viaDet": "emp"
+    },
+    {
+      "c": "EnergyDamsDetector",
+      "mod": "omni_mercury_engine.infrastructure.energy_dams",
+      "fam": "Energy",
+      "call": "detect(data, detection_type=\"grid\"|\"dam\") · detect_grid_anomaly · detect_dam_anomaly",
+      "what": "CISA Energy & Dams sector checks: grid frequency deviation, dam seepage and water level, with cascading-risk and downstream-impact estimates.",
+      "code": [
+        "import numpy as np",
+        "from omni_mercury_engine.infrastructure.energy_dams import DamType, EnergyDamsDetector",
+        "det = EnergyDamsDetector()",
+        "print(det.detect_grid_anomaly({\"frequency_hz\": np.array([60.0, 59.98, 59.2, 60.01])}))  # example readings",
+        "print(det.detect_dam_anomaly({\"seepage_gpm\": 120.0, \"water_level_ft\": 310.0}, dam_type=DamType.HYDROELECTRIC))  # example readings"
+      ]
+    }
+  ],
+  "predictors": [
+    {
+      "c": "SplitConformalPredictor",
+      "mod": "omni_mercury_engine.core.conformal_prediction",
+      "cli": "mercury-agent tier-detect --conformal-alpha 0.1"
+    },
+    {
+      "c": "CrossConformalPredictor",
+      "mod": "omni_mercury_engine.core.conformal_prediction"
+    },
+    {
+      "c": "MondrianConformalPredictor",
+      "mod": "omni_mercury_engine.core.conformal_prediction"
+    },
+    {
+      "c": "BayesianPredictor",
+      "mod": "omni_mercury_engine.cognitive.anomaly_detection"
+    },
+    {
+      "c": "HiddenMarkovPredictor",
+      "mod": "omni_mercury_engine.cognitive.anomaly_detection"
+    },
+    {
+      "c": "AnomalyPredictor",
+      "mod": "omni_mercury_engine.cognitive.neural_memory_layer"
+    },
+    {
+      "c": "LinkPredictor",
+      "mod": "omni_mercury_engine.cognitive.knowledge_graph"
+    }
+  ],
+  "vocabNotes": {
+    "voice --domain": {
+      "note": "narrative/voice.py passes the domain through sanitize_domain (cognitive/ethical_bounding.py), which keeps only EnvironmentDomain labels (cognitive/ipb_engine.py) plus general. Anything else becomes general. That includes energy, security, humanitarian and scientific: the agent planner's DomainType has them, EnvironmentDomain does not.",
+      "near": {
+        "energy": [
+          "infrastructure",
+          "alerting/cap_generator.py files energy alerts under INFRA"
+        ]
+      },
+      "unset": "not set · Mercury uses general"
+    },
+    "voice --model": {
+      "note": "Models named in OllamaModel (models/foundation/ollama_adapter.py). Any model installed in your local Ollama works; add one with ollama pull NAME. With no --model and no MERCURY_OLLAMA_MODEL, replies fall back to templates.",
+      "unset": "not set · falls back to MERCURY_OLLAMA_MODEL"
+    }
+  }
+}

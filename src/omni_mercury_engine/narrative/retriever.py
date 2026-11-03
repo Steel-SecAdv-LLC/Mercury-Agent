@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from omni_mercury_engine.narrative.detection_memory import DetectionMemoryStore
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,6 +81,9 @@ class SearchContext:
     query: str
     intent: QueryIntent
     domain: str | None = None
+    #: Who is asking. Detection-log entries are visible only to the principal
+    #: that recorded them (or to everyone when recorded without one).
+    principal: str | None = None
     time_range_start: float | None = None
     time_range_end: float | None = None
     max_results: int = 10
@@ -107,6 +112,48 @@ class SearchResponse:
             "search_time_ms": self.search_time_ms,
             "summary": self.summary,
         }
+
+
+#: The whitelist's catch-all label (``cognitive.ethical_bounding.sanitize_domain``
+#: collapses every unknown domain to it). It means "no domain was known", not
+#: a domain of its own, so it matches everything on either side.
+_GENERAL_DOMAIN = "general"
+
+#: Query stems that name an anomaly, a detection, or a time frame. Substring
+#: matched against the lower-cased query so inflections count.
+_ANOMALY_STEMS: tuple[str, ...] = ("anomal", "outlier", "unusual", "flag", "alert", "incident")
+_DETECTION_STEMS: tuple[str, ...] = ("detect", "event", "finding", "result")
+_RECENCY_STEMS: tuple[str, ...] = ("recent", "lately", "today", "latest", "last", "happened")
+
+
+def _principal_may_see(requested: str | None, recorded: Any) -> bool:
+    """Whether the asking principal may read an entry recorded by ``recorded``.
+
+    An entry recorded without a principal (narrated directly; no account was
+    involved) is visible to everyone. Every other entry is visible only to the
+    principal that recorded it, ``"anonymous"`` included: unauthenticated
+    callers see unauthenticated detections and nothing else. A request without
+    a principal is treated as anonymous rather than as unrestricted.
+    """
+    if recorded is None:
+        return True
+    return str(recorded) == (requested or "anonymous")
+
+
+def _domains_compatible(requested: str | None, recorded: str) -> bool:
+    """Whether a detection recorded under ``recorded`` answers a ``requested`` query.
+
+    Strict equality was the previous rule, and it hid every detection the
+    console ran from the console's own questions: ``/detect/univariate`` and
+    ``/detect/multivariate`` carry no domain, so the mirror files them under
+    ``general``, while the console asks under its CONTEXT domain. ``general``
+    on either side is a wildcard; two specific domains must still agree.
+    """
+    if not requested or requested == _GENERAL_DOMAIN:
+        return True
+    if not recorded or recorded == _GENERAL_DOMAIN:
+        return True
+    return recorded == requested
 
 
 class KnowledgeRetriever:
@@ -138,7 +185,26 @@ class KnowledgeRetriever:
     # Intent classification keywords
     INTENT_KEYWORDS = {
         QueryIntent.SEARCH_FACTS: ["what", "who", "where", "which", "define", "explain"],
-        QueryIntent.SEARCH_EVENTS: ["when", "happened", "occurred", "event", "incident", "history"],
+        # Stems, matched as substrings: "anomal" covers anomaly/anomalies/
+        # anomalous, "flag" covers flagged, "alert" covers alerts. The table
+        # used to carry only "event"/"happened"/..., so the console's own
+        # wording ("Have there been any anomalies recently?") classified as
+        # UNKNOWN and the reply apologised with the detection log full.
+        QueryIntent.SEARCH_EVENTS: [
+            "when",
+            "happened",
+            "occurred",
+            "event",
+            "incident",
+            "history",
+            "anomal",
+            "flag",
+            "alert",
+            "recent",
+            "lately",
+            "today",
+            "latest",
+        ],
         QueryIntent.SEARCH_PATTERNS: ["pattern", "trend", "similar", "like", "recurring"],
         QueryIntent.EXPLAIN_CONCEPT: ["why", "how", "explain", "understand", "meaning"],
         QueryIntent.FIND_SIMILAR: ["similar", "like", "related", "comparable", "match"],
@@ -167,7 +233,21 @@ class KnowledgeRetriever:
         self._agent_memory = None
         self._memory_surface = None
         self._pattern_registry: dict[str, list[dict[str, Any]]] = {}
-        self._detection_log: list[dict[str, Any]] = []
+        # Durable when MERCURY_AGENT_MEMORY_PATH is set: the newest entries are
+        # loaded here and every logged detection is appended, so recall
+        # survives a restart. Unset, the log is this list alone.
+        self._detection_store = DetectionMemoryStore.from_env()
+        self._detection_log: list[dict[str, Any]] = (
+            self._detection_store.load() if self._detection_store is not None else []
+        )
+        # Where this process has read the shared store up to. Every read path
+        # (``detections``, the detection-log search) pulls the rows other
+        # workers appended since, so an already-running worker answers from
+        # the same record as the one that recorded the run, not from the
+        # state of the store when it started.
+        self._store_cursor: int = (
+            self._detection_store.latest_id() if self._detection_store is not None else 0
+        )
 
         # Statistics
         self._search_count = 0
@@ -187,19 +267,122 @@ class KnowledgeRetriever:
         """Set memory surface for retrieval."""
         self._memory_surface = surface
 
-    def log_detection(self, detection: dict[str, Any], domain: str | None = None) -> None:
-        """Log a detection for future retrieval."""
-        self._detection_log.append(
-            {
-                "detection": detection,
-                "domain": domain,
-                "timestamp": time.time(),
-            }
-        )
+    def log_detection(
+        self,
+        detection: dict[str, Any],
+        domain: str | None = None,
+        principal: str | None = None,
+    ) -> None:
+        """Log a detection for future retrieval.
+
+        ``principal`` is the account the detection belongs to (``"anonymous"``
+        for an unauthenticated request). The retriever is one object per
+        process, shared by every caller of the voice, so without this the
+        detections of one account were recallable by any other; an entry is
+        now visible only to its principal, and an entry recorded without one
+        (narrated directly, no account involved) stays visible to all.
+        """
+        entry = {
+            "detection": detection,
+            "domain": domain,
+            "principal": principal,
+            "timestamp": time.time(),
+        }
+        self._detection_log.append(entry)
+        if self._detection_store is not None:
+            try:
+                # Pull other workers' rows first so the cursor advances past
+                # them, then append ours and move the cursor past it too: the
+                # next refresh must not read back the row we just wrote.
+                self._refresh_from_store()
+                self._detection_store.append(entry)
+                self._store_cursor = self._detection_store.latest_id()
+            except Exception as exc:  # pragma: no cover - disk faults must not fail a detection
+                logger.warning("detection memory not persisted: %s", exc)
+        # Live listeners (the console's alert dock through GET /api/v1/voice/alerts)
+        # hear about the run now rather than when they next ask.
+        try:
+            from omni_mercury_engine.narrative.alert_bus import get_alert_bus
+
+            get_alert_bus().publish(entry)
+        except Exception as exc:  # pragma: no cover - a listener must not fail a detection
+            logger.debug("alert fan-out skipped: %s", exc)
 
         # Keep last 1000 detections
         if len(self._detection_log) > 1000:
             self._detection_log = self._detection_log[-1000:]
+
+    def _refresh_from_store(self) -> int:
+        """Merge rows other workers appended to the shared store; returns how many.
+
+        Rows are read by id after this process's cursor, so each is seen once;
+        a row whose detection id is already in the log (this process's own
+        write racing the cursor) is skipped. Store faults leave the in-process
+        log as it is: recall degrades to this worker's own view, it never
+        fails an answer.
+        """
+        store = self._detection_store
+        if store is None:
+            return 0
+        try:
+            rows = store.load_after(self._store_cursor)
+        except Exception as exc:  # pragma: no cover - store fault must not fail a read
+            logger.debug("detection memory refresh skipped: %s", exc)
+            return 0
+        if not rows:
+            return 0
+        known = {
+            str(e["detection"].get("detection_id"))
+            for e in self._detection_log
+            if isinstance(e.get("detection"), dict) and e["detection"].get("detection_id")
+        }
+        added = 0
+        for row_id, entry in rows:
+            self._store_cursor = max(self._store_cursor, row_id)
+            detection_id = entry.get("detection", {}).get("detection_id")
+            if detection_id and str(detection_id) in known:
+                continue
+            self._detection_log.append(entry)
+            added += 1
+        if added:
+            self._detection_log.sort(key=lambda e: float(e.get("timestamp") or 0.0))
+            if len(self._detection_log) > 1000:
+                self._detection_log = self._detection_log[-1000:]
+        return added
+
+    def detections(
+        self,
+        domain: str | None = None,
+        since: float | None = None,
+        anomalous_only: bool = False,
+        principal: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Logged detection entries, newest first.
+
+        Each entry is ``{"detection": {...}, "domain": str | None, "timestamp":
+        float}`` exactly as :meth:`log_detection` stored it. ``domain`` filters
+        with the same wildcard rule the search uses (``general`` on either side
+        matches); ``since`` is an epoch-seconds lower bound; ``anomalous_only``
+        keeps the runs that flagged at least one sample; ``principal`` keeps the
+        entries that principal may see (see :meth:`log_detection`).
+
+        This is what the voice's counting, summary and "latest detection"
+        answers read, so those answers are built from the record and never
+        from the free-text scorer.
+        """
+        self._refresh_from_store()
+        out: list[dict[str, Any]] = []
+        for entry in reversed(self._detection_log):
+            if since is not None and float(entry.get("timestamp", 0.0)) < since:
+                continue
+            if not _domains_compatible(domain, str(entry.get("domain") or "")):
+                continue
+            if not _principal_may_see(principal, entry.get("principal")):
+                continue
+            if anomalous_only and not entry.get("detection", {}).get("anomaly_detected", False):
+                continue
+            out.append(entry)
+        return out
 
     def search(
         self,
@@ -208,6 +391,7 @@ class KnowledgeRetriever:
         max_results: int | None = None,
         min_relevance: float | None = None,
         sources: list[RetrievalSource] | None = None,
+        principal: str | None = None,
     ) -> SearchResponse:
         """Search across all connected knowledge sources.
 
@@ -217,6 +401,8 @@ class KnowledgeRetriever:
             max_results: Maximum results to return
             min_relevance: Minimum relevance score
             sources: Specific sources to search (None = all)
+            principal: Who is asking; bounds the detection-log results to the
+                entries that principal recorded (see :meth:`log_detection`)
 
         Returns:
             SearchResponse with ranked results
@@ -235,6 +421,7 @@ class KnowledgeRetriever:
             query=query,
             intent=intent,
             domain=domain,
+            principal=principal,
             max_results=max_results,
             min_relevance=min_relevance,
             sources=sources,
@@ -266,7 +453,10 @@ class KnowledgeRetriever:
         filtered_results = [r for r in all_results if r.relevance_score >= min_relevance]
 
         # Rank by relevance
-        filtered_results.sort(key=lambda x: x.relevance_score, reverse=True)
+        # Equal relevance is common (every anomalous detection-log entry scores
+        # the same); break ties toward the most recent, or "what happened
+        # recently?" is answered with the oldest record in the log.
+        filtered_results.sort(key=lambda x: (x.relevance_score, x.timestamp or 0.0), reverse=True)
 
         # Limit results
         final_results = filtered_results[:max_results]
@@ -464,24 +654,34 @@ class KnowledgeRetriever:
         results = []
         # Query words available via context.query.lower().split() for future keyword matching
 
+        query_lower = context.query.lower()
+        self._refresh_from_store()
         for log_entry in self._detection_log[-100:]:  # Last 100 entries
             detection = log_entry.get("detection", {})
             domain = log_entry.get("domain", "")
 
-            # Filter by domain if specified
-            if context.domain and domain != context.domain:
+            if not _domains_compatible(context.domain, domain):
+                continue
+            if not _principal_may_see(context.principal, log_entry.get("principal")):
                 continue
 
             # Check for anomaly-related queries
             if detection.get("anomaly_detected", False):
-                # Score based on query relevance
+                # Score based on query relevance. Stems rather than whole
+                # words: "anomalies", "anomalous", "detected", "flagged" and
+                # "alerts" all name a detection; the exact-token match that
+                # preceded this left the base score alone, which the
+                # ``>`` floor below rejects, so the console's own question
+                # ("any anomalies recently?") returned nothing.
                 relevance = 0.3  # Base relevance for anomalies
 
-                if "anomaly" in context.query.lower():
+                if any(stem in query_lower for stem in _ANOMALY_STEMS):
                     relevance += 0.3
-                if "detection" in context.query.lower():
+                if any(stem in query_lower for stem in _DETECTION_STEMS):
                     relevance += 0.2
-                if domain and domain.lower() in context.query.lower():
+                if any(stem in query_lower for stem in _RECENCY_STEMS):
+                    relevance += 0.1
+                if domain and domain != _GENERAL_DOMAIN and domain.lower() in query_lower:
                     relevance += 0.2
 
                 if relevance > context.min_relevance:
@@ -490,9 +690,20 @@ class KnowledgeRetriever:
                             source=RetrievalSource.DETECTION_LOG,
                             content={
                                 "anomaly_score": detection.get("anomaly_score", 0),
-                                "severity": detection.get("severity", 0),
+                                "severity": detection.get("severity"),
+                                "severity_label": detection.get("severity_label"),
                                 "confidence": detection.get("confidence", 0),
                                 "domain": domain,
+                                # The record itself, so the voice can say what
+                                # ran, when, how many samples were flagged and
+                                # which, instead of a bare score.
+                                "method": detection.get("method"),
+                                "anomaly_count": detection.get("anomaly_count"),
+                                "n_samples": detection.get("n_samples"),
+                                "threshold": detection.get("threshold"),
+                                "indices": detection.get("indices"),
+                                "timestamp": log_entry.get("timestamp"),
+                                "detection_id": detection.get("detection_id"),
                             },
                             relevance_score=min(1.0, relevance),
                             confidence=detection.get("confidence", 0.5),

@@ -45,6 +45,25 @@ os.environ["MERCURY_MODEL_DIR"] = os.path.join(
     tempfile.gettempdir(), f"mercury-test-models-{os.getpid()}-absent"
 )
 
+# The development mailer files every message it is handed; account tests
+# register and reset accounts constantly, and none of that belongs in the
+# developer's own outbox. Assigned, not defaulted: with ``setdefault`` a
+# developer who had ``MERCURY_MAIL_OUTBOX`` set in their shell received every
+# test message there, and the decouple purge tests, which inventory that
+# variable, could have removed their mail
+# (tests/test_decouple.py::TestMailerOutboxIsState).
+TEST_MAIL_OUTBOX = os.path.join(tempfile.gettempdir(), f"mercury-test-outbox-{os.getpid()}")
+os.environ["MERCURY_MAIL_OUTBOX"] = TEST_MAIL_OUTBOX
+
+# The agent's durable detection memory (``MERCURY_AGENT_MEMORY_PATH``) is an
+# operator's own SQLite history. A retriever built under it appends every
+# recorded run there and prunes the store past its newest 1,000 rows, so a
+# test process that inherited the variable would write synthetic runs into,
+# and delete real runs from, the developer's store. The suite never inherits
+# it; the persistence tests set their own temporary paths
+# (tests/test_decouple.py::TestMailerOutboxIsState).
+os.environ.pop("MERCURY_AGENT_MEMORY_PATH", None)
+
 
 def _bootstrap_source_checkout() -> None:
     """Make an uninstalled clone testable: ``pytest`` with no ``pip install -e .``.
@@ -179,6 +198,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
             "Remediation:\n"
             "  pip install -e '.[ml,dev]'        # full ML test surface\n"
             "  pip install -e '.[all,dev]'       # everything the ml-tests lane installs\n"
+            "  uv sync --locked --extra all --extra dev   # the same, from uv.lock\n"
             "\n"
             "If this lane intentionally does NOT need [ml], unset\n"
             "MERCURY_REQUIRES_ML in the workflow YAML and select the test\n"
@@ -575,3 +595,57 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "visual: marks visual anomaly detection tests")
     config.addinivalue_line("markers", "vlm: marks vision-language model tests")
     config.addinivalue_line("markers", "foundation: marks foundation model tests")
+
+
+def _rate_limit_layer() -> object | None:
+    """The live ``RateLimitMiddleware`` instance in the app's built middleware stack, or None."""
+    from omni_mercury_engine.api.server import RateLimitMiddleware, app
+
+    layer = app.middleware_stack
+    while layer is not None and not isinstance(layer, RateLimitMiddleware):
+        layer = getattr(layer, "app", None)
+    return layer
+
+
+def switch_rate_limiter_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch the API's rate limiter off until ``monkeypatch`` is undone.
+
+    The stack is built first, under the process's own configuration, so the
+    middleware instance carries the real ``enabled`` value when the attribute
+    is patched; patching the environment first would make an unbuilt stack
+    construct the middleware with ``enabled=False``, the patch would record
+    that as the original, and teardown would leave the limiter off for every
+    later test (``tests/api/test_rate_limit_fixture_isolation.py``).
+
+    The stack is built directly (``app.build_middleware_stack()``), never by
+    entering a ``TestClient``: entering the client runs the application
+    lifespan (warm-up, the maintenance sweep, alert shutdown) for every test
+    that uses the fixture, and before a test's own isolation is applied that
+    sweep would run against whatever stores the process inherited.
+    """
+    try:
+        from omni_mercury_engine.api.server import app
+    except ImportError:  # the [api] extra is optional
+        return
+
+    if app.middleware_stack is None:
+        app.middleware_stack = app.build_middleware_stack()  # as configured; no lifespan
+    layer = _rate_limit_layer()
+    monkeypatch.setenv("OMNI_RATE_LIMIT_ENABLED", "false")
+    if layer is not None:
+        monkeypatch.setattr(layer, "enabled", False)
+
+
+@pytest.fixture
+def rate_limit_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch the API's rate limiter off for one test, and only that test.
+
+    ``RateLimitMiddleware`` reads ``OMNI_RATE_LIMIT_ENABLED`` when the app is
+    built, so a module that set the variable at import both leaked it into
+    every later test in the process (disabling the limiter for tests that
+    assert on it) and had no effect at all when another module had already
+    imported the app. This fixture flips the live middleware instance for the
+    test's duration and restores it afterwards (see
+    :func:`switch_rate_limiter_off`).
+    """
+    switch_rate_limiter_off(monkeypatch)

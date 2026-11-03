@@ -61,7 +61,7 @@
         exactly once at creation and can never be retrieved again.</p>
       <table>
         <thead>
-          <tr><th>Name</th><th>Key id</th><th>State</th><th>Created</th><th></th></tr>
+          <tr><th>Name</th><th>Key id</th><th>Permissions</th><th>State</th><th>Created</th><th></th></tr>
         </thead>
         <tbody id="api-keys-body"></tbody>
       </table>
@@ -75,6 +75,17 @@
           <label for="api-key-days">Expires in days (optional)</label>
           <input id="api-key-days" name="api-key-days" type="number" min="1" max="3650">
         </div>
+        <fieldset id="api-key-permissions">
+          <legend>Permissions</legend>
+          <p class="hint">A key holds only what you grant it here. Self-service keys can read,
+            run detections and export; they can never write to or administer the platform.</p>
+          <label><input type="checkbox" name="api-key-permission" value="read" checked> read — detector,
+            model and assessment lookups</label>
+          <label><input type="checkbox" name="api-key-permission" value="detect" checked> detect — run
+            detections, hazards and assessments</label>
+          <label><input type="checkbox" name="api-key-permission" value="export"> export — detection
+            history, audit logs, metrics and reports</label>
+        </fieldset>
         <button type="submit">Create API key</button>
       </form>
       <p id="api-key-status" class="status" role="status" aria-live="polite"></p>

@@ -158,6 +158,9 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install --upgrade pip
 pip install -e ".[dev]"
 
+# or, from the committed lockfile (what CI and the Docker image install):
+uv sync --locked --extra dev
+
 # For full installation with all optional features
 pip install -e ".[all]"
 ```

@@ -38,13 +38,12 @@ so existing rows keep working and are upgraded opportunistically (see
 from __future__ import annotations
 
 import base64
-import hashlib
-import hmac
 import logging
 import os
 import secrets
 from typing import TYPE_CHECKING
 
+from omni_mercury_engine.security.ama_hmac import ama_hkdf_sha256
 from omni_mercury_engine.security.encryption import SecureDataHandler
 
 if TYPE_CHECKING:
@@ -69,8 +68,19 @@ class SealedSecretError(ValueError):
     """A sealed value failed to open (tampered, wrong key, or wrong row)."""
 
 
+#: Fixed HKDF extract salt. Part of the at-rest key schedule: changing it
+#: changes every derived key and strands every sealed secret.
+_HKDF_SALT = b"mercury-hkdf-salt-v1"
+
+
 def _hkdf_sha256(seed: bytes, info: bytes, length: int = 32) -> bytes:
     """RFC 5869 HKDF-SHA256 (extract with a fixed salt, then expand).
+
+    Routed through AMA Cryptography's native HKDF-SHA-256. The stdlib
+    ``hmac``/``hashlib`` formulation this replaced ran inside OpenSSL on the
+    shipped interpreter; the output is the same bytes (RFC 5869 fixes the
+    construction, and the adapter's tests pin equality on the sealer's own
+    salt/info), so secrets sealed before the change still open.
 
     Args:
         seed: Input keying material (the fleet master seed).
@@ -80,15 +90,7 @@ def _hkdf_sha256(seed: bytes, info: bytes, length: int = 32) -> bytes:
     Returns:
         Derived key bytes.
     """
-    prk = hmac.new(b"mercury-hkdf-salt-v1", seed, hashlib.sha256).digest()
-    output = b""
-    block = b""
-    counter = 1
-    while len(output) < length:
-        block = hmac.new(prk, block + info + bytes([counter]), hashlib.sha256).digest()
-        output += block
-        counter += 1
-    return output[:length]
+    return ama_hkdf_sha256(seed, length, salt=_HKDF_SALT, info=info)
 
 
 class SecretSealer:

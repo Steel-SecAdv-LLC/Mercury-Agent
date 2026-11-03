@@ -8,29 +8,36 @@ fetch is the slow/flaky part; the detector itself is fast).
 """
 
 from __future__ import annotations
-import warnings, json, importlib, os, time
+
+import importlib
+import json
+import time
+import warnings
+
 warnings.filterwarnings("ignore")
 import numpy as np
+from _workspace import ARCHIVE_SCHEMA, cache_dir, clear_quarantine, quarantine_event
 
-CACHE = "/home/user/eqlab/cache"
-os.makedirs(CACHE, exist_ok=True)
+from omni_mercury_engine.loaders.base import SyntheticDataNotDeleakable
+
+CACHE = cache_dir()
 
 LOADERS = {
     "earthquake": ("earthquake_loader", "EarthquakeLoader"),
-    "tsunami":    ("tsunami_loader", "TsunamiLoader"),
-    "tornado":    ("tornado_loader", "TornadoLoader"),
-    "marine":     ("marine_loader", "MarineLoader"),
-    "hurricane":  ("hurricane_loader", "HurricaneLoader"),
-    "wildfire":   ("wildfire_loader", "WildfireLoader"),
-    "flood":      ("flood_loader", "FloodLoader"),
-    "volcanic":   ("volcanic_loader", "VolcanicLoader"),
-    "landslide":  ("landslide_loader", "LandslideLoader"),
-    "energy":     ("energy_loader", "EnergyLoader"),
-    "fema":       ("fema_loader", "FEMALoader"),
-    "financial":  ("financial_loader", "FinancialLoader"),
+    "tsunami": ("tsunami_loader", "TsunamiLoader"),
+    "tornado": ("tornado_loader", "TornadoLoader"),
+    "marine": ("marine_loader", "MarineLoader"),
+    "hurricane": ("hurricane_loader", "HurricaneLoader"),
+    "wildfire": ("wildfire_loader", "WildfireLoader"),
+    "flood": ("flood_loader", "FloodLoader"),
+    "volcanic": ("volcanic_loader", "VolcanicLoader"),
+    "landslide": ("landslide_loader", "LandslideLoader"),
+    "energy": ("energy_loader", "EnergyLoader"),
+    "fema": ("fema_loader", "FEMALoader"),
+    "financial": ("financial_loader", "FinancialLoader"),
     "network_security": ("network_security_loader", "NetworkSecurityLoader"),
-    "pandemic":   ("pandemic_loader", "PandemicLoader"),
-    "sepsis":     ("sepsis_loader", "SepsisLoader"),
+    "pandemic": ("pandemic_loader", "PandemicLoader"),
+    "sepsis": ("sepsis_loader", "SepsisLoader"),
 }
 
 manifest = {}
@@ -48,17 +55,57 @@ for dom, (mod, cls) in LOADERS.items():
         t = time.time()
         try:
             raw = L.fetch_historical(eid)
-            feats = np.asarray(L.engineer_features(raw), float)
+            # De-leaked view -- see BaseDomainLoader.engineer_scored_features.
+            # This cache is what research/engine_calibration/results.json is
+            # measured from, and that file backs the README's per-domain
+            # hazard table, so the exclusion has to apply here or the table
+            # keeps reporting circular numbers.
+            try:
+                feats = np.asarray(L.engineer_scored_features(raw), float)
+            except SyntheticDataNotDeleakable as exc:
+                # A rejected rebuild must not leave an older archive of this
+                # event selectable: the archive is removed and a marker left,
+                # which cache_archives() also honours.
+                quarantine_event(dom, eid, str(exc))
+                print(f"  {dom}/{eid} quarantined: synthetic frame", flush=True)
+                continue
             y = np.asarray(L.get_ground_truth(eid)).astype(int).reshape(-1)
-            m = min(len(feats), len(y)); feats = feats[:m]; y = y[:m]
+            m = min(len(feats), len(y))
+            feats = feats[:m]
+            y = y[:m]
             if len(feats) == 0 or y.min() == y.max():
-                print(f"  {dom}/{eid} skip(novar) n={len(feats)}", flush=True); continue
+                print(f"  {dom}/{eid} skip(novar) n={len(feats)}", flush=True)
+                continue
             fn = f"{CACHE}/{dom}__{eid}.npz"
-            np.savez_compressed(fn, X=feats, y=y)
-            recs.append({"event": eid, "n": int(m), "pos": int(y.sum()),
-                         "feat_dim": int(feats.shape[1] if feats.ndim > 1 else 1),
-                         "dt": round(time.time()-t, 1)})
-            print(f"  {dom}/{eid} n={m} pos={int(y.sum())} dim={feats.shape[1] if feats.ndim>1 else 1} ({time.time()-t:.1f}s)", flush=True)
+            # The archive states what X holds (the de-leaked columns) and what
+            # was excluded; cache_archives() refuses archives without the
+            # schema, which is how a pre-exclusion archive stays out.
+            np.savez_compressed(
+                fn,
+                X=feats,
+                y=y,
+                schema=np.array(ARCHIVE_SCHEMA),
+                scored_columns=np.array(list(L.scored_feature_columns()), dtype=str),
+                label_derived_excluded=np.array(list(L.LABEL_DERIVED_FEATURES), dtype=str),
+            )
+            # A validated archive is on disk: an earlier quarantine (a
+            # synthetic frame that has since been replaced by real data) no
+            # longer applies, so the marker goes and the event is evaluated again.
+            if clear_quarantine(dom, eid):
+                print(f"  {dom}/{eid} recovered: quarantine lifted", flush=True)
+            recs.append(
+                {
+                    "event": eid,
+                    "n": int(m),
+                    "pos": int(y.sum()),
+                    "feat_dim": int(feats.shape[1] if feats.ndim > 1 else 1),
+                    "dt": round(time.time() - t, 1),
+                }
+            )
+            print(
+                f"  {dom}/{eid} n={m} pos={int(y.sum())} dim={feats.shape[1] if feats.ndim > 1 else 1} ({time.time()-t:.1f}s)",
+                flush=True,
+            )
         except Exception as e:
             print(f"  {dom}/{eid} FETCH_ERR {type(e).__name__}: {str(e)[:70]}", flush=True)
     manifest[dom] = {"status": "ok" if recs else "unreachable", "events": recs}

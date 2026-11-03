@@ -54,7 +54,6 @@ against an external anchor (a periodically exported last ``event_hash`` /
 from __future__ import annotations
 
 import hashlib
-import hmac
 import json
 import logging
 import os
@@ -511,8 +510,19 @@ class SecureHashChain:
         return self._hmac_hash(genesis_data.encode())
 
     def _hmac_hash(self, data: bytes) -> str:
-        """Compute HMAC-SHA3-256 hash for AMA Cryptography alignment."""
-        return hmac.new(self.hmac_key, data, hashlib.sha3_256).hexdigest()
+        """HMAC-SHA3-256 hex digest, computed by AMA Cryptography's native backend.
+
+        The stdlib ``hmac``/``hashlib`` call this replaced ran inside OpenSSL on
+        the shipped interpreter. Same bytes (FIPS 202 + RFC 2104), so chains
+        written before the change still verify.
+        """
+        # Imported at first use, not at module import: the security package's
+        # scoped-gate contract (tests/test_pqc_startup_gate.py) keeps the audit
+        # logger importable without a PQC build; the keyed hash itself still
+        # refuses to run on anything but AMA.
+        from omni_mercury_engine.security.ama_hmac import ama_hmac_sha3_256
+
+        return ama_hmac_sha3_256(self.hmac_key, data).hex()
 
     def compute_event_hash(self, event_data: dict[str, Any]) -> tuple[str, str, int]:
         """Compute hash for event and link to chain.
@@ -603,7 +613,7 @@ class SecureHashChain:
         Head and tail truncation leave a shorter but internally valid chain
         and cannot be detected here (see the module docstring).
 
-        Uses :func:`hmac.compare_digest` to avoid leaking hash information via
+        Uses AMA's constant-time compare to avoid leaking hash information via
         timing.
 
         Args:
@@ -612,19 +622,23 @@ class SecureHashChain:
         Returns:
             Tuple of ``(is_valid, sorted_list_of_invalid_indices)``.
         """
+        from omni_mercury_engine.security.ama_hmac import ama_constant_time_compare
+
         invalid_indices: set[int] = set()
 
         for i, event in enumerate(events):
             # (1) Content integrity: recompute the event's own hash.
             expected = self._recompute_event_hash(event)
-            if not hmac.compare_digest(expected.encode("utf-8"), event.event_hash.encode("utf-8")):
+            if not ama_constant_time_compare(
+                expected.encode("utf-8"), event.event_hash.encode("utf-8")
+            ):
                 invalid_indices.add(i)
 
             # (2) Linkage: this event's back-pointer must match the prior hash.
             # Skip for the first event (its previous_hash is the genesis hash).
             if i == 0:
                 continue
-            if not hmac.compare_digest(
+            if not ama_constant_time_compare(
                 event.previous_hash.encode("utf-8"), events[i - 1].event_hash.encode("utf-8")
             ):
                 invalid_indices.add(i)
@@ -746,6 +760,8 @@ def _verify_writer_chain(
     files: list[Path], hash_chain: SecureHashChain, label: str
 ) -> dict[str, Any]:
     """Verify one writer's files (oldest first) and the links between them."""
+    from omni_mercury_engine.security.ama_hmac import ama_constant_time_compare
+
     report: dict[str, Any] = {"writer": label, "ok": True, "files": [], "notes": []}
     last: AuditEvent | None = None
     last_name = ""
@@ -754,12 +770,14 @@ def _verify_writer_chain(
         entry: dict[str, Any] = {"file": path.name, "ok": ok, "message": message}
         sidecar = path.with_suffix(".sha256")
         if path.name.startswith("audit_") and sidecar.exists():
-            if not hmac.compare_digest(_file_sha3(path), sidecar.read_text().strip()):
+            if not ama_constant_time_compare(
+                _file_sha3(path).encode(), sidecar.read_text().strip().encode()
+            ):
                 entry["ok"] = False
                 entry["message"] += "; content differs from its .sha256 sidecar"
         if events and last is not None:
             first = events[0]
-            linked = hmac.compare_digest(
+            linked = ama_constant_time_compare(
                 first.previous_hash.encode(), last.event_hash.encode()
             ) and (first.sequence_number == last.sequence_number + 1)
             if not linked:
@@ -960,6 +978,8 @@ class SecureAuditLogger:
         preview) and preserved next to the log as ``<name>.torn-<usec>`` for
         forensics. The caller must own ``path`` (writer lock held).
         """
+        from omni_mercury_engine.security.ama_hmac import ama_sha3_256
+
         with open(path, "rb+") as f:
             f.seek(0, os.SEEK_END)
             size = f.tell()
@@ -995,7 +1015,7 @@ class SecureAuditLogger:
             path,
             len(fragment),
             cut,
-            hashlib.sha3_256(fragment).hexdigest(),
+            ama_sha3_256(fragment).hex(),
             fragment[:_TORN_PREVIEW_BYTES],
             keep.name,
         )

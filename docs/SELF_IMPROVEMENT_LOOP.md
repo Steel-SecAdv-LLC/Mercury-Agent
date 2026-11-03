@@ -122,7 +122,7 @@ justification.
   `LABEL_SOURCE: str = "ground_truth"` to `BaseDomainLoader` (a
   provenance-declaration default; loaders must override to declare
   their actual source).
-* All 20 concrete loaders updated:
+* All 21 concrete loaders updated:
   * `ground_truth` (2): `network_security_loader.NetworkSecurityLoader`,
     `sepsis_loader.SepsisLoader`.
   * `statistical` (18): every other live-API loader. The justification on

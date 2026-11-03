@@ -19,6 +19,7 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
+from omni_mercury_engine.models import biometric_multimodal
 from omni_mercury_engine.models.biometric_multimodal import (
     FACENET_AVAILABLE,
     AgeProgressionEngine,
@@ -107,3 +108,132 @@ def test_multimodal_engine_never_fabricates(tmp_path: Path) -> None:
     # Symbolic fusion refuses rather than fusing random stand-in features.
     with pytest.raises(ValueError, match="refusing"):
         engine.fuse_with_symbolic(path, {"csdm": 0.9})
+
+
+def test_age_filter_never_returns_its_input_unchanged() -> None:
+    """Both directions of the legacy-noise filter alter the face.
+
+    It used to return ``face`` unchanged whenever OpenCV was absent, so an
+    unprocessed image was served as an age-progressed one with nothing saying
+    so, and ``assess_progression`` then measured no injected noise. OpenCV is
+    a core dependency now and the filter has no skip path, so neither
+    direction may no-op.
+    """
+    engine = AgeProgressionEngine(seed=3)
+
+    for delta in (10, -10):
+        out = engine.apply_polynomial_age_filter(_FACE, delta)
+        assert out.shape == _FACE.shape
+        assert out.dtype == _FACE.dtype
+        assert not np.array_equal(out, _FACE), f"age_delta={delta} returned its input unchanged"
+
+
+def test_age_filter_has_one_blur_implementation() -> None:
+    """The blur smooths, and does so the same way in every supported install.
+
+    A SciPy stand-in for the OpenCV kernel would cure the old silence but make
+    the pixels depend on which wheels were installed -- the wrong property for
+    a face a search may be run against -- so there is exactly one path.
+    """
+    blurred = biometric_multimodal._gaussian_blur_5x5(_FACE.astype(float))
+
+    assert blurred.shape == _FACE.shape
+    assert float(np.var(blurred)) < float(np.var(_FACE.astype(float)))
+
+
+def test_no_detector_installed_is_not_reported_as_a_failed_detection(
+    tmp_path: Path,
+) -> None:
+    """ "No detector here" and "no face there" are different answers.
+
+    ``detect_and_align_face`` used to return ``None`` for both, and
+    ``progress_age`` rendered that as "Face detection failed" -- so a missing
+    dependency read as a verdict about the image. OpenCV 5.x carries neither
+    ``CascadeClassifier`` nor the bundled cascades (they moved to
+    ``opencv_contrib``), so on a core-only install that case is reachable, and
+    it now names what to install.
+    """
+    cv2 = pytest.importorskip("cv2")
+    engine = AgeProgressionEngine(seed=0)
+    blank = tmp_path / "blank.png"
+    cv2.imwrite(str(blank), np.zeros((64, 64, 3), dtype=np.uint8))
+
+    has_cascade = getattr(cv2, "CascadeClassifier", None) is not None
+    if engine.face_detector is not None or has_cascade:
+        pytest.skip("a face detector is installed; the no-detector path is unreachable")
+
+    with pytest.raises(biometric_multimodal.FaceDetectorUnavailableError, match="no face detector"):
+        engine.detect_and_align_face(str(blank))
+
+    result = engine.progress_age(str(blank), 10)
+    assert not result.success
+    assert "no face detector" in str(result.message)
+    assert "Face detection failed" not in str(result.message)
+
+
+def test_a_detector_that_finds_nothing_still_reports_a_failed_detection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """With a detector present and no face in frame, ``None`` is the right answer."""
+    cv2 = pytest.importorskip("cv2")
+    engine = AgeProgressionEngine(seed=0)
+    blank = tmp_path / "blank.png"
+    cv2.imwrite(str(blank), np.zeros((64, 64, 3), dtype=np.uint8))
+
+    class _FindsNothing:
+        @staticmethod
+        def detect(_image: object) -> tuple[None, None]:
+            return None, None
+
+    monkeypatch.setattr(engine, "face_detector", _FindsNothing())
+    monkeypatch.setattr(biometric_multimodal, "TORCH_AVAILABLE", True)
+
+    assert engine.detect_and_align_face(str(blank)) is None
+
+    result = engine.progress_age(str(blank), 10)
+    assert not result.success
+    assert "Face detection failed" in str(result.message)
+
+
+def test_face_detector_requirement_names_remedies_that_supply_a_detector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every remedy in the message must really supply a detector.
+
+    The message used to send operators to the ``[ml]`` extra for MTCNN, but no
+    extra declares ``facenet-pytorch``, so that install left the engine where
+    it was; and it offered the cascade XMLs on an OpenCV with no
+    ``CascadeClassifier``, where no XML can help.
+    """
+    cv2 = pytest.importorskip("cv2")
+    monkeypatch.delenv(biometric_multimodal.HAARCASCADE_DIR_ENV, raising=False)
+    message = biometric_multimodal.face_detector_requirement()
+    assert "facenet-pytorch" in message
+    assert "the [ml] extra alone supplies PyTorch, not MTCNN" in message
+    if getattr(cv2, "CascadeClassifier", None) is None:
+        assert "cascade XMLs cannot help" in message
+        assert "opencv-python-headless<5" in message
+    else:
+        assert "cascade XMLs cannot help" not in message
+
+
+def test_cascade_search_honours_the_configured_and_documented_directories(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``MERCURY_HAARCASCADE_DIR`` is searched first, the DeepFace weights dir last."""
+    configured = tmp_path / "cascades"
+    configured.mkdir()
+    xml = configured / biometric_multimodal.FRONTAL_FACE_CASCADE
+    xml.write_text("<opencv_storage/>")
+    monkeypatch.setenv(biometric_multimodal.HAARCASCADE_DIR_ENV, str(configured))
+    assert biometric_multimodal.haarcascade_directories()[0] == str(configured)
+    assert biometric_multimodal.find_haarcascade() == str(xml)
+
+    monkeypatch.delenv(biometric_multimodal.HAARCASCADE_DIR_ENV)
+    home = tmp_path / "deepface_home"
+    weights = home / ".deepface" / "weights"
+    weights.mkdir(parents=True)
+    monkeypatch.setenv("DEEPFACE_HOME", str(home))
+    directories = biometric_multimodal.haarcascade_directories()
+    assert directories[-1] == str(weights)
+    assert str(configured) not in directories

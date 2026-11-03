@@ -98,12 +98,70 @@ bash scripts/build_ama_native.sh
 pip install -e ".[all]"
 ```
 
+### Installing with uv (locked)
+
+`uv.lock` is one cross-platform resolution of every extra (Linux, macOS and
+Windows; Python 3.11 to 3.14). `uv sync --locked` installs exactly that set,
+resolving and downloading in parallel, and uses uv's global hardlinked cache, so
+a second install on the same machine is near-instant and the first is much
+faster than pip. The Dockerfile builder and the CI test lanes install this way.
+
+```bash
+# core + the ML stack, the API and the developer tools, from the lockfile
+uv sync --locked --extra ml --extra api --extra dev
+source .venv/bin/activate
+
+# everything the Docker image ships
+uv sync --locked --extra all --extra dev
+
+# the AMA backend is still built (or downloaded) by the same script; it works
+# in a uv environment, which has no pip, through uv's pip front end
+bash scripts/build_ama_native.sh
+```
+
+`--locked` refuses a lockfile that no longer matches `pyproject.toml`. After
+changing a dependency, run `uv lock` and commit `uv.lock`; the Workflow
+Hardening lane runs `uv lock --check` and names the drift on the pull request.
+
 ## Installation Profiles
+
+> **OpenCV moved from `[ml]` into the core dependencies in v3.** The FINDΩYOU
+> face path needs it for decoding, colour conversion, resize and the
+> legacy-noise blur, and on the 4.x line it also supplies the Haar cascade that
+> detects a face without PyTorch. While it was optional the path degraded
+> silently: the age filter returned its input unchanged, and a missing decoder
+> was reported as "Face detection failed". Image *decoding* does have in-house
+> parity and keeps it (`vision/imaging` falls back to Pillow), so that path does
+> not depend on the pin.
+>
+> **The core pin alone does not guarantee a face _detector_.** OpenCV 5.0 moved
+> `CascadeClassifier` and the bundled cascades into `opencv_contrib`, so the
+> 5.x `-headless` wheel (which the `<6` ceiling admits) carries neither — a
+> core-only install resolving 5.x has no detector at all. That case raises
+> `FaceDetectorUnavailableError` naming the installed state (whether
+> `facenet_pytorch` imports, whether PyTorch is present, the OpenCV version,
+> whether it has `CascadeClassifier`, which cascade XML was found) and only the
+> remedies that apply, rather than returning `None` and reading as "no face in
+> the image". The remedies that really supply a detector:
+>
+> * **MTCNN** needs the `facenet-pytorch` package, which no Mercury extra
+>   declares, together with PyTorch from `[ml]`:
+>   `pip install facenet-pytorch "mercury-agent-global[ml]"`. Installing `[ml]`
+>   alone supplies PyTorch and leaves MTCNN unavailable.
+> * **Haar cascade** needs `cv2.CascadeClassifier` *and* a cascade XML. On the
+>   5.x `-headless` wheel the classifier itself is absent, so XMLs cannot help;
+>   install an OpenCV that carries it (`pip install "opencv-python-headless<5"`,
+>   or a 5.x `opencv-contrib-python-headless` wheel). When the classifier is
+>   present but no XML is bundled, place the XMLs in `MERCURY_HAARCASCADE_DIR`
+>   or in `${DEEPFACE_HOME:-$HOME}/.deepface/weights` as described under
+>   [Biometric image analysis (DeepFace) assets](#biometric-image-analysis-deepface-assets)
+>   below; the engine searches the configured directory, OpenCV's bundled
+>   `cv2/data`, then the DeepFace weights directory.
 
 | Profile | Command | Includes |
 |---------|---------|----------|
-| **Core** | `pip install -e .` | numpy, scipy, pandas, MercuryAnomalyDetector |
-| **ML** | `pip install -e ".[ml]"` | Core + PyTorch, torchvision, pytorch-lightning, timm, OpenCV (headless) |
+| **Core** | `pip install -e .` | numpy, scipy, pandas, OpenCV (headless), MercuryAnomalyDetector, face detection and age progression |
+| **ML** | `pip install -e ".[ml]"` | Core + PyTorch, torchvision, pytorch-lightning, timm, h5py, numcodecs, netCDF4, metpy, obspy |
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
 | **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate. Ships SHA-pinned local BLIP backends (`blip_vqa`, `blip_caption`) that run the AnyAnomaly/LAVAD detectors on CPU; larger LVLMs (Qwen2-VL, MiniCPM-V, LLaVA) are configurable with an operator-supplied revision pin. |
 | **Foundation** | `pip install -e ".[foundation]"` | ML + foundation-model adapters: `chronos-forecasting` (Amazon Chronos, local inference), `nixtla` (TimeGPT API client), `stumpy` (matrix profile) |
@@ -138,7 +196,7 @@ other installs the first image analysis downloads, into
 |---|---|---|
 | `age_model_weights.h5`, `gender_model_weights.h5`, `facial_expression_model_weights.h5` | 539 MB, 537 MB, 6 MB | `predict()` on an image |
 | `facenet_weights.h5` | 92 MB | `extract_features()` and reference-vs-test matching |
-| `haarcascade_frontalface_default.xml`, `haarcascade_eye.xml` | 930 KB, 341 KB | face detection, **only with OpenCV 5.x**; 4.x wheels ship them in `cv2/data` |
+| `haarcascade_frontalface_default.xml`, `haarcascade_eye.xml` | 930 KB, 341 KB | face detection when the installed OpenCV has `CascadeClassifier` but no bundled cascades (a 5.x `opencv-contrib` build); 4.x wheels ship them in `cv2/data`; `MERCURY_HAARCASCADE_DIR` names another directory |
 
 A failed download does not raise: `predict()` returns the visual assessment with
 an `error` key and `attributes_measured: false`. On a host without GitHub
@@ -192,18 +250,47 @@ installs the Python package, **co-locates the shared object inside the installed
 loudly unless ML-DSA-65 + Kyber-1024 + SPHINCS+ all load:
 
 ```bash
-# Requires git and gcc/g++ >= 12; the script installs cmake >= 4.4.4 itself.
+# Downloads the prebuilt backend for this OS and CPU when the release carries
+# one; otherwise requires git and gcc/g++ >= 12 and installs cmake >= 4.4.4 itself.
 bash scripts/build_ama_native.sh
 # AMA_REQUIRE_CONSTANT_TIME is superseded by AMA v5.0.0 (native-only
 # constant-time is unconditional; AMA warns if it is set); no need to export it.
 ```
 
+**Prebuilt first.** The cmake build is the slow phase of every install, so the
+script first runs `scripts/fetch_ama_prebuilt.sh`, which downloads
+`ama-cryptography-<ref>-<os>-<arch>.tar.gz` (os: `linux`, `macos`, `windows`;
+arch: `x86_64`, `aarch64`) from the `ama-native-<ref>` release of this
+repository, checks it against the release's `SHA256SUMS`, and unpacks the
+`ama_cryptography` wheels for Python 3.11 to 3.14. AMA bundles the native
+library inside each wheel, signs the library's SHA3-256 into it at build time
+and verifies that at import, and tags every wheel for the interpreter that built
+it; the script installs the wheel matching the active interpreter (`pip install
+--no-index --find-links`) and runs the usual capability probe. Outcomes:
+
+| Result | Script behaviour |
+|---|---|
+| archive verified, a wheel matches this Python, its backend loads | installed; no clone, no compiler, no cmake |
+| no archive for this platform, no network, `AMA_PREBUILT=0` | the source build below runs unchanged |
+| archive fails `SHA256SUMS` | the script stops; a corrupt or tampered release is never built around silently |
+| archive verified but no wheel for this Python, or the library does not load here | the source build runs, with a notice |
+
+`AMA_PREBUILT_BASE_URL` points the download elsewhere (a `file://` mirror, or
+the AMA repository's own release once it carries the same assets). The archives
+are produced by `.github/workflows/ama-prebuilt.yml` (manual dispatch with the
+AMA tag): one job per OS and CPU builds a wheel with each of the four Pythons
+(the first pays for the cmake build, the others reuse it), proves every wheel in
+a fresh environment of its Python, and the release is published with its
+`SHA256SUMS`. A platform that fails to build is simply absent from the release
+and its installs build from source.
+
 Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
-The script performs, in order: install the PEP 517 build floors
+The source build performs, in order: install the PEP 517 build floors
 (`setuptools>=84.0.0`, `wheel>=0.48.0`, `cmake>=4.4.4` — AMA v5.0.0 raised the
 setuptools and cmake floors; older toolchains fail its preflight); `git clone
 --branch v5.0.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
-`AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`;
+`AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`
+(through `uv pip` in a uv environment, which has no pip);
 co-locate `libama_cryptography.so*`; verify via `get_pqc_backend_info()`.
 
 **Manual out-of-tree build (only if you do not co-locate the `.so`).** If you

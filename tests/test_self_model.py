@@ -60,10 +60,26 @@ class TestSnapshot:
         assert any(lim.startswith("fictional_sensor_fusion:") for lim in body["limitations"])
 
     def test_identity_verification_needs_a_face_backend(self) -> None:
+        """Unavailable, and the reason names whichever dependency is missing.
+
+        The reason used to be asserted as literally ``deepface``, which failed
+        on a tree where ``cv2`` -- a hard requirement, reported ahead of the
+        grounding one -- was the first thing absent.
+        """
+        spec = next(c for c in self_model.CAPABILITIES if c.name == "biometric_match")
+        absent = [
+            dep
+            for dep in (*spec.requires, *spec.grounding_requires)
+            if not self_model._module_present(dep)
+        ]
+        if not absent:
+            pytest.skip("every face-backend dependency is installed")
+
         record = build_self_model(STAMP).body["capabilities"]["biometric_match"]
-        if not self_model._module_present("deepface"):
-            assert record["state"] == "unavailable"
-            assert "deepface" in record["reason"]
+        assert record["state"] == "unavailable"
+        assert any(
+            dep in record["reason"] for dep in absent
+        ), f"reason {record['reason']!r} names none of the missing {absent}"
 
     def test_measured_performance_is_pinned_to_its_artifact(self) -> None:
         metrics = build_self_model(STAMP).body["measured_performance"]

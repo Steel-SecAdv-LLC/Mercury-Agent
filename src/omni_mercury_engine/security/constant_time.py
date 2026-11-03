@@ -27,7 +27,6 @@ References:
 
 from __future__ import annotations
 
-import hmac
 import secrets
 from typing import Any
 
@@ -38,9 +37,9 @@ import numpy.typing as npt
 def constant_time_compare(a: bytes | str, b: bytes | str) -> bool:
     """Compare two values in constant time to prevent timing attacks.
 
-    Uses hmac.compare_digest which is designed to prevent timing attacks
-    by ensuring comparison takes the same time regardless of where
-    differences occur.
+    Uses AMA Cryptography's native ``ama_consttime_memcmp`` (the routine
+    every AMA verifier uses) rather than ``hmac.compare_digest``, which on
+    an OpenSSL-linked interpreter is OpenSSL's ``CRYPTO_memcmp``.
 
     Args:
         a: First value to compare
@@ -54,7 +53,12 @@ def constant_time_compare(a: bytes | str, b: bytes | str) -> bool:
     if isinstance(b, str):
         b = b.encode("utf-8")
 
-    return hmac.compare_digest(a, b)
+    # First-use import keeps this module importable without a PQC build (the
+    # security package's scoped-gate contract); the compare itself runs only
+    # on AMA's native routine.
+    from omni_mercury_engine.security.ama_hmac import ama_constant_time_compare
+
+    return ama_constant_time_compare(a, b)
 
 
 def constant_time_select(condition: bool, true_val: Any, false_val: Any) -> Any:
@@ -172,7 +176,9 @@ def secure_signature_verify(
         True if signature is valid, False otherwise
     """
     if key is not None:
-        expected = hmac.new(key, expected, "sha256").digest()
+        from omni_mercury_engine.security.ama_hmac import ama_hmac_sha256
+
+        expected = ama_hmac_sha256(key, expected)
 
     return constant_time_compare(signature, expected)
 
@@ -316,7 +322,9 @@ def secure_hash(data: bytes | str, salt: bytes | None = None) -> bytes:
     if salt is None:
         salt = secrets.token_bytes(16)
 
-    return hmac.new(salt, data, "sha256").digest()
+    from omni_mercury_engine.security.ama_hmac import ama_hmac_sha256
+
+    return ama_hmac_sha256(salt, data)
 
 
 def generate_secure_token(length: int = 32) -> bytes:

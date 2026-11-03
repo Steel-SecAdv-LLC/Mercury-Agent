@@ -265,7 +265,7 @@ import math
 from dataclasses import dataclass
 from enum import StrEnum
 from fractions import Fraction
-from typing import Literal
+from typing import Literal, TypeAlias
 
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
@@ -310,9 +310,9 @@ __all__ = [
     "windows_within",
 ]
 
-FloatArray = NDArray[np.float64]
-BoolArray = NDArray[np.bool_]
-IntArray = NDArray[np.intp]
+FloatArray: TypeAlias = NDArray[np.float64]
+BoolArray: TypeAlias = NDArray[np.bool_]
+IntArray: TypeAlias = NDArray[np.intp]
 
 #: Consistency constant of the MAD for Gaussian data: 1 / Phi^{-1}(3/4).
 MAD_TO_SIGMA = 1.4826

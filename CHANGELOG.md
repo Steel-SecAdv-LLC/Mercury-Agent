@@ -27,6 +27,1051 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — fusion-weight cross-validation validates its weights.** In
+`benchmarks/calibration_validation.py::run_fusion_weight_cv` each fold split off
+its held-out rows and never used them: the fold's L-BFGS-B weights were fitted
+on its training rows and averaged, so nothing was cross-validated (flake8 7.5.0
+reported the two unused variables). Each fold now scores its optimum, the
+default 0.4/0.3/0.3 and its own adaptive weights (computed from the fold's
+training labels only) on the rows it held out, at an F1 cut chosen on its
+training rows, and the result carries them as `cv_heldout`, with the MD-003
+summary gaining the held-out deltas. The run also flags a fold whose optimum
+sits on the optimiser's box on every component (`optimum_on_bounds`): in the
+committed 55-dataset run that is 28 datasets, whose "optimal" weights were set
+by the bounds, not the data. The existing `f1_at_*` figures are unchanged and
+now say they use an oracle cut on the test rows. Tests:
+`tests/benchmarks/test_calibration_validation.py` (held-out partition, the
+training cut, the bound flag, per-fold adaptive weights never see held-out
+labels, the unchanged oracle figure). The committed results JSON predates the
+fix and has no `cv_heldout`; it gains one when the harness is next run.
+`docs/BENCHMARKS.md` no longer calls MD-003 resolved by validation: it states
+that the figures are a test-split comparison at an oracle cut, that the folds
+had not been scored, and that 28 of the 55 datasets have bound-set optima.
+
+**Fixed — rotating the at-rest key re-seals the stored provider keys.**
+Provider keys stored from the console are sealed under `MERCURY_DATA_ENC_KEY`,
+but `scripts/reseal_totp_secrets.py` re-sealed TOTP secrets only, so a rotation
+would have left every stored provider key unopenable. `ProviderStore.reseal`
+classifies each key as the TOTP pass does (already current, old key,
+plaintext, unopenable; never overwritten) and the rotation tool runs it in the
+same invocation, on the provider store alone when no durable identity store is
+configured, failing the run when either store has a key it cannot open.
+Tests: `tests/scripts/test_reseal_totp_secrets.py`.
+
+**Changed — the documented language scope matches what shipped.** The README
+still said the voice operates in English only and that multilingual natural
+language was a future epic, and `tests/narrative/test_language_scope.py`
+enforced that statement after the seven-language layer shipped. The README now
+states the shipped scope and its boundary (questions understood in seven
+languages; social turns, menu and prompts answered in them; narratives and
+profiles never machine translated), ROADMAP row 18 is partly closed with what
+remains, and the test pins the README to `narrative/languages.py::SUPPORTED`
+instead of to prose. SECURITY.md gains the provider-administration routes, the
+secrets-at-rest and language-model egress facts and the provider third-party
+note; ARCHITECTURE.md gains the console, agent and provider layer and its real
+logging start-up; the platform-hardening and deployment guides cover provider
+keys in the at-rest key and its rotation; the README lists the new variables.
+
+**Fixed — the Core Tests lane no longer runs out of time.** The lane ran its
+selection serially under a 40-minute job limit; on run 41573886724 Python 3.13
+passed its tests in 32.7 minutes and was cancelled during the coverage upload,
+and Python 3.12, after an 11.5-minute dependency install, was cancelled
+mid-tests, so a green suite read red. The lane now runs with 4 workers and a
+300-second per-test timeout (`-n 4 --dist=loadgroup --timeout=300`), the flags
+the ML lane already runs the whole tree with; the coverage floor is unchanged.
+
+**Changed — tool and image bumps folded in from Dependabot.** mypy 2.4.1,
+ruff 0.17.3, flake8 7.5.0 (pyflakes 4.1.0) and types-requests 2.33.0.20261030
+at every pin site (`pyproject.toml` ml and dev extras, the Code Quality and
+Type Checking installs in `ci.yml`, the pre-commit revs, the
+`run_ci_gates.sh` header) with `uv.lock` regenerated (only those five packages
+move); Grafana 13.3.0 in `docker-compose.yml` (same data volume). The
+Dependabot pull requests touched `pyproject.toml` alone and would have failed
+the pin-parity gate. ruff and mypy report nothing new on the tree; flake8's two
+new findings were the cross-validation defect above.
+
+**Added — the agent holds a conversation, in seven languages.** Measured
+before this change: of 70 realistic inputs a console user types ("ok",
+"anything new?", "should I be worried?", "what do you mean?", "say that
+again", "that's not what I asked", "how do I use this?", "detect anomalies in
+sensor.csv", "bye", and the same questions in Spanish, French, German,
+Italian, Portuguese and Dutch), 52 fell through to the free-text search and
+ended in the fallback menu. `narrative/conversation.py` now routes
+acknowledgements, farewells, check-ins ("any problems?"), worry ("is it
+serious?"), confusion ("what do you mean?" rebuilds the previous answer in
+its fuller form), "say that again" (the previous answer again), "in short"
+(its first two sentences), corrections (which never repeat the answer they
+correct), how-to questions (three concrete steps naming only commands the
+CLI has), plain-words run requests ("score this file"), "do you cover
+earthquakes?" (the domain's profile), "how many detectors" (the manifest,
+not the record), and four more glossary terms (hazard, anomaly, domain,
+loader); a reaction such as "ok" never replaces the follow-up context, so
+"ok" then "why?" still explains the run that was discussed.
+`narrative/languages.py` (new; lexicon and regular expressions, no model, no
+dependency) detects the asker's language from its own function words and
+spellings, renders the question in the English phrasing the classifier
+already routes (`¿cuántas anomalías hoy?` reaches the same builder as "how
+many anomalies today?"), answers greetings, thanks, acknowledgements,
+corrections and the fallback menu in that language, translates the follow-up
+prompts (each of which maps back to its English intent when clicked), and
+appends to a grounded answer a one-line note in the asker's language saying
+how the question was understood. What it does not do is stated in the
+module: a detection narrative or a knowledge profile is never machine
+translated, because that would be a second, unverified source; those stay in
+English under the note. `POST /api/v1/voice/speak` takes `language` (a
+supported ISO 639-1 code, or `auto`/omitted to detect it; an unknown code is
+a 422) and reports `metadata.language`, `metadata.understood_as` and
+`metadata.answer_kind`; `MercuryVoice.speak` takes the same `language` and
+`VoiceResponse` carries the three fields. Tests:
+`tests/narrative/test_conversation_breadth.py` (the battery's routing, the
+context rule, repeat/brief/correction end to end, no turn in the battery
+ends in the fallback), `tests/narrative/test_languages.py` (detection per
+language, every translated prompt round-trips to its English intent, every
+frame exists in every language, the voice end to end with a detected and an
+explicit language), `tests/api/test_voice_language.py`.
+
+**Added — console settings: grey and system themes, spoken replies, visual
+and assistive alert cues, the agent language.** The settings window gains a
+Grey theme (a mid register between the dark instrument and the light reading
+theme; `html.ds-grey` tokens) and a System theme that follows the operating
+system's preference and re-applies when it changes; an AGENT section with the
+language the agent answers in (Auto detects it from what is typed; EN, ES,
+FR, DE, IT, PT, NL are sent as `language` on every `/voice/speak` request,
+and the reply's language and reading are shown in the reply's steps); and
+three accessibility settings beside reduced motion, contrast, scale and focus
+rings: Spoken replies (the agent's replies and alerts read aloud through the
+browser's speech synthesis in the agent language, silent where the browser
+has none), Visual alert cues (a banner at the top of the console and a
+threefold flash of the frame when an alert lands, a held outline under
+reduced motion, for users who cannot hear an alert or are away from sound)
+and Announce alerts (an assertive live region read by a screen reader as the
+alert arrives). The theme and language option buttons and every switch now
+carry `aria-pressed` / `aria-checked` as strings, so the state survives being
+false. The self-test gains a Settings & accessibility suite (9,192 checks).
+
+**Added — twenty-one language-model providers, connected from the console.**
+The engine shipped adapters for ten providers; eleven more join on the shared
+OpenAI-compatible base (`models/foundation/ollama_adapter.py`,
+`OPENAI_COMPATIBLE_ADAPTERS`): Mistral, Groq, Together, Fireworks, OpenRouter
+and Perplexity (a public endpoint and a key each), Azure OpenAI (the
+operator's resource endpoint, a deployment name, the `api-key` header and an
+API version), any OpenAI-compatible endpoint the operator names (required,
+never guessed; key optional), and the local LM Studio, vLLM and llama.cpp
+servers (plain http on a loopback host, no key, RFC1918 only under the
+offline opt-in, exactly as Ollama). Every provider is in the enum, the
+implemented set and the code-grounded catalog the drift gate pins; no model
+ships by default; `tests/models/test_openai_compatible_providers.py` pins
+the contract adapter by adapter. Connecting one no longer means editing the
+engine host's environment: an administrator stores the key, endpoint and
+model from the console's AI vendors view (`PUT
+/api/v1/voice/backends/{provider}`; the key sealed at rest by
+`api/provider_store.py` under `MERCURY_DATA_ENC_KEY` or `AMA_MASTER_SEED`,
+never returned, refused with the reason when no stable key exists), tests
+the connection with one read-only call that lists the provider's models
+(`POST /api/v1/voice/backends/{provider}/test`; a key given there is used
+once and not stored), and makes the provider the voice's model (`POST
+/api/v1/voice/backends/select`, `DELETE` to detach), which survives a
+restart (`MERCURY_PROVIDER_STORE_PATH`, inventoried by `decouple`). The
+backends report says for each provider where its key, endpoint and model
+came from (store, environment, default). `mercury-agent voice --model
+provider:model` attaches the same way from the shell; the flag used to build
+an Ollama chain the voice never consulted. And an attached model now has a
+real, bounded job: it composes the free-text search answers from the
+records the retriever found and nothing else (the reply names the model
+among its sources and says how many records it composed from; an adapter
+failure leaves the template answer), while grounded answers never go
+through it. Tests: `tests/api/test_provider_store.py`,
+`tests/api/test_voice_backends.py` (admin gate, the secret boundary, the
+probe, selection and persistence), `tests/narrative/test_voice_model_compose.py`,
+`tests/test_cli_voice_model_spec.py`.
+
+**Fixed — a stored change reaches the running voice; a free-form route
+states its body.** Storing a new key, endpoint or model for the provider the
+voice is composing with rebuilds the served voice at once (the response says
+`reattached`); a change that leaves the provider unable to answer (its key
+cleared) detaches it and drops the selection rather than keeping a model
+that cannot reply, and forgetting the active provider detaches it the same
+way (`selection_cleared`). The provider row names which fields are in the
+store (`stored`), so the console offers Forget stored settings only when
+there is something to forget. Separately, running the console self-test with
+an API key attached reached checks the keyless runs never did: the mass-run
+fixtures for the assessment routes were walked field by field against a
+free-form (`dict[str, Any]`) body that has no fields, and failed. Every
+free-form route now states its contract on a `Body:` line in its OpenAPI
+description (five of the nine had none), the console catalog reads that line
+into the raw body field (`keys`, `reqKeys`; `scripts/build_console_catalog.py`,
+`documented_body_keys`), the console's missing-field check and the self-test
+use the documented keys, and `tests/scripts/test_console_raw_body_keys.py`
+keeps the documentation equal to the key sets the assessment service
+enforces, read from its `_obj` calls with `ast`. The self-test's voice
+example count follows the fifth docstring example (`--model openai:gpt-4o`).
+
+**Added — AI vendors: which language models and which AI clients can link
+to Mercury, shown in the console.** The engine ships adapters for ten
+language-model providers (OpenAI, Anthropic, xAI Grok, Google Gemini,
+Cohere, DeepSeek, Cursor, Hugging Face, Ollama, built-in templates) and an
+MCP server any stdio client attaches to, but the console showed none of it.
+`GET /api/v1/voice/backends` (new, `api/backends.py`; anonymous, read-only)
+reports every provider from the code-grounded `PROVIDER_CATALOG` with the key
+environment variable its adapter reads and whether it is set on the server
+(never its value), probes the local Ollama runtime through the egress gate
+for its models (2-second timeout, 30-second cache), returns the
+`mercury-agent mcp` command with the protocol version, the tool list and a
+ready-to-paste configuration block for Claude Desktop and Claude Code,
+Cursor, VS Code with Copilot and any stdio client, and says which provider
+the served voice generates prose with, if an operator enabled one (the
+console's grounded answers need none). The console gains an **AI vendors**
+view under INTERFACES with status chips (key set or not, Ollama reachable
+with its model count, active), provider cards (adapter and wire format, the
+exact `export` line, `mercury-agent voice --model`) and client cards (the
+configuration file, the block, Copy config), and a self-test suite. Vendors
+that attach only to remote MCP servers (ChatGPT, Grok) are named as model
+providers, not clients, because Mercury serves MCP over stdio only. Tests:
+`tests/api/test_voice_backends.py` (the catalog boundary, a key never
+appears in the response, both probe outcomes, the cache, OpenAPI).
+
+**Added — the console control crawl is a repository script.**
+`scripts/console_control_crawl.js` (previously a session-only tool) drives
+every view of the served console in headless Chromium, restores the
+console's state before each click, follows revealed controls to a chosen
+depth and reports the controls with no observable effect; its verdicts, its
+limits (a "no effect" is a lead, not a verdict: 14 of the 16 rows of the last
+crawl replayed to controls already in the state the click would set) and the
+replay discipline are documented in the console design notes and tested by
+`tests/scripts/test_console_control_crawl.py`. CI runs no browser; it is a
+manual tool.
+
+**Fixed — a flaky catalog test that rewrote the committed catalog.**
+`tests/scripts/test_generate_detector_catalog.py` appended a stale line to
+`docs/DETECTORS.md` to prove `--check` fails, while the freshness test ran
+`--check` in a subprocess; under xdist the two could overlap and the ML lane
+failed on 2026-11-02 with a catalog that was fresh. The generator takes
+`--path`, the stale copy lives under `tmp_path`, and the committed file is
+never touched.
+
+**Added — every domain and detector now carries its own profession,
+institutions and lineage (knowledge profiles).** The console and the agent
+described 30 domains and 113 detectors with one template each: a loader was
+its file name, a detector was its one-line manifest description plus a
+20-word ontology vocabulary in which 21 detectors shared an identical
+signature, and "what is a detector" had one answer for all 113.
+`core/knowledge_profiles.py` is the missing layer, hand-authored and
+test-enforced:
+
+- A `DomainProfile` for each of the 21 data-loader domains and the 9
+  `hazard-viz` domains (22 distinct profiles): discipline, the professions
+  that work with the data, the institutions that publish or govern it (name,
+  role, `https` URL), what a practitioner brings, the raw observables, how
+  Mercury turns the source into features and labels, the detectors that
+  serve it, the limits and the literature.
+- A `DetectorProfile` for each of the 113 manifest detectors: discipline,
+  lineage (who published the method, when, in which tradition), the mechanism
+  in plain words as the code does it, who reads its output and what they need
+  to know, when to use it, when not to, and references (Adams & MacKay 2007
+  for `bocpd`, Siffer et al. 2017 for `spot_evt`, Singer et al. 2016 for the
+  Sepsis-3 screen, Staley et al. 2017 for the post-fire debris-flow cascade,
+  Pulkkinen et al. 2013 for the GIC tiers, and so on).
+- `core/loader_declarations.py` reads each loader's declared contract
+  (source URL, key, label provenance, feature columns, label-derived columns)
+  from source with `ast`, so the API, the console catalog and the agent say
+  where a domain's data comes from without importing the loaders package.
+- Authoring rules enforced by `tests/core/test_knowledge_profiles.py`: exact
+  coverage against the manifest and the loader/hazard domains; no two
+  profiles share a mechanism, lineage, practitioner description, method,
+  label rule or observables sentence; a reference for every profile; an
+  `https` institution with a stated role for every domain; adapter profiles
+  name the detector they serve; `use_when` never claims an ontology blind
+  spot; label rules match the loader's declared provenance; keyed loaders say
+  which key; and the registry imports nothing but `dataclasses` and
+  `typing`, so the PhysioNet pages the sepsis and seizure profiles cite can
+  never be fetched from it. The clinical-data boundary test now tells a
+  citation from a request builder on that basis (a module with no I/O-capable
+  import holds a URL only as a citation) instead of counting every PhysioNet
+  URL literal as a download path.
+- Served at `GET /api/v1/catalog/domains[/{domain}]` and
+  `GET /api/v1/catalog/detectors[/{name}]` (`api/routes/catalog.py`:
+  read-only, anonymous, in the OpenAPI document), each record carrying the
+  manifest entry, the ontology row, the loader declaration and the profile
+  together (`tests/api/test_catalog_routes.py`).
+- The agent answers "tell me about the sepsis domain", "what is bocpd", "who
+  publishes the earthquake data", "what are the references for spot_evt",
+  "what are the limits of the drought domain", "which features does the
+  wildfire loader produce" and "which detectors serve space weather" from the
+  profiles (`narrative/conversation.py` `domain_answer`,
+  `detector_profile_answer`; routed before the glossary and never hijacking a
+  record question that merely mentions a domain), naming its sources
+  (`knowledge_profiles`, `loader_declarations`, `detector_manifest`,
+  `detector_ontology`). Every one of the 22 domains and 113 detectors gets an
+  answer no other gets, and every follow-up a profile answer suggests is
+  itself answered (`tests/narrative/test_knowledge_answers.py`).
+- `docs/KNOWLEDGE_PROFILES.md` documents the layer, where it flows and how to
+  author an entry.
+
+**Changed — the console is organised around the profiles, with descriptions
+as hover notes, and every control does something.**
+
+- Catalog rows (Detectors, Domains, Runs, Commands, Physics, API, MCP,
+  Tools) show the title and chips (discipline, institution, input modality,
+  label provenance, validation state, needed key, hazard-viz, flag counts)
+  and keep the description, mechanism and lineage for the hover note, which
+  also opens on keyboard focus; the inline description column is gone and
+  rows are tighter.
+- The Domains view names a domain by its profile title and discipline
+  instead of its file name; hazard rows carry the discipline and open the
+  domain's card as well as the `hazard-viz` form.
+- Domain cards show discipline, worked with by, institutions (with roles),
+  practitioner knowledge, observables, labels, limits, serving detectors,
+  standards, references, source URL, needed key, label provenance and the
+  feature columns (scored versus label-derived), with two new actions: "Ask
+  Mercury Agent" (hands the question to the live voice) and "Open
+  <institution>". A hazard-only domain (`schumann`) renders a card with its
+  `hazard-viz` command instead of a loader snippet.
+- Detector cards show discipline, lineage, mechanism, read by, use when, not
+  for and references, with "Ask Mercury Agent" and "Open reference".
+- Mass Run rows show the label only; the route, per-sample flag, payload
+  fixture and the blocking reason are the hover note and the row's title.
+- The 38 AMA items that did nothing when clicked open a note card (kind,
+  section, source, the related commands, "Copy note", "Ask Mercury Agent",
+  "Load decouple status").
+- "Use simulated engine" (Session menu and connection dialog) did nothing on
+  the served console because the simulated engine is not shipped with it;
+  both now say so and are disabled.
+- A blocked Mass Run capability (a hazard whose array shape the loaded
+  dataset lacks, an assessment route without a detect-permission key) used to
+  swallow the click; it now opens its hover note with the reason and what to
+  do, and is announced `aria-disabled`.
+- Right-panel tabs are `role=tab` with `aria-selected`; form enum chips,
+  option presets and the sample-count chips carry `aria-pressed`; Mass Run
+  rows carry an accessible name; the connection pill and the domain-context
+  button carry `aria-haspopup` and an `aria-expanded` that reads `false` when
+  closed (the runtime drops a boolean `false`, so the design's own binding
+  vanished whenever the listbox was shut). Assistive technology, and the
+  control audit, can now tell an already-active toggle from a dead one.
+- A Playwright crawler (`restoring the console's state before every click and
+  following revealed controls to depth two`) drove every view against the
+  live server; the controls it found dead are the ones above, and the two it
+  flagged in the Agent workspace (QUEUE, SEND) were replayed by hand and
+  change state and send as designed.
+- The agent chat offers "Tell me about the <context domain> domain" as a
+  quick question, and the collect-data answer points to the per-domain
+  profiles.
+- `:diag` gains a Knowledge profiles suite (coverage, distinctness, `https`
+  institutions, references, hover notes and chips on every catalog row,
+  profile-driven domain, hazard and detector cards, note cards, Mass Run
+  hover notes), and its Menus suite now picks every item on a sandbox and
+  fails when picking it changes nothing; 9,179 checks pass against the live
+  engine.
+- `scripts/build_console_catalog.py` compiles the loader declarations and
+  both profile registries into `catalog.js` (`loaders[].src/key/label/cols/
+  scored`, `loaders[].prof`, `detectors[].prof`, `domainProfiles`).
+
+**Fixed — the detection thresholds mean what they say at every width and
+length, and the routes hold up under adversarial shapes (measured).** Driving
+the served routes through hostile inputs found the point detectors wide but
+shallow:
+
+- On pure noise the multivariate route flagged 0.3% of rows at width 1, 14% at
+  8, 72% at 16 and 100% from 32 up, and the fusion route called every noise
+  matrix "anomaly": each compared a maximum statistic with a fixed 3.5. Every
+  component of the shared kernel (`api/fusion_weights.py`) is now the
+  z-equivalent of its maximum under the null given the values it ranged over
+  (Šidák over rows and features, chi tails for the row norm), with Student-t
+  tails for the estimated scale's degrees of freedom. Measured after: at or
+  below the nominal rate at every width and length tested.
+- The mean and standard deviation moved with the anomaly being scored, so a
+  100 among nine values near 1 scored a z of 3.0 (masking). The kernel's
+  location is the median and its scale the root mean square of the central
+  90% of absolute deviations (a tenth of the rows, and always at least one,
+  are ignored however extreme; 80% of the standard deviation's efficiency,
+  against the MAD's 38%, whose sampling error alone pushed 30-row noise to a
+  13% to 79% series false-positive rate). The univariate z-score, the
+  multivariate route, the fusion route and the batch job share it.
+- A spike riding a strong season was one seasonal amplitude above its crest,
+  a z of 2 against the whole series: ranked first, never flagged. A dominant
+  periodic component found by Fisher's test, and completing at least three
+  cycles, is removed before the point components score; the spectral
+  component still reads the original series.
+- A level shift, a ramp and a spike an attacker spread over five rows defeat
+  any per-row statistic (level-shift AUROC 0.03, spread-spike recall 0.4). A
+  `collective` component scores a stretch of rows departing together (the
+  standardised window mean at lengths 3 to 65, calibrated), in the fusion
+  route (default on) and the batch job. Measured: recall 1.00 on all three.
+- A weighted average diluted one decisive component (a spectral z of 15 beside
+  three near 1 averaged to 3.3 and read "normal"); the fused score is now the
+  larger of the weighted average and the largest component read as a maximum
+  over the selected count, and the explanation says when a component carried
+  the verdict.
+- The detector tier's flag count is the `contamination` parameter by
+  construction (measured slope 1.00 against it on data with a 5% anomaly
+  share); the API says so and points to `conformal_alpha`, whose flag rate is
+  evidence-controlled (0.047 at every setting). Two tier members (`rca`,
+  `frequent_pattern`) carry no information on one-dimensional shapes (AUROC
+  0.50) and three (`deep_svdd`, `energy_based`, `spiking`) carry the gain;
+  the measured attribution is published.
+
+The suite, its ledger and its page (`research/adversarial/served_routes.py`,
+`served_routes_results.json`, `docs/DETECTION_QUALITY.md`) are seeded and
+reproducible; `tests/research/test_served_routes_ledger.py` recomputes the
+hash of every file that decides the numbers, pins the floors, and on the ML
+lane reproduces the ledger to the digit. The fusion parity tests pin the
+kernel both routes share (`tests/api/test_fusion_batch_parity.py`,
+`tests/api/test_null_calibration.py`). Verdicts on wide or seasonal input and
+on collective anomalies change: they were wrong.
+
+**Fixed — three test modules switched the rate limiter off for the whole
+process at import.** They now use a per-test fixture that flips the live
+middleware and restores it, so later tests that assert on the limiter run
+against it (`tests/conftest.py::rate_limit_off`). The fixture builds the
+middleware stack under the process's own configuration before it patches
+anything: patching the environment first would have made an unbuilt stack
+construct the middleware disabled, recorded that as the original, and left
+the limiter off for every later test
+(`tests/api/test_rate_limit_fixture_isolation.py`).
+Removing the leak exposed two modules that had relied on it: the TLP export
+tests and the frontend-off route contract answered 429 when another module
+in the same CI worker had drained the per-client bucket first (ten
+failures on Core Tests, Python 3.13). They now switch the limiter off per
+test as well; reproduced locally by draining the bucket ahead of each
+module and re-checked across every API test module under the same
+condition.
+
+**Fixed — the score bimodality check refused a span below float resolution.**
+`np.histogram` raised on scores such as 10000 and 10000 + 1e-13 (found by the
+BCa property test); such scores are one value and are not bimodal. The guard that replaced the crash compared the bin width with the
+floating-point spacing of `max(|low|, |high|, 1.0)`; the floor of 1.0 made the
+verdict depend on the scores' scale, so a two-peaked sample of order 1e-16
+read as one value while the same shape at order 1 read as bimodal. The guard
+now applies `np.histogram`'s own edge test (neighbouring `linspace` edges must
+differ), which is exactly as strict as the call it protects and scale-free
+(`tests/core/test_threshold_confidence_interval.py`).
+
+**Fixed — the face-detector error recommended an install that supplies no
+detector.** `FaceDetectorUnavailableError` sent operators to the `[ml]` extra
+for MTCNN, but no Mercury extra declares `facenet-pytorch`, so that install
+left the engine without a detector; and it offered the Haar cascade XMLs on an
+OpenCV 5.x `-headless` wheel, where `CascadeClassifier` itself is absent and
+no XML can help. The message now reports the installed state (whether
+`facenet_pytorch` imports, PyTorch, the OpenCV version, the classifier, the
+cascade found) and only the remedies that apply: `facenet-pytorch` together
+with `[ml]`; an OpenCV that carries the classifier (`opencv-python-headless<5`
+or a 5.x `opencv-contrib` wheel); or, when the classifier is present without
+bundled cascades, the XML itself. The Haar fallback now finds that XML in
+`MERCURY_HAARCASCADE_DIR`, OpenCV's bundled `cv2/data`, or
+`${DEEPFACE_HOME:-$HOME}/.deepface/weights` (where `docs/INSTALLATION.md` has
+operators download it), so supplying the file is a real remedy
+(`biometric_multimodal.haarcascade_directories`, `find_haarcascade`;
+`tests/models/test_wiring_age_progression.py`). The installation guide says the
+same.
+
+**Added — one cross-platform lockfile, installed with `uv sync`.** `uv.lock`
+resolves every extra for Linux, macOS and Windows on Python 3.11 to 3.14 (the
+git-pinned `[pqc]` extra included). The Dockerfile builder and the Code
+Quality, Type Checking, Core Tests and ML Tests lanes install with
+`uv sync --locked` (uv pinned to 0.11.32 in both places; the lanes cache uv's
+global hardlinked store keyed on the lockfile), the Workflow Hardening lane
+runs `uv lock --check` so a stale lock is named on the pull request, and the
+hardening gate treats `uv sync` as an engine install that must provision AMA
+while leaving `uv pip install` outside the pip rules it does not run. The AMA
+build script and composite action install through uv's pip front end when the
+environment has no pip (`tests/test_uv_lock_contract.py`, the extended
+hardening tests; the installation and contributing guides describe the path).
+uv resolves one version per package across every Python where it can, and
+TensorFlow (installable only below 3.14) caps h5py at a release with no 3.14
+wheel, so the unified choice made the 3.14 lanes build h5py from source and
+fail on the missing HDF5 library; a `[tool.uv]` constraint applies to the 3.14
+fork only and `tests/test_uv_lock_contract.py` now checks that every binary
+package in the lock has a wheel for each supported Python on Linux. The other
+workflows still install with pip and are unchanged.
+
+**Added — the AMA native backend installs from a prebuilt release archive
+before it builds from source.** `scripts/fetch_ama_prebuilt.sh` downloads
+`ama-cryptography-<ref>-<os>-<arch>.tar.gz` (the `ama_cryptography` wheels for
+Python 3.11 to 3.14, each bundling the native library whose digest AMA signs
+into it and tagged for the interpreter that built it) from the
+`ama-native-<ref>` release, verifies it against the release's `SHA256SUMS`, and
+unpacks it; `scripts/build_ama_native.sh` and the `build-ama-cryptography`
+composite action install the wheel matching their interpreter and run the PQC
+capability probe, and fall back to the clone-and-cmake build only when no
+archive exists for the platform, no wheel matches the Python, or the library
+does not load there. A failed checksum stops the install. The new
+`ama-prebuilt.yml` workflow (manual dispatch with the AMA tag) builds the four
+wheels on Linux x86_64 and aarch64, macOS aarch64 and x86_64 and Windows
+x86_64, proves each one in a fresh environment, and publishes the release;
+the Docker builder gained `curl` so the image build downloads too
+(`tests/scripts/test_fetch_ama_prebuilt.py` drives the script against a
+`file://` mirror and pins the shared archive contract).
+
+**Fixed — the logging bootstrap tests read the developer's own log settings.**
+`ensure_logging_configured` honours `MERCURY_LOG_LEVEL` and `MERCURY_LOG_FORMAT`,
+and the tests of its text-format default asserted on the formatter without
+clearing them, so a suite run with the documented `MERCURY_LOG_FORMAT=json`
+failed while logging worked as configured. Every bootstrap test now starts from
+the documented default and sets its own override, and the JSON configuration
+has its own test (`tests/test_logging_utils.py`).
+
+**Fixed — the Security Scan lane could run out of disk.** Its audit-target
+environment installs the engine with the `[api]` extra, which resolves torch
+and its CUDA libraries, beside the Semgrep environment and the engine's own
+install; one run failed with "Disk quota exceeded" while installing torch. The
+lane now frees the runner's unused toolchains first, as the test lanes do, and
+installs the audit environment without pip's cache, which held a second copy
+of the torch stack.
+
+**Fixed — every API test ran against the process-wide rate limiter it was not
+testing.** The limiter's token bucket is shared by every test that drives the
+one `server.app`; a module's requests spent budget a later module in the same
+CI worker found exhausted, and that module answered 429 before its own
+assertions ran. `tests/api/conftest.py` now switches the middleware off for
+every API test and restores it afterwards; the modules that assert on the
+limiter keep it live with the new `rate_limited` marker, and the per-module
+opt-outs are gone.
+
+**Fixed — the calibration cache could hand a pre-exclusion archive to the
+evaluation scripts.** An archive written before the label-derived exclusion
+still holds the columns the labels are built from, and scoring it publishes a
+circular number. `build_cache.py` now stamps every archive with its schema,
+the scored columns and the excluded ones, and `cache_archives()` leaves out
+any archive without the de-leaked schema until the event is rebuilt
+(`research/engine_calibration/_workspace.py::ARCHIVE_SCHEMA`,
+`tests/research/test_calibration_cache_archives.py`).
+
+**Fixed — the SQLite CLI guard compared bare package tokens.** APT accepts
+`sqlite3:amd64`, `sqlite3=3.46.1-1` and `sqlite3/trixie`, each of which would
+have installed the shell behind CVE-2026-119586 while the acceptance check
+saw a different token; the guard now strips the architecture, version and
+release qualifiers before comparing
+(`tests/security/test_sqlite_cve_acceptance_conditions.py`).
+
+**Fixed — the test run could file test mail in, and purge, a developer's own
+outbox.** `tests/conftest.py` set `MERCURY_MAIL_OUTBOX` with `setdefault`, so a
+developer with the variable in their shell received every account test's
+message in their real outbox, and the decouple purge tests, which inventory
+that variable, could remove their mail. The run now assigns a per-process
+temporary outbox unconditionally, and the decouple tests' isolated home clears
+the variable so purge and snapshot see only the scratch tree
+(`tests/test_decouple.py::TestMailerOutboxIsState`).
+
+**Added — the console's `explain` runs on a connected server.** It sends the
+fusion route and narrates the run through `/api/v1/voice/narrate`, the two
+server calls the CLI's `explain` stands for, echoing the narration into the
+terminal. Driving it found that every narration in the console was built from
+the result's summary alone, so a series-level run (fusion, three-r, flagship)
+with a fused score of 9.05 was narrated as "no anomaly detected, score 0";
+the three places that narrate a result now read the server's response under
+the summary, and the payload builder knows the fused score. Pinned by the
+console self-test (8,326 checks).
+
+**Fixed — four review findings on the agent's memory and the mailer outbox.**
+A route that returns no verdict (`/detect/rca` reports root causes) was
+mirrored into the agent's memory as a clean run with a score of zero; such
+records stay in the export history and are no longer mirrored. The fusion
+route left its threshold out of its recording payload and the detector tier
+recorded it only inside `summary`, so those runs carried no threshold and no
+severity band; both record it at the top level and the mirror reads either
+place, with route-to-memory regressions
+(`tests/api/test_route_memory_thresholds.py`). A development mailer outbox
+pointed outside the XDG state tree by `MERCURY_MAIL_OUTBOX` was missing from
+`decouple status`, `detach` and `purge-work`; it is inventoried and archived
+(`tests/test_decouple.py`). The legacy-cache rejection test wrote a payload
+JSON could not serialise, so nothing was cached and its assertion was vacuous;
+it now writes the old text-timestamp shape, reads it back, and then checks the
+frame reader refuses it.
+
+**Fixed — the README ledger guard holds in a depth-1 checkout.** The test that
+flags an ADBench ledger quoted past the detector that produced it dated the
+detector with `git log`, which in CI's single-commit checkout names the merge
+commit for every file, so the ML lane failed on a ledger that is in fact
+current. The ADBench harness now records the detector file's git blob hash
+(`detector_blob`) beside `detector_commit`, the two committed ledgers carry
+the blob of the detector at the commit each records, and the guard pairs by
+content first, keeping the commit pairing as a second witness only where
+history exists. Reproduced in a depth-1 clone: the old guard fails, the new
+one passes (`tests/docs/test_readme_claims_match_artifacts.py`).
+
+**Fixed — a user has the whole engine from the front end.** Driving every
+route card, terminal command and Mass Run capability against the live server
+with a real account found six gaps, each now closed and covered by the
+console's self-test (`:diag`, 8,322 checks) or the page tests:
+
+- A dashboard-created API key held only `read` and `detect`, so the export
+  routes were unreachable from the front end. The dashboard's key form now
+  offers exactly the server's self-service whitelist (`read`, `detect`,
+  `export`; never `write`, `delete` or `admin`), defaults pre-checked, and the
+  key table shows what each key holds (`tests/api/test_frontend.py`).
+- The alert stream was opened once and never re-subscribed when an API key
+  was entered; the engine scopes alerts to the key's principal, so a user's
+  own detections never reached the dock. The console re-subscribes when the
+  key changes, and a Mass Run under a key now lands its alerts (24 alerts
+  folded into one proactive entry, verified in Chromium).
+- Console requests to the same origin carry the dashboard session's CSRF
+  token, so a user logged in at `/login` reaches the account routes from the
+  console (`/auth/me`, key listing and creation verified); a 401 on an
+  account route now says that a session, not an API key, opens it.
+- Free-form JSON routes (concealed-information test, vital signs, the
+  adjudication ledger) opened with an empty body; they now open with a
+  canonical payload, the Mass Run capability's where one exists and the
+  route's documented example otherwise, and a body already typed is kept.
+- `PUT` with an empty body sent no body and drew a 422 from the model
+  metrics route; the body the schema declares is sent, empty or not.
+- `GET /api/v1/voice/alerts` from the form waited on a stream that never
+  ends; the card now reports the dock's live subscription and recent events,
+  and a `limit` sends the bounded one-shot read. The request budget also
+  covers the body read, so no response can hang the form.
+
+**Fixed — the development mailer delivers a usable link.** `ConsoleMailer`
+logged each message, and once the engine's INFO records became visible the
+log formatters' credential redaction turned every verification and reset link
+into `token=<redacted>`, so a locally registered account could not be
+verified. The mailer now files each message as an owner-only text file (plus
+the HTML part) in `MERCURY_MAIL_OUTBOX`, default
+`~/.local/state/mercury-agent/outbox`, the state root `decouple status`
+already inventories; the log names the file and never carries the body, and a
+write failure surfaces to the delivery audit like an SMTP outage. The test
+suite files into a temporary outbox. Verified in Chromium: register → open the
+outbox → verify → log in → create an API key
+(`tests/api/test_maintenance_and_mailer.py`).
+
+**Fixed — three console API-form defects found by driving every route card
+against the live server.** The default sample series had 5 points, so the
+tier form's own default payload was refused with a 422 (the route needs 8);
+the series is now 16 points, sized up further by a route's `minItems` (which
+the generated schemas now carry), and long enough for its spike to score past
+the univariate z-score threshold. The hazard form sent `{format}` alone and
+got a 400: the route's one-of (a prior `diagnostics`, or `hazard` + `arrays`)
+is checked before sending, and the loaded file supplies the arrays the chosen
+hazard's Mass Run capability builds, refusing an unusable shape with the
+terminal's reason. Error results carried the headline "response received";
+the headline is now the server's reason, naming the field for a validation
+error. The self-test covers all three, and its brand-mark count is scoped to
+the workspace so `:diag` typed as the opening dialog closes cannot misreport
+(`scripts/build_console_port.py`, `scripts/build_console_catalog.py`).
+
+**Fixed — the engine's own log records reach the server log.** Under
+`uvicorn omni_mercury_engine.api.server:app` only uvicorn's loggers were
+configured; the `omni_mercury_engine` logger had no handler, so every record
+below WARNING was dropped: the warm-up confirmation, the maintenance sweep,
+and the verification link the development mailer logs in place of sending
+email, which left a locally registered account impossible to verify. The
+ASGI lifespan now calls `utils.logging.ensure_logging_configured()` once per
+worker: it installs the package's handler at uvicorn's `--log-level` (or
+`MERCURY_LOG_LEVEL`, with `MERCURY_LOG_FORMAT=json|text`) and leaves a host
+that configured logging itself alone. The text format is coloured only when
+stdout is a terminal, so redirected and container logs stay plain. The
+previously unread `OMNI_LOG_LEVEL`/`OMNI_LOG_FORMAT` names in `.env.example`
+and `docker-compose.yml` were replaced by the live ones
+(`tests/test_logging_utils.py`, `tests/api/test_server_comprehensive.py`).
+
+**Fixed — the alert bus cannot accumulate callbacks.** Each publish scheduled
+one loop callback per subscriber and the callback retained its entry, so a
+recording thread that outpaced a busy subscriber loop grew an unbounded
+backlog despite the bounded queue. Each subscriber now stages entries in a
+bounded, lock-guarded buffer and holds at most one pending drain callback;
+overflow drops the oldest staged entry and is counted
+(`tests/narrative/test_alert_bus.py`).
+
+**Fixed — a refused calibration rebuild cannot leave a stale archive
+selectable.** `build_cache.py` now quarantines an event whose loader refuses a
+de-leaked matrix: the old `.npz` is removed and a marker is left, and
+`cache_archives()` skips any event with a marker even if an archive is copied
+back (`tests/research/test_calibration_cache_archives.py`).
+
+**Fixed — narrative tests collect on an engine-only install.** Two narrative
+test modules imported the optional `[api]` extra at module level; they now
+skip their route-dependent half without it instead of failing collection.
+
+**Fixed — the console's boot progress bar animates again.** The reduced-motion
+patch matched a substring of the prototype's selector and left
+`html.mn-reduce-motion` in front of the generated `@media` rule, which
+browsers discard; the whole selector is matched now and the media rules sit
+at the top level, and the bar's inline animation honours reduced motion the
+way the halo's already did, so the stylesheet is no longer the only guard
+(`tests/api/test_console_catalog.py`; verified in Chromium under both
+preferences).
+
+**Changed — the `[api]` extra installs torch.** The served API exposes the
+neural detection routes (fusion, neuro-symbolic, flagship) beside the
+statistical ones, but `pip install "mercury-agent-global[api]"` did not bring
+torch, so those routes refused at request time until the operator found the
+`[ml]` extra. `[api]` now pins `torch>=2.2.0` at the same floor as `[ml]`; one
+install onboards a full server. `[ml]` is unchanged.
+
+**Changed — the changelog records what changed, not the correspondence around
+it.** Pull-request and Dependabot numbers, review-tool names, AI session
+identifiers and branch-relative wording ("this branch", "this PR") are removed
+from every entry; the technical content of each entry is unchanged.
+
+**Added — proactive alerts reach the console.** The agent panel has carried an
+alert dock since its first release and the voice API's docstring promised
+"proactive alerts", but no server route produced any: the console's
+`alertsUrl()` returned `null` and the dock read "not served by this engine".
+`GET /api/v1/voice/alerts` now streams server-sent events, one `alert` per
+detection run that flags a sample, as it is recorded, bounded to the caller's
+own runs exactly as the voice's answers are; keep-alive comments every 15
+seconds; `?limit=N` ends the stream after N alerts for scripts. Runs recorded
+in-process arrive through a new alert bus the retriever publishes to
+(`narrative/alert_bus.py`); runs recorded by another worker on the same
+`MERCURY_AGENT_MEMORY_PATH` are picked up from the store by row id. The
+console consumes the stream with a streaming fetch so the API key travels as a
+header (a browser WebSocket cannot carry one), the agent header now shows the
+dock state the logic always computed but never rendered, and the console's
+own diagnostics assert the new contract (`tests/narrative/test_alert_bus.py`,
+`tests/api/test_voice_alert_stream.py`, `tests/api/test_console_catalog.py`).
+
+**Changed — the conversation surfaces show what the agent knows.** The
+console's agent status rows now include the caller's runs in memory and the
+alert stream's state, which `/status` reports; the CLI `voice` session prints
+each answer's sources and the follow-up prompts, its `/clear` really clears
+the conversation (a new `MercuryVoice.clear_conversation`) and reports how
+many turns went, and its help lists the questions the voice answers
+(`tests/test_cli_voice_repl.py`). Follow-up context is keyed by principal
+and session, so two browsers of one account (every unauthenticated console
+is the same principal) never share a "why?".
+
+**Changed — anonymous account pages no longer probe the session.** Login
+sets a readable CSRF cookie beside the httpOnly session cookie, so a visitor
+without it cannot be signed in; the header nav and the dashboard guard now
+read that cookie first and call `/api/v1/auth/me` only when it is present,
+removing a 401 from every anonymous page view and one round trip from the
+dashboard's redirect to login.
+
+**Fixed — batch fusion and synchronous fusion agree.** `POST
+/api/v1/detect/fusion` normalised weights of 0.35/0.25 for the statistical
+and temporal components (0.583/0.417) while the batch job's `fusion` method
+hard coded 0.6/0.4, so eleven zeros followed by a 10 at sensitivity 0.52 was
+an anomaly over HTTP (3.442 against 3.44) and clean as a batch job (3.437).
+On multi-feature input the synchronous route also standardised every value
+against one global mean and standard deviation and differenced the flattened
+matrix (a "step" ran from the last column of one row to the first of the
+next) while the batch path standardised per column and stepped row to row,
+so `[[0, 1000]] * 11 + [[10, 1000]]` was anomalous as a batch job (3.442) and
+clean over HTTP (1.418). Both routes now take their components from one
+kernel (`api/fusion_weights.py`: per-feature standardisation, row-to-row
+steps, per-feature spectral scores, one weight table), and
+`tests/api/test_fusion_batch_parity.py` pins the series and matrix that
+exposed it, an isolated spike, a constant-column invariance, and the bound that a
+batch peak never exceeds the synchronous score.
+
+**Fixed — a running worker recalls runs another worker recorded.** The
+retriever loaded `MERCURY_AGENT_MEMORY_PATH` only at construction, so a worker
+started before a run was recorded answered "no runs in memory" until it
+restarted, even though its alert stream polled the store. Every store-backed
+read path now merges the rows appended since the worker's cursor
+(`tests/narrative/test_detection_memory_store.py`).
+
+**Fixed — series-scoped verdicts are not described as sample positions.**
+`/detect/fusion`, `/detect/three-r` and `/detect/flagship` record one flag for
+the whole input; the memory mirror turned that into "1 of 1 sample flagged
+(sample 0)". The record now carries the verdict's scope, the input size and no
+positions, and every answer and alert says "whole-series verdict anomalous
+over N samples (no sample positions)".
+
+**Fixed — synthetic frames are quarantined from de-leaked measurements.** The
+energy loader's synthetic historical series builds solar-wind speed, density
+and flare classes from the same Kp profile that builds the `kp >= 7` labels,
+so dropping the five declared Kp columns still left a label-derived matrix.
+A loader now marks the frames it manufactures (energy, pandemic), the mark
+survives the loader cache (whose JSON writer had been dropping every frame
+with a tz-aware timestamp column, so that cache never persisted),
+`engineer_scored_features` refuses such a frame with
+`SyntheticDataNotDeleakable`, and `deleak_impact.py` quarantines the event
+instead of writing a "de-leaked" archive (`tests/loaders/test_synthetic_quarantine.py`).
+
+**Fixed — the calibration scripts no longer read the de-leak archives.**
+`deleak_impact.py` writes `*.deleak.npz` (`X_full`, `X_scored`, `y`) into the
+same cache as the per-event `*.npz` (`X`, `y`); `eval_offline.py`,
+`measure.py` and `method_bakeoff.py` globbed both and failed at `d["X"]`.
+They share one filtered listing (`tests/research/test_calibration_cache_archives.py`).
+
+**Fixed — the voice routes kept accounts apart only in `speak`.**
+`GET /api/v1/voice/history` returned every account's turns to every caller and
+`/status` counted them all; each turn now carries its principal and both
+routes answer for the caller alone. `/greet` listed five fixed phrases
+whatever the server had; it now states what this installation really has (the
+manifest's detector count and families, the loader count, the caller's runs in
+memory, the gates, the alert stream).
+
+**Added — a conversation layer that answers every console question from the
+record or the code.** Seventeen of the thirty-one questions a first session
+asks the agent (greetings and identity, "what threshold did you use?", "which
+samples were flagged?", "show me the last 3 runs", "summarize threat posture",
+"recommend an action", "what should I run next?", "how do I collect data?",
+"why did it clear the gate?", definitions of severity, z-score, AMA and
+FINDΩYOU, "run detect on sample.csv", "compare today with yesterday", and the
+follow-up prompts the agent itself suggested) came back as the generic apology
+or as the wrong answer. `narrative/conversation.py` now classifies a question
+once and builds the answer from one of three named sources: the detection
+record (per-run threshold, flagged indices, method, score, time; the newest N
+runs; severity-band posture; two-window comparison), the code (the detector
+manifest, the CLI's own command table so a recommended command always exists,
+the loader package's domains, the API's severity bands and threshold formula,
+the ethical gates, the decoupling switches), or the narrative engine (full
+reasoning chain, uncertainty disclosure, dossier, recommendations and urgency
+for the newest flagged run). A command request is handed back as the exact
+command, never executed. The empty-search fallback is a menu of what can be
+asked instead of an apology, and no answer suggests the question just asked.
+Short replies that lean on the previous turn resolve against that account's
+own last answer and nobody else's: "why?" and "tell me more" narrate or
+expand the run just discussed, "and yesterday?" re-asks the count for another
+period (bounded, so yesterday no longer includes today), "run 2" or "the first
+one" picks from the last list shown, and a term's "tell me more" moves to the
+related term. The console's quick prompts and the help text list the new
+questions (`tests/narrative/test_voice_conversation.py`, which also pins the
+quoted bands and formula to `api/server.py` and the loader domains to the
+loader classes).
+
+**Added — durable agent memory (`MERCURY_AGENT_MEMORY_PATH`).** The detection
+log the agent answers from lived only in the process, so every restart emptied
+it and the first answer after a deploy was always "no detection runs are
+recorded yet". When the variable names a SQLite file (the interpreter's own
+`sqlite3`, fixed statements only, no virtual tables), every logged detection is
+appended there with its domain and principal and a new process loads the newest
+1,000 at start, so recall survives restarts and is shared across workers on the
+same path. Unset, behaviour is unchanged. The location is listed by
+`mercury-agent decouple status` and removed by `purge-work`
+(`tests/narrative/test_detection_memory_store.py`).
+
+**Added — the agent explains its newest run and describes the engine from code.**
+"Explain the latest detection" (an example the voice route has documented
+since it was written) narrates the newest recorded run of the asking account
+through the narrative engine: the run's verdict, peak score, severity fraction
+and facts (method, flagged samples, threshold ratio) become the detection the
+engine synthesises, behind the same ethical gate as any detection and without
+re-logging it. "Which detectors do you have?" answers from the detector
+manifest with counts by family and input type; naming a family or input
+("Can you detect earthquakes?", "Which detectors handle images?") lists the
+matching detectors with their one-line descriptions. "What are your
+capabilities?" reports every self-model capability as probed on this machine,
+with the reason when one is unavailable or switched off. Help names these
+questions instead of a fixed paragraph, and the console's agent quick prompts
+include them (`tests/api/test_voice_engine_grounded_answers.py`).
+
+**Fixed — seven defects in the console and crypto changes.** The
+agent's memory is scoped by principal: a detection is recalled only by the
+account that ran it (``anonymous`` for unauthenticated runs), and the voice
+route resolves an optional API key or JWT so an anonymous caller can no longer
+read another account's detections. The core ``/detect/univariate`` and
+``/detect/multivariate`` routes record an authenticated caller's run under that
+account, where the caller's own export history finds it. Legacy
+``pbkdf2_sha256`` password rows are verified at the fixed 32-byte digest
+length (deriving to the stored length let a truncated row verify a wrong
+password with 1-in-256 odds). The self-model probes every switch the FINDΩYOU™
+bridge needs, so ``ama_optional`` off is reported as the operator decision it is
+rather than as a grounded capability. The console's boot progress bar yields to
+both reduced-motion preferences. Two more label-derived channels are excluded
+from the scored matrices: the earthquake loader's rolling ``b_value`` (its
+window includes the current event's magnitude) and the volcanic loader's
+``days_since_last_change`` (reset by the alert level). The earthquake de-leak
+figure was re-measured on events re-fetched from USGS with the current
+detector: **0.8995 → 0.3276 (−0.5718)**, still far outside the no-exclusion
+control band; the measurement is now reproducible
+(`research/engine_calibration/deleak_impact.py`) where the artifact had been
+produced by hand.
+
+**Added — the agent answers questions about its detection record with the
+record, not a search score.** "How many anomalies today?" (also per hour,
+yesterday, week, month, or all) is answered with the run count, how many
+flagged at least one sample, the per-method tally and the highest-scoring run.
+"What was the latest anomaly?" names the newest flagged run and how many clean
+runs followed it. Status reports what memory holds and when the newest run was
+recorded. Every recalled run is described as a run: method, how long ago, how
+many of how many samples were flagged and which, and the peak score against its
+threshold with the API's severity band ("multivariate run 3 minutes ago: 1 of
+60 samples flagged (sample 42); peak score 6.21, 1.8x the 3.50 threshold
+(medium)"). The memory mirror now keeps the threshold and the first flagged
+sample positions; an empty window or an empty memory is stated as such, with
+what memory covers. The console's agent quick prompts include the two
+questions. Verified in Chromium against the live server
+(`tests/api/test_voice_recent_detections.py`).
+
+**Fixed — the API rate limiter metered the console's own assets.** One
+console page load is 21 same-origin requests (17 scripts and stylesheets, 3
+images, the page) against a default burst of 20. Measured against
+`mercury-agent serve`: 30 concurrent asset requests from one address answered
+10 of them 429 and left the bucket at zero with `Retry-After: 60`, so a reload
+within a minute came up with its scripts refused. Assets under the frontend's
+`/static` mount are exempt from the API budget; the pages and every API route
+stay metered (`tests/api/test_static_assets_not_rate_limited.py`).
+
+**Fixed — the agent could not recall a detection the console had just run.**
+"Have there been any anomalies recently?" classified as `UNKNOWN` and the
+detection-log scorer matched only the literal token `anomaly`, so the reply
+apologised with the log full; and the console asks under its CONTEXT domain
+while `/detect/univariate` and `/detect/multivariate` carry no domain, so the
+strict domain filter hid every record the console produced. Intent and
+relevance now match stems (`anomal`, `flag`, `alert`, `recent`, ...), and
+`general` is a wildcard on either side of the domain comparison. Reproduced
+and verified end to end in Chromium: the same question now answers with the
+detection record (`tests/api/test_voice_recent_detections.py`).
+
+**Fixed — five console controls had no accessible name.** The command
+prompt, the agent composer, the menu filter, the MCP tool-arguments field and
+the command-palette search were named only by a placeholder (WCAG 2.1 SC
+1.3.1 / 4.1.2). They carry `aria-label`s through the port's template patches;
+`tests/api/test_console_inputs_are_labelled.py` walks the compiled template so
+the property holds across rebuilds. The connection dialog's BASE URL is
+read-only and its CORS hint is replaced: the served console talks to the
+origin that serves it and the page CSP (`connect-src 'self'`) allows no other,
+so an editable field and a `MERCURY_CORS_ORIGINS` hint described a
+configuration the page cannot use. The landing page now links the console.
+
+**Fixed — `decouple detach --save` merged two state directories into one.**
+`~/.local/state/mercury-agent` and `~/.cache/mercury-agent` share a basename
+and were archived under one member root, so an extraction overwrote one with
+the other. Every item now has a unique root recorded in the manifest.
+`decouple uninstall --remove-source` applies purge's refusal guard before
+deleting a checkout.
+
+**Changed — operational HMAC, HKDF, SHA-3, PBKDF2 and constant-time compare
+now run on AMA Cryptography, not OpenSSL.** The at-rest secret sealer's
+HKDF-SHA-256, the constant-time helpers' HMAC-SHA-256, the audit chain's
+HMAC-SHA3-256 and torn-fragment SHA3-256, legacy password-row PBKDF2 and every
+`hmac.compare_digest` in those modules used the stdlib, which on the shipped
+OpenSSL-linked interpreter is `openssl_sha256`/`openssl_sha3_256`, OpenSSL's
+HMAC and `CRYPTO_memcmp`. They route through `security/ama_hmac.py` to AMA's
+native, ACVP-validated primitives with no stdlib fallback. Outputs are
+byte-identical (pinned against the stdlib on fixed vectors and RFC 5869 A.1),
+so sealed secrets, audit chains and stored password rows written before the
+change open and verify unchanged. With `hashlib`/`hmac` tripwired, every
+module still reproduces its reference values
+(`tests/security/test_operational_crypto_routes_through_ama.py`). Still on the
+stdlib, each for a stated reason: scrypt password hashing (AMA ships no
+scrypt; a switch to AMA argon2id changes the stored row format and needs an
+owner decision), TOTP's HMAC-SHA-1 (RFC 6238's default; AMA ships no SHA-1),
+and the streamed SHA3-256 of whole audit files (AMA exposes no incremental
+hash; the 100 MB rotation size rules out a one-shot read).
+
+**Added — Mercury Console at `/console` (`MERCURY_FRONTEND_ENABLED=true mercury-agent serve`): the design prototype, served.**
+`scripts/build_console_port.py` builds the console from
+`docs/design/mercury_console/design/` verbatim: the prototype's template is
+precompiled to a JSON tree (`template.js`), its logic class is wrapped as a
+plain script (`logic.js`), its modules ship as written, and `dc-runtime.js`
+(dependency-free) renders them with the prototype runtime's semantics, writing
+styles only through the CSSOM. Every deviation is a named patch that must apply
+exactly once: same-origin engine, no simulated engine, chart styles as SVG
+presentation attributes, generated request schemas, no invented confidence or
+clipped scores, server severity bands, served image paths. The prototype's own
+self-test (`:diag`) runs against the live server: 8,295 checks, 0 failures (3
+warnings: the two simulated-engine suites are skipped, one timing note).
+Chromium: no JS errors, no CSP violations. The catalog (`catalog.js`) is
+generated from the code by `scripts/build_console_catalog.py`; both generators
+are staleness-gated by `tests/api/test_console_catalog.py`. CSP: `/console`
+alone gets `img-src 'self' data:` (`CONSOLE_CSP`).
+
+**Fixed — 22 `--help` examples named a binary that does not exist.** `serve`,
+`voice`, `stream` and four `physics` commands documented `mercury ...`; the
+package installs only `mercury-agent`. With them corrected, `cli.py` documents
+31 examples across 10 commands, all parsed by click in
+`tests/test_cli_docstring_examples_parse.py`. `detect --detector` is now a
+`click.Choice` of the engine's detectors plus `fusion`.
+
+**Fixed — `/detect/univariate` and `/detect/multivariate` recorded nothing.**
+Every route in `routes/detection.py` records through `record_detection` (export
+history, alert egress, agent memory); these two did not, so the console's
+default `detect` path was invisible to history, alerts and the agent. The
+start-up warm-up's synthetic calls are excluded.
+
+**Fixed — narration invented "confidence 50%" and "severity 0%" for detections that reported neither.**
+`NarrativeEngine.synthesize` defaulted confidence to 0.5 and severity to 0.0,
+and the narrate route's fallback did the same. Unreported values now stay
+unreported: `ConfidenceLevel.UNREPORTED`, "Detection confidence: not reported",
+urgency `unassessed`, verification-first recommendations, and
+`NarrativeResult.confidence_score` / `VoiceResponse.confidence` are `None`.
+`POST /api/v1/voice/speak` reports a missing confidence as `null` instead of
+filling 0.8.
+
+**Fixed — `POST /api/v1/voice/narrate` returned 500 for plain-text reasoning
+steps** (`reasoning_chain: ["1 of 60 flagged"]`, which the console sends on
+every run). Unscored steps are no longer reported as "confidence: 50%".
+
+**Fixed — `decouple purge-work` / `uninstall` could delete the home directory.**
+Env-pointed state locations were handed to `shutil.rmtree` verbatim, so
+`MERCURY_DATA_DIR=~` made a confirmed purge delete the home directory
+(reproduced on a sandboxed `HOME`); `/`, `.` or the Python prefix were no
+safer. Such locations are now listed as refused and never deleted or
+archived wholesale, symlinks are unlinked rather than followed, and
+`state_inventory()` no longer walks a refused location (it used to walk `/`
+and crash on the first unreadable directory).
+
+**Fixed — the agent answered "what happened recently?" with the oldest detection, and with severities over 100 %.**
+Every anomalous detection-log entry has the same relevance, so the stable sort
+kept log order and the voice reported the oldest record; ties now break
+toward the newest. The memory mirror stored the raw max score as `severity`,
+which the voice prints as a percentage (a z-score of 9 read as 900 %); it now
+stores the score-to-threshold ratio on the API's own severity bands (1.0 is
+the critical boundary) plus the band name, and no longer stores a constant
+`confidence` the detectors never produced. The console's severity bands were
+corrected to the server's (1.5 / 2.5 / 4.0).
+
+**Fixed — `mercury-agent detect -d <unknown>` reported "no anomaly".** The engine
+skips detector names it does not hold, so a typo printed `"is_anomaly": false`
+and exited 0. It is now a usage error listing the valid names.
+
+**Fixed — the sovereign crypto tier ran on OpenSSL.** `crypto/sovereign.py`
+(the AMA-down fallback) used `hashlib`/`hmac`, which dispatch to OpenSSL on an
+OpenSSL-linked CPython. It now uses the interpreter's built-in HACL* SHA-2, a
+repository-owned RFC 2104 HMAC and `_operator._compare_digest`, and fails
+closed if the interpreter has no built-in SHA-2.
+
+**Fixed — weather parses invented readings.** OpenWeatherMap reported absent
+fields as 0 °C, 1013 hPa, 10 km and UV 0 (and an absent condition as clear
+sky); NOAA reported an absent temperature as 0 °F and sent half the compass
+(NNE … NNW) to north. Absent is now `None` and the compass has 16 points.
+
+**Added — Mercury Console design reference (`docs/design/mercury_console/`).**
+The browser console prototype and its handoff notes (`README.md` §20 lists what
+was added after the original handoff): a presence figure traced from the supplied
+reference image and driven by real request events, a settings dialog whose six
+controls all act, world map and stacked-histogram charts, a batch lifecycle strip,
+and narrow-width fixes (wrapping top bar, overlay agent panel). It is design
+reference only: not packaged, not served, no engine code changed. The prototype's
+`:diag` self-test runs 8,740 checks in a browser against its simulated engine.
+
+**Added — decoupling switches (`mercury-agent decouple`, `omni_mercury_engine.decouple`).**
+The three kin systems can now be pulled apart by the operator with real,
+read-at-the-surface switches: `findoyou on|off` (the FINDΩYOU™ evidence
+bridge refuses to import and the self-model reports it as disabled by the
+operator) and `ama-optional on|off` (the AMA-backed surfaces Mercury can run
+without — `AuthKeyManager` and the bridge — refuse with a named reason).
+State persists in `~/.config/omni_mercury/decouple.json`; `MERCURY_DECOUPLE_<NAME>`
+pins a switch for one process. `status` reports switch state, the AMA build's
+native primitives, and every location Mercury writes work to. `detach --save`
+archives all of it with a SHA-256 manifest and removes nothing; `purge-work`
+and `uninstall` are dry-run until given their exact confirmation phrase.
+What is not a switch is stated plainly: the AMA core gate is mandatory for the
+engine to import (pinned by `tests/test_pqc_startup_gate.py`), and the only
+total decoupling from AMA is `uninstall`. Covered by `tests/test_decouple.py`.
+
+**Fixed — the conversational agent now remembers detections.**
+`KnowledgeRetriever.log_detection` and its detection-log search existed, and
+`record_detection` recorded every API detection, but nothing connected them:
+"have there been any anomalies?" was answered from an empty log on every
+deployment while the voice route advertised a `detection` intent.
+`record_detection` now mirrors each record into the live voice's retriever
+with the fields the search reads (`tests/api/test_voice_recent_detections.py`).
+
+**Fixed — `POST /api/v1/voice/speak` carried a thinned copy of what the voice said.**
+`MercuryVoice.speak` returns a `VoiceResponse` whose fields are named
+`intent_understood` and `sources_cited` and which also carries a reasoning
+summary, suggested follow-ups, an uncertainty note and the memory-search
+counters. The route read `intent` and `sources` off that object — attributes
+it never had — so every live reply reported intent `unknown` with no sources,
+and the rest was dropped. `VoiceResponseModel` now carries `reasoning_summary`,
+`search_performed`, `search_results_count`, `suggested_follow_ups`,
+`uncertainty_note` and `response_time_ms` (all optional; existing clients are
+unaffected), and the route normalises both the narrative voice's object and the
+fallback voice's dict through one path (`tests/api/test_voice_speak_passthrough.py`).
+
+**Fixed — browser clients could not read `X-Correlation-ID` or `Retry-After`.**
+CORS exposed only the three `X-RateLimit-*` headers, so a browser client saw no
+correlation id and no `Retry-After` on a 429, although the API sends both.
+Both are now exposed (`tests/api/test_cors_expose_headers.py`).
+
+**Fixed — `POST /api/v1/batch/detect` scored every sample against itself**
+(see commit `ec828fe`): one-feature rows always scored 0.0 and no sample was
+ever compared with the data set. Batch now uses data-set statistics with the
+synchronous routes' formulas; `neurosymbolic` is refused at submission
+instead of silently approximated.
+
 **Added — measured σ-threshold ablation replacing the deleted `ab_sigma`
 theater (`benchmarks/sigma_threshold_ablation.py` +
 `sigma_threshold_ablation_results.json`).** The deleted script claimed
@@ -42,7 +1087,7 @@ not end-task F1 — no committed experiment measures that). A real
 Lyapunov-constant A/B (what `ab_dominance` faked) would need the fusion
 training loop with λ varied and remains an open task rather than a claim.
 
-**Fixed — fabrication audit waves 3-5: theater benchmarks removed, docs trued
+**Fixed — fabrication audit, continued: theater benchmarks removed, docs trued
 to committed evidence, remaining disclosures landed.** Seven benchmark scripts
 that scripted their own results were deleted (none referenced by code):
 `ab_dominance`/`ab_sigma` wrote per-epoch F1 curves toward hardcoded targets
@@ -93,7 +1138,7 @@ disclose their authored-workload/non-committed-harness provenance; and the
 in-session gwo/dimensional measurements are marked CHANGELOG-recorded, not
 artifact-backed.
 
-**Fixed — full-repo fabrication audit, wave 1/2: engine code that invented
+**Fixed — repository-wide fabrication audit: engine code that invented
 measurements now measures, discloses, or fails closed.** A four-auditor sweep
 of the whole repository found fabrication beyond the chart generators; every
 confirmed finding in `src/` is fixed at the root, with the ratifying tests
@@ -350,7 +1395,7 @@ were never broken; the sweep drove `detect()` on registry-seam detectors that ex
 `fit()+predict()`. They rank 2nd and 3rd of all graded detectors.
 
 **Changed — lint toolchain and README provenance.** `ruff` is bumped 0.17.1 → 0.17.2
-(rolls up Dependabot #383) across all three pin surfaces the parity gate enforces
+across all three pin surfaces the parity gate enforces
 (`ci.yml`, `pyproject.toml [dev]`, `.pre-commit-config.yaml`), verified clean tree-wide
 before the bump landed. The Dataset Attributions table now credits ALFA (CC0), UCI
 Robot Execution Failures (CC BY 4.0, which requires attribution), NAB (MIT) and OpenSky
@@ -437,8 +1482,8 @@ added signal (see the memory-fix entry above). The image is an integration demo,
 not a performance benchmark; real neuro-symbolic anomaly numbers come from the
 NAB streaming benchmark.
 
-**Fixed — the wildfire loader's two FIRMS windowing defects (issue #382 and a
-silent historical mislabeling).** First, `fetch_realtime()`: FIRMS `day_range`
+**Fixed — the wildfire loader's two FIRMS windowing defects (a real-time
+window gap and a silent historical mislabeling).** First, `fetch_realtime()`: FIRMS `day_range`
 counts UTC calendar days ending today and VIIRS NRT processing lags ~3 hours,
 so the 1-day global query returned a header-only CSV when issued shortly after
 UTC midnight — the weekly keyed-loader smoke's recurring "0 rows" failure. Two
@@ -485,7 +1530,7 @@ fabricated (OpenSky serves history only to authenticated accounts).
 `opensky-network.org` joins the SSRF allowlist with a pinned endpoint.
 
 **Fixed — `generate_calibration_visuals.py` no longer regenerates the retired
-`conformal_coverage.png`.** The standalone image was retired in PR #139 when its
+`conformal_coverage.png`.** The standalone image was retired when its
 empirical-vs-target scatter became a panel of `calibration_improvement.png`
 (docs/BENCHMARKS.md, MD-005), but the generator kept writing the orphan file to
 `docs/images/` on every run, contradicting the documented retirement.
@@ -885,7 +1930,7 @@ Measured over five seeds of clean 200x8 rows, buffer cleared between calls:
 | 0.98 quantile | 0.0200 | 0.7800 |
 
 Both the EOA scale and the calibrated threshold are fitted state and travel in the
-checkpoint. An earlier measurement in this round put the true-positive rate at 0.08 for the
+checkpoint. An earlier measurement put the true-positive rate at 0.08 for the
 0.95 cut; that was wrong -- the probes shared one detector and the memory buffer carried
 between them. Every figure above was re-measured with the buffer cleared.
 
@@ -893,7 +1938,7 @@ between them. Every figure above was re-measured with the buffer cleared.
 `tests/core/test_declared_modality_false_alarm_rate.py` drives every `matrix_2d` manifest
 entry behind the registry seam on independent Gaussian rows and pins what each flags in a
 held-out half, where every flag is a false alarm. It is the generalisation of the
-`series_1d` gate that found five mis-declared modalities on this branch, and it has teeth:
+`series_1d` gate that found five mis-declared modalities, and it has teeth:
 against the previous `directive` it fails with "flags 0.8417 of held-out normal rows against
 the measured 0.0600" -- a flood live in a default-enabled detector that no existing test
 reported, because the manifest seam tests assert a detector *returned* something and never
@@ -956,7 +2001,7 @@ quantile scores NAB 42.7 at an FPR of 0.1940 and is not the default, because cho
 would be tuning a threshold on the evaluation corpus. The stationary gate's pin moves from
 0.2725 to 0.1020; the NAB pin (12.2) is unchanged within its tolerance.
 
-**Removed the three `# type: ignore` markers this branch had added.** Two were on the
+**Removed the three `# type: ignore` markers an earlier commit had added.** Two were on the
 duplicated `self._oracle_detector.detect(...)` calls in `PhysicsIntegratedDetector.detect`
 and went with the `_run_oracle` helper that replaced them; the third, on
 `detector.detect(...)` in the CWRU recorded-data test, was there because the helper took
@@ -1043,7 +2088,7 @@ log-template keys (`_to_1d_int` rounds to a key), and a categorical next-key mod
 nothing to learn from a continuous series. It is now `event`, the manifest's documented
 "discrete domain events fed over time" slot, which no entry occupied; the manifest seam
 suite gains an `event` payload (a low-entropy template grammar) and drives it with that
-instead of `rng.normal(size=200)`. Fourth entry this round whose declared modality its own
+instead of `rng.normal(size=200)`. Fourth entry here whose declared modality its own
 input contract contradicts, after `rca`, `kmeans_distance` and `realtime_threat`.
 
 **Added — `tests/fixtures/loghub` and a recorded-data test for the log detector.**
@@ -1132,7 +2177,7 @@ grade every input LOW. Five tests fail on the old code.
 **Fixed — `realtime_threat` was declared `series_1d`.** `_validated_input` documents
 `(n_samples, n_features)` and reshapes a 1-D input to one sample, and the detector is measured
 on ADBench *tables* in `tests/detectors/test_recorded_adbench_tabular.py` (held-out AUROC
-0.675/0.907/0.986/0.994/0.972). It is now `matrix_2d`, the third entry in this round whose
+0.675/0.907/0.986/0.994/0.972). It is now `matrix_2d`, the third entry here whose
 declared modality its own validator contradicts.
 
 **Fixed — two tabular detectors were declared as 1-D series detectors, and the registry
@@ -1345,7 +2390,7 @@ between disjoint band-limited copies of one signal is ill-posed, so the computat
 withdrawn rather than left reporting a constant as a measurement: the method now abstains
 explicitly at `PHASE_COHERENCE_NOT_MEASURED`, the numeric fusion is unchanged (the term was
 already neutral), the warnings are gone, and every docstring that claimed five measured
-signals says four. **A replacement needs evidence this round could not produce**: the bands'
+signals says four. **A replacement needs evidence not yet available**: the bands'
 centre frequencies differ, so 1:1 phase locking is not well posed, and a 1:1 phase-locking-
 value prototype across time segments was measured on the recorded CWRU windows and rejected
 — outer-race faults separate from healthy at AUROC 0.892 but inner-race faults at 0.176 (the
@@ -1528,7 +2573,7 @@ was never released. Upgrading from 2.0.0: the license is now
 AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
 2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
 
-### The streaming worker alarms with a learned policy: PPO on NAB (branch `steel/version-cov5`)
+### The streaming worker alarms with a learned policy: PPO on NAB
 
 **Added — `ml/alarm_policy.py`, now the default detector of
 `StreamingAnomalyPipeline` and `mercury stream` (`--detector zscore` /
@@ -1561,7 +2606,7 @@ for the best-on-held-out threshold, and every seed beats it. The shipped
 policy is trained on all 47 files (seed 0, 2,000,000 decisions; each training
 run takes about a minute on one CPU thread).
 
-### The streaming worker could never raise an alarm (branch `steel/version-cov5`)
+### The streaming worker could never raise an alarm
 
 **Fixed — `StreamingAnomalyPipeline`'s default detector
 (`infrastructure/streaming.py`), which `mercury stream` and the Kubernetes and
@@ -1577,7 +2622,7 @@ but 5,640 false alarms (2.1% of points), NAB score -188.7. A fixed
 3-sigma rule fires too often on real, heavy-tailed streams; the learned alarm
 policy below replaces it.
 
-### Tier detections recorded and alerted correctly; label-free flags honour `contamination` (branch `steel/version-cov5`)
+### Tier detections recorded and alerted correctly; label-free flags honour `contamination`
 
 **Fixed — `/api/v1/detect/tier` recorded every detection as 0 anomalies at
 score 0 (`api/routes/detection.py`).** The route handed the history recorder
@@ -1596,7 +2641,7 @@ or 69 (all 17) at `contamination=0.05`. The label-free threshold is now the
 flagged); with labels it stays F1-optimal. Benchmarks score with AUC and
 oracle F1, so no recorded result changes.
 
-### `ml.ppo_trainer` rebuilt natively: PPO with no reinforcement-learning dependency (branch `steel/version-cov5`)
+### `ml.ppo_trainer` rebuilt natively: PPO with no reinforcement-learning dependency
 
 **Rebuilt — `ml.ppo_trainer` under its 2.0.0 names (`ml/ppo_trainer.py`,
 `ml/rl_envs.py`).** The 2.0.0 module wrapped stable-baselines3, which no
@@ -1637,7 +2682,7 @@ test rounds, several through a stand-in gradient that records what the
 update passes and steps, bring it to 659 of 687 killed, 95.9%; the 28
 survivors are classified equivalents in the lane comment. Floor 91.
 
-### Relicensed to AGPL-3.0-or-later (branch `steel/version-cov5`; effective v3.0.0)
+### Relicensed to AGPL-3.0-or-later (effective v3.0.0)
 
 Mercury Agent is now licensed under the GNU Affero General Public License
 v3.0 or later. The AGPL closes the one gap the GPL left open for a project
@@ -1663,7 +2708,7 @@ third-party consent. Historical records (dated CHANGELOG entries and the
 `tlp_handler` port-provenance note) are left as written: they were true when
 written. AMA Cryptography (Apache-2.0) remains one-way compatible.
 
-### Additional permission under AGPL section 7: the NVIDIA CUDA libraries (branch `steel/version-cov5`)
+### Additional permission under AGPL section 7: the NVIDIA CUDA libraries
 
 **Added — `LICENSE-EXCEPTION`.** Mercury's GPU acceleration runs on NVIDIA's
 CUDA libraries, which are proprietary; the CUDA builds of torch install them
@@ -1687,7 +2732,7 @@ stays flagged. The gate suite (57 tests) fails 3 against the previous gate;
 three new openness tests pin the grant's scope, the verbatim license and the
 packaging.
 
-### The AGPL made operable: a source offer and a dependency license gate (branch `steel/version-cov5`)
+### The AGPL made operable: a source offer and a dependency license gate
 
 **Added — `/source`, the corresponding-source offer (AGPL-3.0 section 13).**
 Every deployment now serves, publicly and with no input, the license, the
@@ -1734,7 +2779,7 @@ Apache-2.0 from their own license files (sha256 recorded).
 mypy list lacked `scripts/record_gdacs_fixtures.py`, which ci.yml checks; the
 local mirror now matches (20 scripts, both lists).
 
-### SURGEDAT acquired; DONKI Kp encoding verified (branch `steel/version-cov5`)
+### SURGEDAT acquired; DONKI Kp encoding verified
 
 **Added — SURGEDAT observed peak storm surge (`data_sources/storm_surge.py`:
 `parse_surgedat_csv`, `SurgeObservation`, `SurgeHeight`).** The LSU
@@ -1787,7 +2832,7 @@ overlap rule, closed-form ramp features, a fixed clock, a sub-second label
 edge) bring it to 121 killed, 93.8%; the eight survivors are classified
 equivalents in the lane comment. Floor 88.
 
-### Trust surface: a bounded store, decoys behind the rate limiter, contacts that cannot break security.txt (branch `steel/version-cov5`)
+### Trust surface: a bounded store, decoys behind the rate limiter, contacts that cannot break security.txt
 
 **Fixed — the cross-worker tripwire store grew without bound
 (`security/deception_store.py`).** The in-process sensor keeps at most
@@ -1852,7 +2897,7 @@ one second instead of hanging for the harness's 120. Final: 204 killed,
 98.1%, the four survivors classified equivalents in the lane comment. The
 floor rises from 90 to 95.
 
-### Explainers: the fallback LIME and SHAP paths compute what they name (branch `steel/version-cov5`)
+### Explainers: the fallback LIME and SHAP paths compute what they name
 
 **Fixed — the LIME surrogate spread a model's level across every feature
 (`cognitive/explainability.py`).** Every install takes the in-repo
@@ -1879,7 +2924,7 @@ local accuracy 1.0. `metadata["method"]` names what ran (`exact_shapley`,
 `permutation_shapley`, or `kernel_shap` for the installed `shap` library,
 whose path is unchanged).
 
-### Deception layer: rotation resistance and one picture across workers (branch `steel/version-cov5`)
+### Deception layer: rotation resistance and one picture across workers
 
 The two gaps the red-team round left open, closed.
 
@@ -1915,7 +2960,7 @@ byte-identical to before.
 
 The trust-surface mutation lane now enumerates ``deception_store.py`` too.
 
-### The scalar detection verdict is now the batch verdict (branch `steel/version-cov5`)
+### The scalar detection verdict is now the batch verdict
 
 **Fixed — `anomaly_prob` / `is_anomaly` described row 0 only.** On a
 multi-row batch, `detect_with_fusion`'s top-level scalars copied the first
@@ -1943,7 +2988,7 @@ gains two measured claims: the tamper-evident audit chain (tampering-detected
 tests across restarts and rotation) and the eliminate-not-waive container-CVE
 practice (perl-base purged, pip stripped, absence proven by re-scan).
 
-### Official contact addresses; README corrected against the code (branch `steel/version-cov5`)
+### Official contact addresses; README corrected against the code
 
 **Changed — official email.** Every project contact now uses the
 `mercuryagent.global` domain: `steel.sa.llc@mercuryagent.global` (primary —
@@ -1987,7 +3032,7 @@ The `detect_with_fusion` docstring and two engine comments still named
 `BenevolenceScorer.enforce` (`check="benevolence"`) as the first hard gate;
 they now name the shared harm-uplift gate it was replaced by.
 
-### Trust surface red-team: four ways around the decoys, closed (branch `steel/version-cov5`)
+### Trust surface red-team: four ways around the decoys, closed
 
 An adversarial pass against the decoy layer found four ways around it; three
 were measured directly and the fourth is a property of the repository. Each
@@ -2034,7 +3079,7 @@ pinned to `accounts.SESSION_COOKIE` by test, and the value is never recorded.
 over the four modules after the fixes: **128/129 killed (99.2%)**, the sole
 survivor the classified tarpit-cap equivalent; the CI floor of 90 holds.
 
-### Trust surface: a standing notice to autonomous agents, RFC 9116 security.txt, and a containment-only decoy layer (branch `steel/version-cov5`)
+### Trust surface: a standing notice to autonomous agents, RFC 9116 security.txt, and a containment-only decoy layer
 
 **Added — `security/agent_notice.py`, a standing notice to autonomous agents.**
 Its realistic reader is an instruction-following agent pointed at Mercury by
@@ -2125,7 +3170,7 @@ admits none of them — and accepted malformed contacts such as
 one classified equivalent, the tarpit-cap boundary where capped and uncapped
 delays coincide. Re-measured over the hardened code (115 sites): **114 killed, 99.1%**, the sole survivor that classified equivalent. CI enforces floor 90 (`mutation-floor-trust-surface`).
 
-### Mathematical Observatory: verified equation solving, anomaly instruments over mathematical data, mathlib-capable proof checking (branch `steel/version-cov4`)
+### Mathematical Observatory: verified equation solving, anomaly instruments over mathematical data, mathlib-capable proof checking
 
 **Added — `omni_mercury_engine.observatory`, a machine that solves what is
 solvable and observes the rest for clues.** Four components, every output
@@ -2206,7 +3251,7 @@ env-unreachable import fallbacks). The floor is CI-enforced at 75
 counterexample hooks are architecture, not claims: all candidate lists
 measure empty in tested ranges, as the literature says they must.
 
-### Math-surface integrity round: real zeta zeros, honest UNDECIDABLE semantics, dated 2026 claims (branch `steel/version-cov4`)
+### Math-surface integrity: real zeta zeros, honest UNDECIDABLE semantics, dated 2026 claims
 
 **Fixed — the Riemann exploration scored an RNG, not the zeta function
 (`models/simulation.py`).** `explore_conjecture("riemann")` fabricated
@@ -2257,13 +3302,13 @@ standard it implements: the kernel's acceptance, not an announcement, is
 the evidence — the same bar by which 2026 machine-generated proofs (e.g.
 AlphaProof's published Lean artifacts) are judged.
 
-**Verification note.** A relayed external review prompted this round; each
+**Verification note.** A relayed external review prompted this work; each
 claim was checked against the code before acting. One claim was rejected
 as overstated: `detectors/math_arrest/probes/zeta_harmonic.py` already
 documents honestly that it computes `sin(2πx) + cos(2πx)` as a
 phase-coherence probe — it makes no zeta claim, and was left unchanged.
 
-### Deep-review round: fail-closed input guards, three defect fixes, geological survivor closure 57.9% → 75.1% (branch `steel/version-cov4`)
+### Deep review: fail-closed input guards, three defect fixes, geological survivor closure 57.9% → 75.1%
 
 **Fixed — nine legacy humanitarian paths graded a NaN window as "normal"
 (fail-open; `infrastructure/humanitarian/`).** Every pre-existing detection
@@ -2273,7 +3318,7 @@ achievement, dropout, neural activity, cognition) returned
 or infinity, and precipitation accepted negative rainfall as a drought
 measurement. All now refuse non-finite input with `ValueError`, and the
 physically non-negative quantities (rainfall, yields, prices, unemployment
-rates) refuse negatives — the rule Round 19 established repo-wide
+rates) refuse negatives — the rule established repo-wide earlier
 ("detectors refuse unmeasurable input instead of grading it safe").
 25 regression tests; 24 verified failing on the pre-fix code (the 25th
 guards against over-validation: negative temperatures and index returns
@@ -2315,7 +3360,7 @@ The humanitarian lane re-measured over its guard-grown surface: 666 sites,
 662 killed (99.4%), the same four classified equivalents, floor 90
 unchanged.
 
-### Humanitarian capabilities instituted on published methods; no-check test triage; per-module mutation floors for the crisis monitor and the enhanced geological detectors (branch `steel/version-cov4`)
+### Humanitarian capabilities instituted on published methods; no-check test triage; per-module mutation floors for the crisis monitor and the enhanced geological detectors
 
 **Added — five humanitarian `detect()` capabilities, each on a published
 method with cited thresholds
@@ -2377,7 +3422,7 @@ Recorded fixtures with provenance and sha256 under
 world out-of-school, World Bank TUR CPI and WLD primary GPI, and the NOAA
 NCEI climatology below. 150+ behavioral boundary tests pin every published
 constant; the full mutation enumeration over the grown surface (666 sites,
-up from 312, including the round-22 fail-closed input guards) measures
+up from 312, including the fail-closed input guards) measures
 99.4% killed (662/666, the last kills hand-verified), with the four
 survivors individually classified equivalent — the CI floor lane stays
 at 90.
@@ -2464,7 +3509,7 @@ constructor-default tables, the neural/live paths and the physics forecast
 internals; their classification and closure is the next ranked item of the
 hardening program.
 
-### Hazard adapters on the engine contract; NHC peak storm surge as a numeric source; a calibrated mean band (branch `steel/version-cov4`)
+### Hazard adapters on the engine contract; NHC peak storm surge as a numeric source; a calibrated mean band
 
 **Added — seven hazard adapters serve the full `BaseDetector` contract
 (`detectors/hazard_adapter.py`).** The hazard detectors registered in
@@ -2578,7 +3623,7 @@ left — from 59.9% after the first behavioral pass and effectively zero
 discrimination before it. `mutation-testing.yml` gains a path-filtered
 `humanitarian-mutation-floor` job (floor 90).
 
-### NOAA G1 label alignment and retrain; GDACS rules settled on live data; fabrication-free detectors (branch `steel/version-cov4`)
+### NOAA G1 label alignment and retrain; GDACS rules settled on live data; fabrication-free detectors
 
 **Changed — every geomagnetic-storm decision starts at NOAA G1 (Kp 5-), routed through `noaa_g_scale`.**
 Training labels, the physics recall floor and the dual-rule Kp check of the
@@ -2599,7 +3644,7 @@ against Boyle's real 1.054). Retrained result on 25,846 held-out hours
 passes. The stale hazard-domain baseline value (`kp_g_bucket_accuracy` 0.8727,
 which predated the G-scale consistency round) is re-pinned at the measured
 0.8545. The DONKI-based space-weather loader keeps its `Kp >= 5.0` window rule:
-api.nasa.gov served 503 for every attempt this round, so the kpIndex encoding
+api.nasa.gov served 503 for every attempt, so the kpIndex encoding
 could not be checked against the live service.
 
 **Added/Changed — GDACS rules settled against GDACS's own live outputs.**
@@ -2671,7 +3716,7 @@ Each defect reproduced on the previous code, each fix pinned by a test:
   fitted state came from a loaded checkpoint are refit by explicit new
   training data (a width-8 retrain kept the shipped width-16 spatial fit, so
   drift reported "incomparable" forever). `default_fusion.pt` regenerated on
-  the fixed pipeline (it predated the round-14 look-ahead fix).
+  the fixed pipeline (it predated the look-ahead fix).
 - Incidence fit: a forecast day whose calibration cannot reach the 95% target
   inside the 1 − 1e-9 nominal cap falls back to a one-sided interval that
   covers by construction instead of returning the capped nominal as achieved;
@@ -2687,7 +3732,7 @@ committed. The NAB harness pins its corpus to a commit and stamps run
 provenance.
 
 
-### GDACS tropical cyclones, GDACS's own scores as the test, and faster, better-calibrated detection (branch `steel/version-cov4`)
+### GDACS tropical cyclones, GDACS's own scores as the test, and faster, better-calibrated detection
 
 An adversarial review of the first version reproduced 6 should-fix defects and
 10 nits; all are fixed, with tests, before this push.
@@ -2786,7 +3831,7 @@ Jumpers over jump rates 0.01, 0.1 and 1 found a 0.5 sd shift 29% sooner (median
 264 against 374 snapshots, 80 runs) but 0.75-1 sd shifts about 8% later, at the
 same false-alarm guarantee; the single rate stays the default.
 
-### Public-safety upgrades: sequential pathogen detection, fitted epidemic forecasts, GDACS alert levels (branch `steel/version-cov4`)
+### Public-safety upgrades: sequential pathogen detection, fitted epidemic forecasts, GDACS alert levels
 
 Three capabilities on top of the rebuilt components below, each from a published
 method and measured on simulated data with a known truth. An adversarial review
@@ -2858,7 +3903,7 @@ Incomplete or invalid inputs, including numbers too large for a float, are
 named in the response instead of guessed or raised. The scores have not been
 checked against GDACS's own event scores.
 
-### Four public-safety components rebuilt on published methods (branch `steel/version-cov4`)
+### Four public-safety components rebuilt on published methods
 
 Four modules inherited from Omni-AXA (2025-10-15) were still exported with
 their original logic: a terrorism detector that ignored its indicators, a "QBM"
@@ -2948,7 +3993,7 @@ unrecognised string is ever reported as a threat indicator. Every action begins
 with trained human review. Free-text reports must be coded first.
 
 **Documented — three released-module removals (`DEPRECATION.md` §6.13-6.15).**
-This branch removes released public classes from three modules without
+This release removes released public classes from three modules without
 restoring them: `security.counterintelligence.OverwatchNexus` /
 `OverwatchNexusResult` (scored reports it fabricated: the same risk, 0.2766,
 for zeros, noise and x1000 noise), the `truth_decipher.TruthDecipherFramework`
@@ -2960,7 +4005,7 @@ as quantum-vulnerable; SIKE and Rainbow counted as post-quantum). Each defect
 was reproduced on `main`; each entry names its replacement and a test that
 keeps the old surface from returning.
 
-### Performance round: the fusion path, start-up, and drift that per-feature tests miss (branch `steel/version-cov4`)
+### Performance: the fusion path, start-up, and drift that per-feature tests miss
 
 Found by running the shipped system against a native AMA v5.0.0 build and
 profiling it. Both columns come from `benchmarks/fusion_latency.py` run on the
@@ -3133,10 +4178,10 @@ surface. The full local run gave 16,610 passed, 103 skipped, 0 failed (the 103rd
 skip is the real-DeepFace test, which needs `[face]` and `MERCURY_NETWORK_TESTS=1`);
 the four Safety-policy tests added after it pass.
 
-### Audit round: seven parallel reviews of the newest code, every finding reproduced before it was fixed (branch `steel/version-cov4`)
+### Seven parallel reviews of the newest code, every finding reproduced before it was fixed
 
 Seven independent reviews covered the roughly 20,000 lines added after the
-third review round (engine concurrency and drift, the fusion decision path and
+previous pass (engine concurrency and drift, the fusion decision path and
 counterintelligence screening, the adjudication ledger, statement verification
 and the CIT, contactless vital signs, the API audit trail, and wiring). Every
 finding below was reproduced from the code or by experiment first, and each fix
@@ -3256,7 +4301,7 @@ whose tokens named symbols that do not exist (now guarded by a test).
   interval as support.
 - `load_export` takes a `split` (default `"heldout"`) and refuses the other.
 
-### Restoration round: rebuilt capabilities, two ethical-gate failures closed, drift on by default (branch `steel/version-cov4`)
+### Restoration: rebuilt capabilities, two ethical-gate failures closed, drift on by default
 
 Every removed symbol from `7ab59916`, `740da10a` and `f07b724e` was loaded
 from history and run against live code. The removals were names, wrappers,
@@ -3387,7 +4432,7 @@ Apache-2.0.
 doc-lint, neural-coverage, weapons-gate-corpus and Prometheus-render drift
 checks, which previously ran only in CI.
 
-### Review round: gates that measure instead of trust (branch `steel/version-cov4`)
+### Review: gates that measure instead of trust
 
 **Added — `security/quantum_risk_cyber.py`, rebuilt as a quantum-risk engine.**
 The module removed in `740da10a` matched algorithms by substring. It rated
@@ -3464,7 +4509,7 @@ generated domain table now fills), `PR335_AI_ALERT_REMEDIATION.md` and
 audit log with no references). Git history keeps all four.
 
 **Restored — removed result fields and modules, computed from cited
-methods.** Earlier commits on this branch removed released fields and modules
+methods.** Earlier commits removed released fields and modules
 that were never computed or were wrong; each is back under the Preservation
 Principle, and the new contract tests fail on the previous code.
 - Power: GIC averages 1-second data to 1-minute means before dB/dt (the
@@ -3522,7 +4567,7 @@ Principle, and the new contract tests fail on the previous code.
 - `slhdsa_sign_internal` stays removed as a security exception, aligned with
   AMA Cryptography v5 (DEPRECATION.md §6.11).
 
-**Restored — the symbols an earlier cleanup on this branch removed as
+**Restored — the symbols an earlier cleanup removed as
 uncalled, each with its defect fixed.** The removals (7ab59916, f498866a,
 f07b724e) are reverted under the Preservation Principle: every symbol is back
 under its released name and signature with a test, and the defect tests fail
@@ -3709,7 +4754,7 @@ detected after a resume.
 A 19-mutant pass over this work killed all 19. The Kafka-lag mutant needs
 `aiokafka`, which CI's full-extras lane installs.
 
-### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model (branch `steel/version-cov4`)
+### Visual anomaly analysis, a FINDΩYOU™ evidence bridge, and a durable self-model
 
 `BiometricAnomalyModel.predict` and `AgeProgressionEngine` gain a full,
 interpretable image-anomaly capability, and Mercury gains a signed evidence
@@ -3763,7 +4808,7 @@ bridge to FINDΩYOU™. See [`docs/VISION.md`](docs/VISION.md).
   - SHA3-256 image digests;
   - an ML-DSA-65 signature through AMA, verified against a pinned producer key.
 
-  Every FINDΩYOU™ import of Mercury resolves on this branch.
+  Every FINDΩYOU™ import of Mercury resolves.
 - **Self-model** (`self_model.py`).
   - Mercury's identity, probed capabilities, safeguards, measured performance
     and derived limitations.
@@ -3798,7 +4843,7 @@ bridge to FINDΩYOU™. See [`docs/VISION.md`](docs/VISION.md).
     `essential_workers.py`;
   - the local gate mirror now checks black over `format.yml`'s wider scope.
 
-### Terminology: civilization-first and Omni Codes everywhere; a repository-wide guard (branch `steel/version-cov4`)
+### Terminology: civilization-first and Omni Codes everywhere; a repository-wide guard
 
 Two injected framings are replaced everywhere they occurred. A mission
 phrasing that put one humanitarian deployment slice ahead of the mission is now
@@ -3833,7 +4878,7 @@ included.
   reunification last. A new case pins that pandemic containment precedes all
   other aid.
 
-### Scoped PQC production gate: AMA-free analytic quickstart, fail-closed agent surfaces (branch `steel/version-cov4`)
+### Scoped PQC production gate: AMA-free analytic quickstart, fail-closed agent surfaces
 
 Maintainer-directed split of the import-time PQC gate. The quickstart's
 analytic path may run without AMA for fast, real measured results, but it must
@@ -3875,7 +4920,7 @@ the package root to every surface that can decide, serve, sign, or encrypt:
 
 The README scale gate's stability property ("a handful of added lines must
 not demand a README rewrite") was asserted of a pure rounding function — an
-impossible property at bucket boundaries, and this branch's source LOC landed
+impossible property at bucket boundaries, and the source LOC landed
 seven lines below one, turning the full-sweep lanes red over a documentation
 integer. Cured in the design, not the test pin: ``--check`` / ``--update``
 now keep a published, bucket-aligned LOC figure while it is within one
@@ -3885,9 +4930,9 @@ never accepted). The property is pinned deterministically at the boundary
 worst case — not against live-tree state — plus a fire test beyond the
 staleness limit and a freshness-rule unit test.
 
-### Final adversarial review: eleven findings triaged, nine fixed, every claim re-tested (branch `steel/version-cov4`)
+### Adversarial review: eleven findings triaged, nine fixed, every claim re-tested
 
-A hostile machine review of this branch's full diff produced eleven findings;
+An adversarial review of the full diff produced eleven findings;
 each was verified against a traced failure path before acting. Nine were real
 and are fixed; one was a docstring overclaim (corrected to the truth); one —
 re-inserting previously-removed parameters could mis-bind positional callers —
@@ -3935,9 +4980,9 @@ the restored order matches the pre-branch API) and needed no change.
   fortress scan's own findings are scalar-grade while per-dimension steering
   is available to callers with localized measurements.
 
-### Depth round: simulators grounded in measured signal, a real biometric match path, and a true DTP training comparison (branch `steel/version-cov4`)
+### Depth: simulators grounded in measured signal, a real biometric match path, and a true DTP training comparison
 
-The previous round made ignored parameters *affect* output; this round makes
+The previous pass made ignored parameters *affect* output; this one makes
 the affected modules consume **real upstream signal** instead of caller-fed
 summaries, and cures the two deepest discovered gaps outright.
 
@@ -4065,7 +5110,7 @@ sweep): the constructor accepted a spectrum size but the detector sliced a
 hardcoded `[:512]`; it now slices by the stored size.
 
 `enable_age_progression` in `OmniMercuryEngine.detect_biometric` was
-deferred in this round — the two-image path in
+deferred — the two-image path in
 `BiometricAnomalyModel.predict` did not actually compare reference to test
 (the `test` key was dropped and the promised `match_score` never produced),
 so there was no match for age progression to improve — and was then **built
@@ -4082,7 +5127,7 @@ the requests-adapter override signatures in ``safe_http`` (the pinned
 pool ignores proxies by design — honoring one would defeat SSRF
 pinning), and the ``return; yield`` empty-async-generator idiom.
 
-### 67th benchmark dataset: DTU Danish-waters AIS with expert-annotated abnormalities; Mercury at published-SOTA parity (branch `steel/version-cov4`)
+### 67th benchmark dataset: DTU Danish-waters AIS with expert-annotated abnormalities; Mercury at published-SOTA parity
 
 **Added — `DTU_AIS_Abnormal`** (`datasets/maritime.py`, category
 `maritime`): the only public, expert-annotated real-AIS anomaly benchmark —
@@ -4140,7 +5185,7 @@ extracted member, since the figshare zip wrapper is generated per request.
 loader tests cover feature physics, label alignment, the digest gate and
 the malicious-pickle refusal.
 
-### CI wall-clock: cache the shared native build, fix the matrix pip keys, stop the third image rebuild (branch `steel/version-cov4`)
+### CI wall-clock: cache the shared native build, fix the matrix pip keys, stop the third image rebuild
 
 Three structural costs removed without touching any scan scope, severity
 threshold, blocking exit code or test. The Trivy vulnerability database is
@@ -4171,7 +5216,7 @@ the same pinned buildx/build-push actions. The Trivy steps scan the
 assembled image with a fresh DB either way, so cached layers cannot hide a
 newly published CVE.
 
-### Adversarial excavation round: 14 findings root-caused across detectors, gates and egress (branch `steel/version-cov4`)
+### Adversarial excavation: 14 findings root-caused across detectors, gates and egress
 
 A line-by-line adversarial review of the unified branch, each finding fixed
 with a regression test that fails on the pre-fix code.
@@ -4253,10 +5298,9 @@ ledger. (The marker itself is spelled out nowhere in the repo: the
 repo-tree scan flags the explanatory text too, which the first cut of
 this fix demonstrated first-hand.)
 
-### Branch unification + intelligence fusion decides from evidence (branch `steel/version-cov4`)
+### Unified tree; intelligence fusion decides from evidence
 
-`steel/version-cov4` unifies `steel/version-cov3`, `steel/version-cov02` and
-`steel/kafka_MCP_setup` (their entries follow below) and reconciles their
+This tree unifies three lines of work (their entries follow below) and reconciles their
 seams: the AMA prose pins cov02 wrote against v4.0.0 (`docs/index.md`,
 `CONTRIBUTING.md`, `rust_crypto/README.md`) now state the v5.0.0 pin cov3
 moved to — caught by cov02's own `workflow_version_drift_gate`, which reports
@@ -4280,8 +5324,8 @@ ever read), the `golden_ratio_weights` kwarg and the dead
 `create_omni_intelligence_scalars()` are removed; `_identify_sources` drops
 an `attention_weights` parameter it always ignored.
 
-**Fixed — kNN density stream diluted the ensemble on small fits (PR #376's
-red anomaly regression guard).** The stream's mean distance to `k = 10`
+**Fixed — kNN density stream diluted the ensemble on small fits (the
+anomaly regression guard went red).** The stream's mean distance to `k = 10`
 neighbours only estimates local density when the reference is an order of
 magnitude larger than `k`; on ADBench Lymphography (n_train = 71) the
 neighbourhood spanned a seventh of the sample and the 50/50 fusion dragged
@@ -4299,7 +5343,7 @@ crashed `fuse_intelligence`; two regression tests).
 **Measured — headline benchmark regenerated on the unified detector.**
 The committed headline predated the kNN density stream entirely (its
 glass/pendigits values are the stream-off figures), so it understated the
-shipped detector. Regenerated on this branch's tree (75 attempted / 66
+shipped detector. Regenerated on the current tree (75 attempted / 66
 reproducible / 53 genuine-label headline): mean ROC-AUC 0.8251 → 0.8544
 (+0.0293), median 0.8747 → 0.9095 (+0.0348), mean oracle F1
 0.5998 → 0.6433 (+0.0435). Per-dataset audit: the four sub-100-train sets
@@ -4311,20 +5355,20 @@ datasets excluded from the headline. ADBench-46/47 remain the known
 sub-0.5 stragglers (both marginally improved). README "Latest Benchmark
 Results" synced via `scripts/update_readme_benchmarks.py`;
 `check_benchmark_integrity` and the anomaly regression guard both pass. Also fixed: the two `[no-any-return]` errors (3.11
-numpy stubs) that failed PR #376's Type Checking lane, in
+numpy stubs) that failed the Type Checking lane, in
 `tests/ml/test_covariance_and_psi_drift.py` and
 `tests/core/test_registry_feature_cache.py`.
 
-### Unwired code brought into production; five defective modules removed (branch `steel/version-cov3`)
+### Unwired code brought into production; five defective modules removed
 
 Every orphaned module (no importer in production, CI, scripts, benchmarks or
 research) was read and vetted. What carried real value is now wired, fixed and
 measured; five modules whose output was wrong or fabricated are removed.
 
 **Removed** (`security/quantum_risk_cyber`, `truth_decipher` and
-`security/counterintelligence` were later rebuilt from scratch on
-`steel/version-cov4`, and `security/hive_firewall` and `quantum_computing`
-restored with their defects fixed; see the rounds above):
+`security/counterintelligence` were later rebuilt from scratch, and
+`security/hive_firewall` and `quantum_computing` restored with their defects
+fixed; see the entries above):
 `security/quantum_risk_cyber` (flagged ML-DSA, the scheme AMA
 signs with, as quantum-vulnerable; scored SIKE/Rainbow as post-quantum),
 `truth_decipher` (hard-coded "true" ethics inputs; every case recorded as a
@@ -4379,7 +5423,7 @@ refit its reference on the batch it scored; TranAD's trainer never trained
 `input_projection`; the GUI showed AUC -1.0 for perfect separation; and
 `ReportManager` HTML and reportlab input were unescaped.
 
-### AMA Cryptography v5.0.0 migration + three red CI lanes fixed at root (branch `steel/version-cov3`)
+### AMA Cryptography v5.0.0 migration + three red CI lanes fixed at root
 
 The pinned PQC backend moves v4.0.0 → v5.0.0 in lockstep across every pin
 site (pyproject `[pqc]` git ref, `_pqc_gate._AMA_REQUIRED_VERSION`/`_RELEASE`,
@@ -4488,7 +5532,7 @@ allow-rules.
 
 Separately, three scheduled lanes that were red on `main` are fixed at root
 cause (reproduced before each fix): `competitive-benchmark.yml` was the one
-engine-importing workflow without the AMA build step, so the PR-#360
+engine-importing workflow without the AMA build step, so the
 import-time PQC gate failed its first `import omni_mercury_engine`;
 `phase3-governance.yml` invoked `phase3_governance.py` by file path, which
 drops the repo root from `sys.path` and breaks its own
@@ -4499,15 +5543,14 @@ although no provider in the lane signals a rejected key that way — it now
 lands on UNREACH via `_parse_200_body()` with the preview redacted, while a
 parseable-but-wrong-shape body stays FAIL, both directions pinned by new
 offline tests.
-### Refinement pass (branch `steel/version-cov02`): main's three red scheduled lanes, a gate CI never ran, a PQC wrapper that could not succeed, and a fabricated overhead figure
+### Refinement pass: main's three red scheduled lanes, a gate CI never ran, a PQC wrapper that could not succeed, and a fabricated overhead figure
 
 Every item below was reproduced on `main` before it was fixed. Each new gate
 was run against the pre-fix tree and fails there, and each new regression test
 fails when its fix is reverted. Two of the lane fixes below (Competitive
 Benchmark AMA provisioning, Phase 3 `-m` invocation) were independently made
-on `steel/version-cov3` as well; the unified tree carries the cov3 variants
-(AMA pinned at v5.0.0) with this branch's gates and tests holding them in
-place.
+elsewhere as well; the unified tree carries the variants with AMA pinned at
+v5.0.0, with this tree's gates and tests holding them in place.
 
 **Fixed — `main`'s red scheduled lanes**
 
@@ -4595,27 +5638,27 @@ place.
   operator tool now also holds `_pqc_gate._AMA_REQUIRED_VERSION` and every
   "pinned to" statement in an AMA paragraph to the `pyproject.toml` ref.
 
-**Changed — dependencies (consolidates Dependabot #367 and #371)**
+**Changed — dependencies**
 
 - `ruff` 0.16.0 → 0.16.4 and `mypy` 2.3.0 → 2.3.1 at every parity site
   (`pyproject.toml` `[ml]`/`[dev]`, both `ci.yml` install lines, both
-  pre-commit revs). #367 changed only `pyproject.toml` and so failed the
-  pin-parity gate. Every CI mypy lane and `ruff` are clean under the new pins.
-- Ten GitHub Actions bumps from #371, SHA-pinned; each new SHA was checked
+  pre-commit revs); a bump of `pyproject.toml` alone fails the pin-parity
+  gate. Every CI mypy lane and `ruff` are clean under the new pins.
+- Ten GitHub Actions bumps, SHA-pinned; each new SHA was checked
   against its upstream release tag with `git ls-remote`.
 
 **Assessed and not taken.** All 55 remote branches were triaged. Every merged
-branch tip equals its PR's final head except two benchmark-only commits;
+branch tip equals its final head except two benchmark-only commits;
 every closed-unmerged branch is either already on `main` in a stronger form
-or would regress a later fix (for example #328's BOCPD tail double-count and
-a `1e15` magnitude cap that clips nanosecond timestamps). #307's golden-ratio
+or would regress a later fix (for example a BOCPD tail double-count and
+a `1e15` magnitude cap that clips nanosecond timestamps). A golden-ratio
 removal was not taken: no stated score contract is violated and its
 replacement literals would move operating points without validation data.
-AMA #394/#407: no AMA tag newer than v4.0.0 exists, so the pin is unchanged;
-#407's reference-integrity and mutation-evidence practices are what rule 4
+AMA: no tag newer than v4.0.0 exists, so the pin is unchanged; its
+reference-integrity and mutation-evidence practices are what rule 4
 and the pillar mutation step bring over.
 
-### GCN Kafka MCP server + credential keep-alive (branch `steel/kafka_MCP_setup`)
+### GCN Kafka MCP server + credential keep-alive
 
 NASA GCN disables a Kafka client credential that has not connected to a broker
 in 30 days, and a disabled credential cannot be revived. Wiring the GCN broker
@@ -4655,7 +5698,7 @@ configuration entry.
   nor the client id reaches stdout or the state file.
 - `.gitignore` now blocks `*.env` anywhere in the tree.
 
-### Deployment renderability, DP soundness, and browser security headers (branch `steel/maint-coverage1`)
+### Deployment renderability, DP soundness, and browser security headers
 
 Fifteen defects fixed across the deployment manifests, the federated privacy
 and aggregation mathematics, the API's response-header surface, the rate
@@ -4757,7 +5800,7 @@ render-time gate that fails against the pre-fix state.
 
 ### Repository refinement audit: 19 defects fixed across correctness, security, safety, DP and consensus
 
-A full-repository engineering audit (branch `steel/repository-refinement23`).
+A full-repository engineering audit.
 Every automated gate was already green and no sensitive/internal content
 required removal, so the value is concentrated in **defects on code paths the
 13,802-test suite did not cover** — surfaced by running the real runtime (AMA
@@ -4850,7 +5893,7 @@ accounting without weakening any guarantee:
 
 ### Platform completion: account frontend, usage endpoint, operator CLI, platform metrics, deployment profile
 
-The launch-facing half of the platform work (PR #350, continued): everything a
+The launch-facing half of the platform work: everything a
 public deployment still lacked on top of the hardened backend below. The
 additive/opt-in contract is unchanged — with no env vars set, behaviour is
 byte-identical (the frontend is off by default and `/` keeps returning 404).
@@ -4916,7 +5959,7 @@ byte-identical (the frontend is off by default and `/` keeps returning 404).
 
 ### Free-service platform hardening: auth abuse controls, at-rest 2FA, quotas, lifecycle, sessions
 
-Hardening pass over the account/persistence/auth/metering platform (PR #350) so
+Hardening pass over the account/persistence/auth/metering platform so
 Mercury Agent can run as a free, public, account-based service. **Additive and
 opt-in throughout** — a solo self-hoster who clones and runs the repo keeps
 byte-identical behaviour (in-memory, no accounts, no SMTP, no quotas); the
@@ -5036,11 +6079,11 @@ anything.
   sweep (measured TAR 1.00 / FAR 0.00) with floors, so a silent matcher
   regression fails a functional gate instead of passing every unit test.
 
-### Engineering pass (continuation of the coverage round): Python-3.14 CI fix, strict-mypy graduation, ROADMAP 17/18 offline gates, heavy-ML coverage uplift, two root-cause fixes
+### Engineering pass: Python-3.14 CI fix, strict-mypy graduation, ROADMAP 17/18 offline gates, heavy-ML coverage uplift, two root-cause fixes
 
 Full audit trail: `docs/ENGINEERING_PASS_REMEDIATION.md`.
 
-- **Fixed the Python-3.14 Core-Tests failure** (the round's only red lane).
+- **Fixed the Python-3.14 Core-Tests failure** (the only red lane).
   Python 3.14 raises `pickle.DEFAULT_PROTOCOL` 4→5; under protocol 5 numpy
   serialises arrays via `numpy._core.numeric._frombuffer` instead of
   `multiarray._reconstruct`, which `tools/migrate_pkl.py`'s restricted
@@ -5088,7 +6131,7 @@ Full audit trail: `docs/ENGINEERING_PASS_REMEDIATION.md`.
   `--test-timeout` 600 → 120s). Full local re-run: 120/120 mutants, no
   hang, 119 killed / 1 survived (99.2%) in 8m40s.
 
-### Maintenance round steel/maint1/2-coverage: intersectional fairness (ROADMAP row 6), σ_Immutable mutation gate (row 8), orphan dispositions (row 19), scripts/ mypy-debt clearance, coverage uplift, nine root-cause defect fixes
+### Maintenance: intersectional fairness (ROADMAP row 6), σ_Immutable mutation gate (row 8), orphan dispositions (row 19), scripts/ mypy-debt clearance, coverage uplift, nine root-cause defect fixes
 
 Full audit trail with measured before/after evidence:
 `docs/MAINT1_2_COVERAGE_REMEDIATION.md`.
@@ -5353,11 +6396,10 @@ Full audit trail with measured before/after evidence:
   telemetry. Merit-gated by ``tests/test_sw_eng_metrics_collector.py`` (real
   values, sane bands, metric-only, σ untouched).
 
-### Changed: dependency bumps folded in (Dependabot #340, #341, #342)
+### Changed: dependency bumps
 
 - **mypy `2.1.0` → `2.3.0`** and **types-requests `2.33.0.20260518` →
-  `2.33.0.20260712`** (Dependabot #341, #342). Dependabot only edited
-  `pyproject.toml`; the repo pins these tools on four parity-checked
+  `2.33.0.20260712`**. The repo pins these tools on four parity-checked
   surfaces (`scripts/check_pinned_tool_versions.py` fails on drift), so all
   four were bumped in lockstep — `pyproject.toml` `[ml]` + `[dev]`,
   `.github/workflows/ci.yml` (Code Quality + Type Checking install lines),
@@ -5365,15 +6407,13 @@ Full audit trail with measured before/after evidence:
   `# type: ignore` set byte-identical: both lanes clean (`mypy src/` 748
   files, `mypy tests/` 644 files), no `unused-ignore` fallout on
   `datasets/mitbih.py:105/109`. Parity check + self-test green.
-- **redis Helm subchart `27.0.13` → `27.0.15`** (Dependabot #340,
-  helm-charts group) in `helm/mercury-agent/Chart.yaml`. Patch-level Bitnami
+- **redis Helm subchart `27.0.13` → `27.0.15`** (helm-charts group) in `helm/mercury-agent/Chart.yaml`. Patch-level Bitnami
   bump; infra-only, no Python runtime surface.
 
-### Changed: GitHub Actions group bump — 7 updates consolidated (Dependabot #345/#346; #341 superseded)
+### Changed: GitHub Actions group bump — 7 updates consolidated
 
-- **The full `github-actions` Dependabot group, applied as SHA pins** —
-  byte-identical to Dependabot #346's tree, every new SHA independently
-  re-resolved from its upstream repo via `git ls-remote` before adoption:
+- **The full `github-actions` group, applied as SHA pins** — every new SHA
+  independently re-resolved from its upstream repo via `git ls-remote` before adoption:
   - `actions/setup-python` **v6 → v7.0.0**
     (`5fda3b95a4ea91299a34e894583c3862153e4b97`, 38 `uses:` sites);
   - `actions/setup-go` **v6 → v7.0.0**
@@ -5387,13 +6427,6 @@ Full audit trail with measured before/after evidence:
   - `pypa/gh-action-pypi-publish` **release/v1 → v1.14.1 head**
     (`ba38be9e461d3875417946c167d0b5f3d385a247`, 1 site in
     `release.yml`).
-- **Why consolidated by hand:** Dependabot #345 proposed the setup-python /
-  setup-go bump against tag refs, went stale when the repository-wide SHA
-  pinning landed on `main`, and was auto-closed as conflicting; its
-  replacement #346 (this exact tree) supersedes it and auto-closes on
-  merge. The companion #341 (mypy `2.1.0` → `2.3.0`) needed no code
-  change — the dependency-bump fold recorded above already carried
-  mypy 2.3.0 onto `main`, and Dependabot auto-closed it.
 - **Compatibility audited before the bump:** setup-python / setup-go v7
   are the ESM / Node 24 migration — no workflow uses the `pip-install`
   input that setup-python v7 removed, every runner is GitHub-hosted
@@ -5429,13 +6462,11 @@ Full audit trail with measured before/after evidence:
   the guard stays in lockstep with the carve-out lexicon and the safety
   property is preserved exactly.
 
-### Fixed: doc drift left behind by the PR #339 coverage-floor graduation
+### Fixed: doc drift left behind by the coverage-floor graduation
 
-- A post-merge verify-first re-audit of the M1–M15 completion pass
-  (all 15 items re-verified against the merged head ``193b8e1``; 12/15
-  confirmed fully resolved in the merge) found nine doc locations still
+- A re-audit of the M1–M15 completion pass found nine doc locations still
   quoting the superseded ``CORE 25 / FULL 50`` coverage floors as
-  current after PR #339 graduated ``ci.yml`` to ``CORE 30 / FULL 55``
+  current after ``ci.yml`` graduated to ``CORE 30 / FULL 55``
   (README ×5, ARCHITECTURE ×3, ``docs/DEPLOYMENT.md``,
   ``docs/ROADMAP.md`` floor table, ``.coveragerc`` comment). All now
   quote the live gates; ROADMAP supersedes rather than overwrites the
@@ -5445,7 +6476,7 @@ Full audit trail with measured before/after evidence:
   the unfixed docs), so the next graduation cannot drift silently.
 - Cognitive-layer counts refreshed to measurement: ``cognitive/`` is
   30 modules (excluding ``__init__.py``) / ~32,000 LOC at HEAD — the
-  stale "23 modules / 30,073 LOC" predated the four modules PR #339
+  stale "23 modules / 30,073 LOC" predated the four modules
   added (README ×2, package docstring). ``truth_decipher.py``'s class
   docstring said "4-phase pipeline" while its module docstring, the
   Phase 1–5 dataclass comments, and the framework test
@@ -5467,7 +6498,7 @@ Full audit trail with measured before/after evidence:
 - ``docs/DORMANCY_LEDGER.md``'s "Last updated" header aligned with its
   own latest amendment date (2026-07-18).
 
-### Fixed: NumPy-2.0 crash in `harmonics/transform.py` + stale Legendre cache (PR #339)
+### Fixed: NumPy-2.0 crash in `harmonics/transform.py` + stale Legendre cache
 
 - ``np.math`` was removed in NumPy 2.0 (the project floor is
   ``numpy>=2.4``), so every ortho-normalized
@@ -5482,7 +6513,7 @@ Full audit trail with measured before/after evidence:
   (same length). The cache now invalidates when its grid changes; a
   reused transform is pinned bit-equal to a fresh instance.
 
-### Behaviour change: decision layer enabled at the served deploy entrypoints (PR #339)
+### Behaviour change: decision layer enabled at the served deploy entrypoints
 
 - The three served entrypoints — the ``/api/v1/detect/flagship`` HTTP
   route, the MCP ``mercury_detect_fusion`` tool, and
@@ -5500,7 +6531,7 @@ Full audit trail with measured before/after evidence:
   pre-existing wire format is pinned unchanged by test). Both are
   non-destructive and never auto-authorised.
 
-### Clarified: σ_Immutable threshold single source + hard/soft benevolence gates (PR #339)
+### Clarified: σ_Immutable threshold single source + hard/soft benevolence gates
 
 - ``ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD`` (0.93) is the new single
   authoritative declaration of the trained σ_Immutable network's decision
@@ -5515,10 +6546,10 @@ Full audit trail with measured before/after evidence:
   SOFT fusion-weighting term in ``core/three_r/fusion.py``. Comments and
   docstrings only; enforcement semantics identical.
 
-### Changed: coverage merge-gate floors graduated on re-measurement (PR #339)
+### Changed: coverage merge-gate floors graduated on re-measurement
 
 - ``COVERAGE_THRESHOLD_CORE`` 25 → **30** and ``COVERAGE_THRESHOLD_FULL``
-  50 → **55**, backed by fresh CI-identical measurements on the PR #339
+  50 → **55**, backed by fresh CI-identical measurements on the
   head (CORE 37.94% / FULL 67.97% combined stmt+branch, both lanes
   green at measurement; previous baselines 31.87% / 59.84%). Same
   cushion policy that set 25/50 (~7 points CORE / ~10 points FULL below
@@ -5527,7 +6558,7 @@ Full audit trail with measured before/after evidence:
   CI's ``[all,dev]`` lane. CONTRIBUTING.md and the ci.yml rationale
   comment updated together.
 
-### Behaviour change: `MatrixProfileAdapter.find_discords` default input interpretation (PR #339)
+### Behaviour change: `MatrixProfileAdapter.find_discords` default input interpretation
 
 - With ``is_matrix_profile=None`` (the default), ``find_discords`` now
   ALWAYS treats the input as a raw series and computes its matrix profile.
@@ -5539,7 +6570,7 @@ Full audit trail with measured before/after evidence:
   declare it with ``is_matrix_profile=True`` (the in-repo caller already
   does). Noted in the method docstring.
 
-### GOSNN role resolved: one scalar snapshot for both gates; observability audited (PR #339)
+### GOSNN role resolved: one scalar snapshot for both gates; observability audited
 
 - **The σ_Immutable path no longer collects the scalar vector twice per
   detect call.** ``detect_with_fusion`` used to walk the 127-scalar
@@ -5562,7 +6593,7 @@ Full audit trail with measured before/after evidence:
   independent of the engine's own fusion, and correctly never routed into
   a decision.
 
-### GOSNN fusion: consequential decision channel + labelled-outcome training (PR #339)
+### GOSNN fusion: consequential decision channel + labelled-outcome training
 
 - **`MultiHeadAttentionFusion` train/serve stacks unified.** The
   architecture and forward computation now live in one shared module
@@ -5623,7 +6654,7 @@ Full audit trail with measured before/after evidence:
   detector-score head clears — it would have shipped a cross-check weaker
   than the engine it guards.
 
-### Hazard/geophysical detectors: `(1, W)` batched-single-sample crash class swept (PR #339)
+### Hazard/geophysical detectors: `(1, W)` batched-single-sample crash class swept
 
 - The solar geomag fix generalised: an audit of every net-backed trained
   serving lane reproduced the same crash class in landslide
@@ -5639,7 +6670,7 @@ Full audit trail with measured before/after evidence:
   physics/neutral path or fails loud where no physics fallback exists.
   Each fix is pinned by ``tests/detectors/test_batched_single_sample_guards.py``.
 
-### Tooling: `ruff check` no longer auto-mutates (PR #339)
+### Tooling: `ruff check` no longer auto-mutates
 
 - ``[tool.ruff] fix`` is now ``false``: a plain ``ruff check`` used to
   rewrite files, so a file could change *after* a passing mypy run and ship
@@ -5648,7 +6679,7 @@ Full audit trail with measured before/after evidence:
   fix so later hooks re-run); ``scripts/run_ci_gates.sh`` orders the mypy
   lanes after ruff.
 
-### Product identity + uniform per-provider model selection (PR #339)
+### Product identity + uniform per-provider model selection
 
 - **Mercury Agent identifies as Mercury Agent.** A product-identity clause
   (``MERCURY_IDENTITY_CLAUSE``) now rides every system prompt Mercury sends
@@ -5671,7 +6702,7 @@ Full audit trail with measured before/after evidence:
   are preserved verbatim as documented opt-in ``EXAMPLE_OLLAMA_*``
   constants.
 
-### Provider neutrality: no vendor-default models, anywhere (PR #339)
+### Provider neutrality: no vendor-default models, anywhere
 
 - **Mercury ships no default model id for any provider — local or cloud.**
   Every adapter (OpenAI, Anthropic, HuggingFace, xAI, DeepSeek, Cursor,
@@ -5690,7 +6721,7 @@ Full audit trail with measured before/after evidence:
   require the operator to name the model (``MERCURY_ANTHROPIC_MODEL``), and
   the README presents every shipped provider as equally welcome.
 
-### Review-hardening: edge-window crashes, sizing consistency, honest docs (PR #339)
+### Hardening: edge-window crashes, sizing consistency, honest docs
 
 - **Schumann degenerate windows fixed end-to-end.** An empty ELF window
   reached ``scipy.fft.fft`` (which raises on empty input) before any guard,
@@ -5722,7 +6753,7 @@ Full audit trail with measured before/after evidence:
   closed redundantly on a broken install, and Mercury reads it only for
   diagnostics.
 
-### Merit gates enforced in both directions: seismic winner serves, GOSNN fusion refuses (PR #339)
+### Merit gates enforced in both directions: seismic winner serves, GOSNN fusion refuses
 
 - **EarthquakeDetector defaults to the shipped merit-gate winner.** The
   ``seismic_stead`` checkpoint (real STEAD data: held-out recall 0.9745 vs
@@ -5753,7 +6784,7 @@ Full audit trail with measured before/after evidence:
   pins that the artifact's decision and the shipped-checkpoint state can
   never disagree.
 
-### Follow-through: operational VLM backends, shipped model pins, honest failure semantics (PR #339)
+### Follow-through: operational VLM backends, shipped model pins, honest failure semantics
 
 - **Local VLM backends shipped (BSD-3-Clause BLIP), validated live.** New
   ``blip_vqa`` (Salesforce/blip-vqa-base) and ``blip_caption``
@@ -5797,7 +6828,7 @@ Full audit trail with measured before/after evidence:
   (``mercury-agent tool detector_profiler``; sandbox re-run: median
   47.7 ms — the ``<100ms`` claim holds).
 
-### Engineering audit: packaging, detector correctness, latency, torch-free cloud path (PR #339)
+### Engineering audit: packaging, detector correctness, latency, torch-free cloud path
 
 - **`pip install .[all]` / `.[test]` un-broken (lime dropped from the extras
   graph).** `lime==0.2.0.1` — its only release (2020, unmaintained) — fails to
@@ -5887,7 +6918,7 @@ Full audit trail with measured before/after evidence:
   `prange` sites carry dual-environment ignores. Bandit (CI configuration,
   medium+ severity): clean.
 
-### Dependency & static-analysis hardening (PR #336)
+### Dependency & static-analysis hardening
 
 - **OpenCV moved to the 5.x line.** `opencv-python-headless` is now pinned
   `>=4.8.0,<6`. OpenCV 5.0.0 (2026-07) relocated the Haar/HOG detectors —
@@ -5904,13 +6935,11 @@ Full audit trail with measured before/after evidence:
   `models/biometric_advanced.py`, and
   `space/ionospheric_scintillation_detector.py`.
 
-### AI/bot review-alert remediation — root-cause fixes, no suppressions
+### Static-analysis findings on the competitive-benchmark work fixed at the root
 
-A pass over every open Copilot review alert on the competitive-benchmark work,
-resolving each at the root (no debt-for-debt, no suppression, no silenced check)
-and proving the fix with an offline, deterministic test. Full triage table,
-per-alert root-cause notes, sandbox deployment steps and validation artifacts in
-[`docs/PR335_AI_ALERT_REMEDIATION.md`](docs/PR335_AI_ALERT_REMEDIATION.md).
+A pass over every open static-analysis finding on the competitive-benchmark
+work, resolving each at the root (no debt-for-debt, no suppression, no silenced
+check) and proving the fix with an offline, deterministic test.
 
 - **Credential-check transport errors were opaque.**
   `scripts/verify_data_credentials.py` collapsed a transport failure — `_get()`
@@ -5944,8 +6973,8 @@ per-alert root-cause notes, sandbox deployment steps and validation artifacts in
 - **Docstring / pydocstyle hygiene.** The four remaining `check_*` helpers and
   `run()` in `verify_data_credentials.py` gained one-line Google-style docstrings,
   making the module fully `pydocstyle --convention=google` clean.
-- The remaining open alerts were already fixed at the root in earlier commits of
-  this branch (the `data/adbench_embeddings` cache key, the forked-child metrics
+- The remaining open findings were already fixed at the root in earlier commits
+  (the `data/adbench_embeddings` cache key, the forked-child metrics
   reduction that keeps the full score vector off the IPC boundary, the
   `WildfireLoader` comment, the `"fail-softed"` typo, and the `git_commit`
   provenance-label clarification); this pass verified each against the current
@@ -5956,8 +6985,7 @@ per-alert root-cause notes, sandbox deployment steps and validation artifacts in
 
 ### Independent verification pass — CI red-to-green + fail-loud hardening
 
-An adversarial re-verification of this branch fixed every defect it surfaced
-at the root:
+An adversarial re-verification fixed every defect it surfaced at the root:
 
 - **CI failures fixed.** 16 mypy errors across 10 files (Optional detector
   source fields, explicit re-exports via module `__all__`, unused ignores,
@@ -5966,7 +6994,7 @@ at the root:
   `torch.load` is now hard-pinned to `weights_only=True` (house convention),
   including the shipped-checkpoint loader which previously passed
   `weights_only=False` explicitly.
-- **Review findings resolved without weakening.** (1) A stale last-good
+- **Findings resolved without weakening.** (1) A stale last-good
   posture evaluation no longer masks an actively failing evaluator:
   ``_reported_posture_level()`` reports ``UNKNOWN`` whenever consecutive
   evaluation failures exist, even when a prior success is cached
@@ -6039,7 +7067,7 @@ at the root:
   `.trivyignore` carries a time-boxed acceptance for CVE-2026-53615
   (unfixed Debian util-linux base-image CVE published 2026-07-09).
 
-### Hazard transparency wave — physics from observations, not untrained networks
+### Hazard transparency — physics from observations, not untrained networks
 
 Every natural-hazard forecast surface was audited for fabricated signal.
 Untrained neural networks (random weights, no labelled corpus) no longer
@@ -6249,7 +7277,7 @@ current `ci.yml` values (CORE 25 / FULL 50, not 15 / 35).
 
 ### Independent verification pass — reproduced results + fail-loud hardening
 
-An adversarial re-verification of this branch reproduced the two headline
+An adversarial re-verification reproduced the two headline
 research claims and fixed every defect it surfaced:
 
 - **Both committed research results reproduce exactly** and their artifacts
@@ -6299,7 +7327,7 @@ research claims and fixed every defect it surfaced:
   `swpc_planetary_kp_recent.json` fixture was removed; two pre-existing
   lint errors (F821 `Path` in tests/test_cli.py, SIM117 in the hail loader
   tests) were fixed.
-- New reviewer docs: `docs/HAZARD_VISUALIZATION.md` (incl. the transparent
+- New documentation: `docs/HAZARD_VISUALIZATION.md` (incl. the transparent
   Schumann 1-D-spectrum / no-track-cone / no-flood-GeoJSON scope notes) and
   `docs/COUNTERFACTUALS_AND_RULE_EVOLUTION.md` (reproduction commands).
 - **Typed test debt cleared for real.** The tests-lane mypy debt on this
@@ -6719,7 +7747,7 @@ foundation; every gate is fail-closed.
 - **Tests.** `tests/intel/` (112 tests) covering every stream, incl. corpus-backed
   regression-gate and end-to-end closed-loop integration (`slow`/`integration`).
 
-#### Live wiring + audit hardening (review round)
+#### Live wiring + audit hardening (review)
 
 De-islanding: the streams above are no longer standalone modules measured only in
 benchmarks — they run on the live request/emission/operator path, and an
@@ -6758,9 +7786,9 @@ adversarial audit's defects are fixed (no suppression; each fix carries a test).
   `MERCURY_GATE_AUDIT_DISABLED` into sibling suites (session `os.environ` mutation
   → function-scoped `monkeypatch`).
 
-#### Bot/AI alert resolution + live meaning-level harm classifier (review round)
+#### Static-analysis alert resolution + live meaning-level harm classifier
 
-Full resolution of the open CodeQL/Copilot alerts against the intel layer — each
+Full resolution of the open CodeQL and static-analysis alerts against the intel layer — each
 verified against the running code and fixed with a regression test; no
 suppression, no weakening. All CI lanes green on the native AMA backend.
 
@@ -6812,7 +7840,7 @@ suppression, no weakening. All CI lanes green on the native AMA backend.
   Evidence recorded in `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md` and the
   `served_model_real` block of `benchmarks/weapons_gate_adversarial_sample_run.json`.
 
-### Merge-readiness hardening (PR #315 review round)
+### Merge-readiness hardening
 
 A focused pass that reproduced the full CI pipeline locally, closed every red
 lane, and fixed the defects surfaced by an adversarial multi-lens review (each
@@ -7096,8 +8124,8 @@ unavailable backing stack returns an MCP `isError` result rather than a fabricat
 capability, and the server inherits Mercury's offline posture (self-hosted SearXNG
 search + local Ollama reasoning). See `docs/INTERCONNECT.md`.
 
-**Review-fix pass: CI gates, a CLI regression, and two silent-correctness gaps.**
-A full adversarial re-review of the branch above (8 independent finder passes,
+**Fix pass: CI gates, a CLI regression, and two silent-correctness gaps.**
+A full adversarial re-review (8 independent finder passes,
 each candidate verified against the actual call sites) turned up and closed:
 
 - *CI red.* `tests/test_search_provider_ladder.py`'s stub `__exit__` was typed
@@ -8020,7 +9048,7 @@ cloud adapter stay available, just never privileged.
   * `ReasoningRouter`: offline-first routing — the local backend is the floor
     and default, the remote backend is reached only on explicit opt-in, and
     hard-offline mode provably never selects or calls a network backend.
-  * Threads the PR #289 `UsageLedger` so token spend is accounted regardless of
+  * Threads the `UsageLedger` so token spend is accounted regardless of
     which backend serves a call.
   * **Wired into the engine (real consumer, not standalone substrate):**
     `OmniMercuryEngine.enable_reasoning()`, the lazy `reasoning_backend`
@@ -8046,23 +9074,23 @@ cloud adapter stay available, just never privileged.
   now uses a local open-weights model instead of a hosted one. Mercury presents
   as itself by default, not as any external AI.
 
-### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
+### Calibration — `StrictIsotonicCalibration` ported from the calibration brief (X1 survivor) (2026-06-12)
 
 * **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
   with a squeezed strictly-increasing tie-break, so the map preserves AUROC
-  exactly while keeping isotonic's ECE (PR #275 measured vanilla isotonic
+  exactly while keeping isotonic's ECE (the brief measured vanilla isotonic
   losing AUROC on 5/6 ADBench datasets, e.g. thyroid 0.9788 -> 0.9535).
   Exposed as `calibrate_detector(..., method="strict_isotonic")`; pinned by
   `tests/test_calibration_brief.py`.
 * Five factually wrong "requires scikit-learn" `ImportError` messages reworded
   to name the actual dependency (`omni_mercury_engine.ml.mercury_ml`, pure
-  numpy/scipy) — PR #275's V12c finding.
+  numpy/scipy) — the brief's V12c finding.
 * **Evidence suite** `benchmarks/calibration_brief/` (validation register
   V1–V11, explorations X1/X2/X8 with captured results) restored from the
-  deleted PR #275 branch (`refs/pull/275/head`, commit `bc211a0`), with a
+  brief's superseded source (commit `bc211a0`), with a
   disposition note reconciling it to what `main` has since shipped.
 * Deliberately not ported: the brief's `BetaCalibration` (superseded by the
-  accept-gated Beta landed in #278), the X12a eta-multiply lint (the eta^Phi
+  accept-gated Beta in the governed-fusion substrate), the X12a eta-multiply lint (the eta^Phi
   term was settled as an opt-in decoupling, R6 default-off), and the
   MATH_SPEC phi_sum patch (superseded by the `Φ + 2` canonical derivation).
 
@@ -8081,9 +9109,9 @@ pointing the host's session-start hook at this script.
 
 ### Reproducibility & API consolidation — deterministic construction of the fusion feature path's random components; conformal serialization moved behind a first-class API (2026-06-11)
 
-Consolidation follow-up to the checkpoint round-trip closure (ROADMAP row 16,
-PR #286): salvages the source-level pieces of the superseded competing
-implementation (PR #288) that remain advantageous on top of the shipped
+Consolidation follow-up to the checkpoint round-trip closure (ROADMAP row
+16): salvages the source-level pieces of a superseded competing
+implementation that remain advantageous on top of the shipped
 fitted-state persistence design. No checkpoint format change; the shipped
 `default_fusion.pt` is byte-unchanged and loads identically.
 
@@ -8112,8 +9140,8 @@ fitted-state persistence design. No checkpoint format change; the shipped
   temperature calibrator or conformal surface fitted against a previous
   fusion stack is dropped rather than silently misapplied to the loaded one
   (regression-pinned in `tests/test_fusion_checkpoint_roundtrip.py`).
-* **Auto-fit audit record kept truthful across load** (defect surfaced by
-  PR #288's review): restoring a detector's fitted state from a checkpoint
+* **Auto-fit audit record kept truthful across load** (defect surfaced in
+  review): restoring a detector's fitted state from a checkpoint
   now drops that detector from `_inference_auto_fit_detectors` — the
   first-batch leak it recorded no longer describes the engine, and a stale
   entry would also suppress the audit warning for any future post-load
@@ -8128,8 +9156,8 @@ fitted-state persistence design. No checkpoint format change; the shipped
 
 ### Performance & correctness — optimization/efficiency pass over the serving and checkpoint paths, with four pre-existing defect families fixed to completion (2026-06-11)
 
-Profile-first discipline: every change below is driven by a fresh measurement
-in this session, every fast path is a compiled form of pinned reference
+Profile-first discipline: every change below is driven by a fresh
+measurement, every fast path is a compiled form of pinned reference
 semantics, and the candidates the profile did *not* confirm are recorded as
 such instead of "optimized".
 
@@ -8348,7 +9376,7 @@ fidelity 600/600).
   (one async test erroring with "async def functions are not natively
   supported", and the `asyncio_mode` config warning on every run) is
   closed by installing the already-declared dev extras — no code change;
-  the failure predated this branch.
+  the failure predated this change.
 
 ### Multi-agent orchestration (pillar B) — the dormant planning/coordination/reflexion/chain-of-thought tier revived as a measured planner/critic/executor loop over the live ensemble (2026-06-11)
 
@@ -8576,8 +9604,8 @@ verifier/governance paths.
   a stream, recording each pass and fanning it out to an optional `FeedbackSink`
   (the seam for outcomes to flow back to calibration / learning / a human
   queue) — keeping the responder's `decide()` a pure function.
-* **Integrated onto merged #278.** The branch is rebased on the Phase‑2 governed
-  fusion substrate. #278's one new `detect_with_fusion` key,
+* **Integrated onto the Phase‑2 governed fusion substrate.** Its one new
+  `detect_with_fusion` key,
   `result["info_geometry_certificate"]`, was evaluated and is **deliberately a
   no‑op** in the gate (measured): it certifies a *component's* price level‑set,
   "NOT the fused/gated verdict", and is degenerate in the single‑sample serve
@@ -8605,7 +9633,7 @@ verifier/governance paths.
   yields less abstention), and structural soundness + `to_dict`/`from_dict`/JSON
   round‑trips. The gate, fail‑closed invariants, determinism, the
   non‑destructive response contract, the O(1)/thread‑safe/persistable ledger,
-  and the #278 no‑op contract are all pinned. Runnable demo:
+  and the substrate's no‑op contract are all pinned. Runnable demo:
   `examples/decision_abstention_response_demo.py`. A code‑grounded
   capability‑vs‑vision audit ships at `docs/capability_vs_vision_matrix.md`.
 
@@ -8762,7 +9790,7 @@ script directly so the documented invocation is real.
 
 ### Neuro-symbolic — `LogicTensorNetwork` re-wired to the canonical co-trained module (2026-06-02)
 
-Reverses PR #269's *retirement* of `LogicTensorNetwork` in favour of **wiring**
+Reverses the earlier *retirement* of `LogicTensorNetwork` in favour of **wiring**
 it (the mission's "do not retire — implement its predict to call the canonical
 co-trained symbolic module"). The original class was a never-trained `nn.Module`
 whose random-init noise fed fusion as if a neural confidence; rather than delete
@@ -8797,7 +9825,7 @@ clean on both changed source files.
 ### MLOps — fusion AUC/F1 + conformal-coverage CI regression gate (2026-06-02)
 
 Finishes the WS5/WS6 "MLOps train→eval→register CI regression gates" item
-deferred by PR #269. The fusion train→eval→register pipeline + AUC/ECE sweep
+deferred earlier. The fusion train→eval→register pipeline + AUC/ECE sweep
 artifacts existed, but **no CI gate pinned the fusion AUC/F1 or the conformal
 coverage floor**, so a fusion-stack regression could merge silently.
 
@@ -8831,7 +9859,7 @@ baseline).
 
 ### Explainability — IntegratedGradients + faithfulness on the fusion serve path (2026-06-02)
 
-Finishes the WS5 "explanations on the serve path" item deferred by PR #269: the
+Finishes the WS5 "explanations on the serve path" item deferred earlier: the
 validated `IntegratedGradientsExplainer` + `FaithfulnessEvaluator`
 (`cognitive/explainability.py`, DORMANCY_LEDGER #3) are now wired into the
 detection path instead of living only in the benchmark harness.
@@ -9119,7 +10147,7 @@ shape, softmax-normalised rows, fail-closed pre-forward, determinism, batched
 input, and that a wired+observed provider drives the metric while an
 unobserved one fails closed to a skip.
 
-### Neuro-symbolic — label-scarcity-adaptive co-training default + dormant-module revival (PR #265, 2026-06-01)
+### Neuro-symbolic — label-scarcity-adaptive co-training default + dormant-module revival (2026-06-01)
 
 `symbolic_weight="adaptive"` is the **default** for `OmniMercuryEngine.fit_fusion`.
 A *fixed* `λ` was quarantined (no full-data win), but the label-scarcity
@@ -9133,7 +10161,7 @@ dormant-module revival survey (`benchmarks/dormant_module_revival.py`,
 labels under the repo's fail-closed ablation discipline and records the
 keep / cut / quarantine verdict per module.
 
-### Neuro-symbolic — genuine co-training, conformal uncertainty, fail-closed AMA/PQC (PR #262, 2026-05-31)
+### Neuro-symbolic — genuine co-training, conformal uncertainty, fail-closed AMA/PQC (2026-05-31)
 
 * **Genuine neuro-symbolic co-training.** `ml/symbolic_constraint.py::SymbolicConstraintModule`
   — a differentiable fuzzy-logic constraint (product / Reichenbach /
@@ -9224,7 +10252,7 @@ because the supply-chain posture it tracked is now covered by:
 
 Cross-references in `SECURITY.md`, `.safety-policy.yml`,
 `.safety-policy-v2.yml`, `pyproject.toml`, and
-`.github/workflows/ci.yml` were updated in PR #238 to point at the
+`.github/workflows/ci.yml` were updated to point at the
 surviving sources of truth.  No supply-chain posture changed; only
 the location of the per-CVE documentation moved.
 
@@ -9758,7 +10786,7 @@ runbook.
      "ensemble" was first replaced with three scikit-learn estimators
      (``IsolationForest``, ``EllipticEnvelope``, ``LocalOutlierFactor``)
      during the initial port.  That implementation is itself superseded
-     in this PR by Mercury Agent's own first-class anomaly ensemble,
+     here by Mercury Agent's own first-class anomaly ensemble,
      :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
      which combines three deterministic ``numpy``/``scipy`` scorers —
      **Resonance** (40 %; FFT-based harmonic spectral anomaly),
@@ -9917,10 +10945,10 @@ runbook.
 upstream license matches Mercury's, and the user has full legal
 standing to relicense across both repositories.
 
-### Omni-AXA → Mercury port, PR 2 refinements — round 3 (Copilot review)
+### Omni-AXA → Mercury port, refinements
 
-Round-3 refinement pass closing the twelve Copilot review alerts on
-PR #224.  Every alert is addressed in-code; no `# noqa`, no
+Refinement pass closing twelve static-analysis findings on the port.
+Every finding is addressed in-code; no `# noqa`, no
 `# type: ignore`, no `pragma: no cover`, no broad except, and no
 coverage-threshold lowering.  The changes harden SSRF / DNS-rebinding
 posture on every outbound HTTP call made by the ported modules,
@@ -9986,7 +11014,7 @@ deviations already documented under the per-module
   example lives in `docs/drone/SETUP.md`.
 - **Medical detector top-level docstrings reconciled with documented
   deviations.**  Two of the medical modules previously claimed
-  upstream architectural parity that the round-2 deviations section
+  upstream architectural parity that the earlier deviations section
   had already retracted:
   - `endocrinology_detector.py` no longer claims the neural
     architecture "matches the original verified implementation".
@@ -10032,7 +11060,7 @@ module-level constant via the new clinical rule-pin harness.
   `omni_mercury_engine.anomaly` package is **retained** (with a
   policy docstring) for future multi-modal anomaly detectors that
   fuse two or more `detectors/<domain>/` outputs into a single
-  decision-support stream; no such detector ships in this PR.  All
+  decision-support stream; no such detector ships.  All
   existing imports continue to work via the new
   `omni_mercury_engine.detectors.drone` package's `__init__.py`,
   which re-exports the public API
@@ -10321,7 +11349,7 @@ and regression tests:
   than silently falling through to development mode, so deployment
   typos are loud.  Locked by `tests/test_env.py`.
 
-### Narrative voice — `MercuryVoice` LLM initialisation fixed (PR for #210 follow-up)
+### Narrative voice — `MercuryVoice` LLM initialisation fixed
 
 - **`narrative/voice.py:_init_llm` no longer crashes on
   `MercuryVoice(enable_llm=True)`.**  The pre-1.7.0 implementation
@@ -10359,7 +11387,7 @@ and regression tests:
 
 ### Migration guide — `docs/MIGRATION-1.6-to-1.7.md`
 
-- Consolidated migration notes for v1.6.x → v1.7.0: PR #210's
+- Consolidated migration notes for v1.6.x → v1.7.0: the
   `allow_untrusted=True` removal, σ_Immutable hard-gate semantics
   (already shipped at every boundary surface; documentation
   reconciled with code reality), the new `MERCURY_ENV` primitive,
@@ -10379,7 +11407,7 @@ and regression tests:
   `check="sigma_immutable"` / `check="gosnn_unavailable"` today,
   with regression coverage in `tests/ethical/test_hard_enforcement.py`).
 
-### Security — HTTP escape hatch removed (PR #210)
+### Security — HTTP escape hatch removed
 
 - **`allow_untrusted=True` is removed from every `SafeHTTPClient` method**
   (`validate_url`, `_request`, `get`, `get_bytes`, `get_json`, `get_text`,
@@ -10388,7 +11416,7 @@ and regression tests:
   The kwarg had no production caller; it was a per-call bypass of the
   `TrustedEndpoints.TRUSTED_DOMAINS` allowlist that could be misused
   to pivot through an off-allowlist host while staying inside the
-  hardened transport. PR #210 deletes it from the public API and
+  hardened transport. This release deletes it from the public API and
   asserts the removal via signature tests.
 - **Migration path for operators who were using it:** call
   `SafeHTTPClient` directly with `user_configured=True` so the
@@ -10412,7 +11440,7 @@ and regression tests:
   `validate_url` DNS short-circuit for trusted https URLs, and the
   IP-literal short-circuit in `_resolve_ips`.
 
-### Benchmark refresh (PR #210, via PR #203 source SHA `0f584529`)
+### Benchmark refresh (source SHA `0f584529`)
 
 - Mean ROC-AUC `0.8440` → `0.8464`; median ROC-AUC `0.9097` → `0.9100`;
   mean Oracle F1 `0.6383` → `0.6441`; datasets successful / total
@@ -10421,28 +11449,22 @@ and regression tests:
   F1 ≥ 0.50.
 
 
-### Branch Reconciliation (v1.6.0 stack — PRs #188–#191)
+### v1.6.0 corrective stack
 
-- **PR #189** (Devin session `a7bea1074fbd420f9c9af8e6b3eea01f`): v1.6.0
-  corrective sweep — PQC gate, FallbackChain ethical re-raise, RNG cure
+- **Corrective sweep** — PQC gate, FallbackChain ethical re-raise, RNG cure
   (138 sites across federated/climate/disaster/security), type-redef
-  elimination (7 files from `copilot/refactor-34`), documentation refresh.
-  Absorbs PR #188 (`claude/organize-project-directory-IIqcr`) in full.
-- **PR #190** (Claude session `audit-pqc-fallback-chain-Po2fD`): tracked-debt
-  sweep — remaining 17 type-redef suppressions eliminated across 8 files,
-  62 unseeded `np.random` sites cured in cognitive/ and models/ modules,
-  25-test RNG reproducibility regression suite added.
+  elimination (7 files), documentation refresh.
+- **Tracked-debt sweep** — remaining 17 type-redef suppressions eliminated
+  across 8 files, 62 unseeded `np.random` sites cured in cognitive/ and
+  models/ modules, 25-test RNG reproducibility regression suite added.
   `DifferentialPrivacy` dual-API (`rng=` / `seed=`) bridge.
-- **PR #191** (Claude session `in-house-anomaly-datasets-vLn30`): dataset
-  loader hardening — FEMA OData ISO-8601, NOAA Storm filename discovery,
-  ERDDAP date offsets, EPA/GSOD year fallback, NSL-KDD/CICIDS/MITRE mirror
-  failover. `http_get_with_retry` shared helper with SSRF default-deny.
-  `_ConstReplacer` type-narrowing fix in `core/three_r_mechanism.py`.
-- **PR #188** (Copilot session `organize-project-directory-IIqcr`): fully
-  absorbed into PR #189; closed with attestation of commit SHAs
-  (e198858, 12d2887, cc70fc9, 7e20c5b, c032c91, fd51186, 0553f1a).
+- **Dataset loader hardening** — FEMA OData ISO-8601, NOAA Storm filename
+  discovery, ERDDAP date offsets, EPA/GSOD year fallback,
+  NSL-KDD/CICIDS/MITRE mirror failover. `http_get_with_retry` shared helper
+  with SSRF default-deny. `_ConstReplacer` type-narrowing fix in
+  `core/three_r_mechanism.py`.
 
-### Wave B — σ_Immutable promoted to hard gate (deferred from PR #161)
+### Wave B — σ_Immutable promoted to hard gate
 
 - **σ_Immutable is now the second mandatory hard ethical gate** at every
   engine / hub / orchestrator decision boundary.  The Wave A landing
@@ -10491,8 +11513,7 @@ and regression tests:
 
 - **Project-wide documentation refresh (2026-05-05).** All 29 markdown
   files audited against current code state at v1.6.0; corrective
-  edits landed in a single sweep on
-  `claude/organize-project-directory-IIqcr`:
+  edits landed in a single sweep:
   - `SECURITY.md` — Supported-Versions table rewritten (was listing
     1.5.x as current with no v1.6.x entry); now declares 1.6.x as
     current, 1.5.x as previous (critical-CVE only), <1.5 EOL.
@@ -10504,8 +11525,8 @@ and regression tests:
     silent-fallback path). New decision-boundary contract callout
     added under the Status banner. Header date and footer
     `Last updated` refreshed.
-  - `docs/MATH_SPEC.md` — new §2.1.5 "σ_Immutable Hard Gate (Wave B,
-    PR #179)" added: boundary-contract piecewise definition, σ
+  - `docs/MATH_SPEC.md` — new §2.1.5 "σ_Immutable Hard Gate (Wave B)"
+    added: boundary-contract piecewise definition, σ
     vector layout (`SIGMA_IMMUTABLE_DIM=256`,
     `SIGMA_ETHICAL_BAND_END=27`, `SIGMA_USED_BAND_END=180`),
     threshold provenance, test-only bypass note, composition with
@@ -10553,7 +11574,7 @@ and regression tests:
   repeatedly breaking CI; that churn has been resolved (strict mode
   is on for `omni_mercury_engine.*` and the 569 surviving
   suppressions are `[unused-ignore]`-paired so they auto-clear as
-  third-party stubs improve). An interim CI run on this branch
+  third-party stubs improve). An interim CI run
   measured the actual full-suite line coverage at **36.03%**, so
   the transparent CI floor is set just below that — 35 — to defend the
   measured baseline without immediately failing CI for unrelated
@@ -10616,9 +11637,8 @@ and regression tests:
     hiding an integration test that should have always been running.
     Replaced the `pytest.skip(...)` with an `assert` that surfaces
     the integration coverage instead of silently masking it.
-- **Type-redefition suppressions eliminated (7 files).**
-  Integrated from `copilot/refactor-34-unpaired-type-redefinitions`:
-  function-stub fallbacks (`def Foo(*args): raise ImportError`) replaced
+- **Type-redefinition suppressions eliminated (7 files).**
+  Function-stub fallbacks (`def Foo(*args): raise ImportError`) replaced
   with proper stub classes that preserve type identity, and optional-dep
   import guards restructured to `if TYPE_CHECKING: ... else: try: ...`
   so mypy sees the real types without runtime cost.  Files refactored:
@@ -10657,8 +11677,8 @@ and regression tests:
   (2026-05-05).** Three findings:
   - The `on.push.paths` filter on the benchmark workflow restricted
     triggers to `benchmarks/**` or `src/omni_mercury_engine/**`
-    only.  Recent merges to `main` (e.g. PR #187 — Dependabot
-    consolidation, helm/Dockerfile/workflows-only) didn't touch
+    only.  Recent merges to `main` (a dependency consolidation touching
+    only helm/Dockerfile/workflows) didn't touch
     those paths, so the workflow never ran on those pushes and the
     auto-commit step never had a chance to fire.  Filter removed:
     every push to `main` / `develop` now triggers the benchmark
@@ -10698,7 +11718,7 @@ and regression tests:
   the workflow is reconfigured to use a Personal Access Token via
   `BENCHMARK_BOT_TOKEN`, those commits will land **unverified**;
   the alternative is to extend the persister to compute and submit
-  a detached PGP/SSH signature (out of scope for this branch).  The
+  a detached PGP/SSH signature (out of scope here).  The
   script then opens
   a PR into `main` (satisfies rule 1, *Changes must be made
   through a pull request*).  The 22 required status checks (rule
@@ -11135,9 +12155,9 @@ and regression tests:
   domain-level AUC/F1 bars, component AUC heatmap, and Oracle status.
   All data sourced from `mercury_benchmark_results.json`.
 
-### Cherry-picked (from devin branch)
+### Cherry-picked
 
-- 10 commits salvaged from `devin/1771750539-mercury-strategic-improvements`:
+- 10 commits salvaged from a superseded strategic-improvements branch:
   strategic improvements, FrequencyDomainOracle implementation,
   SpectralDomainOracle rename, spectral flux/phase coherence/cepstral
   analysis, selective inference upgrade, and audit fixes.

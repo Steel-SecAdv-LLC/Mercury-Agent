@@ -212,7 +212,13 @@ than guesses. Off until the operator enables the lawful basis used. Under
 `consent`: `subject_pseudonym` and a ConsentRecord with scope
 `contactless_vital_signs`. Under `vital_interests` (people who cannot consent,
 such as survivors under rubble): an `attestation` `{incident_id, attested_by}`.
-The respiration waveform is returned only with `include_waveform: true`.""",
+The respiration waveform is returned only with `include_waveform: true`.
+
+Body: `purpose` (required), `lawful_basis` (required), `fs` (required),
+`recorded_at` (required), `mode`, `subject_pseudonym`, `consent`, `attestation`,
+`wavelength_m`, `window_s`, `step_s`, `t0_s`, `config`, `include_waveform`, and the
+signal: `csi_amplitude`, `csi_phase`, `subcarrier_indices`, `radar_displacement_m`,
+`radar_phase_rad`, `timestamps_s`.""",
     dependencies=[Depends(_bounded_body)],
 )
 async def vital_signs(
@@ -300,7 +306,13 @@ async def adjudication_rater_view(
     return await _run(service.adjudication_rater_view, user.id, case_id)
 
 
-@router.post("/adjudication/cases", summary="Record a Case", dependencies=[Depends(_bounded_body)])
+@router.post(
+    "/adjudication/cases",
+    summary="Record a Case",
+    description="""Body: `case_id` (required), `intel_reports` (required),
+`report_source_ids` (required), `latest_report_at` (required), `created_at`.""",
+    dependencies=[Depends(_bounded_body)],
+)
 async def adjudication_add_case(
     payload: Payload, user: User = Depends(_principal(Permission.WRITE))
 ) -> dict[str, Any]:
@@ -312,7 +324,13 @@ async def adjudication_add_case(
     )
 
 
-@router.post("/adjudication/outcomes", summary="Record a Case Outcome")
+@router.post(
+    "/adjudication/outcomes",
+    summary="Record a Case Outcome",
+    description="""Body: `case_id` (required), `observed_at` (required),
+`description` (required), `outcome_source_ids` (required), `outcome_level`,
+`outcome_scale`.""",
+)
 async def adjudication_add_outcome(
     payload: Payload, user: User = Depends(_principal(Permission.WRITE))
 ) -> dict[str, Any]:
@@ -329,7 +347,9 @@ async def adjudication_add_outcome(
 @router.post(
     "/adjudication/ratings",
     summary="Record a Blind Rating",
-    description="Recorded under the calling principal's id and the server's clock.",
+    description="""Recorded under the calling principal's id and the server's clock.
+
+Body: `case_id` (required), `level` (required), `rationale` (required).""",
 )
 async def adjudication_add_rating(
     payload: Payload, user: User = Depends(_principal(Permission.WRITE))
@@ -348,7 +368,9 @@ async def adjudication_add_rating(
 @router.post(
     "/adjudication/decisions",
     summary="Record an Adjudicator Decision",
-    description="Needs the 'adjudicator' role or 'admin'; recorded under the caller's id.",
+    description="""Needs the 'adjudicator' role or 'admin'; recorded under the caller's id.
+
+Body: `case_id` (required), `level` (required), `rationale` (required).""",
 )
 async def adjudication_add_decision(
     payload: Payload, user: User = Depends(_adjudicator)

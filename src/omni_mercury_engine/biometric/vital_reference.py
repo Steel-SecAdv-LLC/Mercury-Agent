@@ -34,14 +34,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy import signal
 
-FloatArray = NDArray[np.float64]
-IntArray = NDArray[np.int64]
+FloatArray: TypeAlias = NDArray[np.float64]
+IntArray: TypeAlias = NDArray[np.int64]
 
 
 @dataclass(frozen=True)

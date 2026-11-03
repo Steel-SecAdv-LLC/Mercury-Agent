@@ -71,6 +71,25 @@ class FetchHTTPError(ConnectionError):
         self.status_code = status_code
 
 
+#: Frame attribute a loader sets on data it manufactured rather than fetched.
+#: Read by :meth:`BaseDomainLoader.engineer_scored_features`, which refuses to
+#: produce a "de-leaked" matrix from such a frame, and persisted through the
+#: frame cache so the mark survives a process restart.
+SYNTHETIC_ATTR = "mercury_synthetic"
+
+
+class SyntheticDataNotDeleakable(ValueError):
+    """A de-leaked feature matrix was requested from a synthetic frame.
+
+    Synthetic fallbacks build every channel from the same profile that
+    builds the labels (the energy loader's solar-wind speed is ``350 + 50 *
+    kp``, its density ``10 - 0.5 * kp``, its flare classes a function of the
+    same Kp series), so dropping the declared label-derived columns leaves a
+    matrix that is still a function of the label. No disjoint view exists;
+    the measurement is refused rather than reported.
+    """
+
+
 class BaseDomainLoader(ABC):
     """Base class for all domain data loaders.
 
@@ -119,6 +138,154 @@ class BaseDomainLoader(ABC):
     # ``omni_mercury_engine.loaders.label_provenance.LABEL_PROVENANCE_REGISTRY``
     # and the CI gate in ``tests/loaders/test_label_provenance_gate.py``.
     LABEL_SOURCE: str = "ground_truth"
+
+    #: Column names documented in :attr:`FEATURE_COLUMNS`, for the loaders that
+    #: declare one. Declared on the base so the de-leak contract below has a
+    #: single place to read from; every loader that engineers features
+    #: overrides it.
+    FEATURE_COLUMNS: list[str] = []
+
+    #: The feature columns that participate in building this loader's labels --
+    #: directly (the thresholded column itself) **or by derivation** (anything
+    #: computed from it).
+    #:
+    #: A label manufactured by thresholding a column that is also scored is
+    #: circular: the detector is asked to recover a cut of a number it was
+    #: handed, and the resulting AUROC measures the cut, not the detection.
+    #: ``energy`` is the clearest case -- labels are ``kp >= 7`` while ``kp``,
+    #: ``kp_rate_of_change``, ``kp_sum_24h``, ``delta_kp_6h`` and
+    #: ``max_kp_24h`` are *all* functions of ``kp``, so dropping ``kp`` alone
+    #: would resolve nothing. Derivation is why this list is per-loader and
+    #: hand-declared rather than inferred from the label expression.
+    #:
+    #: Nothing is deleted: :meth:`engineer_features` still computes and returns
+    #: every column, so callers that want the full matrix keep it.
+    #: :meth:`engineer_scored_features` is the one that drops these, and it is
+    #: what benchmarking and the governed-fusion fitness signal read, so the
+    #: labels become independent of what is scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = ()
+
+    #: Set by a loader that asserts no scored feature helps build its labels.
+    #: Gated, not taken on trust: the provenance audit rejects the claim unless
+    #: every name in :attr:`LABEL_DERIVED_FEATURES` really appears in
+    #: :attr:`FEATURE_COLUMNS` (a typo would silently exclude nothing) and the
+    #: remaining scored set is non-empty (excluding everything is not a fix).
+    #: Orthogonal to :attr:`LABEL_SOURCE`: a ``statistical`` label can be
+    #: perfectly non-circular, and that distinction is the whole point --
+    #: "derived from data" and "derived from the thing being scored" are
+    #: different defects and only the second one invalidates a measurement.
+    LABEL_FEATURE_DISJOINT: bool = False
+
+    @staticmethod
+    def mark_synthetic(frame: pd.DataFrame) -> pd.DataFrame:
+        """Mark ``frame`` as manufactured rather than fetched; returns it."""
+        frame.attrs[SYNTHETIC_ATTR] = True
+        return frame
+
+    @staticmethod
+    def is_synthetic(frame: pd.DataFrame) -> bool:
+        """Whether ``frame`` carries the synthetic mark (survives copies and sorts)."""
+        return bool(getattr(frame, "attrs", {}).get(SYNTHETIC_ATTR, False))
+
+    def _write_frame_cache(self, key: str, frame: pd.DataFrame) -> None:
+        """Cache ``frame`` with its provenance, so a synthetic mark outlives the process.
+
+        Datetime columns are written as ISO-8601 strings with their time zone
+        recorded: the JSON writer below drops any payload it cannot
+        serialise, so a frame with a tz-aware ``timestamp`` column was never
+        cached at all before this (the write failed silently on every call).
+        """
+        columns: dict[str, list[Any]] = {}
+        datetime_columns: dict[str, str | None] = {}
+        for name in frame.columns:
+            series = frame[name]
+            if pd.api.types.is_datetime64_any_dtype(series):
+                tz = getattr(series.dt, "tz", None)
+                datetime_columns[str(name)] = str(tz) if tz is not None else None
+                columns[str(name)] = [None if pd.isna(t) else t.isoformat() for t in series]
+            else:
+                columns[str(name)] = series.tolist()
+        self._write_cache(
+            key,
+            {
+                "frame": columns,
+                "datetime_columns": datetime_columns,
+                "synthetic": self.is_synthetic(frame),
+            },
+        )
+
+    def _read_frame_cache(self, key: str) -> pd.DataFrame | None:
+        """The cached frame with its provenance and datetime columns restored, or ``None``.
+
+        A payload in the pre-provenance shape (a bare column dict) is treated
+        as absent so it is fetched again and re-cached with its mark: its
+        provenance is unknown, and an unknown frame must not be scored as a
+        real one.
+        """
+        cached = self._read_cache(key)
+        if not isinstance(cached, dict) or "frame" not in cached:
+            return None
+        frame = pd.DataFrame(cached["frame"])
+        for name, tz in (cached.get("datetime_columns") or {}).items():
+            if name in frame.columns:
+                parsed = pd.to_datetime(frame[name], utc=tz is not None)
+                frame[name] = parsed.dt.tz_convert(tz) if tz not in (None, "UTC") else parsed
+        if cached.get("synthetic"):
+            self.mark_synthetic(frame)
+        return frame
+
+    @classmethod
+    def scored_feature_columns(cls) -> list[str]:
+        """:attr:`FEATURE_COLUMNS` minus the columns that build the labels."""
+        excluded = set(cls.LABEL_DERIVED_FEATURES)
+        return [c for c in cls.FEATURE_COLUMNS if c not in excluded]
+
+    @classmethod
+    def scored_feature_indices(cls) -> list[int]:
+        """Positions in the engineered matrix that survive the exclusion."""
+        excluded = set(cls.LABEL_DERIVED_FEATURES)
+        return [i for i, c in enumerate(cls.FEATURE_COLUMNS) if c not in excluded]
+
+    def engineer_scored_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
+        """Engineered features with every label-bearing column dropped.
+
+        The de-leaked view. Use this wherever a number is going to be
+        published or fed to the self-improvement loop;
+        :meth:`engineer_features` remains the full matrix for callers who want
+        every column (including the labelled one) for inspection or display.
+
+        A loader that declares no :attr:`LABEL_DERIVED_FEATURES` gets the full
+        matrix back unchanged, so this is safe to call everywhere.
+        """
+        if self.is_synthetic(raw_data):
+            raise SyntheticDataNotDeleakable(
+                f"{type(self).__name__}: the frame is synthetic (every channel derives from "
+                "the profile that also builds the labels), so no label-disjoint scored matrix "
+                "exists; engineer_features() still returns the full matrix for display"
+            )
+        full = self.engineer_features(raw_data)
+        if not self.LABEL_DERIVED_FEATURES:
+            return full
+        full = np.asarray(full)
+        if full.ndim != 2:
+            return full
+        keep = self.scored_feature_indices()
+        if not self.FEATURE_COLUMNS or full.shape[1] != len(self.FEATURE_COLUMNS):
+            # The engineered width does not match the declared columns, so the
+            # positional mapping cannot be trusted. Refuse rather than drop
+            # the wrong columns and quietly report a de-leaked measurement.
+            raise ValueError(
+                f"{type(self).__name__}: engineered {full.shape[1]} columns but "
+                f"FEATURE_COLUMNS declares {len(self.FEATURE_COLUMNS)}; cannot map "
+                "LABEL_DERIVED_FEATURES onto the matrix"
+            )
+        if not keep:
+            raise ValueError(
+                f"{type(self).__name__}: every declared feature is label-derived, so "
+                "no disjoint scored set exists; this loader needs an independent "
+                "channel rather than an exclusion"
+            )
+        return np.asarray(full[:, keep])
 
     def __init__(
         self,

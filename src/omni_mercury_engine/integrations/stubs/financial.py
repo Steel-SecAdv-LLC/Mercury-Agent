@@ -499,7 +499,7 @@ class FinancialService:
 
     def __init__(
         self,
-        provider: FinancialAPIProvider = FinancialAPIProvider.STUB,
+        provider: FinancialAPIProvider = FinancialAPIProvider.YAHOO_FINANCE,
         api_key: str | None = None,
         timeout: int = 30,
         cache_ttl: int = 60,

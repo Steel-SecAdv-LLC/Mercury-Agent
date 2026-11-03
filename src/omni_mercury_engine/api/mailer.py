@@ -6,7 +6,8 @@ Verification and password-reset emails go through a small :class:`Mailer`
 seam so the auth service never touches SMTP directly and stays fully testable
 with no network and no secrets:
 
-* :class:`ConsoleMailer` — logs the message instead of sending it. The default
+* :class:`ConsoleMailer` — files the message in a local outbox instead of
+  sending it (``MERCURY_MAIL_OUTBOX``, default ``~/.local/state/mercury-agent/outbox``). The default
   when no SMTP host is configured, so local/dev/CI runs never try to reach a
   mail server.
 * :class:`SmtpMailer` — real delivery. **Every credential is read from the
@@ -16,7 +17,7 @@ with no network and no secrets:
 Configuration (all via environment):
 
 * ``MERCURY_SMTP_HOST``      — SMTP server hostname. If unset, delivery falls
-  back to :class:`ConsoleMailer` (no email is sent).
+  back to :class:`ConsoleMailer` (no email is sent; the outbox file is the delivery).
 * ``MERCURY_SMTP_PORT``      — port (default ``587`` for STARTTLS; use ``465``
   for implicit TLS).
 * ``MERCURY_SMTP_USERNAME``  — login user (for a Wix mailbox this is the full
@@ -34,23 +35,30 @@ change to point at a different mailbox — only the environment does.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import smtplib
 import ssl
+from datetime import UTC, datetime
 from email.message import EmailMessage
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "OUTBOX_ENV",
     "ConsoleMailer",
     "Mailer",
     "SmtpMailer",
     "build_mailer",
+    "default_outbox",
 ]
 
 SMTP_HOST_ENV = "MERCURY_SMTP_HOST"
+#: Directory :class:`ConsoleMailer` files messages in (default: :func:`default_outbox`).
+OUTBOX_ENV = "MERCURY_MAIL_OUTBOX"
 
 
 @runtime_checkable
@@ -74,8 +82,35 @@ class Mailer(Protocol):
         ...
 
 
+def default_outbox() -> Path:
+    """Where :class:`ConsoleMailer` files messages when no outbox is configured.
+
+    ``$XDG_STATE_HOME/mercury-agent/outbox`` (``~/.local/state`` by default),
+    the same state root ``mercury-agent decouple status`` already inventories
+    and ``decouple purge`` removes.
+    """
+    xdg_state = os.getenv("XDG_STATE_HOME", "").strip()
+    root = Path(xdg_state) if xdg_state else Path.home() / ".local" / "state"
+    return root / "mercury-agent" / "outbox"
+
+
 class ConsoleMailer:
-    """Mailer that logs messages instead of sending them (dev/test default)."""
+    """Mailer that files each message in a local outbox instead of sending it.
+
+    The development and test default. Every message is written as one
+    plain-text file (headers, blank line, body; an HTML alternative beside it)
+    in ``outbox``, created owner-only, and the log carries the recipient,
+    subject and path but never the body: the engine's log formatters redact
+    credentials, so a verification or reset link logged there would arrive
+    as ``token=<redacted>`` and the account could never be verified. The file
+    is the delivery. A write failure propagates, so the caller's delivery
+    audit records it like an SMTP outage.
+    """
+
+    def __init__(self, outbox: Path | str | None = None) -> None:
+        """Use ``outbox``, or :data:`OUTBOX_ENV`, or :func:`default_outbox`."""
+        chosen = outbox if outbox is not None else os.getenv(OUTBOX_ENV, "").strip() or None
+        self.outbox = Path(chosen).expanduser() if chosen else default_outbox()
 
     def send(
         self,
@@ -86,8 +121,24 @@ class ConsoleMailer:
         html_body: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
-        """Log the message at INFO; never touches the network."""
-        logger.info("ConsoleMailer -> %s | %s\n%s", to, subject, body)
+        """File the message and log where it went; never touches the network."""
+        self.outbox.mkdir(parents=True, exist_ok=True, mode=0o700)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+        digest = hashlib.blake2b(f"{to}\n{subject}\n{body}".encode(), digest_size=4).hexdigest()
+        path = self.outbox / f"{stamp}-{digest}.txt"
+        lines = [f"To: {to}", f"Subject: {subject}", f"Date: {stamp}"]
+        lines.extend(f"{name}: {value}" for name, value in (headers or {}).items())
+        _write_private(path, "\n".join(lines) + "\n\n" + body)
+        if html_body is not None:
+            _write_private(path.with_suffix(".html"), html_body)
+        logger.info("ConsoleMailer -> %s | %s | filed at %s", to, subject, path)
+
+
+def _write_private(path: Path, text: str) -> None:
+    """Create ``path`` readable by its owner only and write ``text`` to it."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(text)
 
 
 class SmtpMailer:
@@ -176,8 +227,9 @@ def build_mailer() -> Mailer:
 
     Returns:
         A :class:`SmtpMailer` when ``MERCURY_SMTP_HOST`` is set, otherwise a
-        :class:`ConsoleMailer` (so dev, tests, and un-provisioned deployments
-        degrade to logging instead of failing).
+        :class:`ConsoleMailer` filing into ``MERCURY_MAIL_OUTBOX`` (so dev,
+        tests, and un-provisioned deployments deliver to a local outbox
+        instead of failing).
     """
     host = os.getenv(SMTP_HOST_ENV, "").strip()
     if not host:

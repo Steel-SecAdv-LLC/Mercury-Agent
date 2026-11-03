@@ -237,6 +237,17 @@ class FEMALoader(BaseDomainLoader):
         "time_between_declarations",
     ]
 
+    #: De-leak: labels are the DR/IA/PA declaration flags themselves.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "ia_program",
+        "hm_program",
+        "is_major_disaster",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     # Cache historical event data for 24 hours (declarations are stable).
     CACHE_TTL: int = 86400
 

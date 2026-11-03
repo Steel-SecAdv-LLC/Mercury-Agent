@@ -164,6 +164,21 @@ class VolcanicLoader(BaseDomainLoader):
         "days_since_last_change",
     ]
 
+    #: De-leak: labels are the WARNING alert level / RED colour code themselves.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = (
+        "alert_level_numeric",
+        "color_code_numeric",
+        "alert_level_delta",
+        "color_code_delta",
+        # Reset whenever the alert level differs from the previous row, so it
+        # is a function of the label-bearing series as much as the delta is.
+        "days_since_last_change",
+    )
+    LABEL_FEATURE_DISJOINT: bool = True
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------

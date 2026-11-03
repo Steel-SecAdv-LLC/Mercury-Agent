@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from scipy import ndimage
@@ -48,7 +48,7 @@ from omni_mercury_engine.vision.imaging import (
     local_contrast_normalize,
 )
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 
 FEATURE_GROUPS: tuple[str, ...] = (
     "intensity",

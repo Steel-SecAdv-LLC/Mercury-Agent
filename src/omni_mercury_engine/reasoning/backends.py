@@ -4,7 +4,7 @@
 
 Three implementations of :class:`ReasoningBackend`:
 
-* :class:`MockReasoningBackend` — deterministic, network-free; lets CI exercise
+* :class:`DeterministicReasoningBackend` — network-free; lets CI exercise
   the reasoning surface with no live model.
 * :class:`LocalReasoningBackend` — offline-first, air-gap-safe; serves the
   local Ollama runtime when present and the builtin deterministic template
@@ -44,8 +44,9 @@ if TYPE_CHECKING:
 from omni_mercury_engine.cognitive.harm_classifier import reasoning_harm_classifier
 
 __all__ = [
+    "DeterministicReasoningBackend",
     "LocalReasoningBackend",
-    "MockReasoningBackend",
+    "MockReasoningBackend",  # deprecated alias
     "ReasoningBackendUnavailableError",
     "RemoteReasoningBackend",
     "reasoning_harm_classifier",
@@ -87,7 +88,7 @@ class ReasoningBackendUnavailableError(RuntimeError):
     """
 
 
-class MockReasoningBackend(ReasoningBackend):
+class DeterministicReasoningBackend(ReasoningBackend):
     """Deterministic, offline, network-free backend for tests and CI.
 
     Produces a stable, prompt-derived string without loading any model or
@@ -98,12 +99,12 @@ class MockReasoningBackend(ReasoningBackend):
     @property
     def name(self) -> str:
         """Provenance label."""
-        return "mock"
+        return "deterministic"
 
     @property
     def model(self) -> str:
         """Model identifier (none — this backend loads no model)."""
-        return "mock"
+        return "deterministic"
 
     @property
     def is_offline(self) -> bool:
@@ -114,7 +115,7 @@ class MockReasoningBackend(ReasoningBackend):
         """Return a deterministic synthesis of the prompt's first line."""
         stripped = prompt.strip()
         head = stripped.splitlines()[0] if stripped else "empty prompt"
-        return f"[mock-reasoning] {head}"
+        return f"[deterministic-reasoning] {head}"
 
 
 class LocalReasoningBackend(ReasoningBackend):
@@ -264,3 +265,12 @@ class RemoteReasoningBackend(ReasoningBackend):
                 "RemoteReasoningBackend unavailable: MERCURY_OFFLINE air-gap active"
             )
         return self._chain.generate(prompt, system_prompt)
+
+
+#: Deprecated alias. The class was called ``MockReasoningBackend``, which read
+#: like one of the mock *modes* this repository removed from shipped code --
+#: and unlike those, this backend is legitimate: it loads no model, touches no
+#: network, and labels its own output. Renamed to say what it does rather than
+#: what it resembles. The alias keeps existing imports working; it is the same
+#: class, not a shim.
+MockReasoningBackend = DeterministicReasoningBackend

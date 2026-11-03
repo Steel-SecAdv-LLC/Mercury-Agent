@@ -11,7 +11,7 @@ principal-axis test was added.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import pytest
@@ -25,7 +25,7 @@ from omni_mercury_engine.ml.drift import (
     create_drift_detector,
 )
 
-Array = np.ndarray[Any, Any]
+Array: TypeAlias = np.ndarray[Any, Any]
 
 
 def _scenario(d: int, rho: float, seed: int = 0) -> tuple[Array, Array, Array]:

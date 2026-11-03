@@ -518,6 +518,7 @@ class NASANeoWsSource(DataSourceBase):
         # NeoWs has a 7-day limit per request
         max_days = 7
         all_data_points: list[DataPoint] = []
+        window_errors: list[Exception] = []
 
         current_start = start_time
         while current_start < end_time:
@@ -546,8 +547,19 @@ class NASANeoWsSource(DataSourceBase):
                 logger.warning(
                     f"NeoWs fetch failed for {current_start}: {self._scrub_diagnostic(str(e))}"
                 )
+                window_errors.append(e)
 
             current_start = current_end
+
+        # Swallowing every window's failure used to return an empty list, which
+        # the base funnel then reported as ``success=True, data_points=[]`` --
+        # "no close approaches this week" when the truth was an upstream HTTP
+        # 429. Re-raise when nothing was collected so the funnel classifies it
+        # (``success=False``, and ``unreachable`` for a 429, which is what
+        # ``SourceUnreachableError`` carries). A genuine partial still returns
+        # the windows that worked, with the failures logged above.
+        if window_errors and not all_data_points:
+            raise window_errors[-1]
 
         logger.info(f"NeoWs: Fetched {len(all_data_points)} near-Earth objects")
         return all_data_points

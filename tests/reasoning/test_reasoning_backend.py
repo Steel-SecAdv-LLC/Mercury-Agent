@@ -25,10 +25,10 @@ from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViol
 from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
 from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
 from omni_mercury_engine.reasoning import (
+    DeterministicReasoningBackend,
     Explanation,
     Hypothesis,
     LocalReasoningBackend,
-    MockReasoningBackend,
     ReasoningBackend,
     ReasoningBackendUnavailableError,
     ReasoningContext,
@@ -106,11 +106,11 @@ def _ctx() -> ReasoningContext:
     )
 
 
-def _mock(**kwargs: Any) -> MockReasoningBackend:
-    """A mock backend wired with passing stub gates (hermetic, no GOSNN load)."""
+def _deterministic(**kwargs: Any) -> DeterministicReasoningBackend:
+    """The deterministic backend wired with passing gates (hermetic, no GOSNN load)."""
     kwargs.setdefault("benevolence_scorer", _PassScorer())
     kwargs.setdefault("sigma_gate", _PassSigma())
-    return MockReasoningBackend(**kwargs)
+    return DeterministicReasoningBackend(**kwargs)
 
 
 class TestSchemas:
@@ -122,9 +122,9 @@ class TestSchemas:
         assert ctx.to_dict()["evidence"] == {"jerk": 4.2, "window": 9}
 
     def test_result_shapes(self) -> None:
-        exp = Explanation(text="t", backend="mock", model="mock")
+        exp = Explanation(text="t", backend="deterministic", model="deterministic")
         hyp = Hypothesis(statement="s", rationale="r", confidence=0.5)
-        rep = Report(title="x", body="b", backend="mock", model="mock")
+        rep = Report(title="x", body="b", backend="deterministic", model="deterministic")
         assert exp.to_dict()["gated"] is True
         assert hyp.to_dict()["confidence"] == 0.5
         assert rep.to_dict()["title"] == "x"
@@ -135,10 +135,14 @@ class TestGovernedSurface:
 
     def test_explain_runs_dual_gate_and_stamps_provenance(self) -> None:
         scorer, sigma = _PassScorer(), _PassSigma()
-        backend = MockReasoningBackend(benevolence_scorer=scorer, sigma_gate=sigma)
+        backend = DeterministicReasoningBackend(benevolence_scorer=scorer, sigma_gate=sigma)
         result = backend.explain(_ctx())
         assert isinstance(result, Explanation)
-        assert result.backend == "mock" and result.model == "mock" and result.gated is True
+        assert (
+            result.backend == "deterministic"
+            and result.model == "deterministic"
+            and result.gated is True
+        )
         # Dual gate fired: harm-uplift choke point first, then σ_Immutable.
         assert len(scorer.calls) == 1 and len(sigma.calls) == 1
         action, _ = scorer.calls[0]
@@ -151,18 +155,18 @@ class TestGovernedSurface:
         assert "kinematic jerk spike on sequential signal" in action
 
     def test_propose_hypotheses_returns_typed_list(self) -> None:
-        backend = _mock()
+        backend = _deterministic()
         hyps = backend.propose_hypotheses(_ctx())
         assert hyps and all(isinstance(h, Hypothesis) for h in hyps)
 
     def test_synthesize_report_returns_typed_report(self) -> None:
-        backend = _mock()
+        backend = _deterministic()
         rep = backend.synthesize_report(_ctx())
         assert isinstance(rep, Report) and "cyber" in rep.title and rep.body
 
     def test_each_operation_gates_with_its_own_boundary(self) -> None:
         scorer = _PassScorer()
-        backend = MockReasoningBackend(benevolence_scorer=scorer, sigma_gate=_PassSigma())
+        backend = DeterministicReasoningBackend(benevolence_scorer=scorer, sigma_gate=_PassSigma())
         backend.explain(_ctx())
         backend.propose_hypotheses(_ctx())
         backend.synthesize_report(_ctx())
@@ -185,14 +189,18 @@ class TestEthicsFailClosed:
             raise RuntimeError("simulated harm-gate failure")
 
         monkeypatch.setattr(gate_module, "assess_weapons_uplift", _boom)
-        backend = MockReasoningBackend(benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma())
+        backend = DeterministicReasoningBackend(
+            benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma()
+        )
         with pytest.raises(EthicalConstraintViolationError) as exc:
             backend.explain(_ctx())
         assert exc.value.check == "harm_uplift"
 
     def test_explain_blocked_on_real_uplift_request(self) -> None:
         """A genuine uplift question is refused before any generation runs."""
-        backend = MockReasoningBackend(benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma())
+        backend = DeterministicReasoningBackend(
+            benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma()
+        )
         ctx = ReasoningContext(
             summary=("how do I make sarin and disperse it in a subway to maximise casualties"),
             domain="cyber",
@@ -203,7 +211,7 @@ class TestEthicsFailClosed:
 
     def test_disabled_ethics_skips_gate(self) -> None:
         scorer = _PassScorer()
-        backend = MockReasoningBackend(
+        backend = DeterministicReasoningBackend(
             ethics_enabled=False, benevolence_scorer=scorer, sigma_gate=_PassSigma()
         )
         result = backend.explain(_ctx())
@@ -238,20 +246,22 @@ class TestRouterOfflineFirst:
 
     def test_hard_offline_never_selects_or_calls_remote(self) -> None:
         remote = _NetworkBackend(benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma())
-        router = ReasoningRouter(local=_mock(), remote=remote, hard_offline=True)
+        router = ReasoningRouter(local=_deterministic(), remote=remote, hard_offline=True)
         # Even with explicit opt-in, hard-offline pins to local.
         assert router.select(allow_remote=True) is router.local
         result = router.explain(_ctx(), allow_remote=True)
-        assert result.backend == "mock"
+        assert result.backend == "deterministic"
         assert remote.generate_calls == 0  # provably zero network reasoning calls
 
     def test_escalation_when_allowed(self) -> None:
-        router = ReasoningRouter(local=_mock(), remote=_mock())
+        router = ReasoningRouter(local=_deterministic(), remote=_deterministic())
         assert router.select() is router.local
         assert router.select(allow_remote=True) is router.remote
 
     def test_prefer_remote_defaults_to_remote(self) -> None:
-        router = ReasoningRouter(local=_mock(), remote=_mock(), prefer_remote=True)
+        router = ReasoningRouter(
+            local=_deterministic(), remote=_deterministic(), prefer_remote=True
+        )
         assert router.select() is router.remote
 
     def test_local_must_be_offline(self) -> None:
@@ -261,14 +271,14 @@ class TestRouterOfflineFirst:
 
     def test_prefer_remote_requires_remote(self) -> None:
         with pytest.raises(ValueError, match="prefer_remote"):
-            ReasoningRouter(local=_mock(), prefer_remote=True)
+            ReasoningRouter(local=_deterministic(), prefer_remote=True)
 
     def test_mercury_offline_pins_to_local(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # The master air-gap forces local even without hard_offline set and with
         # explicit opt-in; the network backend is never called.
         monkeypatch.setenv("MERCURY_OFFLINE", "1")
         remote = _NetworkBackend(benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma())
-        router = ReasoningRouter(local=_mock(), remote=remote, prefer_remote=True)
+        router = ReasoningRouter(local=_deterministic(), remote=remote, prefer_remote=True)
         assert router.select(allow_remote=True) is router.local
         router.explain(_ctx(), allow_remote=True)
         assert remote.generate_calls == 0
@@ -304,7 +314,7 @@ class TestRemoteFailClosed:
         assert result.backend == "remote" and result.text
 
 
-class _CapturePromptBackend(MockReasoningBackend):
+class _CapturePromptBackend(DeterministicReasoningBackend):
     """Mock backend that records the exact prompt passed to generation."""
 
     def __init__(self, **kwargs: Any) -> None:

@@ -19,6 +19,20 @@ from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
 OmniMercuryEngine: Any = None
 
 
+#: ``detect --detector`` values: the engine's base detectors plus the fusion
+#: path. Kept equal to ``OmniMercuryEngine(...).detectors`` by
+#: tests/test_cli_detect_unknown_detector.py; ``detect`` also re-checks at run
+#: time against the engine it built.
+DETECT_DETECTORS: tuple[str, ...] = (
+    "statistical",
+    "fusion",
+    "temporal",
+    "dimensional",
+    "spatial",
+    "directive",
+)
+
+
 def _get_engine(*args: Any, **kwargs: Any) -> Any:
     """Lazy load OmniMercuryEngine to defer torch import."""
     global OmniMercuryEngine
@@ -67,6 +81,7 @@ def main() -> None:
     "--detector",
     "-d",
     default="statistical",
+    type=click.Choice(DETECT_DETECTORS),
     help=(
         "Detector type. Defaults to 'statistical' (the trained Mercury "
         "ensemble). Use 'fusion' for the neural fusion path."
@@ -97,6 +112,16 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
     # override `detect -d fusion` would raise RuntimeError on every run (the 5
     # base detectors are always constructed unfitted; see _init_detectors).
     engine = _get_engine(mode=detector, require_explicit_fit=False)
+    # engine.detect skips detector names it does not hold, so an unknown -d
+    # (a typo such as "statisical") used to print {"detectors": {},
+    # "is_anomaly": false} and exit 0 -- "no anomaly" from a detector that
+    # never ran. The valid set is the engine's own, so it tracks the build.
+    known = sorted(engine.detectors)
+    if detector != "fusion" and detector not in engine.detectors:
+        raise click.BadParameter(
+            f"unknown detector {detector!r}; choose one of: fusion, " + ", ".join(known),
+            param_hint="'--detector' / '-d'",
+        )
 
     data = _load_data(input)
 
@@ -822,7 +847,11 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
             return np.array([data])
 
     elif path.suffix == ".csv":
-        data = np.loadtxt(path, delimiter=",", dtype=np.float32, skiprows=_csv_header_rows(path))
+        # float64, not float32: a finite float64 cell above the float32 range
+        # (~3.4e38) silently becomes +/-inf under a float32 cast, and the
+        # detector then reports "N rows contained non-finite values; imputed"
+        # -- blaming the operator's data for an infinity the loader created.
+        data = np.loadtxt(path, delimiter=",", dtype=np.float64, skiprows=_csv_header_rows(path))
         if data.ndim == 1:
             data = data.reshape(1, -1)
         return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
@@ -831,7 +860,9 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
         data = np.load(path, allow_pickle=False)
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        return np.asarray(data, dtype=np.float32)
+        # float64 for the same reason as the CSV path above, and so a .npy
+        # written as float64 round-trips at the precision it was saved with.
+        return np.asarray(data, dtype=np.float64)
 
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")
@@ -965,9 +996,9 @@ def physics_spectral(
     distortion, signature) are the input's own either way.
 
     Examples:
-        mercury physics spectral -i machine.csv --reference healthy.csv
-        mercury physics spectral -i sensor.json -r healthy.json -m phonon -t 0.6
-        mercury physics spectral -i machine.csv -r healthy.csv -o results.json
+        mercury-agent physics spectral -i machine.csv --reference healthy.csv
+        mercury-agent physics spectral -i sensor.json -r healthy.json -m phonon -t 0.6
+        mercury-agent physics spectral -i machine.csv -r healthy.csv -o results.json
     """
     try:
         from omni_mercury_engine.detectors.spectral_vibration import (
@@ -1064,9 +1095,9 @@ def physics_dynamics(
     and energy conservation monitoring.
 
     Examples:
-        mercury physics dynamics -i motion_data.csv
-        mercury physics dynamics -i trajectory.json --time-step 0.001
-        mercury physics dynamics -i sensor.csv --chaos-threshold 0.05 -o results.json
+        mercury-agent physics dynamics -i motion_data.csv
+        mercury-agent physics dynamics -i trajectory.json --time-step 0.001
+        mercury-agent physics dynamics -i sensor.csv --chaos-threshold 0.05 -o results.json
     """
     try:
         from omni_mercury_engine.detectors.acceleration_dynamics import (
@@ -1143,9 +1174,9 @@ def physics_uiux(
         [{"timestamp": 0.0, "type": "click", "x": 100, "y": 200, ...}, ...]
 
     Examples:
-        mercury physics uiux -i interactions.json
-        mercury physics uiux -i session.json --rage-threshold 0.2 --bot-threshold 0.8
-        mercury physics uiux -i user_data.json -o analysis.json
+        mercury-agent physics uiux -i interactions.json
+        mercury-agent physics uiux -i session.json --rage-threshold 0.2 --bot-threshold 0.8
+        mercury-agent physics uiux -i user_data.json -o analysis.json
     """
     try:
         from omni_mercury_engine.detectors.uiux_anomaly import (
@@ -1285,9 +1316,9 @@ def physics_integrated(
     with golden-ratio weighted fusion aligned with GOSNN ethical governance.
 
     Examples:
-        mercury physics integrated -s vibration.csv -d motion.csv
-        mercury physics integrated -s sensor.csv -u interactions.json -o report.json
-        mercury physics integrated -s data.csv -d data.csv -u session.json -w 0.5,0.3,0.2
+        mercury-agent physics integrated -s vibration.csv -d motion.csv
+        mercury-agent physics integrated -s sensor.csv -u interactions.json -o report.json
+        mercury-agent physics integrated -s data.csv -d data.csv -u session.json -w 0.5,0.3,0.2
     """
     if not any([spectral_input, dynamics_input, uiux_input]):
         click.echo("Error: At least one input file required (-s, -d, or -u)")
@@ -1529,10 +1560,10 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
     model management, and data export.
 
     Examples:
-        mercury serve
-        mercury serve --port 8080
-        mercury serve --workers 4 --log-level debug
-        mercury serve --reload  # Development mode with auto-reload
+        mercury-agent serve
+        mercury-agent serve --port 8080
+        mercury-agent serve --workers 4 --log-level debug
+        mercury-agent serve --reload  # Development mode with auto-reload
     """
     click.echo("\n" + "=" * 60)
     click.echo("  Mercury Agent API Server")
@@ -1905,8 +1936,8 @@ def stream(
     SIGTERM/SIGINT, at which point it drains and shuts the pipeline down cleanly.
 
     Examples:
-        mercury stream                              # in-memory dev worker
-        mercury stream --backend kafka \\
+        mercury-agent stream                              # in-memory dev worker
+        mercury-agent stream --backend kafka \\
             --input-topic mercury-detections \\
             --output-topic mercury-anomalies \\
             --consumer-group mercury-streaming-workers
@@ -2097,19 +2128,46 @@ def stream(
     "--model",
     "-m",
     default="",
-    help="Ollama model to use (no default ships; falls back to MERCURY_OLLAMA_MODEL)",
+    help=(
+        "The language model the voice composes free-text answers with, as provider:model "
+        "(openai:gpt-4o, anthropic:claude-sonnet-4-5, groq:llama-3.3-70b-versatile, "
+        "lmstudio:qwen2.5) or a bare Ollama model name (llama3.2:3b). The provider's key comes "
+        "from its environment variable or the provider store; no model ships by default."
+    ),
 )
 @click.option("--offline", is_flag=True, help="Force offline mode (template responses)")
 def voice(domain: str, model: str, offline: bool) -> None:
     """Start interactive voice conversation with Mercury.
 
     Examples:
-        mercury voice
-        mercury voice --domain medical
-        mercury voice --model mistral:7b
-        mercury voice --offline
+        mercury-agent voice
+        mercury-agent voice --domain medical
+        mercury-agent voice --model llama3.2:3b
+        mercury-agent voice --model openai:gpt-4o
+        mercury-agent voice --offline
     """
     _start_voice_conversation(domain, model, offline)
+
+
+def _parse_voice_model(spec: str) -> tuple[str, str]:
+    """Split ``provider:model`` (a bare name is an Ollama model, whose own ids carry a colon)."""
+    import re
+
+    from omni_mercury_engine.models.llm_registry import PROVIDER_CATALOG
+
+    text = spec.strip()
+    if not text:
+        return "", ""
+    head, sep, tail = text.partition(":")
+    if sep and head.lower() == "ollama" and tail:
+        return "ollama", tail
+    # ``mistral:7b`` is an Ollama tag (a size, ``latest`` or a quantisation),
+    # ``mistral:mistral-large-latest`` is the Mistral provider; write
+    # ``ollama:<name>`` to force the runtime.
+    ollama_tag = re.compile(r"^(?:\d+(?:\.\d+)?[bB]|latest|[\w.-]*q\d+_\w+)$")
+    if sep and head.lower() in PROVIDER_CATALOG and tail and not ollama_tag.match(tail):
+        return head.lower(), tail
+    return "ollama", text
 
 
 def _start_voice_conversation(
@@ -2136,18 +2194,44 @@ def _start_voice_conversation(
         )
         from omni_mercury_engine.narrative.voice import create_mercury_voice
 
+        provider, model_id = _parse_voice_model(model)
         # Configure LLM chain
-        ollama_config = OllamaConfig(model=model)
+        ollama_config = OllamaConfig(model=model_id if provider == "ollama" else "")
         llm_chain = FallbackLLMChain(
             ollama_config=ollama_config,
             enable_cloud=False,  # Privacy-first
         )
 
-        voice_instance = create_mercury_voice()
+        # --model attaches the named provider to the voice itself, so the
+        # free-text answers are composed by it; without --model (or offline)
+        # the voice runs on its templates and says so.
+        active = "none attached; answers are template-built from the record and the code"
+        if provider and not offline:
+            try:
+                from omni_mercury_engine.api.backends import resolve_provider_config
+
+                cfg = resolve_provider_config(provider)
+                voice_instance = create_mercury_voice(
+                    enable_llm=True,
+                    llm_provider=provider,
+                    llm_model_name=model_id,
+                    llm_api_key=cfg["api_key"],
+                    llm_base_url=cfg["base_url"],
+                )
+                if getattr(voice_instance, "_llm_adapter", None) is not None:
+                    active = f"{provider}:{model_id}"
+                else:
+                    active = (
+                        f"{provider}:{model_id} is not available (missing key, endpoint or "
+                        "model); answers are template-built"
+                    )
+            except Exception as exc:  # the voice must start even when the model cannot
+                click.echo(f"  Note: {provider} could not be attached ({exc})")
+                voice_instance = create_mercury_voice()
+        else:
+            voice_instance = create_mercury_voice()
 
         # Print LLM status
-        chain_status = llm_chain.get_chain_status()
-        active = chain_status["active"]
         click.echo(f"  LLM: {active}")
         click.echo(f"  Domain: {domain or 'general'}")
         click.echo(f"  Mode: {'offline' if offline else 'auto'}")
@@ -2202,7 +2286,12 @@ def _start_voice_conversation(
                     continue
 
                 elif command == "/clear":
-                    click.echo("\n[Conversation history cleared]\n")
+                    cleared = (
+                        voice_instance.clear_conversation()
+                        if hasattr(voice_instance, "clear_conversation")
+                        else 0
+                    )
+                    click.echo(f"\n[Conversation history cleared: {cleared} turn(s)]\n")
                     continue
 
                 elif command == "/help":
@@ -2221,11 +2310,15 @@ def _start_voice_conversation(
                 if hasattr(response, "message"):
                     message = response.message
                     confidence = getattr(response, "confidence", None)
+                    sources = list(getattr(response, "sources_cited", None) or [])
+                    follow_ups = list(getattr(response, "suggested_follow_ups", None) or [])
                 else:
                     message = response.get("message", "I received your message.")
                     confidence = response.get("confidence")
+                    sources = list(response.get("sources") or response.get("sources_cited") or [])
+                    follow_ups = list(response.get("suggested_follow_ups") or [])
 
-                # Format response
+                # Format response: the answer, what it was built from, what to ask next
                 click.echo()
                 click.echo(click.style("Mercury: ", fg="green") + message)
 
@@ -2235,6 +2328,14 @@ def _start_voice_conversation(
                             f"  [Confidence: {confidence:.0%}]",
                             fg="yellow",
                             dim=True,
+                        )
+                    )
+                if sources:
+                    click.echo(click.style(f"  [Sources: {', '.join(sources)}]", dim=True))
+                if follow_ups:
+                    click.echo(
+                        click.style(
+                            "  Ask next: " + " | ".join(follow_ups[:3]), fg="cyan", dim=True
                         )
                     )
 
@@ -2287,10 +2388,12 @@ def _show_help() -> None:
     click.echo("  /help             - Show this help")
     click.echo()
     click.echo("  You can ask Mercury:")
-    click.echo("    - 'What is my system status?'")
-    click.echo("    - 'What anomalies have been detected?'")
-    click.echo("    - 'Explain the last detection'")
-    click.echo("    - 'Search for pattern information'")
+    click.echo("    - 'What was the latest anomaly?'  (also: which samples, what threshold)")
+    click.echo("    - 'Explain the latest detection'  then 'why?' or 'tell me more'")
+    click.echo("    - 'How many anomalies today?'     then 'and yesterday?'")
+    click.echo("    - 'Show me the last 3 runs'       then 'run 2'")
+    click.echo("    - 'Which detectors do you have?'  'What should I run next?'")
+    click.echo("    - 'What is a z-score?'            (severity, threshold, AMA, the gate)")
     click.echo("-" * 40 + "\n")
 
 
@@ -3205,6 +3308,185 @@ def observatory_collatz(limit: int, top: int, as_json: bool) -> None:
             f"(peak {record['peak']}, {record['anomaly_score']:.2f}x the heuristic average)"
         )
     _emit(result, as_json, lines)
+
+
+# ---------------------------------------------------------------------------
+# decoupling switches (fragment the kin systems without estranging them)
+# ---------------------------------------------------------------------------
+@main.group()
+def decouple() -> None:
+    """Decouple Mercury from its kin systems, or from this machine.
+
+    Switches: `findoyou` (the FINDΩYOU™ evidence bridge) and `ama-optional`
+    (AMA-backed surfaces Mercury can run without). The AMA core gate is not a
+    switch -- it is mandatory for the engine to import, pinned by
+    `tests/test_pqc_startup_gate.py`; total decoupling from AMA is `uninstall`.
+
+    Destructive commands are dry-run unless given their exact confirmation
+    phrase, and they list what they will remove, with sizes, first.
+    """
+
+
+def _decouple_switch(name: str, action: str, as_json: bool) -> None:
+    from omni_mercury_engine import decouple as dc
+
+    if action == "status":
+        state = dc.read_switches()[name]
+        payload = {"switch": name, "enabled": state, "off_means": dc.SWITCHES[name][1]}
+        _emit(
+            payload,
+            as_json,
+            [f"{name}: {'ON' if state else 'OFF'}", f"  off means: {dc.SWITCHES[name][1]}"],
+        )
+        return
+    path = dc.set_switch(name, action == "on")
+    _emit(
+        {"switch": name, "enabled": action == "on", "config_file": str(path)},
+        as_json,
+        [f"{name}: {'ON' if action == 'on' else 'OFF'}", f"  written to {path}"],
+    )
+
+
+@decouple.command("findoyou")
+@click.argument("action", type=click.Choice(["on", "off", "status"]))
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_findoyou(action: str, as_json: bool) -> None:
+    """Switch the FINDΩYOU™ evidence bridge on or off."""
+    _decouple_switch("findoyou", action, as_json)
+
+
+@decouple.command("ama-optional")
+@click.argument("action", type=click.Choice(["on", "off", "status"]))
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_ama_optional(action: str, as_json: bool) -> None:
+    """Switch the AMA-backed optional surfaces on or off (core gate unaffected)."""
+    _decouple_switch("ama_optional", action, as_json)
+
+
+@decouple.command("status")
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_status(as_json: bool) -> None:
+    """Show switch state, AMA facts, and every place Mercury keeps work."""
+    from omni_mercury_engine import decouple as dc
+
+    st = dc.status()
+    lines = ["switches:"]
+    for name, info in st["switches"].items():
+        pin = f"  (env override {info['env_override']})" if info["env_override"] else ""
+        lines.append(f"  {name:<13} {'ON ' if info['enabled'] else 'OFF'}{pin}")
+    ama = st["ama"]
+    lines += [
+        "ama:",
+        f"  core gate      {ama['core_gate']}",
+        f"  version        installed {ama.get('installed_version')} / required {ama['required_version']}",
+    ]
+    for prim, ok in (ama.get("native_primitives") or {}).items():
+        lines.append(f"  {prim:<22} {'available' if ok else 'MISSING'}")
+    lines.append(f"  per-primitive  {ama.get('per_primitive_switches', 'n/a')}")
+    lines.append("state on this machine:")
+    for item in st["state"]:
+        mark = "present" if item["exists"] else "absent "
+        size = f"{item['bytes'] / 1024:,.0f} KB" if item["exists"] else ""
+        lines.append(f"  {mark} {item['path']}  [{item['label']}; {item['source']}] {size}")
+    d = st["distribution"]
+    lines.append(
+        f"install: {d['name']} {d.get('version', '')} {'editable at ' + d['editable_source'] if d.get('editable_source') else d.get('location', '')}"
+    )
+    lines.append(
+        "console localStorage keys (clear in the browser): "
+        + ", ".join(st["console_local_storage_keys"])
+    )
+    _emit(st, as_json, lines)
+
+
+@decouple.command("detach")
+@click.option(
+    "--save",
+    "save_dir",
+    required=True,
+    type=click.Path(file_okay=False),
+    help="Directory to write the state archive into.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_detach(save_dir: str, as_json: bool) -> None:
+    """Save every byte of Mercury's work into one verifiable archive. Nothing is removed."""
+    from omni_mercury_engine import decouple as dc
+
+    archive = dc.snapshot(Path(save_dir))
+    _emit(
+        {"archive": str(archive), "manifest": str(archive).replace(".tar.gz", ".manifest.json")},
+        as_json,
+        [
+            f"saved: {archive}",
+            "  MANIFEST.json inside carries a SHA-256 per file and the switch state",
+        ],
+    )
+
+
+@decouple.command("purge-work")
+@click.option("--confirm", "confirm", default=None, help='Type exactly "PURGE WORK" to execute.')
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_purge_work(confirm: str | None, as_json: bool) -> None:
+    """Delete all of Mercury's work on this machine. Code is untouched. Dry-run without --confirm."""
+    from omni_mercury_engine import decouple as dc
+
+    execute = confirm == dc.CONFIRM_PURGE
+    targets = dc.purge_work(confirm, dry_run=not execute)
+    verb = "removed" if execute else "would remove"
+    lines = [f"{verb}:"] + [
+        f"  {t.path}  ({t.bytes / 1024:,.0f} KB; {t.label})" for t in targets if not t.refused
+    ]
+    refused = [t for t in targets if t.refused]
+    if refused:
+        lines.append("refused (never deleted):")
+        lines += [f"  {t.path}  ({t.source}): {t.refused}" for t in refused]
+    if not execute:
+        lines.append(
+            f'dry run. To execute: mercury-agent decouple purge-work --confirm "{dc.CONFIRM_PURGE}"'
+        )
+    _emit({"executed": execute, "targets": [t.to_dict() for t in targets]}, as_json, lines)
+
+
+@decouple.command("uninstall")
+@click.option(
+    "--confirm", "confirm", default=None, help='Type exactly "DELETE MERCURY AGENT" to execute.'
+)
+@click.option(
+    "--remove-source",
+    is_flag=True,
+    help="Also delete the editable source checkout, if the install is editable.",
+)
+@click.option(
+    "--save",
+    "save_dir",
+    default=None,
+    type=click.Path(file_okay=False),
+    help="Write a state archive here first.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON.")
+def decouple_uninstall(
+    confirm: str | None, remove_source: bool, save_dir: str | None, as_json: bool
+) -> None:
+    """Remove Mercury Agent: all work, the package, and optionally its source. Dry-run without --confirm."""
+    from omni_mercury_engine import decouple as dc
+
+    execute = confirm == dc.CONFIRM_UNINSTALL
+    saved = dc.snapshot(Path(save_dir)) if (save_dir and execute) else None
+    plan = dc.uninstall(confirm, remove_source=remove_source, dry_run=not execute)
+    verb = "did" if plan["executed"] else "would do"
+    lines = [f"uninstall {verb}:"]
+    if saved:
+        lines.append(f"  saved state first: {saved}")
+    lines.append(f"  purge work: {len(plan['state_removed'])} location(s)")
+    lines.append(f"  pip: {' '.join(plan['pip_command'])}")
+    lines.append(f"  source checkout: {plan['source_removed'] or 'left in place'}")
+    if plan.get("source_note"):
+        lines.append(f"  note: {plan['source_note']}")
+    if not plan["executed"]:
+        lines.append(
+            f'dry run. To execute: mercury-agent decouple uninstall --confirm "{dc.CONFIRM_UNINSTALL}"'
+        )
+    _emit(plan, as_json, lines)
 
 
 if __name__ == "__main__":

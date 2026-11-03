@@ -68,7 +68,7 @@ def diagnose_event(
     """Fetch data, compute AUC, and return diagnostic info for one event."""
     try:
         raw_data = loader.fetch_historical(event_id)
-        X = loader.engineer_features(raw_data)
+        X = loader.engineer_scored_features(raw_data)
         y = loader.get_ground_truth(event_id)
     except Exception as exc:
         return {"status": f"ERROR: {exc}", "auc": None, "n": 0}

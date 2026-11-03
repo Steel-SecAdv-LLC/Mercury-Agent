@@ -95,6 +95,10 @@ async function initHeaderNav() {
   const authedNav = document.querySelector("[data-nav-authed]");
   const anonNav = document.querySelector("[data-nav-anon]");
   if (!authedNav || !anonNav) { return; }
+  // Login sets a readable CSRF cookie beside the httpOnly session cookie, so a
+  // visitor without it cannot be signed in: show the anonymous nav at once
+  // instead of probing /me and logging a 401 on every anonymous page view.
+  if (!readCookie("mercury_csrf")) { show(anonNav); hide(authedNav); return; }
   const me = await api("GET", "/me");
   if (me.ok) { show(authedNav); hide(anonNav); } else { show(anonNav); hide(authedNav); }
 }

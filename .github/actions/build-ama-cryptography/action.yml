@@ -18,7 +18,65 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Fetch prebuilt AMA native backend
+      # The cmake build below is the slow phase of every lane. A release can
+      # carry that build as one archive per OS and CPU holding the
+      # ``ama_cryptography`` wheels for every supported Python (AMA bundles the
+      # library inside the wheel, signs its digest into it and verifies that at
+      # import; the wheel is tagged for the Python that built it).
+      # ``scripts/fetch_ama_prebuilt.sh`` downloads the archive for this
+      # runner, checks it against the release's SHA256SUMS and unpacks it; this
+      # step installs the wheel matching the job's interpreter and runs the
+      # same PQC capability probe the source build runs. On success every
+      # build step below is skipped. No archive for this platform (exit 2), no
+      # wheel for this Python, or a library that does not load here falls
+      # through to the source build; a failed checksum (exit 1) fails the
+      # action, because a tampered or corrupt release is not a reason to build
+      # silently.
+      id: prebuilt
+      shell: bash
+      env:
+        AMA_REF: ${{ inputs.ama-ref }}
+      run: |
+        set -euo pipefail
+        install_matching_wheel() {
+          # ``--no-index --find-links`` lets the installer pick the wheel whose
+          # tag matches this interpreter. pip when the interpreter has one;
+          # uv's pip front end for an environment ``uv sync`` created, which
+          # ships no pip.
+          if python -m pip --version >/dev/null 2>&1; then
+            python -m pip install --no-index --find-links "$1" --force-reinstall --no-deps \
+              "ama-cryptography==${AMA_REF#v}"
+          else
+            uv pip install --python "$(command -v python)" --no-index --find-links "$1" \
+              --reinstall --no-deps "ama-cryptography==${AMA_REF#v}"
+          fi
+        }
+        if prebuilt_dir="$(bash "${GITHUB_WORKSPACE}/scripts/fetch_ama_prebuilt.sh" /tmp/ama-prebuilt)"; then
+          if install_matching_wheel "${prebuilt_dir}" && python - <<'PY'
+        from ama_cryptography.pqc_backends import get_pqc_backend_info
+
+        info = get_pqc_backend_info()
+        required = ("dilithium_available", "kyber_available", "sphincs_available")
+        missing = [name for name in required if not info.get(name)]
+        if missing:
+            raise SystemExit(f"prebuilt AMA native PQC backend incomplete; missing {missing}: {info!r}")
+        print("AMA Cryptography native PQC backend verified from the prebuilt archive (ML-DSA-65 + Kyber-1024 + SPHINCS+)")
+        PY
+          then
+            echo "found=true" >> "${GITHUB_OUTPUT}"
+            echo "AMA_NO_CYTHON=1" >> "${GITHUB_ENV}"
+            exit 0
+          fi
+          echo "::warning title=AMA prebuilt::no prebuilt wheel for this Python, or its library did not load on this runner; building from source"
+        else
+          rc=$?
+          [ "${rc}" -eq 2 ] || exit "${rc}"
+        fi
+        echo "found=false" >> "${GITHUB_OUTPUT}"
+
     - name: Resolve AMA C/C++ compiler
+      if: steps.prebuilt.outputs.found != 'true'
       # AMA's own CMake sets the floor: GCC >= 12 for constant-time code
       # generation (INVARIANT-8), and "only GCC >= 12, Clang >= 15, and MSVC
       # are tested". Use the image's default GCC/G++ when it meets that floor.
@@ -39,6 +97,7 @@ runs:
         bash "${GITHUB_WORKSPACE}/scripts/resolve_ama_compiler.sh" >> "${GITHUB_OUTPUT}"
 
     - name: Compute AMA native-build cache key
+      if: steps.prebuilt.outputs.found != 'true'
       # The cmake build of the native PQC library is identical for every job
       # on the same runner image and architecture (it involves no Python), so
       # roughly ten jobs per CI run were rebuilding the same shared objects.
@@ -55,6 +114,7 @@ runs:
           >> "$GITHUB_OUTPUT"
 
     - name: Restore cached AMA native build tree
+      if: steps.prebuilt.outputs.found != 'true'
       # Security posture: the key is exact-match only (no restore-keys), so a
       # partial or sibling cache can never be substituted; and the two
       # verification gates below (native PQC capability probe + engine
@@ -81,7 +141,7 @@ runs:
       # shadows any apt cmake on PATH). The apt fallback stays for an image
       # with no GCC >= 12, bounded so a slow mirror fails in minutes instead
       # of eating the job budget.
-      if: steps.ama-cache.outputs.cache-hit != 'true' && steps.cc.outputs.need-apt == 'true'
+      if: steps.prebuilt.outputs.found != 'true' && steps.ama-cache.outputs.cache-hit != 'true' && steps.cc.outputs.need-apt == 'true'
       shell: bash
       run: |
         missing=()
@@ -114,6 +174,7 @@ runs:
         sudo timeout 600 apt-get "${apt_opts[@]}" install -y --no-install-recommends "${missing[@]}"
 
     - name: Install AMA Cryptography PEP 517 build-system floors
+      if: steps.prebuilt.outputs.found != 'true'
       # AMA's ``setup.py`` preflight enforces the supply-chain floors declared
       # in its ``pyproject.toml [build-system].requires``:
       #   setuptools>=84.0.0  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5 (fixed at
@@ -133,17 +194,25 @@ runs:
       # are intentionally absent here.
       shell: bash
       run: |
-        python -m pip install --upgrade \
-          "setuptools>=84.0.0" \
-          "wheel>=0.48.0" \
-          "cmake>=4.4.4"
+        if python -m pip --version >/dev/null 2>&1; then
+          python -m pip install --upgrade \
+            "setuptools>=84.0.0" \
+            "wheel>=0.48.0" \
+            "cmake>=4.4.4"
+        else
+          # An environment ``uv sync`` created ships no pip.
+          uv pip install --python "$(command -v python)" --upgrade \
+            "setuptools>=84.0.0" \
+            "wheel>=0.48.0" \
+            "cmake>=4.4.4"
+        fi
 
     - name: Build AMA Cryptography native C library
       # Skipped on a cache hit: the restored tree holds this exact tag's
       # checkout plus its compiled build/ output. The toolchain and PEP 517
-      # floor steps above stay unconditional — the Python install below
-      # still needs them either way.
-      if: steps.ama-cache.outputs.cache-hit != 'true'
+      # floor steps above run whenever the source path runs — the Python
+      # install below still needs them either way.
+      if: steps.prebuilt.outputs.found != 'true' && steps.ama-cache.outputs.cache-hit != 'true'
       shell: bash
       env:
         AMA_REF: ${{ inputs.ama-ref }}
@@ -168,6 +237,7 @@ runs:
         cmake --build build -j "$(nproc)"
 
     - name: Install AMA Cryptography Python package
+      if: steps.prebuilt.outputs.found != 'true'
       # ``--no-build-isolation`` links the wheel against the libama_cryptography.so
       # just produced rather than re-running cmake into a transient isolation dir.
       # ``AMA_NO_CYTHON=1`` skips the optional Cython bindings (independent of the
@@ -177,7 +247,12 @@ runs:
       shell: bash
       run: |
         cd /tmp/ama-cryptography
-        AMA_NO_CYTHON=1 pip install --no-build-isolation .
+        if python -m pip --version >/dev/null 2>&1; then
+          AMA_NO_CYTHON=1 python -m pip install --no-build-isolation .
+        else
+          # An environment ``uv sync`` created ships no pip.
+          AMA_NO_CYTHON=1 uv pip install --python "$(command -v python)" --no-build-isolation .
+        fi
         export AMA_LD_LIBRARY_PATH="/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
         export LD_LIBRARY_PATH="$AMA_LD_LIBRARY_PATH"
         {

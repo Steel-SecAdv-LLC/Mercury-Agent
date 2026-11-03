@@ -69,16 +69,21 @@ class TestSigningBackendSurface:
 
     def test_ama_available_helper_keys(self) -> None:
         snapshot = ama_hmac.available()
+        # One key per routed primitive: the three JOSE HMACs plus the HKDF,
+        # HMAC-SHA3-256, SHA3-256 and PBKDF2 routes the sealer, audit chain and
+        # password modules take (see test_operational_crypto_routes_through_ama).
         assert set(snapshot.keys()) == {
             "ama_hmac_sha256",
             "ama_hmac_sha384",
             "ama_hmac_sha512",
+            "ama_hkdf_sha256",
+            "ama_hmac_sha3_256",
+            "ama_sha3_256",
+            "ama_pbkdf2_sha256",
             "reason",
         }
-        assert isinstance(snapshot["ama_hmac_sha256"], bool)
-        assert isinstance(snapshot["ama_hmac_sha384"], bool)
-        assert isinstance(snapshot["ama_hmac_sha512"], bool)
-        assert isinstance(snapshot["reason"], str)
+        for name, value in snapshot.items():
+            assert isinstance(value, str if name == "reason" else bool), name
 
 
 # ----------------------------------------------------------------------- #

@@ -19,8 +19,8 @@ from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
 from omni_mercury_engine.detectors.physics_integration import (
-    PhysicsIntegratedDetector,
     PhysicsDetectorType,
+    PhysicsIntegratedDetector,
 )
 from omni_mercury_engine.detectors.spectral_vibration import (
     SpectralAnalysisMode,

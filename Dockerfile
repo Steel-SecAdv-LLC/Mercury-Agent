@@ -13,6 +13,9 @@ FROM python:3.14-slim-trixie AS builder
 # git + cmake + ninja-build: required to clone and build the AMA Cryptography
 # native PQC library (Mercury's mandatory crypto core; see
 # scripts/build_ama_native.sh).
+# curl + ca-certificates: let scripts/fetch_ama_prebuilt.sh download the
+# release's prebuilt AMA archive first, so the cmake build runs only when no
+# archive exists for this image's OS and CPU.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -25,7 +28,9 @@ RUN apt-get update && \
         pkg-config \
         git \
         cmake \
-        ninja-build && \
+        ninja-build \
+        curl \
+        ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment for isolation
@@ -49,9 +54,10 @@ RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=84.0.0" "wheel
 # Set working directory for build
 WORKDIR /app
 
-# Copy pyproject.toml and source for installation
-# Note: requirements.txt was removed in consolidation, using pyproject.toml instead
-COPY pyproject.toml /app/
+# Copy the project metadata, the lockfile and the source for installation.
+# uv.lock is the single cross-platform resolution of every extra; README.md is
+# the project's declared readme and part of its build metadata.
+COPY pyproject.toml uv.lock README.md /app/
 COPY src/ /app/src/
 
 # AMA_NO_CYTHON short-circuits AMA Cryptography's optional Cython/numpy build
@@ -61,9 +67,24 @@ COPY src/ /app/src/
 # (builder-stage only; the runtime image is a fresh FROM) as belt-and-suspenders.
 ENV AMA_NO_CYTHON=1
 
-# Install the package with all features. AMA (the [pqc] extra) is intentionally
-# NOT installed here; the native build below is its sole installer.
-RUN pip install --no-cache-dir ".[all]"
+# Install the package with all features from the lockfile. ``uv sync --locked``
+# refuses to run when uv.lock no longer matches pyproject.toml (the Workflow
+# Hardening lane checks the same with ``uv lock --check``), installs exactly
+# the resolved set into /opt/venv (UV_PROJECT_ENVIRONMENT), and resolves and
+# downloads in parallel. ``--inexact`` keeps the packages the sync did not
+# resolve: pip, setuptools and wheel seeded by ``python -m venv`` and the uv
+# installed above, which the floor upgrade, the AMA build and the final
+# cleanup below still run through (an exact sync would be entitled to remove
+# them, and the later ``pip`` calls would then fall through to the base
+# interpreter). uv is a build-stage tool: it is removed with pip before the
+# venv is copied into the runtime image. AMA (the [pqc] extra) is
+# intentionally NOT installed here; the native build below is its sole
+# installer.
+RUN pip install --no-cache-dir "uv==0.11.32"
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_LINK_MODE=copy \
+    UV_NO_CACHE=1
+RUN uv sync --locked --inexact --extra all --no-editable --no-dev
 
 # Re-apply the supply-chain floors AFTER the dependency resolver has run.
 #
@@ -108,7 +129,7 @@ print('supply-chain floors held:', setuptools.__version__, msgpack.version)"
 # so it travels with the venv into the runtime stage and loads without
 # LD_LIBRARY_PATH. Pin matches pyproject's ama-cryptography git ref.
 ARG AMA_REF=v5.0.0
-COPY scripts/build_ama_native.sh /app/scripts/build_ama_native.sh
+COPY scripts/build_ama_native.sh scripts/fetch_ama_prebuilt.sh /app/scripts/
 RUN AMA_REF="${AMA_REF}" bash /app/scripts/build_ama_native.sh
 
 # Remove unused sample dataset fetchers before the virtualenv is copied into the
@@ -129,13 +150,14 @@ RUN find /opt/venv -path '*/site-packages/scipy/datasets' -type d -prune -exec r
 # with perl-base, gzip and the mesa GL stack in the runtime stage): the
 # runtime container never installs packages, which makes pip build tooling,
 # not a runtime dependency. First sweep any stale below-floor dist-info
-# metadata (this is pip's last job here), then remove pip itself — before
-# the venv is copied out, so no runtime layer ever carries it — and prove
-# the package, its dist-info and its vendored SBOM are gone.
+# metadata (this is pip's last job here), then remove uv and pip themselves —
+# before the venv is copied out, so no runtime layer ever carries them — and
+# prove the package, its dist-info and its vendored SBOM are gone.
 COPY scripts/enforce_wheel_floors.py /tmp/enforce_wheel_floors.py
 RUN /opt/venv/bin/python /tmp/enforce_wheel_floors.py /opt/venv && \
     /opt/venv/bin/python /tmp/enforce_wheel_floors.py --check /opt/venv && \
     rm -f /tmp/enforce_wheel_floors.py && \
+    /opt/venv/bin/python -m pip uninstall -y uv && \
     /opt/venv/bin/python -m pip uninstall -y pip && \
     ! /opt/venv/bin/python -c "import pip" 2>/dev/null && \
     test -z "$(find /opt/venv -name 'bom.cdx.json' -print -quit)" && \
@@ -167,7 +189,7 @@ LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
 LABEL security.hardened="true"
-LABEL security.scan-date="2026-09-27"
+LABEL security.scan-date="2026-11-01"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level

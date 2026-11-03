@@ -9,7 +9,6 @@ the sibling detection routes (optional), and fail-loud 400/422 behavior.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import pytest
@@ -18,9 +17,6 @@ pytest.importorskip("fastapi")
 pytest.importorskip("torch")
 pytest.importorskip("matplotlib")
 
-# Disable rate limiting BEFORE importing the server module (it reads the env
-# var at module-load time), mirroring tests/api/test_routes_comprehensive.py.
-os.environ["OMNI_RATE_LIMIT_ENABLED"] = "false"
 
 import numpy as np
 from fastapi.testclient import TestClient

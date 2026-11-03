@@ -58,6 +58,8 @@ class ConfidenceLevel(Enum):
     MODERATE = "moderate"  # 50-70% - Reasonable confidence
     HIGH = "high"  # 70-90% - Strong evidence
     VERY_HIGH = "very_high"  # >90% - Near-certain
+    #: The detection carried no confidence. Reported as such, never as 50 %.
+    UNREPORTED = "unreported"
 
 
 @dataclass
@@ -82,7 +84,8 @@ class NarrativeResult:
 
     # Transparency metrics
     confidence_level: ConfidenceLevel
-    confidence_score: float
+    #: ``None`` when the detection reported no confidence.
+    confidence_score: float | None
     uncertainty_disclosure: str  # Explicit uncertainty statement
 
     # Historical context
@@ -231,12 +234,16 @@ class NarrativeEngine:
         start_time = time.time()
         self._synthesis_count += 1
         context = context or {}
+        detection_result = _normalize_reasoning_chain(detection_result)
 
         # Extract core detection values
         anomaly_detected = detection_result.get("anomaly_detected", False)
-        anomaly_score = detection_result.get("anomaly_score", 0.0)
-        severity = detection_result.get("severity", 0.0)
-        confidence = detection_result.get("confidence", 0.5)
+        anomaly_score = _reported(detection_result.get("anomaly_score")) or 0.0
+        # Severity and confidence stay ``None`` when the detection did not
+        # report them: they used to default to 0.0 and 0.5 and were then
+        # narrated as "severity 0%" and "confidence 50%".
+        severity = _reported(detection_result.get("severity"))
+        confidence = _reported(detection_result.get("confidence"))
         is_reliable = detection_result.get("is_reliable", True)
 
         # Get omni-scalars for style shaping
@@ -244,7 +251,7 @@ class NarrativeEngine:
 
         # Determine appropriate style
         style = style_override or self._determine_style(
-            anomaly_detected, severity, confidence, scalars
+            anomaly_detected, severity or 0.0, confidence, scalars
         )
 
         # Classify confidence level
@@ -278,7 +285,7 @@ class NarrativeEngine:
         # Generate recommendations proportional to confidence
         recommendations = self._generate_recommendations(
             anomaly_detected,
-            severity,
+            severity or 0.0,
             confidence_level,
             domain,
             detection_result.get("recommendations", []),
@@ -335,7 +342,7 @@ class NarrativeEngine:
         self,
         anomaly_detected: bool,
         severity: float,
-        confidence: float,
+        confidence: float | None,
         scalars: dict[str, float],
     ) -> NarrativeStyle:
         """Determine communication style based on context and scalars."""
@@ -345,7 +352,7 @@ class NarrativeEngine:
 
         # High explainability scalar promotes detailed explanations
         if scalars.get("omniexplainability", 0) > self.ANALYTICAL_THRESHOLD:
-            if confidence > 0.7:
+            if confidence is not None and confidence > 0.7:
                 return NarrativeStyle.ANALYTICAL
             return NarrativeStyle.EXPLANATORY
 
@@ -354,13 +361,15 @@ class NarrativeEngine:
             return NarrativeStyle.SUPPORTIVE
 
         # Low confidence defaults to clinical precision
-        if confidence < 0.5:
+        if confidence is not None and confidence < 0.5:
             return NarrativeStyle.CLINICAL
 
         return self.default_style
 
-    def _classify_confidence(self, confidence: float, is_reliable: bool) -> ConfidenceLevel:
+    def _classify_confidence(self, confidence: float | None, is_reliable: bool) -> ConfidenceLevel:
         """Classify confidence level with reliability adjustment."""
+        if confidence is None:
+            return ConfidenceLevel.UNREPORTED
         # Unreliable predictions get downgraded
         effective_confidence = confidence * (0.8 if not is_reliable else 1.0)
 
@@ -390,8 +399,14 @@ class NarrativeEngine:
         for i, step in enumerate(reasoning_chain[: self.max_reasoning_steps]):
             rule = step.get("rule", "unknown_rule")
             conclusion = step.get("conclusion", "")
-            conf = step.get("confidence", 0.5)
+            conf = step.get("confidence")
 
+            if not isinstance(conf, (int, float)):
+                # An observation with no stated confidence: reported as given,
+                # not labelled 50 % and not filed as a rejected hypothesis.
+                steps.append(f"Step {i + 1}: {rule} -> {conclusion}")
+                hypotheses_considered.append(conclusion)
+                continue
             step_text = f"Step {i + 1}: Applied {rule} -> {conclusion} (confidence: {conf:.0%})"
             steps.append(step_text)
 
@@ -430,8 +445,15 @@ class NarrativeEngine:
         if not reasoning_chain:
             return "Confidence limited by insufficient reasoning data."
 
-        avg_step_conf = np.mean([s.get("confidence", 0.5) for s in reasoning_chain])
+        scored = [
+            s["confidence"]
+            for s in reasoning_chain
+            if isinstance(s.get("confidence"), (int, float))
+        ]
         n_steps = len(reasoning_chain)
+        if not scored:
+            return f"Based on {n_steps} observation(s); no step-level confidence was reported."
+        avg_step_conf = float(np.mean(scored))
         n_rejected = len(rejected)
 
         rationale_parts = []
@@ -470,7 +492,7 @@ class NarrativeEngine:
 
     def _generate_uncertainty_disclosure(
         self,
-        confidence: float,
+        confidence: float | None,
         is_reliable: bool,
         epistemic: float,
         aleatoric: float,
@@ -479,7 +501,12 @@ class NarrativeEngine:
         parts = []
 
         # Overall confidence statement
-        if confidence < 0.3:
+        if confidence is None:
+            parts.append(
+                "Confidence was not reported for this detection, so it has not been "
+                "assessed. Treat the finding as unverified."
+            )
+        elif confidence < 0.3:
             parts.append(
                 f"High uncertainty (confidence: {confidence:.0%}). "
                 "Multiple interpretations possible."
@@ -511,7 +538,7 @@ class NarrativeEngine:
         self,
         anomaly_detected: bool,
         anomaly_score: float,
-        severity: float,
+        severity: float | None,
         domain: str | None,
         style: NarrativeStyle,
     ) -> str:
@@ -521,6 +548,12 @@ class NarrativeEngine:
         if not anomaly_detected:
             return (
                 f"{domain_prefix}No anomaly detected. Systems operating within normal parameters."
+            )
+
+        if severity is None:
+            return (
+                f"{domain_prefix}Anomaly detected (score: {anomaly_score:.2f}; "
+                "severity not reported)."
             )
 
         severity_word = (
@@ -557,15 +590,15 @@ class NarrativeEngine:
         parts = []
 
         anomaly_detected = detection_result.get("anomaly_detected", False)
-        anomaly_score = detection_result.get("anomaly_score", 0.0)
-        severity = detection_result.get("severity", 0.0)
-        confidence = detection_result.get("confidence", 0.5)
+        anomaly_score = _reported(detection_result.get("anomaly_score")) or 0.0
+        severity = _reported(detection_result.get("severity"))
+        confidence = _reported(detection_result.get("confidence"))
 
         # Opening statement
         if anomaly_detected:
             parts.append(
-                f"An anomaly has been detected with a score of {anomaly_score:.3f} "
-                f"and severity rating of {severity:.0%}."
+                f"An anomaly has been detected with a score of {anomaly_score:.3f}"
+                + (f" and severity rating of {severity:.0%}." if severity is not None else ".")
             )
         else:
             parts.append(
@@ -573,12 +606,19 @@ class NarrativeEngine:
             )
 
         # Confidence context
-        parts.append(f"Detection confidence: {confidence:.0%}.")
+        parts.append(
+            f"Detection confidence: {confidence:.0%}."
+            if confidence is not None
+            else "Detection confidence: not reported."
+        )
 
         # Reasoning chain summary
         reasoning_chain = detection_result.get("reasoning_chain", [])
         if reasoning_chain:
-            parts.append(f"This conclusion is based on {len(reasoning_chain)} reasoning steps.")
+            n_steps = len(reasoning_chain)
+            parts.append(
+                f"This conclusion is based on {n_steps} reasoning step{'' if n_steps == 1 else 's'}."
+            )
 
             if style in (NarrativeStyle.EXPLANATORY, NarrativeStyle.ANALYTICAL):
                 # Include key reasoning steps
@@ -662,6 +702,12 @@ class NarrativeEngine:
             )
             recommendations.append("Do not take irreversible action without verification.")
 
+        elif confidence_level == ConfidenceLevel.UNREPORTED:
+            recommendations.append(
+                "No confidence was reported: verify against a second detector before acting."
+            )
+            recommendations.append("Do not take irreversible action without verification.")
+
         elif confidence_level in (ConfidenceLevel.LOW, ConfidenceLevel.VERY_LOW):
             recommendations.append("LOW CONFIDENCE: Treat as preliminary finding only.")
             recommendations.append("Gather additional data before drawing conclusions.")
@@ -677,10 +723,14 @@ class NarrativeEngine:
 
         return recommendations
 
-    def _determine_urgency(self, anomaly_detected: bool, severity: float, confidence: float) -> str:
-        """Determine urgency level."""
+    def _determine_urgency(
+        self, anomaly_detected: bool, severity: float | None, confidence: float | None
+    ) -> str:
+        """Determine urgency level (severity x confidence; unassessed without both)."""
         if not anomaly_detected:
             return "routine"
+        if severity is None or confidence is None:
+            return "unassessed"
 
         # Urgency requires both severity and confidence
         urgency_score = severity * confidence
@@ -711,7 +761,11 @@ class NarrativeEngine:
         # Universal first steps
         steps.append("Review detection details and reasoning chain.")
 
-        if confidence_level in (ConfidenceLevel.VERY_LOW, ConfidenceLevel.LOW):
+        if confidence_level in (
+            ConfidenceLevel.VERY_LOW,
+            ConfidenceLevel.LOW,
+            ConfidenceLevel.UNREPORTED,
+        ):
             steps.append("Gather additional supporting data.")
             steps.append("Check for data quality issues.")
             steps.append("Consider false positive possibility.")
@@ -741,3 +795,31 @@ class NarrativeEngine:
             "gosnn_connected": self._gosnn is not None,
             "memory_surface_connected": self._memory_surface is not None,
         }
+
+
+def _normalize_reasoning_chain(detection_result: dict[str, Any]) -> dict[str, Any]:
+    """Accept plain-text reasoning steps alongside rule dictionaries.
+
+    ``POST /api/v1/voice/narrate`` takes a free-form ``detection_result``. A
+    client that sends ``reasoning_chain: ["1 of 60 flagged"]`` (the console
+    does) made every ``step.get(...)`` raise, and the route answered 500. A
+    string becomes an observation step with no confidence attached.
+    """
+    chain = detection_result.get("reasoning_chain")
+    if not isinstance(chain, list) or all(isinstance(s, dict) for s in chain):
+        return detection_result
+    steps: list[dict[str, Any]] = []
+    for item in chain:
+        if isinstance(item, dict):
+            steps.append(item)
+        elif item is not None:
+            steps.append({"rule": "observation", "conclusion": str(item)})
+    return {**detection_result, "reasoning_chain": steps}
+
+
+def _reported(value: Any) -> float | None:
+    """``value`` as a finite float, or ``None`` when it was not reported."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if np.isfinite(number) else None

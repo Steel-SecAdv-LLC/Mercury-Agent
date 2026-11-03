@@ -128,6 +128,10 @@ Key material is a **stable** key from `MERCURY_DATA_ENC_KEY` or derived from
 `AMA_MASTER_SEED` via HKDF-SHA256 with a purpose-scoped info string. For a
 durable store with no stable key, the sealer marks itself non-stable and the
 write path keeps seeds unsealed rather than bricking 2FA on the next restart.
+The same sealer protects the language-model provider keys in the provider store
+(`api/provider_store.py`, the provider name bound in as AAD), with the opposite
+choice for a non-stable key: the provider store refuses to keep a key at all,
+since an unsealed API key in a file is worse than leaving it in the environment.
 
 **2FA recovery.** Confirming enrollment issues ten single-use recovery codes
 (shown once, stored only as hashes). They authenticate in place of a TOTP code,
@@ -257,10 +261,11 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_HSTS_MAX_AGE` | `31536000` | `Strict-Transport-Security` max-age, emitted only on requests that arrived over TLS (directly, or via `X-Forwarded-Proto` when `MERCURY_TRUSTED_PROXY_HOPS >= 1`). `0` suppresses the header — the right setting while a certificate is still being provisioned, since HSTS is not revocable inside its own max-age. |
 | `MERCURY_HSTS_INCLUDE_SUBDOMAINS` | `true` | Append `includeSubDomains` to the HSTS value. Turn off when sibling sub-domains are not all HTTPS-capable. |
 | `MERCURY_SMTP_HOST` etc. | *(unset → console)* | SMTP delivery (`_PORT/_USERNAME/_PASSWORD/_FROM/_STARTTLS`) |
+| `MERCURY_MAIL_OUTBOX` | `~/.local/state/mercury-agent/outbox` | Where the development mailer files each message (owner-only `.txt`, plus `.html` when there is an HTML part) when `MERCURY_SMTP_HOST` is unset. The log names the file, never the body: logged links would be redacted to `token=<redacted>` |
 | `MERCURY_PUBLIC_BASE_URL` | `https://mercuryagent.global` | Base URL for email links |
 | `MERCURY_CONTACT_EMAIL` | `contact@mercuryagent.global` | `List-Unsubscribe` contact |
-| `MERCURY_DATA_ENC_KEY` | *(unset)* | 64-hex at-rest key for TOTP sealing (`python scripts/generate_secret_key.py`) |
-| `MERCURY_DATA_ENC_KEY_OLD` | *(unset)* | Retiring at-rest key, read by `scripts/reseal_totp_secrets.py` during key rotation |
+| `MERCURY_DATA_ENC_KEY` | *(unset)* | 64-hex at-rest key (`python scripts/generate_secret_key.py`) sealing the TOTP secrets and the language-model provider keys an administrator stores from the console (`api/provider_store.py`; without a stable key the provider store refuses keys) |
+| `MERCURY_DATA_ENC_KEY_OLD` | *(unset)* | Retiring at-rest key, read by `scripts/reseal_totp_secrets.py` during key rotation (TOTP secrets and provider keys) |
 | `AMA_MASTER_SEED` | *(unset)* | Fleet HD seed; TOTP sealing key derived via HKDF when set |
 | `MERCURY_AUTH_RATE_<ACTION>` | *(built-in)* | Per-action limit `"<max>/<seconds>"` (LOGIN_IP, LOGIN_ACCOUNT, REGISTER_IP, RESET_IP, RESET_ACCOUNT, RESEND_IP, RESEND_ACCOUNT, EMAIL_CHANGE_IP, EMAIL_CHANGE_ACCOUNT) |
 | `MERCURY_MAX_API_KEYS_PER_ACCOUNT` | `10` | Cap on active API keys per account (issuance 409s at the cap) |
@@ -438,18 +443,23 @@ Enabling the platform on an **existing** deployment:
 5. **Rehash on login.** Existing PBKDF2 password hashes upgrade to scrypt
    automatically on each user's next successful login — no bulk migration.
 6. **Rotating the at-rest key.** To change `MERCURY_DATA_ENC_KEY` without
-   bricking 2FA (a sealed secret only opens under the key it was sealed with),
-   run the re-seal tool with the retiring key alongside the new one:
+   bricking 2FA or the stored provider keys (a sealed secret only opens under
+   the key it was sealed with), run the re-seal tool with the retiring key
+   alongside the new one:
    ```bash
    export MERCURY_KEYSTORE_PATH=/var/lib/mercury/mercury.db
+   export MERCURY_PROVIDER_STORE_PATH=/var/lib/mercury/providers.json  # if not the default
    export MERCURY_DATA_ENC_KEY=<new key>        # seal under this
    export MERCURY_DATA_ENC_KEY_OLD=<old key>    # unseal with this
    python scripts/reseal_totp_secrets.py --dry-run   # preview
    python scripts/reseal_totp_secrets.py             # apply
    ```
-   It is idempotent (already-migrated rows are skipped), never overwrites a
-   value it cannot open under either key, and exits non-zero if any such row
-   remains — so a bad old key is caught, not silently lost. Deploy the new
+   One run re-seals the TOTP secrets in the identity store and the provider
+   keys in the provider store (when its file exists; it runs on the provider
+   store alone when no durable identity store is configured). It is idempotent
+   (already-migrated values are skipped), never overwrites a value it cannot
+   open under either key, and exits non-zero if any such value remains in
+   either store — so a bad old key is caught, not silently lost. Deploy the new
    `MERCURY_DATA_ENC_KEY` only after the tool reports zero failures.
 
 ## Change log

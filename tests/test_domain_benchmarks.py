@@ -214,8 +214,15 @@ class TestComputeF1PrecisionRecall:
 # ======================================================================
 
 
-class _MockLoader:
-    """Minimal mock that satisfies the loader protocol used by run_domain_benchmark."""
+class _SeededLoader:
+    """Seeded, deterministic loader implementing the protocol under test.
+
+    Not a "mock": it generates reproducible data from a fixed seed and
+    implements the real contract, de-leaked accessor included. The name
+    matters because this repository has spent real effort removing mock
+    modes from shipped code, and a test double called ``_MockLoader``
+    reads like one of them.
+    """
 
     SOURCE_URL = "https://mock.example.com/data"
 
@@ -236,8 +243,20 @@ class _MockLoader:
         rng = np.random.RandomState(hash(event_id) % 2**31)
         return rng.randn(self._n_samples, self._n_features)
 
+    #: No column here helps build the labels (``get_ground_truth`` draws them
+    #: independently below), so the scored view is the full matrix. Declared
+    #: explicitly rather than letting the benchmark fall back to
+    #: ``engineer_features`` when the method is absent: a silent fallback
+    #: would hand the leaky matrix to any loader that forgot to implement the
+    #: de-leaked one, which is the failure mode the exclusion exists to stop.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = ()
+    LABEL_FEATURE_DISJOINT = True
+
     def engineer_features(self, raw_data: np.ndarray) -> np.ndarray:
         return raw_data
+
+    def engineer_scored_features(self, raw_data: np.ndarray) -> np.ndarray:
+        return self.engineer_features(raw_data)
 
     def get_ground_truth(self, event_id: str) -> np.ndarray:
         rng = np.random.RandomState(hash(event_id) % 2**31 + 1)
@@ -277,7 +296,7 @@ class TestRunDomainBenchmark:
         }
         mock_detector_cls.return_value = mock_instance
 
-        loader = _MockLoader()
+        loader = _SeededLoader()
         output_path = tmp_path / "results.json"
         result = run_domain_benchmark("test_domain", loader, output_path=output_path)
 
@@ -306,7 +325,7 @@ class TestRunDomainBenchmark:
             {"event_id": "event_b"},
             {"event_id": "event_c"},
         ]
-        loader = _MockLoader(events=events)
+        loader = _SeededLoader(events=events)
         output_path = tmp_path / "results.json"
         result = run_domain_benchmark("multi", loader, output_path=output_path)
 
@@ -329,7 +348,7 @@ class TestRunDomainBenchmark:
         }
         mock_detector_cls.return_value = mock_instance
 
-        loader = _MockLoader()
+        loader = _SeededLoader()
         output_path = tmp_path / "results.json"
         result = run_domain_benchmark("test", loader, output_path=output_path)
 
@@ -342,7 +361,7 @@ class TestRunDomainBenchmark:
         """If loader returns no events, run_domain_benchmark should sys.exit(1)."""
         from benchmarks.domain_benchmark_base import run_domain_benchmark
 
-        loader = _MockLoader(events=[])
+        loader = _SeededLoader(events=[])
         output_path = tmp_path / "results.json"
         with pytest.raises(SystemExit) as exc_info:
             run_domain_benchmark("empty", loader, output_path=output_path)
@@ -361,7 +380,7 @@ class TestRunDomainBenchmark:
         }
         mock_detector_cls.return_value = mock_instance
 
-        loader = _MockLoader()
+        loader = _SeededLoader()
         output_path = tmp_path / "results.json"
         result = run_domain_benchmark("agg", loader, output_path=output_path)
 

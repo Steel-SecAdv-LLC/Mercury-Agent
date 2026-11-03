@@ -379,6 +379,10 @@ class AuthKeyManager:
                 set so callers can surface that hazard).
             rotation_period_days: Default key rotation period in days
         """
+        # Operator decoupling first: an explicit "off" outranks "installed".
+        from omni_mercury_engine.decouple import require_enabled
+
+        require_enabled("ama_optional", "AuthKeyManager (AMA HD key derivation and rotation)")
         if not _AMA_KEY_MGMT_AVAILABLE:
             raise RuntimeError(
                 "AuthKeyManager requires AMA Cryptography key management. "

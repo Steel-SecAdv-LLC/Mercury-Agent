@@ -118,3 +118,53 @@ def test_gosnn_normalize_insufficient_samples_raises() -> None:
     norm = SlidingWindowNormalizer()
     with pytest.raises(RuntimeError, match="Sliding-window normalization requires"):
         norm.normalize(np.array([1.0, 2.0, 3.0]))
+
+
+# ---------------------------------------------------------------------------
+# Default providers must be real, not fabricated
+# ---------------------------------------------------------------------------
+
+
+def test_financial_service_defaults_to_a_real_provider() -> None:
+    """``FinancialService()`` must not default to the fabricating stub.
+
+    It did. A no-argument construction returned seeded-RNG prices -- MSFT at
+    386.83 against a real 530.14 -- while ``docs/ARCHITECTURE.md`` told
+    operators the default provider was Yahoo Finance. The Yahoo route was
+    already implemented (``_fetch_yahoo_finance``) and needs no API key; it
+    simply was not the default. The stub stays reachable by explicit opt-in,
+    which is the only honest way to select fabricated data.
+    """
+    import inspect
+
+    from omni_mercury_engine.integrations.stubs.financial import (
+        FinancialAPIProvider,
+        FinancialService,
+    )
+
+    default = inspect.signature(FinancialService.__init__).parameters["provider"].default
+    assert default is not FinancialAPIProvider.STUB, "default provider fabricates data"
+    assert default is FinancialAPIProvider.YAHOO_FINANCE
+    assert FinancialService().provider is FinancialAPIProvider.YAHOO_FINANCE
+
+
+def test_weather_service_defaults_to_a_real_provider() -> None:
+    """``WeatherService()`` must not default to the fabricating stub.
+
+    The default is Open-Meteo: keyless, and the only provider here with a
+    geocoder, so ``get_current(name)`` resolves for real rather than being
+    answered with ``gauss``-drawn temperatures. NOAA remains available and
+    keyless but is coordinate-addressed. Provider behaviour is covered in
+    ``tests/integrations/test_open_meteo_provider.py``.
+    """
+    import inspect
+
+    from omni_mercury_engine.integrations.stubs.weather import (
+        WeatherAPIProvider,
+        WeatherService,
+    )
+
+    default = inspect.signature(WeatherService.__init__).parameters["provider"].default
+    assert default is not WeatherAPIProvider.STUB, "default provider fabricates data"
+    assert default is WeatherAPIProvider.OPEN_METEO
+    assert WeatherService().provider is WeatherAPIProvider.OPEN_METEO

@@ -215,7 +215,7 @@ def report(track_name, R):
     n_iso_loses = sum(1 for ds in DATASETS if np.nanmean(R["iso_loses"][ds]) > 0.5)
     print(
         f"Isotonic loses AUROC vs raw on {n_iso_loses}/6 datasets "
-        f"(per-ds frac: {[round(iso_all[ds],2) for ds in DATASETS]})"
+        f"(per-ds frac: {[round(iso_all[ds], 2) for ds in DATASETS]})"
     )
     print(
         f"Beta preserves AUROC exactly: {np.mean(R['beta_pres'])*100:.0f}% of runs; "

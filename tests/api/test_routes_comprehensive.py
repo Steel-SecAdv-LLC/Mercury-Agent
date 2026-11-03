@@ -26,10 +26,6 @@ import pytest
 # do not install the API extra (e.g. detector-only environments).
 pytest.importorskip("fastapi")
 
-# Disable rate limiting BEFORE importing the server module.
-# This must happen before any import of omni_mercury_engine.api.server,
-# as the middleware reads the env var at module-load time.
-os.environ["OMNI_RATE_LIMIT_ENABLED"] = "false"
 
 import numpy as np
 import pytest

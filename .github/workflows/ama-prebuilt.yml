@@ -1,0 +1,244 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Build the AMA Cryptography native PQC backend once per OS and CPU and publish
+# the results as a GitHub release, so every install can download the library
+# instead of running cmake.
+#
+# Each archive ``ama-cryptography-<ref>-<os>-<arch>.tar.gz`` holds the
+# ``ama_cryptography`` wheels for Python 3.11, 3.12, 3.13 and 3.14. AMA's
+# setup.py builds the native library with cmake, bundles it inside the wheel,
+# signs the library's SHA3-256 into the wheel and verifies that at import; it
+# tags every wheel for the interpreter that built it, so the four wheels share
+# one library build (the first interpreter's cmake run; the others reuse it).
+# Every wheel is proved before upload (a fresh environment of its Python
+# installs it and runs the PQC capability probe), and the release carries a
+# SHA256SUMS the downloader checks (scripts/fetch_ama_prebuilt.sh).
+#
+# Consumers: scripts/build_ama_native.sh (Dockerfile, local installs) and the
+# build-ama-cryptography composite action (every CI lane) try the release
+# first and fall back to the source build when no archive exists for their
+# platform. The release tag is ``ama-native-<ref>``; it is not a Mercury
+# version and is marked as not the latest release.
+name: AMA Prebuilt Native Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      ama-ref:
+        description: AMA Cryptography tag to build (must match the pyproject [pqc] pin)
+        required: true
+        default: v5.0.0
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ama-prebuilt-${{ inputs.ama-ref }}
+  cancel-in-progress: false
+
+env:
+  AMA_REF: ${{ inputs.ama-ref }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      # One platform failing must not withhold the others: the downloader
+      # treats a missing archive as "build from source" for that platform only.
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+          - runner: ubuntu-24.04-arm
+            platform: linux-aarch64
+          - runner: macos-15
+            platform: macos-aarch64
+          - runner: macos-15-intel
+            platform: macos-x86_64
+          - runner: windows-2025
+            platform: windows-x86_64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        id: py311
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up Python 3.12
+        id: py312
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up Python 3.13
+        id: py313
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up Python 3.14
+        id: py314
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Install AMA Cryptography PEP 517 build-system floors
+        # The same floors scripts/build_ama_native.sh and the composite action
+        # apply (AMA's setup.py preflight rejects older build tools), for each
+        # interpreter that builds a wheel.
+        env:
+          PYTHONS: >-
+            ${{ steps.py311.outputs.python-path }}
+            ${{ steps.py312.outputs.python-path }}
+            ${{ steps.py313.outputs.python-path }}
+            ${{ steps.py314.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          for py in ${PYTHONS}; do
+            "${py}" -m pip install --upgrade "pip>=26.1"
+            "${py}" -m pip install --upgrade \
+              "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
+          done
+
+      - name: Clone AMA Cryptography at the pinned tag
+        run: |
+          git clone --branch "${AMA_REF}" --depth 1 \
+            https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git ama-src
+
+      - name: Build one wheel per Python and assemble the archive
+        # AMA's setup.py runs cmake itself (into build/python-cmake, Release,
+        # native PQC on, shared library) and bundles the library into the
+        # wheel; the first interpreter pays for the build and the others reuse
+        # it. --no-build-isolation keeps the floors above in effect;
+        # AMA_NO_CYTHON skips the optional Cython bindings (the Python API
+        # loads the library at runtime).
+        env:
+          AMA_NO_CYTHON: "1"
+          PLATFORM: ${{ matrix.platform }}
+          PYTHONS: >-
+            ${{ steps.py311.outputs.python-path }}
+            ${{ steps.py312.outputs.python-path }}
+            ${{ steps.py313.outputs.python-path }}
+            ${{ steps.py314.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          stage="stage/ama-cryptography-${AMA_REF}-${PLATFORM}"
+          mkdir -p "${stage}" dist
+          for py in ${PYTHONS}; do
+            ( cd ama-src && "${py}" -m pip wheel --no-build-isolation --no-deps -w "../${stage}" . )
+          done
+          ls -l "${stage}"
+          [ "$(find "${stage}" -name 'ama_cryptography-*.whl' | wc -l)" -eq 4 ] || {
+            echo "expected one wheel per interpreter" >&2; exit 1; }
+          tar -czf "dist/ama-cryptography-${AMA_REF}-${PLATFORM}.tar.gz" -C "${stage}" .
+
+      - name: Prove every wheel installs and loads in a fresh environment
+        # Exactly what scripts/fetch_ama_prebuilt.sh's callers do: install the
+        # wheel matching the interpreter from the unpacked archive and probe
+        # the three mandatory algorithms. The import also runs AMA's own
+        # integrity check of the bundled library against the digest signed
+        # into the wheel.
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PYTHONS: >-
+            ${{ steps.py311.outputs.python-path }}
+            ${{ steps.py312.outputs.python-path }}
+            ${{ steps.py313.outputs.python-path }}
+            ${{ steps.py314.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          mkdir -p unpack
+          tar -xzf "dist/ama-cryptography-${AMA_REF}-${PLATFORM}.tar.gz" -C unpack
+          for py in ${PYTHONS}; do
+            rm -rf proof
+            "${py}" -m venv proof
+            if [ -x proof/bin/python ]; then venv_py=proof/bin/python; else venv_py=proof/Scripts/python.exe; fi
+            "${venv_py}" -m pip install --upgrade "pip>=26.1"
+            "${venv_py}" -m pip install --no-index --find-links unpack --no-deps "ama-cryptography==${AMA_REF#v}"
+            "${venv_py}" - <<'PY'
+          import sys
+
+          from ama_cryptography.pqc_backends import get_pqc_backend_info
+
+          info = get_pqc_backend_info()
+          required = ("dilithium_available", "kyber_available", "sphincs_available")
+          missing = [name for name in required if not info.get(name)]
+          if missing:
+              raise SystemExit(f"prebuilt wheel incomplete on {sys.version.split()[0]}; missing {missing}: {info!r}")
+          print(f"wheel verified on Python {sys.version.split()[0]}: ML-DSA-65 + Kyber-1024 + SPHINCS+ load")
+          PY
+          done
+
+      - name: Upload archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ama-prebuilt-${{ matrix.platform }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish release
+    needs: build
+    # Publish every platform that built; a platform that failed is simply
+    # absent from the release and its installs build from source.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download archives
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: ama-prebuilt-*
+          path: dist
+          merge-multiple: true
+
+      - name: Write SHA256SUMS and the release notes
+        run: |
+          set -euo pipefail
+          cd dist
+          ls -1 ./*.tar.gz || { echo "no archive built on any platform" >&2; exit 1; }
+          sha256sum ./*.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          {
+            echo "Prebuilt AMA Cryptography native PQC backend, tag ${AMA_REF}."
+            echo
+            echo "Each archive holds the ama_cryptography wheels for Python 3.11 to 3.14; every wheel bundles"
+            echo "the native library and carries its signed digest, so it refuses any other library."
+            echo "Consumed by scripts/fetch_ama_prebuilt.sh (verified against SHA256SUMS); the source"
+            echo "build remains the fallback for platforms without an archive."
+            echo
+            echo '```'
+            cat SHA256SUMS
+            echo '```'
+          } > ../RELEASE_NOTES.md
+
+      - name: Create or update the release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        with:
+          tag_name: ama-native-${{ inputs.ama-ref }}
+          name: AMA native backend ${{ inputs.ama-ref }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          make_latest: "false"
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

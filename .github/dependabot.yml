@@ -25,8 +25,12 @@
 version: 2
 
 updates:
-  # Python dependencies (pip)
-  - package-ecosystem: "pip"
+  # Python dependencies. The ``uv`` ecosystem updates pyproject.toml and
+  # uv.lock together; the ``pip`` ecosystem rewrote only pyproject.toml, and
+  # since the Dockerfile and the test lanes install with ``uv sync --locked``
+  # (and Workflow Hardening runs ``uv lock --check``) every such update would
+  # have failed on a stale lockfile.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       # Weekly to reduce PR churn for a solo maintainer; security alerts
@@ -44,7 +48,7 @@ updates:
       - "security"
       - "python"
     commit-message:
-      prefix: "deps(pip)"
+      prefix: "deps(uv)"
       include: "scope"
     # Group updates so non-security version bumps batch into one PR per
     # group instead of one PR per package.

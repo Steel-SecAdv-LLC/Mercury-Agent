@@ -56,6 +56,11 @@ _correlation_context = threading.local()
 DEFAULT_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+#: Environment override for the level :func:`ensure_logging_configured` installs.
+LOG_LEVEL_ENV = "MERCURY_LOG_LEVEL"
+#: ``json`` or ``text``: the format :func:`ensure_logging_configured` installs.
+LOG_FORMAT_ENV = "MERCURY_LOG_FORMAT"
+
 # PII patterns to redact (can be extended)
 PII_PATTERNS = [
     "password",
@@ -239,14 +244,24 @@ class ColoredFormatter(logging.Formatter):
     }
     RESET = "\033[0m"
 
-    def __init__(self, fmt: str | None = None, datefmt: str | None = None) -> None:
+    def __init__(
+        self,
+        fmt: str | None = None,
+        datefmt: str | None = None,
+        *,
+        color: bool = True,
+    ) -> None:
         """Initialize the colored formatter.
 
         Args:
             fmt: Log format string.
             datefmt: Date format string.
+            color: Emit ANSI colour codes. :func:`configure_logging` passes
+                ``False`` when stdout is not a terminal, so a log redirected
+                to a file or collected by a container runtime stays plain.
         """
         super().__init__(fmt or DEFAULT_FORMAT, datefmt or DEFAULT_DATE_FORMAT)
+        self.color = color
 
     def format(self, record: logging.LogRecord) -> str:
         """Format the log record with colors.
@@ -257,8 +272,9 @@ class ColoredFormatter(logging.Formatter):
         Returns:
             Colored string representation.
         """
-        color = self.COLORS.get(record.levelname, "")
-        record.levelname = f"{color}{record.levelname}{self.RESET}"
+        if self.color:
+            color = self.COLORS.get(record.levelname, "")
+            record.levelname = f"{color}{record.levelname}{self.RESET}"
         # Same last-line scrub as StructuredFormatter: the dev console
         # renders messages and tracebacks too, and a credential is no
         # less live for appearing on a developer's terminal.
@@ -475,7 +491,7 @@ def configure_logging(
             extra_fields=extra_fields,
         )
     else:
-        formatter = ColoredFormatter()
+        formatter = ColoredFormatter(color=sys.stdout.isatty())
 
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
@@ -499,6 +515,36 @@ def configure_logging(
 
     # Prevent propagation to root logger
     root_logger.propagate = False
+
+
+def ensure_logging_configured(default_level: str | int = "INFO") -> bool:
+    """Configure the package logger when the host process has not.
+
+    An ASGI server such as uvicorn configures only its own loggers; the
+    ``omni_mercury_engine`` logger then has no handler and nothing below
+    WARNING is ever written, so the API's start-up, maintenance and mailer
+    records (including the verification link the development mailer logs)
+    vanished from every ``uvicorn ...server:app`` deployment. The API's
+    lifespan calls this once per worker.
+
+    Nothing is changed when the host already configured logging: a handler
+    on the package logger (:func:`configure_logging` was called) or on the
+    root logger (``logging.basicConfig``/``dictConfig``, or pytest's capture)
+    means records already have somewhere to go.
+
+    Args:
+        default_level: Level to install when :data:`LOG_LEVEL_ENV` is unset;
+            the API passes uvicorn's ``--log-level``.
+
+    Returns:
+        ``True`` when this call installed the configuration.
+    """
+    if logging.getLogger("omni_mercury_engine").handlers or logging.getLogger().handlers:
+        return False
+    level: str | int = os.getenv(LOG_LEVEL_ENV) or default_level
+    log_format = (os.getenv(LOG_FORMAT_ENV) or "text").strip().lower()
+    configure_logging(level=level, json_format=log_format == "json")
+    return True
 
 
 def log_function_call(

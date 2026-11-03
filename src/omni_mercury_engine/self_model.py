@@ -73,6 +73,13 @@ class CapabilitySpec:
             reach a grounded verdict (for example, identity verification
             without a face-identity backend).
         evidence: Benchmark artefacts (repo-relative) that measure it.
+        switch: Name of the operator decoupling switch
+            (:mod:`omni_mercury_engine.decouple`) that can turn this
+            capability off; ``None`` when it has none.
+        switches: Every further switch the capability also needs on. The
+            FINDΩYOU™ bridge refuses to import unless both ``findoyou`` and
+            ``ama_optional`` are on, so a probe that read only the first
+            reported it grounded while its import raised.
     """
 
     name: str
@@ -81,6 +88,13 @@ class CapabilitySpec:
     requires: tuple[str, ...] = ()
     grounding_requires: tuple[str, ...] = ()
     evidence: tuple[str, ...] = ()
+    switch: str | None = None
+    switches: tuple[str, ...] = ()
+
+    @property
+    def all_switches(self) -> tuple[str, ...]:
+        """Every decoupling switch this capability depends on, in order."""
+        return tuple(s for s in (self.switch, *self.switches) if s)
 
 
 CAPABILITIES: tuple[CapabilitySpec, ...] = (
@@ -109,6 +123,11 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         "age_progression",
         "cardioidal craniofacial growth geometry, deterministic texture aging, audited output",
         ("omni_mercury_engine.models.biometric_multimodal",),
+        # cv2 is back in the list, and now it is the truth rather than a
+        # silent degradation: OpenCV moved into the core dependencies, the
+        # module imports it unconditionally, and the legacy-noise texture
+        # model blurs through it. While it was optional this capability
+        # reported available and then returned the face unchanged.
         requires=("numpy", "scipy", "cv2"),
     ),
     CapabilitySpec(
@@ -116,6 +135,8 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         "signed three-state missing-person image evidence for FINDΩYOU™",
         ("omni_mercury_engine.integrations.findoyou_bridge",),
         requires=("ama_cryptography",),
+        switch="findoyou",
+        switches=("ama_optional",),
     ),
     CapabilitySpec(
         "post_quantum_signing",
@@ -150,7 +171,26 @@ def _probe_capability(spec: CapabilitySpec) -> dict[str, Any]:
     missing_modules = [m for m in spec.modules if not _module_present(m)]
     missing = [r for r in spec.requires if not _module_present(r)]
     missing_grounding = [r for r in spec.grounding_requires if not _module_present(r)]
-    if missing_modules or missing:
+    switched_off: list[str] = []
+    if spec.all_switches:
+        from omni_mercury_engine.decouple import is_enabled
+
+        switched_off = [name for name in spec.all_switches if not is_enabled(name)]
+    if switched_off:
+        # An operator decision, reported as such: the code is present, the
+        # dependencies may be present, and it is off because someone said so.
+        # Every switch that is off is named, each with its remedy.
+        state = ThreeState.UNAVAILABLE
+        remedies = "; ".join(
+            f"`mercury-agent decouple {name.replace('_', '-')} on`" for name in switched_off
+        )
+        reason = (
+            "disabled by the operator (decoupling switch"
+            f"{'es' if len(switched_off) > 1 else ''} "
+            + ", ".join(repr(n) for n in switched_off)
+            + f"; re-enable with {remedies})"
+        )
+    elif missing_modules or missing:
         state = ThreeState.UNAVAILABLE
         reason = "missing: " + ", ".join(missing_modules + missing)
     elif missing_grounding:

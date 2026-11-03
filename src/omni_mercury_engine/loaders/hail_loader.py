@@ -143,6 +143,13 @@ class HailLoader(BaseDomainLoader):
         "hour",
     ]
 
+    #: De-leak: labels threshold hail diameter, which is this column.
+    #: Still computed and returned by ``engineer_features``; excluded only
+    #: from the scored matrix, so nothing is lost and the labels stop
+    #: describing the thing being scored.
+    LABEL_DERIVED_FEATURES: tuple[str, ...] = ("hail_size_in",)
+    LABEL_FEATURE_DISJOINT: bool = True
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the hail loader.
 

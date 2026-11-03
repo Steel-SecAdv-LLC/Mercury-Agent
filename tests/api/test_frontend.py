@@ -112,6 +112,7 @@ _PAGE_MARKERS = {
     "/reset-password": 'id="reset-request-form"',
     "/confirm-email-change": 'id="confirm-status"',
     "/dashboard": 'id="api-key-form"',
+    "/console": 'id="mercury-console"',
 }
 
 
@@ -134,6 +135,22 @@ def test_static_assets_resolve(site: Site) -> None:
         "/static/auth.js",
         "/static/dashboard.js",
         "/static/vendor/qrcode.js",
+        "/static/console/tokens.css",
+        "/static/console/port.css",
+        "/static/console/catalog.js",
+        "/static/console/api.js",
+        "/static/console/mass.js",
+        "/static/console/agent.js",
+        "/static/console/viz.js",
+        "/static/console/capture.js",
+        "/static/console/figure-trace.js",
+        "/static/console/figure.js",
+        "/static/console/dc-runtime.js",
+        "/static/console/template.js",
+        "/static/console/logic.js",
+        "/static/console/diag.js",
+        "/static/console/omega-cross.png",
+        "/static/console/ama-monogram.png",
     ):
         response = client.get(path)
         assert response.status_code == 200, path
@@ -297,6 +314,33 @@ def test_pages_have_accessible_status_regions() -> None:
     for name in ("register", "login", "verify-email", "reset-password", "dashboard"):
         html = (frontend._PAGES_DIR / f"{name}.html").read_text(encoding="utf-8")
         assert 'aria-live="polite"' in html, name
+    # The console's markup is its template (rendered by dc-runtime.js), not the page shell.
+    console_tpl = (frontend._STATIC_DIR / "console" / "template.js").read_text(encoding="utf-8")
+    assert '"aria-live":"polite"' in console_tpl
+    assert '["label",' in console_tpl
     for name in ("register", "login", "reset-password", "dashboard"):
         html = (frontend._PAGES_DIR / f"{name}.html").read_text(encoding="utf-8")
         assert "<label" in html, name
+
+
+def test_dashboard_offers_exactly_the_self_service_key_permissions() -> None:
+    """The key form grants what the server's whitelist allows, with the defaults pre-checked.
+
+    A dashboard-created key used to carry only the default set, so the export
+    routes were unreachable from the front end however the server was set up.
+    """
+    from omni_mercury_engine.api.routes import accounts as accounts_module
+
+    html = (frontend._PAGES_DIR / "dashboard.html").read_text(encoding="utf-8")
+    boxes = re.findall(
+        r'<input type="checkbox" name="api-key-permission" value="(\w+)"( checked)?', html
+    )
+    assert {name for name, _ in boxes} == {
+        p.value for p in accounts_module._SELF_SERVICE_KEY_PERMISSIONS
+    }
+    assert {name for name, checked in boxes if checked} == {
+        p.value for p in accounts_module._DEFAULT_KEY_PERMISSIONS
+    }
+    js = (frontend._STATIC_DIR / "dashboard.js").read_text(encoding="utf-8")
+    assert "payload.permissions = granted" in js
+    assert "Permissions" in html  # the key table names what each key holds
