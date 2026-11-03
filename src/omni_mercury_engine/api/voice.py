@@ -320,6 +320,27 @@ class StatusResponse(BaseModel):
     )
 
 
+class BackendsResponse(BaseModel):
+    """What the engine can talk to: the active model, every shipped provider, Ollama and MCP.
+
+    Attributes:
+        active: The provider the served voice generates prose with, if any;
+            console answers need none.
+        providers: One row per shipped provider adapter (name, wire format,
+            locality, the key environment variable and whether it is set
+            here, never its value).
+        ollama: The local runtime's host, model and reachability with the
+            models it lists.
+        mcp: The ``mercury-agent mcp`` stdio command, protocol, tool count
+            and a ready-to-paste configuration block per client.
+    """
+
+    active: dict[str, Any] = Field(..., description="The voice's active language model, if any")
+    providers: list[dict[str, Any]] = Field(..., description="Shipped provider adapters")
+    ollama: dict[str, Any] = Field(..., description="Local Ollama runtime status")
+    mcp: dict[str, Any] = Field(..., description="MCP server facts and client configuration")
+
+
 class GreetingResponse(BaseModel):
     """Response model for greeting endpoint."""
 
@@ -743,6 +764,33 @@ async def greet(
         message=message,
         capabilities=capabilities,
     )
+
+
+@router.get(
+    "/backends",
+    response_model=BackendsResponse,
+    summary="Language-model providers and MCP clients",
+    description="""
+What this engine can talk to, as facts a console or a script can act on.
+
+* `providers`: the ten language-model adapters the engine ships (OpenAI, Anthropic, xAI Grok,
+  Google Gemini, Cohere, DeepSeek, Cursor, Hugging Face, Ollama, built-in templates), each with
+  the key environment variable its adapter reads and whether that variable is set on this
+  server. Values are never returned.
+* `ollama`: whether the local Ollama runtime is reachable on its loopback host and which models
+  it lists (cached for 30 seconds).
+* `mcp`: the `mercury-agent mcp` stdio command, the protocol version and tools it advertises,
+  and the configuration block each MCP client (Claude Desktop and Claude Code, Cursor, VS Code
+  with Copilot, any stdio client) takes, ready to paste.
+* `active`: the provider the served voice generates prose with, if an operator enabled one;
+  the console's grounded answers are built without a model.
+    """,
+)
+async def backends() -> BackendsResponse:
+    """Report the language-model providers, the local runtime and the MCP clients."""
+    from omni_mercury_engine.api.backends import backends_report
+
+    return BackendsResponse(**backends_report(_get_voice()))
 
 
 @router.get(

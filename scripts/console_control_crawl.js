@@ -24,16 +24,24 @@
 // Usage (the server must serve the console; MERCURY_FRONTEND_ENABLED=true):
 //   BASE=http://127.0.0.1:8765 OUT=/tmp/crawl MAX_PER_VIEW=300 node scripts/console_control_crawl.js
 //   VIEWS="Session,Engine" node scripts/console_control_crawl.js      # a subset of views
+//   DEPTH=1 node scripts/console_control_crawl.js                     # do not follow revealed controls
 // Writes OUT/crawl_audit.json ({results: {view: [rows]}, errors}) and prints one
 // summary line per view. Exit status is 0 when the crawl completed; read the
 // DEAD rows, replay each one by hand, and fix or explain it (docs/design/
-// mercury_console/README.md, "Control audit"). Requires playwright with a
-// Chromium it can launch (the repository's CI image has one; locally,
-// `npx playwright install chromium`).
+// mercury_console/README.md, section 21). Requires Node with the playwright
+// package and a Chromium it can launch (`npm i playwright && npx playwright
+// install chromium`); CI does not run it, it is a manual audit tool.
+//
+// Honest limits: "no effect" is a lead, not a verdict. The crawl of
+// 2026-11-02 reported 16 DEAD rows after the fixes on this branch; 14 replayed
+// to a control whose state the click would set again (a chip already removed,
+// a command already loaded, a dialog already open, a send button with an
+// empty draft) and 2 exposed missing ARIA state, which were fixed. Budget
+// about five minutes per view at MAX_PER_VIEW=300.
 const { chromium } = require('playwright');
 const fs = require('fs');
 const BASE = process.env.BASE || 'http://127.0.0.1:8765', OUT = process.env.OUT || '.';
-const NAV = ["Terminal","Agent","Mass Run","Results","Captures","Record session","Commands","Runs","Detectors","Domains","Physics","Tools","AMA","FINDΩYOU™","MCP tools","API routes","Session","Diagnostics","Engine"];
+const NAV = ["Terminal","Agent","Mass Run","Results","Captures","Record session","Commands","Runs","Detectors","Domains","Physics","Tools","AMA","FINDΩYOU™","MCP tools","AI vendors","API routes","Session","Diagnostics","Engine"];
 const SEL = 'button, [role=button], [role=tab], [role=menuitem], [role=option], [role=checkbox], [role=switch], [role=radio], input[type=checkbox], input[type=radio], a[href], summary, label[for], select';
 const MAX_PER_VIEW = +(process.env.MAX_PER_VIEW || 420), DEPTH = +(process.env.DEPTH || 2);
 (async () => {

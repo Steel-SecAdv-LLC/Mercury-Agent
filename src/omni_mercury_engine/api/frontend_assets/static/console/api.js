@@ -206,6 +206,7 @@
     connected: () => !!cfg.baseUrl,
     simulated: () => cfg.baseUrl.startsWith("sim://"),
     health: () => call("GET", "/health"),
+    backends: () => call("GET", "/api/v1/voice/backends"),
     async probeUrl(url) { const saved = cfg.baseUrl; cfg.baseUrl = url; try { return await call("GET", "/health"); } finally { cfg.baseUrl = saved; } },
     openapi: () => call("GET", "/openapi.json"),
     post: (path, b, o) => call("POST", path, b, o),

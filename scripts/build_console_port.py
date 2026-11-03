@@ -1161,6 +1161,126 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
     ),
 )
 
+# --------------------------------------------------------------------------- #
+# AI vendors (2026-11): the language-model providers the engine ships adapters
+# for and the MCP clients that attach to it, as a console view. The catalog
+# carries the facts (scripts/build_console_catalog.py build_vendors, from
+# api/backends.py); GET /api/v1/voice/backends adds whether each key is set on
+# the server and whether Ollama is reachable. The console never holds a key.
+# --------------------------------------------------------------------------- #
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "AI vendors helpers: live backends status, chips, provider and client cards, clipboard",
+        "  detRunner(d) {",
+        "  /* AI vendors (api/backends.py -> GET /api/v1/voice/backends; catalog.vendors). */\n"
+        '  loadBackends(force) { if (!this.A || !this.live() || typeof this.A.backends !== "function") return; const now = Date.now(); '
+        "if (!force && this._backendsAt && now - this._backendsAt < 30000) return; this._backendsAt = now; "
+        'this.A.backends().then((r) => { if (r && r.ok && r.data) this.setState({ backends: r.data }); else this.setState({ backends: { error: (r && (r.error || r.status)) || "unreachable" } }); }); }\n'
+        "  vendorRow(id) { const B = this.state.backends; return B && Array.isArray(B.providers) ? B.providers.find((p) => p.provider === id) || null : null; }\n"
+        "  vendorChips(v) {\n"
+        '    const live = this.vendorRow(v.id), B = this.state.backends, chips = [this.chip(v.locality === "cloud" ? "cloud" : v.locality === "local" ? "local" : "built-in", v.locality === "builtin" ? "dim" : undefined)];\n'
+        '    if (v.key) chips.push(this.chip(live ? (live.configured ? v.key + " set" : v.key + " not set") : v.key, live ? (live.configured ? "ok" : "warn") : "dim"));\n'
+        '    if (v.id === "ollama" && B && B.ollama) { const n = (B.ollama.models || []).length; chips.push(this.chip(B.ollama.reachable ? "reachable · " + n + " model" + (n === 1 ? "" : "s") : "not reachable · " + B.ollama.base_url, B.ollama.reachable ? "ok" : "warn")); }\n'
+        '    if (B && B.active && B.active.enabled && B.active.provider === v.id) chips.push(this.chip("active", "on"));\n'
+        '    if (v.baseUrl) chips.push(this.chip("base_url required"));\n'
+        "    return chips;\n"
+        "  }\n"
+        "  copyText(t) { try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(String(t)).catch(() => { /* clipboard permission denied: the line below still shows the text */ }); } catch (e) { /* clipboard blocked */ } "
+        'this.append([this.row("⧉ copied · " + String(t).split("\\n")[0].slice(0, 90), "var(--mercury-200)")]); }\n'
+        "  vendorCard(v) {\n"
+        '    const live = this.vendorRow(v.id), B = this.state.backends, ol = v.id === "ollama" && B && B.ollama ? B.ollama : null, models = ol && ol.models ? ol.models : [];\n'
+        '    const kv = [["adapter", "models/foundation/" + (v.id === "ollama" ? "ollama_adapter.py" : "llm_adapter.py") + " · " + v.wire], ["locality", v.locality], '
+        '["key", v.key ? v.key + (live ? (live.configured ? " · set on this server" : " · not set on this server") : " · status needs a connected engine") : "none needed"], '
+        '["usage", v.usage ? "provider-reported tokens recorded in the usage ledger" : "unmetered"]];\n'
+        '    if (ol) kv.push(["ollama", ol.reachable ? ol.base_url + " · " + (models.length ? models.join(", ") : "no models pulled") : ol.base_url + " · not reachable" + (ol.error ? " (" + ol.error + ")" : "")]);\n'
+        '    if (v.baseUrl) kv.push(["base_url", "required; the adapter never guesses an endpoint"]);\n'
+        '    if (B && B.active) kv.push(["voice", B.active.enabled ? "generates prose with " + B.active.provider + (B.active.model ? " · " + B.active.model : "") : "no model: answers are built from the record and the code"]);\n'
+        '    const model = v.id === "ollama" ? (models.length ? models[0] : "llama3.2:3b") : "<model id>";\n'
+        '    const env = v.key ? "export " + v.key + "=<your key>" : v.id === "ollama" ? "export MERCURY_OLLAMA_MODEL=" + model : "# no configuration: built-in templates";\n'
+        '    return { k: "LLM PROVIDER · " + String(v.locality).toUpperCase(), t: v.name, d: v.note + " Keys are read by the engine from its environment; this console never holds one.", kv, '
+        'code: [env, "mercury-agent voice --model " + model], acts: [["Copy env line", () => this.copyText(env)], ["Build voice command", () => this.selectCmd("voice")], ["Refresh status", () => this.loadBackends(true)]] };\n'
+        "  }\n"
+        '  clientCard(c) { return { k: "MCP CLIENT · STDIO", t: c.name, d: c.note + " The client runs `mercury-agent mcp` and discovers Mercury\'s tools.", '
+        'kv: [["config file", c.file], ["server", "mercury-agent mcp (stdio, protocol 2024-11-05)"], ["tools", this.D.mcp.length + " (MCP tools view)"]], code: String(c.snippet).split("\\n"), '
+        'acts: [["Copy config", () => this.copyText(c.snippet)], ["Open MCP tools", () => this.setState({ ws: "browse", browse: "mcp", bq: "", bgrp: "", bmore: 0, menu: null })], ["Build mcp command", () => this.selectCmd("mcp")]] }; }\n'
+        "  detRunner(d) {",
+    ),
+    (
+        "the AI vendors view lists the MCP clients and the providers",
+        '    if (kind === "mcp") return [{ label: "MCP tools (mercury-agent mcp)", items: D.mcp.map((m) => ({ t: m.n, s: m.d, k: "MCP", act: () => this.setRef({ kind: "mcp", m }) })) }];',
+        '    if (kind === "vendors") { const V = D.vendors || { providers: [], clients: [] }; return [{ label: "MCP clients · attach an AI to Mercury (mercury-agent mcp)", '
+        'items: V.clients.map((c) => ({ t: c.name, s: c.note, k: "MCP CLIENT", act: () => this.setRef({ kind: "vendor_client", c }) })) }, '
+        '{ label: "Language-model providers · the adapters the engine ships", items: V.providers.map((v) => ({ t: v.name, s: v.note, k: "PROVIDER", act: () => this.setRef({ kind: "vendor", v }) })) }]; }\n'
+        '    if (kind === "mcp") return [{ label: "MCP tools (mercury-agent mcp)", items: D.mcp.map((m) => ({ t: m.n, s: m.d, k: "MCP", act: () => this.setRef({ kind: "mcp", m }) })) }];',
+    ),
+    (
+        "provider and client reference cards",
+        '    if (F.kind === "mcp") { const bb = fs0 ? this.formBody(fs0) : {}; ref = { k: "MCP TOOL · "',
+        '    if (F.kind === "vendor") ref = this.vendorCard(F.v);\n'
+        '    if (F.kind === "vendor_client") ref = this.clientCard(F.c);\n'
+        '    if (F.kind === "mcp") { const bb = fs0 ? this.formBody(fs0) : {}; ref = { k: "MCP TOOL · "',
+    ),
+    (
+        "the AI vendors view in the navigation",
+        'NI("", "MCP tools", "⇄", D.mcp.length, br("mcp"), "", isB("mcp")), ',
+        'NI("", "MCP tools", "⇄", D.mcp.length, br("mcp"), "", isB("mcp")), '
+        'NI("", "AI vendors", "◈", D.vendors ? D.vendors.providers.length + D.vendors.clients.length : 0, br("vendors"), "language-model providers and the MCP clients that attach to Mercury", isB("vendors")), ',
+    ),
+    (
+        "the AI vendors view title",
+        'mcp: ["MCP tools", "mercury-agent mcp (stdio)"], api:',
+        'mcp: ["MCP tools", "mercury-agent mcp (stdio)"], vendors: ["AI vendors", "the language-model providers the engine ships adapters for, and the MCP clients that attach to it"], api:',
+    ),
+    (
+        "opening the AI vendors view asks the engine for the live status",
+        'const br = (k) => () => this.setState({ ws: "browse", browse: k, bq: "", bgrp: "", bmore: 0, menu: null });',
+        'const br = (k) => () => { if (k === "vendors") this.loadBackends(); this.setState({ ws: "browse", browse: k, bq: "", bgrp: "", bmore: 0, menu: null }); };',
+    ),
+    (
+        "vendor rows carry status chips and hover notes",
+        '    else if (kind === "session") { if (i.off) chips.push(this.chip("disabled")); }\n',
+        '    else if (kind === "session") { if (i.off) chips.push(this.chip("disabled")); }\n'
+        '    else if (kind === "vendors") { if (i.k === "PROVIDER") { const v = ((this.D.vendors || {}).providers || []).find((p) => p.name === i.t); if (v) chips.push.apply(chips, this.vendorChips(v)); } else chips.push(this.chip("mcp · stdio")); }\n',
+    ),
+    (
+        "vendor hover notes",
+        '    else if (kind === "session") { head = "SESSION · " + i.t; }\n',
+        '    else if (kind === "session") { head = "SESSION · " + i.t; }\n'
+        '    else if (kind === "vendors") { head = (i.k || "VENDOR") + " · " + i.t; meta = i.k === "PROVIDER" ? "mercury-agent voice --model <id> · keys stay on the engine" : "paste the block into the client, it runs mercury-agent mcp"; }\n',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "the backends report",
+        '    health: () => call("GET", "/health"),',
+        '    health: () => call("GET", "/health"),\n    backends: () => call("GET", "/api/v1/voice/backends"),',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "AI vendors suite",
+        "    /* 6. Runs: argparse forms */",
+        "    /* 5d. AI vendors: the shipped providers and the MCP clients */\n"
+        '    { const s = S("AI vendors");\n'
+        '      const V = D.vendors; s.ok(!!V && V.providers.length === 10 && V.clients.length === 4, "the catalog carries the ten shipped providers and four MCP client blocks", V ? V.providers.length + "/" + V.clients.length : "none");\n'
+        '      s.ok(V.providers.every((v) => v.name && v.wire && v.locality && typeof v.note === "string"), "every provider carries name, wire format, locality and note", "");\n'
+        '      s.ok(V.clients.every((c) => /"mercury-agent"/.test(c.snippet) && /"mcp"/.test(c.snippet)), "every client block names mercury-agent mcp", "");\n'
+        '      const T = mk(); T.state.ws = "browse"; T.state.browse = "vendors"; T.state.bq = ""; T.state.bgrp = ""; T.state.bmore = 0; const o = T.renderVals(); const rows = (o.brSections || []).flatMap((g) => g.items);\n'
+        '      s.ok(rows.length === 14 && rows.every((r) => typeof r.enter === "function" && Array.isArray(r.chips) && r.chips.length > 0), "the AI vendors view renders fourteen rows with chips and hover notes", rows.length);\n'
+        '      const pc = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "xai") }); s.ok(!!pc && /Grok/.test(pc.t) && pc.kv.some((k) => k[0] === "key" && /XAI_API_KEY/.test(k[1])) && pc.acts.length === 3 && pc.code[0].indexOf("XAI_API_KEY") >= 0 && !bad(pc.k + pc.t + pc.d), "a provider card names its key variable, never a value, and offers env, command and refresh", pc && pc.t);\n'
+        '      const oc = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "ollama") }); s.ok(!!oc && oc.kv.some((k) => k[0] === "key" && /none needed/.test(k[1])), "the Ollama card needs no key", "");\n'
+        '      const cc = T.refCard({ kind: "vendor_client", c: V.clients.find((c) => c.id === "copilot") }); s.ok(!!cc && cc.code.join("\\n").indexOf("\\"servers\\"") >= 0 && cc.acts.some((a) => a[0] === "Copy config"), "the Copilot card carries the servers block and a copy action", "");\n'
+        '      T.state.backends = { providers: [{ provider: "xai", configured: true }], ollama: { reachable: true, models: ["llama3.2:3b"], base_url: "http://localhost:11434" }, active: { enabled: false } };\n'
+        '      const ch = T.vendorChips(V.providers.find((v) => v.id === "xai")); s.ok(ch.some((c) => /XAI_API_KEY set/.test(c.t)), "a configured key shows as set", ch.map((c) => c.t).join(","));\n'
+        '      const oh = T.vendorChips(V.providers.find((v) => v.id === "ollama")); s.ok(oh.some((c) => /reachable · 1 model$/.test(c.t)), "a reachable Ollama shows its model count", oh.map((c) => c.t).join(","));\n'
+        '      if (A && typeof A.backends === "function" && C.live()) { const r = await A.backends(); s.ok(!!(r.ok && r.data && r.data.providers.length === 10 && Array.isArray(r.data.mcp.clients)), "GET /api/v1/voice/backends answers with ten providers and the MCP clients", r.status); s.ok(!/sk-[A-Za-z0-9]{8}/.test(JSON.stringify(r.data)), "the route carries no key value", ""); }\n'
+        "    }\n\n"
+        "    /* 6. Runs: argparse forms */",
+    ),
+)
+
 #: Design modules shipped unchanged apart from MODULE_PATCHES.
 MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
     (

@@ -137,6 +137,22 @@
       s.ok(typeof T.speakAloud === "function" && (window.speechSynthesis ? true : T.speakAloud("x") === false), "spoken replies degrade to silence without speech synthesis", "");
     }
 
+    /* 5d. AI vendors: the shipped providers and the MCP clients */
+    { const s = S("AI vendors");
+      const V = D.vendors; s.ok(!!V && V.providers.length === 10 && V.clients.length === 4, "the catalog carries the ten shipped providers and four MCP client blocks", V ? V.providers.length + "/" + V.clients.length : "none");
+      s.ok(V.providers.every((v) => v.name && v.wire && v.locality && typeof v.note === "string"), "every provider carries name, wire format, locality and note", "");
+      s.ok(V.clients.every((c) => /"mercury-agent"/.test(c.snippet) && /"mcp"/.test(c.snippet)), "every client block names mercury-agent mcp", "");
+      const T = mk(); T.state.ws = "browse"; T.state.browse = "vendors"; T.state.bq = ""; T.state.bgrp = ""; T.state.bmore = 0; const o = T.renderVals(); const rows = (o.brSections || []).flatMap((g) => g.items);
+      s.ok(rows.length === 14 && rows.every((r) => typeof r.enter === "function" && Array.isArray(r.chips) && r.chips.length > 0), "the AI vendors view renders fourteen rows with chips and hover notes", rows.length);
+      const pc = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "xai") }); s.ok(!!pc && /Grok/.test(pc.t) && pc.kv.some((k) => k[0] === "key" && /XAI_API_KEY/.test(k[1])) && pc.acts.length === 3 && pc.code[0].indexOf("XAI_API_KEY") >= 0 && !bad(pc.k + pc.t + pc.d), "a provider card names its key variable, never a value, and offers env, command and refresh", pc && pc.t);
+      const oc = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "ollama") }); s.ok(!!oc && oc.kv.some((k) => k[0] === "key" && /none needed/.test(k[1])), "the Ollama card needs no key", "");
+      const cc = T.refCard({ kind: "vendor_client", c: V.clients.find((c) => c.id === "copilot") }); s.ok(!!cc && cc.code.join("\n").indexOf("\"servers\"") >= 0 && cc.acts.some((a) => a[0] === "Copy config"), "the Copilot card carries the servers block and a copy action", "");
+      T.state.backends = { providers: [{ provider: "xai", configured: true }], ollama: { reachable: true, models: ["llama3.2:3b"], base_url: "http://localhost:11434" }, active: { enabled: false } };
+      const ch = T.vendorChips(V.providers.find((v) => v.id === "xai")); s.ok(ch.some((c) => /XAI_API_KEY set/.test(c.t)), "a configured key shows as set", ch.map((c) => c.t).join(","));
+      const oh = T.vendorChips(V.providers.find((v) => v.id === "ollama")); s.ok(oh.some((c) => /reachable · 1 model$/.test(c.t)), "a reachable Ollama shows its model count", oh.map((c) => c.t).join(","));
+      if (A && typeof A.backends === "function" && C.live()) { const r = await A.backends(); s.ok(!!(r.ok && r.data && r.data.providers.length === 10 && Array.isArray(r.data.mcp.clients)), "GET /api/v1/voice/backends answers with ten providers and the MCP clients", r.status); s.ok(!/sk-[A-Za-z0-9]{8}/.test(JSON.stringify(r.data)), "the route carries no key value", ""); }
+    }
+
     /* 6. Runs: argparse forms */
     { const s = S("Runs (" + D.runs.length + ")");
       D.runs.forEach((r) => s.guard(r.p, () => {

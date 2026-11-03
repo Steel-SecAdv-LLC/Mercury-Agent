@@ -86,12 +86,40 @@ alert arrives). The theme and language option buttons and every switch now
 carry `aria-pressed` / `aria-checked` as strings, so the state survives being
 false. The self-test gains a Settings & accessibility suite (9,192 checks).
 
+**Added — AI vendors: which language models and which AI clients can link
+to Mercury, shown in the console.** The engine ships adapters for ten
+language-model providers (OpenAI, Anthropic, xAI Grok, Google Gemini,
+Cohere, DeepSeek, Cursor, Hugging Face, Ollama, built-in templates) and an
+MCP server any stdio client attaches to, but the console showed none of it.
+`GET /api/v1/voice/backends` (new, `api/backends.py`; anonymous, read-only)
+reports every provider from the code-grounded `PROVIDER_CATALOG` with the key
+environment variable its adapter reads and whether it is set on the server
+(never its value), probes the local Ollama runtime through the egress gate
+for its models (2-second timeout, 30-second cache), returns the
+`mercury-agent mcp` command with the protocol version, the tool list and a
+ready-to-paste configuration block for Claude Desktop and Claude Code,
+Cursor, VS Code with Copilot and any stdio client, and says which provider
+the served voice generates prose with, if an operator enabled one (the
+console's grounded answers need none). The console gains an **AI vendors**
+view under INTERFACES with status chips (key set or not, Ollama reachable
+with its model count, active), provider cards (adapter and wire format, the
+exact `export` line, `mercury-agent voice --model`) and client cards (the
+configuration file, the block, Copy config), and a self-test suite. Vendors
+that attach only to remote MCP servers (ChatGPT, Grok) are named as model
+providers, not clients, because Mercury serves MCP over stdio only. Tests:
+`tests/api/test_voice_backends.py` (the catalog boundary, a key never
+appears in the response, both probe outcomes, the cache, OpenAPI).
+
 **Added — the console control crawl is a repository script.**
 `scripts/console_control_crawl.js` (previously a session-only tool) drives
 every view of the served console in headless Chromium, restores the
 console's state before each click, follows revealed controls to a chosen
-depth and reports the controls with no observable effect; its verdicts and
-the replay discipline are documented in the console design notes.
+depth and reports the controls with no observable effect; its verdicts, its
+limits (a "no effect" is a lead, not a verdict: 14 of the 16 rows of the last
+crawl replayed to controls already in the state the click would set) and the
+replay discipline are documented in the console design notes and tested by
+`tests/scripts/test_console_control_crawl.py`. CI runs no browser; it is a
+manual tool.
 
 **Fixed — a flaky catalog test that rewrote the committed catalog.**
 `tests/scripts/test_generate_detector_catalog.py` appended a stale line to

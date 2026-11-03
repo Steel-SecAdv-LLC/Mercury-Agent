@@ -44,6 +44,23 @@ discovers Mercury's tools (`tools/list`), and invokes them (`tools/call`). The
 carries a JSON-Schema `inputSchema`), also available programmatically via
 `MercuryMCPServer().manifest()` for other transports.
 
+## From the console and the API
+
+`GET /api/v1/voice/backends` (anonymous, read-only) returns the same block for
+each client (Claude Desktop and Claude Code, Cursor, VS Code with Copilot, any
+stdio client) together with the ten language-model provider adapters the
+engine ships, whether each provider's key is set on the server (never its
+value), and whether the local Ollama runtime is reachable and with which
+models. The console's **AI vendors** view (INTERFACES) shows the same: a
+client card carries its configuration block and a Copy action; a provider
+card carries the key variable's state, the Ollama models, the exact `export`
+line and `mercury-agent voice --model` command. Keys are read by the engine
+from its environment; the console never holds one.
+
+Vendors that attach to *remote* MCP servers only (ChatGPT, Grok) cannot run
+the stdio command; Mercury does not ship an HTTP MCP transport. Those vendors
+reach Mercury the other way round, as model providers (`openai`, `xai`).
+
 ## Tools exposed
 
 | Tool | What it does | Availability |

@@ -550,6 +550,43 @@ def build_mcp() -> tuple[list[dict[str, str]], dict[str, Any]]:
     return listing, schemas
 
 
+def build_vendors() -> dict[str, Any]:
+    """The language-model providers the engine ships adapters for, and the MCP clients.
+
+    Read from ``api/backends.py`` (which reads the code-grounded
+    ``PROVIDER_CATALOG``), so the console's AI vendors view lists exactly the
+    adapters the engine has; the live route adds whether each key is set and
+    whether Ollama is reachable.
+    """
+    from omni_mercury_engine.api.backends import MCP_CLIENTS, PROVIDER_NAMES, PROVIDER_NOTES
+    from omni_mercury_engine.models.llm_registry import PROVIDER_CATALOG
+
+    providers = [
+        {
+            "id": provider,
+            "name": PROVIDER_NAMES.get(provider, provider),
+            "wire": facts.wire_format,
+            "locality": facts.locality,
+            "key": facts.api_key_env_var,
+            "baseUrl": facts.requires_explicit_base_url,
+            "usage": facts.reports_token_usage,
+            "note": PROVIDER_NOTES.get(provider, ""),
+        }
+        for provider, facts in PROVIDER_CATALOG.items()
+    ]
+    clients = [
+        {
+            "id": c["id"],
+            "name": c["name"],
+            "file": c["config_file"],
+            "snippet": json.dumps(c["snippet"], indent=2),
+            "note": c["note"],
+        }
+        for c in MCP_CLIENTS
+    ]
+    return {"providers": providers, "clients": clients, "command": "mercury-agent mcp"}
+
+
 def build_api() -> tuple[list[dict[str, str]], dict[str, Any]]:
     """Every OpenAPI operation, and the JSON request schema of each."""
     logging.disable(logging.WARNING)
@@ -823,6 +860,7 @@ def build() -> dict[str, Any]:
         "tier": build_tier(),
         "mcp": mcp,
         "mcpSchemas": mcp_schemas,
+        "vendors": build_vendors(),
         "api": api,
         "schemas": api_schemas,
         "runs": build_runs(),
