@@ -808,7 +808,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Verification Rigor | Rigor over raw count: property-based testing (Hypothesis), full-enumeration mutation testing with kill-rate floors enforced in CI on ten module sets, security scanning, and label-provenance/leakage and drift gates. Structural test-module counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block — the headline is the method, not a test tally |
 | Benchmark Coverage | 67 reproducible datasets (47 ADBench + 20 domain) of 76 attempted (47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8610** / Median **0.9077** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8571** |
-| Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
+| Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+ on Apple silicon (Intel Macs: core package only), Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`: a design-time proof certified by `tools/lyapunov_validator.py`, *monitored* at runtime and not enforced by default — `LyapunovRuntimeEnforcer` has `halt_on_violation=False`; see [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
 
@@ -1121,7 +1121,7 @@ sudo apt-get install build-essential python3-dev
 pip install -e ".[all]" && bash scripts/build_ama_native.sh
 ```
 
-**macOS (13+)**:
+**macOS (13+, Apple silicon)** (on an Intel Mac only the core package installs: `pip install -e .`):
 ```bash
 # Install via Homebrew if needed
 brew install python@3.12
@@ -1239,7 +1239,12 @@ Once enabled, a detector contributes its feature group to `fit_fusion` and `dete
 # View available commands
 mercury-agent --help
 
-# Anomaly detection (CSV with or without a header row, .json or .npy)
+# Anomaly detection (CSV with or without a header row, .json or .npy).
+# The base detectors fit on the input itself:
+mercury-agent detect --input data.csv --detector dimensional
+# The fusion path serves a trained model and refuses data of another width
+# (the bundled model has 16 columns); train one on your layout first:
+mercury-agent train --data data.csv --labels labels.csv --install
 mercury-agent detect --input data.csv --detector fusion
 
 # Biometric analysis
@@ -1945,7 +1950,8 @@ mypy src/
 | Platform | Status | Notes |
 |----------|--------|-------|
 | Linux (Ubuntu 22.04+) | Supported, CI-tested | Primary development platform; the only platform in the CI matrix |
-| macOS (13+) | Supported install target | Apple Silicon compatible; not in the CI matrix |
+| macOS (13+), Apple silicon | Supported install target | In `uv.lock`; not in the CI matrix |
+| macOS, Intel (x86_64) | Core package only | PyTorch publishes no Intel-macOS wheel since 2.2 and numba none since 0.63, so the torch-bearing extras (`[ml]`, `[api]`, `[all]`, ...) cannot install there; `uv.lock` therefore excludes the platform (`[tool.uv] environments`). `pip install -e .` still works |
 | Windows (10/11) | Supported install target | WSL2 recommended; not in the CI matrix |
 | Docker | Supported, CI-tested | Multi-stage build (`python:3.14-slim-trixie`), Trivy-gated |
 | Kubernetes | Supported install target | Helm chart and overlays included as reference configurations |

@@ -123,6 +123,19 @@ updates:
       # in pyproject.toml. Bump manually once the codebase migrates.
       - dependency-name: "opencv-python-headless"
         update-types: ["version-update:semver-major"]
+      # nixtla 0.8.0 and 0.9.0 declare ``pandas<3.0.0``; taking either
+      # moves pandas 3.1.0 -> 2.3.3 for the whole project (PR #393 did).
+      # 0.7.2 accepts pandas 3. A later nixtla is replayed on every pull
+      # request by scripts/simulate_dependabot_uv.py.
+      - dependency-name: "nixtla"
+        versions: [">=0.8.0,<0.10.0"]
+      # TensorFlow 2.21 (the [face]/[vlm] stack below Python 3.14) declares
+      # ``h5py<3.15``; an h5py 3.15+ update downgrades it to 2.20 (PR #393
+      # did). The 3.14 lanes already take h5py 3.16 through the
+      # ``[tool.uv] constraint-dependencies`` entry. The replay fails as
+      # "stale-ignore" once a TensorFlow release lifts the cap.
+      - dependency-name: "h5py"
+        versions: [">=3.15.0"]
     # Vulnerability alerts configuration
     # Prioritize security updates over feature updates
     versioning-strategy: "increase-if-necessary"

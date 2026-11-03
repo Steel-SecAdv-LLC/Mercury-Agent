@@ -58,4 +58,9 @@ useDefault = true
     # tests/fixtures/crs/crs_v470_payloads.json: the jwt.io documentation sample
     # token (sub 1234567890, "John Doe") inside an OWASP CRS v4.7.0 test payload.
     '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ''',
+    # tests/api/test_voice_backends.py: two made-up provider keys. The tests
+    # set them as XAI_API_KEY / a stored GROQ key and assert the value never
+    # appears in any response body; they match no provider's real key format.
+    '''sk-test-0123456789-never-leaks''',
+    '''gsk-test-never-echoed-0123456789''',
   ]

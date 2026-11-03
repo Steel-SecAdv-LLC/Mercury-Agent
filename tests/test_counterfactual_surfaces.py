@@ -234,12 +234,13 @@ class TestFlagshipGdprReportHTTP:
         self, client: Any, auth_headers: dict[str, str]
     ) -> None:
         pytest.importorskip("torch")
+        # 16 columns: the served (bundled) model's fitted width.
         rng = np.random.default_rng(1)
         response = client.post(
             "/api/v1/detect/flagship",
             headers=auth_headers,
             json={
-                "data": rng.normal(size=(24, 6)).tolist(),
+                "data": rng.normal(size=(24, 16)).tolist(),
                 "gdpr_report": True,
                 "subject_id": "test-subject-1",
             },
@@ -255,11 +256,12 @@ class TestFlagshipGdprReportHTTP:
 
     def test_default_off(self, client: Any, auth_headers: dict[str, str]) -> None:
         pytest.importorskip("torch")
+        # 16 columns: the served (bundled) model's fitted width.
         rng = np.random.default_rng(1)
         response = client.post(
             "/api/v1/detect/flagship",
             headers=auth_headers,
-            json={"data": rng.normal(size=(24, 6)).tolist()},
+            json={"data": rng.normal(size=(24, 16)).tolist()},
         )
         assert response.status_code in (200, 403), response.text
         if response.status_code == 200:

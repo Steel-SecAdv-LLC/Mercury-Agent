@@ -91,7 +91,9 @@ class TestDetectThreshold:
         import numpy as np
 
         rng = np.random.default_rng(1)
-        data = rng.normal(size=(30, 5))
+        # 16 columns, the bundled fusion model's fitted width (other widths
+        # are refused; tests/core/test_legacy_checkpoint_width.py).
+        data = rng.normal(size=(30, 16))
         p = tmp_path / "data.csv"
         p.write_text("\n".join(",".join(str(x) for x in row) for row in data))
         return str(p)

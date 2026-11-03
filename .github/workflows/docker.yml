@@ -28,21 +28,6 @@ jobs:
       actions: write
 
     steps:
-      - name: Free up disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          # Additional cleanup for more disk space
-          sudo rm -rf /usr/share/swift
-          sudo rm -rf /usr/local/graalvm
-          sudo rm -rf /usr/local/.ghcup
-          docker system prune -af || true
-          docker builder prune -af || true
-          df -h
-
       - name: Checkout (attempt 1)
         id: checkout
         continue-on-error: true
@@ -71,6 +56,12 @@ jobs:
       - name: Checkout (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+        with:
+          deep: "true"
+          extra-paths: "/usr/local/share/boost /usr/local/graalvm ${{ runner.tool_cache }}"
 
       - name: Set up Docker Buildx
         shell: bash

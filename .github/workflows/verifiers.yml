@@ -43,6 +43,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -66,8 +69,8 @@ jobs:
             echo "::warning::PyTorch CPU index attempt ${attempt} failed (CDN); retrying"
             sleep $((attempt * 20))
           done
-          python -c "import torch" 2>/dev/null || pip install torch torchvision
-          pip install -e ".[ml]"
+          python -c "import torch" 2>/dev/null || pip install --no-cache-dir torch torchvision
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio
 
       # AMA Cryptography is Mercury's mandatory PQC backend: importing

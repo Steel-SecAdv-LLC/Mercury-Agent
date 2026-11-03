@@ -93,9 +93,15 @@ def test_fitted_width_round_trips_through_the_checkpoint(
         loaded.detect_batch(np.random.default_rng(7).normal(size=(5, WIDTH + 1)))
 
 
-def test_legacy_checkpoint_without_width_disables_the_check(
+def test_legacy_checkpoint_recovers_its_width_from_its_training_rows(
     fitted_engine: OmniMercuryEngine, tmp_path: Path
 ) -> None:
+    """A checkpoint written before the width key keeps the check.
+
+    It used to disable it, which let the bundled 16-column model score any
+    width (tests/core/test_legacy_checkpoint_width.py); its restored spatial
+    training rows still state the width.
+    """
     import torch
 
     path = tmp_path / "legacy.pt"
@@ -107,7 +113,27 @@ def test_legacy_checkpoint_without_width_disables_the_check(
         warnings.simplefilter("ignore")
         loaded = OmniMercuryEngine()
         loaded.load_model(str(path))
-    assert loaded._fitted_feature_width is None
+    assert loaded.fitted_feature_width == WIDTH
+    with pytest.raises(ValueError, match=f"fitted on {WIDTH}"):
+        loaded.detect_batch(np.random.default_rng(7).normal(size=(5, WIDTH + 1)))
+
+
+def test_legacy_checkpoint_without_training_rows_stays_unchecked(
+    fitted_engine: OmniMercuryEngine, tmp_path: Path
+) -> None:
+    import torch
+
+    path = tmp_path / "legacy_bare.pt"
+    fitted_engine.save_model(str(path))
+    checkpoint = torch.load(str(path), map_location="cpu", weights_only=False)
+    del checkpoint["fitted_feature_width"]
+    checkpoint.get("detector_fitted_state", {}).pop("spatial", None)
+    torch.save(checkpoint, str(path))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        loaded = OmniMercuryEngine()
+        loaded.load_model(str(path))
+    assert loaded.fitted_feature_width is None
 
 
 def test_dict_input_is_not_width_checked(fitted_engine: OmniMercuryEngine) -> None:

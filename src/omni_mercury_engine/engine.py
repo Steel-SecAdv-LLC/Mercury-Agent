@@ -4596,6 +4596,35 @@ class OmniMercuryEngine(LoggerMixin):
             monitor_drift=monitor_drift,
         )
 
+    @property
+    def fitted_feature_width(self) -> int | None:
+        """Feature columns the fitted engine scores; ``None`` when unchecked."""
+        return self._fitted_feature_width
+
+    def _width_of_restored_training_rows(self) -> int | None:
+        """Feature width of the training rows a loaded checkpoint restored.
+
+        The spatial detector keeps every training row (``lof_points``); when
+        its state came from the checkpoint, their column count is the width
+        the checkpoint was fitted on. ``None`` when no such rows were restored.
+        """
+        if "spatial" not in self._checkpoint_fit_detectors:
+            return None
+        exporter = getattr(self.detectors.get("spatial"), "get_fitted_state", None)
+        state = exporter() if callable(exporter) else None
+        if not state or "lof_points" not in state:
+            return None
+        points = np.asarray(state["lof_points"])
+        if points.ndim != 2 or points.shape[1] < 1:
+            return None
+        width = int(points.shape[1])
+        logger.info(
+            "Fusion checkpoint predates the recorded feature width; using %d, the "
+            "width of its restored training rows",
+            width,
+        )
+        return width
+
     def _check_feature_width(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any], caller: str
     ) -> None:
@@ -7331,6 +7360,19 @@ class OmniMercuryEngine(LoggerMixin):
                 # Serving uses this state as-is; explicit new training data
                 # replaces it (see _fit_for_training).
                 self._checkpoint_fit_detectors.add(det_name)
+
+            if "fitted_feature_width" not in checkpoint:
+                # Written before the width was recorded (the bundled
+                # ``default_fusion.pt`` is one). Such a checkpoint still holds
+                # its training rows in the spatial detector's state -- the rows
+                # the drift reference is built from -- so its width is known.
+                # Leaving it unchecked let ``detect -d fusion`` score 4-column
+                # data against 16-column fitted statistics and return a
+                # confident "clear" (p ~ 1e-17 for +6 sigma rows) while the
+                # drift check beside it reported the widths incomparable. A
+                # checkpoint that carries the key with ``None`` (pooled fit,
+                # dict input) stays unchecked by design.
+                self._fitted_feature_width = self._width_of_restored_training_rows()
 
             # Torch-module domain models: their randomly-initialized feature
             # extractors are part of the serve-time transform, so reload

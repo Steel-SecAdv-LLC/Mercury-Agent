@@ -54,11 +54,13 @@ jobs:
       if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+    - name: Free runner disk
+      uses: ./.github/actions/free-runner-disk
+
     - name: Set up Python
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: "3.12"
-        cache: 'pip'
 
     - name: Install security tools (audit-tool layer)
       # Audit tools are installed in the *runner's* default Python
@@ -89,7 +91,7 @@ jobs:
       run: |
         python -m venv /tmp/mercury-audit-env
         /tmp/mercury-audit-env/bin/pip install --upgrade "pip>=26.1"
-        /tmp/mercury-audit-env/bin/pip install -e ".[api]" \
+        /tmp/mercury-audit-env/bin/pip install --no-cache-dir -e ".[api]" \
           --upgrade "click>=8.2" "typer>=0.20"
         /tmp/mercury-audit-env/bin/pip list --format=freeze \
           > /tmp/mercury-audit-env/requirements.txt
@@ -183,38 +185,10 @@ jobs:
       if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-    - name: Free disk space
-      run: |
-        # Remove unused toolchains to free up disk space for large Docker images
-        # This is necessary for ML-heavy images with torch/pytorch dependencies
-        echo "=== Disk space before cleanup ==="
-        df -h /
-        
-        # Remove Android SDK (saves ~10GB)
-        sudo rm -rf /usr/local/lib/android || true
-        
-        # Remove .NET SDK (saves ~2GB)
-        sudo rm -rf /usr/share/dotnet || true
-        
-        # Remove Haskell/GHC (saves ~5GB)
-        sudo rm -rf /opt/ghc || true
-        sudo rm -rf /usr/local/.ghcup || true
-        
-        # Remove CodeQL (saves ~1GB)
-        sudo rm -rf /opt/hostedtoolcache/CodeQL || true
-        
-        # Remove Swift (saves ~1GB)
-        sudo rm -rf /usr/share/swift || true
-        
-        # Clean apt cache
-        sudo apt-get clean || true
-        
-        # Prune Docker to free space
-        docker system prune -af || true
-        docker builder prune -af || true
-        
-        echo "=== Disk space after cleanup ==="
-        df -h /
+    - name: Free runner disk
+      uses: ./.github/actions/free-runner-disk
+      with:
+        deep: "true"
 
     # Buildx setup with the same 3-attempt retry and the same pinned action
     # as ci.yml's docker-build job: booting the buildkit container pulls
@@ -487,6 +461,41 @@ jobs:
       uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Scan the pull request as main will see it (squash-equivalent commit)
+      # gitleaks-action builds its pull-request range from the first page of
+      # the PR's commit list, which is 30 commits: on a longer PR it scans
+      # only those ("30 commits scanned" on PR #388), so a key added in a
+      # later commit passes the PR and fails the push scan on main. After a
+      # squash merge, main scans exactly one commit: the PR's whole net
+      # change. This step builds that commit (the merge ref's tree on its
+      # base parent) and scans it the same way, so the PR is checked against
+      # what will land, whatever its commit count.
+      if: github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GITLEAKS_VERSION: "8.24.3"
+        # SHA-256 of gitleaks_8.24.3_linux_x64.tar.gz from the release's
+        # gitleaks_8.24.3_checksums.txt; the same version the action runs.
+        GITLEAKS_SHA256: "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c"
+      run: |
+        set -euo pipefail
+        tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+        curl -fsSL --retry 3 -o "/tmp/${tarball}" \
+          "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+        echo "${GITLEAKS_SHA256}  /tmp/${tarball}" | sha256sum -c -
+        mkdir -p /tmp/gitleaks-cli
+        tar -xzf "/tmp/${tarball}" -C /tmp/gitleaks-cli gitleaks
+        # The checkout is refs/pull/N/merge: parent 1 is the base branch tip,
+        # and its tree is the merged result a squash merge commits.
+        test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 3
+        squash="$(git -c user.name=ci -c user.email=ci@localhost \
+          commit-tree 'HEAD^{tree}' -p 'HEAD^1' -m 'squash-equivalent of this pull request')"
+        echo "Scanning $(git diff --name-only HEAD^1 "${squash}" | wc -l) changed files as one commit (${squash})"
+        /tmp/gitleaks-cli/gitleaks git . \
+          --config .gitleaks.toml \
+          --log-opts="-1 ${squash}" \
+          --redact --verbose --no-banner --exit-code 1
 
   codeql-analysis:
     name: CodeQL Analysis

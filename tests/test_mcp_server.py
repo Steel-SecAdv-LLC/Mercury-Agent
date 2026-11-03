@@ -418,7 +418,11 @@ class TestDetectionInterconnectTools:
         pytest.importorskip("torch")
         server = MercuryMCPServer()
         rng = np.random.default_rng(0)
-        result = _call(server, "mercury_detect_fusion", {"data": rng.normal(size=(30, 5)).tolist()})
+        # 16 columns, the served (bundled) model's fitted width; a 5-column
+        # matrix is refused (tests/core/test_legacy_checkpoint_width.py).
+        result = _call(
+            server, "mercury_detect_fusion", {"data": rng.normal(size=(30, 16)).tolist()}
+        )
         assert result["isError"] is False, result["content"][0]["text"]
         payload = json.loads(result["content"][0]["text"])
         assert 0.0 <= float(payload["anomaly_prob"]) <= 1.0

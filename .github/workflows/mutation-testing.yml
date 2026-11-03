@@ -175,6 +175,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -183,7 +186,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)
@@ -226,6 +229,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -234,7 +240,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       # AMA Cryptography is the mandatory PQC backend; the package fails
@@ -292,6 +298,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -300,7 +309,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)
@@ -364,6 +373,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -372,7 +384,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)
@@ -435,6 +447,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -443,7 +458,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)
@@ -500,6 +515,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -508,7 +526,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)
@@ -567,6 +585,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -575,7 +596,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)
@@ -626,6 +647,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -634,7 +658,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling + the observatory oracle (sympy/mpmath)
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis sympy
 
       - name: Build AMA Cryptography (native PQC)
@@ -708,6 +732,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -716,7 +743,7 @@ jobs:
       - name: Install Mercury [ml,api] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml,api]"
+          pip install --no-cache-dir -e ".[ml,api]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)
@@ -778,6 +805,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -786,7 +816,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)
@@ -850,6 +880,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -858,7 +891,7 @@ jobs:
       - name: Install Mercury [ml] + test tooling
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
           pip install pytest pytest-asyncio pytest-timeout hypothesis
 
       - name: Build AMA Cryptography (native PQC)

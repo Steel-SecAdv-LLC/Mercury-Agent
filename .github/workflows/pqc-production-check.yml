@@ -61,6 +61,9 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -77,7 +80,7 @@ jobs:
           # collection error on those files, so install the ``[api]`` extra
           # alongside ``[dev]`` to satisfy the ``api/auth.py`` runtime
           # contract under CI.
-          pip install -e ".[dev,api]"
+          pip install --no-cache-dir -e ".[dev,api]"
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # FIPS 204/205 KAT pinning: the byte-exact NIST ACVP reproduction in

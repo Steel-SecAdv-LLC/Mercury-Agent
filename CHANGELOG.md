@@ -27,6 +27,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — `detect -d fusion` scored any width against the bundled 16-column
+model and called the result clear.** The bundled `default_fusion.pt` predates
+the `fitted_feature_width` checkpoint key, so the width guard skipped it: a
+4-column CSV (480 N(0,1) rows, 20 rows shifted by +6 sigma) came back
+`state: grounded`, `disposition: clear`, `decision_confidence: 1.0`, p ~ 1e-17
+on every row, while the drift check in the same result said "input has 4
+features; the reference has 16". `load_model` now recovers the width of a
+checkpoint without the key from its restored training rows (the spatial
+detector's `lof_points`, the drift reference's own source); a checkpoint that
+records `None` on purpose (pooled fit) stays unchecked. The CLI refuses with
+both ways on (train on the layout, or use a base detector), `POST
+/detect/flagship` returns its 400, and the MCP flagship tool now returns a tool
+error instead of an internal one. Trained on the 4-column layout, the same data
+scores 20/20 with 0 false positives. Six test files encoded the old behaviour:
+five fed 5-, 6- or 12-column data to the 16-column model and asserted an answer
+(they now pass 16 columns; `tests/api/test_routes_comprehensive.py` also asserts the
+400), and `tests/core/test_engine_feature_width.py` asserted that a checkpoint
+without the width key is unchecked (it now asserts the recovered width, and
+`None` only when no training rows were restored).
+`tests/core/test_legacy_checkpoint_width.py` covers the bundled model.
+
+**Fixed — calibration sigmoids overflowed.** `TemperatureScaling._sigmoid`, the
+threshold-integral treatment curve and the `decision_function` margin map used
+`1 / (1 + exp(-z))`, which raised `RuntimeWarning: overflow encountered in exp`
+on a confident model (seen on the CLI after a 4-column retrain). All three use
+`scipy.special.expit`: identical where the old form was finite, exact past it.
+
+**CI — the three failures on main after PR #388 are now pull-request gates.**
+
+* *Gitleaks.* gitleaks-action builds a pull request's range from the first page
+  of its commit list, so PR #388 reported "30 commits scanned" and passed while
+  two test keys added later failed the push scan on main. Secret Detection now
+  also builds the PR's squash-equivalent commit (the merge ref's tree on its
+  base parent) and scans it with a checksum-pinned gitleaks 8.24.3 -- the exact
+  unit main scans. The two keys (`tests/api/test_voice_backends.py`, made-up
+  values the tests prove never leave the server) are allowlisted as exact
+  strings. `tests/test_secret_scan_contract.py` keeps the step and requires
+  every allowlist entry to be a literal still present in the tree.
+* *Runner disk.* PR #388 put torch in `[api]`; `ci.yml`'s audit job got a disk
+  step and `--no-cache-dir`, `security.yml`'s identical Dependency Security Scan
+  did not, and with a restored `cache: pip` it hit "Disk quota exceeded". One
+  composite action (`.github/actions/free-runner-disk`) replaces the eleven
+  inline copies, reports free space and fails below a floor before the install.
+  `tests/test_ci_disk_budget_contract.py` derives the torch-bearing extras from
+  `pyproject.toml` and requires every job that installs one (36 jobs across 16
+  workflows) to run the action first and not to write pip's cache, or to pay for
+  a kept cache with the deep cleanup. It fails on the pre-fix `security.yml`.
+* *Dependabot uv.* `scripts/simulate_dependabot_uv.py` replays Dependabot's
+  pin-and-lock for every direct dependency on each pull request and fails on an
+  update that cannot be solved or that downgrades another package; it
+  reproduces all three outcomes of the 2026-11-03 run on main's tree (shap
+  0.50.0 -> 0.51.0 unsolvable; h5py 3.14.0 -> 3.16.0 downgrades TensorFlow
+  2.21.0 -> 2.20.0; nixtla 0.7.2 -> 0.9.0 downgrades pandas 3.1.0 -> 2.3.3).
+  `scripts/check_lock_downgrades.py` fails a pull request whose `uv.lock` lowers
+  any package's highest version unless a commit declares it
+  (`Lock-Downgrade: <name> <old> -> <new>: <reason>`). Dependabot PR #393 did
+  exactly that behind a "minor" title, with auto-merge armed and every check
+  green; its auto-merge was disabled.
+
+**Changed — `uv.lock` no longer resolves for Intel macOS.** torch has no x86_64
+macOS wheel or sdist since 2.2, numba none since 0.63 (and every numba that has
+one needs numpy < 2.4 against the >= 2.4 floor), so that fork could not install
+any torch-bearing extra and was the fork the shap update could not solve.
+`[tool.uv] environments` now lists Linux, Windows and Apple-silicon macOS; the
+relock drops the side-forks it forced (one pandas, 3.1.0; one nixtla, 0.7.2;
+shap 0.51.0 for 3.11 and 0.54.1 for 3.12+). `pip install -e .` of the core
+package on an Intel Mac is unaffected; the README platform table says so.
+`nixtla` 0.8/0.9 (need `pandas<3`) and `h5py` >= 3.15 (TensorFlow 2.21 needs
+`h5py<3.15`) are versioned Dependabot ignores with reasons; the replay fails as
+"stale-ignore" once either becomes takeable.
+
+**Changed — astral-sh/setup-uv 9.0.0 -> 10.3.3** (Dependabot #392, green on
+every lane), pinned by SHA.
+
 **Fixed — fusion-weight cross-validation validates its weights.** In
 `benchmarks/calibration_validation.py::run_fusion_weight_cv` each fold split off
 its held-out rows and never used them: the fold's L-BFGS-B weights were fitted

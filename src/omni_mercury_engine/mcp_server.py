@@ -883,6 +883,12 @@ class MercuryMCPServer:
             raise ToolError(
                 f"flagship detection blocked by the '{exc.check}' ethical gate: {exc}"
             ) from exc
+        except ValueError as exc:
+            # The engine refuses input it cannot score as given -- most often a
+            # feature width other than the one the served model was fitted on.
+            # That is the caller's input, so it is a tool error with the reason,
+            # as POST /detect/flagship returns it as a 400.
+            raise ToolError(f"flagship detection refused the input: {exc}") from exc
         gosnn = result.get("gosnn_metadata", {})
         if not isinstance(gosnn, dict):
             gosnn = {}

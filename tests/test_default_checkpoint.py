@@ -59,7 +59,10 @@ class TestDefaultCheckpoint:
         eng = OmniMercuryEngine(mode="fusion", device="cpu", auto_load_checkpoint=True)
 
         rng = np.random.RandomState(3)
-        X = np.vstack([rng.normal(0, 1, (60, 12)), rng.normal(3, 1, (8, 12))]).astype(np.float32)
+        # 16 columns: the bundled model's fitted width. Other widths are refused
+        # (tests/core/test_legacy_checkpoint_width.py); this test used 12 and
+        # so asserted an answer about columns the model was never fitted on.
+        X = np.vstack([rng.normal(0, 1, (60, 16)), rng.normal(3, 1, (8, 16))]).astype(np.float32)
         result = eng.detect_with_fusion(X)
         assert "anomaly_prob" in result
         assert 0.0 <= result["anomaly_prob"] <= 1.0

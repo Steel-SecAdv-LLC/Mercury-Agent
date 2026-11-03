@@ -142,6 +142,19 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
         # Additive key in the JSON output; the core engine default stays
         # opt-in.
         engine.enable_decision_layer()
+        expected = engine.fitted_feature_width
+        width = getattr(data, "shape", (0, 0))[1] if getattr(data, "ndim", 0) == 2 else None
+        if expected is not None and width is not None and width != expected:
+            # The served model was fitted on another feature layout; scoring
+            # these columns against its fitted statistics would return a
+            # verdict about data it never saw. Say so, with the two ways on.
+            raise click.ClickException(
+                f"the fusion model being served was fitted on {expected} feature "
+                f"columns and {input} has {width}. Train one on this layout "
+                f"(`mercury-agent train -d {input} [-l labels.csv] --install`), "
+                "or score it with a base detector (`-d statistical`, `-d "
+                "dimensional`, ...), which fits on the input itself."
+            )
         results = engine.detect_with_fusion(data)
         if threshold is not None and "anomaly_prob" in results:
             # Honour the operator's explicit decision boundary over the model's

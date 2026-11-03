@@ -26,6 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Free runner disk
+        uses: ./.github/actions/free-runner-disk
+
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -34,7 +37,7 @@ jobs:
         run: |
           # Floor pip to >=26.1 (CVE-2026-6357).
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
 
       # AMA Cryptography is Mercury's mandatory PQC backend: importing
       # omni_mercury_engine runs the fail-closed PQC production gate, so even a

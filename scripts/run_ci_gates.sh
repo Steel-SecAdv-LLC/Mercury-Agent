@@ -77,6 +77,15 @@ run_gate "torch.load safety gate (ci.yml: no raw torch.load outside safe wrapper
 
 # --- Workflow Hardening job (repository script gates) ----------------------
 # actionlint and zizmor need their own toolchains and are not mirrored here.
+run_gate "uv.lock matches pyproject.toml (ci.yml: uv lock --check)" \
+  uv lock --check
+
+run_gate "uv.lock downgrades vs origin/main (ci.yml: check_lock_downgrades)" \
+  python scripts/check_lock_downgrades.py --base-ref origin/main
+
+run_gate "Dependabot uv replay (ci.yml: simulate_dependabot_uv; needs PyPI)" \
+  python scripts/simulate_dependabot_uv.py
+
 run_gate "workflow hardening checks (ci.yml: check_workflow_hardening)" \
   python scripts/check_workflow_hardening.py
 
@@ -183,6 +192,8 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/ci_gate_watchdog.py \
     scripts/check_dependency_licenses.py \
     scripts/record_gdacs_fixtures.py \
+    scripts/check_lock_downgrades.py \
+    scripts/simulate_dependabot_uv.py \
     --show-error-codes
 else
   echo ""
