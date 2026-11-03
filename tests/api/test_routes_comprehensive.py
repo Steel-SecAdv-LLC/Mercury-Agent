@@ -421,7 +421,8 @@ class TestDetectionRoutes:
         """
         pytest.importorskip("torch")
         rng = np.random.default_rng(0)
-        matrix = rng.normal(size=(30, 5)).tolist()
+        # 16 columns, the served (bundled) model's fitted width.
+        matrix = rng.normal(size=(30, 16)).tolist()
         response = client.post(
             "/api/v1/detect/flagship",
             json={"data": matrix},
@@ -438,6 +439,18 @@ class TestDetectionRoutes:
         # layer enabled, so the result closes the loop with a decision record.
         assert result["decision"]["disposition"] in {"act", "clear", "defer", "hold"}
         assert result["decision"]["response"]["action"] is not None
+
+    def test_flagship_detection_wrong_width_is_400(self, client: Any) -> None:
+        """A matrix of another width than the served model's is refused (400).
+
+        It used to be scored against the 16-column fitted statistics and
+        answered with a confident "clear".
+        """
+        pytest.importorskip("torch")
+        matrix = np.random.default_rng(0).normal(size=(30, 5)).tolist()
+        response = client.post("/api/v1/detect/flagship", json={"data": matrix})
+        assert response.status_code == 400, response.text
+        assert "fitted on 16" in response.text
 
     def test_flagship_detection_bad_shape(self, client: Any) -> None:
         """A 1-D series is rejected by the 2-D matrix contract (422)."""

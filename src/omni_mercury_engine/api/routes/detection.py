@@ -74,6 +74,41 @@ def _record_text(records: list[dict[str, Any]]) -> str:
     return " ".join(parts)
 
 
+def _served_flagship_engine() -> Any:
+    """Return the served flagship engine, building it once. Hold ``_flagship_lock``.
+
+    Shared by the detection route and the model-description route so both
+    describe the same loaded checkpoint.
+    """
+    global _flagship_engine
+    if _flagship_engine is None:
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
+        engine.load_default_fusion_checkpoint()
+        # Deployment posture: the served flagship closes the loop -- every
+        # detection carries a ``decision`` record (grounded verdict or
+        # explicit abstention plus a bounded, non-destructive response plan).
+        # Additive only: the detection route returns the raw result dict, so
+        # existing consumers see one extra key. The core engine's own default
+        # stays opt-in (``OmniMercuryEngine.enable_decision_layer``).
+        engine.enable_decision_layer()
+        _flagship_engine = engine
+    return _flagship_engine
+
+
+def _describe_flagship_model() -> dict[str, Any]:
+    """The served model's input contract, under the serialization lock."""
+    with _flagship_lock:
+        engine = _served_flagship_engine()
+        provenance = getattr(engine, "_fusion_provenance", None)
+        return {
+            "trained": bool(getattr(engine, "_fusion_trained", False)),
+            "fitted_feature_width": engine.fitted_feature_width,
+            "provenance": dict(provenance) if isinstance(provenance, dict) else None,
+        }
+
+
 def _run_flagship_detection(
     matrix: np.ndarray[Any, Any],
     domain: str | None,
@@ -89,23 +124,8 @@ def _run_flagship_detection(
     scalar bleed described above. Any :class:`EthicalConstraintViolationError`
     propagates to the caller, which maps it to HTTP 403.
     """
-    global _flagship_engine
     with _flagship_lock:
-        if _flagship_engine is None:
-            from omni_mercury_engine.engine import OmniMercuryEngine
-
-            engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
-            engine.load_default_fusion_checkpoint()
-            # Deployment posture: the served flagship closes the loop --
-            # every detection carries a ``decision`` record (grounded verdict
-            # or explicit abstention plus a bounded, non-destructive response
-            # plan). Additive only: this endpoint returns the raw result
-            # dict, so existing consumers see one extra key. The core
-            # engine's own default stays opt-in
-            # (``OmniMercuryEngine.enable_decision_layer``).
-            engine.enable_decision_layer()
-            _flagship_engine = engine
-        result: dict[str, Any] = _flagship_engine.detect_with_fusion(
+        result: dict[str, Any] = _served_flagship_engine().detect_with_fusion(
             matrix,
             domain=domain,
             explain=explain,
@@ -846,6 +866,32 @@ class FlagshipDetectRequest(BaseModel):
         default=None,
         description="Optional data-subject identifier recorded in the GDPR report.",
     )
+
+
+@router.get(
+    "/flagship/model",
+    summary="Describe the served flagship model",
+    description="""
+The input contract of the model ``POST /detect/flagship`` serves: whether it is
+trained, the number of feature columns it was fitted on (``null`` when the
+model does not constrain the width), and its training provenance. A matrix of
+any other width is refused with HTTP 400, so a client reads this first instead
+of learning the width from a failed detection.
+""",
+)
+async def describe_flagship_model(
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Report the served flagship model's width, training state and provenance."""
+    try:
+        description: dict[str, Any] = await run_in_threadpool(_describe_flagship_model)
+    except ImportError as e:
+        logger.error("Flagship fusion engine unavailable: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The flagship fusion engine is not available in this environment.",
+        ) from e
+    return description
 
 
 @router.post(

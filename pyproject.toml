@@ -475,6 +475,44 @@ Issues = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues"
 Changelog = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/CHANGELOG.md"
 
 # =============================================================================
+# uv lock configuration
+# =============================================================================
+[tool.uv]
+# The universal lock covers the platforms the declared stack ships wheels
+# for. macOS on Intel (darwin x86_64) is not one of them: torch publishes no
+# x86_64 macOS wheel from 2.3 on (2.2.2 was the last; the lock's 2.15.0 has none),
+# numba stopped publishing x86_64 macOS wheels at 0.63 while every numba that
+# still has one (<= 0.62.1) requires numpy < 2.4 against this project's
+# numpy >= 2.4 floor, and llvmlite 0.50 has none either. Kept in the lock,
+# that fork could not be installed with any torch-bearing extra, and it was
+# the fork Dependabot's uv run could not solve: shap 0.51.0 requires
+# numba < 0.63 on Intel macOS, which with numpy >= 2.4 has no solution, so
+# the shap update failed with "dependency_file_not_resolvable" on main
+# (9bc3cee). Its resolution splits also carried shap 0.50.0 (Intel macOS)
+# and a pandas 2.3.3 / nixtla 0.9.0 pair (a Python >= 3.15 Windows split)
+# that no supported lane installs. ``pip install`` of the core
+# package on an Intel Mac is not affected; only ``uv lock``/``uv sync`` are.
+# scripts/simulate_dependabot_uv.py replays Dependabot's pin for every
+# direct dependency on each pull request that changes this file, uv.lock or
+# .github/dependabot.yml, and weekly ahead of Dependabot's run, so an
+# unsolvable update fails there instead of in Dependabot.
+environments = [
+    "sys_platform != 'darwin'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+# uv resolves one version per package across every Python the lock covers
+# where it can. TensorFlow (installable only below 3.14, see the [face] and
+# [vlm] markers) caps h5py at a release that ships no CPython 3.14 wheel, so the
+# unified choice made the 3.14 lanes build h5py from source and fail on the
+# missing HDF5 library. This constraint applies to the 3.14 fork only, where
+# TensorFlow is absent, and lets it take the h5py release with 3.14 wheels.
+# tests/test_uv_lock_contract.py checks every binary package in the lock has a
+# wheel for every supported Python on Linux.
+constraint-dependencies = [
+    "h5py>=3.15; python_full_version >= '3.14'",
+]
+
+# =============================================================================
 # Setuptools Configuration
 # =============================================================================
 # Explicit package discovery: restrict setuptools auto-find to the
@@ -492,19 +530,6 @@ Changelog = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/CHANGEL
 # at the repo root remains importable for ``python -m tools.X`` from
 # a source checkout (which is how the operator scripts are invoked)
 # but does NOT enter ``pip install mercury-agent`` namespace.
-[tool.uv]
-# uv resolves one version per package across every Python the lock covers
-# where it can. TensorFlow (installable only below 3.14, see the [face] and
-# [vlm] markers) caps h5py at a release that ships no CPython 3.14 wheel, so the
-# unified choice made the 3.14 lanes build h5py from source and fail on the
-# missing HDF5 library. This constraint applies to the 3.14 fork only, where
-# TensorFlow is absent, and lets it take the h5py release with 3.14 wheels.
-# tests/test_uv_lock_contract.py checks every binary package in the lock has a
-# wheel for every supported Python on Linux.
-constraint-dependencies = [
-    "h5py>=3.15; python_full_version >= '3.14'",
-]
-
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["omni_mercury_engine*"]

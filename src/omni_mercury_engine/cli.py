@@ -142,7 +142,20 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
         # Additive key in the JSON output; the core engine default stays
         # opt-in.
         engine.enable_decision_layer()
-        results = engine.detect_with_fusion(data)
+        from omni_mercury_engine.core.exceptions import FeatureWidthMismatchError
+
+        try:
+            results = engine.detect_with_fusion(data)
+        except FeatureWidthMismatchError as exc:
+            # The served model was fitted on another feature layout; scoring
+            # these columns against its fitted statistics would return a
+            # verdict about data it never saw. Say so, with the two ways on.
+            raise click.ClickException(
+                f"{exc} Train a model on this layout (`mercury-agent train -d "
+                f"{input} [-l labels.csv] --install`), or score it with a base "
+                "detector (`-d statistical`, `-d dimensional`, ...), which fits on "
+                "the input itself."
+            ) from exc
         if threshold is not None and "anomaly_prob" in results:
             # Honour the operator's explicit decision boundary over the model's
             # adaptive threshold (previously the flag was accepted and ignored).

@@ -122,7 +122,11 @@ from omni_mercury_engine.core.equation_profiles import (
     components_from_score_channels,
     score_runtime_equation_profile,
 )
-from omni_mercury_engine.core.exceptions import InputModalityError, OmniAnomalyException
+from omni_mercury_engine.core.exceptions import (
+    FeatureWidthMismatchError,
+    InputModalityError,
+    OmniAnomalyException,
+)
 from omni_mercury_engine.core.global_omni_scalar_network import (
     get_global_scalar_network,
 )
@@ -4596,6 +4600,33 @@ class OmniMercuryEngine(LoggerMixin):
             monitor_drift=monitor_drift,
         )
 
+    @property
+    def fitted_feature_width(self) -> int | None:
+        """Feature columns the fitted engine scores; ``None`` when unchecked."""
+        return self._fitted_feature_width
+
+    def _width_of_restored_training_rows(self) -> int | None:
+        """Feature width of the spatial detector's restored training rows.
+
+        The spatial detector keeps every training row (``lof_points``); called
+        right after a load restored its state, their column count is the width
+        that checkpoint was fitted on. ``None`` when the state holds no rows.
+        """
+        exporter = getattr(self.detectors.get("spatial"), "get_fitted_state", None)
+        state = exporter() if callable(exporter) else None
+        if not state or "lof_points" not in state:
+            return None
+        points = np.asarray(state["lof_points"])
+        if points.ndim != 2 or points.shape[1] < 1:
+            return None
+        width = int(points.shape[1])
+        logger.info(
+            "Fusion checkpoint predates the recorded feature width; using %d, the "
+            "width of its restored training rows",
+            width,
+        )
+        return width
+
     def _check_feature_width(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any], caller: str
     ) -> None:
@@ -4626,7 +4657,7 @@ class OmniMercuryEngine(LoggerMixin):
                 if len(shape) == 1
                 else ""
             )
-            raise ValueError(
+            raise FeatureWidthMismatchError(
                 f"{caller} got data with {width} feature column(s) but this "
                 f"engine was fitted on {self._fitted_feature_width}. Pass data "
                 f"with shape (n_samples, {self._fitted_feature_width}), or refit "
@@ -7312,6 +7343,7 @@ class OmniMercuryEngine(LoggerMixin):
             # auto-fitting (and leaking) on the first inference batch.
             # Checkpoints written before this key keep the legacy behavior.
             detector_states = checkpoint.get("detector_fitted_state") or {}
+            restored_by_this_load: set[str] = set()
             for det_name, det_state in detector_states.items():
                 det = self.detectors.get(det_name)
                 restorer = getattr(det, "set_fitted_state", None)
@@ -7331,6 +7363,26 @@ class OmniMercuryEngine(LoggerMixin):
                 # Serving uses this state as-is; explicit new training data
                 # replaces it (see _fit_for_training).
                 self._checkpoint_fit_detectors.add(det_name)
+                restored_by_this_load.add(det_name)
+
+            if "fitted_feature_width" not in checkpoint:
+                # Written before the width was recorded (the bundled
+                # ``default_fusion.pt`` is one). Such a checkpoint still holds
+                # its training rows in the spatial detector's state -- the rows
+                # the drift reference is built from -- so its width is known.
+                # Leaving it unchecked let ``detect -d fusion`` score 4-column
+                # data against 16-column fitted statistics and return a
+                # confident "clear" (p ~ 1e-17 for +6 sigma rows) while the
+                # drift check beside it reported the widths incomparable. A
+                # checkpoint that carries the key with ``None`` (pooled fit,
+                # dict input) stays unchecked by design. Only rows restored by
+                # *this* load count: a detector state left by an earlier load
+                # describes another model.
+                self._fitted_feature_width = (
+                    self._width_of_restored_training_rows()
+                    if "spatial" in restored_by_this_load
+                    else None
+                )
 
             # Torch-module domain models: their randomly-initialized feature
             # extractors are part of the serve-time transform, so reload

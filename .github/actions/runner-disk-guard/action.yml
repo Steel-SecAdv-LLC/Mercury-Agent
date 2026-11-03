@@ -1,0 +1,90 @@
+name: Runner disk guard
+description: >-
+  Keep a heavy install off the runner's RAM-backed /tmp and make sure the disk
+  it does use has room, before the install starts. On the ubuntu-26.04 image
+  /tmp can be a tmpfs (about 7.8 GB) with a per-user quota of about 6.3 GB
+  (actions/runner-images#14777; the image fix #14814 is still rolling out), so
+  a CUDA torch environment of about 7 GB built under /tmp fails with
+  "Disk quota exceeded" while / has 80+ GB free. That is how Security /
+  Dependency Security Scan failed on main at 9bc3cee. This action points
+  TMPDIR at $RUNNER_TEMP (on the root disk) for every later step, reports both
+  filesystems, removes unused runner toolchains only when the root disk is
+  below the floor, and fails with the shortfall if it still is.
+  tests/test_ci_disk_budget_contract.py requires it in every job that installs
+  a torch-bearing extra, and forbids building such an environment under /tmp.
+
+inputs:
+  minimum-free-gb:
+    description: >-
+      Free space the job needs on the filesystem holding $RUNNER_TEMP and the
+      workspace. Below it the action removes unused toolchains (Android SDK,
+      .NET, Swift, GHC, the CodeQL bundle), then large apt packages and Docker
+      data, and fails if the floor is still not met.
+    required: false
+    default: "20"
+  extra-paths:
+    description: >-
+      Further space-separated directories that may be removed when cleanup is
+      needed (the Docker image build adds the tool cache).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Redirect TMPDIR, check free space, clean up only if short
+      shell: bash
+      env:
+        MIN_FREE_GB: ${{ inputs.minimum-free-gb }}
+        EXTRA_PATHS: ${{ inputs.extra-paths }}
+      run: |
+        set -euo pipefail
+        mkdir -p "${RUNNER_TEMP}"
+        echo "TMPDIR=${RUNNER_TEMP}" >> "${GITHUB_ENV}"
+        # Free bytes on the filesystem holding a path, as whole GB rounded down
+        # (df -BG rounds up, which would pass 11.1 GB against a 12 GB floor).
+        free_gb() { echo $(( $(df --output=avail -B1 "$1" | tail -n 1 | tr -dc '0-9') / 1073741824 )); }
+        describe() { findmnt -no FSTYPE,SIZE,OPTIONS --target "$1" 2>/dev/null | tr -s ' ' || echo "unknown"; }
+        floor="${MIN_FREE_GB}"
+        before="$(free_gb "${RUNNER_TEMP}")"
+        tmp_free="$(free_gb /tmp)"
+        echo "/tmp: $(describe /tmp); ${tmp_free} GB free (not used for installs: TMPDIR -> ${RUNNER_TEMP})"
+        echo "${RUNNER_TEMP}: $(describe "${RUNNER_TEMP}"); ${before} GB free; floor ${floor} GB"
+        after="${before}"
+        cleaned="none"
+        if [ "${before}" -lt "${floor}" ]; then
+          # Independent trees, removed concurrently. A failed removal is a
+          # warning: the floor check below decides whether the job can go on.
+          pids=()
+          # shellcheck disable=SC2086  # EXTRA_PATHS is a space-separated list
+          for dir in /usr/local/lib/android /usr/share/dotnet /usr/share/swift \
+                     /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL ${EXTRA_PATHS}; do
+            [ -e "${dir}" ] || continue
+            { sudo rm -rf "${dir}" || echo "::warning::could not remove ${dir}"; } &
+            pids+=("$!")
+          done
+          for pid in "${pids[@]}"; do wait "${pid}" || true; done
+          cleaned="toolchains"
+          after="$(free_gb "${RUNNER_TEMP}")"
+          if [ "${after}" -lt "${floor}" ]; then
+            sudo apt-get remove --purge -y '^dotnet-.*' '^llvm-.*' 'temurin-.*' \
+              'ghc.*' 'mysql.*' 'postgresql.*' >/dev/null 2>&1 || true
+            sudo apt-get autoremove -y >/dev/null 2>&1 || true
+            sudo apt-get clean || true
+            docker system prune -af --volumes >/dev/null 2>&1 || true
+            docker builder prune -af >/dev/null 2>&1 || true
+            cleaned="toolchains, apt packages, Docker data"
+            after="$(free_gb "${RUNNER_TEMP}")"
+          fi
+        fi
+        echo "Cleanup: ${cleaned}; ${after} GB free"
+        {
+          echo "### Runner disk"
+          echo
+          echo "- \`/tmp\`: $(describe /tmp), ${tmp_free} GB free; TMPDIR now \`${RUNNER_TEMP}\`"
+          echo "- \`${RUNNER_TEMP}\`: ${before} GB free before, ${after} GB after (cleanup: ${cleaned}); floor ${floor} GB"
+        } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+        if [ "${after}" -lt "${floor}" ]; then
+          echo "::error title=Runner disk below floor::${after} GB free for ${RUNNER_TEMP} after cleanup; this job needs ${floor} GB"
+          exit 1
+        fi

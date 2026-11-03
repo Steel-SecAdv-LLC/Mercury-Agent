@@ -27,6 +27,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — `detect -d fusion` scored any width against the bundled 16-column
+model and called the result clear.** The bundled `default_fusion.pt` predates
+the `fitted_feature_width` checkpoint key, so the width guard skipped it: a
+4-column CSV (480 N(0,1) rows, 20 rows shifted by +6 sigma) came back
+`state: grounded`, `disposition: clear`, `decision_confidence: 1.0`, p ~ 1e-17
+on every row, while the drift check in the same result said "input has 4
+features; the reference has 16". `load_model` now recovers the width of a
+checkpoint without the key from the training rows *that load* restored (the
+spatial detector's `lof_points`, the drift reference's own source; state left
+by an earlier load never counts); a checkpoint that records `None` on purpose
+(pooled fit) stays unchecked. The refusal is its own exception,
+`FeatureWidthMismatchError` (a `ValueError`), so each surface reports exactly
+it: the CLI as a usage error naming both ways on (train on the layout, or use a
+base detector) for 2-D, 1-D and mapping input alike, `POST /detect/flagship` as
+a 400, and the MCP flagship tool as a tool error, while any other `ValueError`
+stays an internal error. New `GET /api/v1/detect/flagship/model` reports the
+served model's width, training state and provenance; the Mercury Console's
+Flagship card reads it, lays its built-in sample out at that width (it sent a
+16 x 2 matrix, a guaranteed 400) and skips a dataset of another width with the
+reason. Trained on the 4-column layout, the same data scores 20/20 with 0
+false positives (in-sample). Six test files encoded the old behaviour: five fed
+5-, 6- or 12-column data to the 16-column model and asserted an answer (they
+now pass 16 columns), and `tests/core/test_engine_feature_width.py` asserted
+that a checkpoint without the key is unchecked (it now asserts the recovered
+width, and `None` when no training rows were restored).
+
+**Fixed — calibration sigmoids overflowed.** `TemperatureScaling._sigmoid`, the
+threshold-integral treatment curve and the `decision_function` margin map used
+`1 / (1 + exp(-z))`, which raised `RuntimeWarning: overflow encountered in exp`
+on a confident model. All three use `scipy.special.expit`: identical where the
+old form was finite, exact past it.
+
+**CI — the three failures on main after PR #388 are now pull-request gates.**
+
+* *Gitleaks.* gitleaks-action builds a pull request's range from the first page
+  of its commit list, so PR #388 reported "30 commits scanned" and passed while
+  two test keys added later failed the push scan on main. Secret Detection now
+  also builds the PR's squash-equivalent commit (the merge ref's tree on its
+  base parent) and scans it with a checksum-pinned gitleaks 8.24.3 -- the exact
+  unit main scans. The two keys (`tests/api/test_voice_backends.py`, made-up
+  values the tests prove never leave the server) are allowlisted as exact
+  strings. `tests/test_secret_scan_contract.py` keeps the step, requires every
+  allowlist entry to be a literal still in the tree, and holds `.gitleaks.toml`
+  to a shape that cannot widen what both scans skip (no `[[rules]]` override,
+  allowlisted paths that each name one file, full commit SHAs, no
+  `.gitleaksignore`, whose fingerprints could never match the synthetic commit).
+* *Disk quota.* The failing step built the audit environment, now carrying the
+  CUDA torch stack through `[api]`, in `/tmp/mercury-audit-env`. On the
+  ubuntu-26.04 runner image `/tmp` can be a RAM-backed tmpfs (about 7.8 GB) with
+  a per-user quota of about 6.3 GB (actions/runner-images#14777; the image fix
+  #14814 is still rolling out), hence `[Errno 122] Disk quota exceeded` on a
+  runner with 80+ GB free on `/`; the PR had passed on a newer image. (The first
+  version of this change blamed the root disk and a restored pip cache; the
+  failing job's log says "pip cache is not found", and a measured runner had
+  88 GB free before cleanup. That diagnosis was wrong and is withdrawn.) Both
+  audit environments (`security.yml` and its `ci.yml` twin) now live under
+  `$RUNNER_TEMP`. One composite action, `.github/actions/runner-disk-guard`,
+  replaces eleven inline cleanup copies: it points `TMPDIR` at `$RUNNER_TEMP`
+  for every later step, reports both filesystems, removes unused toolchains
+  only when the root disk is below the job's floor (the unconditional cleanup
+  had cost 94 s on a 4-minute job with 88 GB free), and fails with the shortfall
+  if it still is. `tests/test_ci_disk_budget_contract.py` derives the
+  torch-bearing extras from `pyproject.toml` (including requirement files,
+  `pkg[extra]` and wheel-path installs, expression-built extras and `uv run`)
+  and requires every job that installs one to run the guard first and never to
+  build that environment under `/tmp`. It fails on the pre-fix `security.yml`.
+* *Dependabot uv.* `scripts/simulate_dependabot_uv.py` replays Dependabot's
+  pin-and-lock for every direct dependency, proposing what Dependabot would
+  (the newest release no ignore covers) and every configured group together,
+  and fails on an update that cannot be solved, that downgrades another
+  package, or whose ignore has gone stale. It reproduces all three outcomes of
+  the 2026-11-03 run on main's tree (shap 0.50.0 -> 0.51.0 unsolvable; h5py
+  3.14.0 -> 3.16.0 downgrades TensorFlow 2.21.0 -> 2.20.0; nixtla 0.7.2 -> 0.9.0
+  downgrades pandas 3.1.0 -> 2.3.3), and found the next one before it happened:
+  with 0.8-0.9 ignored Dependabot falls back to nixtla 0.7.4, which caps pandas
+  too. It reads live PyPI, so it runs on pull requests that change
+  `pyproject.toml`, `uv.lock` or `.github/dependabot.yml` and weekly in
+  `.github/workflows/dependabot-replay.yml`, ahead of Dependabot's Monday run.
+  `scripts/check_lock_downgrades.py` fails a pull request whose `uv.lock`
+  resolves any package to a lower version in any supported environment (a grid
+  of Python versions and platforms, each lock entry's `resolution-markers`
+  evaluated), unless a person's commit in the PR declares it with the git
+  trailer `Lock-Downgrade: <name> <old> -> <new>: <reason>`; text in a PR body
+  or in a Dependabot body's quoted release notes declares nothing. Dependabot
+  PR #393 did exactly that behind a "minor" title, with auto-merge armed and
+  every check green; its auto-merge was disabled.
+
+**Changed — `uv.lock` no longer resolves for Intel macOS.** torch has no x86_64
+macOS wheel from 2.3 on (2.2.2 was the last), numba none from 0.63 (and every
+numba that has one needs numpy < 2.4 against the >= 2.4 floor), so that fork
+could not install any torch-bearing extra and was the fork the shap update
+could not solve. `[tool.uv] environments` now lists Linux, Windows and
+Apple-silicon macOS; the relock drops the side-forks that forced (shap 0.50.0
+for Intel macOS; a pandas 2.3.3 / nixtla 0.9.0 pair that existed only for
+Python >= 3.15 on Windows). `pip install -e .` of the core package on an Intel
+Mac is unaffected; the README platform table says so. Every nixtla release from
+0.7.3 to 0.9.0 declares `pandas<3`, and TensorFlow 2.21 declares `h5py<3.15`,
+so both are versioned Dependabot ignores with reasons; the replay reports
+either as stale once it becomes takeable.
+
+**Changed — astral-sh/setup-uv 9.0.0 -> 10.3.3** (Dependabot #392, green on
+every lane), pinned by SHA.
+
 **Fixed — fusion-weight cross-validation validates its weights.** In
 `benchmarks/calibration_validation.py::run_fusion_weight_cv` each fold split off
 its held-out rows and never used them: the fold's L-BFGS-B weights were fitted

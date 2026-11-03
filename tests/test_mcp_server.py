@@ -321,6 +321,23 @@ class TestDetectionInterconnectTools:
         assert payload["ethical_gate"]["sigma_immutable_score"] == 0.98
         assert engine.calls and engine.calls[0][0] == (30, 5)
 
+    def test_detect_fusion_width_refusal_is_the_callers_error(self) -> None:
+        from omni_mercury_engine.core.exceptions import FeatureWidthMismatchError
+
+        engine = _FakeFusionEngine(raises=FeatureWidthMismatchError("fitted on 16"))
+        server = MercuryMCPServer(engine=engine)  # type: ignore[call-arg, unused-ignore]
+        result = _call(server, "mercury_detect_fusion", {"data": [[0.0, 1.0], [1.0, 0.0]]})
+        assert result["isError"] is True
+        assert "refused the input: fitted on 16" in result["content"][0]["text"]
+
+    def test_detect_fusion_internal_value_error_is_not_blamed_on_the_input(self) -> None:
+        engine = _FakeFusionEngine(raises=ValueError("matmul shape bug"))
+        server = MercuryMCPServer(engine=engine)  # type: ignore[call-arg, unused-ignore]
+        result = _call(server, "mercury_detect_fusion", {"data": [[0.0, 1.0], [1.0, 0.0]]})
+        assert result["isError"] is True
+        text = result["content"][0]["text"]
+        assert "internal tool error" in text and "refused the input" not in text
+
     def test_detect_fusion_blocked_by_ethical_gate_is_error(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
 
@@ -418,7 +435,11 @@ class TestDetectionInterconnectTools:
         pytest.importorskip("torch")
         server = MercuryMCPServer()
         rng = np.random.default_rng(0)
-        result = _call(server, "mercury_detect_fusion", {"data": rng.normal(size=(30, 5)).tolist()})
+        # 16 columns, the served (bundled) model's fitted width; a 5-column
+        # matrix is refused (tests/core/test_legacy_checkpoint_width.py).
+        result = _call(
+            server, "mercury_detect_fusion", {"data": rng.normal(size=(30, 16)).tolist()}
+        )
         assert result["isError"] is False, result["content"][0]["text"]
         payload = json.loads(result["content"][0]["text"])
         assert 0.0 <= float(payload["anomaly_prob"]) <= 1.0

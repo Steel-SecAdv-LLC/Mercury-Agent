@@ -859,6 +859,7 @@ class MercuryMCPServer:
             from omni_mercury_engine.cognitive.ethical_bounding import (
                 EthicalConstraintViolationError,
             )
+            from omni_mercury_engine.core.exceptions import FeatureWidthMismatchError
         except Exception as exc:  # pragma: no cover - slim-install path
             raise ToolError(
                 f"flagship fusion engine unavailable in this environment: {exc}"
@@ -883,6 +884,12 @@ class MercuryMCPServer:
             raise ToolError(
                 f"flagship detection blocked by the '{exc.check}' ethical gate: {exc}"
             ) from exc
+        except FeatureWidthMismatchError as exc:
+            # A feature width other than the one the served model was fitted
+            # on is the caller's input, so it is a tool error with the reason
+            # (POST /detect/flagship returns it as a 400). Any other ValueError
+            # is not narrowed into "bad input": it stays an internal error.
+            raise ToolError(f"flagship detection refused the input: {exc}") from exc
         gosnn = result.get("gosnn_metadata", {})
         if not isinstance(gosnn, dict):
             gosnn = {}

@@ -104,6 +104,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
+
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -113,7 +116,7 @@ jobs:
         run: |
           # CVE-2026-6357: floor pip before any other pip install in this job.
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          pip install --no-cache-dir -e ".[ml]"
 
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
@@ -203,6 +206,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
+
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -212,7 +218,7 @@ jobs:
         run: |
           # CVE-2026-6357: floor pip once for the whole job.
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[api,ml]"
+          pip install --no-cache-dir -e ".[api,ml]"
           pip install "locust>=2.31.0"
 
       - name: Build + install AMA Cryptography (native PQC backend)

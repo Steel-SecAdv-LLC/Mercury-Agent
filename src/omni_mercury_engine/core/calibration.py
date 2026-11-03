@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+from scipy.special import expit
 
 logger = logging.getLogger(__name__)
 
@@ -384,7 +385,7 @@ def _net_benefit_integral(
     n = len(p)
     if n == 0:
         return 0.0
-    treat = 1.0 / (1.0 + np.exp(-(p[:, None] - thresholds[None, :]) / softness))  # (n, T)
+    treat = expit((p[:, None] - thresholds[None, :]) / softness)  # (n, T)
     tp = (treat * y[:, None]).sum(axis=0) / n
     fp = (treat * (1.0 - y[:, None])).sum(axis=0) / n
     odds = thresholds / np.clip(1.0 - thresholds, 1e-9, None)
@@ -465,8 +466,6 @@ class BetaCalibration:
         # tied every score past it (all mapped to sigmoid(+/-50)). Above a
         # logit of ~37 float64 still rounds p to 1.0 -- a representation
         # limit, not a rank inversion.
-        from scipy.special import expit
-
         z = c + a * np.log(u) - b * np.log1p(-u)
         p: np.ndarray[Any, Any] = np.asarray(expit(z), dtype=np.float64)
         return p
@@ -612,8 +611,8 @@ class TemperatureScaling:
         return np.asarray(np.log(p / (1 - p)))  # type: ignore[no-any-return, unused-ignore]
 
     def _sigmoid(self, z: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Convert logits to probabilities."""
-        return np.asarray(1 / (1 + np.exp(-z)))  # type: ignore[no-any-return, unused-ignore]
+        """Convert logits to probabilities (``expit``: exact, no overflow for large |z|)."""
+        return np.asarray(expit(z), dtype=np.float64)
 
     def fit(self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]) -> TemperatureScaling:
         """Fit temperature parameter by minimizing NLL.
@@ -963,7 +962,7 @@ def _extract_calibration_scores(
     try:
         decision = detector.decision_function(X)
         # Apply sigmoid to map decision margins to bounded [0, 1] scores
-        y_prob = 1.0 / (1.0 + np.exp(-decision))
+        y_prob = expit(np.asarray(decision, dtype=np.float64))
         return y_prob, "decision_function"
     except (AttributeError, NotImplementedError):
         pass
