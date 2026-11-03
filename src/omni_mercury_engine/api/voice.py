@@ -26,7 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
 from omni_mercury_engine.narrative.languages import SUPPORTED as SUPPORTED_LANGUAGES
 
 if TYPE_CHECKING:
@@ -336,9 +336,58 @@ class BackendsResponse(BaseModel):
     """
 
     active: dict[str, Any] = Field(..., description="The voice's active language model, if any")
+    store: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Whether the provider store can keep a key sealed here, and why not",
+    )
     providers: list[dict[str, Any]] = Field(..., description="Shipped provider adapters")
     ollama: dict[str, Any] = Field(..., description="Local Ollama runtime status")
     mcp: dict[str, Any] = Field(..., description="MCP server facts and client configuration")
+
+
+class ProviderUpdate(BaseModel):
+    """Fields an administrator stores for a provider; ``""`` clears a field, omitted leaves it."""
+
+    api_key: str | None = Field(
+        default=None,
+        max_length=4096,
+        description="The provider's API key; stored sealed, never returned. Empty string removes it.",
+    )
+    base_url: str | None = Field(
+        default=None,
+        max_length=1024,
+        description="The endpoint (required for Azure OpenAI and the generic endpoint). Empty string removes it.",
+    )
+    model: str | None = Field(
+        default=None,
+        max_length=256,
+        description="The model id (Azure: the deployment name). Empty string removes it.",
+    )
+
+
+class ProviderTest(BaseModel):
+    """Optional overrides for a connection test; a key given here is used once and not stored."""
+
+    api_key: str | None = Field(default=None, max_length=4096)
+    base_url: str | None = Field(default=None, max_length=1024)
+    model: str | None = Field(default=None, max_length=256)
+
+
+class ProviderSelect(BaseModel):
+    """The provider and model the served voice generates prose with."""
+
+    provider: str = Field(..., max_length=64)
+    model: str | None = Field(default=None, max_length=256)
+
+
+class ProbeResult(BaseModel):
+    """The outcome of a connection test."""
+
+    provider: str
+    ok: bool
+    status: int | None = None
+    models: list[str] = Field(default_factory=list)
+    detail: str = ""
 
 
 class GreetingResponse(BaseModel):
@@ -361,8 +410,50 @@ _voice_lock = __import__("threading").Lock()
 _narrative_lock = __import__("threading").Lock()
 
 
+def _voice_for_selection(provider: str, model: str | None) -> Any:
+    """Build a voice that generates prose with ``provider`` from the store and the environment.
+
+    Raises ``ValueError`` with the operator-facing reason when the adapter
+    cannot come up (no key, no endpoint, no model, provider unavailable), so
+    the caller can refuse the selection instead of serving a voice that
+    silently fell back to templates.
+    """
+    from omni_mercury_engine.api.backends import resolve_provider_config
+    from omni_mercury_engine.narrative.voice import create_mercury_voice
+
+    cfg = resolve_provider_config(provider)
+    chosen = model or cfg["model"]
+    if not chosen:
+        raise ValueError(
+            f"{provider} needs a model: name one in the request, the provider store or "
+            f"the provider's MERCURY_*_MODEL variable"
+        )
+    try:
+        voice = create_mercury_voice(
+            enable_llm=True,
+            llm_provider=provider,
+            llm_model_name=chosen,
+            llm_api_key=cfg["api_key"],
+            llm_base_url=cfg["base_url"],
+        )
+    except Exception as exc:
+        raise ValueError(f"{provider} could not be attached: {exc}") from exc
+    if getattr(voice, "_llm_adapter", None) is None:
+        raise ValueError(
+            f"{provider} reported itself unavailable with the stored configuration "
+            "(a missing key, endpoint or model, or an unsupported build); test the connection first"
+        )
+    return voice
+
+
 def _get_voice() -> Any:
-    """Get or create Mercury Voice instance (thread-safe)."""
+    """Get or create Mercury Voice instance (thread-safe).
+
+    A provider the administrator selected (``POST /api/v1/voice/backends/select``,
+    persisted in the provider store) is attached at start; if it cannot be
+    attached now, the voice starts without a model and the backends report
+    says so.
+    """
     global _mercury_voice
 
     if _mercury_voice is None:
@@ -372,12 +463,38 @@ def _get_voice() -> Any:
                 try:
                     from omni_mercury_engine.narrative.voice import create_mercury_voice
 
-                    _mercury_voice = create_mercury_voice()
+                    voice: Any = None
+                    try:
+                        from omni_mercury_engine.api.provider_store import get_provider_store
+
+                        selection = get_provider_store().selection()
+                    except Exception as exc:
+                        logger.warning("provider store unavailable at voice start: %s", exc)
+                        selection = None
+                    if selection:
+                        try:
+                            voice = _voice_for_selection(
+                                selection["provider"], selection.get("model")
+                            )
+                        except ValueError as exc:
+                            logger.warning(
+                                "the selected provider %s is not attached: %s",
+                                selection["provider"],
+                                exc,
+                            )
+                    _mercury_voice = voice if voice is not None else create_mercury_voice()
                 except ImportError:
                     logger.warning("Narrative module not available, using fallback")
                     _mercury_voice = _FallbackVoice()
 
     return _mercury_voice
+
+
+def _replace_voice(voice: Any) -> None:
+    """Swap the served voice for ``voice`` (keeps nothing of the old one)."""
+    global _mercury_voice
+    with _voice_lock:
+        _mercury_voice = voice
 
 
 def _get_narrative_engine() -> Any:
@@ -791,6 +908,232 @@ async def backends() -> BackendsResponse:
     from omni_mercury_engine.api.backends import backends_report
 
     return BackendsResponse(**backends_report(_get_voice()))
+
+
+def _require_admin(user: User | None = Depends(_get_optional_user)) -> User:
+    """The administrator behind a key or a session; 401 without one, 403 without the permission."""
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Administrator authentication required (an admin API key or session)",
+        )
+    if not user.has_permission(Permission.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Permission required: admin"
+        )
+    return user
+
+
+def _known_provider(provider: str) -> str:
+    from omni_mercury_engine.models.llm_registry import PROVIDER_CATALOG
+
+    code = provider.strip().lower()
+    if code not in PROVIDER_CATALOG:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"no such provider {provider!r}; one of {', '.join(sorted(PROVIDER_CATALOG))}",
+        )
+    return code
+
+
+def _check_endpoint(provider: str, base_url: str | None) -> None:
+    """Refuse an endpoint the egress gate would refuse, before it is stored."""
+    if not base_url:
+        return
+    from omni_mercury_engine.models.llm_registry import PROVIDER_CATALOG
+    from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
+
+    local = PROVIDER_CATALOG[provider].locality == "local"
+    try:
+        SafeHTTPClient.validate_url(
+            base_url, allow_http=local, user_configured=True, loopback_only=local
+        )
+    except UnsafeURLError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"endpoint refused by the egress gate: {exc}",
+        ) from exc
+
+
+def _provider_row(provider: str) -> dict[str, Any]:
+    from omni_mercury_engine.api.backends import provider_rows
+
+    return next(row for row in provider_rows() if row["provider"] == provider)
+
+
+@router.post(
+    "/backends/select",
+    summary="Make a provider the voice's language model (admin)",
+    description="""
+Attach the provider to the served voice now and remember it across restarts. The provider must be
+configured (a key in the store or the environment, an endpoint where one is required, a model
+here, in the store or in its `MERCURY_*_MODEL` variable); otherwise the selection is refused with
+the reason and nothing changes. The voice keeps building its grounded answers from the record and
+the code; the selected provider composes the free-text search answers from the retrieved records.
+    """,
+)
+async def select_provider(
+    body: ProviderSelect, user: User = Depends(_require_admin)
+) -> dict[str, Any]:
+    """Attach ``body.provider`` to the voice, persist the choice and report the active model."""
+    from omni_mercury_engine.api.backends import backends_report
+    from omni_mercury_engine.api.provider_store import get_provider_store
+
+    code = _known_provider(body.provider)
+    try:
+        voice = _voice_for_selection(code, body.model)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    _replace_voice(voice)
+    get_provider_store().select(code, body.model or getattr(voice, "_llm_model_name", None))
+    logger.info("voice language model set to %s by %s", code, user.id)
+    return dict(backends_report(voice)["active"])
+
+
+@router.delete(
+    "/backends/select",
+    summary="Detach the voice's language model (admin)",
+)
+async def deselect_provider(user: User = Depends(_require_admin)) -> dict[str, Any]:
+    """Return the voice to its built-in templates and forget the selection."""
+    from omni_mercury_engine.api.backends import backends_report
+    from omni_mercury_engine.api.provider_store import get_provider_store
+    from omni_mercury_engine.narrative.voice import create_mercury_voice
+
+    _replace_voice(create_mercury_voice())
+    get_provider_store().select(None)
+    logger.info("voice language model detached by %s", user.id)
+    return dict(backends_report(_get_voice())["active"])
+
+
+@router.put(
+    "/backends/{provider}",
+    summary="Store a provider's key, endpoint or model (admin)",
+    description="""
+Connect a language-model provider from the console: store its API key (sealed at rest with the
+engine's data-encryption key, never returned), its endpoint and its model. Omitted fields are left
+as they are; an empty string clears a field. The stored values win over the environment for the
+voice and the connection test. Requires an administrator (admin API key or session). Without a
+stable at-rest key on the engine (`MERCURY_DATA_ENC_KEY` or `AMA_MASTER_SEED`) a key is refused
+with the reason; endpoint and model are still stored.
+    """,
+)
+async def store_provider(
+    provider: str, update: ProviderUpdate, user: User = Depends(_require_admin)
+) -> dict[str, Any]:
+    """Store what an administrator gave for ``provider`` and return its row."""
+    from omni_mercury_engine.api.provider_store import ProviderStoreError, get_provider_store
+
+    code = _known_provider(provider)
+    if update.api_key is None and update.base_url is None and update.model is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="give at least one of api_key, base_url or model",
+        )
+    _check_endpoint(code, update.base_url)
+    try:
+        get_provider_store().set(
+            code, api_key=update.api_key, base_url=update.base_url, model=update.model
+        )
+    except ProviderStoreError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    logger.info("provider %s updated by %s", code, user.id)
+    row = _provider_row(code)
+    row["reattached"] = _reattach_if_active(code)
+    return row
+
+
+def _reattach_if_active(provider: str) -> bool | None:
+    """Rebuild the served voice when ``provider`` is the active selection; ``None`` when not.
+
+    A key, endpoint or model stored for the provider the voice is composing
+    with must reach the running adapter now, not after a restart. When the
+    new configuration no longer qualifies (the key was cleared, say) the
+    voice falls back to its templates and the selection is dropped, so the
+    report never claims a model that cannot answer.
+    """
+    from omni_mercury_engine.api.provider_store import get_provider_store
+    from omni_mercury_engine.narrative.voice import create_mercury_voice
+
+    store = get_provider_store()
+    selection = store.selection()
+    if not selection or selection["provider"] != provider:
+        return None
+    try:
+        _replace_voice(_voice_for_selection(provider, selection["model"]))
+    except ValueError as exc:
+        logger.warning(
+            "provider %s no longer qualifies after the update: %s; detached", provider, exc
+        )
+        _replace_voice(create_mercury_voice())
+        store.select(None)
+        return False
+    return True
+
+
+@router.delete(
+    "/backends/{provider}",
+    summary="Forget a provider's stored key, endpoint and model (admin)",
+)
+async def forget_provider(provider: str, user: User = Depends(_require_admin)) -> dict[str, Any]:
+    """Remove everything stored for ``provider``; the environment, if any, remains."""
+    from omni_mercury_engine.api.provider_store import get_provider_store
+    from omni_mercury_engine.narrative.voice import create_mercury_voice
+
+    code = _known_provider(provider)
+    store = get_provider_store()
+    selection = store.selection()
+    was_active = bool(selection and selection["provider"] == code)
+    removed = store.delete(code)
+    if was_active:
+        _replace_voice(create_mercury_voice())
+    logger.info(
+        "provider %s stored configuration removed by %s (removed=%s, detached=%s)",
+        code,
+        user.id,
+        removed,
+        was_active,
+    )
+    return {
+        "provider": code,
+        "removed": removed,
+        "selection_cleared": was_active,
+        "row": _provider_row(code),
+    }
+
+
+@router.post(
+    "/backends/{provider}/test",
+    response_model=ProbeResult,
+    summary="Test a provider connection (admin)",
+    description="""
+One read-only call to the provider with the stored or environment configuration, or with the
+overrides in the body (a key given here is used for this call only and not stored): lists the
+provider's models where its API has a listing, sends a one-token completion where it has none
+(Perplexity), checks the token where there are no models (Hugging Face). Reports whether the
+provider answered, the HTTP status on refusal, and the models it lists. Requires an administrator.
+    """,
+)
+async def test_provider(
+    provider: str, body: ProviderTest | None = None, user: User = Depends(_require_admin)
+) -> ProbeResult:
+    """Probe ``provider`` once and report the outcome without the key."""
+    from omni_mercury_engine.api.backends import probe_provider
+
+    code = _known_provider(provider)
+    overrides = body or ProviderTest()
+    _check_endpoint(code, overrides.base_url)
+    result = probe_provider(
+        code, api_key=overrides.api_key, base_url=overrides.base_url, model=overrides.model
+    )
+    logger.info(
+        "provider %s tested by %s: %s", code, user.id, "ok" if result["ok"] else result["detail"]
+    )
+    return ProbeResult(provider=code, **result)
 
 
 @router.get(

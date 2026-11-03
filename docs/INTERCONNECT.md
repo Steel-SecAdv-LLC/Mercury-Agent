@@ -61,6 +61,31 @@ Vendors that attach to *remote* MCP servers only (ChatGPT, Grok) cannot run
 the stdio command; Mercury does not ship an HTTP MCP transport. Those vendors
 reach Mercury the other way round, as model providers (`openai`, `xai`).
 
+### Connecting a model provider from the console
+
+An administrator (admin API key or session) connects a provider without
+touching the engine host's environment: on the provider's card, **Connect**
+stores the key (sealed at rest under `MERCURY_DATA_ENC_KEY` or
+`AMA_MASTER_SEED`; never returned), the endpoint and the model
+(`PUT /api/v1/voice/backends/{provider}`); **Test connection** makes one
+read-only call and lists the models the provider answers with
+(`POST /api/v1/voice/backends/{provider}/test`); **Use for the agent** attaches
+the provider to the served voice and remembers it across restarts
+(`POST /api/v1/voice/backends/select`; `DELETE` detaches); **Forget stored
+settings** removes the stored key, endpoint and model (`DELETE
+/api/v1/voice/backends/{provider}`). A change to the provider the voice is
+using reaches the running voice at once, and a change that leaves it unable
+to answer detaches it rather than keeping a model that cannot reply. The
+twenty-one providers: OpenAI, Anthropic, xAI Grok, Google Gemini, Cohere, DeepSeek,
+Mistral, Groq, Together, Fireworks, OpenRouter, Perplexity, Hugging Face,
+Cursor, Azure OpenAI, any OpenAI-compatible endpoint, and the local Ollama,
+LM Studio, vLLM and llama.cpp servers (loopback only, no key), plus the
+built-in templates. What an attached model does is bounded: it composes the
+free-text search answers from the records the retriever found and nothing
+else; grounded answers (the record, the code, the narrative engine) never go
+through it. `mercury-agent voice --model provider:model` attaches the same
+way from the shell.
+
 ## Tools exposed
 
 | Tool | What it does | Availability |

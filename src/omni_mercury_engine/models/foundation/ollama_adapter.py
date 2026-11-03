@@ -1105,15 +1105,19 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
 class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
     """Shared base for OpenAI-compatible Chat Completions adapters.
 
-    xAI (Grok), DeepSeek, and Cursor all expose the OpenAI Chat
-    Completions wire format (``/chat/completions`` accepting
-    ``{"model": ..., "messages": [...]}``); the only meaningful
-    differences are the default ``base_url``, the env-var name for
-    the API key, and the provider label that shows up in error
-    messages and logs.  Centralising the request / response handling
-    here keeps the SSRF gate behaviour (every call passes
-    ``user_configured=True``) consistent across providers and
-    prevents a future drift where one adapter forgets the gate.
+    xAI (Grok), DeepSeek, Cursor, Mistral, Groq, Together, Fireworks,
+    OpenRouter, Perplexity, the local LM Studio, vLLM and llama.cpp servers,
+    Azure OpenAI and any operator-named endpoint all expose the OpenAI Chat
+    Completions wire format (``/chat/completions`` accepting ``{"model":
+    ..., "messages": [...]}``); the differences are the default
+    ``base_url``, the env-var name for the API key, whether a key is needed
+    at all (a local server usually has none), whether the endpoint must be
+    named explicitly, the authorisation header (Azure sends ``api-key``) and
+    the provider label in logs. Centralising the request / response handling
+    here keeps the SSRF gate behaviour consistent across providers: every
+    cloud call passes ``user_configured=True``, every local call is
+    loopback-only (or RFC1918 under the operator's offline opt-in, exactly
+    as the Ollama adapter) and allows plain ``http``.
     """
 
     # Subclasses override.
@@ -1125,13 +1129,27 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
     # default endpoint).  When True and ``config.base_url`` is unset,
     # the adapter marks itself unavailable rather than guessing.
     _REQUIRE_EXPLICIT_BASE_URL: bool = False
+    # A local server on this machine: plain http on a loopback host.
+    _LOCAL: bool = False
+    # A key is optional (local servers and self-hosted endpoints); when one is
+    # present it is still sent as a bearer token.
+    _KEY_OPTIONAL: bool = False
+    #: The provider's env var naming its endpoint, read when ``config.base_url``
+    #: is unset (Azure: the resource endpoint; the generic adapter: any URL).
+    _BASE_URL_ENV_VAR: str = ""
 
     def __init__(self, config: LLMConfig):
         """Initialize OpenAI-compatible cloud adapter."""
         super().__init__(config)
 
-        self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
-        self.base_url = config.base_url or self._DEFAULT_BASE_URL
+        self.api_key = config.api_key or (
+            os.environ.get(self._PROVIDER_ENV_VAR) if self._PROVIDER_ENV_VAR else None
+        )
+        self.base_url = (
+            config.base_url
+            or (os.environ.get(self._BASE_URL_ENV_VAR) if self._BASE_URL_ENV_VAR else None)
+            or self._DEFAULT_BASE_URL
+        )
         # Vendor-neutral policy: no default model id ships for any provider.
         # Every provider gets the same operator surface: explicit
         # LLMConfig.model_name, or its MERCURY_<PROVIDER>_MODEL env fallback.
@@ -1139,13 +1157,14 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
             os.environ.get(self._MODEL_ENV_VAR, "") if self._MODEL_ENV_VAR else ""
         )
 
-        if self._REQUIRE_EXPLICIT_BASE_URL and not config.base_url:
+        if self._REQUIRE_EXPLICIT_BASE_URL and not self.base_url:
             logger.warning(
-                "%s adapter requires an explicit base_url; none provided.",
+                "%s adapter requires an explicit base_url (LLMConfig.base_url%s); none provided.",
                 self._PROVIDER_LABEL,
+                f" or {self._BASE_URL_ENV_VAR}" if self._BASE_URL_ENV_VAR else "",
             )
             self._is_available = False
-        elif not self.api_key:
+        elif not self.api_key and not self._KEY_OPTIONAL:
             logger.warning(
                 "%s API key not found (set %s or LLMConfig.api_key).",
                 self._PROVIDER_LABEL,
@@ -1166,6 +1185,37 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
         else:
             self._is_available = True
 
+    def _chat_url(self) -> str:
+        """The Chat Completions endpoint for this provider."""
+        assert self.base_url is not None  # narrowed by _is_available
+        return f"{self.base_url.rstrip('/')}/chat/completions"
+
+    def _auth_headers(self) -> dict[str, str]:
+        """The request headers; a bearer token when a key is present."""
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
+
+    def _egress_kwargs(self) -> _EgressKwargs:
+        """The egress gate for this provider: loopback-only for a local server.
+
+        A local server (LM Studio, vLLM, llama.cpp) is reached over plain
+        http on this machine; a non-loopback host is reachable only under the
+        operator's offline private-network opt-in, the same rule the Ollama
+        adapter applies. A cloud provider is an operator-configured public
+        endpoint behind the full SSRF gate.
+        """
+        if not self._LOCAL:
+            return {}
+        from omni_mercury_engine.datasets.exceptions import offline_allow_private_active
+        from omni_mercury_engine.security.safe_http import _is_loopback_host
+
+        host = urllib.parse.urlsplit(self.base_url or "").hostname or "localhost"
+        if not _is_loopback_host(host) and offline_allow_private_active():
+            return {"loopback_only": False, "allow_private": True}
+        return {"loopback_only": True}
+
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate text via the OpenAI-compatible Chat Completions API."""
         if not self._is_available:
@@ -1180,21 +1230,19 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
 
-            assert self.base_url is not None  # narrowed by _is_available
             data = SafeHTTPClient.post_json(
-                f"{self.base_url.rstrip('/')}/chat/completions",
+                self._chat_url(),
                 json_body={
                     "model": self.model,
                     "messages": messages,
                     "temperature": self.config.temperature,
                     "max_tokens": self.config.max_tokens,
                 },
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self.api_key}",
-                },
+                headers=self._auth_headers(),
                 timeout=self.config.timeout,
                 user_configured=True,
+                allow_http=self._LOCAL,
+                **self._egress_kwargs(),
             )
             # Extract content first: record usage only after a successful
             # extraction, so a malformed payload books nothing (failed calls
@@ -1263,6 +1311,168 @@ class CursorAdapter(_OpenAICompatibleCloudAdapter):
     _MODEL_ENV_VAR = "MERCURY_CURSOR_MODEL"
     _PROVIDER_LABEL = "Cursor"
     _REQUIRE_EXPLICIT_BASE_URL = True
+
+
+class MistralAdapter(_OpenAICompatibleCloudAdapter):
+    """Mistral AI (``api.mistral.ai``), OpenAI-compatible Chat Completions."""
+
+    _DEFAULT_BASE_URL = "https://api.mistral.ai/v1"
+    _PROVIDER_ENV_VAR = "MISTRAL_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_MISTRAL_MODEL"
+    _PROVIDER_LABEL = "Mistral"
+
+
+class GroqAdapter(_OpenAICompatibleCloudAdapter):
+    """Groq (``api.groq.com/openai``), OpenAI-compatible Chat Completions."""
+
+    _DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
+    _PROVIDER_ENV_VAR = "GROQ_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_GROQ_MODEL"
+    _PROVIDER_LABEL = "Groq"
+
+
+class TogetherAdapter(_OpenAICompatibleCloudAdapter):
+    """Together AI (``api.together.xyz``), OpenAI-compatible Chat Completions."""
+
+    _DEFAULT_BASE_URL = "https://api.together.xyz/v1"
+    _PROVIDER_ENV_VAR = "TOGETHER_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_TOGETHER_MODEL"
+    _PROVIDER_LABEL = "Together"
+
+
+class FireworksAdapter(_OpenAICompatibleCloudAdapter):
+    """Fireworks AI (``api.fireworks.ai/inference``), OpenAI-compatible Chat Completions."""
+
+    _DEFAULT_BASE_URL = "https://api.fireworks.ai/inference/v1"
+    _PROVIDER_ENV_VAR = "FIREWORKS_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_FIREWORKS_MODEL"
+    _PROVIDER_LABEL = "Fireworks"
+
+
+class OpenRouterAdapter(_OpenAICompatibleCloudAdapter):
+    """OpenRouter (``openrouter.ai/api``), one key in front of many vendors."""
+
+    _DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+    _PROVIDER_ENV_VAR = "OPENROUTER_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_OPENROUTER_MODEL"
+    _PROVIDER_LABEL = "OpenRouter"
+
+
+class PerplexityAdapter(_OpenAICompatibleCloudAdapter):
+    """Perplexity (``api.perplexity.ai``), OpenAI-compatible Chat Completions."""
+
+    _DEFAULT_BASE_URL = "https://api.perplexity.ai"
+    _PROVIDER_ENV_VAR = "PERPLEXITY_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_PERPLEXITY_MODEL"
+    _PROVIDER_LABEL = "Perplexity"
+
+
+class AzureOpenAIAdapter(_OpenAICompatibleCloudAdapter):
+    """Azure OpenAI: the operator's resource endpoint, a deployment name and ``api-key``.
+
+    The endpoint is the resource URL (``https://<resource>.openai.azure.com``,
+    ``LLMConfig.base_url`` or ``AZURE_OPENAI_ENDPOINT``); the model is the
+    deployment name; the request goes to
+    ``/openai/deployments/<deployment>/chat/completions?api-version=...``
+    (``AZURE_OPENAI_API_VERSION``, default ``2024-10-21``) with the key in the
+    ``api-key`` header rather than a bearer token.
+    """
+
+    _DEFAULT_BASE_URL = None
+    _BASE_URL_ENV_VAR = "AZURE_OPENAI_ENDPOINT"
+    _PROVIDER_ENV_VAR = "AZURE_OPENAI_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_AZURE_OPENAI_DEPLOYMENT"
+    _PROVIDER_LABEL = "Azure OpenAI"
+    _REQUIRE_EXPLICIT_BASE_URL = True
+    _DEFAULT_API_VERSION = "2024-10-21"
+
+    def _api_version(self) -> str:
+        return os.environ.get("AZURE_OPENAI_API_VERSION", "") or self._DEFAULT_API_VERSION
+
+    def _chat_url(self) -> str:
+        assert self.base_url is not None
+        return (
+            f"{self.base_url.rstrip('/')}/openai/deployments/"
+            f"{urllib.parse.quote(self.model, safe='')}/chat/completions"
+            f"?api-version={urllib.parse.quote(self._api_version(), safe='')}"
+        )
+
+    def _auth_headers(self) -> dict[str, str]:
+        return {"Content-Type": "application/json", "api-key": str(self.api_key)}
+
+
+class OpenAICompatibleAdapter(_OpenAICompatibleCloudAdapter):
+    """Any OpenAI-compatible endpoint the operator names (``OPENAI_COMPATIBLE_BASE_URL``).
+
+    For a vendor or a self-hosted gateway not listed by name. The endpoint is
+    required and never guessed; a key is optional (sent as a bearer token
+    when present) because many gateways authenticate at the network layer.
+    """
+
+    _DEFAULT_BASE_URL = None
+    _BASE_URL_ENV_VAR = "OPENAI_COMPATIBLE_BASE_URL"
+    _PROVIDER_ENV_VAR = "OPENAI_COMPATIBLE_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_OPENAI_COMPATIBLE_MODEL"
+    _PROVIDER_LABEL = "OpenAI-compatible endpoint"
+    _REQUIRE_EXPLICIT_BASE_URL = True
+    _KEY_OPTIONAL = True
+
+
+class LMStudioAdapter(_OpenAICompatibleCloudAdapter):
+    """LM Studio's local server (``http://localhost:1234/v1``), loopback-gated, no key."""
+
+    _DEFAULT_BASE_URL = "http://localhost:1234/v1"
+    _BASE_URL_ENV_VAR = "LMSTUDIO_BASE_URL"
+    _PROVIDER_ENV_VAR = "LMSTUDIO_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_LMSTUDIO_MODEL"
+    _PROVIDER_LABEL = "LM Studio"
+    _LOCAL = True
+    _KEY_OPTIONAL = True
+
+
+class VLLMAdapter(_OpenAICompatibleCloudAdapter):
+    """A vLLM OpenAI-compatible server (``http://localhost:8000/v1``), loopback-gated."""
+
+    _DEFAULT_BASE_URL = "http://localhost:8000/v1"
+    _BASE_URL_ENV_VAR = "VLLM_BASE_URL"
+    _PROVIDER_ENV_VAR = "VLLM_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_VLLM_MODEL"
+    _PROVIDER_LABEL = "vLLM"
+    _LOCAL = True
+    _KEY_OPTIONAL = True
+
+
+class LlamaCppAdapter(_OpenAICompatibleCloudAdapter):
+    """The llama.cpp server (``http://localhost:8080/v1``), loopback-gated, no key."""
+
+    _DEFAULT_BASE_URL = "http://localhost:8080/v1"
+    _BASE_URL_ENV_VAR = "LLAMACPP_BASE_URL"
+    _PROVIDER_ENV_VAR = "LLAMACPP_API_KEY"
+    _MODEL_ENV_VAR = "MERCURY_LLAMACPP_MODEL"
+    _PROVIDER_LABEL = "llama.cpp"
+    _LOCAL = True
+    _KEY_OPTIONAL = True
+
+
+#: Provider id -> adapter class, for every provider on the OpenAI-compatible
+#: base. ``llm_adapter._create_non_hf_adapter`` and the API's backends report
+#: read it, so a new subclass registered here is served everywhere at once.
+OPENAI_COMPATIBLE_ADAPTERS: dict[str, type[_OpenAICompatibleCloudAdapter]] = {
+    "xai": XAIGrokAdapter,
+    "deepseek": DeepSeekAdapter,
+    "cursor": CursorAdapter,
+    "mistral": MistralAdapter,
+    "groq": GroqAdapter,
+    "together": TogetherAdapter,
+    "fireworks": FireworksAdapter,
+    "openrouter": OpenRouterAdapter,
+    "perplexity": PerplexityAdapter,
+    "azure_openai": AzureOpenAIAdapter,
+    "openai_compatible": OpenAICompatibleAdapter,
+    "lmstudio": LMStudioAdapter,
+    "vllm": VLLMAdapter,
+    "llamacpp": LlamaCppAdapter,
+}
 
 
 class CohereCloudAdapter(BaseLLMAdapter):

@@ -75,6 +75,20 @@ class LLMProvider(StrEnum):
     COHERE = "cohere"  # Cohere Chat v2 (api.cohere.com)
     DEEPSEEK = "deepseek"  # DeepSeek (api.deepseek.com, OpenAI-compatible)
     CURSOR = "cursor"  # Cursor (operator-supplied base_url, OpenAI-compatible)
+    # OpenAI-compatible cloud providers (2026-11): one wire format, a default
+    # endpoint and a key variable each.
+    MISTRAL = "mistral"  # Mistral AI (api.mistral.ai)
+    GROQ = "groq"  # Groq (api.groq.com/openai)
+    TOGETHER = "together"  # Together AI (api.together.xyz)
+    FIREWORKS = "fireworks"  # Fireworks AI (api.fireworks.ai/inference)
+    OPENROUTER = "openrouter"  # OpenRouter (openrouter.ai/api)
+    PERPLEXITY = "perplexity"  # Perplexity (api.perplexity.ai)
+    AZURE_OPENAI = "azure_openai"  # Azure OpenAI (operator resource endpoint, api-key header)
+    OPENAI_COMPATIBLE = "openai_compatible"  # Any OpenAI-compatible endpoint the operator names
+    # OpenAI-compatible local servers, loopback-gated like Ollama.
+    LMSTUDIO = "lmstudio"  # LM Studio local server (localhost:1234)
+    VLLM = "vllm"  # vLLM OpenAI-compatible server (localhost:8000)
+    LLAMACPP = "llamacpp"  # llama.cpp server (localhost:8080)
 
 
 IMPLEMENTED_LLM_PROVIDERS: frozenset[LLMProvider] = frozenset(
@@ -89,6 +103,17 @@ IMPLEMENTED_LLM_PROVIDERS: frozenset[LLMProvider] = frozenset(
         LLMProvider.COHERE,
         LLMProvider.DEEPSEEK,
         LLMProvider.CURSOR,
+        LLMProvider.MISTRAL,
+        LLMProvider.GROQ,
+        LLMProvider.TOGETHER,
+        LLMProvider.FIREWORKS,
+        LLMProvider.OPENROUTER,
+        LLMProvider.PERPLEXITY,
+        LLMProvider.AZURE_OPENAI,
+        LLMProvider.OPENAI_COMPATIBLE,
+        LLMProvider.LMSTUDIO,
+        LLMProvider.VLLM,
+        LLMProvider.LLAMACPP,
     }
 )
 
@@ -681,16 +706,14 @@ def _parse_ollama_base_url(base_url: str | None) -> tuple[str | None, int | None
 def _create_non_hf_adapter(config: LLMConfig) -> BaseLLMAdapter:
     """Create implemented non-HuggingFace adapters."""
     from omni_mercury_engine.models.foundation.ollama_adapter import (
+        OPENAI_COMPATIBLE_ADAPTERS,
         AnthropicCloudAdapter,
         CohereCloudAdapter,
-        CursorAdapter,
-        DeepSeekAdapter,
         GeminiCloudAdapter,
         OllamaConfig,
         OllamaLLMAdapter,
         OpenAICloudAdapter,
         TemplateLLMAdapter,
-        XAIGrokAdapter,
     )
 
     if config.provider == LLMProvider.OLLAMA:
@@ -709,12 +732,9 @@ def _create_non_hf_adapter(config: LLMConfig) -> BaseLLMAdapter:
         return OpenAICloudAdapter(config)
     if config.provider == LLMProvider.ANTHROPIC:
         return AnthropicCloudAdapter(config)
-    if config.provider == LLMProvider.XAI:
-        return XAIGrokAdapter(config)
-    if config.provider == LLMProvider.DEEPSEEK:
-        return DeepSeekAdapter(config)
-    if config.provider == LLMProvider.CURSOR:
-        return CursorAdapter(config)
+    compatible = OPENAI_COMPATIBLE_ADAPTERS.get(config.provider.value)
+    if compatible is not None:
+        return compatible(config)
     if config.provider == LLMProvider.COHERE:
         return CohereCloudAdapter(config)
     if config.provider == LLMProvider.GEMINI:

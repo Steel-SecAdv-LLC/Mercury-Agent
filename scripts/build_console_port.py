@@ -1269,7 +1269,7 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
         '      s.ok(V.clients.every((c) => /"mercury-agent"/.test(c.snippet) && /"mcp"/.test(c.snippet)), "every client block names mercury-agent mcp", "");\n'
         '      const T = mk(); T.state.ws = "browse"; T.state.browse = "vendors"; T.state.bq = ""; T.state.bgrp = ""; T.state.bmore = 0; const o = T.renderVals(); const rows = (o.brSections || []).flatMap((g) => g.items);\n'
         '      s.ok(rows.length === 14 && rows.every((r) => typeof r.enter === "function" && Array.isArray(r.chips) && r.chips.length > 0), "the AI vendors view renders fourteen rows with chips and hover notes", rows.length);\n'
-        '      const pc = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "xai") }); s.ok(!!pc && /Grok/.test(pc.t) && pc.kv.some((k) => k[0] === "key" && /XAI_API_KEY/.test(k[1])) && pc.acts.length === 3 && pc.code[0].indexOf("XAI_API_KEY") >= 0 && !bad(pc.k + pc.t + pc.d), "a provider card names its key variable, never a value, and offers env, command and refresh", pc && pc.t);\n'
+        '      const pc = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "xai") }); s.ok(!!pc && /Grok/.test(pc.t) && pc.kv.some((k) => k[0] === "key" && /XAI_API_KEY/.test(k[1])) && pc.acts.map((a) => a[0]).join("|") === "Connect|Test connection|Use for the agent|Copy env line|Build voice command|Refresh status" && pc.code[0].indexOf("XAI_API_KEY") >= 0 && !bad(pc.k + pc.t + pc.d), "a provider card names its key variable, never a value, and offers Connect, test, use, env, command and refresh", pc && pc.acts.map((a) => a[0]).join(","));\n'
         '      const oc = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "ollama") }); s.ok(!!oc && oc.kv.some((k) => k[0] === "key" && /none needed/.test(k[1])), "the Ollama card needs no key", "");\n'
         '      const cc = T.refCard({ kind: "vendor_client", c: V.clients.find((c) => c.id === "copilot") }); s.ok(!!cc && cc.code.join("\\n").indexOf("\\"servers\\"") >= 0 && cc.acts.some((a) => a[0] === "Copy config"), "the Copilot card carries the servers block and a copy action", "");\n'
         '      T.state.backends = { providers: [{ provider: "xai", configured: true }], ollama: { reachable: true, models: ["llama3.2:3b"], base_url: "http://localhost:11434" }, active: { enabled: false } };\n'
@@ -1278,6 +1278,188 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
         '      if (A && typeof A.backends === "function" && C.live()) { const r = await A.backends(); s.ok(!!(r.ok && r.data && r.data.providers.length === 10 && Array.isArray(r.data.mcp.clients)), "GET /api/v1/voice/backends answers with ten providers and the MCP clients", r.status); s.ok(!/sk-[A-Za-z0-9]{8}/.test(JSON.stringify(r.data)), "the route carries no key value", ""); }\n'
         "    }\n\n"
         "    /* 6. Runs: argparse forms */",
+    ),
+)
+
+# --------------------------------------------------------------------------- #
+# Connect a provider from the console (2026-11): the vendor card gains a
+# Connect form (key masked, stored sealed on the engine through
+# PUT /api/v1/voice/backends/{provider}), Test connection and Use for the agent
+# / Detach; chips say where a key came from and which provider is active.
+# --------------------------------------------------------------------------- #
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "a form field can be a masked secret",
+        '<input value="{{ ff.v }}" onChange="{{ ff.onInput }}" placeholder="{{ ff.ph }}" spellcheck="false" aria-label="{{ ff.k }}" ',
+        '<input type="{{ ff.itype }}" autocomplete="off" value="{{ ff.v }}" onChange="{{ ff.onInput }}" placeholder="{{ ff.ph }}" spellcheck="false" aria-label="{{ ff.k }}" ',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "a secret field renders as a password input",
+        'isText: fd.type !== "enum" && fd.type !== "boolean", opts: [],',
+        'isText: fd.type !== "enum" && fd.type !== "boolean", itype: fd.secret ? "password" : "text", opts: [],',
+    ),
+    (
+        "the vendor card carries the Connect form",
+        'if (F.kind === "mcp") { const sc = this.A.MCP[F.m.n]; return sc ? { key: F.m.n, schema: sc, mode: "mcp" } : null; } return null; }',
+        'if (F.kind === "vendor") return { key: "vendor:" + F.v.id, schema: this.vendorSchema(F.v), mode: "vendor", typed: true }; '
+        'if (F.kind === "mcp") { const sc = this.A.MCP[F.m.n]; return sc ? { key: F.m.n, schema: sc, mode: "mcp" } : null; } return null; }',
+    ),
+    (
+        "the Connect form has its own title",
+        'fsx.mode === "mcp" ? "ARGUMENTS · inputSchema" : "REQUEST BODY · pydantic model"',
+        'fsx.mode === "mcp" ? "ARGUMENTS · inputSchema" : fsx.mode === "vendor" ? "CONNECT · stored on the engine, the key sealed · admin" : "REQUEST BODY · pydantic model"',
+    ),
+    (
+        "sending the Connect form stores the provider on the engine",
+        '    if (fs.mode === "mcp") { const txt = this.A.mcpCall(fs.key, b);',
+        '    if (fs.mode === "vendor") { const id = fs.key.slice(7); const r = await this.A.setProvider(id, b); '
+        'const why = r.ok ? "" : (r.data && r.data.detail) || r.error || ("HTTP " + r.status); '
+        'this.setState({ resp: { title: r.ok ? "provider stored · " + id : "not stored · " + id, ok: !!r.ok, text: r.ok ? JSON.stringify(r.data, null, 2) : String(why) } }); '
+        'if (r.ok) { this.setForm(fs.key, "api_key", ""); this.loadBackends(true); } '
+        'this.append([this.row((r.ok ? "✓ " : "✗ ") + "PUT /api/v1/voice/backends/" + id + (r.ok ? " · stored" : " · " + String(why).slice(0, 160)), r.ok ? "var(--normal)" : "var(--warning)")]); return; }\n'
+        '    if (fs.mode === "mcp") { const txt = this.A.mcpCall(fs.key, b);',
+    ),
+    (
+        "vendor helpers: the Connect schema, the test and select actions",
+        "  detRunner(d) {",
+        "  vendorSchema(v) {\n"
+        "    const live = this.vendorRow(v.id), sc = {};\n"
+        '    if (v.key) sc.api_key = { type: "string", secret: true, desc: (live && live.configured_via === "store" ? "stored · leave empty to keep, send a new one to replace" : "sealed on the engine; never shown again") };\n'
+        '    if (v.baseUrl || v.locality === "local" || v.id === "ollama") sc.base_url = { type: "string", req: !!v.baseUrl, desc: v.baseUrl ? "required · the endpoint (Azure: https://<resource>.openai.azure.com)" : "optional · " + (live && live.base_url ? live.base_url : "the default endpoint") };\n'
+        '    else sc.base_url = { type: "string", desc: "optional · overrides " + (live && live.base_url ? live.base_url : "the default endpoint") };\n'
+        '    sc.model = { type: "string", desc: v.id === "azure_openai" ? "the deployment name" : (live && live.model ? "current · " + live.model : "the model id; no default ships") };\n'
+        "    return sc;\n"
+        "  }\n"
+        "  async vendorTest(v) {\n"
+        '    if (!this.A || !this.live() || typeof this.A.testProvider !== "function") { this.append([this.row("Connect an engine to test " + v.name + ".", "var(--warning)")]); return; }\n'
+        '    this.append([this.row("… testing " + v.name, "var(--fg-3)")]);\n'
+        '    const r = await this.A.testProvider(v.id, {}); const d = r.data || {}; const why = r.ok ? "" : (d.detail || r.error || ("HTTP " + r.status));\n'
+        '    const line = r.ok && d.ok ? "✓ " + v.name + " · " + d.detail + (d.models && d.models.length ? " · " + d.models.slice(0, 6).join(", ") + (d.models.length > 6 ? " …" : "") : "") : "✗ " + v.name + " · " + (r.ok ? d.detail : String(why));\n'
+        '    this.append([this.row(line, r.ok && d.ok ? "var(--normal)" : "var(--warning)")]);\n'
+        '    this.setState({ resp: { title: "POST /api/v1/voice/backends/" + v.id + "/test", ok: !!(r.ok && d.ok), text: JSON.stringify(r.ok ? d : { status: r.status, detail: why }, null, 2) } });\n'
+        "  }\n"
+        "  async vendorForget(v) {\n"
+        '    if (!this.A || !this.live()) { this.append([this.row("Connect an engine first.", "var(--warning)")]); return; }\n'
+        '    const r = await this.A.forgetProvider(v.id); const why = r.ok ? "" : (r.data && r.data.detail) || r.error || ("HTTP " + r.status);\n'
+        '    this.append([this.row(r.ok ? "✓ " + v.name + " · stored key, endpoint and model forgotten" + (r.data && r.data.selection_cleared ? " · detached from the agent" : "") : "✗ " + v.name + " · " + String(why).slice(0, 200), r.ok ? "var(--normal)" : "var(--warning)")]);\n'
+        '    this.setState({ resp: { title: "DELETE /api/v1/voice/backends/" + v.id, ok: !!r.ok, text: JSON.stringify(r.ok ? r.data : { status: r.status, detail: why }, null, 2) } });\n'
+        "    if (r.ok) this.loadBackends(true);\n"
+        "  }\n"
+        "  async vendorUse(v, detach) {\n"
+        '    if (!this.A || !this.live()) { this.append([this.row("Connect an engine first.", "var(--warning)")]); return; }\n'
+        "    const live = this.vendorRow(v.id); const r = detach ? await this.A.deselectProvider() : await this.A.selectProvider(v.id, live && live.model ? live.model : null);\n"
+        '    const why = r.ok ? "" : (r.data && r.data.detail) || r.error || ("HTTP " + r.status);\n'
+        '    this.append([this.row(r.ok ? (detach ? "✓ the agent is back on its built-in templates" : "✓ the agent now composes free-text answers with " + v.name) : "✗ " + (detach ? "detach" : v.name) + " · " + String(why).slice(0, 200), r.ok ? "var(--normal)" : "var(--warning)")]);\n'
+        '    this.setState({ resp: { title: (detach ? "DELETE" : "POST") + " /api/v1/voice/backends/select", ok: !!r.ok, text: JSON.stringify(r.ok ? r.data : { status: r.status, detail: why }, null, 2) } });\n'
+        "    if (r.ok) this.loadBackends(true);\n"
+        "  }\n"
+        "  detRunner(d) {",
+    ),
+    (
+        "vendor chips say where a key came from and which provider is active",
+        '    if (v.key) chips.push(this.chip(live ? (live.configured ? v.key + " set" : v.key + " not set") : v.key, live ? (live.configured ? "ok" : "warn") : "dim"));',
+        '    if (v.key) chips.push(this.chip(live ? (live.configured_via === "store" ? "key stored" : live.configured_via === "env" ? v.key + " set" : live.key_optional ? "no key needed" : v.key + " not set") : v.key, live ? (live.configured ? "ok" : "warn") : "dim"));\n'
+        '    if (live && live.requires_explicit_base_url) chips.push(this.chip(live.base_url ? "endpoint " + (live.base_url_source || "set") : "endpoint required", live.base_url ? "ok" : "warn"));\n'
+        '    if (live && live.model) chips.push(this.chip("model " + live.model + (live.model_source ? " · " + live.model_source : "")));',
+    ),
+    (
+        "the provider card offers Connect, Test connection and Use for the agent",
+        'code: [env, "mercury-agent voice --model " + model], acts: [["Copy env line", () => this.copyText(env)], ["Build voice command", () => this.selectCmd("voice")], ["Refresh status", () => this.loadBackends(true)]] };',
+        'code: [env, "mercury-agent voice --model " + (v.id === "ollama" ? model : v.id + ":" + model)], acts: [["Connect", () => this.sendForm(this.formSchema({ kind: "vendor", v }))], ["Test connection", () => this.vendorTest(v)], '
+        '[B && B.active && B.active.enabled && B.active.provider === v.id ? "Detach from the agent" : "Use for the agent", () => this.vendorUse(v, !!(B && B.active && B.active.enabled && B.active.provider === v.id))], '
+        '["Copy env line", () => this.copyText(env)], ["Build voice command", () => this.selectCmd("voice")], ["Refresh status", () => this.loadBackends(true)]].concat(live && live.stored && live.stored.length ? [["Forget stored settings", () => this.vendorForget(v)]] : []) };',
+    ),
+    (
+        "the provider card explains the Connect form and the admin requirement",
+        'd: v.note + " Keys are read by the engine from its environment; this console never holds one.", kv,',
+        'd: v.note + " Connect below stores the key sealed on the engine (an administrator key or session is required; this console never keeps a key), Test connection makes one read-only call, Use for the agent attaches the provider to the voice. Everything stays available from the environment as well.", kv,',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "the provider routes: store, forget, test, select, detach",
+        '    backends: () => call("GET", "/api/v1/voice/backends"),',
+        '    backends: () => call("GET", "/api/v1/voice/backends"),\n'
+        '    setProvider: (id, body) => call("PUT", "/api/v1/voice/backends/" + encodeURIComponent(id), body || {}),\n'
+        '    forgetProvider: (id) => call("DELETE", "/api/v1/voice/backends/" + encodeURIComponent(id)),\n'
+        '    testProvider: (id, body) => call("POST", "/api/v1/voice/backends/" + encodeURIComponent(id) + "/test", body || {}),\n'
+        '    selectProvider: (id, model) => call("POST", "/api/v1/voice/backends/select", { provider: id, model: model || null }),\n'
+        '    deselectProvider: () => call("DELETE", "/api/v1/voice/backends/select"),',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "the vendors suite counts twenty-one providers and checks the Connect form",
+        'const V = D.vendors; s.ok(!!V && V.providers.length === 10 && V.clients.length === 4, "the catalog carries the ten shipped providers and four MCP client blocks", V ? V.providers.length + "/" + V.clients.length : "none");',
+        'const V = D.vendors; s.ok(!!V && V.providers.length === 21 && V.clients.length === 4, "the catalog carries the twenty-one shipped providers and four MCP client blocks", V ? V.providers.length + "/" + V.clients.length : "none");',
+    ),
+    (
+        "the vendors view renders twenty-five rows",
+        's.ok(rows.length === 14 && rows.every((r) => typeof r.enter === "function" && Array.isArray(r.chips) && r.chips.length > 0), "the AI vendors view renders fourteen rows with chips and hover notes", rows.length);',
+        's.ok(rows.length === 25 && rows.every((r) => typeof r.enter === "function" && Array.isArray(r.chips) && r.chips.length > 0), "the AI vendors view renders twenty-five rows with chips and hover notes", rows.length);\n'
+        '      const fsv = T.formSchema({ kind: "vendor", v: V.providers.find((v) => v.id === "azure_openai") }); s.ok(!!fsv && fsv.mode === "vendor" && fsv.schema.api_key && fsv.schema.api_key.secret === true && fsv.schema.base_url.req === true && fsv.schema.model, "the Azure Connect form masks the key and requires the endpoint", fsv && Object.keys(fsv.schema).join(","));\n'
+        '      const fsl = T.formSchema({ kind: "vendor", v: V.providers.find((v) => v.id === "lmstudio") }); s.ok(!!fsl && !fsl.schema.api_key.req && fsl.schema.base_url && !fsl.schema.base_url.req, "a local server form needs neither key nor endpoint", "");\n'
+        '      const pcx = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "groq") }); s.ok(!!pcx && pcx.acts.map((a) => a[0]).slice(0, 3).join("|") === "Connect|Test connection|Use for the agent" && /groq:/.test(pcx.code[1]), "a provider card offers Connect, Test connection and Use for the agent and names provider:model", pcx && pcx.acts.map((a) => a[0]).join(","));',
+    ),
+    (
+        "a configured key reads as stored or set",
+        'T.state.backends = { providers: [{ provider: "xai", configured: true }], ollama: { reachable: true, models: ["llama3.2:3b"], base_url: "http://localhost:11434" }, active: { enabled: false } };\n'
+        '      const ch = T.vendorChips(V.providers.find((v) => v.id === "xai")); s.ok(ch.some((c) => /XAI_API_KEY set/.test(c.t)), "a configured key shows as set", ch.map((c) => c.t).join(","));',
+        'T.state.backends = { providers: [{ provider: "xai", configured: true, configured_via: "env" }, { provider: "groq", configured: true, configured_via: "store", model: "llama-3.3-70b", model_source: "store", stored: ["has_key", "model"] }], ollama: { reachable: true, models: ["llama3.2:3b"], base_url: "http://localhost:11434" }, active: { enabled: true, provider: "groq" } };\n'
+        '      const ch = T.vendorChips(V.providers.find((v) => v.id === "xai")); s.ok(ch.some((c) => /XAI_API_KEY set/.test(c.t)), "a key from the environment shows as set", ch.map((c) => c.t).join(","));\n'
+        '      const cg = T.vendorChips(V.providers.find((v) => v.id === "groq")); s.ok(cg.some((c) => c.t === "key stored") && cg.some((c) => /^model llama-3.3-70b/.test(c.t)) && cg.some((c) => c.t === "active"), "a stored key, its model and the active provider show as chips", cg.map((c) => c.t).join(","));\n'
+        '      const pcg = T.refCard({ kind: "vendor", v: V.providers.find((v) => v.id === "groq") }); s.ok(!!pcg && pcg.acts[2][0] === "Detach from the agent" && pcg.acts[pcg.acts.length - 1][0] === "Forget stored settings", "the active provider offers Detach and a stored provider offers Forget", pcg && pcg.acts.map((a) => a[0]).join(","));',
+    ),
+    (
+        "the live route answers with twenty-one providers",
+        'r.data.providers.length === 10 && Array.isArray(r.data.mcp.clients)), "GET /api/v1/voice/backends answers with ten providers and the MCP clients"',
+        'r.data.providers.length === 21 && Array.isArray(r.data.mcp.clients) && r.data.store && typeof r.data.store.can_store_keys === "boolean"), "GET /api/v1/voice/backends answers with twenty-one providers, the store state and the MCP clients"',
+    ),
+)
+
+# --------------------------------------------------------------------------- #
+# Free-form bodies carry their documented keys (2026-11): the catalog reads a
+# raw route's ``Body:`` line, so the console can say which keys a dict body
+# takes and which are required, and the self-test can check a fixture against
+# the documented contract instead of walking it against a schema with no fields.
+# --------------------------------------------------------------------------- #
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "a free-form body is missing its documented required keys",
+        "function missing(schema, b, vals) { if (Object.keys(schema).some((k) => schema[k].raw)) return b && Object.keys(b).length ? [] : Object.keys(schema).filter((k) => schema[k].raw);",
+        'function missing(schema, b, vals) { const rk = Object.keys(schema).find((k) => schema[k].raw); if (rk) { if (!(b && typeof b === "object" && Object.keys(b).length)) return [rk]; return (schema[rk].reqKeys || []).filter((k) => !(k in b)); }',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "a fixture for a free-form body is checked against the documented keys",
+        'Object.keys(b).forEach((k) => { const fd = sc[k]; s.ok(!!fd, c.id + " field \'" + k + "\' is in the pydantic model", "");',
+        'const rawK = Object.keys(sc).find((k) => sc[k].raw), docK = rawK ? (sc[rawK].keys || []) : null; if (rawK) s.ok(docK.length > 0, c.id + " free-form route documents its body keys", c.route); '
+        'Object.keys(b).forEach((k) => { if (rawK) { s.ok(!docK.length || docK.includes(k), c.id + " field \'" + k + "\' is documented for the free-form body", docK.join(",")); return; } const fd = sc[k]; s.ok(!!fd, c.id + " field \'" + k + "\' is in the pydantic model", "");',
+    ),
+    (
+        "voice shows the five docstring examples",
+        's.ok(yv.hasEx && yv.exList.length === 4 && yv.exList.some((e) => e.t === "--domain medical") && yv.exList.some((e) => e.t === "no options"), "voice shows cli.py\'s four docstring examples", yv.exList.map((e) => e.t).join(" | "));',
+        's.ok(yv.hasEx && yv.exList.length === 5 && yv.exList.some((e) => e.t === "--domain medical") && yv.exList.some((e) => e.t === "--model openai:gpt-4o") && yv.exList.some((e) => e.t === "no options"), "voice shows cli.py\'s five docstring examples, provider:model among them", yv.exList.map((e) => e.t).join(" | "));',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "the schema check samples a free-form body the way the console pre-fills it",
+        "if (sc[k].raw) pv[k] = { example: true }; });",
+        'if (sc[k].raw) { const M2 = window.MercuryCLIMass, cap2 = M2 && M2.CAPS.find((c) => c.route === key && c.build); let ex = null; try { ex = cap2 ? cap2.build(null, { domain: "network_security" }) : null; } catch (e) { ex = null; } pv[k] = (ex && typeof ex === "object" ? ex : null) || (A.RAW_SAMPLES || {})[key] || { example: true }; } });',
+    ),
+    (
+        "the pass-through check compares the body with the sample it was given",
+        'if (raw) s.ok(b.example === true, key + " raw JSON body passes through", JSON.stringify(b));',
+        'if (raw) { const rk2 = Object.keys(sc).find((k) => sc[k].raw); s.ok(b === pv[rk2], key + " raw JSON body passes through", JSON.stringify(b).slice(0, 160)); }',
     ),
 )
 

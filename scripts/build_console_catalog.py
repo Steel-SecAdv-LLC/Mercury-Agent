@@ -518,6 +518,46 @@ def _field(schema: dict[str, Any], required: bool, components: dict[str, Any]) -
     return out
 
 
+_BODY_LINE = re.compile(r"^Body:\s*(.+?)(?:\n\s*\n|\Z)", re.MULTILINE | re.DOTALL)
+_BODY_KEY = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`(\s*\(required\))?")
+
+
+def documented_body_keys(description: str | None) -> tuple[list[str], list[str]]:
+    """The keys a free-form route documents on its ``Body:`` line, and the required ones.
+
+    A route that takes ``dict[str, Any]`` has no pydantic fields for the
+    console to render, but its description states the contract: ``Body:
+    `statements` (required), `evidence`, …`` or ``Body: `intel_reports`,
+    optional `history`.``. The keys are read in order; a key is required when
+    it carries ``(required)``, or, when no key does and the word ``optional``
+    appears, when it comes before that word. A line with neither marks no key
+    required rather than guessing.
+    """
+    if not description:
+        return [], []
+    match = _BODY_LINE.search(description)
+    if not match:
+        return [], []
+    text = " ".join(match.group(1).split())
+    # A parenthesis other than ``(required)`` explains a key (a scope, a
+    # type); the names inside it are not keys.
+    text = re.sub(r"\((?!required\))[^)]*\)", "", text)
+    keys = [m.group(1) for m in _BODY_KEY.finditer(text)]
+    marked = [m.group(1) for m in _BODY_KEY.finditer(text) if m.group(2)]
+    if marked:
+        required = marked
+    elif "optional" in text:
+        head = text.split("optional", 1)[0]
+        required = [m.group(1) for m in _BODY_KEY.finditer(head)]
+    else:
+        required = []
+    ordered: list[str] = []
+    for key in keys:
+        if key not in ordered:
+            ordered.append(key)
+    return ordered, [k for k in ordered if k in required]
+
+
 def _object_fields(
     schema: dict[str, Any], components: dict[str, Any], *, raw_body: bool = True
 ) -> dict[str, Any]:
@@ -613,6 +653,15 @@ def build_api() -> tuple[list[dict[str, str]], dict[str, Any]]:
             body = op.get("requestBody", {}).get("content", {}).get("application/json")
             if body:
                 fields.update(_object_fields(body.get("schema", {}), components))
+                raw = fields.get("body")
+                if raw and raw.get("raw"):
+                    keys, required = documented_body_keys(op.get("description"))
+                    if keys:
+                        raw["keys"] = keys
+                        raw["reqKeys"] = required
+                        raw["desc"] = "Free-form JSON body · documented keys: " + ", ".join(
+                            k + (" (required)" if k in required else "") for k in keys
+                        )
             for param in op.get("parameters", []):
                 field = _field(param.get("schema", {}), bool(param.get("required")), components)
                 field["p" if param.get("in") == "path" else "q"] = 1

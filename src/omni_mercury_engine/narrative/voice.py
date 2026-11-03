@@ -1850,10 +1850,20 @@ class MercuryVoice:
         start_time = time.time()
 
         # Build response from search results
+        reasoning_summary = search_response.summary
         if search_response.results:
             message = self._build_search_response(user_input, search_response, profile)
             sources = list({r.source.value for r in search_response.results})
             confidence = max(r.relevance_score for r in search_response.results)
+            composed = self._compose_with_model(user_input, search_response)
+            if composed is not None:
+                message = composed
+                sources.append(f"language_model:{self._llm_provider}")
+                reasoning_summary = (
+                    f"Composed by {self._llm_provider}:{self._llm_model_name or '?'} from "
+                    f"{len(search_response.results)} retrieved record(s); every sentence is "
+                    "bounded to those records."
+                )
         else:
             # No results found: say what can be asked instead of apologising
             message = self._build_no_results_response(user_input, profile)
@@ -1874,7 +1884,7 @@ class MercuryVoice:
             message=message,
             confidence=confidence,
             sources_cited=sources,
-            reasoning_summary=search_response.summary,
+            reasoning_summary=reasoning_summary,
             intent_understood=search_response.intent,
             search_performed=True,
             search_results_count=len(search_response.results),
@@ -1886,6 +1896,56 @@ class MercuryVoice:
             ),
             uncertainty_note=uncertainty_note,
         )
+
+    #: Replies an adapter returns in place of text when it could not answer.
+    _ADAPTER_FAILURE_PREFIXES = ("API error", "Request failed", "not available")
+    _COMPOSE_MAX_RECORDS = 8
+    _COMPOSE_MAX_CHARS = 1600
+
+    def _compose_with_model(self, question: str, search_response: Any) -> str | None:
+        """Have the attached model answer ``question`` from the retrieved records only.
+
+        The model sees the records the retriever found (each named by its
+        source, clipped), is told to use nothing else and to say when they do
+        not answer, and is held to four sentences. An adapter error, an empty
+        reply or a reply the adapter marks as a failure returns ``None`` so
+        the template answer stands; the caller then reports whether a model
+        composed the text and from how many records.
+        """
+        adapter = self._llm_adapter
+        if adapter is None or not search_response.results:
+            return None
+        lines = []
+        for result in list(search_response.results)[: self._COMPOSE_MAX_RECORDS]:
+            source = getattr(getattr(result, "source", None), "value", "record")
+            content = result.content
+            if isinstance(content, dict):
+                try:
+                    import json
+
+                    text = json.dumps(content, default=str, sort_keys=True)
+                except (TypeError, ValueError):
+                    text = str(content)
+            else:
+                text = str(content)
+            lines.append(f"- [{source}] {text[:400]}")
+        records = "\n".join(lines)
+        system_prompt = (
+            "You are Mercury Agent, an anomaly-detection engine's voice. Answer the question "
+            "using only the records below. Do not add facts, numbers or names that are not in "
+            "the records; if they do not answer the question, say so in one sentence. Use at "
+            "most four sentences and no preamble."
+        )
+        prompt = f"Question: {question.strip()}\n\nRecords:\n{records}"
+        try:
+            reply = adapter.generate(prompt, system_prompt=system_prompt)
+        except Exception as exc:
+            self.logger.warning("the attached model could not compose an answer: %s", exc)
+            return None
+        text = str(reply or "").strip()
+        if not text or text.startswith(self._ADAPTER_FAILURE_PREFIXES):
+            return None
+        return text[: self._COMPOSE_MAX_CHARS].rstrip()
 
     def _build_search_response(
         self,

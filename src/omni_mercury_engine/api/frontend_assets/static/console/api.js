@@ -194,7 +194,7 @@
     Object.keys(schema).forEach((k) => { const f = schema[k]; if (f.p || f.q) return; const v = vals && vals[k]; if (v !== undefined && v !== "" && v !== null) o[k] = v; else if (f.req || (!only && f.def !== undefined)) o[k] = sample(f, k); });
     return o;
   }
-  function missing(schema, b, vals) { if (Object.keys(schema).some((k) => schema[k].raw)) return b && Object.keys(b).length ? [] : Object.keys(schema).filter((k) => schema[k].raw); return Object.keys(schema).filter((k) => { const f = schema[k]; if (!f.req) return false; const v = f.p || f.q ? (vals || {})[k] : b[k]; return v === undefined || v === "" || (Array.isArray(v) && !v.length); }); }
+  function missing(schema, b, vals) { const rk = Object.keys(schema).find((k) => schema[k].raw); if (rk) { if (!(b && typeof b === "object" && Object.keys(b).length)) return [rk]; return (schema[rk].reqKeys || []).filter((k) => !(k in b)); } return Object.keys(schema).filter((k) => { const f = schema[k]; if (!f.req) return false; const v = f.p || f.q ? (vals || {})[k] : b[k]; return v === undefined || v === "" || (Array.isArray(v) && !v.length); }); }
   function pathParams(route) { return [...route.matchAll(/\{(\w+)\}/g)].map((m) => m[1]); }
   function withParams(route, schema) { const sc = Object.assign({}, schema || {}); pathParams(route).forEach((k) => { if (!sc[k]) sc[k] = F("string", { req: 1, p: 1, desc: "path parameter" }); }); return sc; }
   function url(route, vals, schema) { const path = route.split(" ")[1]; let u = path.replace(/\{(\w+)\}/g, (m, k) => (vals && vals[k] != null && vals[k] !== "" ? encodeURIComponent(vals[k]) : "{" + k + "}")); const qs = Object.keys(schema || {}).filter((k) => schema[k].q && vals && vals[k] != null && vals[k] !== "").map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(vals[k])); return u + (qs.length ? "?" + qs.join("&") : ""); }
@@ -207,6 +207,11 @@
     simulated: () => cfg.baseUrl.startsWith("sim://"),
     health: () => call("GET", "/health"),
     backends: () => call("GET", "/api/v1/voice/backends"),
+    setProvider: (id, body) => call("PUT", "/api/v1/voice/backends/" + encodeURIComponent(id), body || {}),
+    forgetProvider: (id) => call("DELETE", "/api/v1/voice/backends/" + encodeURIComponent(id)),
+    testProvider: (id, body) => call("POST", "/api/v1/voice/backends/" + encodeURIComponent(id) + "/test", body || {}),
+    selectProvider: (id, model) => call("POST", "/api/v1/voice/backends/select", { provider: id, model: model || null }),
+    deselectProvider: () => call("DELETE", "/api/v1/voice/backends/select"),
     async probeUrl(url) { const saved = cfg.baseUrl; cfg.baseUrl = url; try { return await call("GET", "/health"); } finally { cfg.baseUrl = saved; } },
     openapi: () => call("GET", "/openapi.json"),
     post: (path, b, o) => call("POST", path, b, o),

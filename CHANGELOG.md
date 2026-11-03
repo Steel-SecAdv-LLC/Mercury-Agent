@@ -86,6 +86,63 @@ alert arrives). The theme and language option buttons and every switch now
 carry `aria-pressed` / `aria-checked` as strings, so the state survives being
 false. The self-test gains a Settings & accessibility suite (9,192 checks).
 
+**Added — twenty-one language-model providers, connected from the console.**
+The engine shipped adapters for ten providers; eleven more join on the shared
+OpenAI-compatible base (`models/foundation/ollama_adapter.py`,
+`OPENAI_COMPATIBLE_ADAPTERS`): Mistral, Groq, Together, Fireworks, OpenRouter
+and Perplexity (a public endpoint and a key each), Azure OpenAI (the
+operator's resource endpoint, a deployment name, the `api-key` header and an
+API version), any OpenAI-compatible endpoint the operator names (required,
+never guessed; key optional), and the local LM Studio, vLLM and llama.cpp
+servers (plain http on a loopback host, no key, RFC1918 only under the
+offline opt-in, exactly as Ollama). Every provider is in the enum, the
+implemented set and the code-grounded catalog the drift gate pins; no model
+ships by default; `tests/models/test_openai_compatible_providers.py` pins
+the contract adapter by adapter. Connecting one no longer means editing the
+engine host's environment: an administrator stores the key, endpoint and
+model from the console's AI vendors view (`PUT
+/api/v1/voice/backends/{provider}`; the key sealed at rest by
+`api/provider_store.py` under `MERCURY_DATA_ENC_KEY` or `AMA_MASTER_SEED`,
+never returned, refused with the reason when no stable key exists), tests
+the connection with one read-only call that lists the provider's models
+(`POST /api/v1/voice/backends/{provider}/test`; a key given there is used
+once and not stored), and makes the provider the voice's model (`POST
+/api/v1/voice/backends/select`, `DELETE` to detach), which survives a
+restart (`MERCURY_PROVIDER_STORE_PATH`, inventoried by `decouple`). The
+backends report says for each provider where its key, endpoint and model
+came from (store, environment, default). `mercury-agent voice --model
+provider:model` attaches the same way from the shell; the flag used to build
+an Ollama chain the voice never consulted. And an attached model now has a
+real, bounded job: it composes the free-text search answers from the
+records the retriever found and nothing else (the reply names the model
+among its sources and says how many records it composed from; an adapter
+failure leaves the template answer), while grounded answers never go
+through it. Tests: `tests/api/test_provider_store.py`,
+`tests/api/test_voice_backends.py` (admin gate, the secret boundary, the
+probe, selection and persistence), `tests/narrative/test_voice_model_compose.py`,
+`tests/test_cli_voice_model_spec.py`.
+
+**Fixed — a stored change reaches the running voice; a free-form route
+states its body.** Storing a new key, endpoint or model for the provider the
+voice is composing with rebuilds the served voice at once (the response says
+`reattached`); a change that leaves the provider unable to answer (its key
+cleared) detaches it and drops the selection rather than keeping a model
+that cannot reply, and forgetting the active provider detaches it the same
+way (`selection_cleared`). The provider row names which fields are in the
+store (`stored`), so the console offers Forget stored settings only when
+there is something to forget. Separately, running the console self-test with
+an API key attached reached checks the keyless runs never did: the mass-run
+fixtures for the assessment routes were walked field by field against a
+free-form (`dict[str, Any]`) body that has no fields, and failed. Every
+free-form route now states its contract on a `Body:` line in its OpenAPI
+description (five of the nine had none), the console catalog reads that line
+into the raw body field (`keys`, `reqKeys`; `scripts/build_console_catalog.py`,
+`documented_body_keys`), the console's missing-field check and the self-test
+use the documented keys, and `tests/scripts/test_console_raw_body_keys.py`
+keeps the documentation equal to the key sets the assessment service
+enforces, read from its `_obj` calls with `ast`. The self-test's voice
+example count follows the fifth docstring example (`--model openai:gpt-4o`).
+
 **Added — AI vendors: which language models and which AI clients can link
 to Mercury, shown in the console.** The engine ships adapters for ten
 language-model providers (OpenAI, Anthropic, xAI Grok, Google Gemini,

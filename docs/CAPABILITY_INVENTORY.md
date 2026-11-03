@@ -7,23 +7,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,097
-- **Capability-bearing classes:** 2,076 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,115
+- **Capability-bearing classes:** 2,090 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,216 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,219 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1216 |
-| Support types (config / result / enum / error) | 1021 |
+| Other capability classes | 1219 |
+| Support types (config / result / enum / error) | 1025 |
 | Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 113 |
+| Adapters & backends | 108 |
 | Engines & orchestration | 102 |
-| Adapters & backends | 97 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 27 |
@@ -201,7 +201,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 157 classes (57 capability)
+### `api/` — 164 classes (60 capability)
 
 **Adapters & backends**
 
@@ -255,6 +255,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ModelRegistry` (`api.routes.models`) — Model registry with versioning and lifecycle management.
 - `ModelVersion` (`api.routes.models`) — Model version record.
 - `PIIMaskingFilter` (`api.server`) — Filter to mask PII data in log messages for security compliance.
+- `ProviderSelect` (`api.voice`) — The provider and model the served voice generates prose with.
+- `ProviderStore` (`api.provider_store`) — A small JSON store of sealed provider keys, endpoints, models and the selection.
+- `ProviderTest` (`api.voice`) — Optional overrides for a connection test; a key given here is used once and not stored.
 - `QuotaDecision` (`api.quota`) — The outcome of a quota check, including the usage it was based on.
 - `QuotaMiddleware` (`api.quota_middleware`) — Reserve-run-commit quota enforcement over the metered path prefixes.
 - `QuotaSnapshot` (`api.quota`) — An account's in-window usage next to its effective ceilings.
@@ -275,9 +278,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `User` (`api.auth`) — Authenticated user information.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (100)</summary>
+<details><summary>Support types (104)</summary>
 
-`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
 
 </details>
 
@@ -2326,25 +2329,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `models/` — 141 classes (103 capability)
+### `models/` — 152 classes (114 capability)
 
 **Adapters & backends**
 
 - `AnthropicCloudAdapter` (`models.foundation.ollama_adapter`) — Anthropic cloud adapter for Claude models.
+- `AzureOpenAIAdapter` (`models.foundation.ollama_adapter`) — Azure OpenAI: the operator's resource endpoint, a deployment name and ``api-key``.
 - `BaseFoundationAdapter` (`models.foundation.base_foundation`) — Concrete adapter class for foundation models.
 - `BaseLLMAdapter` (`models.foundation.llm_adapter`) — Abstract base class for LLM adapters.
 - `ChronosAdapter` (`models.foundation.chronos_adapter`) — Chronos adapter for local time-series forecasting.
 - `CohereCloudAdapter` (`models.foundation.ollama_adapter`) — Cohere Chat v2 cloud adapter (api.cohere.com).
 - `CursorAdapter` (`models.foundation.ollama_adapter`) — Cursor cloud adapter (OpenAI-compatible).
 - `DeepSeekAdapter` (`models.foundation.ollama_adapter`) — DeepSeek cloud adapter (api.deepseek.com, OpenAI-compatible).
+- `FireworksAdapter` (`models.foundation.ollama_adapter`) — Fireworks AI (``api.fireworks.ai/inference``), OpenAI-compatible Chat Completions.
 - `GeminiCloudAdapter` (`models.foundation.ollama_adapter`) — Google Gemini cloud adapter (generativelanguage.googleapis.com).
+- `GroqAdapter` (`models.foundation.ollama_adapter`) — Groq (``api.groq.com/openai``), OpenAI-compatible Chat Completions.
 - `HuggingFaceCloudAdapter` (`models.foundation.ollama_adapter`) — HuggingFace Inference API adapter.
 - `HuggingFaceLLMAdapter` (`models.foundation.llm_adapter`) — HuggingFace Transformers LLM adapter for local models.
+- `LMStudioAdapter` (`models.foundation.ollama_adapter`) — LM Studio's local server (``http://localhost:1234/v1``), loopback-gated, no key.
+- `LlamaCppAdapter` (`models.foundation.ollama_adapter`) — The llama.cpp server (``http://localhost:8080/v1``), loopback-gated, no key.
+- `MistralAdapter` (`models.foundation.ollama_adapter`) — Mistral AI (``api.mistral.ai``), OpenAI-compatible Chat Completions.
 - `MockLLMAdapter` (`models.foundation.llm_adapter`) — Mock LLM adapter — hard-fails at construction.
 - `OllamaLLMAdapter` (`models.foundation.ollama_adapter`) — Ollama LLM adapter for local model inference.
 - `OpenAICloudAdapter` (`models.foundation.ollama_adapter`) — OpenAI cloud adapter for GPT models.
+- `OpenAICompatibleAdapter` (`models.foundation.ollama_adapter`) — Any OpenAI-compatible endpoint the operator names (``OPENAI_COMPATIBLE_BASE_URL``).
+- `OpenRouterAdapter` (`models.foundation.ollama_adapter`) — OpenRouter (``openrouter.ai/api``), one key in front of many vendors.
+- `PerplexityAdapter` (`models.foundation.ollama_adapter`) — Perplexity (``api.perplexity.ai``), OpenAI-compatible Chat Completions.
 - `TemplateLLMAdapter` (`models.foundation.ollama_adapter`) — Template-based fallback adapter for offline operation.
 - `TimeGPTAdapter` (`models.foundation.timegpt_adapter`) — TimeGPT adapter for time-series anomaly detection.
+- `TogetherAdapter` (`models.foundation.ollama_adapter`) — Together AI (``api.together.xyz``), OpenAI-compatible Chat Completions.
+- `VLLMAdapter` (`models.foundation.ollama_adapter`) — A vLLM OpenAI-compatible server (``http://localhost:8000/v1``), loopback-gated.
 - `XAIGrokAdapter` (`models.foundation.ollama_adapter`) — xAI Grok cloud adapter (api.x.ai, OpenAI-compatible).
 - `_OpenAICompatibleCloudAdapter` (`models.foundation.ollama_adapter`) — Shared base for OpenAI-compatible Chat Completions adapters.
 

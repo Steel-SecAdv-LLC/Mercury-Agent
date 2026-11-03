@@ -2128,7 +2128,12 @@ def stream(
     "--model",
     "-m",
     default="",
-    help="Ollama model to use (no default ships; falls back to MERCURY_OLLAMA_MODEL)",
+    help=(
+        "The language model the voice composes free-text answers with, as provider:model "
+        "(openai:gpt-4o, anthropic:claude-sonnet-4-5, groq:llama-3.3-70b-versatile, "
+        "lmstudio:qwen2.5) or a bare Ollama model name (llama3.2:3b). The provider's key comes "
+        "from its environment variable or the provider store; no model ships by default."
+    ),
 )
 @click.option("--offline", is_flag=True, help="Force offline mode (template responses)")
 def voice(domain: str, model: str, offline: bool) -> None:
@@ -2137,10 +2142,32 @@ def voice(domain: str, model: str, offline: bool) -> None:
     Examples:
         mercury-agent voice
         mercury-agent voice --domain medical
-        mercury-agent voice --model mistral:7b
+        mercury-agent voice --model llama3.2:3b
+        mercury-agent voice --model openai:gpt-4o
         mercury-agent voice --offline
     """
     _start_voice_conversation(domain, model, offline)
+
+
+def _parse_voice_model(spec: str) -> tuple[str, str]:
+    """Split ``provider:model`` (a bare name is an Ollama model, whose own ids carry a colon)."""
+    import re
+
+    from omni_mercury_engine.models.llm_registry import PROVIDER_CATALOG
+
+    text = spec.strip()
+    if not text:
+        return "", ""
+    head, sep, tail = text.partition(":")
+    if sep and head.lower() == "ollama" and tail:
+        return "ollama", tail
+    # ``mistral:7b`` is an Ollama tag (a size, ``latest`` or a quantisation),
+    # ``mistral:mistral-large-latest`` is the Mistral provider; write
+    # ``ollama:<name>`` to force the runtime.
+    ollama_tag = re.compile(r"^(?:\d+(?:\.\d+)?[bB]|latest|[\w.-]*q\d+_\w+)$")
+    if sep and head.lower() in PROVIDER_CATALOG and tail and not ollama_tag.match(tail):
+        return head.lower(), tail
+    return "ollama", text
 
 
 def _start_voice_conversation(
@@ -2167,18 +2194,44 @@ def _start_voice_conversation(
         )
         from omni_mercury_engine.narrative.voice import create_mercury_voice
 
+        provider, model_id = _parse_voice_model(model)
         # Configure LLM chain
-        ollama_config = OllamaConfig(model=model)
+        ollama_config = OllamaConfig(model=model_id if provider == "ollama" else "")
         llm_chain = FallbackLLMChain(
             ollama_config=ollama_config,
             enable_cloud=False,  # Privacy-first
         )
 
-        voice_instance = create_mercury_voice()
+        # --model attaches the named provider to the voice itself, so the
+        # free-text answers are composed by it; without --model (or offline)
+        # the voice runs on its templates and says so.
+        active = "none attached; answers are template-built from the record and the code"
+        if provider and not offline:
+            try:
+                from omni_mercury_engine.api.backends import resolve_provider_config
+
+                cfg = resolve_provider_config(provider)
+                voice_instance = create_mercury_voice(
+                    enable_llm=True,
+                    llm_provider=provider,
+                    llm_model_name=model_id,
+                    llm_api_key=cfg["api_key"],
+                    llm_base_url=cfg["base_url"],
+                )
+                if getattr(voice_instance, "_llm_adapter", None) is not None:
+                    active = f"{provider}:{model_id}"
+                else:
+                    active = (
+                        f"{provider}:{model_id} is not available (missing key, endpoint or "
+                        "model); answers are template-built"
+                    )
+            except Exception as exc:  # the voice must start even when the model cannot
+                click.echo(f"  Note: {provider} could not be attached ({exc})")
+                voice_instance = create_mercury_voice()
+        else:
+            voice_instance = create_mercury_voice()
 
         # Print LLM status
-        chain_status = llm_chain.get_chain_status()
-        active = chain_status["active"]
         click.echo(f"  LLM: {active}")
         click.echo(f"  Domain: {domain or 'general'}")
         click.echo(f"  Mode: {'offline' if offline else 'auto'}")
