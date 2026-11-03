@@ -72,6 +72,14 @@ note; ARCHITECTURE.md gains the console, agent and provider layer and its real
 logging start-up; the platform-hardening and deployment guides cover provider
 keys in the at-rest key and its rotation; the README lists the new variables.
 
+**Fixed — the Core Tests lane no longer runs out of time.** The lane ran its
+selection serially under a 40-minute job limit; on run 41573886724 Python 3.13
+passed its tests in 32.7 minutes and was cancelled during the coverage upload,
+and Python 3.12, after an 11.5-minute dependency install, was cancelled
+mid-tests, so a green suite read red. The lane now runs with 4 workers and a
+300-second per-test timeout (`-n 4 --dist=loadgroup --timeout=300`), the flags
+the ML lane already runs the whole tree with; the coverage floor is unchanged.
+
 **Changed — tool and image bumps folded in from Dependabot.** mypy 2.4.1,
 ruff 0.17.3, flake8 7.5.0 (pyflakes 4.1.0) and types-requests 2.33.0.20261030
 at every pin site (`pyproject.toml` ml and dev extras, the Code Quality and

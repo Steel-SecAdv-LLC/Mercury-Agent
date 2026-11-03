@@ -1166,6 +1166,12 @@ jobs:
           # AMA build above still ensures THIS lane's package imports resolve
           # to the real backend (AMA_REQUIRE_REAL_PQC=true), not soft stubs.
           #
+          # Run with 4 workers (``-n 4 --dist=loadgroup``, as the ML lane
+          # runs the whole tree) and a 300 s per-test timeout. Serially, the
+          # selection had grown to 32.7 min of tests on Python 3.13 (run
+          # 41573886724), so a slow dependency install (11.5 min on 3.12 in
+          # the same run) pushed passing jobs past the job limit.
+          #
           # When adding a directory below, prefer the directory form
           # (e.g. ``tests/ml/``) over listing individual files so the
           # lane picks up new tests automatically.  Files that depend
@@ -1203,6 +1209,9 @@ jobs:
             tests/test_api.py \
             tests/test_session3_enhancements.py \
             -v \
+            -n 4 \
+            --dist=loadgroup \
+            --timeout=300 \
             --cov=src/omni_mercury_engine \
             --cov-report=xml \
             --cov-report=term-missing \
