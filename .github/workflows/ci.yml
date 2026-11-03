@@ -449,41 +449,47 @@ jobs:
       - name: Refuse undeclared uv.lock downgrades
         # Dependabot PR #393 (h5py/nixtla, titled minor) also moved pandas
         # 3.1.0 -> 2.3.3 and TensorFlow 2.21.0 -> 2.20.0 and had auto-merge
-        # armed with every check green. This compares the highest version of
-        # every locked package against the base branch's lock and fails on a
-        # lower one unless the PR declares it with a trailer
-        # ``Lock-Downgrade: <name> <old> -> <new>: <reason>``.
+        # armed with every check green. This compares, environment by
+        # environment, the version every package resolves to in the base
+        # branch's lock and in this one, and fails on a lower one unless a
+        # person's commit in this pull request declares it with the git
+        # trailer ``Lock-Downgrade: <name> <old> -> <new>: <reason>``. Only
+        # the PR's own commits are read (fetched with --shallow-exclude), so
+        # neither the PR body nor main's history can declare anything.
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REF: ${{ github.base_ref }}
-          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set -euo pipefail
           git fetch --no-tags --quiet --depth=1 origin "${BASE_SHA}"
-          git fetch --no-tags --quiet --shallow-exclude="${BASE_REF}" origin "${HEAD_SHA}" \
-            || git fetch --no-tags --quiet --depth=250 origin "${HEAD_SHA}"
-          git show "${BASE_SHA}:uv.lock" > "${RUNNER_TEMP}/base-uv.lock"
-          {
-            git log --format=%B "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null \
-              || git log --format=%B -n 250 "${HEAD_SHA}"
-            printf '%s\n' "${PR_BODY}"
-          } > "${RUNNER_TEMP}/pr-text.txt"
+          git fetch --no-tags --quiet --shallow-exclude="${BASE_REF}" origin "${HEAD_SHA}"
           python scripts/check_lock_downgrades.py \
-            --base-lock "${RUNNER_TEMP}/base-uv.lock" \
-            --declarations "${RUNNER_TEMP}/pr-text.txt"
+            --base-ref "${BASE_SHA}" \
+            --commit-range "${BASE_SHA}..${HEAD_SHA}"
 
       - name: Replay Dependabot's uv updates
         # Dependabot pins each direct dependency to its newest release for
         # the Python floor and relocks. After PR #388 that run failed on main
         # (shap 0.51.0 unsolvable on the Intel-macOS fork) and produced a
-        # downgrading group PR (#393), both a week after the PR merged. The
-        # replay runs the same pin-and-lock now and fails on an unsolvable
-        # update or one that downgrades another package; an update that
-        # cannot be taken is declared as a versioned ignore in
-        # .github/dependabot.yml.
-        run: python scripts/simulate_dependabot_uv.py
+        # downgrading group PR (#393), both after the PR had merged. The
+        # replay runs the same pin-and-lock and fails on an unsolvable update
+        # or one that downgrades another package; an update that cannot be
+        # taken is declared as a versioned ignore in .github/dependabot.yml.
+        # It reads live PyPI, so it runs here only when this pull request
+        # changes what Dependabot reads; upstream releases are covered weekly
+        # by dependabot-replay.yml.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet "${BASE_SHA}" HEAD -- pyproject.toml uv.lock .github/dependabot.yml; then
+            echo "pyproject.toml, uv.lock and .github/dependabot.yml are unchanged; the weekly dependabot-replay workflow covers upstream releases."
+            exit 0
+          fi
+          python scripts/simulate_dependabot_uv.py
 
       - name: Run repository workflow hardening checks
         run: python scripts/check_workflow_hardening.py
@@ -603,8 +609,8 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -891,10 +897,8 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
-        with:
-          deep: "true"
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -980,22 +984,22 @@ jobs:
         # breaks typer's import.  Diagnosed on PR #148 (commits
         # 6cc4bbd / 1952eb7 / 63ae1dc); fixed in commit ae7ad84.
         run: |
-          python -m venv /tmp/mercury-audit-env
-          /tmp/mercury-audit-env/bin/pip install --upgrade "pip>=26.1"
+          python -m venv "${RUNNER_TEMP}/mercury-audit-env"
+          "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --upgrade "pip>=26.1"
           # --no-cache-dir: the wheels are installed once and never reused,
           # and pip's cache would hold a second copy of the torch stack.
-          /tmp/mercury-audit-env/bin/pip install --no-cache-dir -e ".[api]" \
+          "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --no-cache-dir -e ".[api]" \
             --upgrade "click>=8.2" "typer>=0.20"
-          /tmp/mercury-audit-env/bin/pip install --no-cache-dir --upgrade \
+          "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --no-cache-dir --upgrade \
             "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
-          AMA_NO_CYTHON=1 /tmp/mercury-audit-env/bin/pip install --no-cache-dir --no-build-isolation /tmp/ama-cryptography
-          /tmp/mercury-audit-env/bin/pip list --format=freeze \
-            > /tmp/mercury-audit-env/requirements.txt
+          AMA_NO_CYTHON=1 "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --no-cache-dir --no-build-isolation /tmp/ama-cryptography
+          "${RUNNER_TEMP}/mercury-audit-env/bin/pip" list --format=freeze \
+            > "${RUNNER_TEMP}/mercury-audit-env/requirements.txt"
           {
             echo "## Audit-target environment (Mercury install only)"
             echo
             echo '```'
-            cat /tmp/mercury-audit-env/requirements.txt
+            cat "${RUNNER_TEMP}/mercury-audit-env/requirements.txt"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 
@@ -1022,7 +1026,7 @@ jobs:
         run: |
           set +e
           safety check \
-            -r /tmp/mercury-audit-env/requirements.txt \
+            -r "${RUNNER_TEMP}/mercury-audit-env/requirements.txt" \
             --policy-file .safety-policy.yml \
             --output json > safety-report.json
           rc=$?
@@ -1052,7 +1056,7 @@ jobs:
         # supply chain fails the gate.
         run: |
           pip-audit \
-            --path /tmp/mercury-audit-env/lib/python${{ env.PYTHON_VERSION }}/site-packages \
+            --path "${RUNNER_TEMP}/mercury-audit-env/lib/python${{ env.PYTHON_VERSION }}/site-packages" \
             --skip-editable \
             --format json --output pip-audit-report.json
 
@@ -1129,10 +1133,8 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
-        with:
-          deep: "true"
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -1313,10 +1315,8 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
-        with:
-          deep: "true"
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -1480,10 +1480,8 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
-        with:
-          deep: "true"
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -1627,10 +1625,8 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
-        with:
-          deep: "true"
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -1732,8 +1728,8 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -1801,8 +1797,8 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -1878,10 +1874,11 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
         with:
-          deep: "true"
+          # Building, exporting and scanning the image holds several copies of it on disk.
+          minimum-free-gb: "40"
 
       - name: Prepare Trivy temp directory on /mnt
         # GitHub-hosted ubuntu runners only ship ~14 GB free on `/`, which

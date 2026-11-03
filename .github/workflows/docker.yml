@@ -57,10 +57,10 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Free runner disk
-        uses: ./.github/actions/free-runner-disk
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
         with:
-          deep: "true"
+          minimum-free-gb: "40"
           extra-paths: "/usr/local/share/boost /usr/local/graalvm ${{ runner.tool_cache }}"
 
       - name: Set up Docker Buildx

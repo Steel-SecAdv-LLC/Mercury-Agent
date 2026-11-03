@@ -54,8 +54,8 @@ jobs:
       if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-    - name: Free runner disk
-      uses: ./.github/actions/free-runner-disk
+    - name: Guard runner disk
+      uses: ./.github/actions/runner-disk-guard
 
     - name: Set up Python
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -89,17 +89,17 @@ jobs:
       # they are not.  This is the architectural remediation that
       # replaces every prior ``--ignore-vuln`` flag.
       run: |
-        python -m venv /tmp/mercury-audit-env
-        /tmp/mercury-audit-env/bin/pip install --upgrade "pip>=26.1"
-        /tmp/mercury-audit-env/bin/pip install --no-cache-dir -e ".[api]" \
+        python -m venv "${RUNNER_TEMP}/mercury-audit-env"
+        "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --upgrade "pip>=26.1"
+        "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --no-cache-dir -e ".[api]" \
           --upgrade "click>=8.2" "typer>=0.20"
-        /tmp/mercury-audit-env/bin/pip list --format=freeze \
-          > /tmp/mercury-audit-env/requirements.txt
+        "${RUNNER_TEMP}/mercury-audit-env/bin/pip" list --format=freeze \
+          > "${RUNNER_TEMP}/mercury-audit-env/requirements.txt"
         {
           echo "## Audit-target environment (Mercury install only)"
           echo
           echo '```'
-          cat /tmp/mercury-audit-env/requirements.txt
+          cat "${RUNNER_TEMP}/mercury-audit-env/requirements.txt"
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 
@@ -112,7 +112,7 @@ jobs:
       # than remediating the supply chain.
       run: |
         safety check \
-          -r /tmp/mercury-audit-env/requirements.txt \
+          -r "${RUNNER_TEMP}/mercury-audit-env/requirements.txt" \
           --policy-file .safety-policy.yml \
           --save-json safety-report.json
 
@@ -127,7 +127,7 @@ jobs:
       # / library replacement, not by suppression.
       run: |
         pip-audit \
-          --path /tmp/mercury-audit-env/lib/python3.12/site-packages \
+          --path "${RUNNER_TEMP}/mercury-audit-env/lib/python3.12/site-packages" \
           --skip-editable \
           --format json --output pip-audit-report.json
 
@@ -185,10 +185,11 @@ jobs:
       if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-    - name: Free runner disk
-      uses: ./.github/actions/free-runner-disk
+    - name: Guard runner disk
+      uses: ./.github/actions/runner-disk-guard
       with:
-        deep: "true"
+        # Building, exporting and scanning the image holds several copies of it on disk.
+        minimum-free-gb: "40"
 
     # Buildx setup with the same 3-attempt retry and the same pinned action
     # as ci.yml's docker-build job: booting the buildkit container pulls

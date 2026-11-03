@@ -74,3 +74,19 @@ class InvalidObservationError(ValueError):
     Subclasses ``ValueError`` only, for the same reason as
     :class:`InputModalityError`.
     """
+
+
+class FeatureWidthMismatchError(ValueError):
+    """Array input whose column count differs from the fitted engine's.
+
+    A fitted engine scores columns against detector state and fusion
+    projections built for one width; another width would be scored against
+    the wrong statistics, so the engine refuses it and names both widths.
+    Serving surfaces catch this class specifically (the CLI as a usage
+    error, the MCP server as a tool error, the HTTP route as a 400) so an
+    unrelated ``ValueError`` inside the engine is never reported as the
+    caller's input.
+
+    Subclasses ``ValueError`` only, for the same reason as
+    :class:`InputModalityError`.
+    """

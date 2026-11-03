@@ -102,6 +102,46 @@ def test_a_recorded_none_width_stays_unchecked(tmp_path: Path) -> None:
     assert fresh.fitted_feature_width is None
 
 
+def test_a_stale_detector_state_does_not_lend_its_width(
+    bundled: OmniMercuryEngine, tmp_path: Path
+) -> None:
+    """Only rows restored by the load in hand count, never a previous load's."""
+    import torch
+
+    from omni_mercury_engine.ml.mercury_ml import make_classification
+
+    X, y = make_classification(n_samples=120, n_features=8, weights=[0.85, 0.15], random_state=0)
+    other = OmniMercuryEngine(mode="fusion", device="cpu")
+    other.fit_fusion(X.astype(np.float32), y, epochs=3, early_stopping_patience=2)
+    path = tmp_path / "legacy_without_detectors.pt"
+    other.save_model(str(path))
+    blob = torch.load(path, map_location="cpu", weights_only=False)
+    del blob["fitted_feature_width"]
+    blob["detector_fitted_state"] = {}
+    torch.save(blob, path)
+    assert bundled.fitted_feature_width == BUNDLED_WIDTH
+    bundled.load_model(str(path))
+    assert bundled.fitted_feature_width is None
+
+
+@pytest.mark.parametrize("payload", ["[0, 0.1, 0.2, 0.3, 0.4]", '{"medical": [0.1, 0.2]}'])
+def test_cli_refuses_one_dimensional_and_mapping_json_without_a_traceback(
+    payload: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from click.testing import CliRunner
+
+    from omni_mercury_engine.cli import main
+
+    monkeypatch.delenv(engine_mod.FUSION_CHECKPOINT_ENV, raising=False)
+    monkeypatch.setattr(engine_mod, "installed_fusion_checkpoint_path", _absent)
+    data = tmp_path / "input.json"
+    data.write_text(payload, encoding="utf-8")
+    result = CliRunner().invoke(main, ["detect", "-i", str(data), "-d", "fusion"])
+    assert result.exit_code == 1
+    assert "fitted on 16" in result.output
+    assert not isinstance(result.exception, ValueError)  # a usage error, not a crash
+
+
 def test_cli_refuses_with_the_two_ways_on(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from click.testing import CliRunner
 
@@ -113,7 +153,7 @@ def test_cli_refuses_with_the_two_ways_on(tmp_path: Path, monkeypatch: pytest.Mo
     np.savetxt(data, np.random.default_rng(2).normal(size=(50, 4)), delimiter=",")
     result = CliRunner().invoke(main, ["detect", "-i", str(data), "-d", "fusion"])
     assert result.exit_code != 0
-    assert "fitted on 16 feature columns" in result.output
+    assert "fitted on 16" in result.output
     assert "mercury-agent train" in result.output and "-d statistical" in result.output
     assert '"is_anomaly"' not in result.output
 

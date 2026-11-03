@@ -162,6 +162,44 @@ MODULE_PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             '["POST /api/v1/batch/detect"] || { method: { enum: [] } }).method.enum || [])'
             '.filter((m) => m !== "neurosymbolic");',
         ),
+        (
+            "the flagship model refuses any width but its own: read it from "
+            "GET /detect/flagship/model and lay the built-in sample out at it",
+            "  const records = (d) =>",
+            "  // The flagship model refuses any width but its own (GET /detect/flagship/model);\n"
+            "  // its built-in sample is the SAMPLE series laid out at that width.\n"
+            "  const widthSample = (w) => (w ? SAMPLE.map((v, i) => Array.from({ length: w }, "
+            "(_, j) => +(v + Math.sin((i + j) / 3) * 0.05).toFixed(4))) : matrix(null));\n"
+            "  async function flagshipContract(A, ctx) { if (ctx.flagshipWidth !== undefined "
+            '|| !A.get) return; const r = await A.get("/api/v1/detect/flagship/model"); '
+            "ctx.flagshipWidth = r && r.ok && r.data && Number.isInteger(r.data.fitted_feature_width)"
+            " ? r.data.fitted_feature_width : null; }\n"
+            "  const records = (d) =>",
+        ),
+        (
+            "flagship card: sample at the served width, skip a dataset of another width",
+            "(d, ctx) => ({ data: matrix(d), domain: ctx.domain || null, explain: true }), "
+            "{ rec: 1 }),",
+            "(d, ctx) => ({ data: d ? d.matrix : widthSample(ctx.flagshipWidth), domain: "
+            "ctx.domain || null, explain: true }), { rec: 1, prep: flagshipContract, block: "
+            "(d, ctx) => (d && ctx && ctx.flagshipWidth && d.cols !== ctx.flagshipWidth ? "
+            '"the served fusion model was fitted on " + ctx.flagshipWidth + " feature '
+            'columns; this dataset has " + d.cols + " (train one on it: mercury-agent train '
+            '--install)" : null) }),',
+        ),
+        (
+            "capabilities with a prep step (the flagship contract) run it once before the queue",
+            "const queue = caps.map((_, i) => i), N = Math.max(1, Math.min(conc || 2, 4)), "
+            "RL_MAX = 6;",
+            "const queue = caps.map((_, i) => i), N = Math.max(1, Math.min(conc || 2, 4)), "
+            "RL_MAX = 6;\n    for (const c of caps) if (c.prep && !(ctx.cancelled && "
+            "ctx.cancelled())) await c.prep(A, ctx);",
+        ),
+        (
+            "a capability's block check sees the run context (the served width)",
+            "const why = c.block ? c.block(dataset) : null;",
+            "const why = c.block ? c.block(dataset, ctx) : null;",
+        ),
     ),
 }
 

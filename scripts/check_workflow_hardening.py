@@ -576,7 +576,7 @@ def _check_pip_uses_pinned_interpreter(path: Path, text: str) -> list[str]:
 #
 # The installing command must be the job's ambient pip -- a bare ``pip`` or
 # ``python -m pip`` leading token. A pip addressed by path (for example
-# ``/tmp/mercury-audit-env/bin/pip`` in ``security.yml``'s dependency scan)
+# ``"${RUNNER_TEMP}/mercury-audit-env/bin/pip"`` in ``security.yml``'s dependency scan)
 # installs into an isolated environment the job's own ``python`` never imports,
 # so it is not an engine consumer and is out of scope.
 # The pip invocation may start the line OR follow a shell separator, an

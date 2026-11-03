@@ -1,0 +1,54 @@
+# Dependabot uv replay — weekly, ahead of Dependabot's own run.
+#
+# scripts/simulate_dependabot_uv.py pins every direct dependency (and every
+# configured group) to the release Dependabot would propose and relocks, and
+# fails on an update that cannot be solved or that downgrades another package.
+# Its answer depends on live PyPI, so a new upstream release can turn it red
+# with no change in this repository. Pull requests run it only when they
+# change pyproject.toml, uv.lock or .github/dependabot.yml (ci.yml, Workflow
+# Hardening); this schedule covers upstream releases, on Sunday so a failure
+# is visible before Dependabot's Monday 06:00 America/New_York run opens the
+# pull request or reports the error (the shap failure of 2026-11-03).
+
+name: Dependabot uv replay
+
+on:
+  schedule:
+    - cron: '23 15 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-replay
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Replay Dependabot's uv updates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        # Same uv as the CI lanes and the Dockerfile, so the replay resolves
+        # with the resolver that wrote uv.lock.
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.32"
+
+      - name: Install the replay's dependencies
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          python -m pip install "packaging>=24.0" "PyYAML>=6.0"
+
+      - name: Replay
+        run: python scripts/simulate_dependabot_uv.py

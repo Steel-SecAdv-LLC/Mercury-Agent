@@ -8,6 +8,10 @@
   const SAMPLE = [0.42, 0.47, 0.44, 0.46, 0.43, 0.45, 3.9, 0.44, 0.46, 0.41, 0.45, 0.47, 0.43, 0.44, 2.8, 0.46];
   const series = (d) => (d ? d.matrix.map((r) => r[0]) : SAMPLE.slice());
   const matrix = (d) => (d ? d.matrix : SAMPLE.map((v, i) => [v, Math.sin(i / 2) * 0.1 + 0.5]));
+  // The flagship model refuses any width but its own (GET /detect/flagship/model);
+  // its built-in sample is the SAMPLE series laid out at that width.
+  const widthSample = (w) => (w ? SAMPLE.map((v, i) => Array.from({ length: w }, (_, j) => +(v + Math.sin((i + j) / 3) * 0.05).toFixed(4))) : matrix(null));
+  async function flagshipContract(A, ctx) { if (ctx.flagshipWidth !== undefined || !A.get) return; const r = await A.get("/api/v1/detect/flagship/model"); ctx.flagshipWidth = r && r.ok && r.data && Number.isInteger(r.data.fitted_feature_width) ? r.data.fitted_feature_width : null; }
   const records = (d) => matrix(d).map((r) => Object.fromEntries(r.map((v, j) => ["f" + j, v])));
   const C = (id, label, group, route, build, opts) => Object.assign({ id, label, group, route, build }, opts || {});
   const CAPS = [
@@ -23,7 +27,7 @@
     C("tier-avg", "Tier ensemble · average", "Ensembles", "POST /api/v1/detect/tier", (d) => ({ data: series(d), method: "average", contamination: 0.1 }), { per: 1 }),
     C("tier-cons", "Tier ensemble · consensus", "Ensembles", "POST /api/v1/detect/tier", (d) => ({ data: series(d), method: "consensus", contamination: 0.1 }), { per: 1 }),
     C("tier-conf", "Tier · conformal α 0.1 + attribution", "Ensembles", "POST /api/v1/detect/tier", (d) => ({ data: series(d), contamination: 0.1, conformal_alpha: 0.1, include_attribution: true }), { per: 1 }),
-    C("flagship", "Flagship · GOSNN domain-tuned", "Ensembles", "POST /api/v1/detect/flagship", (d, ctx) => ({ data: matrix(d), domain: ctx.domain || null, explain: true }), { rec: 1 }),
+    C("flagship", "Flagship · GOSNN domain-tuned", "Ensembles", "POST /api/v1/detect/flagship", (d, ctx) => ({ data: d ? d.matrix : widthSample(ctx.flagshipWidth), domain: ctx.domain || null, explain: true }), { rec: 1, prep: flagshipContract, block: (d, ctx) => (d && ctx && ctx.flagshipWidth && d.cols !== ctx.flagshipWidth ? "the served fusion model was fitted on " + ctx.flagshipWidth + " feature columns; this dataset has " + d.cols + " (train one on it: mercury-agent train --install)" : null) }),
     C("rca", "Root cause · last row as the anomaly", "Explain", "POST /api/v1/detect/rca", (d) => ({ observations: matrix(d), top_k: 3 }), { needsCols: 2 }),
   ];
   const TIER = { temporal_streaming: ["spectral_residual", "bocpd", "hawkes"], state_space: ["particle_filter", "imm", "digital_twin"], probabilistic: ["spot_evt", "gaussian_process", "survival"], generative: ["energy_based", "deep_svdd"], neuromorphic: ["echo_state", "spiking"], systems: ["rca", "deeplog_sequence", "frequent_pattern"] };
@@ -99,7 +103,8 @@
   async function run(A, caps, dataset, ctx, onStep, conc) {
     const out = caps.map((c) => ({ id: c.id, label: c.label, route: c.route, status: "queued" }));
     const queue = caps.map((_, i) => i), N = Math.max(1, Math.min(conc || 2, 4)), RL_MAX = 6;
-    const worker = async () => { while (queue.length) { if (ctx.cancelled && ctx.cancelled()) return; const k = queue.shift(), c = caps[k], o = out[k]; const why = c.block ? c.block(dataset) : null; if (why) { o.status = "skipped"; o.error = why; onStep(out.slice()); continue; } o.status = "running"; onStep(out.slice()); const body = c.build(dataset, ctx); o.body = body; const r = await A.post(c.route.split(" ")[1], body, { signal: ctx.signal }); o.ms = r.meta ? r.meta.ms : null; o.http = r.status; o.corr = (r.meta && r.meta.correlationId) || null;
+    for (const c of caps) if (c.prep && !(ctx.cancelled && ctx.cancelled())) await c.prep(A, ctx);
+    const worker = async () => { while (queue.length) { if (ctx.cancelled && ctx.cancelled()) return; const k = queue.shift(), c = caps[k], o = out[k]; const why = c.block ? c.block(dataset, ctx) : null; if (why) { o.status = "skipped"; o.error = why; onStep(out.slice()); continue; } o.status = "running"; onStep(out.slice()); const body = c.build(dataset, ctx); o.body = body; const r = await A.post(c.route.split(" ")[1], body, { signal: ctx.signal }); o.ms = r.meta ? r.meta.ms : null; o.http = r.status; o.corr = (r.meta && r.meta.correlationId) || null;
       if (!r.ok && r.kind === "ratelimit" && (o.rl = (o.rl || 0) + 1) <= RL_MAX && !(ctx.cancelled && ctx.cancelled())) {
         // The engine's token bucket (burst 20, 100/min) is smaller than a full mass run and the client's own
         // 3 attempts can all land inside the drained window. Honour Retry-After, park this capability at the

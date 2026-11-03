@@ -19,11 +19,21 @@ what Dependabot reads when the lock splits a package across forks.
   pandas 3.1.0 -> 2.3.3 and TensorFlow 2.21.0 -> 2.20.0 to fit.
 
 This script runs the same pin-and-lock for every direct dependency whose
-newest release is above the locked one, and fails on either outcome. An
+newest release is above the locked one, and fails on either outcome. It
+proposes what Dependabot would: the newest release no ``ignore`` entry covers
+(an ignored newest release falls back to the next one), and it also replays
+each ``groups`` entry whose members would update together, since a group can
+conflict where its members alone do not (#393 was a two-package group). An
 update that cannot be taken on purpose is declared in ``.github/dependabot.yml``
-as an ``ignore`` entry with ``versions`` (and a comment saying why); the
-script skips those and reports any such entry that has become takeable, so
-the ignore is lifted when upstream catches up.
+as an ``ignore`` entry with ``versions`` (and a comment saying why); an ignore
+whose release has become takeable is reported as ``stale-ignore``, so it is
+lifted when upstream catches up.
+
+The replay reads live PyPI, so a new upstream release can change its answer
+without any change here. CI therefore runs it on pull requests that change
+``pyproject.toml``, ``uv.lock`` or ``.github/dependabot.yml``, and on a weekly
+schedule ahead of Dependabot's own run (``.github/workflows/dependabot-replay.yml``),
+rather than on every pull request.
 
 Network: PyPI's JSON API and ``uv lock`` (which reads PyPI). Run::
 
@@ -34,6 +44,7 @@ Network: PyPI's JSON API and ``uv lock`` (which reads PyPI). Run::
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import shutil
@@ -120,8 +131,8 @@ def python_floor(pyproject: dict[str, Any]) -> Version:
     return Version(match.group(1))
 
 
-def newest_release(name: str, floor: Version) -> Version | None:
-    """Newest final, non-yanked release that installs on ``floor``."""
+def releases(name: str, floor: Version) -> list[Version]:
+    """Final, non-yanked releases that install on ``floor``, newest first."""
     data: dict[str, Any] = {}
     for attempt in range(3):
         try:
@@ -133,7 +144,7 @@ def newest_release(name: str, floor: Version) -> Version | None:
             if attempt == 2:
                 raise
             time.sleep(2 ** (attempt + 1))
-    best: Version | None = None
+    found: list[Version] = []
     for text, files in data.get("releases", {}).items():
         try:
             version = Version(text)
@@ -143,11 +154,9 @@ def newest_release(name: str, floor: Version) -> Version | None:
         if version.is_prerelease or version.is_devrelease or not live:
             continue
         requires = {f.get("requires_python") or "" for f in live}
-        if not any(_admits(r, floor) for r in requires):
-            continue
-        if best is None or version > best:
-            best = version
-    return best
+        if any(_admits(r, floor) for r in requires):
+            found.append(version)
+    return sorted(found, reverse=True)
 
 
 def _admits(requires_python: str, floor: Version) -> bool:
@@ -175,11 +184,25 @@ def pin(pyproject_text: str, strings: list[str], name: str, version: Version) ->
 
 @dataclass
 class Outcome:
+    """What Dependabot's update of one package (or one group) would do."""
+
     name: str
     locked: Version
     candidate: Version | None
-    status: str  # current | ignored | ok | unsolvable | downgrades | stale-ignore
+    status: str  # current | ignored | ok | unsolvable | downgrades | stale-ignore | error
     detail: str = ""
+
+
+FAILING = frozenset({"unsolvable", "downgrades", "stale-ignore", "error"})
+
+
+def update_type(locked: Version, candidate: Version) -> str:
+    """Dependabot's semver class of an update (major / minor / patch)."""
+    if candidate.major != locked.major:
+        return "major"
+    if candidate.minor != locked.minor:
+        return "minor"
+    return "patch"
 
 
 def simulate(
@@ -191,48 +214,127 @@ def simulate(
     pyproject_text: str,
     lock_text: str,
 ) -> Outcome:
-    candidate = newest_release(name, floor)
-    if candidate is None or candidate <= locked:
-        return Outcome(name, locked, candidate, "current")
-    ignored = ignores.get(name)
-    result = _lock_with_pin(name, strings, candidate, pyproject_text, lock_text)
-    if ignored and ignored.covers(candidate, locked):
-        if result.status == "ok" and any(candidate in s for s in ignored.versions):
-            result.status, result.detail = "stale-ignore", "the ignored version now updates cleanly"
-            return result
-        return Outcome(name, locked, candidate, "ignored", result.detail)
-    return result
+    """Replay the update Dependabot would propose for ``name``.
 
-
-def _lock_with_pin(
-    name: str, strings: list[str], candidate: Version, pyproject_text: str, lock_text: str
-) -> Outcome:
-    locked = Version(lowest_versions(lock_text)[name])
-    with tempfile.TemporaryDirectory(prefix=f"dependabot-{name}-") as tmp:
-        work = Path(tmp)
-        (work / "pyproject.toml").write_text(
-            pin(pyproject_text, strings, name, candidate), encoding="utf-8"
-        )
-        (work / "uv.lock").write_text(lock_text, encoding="utf-8")
-        shutil.copy(REPO / "README.md", work / "README.md")
-        run = subprocess.run(  # noqa: S603 # nosec B603 - fixed argv, no shell
-            ["uv", "lock", "--upgrade-package", name, "--no-progress"],  # noqa: S607 # nosec B607
-            cwd=work,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if run.returncode != 0:
-            reason = next((ln.strip() for ln in run.stderr.splitlines() if "No solution" in ln), "")
+    Dependabot proposes the newest release above the locked one that no
+    ``ignore`` entry covers, so an ignored newest release falls back to the
+    next one. An ignore that covers a release which now updates cleanly is
+    reported as ``stale-ignore``, so it is lifted rather than left to hide a
+    takeable update.
+    """
+    newer = [v for v in releases(name, floor) if v > locked]
+    if not newer:
+        return Outcome(name, locked, None, "current")
+    rule = ignores.get(name)
+    proposal = next((v for v in newer if not (rule and rule.covers(v, locked))), None)
+    newest = newer[0]
+    if rule and newest != proposal and any(newest in spec for spec in rule.versions):
+        status, detail, _ = lock_with_pins({name: (strings, newest)}, pyproject_text, lock_text)
+        if status == "ok":
             return Outcome(
-                name, locked, candidate, "unsolvable", reason or run.stderr.strip()[-400:]
+                name, locked, newest, "stale-ignore", "the ignored release now updates cleanly"
             )
-        new_lock = (work / "uv.lock").read_text(encoding="utf-8")
-    downgrades = [c for c in compare(lock_text, new_lock) if c.is_downgrade and c.name != name]
-    if downgrades:
-        detail = ", ".join(f"{c.name} {c.old} -> {c.new}" for c in downgrades)
-        return Outcome(name, locked, candidate, "downgrades", detail)
-    return Outcome(name, locked, candidate, "ok")
+    if proposal is None:
+        return Outcome(name, locked, newest, "ignored", "every newer release is ignored")
+    status, detail, _ = lock_with_pins({name: (strings, proposal)}, pyproject_text, lock_text)
+    if proposal != newest:
+        detail = f"newest {newest} is ignored; Dependabot proposes {proposal}" + (
+            f"; {detail}" if detail else ""
+        )
+    return Outcome(name, locked, proposal, status, detail)
+
+
+def lock_with_pins(
+    pins: dict[str, tuple[list[str], Version]], pyproject_text: str, lock_text: str
+) -> tuple[str, str, str | None]:
+    """Pin every package in ``pins`` as Dependabot does and relock.
+
+    Returns ``(status, detail, new_lock)``: ``ok``, ``unsolvable`` (the
+    resolver found no solution), ``downgrades`` (another package moved to an
+    older version) or ``error`` (uv failed for another reason twice, such as
+    the index being unreachable; reported as itself, never as unsolvable).
+    """
+    text = pyproject_text
+    for name, (strings, version) in pins.items():
+        text = pin(text, strings, name, version)
+    argv = ["uv", "lock", "--no-progress"]
+    for name in pins:
+        argv += ["--upgrade-package", name]
+    stderr = ""
+    for _ in range(2):
+        with tempfile.TemporaryDirectory(prefix="dependabot-replay-") as tmp:
+            work = Path(tmp)
+            (work / "pyproject.toml").write_text(text, encoding="utf-8")
+            (work / "uv.lock").write_text(lock_text, encoding="utf-8")
+            shutil.copy(REPO / "README.md", work / "README.md")
+            run = subprocess.run(  # noqa: S603 # nosec B603 - fixed argv, no shell
+                argv, cwd=work, capture_output=True, text=True, check=False
+            )
+            if run.returncode == 0:
+                new_lock = (work / "uv.lock").read_text(encoding="utf-8")
+                break
+            stderr = run.stderr
+            if "No solution found" in stderr:
+                reason = next(ln.strip() for ln in stderr.splitlines() if "No solution" in ln)
+                return "unsolvable", reason, None
+    else:
+        return "error", stderr.strip()[-400:], None
+    moved = [c for c in compare(lock_text, new_lock) if c.is_downgrade and c.name not in pins]
+    if moved:
+        return "downgrades", ", ".join(f"{c.name} {c.old} -> {c.new}" for c in moved), new_lock
+    return "ok", "", new_lock
+
+
+@dataclass
+class Group:
+    """A ``groups`` entry of the uv ecosystem (version updates)."""
+
+    name: str
+    patterns: list[str]
+    exclude: list[str]
+    update_types: list[str]
+
+    def takes(self, package: str, kind: str) -> bool:
+        if any(fnmatch.fnmatch(package, p) for p in self.exclude):
+            return False
+        allowed = {t.removeprefix("version-update:semver-") for t in self.update_types}
+        if allowed and kind not in allowed:
+            return False
+        return any(fnmatch.fnmatch(package, p) for p in self.patterns)
+
+
+def load_groups(path: Path) -> list[Group]:
+    config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    groups: list[Group] = []
+    for update in config.get("updates", []):
+        if update.get("package-ecosystem") != "uv":
+            continue
+        for name, spec in (update.get("groups") or {}).items():
+            if spec.get("applies-to", "version-updates") != "version-updates":
+                continue
+            groups.append(
+                Group(
+                    name,
+                    [normalise(p) if "*" not in p else p for p in spec.get("patterns", [])],
+                    list(spec.get("exclude-patterns", [])),
+                    list(spec.get("update-types", [])),
+                )
+            )
+    return groups
+
+
+def group_members(outcomes: list[Outcome], groups: list[Group]) -> dict[str, list[Outcome]]:
+    """Proposed updates by the first group that takes them, as Dependabot assigns."""
+    members: dict[str, list[Outcome]] = {}
+    for o in outcomes:
+        if o.candidate is None or o.status in {"current", "ignored"}:
+            continue
+        kind = update_type(o.locked, o.candidate)
+        for group in groups:
+            if group.takes(o.name, kind):
+                members.setdefault(group.name, []).append(o)
+                break
+    return members
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -267,18 +369,32 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
 
+    groups = load_groups(REPO / ".github" / "dependabot.yml")
+    for group, members in sorted(group_members(outcomes, groups).items()):
+        if len(members) < 2 or any(m.status in FAILING for m in members):
+            continue  # a lone member is its own update; a failing one is already reported
+        pins = {m.name: (requirements[m.name], m.candidate) for m in members if m.candidate}
+        status, detail, _ = lock_with_pins(pins, pyproject_text, lock_text)
+        label = "+".join(sorted(pins))
+        outcomes.append(Outcome(f"group:{group}[{label}]", Version("0"), None, status, detail))
+
     failures = 0
     for o in outcomes:
-        line = f"{o.status:<13} {o.name} {o.locked}" + (
-            f" -> {o.candidate}" if o.candidate and o.candidate > o.locked else ""
-        )
-        if o.status in {"unsolvable", "downgrades", "stale-ignore"}:
+        if o.name.startswith("group:"):
+            line = f"{o.status:<13} {o.name}"
+        else:
+            line = f"{o.status:<13} {o.name} {o.locked}" + (
+                f" -> {o.candidate}" if o.candidate and o.candidate > o.locked else ""
+            )
+        if o.status in FAILING:
             failures += 1
             print(f"::error title=Dependabot uv replay ({o.status})::{line}: {o.detail}")
         else:
             print(line + (f"  [{o.detail}]" if o.detail else ""))
+    singles = sum(1 for o in outcomes if not o.name.startswith("group:"))
     print(
-        f"Python floor {floor}; {len(outcomes)} direct dependencies replayed; {failures} would fail or regress"
+        f"Python floor {floor}; {singles} direct dependencies and "
+        f"{len(outcomes) - singles} group(s) replayed; {failures} would fail or regress"
     )
     return 1 if failures else 0
 

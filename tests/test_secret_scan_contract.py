@@ -109,3 +109,36 @@ def test_every_allowlisted_secret_is_an_exact_literal_still_in_use() -> None:
         preceding = text[: text.index(regex)].rsplit("\n", 6)[-6:]
         history_only = any("History only" in line for line in preceding)
         assert history_only or literal in tree, f"allowlisted string no longer in the tree: {regex}"
+
+
+def test_the_config_cannot_widen_what_both_scans_skip() -> None:
+    """Both scans read the pull request's own ``.gitleaks.toml``.
+
+    So the file is held to a shape that cannot quietly widen what the scans
+    skip: only the known top-level tables (no ``[[rules]]`` override that
+    could replace or weaken a built-in rule), allowlisted paths that each name
+    one existing file (no pattern such as ``.*``), and allowlisted commits as
+    full SHAs.
+    """
+    config = tomllib.loads(GITLEAKS.read_text(encoding="utf-8"))
+    assert set(config) <= {"title", "extend", "allowlist"}, sorted(config)
+    assert set(config["extend"]) == {"useDefault"}
+    allowlist = config["allowlist"]
+    assert set(allowlist) <= {"description", "commits", "paths", "regexes"}
+    for pattern in allowlist.get("paths", []):
+        assert not re.search(r"(?<!\\)[*+?\[\]{}()|^$]", pattern), pattern
+        literal = pattern.replace("\\.", ".")
+        assert (REPO / literal).is_file(), f"allowlisted path is not a file in the tree: {pattern}"
+    for sha in allowlist.get("commits", []):
+        assert re.fullmatch(r"[0-9a-f]{40}", sha), sha
+
+
+def test_no_fingerprint_ignore_file() -> None:
+    """A ``.gitleaksignore`` fingerprint names a commit SHA.
+
+    The squash-equivalent scan builds a new commit on every run, so a
+    fingerprint written for it could never match: a finding would be ignored
+    on main's push scan and still fail every pull request, or the reverse.
+    Exceptions belong in ``.gitleaks.toml`` as exact literals.
+    """
+    assert not (REPO / ".gitleaksignore").exists()
