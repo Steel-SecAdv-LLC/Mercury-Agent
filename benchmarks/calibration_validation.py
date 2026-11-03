@@ -521,29 +521,68 @@ def _bce_objective_3way(w: np.ndarray, scores_matrix: np.ndarray, y: np.ndarray)
     return float(-np.mean(y * np.log(fused) + (1 - y) * np.log(1 - fused)))
 
 
+def _fused(w: np.ndarray, scores_matrix: np.ndarray) -> np.ndarray:
+    """The fused score of ``scores_matrix`` under weights ``w`` (made non-negative, summing to 1)."""
+    w = np.abs(w)
+    w = w / (np.sum(w) + 1e-10)
+    return np.clip(scores_matrix @ w, 0.0, 1.0)
+
+
+def _best_f1_threshold(w: np.ndarray, scores_matrix: np.ndarray, y: np.ndarray) -> float:
+    """The cut on the fused score that maximises F1 on ``(scores_matrix, y)``.
+
+    Candidates are the distinct fused values (at most 200 percentiles of
+    them); the first maximiser wins, so the choice is deterministic.
+    """
+    fused = _fused(w, scores_matrix)
+    thresholds = np.unique(fused)
+    if len(thresholds) > 200:
+        thresholds = np.percentile(fused, np.linspace(0, 100, 200))
+    best_t, best_f1 = float(thresholds[0]), -1.0
+    for t in thresholds:
+        f1_val = float(f1_score(y, (fused > t).astype(int), zero_division=0))
+        if f1_val > best_f1:
+            best_t, best_f1 = float(t), f1_val
+    return best_t
+
+
 def _f1_from_weights(
     w: np.ndarray,
     scores_matrix: np.ndarray,
     y: np.ndarray,
     threshold: float | None = None,
 ) -> float:
-    """Compute F1 score for a given weight vector on component scores."""
-    w = np.abs(w)
-    w = w / (np.sum(w) + 1e-10)
-    fused = np.clip(scores_matrix @ w, 0.0, 1.0)
+    """F1 of the fused score at ``threshold``.
+
+    With ``threshold=None`` the cut is the F1-best one on these same rows, an
+    oracle cut: the figure is the best F1 the weights can reach on this data,
+    not an estimate for unseen data. The held-out fold scores in
+    :func:`run_fusion_weight_cv` pass a cut chosen on the fold's training rows.
+    """
     if threshold is None:
-        # Use Youden's J to find optimal threshold
-        thresholds = np.unique(fused)
-        if len(thresholds) > 200:
-            thresholds = np.percentile(fused, np.linspace(0, 100, 200))
-        best_f1 = 0.0
-        for t in thresholds:
-            preds = (fused > t).astype(int)
-            f1_val = float(f1_score(y, preds, zero_division=0))
-            best_f1 = max(best_f1, f1_val)
-        return best_f1
-    preds = (fused > threshold).astype(int)
+        threshold = _best_f1_threshold(w, scores_matrix, y)
+    preds = (_fused(w, scores_matrix) > threshold).astype(int)
     return float(f1_score(y, preds, zero_division=0))
+
+
+#: The L-BFGS-B box on each raw weight before normalisation.
+_WEIGHT_BOUNDS = (0.05, 0.95)
+
+
+def _heldout_scores(
+    w: np.ndarray,
+    sm_train: np.ndarray,
+    y_tr: np.ndarray,
+    sm_val: np.ndarray,
+    y_va: np.ndarray,
+) -> dict[str, float]:
+    """F1 and BCE of weights ``w`` on a held-out fold, the cut chosen on the fold's training rows."""
+    threshold = _best_f1_threshold(w, sm_train, y_tr)
+    return {
+        "f1": _f1_from_weights(w, sm_val, y_va, threshold=threshold),
+        "bce": _bce_objective_3way(w, sm_val, y_va),
+        "threshold": threshold,
+    }
 
 
 def run_fusion_weight_cv(
@@ -568,6 +607,18 @@ def run_fusion_weight_cv(
     (c) PHI-weighted (~0.618/0.382 for 2-way) is near-optimal
 
     Uses StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42).
+
+    Each fold fits the L-BFGS-B weights on its training rows, then scores
+    those weights, the default 0.4/0.3/0.3 and the fold's own adaptive weights
+    (computed from the fold's training labels only) on the rows it held out,
+    at an F1 cut chosen on the training rows (``cv_heldout``). Until this was
+    added the held-out rows were split off and never used, so the procedure
+    averaged fold optima without validating any of them. A fold whose raw
+    optimum sits on the ``_WEIGHT_BOUNDS`` box on every component is flagged
+    (``optimum_on_bounds``): its weights are set by the box, not the data.
+    The component scores come from one detector fitted on all of ``X_train``
+    without labels, so no label crosses a fold boundary. The ``f1_at_*``
+    test-set figures keep their oracle cut (see :func:`_f1_from_weights`).
     """
     PHI = (1.0 + np.sqrt(5.0)) / 2.0
     phi_2way_weight = float(PHI / (1.0 + PHI))  # ~0.618
@@ -610,7 +661,10 @@ def run_fusion_weight_cv(
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     cv_optimal_weights: list[np.ndarray] = []
 
-    for train_idx, val_idx in skf.split(train_scores_matrix, y_train):
+    default_weights = np.array([0.4, 0.3, 0.3])
+    fold_records: list[dict[str, Any]] = []
+
+    for fold, (train_idx, val_idx) in enumerate(skf.split(train_scores_matrix, y_train)):
         sm_train = train_scores_matrix[train_idx]
         y_tr = y_train[train_idx]
         sm_val = train_scores_matrix[val_idx]
@@ -622,19 +676,45 @@ def run_fusion_weight_cv(
             [0.4, 0.3, 0.3],
             args=(sm_train, y_tr),
             method="L-BFGS-B",
-            bounds=[(0.05, 0.95)] * 3,
+            bounds=[_WEIGHT_BOUNDS] * 3,
         )
         opt_w = np.abs(result.x)
         opt_w = opt_w / np.sum(opt_w)
         cv_optimal_weights.append(opt_w)
+
+        # The fold's adaptive weights come from its own training labels only,
+        # so the held-out comparison does not see the labels it is scored on.
+        fold_adaptive = detector_supervised._compute_adaptive_weights(
+            X_train[train_idx], y_tr, components=sm_train
+        )
+        raw = np.asarray(result.x, dtype=float)
+        lo, hi = _WEIGHT_BOUNDS
+        fold_records.append(
+            {
+                "fold": fold,
+                "n_val": len(val_idx),
+                "n_val_anomalies": int(np.sum(y_va)),
+                # Every raw weight on the box: the optimum is set by the bounds,
+                # not by the data, and the fold optima will agree trivially.
+                "optimum_on_bounds": bool(
+                    np.all(np.isclose(raw, lo, atol=1e-6) | np.isclose(raw, hi, atol=1e-6))
+                ),
+                "optimal_weights": opt_w.tolist(),
+                "optimal": _heldout_scores(opt_w, sm_train, y_tr, sm_val, y_va),
+                "default": _heldout_scores(default_weights, sm_train, y_tr, sm_val, y_va),
+                "adaptive": _heldout_scores(
+                    np.asarray(fold_adaptive, dtype=float), sm_train, y_tr, sm_val, y_va
+                ),
+            }
+        )
 
     # Average optimal weights across folds
     mean_optimal = np.mean(cv_optimal_weights, axis=0)
     mean_optimal = mean_optimal / mean_optimal.sum()
     std_optimal = np.std(cv_optimal_weights, axis=0)
 
-    # Compute test F1 for each weight scheme
-    default_weights = np.array([0.4, 0.3, 0.3])
+    # Compute test F1 for each weight scheme (oracle cut on the test rows; see
+    # _f1_from_weights). The held-out fold figures below use a training cut.
     f1_at_optimal = _f1_from_weights(mean_optimal, test_scores_matrix, y_test)
     f1_at_default = _f1_from_weights(default_weights, test_scores_matrix, y_test)
     f1_at_adaptive = _f1_from_weights(np.array(adaptive_weights), test_scores_matrix, y_test)
@@ -673,7 +753,28 @@ def run_fusion_weight_cv(
             "kinematic": component_aucs[1],
             "infogeo": component_aucs[2],
         },
+        "cv_heldout": _summarise_folds(fold_records),
     }
+
+
+def _summarise_folds(fold_records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Mean and spread of the held-out fold scores, per weight scheme, with the folds themselves."""
+    out: dict[str, Any] = {
+        "threshold_rule": "F1-best cut on the fold's training rows, applied to its held-out rows",
+        "n_folds": len(fold_records),
+        "folds_with_optimum_on_bounds": sum(1 for f in fold_records if f["optimum_on_bounds"]),
+        "folds": fold_records,
+    }
+    for scheme in ("optimal", "default", "adaptive"):
+        f1s = [f[scheme]["f1"] for f in fold_records]
+        bces = [f[scheme]["bce"] for f in fold_records]
+        out[f"f1_{scheme}_mean"] = float(np.mean(f1s)) if f1s else None
+        out[f"f1_{scheme}_std"] = float(np.std(f1s)) if f1s else None
+        out[f"bce_{scheme}_mean"] = float(np.mean(bces)) if bces else None
+    if fold_records:
+        out["delta_f1_optimal_vs_default"] = out["f1_optimal_mean"] - out["f1_default_mean"]
+        out["delta_f1_optimal_vs_adaptive"] = out["f1_optimal_mean"] - out["f1_adaptive_mean"]
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -782,12 +883,22 @@ def run_validation(
     cv_deltas_default: list[float] = []
     cv_deltas_adaptive: list[float] = []
     cv_optimal_weights_all: list[list[float]] = []
+    heldout_deltas_default: list[float] = []
+    heldout_deltas_adaptive: list[float] = []
+    bound_folds = 0
+    total_folds = 0
     for r in successful:
         fcv = r.get("fusion_cv", {})
         if "delta_optimal_vs_default" in fcv:
             cv_deltas_default.append(fcv["delta_optimal_vs_default"])
             cv_deltas_adaptive.append(fcv["delta_optimal_vs_adaptive"])
             cv_optimal_weights_all.append(fcv["mean_optimal_weights"])
+        held = fcv.get("cv_heldout") or {}
+        if held.get("delta_f1_optimal_vs_default") is not None:
+            heldout_deltas_default.append(held["delta_f1_optimal_vs_default"])
+            heldout_deltas_adaptive.append(held["delta_f1_optimal_vs_adaptive"])
+            bound_folds += int(held.get("folds_with_optimum_on_bounds", 0))
+            total_folds += int(held.get("n_folds", 0))
 
     # Decision gate for MD-003: default validated if optimal-default < 0.02
     default_validated_count = sum(1 for d in cv_deltas_default if d < 0.02)
@@ -879,6 +990,18 @@ def run_validation(
             "mean_optimal_weights": (
                 np.mean(cv_optimal_weights_all, axis=0).tolist() if cv_optimal_weights_all else None
             ),
+            # Held-out fold scores: each fold's optimum, and the default and
+            # fold-adaptive weights, scored on the fold none of them saw, at a
+            # cut chosen on the fold's training rows.
+            "heldout_n_datasets": len(heldout_deltas_default),
+            "heldout_mean_delta_f1_optimal_vs_default": (
+                float(np.mean(heldout_deltas_default)) if heldout_deltas_default else None
+            ),
+            "heldout_mean_delta_f1_optimal_vs_adaptive": (
+                float(np.mean(heldout_deltas_adaptive)) if heldout_deltas_adaptive else None
+            ),
+            "folds_with_optimum_on_bounds": bound_folds,
+            "folds_total": total_folds,
         },
     }
 
@@ -1194,6 +1317,16 @@ def _print_summary_table(
         if md003cv.get("mean_optimal_weights"):
             w = md003cv["mean_optimal_weights"]
             print(f"  Mean optimal weights: " f"R={w[0]:.3f} K={w[1]:.3f} I={w[2]:.3f}")
+    if md003cv.get("heldout_mean_delta_f1_optimal_vs_default") is not None:
+        print(
+            "  Held-out folds (training cut), optimal-default F1: "
+            f"{md003cv['heldout_mean_delta_f1_optimal_vs_default']:+.4f}; "
+            f"optimal-adaptive: {md003cv['heldout_mean_delta_f1_optimal_vs_adaptive']:+.4f}"
+        )
+        print(
+            "  Fold optima pinned on the weight bounds: "
+            f"{md003cv['folds_with_optimum_on_bounds']}/{md003cv['folds_total']}"
+        )
 
     print("=" * 100)
 

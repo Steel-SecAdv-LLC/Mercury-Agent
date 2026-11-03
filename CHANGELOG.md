@@ -27,6 +27,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — fusion-weight cross-validation validates its weights.** In
+`benchmarks/calibration_validation.py::run_fusion_weight_cv` each fold split off
+its held-out rows and never used them: the fold's L-BFGS-B weights were fitted
+on its training rows and averaged, so nothing was cross-validated (flake8 7.5.0
+reported the two unused variables). Each fold now scores its optimum, the
+default 0.4/0.3/0.3 and its own adaptive weights (computed from the fold's
+training labels only) on the rows it held out, at an F1 cut chosen on its
+training rows, and the result carries them as `cv_heldout`, with the MD-003
+summary gaining the held-out deltas. The run also flags a fold whose optimum
+sits on the optimiser's box on every component (`optimum_on_bounds`): in the
+committed 55-dataset run that is 28 datasets, whose "optimal" weights were set
+by the bounds, not the data. The existing `f1_at_*` figures are unchanged and
+now say they use an oracle cut on the test rows. Tests:
+`tests/benchmarks/test_calibration_validation.py` (held-out partition, the
+training cut, the bound flag, per-fold adaptive weights never see held-out
+labels, the unchanged oracle figure). The committed results JSON predates the
+fix and has no `cv_heldout`; it gains one when the harness is next run.
+`docs/BENCHMARKS.md` no longer calls MD-003 resolved by validation: it states
+that the figures are a test-split comparison at an oracle cut, that the folds
+had not been scored, and that 28 of the 55 datasets have bound-set optima.
+
+**Fixed — rotating the at-rest key re-seals the stored provider keys.**
+Provider keys stored from the console are sealed under `MERCURY_DATA_ENC_KEY`,
+but `scripts/reseal_totp_secrets.py` re-sealed TOTP secrets only, so a rotation
+would have left every stored provider key unopenable. `ProviderStore.reseal`
+classifies each key as the TOTP pass does (already current, old key,
+plaintext, unopenable; never overwritten) and the rotation tool runs it in the
+same invocation, on the provider store alone when no durable identity store is
+configured, failing the run when either store has a key it cannot open.
+Tests: `tests/scripts/test_reseal_totp_secrets.py`.
+
+**Changed — the documented language scope matches what shipped.** The README
+still said the voice operates in English only and that multilingual natural
+language was a future epic, and `tests/narrative/test_language_scope.py`
+enforced that statement after the seven-language layer shipped. The README now
+states the shipped scope and its boundary (questions understood in seven
+languages; social turns, menu and prompts answered in them; narratives and
+profiles never machine translated), ROADMAP row 18 is partly closed with what
+remains, and the test pins the README to `narrative/languages.py::SUPPORTED`
+instead of to prose. SECURITY.md gains the provider-administration routes, the
+secrets-at-rest and language-model egress facts and the provider third-party
+note; ARCHITECTURE.md gains the console, agent and provider layer and its real
+logging start-up; the platform-hardening and deployment guides cover provider
+keys in the at-rest key and its rotation; the README lists the new variables.
+
+**Changed — tool and image bumps folded in from Dependabot.** mypy 2.4.1,
+ruff 0.17.3, flake8 7.5.0 (pyflakes 4.1.0) and types-requests 2.33.0.20261030
+at every pin site (`pyproject.toml` ml and dev extras, the Code Quality and
+Type Checking installs in `ci.yml`, the pre-commit revs, the
+`run_ci_gates.sh` header) with `uv.lock` regenerated (only those five packages
+move); Grafana 13.3.0 in `docker-compose.yml` (same data volume). The
+Dependabot pull requests touched `pyproject.toml` alone and would have failed
+the pin-parity gate. ruff and mypy report nothing new on the tree; flake8's two
+new findings were the cross-validation defect above.
+
 **Added — the agent holds a conversation, in seven languages.** Measured
 before this change: of 70 realistic inputs a console user types ("ok",
 "anything new?", "should I be worried?", "what do you mean?", "say that

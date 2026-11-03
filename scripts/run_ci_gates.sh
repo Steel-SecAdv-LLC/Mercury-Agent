@@ -18,7 +18,7 @@
 #   * the Code Quality job ("Run Black/Ruff/Flake8", header + docstring gates)
 #   * the Type Checking job (mypy src lane, lenient tests lane, and the
 #     graduated strict lane's directory list)
-# Tool pins (black==26.10.1, mypy==2.4.0, ruff==0.17.2, flake8==7.4.1,
+# Tool pins (black==26.10.1, mypy==2.4.1, ruff==0.17.3, flake8==7.5.0,
 # pydocstyle==6.3.0) are mirrored in pyproject and enforced across surfaces by
 # scripts/check_pinned_tool_versions.py.
 #

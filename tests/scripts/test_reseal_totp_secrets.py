@@ -22,6 +22,7 @@ from omni_mercury_engine.api.identity_store import (
     InMemoryIdentityStore,
     SqliteIdentityStore,
 )
+from omni_mercury_engine.api.provider_store import ProviderStore
 from omni_mercury_engine.api.secret_sealer import SecretSealer
 
 if TYPE_CHECKING:
@@ -180,9 +181,12 @@ class TestDurableRoundTrip:
 class TestCli:
     """The CLI guards refuse unsafe or under-specified runs."""
 
-    def test_refuses_without_durable_store(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """An in-memory store (no MERCURY_KEYSTORE_PATH) is refused (exit 2)."""
+    def test_refuses_without_durable_store(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No durable identity store and no provider store: nothing to rotate (exit 2)."""
         monkeypatch.delenv("MERCURY_KEYSTORE_PATH", raising=False)
+        monkeypatch.setenv("MERCURY_PROVIDER_STORE_PATH", str(tmp_path / "absent.json"))
         monkeypatch.setenv("MERCURY_DATA_ENC_KEY", _NEW_KEY)
         assert reseal.main([]) == 2
 
@@ -224,4 +228,103 @@ class TestCli:
         seed_store.create_account(_account("a1", _old().seal("STUCK", aad="a1")))
         seed_store.close()
 
+        assert reseal.main([]) == 1
+
+
+class TestProviderKeys:
+    """The provider keys sealed under the same at-rest key rotate in the same run.
+
+    Before this, rotating ``MERCURY_DATA_ENC_KEY`` with this tool re-sealed the
+    TOTP secrets and left every stored language-model provider key sealed
+    under the retiring key, unopenable once the new key was deployed.
+    """
+
+    @staticmethod
+    def _store(path: Path) -> ProviderStore:
+        return ProviderStore(path, sealer=_old())
+
+    def test_old_key_provider_keys_reroll_and_open_under_the_new_key(self, tmp_path: Path) -> None:
+        path = tmp_path / "providers.json"
+        self._store(path).set("groq", api_key="gsk-old-0001", model="m")
+        self._store(path).set("azure_openai", api_key="az-old-0002")
+        report = ProviderStore(path).reseal(new_sealer=_new(), old_sealer=_old())
+        assert (report.with_key, report.resealed, report.failed) == (2, 2, [])
+        after = ProviderStore(path, sealer=_new())
+        assert after.key("groq") == "gsk-old-0001"
+        assert after.key("azure_openai") == "az-old-0002"
+        record = after.get("groq")
+        assert record is not None and record["model"] == "m"
+
+    def test_a_rerun_is_idempotent_and_a_dry_run_writes_nothing(self, tmp_path: Path) -> None:
+        path = tmp_path / "providers.json"
+        self._store(path).set("mistral", api_key="mk-1")
+        before = path.read_bytes()
+        dry = ProviderStore(path).reseal(new_sealer=_new(), old_sealer=_old(), dry_run=True)
+        assert dry.resealed == 1 and path.read_bytes() == before
+        ProviderStore(path).reseal(new_sealer=_new(), old_sealer=_old())
+        again = ProviderStore(path).reseal(new_sealer=_new(), old_sealer=_old())
+        assert (again.already_current, again.changed) == (1, 0)
+
+    def test_a_key_the_old_sealer_cannot_open_is_reported_never_overwritten(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "providers.json"
+        self._store(path).set("openai", api_key="sk-1")
+        before = path.read_bytes()
+        stranger = SecretSealer(bytes.fromhex("33" * 32), key_is_stable=True)
+        report = ProviderStore(path).reseal(new_sealer=_new(), old_sealer=stranger)
+        assert report.failed == ["openai"] and path.read_bytes() == before
+        assert ProviderStore(path).reseal(new_sealer=_new()).failed == ["openai"]
+
+    def test_a_plaintext_key_in_a_hand_edited_file_is_sealed(self, tmp_path: Path) -> None:
+        import json
+
+        path = tmp_path / "providers.json"
+        path.write_text(
+            json.dumps(
+                {"version": 1, "providers": {"groq": {"api_key": "plain"}}, "selection": None}
+            ),
+            encoding="utf-8",
+        )
+        report = ProviderStore(path).reseal(new_sealer=_new())
+        assert report.sealed_plaintext == 1
+        assert "plain" not in path.read_text(encoding="utf-8")
+        assert ProviderStore(path, sealer=_new()).key("groq") == "plain"
+
+    def test_main_rotates_the_provider_store_without_an_identity_store(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = tmp_path / "providers.json"
+        self._store(path).set("together", api_key="tg-1")
+        monkeypatch.delenv("MERCURY_KEYSTORE_PATH", raising=False)
+        monkeypatch.setenv("MERCURY_PROVIDER_STORE_PATH", str(path))
+        monkeypatch.setenv("MERCURY_DATA_ENC_KEY", _NEW_KEY)
+        monkeypatch.setenv("MERCURY_DATA_ENC_KEY_OLD", _OLD_KEY)
+        assert reseal.main([]) == 0
+        assert ProviderStore(path, sealer=_new()).key("together") == "tg-1"
+
+    def test_main_rotates_both_stores_in_one_run_and_fails_on_either(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        db = tmp_path / "mercury.db"
+        path = tmp_path / "providers.json"
+        seed = SqliteIdentityStore(str(db))
+        seed.create_account(_account("a1", _old().seal("TOTP", aad="a1")))
+        seed.close()
+        self._store(path).set("groq", api_key="gsk-1")
+        monkeypatch.setenv("MERCURY_KEYSTORE_PATH", str(db))
+        monkeypatch.setenv("MERCURY_PROVIDER_STORE_PATH", str(path))
+        monkeypatch.setenv("MERCURY_DATA_ENC_KEY", _NEW_KEY)
+        monkeypatch.setenv("MERCURY_DATA_ENC_KEY_OLD", _OLD_KEY)
+        assert reseal.main([]) == 0
+        verify = SqliteIdentityStore(str(db))
+        try:
+            assert _new().unseal(_secret_of(verify, "a1"), aad="a1") == "TOTP"
+        finally:
+            verify.close()
+        assert ProviderStore(path, sealer=_new()).key("groq") == "gsk-1"
+        # A provider key sealed under a third key fails the run even though TOTP is fine.
+        ProviderStore(path, sealer=SecretSealer(bytes.fromhex("44" * 32), key_is_stable=True)).set(
+            "mistral", api_key="stuck"
+        )
         assert reseal.main([]) == 1

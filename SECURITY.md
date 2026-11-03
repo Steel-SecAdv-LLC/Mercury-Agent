@@ -67,6 +67,8 @@ Mercury Agent implements multiple layers of security:
 - **Post-Quantum Cryptography**: PQC backends for future-proof encryption
 - **Secure Hash Functions**: SHA3-256 for integrity verification
 - **Key Management**: Secure key generation and storage patterns
+- **Operational primitives on AMA**: HKDF-SHA-256, HMAC-SHA-256, HMAC-SHA3-256, SHA3-256, PBKDF2-HMAC-SHA-256 and constant-time comparison in operational paths run on AMA Cryptography's native primitives, fail-closed, byte-identical to the standard-library calls they replaced (pinned on fixed vectors and RFC 5869 A.1). Three uses stay on the Python standard library: scrypt password hashing, TOTP's HMAC-SHA-1, and streamed SHA3-256 over whole audit files.
+- **Secrets at rest**: TOTP secrets and the language-model provider keys an administrator stores from the console are sealed with AES-256-GCM (`api/secret_sealer.py`, AMA backend), each bound to its owner as associated data (the account id; `provider:<name>`), under `MERCURY_DATA_ENC_KEY` or a key derived from `AMA_MASTER_SEED`. Without a stable key the provider store refuses to keep a key rather than write it unsealed. `scripts/reseal_totp_secrets.py` rotates the key for both stores in one run and never overwrites a value it cannot open (see `docs/PLATFORM_HARDENING.md`).
 
 ### Post-Quantum Cryptography (PQC) Backend Audit Status
 
@@ -205,7 +207,10 @@ probabilities.
 ### API Security
 
 - **Authentication**: JWT-based authentication with secure token handling
-- **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20)
+- **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20). A 429 carries the bucket's real refill time in `Retry-After`. Static assets under `/static` are exempt, so one console load does not spend the burst.
+- **Provider administration** (`PUT`/`DELETE /api/v1/voice/backends/{provider}`, `POST /api/v1/voice/backends/{provider}/test`, `POST`/`DELETE /api/v1/voice/backends/select`): administrator only (401 without credentials, 403 without the `admin` permission). A stored key is never returned by any route. A stored or tested endpoint passes the same egress gate the adapters use, so a private address or plain-http cloud endpoint is a 422. A key given to the connection test is used for that call and not stored. Every change is logged under the administrator's id, with the verdict and HTTP status only, never text derived from a request that carried the key.
+- **Read-only discovery routes**: `GET /api/v1/voice/backends` (anonymous) reports whether each provider's key is set, never its value; the catalog routes (`/api/v1/catalog/...`) publish declarations the package already ships in source and change no state.
+- **Voice routes are scoped to the caller**: conversation history, follow-up context, agent memory and the proactive alert stream (`GET /api/v1/voice/alerts`) are bounded to the authenticated principal (and session where it matters); the stream authenticates from the same headers as every other voice route and carries nothing for other accounts.
 - **Input Validation**: Comprehensive input sanitization and validation
 - **`/health`**: unauthenticated and exempt from rate limiting, so load balancers and container health checks can poll it. It returns only `status` and `version`; process uptime would reveal when the service last restarted, so it is exported as `omni_mercury_uptime_seconds` on `/metrics` instead.
 - **`/metrics`**: unauthenticated Prometheus exposition. Prometheus' security model says instrumented `/metrics` endpoints must not be exposed to the internet, so the platform's Caddy edge answers 404 for it and Prometheus scrapes the API over the internal network. Restrict it the same way if you expose the API directly.
@@ -221,6 +226,7 @@ probabilities.
 - **Encryption at Rest**: AES-256 encryption for sensitive data
 - **Encryption in Transit**: TLS 1.3 for all network communications
 - **Data Minimization**: Collection limited to necessary data only
+- **Language-model egress**: nothing is sent to a language-model provider unless an administrator selects one for the voice. Once selected, a free-text question that falls to the search sends the question and at most 8 of the records the retriever found for that caller (each clipped to 400 characters) to the provider, and the reply is clipped to 1,600 characters. Grounded answers (the detection record, the code, the narrative engine) never go to a model. Local servers (Ollama, LM Studio, vLLM, llama.cpp) are reached on a loopback host only, private addresses only under the offline opt-in; under `MERCURY_OFFLINE` every cloud provider is refused at the egress gate.
 - **Audit Logging**: Comprehensive logging for security events
 - **Cryptographic Audit Trail**: Tamper-evident logging of all PQC operations
   - `CryptoAuditTrail` class for operation tracking
@@ -278,6 +284,7 @@ Mercury Agent includes security intelligence capabilities. Users must:
 - **PyTorch**: GPU acceleration library with its own security considerations
 - **NumPy/SciPy**: Numerical libraries - keep updated for security patches
 - **FastAPI**: Web framework - follow OWASP guidelines for API security
+- **Language-model providers**: a selected cloud provider (OpenAI, Anthropic, xAI, Google, Cohere, DeepSeek, Mistral, Groq, Together, Fireworks, OpenRouter, Perplexity, Hugging Face, Cursor, Azure OpenAI, or an operator-named OpenAI-compatible endpoint) is a third party that receives the data described under Language-model egress; its own retention and training terms apply. Select a local server, or none, where that data must not leave the host.
 - **Optional libraries are imported on first use**: PyTorch Lightning, torchmetrics, matplotlib, SymPy, SHAP, LIME and DeepFace/TensorFlow load when the code that needs them first runs, not when `omni_mercury_engine` is imported. Pin and scan them like any other dependency (see Two-Tier Dependency-CVE Coverage below); a vulnerable copy that is installed but never used is no longer imported at start-up, and one that is used is imported at that point.
 
 ### Machine Learning Security

@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,115
+- **Total top-level classes:** 3,116
 - **Capability-bearing classes:** 2,090 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1219 |
-| Support types (config / result / enum / error) | 1025 |
+| Support types (config / result / enum / error) | 1026 |
 | Detection | 180 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 113 |
@@ -201,7 +201,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 164 classes (60 capability)
+### `api/` — 165 classes (60 capability)
 
 **Adapters & backends**
 
@@ -278,9 +278,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `User` (`api.auth`) — Authenticated user information.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (104)</summary>
+<details><summary>Support types (105)</summary>
 
-`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderResealReport`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
 
 </details>
 

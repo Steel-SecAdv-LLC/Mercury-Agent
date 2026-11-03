@@ -23,6 +23,10 @@ What is stored, and how:
   ``$XDG_STATE_HOME/mercury-agent/providers.json``) is written atomically
   with owner-only permissions, inventoried by ``mercury-agent decouple
   status`` and removed by ``decouple purge-work``.
+* Rotating the at-rest key: ``scripts/reseal_totp_secrets.py`` re-seals the
+  stored provider keys in the same run as the TOTP secrets
+  (:meth:`ProviderStore.reseal`), so one rotation covers every secret sealed
+  under ``MERCURY_DATA_ENC_KEY``.
 
 The store never puts a key into the process environment: the voice and the
 connection probe build an explicit ``LLMConfig`` from it, so a key stored
@@ -38,6 +42,7 @@ import logging
 import os
 import tempfile
 import threading
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +58,7 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "ENV_VAR",
     "ProviderRecord",
+    "ProviderResealReport",
     "ProviderStore",
     "ProviderStoreError",
     "default_store_path",
@@ -80,6 +86,24 @@ def default_store_path() -> Path:
 
 class ProviderRecord(dict[str, Any]):
     """One provider's stored fields: ``has_key``, ``base_url``, ``model``, ``updated_at``."""
+
+
+@dataclass
+class ProviderResealReport:
+    """Outcome of re-sealing the stored provider keys under a new at-rest key."""
+
+    with_key: int = 0
+    resealed: int = 0
+    sealed_plaintext: int = 0
+    already_current: int = 0
+    #: Providers whose key opened under neither key (left untouched, never overwritten).
+    failed: list[str] = field(default_factory=list)
+    dry_run: bool = False
+
+    @property
+    def changed(self) -> int:
+        """How many keys this pass rewrote (or would, under ``dry_run``)."""
+        return self.resealed + self.sealed_plaintext
 
 
 class ProviderStore:
@@ -266,6 +290,65 @@ class ProviderStore:
             data["selection"] = {"provider": provider, "model": model or None} if provider else None
             self._write(data)
         logger.info("provider store: voice selection %s", provider or "cleared")
+
+    def reseal(
+        self,
+        *,
+        new_sealer: SecretSealer,
+        old_sealer: SecretSealer | None = None,
+        dry_run: bool = False,
+    ) -> ProviderResealReport:
+        """Re-seal every stored key under ``new_sealer``, opening old ones with ``old_sealer``.
+
+        Rotating ``MERCURY_DATA_ENC_KEY`` without this would leave every stored
+        provider key unopenable, since a sealed value opens only under the key
+        it was sealed with. Each key is classified as the TOTP rotation does:
+        already sealed under the new key (left alone, so a re-run is
+        idempotent), sealed under the old key (opened and re-sealed, bound to
+        the same ``provider:<name>`` AAD), not sealed at all (a hand-edited
+        file; sealed under the new key) or openable under neither (reported,
+        never overwritten). The file is rewritten once, atomically, and only
+        when something changed.
+        """
+        report = ProviderResealReport(dry_run=dry_run)
+        with self._lock:
+            data = self._read()
+            changed = False
+            for provider, entry in data["providers"].items():
+                stored = entry.get("api_key")
+                if not stored:
+                    continue
+                report.with_key += 1
+                aad = f"provider:{provider}"
+                if not SecretSealer.is_sealed(str(stored)):
+                    entry["api_key"] = new_sealer.seal(str(stored), aad=aad)
+                    report.sealed_plaintext += 1
+                    changed = True
+                    continue
+                try:
+                    new_sealer.unseal(str(stored), aad=aad)
+                    report.already_current += 1
+                    continue
+                except SealedSecretError:
+                    pass
+                if old_sealer is None:
+                    report.failed.append(provider)
+                    continue
+                try:
+                    plaintext = old_sealer.unseal(str(stored), aad=aad)
+                except SealedSecretError:
+                    report.failed.append(provider)
+                    continue
+                entry["api_key"] = new_sealer.seal(plaintext, aad=aad)
+                report.resealed += 1
+                changed = True
+            if changed and not dry_run:
+                self._write(data)
+        if report.changed and not dry_run:
+            logger.info(
+                "provider store: %d key(s) re-sealed under the new at-rest key", report.changed
+            )
+        return report
 
     def config_for(self, provider: str) -> dict[str, Any]:
         """``api_key``, ``base_url`` and ``model`` for an ``LLMConfig``: the store, else nothing.

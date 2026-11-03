@@ -154,7 +154,7 @@ jobs:
           # The tools are exact pins, not project dependencies, so they go
           # into a uv environment directly (no lockfile entry to drift).
           uv venv .venv --python "${{ matrix.python-version }}"
-          uv pip install "black==26.10.1" flake8==7.4.1 mypy==2.4.0 ruff==0.17.2 pydocstyle==6.3.0
+          uv pip install "black==26.10.1" flake8==7.5.0 mypy==2.4.1 ruff==0.17.3 pydocstyle==6.3.0
           # Every later step in the job runs the project's environment.
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
@@ -600,7 +600,7 @@ jobs:
           # ``py.typed``, so installing it lets mypy resolve the decorator
           # signatures; without it the [[tool.mypy.overrides]] boundary turns
           # them into ``Any`` and the strict lane flags [untyped-decorator].
-          uv pip install mypy==2.4.0 types-requests==2.33.0.20261006
+          uv pip install mypy==2.4.1 types-requests==2.33.0.20261030
           # Every later step in the job runs the project's environment.
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"

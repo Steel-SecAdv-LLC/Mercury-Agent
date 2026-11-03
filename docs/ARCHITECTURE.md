@@ -266,6 +266,13 @@ engine to *call* — for explanation, hypothesis proposal, and report synthesis
 Mercury calls the backend from inside its loop; the backend never fronts
 Mercury.
 
+The voice's language model is a separate, narrower seam. An administrator
+selects it from the console's AI vendors view (`api/provider_store.py`, keys
+sealed at rest), and it only composes the free-text search answers from the
+records the retriever found; grounded answers never pass through it. The
+reasoning backend above does not read that store: it is configured by its
+own `LLMConfig`.
+
 ## Integration Backend Configuration
 
 ### Database (`integrations/stubs/database.py`)

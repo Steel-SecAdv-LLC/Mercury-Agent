@@ -1415,8 +1415,13 @@ docker run -it \
 | `MERCURY_KEYSTORE_PATH` | SQLite file backing all account/quota platform state | unset (in-memory) |
 | `MERCURY_QUOTA_ENABLED` | Per-account quota enforcement on metered routes | `false` |
 | `MERCURY_QUOTA_FAIL_CLOSED` | Deny metered requests with 503 when the quota infrastructure itself fails | `false` |
+| `MERCURY_DATA_ENC_KEY` | 64-hex at-rest key sealing TOTP secrets and the provider keys an administrator stores from the console (`python scripts/generate_secret_key.py`); without a stable key (this or `AMA_MASTER_SEED`) the provider store refuses keys. Rotate with `scripts/reseal_totp_secrets.py` | unset |
+| `MERCURY_PROVIDER_STORE_PATH` | Provider store: sealed keys, endpoints and models for the 21 language-model providers, and the provider the voice composes with | `$XDG_STATE_HOME/mercury-agent/providers.json` |
+| `MERCURY_AGENT_MEMORY_PATH` | SQLite file for the agent's detection memory, kept across restarts and shared by workers | unset (per process) |
+| `MERCURY_LOG_LEVEL` / `MERCURY_LOG_FORMAT` | Level and format (`text` or `json`, PII redacted) of the engine's own records | uvicorn's level / `text` |
+| `MERCURY_MAIL_OUTBOX` | Where the development mailer files messages when no SMTP host is set | `~/.local/state/mercury-agent/outbox` |
 
-The account/auth/quota platform adds ~30 more optional `MERCURY_*` variables (sessions, CSRF, SMTP, throttles, tiers, audit trail, at-rest sealing); the authoritative reference table is in [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md#configuration-reference). Unset, every one of them keeps the pre-platform behaviour.
+Each language-model provider's own key and model variables (`OPENAI_API_KEY`, `GROQ_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `MERCURY_OLLAMA_HOST`, ...) are listed in [`.env.example`](.env.example) and named on each provider's card in the console; a key stored from the console wins over its variable. The account/auth/quota platform adds ~30 more optional `MERCURY_*` variables (sessions, CSRF, SMTP, throttles, tiers, audit trail, at-rest sealing); the authoritative reference table is in [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md#configuration-reference). Unset, every one of them keeps the pre-platform behaviour.
 
 ### Volume Mounts
 
@@ -1458,8 +1463,12 @@ byte-identical (pinned by `tests/api/test_frontend.py`).
   builder for every `mercury-agent` command, the Mercury Agent conversation,
   mass runs with consensus, results with charts chosen per data shape, captures
   with SHA-256 provenance and labels files, session recordings, the full catalog
-  (commands, detectors, loaders, MCP tools, API routes) and its own self-test
-  (`:diag`). Built by `scripts/build_console_port.py` and
+  (commands, detectors, loaders, MCP tools, API routes), an AI vendors view in
+  which an administrator connects any of the 21 language-model providers (key
+  sealed on the engine, a connection test, the provider made the agent's
+  model) and copies a ready MCP client block, settings (themes, text size,
+  contrast, motion, spoken replies, alert cues, the agent's language) and its
+  own self-test (`:diag`). Built by `scripts/build_console_port.py` and
   `scripts/build_console_catalog.py`, both gated by
   `tests/api/test_console_catalog.py`; same-origin only, under the frontend CSP
   (widened for `/console` alone to `img-src 'self' data:` for hazard PNGs).
@@ -1968,6 +1977,8 @@ pip install -e ".[dev]"
 - `MERCURY_ENV` - Environment mode (`development` default, `production`)
 - `MERCURY_CORS_ORIGINS` - Explicit CORS origin allow-list
 - `MERCURY_FRONTEND_ENABLED` / `MERCURY_KEYSTORE_PATH` / `MERCURY_QUOTA_*` - Self-service account platform (full reference: [docs/PLATFORM_HARDENING.md](docs/PLATFORM_HARDENING.md#configuration-reference))
+- `MERCURY_DATA_ENC_KEY` / `MERCURY_PROVIDER_STORE_PATH` - At-rest key and the provider store for language-model keys connected from the console
+- `MERCURY_AGENT_MEMORY_PATH` / `MERCURY_LOG_LEVEL` / `MERCURY_LOG_FORMAT` - Durable agent memory; engine log level and format
 
 </details>
 
@@ -1984,12 +1995,22 @@ language:
 | **Rust** | `rust_crypto/` (PyO3) | *Optional, opt-in* classical-crypto acceleration (AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id). Absent → explicit, tested Python fallback. |
 | **C / C++** | AMA Cryptography native PQC backend (`.github/actions/build-ama-cryptography`, cmake + `g++`) | Compiled native post-quantum backend; **fails closed** when unavailable rather than silently weakening. |
 
-**Natural language is a separate axis — and not a current multi-language claim.**
-Mercury's narrative / voice interface operates in **English**. Some knowledge
-sources it consumes (ConceptNet, Qwen) are themselves multilingual, but Mercury
-does **not** today offer localized multi-natural-language I/O. Multilingual
-natural-language support is a **future epic** (tracked in
-[`docs/ROADMAP.md`](docs/ROADMAP.md)), explicitly **not** a shipped capability.
+**Natural language is a separate axis, and its scope is stated exactly.**
+Mercury's grounded answers are built in **English** from the detection record,
+the code and the narrative engine. In front of them, `narrative/languages.py`
+understands a question in seven languages (English, Spanish, French, German,
+Italian, Portuguese, Dutch): it detects the asker's language from function
+words and spellings, renders the question in the English phrasing the
+conversation layer routes, and answers the social turns, the fallback menu and
+the follow-up prompts in that language. `POST /api/v1/voice/speak` takes
+`language` (one of the seven codes or `auto`; any other code is refused with a
+422), and the console has an agent-language setting. What is **not** shipped:
+a detection narrative or a knowledge profile is never machine translated, so a
+non-English asker gets that answer in English with a one-line note in their
+language saying how the question was understood. The layer is lexicon and
+regular expressions: no translation model, no network call. Full localized
+narration, number and date formatting, and a per-language evaluation set
+remain a **future epic** ([`docs/ROADMAP.md`](docs/ROADMAP.md) row 18).
 
 </details>
 
