@@ -27,6 +27,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Changed — detector taxonomy now matches the discipline.** Tornado
+(severe-storm meteorology, NEXRAD radar morphology), hurricane (tropical
+meteorology, ERA5 wind-field physics) and flood (hydrology,
+precipitation-runoff physics) sat in the `geological` category and in
+`detectors/geological/` modules; they are now `meteorological`, with their
+three hazard adapters, and the modules live in `detectors/meteorological/`.
+The meteor detector (NEO/bolide assessment over NASA NeoWs + JPL
+fireball/Sentry feeds) is space science and moved to
+`omni_mercury_engine.space.meteor_detector` under category `space`, joining
+the solar-flare detector that made the same move earlier. Wildfire (NFDRS
+fuel moisture, spread, NDVI, FIRMS) is wildland fire science — neither
+geology nor meteorology — and moved to a new `detectors/fire/` package under
+a new `fire` category; the post-fire debris-flow cascade (a geological
+hazard) stays in `geological`. Every old module path keeps a shim that
+re-exports every public name (and wildfire's module constants), so existing
+imports keep working (DEPRECATION.md "Relocated" entries); in-repo imports
+use the canonical paths. The console catalog is regenerated and the README
+scale block re-measured (its "111 detector-manifest entries" prose had
+already drifted from the real 113).
+
+**Added — the console shows its evidence.** The Mercury Console's tier runs
+take `--reference <fraction>` (the leading share of the loaded series becomes
+the known-normal probationary prefix; a file path is the CLI form) and every
+tier response now renders its `calibration_basis` — with a warning styling
+when a run is self-calibrated, so a parameter-set flag rate is never mistaken
+for evidence — plus the conformal cut, the α and flag count, and any
+`excluded_members` with the reason. The score line chart draws the conformal
+cut as its own labelled dashed series and the per-point cross-detector
+`uncertainty` (returned by the tier and previously dropped) as a translucent
+disagreement band; responses without those fields render exactly as before.
+All console changes are named patches in `scripts/build_console_port.py`
+(the design prototype stays verbatim), and the account dashboard's
+authenticated nav links the console it mints API keys for.
+
+**Fixed — the committed docs dashboards were stale and one was orphaned.**
+`docs/images/{anomaly_detection_panel,mercury_performance_dashboard,benchmark_summary_live_data}.png`
+are regenerated from the committed benchmark JSON, and
+`ensemble_benchmark_report.png` — renamed by an earlier fix so it stopped
+overwriting the neuro-symbolic demo figure, then never committed or cited —
+is committed and embedded in the README with the other measured dashboards.
+The generator's docstring names its real outputs.
+
 **Fixed — the default statistical detector flagged up to a fifth of normal
 data.** With no threshold or calibration configured, `MercuryAnomalyDetector`
 cut each batch with a batch-relative rule (Otsu split when a "valley" was

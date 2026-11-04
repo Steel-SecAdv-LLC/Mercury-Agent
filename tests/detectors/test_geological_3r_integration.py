@@ -23,16 +23,16 @@ from omni_mercury_engine.core.three_r_mechanism import (
     RefactoringEngine,
     ResonanceEngine,
 )
-from omni_mercury_engine.detectors.geological.flood_detector import (
+from omni_mercury_engine.detectors.meteorological.flood_detector import (
     FloodDetector,
     FloodPredictionOptimizer,
     FloodPredictionResult,
 )
-from omni_mercury_engine.detectors.geological.hurricane_detector import (
+from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
     HurricaneDetector,
     HurricanePredictionResult,
 )
-from omni_mercury_engine.detectors.geological.tornado_detector import (
+from omni_mercury_engine.detectors.meteorological.tornado_detector import (
     TornadoDetector,
     TornadoPredictionResult,
 )

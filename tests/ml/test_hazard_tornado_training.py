@@ -158,7 +158,7 @@ class TestNaNHandling:
 
     def test_detector_physics_parity_via_public_api(self, moore: dict[str, Any]) -> None:
         """couplet_v_rot mirrors the detector's deployed physics byte-for-byte."""
-        from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
+        from omni_mercury_engine.detectors.meteorological.tornado_detector import TornadoDetector
 
         det = TornadoDetector(
             enable_radar=True,
@@ -206,7 +206,7 @@ class TestShippedTornadoCheckpoint:
     """Differential physics-vs-shipped behavior through the public API."""
 
     def _detector(self):
-        from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
+        from omni_mercury_engine.detectors.meteorological.tornado_detector import TornadoDetector
 
         return TornadoDetector(
             enable_radar=True,

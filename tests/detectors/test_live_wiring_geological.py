@@ -365,12 +365,12 @@ from omni_mercury_engine.data_sources.earth_science import (
     NWSWeatherAlertsSource,
     USGSVolcanoSource,
 )
-from omni_mercury_engine.detectors.geological.flood_detector import FloodDetector
-from omni_mercury_engine.detectors.geological.tornado_detector import (
-    TornadoDetector,
-)
 from omni_mercury_engine.detectors.geological.volcanic import (
     VolcanicEruptionDetector,
+)
+from omni_mercury_engine.detectors.meteorological.flood_detector import FloodDetector
+from omni_mercury_engine.detectors.meteorological.tornado_detector import (
+    TornadoDetector,
 )
 
 
@@ -468,7 +468,7 @@ class TestFloodDetectorLiveWiring:
 
     def test_dead_runoff_network_is_gone(self) -> None:
         """The untrained TopographicRunoffPredictor surface was removed."""
-        import omni_mercury_engine.detectors.geological.flood_detector as fd
+        import omni_mercury_engine.detectors.meteorological.flood_detector as fd
 
         assert not hasattr(fd, "TopographicRunoffPredictor")
         assert not hasattr(FloodDetector(), "runoff_predictor")

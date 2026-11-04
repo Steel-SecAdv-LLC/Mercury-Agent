@@ -188,7 +188,8 @@ class DetectorCategory(Enum):
     # Advanced Physics-Inspired categories (v1.4.0)
     PHYSICS = "physics"  # Physics-inspired detectors (spectral, dynamics, kinematics)
     UIUX = "uiux"  # UI/UX behavioral anomaly detection
-    METEOROLOGICAL = "meteorological"  # Hydro-climate hazards (drought, heatwave, AR, lightning)
+    METEOROLOGICAL = "meteorological"  # Atmospheric, severe-storm & hydro-climate hazards
+    FIRE = "fire"  # Wildland fire science (fuels, ignition, spread, fire weather)
     UAV = "uav"  # Uncrewed aerial vehicle telemetry (RADD rules + Mercury ensemble)
 
 
@@ -913,17 +914,17 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "wildfire",
         "omni_mercury_engine.detectors.adapters.earth",
         "WildfireSceneAdapter",
-        DetectorCategory.GEOLOGICAL,
-        "Wildfire prediction",
+        DetectorCategory.FIRE,
+        "Wildfire fuels/ignition/spread prediction (NFDRS moisture, NDVI, FIRMS)",
         seams=("engine", "registry"),
         modality="record",
-        wraps="omni_mercury_engine.detectors.geological.wildfire:WildfireDetector",
+        wraps="omni_mercury_engine.detectors.fire.wildfire:WildfireDetector",
     ),
     DetectorManifestEntry(
         "tornado",
-        "omni_mercury_engine.detectors.geological.tornado_detector",
+        "omni_mercury_engine.detectors.meteorological.tornado_detector",
         "TornadoDetector",
-        DetectorCategory.GEOLOGICAL,
+        DetectorCategory.METEOROLOGICAL,
         "Tornado prediction with Doppler radar and FFT resonance analysis",
         feature_dim=20,
         tags=["disaster", "weather", "3r-resonance"],
@@ -932,9 +933,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     ),
     DetectorManifestEntry(
         "hurricane",
-        "omni_mercury_engine.detectors.geological.hurricane_detector",
+        "omni_mercury_engine.detectors.meteorological.hurricane_detector",
         "HurricaneDetector",
-        DetectorCategory.GEOLOGICAL,
+        DetectorCategory.METEOROLOGICAL,
         "Hurricane/cyclone/typhoon prediction with SST and resonance amplification",
         feature_dim=20,
         tags=["disaster", "weather", "3r-resonance"],
@@ -943,9 +944,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     ),
     DetectorManifestEntry(
         "flood",
-        "omni_mercury_engine.detectors.geological.flood_detector",
+        "omni_mercury_engine.detectors.meteorological.flood_detector",
         "FloodDetector",
-        DetectorCategory.GEOLOGICAL,
+        DetectorCategory.METEOROLOGICAL,
         "Flood prediction with refactoring engine optimization",
         feature_dim=20,
         tags=["disaster", "weather", "3r-refactoring"],
@@ -974,9 +975,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     ),
     DetectorManifestEntry(
         "meteor",
-        "omni_mercury_engine.detectors.geological.disaster_detectors",
+        "omni_mercury_engine.space.meteor_detector",
         "MeteorDetector",
-        DetectorCategory.GEOLOGICAL,
+        DetectorCategory.SPACE,
         "Bayesian meteor/NEO threat assessment over NASA NeoWs + JPL fireball/Sentry",
         tags=["disaster", "space", "live-wiring"],
         seams=("registry",),
@@ -1543,7 +1544,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "tornado_conditions",
         "omni_mercury_engine.detectors.hazard_adapter",
         "TornadoConditionsAdapter",
-        DetectorCategory.GEOLOGICAL,
+        DetectorCategory.METEOROLOGICAL,
         "TornadoDetector over (cape_j_kg, cin_j_kg, srh_m2_s2, bulk_shear_kt, lcl_m) rows",
         feature_dim=4,
         tags=["adapter", "tornado", "atmospheric"],
@@ -1554,7 +1555,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "hurricane_pressure",
         "omni_mercury_engine.detectors.hazard_adapter",
         "HurricanePressureAdapter",
-        DetectorCategory.GEOLOGICAL,
+        DetectorCategory.METEOROLOGICAL,
         "HurricaneDetector over (central_pressure_mb, environmental_pressure_mb, sst_celsius)",
         feature_dim=4,
         tags=["adapter", "hurricane", "pressure"],
@@ -1565,7 +1566,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "flood_precipitation",
         "omni_mercury_engine.detectors.hazard_adapter",
         "FloodPrecipitationAdapter",
-        DetectorCategory.GEOLOGICAL,
+        DetectorCategory.METEOROLOGICAL,
         "FloodDetector over measured and forecast precipitation depth rows (inches)",
         feature_dim=3,
         tags=["adapter", "flood", "precipitation"],

@@ -6,7 +6,7 @@ Composes three REAL upstream signals into a staged state machine, with the
 full evidence chain carried in the output:
 
 1. **Hurricane evidence** - a
-   :class:`~omni_mercury_engine.detectors.geological.hurricane_detector.HurricanePredictionResult`
+   :class:`~omni_mercury_engine.detectors.meteorological.hurricane_detector.HurricanePredictionResult`
    from the branch's hurricane detector physics core (pressure-deficit /
    Dvorak pressure-wind relationship; ``cyclone_detected``, ``category``,
    ``max_wind_speed_kt``, ``min_pressure_mb``).
@@ -58,7 +58,7 @@ import numpy as np
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
-    from omni_mercury_engine.detectors.geological.hurricane_detector import (
+    from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
         HurricanePredictionResult,
     )
 

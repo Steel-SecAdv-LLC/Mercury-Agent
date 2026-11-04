@@ -22,7 +22,7 @@ import pytest
 
 from omni_mercury_engine.core.exceptions import InvalidObservationError
 from omni_mercury_engine.data_sources.earth_science import NOAANWPSSource, NWSWeatherAlertsSource
-from omni_mercury_engine.detectors.geological.flood_detector import (
+from omni_mercury_engine.detectors.meteorological.flood_detector import (
     FloodDetector,
     FloodPredictionResult,
     FloodType,
@@ -250,7 +250,7 @@ def test_live_worst_gauge_reports_its_observed_flow() -> None:
 def test_soil_products_are_never_fabricated_from_defaults() -> None:
     """Regression: empty soil input was served as a measured 50%-moist loam
     with a 0.8 runoff coefficient; an unknown soil class read as loam."""
-    from omni_mercury_engine.detectors.geological.flood_detector import SoilSaturationModel
+    from omni_mercury_engine.detectors.meteorological.flood_detector import SoilSaturationModel
 
     model = SoilSaturationModel()
     out = model.analyze_soil_conditions({})
@@ -265,7 +265,7 @@ class TestPrecipitationFlashFloodGuidance:
     """Flash-flood gate against per-location NWS Flash Flood Guidance."""
 
     def _analyzer(self) -> Any:
-        from omni_mercury_engine.detectors.geological.flood_detector import (
+        from omni_mercury_engine.detectors.meteorological.flood_detector import (
             PrecipitationAnalyzer,
         )
 

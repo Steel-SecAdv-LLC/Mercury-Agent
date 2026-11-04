@@ -233,7 +233,7 @@ class TestWildfire:
 
     @pytest.mark.parametrize("fire_k", [380.0, None])
     def test_matches_the_detector(self, fire_k: float | None) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         record = {"thermal_image": self._scene(fire_k), "pixel_size_km": 0.375}
         direct = WildfireDetector().predict_wildfire(record)
@@ -246,7 +246,7 @@ class TestWildfire:
     def test_recorded_firms_raster_is_a_next_day_forecast(
         self, firms_patch: np.ndarray[Any, Any]
     ) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         direct = WildfireDetector().predict_wildfire({"thermal_image": firms_patch})
         score, flag, result = _served(WildfireSceneAdapter(), {"thermal_image": firms_patch})
@@ -593,7 +593,9 @@ class TestSurgeFloodCascade:
         assert out["set_aside"][0][0]["where"] == "hurricane.sst_data.sst_celsius"
 
     def test_matches_a_direct_cascade(self, battery: Any) -> None:
-        from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector
+        from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
+            HurricaneDetector,
+        )
         from omni_mercury_engine.detectors.meteorological.surge_flood_cascade import (
             SurgeFloodCascade,
         )

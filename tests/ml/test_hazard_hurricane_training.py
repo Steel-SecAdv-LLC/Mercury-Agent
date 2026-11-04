@@ -40,7 +40,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from omni_mercury_engine.detectors.geological.hurricane_detector import (
+from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
     NEURAL_CATEGORY_ORDER,
     HurricaneDetector,
     WindPatternAnalyzer,

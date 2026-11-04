@@ -27,13 +27,13 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from omni_mercury_engine.detectors.geological.hurricane_detector import (
+from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
+from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
+from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
     HurricaneDetector,
     HurricanePredictionResult,
 )
-from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
-from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
-from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+from omni_mercury_engine.detectors.meteorological.tornado_detector import TornadoDetector
 
 
 class TestTornadoHonesty:

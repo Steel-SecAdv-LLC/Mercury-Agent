@@ -19,10 +19,6 @@ from typing import Any
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.geological.hurricane_detector import (
-    HurricanePredictionResult,
-)
-
 # The dev venv's editable install may point at a sibling worktree that
 # predates these hydro-climate modules; ``unused-ignore`` keeps a
 # correctly installed tree (CI) clean.
@@ -41,6 +37,9 @@ from omni_mercury_engine.detectors.meteorological.drought_detector import (  # t
 from omni_mercury_engine.detectors.meteorological.heatwave_detector import (  # type: ignore[import-not-found,unused-ignore]
     HeatwaveDetector,
     heat_index_f,
+)
+from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
+    HurricanePredictionResult,
 )
 from omni_mercury_engine.detectors.meteorological.lightning_detector import (  # type: ignore[import-not-found,unused-ignore]
     LightningDetector,

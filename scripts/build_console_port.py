@@ -237,6 +237,43 @@ MODULE_PATCHES["mercury-cli-viz.js"] = (
     ),
 )
 
+
+# The tier/engine responses carry two signals the score chart used to drop:
+# the one-class conformal cut (``conformal_threshold``: the evidence-backed
+# operating point when a reference or labels calibrated the run) and the
+# per-point cross-detector disagreement (``uncertainty``). ``scores2`` (the
+# registered line chart) now draws the conformal cut as its own labelled
+# dashed series and the disagreement as a translucent band under the score
+# line, so an operator sees at a glance where the members disagree and which
+# cut an alarm cleared.
+MODULE_PATCHES["mercury-cli-viz.js"] = MODULE_PATCHES["mercury-cli-viz.js"] + (
+    (
+        "scores2 reads the conformal cut and the per-point disagreement",
+        "const s = fin(scoresOf(d)); if (!s || s.length < 2) return null; const fl = flagsOf(d) || [], th = thrOf(d), n = s.length, w = Math.max(2, Math.round(n / 12)), med = rollQ(s, w, [0.5]).get(0.5);",
+        'const s = fin(scoresOf(d)); if (!s || s.length < 2) return null; const fl = flagsOf(d) || [], th = thrOf(d), n = s.length, w = Math.max(2, Math.round(n / 12)), med = rollQ(s, w, [0.5]).get(0.5);\n    const cth = typeof d.conformal_threshold === "number" && isFinite(d.conformal_threshold) ? +d.conformal_threshold : null, unc = fin(arr(d.uncertainty)), hasU = !!(unc && unc.length === n && unc.some((u) => u > 0));',
+    ),
+    (
+        "the conformal cut is its own labelled dashed series",
+        '.concat(th != null ? [{ pts: [[0, th], [n - 1, th]], c: C.amb, line: 1, w: 1, dash: "5 3" }] : []),',
+        '.concat(th != null ? [{ pts: [[0, th], [n - 1, th]], c: C.amb, line: 1, w: 1, dash: "5 3" }] : []).concat(cth != null ? [{ pts: [[0, cth], [n - 1, cth]], c: C.vio, line: 1, w: 1, dash: "2 3" }] : []),',
+    ),
+    (
+        "cross-detector disagreement renders as a band under the score line",
+        "      under: (X, Y, bx) => runsOf(fl.slice(0, n)).map(([a, b2]) =>",
+        '      under: (X, Y, bx) => (hasU ? \'<polygon points="\' + s.map((x, i) => X(i).toFixed(1) + "," + Math.max(bx.t, Y(x + unc[i])).toFixed(1)).join(" ") + " " + s.map((x, i) => X(i).toFixed(1) + "," + Math.min(bx.b, Y(Math.max(0, x - unc[i]))).toFixed(1)).reverse().join(" ") + \'" style="fill:\' + C.cy + \';opacity:.13"><title>cross-detector disagreement (score \\u00b1 uncertainty)</title></polygon>\' : "") + runsOf(fl.slice(0, n)).map(([a, b2]) =>',
+    ),
+    (
+        "the legend names the two cuts and the band",
+        '      legend: [["score", C.cy], ["rolling median", C.cy2], ["threshold", C.amb], ["flagged", C.red]] });',
+        '      legend: [["score", C.cy], ["rolling median", C.cy2], ["threshold", C.amb]].concat(cth != null ? [["conformal cut", C.vio]] : []).concat(hasU ? [["disagreement band", C.cy]] : []).concat([["flagged", C.red]]) });',
+    ),
+    (
+        "the chart title names the conformal cut when one is served",
+        '"LINE CHART · anomaly score per sample" + (th != null ? " · threshold " + fmtN(th) : "")',
+        '"LINE CHART · anomaly score per sample" + (th != null ? " · threshold " + fmtN(th) : "") + (cth != null ? " · conformal cut " + fmtN(cth) : "")',
+    ),
+)
+
 MODULE_PATCHES["mercury-cli-api.js"] = (
     (
         "same origin by default and only (connect-src 'self')",
@@ -2008,6 +2045,63 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         "  async narrateRecord(cur, verbosity) {\n",
     ),
 )
+
+# ---------------------------------------------------------------------------
+# Evidence-based tier calibration in the console (run_tier_ensemble reference=)
+# ---------------------------------------------------------------------------
+# The engine's tier route takes a known-normal ``reference`` series and then
+# only *scores* the input, so the threshold and the conformal cut rest on
+# evidence independent of the batch (measured: conformal flags on 0.011-0.051
+# of the NAB-normal points with the probationary prefix as the reference).
+# The console loads a single file, so its ``--reference`` takes a fraction in
+# (0, 1): the leading fraction of the loaded series is sent as the
+# known-normal probationary prefix and the remainder is scored. A file path
+# (the CLI form) is named as CLI-only. The response's calibration_basis /
+# fit_on / excluded_members / conformal fields are rendered either way, so a
+# self-calibrated run is never mistaken for an evidence-backed one.
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "tier-detect live runs honour --reference as a probationary-prefix fraction",
+        'else if (p.path === "tier-detect") { b.data = data ? data.map((r) => r[0]) : '
+        'this.A.sample(schema.data); b.contamination = parseFloat(v["--contamination"]) || 0.05; ',
+        'else if (p.path === "tier-detect") { let series = data ? data.map((r) => r[0]) : '
+        'this.A.sample(schema.data); const refArg = v["--reference"]; '
+        "if (refArg != null) { const f = parseFloat(refArg); "
+        "if (f > 0 && f < 1 && series.length >= 16) { const k = Math.max(8, Math.round(f * series.length)); "
+        "b.reference = series.slice(0, k); series = series.slice(k); } "
+        'else { this.append([this.row("--reference in the console takes a fraction in (0, 1): the leading share of the '
+        'loaded series becomes the known-normal probationary prefix (a file path is the CLI form). Ignored: " + refArg, '
+        '"var(--warning)")]); } } '
+        "b.data = series; "
+        'b.contamination = parseFloat(v["--contamination"]) || 0.05; ',
+    ),
+    (
+        "tier responses render their calibration basis, conformal cut and exclusions",
+        'if (d.method) rows.push(this.row("  method " + d.method + " \u00b7 threshold " + thr));',
+        'if (d.method) rows.push(this.row("  method " + d.method + " \u00b7 threshold " + thr));\n'
+        "    if (d.calibration_basis) { const cb = d.calibration_basis; "
+        'rows.push(this.row("  calibration " + cb + " \u00b7 " + (cb === "reference" ? "known-normal reference'
+        ' (" + (d.n_reference != null ? d.n_reference + " points" : "supplied") + "): the cut rests on evidence'
+        ' independent of this input" : cb === "labels" ? "calibrated on the label-0 points" : "self-calibrated on'
+        " the scored series: the flag rate is set by the parameters, not evidence \u00b7 add --reference 0.15 to"
+        ' calibrate on a known-normal prefix"), cb === "scored_series" ? "var(--warning)" : "var(--normal)")); }\n'
+        '    if (d.conformal_alpha != null) rows.push(this.row("  conformal \u03b1 " + d.conformal_alpha + '
+        '(d.n_conformal_flagged != null ? " \u00b7 " + d.n_conformal_flagged + " flagged" : "") + '
+        '(typeof d.conformal_threshold === "number" ? " \u00b7 cut " + (+d.conformal_threshold).toFixed(4) : "")));\n'
+        "    if (d.excluded_members && Object.keys(d.excluded_members).length) rows.push(this.row("
+        '"  excluded " + Object.keys(d.excluded_members).join(", ") + " \u00b7 " + '
+        'Object.values(d.excluded_members)[0], "var(--fg-3)"));',
+    ),
+    (
+        "the browser preview names the live-only reference option next to the contamination note",
+        '[this.row("tier-detect flags the top " + (contam * 100).toFixed(0) + '
+        '"% of scores (--contamination); no fixed threshold.", F)]',
+        '[this.row("tier-detect flags the top " + (contam * 100).toFixed(0) + '
+        '"% of scores (--contamination); no fixed threshold. With --reference <0-1> a live engine calibrates on '
+        'that leading share as a known-normal prefix instead.", F)]',
+    ),
+)
+
 
 OLD_ALERTS_CARD_CHECK = '"the alerts card reports the dock\'s live subscription instead of waiting on the stream", T4.state.resp && T4.state.resp.title); }\n'
 

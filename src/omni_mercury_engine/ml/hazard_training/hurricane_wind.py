@@ -186,7 +186,7 @@ def _category_order() -> tuple[str, ...]:
     category head with it); training imports it lazily so importing this
     pipeline module stays light.
     """
-    from omni_mercury_engine.detectors.geological.hurricane_detector import (
+    from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
         NEURAL_CATEGORY_ORDER,
     )
 
@@ -752,7 +752,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     Returns:
         Training record (epochs run, best validation MAE, sample counts).
     """
-    from omni_mercury_engine.detectors.geological.hurricane_detector import WindPatternAnalyzer
+    from omni_mercury_engine.detectors.meteorological.hurricane_detector import WindPatternAnalyzer
 
     rng = seed_everything(ctx.seed)
     ds = build_dataset(ctx)
@@ -880,7 +880,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     the candidate checkpoint. Primary metric: intensity MAE in knots (lower
     is better).
     """
-    from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector
+    from omni_mercury_engine.detectors.meteorological.hurricane_detector import HurricaneDetector
 
     ds = build_dataset(ctx)
     _, _, test_mask = SPLIT.masks(ds.years)

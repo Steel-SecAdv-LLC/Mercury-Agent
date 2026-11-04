@@ -19,7 +19,7 @@ import pytest
 pytest.importorskip("torch")
 
 from omni_mercury_engine.core.exceptions import InvalidObservationError
-from omni_mercury_engine.detectors.geological import tornado_detector as td
+from omni_mercury_engine.detectors.meteorological import tornado_detector as td
 from omni_mercury_engine.ml.hazard_training import tornado_radar
 
 FIXTURE = (
@@ -110,7 +110,7 @@ class TestAtmosphericAndPressureGuards:
     def test_nan_cape_is_refused_not_graded_low(self) -> None:
         """A NaN CAPE used to flow through the STP and grade 'low'."""
         from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
-        from omni_mercury_engine.detectors.geological.tornado_detector import (
+        from omni_mercury_engine.detectors.meteorological.tornado_detector import (
             AtmosphericInstabilityAnalyzer,
         )
 
@@ -126,7 +126,7 @@ class TestAtmosphericAndPressureGuards:
         import numpy as np
 
         from omni_mercury_engine.detectors._hazard_input import InvalidObservationError
-        from omni_mercury_engine.detectors.geological.tornado_detector import (
+        from omni_mercury_engine.detectors.meteorological.tornado_detector import (
             PressureGradientMonitor,
         )
 

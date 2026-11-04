@@ -256,7 +256,7 @@ class TestShippedWildfireCheckpoint:
         assert len(provenance["data_sources"]) >= 13, "13 FIRMS years pinned"
 
     def test_physics_vs_learned_differential_on_real_patch(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         grids = _grids()
         t = dt.date(2023, 8, 30).toordinal() - grids.day0
@@ -296,7 +296,7 @@ class TestShippedWildfireCheckpoint:
     def test_corrupt_checkpoint_fails_loud(self, tmp_path: Path) -> None:
         import pickle
 
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         bad = tmp_path / "bad.pt"
         bad.write_bytes(b"not a checkpoint")

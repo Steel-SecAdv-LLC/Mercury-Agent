@@ -172,7 +172,7 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
     ),
     "hurricane_wind": HookEntry(
         name="hurricane_wind",
-        detector="detectors.geological.hurricane_detector.HurricaneDetector",
+        detector="detectors.meteorological.hurricane_detector.HurricaneDetector",
         architecture="WindPatternAnalyzer (CNN+LSTM over wind fields)",
         category="a",
         data_requirement=(
@@ -217,7 +217,7 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
     ),
     "tornado_radar": HookEntry(
         name="tornado_radar",
-        detector="detectors.geological.tornado_detector.TornadoDetector",
+        detector="detectors.meteorological.tornado_detector.TornadoDetector",
         architecture="DopplerRadarAnalyzer (LSTM+attention over velocity fields)",
         category="a",
         data_requirement=(
@@ -274,7 +274,7 @@ HOOK_REGISTRY: dict[str, HookEntry] = {
     ),
     "wildfire_ignition": HookEntry(
         name="wildfire_ignition",
-        detector="detectors.geological.wildfire.WildfireDetector",
+        detector="detectors.fire.wildfire.WildfireDetector",
         architecture="FireIgnitionDetector CNN (+optional WildfireCNN)",
         category="a",
         data_requirement=(

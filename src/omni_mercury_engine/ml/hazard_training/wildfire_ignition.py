@@ -826,7 +826,7 @@ def _select_operating_point(
             satisfies the FAR ceiling (the alert head is unusable -- refusing
             to record a doomed operating point).
     """
-    from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+    from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
     val_idx = np.flatnonzero(val_mask)
     labels = ds.labels[val_mask]
@@ -925,7 +925,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
         Training record (epochs run, best validation AUC, sample counts,
         operating point).
     """
-    from omni_mercury_engine.detectors.geological.wildfire import FireIgnitionDetector
+    from omni_mercury_engine.detectors.fire.wildfire import FireIgnitionDetector
 
     rng = seed_everything(ctx.seed)
     ds = build_dataset(ctx)
@@ -1056,7 +1056,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         The evaluation outcome (primary metric: AUC of the deployed
         confidence output, higher is better).
     """
-    from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+    from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
     ds = build_dataset(ctx)
     _, _, test_mask = SPLIT.masks(ds.years)

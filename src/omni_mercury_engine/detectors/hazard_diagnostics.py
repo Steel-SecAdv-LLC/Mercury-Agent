@@ -307,7 +307,7 @@ def run_hazard_detector(
         )
         diagnostics = detector_s.detect_resonance_anomaly(series).diagnostics
     elif hazard == "meteor":
-        from omni_mercury_engine.detectors.geological.disaster_detectors import MeteorDetector
+        from omni_mercury_engine.space.meteor_detector import MeteorDetector
 
         radar = _series_input(arrays, "radar_series")
         if len(radar) < 2:
@@ -315,7 +315,7 @@ def run_hazard_detector(
         detector_m = MeteorDetector(use_nasa_data=False, keep_diagnostics=True)
         diagnostics = detector_m.predict_meteor(radar_data=radar).diagnostics
     elif hazard == "wildfire":
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         if "thermal_image" not in arrays:
             raise ValueError(f"wildfire requires input array 'thermal_image'; got {sorted(arrays)}")
@@ -331,7 +331,7 @@ def run_hazard_detector(
         detector_w = WildfireDetector(keep_diagnostics=True)
         diagnostics = detector_w.predict_wildfire(wildfire_data).diagnostics
     elif hazard == "tornado":
-        from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
+        from omni_mercury_engine.detectors.meteorological.tornado_detector import TornadoDetector
 
         if "radar_sequence" not in arrays:
             raise ValueError(f"tornado requires input array 'radar_sequence'; got {sorted(arrays)}")
@@ -344,7 +344,7 @@ def run_hazard_detector(
         detector_to = TornadoDetector(keep_diagnostics=True)
         diagnostics = detector_to.predict_tornado({"radar_sequence": radar_seq}).diagnostics
     elif hazard == "hurricane":
-        from omni_mercury_engine.detectors.geological.hurricane_detector import (
+        from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
             HurricaneDetector,
         )
 

@@ -26,25 +26,19 @@ if TYPE_CHECKING:
 
 pytest.importorskip("torch")
 
+from omni_mercury_engine.detectors.fire.wildfire import (
+    WildfireDetector as _WildfireDetector,
+)
 from omni_mercury_engine.detectors.geological.disaster_detectors import (
     EarthquakeDetector as _EarthquakeDetector,
     MeteorDetector as _MeteorDetector,
     TsunamiDetector as _TsunamiDetector,
 )
-from omni_mercury_engine.detectors.geological.hurricane_detector import (
-    HurricaneDetector as _HurricaneDetector,
-)
 from omni_mercury_engine.detectors.geological.landslide import (
     LandslideDetector as _LandslideDetector,
 )
-from omni_mercury_engine.detectors.geological.tornado_detector import (
-    TornadoDetector as _TornadoDetector,
-)
 from omni_mercury_engine.detectors.geological.volcanic import (
     VolcanicEruptionDetector as _VolcanicEruptionDetector,
-)
-from omni_mercury_engine.detectors.geological.wildfire import (
-    WildfireDetector as _WildfireDetector,
 )
 
 # The dev venv's editable install may point at a sibling worktree that
@@ -52,6 +46,12 @@ from omni_mercury_engine.detectors.geological.wildfire import (
 # installed tree (CI) clean.
 from omni_mercury_engine.detectors.hazard_diagnostics import (  # type: ignore[import-not-found,unused-ignore]
     HazardDiagnostics,
+)
+from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
+    HurricaneDetector as _HurricaneDetector,
+)
+from omni_mercury_engine.detectors.meteorological.tornado_detector import (
+    TornadoDetector as _TornadoDetector,
 )
 from omni_mercury_engine.space.schumann_resonance import (
     SchumannResonanceDetector as _SchumannResonanceDetector,

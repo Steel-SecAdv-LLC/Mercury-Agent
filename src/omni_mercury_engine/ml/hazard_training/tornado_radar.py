@@ -1277,7 +1277,7 @@ def train(ctx: PipelineContext) -> dict[str, Any]:
     Returns:
         Training record (epochs, best validation AUC, counts, class balance).
     """
-    from omni_mercury_engine.detectors.geological.tornado_detector import DopplerRadarAnalyzer
+    from omni_mercury_engine.detectors.meteorological.tornado_detector import DopplerRadarAnalyzer
 
     rng = seed_everything(ctx.seed)
     ds = build_dataset(ctx)
@@ -1584,7 +1584,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
         higher is better), with deployed-decision recall/false-alarm
         non-regression constraints.
     """
-    from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
+    from omni_mercury_engine.detectors.meteorological.tornado_detector import TornadoDetector
 
     ds = build_dataset(ctx)
     _, _, test_mask = SPLIT.masks(ds.years)
@@ -1611,7 +1611,7 @@ def evaluate(ctx: PipelineContext) -> EvaluationOutcome:
     learned_det.load_neural_weights(str(cand_path))
 
     labels = ds.labels[test_idx]
-    det_logger = logging.getLogger("omni_mercury_engine.detectors.geological.tornado_detector")
+    det_logger = logging.getLogger("omni_mercury_engine.detectors.meteorological.tornado_detector")
     previous_level = det_logger.level
     det_logger.setLevel(logging.WARNING)  # silence per-call INFO; restored below
     results: dict[str, dict[str, list[float]]] = {
