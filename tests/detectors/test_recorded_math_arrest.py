@@ -22,6 +22,21 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+#: The core-tests lane runs ``-n 4 --dist=loadgroup --timeout=300`` with
+#: ``func_only: False``, so module-scoped fixture setup counts toward a
+#: test's budget. This module's measurement fixtures cost ~72s of setup
+#: and are recomputed on every worker that receives one of its tests
+#: (measured: 4 x ~72s across 4 workers), which on a loaded runner came
+#: within reach of 300s -- and a pytest-timeout firing here crashed the
+#: worker outright rather than failing the test, because pytest's own
+#: traceback renderer hit ``tb_lineno = None``
+#: (``TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'``
+#: in ``_pytest/_code/code.py``), which xdist reports as INTERNALERROR.
+#: An ``xdist_group`` mark would be the natural fix but does not group in
+#: this environment (verified: 8 tests in one group still spread 2/2/2/2
+#: over 4 workers), so the budget is raised instead.
+pytestmark = pytest.mark.timeout(900)
+
 from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 from omni_mercury_engine.detectors.math_arrest.fusion import WEIGHTINGS, PhiWeightedFusion
 from tests.recorded_data import ADBENCH_NAMES, adbench, auroc, nab_corpus, stratified_split
