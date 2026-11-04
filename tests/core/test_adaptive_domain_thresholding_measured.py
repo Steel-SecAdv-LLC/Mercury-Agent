@@ -83,8 +83,17 @@ def _metrics(flags: np.ndarray, labels: np.ndarray) -> tuple[float, float]:
 
 
 def _threshold_of(manager: AdaptiveDomainThresholdManager) -> float:
+    """The manager's current threshold.
+
+    ``get_threshold`` is documented to return a bare ``float`` when called
+    with no arguments and an info ``dict`` when given a score or confidence;
+    its annotation is the union of both, so the no-arg case is narrowed here.
+    """
     threshold = manager.get_threshold()
-    return float(threshold[0] if isinstance(threshold, tuple) else threshold)
+    assert not isinstance(
+        threshold, dict
+    ), "get_threshold() with no arguments is documented to return a float"
+    return float(threshold)
 
 
 @pytest.fixture(scope="module")
