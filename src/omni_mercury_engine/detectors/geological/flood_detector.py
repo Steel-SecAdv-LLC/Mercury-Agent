@@ -10,6 +10,37 @@ reasons only. The canonical module is
 name is re-exported here (listed in ``__all__``, the re-export mechanism
 pyflakes, ruff and mypy agree on), so existing imports keep working. See
 DEPRECATION.md.
+
+The module documentation below is kept verbatim for readers of this
+historical path; the canonical module carries it too.
+
+Flood Detector - Multi-Parameter Flood Monitoring System.
+
+Comprehensive flood detection for humanitarian early warning:
+- Precipitation accumulation analysis
+- River gauge monitoring
+- Soil saturation models
+- Topographic runoff prediction
+- Refactoring engine for dynamic model optimization
+- Cross-domain fusion with hurricane/tornado detectors
+
+Integrations:
+- USGS stream gauge network
+- NWS precipitation data
+- Satellite soil moisture observations
+- 3R mechanism for adaptive flood modeling
+- Dam/reservoir level monitoring
+
+Research sources:
+- NOAA National Weather Service
+- USGS Water Resources
+- FEMA flood mapping
+- Academic research on hydrological modeling
+
+⚠️ SIMULATION-BASED: For research/development. NOT a replacement for official
+flood warnings (NWS, USGS). Always defer to official flood warnings.
+
+Performance: Enhanced prediction via refactoring engine + dynamic optimization
 """
 
 from __future__ import annotations

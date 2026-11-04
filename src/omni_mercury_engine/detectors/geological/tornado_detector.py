@@ -10,6 +10,37 @@ reasons only. The canonical module is
 name is re-exported here (listed in ``__all__``, the re-export mechanism
 pyflakes, ruff and mypy agree on), so existing imports keep working. See
 DEPRECATION.md.
+
+The module documentation below is kept verbatim for readers of this
+historical path; the canonical module carries it too.
+
+Tornado Detector - Multi-Modal Severe Weather Monitoring.
+
+Comprehensive tornado detection for humanitarian early warning:
+- Doppler radar pattern analysis (mesocyclone detection)
+- Atmospheric pressure gradient monitoring
+- Temperature/humidity anomaly detection
+- Historical tornado alley correlation
+- FFT-based resonance pattern analysis (3R integration)
+- Recursive feature extraction for multi-scale patterns
+
+Integrations:
+- Doppler radar velocity data processing
+- Surface observation networks (ASOS, AWOS)
+- Upper-air soundings for atmospheric instability
+- 3R mechanism for self-healing monitoring networks
+- Cross-domain fusion with hurricane/flood detectors
+
+Research sources:
+- NOAA Storm Prediction Center
+- National Weather Service
+- NSSL (National Severe Storms Laboratory)
+- Academic research on mesocyclone detection
+
+⚠️ SIMULATION-BASED: For research/development. NOT a replacement for official
+weather services (NWS, SPC). Always defer to official tornado warnings.
+
+Performance: Enhanced detection via FFT resonance + recursive feature extraction
 """
 
 from __future__ import annotations
