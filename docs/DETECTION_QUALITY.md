@@ -41,8 +41,10 @@ The nominal per-row rate at the default sensitivity is 0.00047 (two-sided z 3.5)
 True anomaly fraction 0.05. The flag rate's slope against the
 parameter is **1.00** (1.0: the flag count is
 the parameter, by construction; the tier thresholds at the contamination quantile).
-The conformal flags (`conformal_alpha` = 0.05) are evidence-controlled: their rate
-does not move with the parameter.
+The conformal flags (`conformal_alpha` = 0.05) do not move with the parameter, but
+without labels they are calibrated on the scored series itself, so they flag about
+`conformal_alpha` of it by construction: their rate is set by alpha, not by evidence.
+Evidence needs a reference independent of the batch (a fit on known-normal data).
 
 | contamination | flag rate | recall | FPR | conformal flag rate | conformal FPR |
 |---|---|---|---|---|---|

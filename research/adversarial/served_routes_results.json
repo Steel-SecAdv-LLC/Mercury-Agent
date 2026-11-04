@@ -2,14 +2,14 @@
  "provenance": {
   "kernel_blob": "411ff9dfab39c5f51e8167b9e32cfe81f8f19c94",
   "inputs": {
-   "research/adversarial/served_routes.py": "5ccd5211573761f68b2115e57b55c7905880e45b",
+   "research/adversarial/served_routes.py": "12d9454e9d2b9f21580715ec976eecc9df40810b",
    "src/omni_mercury_engine/api/fusion_weights.py": "411ff9dfab39c5f51e8167b9e32cfe81f8f19c94",
    "src/omni_mercury_engine/api/routes/detection.py": "5b4a585fd205b30bd0f0d3f8024fdff7fca5a5a5",
    "src/omni_mercury_engine/api/routes/batch.py": "bb47b72b3a905e60e97e33819d6df08038aabc23",
    "src/omni_mercury_engine/api/server.py": "cdbf570a517f42d87ce32574a6accaf99d45fb6c",
    "src/omni_mercury_engine/detectors/detection_tier.py": "bd9bfe229b4dabab417ffb449af9e5812e9c8714"
   },
-  "commit": "bd25df23022da3bbcbd71ada02b2624ca6ac0b1e",
+  "commit": "e7341ce004fa5278d7c3c4f7c65354a082f96ea8",
   "n": 300,
   "seeds": [
    0,

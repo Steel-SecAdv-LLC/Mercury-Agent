@@ -4,13 +4,13 @@
     "n_scored": 18,
     "mean_auroc": 0.7745,
     "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
-    "commit": "211f5f2aa7111883217627d670ef8d251a7b64f2",
-    "detector_commit": "8ce85ec9a0188718e626f3447d85c52a87474b4f",
-    "detector_blob": "9e05ac8e4cf419ae17ca64a416ff1b2d9337a78e",
-    "timestamp": "2026-10-28T18:36:51.194774+00:00",
+    "commit": "e7341ce004fa5278d7c3c4f7c65354a082f96ea8",
+    "detector_commit": "e7341ce004fa5278d7c3c4f7c65354a082f96ea8",
+    "detector_blob": "ad926ffedaa74fed6560a42d56b1da2b6e07fc5a",
+    "timestamp": "2026-11-04T06:17:51.967260+00:00",
     "versions": {
-      "python": "3.13.17",
-      "numpy": "2.5.3"
+      "python": "3.13.18",
+      "numpy": "2.5.4"
     }
   },
   "results": [
@@ -22,7 +22,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9799,
-      "secs": 0.3
+      "secs": 0.2
     },
     {
       "dataset": "cardio",
@@ -32,7 +32,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.8205,
-      "secs": 0.4
+      "secs": 0.2
     },
     {
       "dataset": "Cardiotocography",
@@ -52,7 +52,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.8618,
-      "secs": 0.0
+      "secs": 0.2
     },
     {
       "dataset": "Hepatitis",
@@ -62,7 +62,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.682,
-      "secs": 0.0
+      "secs": 0.1
     },
     {
       "dataset": "Ionosphere",
@@ -72,7 +72,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9195,
-      "secs": 0.1
+      "secs": 0.2
     },
     {
       "dataset": "Lymphography",
@@ -82,7 +82,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.993,
-      "secs": 0.0
+      "secs": 0.2
     },
     {
       "dataset": "mammography",
@@ -92,7 +92,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.8588,
-      "secs": 0.5
+      "secs": 0.3
     },
     {
       "dataset": "optdigits",
@@ -102,7 +102,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.4348,
-      "secs": 1.5
+      "secs": 1.3
     },
     {
       "dataset": "PageBlocks",
@@ -112,7 +112,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9466,
-      "secs": 0.1
+      "secs": 0.5
     },
     {
       "dataset": "Pima",
@@ -122,7 +122,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.7107,
-      "secs": 0.0
+      "secs": 0.2
     },
     {
       "dataset": "Stamps",
@@ -132,7 +132,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.8567,
-      "secs": 0.0
+      "secs": 0.2
     },
     {
       "dataset": "thyroid",
@@ -142,7 +142,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9841,
-      "secs": 0.1
+      "secs": 0.2
     },
     {
       "dataset": "vertebral",
@@ -152,7 +152,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.3651,
-      "secs": 0.0
+      "secs": 0.2
     },
     {
       "dataset": "Waveform",
@@ -162,7 +162,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.7159,
-      "secs": 0.5
+      "secs": 0.8
     },
     {
       "dataset": "WBC",
@@ -172,7 +172,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.993,
-      "secs": 0.0
+      "secs": 0.1
     },
     {
       "dataset": "wine",
@@ -182,7 +182,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.7193,
-      "secs": 0.0
+      "secs": 0.2
     },
     {
       "dataset": "WPBC",
@@ -192,7 +192,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.516,
-      "secs": 0.0
+      "secs": 0.2
     }
   ]
 }

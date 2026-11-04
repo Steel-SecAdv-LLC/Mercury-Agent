@@ -88,6 +88,66 @@ low: 0.105 of held-out noise, AR(1) and ADBench cardio normals flagged. The cut
 is now taken on leave-one-out scores (0.040-0.081 on the same data), and a bank
 no larger than `n_neighbors` no longer crashes `np.partition`.
 
+**Fixed — `engine.detect` called every normal batch anomalous.** Its batch
+verdict OR-ed every base detector's per-row flags, and three of the five
+scored a row relative to its batch-mates: `spatial` and `dimensional` min-max
+normalised each channel over the batch (its most extreme row scored ~1
+whatever its value), and `directive` blended three whole-batch scalars (column
+coherence; SHA3 entropy and chained-hash "checksums" of the batch's raw bytes;
+an FFT over all features flattened) into every row at 0.2 / 0.15 / 0.1. With
+all five fitted on 1,000 normal rows, every all-normal batch of 10 or 100 rows
+was called anomalous. Now:
+
+- `spatial` and `dimensional` normalise each channel against the training
+  rows' range widened by the row (the `[reference; row]` semantics the
+  agentic serving path already used) and cut at the training rows' 0.95
+  one-class split-conformal quantile; `dimensional` persists the anchors and
+  reference in its fitted state, `spatial` rebuilds them from its points.
+  Held-out Gaussian rows flagged 0.045 / 0.047 / 0.054 (spatial) and 0.051 /
+  0.058 / 0.063 (dimensional) at batch sizes 10 / 100 / 2,000, against 0.40 /
+  0.02 / 0.012 and 0.30 / 0.28 / 0.077.
+- `spatial`'s query-time LOF dropped the neighbour's k-distance from the
+  reachability distance (Breunig et al. 2000: max(k-distance(o), d(p, o)),
+  which fit used), so query and training densities were on different scales.
+  Restored; ADBench tabular AUROC mean 0.707 -> 0.716 (breastw 0.564 ->
+  0.493: its training split holds 35% clustered anomalies, a dense cluster
+  LOF reads as normal).
+- `directive`'s batch-scalar blends default to 0 (still computed and
+  reported): 0.043 / 0.046 / 0.049 of Gaussian rows by batch size against
+  0.103 / 0.062 / 0.045, breastw 0.201 -> 0.048, AUROC identical.
+- Every base detector keeps its training rows' scores as a reference and
+  reports conformal `p_values`, Benjamini-Hochberg `fdr_flags` and a
+  `batch_anomaly` test. Past the reference maximum the p-value follows a
+  generalised-Pareto tail fitted to the reference's top 10% (shape held >= 0:
+  with the moment fit's negative shape, rows past a near-max endpoint got
+  p = 0 and 0.17 of normal 100-row batches were flagged).
+- The engine tests each detector that reports p-values with BH at 0.05 / K
+  (union bound over K detectors, valid under any dependence). A detector
+  fitted on the batch it scores, or whose p-value floor cannot reach level /
+  m, keeps the per-row OR: fail-loud, not deaf. Measured: all-normal batches
+  flagged 0.050 (mean of 6 seeds, 10 rows), 0.008 (100 rows), 0.000 (1,000
+  rows); a batch with one +4-sigma row flagged every time at every size.
+
+`dimensional`'s NAB standard score falls 48.7 -> 22.7 at unchanged ranking
+(AUROC 0.533 -> 0.537): the batch-relative cut happened to sit at a 0.001
+false-alarm rate on those 1,000-row files and at 0.30 on 10-row batches; the
+cut is now the same 5% budget as the other detectors (0.025 on NAB).
+
+**Added — `mercury_detect_anomaly` takes an optional `contamination`.** The MCP
+tool fits on the batch it scores, so its reference *is* the batch and the
+default cut flags about 5% of it whatever the true share; a stated share in
+(0, 0.5] cuts there instead (ADBench breastw scored on itself: F1 0.221 ->
+0.921 at its true 0.35). It sets the cut, not the ranking: a dense cluster
+fitted transductively still partly masks itself.
+
+**Corrected — the tier's unlabelled "conformal" flags are not evidence.**
+`docs/DETECTION_QUALITY.md` called them evidence-controlled. Without labels
+`run_tier_ensemble` calibrates them on the scored series itself, so they flag
+about `conformal_alpha` of it by construction (0.047 at alpha 0.05); the
+generator now says so. The fusion-hardening ADBench ledger was re-measured on
+the new `statistical.py` and reproduced mean AUROC 0.7745 on all 18 sets: the
+operating-point and p-value changes move the cut, not the ranking.
+
 **Measured, not changed.** `spiking` flags 0.528 of `rogue_agent_key_hold`'s
 normal points: the series idles at exactly zero for 13% of its probationary
 period and 59% of the rest, and the detector is driven by the deviation from the
