@@ -538,7 +538,7 @@ class TestNFDRSFuelMoisture:
     """Simard EMC regressions and the fuel-interface adjustment (GTR INT-169)."""
 
     def test_emc_low_humidity_branch(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             equilibrium_moisture_content,
         )
 
@@ -546,7 +546,7 @@ class TestNFDRSFuelMoisture:
         assert equilibrium_moisture_content(30.0, 5.0) == pytest.approx(1.189815, abs=1e-6)
 
     def test_emc_mid_humidity_branch(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             equilibrium_moisture_content,
         )
 
@@ -554,7 +554,7 @@ class TestNFDRSFuelMoisture:
         assert equilibrium_moisture_content(20.0, 30.0) == pytest.approx(6.02566, abs=1e-5)
 
     def test_emc_high_humidity_branch(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             equilibrium_moisture_content,
         )
 
@@ -562,7 +562,7 @@ class TestNFDRSFuelMoisture:
         assert equilibrium_moisture_content(20.0, 80.0) == pytest.approx(16.11668, abs=1e-5)
 
     def test_emc_branch_boundaries(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import _simard_emc
+        from omni_mercury_engine.detectors.fire.wildfire import _simard_emc
 
         # h=10 goes to the mid regression (strict h < 10), h=50 to the high one.
         assert _simard_emc(68.0, 10.0) == pytest.approx(2.22749 + 1.60107 - 0.01478 * 68.0)
@@ -571,7 +571,7 @@ class TestNFDRSFuelMoisture:
         )
 
     def test_emc_rejects_out_of_range(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             equilibrium_moisture_content,
         )
 
@@ -589,14 +589,14 @@ class TestNFDRSFuelMoisture:
     def test_fuel_interface_adjustment_per_code(
         self, code: int, add_f: float, humidity_factor: float
     ) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import fuel_interface_moisture
+        from omni_mercury_engine.detectors.fire.wildfire import fuel_interface_moisture
 
         out = fuel_interface_moisture(20.0, 50.0, code)
         assert out["fuel_interface_temperature_c"] == pytest.approx(20.0 + add_f * 5.0 / 9.0)
         assert out["fuel_interface_relative_humidity_pct"] == pytest.approx(50.0 * humidity_factor)
 
     def test_fuel_interface_emc_code2_exact(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import fuel_interface_moisture
+        from omni_mercury_engine.detectors.fire.wildfire import fuel_interface_moisture
 
         out = fuel_interface_moisture(20.0, 50.0, 2)
         # Interface: 80 F, 45.5% -> mid regression.
@@ -609,7 +609,7 @@ class TestNFDRSFuelMoisture:
     # typed Any rather than the signature's int.
     @pytest.mark.parametrize("bad_code", [4, -1, 1.5])
     def test_invalid_state_of_weather_refused(self, bad_code: Any) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import fuel_interface_moisture
+        from omni_mercury_engine.detectors.fire.wildfire import fuel_interface_moisture
 
         with pytest.raises(InvalidObservationError):
             fuel_interface_moisture(20.0, 50.0, bad_code)
@@ -621,7 +621,7 @@ class TestFireSpreadModel:
     @pytest.fixture(scope="class")
     @classmethod
     def model(cls) -> Any:
-        from omni_mercury_engine.detectors.geological.wildfire import FireSpreadModel
+        from omni_mercury_engine.detectors.fire.wildfire import FireSpreadModel
 
         return FireSpreadModel()
 
@@ -682,7 +682,7 @@ class TestNDVIProcessor:
     @pytest.fixture(scope="class")
     @classmethod
     def processor(cls) -> Any:
-        from omni_mercury_engine.detectors.geological.wildfire import NDVIProcessor
+        from omni_mercury_engine.detectors.fire.wildfire import NDVIProcessor
 
         return NDVIProcessor()
 
@@ -730,7 +730,7 @@ class TestResonanceFrequencyAnalyzer:
     @pytest.fixture(scope="class")
     @classmethod
     def analyzer(cls) -> Any:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             ResonanceFrequencyAnalyzer,
         )
 
@@ -786,7 +786,7 @@ class TestWildfireDetector:
     @pytest.fixture(scope="class")
     @classmethod
     def detector(cls) -> Any:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         return WildfireDetector(enable_resonance=True)
 
@@ -971,7 +971,7 @@ class TestWildfireDetector:
         assert result.fire_detected is True
 
     def test_is_firms_raster_predicate(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import _is_firms_raster
+        from omni_mercury_engine.detectors.fire.wildfire import _is_firms_raster
 
         good = np.zeros((3, 8, 8))
         good[0, 2, 2] = 350.0
@@ -981,7 +981,7 @@ class TestWildfireDetector:
         assert _is_firms_raster(np.full((3, 8, 8), 300.0)) is False
 
     def test_diagnostics_capture_on_request(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         detector = WildfireDetector(keep_diagnostics=True)
         scene = np.full((8, 8), 290.0)
@@ -997,7 +997,7 @@ class TestWildfireDetectorWithoutResonance:
 
     @pytest.fixture
     def detector_no_resonance(self) -> Any:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         return WildfireDetector(enable_resonance=False)
 
@@ -1493,11 +1493,11 @@ class TestEnhancedDetectorIntegration:
     @pytest.fixture(scope="class")
     @classmethod
     def all_detectors(cls) -> Any:
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
         from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
         from omni_mercury_engine.detectors.geological.volcanic import (
             VolcanicEruptionDetector,
         )
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
 
         return {
             "landslide": LandslideDetector(enable_recursion=True),
@@ -1705,7 +1705,7 @@ class TestMutationKillPins:
         assert error == pytest.approx(0.5)  # |0 - 4| / 8
 
     def test_resonance_scores_fire_frequencies_with_phi_weights(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             ResonanceFrequencyAnalyzer,
         )
 
@@ -1728,7 +1728,7 @@ class TestMutationKillPins:
         assert out["frequency_components"]["wind_gust"] == 0.0
 
     def test_smoke_trend_boundaries_are_strict(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             ResonanceFrequencyAnalyzer,
         )
 
@@ -1744,7 +1744,7 @@ class TestMutationKillPins:
 
     def test_undetected_fire_confidence_is_capped_at_half(self) -> None:
         """A hot-but-uniform scene keeps confidence at the 0.5 cap."""
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         detector = WildfireDetector(load_shipped_weights=False)
         result = detector.predict_wildfire({"thermal_image": np.full((8, 8), 355.0)})
@@ -1754,7 +1754,7 @@ class TestMutationKillPins:
         assert result.thermal_hotspots == 64  # every pixel exceeds 350 K
 
     def test_noisy_background_defeats_the_contextual_criterion(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         detector = WildfireDetector(load_shipped_weights=False)
         scene = np.tile(np.array([[280.0, 320.0]]), (8, 4))
@@ -1763,7 +1763,7 @@ class TestMutationKillPins:
         assert result.fire_detected is False
 
     def test_firms_raster_predicate_boundaries(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import _is_firms_raster
+        from omni_mercury_engine.detectors.fire.wildfire import _is_firms_raster
 
         base = np.zeros((3, 8, 8))
         base[0, 2, 2] = 200.0  # detected min exactly at the 200 K floor: OK
@@ -2218,7 +2218,7 @@ class TestWildfireSurvivorPins:
     # ---- module constants (served thresholds) ----
 
     def test_module_constants(self) -> None:
-        from omni_mercury_engine.detectors.geological import wildfire
+        from omni_mercury_engine.detectors.fire import wildfire
 
         assert wildfire.HOTSPOT_THRESHOLD_K == 350.0
         assert wildfire.FIRE_PROB_THRESHOLD_DEFAULT == 0.6
@@ -2238,7 +2238,7 @@ class TestWildfireSurvivorPins:
         }
 
     def test_firms_raster_check_boundaries(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import _is_firms_raster
+        from omni_mercury_engine.detectors.fire.wildfire import _is_firms_raster
 
         raster = np.zeros((3, 4, 4))
         raster[0, 0, 0] = 700.0  # inclusive upper brightness bound
@@ -2253,7 +2253,7 @@ class TestWildfireSurvivorPins:
 
     def test_contextual_fire_just_over_330(self) -> None:
         """330.05 K over a flat 300 K background is a (weak) contextual fire."""
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         values = np.full(100, 300.0)
         values[0] = 330.05
@@ -2267,7 +2267,7 @@ class TestWildfireSurvivorPins:
         4 * scale = 44.48 while 4 + scale = 15.12: the multiplicative form
         rejects this scene, the additive mutation would accept it.
         """
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         values = np.concatenate([np.full(50, 300.0), np.full(49, 315.0), [335.0]])
         result = WildfireDetector._detect_ignition_physics(values)
@@ -2275,7 +2275,7 @@ class TestWildfireSurvivorPins:
 
     def test_absolute_fire_just_over_360(self) -> None:
         """A flat 360.05 K scene is absolute combustion (and all-hot: conf 1)."""
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         result = WildfireDetector._detect_ignition_physics(np.full(50, 360.05))
         assert result["fire_detected"] is True
@@ -2283,7 +2283,7 @@ class TestWildfireSurvivorPins:
 
     def test_confidence_noisy_or_of_temperature_and_hot_fraction(self) -> None:
         """98x300 K + 2x380 K: ts = 50/60, hf = 0.02*20 = 0.4, conf = 0.9."""
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         values = np.concatenate([np.full(98, 300.0), [380.0, 380.0]])
         result = WildfireDetector._detect_ignition_physics(values)
@@ -2296,7 +2296,7 @@ class TestWildfireSurvivorPins:
 
     def test_physics_spatial_intermediates_on_a_2d_raster(self) -> None:
         """Two separate hot clusters: exact mask, centroids and sizes."""
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         image = np.full((8, 8), 300.0)
         image[0, 0:2] = 380.0
@@ -2321,7 +2321,7 @@ class TestWildfireSurvivorPins:
         phi-weighted aggregate is 1/phi = 0.618034 (second band weight
         normalisation), measured 2026-10-20.
         """
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             ResonanceFrequencyAnalyzer,
         )
 
@@ -2351,7 +2351,7 @@ class TestWildfireSurvivorPins:
 
     def test_resonance_minimum_window_is_four_samples(self) -> None:
         """Exactly 4 samples runs the full path (the early return lacks keys)."""
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             ResonanceFrequencyAnalyzer,
         )
 
@@ -2364,7 +2364,7 @@ class TestWildfireSurvivorPins:
         assert short["resonance_score"] == 0.0
 
     def test_smoke_trend_boundaries_and_cap(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             ResonanceFrequencyAnalyzer,
         )
 
@@ -2384,7 +2384,7 @@ class TestWildfireSurvivorPins:
     # ---- NFDRS interface validation band edges ----
 
     def test_fuel_moisture_validation_band_edges(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             equilibrium_moisture_content,
             fuel_interface_moisture,
         )
@@ -2403,7 +2403,7 @@ class TestWildfireSurvivorPins:
     # ---- spread model bounds and wind gate ----
 
     def test_spread_bounds_band_edges_and_wind_gate(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import FireSpreadModel
+        from omni_mercury_engine.detectors.fire.wildfire import FireSpreadModel
 
         model = FireSpreadModel()
         # Just-inside values for every validated field are accepted.
@@ -2434,7 +2434,7 @@ class TestWildfireSurvivorPins:
     # ---- fire risk ladder mid-band probes ----
 
     def test_fire_risk_points_mid_band(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             WildfireDetector,
             WildfirePredictionResult,
         )
@@ -2481,7 +2481,7 @@ class TestWildfireSurvivorPins:
     # ---- architecture = checkpoint compatibility ----
 
     def test_ignition_cnn_checkpoint_shape_contract(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import FireIgnitionDetector
+        from omni_mercury_engine.detectors.fire.wildfire import FireIgnitionDetector
 
         shapes = {
             k: tuple(v.shape)
@@ -2498,7 +2498,7 @@ class TestWildfireSurvivorPins:
         }
 
     def test_wildfire_cnn_checkpoint_shape_contract(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireCNN
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireCNN
 
         model = WildfireCNN()
         shapes = {
@@ -2896,7 +2896,7 @@ class TestCheckpointAndIntegrationPins:
     def test_wildfire_operating_point_validation(self, tmp_path: Any) -> None:
         import torch
 
-        from omni_mercury_engine.detectors.geological.wildfire import (
+        from omni_mercury_engine.detectors.fire.wildfire import (
             FIRE_PROB_THRESHOLD_DEFAULT,
             WildfireDetector,
         )
@@ -2953,9 +2953,9 @@ class TestCheckpointAndIntegrationPins:
     def test_untrained_warning_fires_exactly_once_per_detector(self, caplog: Any) -> None:
         import logging as _logging
 
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
         from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
         from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
 
         with caplog.at_level(_logging.WARNING):
             landslide = LandslideDetector(load_shipped_weights=False)
@@ -2971,7 +2971,7 @@ class TestCheckpointAndIntegrationPins:
         assert len(untrained) == 3  # one per detector, not one per call
 
     def test_wildfire_perimeter_diagnostics_and_interface_moisture(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         detector = WildfireDetector(load_shipped_weights=False, keep_diagnostics=True)
         image = np.full((8, 8), 300.0)
@@ -2992,7 +2992,7 @@ class TestCheckpointAndIntegrationPins:
         assert zero.partial is True and zero.set_aside[0]["where"] == "pixel_size_km"
 
     def test_interface_moisture_needs_temperature_and_humidity_jointly(self) -> None:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         detector = WildfireDetector(load_shipped_weights=False)
         image = np.full((4, 4), 300.0)
@@ -3018,9 +3018,9 @@ class TestCheckpointAndIntegrationPins:
         assert "equilibrium_moisture_pct" in full.weather_factors
 
     def test_detector_enable_flags_default_on(self) -> None:
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
         from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
         from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
 
         volcanic = VolcanicEruptionDetector()
         assert volcanic.enable_seismic and volcanic.enable_thermal

@@ -494,7 +494,7 @@ def test_saffir_simpson_classes_in_knots(wind: float, category: str) -> None:
 def test_ladder_matches_the_hurricane_detector() -> None:
     """One Saffir-Simpson definition across the codebase."""
     pytest.importorskip("torch")
-    from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector
+    from omni_mercury_engine.detectors.meteorological.hurricane_detector import HurricaneDetector
 
     detector = HurricaneDetector()
     for wind in np.arange(0.0, 200.5, 0.5):

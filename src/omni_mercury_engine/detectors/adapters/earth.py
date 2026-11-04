@@ -203,7 +203,7 @@ class WildfireSceneAdapter(HazardRecordAdapter):
     """
 
     decision_source = WrappedDecisionSource(
-        "omni_mercury_engine.detectors.geological.wildfire:WildfireDetector"
+        "omni_mercury_engine.detectors.fire.wildfire:WildfireDetector"
     )
 
     REQUIRED_KEYS = frozenset({"thermal_image"})
@@ -238,7 +238,7 @@ class WildfireSceneAdapter(HazardRecordAdapter):
         return {**record, "thermal_image": image}
 
     def _assess(self, unit: Any) -> Assessment:
-        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 
         if self._detector is None:
             self._detector = WildfireDetector()
@@ -678,7 +678,9 @@ class SurgeFloodCascadeAdapter(HazardRecordAdapter):
         return dict(record)
 
     def _assess(self, unit: Any) -> Assessment:
-        from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector
+        from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
+            HurricaneDetector,
+        )
         from omni_mercury_engine.detectors.meteorological.surge_flood_cascade import (
             SurgeFloodCascade,
         )

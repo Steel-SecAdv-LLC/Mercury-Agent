@@ -140,6 +140,36 @@ class TestToolCalls:
         assert len(payload["scores"]) == 50
         assert payload["is_anomaly"][0] is True  # the injected outlier is flagged
 
+    def test_detect_anomaly_cuts_at_a_stated_contamination(self) -> None:
+        """Scored on itself the default flags ~5%; a stated share cuts there instead.
+
+        The option sets the cut, not the ranking: fitted on the batch it scores,
+        a dense 30% cluster partly masks itself (AUROC 0.832 here), so 37 of the
+        60 top-ranked rows are the shifted ones, against 5 at the default cut.
+        """
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(1)
+        data = np.vstack([rng.normal(size=(140, 3)), rng.normal(6.0, 1.0, size=(60, 3))])
+        default = json.loads(
+            _call(server, "mercury_detect_anomaly", {"data": data.tolist()})["content"][0]["text"]
+        )
+        stated = json.loads(
+            _call(server, "mercury_detect_anomaly", {"data": data.tolist(), "contamination": 0.3})[
+                "content"
+            ][0]["text"]
+        )
+        assert default["n_anomalies"] <= 12
+        assert stated["contamination"] == 0.3
+        assert stated["n_anomalies"] == 60
+        assert sum(stated["is_anomaly"][140:]) > 3 * sum(default["is_anomaly"][140:]) / 2
+
+    @pytest.mark.parametrize("bad", [0, 0.6, -0.1, "0.2", True])
+    def test_detect_anomaly_refuses_an_invalid_contamination(self, bad: Any) -> None:
+        server = MercuryMCPServer()
+        data = np.random.default_rng(2).normal(size=(20, 3)).tolist()
+        result = _call(server, "mercury_detect_anomaly", {"data": data, "contamination": bad})
+        assert result["isError"] is True
+
     def test_score_ethics_blocks_harmful_action(self) -> None:
         server = MercuryMCPServer()
         result = _call(
@@ -379,6 +409,43 @@ class TestDetectionInterconnectTools:
         assert payload["n_points"] == 200
         flagged = {i for i, f in enumerate(payload["conformal_flags"]) if f}
         assert flagged & set(range(95, 115))
+
+    def test_tier_detect_calibrates_on_a_reference(self) -> None:
+        """A known-normal reference anchors the fit; the input is only scored."""
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(3)
+        reference = rng.normal(0, 1, 150)
+        series = rng.normal(0, 1, 200)
+        series[50] += 8.0
+        result = _call(
+            server,
+            "mercury_tier_detect",
+            {
+                "data": series.tolist(),
+                "reference": reference.tolist(),
+                "subset": ["spectral_residual", "spot_evt", "bocpd"],
+                "conformal_alpha": 0.05,
+            },
+        )
+        assert result["isError"] is False
+        payload = json.loads(result["content"][0]["text"])
+        assert payload["fit_on"] == "reference"
+        assert payload["calibration_basis"] == "reference"
+        assert payload["conformal_flags"][50] == 1
+
+    def test_tier_detect_refuses_labels_with_a_reference(self) -> None:
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(4)
+        result = _call(
+            server,
+            "mercury_tier_detect",
+            {
+                "data": rng.normal(0, 1, 100).tolist(),
+                "labels": [0] * 100,
+                "reference": rng.normal(0, 1, 100).tolist(),
+            },
+        )
+        assert result["isError"] is True
 
     def test_tier_detect_stacking_without_labels_is_error(self) -> None:
         server = MercuryMCPServer()

@@ -20,7 +20,7 @@ import pytest
 pytest.importorskip("torch")
 
 from omni_mercury_engine.core.exceptions import InvalidObservationError
-from omni_mercury_engine.detectors.geological.hurricane_detector import (
+from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
     HurricaneDetector,
     PressureTracker,
 )

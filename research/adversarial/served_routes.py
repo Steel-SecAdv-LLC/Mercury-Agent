@@ -38,7 +38,10 @@ Three questions are answered per route:
 2. **Rate independence** -- the tier ensemble flags the top ``contamination``
    share by construction; the sweep records the flag rate against the
    parameter on data whose true anomaly fraction is 5%, next to the
-   conformal flags (``conformal_alpha``), whose rate is evidence-controlled.
+   conformal flags (``conformal_alpha``). Without labels those are calibrated
+   on the scored series itself, so their rate is set by ``conformal_alpha``
+   (about alpha of the series), not by evidence: a series with no external
+   reference has none to offer.
 3. **Attribution** -- each tier member's own AUROC, and the ensemble's AUROC
    with the member left out, so the registry can claim only what the data
    supports.
@@ -507,8 +510,14 @@ def render_doc(ledger: dict[str, Any]) -> str:
         f"True anomaly fraction {rate['true_fraction']:.2f}. The flag rate's slope against the",
         f"parameter is **{rate['flag_rate_slope_vs_contamination']:.2f}** (1.0: the flag count is",
         "the parameter, by construction; the tier thresholds at the contamination quantile).",
-        "The conformal flags (`conformal_alpha` = 0.05) are evidence-controlled: their rate",
-        "does not move with the parameter.",
+        "The conformal flags (`conformal_alpha` = 0.05) do not move with the parameter, but",
+        "without labels they are calibrated on the scored series itself, so they flag about",
+        "`conformal_alpha` of it by construction: their rate is set by alpha, not by evidence.",
+        "Evidence needs a reference independent of the batch: pass `reference` (a known-normal",
+        "series; `--reference` on the CLI, `reference` on the MCP tool and `/detect/tier`) and",
+        "the tier fits and calibrates there, scoring the input against it. Measured on the four",
+        "recorded NAB files (probation as the reference, alpha 0.05): conformal flags on",
+        "0.011-0.051 of the NAB-normal points.",
         "",
         "| contamination | flag rate | recall | FPR | conformal flag rate | conformal FPR |",
         "|---|---|---|---|---|---|",

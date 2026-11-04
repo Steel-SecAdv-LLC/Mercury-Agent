@@ -216,6 +216,17 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
     help="Distribution-free false-positive rate (e.g. 0.05); adds conformal flags",
 )
 @click.option(
+    "--reference",
+    "-r",
+    default=None,
+    help=(
+        "Known-normal 1-D series file (CSV/JSON) to fit and calibrate on; the input "
+        "is then only scored, so the threshold and conformal cut rest on evidence "
+        "independent of it. Without it (and without labels) the tier calibrates on "
+        "the input itself and flags about the configured share by construction."
+    ),
+)
+@click.option(
     "--attribution",
     is_flag=True,
     default=False,
@@ -251,6 +262,7 @@ def tier_detect(
     subset: str | None,
     contamination: float,
     conformal_alpha: float | None,
+    reference: str | None,
     attribution: bool,
     counterfactual: bool,
     cf_index: int | None,
@@ -268,11 +280,13 @@ def tier_detect(
 
     series = np.asarray(_load_data(input), dtype=float).ravel()
     y = _load_labels(labels) if labels else None
+    ref = np.asarray(_load_data(reference), dtype=float).ravel() if reference else None
     subset_names = tuple(s.strip() for s in subset.split(",")) if subset else None
 
     result = run_tier_ensemble(
         series,
         labels=y,
+        reference=ref,
         subset=subset_names,
         method=method,
         contamination=contamination,

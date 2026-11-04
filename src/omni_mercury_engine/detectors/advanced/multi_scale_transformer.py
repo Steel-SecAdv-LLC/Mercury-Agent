@@ -67,7 +67,16 @@ class MultiScaleTransformerConfig:
 
     # Threshold calibration
     threshold_percentile: float = 95.0
-    use_point_adjustment: bool = True
+    # Off by default. Point adjustment is an *evaluation* protocol that credits
+    # a whole ground-truth anomaly segment once any point in it is flagged
+    # (Xu et al., WWW 2018); it inflates scores even for random detectors (Kim
+    # et al., AAAI 2022). Applied here at inference it has no labels, so it
+    # grows every alarm to the run of points scoring above 0.8 of the cut --
+    # a factor tied to no scale: these scores sit on an offset (held-out
+    # Gaussian noise: median 1.45 against a cut of 1.58), so every row clears
+    # it and the default flagged 1.000 of the noise where the cut alone
+    # flagged 0.043. Evaluate segments with ``PointAdjustmentEvaluator``.
+    use_point_adjustment: bool = False
 
     # No ``benevolence_threshold`` / ``sigma_immutable`` here. Both were declared
     # as config fields and never read by any code path, which advertised two
@@ -180,9 +189,14 @@ class MultiScaleEncoder(nn.Module):
                 nn.ModuleDict({"conv": conv_block, "transformer": transformer})
             )
 
-        # Positional encoding per scale
+        # Positional encoding per scale. Every scale encodes the whole input
+        # sequence, whose length is the largest window (the detector windows
+        # 2-D input at ``max(window_sizes)``), so each table must cover that
+        # length; sizing it ``2 * ws`` per scale crashed the default
+        # ``[10, 25, 50]`` on the first batch (50 positions against 20).
+        max_len = 2 * max(window_sizes)
         self.pos_encodings = nn.ModuleList(
-            [PositionalEncoding(d_model, max_len=ws * 2, dropout=dropout) for ws in window_sizes]
+            [PositionalEncoding(d_model, max_len=max_len, dropout=dropout) for _ in window_sizes]
         )
 
         # Scale fusion (simple concatenation + projection)
@@ -318,17 +332,21 @@ class AssociationDiscrepancy(nn.Module):
         # Expand prior for batch
         prior_expanded = prior_avg.unsqueeze(0).expand(batch_size, -1, -1)
 
-        # Symmetric KL divergence
-        kl_forward = F.kl_div(
-            torch.log(series_avg + 1e-8),
-            prior_expanded,
-            reduction="none",
-        ).sum(dim=-1)
-        kl_backward = F.kl_div(
-            torch.log(prior_expanded + 1e-8),
-            series_avg,
-            reduction="none",
-        ).sum(dim=-1)
+        # Symmetric KL divergence on distributions floored at ``eps``. The
+        # Gaussian prior underflows to exact zeros once a window is longer than
+        # a few kernel widths (exp(-d^2 / 2) is 0.0 in float32 for d >= 14), and
+        # ``F.kl_div`` differentiated with respect to a zero *target* is
+        # log(0) = -inf: the first optimiser step turned every weight NaN at the
+        # default 50-step window, so every score was NaN and nothing alarmed.
+        # ``clamp_min`` has zero gradient below the floor, so the floored terms
+        # contribute nothing instead of poisoning the update.
+        eps = 1e-8
+        p = prior_expanded.clamp_min(eps)
+        q = series_avg.clamp_min(eps)
+        log_p = torch.log(p)
+        log_q = torch.log(q)
+        kl_forward = (p * (log_p - log_q)).sum(dim=-1)  # KL(prior || series)
+        kl_backward = (q * (log_q - log_p)).sum(dim=-1)  # KL(series || prior)
 
         discrepancy = (kl_forward + kl_backward) / 2
         return discrepancy
@@ -469,9 +487,12 @@ class MultiScaleTransformerDetector:
         description=(
             "Fitted detector: is_anomaly fires above the threshold_percentile (default 95) "
             "percentile of its own training scores, so about 5% of the training data alarms by "
-            "construction (segment grouping uses 0.8 of that cut); no published threshold exists "
-            "and no false-alarm rate is recorded for the cut. It is a sequence model and is not "
-            "measured on real labelled data: ADBench rows are not sequences."
+            "construction; on held-out Gaussian noise the cut flagged 0.043. 2-D input is "
+            "scored per row (mean over the sliding windows containing it). Inference-time "
+            "point adjustment (use_point_adjustment, off by default) grows alarms to runs above "
+            "0.8 of the cut and is not a decision rule. No published threshold exists. It is a "
+            "sequence model and is not measured on real labelled data: ADBench rows are not "
+            "sequences."
         ),
     )
 
@@ -485,7 +506,7 @@ class MultiScaleTransformerDetector:
         learning_rate: float = 1e-4,
         batch_size: int = 64,
         device: str | None = None,
-        use_point_adjustment: bool = True,
+        use_point_adjustment: bool = False,
         seed: int | None = None,
         **kwargs: Any,
     ) -> None:
@@ -533,6 +554,7 @@ class MultiScaleTransformerDetector:
             self
         """
         # Handle 2D input (convert to windows)
+        series = X if X.ndim == 2 else None
         if X.ndim == 2:
             window_size = max(self.config.window_sizes)
             X = self._create_windows(X, window_size)
@@ -620,7 +642,32 @@ class MultiScaleTransformerDetector:
             self.threshold = float(np.percentile(train_scores, self.config.threshold_percentile))
 
         self._fitted = True
+        if series is not None:
+            # 2-D input is scored per row (see ``predict``), so the cut is a
+            # percentile of the training rows' scores on that same scale.
+            self.threshold = float(
+                np.percentile(self.predict(series), self.config.threshold_percentile)
+            )
         return self
+
+    @staticmethod
+    def _per_sample(
+        window_scores: NDArray[np.float64], n_samples: int, window_size: int
+    ) -> NDArray[np.float64]:
+        """Average each row's score over the sliding windows that contain it.
+
+        ``window_scores`` holds one score per (window, position) for the
+        ``n_samples - window_size + 1`` stride-1 windows of a 2-D series;
+        window ``j`` position ``k`` is row ``j + k``.
+        """
+        per_window = np.asarray(window_scores, dtype=np.float64).reshape(-1, window_size)
+        n_windows = per_window.shape[0]
+        total = np.zeros(n_samples, dtype=np.float64)
+        count = np.zeros(n_samples, dtype=np.float64)
+        for offset in range(window_size):
+            total[offset : offset + n_windows] += per_window[:, offset]
+            count[offset : offset + n_windows] += 1.0
+        return total / np.maximum(count, 1.0)
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Predict anomaly scores.
@@ -629,14 +676,19 @@ class MultiScaleTransformerDetector:
             X: Test data
 
         Returns:
-            Anomaly scores (higher = more anomalous)
+            Anomaly scores (higher = more anomalous). For 2-D input
+            ``[n_samples, n_features]`` one score per row (the mean over the
+            sliding windows containing it); for pre-windowed 3-D input one
+            score per (window, position), flattened.
         """
         if not self._fitted or self.model is None:
             raise ValueError("Detector not fitted. Call fit() first.")
 
         # Handle 2D input
+        n_rows: int | None = None
+        window_size = max(self.config.window_sizes)
         if X.ndim == 2:
-            window_size = max(self.config.window_sizes)
+            n_rows = len(X)
             X = self._create_windows(X, window_size)
 
         X_tensor = torch.FloatTensor(X).to(self.device)
@@ -649,7 +701,10 @@ class MultiScaleTransformerDetector:
                 result = self.model(batch)
                 scores.append(result["anomaly_score"].cpu().numpy())
 
-        return np.concatenate([s.flatten() for s in scores])
+        flat = np.concatenate([s.flatten() for s in scores])
+        if n_rows is not None:
+            return self._per_sample(flat, n_rows, window_size)
+        return flat
 
     def detect(
         self,

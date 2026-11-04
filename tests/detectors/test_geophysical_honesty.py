@@ -216,7 +216,7 @@ class TestRegistryFeaturesSeeTheGradedRun:
             assert np.all(np.isfinite(features))
 
     def test_meteor_features_stay_finite_with_a_gap(self) -> None:
-        from omni_mercury_engine.detectors.geological.disaster_detectors import MeteorDetector
+        from omni_mercury_engine.space.meteor_detector import MeteorDetector
 
         radar = np.ones(64)
         radar[3] = np.nan

@@ -1069,7 +1069,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 463 classes (336 capability)
+### `detectors/` — 459 classes (334 capability)
 
 **Adapters & backends**
 
@@ -1119,18 +1119,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Analysis & scoring**
 
-- `AtmosphericInstabilityAnalyzer` (`detectors.geological.tornado_detector`) — Atmospheric instability analysis for tornado potential.
+- `AtmosphericInstabilityAnalyzer` (`detectors.meteorological.tornado_detector`) — Atmospheric instability analysis for tornado potential.
 - `DimensionalAnalyzer` (`detectors.dimensional`) — Multi-dimensional analysis and projection for anomaly detection.
-- `DopplerRadarAnalyzer` (`detectors.geological.tornado_detector`) — Doppler radar velocity pattern analyzer for mesocyclone detection.
+- `DopplerRadarAnalyzer` (`detectors.meteorological.tornado_detector`) — Doppler radar velocity pattern analyzer for mesocyclone detection.
 - `GasEmissionAnalyzer` (`detectors.geological.volcanic`) — Volcanic gas emission anomaly detection.
-- `PrecipitationAnalyzer` (`detectors.geological.flood_detector`) — Precipitation accumulation analysis for flood potential.
+- `PrecipitationAnalyzer` (`detectors.meteorological.flood_detector`) — Precipitation accumulation analysis for flood potential.
 - `RecursionMultiScaleAnalyzer` (`detectors.geological.landslide`) — 3R Recursion mechanism for multi-scale landslide analysis.
-- `ResonanceFrequencyAnalyzer` (`detectors.geological.wildfire`) — 3R Resonance mechanism for smoke pattern frequency analysis.
-- `ResonancePatternAnalyzer` (`detectors.geological.tornado_detector`) — FFT-based resonance pattern analyzer for tornado signatures.
+- `ResonanceFrequencyAnalyzer` (`detectors.fire.wildfire`) — 3R Resonance mechanism for smoke pattern frequency analysis.
+- `ResonancePatternAnalyzer` (`detectors.meteorological.tornado_detector`) — FFT-based resonance pattern analyzer for tornado signatures.
 - `SVMRFEnsembleClassifier` (`detectors.geological.landslide`) — Ensemble classifier combining SVM and Random Forest for landslide detection.
-- `SeaSurfaceTemperatureAnalyzer` (`detectors.geological.hurricane_detector`) — Sea surface temperature analysis for cyclone development potential.
+- `SeaSurfaceTemperatureAnalyzer` (`detectors.meteorological.hurricane_detector`) — Sea surface temperature analysis for cyclone development potential.
 - `SystemicRiskAnalyzer` (`detectors.economic.financial_crisis_detector`) — Systemic risk assessment via network contagion modeling.
-- `WindPatternAnalyzer` (`detectors.geological.hurricane_detector`) — Wind pattern analyzer for cyclone structure detection.
+- `WindPatternAnalyzer` (`detectors.meteorological.hurricane_detector`) — Wind pattern analyzer for cyclone structure detection.
 
 **Data sources & loaders**
 
@@ -1182,8 +1182,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ExtendedStatisticalDetector` (`detectors.statistical_extended`) — Unified enhanced statistical anomaly detector.
 - `FinancialCrisisDetector` (`detectors.economic.financial_crisis_detector`) — Comprehensive financial crisis detection system.
 - `FireDebrisFlowCascadeDetector` (`detectors.geological.fire_debris_flow_cascade`) — Staged wildfire → debris-flow cascade on the published USGS models.
-- `FireIgnitionDetector` (`detectors.geological.wildfire`) — CNN scoring fire activity from satellite-derived thermal rasters.
-- `FloodDetector` (`detectors.geological.flood_detector`) — Comprehensive flood detection system.
+- `FireIgnitionDetector` (`detectors.fire.wildfire`) — CNN scoring fire activity from satellite-derived thermal rasters.
+- `FloodDetector` (`detectors.meteorological.flood_detector`) — Comprehensive flood detection system.
 - `FraudDetector` (`detectors.economic.financial_crisis_detector`) — Algorithmic trading fraud and market manipulation detection.
 - `FrequentPatternDetector` (`detectors.frequent_pattern`) — Apriori association-rule violation detector for binary transactions.
 - `GWOEnsembleDetector` (`detectors.advanced.gwo_ensemble`) — GWO-Enhanced Ensemble Detector for Anomaly Detection.
@@ -1193,7 +1193,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `HailDetector` (`detectors.meteorological.hail_detector`) — Hail / severe-convective detector built on the SPC SHIP formulation.
 - `HawkesBurstDetector` (`detectors.hawkes`) — Self-exciting point-process detector for bursts in count streams.
 - `HeatwaveDetector` (`detectors.meteorological.heatwave_detector`) — Percentile-climatology heatwave detector with EHF severity.
-- `HurricaneDetector` (`detectors.geological.hurricane_detector`) — Comprehensive hurricane/cyclone/typhoon detection system.
+- `HurricaneDetector` (`detectors.meteorological.hurricane_detector`) — Comprehensive hurricane/cyclone/typhoon detection system.
 - `IMMDetector` (`detectors.imm`) — Interacting-Multiple-Model switching state-space residual detector.
 - `InSARDeformationDetector` (`detectors.geological.volcanic`) — InSAR ground deformation detection.
 - `InformationGeometryDetector` (`detectors.info_geometry`) — Information geometry-based OOD detector.
@@ -1210,7 +1210,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MarineBiodiversityDetector` (`detectors.marine.biodiversity_detector`) — Comprehensive marine biodiversity monitoring system.
 - `MarketCrashDetector` (`detectors.economic.financial_crisis_detector`) — Stock market crash detection via price decline and volatility.
 - `MercuryAnomalyDetector` (`detectors.statistical`) — Mercury's original anomaly detection ensemble.
-- `MeteorDetector` (`detectors.geological.disaster_detectors`) — Meteor detector using optical/radar Bayesian filter with NASA/JPL integration.
 - `MultiScaleTransformerDetector` (`detectors.advanced.multi_scale_transformer`) — Multi-Scale Transformer Detector for Time-Series Anomaly Detection.
 - `MultivariateTSDetector` (`detectors.multivariate_timeseries`) — Multivariate time-series anomaly detector using LTG architecture.
 - `OnlineDriftDetector` (`detectors.drift`) — Online drift detection with adaptive windowing (ADWIN).
@@ -1241,11 +1240,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `TemporalPatternDetector` (`detectors.adaptive_detector`) — Solves the smd problem.
 - `ThermalHotspotDetector` (`detectors.geological.volcanic`) — Thermal infrared (TIR) hotspot detection.
 - `TopologicalAnomalyDetector` (`detectors.topological_analysis`) — TDA-based anomaly detector using persistent homology features.
-- `TornadoDetector` (`detectors.geological.tornado_detector`) — Comprehensive tornado detection system.
+- `TornadoDetector` (`detectors.meteorological.tornado_detector`) — Comprehensive tornado detection system.
 - `TsunamiDetector` (`detectors.geological.disaster_detectors`) — Tsunami detector using oceanic waveform FFT analysis.
 - `UIUXAnomalyDetector` (`detectors.uiux_anomaly`) — Comprehensive UI/UX anomaly detector.
 - `VolcanicEruptionDetector` (`detectors.geological.volcanic`) — Comprehensive volcanic eruption detection system.
-- `WildfireDetector` (`detectors.geological.wildfire`) — Comprehensive wildfire detection and prediction system.
+- `WildfireDetector` (`detectors.fire.wildfire`) — Comprehensive wildfire detection and prediction system.
 - `WinterStormDetector` (`detectors.meteorological.winter_storm_detector`) — Winter / ice-storm detector built on cited operational formulations.
 - `_MercuryLocalDensityDetector` (`detectors.adaptive_detector`) — KDTree-based local density anomaly detector (LOF-style, no sklearn).
 - `_MercuryRandomProjectionDetector` (`detectors.adaptive_detector`) — Isolation-style anomaly detector using random projections (no trees/sklearn).
@@ -1253,9 +1252,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Monitoring**
 
 - `ActuatorHealthMonitor` (`detectors.drone.actuator_health`) — Streaming stuck-actuator monitor over per-tick actuation vectors.
-- `PressureGradientMonitor` (`detectors.geological.tornado_detector`) — Atmospheric pressure gradient monitoring for tornado precursors.
-- `PressureTracker` (`detectors.geological.hurricane_detector`) — Central pressure tracking for cyclone intensity monitoring.
-- `RiverGaugeMonitor` (`detectors.geological.flood_detector`) — River gauge monitoring for flood stage detection.
+- `PressureGradientMonitor` (`detectors.meteorological.tornado_detector`) — Atmospheric pressure gradient monitoring for tornado precursors.
+- `PressureTracker` (`detectors.meteorological.hurricane_detector`) — Central pressure tracking for cyclone intensity monitoring.
+- `RiverGaugeMonitor` (`detectors.meteorological.flood_detector`) — River gauge monitoring for flood stage detection.
 
 **Neural models & layers**
 
@@ -1279,7 +1278,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `FeatureConcatFusion` (`detectors.fusion.multimodal_fusion`) — Feature concatenation fusion with optional projection.
 - `FeatureExtractor` (`detectors.visual.backbone`) — Multi-scale feature extractor from pre-trained backbones.
 - `FeatureProjection` (`detectors.vlm.blip_vlm`) — Projects BLIP features to 128D for fusion pipeline.
-- `FireSpreadModel` (`detectors.geological.wildfire`) — Fire spread rate and direction prediction.
+- `FireSpreadModel` (`detectors.fire.wildfire`) — Fire spread rate and direction prediction.
 - `InteractionSequenceEncoder` (`detectors.uiux_anomaly`) — Encoder for sequences of user interactions.
 - `LSTMAutoencoder` (`detectors.lstm_ae`) — LSTM-based Autoencoder for time-series anomaly detection.
 - `MLIPVibrationEncoder` (`detectors.spectral_vibration`) — Machine Learning Interatomic Potential inspired vibrational encoder.
@@ -1298,13 +1297,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SeismicTriggerModel` (`detectors.geological.landslide`) — Earthquake-induced landslide trigger analysis.
 - `SlopeStabilityModel` (`detectors.geological.landslide`) — Neural network for slope stability assessment.
 - `SnowLayer` (`detectors.geological.avalanche_detector`) — One snowpack layer, ordered from the surface downward.
-- `SoilSaturationModel` (`detectors.geological.flood_detector`) — Soil saturation modeling for runoff prediction.
+- `SoilSaturationModel` (`detectors.meteorological.flood_detector`) — Soil saturation modeling for runoff prediction.
 - `SpectralCNN` (`detectors.spectral_vibration`) — Convolutional Neural Network for spectral pattern recognition.
 - `SpectralGNN` (`detectors.spectral_vibration`) — Complete Graph Neural Network for spectral analysis.
 - `SpectralGraphLayer` (`detectors.spectral_vibration`) — Graph Neural Network layer for spectral analysis.
 - `StudentNetwork` (`detectors.visual.stfpm`) — Lightweight student network that learns to mimic teacher.
 - `TemporalConvBlock` (`detectors.advanced.multi_scale_transformer`) — Temporal convolution block for local pattern extraction.
-- `WildfireCNN` (`detectors.geological.wildfire`) — Enhanced CNN for wildfire detection from thermal/NDVI satellite inputs.
+- `WildfireCNN` (`detectors.fire.wildfire`) — Enhanced CNN for wildfire detection from thermal/NDVI satellite inputs.
 - `_Denoiser` (`detectors.diffusion_ad`) — MLP that predicts the noise added to a window, conditioned on timestep.
 - `_EnsembleModel` (`detectors.drone.detector`) — Ensemble fitted on a rolling window, with per-stream fit-time references.
 - `_SRCNN` (`detectors.srcnn`) — 1-D CNN mapping a saliency window to its centre-point anomaly logit.
@@ -1322,7 +1321,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `BaseContextProvider` (`detectors.vlm.context_providers`) — Abstract base class for context providers.
 - `BaseEquationProbe` (`detectors.math_arrest.base_probe`) — Abstract base class for all Anomaly Math Arrest equation probes.
 - `BaseFusionModule` (`detectors.fusion.multimodal_fusion`) — Abstract base class for fusion modules.
-- `BayesianMeteorFilter` (`detectors.geological.disaster_detectors`) — Bayesian filter for meteor detection combining optical and radar data.
 - `BlizzardCheck` (`detectors.meteorological.winter_storm_detector`) — Result of the NWS blizzard-criteria evaluation.
 - `BoltzmannCouplingProbe` (`detectors.math_arrest.probes.boltzmann_coupling`) — Detect coupling structure breaks via multi-lag autocorrelation energy.
 - `CacheStatistics` (`detectors.vlm.lvlm_cache`) — Statistics for the model cache.
@@ -1368,7 +1366,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ModifiedZScoreProbe` (`detectors.math_arrest.probes.modified_zscore`) — Detect robust location anomalies using MAD-based modified Z-scores.
 - `MomentumProbe` (`detectors.math_arrest.probes.momentum`) — Detect sudden acceleration via second-order finite differences.
 - `MovementAssessment` (`detectors.geo_movement`) — Result of a single movement-plausibility evaluation.
-- `NDVIProcessor` (`detectors.geological.wildfire`) — NDVI (Normalized Difference Vegetation Index) processor for fuel load estimation.
+- `NDVIProcessor` (`detectors.fire.wildfire`) — NDVI (Normalized Difference Vegetation Index) processor for fuel load estimation.
 - `NaturalGradient` (`detectors.info_geometry`) — Compute the natural gradient: ``g_nat = F^{-1} g_euclid``.
 - `NavigationAnalysis` (`detectors.uiux_anomaly`) — Analysis results for navigation patterns.
 - `PersistenceDiagram` (`detectors.topological_analysis`) — Container for persistence diagram data.
@@ -1383,8 +1381,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `QuantumSuperpositionProbe` (`detectors.math_arrest.probes.quantum_superposition`) — Detect interference pattern breaks via cosine fringe analysis.
 - `R3RecursionResonanceProbe` (`detectors.math_arrest.probes.r3_recursion`) — Detect nonlinear saturation via three fused nonlinear transforms.
 - `RainfallAnalysis` (`detectors.geological.fire_debris_flow_cascade`) — Peak rolling accumulations extracted from a rain series.
-- `RecursiveFeatureExtractor` (`detectors.geological.tornado_detector`) — Recursive feature extraction for multi-scale tornado pattern detection.
-- `ResonanceFrequencyAmplifier` (`detectors.geological.hurricane_detector`) — FFT-based resonance frequency amplifier for storm signal detection.
+- `RecursiveFeatureExtractor` (`detectors.meteorological.tornado_detector`) — Recursive feature extraction for multi-scale tornado pattern detection.
+- `ResonanceFrequencyAmplifier` (`detectors.meteorological.hurricane_detector`) — FFT-based resonance frequency amplifier for storm signal detection.
 - `SVDProjectionProbe` (`detectors.math_arrest.probes.svd_projection`) — Detect dimensional collapse via rank-1 SVD Hankel reconstruction.
 - `ScrollAnalysis` (`detectors.uiux_anomaly`) — Analysis results for scroll behavior.
 - `SemanticContextProvider` (`detectors.vlm.context_providers_extended`) — Semantic context provider for scene-level understanding.
@@ -1423,7 +1421,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Training & optimization**
 
 - `AdaptiveThresholdCalibrator` (`detectors.adaptive_detector`) — Solves the covtype F1=0 problem.
-- `FloodPredictionOptimizer` (`detectors.geological.flood_detector`) — Dynamic model optimization engine for flood prediction.
+- `FloodPredictionOptimizer` (`detectors.meteorological.flood_detector`) — Dynamic model optimization engine for flood prediction.
 - `GreyWolfOptimizer` (`detectors.advanced.gwo_ensemble`) — Grey Wolf Optimizer for weight optimization.
 - `MultiModalFusionOptimizer` (`detectors.fusion.multimodal_fusion`) — High-level optimizer for multi-modal anomaly detection fusion.
 - `MultiScaleFeatureAggregator` (`detectors.visual.backbone`) — Aggregate multi-scale features into a unified representation.
@@ -1434,9 +1432,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `_PlattCalibrator` (`detectors.detection_tier`) — Platt-scaling calibrator: logistic score->P(anomaly) from labels.
 - `_ScoreCalibrator` (`detectors.detection_tier`) — Per-detector monotone map from a raw score column into a calibrated ``[0, 1]``.
 
-<details><summary>Support types (127)</summary>
+<details><summary>Support types (125)</summary>
 
-`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdjacencyShapeError`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TrajectoryShapeError`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
+`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdjacencyShapeError`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TrajectoryShapeError`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
 
 </details>
 
@@ -2852,7 +2850,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `space/` — 42 classes (30 capability)
+### `space/` — 46 classes (32 capability)
 
 **Analysis & scoring**
 
@@ -2869,6 +2867,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `InterstellarObjectDetector` (`space.interstellar_objects`) — Interstellar Object Anomaly Detector.
 - `IonosphericDisturbanceDetector` (`space.disaster_precursor_detector`) — Detect ionospheric disturbances from Schumann data.
 - `IonosphericScintillationDetector` (`space.ionospheric_scintillation_detector`) — S4 / sigma-phi measurement plus climatological GNSS-degradation risk.
+- `MeteorDetector` (`space.meteor_detector`) — Meteor detector using optical/radar Bayesian filter with NASA/JPL integration.
 - `SEPStormDetector` (`space.sep_storm_detector`) — NOAA S-scale SEP storm detector over GOES integral proton flux.
 - `SchumannResonanceDetector` (`space.schumann_resonance`) — Schumann Resonance Anomaly Detector.
 - `SolarFlareDetector` (`space.solar_storm_detector`) — Canonical solar-flare detector: GOES X-ray flux classification.
@@ -2881,6 +2880,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Other capability classes**
 
+- `BayesianMeteorFilter` (`space.meteor_detector`) — Bayesian filter for meteor detection combining optical and radar data.
 - `CMEArrivalPrediction` (`space.cme_arrival_detector`) — Arrival-time window and Earth-directedness assessment for one CME.
 - `CMEKinematics` (`space.cme_arrival_detector`) — Kinematic inputs for a single CME arrival prediction.
 - `CascadeAssessment` (`space.solar_gic_cascade`) — Result of a cascade evaluation.
@@ -2896,9 +2896,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SpaceInspiredResilience` (`space.space_inspired`) — Resilience mechanisms inspired by space technology.
 - `StageEvidence` (`space.solar_gic_cascade`) — Evidence record for one cascade stage.
 
-<details><summary>Support types (12)</summary>
+<details><summary>Support types (14)</summary>
 
-`CascadeStage`, `DisasterPrecursorResult`, `GeostormScale`, `ISOAnomalyType`, `InterstellarObjectResult`, `NaturalExplanationConfidence`, `RedundancyConfig`, `SchumannAnomalyResult`, `SolarFlareClass`, `SolarFlarePredictionResult`, `SolarStormPredictionResult`, `SystemState`
+`CascadeStage`, `DisasterPrecursorResult`, `GeostormScale`, `ISOAnomalyType`, `InterstellarObjectResult`, `MeteorPredictionResult`, `MeteorThreatLevel`, `NaturalExplanationConfidence`, `RedundancyConfig`, `SchumannAnomalyResult`, `SolarFlareClass`, `SolarFlarePredictionResult`, `SolarStormPredictionResult`, `SystemState`
 
 </details>
 

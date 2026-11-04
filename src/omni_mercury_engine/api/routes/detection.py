@@ -718,6 +718,17 @@ class TierDetectRequest(BaseModel):
         default=None,
         description="Optional per-point 0/1 labels (enables supervised stacking/BMA)",
     )
+    reference: list[float] | None = Field(
+        default=None,
+        min_length=8,
+        description=(
+            "Known-normal 1-D series to fit and calibrate on; 'data' is then only "
+            "scored, so the threshold and conformal cut rest on evidence independent "
+            "of it. Without it (and without labels) the tier calibrates on 'data' "
+            "itself and flags about the configured share by construction. Mutually "
+            "exclusive with 'labels'."
+        ),
+    )
     subset: list[str] | None = Field(
         default=None,
         description="Detector names to include (default: the full streaming tier)",
@@ -787,11 +798,15 @@ async def detect_tier(
 
         series = np.asarray(request.data, dtype=float).ravel()
         labels = None if request.labels is None else np.asarray(request.labels, dtype=int)
+        reference = (
+            None if request.reference is None else np.asarray(request.reference, dtype=float)
+        )
         subset = tuple(request.subset) if request.subset else None
 
         result = run_tier_ensemble(
             series,
             labels=labels,
+            reference=reference,
             subset=subset,
             method=request.method,
             contamination=request.contamination,

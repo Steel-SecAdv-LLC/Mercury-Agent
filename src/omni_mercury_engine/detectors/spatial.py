@@ -26,6 +26,7 @@ from scipy.spatial import KDTree
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException, InputModalityError
+from omni_mercury_engine.detectors._calibration import batch_evidence, conformal_cut
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,13 @@ class _NativeLOF:
         self.k = n_neighbors
         self._tree: KDTree | None = None
         self._lrd: np.ndarray[Any, Any] | None = None  # local reachability densities of training
+        # k-distance of each training point (Breunig et al. 2000, def. 3): the
+        # reachability distance from a query p to a training point o is
+        # max(k-distance(o), d(p, o)) at inference exactly as at fit.
+        self._kdist: np.ndarray[Any, Any] | None = None
+        # Leave-one-out LOF of each training point (its own neighbourhood
+        # excludes itself), the reference an unseen normal query compares to.
+        self._train_lof: np.ndarray[Any, Any] | None = None
 
     # Reachability floor used at both fit and inference time. Using one
     # symbol (and the same numeric value at both sites) is load-bearing for
@@ -76,11 +84,14 @@ class _NativeLOF:
         k = min(self.k, len(X) - 1)
         if k < 1:
             self._lrd = np.ones(len(X))
+            self._kdist = np.zeros(len(X))
+            self._train_lof = np.ones(len(X))
             return self
         dists, idx = self._tree.query(X, k=k + 1)  # +1 because query includes self
         dists, idx = dists[:, 1:], idx[:, 1:]  # drop self-neighbor
+        self._kdist = dists[:, -1].copy()
         # k-distance of each neighbor (Breunig et al. 2000, eq. 1).
-        kdist_neighbors = dists[idx, -1] if dists.ndim > 1 else dists
+        kdist_neighbors = self._kdist[idx]
         # reachability distance = max(k-dist of neighbor, actual dist).
         reach = np.maximum(dists, kdist_neighbors)
         mean_reach = reach.mean(axis=1)
@@ -91,7 +102,32 @@ class _NativeLOF:
         # comparable LRDs and the LOF ratio collapses to ~1 (decision ~0,
         # inlier) instead of blowing up by orders of magnitude.
         self._lrd = 1.0 / np.maximum(mean_reach, self._REACH_FLOOR)
+        self._train_lof = self._lrd[idx].mean(axis=1) / self._lrd
         return self
+
+    def restore_neighbourhoods(self) -> None:
+        """Recompute ``_kdist`` / ``_train_lof`` from the tree (checkpoint restore).
+
+        Both are deterministic functions of the training points and ``k``,
+        so a state saved without them restores to the values ``fit`` gives.
+        """
+        if self._tree is None or self._lrd is None:
+            return
+        points = np.asarray(self._tree.data, dtype=np.float64)
+        k = min(self.k, len(points) - 1)
+        if k < 1:
+            self._kdist = np.zeros(len(points))
+            self._train_lof = np.ones(len(points))
+            return
+        dists, idx = self._tree.query(points, k=k + 1)
+        dists, idx = dists[:, 1:], idx[:, 1:]
+        self._kdist = dists[:, -1].copy()
+        self._train_lof = self._lrd[idx].mean(axis=1) / self._lrd
+
+    def training_decision(self) -> np.ndarray[Any, Any]:
+        """Leave-one-out decision scores of the training points (negative = anomalous)."""
+        assert self._train_lof is not None
+        return -(self._train_lof - 1.0)
 
     def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Return LOF-style decision scores (negative = more anomalous)."""
@@ -106,10 +142,15 @@ class _NativeLOF:
             # below see the documented (n, k) shape instead of raising.
             dists = dists[:, np.newaxis]
             idx = idx[:, np.newaxis]
+        # Reachability as Breunig et al. define it and as fit computes it:
+        # max(k-distance(o), d(p, o)). Plain distances made a query's density
+        # systematically higher than a training point's at the same place, so
+        # LOF ratios of queries and of training points were not comparable.
+        kdist = self._kdist[idx] if self._kdist is not None else 0.0
+        reach = np.maximum(dists, kdist)
         # Same floor as fit; see _REACH_FLOOR docstring for why this must
         # match the fit-time floor exactly.
-        reach = np.maximum(dists, self._REACH_FLOOR)
-        mean_reach = reach.mean(axis=1)
+        mean_reach = np.maximum(reach.mean(axis=1), self._REACH_FLOOR)
         lrd_query = 1.0 / mean_reach
         neighbor_lrd = self._lrd[idx]
         mean_neighbor_lrd = neighbor_lrd.mean(axis=1)
@@ -132,13 +173,18 @@ class SpatialAnomalyDetector(BaseDetector):
     decision_source = DecisionSource(
         kind="published",
         description=(
-            "The score is the mean of a min-max-normalised centroid-distance "
-            "channel and a Local Outlier Factor channel computed as published "
-            "(k-nearest-neighbour reachability-density ratio); the decision "
-            "threshold is the configured or auto-calibrated operating point, "
-            "default 0.5 on the normalized combined score. The LOF channel is "
-            "published; the centroid channel and the equal-weight fusion are "
-            "in-house."
+            "The score is the mean of a centroid-distance channel and a Local "
+            "Outlier Factor channel computed as published (reachability "
+            "max(k-distance(o), d(p, o)) at fit and at query), each min-max "
+            "normalised against the training rows' range widened by the row, so "
+            "a row's score does not depend on its batch. The decision threshold "
+            "is the configured or auto-calibrated operating point, else the "
+            "one-class split-conformal 0.95 quantile of the training rows' "
+            "leave-one-out combined scores (held-out Gaussian rows flagged "
+            "0.051-0.053 at batch sizes 10 to 2,000, against 0.40 in 10-row "
+            "batches under the batch-relative normalisation and fixed 0.5 cut "
+            "this replaced). The LOF channel is published; the centroid channel "
+            "and the equal-weight fusion are in-house."
         ),
         citation=(
             "Breunig, Kriegel, Ng & Sander (2000), 'LOF: Identifying "
@@ -169,6 +215,15 @@ class SpatialAnomalyDetector(BaseDetector):
 
         self.center: np.ndarray[Any, Any] | None = None
         self.radius_threshold: float | None = None
+        # Fit-time anchors for the two raw scores: (min, max) over the
+        # training rows (leave-one-out for LOF). A row is normalised against
+        # them, so its score does not depend on the rows it is scored with.
+        self._distance_range: tuple[float, float] | None = None
+        self._neg_lof_range: tuple[float, float] | None = None
+        self._threshold_is_configured = isinstance(config, dict) and "threshold" in config
+        # Sorted leave-one-out combined scores of the training rows: the
+        # reference for the conformal p-values and the batch-level test.
+        self._reference_scores: np.ndarray[Any, Any] | None = None
 
     @staticmethod
     def _require_spatial_matrix(data: np.ndarray[Any, Any]) -> None:
@@ -211,9 +266,65 @@ class SpatialAnomalyDetector(BaseDetector):
         self.radius_threshold = np.percentile(distances, 95)
 
         self.lof.fit(data)
+        self._fit_anchors(np.asarray(data, dtype=np.float64))
 
         self._is_fitted = True
         return self
+
+    #: Share of training rows above the installed cut (one-class split-conformal
+    #: quantile of their leave-one-out combined scores).
+    CALIBRATION_ALPHA = 0.05
+
+    def _fit_anchors(self, data: np.ndarray[Any, Any]) -> None:
+        """Anchor normalisation to the training rows and cut the threshold on them.
+
+        The two raw scores used to be min-max normalised over the batch being
+        scored, so a batch's most extreme row scored about 1 whatever its
+        value: held-out Gaussian rows were flagged at 0.40 in 10-row batches
+        and 0.012 in 2,000-row ones. They are normalised against the training
+        rows' range instead -- the ``[reference; row]`` semantics the agentic
+        serving path already used -- and, unless a threshold was configured,
+        the cut is the ``ceil((n + 1)(1 - alpha))``-th smallest leave-one-out
+        combined training score.
+        """
+        ref_distance = np.asarray(self._compute_distance_scores(data), dtype=np.float64)
+        ref_neg_lof = -np.asarray(self.lof.training_decision(), dtype=np.float64)
+        self._distance_range = (float(ref_distance.min()), float(ref_distance.max()))
+        self._neg_lof_range = (float(ref_neg_lof.min()), float(ref_neg_lof.max()))
+        self._reference_scores = np.sort(self._combine(ref_distance, ref_neg_lof))
+        if self._threshold_is_configured or self._auto_calibrate:
+            return
+        cut = conformal_cut(self._reference_scores, self.CALIBRATION_ALPHA)
+        if cut is not None:
+            self.threshold = cut
+
+    @staticmethod
+    def _anchored(
+        values: np.ndarray[Any, Any], bounds: tuple[float, float]
+    ) -> np.ndarray[Any, Any]:
+        """Min-max against ``[reference; row]`` per row: ``bounds`` widened by the row."""
+        v = np.asarray(values, dtype=np.float64)
+        v = np.where(np.isfinite(v), v, np.nan)
+        lo = np.minimum(bounds[0], v)
+        hi = np.maximum(bounds[1], v)
+        span = hi - lo
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out = np.where(span < 1e-10, 0.5, (v - lo) / np.where(span < 1e-10, 1.0, span))
+        return np.asarray(np.clip(np.nan_to_num(out, nan=0.5), 0.0, 1.0), dtype=np.float64)
+
+    def _combine(
+        self, distance_scores: np.ndarray[Any, Any], neg_lof_scores: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """Mean of the two anchored scores (batch min-max for a legacy state)."""
+        if self._distance_range is None or self._neg_lof_range is None:
+            d_norm = self._safe_normalize(distance_scores)
+            l_norm = self._safe_normalize(neg_lof_scores)
+        else:
+            d_norm = self._anchored(distance_scores, self._distance_range)
+            l_norm = self._anchored(neg_lof_scores, self._neg_lof_range)
+        d_norm = np.nan_to_num(d_norm, nan=0.5, posinf=1.0, neginf=0.0)
+        l_norm = np.nan_to_num(l_norm, nan=0.5, posinf=1.0, neginf=0.0)
+        return np.asarray((d_norm + l_norm) / 2.0, dtype=np.float64)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect spatial anomalies with optional auto-calibration.
@@ -258,20 +369,9 @@ class SpatialAnomalyDetector(BaseDetector):
         distance_scores = self._compute_distance_scores(data_np)
         lof_scores = self.lof.decision_function(data_np)
 
-        # Safe normalization with NaN/constant array handling
-        # Fix for P0: Division by near-zero in min/max normalization
-        distance_scores_norm = self._safe_normalize(distance_scores)
-        lof_scores_norm = self._safe_normalize(-lof_scores)
-
-        # Validate for NaN propagation before combining
-        if np.any(~np.isfinite(distance_scores_norm)):
-            distance_scores_norm = np.nan_to_num(
-                distance_scores_norm, nan=0.5, posinf=1.0, neginf=0.0
-            )
-        if np.any(~np.isfinite(lof_scores_norm)):
-            lof_scores_norm = np.nan_to_num(lof_scores_norm, nan=0.5, posinf=1.0, neginf=0.0)
-
-        combined_scores = (distance_scores_norm + lof_scores_norm) / 2.0
+        # Each row against the fit-time anchors (see _fit_anchors): its score
+        # is the same whichever rows it is scored with.
+        combined_scores = self._combine(distance_scores, -lof_scores)
 
         # Auto-calibration: compute optimal threshold from score distribution
         effective_threshold = self.threshold
@@ -292,6 +392,7 @@ class SpatialAnomalyDetector(BaseDetector):
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
             "spatial_autocorrelation": self._score_autocorrelation(data_np, combined_scores),
+            **batch_evidence(self._reference_scores, combined_scores, self.CALIBRATION_ALPHA),
         }
 
     #: Above this many points the statistics are estimated on an evenly spaced
@@ -439,6 +540,8 @@ class SpatialAnomalyDetector(BaseDetector):
         self.lof = _NativeLOF(n_neighbors=int(state["lof_k"]))
         self.lof._tree = KDTree(np.asarray(state["lof_points"], dtype=np.float64))
         self.lof._lrd = np.asarray(state["lof_lrd"], dtype=np.float64)
+        self.lof.restore_neighbourhoods()
+        self._fit_anchors(np.asarray(state["lof_points"], dtype=np.float64))
         self._is_fitted = True
 
     def _learned_state(self) -> dict[str, Any]:

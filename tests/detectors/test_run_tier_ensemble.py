@@ -128,3 +128,75 @@ def test_label_free_flags_honour_contamination(
     assert result["threshold"] == pytest.approx(
         float(np.quantile(result["scores"], 1 - contamination)), abs=1e-9
     )
+
+
+class TestReferenceCalibration:
+    """``reference=`` anchors the fit, threshold and conformal cut to known-normal data.
+
+    Without it (and without labels) the tier calibrates on the series it
+    scores, so the flag rate is set by the parameters, not by evidence; the
+    result says so in ``calibration_basis``. Measured on the four recorded NAB
+    files (probation as the reference, alpha 0.05) the reference-calibrated
+    conformal flags mark 0.011-0.051 of the NAB-normal points.
+    """
+
+    SUBSET = ("spectral_residual", "spot_evt", "bocpd")
+
+    def test_reference_fit_scores_only_the_input(self) -> None:
+        rng = np.random.default_rng(10)
+        reference = rng.normal(0, 1, 300)
+        series = rng.normal(0, 1, 400)
+        series[200] += 8.0
+        r = run_tier_ensemble(series, reference=reference, subset=self.SUBSET, conformal_alpha=0.05)
+        assert r["fit_on"] == "reference"
+        assert r["n_reference"] == 300
+        assert r["calibration_basis"] == "reference"
+        assert r["n_points"] == 400
+        assert r["conformal_flags"][200] == 1
+        normal = [f for i, f in enumerate(r["conformal_flags"]) if i != 200]
+        assert float(np.mean(normal)) <= 0.08
+
+    def test_without_a_reference_the_basis_is_the_scored_series(self) -> None:
+        rng = np.random.default_rng(11)
+        r = run_tier_ensemble(rng.normal(0, 1, 200), subset=self.SUBSET, conformal_alpha=0.05)
+        assert r["calibration_basis"] == "scored_series"
+        assert "fit_on" not in r
+
+    def test_labels_and_reference_are_mutually_exclusive(self) -> None:
+        rng = np.random.default_rng(12)
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            run_tier_ensemble(
+                rng.normal(0, 1, 100),
+                labels=np.zeros(100, dtype=int),
+                reference=rng.normal(0, 1, 100),
+                subset=self.SUBSET,
+            )
+
+    def test_a_short_reference_is_refused(self) -> None:
+        rng = np.random.default_rng(13)
+        with pytest.raises(ValueError, match="at least 8 points"):
+            run_tier_ensemble(rng.normal(0, 1, 100), reference=np.zeros(4), subset=self.SUBSET)
+
+    def test_rca_is_excluded_and_recorded_under_a_reference(self) -> None:
+        """rca fits a node graph over its training points, so it cannot score a
+        series of another length; it is dropped visibly, not silently kept or lost."""
+        rng = np.random.default_rng(14)
+        r = run_tier_ensemble(rng.normal(0, 1, 400), reference=rng.normal(0, 1, 300))
+        assert "rca" not in r["members"]
+        assert "rca" in r["excluded_members"]
+        with pytest.raises(ValueError, match="rca cannot be used with a reference"):
+            run_tier_ensemble(
+                rng.normal(0, 1, 400),
+                reference=rng.normal(0, 1, 300),
+                subset=("spectral_residual", "rca"),
+            )
+
+    def test_an_equal_length_reference_keeps_the_full_tier(self) -> None:
+        rng = np.random.default_rng(15)
+        r = run_tier_ensemble(
+            rng.normal(0, 1, 60),
+            reference=rng.normal(0, 1, 60),
+            subset=("spectral_residual", "rca"),
+        )
+        assert set(r["members"]) == {"spectral_residual", "rca"}
+        assert "excluded_members" not in r

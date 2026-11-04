@@ -46,11 +46,11 @@ def _linear_width(sequential: Any) -> int:
     return int(cast("Any", sequential)[0].in_features)
 
 
+from omni_mercury_engine.detectors.fire.wildfire import WildfireDetector
 from omni_mercury_engine.detectors.geological.disaster_detectors import EarthquakeDetector
-from omni_mercury_engine.detectors.geological.hurricane_detector import HurricaneDetector
 from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
 from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
-from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
+from omni_mercury_engine.detectors.meteorological.hurricane_detector import HurricaneDetector
 from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
 from omni_mercury_engine.space.disaster_precursor_detector import DisasterPrecursorDetector
 

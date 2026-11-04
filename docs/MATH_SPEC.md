@@ -574,30 +574,59 @@ $$
 
 Points above $T_{\text{upper}}$ or below $Q_1 - 1.5 \cdot \text{IQR}$ are surfaced
 as the legacy `iqr_scores` / `iqr_flags` diagnostics; the detector's actual
-anomaly decision comes from the combined score and adaptive operating point
+anomaly decision comes from the combined score and its operating point
 (§2.6.3–§2.6.4), not from the IQR fence.
 
 **Provenance:** Tukey (1977) "Exploratory Data Analysis."
 
 **Implementation:** `detectors/statistical.py`, quartiles lines 395--396; `_detect_iqr_anomalies()`.
 
-#### 2.6.3 Adaptive Operating Point
+#### 2.6.3 Operating Point
 
 A fixed $0.5$ cut lands arbitrarily relative to the ensemble's data-dependent
-normal-cluster location (strong ranking / AUROC, broken F1), so the decision
-threshold is selected from the score distribution itself:
+normal-cluster location, so when no threshold, supervised calibration or
+conformal predictor is configured the decision threshold comes from the fit
+data. With the training rows' own ensemble scores sorted,
+$s_{(1)} \le \dots \le s_{(n)}$, and false-alarm budget $\alpha$
+(`reference_alpha`, default $0.05$):
 
-- **Bimodal / high-contamination:** if the Otsu between-class split sits in a
-  deep histogram valley, cut at the Otsu threshold.
-- **Low-contamination / upper tail:** otherwise cut a robust number of MADs above
-  the median, $\text{median} + 2 \cdot 1.4826 \cdot \text{MAD}$.
+$$
+\tau = s_{(k)}, \qquad k = \min\bigl(n, \lceil (n + 1)(1 - \alpha) \rceil\bigr)
+$$
 
-The transform is **rank-preserving** — only the cut location moves, so AUROC/AUPRC
+Under exchangeability of a new normal row with the fit rows,
+$P(S > \tau) \le \alpha$ (one-class split-conformal; Vovk, Gammerman & Shafer
+2005; Bates, Candès, Lei, Romano & Sesia 2023). The cut does not depend on the
+batch being scored, so it is defined for a single row and is not inverted by an
+anomaly-majority batch. The bound concerns *new* data: scoring the fit batch
+itself flags about $\alpha$ of it whatever its contamination, and a caller who
+knows the contamination configures it (`auto_calibrate` + `contamination`).
+
+Measured on labelled data (`tests/detectors/test_recorded_false_alarm_rates.py`,
+`tests/detectors/test_recorded_nab_series.py`): held-out normal rows flagged
+0.026–0.065 (mean 0.048) on five ADBench tables; NAB-normal points 0.021.
+
+`operating_point="adaptive"` selects the batch-relative cut instead, the former
+default:
+
+- if the Otsu between-class split sits in a deep histogram valley, cut at the
+  Otsu threshold;
+- otherwise $\text{median} + 2 \cdot 1.4826 \cdot \text{MAD}$.
+
+Its valley test compares the density at the split with the *global* peak, so a
+split in the thin upper tail of a unimodal distribution reads as a valley; it
+flagged a mean 0.089 of the same held-out ADBench normal rows, 0.171 of held-out
+Gaussian noise, and 0.120 of NAB-normal points (NAB standard score $-130.5$
+against $30.7$).
+
+Both cuts are **rank-preserving** — only the cut location moves, so AUROC/AUPRC
 are unchanged. (The shipped ensemble is Resonance/Kinematic/InfoGeometry, not an
 Isolation Forest; `isolation_forest_scores` / `isolation_forest_flags` are deprecated
 backward-compatibility aliases for the combined score and its flags.)
 
-**Implementation:** `detectors/statistical.py`, `_adaptive_operating_point()` (lines 2618--2676), `_otsu_threshold()` / `_robust_tail_threshold()`.
+**Implementation:** `detectors/statistical.py`, `_default_operating_point()`,
+`_reference_threshold()` / `_conformal_cut()`, and for the opt-in mode
+`_adaptive_operating_point()`, `_otsu_threshold()` / `_robust_tail_threshold()`.
 
 #### 2.6.4 Combined Statistical Score
 

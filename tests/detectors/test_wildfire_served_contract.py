@@ -23,8 +23,8 @@ import pytest
 pytest.importorskip("torch")
 
 from omni_mercury_engine.core.exceptions import InvalidObservationError
-from omni_mercury_engine.detectors.geological import wildfire
-from omni_mercury_engine.detectors.geological.wildfire import (
+from omni_mercury_engine.detectors.fire import wildfire
+from omni_mercury_engine.detectors.fire.wildfire import (
     WildfireDetector,
     WildfirePredictionResult,
 )
@@ -281,7 +281,7 @@ def test_unassessed_fields_say_so(served: WildfireDetector) -> None:
 
 def test_spread_is_never_fabricated_from_defaults() -> None:
     """Regression: an empty weather dict yielded 0.835 km/h toward due north."""
-    from omni_mercury_engine.detectors.geological.wildfire import FireSpreadModel
+    from omni_mercury_engine.detectors.fire.wildfire import FireSpreadModel
 
     model = FireSpreadModel()
     out = model.predict_spread({}, {})

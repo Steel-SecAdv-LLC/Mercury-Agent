@@ -832,6 +832,7 @@ def run_tier_ensemble(
     series: np.ndarray[Any, Any],
     labels: np.ndarray[Any, Any] | None = None,
     *,
+    reference: np.ndarray[Any, Any] | None = None,
     subset: Sequence[str] | None = None,
     method: str | None = None,
     contamination: float = 0.05,
@@ -855,7 +856,26 @@ def run_tier_ensemble(
         series: 1-D anomaly series (the tier's native temporal contract).
         labels: Optional per-point 0/1 labels. When present the members are fit
             on the normal points only and the default combiner is ``stacking``;
-            without labels the default is the label-free ``average``.
+            without labels the default is the label-free ``average``. Mutually
+            exclusive with ``reference``.
+        reference: Optional 1-D known-normal series (at least 8 points; a
+            probationary prefix, or any stream from the regime to treat as
+            normal). The ensemble is then fitted and calibrated on it and only
+            *scores* ``series``, so the threshold and the conformal cut rest
+            on evidence independent of the batch being scored. Without it (and
+            without labels) everything -- member fits, calibrators, the
+            contamination threshold and the ``conformal_alpha`` cut -- is
+            computed from the scored series itself, so the flag rate is set by
+            the parameters, not by evidence: a lone series carries no external
+            notion of normal. The reference's own scores are in-sample for the
+            member fits (the members trained on it), which is the same anchor
+            the statistical detector's fit-time reference uses. Measured on
+            the four recorded NAB files (probation as the reference, alpha
+            0.05): conformal flags on 0.011-0.051 of the NAB-normal points,
+            0.048 of a pure-noise series against a noise reference, and an
+            8-sigma spike flagged. ``rca`` is excluded (recorded in
+            ``excluded_members``) when the reference length differs from the
+            series: it fits a node graph over the training points.
         subset: Detector names to include (default: the full ``STREAMING_TIER``).
         method: Combiner override (``stacking`` / ``bma`` / ``average`` /
             ``consensus``).
@@ -863,9 +883,12 @@ def run_tier_ensemble(
         calibration: Per-detector score transform (``rank`` / ``ecdf`` /
             ``isotonic`` / ``platt`` / ``none``); ``None`` resolves from config.
         conformal_alpha: When set, also returns flags with a distribution-free
-            false-positive guarantee (FPR ``<= alpha``). The known-normal
-            calibration stream is the label-0 subset when labels are given, else
-            the observed scores (an in-sample proxy under exchangeability).
+            false-positive guarantee (FPR ``<= alpha``) on data exchangeable
+            with the calibration stream. That stream is, in priority order: the
+            ``reference`` series' scores, the label-0 subset when labels are
+            given, else the scored series' own scores -- the last is a
+            self-calibration that flags about ``alpha`` of any series by
+            construction (see ``calibration_basis`` in the result).
         include_attribution: When ``True``, also return the calibrated
             per-detector score matrix (``detector_names`` +
             ``per_detector_scores``, ``n_points`` × ``n_detectors``) so a caller
@@ -891,10 +914,40 @@ def run_tier_ensemble(
         per-point ``scores`` (calibrated ``[0, 1]``), ``flags`` (0/1),
         ``uncertainty`` (cross-detector disagreement), ``n_points``,
         ``n_flagged``; ``bma_weights`` when ``method="bma"``; the
-        ``conformal_*`` fields when ``conformal_alpha`` is set; and
-        ``detector_names`` + ``per_detector_scores`` when
-        ``include_attribution`` is set.
+        ``conformal_*`` fields (plus ``calibration_basis``) when
+        ``conformal_alpha`` is set; ``fit_on`` / ``n_reference`` when a
+        reference is given; and ``detector_names`` + ``per_detector_scores``
+        when ``include_attribution`` is set.
+
+    Raises:
+        ValueError: If both ``labels`` and ``reference`` are given (labels
+            describe the scored series; a reference fit would silently ignore
+            them), or if ``reference`` has fewer than 8 points.
     """
+    ref = None if reference is None else _to_1d_series(reference)
+    if ref is not None and labels is not None:
+        raise ValueError(
+            "labels and reference are mutually exclusive: labels describe the scored "
+            "series and would be ignored by a reference fit; supply one or the other"
+        )
+    if ref is not None and ref.size < 8:
+        raise ValueError(f"reference must hold at least 8 points, got {ref.size}")
+    excluded: dict[str, str] = {}
+    if ref is not None and ref.size != _to_1d_series(series).size:
+        # rca interprets the fitted series' points as the nodes of a dependency
+        # graph, so it cannot score a series of another length than its fit.
+        # Under the transductive default (fit == scored) it participates; under
+        # a reference of a different length it cannot, and silently keeping it
+        # would crash while silently dropping a *requested* member would lie.
+        reason = (
+            "fits a node graph over the training points; cannot score a series "
+            "of a different length than the reference"
+        )
+        if subset is not None and "rca" in subset:
+            raise ValueError(f"rca cannot be used with a reference: it {reason}")
+        if subset is None:
+            excluded["rca"] = reason
+            subset = tuple(name for name in STREAMING_TIER if name != "rca")
     detectors = build_tier_detectors(subset)
     resolved_method = method or ("stacking" if labels is not None else "average")
     ensemble = StreamingScoreEnsemble(
@@ -903,7 +956,7 @@ def run_tier_ensemble(
         contamination=contamination,
         calibration=calibration,
     )
-    ensemble.fit(series, labels=labels)
+    ensemble.fit(series if ref is None else ref, labels=labels)
 
     scores = np.asarray(ensemble.score(series), dtype=float)
     flags = np.asarray(ensemble.predict(series), dtype=int)
@@ -919,6 +972,11 @@ def run_tier_ensemble(
         "n_points": int(scores.size),
         "n_flagged": int(flags.sum()),
     }
+    if ref is not None:
+        result["fit_on"] = "reference"
+        result["n_reference"] = int(ref.size)
+        if excluded:
+            result["excluded_members"] = excluded
     if resolved_method == "bma":
         result["bma_weights"] = ensemble.bma_weights()
 
@@ -981,11 +1039,18 @@ def run_tier_ensemble(
         result["counterfactual"] = {"index": cf_index, **cf.to_dict()}
 
     if conformal_alpha is not None:
-        if labels is not None:
+        if ref is not None:
+            calibration_scores = np.asarray(ensemble.score(ref), dtype=float)
+            result["calibration_basis"] = "reference"
+        elif labels is not None:
             lab = np.asarray(labels).astype(int).ravel()
             calibration_scores = scores[lab == 0] if (lab == 0).any() else scores
+            result["calibration_basis"] = "labels" if (lab == 0).any() else "scored_series"
         else:
+            # Self-calibration: about alpha of the scored series is flagged by
+            # construction. The rate is set by the parameter, not by evidence.
             calibration_scores = scores
+            result["calibration_basis"] = "scored_series"
         cflags = conformal_flags(scores, calibration_scores, alpha=conformal_alpha)
         result["conformal_alpha"] = float(conformal_alpha)
         result["conformal_threshold"] = float(

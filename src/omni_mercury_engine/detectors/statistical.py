@@ -58,6 +58,11 @@ from omni_mercury_engine.core.governed_fusion import (
     InfoGeometryCertificate,
     mahalanobis_score_to_price_threshold,
 )
+from omni_mercury_engine.detectors._calibration import (
+    benjamini_hochberg,
+    conformal_cut,
+    conformal_p_values,
+)
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
@@ -205,13 +210,17 @@ class MercuryAnomalyDetector(BaseDetector):
             "scores fused by AUC-adaptive weights). The alarm fires when the "
             "fused [0, 1] score exceeds an operating point chosen, in priority "
             "order: Mondrian conformal calibration, a supervised calibrated "
-            "threshold, auto-calibration at the configured contamination, or an "
-            "unsupervised distribution-adaptive cut (Otsu valley split, else "
-            "median + 2 * 1.4826 * MAD); an explicitly configured threshold is "
+            "threshold, auto-calibration at the configured contamination, or the "
+            "one-class split-conformal quantile of the fit-time reference scores "
+            "(false-alarm budget reference_alpha, default 0.05, on data "
+            "exchangeable with the fit data); operating_point='adaptive' "
+            "selects the batch-relative cut (Otsu valley split, else median + "
+            "2 * 1.4826 * MAD) instead. An explicitly configured threshold is "
             "honoured exactly. No published threshold exists for the fused "
-            "score and no labelled corpus ships to calibrate a default "
-            "operating point; conformal/supervised calibration is "
-            "per-deployment."
+            "score; the conformal budget is the default because it is the one "
+            "the labelled measurement holds: held-out normal rows flagged "
+            "0.026-0.065 (mean 0.048) on five ADBench tables at alpha 0.05, "
+            "against 0.048-0.127 (mean 0.089) for the batch-relative cut."
         ),
     )
 
@@ -313,11 +322,41 @@ class MercuryAnomalyDetector(BaseDetector):
         # n=1 (single-point streaming) and inverted when a batch is
         # anomaly-majority (floods / sustained events).
         self._reference_scores: np.ndarray[Any, Any] | None = None
+        # The info-geometry component's own fit-time scores (sorted), the
+        # reference its post-hoc certificate is cut at: the fused reference
+        # above is on another scale.
+        self._reference_info_geometry: np.ndarray[Any, Any] | None = None
         self._reference_alpha: float = (
             float(config["reference_alpha"])
             if isinstance(config, dict) and "reference_alpha" in config
             else 0.05
         )
+        if not 0.0 < self._reference_alpha < 1.0:
+            raise ValueError(f"reference_alpha must lie in (0, 1), got {self._reference_alpha!r}")
+        # Default operating point when no threshold, calibration or conformal
+        # predictor is configured. "reference" cuts the fit-time reference at
+        # its split-conformal quantile (false-alarm budget ``reference_alpha``
+        # on data exchangeable with the fit data). "adaptive" restores the
+        # batch-relative cut (Otsu valley split, else median + 2 * 1.4826 *
+        # MAD). Measured on labelled data
+        # (tests/detectors/test_recorded_false_alarm_rates.py and
+        # tests/detectors/test_recorded_nab_series.py): held-out normal rows
+        # flagged 0.026-0.065 (mean 0.048) on five ADBench tables against
+        # 0.048-0.127 (mean 0.089) for "adaptive"; NAB-normal points 0.021
+        # against 0.120, NAB standard score 30.7 against -130.5.
+        _op = str(self.config.get("operating_point", "reference")).strip().lower()
+        if _op not in ("reference", "adaptive"):
+            raise ValueError(
+                "operating_point must be 'reference' or 'adaptive', got "
+                f"{self.config.get('operating_point')!r}"
+            )
+        self._operating_point: str = _op
+        # Benjamini-Hochberg level for the batch-level ``fdr_flags`` /
+        # ``batch_anomaly`` built from the conformal p-values (default: the
+        # same budget as the per-row cut).
+        self._fdr_level: float = float(self.config.get("fdr_level", self._reference_alpha))
+        if not 0.0 < self._fdr_level < 1.0:
+            raise ValueError(f"fdr_level must lie in (0, 1), got {self._fdr_level!r}")
         self._feature_medians: np.ndarray[Any, Any] | None = None
 
         # Adaptive component weights (set during fit)
@@ -2829,11 +2868,12 @@ class MercuryAnomalyDetector(BaseDetector):
             # No conformal predictor, supervised label, or explicit auto-
             # calibration was configured, and the caller did not pin a
             # threshold. A fixed 0.5 cut on the ensemble's compressed [0, 1]
-            # scores is an arbitrary operating point (strong ranking, broken
-            # threshold: high AUROC / near-zero F1). Derive the operating
-            # point from the score distribution itself. This is rank-
-            # preserving (AUROC/AUPRC unchanged) — only the cut location moves.
-            effective_threshold, calibration_diagnostics = self._adaptive_operating_point(
+            # scores is an arbitrary operating point. The default cuts the
+            # fit-time reference at its split-conformal quantile, so the
+            # false-alarm rate on data exchangeable with the fit data is
+            # bounded by ``reference_alpha`` whatever the batch holds. Both
+            # choices are rank-preserving (AUROC/AUPRC unchanged).
+            effective_threshold, calibration_diagnostics = self._default_operating_point(
                 combined_scores
             )
             is_anomaly = combined_scores > effective_threshold
@@ -2877,6 +2917,22 @@ class MercuryAnomalyDetector(BaseDetector):
             # scoring); empty mask on clean batches.
             "nan_rows": nan_rows,
         }
+        # Conformal p-values against the fit-time reference, and the
+        # Benjamini-Hochberg rejections they support. ``is_anomaly`` is a
+        # per-row test at ``reference_alpha``: OR-ed over a batch of n normal
+        # rows it fires with probability 1 - (1 - alpha)^n (0.994 at n = 100).
+        # Conformal p-values against one reference are PRDS, so BH at level q
+        # controls the false discovery rate at q, and under the global null
+        # (every row normal) the probability of *any* rejection is at most q
+        # (Bates, Candes, Lei, Romano & Sesia 2023, Ann. Statist. 51(1)).
+        # ``batch_anomaly`` is that batch-level verdict.
+        p_values = self._conformal_p_values(combined_scores)
+        if p_values is not None:
+            fdr_flags = self._benjamini_hochberg(p_values, self._fdr_level)
+            result["p_values"] = p_values
+            result["fdr_flags"] = fdr_flags
+            result["fdr_level"] = self._fdr_level
+            result["batch_anomaly"] = bool(fdr_flags.any())
         if self._info_geometry_certificate_enabled:
             certificate = self._info_geometry_certificate_payload(data, info_geo)
             if certificate is not None:
@@ -2909,10 +2965,17 @@ class MercuryAnomalyDetector(BaseDetector):
             x = x.reshape(-1, 1)
         if x.shape[1] != len(self._ig_mean):
             return None
-        # The component's own operating point, in the component's score space.
-        component_threshold, _ = self._adaptive_operating_point(
-            np.asarray(info_geo_scores, dtype=np.float64).reshape(-1)
-        )
+        # The component's own operating point, in the component's score space:
+        # the conformal cut of its fit-time scores, so it holds the same budget
+        # as the ensemble's default. The fused reference is on another scale
+        # and must not stand in for it; a legacy state without the component
+        # reference falls back to the batch-relative cut on the component.
+        component_threshold = self._conformal_cut(getattr(self, "_reference_info_geometry", None))
+        if component_threshold is None:
+            component_threshold, _ = self._adaptive_operating_point(
+                np.asarray(info_geo_scores, dtype=np.float64).reshape(-1),
+                use_reference=False,
+            )
         p_tau = mahalanobis_score_to_price_threshold(component_threshold, x.shape[1])
         cert = InfoGeometryCertificate(self._ig_mean, self._ig_cov_inv, p_tau)
         payload = cert.certify(x)
@@ -3288,9 +3351,14 @@ class MercuryAnomalyDetector(BaseDetector):
             if len(sample) > self._REFERENCE_MAX_SCORES:
                 idx = np.linspace(0, len(sample) - 1, self._REFERENCE_MAX_SCORES).astype(int)
                 sample = sample[idx]
-            scores, _ = self._compute_combined_scores(np.asarray(sample, dtype=np.float64))
+            scores, parts = self._compute_combined_scores(np.asarray(sample, dtype=np.float64))
             scores = np.asarray(scores, dtype=np.float64).reshape(-1)
             scores = scores[np.isfinite(scores)]
+            info_geo = parts.get("info_geometry")
+            if info_geo is not None:
+                info_geo = np.asarray(info_geo, dtype=np.float64).reshape(-1)
+                info_geo = info_geo[np.isfinite(info_geo)]
+                self._reference_info_geometry = np.sort(info_geo) if info_geo.size else None
             if scores.size:
                 self._reference_scores = np.sort(scores)
                 logger.info(
@@ -3301,6 +3369,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
         except Exception as exc:
             self._reference_scores = None
+            self._reference_info_geometry = None
             logger.warning("fit: reference-distribution computation failed: %s", exc)
 
     def _reference_threshold(self) -> float | None:
@@ -3313,13 +3382,23 @@ class MercuryAnomalyDetector(BaseDetector):
         ``None`` when no reference exists (legacy restored state), in which
         case callers keep their historical behaviour.
         """
+        return self._conformal_cut(getattr(self, "_reference_scores", None))
+
+    def _conformal_p_values(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
+        """Conformal p-values against the fit-time reference; ``None`` without one."""
         ref = getattr(self, "_reference_scores", None)
         if ref is None or len(ref) == 0:
             return None
-        n = len(ref)
-        k = int(np.ceil((n + 1) * (1.0 - self._reference_alpha)))
-        k = min(max(k, 1), n)
-        return float(ref[k - 1])
+        return conformal_p_values(ref, scores)
+
+    @staticmethod
+    def _benjamini_hochberg(p_values: np.ndarray[Any, Any], level: float) -> np.ndarray[Any, Any]:
+        """Benjamini-Hochberg (1995) step-up rejections at false discovery rate ``level``."""
+        return benjamini_hochberg(p_values, level)
+
+    def _conformal_cut(self, ref: np.ndarray[Any, Any] | None) -> float | None:
+        """``ceil((n + 1) * (1 - alpha))``-th smallest of sorted ``ref``; ``None`` if empty."""
+        return conformal_cut(ref, self._reference_alpha)
 
     # =====================================================================
     # Unsupervised operating-point calibration
@@ -3332,9 +3411,43 @@ class MercuryAnomalyDetector(BaseDetector):
     # suite (best full-suite F1 on a 0.55-0.60 plateau, no fragile boundary).
     _ADAPTIVE_VALLEY_DEPTH: float = 0.55
 
+    def _default_operating_point(
+        self,
+        scores: np.ndarray[Any, Any],
+    ) -> tuple[float, dict[str, Any]]:
+        """Operating point used when nothing else is configured.
+
+        ``operating_point="reference"`` (default): the fit-time reference cut
+        at its split-conformal quantile. Under exchangeability with the fit
+        data a normal row exceeds it with probability at most
+        ``reference_alpha`` (Vovk, Gammerman & Shafer 2005; Bates, Candes,
+        Lei, Romano & Sesia 2023, *Ann. Statist.* 51(1), "Testing for
+        outliers with conformal p-values"). The bound concerns new data: when
+        the batch scored is the batch the detector was fit on, the cut flags
+        about ``reference_alpha`` of it whatever the true contamination, so a
+        caller that knows the contamination should configure it
+        (``auto_calibrate`` + ``contamination``) instead.
+
+        ``operating_point="adaptive"``, or a legacy restored state without a
+        reference: the batch-relative cut of :meth:`_adaptive_operating_point`.
+        """
+        s = np.asarray(scores, float).reshape(-1)
+        ref_thr = self._reference_threshold()
+        if self._operating_point == "adaptive" or ref_thr is None:
+            return self._adaptive_operating_point(s)
+        return ref_thr, {
+            "method": "reference_conformal",
+            "regime": "fit_reference",
+            "alpha": self._reference_alpha,
+            "threshold": ref_thr,
+            "flagged_fraction": round(float(np.mean(s > ref_thr)), 4) if s.size else 0.0,
+        }
+
     def _adaptive_operating_point(
         self,
         scores: np.ndarray[Any, Any],
+        *,
+        use_reference: bool = True,
     ) -> tuple[float, dict[str, Any]]:
         """Derive an unsupervised decision threshold from the score distribution.
 
@@ -3356,8 +3469,20 @@ class MercuryAnomalyDetector(BaseDetector):
         The transform is rank-preserving: only the location of the cut changes,
         not the scores, so AUROC/AUPRC are unaffected.
 
+        Measured against labelled data this cut over-flags: the valley test
+        compares the density at the Otsu split with the *global* peak, so a
+        split in the thin upper tail of a unimodal distribution reads as a
+        valley and the Otsu branch fires (0.171 of held-out Gaussian noise
+        flagged; 0.089 of held-out ADBench normal rows on average). It is
+        used only when ``operating_point="adaptive"`` or no fit-time
+        reference exists; see :meth:`_default_operating_point`.
+
         Args:
-            scores: Ensemble anomaly scores in [0, 1], shape ``(n_samples,)``.
+            scores: Anomaly scores in [0, 1], shape ``(n_samples,)``.
+            use_reference: Consult the fit-time ensemble reference for the
+                degenerate and anomalous-bulk cases. ``False`` when ``scores``
+                are not ensemble scores (a single component's), whose scale
+                the reference does not describe.
 
         Returns:
             ``(threshold, diagnostics)`` — the chosen cut and a small dict
@@ -3366,7 +3491,7 @@ class MercuryAnomalyDetector(BaseDetector):
         s = np.asarray(scores, float).reshape(-1)
         n = s.size
         rng = float(np.ptp(s)) if n else 0.0
-        ref_thr = self._reference_threshold()
+        ref_thr = self._reference_threshold() if use_reference else None
 
         # Too few points or no spread to calibrate against. With a fit-time
         # reference the cut needs nothing from the batch at all; the old
@@ -4054,6 +4179,7 @@ class MercuryAnomalyDetector(BaseDetector):
             "data_type": self._data_type.value,
             "train_data": _arr(self._train_data),
             "reference_scores": _arr(self._reference_scores),
+            "reference_info_geometry": _arr(self._reference_info_geometry),
             "reference_alpha": float(self._reference_alpha),
             "feature_medians": _arr(self._feature_medians),
             "supervised_threshold": (
@@ -4107,6 +4233,7 @@ class MercuryAnomalyDetector(BaseDetector):
         # Operating-point reference (absent in legacy states: consumers fall
         # back to the historical batch-relative behaviour).
         self._reference_scores = _arr(state.get("reference_scores"))
+        self._reference_info_geometry = _arr(state.get("reference_info_geometry"))
         self._reference_alpha = float(state.get("reference_alpha", 0.05))
         self._feature_medians = _arr(state.get("feature_medians"))
         supervised = state.get("supervised_threshold")

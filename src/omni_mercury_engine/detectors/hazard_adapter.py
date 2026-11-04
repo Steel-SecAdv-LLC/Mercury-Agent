@@ -493,7 +493,7 @@ class TornadoConditionsAdapter(HazardRowAdapter):
     """
 
     decision_source = WrappedDecisionSource(
-        "omni_mercury_engine.detectors.geological.tornado_detector:TornadoDetector"
+        "omni_mercury_engine.detectors.meteorological.tornado_detector:TornadoDetector"
     )
 
     COLUMNS = ("cape_j_kg", "cin_j_kg", "srh_m2_s2", "bulk_shear_kt", "lcl_m")
@@ -506,7 +506,7 @@ class TornadoConditionsAdapter(HazardRowAdapter):
 
     def _analyze_row(self, row: np.ndarray[Any, Any]) -> tuple[float, bool, list[float]]:
         if self._detector is None:
-            from omni_mercury_engine.detectors.geological.tornado_detector import (
+            from omni_mercury_engine.detectors.meteorological.tornado_detector import (
                 TornadoDetector,
             )
 
@@ -538,7 +538,7 @@ class HurricanePressureAdapter(HazardRowAdapter):
     """
 
     decision_source = WrappedDecisionSource(
-        "omni_mercury_engine.detectors.geological.hurricane_detector:HurricaneDetector"
+        "omni_mercury_engine.detectors.meteorological.hurricane_detector:HurricaneDetector"
     )
 
     COLUMNS = ("central_pressure_mb", "environmental_pressure_mb", "sst_celsius")
@@ -551,7 +551,7 @@ class HurricanePressureAdapter(HazardRowAdapter):
 
     def _analyze_row(self, row: np.ndarray[Any, Any]) -> tuple[float, bool, list[float]]:
         if self._detector is None:
-            from omni_mercury_engine.detectors.geological.hurricane_detector import (
+            from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
                 HurricaneDetector,
             )
 
@@ -589,7 +589,7 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
     """
 
     decision_source = WrappedDecisionSource(
-        "omni_mercury_engine.detectors.geological.flood_detector:FloodDetector"
+        "omni_mercury_engine.detectors.meteorological.flood_detector:FloodDetector"
     )
 
     COLUMNS = (
@@ -607,7 +607,7 @@ class FloodPrecipitationAdapter(HazardRowAdapter):
 
     def _analyze_row(self, row: np.ndarray[Any, Any]) -> tuple[float, bool, list[float]]:
         if self._detector is None:
-            from omni_mercury_engine.detectors.geological.flood_detector import FloodDetector
+            from omni_mercury_engine.detectors.meteorological.flood_detector import FloodDetector
 
             self._detector = FloodDetector()
         result = self._detector.predict_flood(

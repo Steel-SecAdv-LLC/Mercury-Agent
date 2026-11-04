@@ -416,7 +416,7 @@ def flood_alert_level(deaths: float, displaced: float) -> str:
 
 # Saffir-Simpson Hurricane Wind Scale on 1-minute sustained wind in knots, as
 # GDACS (models_tc.aspx) and NHC band it. Keep in step with
-# detectors.geological.hurricane_detector, which a test checks knot by knot.
+# detectors.meteorological.hurricane_detector, which a test checks knot by knot.
 _SSHS_KT: tuple[tuple[float, str], ...] = (
     (137.0, "category_5"),
     (113.0, "category_4"),

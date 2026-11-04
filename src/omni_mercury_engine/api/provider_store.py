@@ -18,6 +18,11 @@ What is stored, and how:
   to keep a key at all, with the reason, rather than writing it in the
   clear: a key readable by anyone who can read the file would be worse than
   the environment it replaces.
+
+* The file is written ``0o600`` (owner-only). That mode is a **POSIX**
+  guarantee: on Windows ``chmod`` only toggles the read-only attribute and
+  sets no ACL, so the file's confidentiality there rests on the sealing
+  alone, and the first write on a non-POSIX host logs a warning saying so.
 * The endpoint and the model are plain fields; neither is a secret.
 * The file (``MERCURY_PROVIDER_STORE_PATH``, default
   ``$XDG_STATE_HOME/mercury-agent/providers.json``) is written atomically
@@ -114,6 +119,7 @@ class ProviderStore:
         self.path = path or default_store_path()
         self._sealer = sealer
         self._lock = threading.Lock()
+        self._warned_permissions = False
 
     # ------------------------------------------------------------------ file
     def _read(self) -> dict[str, Any]:
@@ -138,6 +144,17 @@ class ProviderStore:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(data, handle, indent=2, sort_keys=True)
             tmp.chmod(0o600)
+            if os.name != "posix" and not self._warned_permissions:
+                # chmod sets no NTFS ACL: say so once instead of implying the
+                # owner-only mode the docstring promises on POSIX.
+                self._warned_permissions = True
+                logger.warning(
+                    "provider store %s: this platform has no POSIX file modes, so the "
+                    "0o600 owner-only restriction is not enforced; the stored secrets "
+                    "remain sealed (AES-256-GCM), but restrict the directory's ACL "
+                    "yourself if other accounts can read it",
+                    self.path,
+                )
             tmp.replace(self.path)
         except BaseException:
             tmp.unlink(missing_ok=True)

@@ -58,22 +58,22 @@ an adapter entry and names the domain detector behind it.
 | `financial_crisis` | `FinancialCrisisRecordAdapter` | economic | record | serves `FinancialCrisisDetector` | Financial crisis prediction |
 | `financial_stress` | `FinancialStressAdapter` | economic | rows | -- | FinancialCrisisDetector over measured market and banking metric rows |
 | `emp` | `EMPRecordAdapter` | energy | record | serves `EMPDetector` | Electromagnetic pulse detection |
+| `wildfire` | `WildfireSceneAdapter` | fire | record | serves `WildfireDetector` | Wildfire fuels/ignition/spread prediction (NFDRS moisture, NDVI, FIRMS) |
 | `avalanche` | `AvalancheProfileAdapter` | geological | record | serves `AvalancheDetector` | Snowpack stability / SK38 skier-stability avalanche detector |
 | `eq_tsunami_cascade` | `EqTsunamiCascadeAdapter` | geological | event | serves `EqTsunamiCascadeDetector` | Earthquake -> tsunami cascade (PTWC-style screening on real events) |
 | `fire_debris_flow_cascade` | `FireDebrisFlowAdapter` | geological | record | serves `FireDebrisFlowCascadeDetector` | Wildfire -> post-fire debris-flow cascade (USGS Staley 2017 M1 + Cannon I-D) |
-| `flood_precipitation` | `FloodPrecipitationAdapter` | geological | rows | -- | FloodDetector over measured and forecast precipitation depth rows (inches) |
-| `hurricane_pressure` | `HurricanePressureAdapter` | geological | rows | -- | HurricaneDetector over (central_pressure_mb, environmental_pressure_mb, sst_celsius) |
 | `landslide` | `LandslideAdapter` | geological | rows | serves `LandslideDetector` | Landslide prediction |
 | `rockfall` | `RockfallAdapter` | geological | record | serves `RockfallDetector` | Rockfall detector with Fukuzono inverse-velocity failure forecasting |
 | `subsidence` | `SubsidenceAdapter` | geological | record | serves `SubsidenceDetector` | Subsidence/sinkhole detector over InSAR-style displacement series |
-| `tornado_conditions` | `TornadoConditionsAdapter` | geological | rows | -- | TornadoDetector over (cape_j_kg, cin_j_kg, srh_m2_s2, bulk_shear_kt, lcl_m) rows |
 | `volcanic` | `VolcanicAdapter` | geological | record | serves `VolcanicEruptionDetector` | Volcanic eruption prediction |
-| `wildfire` | `WildfireSceneAdapter` | geological | record | serves `WildfireDetector` | Wildfire prediction |
 | `marine_biodiversity` | `MarineEcosystemAdapter` | marine | rows | serves `MarineBiodiversityDetector` | Marine biodiversity threat detection |
 | `case_surge` | `CaseSurgeWindowAdapter` | medical | window | serves `CaseSurgeDetector` | Disease-surveillance case surge: week-on-week rise in daily counts, growth-implied R_e |
 | `sepsis` | `SepsisRecordAdapter` | medical | record | serves `SepsisDetector` | Possible-sepsis screen: Sepsis-3 qSOFA and SOFA (Singer et al., JAMA 2016) |
+| `flood_precipitation` | `FloodPrecipitationAdapter` | meteorological | rows | -- | FloodDetector over measured and forecast precipitation depth rows (inches) |
+| `hurricane_pressure` | `HurricanePressureAdapter` | meteorological | rows | -- | HurricaneDetector over (central_pressure_mb, environmental_pressure_mb, sst_celsius) |
 | `pm25_air_quality` | `PM25AirQualityAdapter` | meteorological | rows | serves `AirQualityDetector` | EPA PM2.5 Air Quality Index (40 CFR Part 58 Appendix G, 2024 breakpoints) |
 | `surge_flood_cascade` | `SurgeFloodCascadeAdapter` | meteorological | event | serves `SurgeFloodCascade` | Hurricane -> storm-surge -> coastal-flood cascade (CO-OPS residual) |
+| `tornado_conditions` | `TornadoConditionsAdapter` | meteorological | rows | -- | TornadoDetector over (cape_j_kg, cin_j_kg, srh_m2_s2, bulk_shear_kt, lcl_m) rows |
 | `acceleration_dynamics` | `AccelerationDynamicsDetector` | physics | series_1d | -- | Kinematic analysis with Lyapunov stability and phase space |
 | `physics_integrated` | `PhysicsIntegratedDetector` | physics | matrix_2d | fit | Unified physics detector with 3R and GOSNN integration |
 | `spectral_domain_frequency` | `SpectralDomainFrequency` | physics | series_1d | -- | Neuro-symbolic spectral-domain anomaly detection with per-band scoring |
@@ -109,10 +109,6 @@ an adapter entry and names the domain detector behind it.
 | `foundation_ensemble` | `FoundationEnsemble` | foundation | series_1d | -- | Ensemble of foundation model adapters |
 | `matrix_profile` | `MatrixProfileAdapter` | foundation | series_1d | -- | Matrix Profile for time-series anomalies (STUMPY-accelerated when installed) |
 | `earthquake` | `EarthquakeDetector` | geological | series_1d | -- | P/S-wave spectrogram + STA/LTA earthquake detection (USGS live catalog wiring) |
-| `flood` | `FloodDetector` | geological | series_1d | -- | Flood prediction with refactoring engine optimization |
-| `hurricane` | `HurricaneDetector` | geological | series_1d | -- | Hurricane/cyclone/typhoon prediction with SST and resonance amplification |
-| `meteor` | `MeteorDetector` | geological | series_1d | -- | Bayesian meteor/NEO threat assessment over NASA NeoWs + JPL fireball/Sentry |
-| `tornado` | `TornadoDetector` | geological | series_1d | -- | Tornado prediction with Doppler radar and FFT resonance analysis |
 | `tsunami` | `TsunamiDetector` | geological | series_1d | -- | Waveform-spectrum tsunami detection from observed sea-level series |
 | `intelligence_fusion` | `IntelligenceFusionEngine` | intelligence | record | -- | Multi-source intelligence fusion |
 | `psyop` | `PSYOPAnalyzer` | intelligence | series_1d | -- | Psychological operations analysis |
@@ -121,9 +117,12 @@ an adapter entry and names the domain detector behind it.
 | `derecho` | `DerechoDetector` | meteorological | series_1d | -- | Derecho swath detector (Johns & Hirt 1987 criteria) |
 | `drought` | `DroughtDetector` | meteorological | series_1d | -- | SPI/SPEI drought index detector (McKee et al. 1993; Vicente-Serrano et al. 2010) |
 | `dust_storm` | `DustStormDetector` | meteorological | series_1d | -- | Dust-storm/haboob detector (emission potential + visibility class) |
+| `flood` | `FloodDetector` | meteorological | series_1d | -- | Flood prediction with refactoring engine optimization |
 | `hail` | `HailDetector` | meteorological | series_1d | -- | SHIP significant-hail parameter detector (SPC formulation) |
 | `heatwave` | `HeatwaveDetector` | meteorological | series_1d | -- | Percentile-climatology heatwave detector with Excess Heat Factor (Perkins & Alexander 2013; Nairn & Fawcett 2015) |
+| `hurricane` | `HurricaneDetector` | meteorological | series_1d | -- | Hurricane/cyclone/typhoon prediction with SST and resonance amplification |
 | `lightning` | `LightningDetector` | meteorological | series_1d | -- | 2-sigma lightning jump severe-weather precursor (Schultz et al. 2009) |
+| `tornado` | `TornadoDetector` | meteorological | series_1d | -- | Tornado prediction with Doppler radar and FFT resonance analysis |
 | `winter_storm` | `WinterStormDetector` | meteorological | series_1d | -- | Winter/ice-storm detector (precip-type + FRAM ice accretion) |
 | `adversarial_autoencoder` | `AdversarialAutoencoderDetector` | model | matrix_2d | fit | Adversarial autoencoder reconstruction error with a latent discriminator |
 | `affective` | `AffectiveAnomalyModel` | model | record | -- | Emotional state anomalies |
@@ -138,6 +137,7 @@ an adapter entry and names the domain detector behind it.
 | `quantum` | `QuantumAnomalyModel` | model | matrix_2d | fit | Quantum state anomalies |
 | `neurosymbolic` | `NeurosymbolicEngine` | neurosymbolic | series_1d | -- | Hybrid neural-symbolic reasoning |
 | `realtime_threat` | `RealTimeThreatDetector` | security | matrix_2d | -- | Projection + kNN + robust-covariance ensemble, training-calibrated |
+| `meteor` | `MeteorDetector` | space | series_1d | -- | Bayesian meteor/NEO threat assessment over NASA NeoWs + JPL fireball/Sentry |
 | `schumann_resonance` | `SchumannResonanceDetector` | space | series_1d | -- | Earth resonance detection |
 | `solar_flare` | `SolarFlareDetector` | space | series_1d | covered by `xray_flare` | GOES X-ray flare classification with observed-Kp geomagnetic context |
 | `drone` | `DroneAnomalyDetector` | uav | series_1d | -- | Drone fault detection: RADD phase invariants + single-row Mercury ensemble |
@@ -246,10 +246,10 @@ Built and driven by the class(es) in the last column; not seams of their own.
 | `E2PulseDetector` | `detectors.energy.emp_detector` | E2 component detection (intermediate-time HEMP, lightning-like) | `EMPDetector` |
 | `E3PulseDetector` | `detectors.energy.emp_detector` | E3 component detection (magnetohydrodynamic EMP) | `EMPDetector` |
 | `IntentionalEMIDetector` | `detectors.energy.emp_detector` | Intentional electromagnetic interference (IEMI) detection | `EMPDetector` |
+| `FireIgnitionDetector` | `detectors.fire.wildfire` | CNN scoring fire activity from satellite-derived thermal rasters | `WildfireDetector` |
 | `InSARDeformationDetector` | `detectors.geological.volcanic` | InSAR ground deformation detection | `VolcanicEruptionDetector` |
 | `SeismicSwarmDetector` | `detectors.geological.volcanic` | Volcano-tectonic (VT) earthquake swarm detection | `VolcanicEruptionDetector` |
 | `ThermalHotspotDetector` | `detectors.geological.volcanic` | Thermal infrared (TIR) hotspot detection | `VolcanicEruptionDetector` |
-| `FireIgnitionDetector` | `detectors.geological.wildfire` | CNN scoring fire activity from satellite-derived thermal rasters | `WildfireDetector` |
 | `AnomalyDetector` | `detectors.lstm_ae` | Complete anomaly detection pipeline using LSTM-Autoencoder | `LSTMAutoencoderDetector` |
 | `CoralBleachingDetector` | `detectors.marine.biodiversity_detector` | Coral bleaching detection per NOAA Coral Reef Watch alert levels | `MarineBiodiversityDetector` |
 | `CUSUMDetector` | `detectors.statistical_extended` | Cumulative Sum (CUSUM) control chart for sequential anomaly detection | `ExtendedStatisticalDetector` |

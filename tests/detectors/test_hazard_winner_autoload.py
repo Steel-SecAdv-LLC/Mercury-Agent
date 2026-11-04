@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 WINNERS: list[tuple[str, str, str, str]] = [
     (
         "hurricane",
-        "omni_mercury_engine.detectors.geological.hurricane_detector",
+        "omni_mercury_engine.detectors.meteorological.hurricane_detector",
         "HurricaneDetector",
         "hurricane_era5",
     ),
@@ -40,7 +40,7 @@ WINNERS: list[tuple[str, str, str, str]] = [
     ),
     (
         "tornado",
-        "omni_mercury_engine.detectors.geological.tornado_detector",
+        "omni_mercury_engine.detectors.meteorological.tornado_detector",
         "TornadoDetector",
         "tornado_nexrad",
     ),
@@ -52,7 +52,7 @@ WINNERS: list[tuple[str, str, str, str]] = [
     ),
     (
         "wildfire",
-        "omni_mercury_engine.detectors.geological.wildfire",
+        "omni_mercury_engine.detectors.fire.wildfire",
         "WildfireDetector",
         "wildfire_firms",
     ),

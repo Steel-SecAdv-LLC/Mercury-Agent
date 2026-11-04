@@ -8,7 +8,7 @@ Every number on every chart comes from that JSON.  If a metric was not
 measured, the chart section shows "Not measured".
 
 Produces:
-  docs/images/neuro_symbolic_benchmark_report.png
+  docs/images/ensemble_benchmark_report.png
   docs/images/anomaly_detection_panel.png
   docs/images/mercury_performance_dashboard.png
   docs/images/benchmark_summary_live_data.png

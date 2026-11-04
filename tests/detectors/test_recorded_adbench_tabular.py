@@ -47,7 +47,14 @@ AUROC_TOLERANCE = 0.05
 MEASURED: dict[str, tuple[float, ...]] = {
     "adaptive_anomaly": (0.670, 0.883, 0.971, 1.000, 0.958),
     "info_geometry": (0.656, 0.890, 0.964, 0.975, 0.936),
-    "spatial": (0.587, 0.566, 0.564, 0.982, 0.835),
+    # Was (0.587, 0.566, 0.564, 0.982, 0.835) while query-time LOF dropped the
+    # neighbour's k-distance from the reachability distance (Breunig et al.
+    # 2000 define it as max(k-distance(o), d(p, o)), which fit used). With the
+    # definition restored: mean 0.707 -> 0.716; breastw falls because its
+    # training split holds 35% clustered anomalies, a dense cluster LOF reads
+    # as normal. Fit-time anchoring (batch-independent scores) moves the
+    # mean by -0.001.
+    "spatial": (0.606, 0.626, 0.493, 0.977, 0.874),
     "directive": (0.685, 0.925, 0.988, 0.954, 0.956),
     "realtime_threat": (0.675, 0.907, 0.986, 0.994, 0.972),
 }

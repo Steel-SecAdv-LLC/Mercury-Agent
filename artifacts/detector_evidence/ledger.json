@@ -1002,7 +1002,7 @@
   },
   "flood": {
    "cannot_detect": [],
-   "category": "GEOLOGICAL",
+   "category": "METEOROLOGICAL",
    "detects": [
     "physical_criterion",
     "threshold_exceedance"
@@ -1021,7 +1021,7 @@
   },
   "flood_precipitation": {
    "cannot_detect": [],
-   "category": "GEOLOGICAL",
+   "category": "METEOROLOGICAL",
    "detects": [
     "physical_criterion",
     "threshold_exceedance"
@@ -1284,7 +1284,7 @@
   },
   "hurricane": {
    "cannot_detect": [],
-   "category": "GEOLOGICAL",
+   "category": "METEOROLOGICAL",
    "detects": [
     "physical_criterion",
     "trend_drift"
@@ -1303,7 +1303,7 @@
   },
   "hurricane_pressure": {
    "cannot_detect": [],
-   "category": "GEOLOGICAL",
+   "category": "METEOROLOGICAL",
    "detects": [
     "physical_criterion",
     "threshold_exceedance"
@@ -1621,7 +1621,7 @@
   },
   "meteor": {
    "cannot_detect": [],
-   "category": "GEOLOGICAL",
+   "category": "SPACE",
    "detects": [
     "physical_criterion"
    ],
@@ -2694,7 +2694,7 @@
   },
   "tornado": {
    "cannot_detect": [],
-   "category": "GEOLOGICAL",
+   "category": "METEOROLOGICAL",
    "detects": [
     "physical_criterion",
     "burst_rate"
@@ -2713,7 +2713,7 @@
   },
   "tornado_conditions": {
    "cannot_detect": [],
-   "category": "GEOLOGICAL",
+   "category": "METEOROLOGICAL",
    "detects": [
     "physical_criterion",
     "threshold_exceedance"
@@ -2792,7 +2792,7 @@
   },
   "wildfire": {
    "cannot_detect": [],
-   "category": "GEOLOGICAL",
+   "category": "FIRE",
    "detects": [
     "physical_criterion",
     "threshold_exceedance"

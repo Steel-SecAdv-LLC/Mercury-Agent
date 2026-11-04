@@ -347,7 +347,7 @@ def _assert_winner_serving(domain: str, checkpoint: str, detector: Any) -> None:
 
 def _run_tornado(path: Path) -> dict[str, float]:
     """Sliding-window mesocyclone detection + warning lead time."""
-    from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
+    from omni_mercury_engine.detectors.meteorological.tornado_detector import TornadoDetector
 
     _assert_winner_serving("tornado", "tornado_nexrad", TornadoDetector())
     data = np.load(path)
@@ -381,7 +381,7 @@ def _run_tornado(path: Path) -> dict[str, float]:
 
 def _run_flood(path: Path) -> dict[str, float]:
     """Static flood detection + rain-before-crest warning lead time."""
-    from omni_mercury_engine.detectors.geological.flood_detector import FloodDetector
+    from omni_mercury_engine.detectors.meteorological.flood_detector import FloodDetector
 
     payload = json.loads(path.read_text())
     y_true, y_pred = [], []
@@ -410,7 +410,7 @@ def _run_flood(path: Path) -> dict[str, float]:
 
 def _run_hurricane(path: Path) -> dict[str, float]:
     """Cyclone detection from pressure deficit + wind-field kinematics."""
-    from omni_mercury_engine.detectors.geological.hurricane_detector import (
+    from omni_mercury_engine.detectors.meteorological.hurricane_detector import (
         HurricaneDetector,
         HurricanePredictionResult,
     )

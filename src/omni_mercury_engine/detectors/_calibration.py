@@ -399,3 +399,148 @@ def micro_residual_cut(
     """
     residuals, _ = pca_residuals(data_2d, basis)
     return float(np.percentile(residuals.flatten(), MICRO_RESIDUAL_QUANTILE))
+
+
+# ---------------------------------------------------------------------------
+# Conformal evidence against a fit-time reference
+# ---------------------------------------------------------------------------
+
+
+def conformal_cut(reference_sorted: np.ndarray[Any, Any] | None, alpha: float) -> float | None:
+    """One-class split-conformal cut: the ``ceil((n + 1)(1 - alpha))``-th smallest score.
+
+    Under exchangeability of a new normal row with the ``n`` reference rows it
+    exceeds the cut with probability at most ``alpha`` (Vovk, Gammerman &
+    Shafer 2005). ``None`` for an empty or missing reference.
+    """
+    if reference_sorted is None or len(reference_sorted) == 0:
+        return None
+    n = len(reference_sorted)
+    k = min(max(int(np.ceil((n + 1) * (1.0 - alpha))), 1), n)
+    return float(reference_sorted[k - 1])
+
+
+#: Share of the reference used as the peaks-over-threshold tail, and the
+#: fewest excesses a generalised-Pareto fit is attempted on.
+_TAIL_FRACTION = 0.10
+_TAIL_MIN_EXCESSES = 20
+
+
+def _gpd_moments(excesses: np.ndarray[Any, Any]) -> tuple[float, float]:
+    """Generalised-Pareto ``(shape, scale)`` by the method of moments.
+
+    For excesses with mean ``m`` and variance ``v``: shape ``0.5 * (1 - m^2 /
+    v)`` and scale ``0.5 * m * (m^2 / v + 1)`` (Hosking & Wallis 1987), the
+    estimator ``spot_evt`` uses. An exponential tail when the variance is
+    degenerate.
+    """
+    m = float(np.mean(excesses))
+    v = float(np.var(excesses))
+    if v < 1e-18 or m <= 0.0:
+        return 0.0, max(m, 1e-12)
+    ratio = m * m / v
+    return 0.5 * (1.0 - ratio), max(0.5 * m * (ratio + 1.0), 1e-12)
+
+
+def conformal_p_values(
+    reference_sorted: np.ndarray[Any, Any], scores: np.ndarray[Any, Any]
+) -> np.ndarray[Any, Any]:
+    """``(1 + #{reference >= s}) / (n + 1)`` per score, with a fitted tail past the reference.
+
+    Within the reference's range this is the conformal p-value, super-uniform
+    under exchangeability with the reference rows (``P(p <= a) <= a``).
+    Against one shared reference a batch's p-values are PRDS, so
+    Benjamini-Hochberg over them controls the false discovery rate (Bates,
+    Candes, Lei, Romano & Sesia 2023, *Ann. Statist.* 51(1)).
+
+    A score above every reference score gets the floor ``1 / (n + 1)`` from
+    the rank alone, which caps any batch-level test: Benjamini-Hochberg over
+    ``m`` rows at level ``q`` needs ``p <= q / m``, beyond a 1,000-row
+    reference's reach at ``m = 100``, ``q = 0.01``. Past the reference
+    maximum the p-value is therefore the generalised-Pareto tail fitted to the
+    top ``_TAIL_FRACTION`` of the reference (peaks over threshold;
+    Pickands-Balkema-de Haan; Siffer et al. 2017, KDD) with its shape held at
+    or above 0, never above the floor.
+    That extrapolation is asymptotic rather than finite-sample. Without
+    ``_TAIL_MIN_EXCESSES`` excesses the floor stands. Non-finite scores get
+    p = 1 (no evidence).
+    """
+    ref = np.asarray(reference_sorted, dtype=np.float64).reshape(-1)
+    s = np.asarray(scores, dtype=np.float64).reshape(-1)
+    n = ref.size
+    finite = np.isfinite(s)
+    at_least = n - np.searchsorted(ref, np.where(finite, s, -np.inf), side="left")
+    p = (1.0 + at_least) / (n + 1.0)
+    n_tail = int(np.ceil(_TAIL_FRACTION * n))
+    beyond = finite & (s > ref[-1]) if n else np.zeros(s.shape, dtype=bool)
+    if n_tail >= _TAIL_MIN_EXCESSES and n_tail < n and bool(beyond.any()):
+        threshold = float(ref[n - n_tail - 1])
+        excesses = ref[n - n_tail :] - threshold
+        if float(excesses.max()) > 0.0:
+            shape, scale = _gpd_moments(excesses)
+            # No finite endpoint: these scores are bounded or saturating, so
+            # the moment fit returns a negative shape whose endpoint sits just
+            # past the reference maximum, and a normal row landing beyond it
+            # got p = 0 (0.17 of all-normal 100-row batches called anomalous
+            # by the engine at a 0.05 budget). An exponential-or-heavier tail
+            # is conservative whenever the true tail is lighter.
+            shape = max(shape, 0.0)
+            z = (s[beyond] - threshold) / scale
+            if abs(shape) < 1e-8:
+                survival = np.exp(-z)
+            else:
+                inner = 1.0 + shape * z
+                with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+                    survival = np.where(inner > 0.0, inner ** (-1.0 / shape), 0.0)
+            tail_p = (n_tail / (n + 1.0)) * np.nan_to_num(survival, nan=0.0)
+            p[beyond] = np.minimum(1.0 / (n + 1.0), tail_p)
+    return np.asarray(np.where(finite, p, 1.0), dtype=np.float64)
+
+
+def benjamini_hochberg(p_values: np.ndarray[Any, Any], level: float) -> np.ndarray[Any, Any]:
+    """Benjamini-Hochberg (1995) step-up rejections at false discovery rate ``level``.
+
+    Under the global null (every row normal) with PRDS p-values the
+    probability of rejecting anything is at most ``level``.
+    """
+    p = np.asarray(p_values, dtype=np.float64).reshape(-1)
+    m = p.size
+    flags = np.zeros(m, dtype=bool)
+    if m == 0:
+        return flags
+    order = np.argsort(p, kind="stable")
+    passed = p[order] <= level * np.arange(1, m + 1) / m
+    if passed.any():
+        flags[order[: int(np.flatnonzero(passed)[-1]) + 1]] = True
+    return flags
+
+
+def batch_evidence(
+    reference_sorted: np.ndarray[Any, Any] | None,
+    scores: np.ndarray[Any, Any],
+    level: float = 0.05,
+) -> dict[str, Any]:
+    """``p_values`` / ``fdr_flags`` / ``fdr_level`` / ``batch_anomaly`` for a result.
+
+    Empty when no reference exists (a legacy state), so callers keep their
+    per-row verdict only. ``batch_anomaly`` is the batch-level test: OR-ing
+    per-row flags at level alpha over ``n`` normal rows fires with
+    probability ``1 - (1 - alpha)^n``; this fires with probability at most
+    ``level``.
+    """
+    if reference_sorted is None or len(reference_sorted) == 0:
+        return {}
+    p = conformal_p_values(reference_sorted, scores)
+    flags = benjamini_hochberg(p, level)
+    n = len(reference_sorted)
+    return {
+        "p_values": p,
+        "fdr_flags": flags,
+        "fdr_level": float(level),
+        "batch_anomaly": bool(flags.any()),
+        # The smallest p-value a row beyond the reference can receive: 0 once
+        # a tail is fitted (it decays without bound), else the rank floor.
+        "p_value_floor": (
+            0.0 if int(np.ceil(_TAIL_FRACTION * n)) >= _TAIL_MIN_EXCESSES else 1.0 / (n + 1.0)
+        ),
+    }

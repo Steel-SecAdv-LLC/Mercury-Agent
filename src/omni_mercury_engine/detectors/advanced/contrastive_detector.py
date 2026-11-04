@@ -370,9 +370,10 @@ class ContrastiveLearningDetector:
         kind="experimental",
         description=(
             "Fitted detector: is_anomaly fires above the threshold_percentile (default 95) "
-            "percentile of its own training scores, so about 5% of the training data alarms by "
-            "construction; no published threshold exists and no false-alarm rate is recorded for "
-            "the cut. Ranking on real labelled data is weak: held-out ROC-AUC 0.598 mean over "
+            "percentile of its training rows' leave-one-out k-NN scores (each row excluded "
+            "from its own neighbourhood); no published threshold exists. Held-out normal data "
+            "flagged 0.021-0.081 (Gaussian noise, AR(1), sine, ADBench cardio normals, a NAB "
+            "prefix) where the in-sample cut flagged up to 0.105. Ranking on real labelled data is weak: held-out ROC-AUC 0.598 mean over "
             "five ADBench datasets (Pima 0.550, breastw 0.890, WBC 0.686, cardio 0.403, thyroid "
             "0.461), below the shipped LOF reference's 0.661 and under 0.5 on two datasets "
             "(benchmarks/advanced_detector_auc.py)."
@@ -523,15 +524,28 @@ class ContrastiveLearningDetector:
 
             self.train_representations = np.concatenate(train_reps, axis=0)
 
-        # Compute threshold based on training distances
-        train_scores = self._compute_knn_scores(self.train_representations)
+        # Threshold from leave-one-out training distances: each training row is
+        # in the reference bank, so scoring it against the bank as-is counts
+        # its own zero distance among its k neighbours and understates how an
+        # unseen normal row scores. The in-sample cut flagged 0.105 of held-out
+        # Gaussian noise, AR(1) and ADBench cardio normals against the 0.05
+        # the 95th percentile names.
+        train_scores = self._compute_knn_scores(self.train_representations, exclude_self=True)
         self.threshold = float(np.percentile(train_scores, self.config.threshold_percentile))
 
         self._fitted = True
         return self
 
-    def _compute_knn_scores(self, representations: NDArray[np.float64]) -> NDArray[np.float64]:
-        """Compute k-NN based anomaly scores."""
+    def _compute_knn_scores(
+        self, representations: NDArray[np.float64], *, exclude_self: bool = False
+    ) -> NDArray[np.float64]:
+        """Mean squared L2 distance to the ``k`` nearest training representations.
+
+        Args:
+            representations: Rows to score.
+            exclude_self: The rows *are* the training bank (in the same order):
+                drop each row's own match so the score is leave-one-out.
+        """
         if self.train_representations is None:
             return np.zeros(len(representations))
 
@@ -554,9 +568,16 @@ class ContrastiveLearningDetector:
             train_sq = (train_reps**2).sum(axis=1, keepdims=True)
             dists = batch_sq + train_sq.T - 2 * batch @ train_reps.T
 
-            # k-NN distances
-            k = min(self.config.n_neighbors, n_train)
-            knn_dists = np.partition(dists, k, axis=1)[:, :k]
+            if exclude_self:
+                rows = np.arange(len(batch))
+                dists[rows, i + rows] = np.inf
+                available = n_train - 1
+            else:
+                available = n_train
+            # k-NN distances (``kth`` is the index of the k-th smallest, so
+            # ``k - 1``; ``k`` itself is out of range once k == n_train).
+            k = max(1, min(self.config.n_neighbors, available))
+            knn_dists = np.partition(dists, k - 1, axis=1)[:, :k]
             scores[i : i + len(batch)] = knn_dists.mean(axis=1)
 
         return scores

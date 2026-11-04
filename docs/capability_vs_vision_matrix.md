@@ -45,11 +45,13 @@ with an explicit "don't‑know" gate, without touching detection accuracy.
 
 **The `info_geometry_certificate` signal is deliberately a no‑op in the
 decision gate**, on measured evidence: that certificate's own contract
-certifies a *component's* boundary, not the fused/gated verdict, and its
-adaptive operating point is computed from the batch — in the single‑sample
-serve path it collapses to `price == threshold` (a point scored 4.1× over
-threshold in a batch of 9 reduces to exactly 1.0× at batch size 1), carrying
-no information that could soundly refine the fused decision. The gate
+certifies a *component's* boundary, not the fused/gated verdict, so it
+carries no information that could soundly refine the fused decision. (Its
+operating point used to be computed from the batch, and in the single‑sample
+serve path it collapsed to `price == threshold`: a point scored 4.1× over
+threshold in a batch of 9 reduced to exactly 1.0× at batch size 1. It is now
+the conformal quantile of the component's own fit‑time scores, independent of
+the batch.) The gate
 consumes the *authoritative* calibrated signal (the conformal set); the
 empirical‑coverage test confirms the guarantee survives the projection (zero
 gate‑vs‑certificate contradictions, ~94 % coverage at a 90 % target).

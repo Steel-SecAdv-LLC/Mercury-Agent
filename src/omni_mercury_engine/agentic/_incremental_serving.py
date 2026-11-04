@@ -233,10 +233,11 @@ class _SpatialServingCache(_ServingCache):
     """Incremental form of ``SpatialAnomalyDetector.detect`` for the last row.
 
     Both raw scorers are row-independent against fitted state (center
-    distance; LOF k-NN against the fit-time KDTree), so the reference batch's
-    raw scores are cached and only the batch min/max — exact under
-    comparison-based ``np.min``/``np.max`` — is updated with the new row
-    before replaying ``_safe_normalize``'s scalar arithmetic.
+    distance; LOF k-NN against the fit-time KDTree). A fitted detector
+    normalises each row against its fit-time anchors widened by that row, so
+    the replica reads those anchors; a legacy detector without them
+    normalises over the batch, so the reference batch's min/max is cached and
+    widened by the new row before replaying ``_safe_normalize``.
     """
 
     def __init__(self, detector: Any, reference: np.ndarray[Any, Any]) -> None:
@@ -245,6 +246,13 @@ class _SpatialServingCache(_ServingCache):
         self._radius = float(detector.radius_threshold)
         self._lof = detector.lof
         self._tree_ref = detector.lof._tree
+        if detector._distance_range is not None and detector._neg_lof_range is not None:
+            # Row-independent detector: each row is normalised against the
+            # fit-time anchors, so detect([R; x])[-1] == detect(x) and the
+            # replica uses the same anchors whatever R is.
+            self._distance_min, self._distance_max = detector._distance_range
+            self._neg_lof_min, self._neg_lof_max = detector._neg_lof_range
+            return
         ref_distance = np.asarray(detector._compute_distance_scores(reference), dtype=np.float64)
         ref_neg_lof = -np.asarray(detector.lof.decision_function(reference), dtype=np.float64)
         if not (np.all(np.isfinite(ref_distance)) and np.all(np.isfinite(ref_neg_lof))):

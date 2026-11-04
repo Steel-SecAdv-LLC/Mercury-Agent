@@ -155,7 +155,7 @@ class TestDetectorsLiveRoundTrip:
 
     def test_tornado_detect_live(self) -> None:
         pytest.importorskip("torch")
-        from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
+        from omni_mercury_engine.detectors.meteorological.tornado_detector import TornadoDetector
 
         detector = TornadoDetector(data_source=NWSWeatherAlertsSource())
         try:
@@ -167,7 +167,7 @@ class TestDetectorsLiveRoundTrip:
 
     def test_flood_detect_live(self) -> None:
         pytest.importorskip("torch")
-        from omni_mercury_engine.detectors.geological.flood_detector import FloodDetector
+        from omni_mercury_engine.detectors.meteorological.flood_detector import FloodDetector
 
         detector = FloodDetector(gauge_source=NOAANWPSSource())
         try:
@@ -192,7 +192,7 @@ class TestDetectorsLiveRoundTrip:
 
     def test_meteor_predict_live(self) -> None:
         pytest.importorskip("torch")
-        from omni_mercury_engine.detectors.geological.disaster_detectors import MeteorDetector
+        from omni_mercury_engine.space.meteor_detector import MeteorDetector
 
         detector = MeteorDetector(use_nasa_data=True)
         try:

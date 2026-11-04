@@ -173,8 +173,8 @@ DETECTOR_ROLES: dict[str, DetectorRole] = {
     "omni_mercury_engine.detectors.geological.volcanic:ThermalHotspotDetector": DetectorRole(
         "component", ("omni_mercury_engine.detectors.geological.volcanic:VolcanicEruptionDetector",)
     ),
-    "omni_mercury_engine.detectors.geological.wildfire:FireIgnitionDetector": DetectorRole(
-        "component", ("omni_mercury_engine.detectors.geological.wildfire:WildfireDetector",)
+    "omni_mercury_engine.detectors.fire.wildfire:FireIgnitionDetector": DetectorRole(
+        "component", ("omni_mercury_engine.detectors.fire.wildfire:WildfireDetector",)
     ),
     "omni_mercury_engine.detectors.lstm_ae:AnomalyDetector": DetectorRole(
         "component", ("omni_mercury_engine.detectors.lstm_ae:LSTMAutoencoderDetector",)

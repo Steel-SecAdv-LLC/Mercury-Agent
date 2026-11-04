@@ -27,6 +27,194 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Changed — detector taxonomy now matches the discipline.** Tornado
+(severe-storm meteorology, NEXRAD radar morphology), hurricane (tropical
+meteorology, ERA5 wind-field physics) and flood (hydrology,
+precipitation-runoff physics) sat in the `geological` category and in
+`detectors/geological/` modules; they are now `meteorological`, with their
+three hazard adapters, and the modules live in `detectors/meteorological/`.
+The meteor detector (NEO/bolide assessment over NASA NeoWs + JPL
+fireball/Sentry feeds) is space science and moved to
+`omni_mercury_engine.space.meteor_detector` under category `space`, joining
+the solar-flare detector that made the same move earlier. Wildfire (NFDRS
+fuel moisture, spread, NDVI, FIRMS) is wildland fire science — neither
+geology nor meteorology — and moved to a new `detectors/fire/` package under
+a new `fire` category; the post-fire debris-flow cascade (a geological
+hazard) stays in `geological`. Every old module path keeps a shim that
+re-exports every public name (and wildfire's module constants), so existing
+imports keep working (DEPRECATION.md "Relocated" entries); in-repo imports
+use the canonical paths. The console catalog is regenerated and the README
+scale block re-measured (its "111 detector-manifest entries" prose had
+already drifted from the real 113).
+
+**Added — the console shows its evidence.** The Mercury Console's tier runs
+take `--reference <fraction>` (the leading share of the loaded series becomes
+the known-normal probationary prefix; a file path is the CLI form) and every
+tier response now renders its `calibration_basis` — with a warning styling
+when a run is self-calibrated, so a parameter-set flag rate is never mistaken
+for evidence — plus the conformal cut, the α and flag count, and any
+`excluded_members` with the reason. The score line chart draws the conformal
+cut as its own labelled dashed series and the per-point cross-detector
+`uncertainty` (returned by the tier and previously dropped) as a translucent
+disagreement band; responses without those fields render exactly as before.
+All console changes are named patches in `scripts/build_console_port.py`
+(the design prototype stays verbatim), and the account dashboard's
+authenticated nav links the console it mints API keys for.
+
+**Fixed — the committed docs dashboards were stale and one was orphaned.**
+`docs/images/{anomaly_detection_panel,mercury_performance_dashboard,benchmark_summary_live_data}.png`
+are regenerated from the committed benchmark JSON, and
+`ensemble_benchmark_report.png` — renamed by an earlier fix so it stopped
+overwriting the neuro-symbolic demo figure, then never committed or cited —
+is committed and embedded in the README with the other measured dashboards.
+The generator's docstring names its real outputs.
+
+**Fixed — the default statistical detector flagged up to a fifth of normal
+data.** With no threshold or calibration configured, `MercuryAnomalyDetector`
+cut each batch with a batch-relative rule (Otsu split when a "valley" was
+found, else median + 2 * 1.4826 * MAD) chosen for F1. Its valley test compares
+the density at the split with the *global* peak, so a split in the thin upper
+tail of a unimodal distribution reads as a valley: it flagged 0.171 of held-out
+Gaussian noise, a mean 0.089 of held-out ADBench normal rows (0.127 on WBC),
+and 0.120 of NAB-normal points (0.407 on the AWS CloudWatch file). The default
+is now the fit-time reference cut at its one-class split-conformal quantile
+(`reference_alpha`, 0.05), which already served single rows and floods: 0.048
+mean on the same ADBench rows (0.026-0.065), 0.021 on NAB, NAB standard score
+-130.5 -> 30.7 at the same ranking. Recall moves little where fitted on normal
+rows (cardio 0.853 -> 0.827, thyroid 0.988 -> 0.963) and most on pima (0.329 ->
+0.158). `operating_point="adaptive"` restores the old cut. The bound covers new
+data: scoring the fit batch itself flags about alpha of it whatever its
+contamination, so callers who know the contamination should configure it
+(`auto_calibrate` + `contamination`). `reference_alpha` outside (0, 1) and an
+unknown `operating_point` are refused. Measured and pinned in
+`tests/detectors/test_recorded_false_alarm_rates.py`; `statistical` is now
+pinned in `tests/detectors/test_recorded_nab_series.py`, which also pins every
+series detector's NAB-normal false-alarm rate next to its AUROC and NAB score.
+
+**Fixed — the info-geometry certificate was cut on the wrong scale.** Its
+component threshold came from the batch-relative rule, whose degenerate (fewer
+than 8 rows) and anomalous-bulk branches return the *fused* reference cut, a
+value on another scale (0.577 against the component's own 0.617 on 8-feature
+Gaussian training data); in 4-row batches of normal rows its verdict flagged
+0.093 of them. The component now keeps its own fit-time scores (persisted in
+the fitted state) and is cut at their conformal quantile, independent of the
+batch: 0.055 of the same rows.
+
+**Fixed — `echo_state` alarmed on 0.188 of NAB-normal points.** Its fixed readout
+ridge of 1e-4 left a 101-parameter readout fitted to 169-282 probationary
+samples with an out-of-fold one-step error of 2.8-8.9 on the standardised
+series, worse than predicting the mean (1.0); on `rogue_agent_key_hold` it
+flagged 0.533 of the normal points. `ridge=None` (the default) now picks the
+penalty from a 1e-6..1e3 grid by out-of-fold error on the training folds the
+squash scale already uses: false-alarm rate 0.012, NAB standard score -368.3 ->
+44.5, AUROC 0.699 -> 0.629 (a ranking cost on these four files, recorded). On
+the adversarial shapes its own AUROC rose 0.786 -> 0.861 (ledger regenerated).
+
+**Fixed — `MultiScaleTransformerDetector` could not run at its defaults and never
+alarmed.** Three defects at the default `window_sizes=[10, 25, 50]`: every scale
+encodes the 50-step sequence but each positional table held `2 * ws` rows (a
+crash on the first batch); the Gaussian prior underflows to exact zeros on a
+50-step window and `F.kl_div` differentiated at a zero target is log(0), so the
+first optimiser step turned every weight NaN and every score NaN; and 2-D input
+returned one score per (window, position), 27,550 values for 600 rows. The KL
+now uses floored distributions, 2-D input is scored per row (mean over the
+windows containing it, cut on the same scale), and inference-time point
+adjustment -- an evaluation protocol that needs ground-truth segments -- is off
+by default: it grew alarms to every run above 0.8 of the cut and flagged 1.000
+of held-out noise where the cut alone flagged 0.043.
+
+**Fixed — `ContrastiveLearningDetector` calibrated against itself.** Training
+rows were scored against a reference bank that contains them, so each counted
+its own zero distance among its k neighbours and the 95th-percentile cut sat
+low: 0.105 of held-out noise, AR(1) and ADBench cardio normals flagged. The cut
+is now taken on leave-one-out scores (0.040-0.081 on the same data), and a bank
+no larger than `n_neighbors` no longer crashes `np.partition`.
+
+**Fixed — `engine.detect` called every normal batch anomalous.** Its batch
+verdict OR-ed every base detector's per-row flags, and three of the five
+scored a row relative to its batch-mates: `spatial` and `dimensional` min-max
+normalised each channel over the batch (its most extreme row scored ~1
+whatever its value), and `directive` blended three whole-batch scalars (column
+coherence; SHA3 entropy and chained-hash "checksums" of the batch's raw bytes;
+an FFT over all features flattened) into every row at 0.2 / 0.15 / 0.1. With
+all five fitted on 1,000 normal rows, every all-normal batch of 10 or 100 rows
+was called anomalous. Now:
+
+- `spatial` and `dimensional` normalise each channel against the training
+  rows' range widened by the row (the `[reference; row]` semantics the
+  agentic serving path already used) and cut at the training rows' 0.95
+  one-class split-conformal quantile; `dimensional` persists the anchors and
+  reference in its fitted state, `spatial` rebuilds them from its points.
+  Held-out Gaussian rows flagged 0.045 / 0.047 / 0.054 (spatial) and 0.051 /
+  0.058 / 0.063 (dimensional) at batch sizes 10 / 100 / 2,000, against 0.40 /
+  0.02 / 0.012 and 0.30 / 0.28 / 0.077.
+- `spatial`'s query-time LOF dropped the neighbour's k-distance from the
+  reachability distance (Breunig et al. 2000: max(k-distance(o), d(p, o)),
+  which fit used), so query and training densities were on different scales.
+  Restored; ADBench tabular AUROC mean 0.707 -> 0.716 (breastw 0.564 ->
+  0.493: its training split holds 35% clustered anomalies, a dense cluster
+  LOF reads as normal).
+- `directive`'s batch-scalar blends default to 0 (still computed and
+  reported): 0.043 / 0.046 / 0.049 of Gaussian rows by batch size against
+  0.103 / 0.062 / 0.045, breastw 0.201 -> 0.048, AUROC identical.
+- Every base detector keeps its training rows' scores as a reference and
+  reports conformal `p_values`, Benjamini-Hochberg `fdr_flags` and a
+  `batch_anomaly` test. Past the reference maximum the p-value follows a
+  generalised-Pareto tail fitted to the reference's top 10% (shape held >= 0:
+  with the moment fit's negative shape, rows past a near-max endpoint got
+  p = 0 and 0.17 of normal 100-row batches were flagged).
+- The engine tests each detector that reports p-values with BH at 0.05 / K
+  (union bound over K detectors, valid under any dependence). A detector
+  fitted on the batch it scores, or whose p-value floor cannot reach level /
+  m, keeps the per-row OR: fail-loud, not deaf. Measured: all-normal batches
+  flagged 0.050 (mean of 6 seeds, 10 rows), 0.008 (100 rows), 0.000 (1,000
+  rows); a batch with one +4-sigma row flagged every time at every size.
+
+`dimensional`'s NAB standard score falls 48.7 -> 22.7 at unchanged ranking
+(AUROC 0.533 -> 0.537): the batch-relative cut happened to sit at a 0.001
+false-alarm rate on those 1,000-row files and at 0.30 on 10-row batches; the
+cut is now the same 5% budget as the other detectors (0.025 on NAB).
+
+**Added — the detector tier takes a known-normal `reference`.** Without labels
+`run_tier_ensemble` fits, thresholds and conformal-calibrates on the series it
+scores, so its flag rate is set by the parameters, not by evidence (about
+`conformal_alpha` of any series by construction; the result now says so in
+`calibration_basis`). `reference=` (a probationary prefix or any known-normal
+stream, >= 8 points; `--reference` on `tier-detect`, `reference` on the MCP
+tool and `POST /detect/tier`) fits and calibrates the ensemble there and only
+scores the input. Measured on the four recorded NAB files (probation as the
+reference, alpha 0.05): conformal flags on 0.011-0.051 of the NAB-normal
+points, 0.048 of pure noise against a noise reference, an 8-sigma spike
+flagged. `labels` and `reference` are mutually exclusive (labels describe the
+scored series); `rca` is excluded under a different-length reference and
+recorded in `excluded_members` (it fits a node graph over its training
+points), and naming it in `subset` with such a reference is refused. The
+default path is byte-identical (adversarial ledger reproduced to the digit).
+
+**Added — `mercury_detect_anomaly` takes an optional `contamination`.** The MCP
+tool fits on the batch it scores, so its reference *is* the batch and the
+default cut flags about 5% of it whatever the true share; a stated share in
+(0, 0.5] cuts there instead (ADBench breastw scored on itself: F1 0.221 ->
+0.921 at its true 0.35). It sets the cut, not the ranking: a dense cluster
+fitted transductively still partly masks itself.
+
+**Corrected — the tier's unlabelled "conformal" flags are not evidence.**
+`docs/DETECTION_QUALITY.md` called them evidence-controlled. Without labels
+`run_tier_ensemble` calibrates them on the scored series itself, so they flag
+about `conformal_alpha` of it by construction (0.047 at alpha 0.05); the
+generator now says so. The fusion-hardening ADBench ledger was re-measured on
+the new `statistical.py` and reproduced mean AUROC 0.7745 on all 18 sets: the
+operating-point and p-value changes move the cut, not the ranking.
+
+**Measured, not changed.** `spiking` flags 0.528 of `rogue_agent_key_hold`'s
+normal points: the series idles at exactly zero for 13% of its probationary
+period and 59% of the rest, and the detector is driven by the deviation from the
+training mean, so the idle stretch reads as a sustained excursion -- a property
+of the drive, pinned rather than tuned. `srcnn`'s calibrated cut flags 0.102 of
+a stationary AR(1) held-out half (0.045-0.24 by seed); a cross-fitted cut (0.202)
+and a same-model held-out split (0.147, NAB AUROC 0.385) were both measured
+worse, because the score scale moves with each training run.
+
 **Fixed — every Trivy job on main failed on an unchanged repository.** Right
 after PR #394 merged, "Install Trivy binary" failed in ci.yml's Docker Build
 and security.yml's Container Security Scan with curl's exit code 6, three runs

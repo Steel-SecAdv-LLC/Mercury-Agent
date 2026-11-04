@@ -173,6 +173,43 @@ class TestTierDetect:
         flagged = {i for i, f in enumerate(payload["conformal_flags"]) if f}
         assert flagged & set(range(95, 115))
 
+    def test_tier_detect_reference_anchors_the_calibration(self, tmp_path: Path) -> None:
+        """--reference fits on known-normal data; the input is only scored."""
+        import json
+
+        import numpy as np
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main
+
+        rng = np.random.default_rng(5)
+        series = rng.normal(0, 1, 200)
+        series[50] += 8.0
+        series_csv = tmp_path / "series.csv"
+        reference_csv = tmp_path / "reference.csv"
+        np.savetxt(series_csv, series, delimiter=",")
+        np.savetxt(reference_csv, rng.normal(0, 1, 150), delimiter=",")
+
+        result = CliRunner().invoke(
+            main,
+            [
+                "tier-detect",
+                "-i",
+                str(series_csv),
+                "--reference",
+                str(reference_csv),
+                "--subset",
+                "spectral_residual,spot_evt,bocpd",
+                "--conformal-alpha",
+                "0.05",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)
+        assert payload["fit_on"] == "reference"
+        assert payload["calibration_basis"] == "reference"
+        assert payload["conformal_flags"][50] == 1
+
 
 class TestRca:
     """`mercury-agent rca` localizes a multivariate anomaly to root-cause nodes."""
