@@ -14,9 +14,11 @@ measured before the fix:
    threshold, so ``score > threshold`` could never hold.
 3. **One NaN cell** — propagated into the batch threshold (NaN), silencing
    every flag including a 50-sigma outlier.
-4. **False-alarm control** — the fix must not inflate the all-normal flag
-   rate (measured unchanged at 0.038) or move the real-data benchmark
-   (8 ADBench sets: AUROC and F1 identical to 4 decimals before/after).
+4. **False-alarm control** — the all-normal flag rate must stay near the
+   conformal budget. The reference cut is now the default for every batch,
+   not only the degenerate and anomalous-bulk ones: the batch-relative cut it
+   replaced flagged 0.089 of held-out ADBench normal rows on average
+   (``tests/detectors/test_recorded_false_alarm_rates.py``).
 """
 
 from __future__ import annotations
@@ -62,9 +64,17 @@ class TestAnomalyMajorityFlood:
     def test_anomalous_bulk_regime_is_reported(
         self, fitted_detector: StatisticalAnomalyDetector
     ) -> None:
+        """The default reports the fit-reference cut; the batch-relative mode
+        still falls back to it, as ``anomalous_bulk``, when the bulk is abnormal."""
         rng = np.random.default_rng(3)
         X = rng.normal(6.0, 1.0, (100, 8))
         diag = fitted_detector.detect(X)["calibration_diagnostics"]
+        assert diag is not None and diag.get("regime") == "fit_reference"
+        assert diag.get("method") == "reference_conformal"
+
+        adaptive = StatisticalAnomalyDetector({"operating_point": "adaptive"})
+        adaptive.fit(np.random.default_rng(0).normal(0.0, 1.0, (500, 8)))
+        diag = adaptive.detect(X)["calibration_diagnostics"]
         assert diag is not None and diag.get("regime") == "anomalous_bulk"
         assert diag.get("method") == "reference_conformal"
 
@@ -132,21 +142,29 @@ class TestFalseAlarmControl:
         flags = np.asarray(
             fitted_detector.detect(rng.normal(0.0, 1.0, (500, 8)))["is_anomaly"], dtype=bool
         )
-        # The adaptive path still serves normal-bulk batches; its false-alarm
-        # rate was 0.038 before the change and must not inflate past the
-        # conformal budget's neighbourhood.
+        # The fit-time conformal cut serves every batch; its false-alarm
+        # rate must stay in the neighbourhood of the 0.05 budget.
         assert flags.mean() <= 0.10
 
-    def test_normal_bulk_batches_keep_the_adaptive_path(
+    def test_normal_bulk_batches_use_the_fit_reference(
         self, fitted_detector: StatisticalAnomalyDetector
     ) -> None:
-        """Benchmark-compat pin: contaminated-minority batches must keep the
-        benchmark-selected adaptive operating point (measured byte-identical
-        AUROC/F1 on 8 ADBench sets across this change)."""
+        """Contaminated-minority batches are cut at the fit-time reference too.
+
+        They used to keep the batch-relative adaptive cut, selected for F1,
+        which flagged 0.089 of held-out ADBench normal rows on average against
+        the 0.048 the reference cut flags at alpha 0.05
+        (tests/detectors/test_recorded_false_alarm_rates.py);
+        ``operating_point="adaptive"`` still selects it.
+        """
         rng = np.random.default_rng(8)
         X = np.vstack([rng.normal(0.0, 1.0, (95, 8)), rng.normal(6.0, 1.0, (5, 8))])
-        diag = fitted_detector.detect(X)["calibration_diagnostics"]
-        assert diag is not None and diag.get("method") == "adaptive"
+        result = fitted_detector.detect(X)
+        diag = result["calibration_diagnostics"]
+        assert diag is not None and diag.get("method") == "reference_conformal"
+        flags = np.asarray(result["is_anomaly"], dtype=bool)
+        assert flags[95:].all(), "the +6-sigma rows must be flagged"
+        assert flags[:95].mean() <= 0.10
 
 
 class TestReferenceDistributionContract:

@@ -13,8 +13,13 @@ Tests cover:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.detectors.advanced import MultiScaleTransformerDetector
 
 # Every test in this module instantiates a Mercury detector whose
 # constructor / forward path requires torch (LSTM, ResNet, etc.).
@@ -164,8 +169,92 @@ class TestMultiScaleTransformerDetector:
         assert result["detector_type"] == "MultiScaleTransformer"
 
 
+class TestMultiScaleTransformerDefaults:
+    """The default window sizes ``[10, 25, 50]`` used to fail three ways at once."""
+
+    @staticmethod
+    def _fitted() -> tuple[MultiScaleTransformerDetector, np.ndarray]:
+        import torch
+
+        from omni_mercury_engine.detectors.advanced import MultiScaleTransformerDetector
+
+        rows = np.random.default_rng(0).standard_normal((700, 4))
+        torch.manual_seed(0)
+        detector = MultiScaleTransformerDetector(seed=0, epochs=2, d_model=32, n_heads=4)
+        detector.fit(rows[:400])
+        return detector, rows[400:]
+
+    def test_default_windows_fit_without_crashing(self) -> None:
+        """Every scale sees the 50-step sequence; its positional table held 20."""
+        detector, _ = self._fitted()
+        assert detector.config.window_sizes == [10, 25, 50]
+        assert np.isfinite(detector.threshold)
+
+    def test_scores_are_finite_after_training(self) -> None:
+        """The Gaussian prior underflows to 0 at a 50-step window, and the KL
+        gradient with respect to a zero target is log(0): one optimiser step
+        made every weight NaN, so every score was NaN and nothing alarmed."""
+        detector, held_out = self._fitted()
+        scores = np.asarray(detector.predict(held_out))
+        assert np.isfinite(scores).all()
+
+    def test_two_dimensional_input_is_scored_per_row(self) -> None:
+        """One score per input row, not one per (window, position)."""
+        detector, held_out = self._fitted()
+        result = detector.detect(held_out)
+        assert np.asarray(result["anomaly_score"]).shape == (len(held_out),)
+        assert np.asarray(result["is_anomaly"]).shape == (len(held_out),)
+
+    def test_noise_is_flagged_near_the_training_percentile(self) -> None:
+        """Measured 0.043 on held-out noise; inference-time point adjustment,
+        the old default, flagged 1.000 of it at the default size."""
+        detector, held_out = self._fitted()
+        assert detector.config.use_point_adjustment is False
+        flags = np.asarray(detector.detect(held_out)["is_anomaly"], dtype=bool)
+        assert flags.mean() <= 0.10
+
+    def test_a_spike_outranks_the_noise(self) -> None:
+        detector, held_out = self._fitted()
+        spiked = held_out.copy()
+        spiked[150] += 8.0
+        scores = np.asarray(detector.predict(spiked))
+        assert float(np.mean(scores < scores[150])) > 0.95
+
+
 class TestContrastiveLearningDetector:
     """Tests for ContrastiveLearningDetector."""
+
+    def test_threshold_is_calibrated_leave_one_out(self) -> None:
+        """Training rows are in the reference bank; their own zero distance must not count."""
+        import torch
+
+        from omni_mercury_engine.detectors.advanced import ContrastiveLearningDetector
+
+        rows = np.random.default_rng(0).standard_normal((700, 4))
+        torch.manual_seed(0)
+        detector = ContrastiveLearningDetector(input_dim=4, epochs=2, batch_size=64)
+        detector.fit(rows[:400])
+        bank = detector.train_representations
+        assert bank is not None
+        loo = detector._compute_knn_scores(bank, exclude_self=True)
+        in_sample = detector._compute_knn_scores(bank)
+        assert detector.threshold == pytest.approx(
+            float(np.percentile(loo, detector.config.threshold_percentile))
+        )
+        assert float(np.median(loo)) > float(np.median(in_sample))
+
+    def test_a_bank_no_larger_than_k_scores(self) -> None:
+        """``np.partition`` at ``kth == n_train`` was out of range."""
+        import torch
+
+        from omni_mercury_engine.detectors.advanced import ContrastiveLearningDetector
+
+        torch.manual_seed(0)
+        detector = ContrastiveLearningDetector(input_dim=4, epochs=1, batch_size=8)
+        k = detector.config.n_neighbors
+        detector.fit(np.random.default_rng(1).standard_normal((k + 1, 4)))
+        scores = detector.predict(np.random.default_rng(2).standard_normal((5, 4)))
+        assert np.isfinite(scores).all()
 
     def test_initialization(self) -> None:
         """Test detector initialization."""

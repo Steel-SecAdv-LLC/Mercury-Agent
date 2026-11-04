@@ -829,7 +829,12 @@ class MercuryMCPServer:
                 "scores": [round(float(s), 6) for s in scores],
                 "is_anomaly": [bool(f) for f in flags],
                 "n_anomalies": int(flags.sum()),
-                "note": "unsupervised batch scoring (fit on the supplied batch)",
+                "note": (
+                    "unsupervised batch scoring (fit on the supplied batch); the cut is "
+                    "the batch's own 95% conformal quantile, so about 5% of rows are "
+                    "flagged whatever the true anomaly share; rank by 'scores' instead "
+                    "of counting flags when that share may be larger"
+                ),
             }
         )
 

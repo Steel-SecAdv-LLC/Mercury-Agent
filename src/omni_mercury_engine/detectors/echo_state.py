@@ -40,6 +40,16 @@ __all__ = ["EchoStateDetector"]
 
 _LN2 = float(np.log(2.0))
 
+#: Readout ridge penalties :meth:`EchoStateDetector.fit` chooses from when
+#: ``ridge`` is ``None``: the one with the lowest out-of-fold one-step squared
+#: error over the contiguous calibration folds (ridge chosen on held-out
+#: prediction error, as Lukosevicius (2012) prescribes for ESN readouts).
+_RIDGE_GRID: tuple[float, ...] = tuple(float(10.0**e) for e in range(-6, 4))
+
+#: Penalty used when the series is too short to hold a fold out, so no
+#: held-out error exists to choose by (the fixed default before selection).
+_FALLBACK_RIDGE: float = 1e-4
+
 
 class EchoStateDetector(BaseDetector):
     """Echo-State-Network one-step-ahead predictive residual detector.
@@ -58,7 +68,9 @@ class EchoStateDetector(BaseDetector):
             "readout over a fixed spectral-radius-scaled random reservoir, "
             "squashed by 1 - exp(-s / scale) with the scale anchored at the "
             "configured quantile (default 0.98) of residuals the readout did "
-            "not train on, pooled over cross-fitting folds; the decision "
+            "not train on, pooled over cross-fitting folds; the readout's ridge "
+            "penalty is chosen on the same folds by out-of-fold one-step error "
+            "unless configured; the decision "
             "threshold is the configured operating point, default 0.5 on the "
             "normalized score. The ESN is published; the residual "
             "squash/threshold is the engine's quantile-anchored convention."
@@ -75,7 +87,7 @@ class EchoStateDetector(BaseDetector):
         spectral_radius: float = 0.9,
         leak_rate: float = 0.3,
         input_scaling: float = 1.0,
-        ridge: float = 1e-4,
+        ridge: float | None = None,
         calibration_quantile: float = 0.98,
         calibration_folds: int = 5,
         seed: int = 0,
@@ -90,6 +102,13 @@ class EchoStateDetector(BaseDetector):
             leak_rate: Leaky-integrator rate in ``(0, 1]``.
             input_scaling: Scale applied to the input weights. Must be > 0.
             ridge: Tikhonov regularisation for the readout. Must be > 0.
+                ``None`` (default) chooses it in :meth:`fit` from
+                ``_RIDGE_GRID`` by out-of-fold one-step squared error. The
+                fixed 1e-4 this replaced left a 101-parameter readout fitted
+                to NAB's 169-282-sample probationary periods with an
+                out-of-fold error of 2.8-8.9 on the standardised series --
+                worse than predicting the mean (1.0) -- and it alarmed on
+                0.188 of the normal points (0.533 on one file).
             calibration_quantile: Out-of-fold residual quantile at the 0.5
                 boundary; ``1 - calibration_quantile`` is the normal-regime
                 FPR *while the normal regime is stationary*. In ``(0, 1)``.
@@ -109,7 +128,7 @@ class EchoStateDetector(BaseDetector):
             raise ValueError("spectral_radius must be > 0")
         if not 0.0 < leak_rate <= 1.0:
             raise ValueError(f"leak_rate must be in (0, 1], got {leak_rate}")
-        if input_scaling <= 0.0 or ridge <= 0.0:
+        if input_scaling <= 0.0 or (ridge is not None and ridge <= 0.0):
             raise ValueError("input_scaling and ridge must be > 0")
         if not 0.0 < calibration_quantile < 1.0:
             raise ValueError(f"calibration_quantile must be in (0, 1), got {calibration_quantile}")
@@ -119,7 +138,10 @@ class EchoStateDetector(BaseDetector):
         self.spectral_radius = float(spectral_radius)
         self.leak_rate = float(leak_rate)
         self.input_scaling = float(input_scaling)
-        self.ridge = float(ridge)
+        self.ridge: float | None = None if ridge is None else float(ridge)
+        # The penalty the fitted readout uses: ``ridge`` when configured, else
+        # the out-of-fold choice made in :meth:`fit`.
+        self._ridge: float = _FALLBACK_RIDGE if ridge is None else float(ridge)
         self.calibration_quantile = float(calibration_quantile)
         self.calibration_folds = int(calibration_folds)
         self.seed = int(seed)
@@ -228,20 +250,98 @@ class EchoStateDetector(BaseDetector):
             x_train = aug[:-1]
             y_train = u[1:]
             d = x_train.shape[1]
-            gram = x_train.T @ x_train + self.ridge * np.eye(d)
+            self._ridge = self._select_ridge(x_train, y_train, d)
+            gram = x_train.T @ x_train + self._ridge * np.eye(d)
             self._w_out = np.linalg.solve(gram, x_train.T @ y_train)
-            self._scale = self._squash_scale(self._out_of_fold_residuals(x_train, y_train, d))
+            self._scale = self._squash_scale(
+                self._out_of_fold_residuals(x_train, y_train, d, self._ridge)
+            )
         else:
             self._w_out = np.zeros((self.reservoir_size + 1,), dtype=np.float64)
             self._scale = self._squash_scale(self._residuals(series))
         self._is_fitted = True
         return self
 
+    def _select_ridge(
+        self,
+        x_train: np.ndarray[Any, Any],
+        y_train: np.ndarray[Any, Any],
+        n_parameters: int,
+    ) -> float:
+        """The configured ridge, else the grid value with least out-of-fold error.
+
+        Each candidate is scored by the mean squared one-step residual of
+        readouts that never saw the samples they predict (the contiguous
+        folds of :meth:`_out_of_fold_residuals`); ties go to the larger,
+        safer penalty. A series too short to hold a fold out keeps
+        ``_FALLBACK_RIDGE``.
+        """
+        if self.ridge is not None:
+            return self.ridge
+        folds = self._folds(x_train, y_train, n_parameters)
+        if not folds:
+            return _FALLBACK_RIDGE
+        eye = np.eye(n_parameters)
+        best_ridge, best_error = _FALLBACK_RIDGE, float("inf")
+        for candidate in _RIDGE_GRID:
+            squared = [
+                (y_held - x_held @ np.linalg.solve(gram + candidate * eye, xty)) ** 2
+                for gram, xty, x_held, y_held in folds
+            ]
+            error = float(np.mean(np.concatenate(squared)))
+            if np.isfinite(error) and error <= best_error:
+                best_ridge, best_error = candidate, error
+        return best_ridge
+
+    def _folds(
+        self,
+        x_train: np.ndarray[Any, Any],
+        y_train: np.ndarray[Any, Any],
+        n_parameters: int,
+    ) -> list[tuple[np.ndarray[Any, Any], ...]]:
+        """``(gram, X^T y, x_held, y_held)`` per contiguous fold that can be held out.
+
+        A fold is skipped when its complement holds fewer than half the
+        readout's parameters.  The Gram matrices do not depend on the ridge,
+        so they are formed once and every penalty costs one small solve.
+        """
+        n = x_train.shape[0]
+        edges = np.linspace(0, n, self.calibration_folds + 1).astype(int)
+        folds: list[tuple[np.ndarray[Any, Any], ...]] = []
+        for first, last in pairwise(edges):
+            if last - first < 1:
+                continue
+            kept = np.ones(n, dtype=bool)
+            kept[first:last] = False
+            if int(kept.sum()) < n_parameters // 2:
+                continue
+            x_kept, y_kept = x_train[kept], y_train[kept]
+            folds.append(
+                (x_kept.T @ x_kept, x_kept.T @ y_kept, x_train[first:last], y_train[first:last])
+            )
+        return folds
+
+    def _fold_residuals(
+        self,
+        x_train: np.ndarray[Any, Any],
+        y_train: np.ndarray[Any, Any],
+        n_parameters: int,
+        ridge: float,
+    ) -> np.ndarray[Any, Any] | None:
+        """Pooled absolute out-of-fold residuals at ``ridge``; ``None`` if no fold fits."""
+        eye = ridge * np.eye(n_parameters)
+        pooled = [
+            np.abs(y_held - x_held @ np.linalg.solve(gram + eye, xty))
+            for gram, xty, x_held, y_held in self._folds(x_train, y_train, n_parameters)
+        ]
+        return np.concatenate(pooled) if pooled else None
+
     def _out_of_fold_residuals(
         self,
         x_train: np.ndarray[Any, Any],
         y_train: np.ndarray[Any, Any],
         n_parameters: int,
+        ridge: float,
     ) -> np.ndarray[Any, Any]:
         """Pool the residuals of readouts that never saw the samples they score.
 
@@ -257,29 +357,17 @@ class EchoStateDetector(BaseDetector):
             x_train: ``(n, n_parameters)`` augmented reservoir states.
             y_train: ``(n,)`` normalised next-sample targets.
             n_parameters: Readout parameter count (``x_train.shape[1]``).
+            ridge: Readout penalty the folds are fitted with.
 
         Returns:
             The pooled absolute out-of-fold residuals, or the in-sample ones
             when no fold could be held out.
         """
-        n = x_train.shape[0]
-        eye = self.ridge * np.eye(n_parameters)
-        edges = np.linspace(0, n, self.calibration_folds + 1).astype(int)
-        pooled: list[np.ndarray[Any, Any]] = []
-        for first, last in pairwise(edges):
-            if last - first < 1:
-                continue
-            kept = np.ones(n, dtype=bool)
-            kept[first:last] = False
-            if int(kept.sum()) < n_parameters // 2:
-                continue
-            x_kept, y_kept = x_train[kept], y_train[kept]
-            w = np.linalg.solve(x_kept.T @ x_kept + eye, x_kept.T @ y_kept)
-            pooled.append(np.abs(y_train[first:last] - x_train[first:last] @ w))
-        if not pooled:
+        pooled = self._fold_residuals(x_train, y_train, n_parameters, ridge)
+        if pooled is None:
             assert self._w_out is not None
             return np.abs(y_train - x_train @ self._w_out)
-        return np.concatenate(pooled)
+        return pooled
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion feature: the standardised readout residual.

@@ -9,7 +9,7 @@
    "src/omni_mercury_engine/api/server.py": "cdbf570a517f42d87ce32574a6accaf99d45fb6c",
    "src/omni_mercury_engine/detectors/detection_tier.py": "bd9bfe229b4dabab417ffb449af9e5812e9c8714"
   },
-  "commit": "c2861c9e67696d2c61ed4590996ace6f190fa948",
+  "commit": "bd25df23022da3bbcbd71ada02b2624ca6ac0b1e",
   "n": 300,
   "seeds": [
    0,
@@ -68,9 +68,9 @@
     "fpr": 0.0889
    },
    "tier_average": {
-    "auroc": 0.7675,
-    "recall": 0.0834,
-    "fpr": 0.0462
+    "auroc": 0.7728,
+    "recall": 0.1167,
+    "fpr": 0.0426
    },
    "fusion_series_flagged": 2,
    "runs": 2
@@ -97,9 +97,9 @@
     "fpr": 0.0125
    },
    "tier_average": {
-    "auroc": 0.6218,
-    "recall": 0.08,
-    "fpr": 0.035
+    "auroc": 0.6186,
+    "recall": 0.085,
+    "fpr": 0.0325
    },
    "fusion_series_flagged": 2,
    "runs": 2
@@ -184,7 +184,7 @@
     "fpr": 0.0508
    },
    "tier_average": {
-    "auroc": 0.9255,
+    "auroc": 0.9437,
     "recall": 0.3,
     "fpr": 0.0458
    },
@@ -246,114 +246,114 @@
     "recall": 0.2,
     "fpr": 0.0,
     "conformal_flag_rate": 0.0467,
-    "conformal_fpr": 0.0035
+    "conformal_fpr": 0.007
    },
    "0.05": {
     "flag_rate": 0.05,
     "recall": 0.8667,
     "fpr": 0.007,
     "conformal_flag_rate": 0.0467,
-    "conformal_fpr": 0.0035
+    "conformal_fpr": 0.007
    },
    "0.1": {
     "flag_rate": 0.1,
     "recall": 1.0,
     "fpr": 0.0526,
     "conformal_flag_rate": 0.0467,
-    "conformal_fpr": 0.0035
+    "conformal_fpr": 0.007
    },
    "0.2": {
     "flag_rate": 0.2,
     "recall": 1.0,
     "fpr": 0.1579,
     "conformal_flag_rate": 0.0467,
-    "conformal_fpr": 0.0035
+    "conformal_fpr": 0.007
    }
   },
   "flag_rate_slope_vs_contamination": 1.0
  },
  "attribution": {
-  "ensemble_auroc": 0.8998,
+  "ensemble_auroc": 0.9021,
   "members": {
    "spectral_residual": {
     "own_auroc": 0.8476,
-    "ensemble_without": 0.9005,
-    "marginal_gain": -0.0006
+    "ensemble_without": 0.9033,
+    "marginal_gain": -0.0012
    },
    "bocpd": {
     "own_auroc": 0.7081,
-    "ensemble_without": 0.9126,
+    "ensemble_without": 0.9149,
     "marginal_gain": -0.0128
    },
    "hawkes": {
     "own_auroc": 0.8326,
-    "ensemble_without": 0.9038,
-    "marginal_gain": -0.004
+    "ensemble_without": 0.907,
+    "marginal_gain": -0.005
    },
    "particle_filter": {
     "own_auroc": 0.8163,
-    "ensemble_without": 0.9042,
-    "marginal_gain": -0.0043
+    "ensemble_without": 0.9044,
+    "marginal_gain": -0.0023
    },
    "imm": {
     "own_auroc": 0.8076,
-    "ensemble_without": 0.9068,
-    "marginal_gain": -0.0069
+    "ensemble_without": 0.9074,
+    "marginal_gain": -0.0054
    },
    "digital_twin": {
     "own_auroc": 0.8694,
-    "ensemble_without": 0.9043,
-    "marginal_gain": -0.0045
+    "ensemble_without": 0.9069,
+    "marginal_gain": -0.0048
    },
    "spot_evt": {
     "own_auroc": 0.7895,
-    "ensemble_without": 0.8999,
-    "marginal_gain": -0.0
+    "ensemble_without": 0.9021,
+    "marginal_gain": -0.0001
    },
    "gaussian_process": {
     "own_auroc": 0.8265,
-    "ensemble_without": 0.9078,
-    "marginal_gain": -0.0079
+    "ensemble_without": 0.9098,
+    "marginal_gain": -0.0078
    },
    "survival": {
     "own_auroc": 0.7638,
-    "ensemble_without": 0.905,
-    "marginal_gain": -0.0051
+    "ensemble_without": 0.9058,
+    "marginal_gain": -0.0038
    },
    "energy_based": {
     "own_auroc": 0.986,
-    "ensemble_without": 0.8744,
-    "marginal_gain": 0.0254
+    "ensemble_without": 0.878,
+    "marginal_gain": 0.0241
    },
    "deep_svdd": {
     "own_auroc": 0.9979,
-    "ensemble_without": 0.8754,
-    "marginal_gain": 0.0245
+    "ensemble_without": 0.8786,
+    "marginal_gain": 0.0235
    },
    "echo_state": {
-    "own_auroc": 0.7863,
+    "own_auroc": 0.8606,
     "ensemble_without": 0.9071,
-    "marginal_gain": -0.0073
+    "marginal_gain": -0.0051
    },
    "spiking": {
     "own_auroc": 0.8194,
-    "ensemble_without": 0.8855,
-    "marginal_gain": 0.0143
+    "ensemble_without": 0.8868,
+    "marginal_gain": 0.0152
    },
    "rca": {
     "own_auroc": 0.5,
-    "ensemble_without": 0.8998,
-    "marginal_gain": 0.0
+    "ensemble_without": 0.9021,
+    "marginal_gain": -0.0
    },
    "deeplog_sequence": {
     "own_auroc": 0.6532,
-    "ensemble_without": 0.8997,
-    "marginal_gain": 0.0001
+    "ensemble_without": 0.9019,
+    "marginal_gain": 0.0002
    },
    "frequent_pattern": {
     "own_auroc": 0.5,
-    "ensemble_without": 0.8998,
-    "marginal_gain": 0.0
+    "ensemble_without": 0.9021,
+    "marginal_gain": -0.0
    }
   }
  }

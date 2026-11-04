@@ -104,9 +104,14 @@ class TestOutOfSampleCalibration:
         assert flags.mean() <= 0.05, f"{flags.mean():.4f} against a nominal 0.02"
 
     def test_the_scale_exceeds_the_in_sample_quantile(self) -> None:
-        """Measured on this series: 3.87 against the 3.23 an in-sample quantile gives."""
+        """Measured on this series: 3.87 against the 3.23 an in-sample quantile gives.
+
+        Pinned at the weak ``ridge=1e-4`` the gap was measured with: the
+        out-of-fold ridge choice (the default) closes most of the overfit this
+        test exhibits, which is the point of choosing it.
+        """
         train = np.random.default_rng(3).normal(size=800)
-        detector = EchoStateDetector().fit(train)
+        detector = EchoStateDetector(ridge=1e-4).fit(train)
 
         normalised = (train - detector._mean) / detector._std
         states = detector._run_states(train)
@@ -126,12 +131,41 @@ class TestOutOfSampleCalibration:
         augmented = np.hstack([states, np.ones((states.shape[0], 1))])
         x_train, y_train = augmented[:-1], normalised[1:]
         expected = np.linalg.solve(
-            x_train.T @ x_train + detector.ridge * np.eye(x_train.shape[1]),
+            x_train.T @ x_train + detector._ridge * np.eye(x_train.shape[1]),
             x_train.T @ y_train,
         )
 
         assert detector._w_out is not None
         np.testing.assert_allclose(detector._w_out, expected)
+
+    def test_ridge_is_chosen_by_out_of_fold_error(self) -> None:
+        """The chosen penalty is the grid value with least held-out one-step error."""
+        from omni_mercury_engine.detectors.echo_state import _RIDGE_GRID
+
+        series = _stationary_ar1()[:400]
+        detector = EchoStateDetector().fit(series)
+
+        normalised = (series - detector._mean) / detector._std
+        states = detector._run_states(series)
+        augmented = np.hstack([states, np.ones((states.shape[0], 1))])
+        x_train, y_train = augmented[:-1], normalised[1:]
+        errors = {}
+        for ridge in _RIDGE_GRID:
+            residuals = detector._fold_residuals(x_train, y_train, x_train.shape[1], ridge)
+            assert residuals is not None
+            errors[ridge] = float(np.mean(residuals**2))
+
+        assert detector.ridge is None
+        assert detector._ridge in _RIDGE_GRID
+        assert errors[detector._ridge] == pytest.approx(min(errors.values()))
+
+    def test_a_configured_ridge_is_used_as_given(self) -> None:
+        detector = EchoStateDetector(ridge=0.5).fit(_stationary_ar1()[:400])
+        assert detector._ridge == 0.5
+
+    def test_ridge_is_validated(self) -> None:
+        with pytest.raises(ValueError, match="ridge"):
+            EchoStateDetector(ridge=0.0)
 
     def test_calibration_folds_is_validated(self) -> None:
         with pytest.raises(ValueError, match="calibration_folds"):

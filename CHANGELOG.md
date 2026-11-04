@@ -27,6 +27,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — the default statistical detector flagged up to a fifth of normal
+data.** With no threshold or calibration configured, `MercuryAnomalyDetector`
+cut each batch with a batch-relative rule (Otsu split when a "valley" was
+found, else median + 2 * 1.4826 * MAD) chosen for F1. Its valley test compares
+the density at the split with the *global* peak, so a split in the thin upper
+tail of a unimodal distribution reads as a valley: it flagged 0.171 of held-out
+Gaussian noise, a mean 0.089 of held-out ADBench normal rows (0.127 on WBC),
+and 0.120 of NAB-normal points (0.407 on the AWS CloudWatch file). The default
+is now the fit-time reference cut at its one-class split-conformal quantile
+(`reference_alpha`, 0.05), which already served single rows and floods: 0.048
+mean on the same ADBench rows (0.026-0.065), 0.021 on NAB, NAB standard score
+-130.5 -> 30.7 at the same ranking. Recall moves little where fitted on normal
+rows (cardio 0.853 -> 0.827, thyroid 0.988 -> 0.963) and most on pima (0.329 ->
+0.158). `operating_point="adaptive"` restores the old cut. The bound covers new
+data: scoring the fit batch itself flags about alpha of it whatever its
+contamination, so callers who know the contamination should configure it
+(`auto_calibrate` + `contamination`). `reference_alpha` outside (0, 1) and an
+unknown `operating_point` are refused. Measured and pinned in
+`tests/detectors/test_recorded_false_alarm_rates.py`; `statistical` is now
+pinned in `tests/detectors/test_recorded_nab_series.py`, which also pins every
+series detector's NAB-normal false-alarm rate next to its AUROC and NAB score.
+
+**Fixed — the info-geometry certificate was cut on the wrong scale.** Its
+component threshold came from the batch-relative rule, whose degenerate (fewer
+than 8 rows) and anomalous-bulk branches return the *fused* reference cut, a
+value on another scale (0.577 against the component's own 0.617 on 8-feature
+Gaussian training data); in 4-row batches of normal rows its verdict flagged
+0.093 of them. The component now keeps its own fit-time scores (persisted in
+the fitted state) and is cut at their conformal quantile, independent of the
+batch: 0.055 of the same rows.
+
+**Fixed — `echo_state` alarmed on 0.188 of NAB-normal points.** Its fixed readout
+ridge of 1e-4 left a 101-parameter readout fitted to 169-282 probationary
+samples with an out-of-fold one-step error of 2.8-8.9 on the standardised
+series, worse than predicting the mean (1.0); on `rogue_agent_key_hold` it
+flagged 0.533 of the normal points. `ridge=None` (the default) now picks the
+penalty from a 1e-6..1e3 grid by out-of-fold error on the training folds the
+squash scale already uses: false-alarm rate 0.012, NAB standard score -368.3 ->
+44.5, AUROC 0.699 -> 0.629 (a ranking cost on these four files, recorded). On
+the adversarial shapes its own AUROC rose 0.786 -> 0.861 (ledger regenerated).
+
+**Fixed — `MultiScaleTransformerDetector` could not run at its defaults and never
+alarmed.** Three defects at the default `window_sizes=[10, 25, 50]`: every scale
+encodes the 50-step sequence but each positional table held `2 * ws` rows (a
+crash on the first batch); the Gaussian prior underflows to exact zeros on a
+50-step window and `F.kl_div` differentiated at a zero target is log(0), so the
+first optimiser step turned every weight NaN and every score NaN; and 2-D input
+returned one score per (window, position), 27,550 values for 600 rows. The KL
+now uses floored distributions, 2-D input is scored per row (mean over the
+windows containing it, cut on the same scale), and inference-time point
+adjustment -- an evaluation protocol that needs ground-truth segments -- is off
+by default: it grew alarms to every run above 0.8 of the cut and flagged 1.000
+of held-out noise where the cut alone flagged 0.043.
+
+**Fixed — `ContrastiveLearningDetector` calibrated against itself.** Training
+rows were scored against a reference bank that contains them, so each counted
+its own zero distance among its k neighbours and the 95th-percentile cut sat
+low: 0.105 of held-out noise, AR(1) and ADBench cardio normals flagged. The cut
+is now taken on leave-one-out scores (0.040-0.081 on the same data), and a bank
+no larger than `n_neighbors` no longer crashes `np.partition`.
+
+**Measured, not changed.** `spiking` flags 0.528 of `rogue_agent_key_hold`'s
+normal points: the series idles at exactly zero for 13% of its probationary
+period and 59% of the rest, and the detector is driven by the deviation from the
+training mean, so the idle stretch reads as a sustained excursion -- a property
+of the drive, pinned rather than tuned. `srcnn`'s calibrated cut flags 0.102 of
+a stationary AR(1) held-out half (0.045-0.24 by seed); a cross-fitted cut (0.202)
+and a same-model held-out split (0.147, NAB AUROC 0.385) were both measured
+worse, because the score scale moves with each training run.
+
 **Fixed — every Trivy job on main failed on an unchanged repository.** Right
 after PR #394 merged, "Install Trivy binary" failed in ci.yml's Docker Build
 and security.yml's Container Security Scan with curl's exit code 6, three runs

@@ -11,7 +11,16 @@ are measured against NAB's own anomaly windows:
   a blunt measure; 0.5 is chance);
 * decision: NAB's standard-profile score of the detector's own ``is_anomaly``
   (0 for raising no alarm, 100 for a perfect detector, negative when false
-  alarms cost more than the detected windows earn).
+  alarms cost more than the detected windows earn);
+* false alarms: the mean, over the files, of the share of NAB-normal points
+  (outside every anomaly window) that ``is_anomaly`` flags.
+
+``spiking``'s 0.142 is one file: ``rogue_agent_key_hold`` sits at exactly
+zero for 13% of its probationary period and 59% of the scored part, and the
+detector is driven by the magnitude of the deviation from the training mean
+(zero is 1.27 standard deviations below it), so the idle stretch reads as a
+sustained excursion (0.528 of that file's normal points).  It is a property of
+the input drive, not of the cut, and is pinned rather than tuned away.
 
 ``deeplog_sequence`` was pinned here at AUROC 0.534 / NAB -780.3 and is no
 longer: it is a categorical next-key model over integer log-template keys
@@ -43,44 +52,55 @@ from tests.recorded_data import LabelledSeries, auroc, nab_corpus, nab_standard_
 
 ENTRIES = {e.name: e for e in DETECTOR_MANIFEST}
 
-#: entry -> (mean AUROC, NAB standard score) measured on the four files.
-MEASURED: dict[str, tuple[float, float]] = {
-    "deep_svdd": (0.659, -30.0),
-    "diffusion_ad": (0.661, -32.2),
-    "digital_twin": (0.607, 53.4),
-    "dimensional": (0.533, 48.7),
-    "echo_state": (0.699, -368.3),
-    "energy_based": (0.671, 27.4),
-    "extended_statistical": (0.624, 31.4),
-    "gaussian_process": (0.563, 52.9),
-    "hawkes": (0.533, 46.1),
-    "imm": (0.510, 43.6),
-    "lstm_autoencoder": (0.829, 3.1),
-    "page_hinkley": (0.534, 26.6),
-    "particle_filter": (0.582, 39.6),
-    "spectral_residual": (0.489, 45.3),
-    "spiking": (0.583, -318.7),
-    "spot_evt": (0.503, 19.5),
-    "sprt": (0.494, 30.2),
-    "srcnn": (0.683, 12.2),
-    "survival": (0.596, 48.4),
-    "temporal": (0.643, 46.0),
+#: entry -> (mean AUROC, NAB standard score, mean normal-point false-alarm
+#: rate) measured on the four files.
+MEASURED: dict[str, tuple[float, float, float]] = {
+    "deep_svdd": (0.659, -30.0, 0.061),
+    "diffusion_ad": (0.661, -32.2, 0.054),
+    "digital_twin": (0.607, 53.4, 0.014),
+    "dimensional": (0.533, 48.7, 0.001),
+    # Was (0.699, -368.3) at a fixed readout ridge of 1e-4, which flagged
+    # 0.188 of the normal points (0.533 on rogue_agent_key_hold): the
+    # 101-parameter readout's out-of-fold error exceeded the trivial
+    # predictor's. The ridge is now chosen by out-of-fold error.
+    "echo_state": (0.629, 44.5, 0.012),
+    "energy_based": (0.671, 27.4, 0.026),
+    "extended_statistical": (0.624, 31.4, 0.026),
+    "gaussian_process": (0.563, 52.9, 0.013),
+    "hawkes": (0.533, 46.1, 0.011),
+    "imm": (0.510, 43.6, 0.016),
+    "lstm_autoencoder": (0.829, 3.1, 0.038),
+    "page_hinkley": (0.534, 26.6, 0.008),
+    "particle_filter": (0.582, 39.6, 0.017),
+    "spectral_residual": (0.489, 45.3, 0.010),
+    "spiking": (0.583, -318.7, 0.142),
+    "spot_evt": (0.503, 19.5, 0.003),
+    "sprt": (0.494, 30.2, 0.005),
+    "srcnn": (0.683, 12.2, 0.001),
+    # The default operating point (fit-time split-conformal cut, alpha 0.05).
+    # The batch-relative cut it replaced scored the same ranking -130.5, with
+    # a false-alarm rate of 0.120 (0.407 on the AWS CloudWatch file).
+    "statistical": (0.570, 30.7, 0.021),
+    "survival": (0.596, 48.4, 0.012),
+    "temporal": (0.643, 46.0, 0.008),
 }
 AUROC_TOLERANCE = 0.05
 
 
-def _run(name: str) -> tuple[float, float]:
-    """Mean AUROC over the files and NAB standard score of the alarms."""
+def _run(name: str) -> tuple[float, float, float]:
+    """Mean AUROC, NAB standard score and mean normal-point false-alarm rate."""
     entry = ENTRIES[name]
     cls = getattr(importlib.import_module(entry.module_path), entry.class_name)
     aucs: list[float] = []
+    false_alarm_rates: list[float] = []
     alarms: dict[str, np.ndarray[Any, Any]] = {}
     for series in nab_corpus():
         scores, flags = _score(cls, name, series)
         positive = series.positive[series.n_probation :]
         aucs.append(auroc(scores[positive], scores[~positive]))
+        false_alarm_rates.append(float(flags[~positive].mean()))
         alarms[series.name] = np.concatenate([np.zeros(series.n_probation, bool), flags])
-    return float(np.mean(aucs)), nab_standard_score(alarms)
+    return float(np.mean(aucs)), nab_standard_score(alarms), float(np.mean(false_alarm_rates))
 
 
 def _score(
@@ -103,22 +123,26 @@ def _score(
 
 
 @pytest.fixture(scope="module")
-def measured() -> dict[str, tuple[float, float]]:
+def measured() -> dict[str, tuple[float, float, float]]:
     return {}
 
 
 @pytest.mark.parametrize("name", sorted(MEASURED))
 def test_ranking_and_alarms_match_the_measurement(
-    name: str, measured: dict[str, tuple[float, float]]
+    name: str, measured: dict[str, tuple[float, float, float]]
 ) -> None:
-    pinned_auc, pinned_nab = MEASURED[name]
-    mean_auc, nab = _run(name)
+    pinned_auc, pinned_nab, pinned_fpr = MEASURED[name]
+    mean_auc, nab, fpr = _run(name)
     assert mean_auc == pytest.approx(pinned_auc, abs=AUROC_TOLERANCE), (
         f"{name}: mean AUROC {mean_auc:.3f} vs measured {pinned_auc:.3f}; "
         "record the change if it is real"
     )
     assert nab == pytest.approx(pinned_nab, abs=max(7.0, 0.1 * abs(pinned_nab))), (
         f"{name}: NAB standard score {nab:.1f} vs measured {pinned_nab:.1f}; "
+        "record the change if it is real"
+    )
+    assert fpr == pytest.approx(pinned_fpr, abs=max(0.01, 0.25 * pinned_fpr)), (
+        f"{name}: normal-point false-alarm rate {fpr:.3f} vs measured {pinned_fpr:.3f}; "
         "record the change if it is real"
     )
 
