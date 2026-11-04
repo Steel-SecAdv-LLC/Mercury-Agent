@@ -30,7 +30,6 @@ time, and a mismatch is audited as a rejected authorization.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import hashlib
 import hmac
 import json
@@ -38,6 +37,17 @@ import logging
 import os
 import threading
 import time
+
+try:  # POSIX advisory locks; Windows has no fcntl, and there the nonce
+    # ledger is serialized across threads only (the _NONCE_LOCK below), so
+    # cross-PROCESS replay protection needs an external single-writer
+    # arrangement. The three sibling ledgers (adjudication, merit_attempt_log,
+    # secure_audit_logging) guard the import the same way; this module's
+    # unguarded import made the whole feedback_loop package unimportable on
+    # Windows.
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX platforms
+    fcntl = None  # type: ignore[assignment]
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -290,6 +300,11 @@ class NonceLedger:
         so there is no stale-lock recovery to get wrong.
         """
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        if fcntl is None:  # pragma: no cover - non-POSIX platforms
+            # No advisory locks: threads are still serialized by _NONCE_LOCK,
+            # processes are not. Single-writer only, as the siblings degrade.
+            yield
+            return
         fd = os.open(self.lock_path, os.O_CREAT | os.O_RDWR, 0o600)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)

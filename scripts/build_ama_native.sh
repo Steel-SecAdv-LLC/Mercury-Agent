@@ -51,6 +51,25 @@ command -v python >/dev/null 2>&1 || {
   exit 1
 }
 
+# This script drives a POSIX toolchain (gcc/clang, /tmp, flock-era paths).
+# Under Git Bash / MSYS / Cygwin on Windows none of that holds, and the gcc
+# probe below would fail with a misleading message. Refuse up front with the
+# real options instead. AMA's own CMake supports MSVC: clone the repo, run
+# `cmake -S . -B build && cmake --build build --config Release`, then
+# `pip install --no-build-isolation .` from the clone — or build inside WSL,
+# where this script works as written.
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo "ERROR: this script targets POSIX hosts (Linux, macOS, WSL)." >&2
+    echo "On native Windows build AMA with MSVC instead:" >&2
+    echo "  git clone --branch \"${AMA_REF:-v5.0.0}\" --depth 1 <AMA repo> ama && cd ama" >&2
+    echo "  cmake -S . -B build && cmake --build build --config Release" >&2
+    echo "  pip install --no-build-isolation --force-reinstall --no-deps ." >&2
+    echo "or run this script inside WSL." >&2
+    exit 1
+    ;;
+esac
+
 # Core count without Linux-only nproc (macOS has sysctl; POSIX has getconf).
 JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
 

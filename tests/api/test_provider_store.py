@@ -15,6 +15,7 @@ configuration so no key ever enters the environment.
 from __future__ import annotations
 
 import json
+import os
 import stat
 from typing import TYPE_CHECKING
 
@@ -58,6 +59,11 @@ def test_a_key_is_sealed_at_rest_and_opens_again(stable: None, tmp_path: Path) -
     }
 
 
+@pytest.mark.skipif(
+    os.name != "posix",
+    reason="0o600 is a POSIX mode; Windows chmod sets no ACL, and the store "
+    "logs that the restriction is not enforced there (secrets stay sealed)",
+)
 def test_the_file_is_owner_only(stable: None, tmp_path: Path) -> None:
     store = ProviderStore(tmp_path / "nested" / "providers.json")
     store.set("mistral", model="mistral-large-latest")
