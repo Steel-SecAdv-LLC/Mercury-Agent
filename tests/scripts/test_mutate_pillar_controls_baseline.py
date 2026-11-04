@@ -9,7 +9,8 @@ selection every mutation exits 1 and is scored ``KILLED``.
 CI protected this by step ordering, but that is external -- it does not cover
 the standalone invocation, or a single selection failing on its own. These
 tests pin the precondition locally, including that no mutation runs when a
-baseline is red."""
+baseline is red.
+"""
 
 from __future__ import annotations
 

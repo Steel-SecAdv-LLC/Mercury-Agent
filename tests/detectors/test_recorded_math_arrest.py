@@ -14,7 +14,8 @@ Pins two measured defects, both fixed:
    so the fusion scored below its own best member. Default is now ``uniform``
    (+0.13 AUC on both corpora); ``phi_affinity`` still reproduces exactly.
 2. ``SVDProjectionProbe`` re-derived its basis from the data being scored, so
-   the fitted subspace was unused. It now projects onto the fitted basis."""
+   the fitted subspace was unused. It now projects onto the fitted basis.
+"""
 
 from __future__ import annotations
 

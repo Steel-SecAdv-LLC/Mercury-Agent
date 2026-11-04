@@ -8,7 +8,8 @@ drifted: nn.Module 171 vs 174, loaders 21 vs 22, detector classes 88 vs 110,
 files/LOC 801/435,834 vs 884/~493k. The detector row read as a contradiction --
 same metric and script, 22 below README's gated value.
 
-(The package-wide *public* detector count, 170, is a different metric.)"""
+(The package-wide *public* detector count, 170, is a different metric.)
+"""
 
 from __future__ import annotations
 

@@ -21,7 +21,8 @@ higher F1 is bought by exceeding alpha on 3 of 5 tables and is carried by one
 table while it loses 0.36 F1 on ``wbc``. Refused, not promoted.
 
 Also pins the fix for ``PlattScalingCalibrator`` overflowing ``np.exp``: the
-old code clipped the *result*, after the overflow. Value-preserving."""
+old code clipped the *result*, after the overflow. Value-preserving.
+"""
 
 from __future__ import annotations
 
