@@ -2,31 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """``CAPABILITY_MATRIX.md``'s "measured" counts must match the live measurement.
 
-Four rows of that file cite ``scripts/measure_codebase_scale.py`` and label
-their value **measured**. Only ``README.md`` was gated against that script
-(``--check README.md``, in ``.github/workflows/ci.yml`` and
-``.pre-commit-config.yaml``), so the matrix drifted silently and ended up
-publishing, as *measured*:
+Four rows cite ``scripts/measure_codebase_scale.py`` and label their value
+**measured**, but only ``README.md`` was gated against that script, so all four
+drifted: nn.Module 171 vs 174, loaders 21 vs 22, detector classes 88 vs 110,
+files/LOC 801/435,834 vs 884/~493k. The detector row read as a contradiction --
+same metric and script, 22 below README's gated value.
 
-===========================================  ========  ==========
-row                                           published   measured
-===========================================  ========  ==========
-``torch.nn.Module`` subclasses                     171         174
-Data-loader classes in ``loaders/``                 21          22
-Detector classes under ``detectors/``               88         110
-Source files / LOC                      801 / 435,834  884 / ~493k
-===========================================  ========  ==========
-
-The detector row is the one that reads as a contradiction: it names the same
-metric, cites the same script, and sat 22 below README's CI-gated value. (The
-package-wide *public* detector count, 170, is a genuinely different metric and
-not part of this inconsistency.)
-
-A figure labelled "measured" in one file and gated in another is the drift
-class this test closes: whatever the matrix publishes with that citation is now
-checked against the same function the README gate uses, so the two cannot
-diverge again.
-"""
+(The package-wide *public* detector count, 170, is a different metric.)"""
 
 from __future__ import annotations
 

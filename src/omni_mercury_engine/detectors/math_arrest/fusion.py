@@ -208,31 +208,21 @@ class PhiWeightedFusion:
     ``phi_affinity``   0.6183     0.5558
     ================  ========  ===========
 
-    ``uniform`` is the default: the plain mean of the active probes' scores
-    (the decorrelator's multipliers still apply in every mode). Averaging is
-    the known-dominant aggregation for outlier ensembles (Aggarwal & Sathe,
-    *Outlier Ensembles*, 2017 -- the same result the detector tier's
-    ``consensus`` combiner cites), and it measures best here on both corpora
-    by +0.13 AUC. For scale, 0.7498 on those NAB files places the 21-probe
-    ensemble above every series detector pinned in
-    ``tests/detectors/test_recorded_nab_series.py`` except
-    ``lstm_autoencoder`` (0.829).
+    ``uniform`` (the plain mean) is the default: +0.13 AUC over the released
+    prior on both corpora, and averaging is the known-dominant aggregation for
+    outlier ensembles (Aggarwal & Sathe, *Outlier Ensembles*, 2017). The
+    decorrelator's multipliers still apply in every mode.
 
     ``phi_affinity`` is the released behaviour, retained for reproducibility:
-    ``weight[rank] = PHI^(-rank)`` over the hand-written
-    :data:`~omni_mercury_engine.detectors.math_arrest.domain_affinity.DOMAIN_AFFINITY_21`
-    order. Its decay is steep -- the first three ranks carry 76% of the weight
-    and the last probe 2.5e-05 -- so the per-probe ``confidence`` term (a
-    multiplier in [0, 1]) cannot overcome a 70,000x prior spread. On the
-    ``default`` affinity order those three ranks are ``variance_adapted``,
-    ``momentum`` and ``additive``, which measure 0.531, 0.524 and 0.378 mean
-    AUC on NAB, while the two strongest probes -- ``wave_propagation`` (0.697)
-    and ``svd_projection`` (0.669) -- sit at ranks 7+ and receive about 2%
-    between them. The prior was inverted with respect to measured signal,
-    which is why the 21-probe fusion scored below its own best member.
+    ``weight[rank] = PHI^(-rank)`` over
+    :data:`~omni_mercury_engine.detectors.math_arrest.domain_affinity.DOMAIN_AFFINITY_21`.
+    Its first three ranks carry 76% of the weight against the last probe's
+    2.5e-05, so the ``confidence`` term cannot overcome the prior. Those three
+    ranks measure 0.531 / 0.524 / 0.378 on NAB while the two strongest probes
+    (0.697, 0.669) sit at rank 7+ sharing ~2% -- the prior is inverted against
+    measured signal, which is why the fusion scored below its own best member.
 
-    ``confidence`` weights each probe by its self-reported fit quality alone
-    (no positional prior), normalised; it is the evidence-only variant.
+    ``confidence`` weights by self-reported fit quality alone, normalised.
     """
 
     def __init__(self, n_probes: int = 21, weighting: str = "uniform") -> None:

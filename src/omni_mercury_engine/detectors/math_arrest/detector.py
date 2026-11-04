@@ -2,23 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """``BaseDetector`` seam for the 21-probe math-arrest instrument.
 
-:class:`~omni_mercury_engine.detectors.math_arrest.arrest.AnomalyMathArrest`
-is a 21-equation ensemble whose ``detect`` returns a bare score array, so it
-could not satisfy the detector contract the engine, registry, served routes,
-CLI and console catalog all consume — it was reachable only by importing it
-directly (recorded in ``docs/DORMANCY_LEDGER.md`` §2b). This adapter gives it
-the contract without changing the instrument: the fused score becomes
-``scores``, the per-probe matrix becomes the fusion feature group, and the
-alarm fires at a fit-time one-class split-conformal cut rather than a bare
-0.5 on a batch-relative score.
+``AnomalyMathArrest.detect`` returns a bare score array, which satisfies no
+detector contract. This adapter supplies one without changing the instrument.
 
-Measured (``tests/detectors/test_recorded_math_arrest.py``,
-``tests/detectors/test_recorded_nab_series.py``): mean AUROC **0.7498** over
-the four recorded NAB files at the default ``uniform`` weighting, which places
-the instrument above every series detector pinned on that corpus except
-``lstm_autoencoder`` (0.829). It is a manifest entry so it can be *reached*;
-it is **not** in the engine's default set, which this repository only grants
-on a measured marginal gain over the live ensemble.
+Measured NAB AUROC 0.7498 (``tests/detectors/test_recorded_math_arrest.py``).
+A manifest entry, deliberately *not* in the engine's default set: that needs a
+marginal-gain ablation. See ``docs/DORMANCY_LEDGER.md`` §2b.
 """
 
 from __future__ import annotations
@@ -51,10 +40,8 @@ __all__ = ["MathArrestDetector"]
 class MathArrestDetector(BaseDetector):
     """The 21-probe equation ensemble as a first-class Mercury detector.
 
-    Wraps :class:`AnomalyMathArrest` (all 21 probes, ``uniform`` weighting by
-    default) and serves its fused score through the standard detector result,
-    with the 21 per-probe deviation scores available as an interpretable
-    fusion feature group: every alarm traces to the probes that raised it.
+    The 21 per-probe deviation scores are served as the fusion feature group,
+    so every alarm traces to the probes that raised it.
     """
 
     #: Share of the fit series the installed operating point leaves above it.
@@ -148,16 +135,12 @@ class MathArrestDetector(BaseDetector):
     def _learned_state(self) -> dict[str, Any]:
         """Hand the checkpoint the instrument's fitted state, probe by probe.
 
-        The shared packer refuses to serialize the :class:`AnomalyMathArrest`
-        object itself (correctly: half-saving a learned object is worse than
-        failing), so this names what is actually learned. Every probe's own
-        attributes are ``bool``/``int``/``float``/``str``/``ndarray``, which
-        the packer handles, as are the decorrelator's multipliers and the
-        fit-quality map, so the whole instrument round-trips exactly.
+        The shared packer refuses to serialize the ``AnomalyMathArrest`` object
+        itself, so this names what is actually learned.
 
         Returns:
-            The fitted state of all probes, the decorrelator calibration, the
-            fit-quality map and the conformal reference.
+            All probes' state, the decorrelator calibration, the fit-quality
+            map and the conformal reference.
         """
         learned = {
             "probes": {type(probe).__name__: dict(vars(probe)) for probe in self._arrest._probes},
@@ -167,18 +150,15 @@ class MathArrestDetector(BaseDetector):
             "arrest_threshold": float(self._arrest.threshold),
             "arrest_is_fitted": bool(self._arrest._is_fitted),
         }
-        # The override's payload is stored verbatim, so it packs its own numpy
-        # with the same helper the default path uses: the restricted
-        # (``weights_only``) unpickler refuses numpy's reconstruction globals,
-        # and a raw ndarray here would make the checkpoint unloadable.
+        # Stored verbatim, so it must pack its own numpy: the weights_only
+        # unpickler refuses numpy's reconstruction globals.
         return dict(_serializable_state(learned, owner=type(self).__name__, attr="learned"))
 
     def _restore_learned_state(self, state: dict[str, Any]) -> None:
         """Write a checkpoint's state back onto the live probes.
 
         Args:
-            state: Payload from :meth:`_learned_state`, with numpy already
-                unpacked by the shared loader.
+            state: Payload from :meth:`_learned_state`.
         """
         state = _deserialized_state(state)
         probes = state.get("probes", {})
@@ -235,11 +215,8 @@ class MathArrestDetector(BaseDetector):
             "threshold": float(self.threshold),
             "probe_names": list(columns),
             "probe_scores": {k: np.asarray(v, dtype=np.float32) for k, v in columns.items()},
-            # The honest width of the ensemble. A 21-probe count is not 21
-            # independent dimensions: on the four recorded NAB files the
-            # decorrelator measures 11.64-16.00 effective dimensions and
-            # down-weights the duplicates. Surfacing it keeps the probe count
-            # from reading as the evidence count.
+            # 21 probes are not 21 dimensions: 11.64-16.00 measured on the
+            # recorded NAB files, so the probe count is not the evidence count.
             "effective_probe_count": float(self._arrest._decorrelator.effective_probe_count),
             "redundant_probe_pairs": len(self._arrest._decorrelator.redundant_pairs),
         }

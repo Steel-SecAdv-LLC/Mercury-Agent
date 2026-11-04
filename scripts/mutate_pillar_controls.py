@@ -201,19 +201,10 @@ MUTATIONS: tuple[Mutation, ...] = (
 def run_baseline(selection: str) -> tuple[int, str]:
     """Run one pytest selection UNMUTATED and report how it exited.
 
-    :func:`run_mutation` reads pytest exit 1 as "the mutation was caught". That
-    inference holds only if the selection is **green before** the mutation: on
-    an already-red selection every mutation exits 1, every one is scored
-    ``KILLED``, and the gate reports a full kill rate for a suite that never
-    observed anything.
-
-    CI happens to run the pillar suite in the step immediately before this
-    script, so the ordering protects it there. That guarantee is external and
-    implicit: it does not hold for the standalone invocation this module's
-    ``Usage`` block documents, it does not cover a single ``selection`` that
-    collects or fails on its own, and it disappears silently if the step order
-    changes or the step gains ``continue-on-error``. This makes the
-    precondition local, explicit and checked on every run.
+    A kill is inferred from pytest exit 1, which only means "caught" if the
+    selection was green first -- otherwise every mutation exits 1 and scores
+    ``KILLED``. CI's step ordering protects this externally; checking it here
+    makes the precondition hold for the standalone invocation too.
 
     Args:
         selection: pytest selection to run with no mutation applied.

@@ -2,24 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The pillar mutation gate refuses to score kills on a red baseline.
 
-``scripts/mutate_pillar_controls.py`` infers "the mutation was caught" from
-pytest exiting 1. That inference is only valid if the selection passed *before*
-the mutation was applied: on an already-red selection every mutation exits 1,
-every one is scored ``KILLED``, and the gate prints "Every disabled control was
-caught. No vacuous pillar coverage found." while having observed nothing.
+``mutate_pillar_controls.py`` infers "the mutation was caught" from pytest
+exiting 1, which only holds if the selection passed first: on an already-red
+selection every mutation exits 1 and is scored ``KILLED``.
 
-The gate had no such check. CI runs the pillar suite in the step immediately
-before it, so step ordering protected it there, but that guarantee is external
-and implicit: it does not hold for the standalone invocation the module's
-``Usage`` block documents, it does not cover an individual ``selection`` that
-fails or collects nothing on its own, and it vanishes silently if the step order
-changes or the step gains ``continue-on-error``.
-
-These tests pin the precondition as a local property of the script: a red
-baseline makes it refuse, and the refusal happens **before any mutation runs**
--- a gate that mutated first and then complained would still have paid for the
-mutation runs and could still have printed a kill count.
-"""
+CI protected this by step ordering, but that is external -- it does not cover
+the standalone invocation, or a single selection failing on its own. These
+tests pin the precondition locally, including that no mutation runs when a
+baseline is red."""
 
 from __future__ import annotations
 

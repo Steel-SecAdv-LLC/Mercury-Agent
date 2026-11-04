@@ -166,12 +166,9 @@ class PlattScalingCalibrator:
     def _sigmoid(exponent: NDArray[np.float64]) -> NDArray[np.float64]:
         """``1 / (1 + exp(z))``, evaluated without overflowing.
 
-        The direct form overflows ``np.exp`` for ``z`` beyond about 709 and
-        raises ``RuntimeWarning: overflow encountered in exp`` on real score
-        distributions (reached on the recorded ADBench tables). Clipping the
-        *result* afterwards does not help: the overflow happens inside
-        ``np.exp``, before any clip can apply. ``scipy.special.expit(-z)`` is
-        the same function evaluated by the stable branch-selecting form.
+        The direct form overflows ``np.exp`` on real score distributions.
+        Clipping the *result* does not help: the overflow happens inside
+        ``np.exp`` first.
 
         Args:
             exponent: ``A * scores + B``.

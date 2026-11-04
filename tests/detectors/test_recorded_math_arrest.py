@@ -2,36 +2,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The 21-probe math-arrest ensemble on real, labelled data, measured and pinned.
 
-``AnomalyMathArrest`` is a 21-equation instrument (Hankel trajectories, chaos,
-harmonic/wave, robust location) exported from the package root and gated in CI
-for its probe count, but until this suite it was never measured on real labels —
-so there was no evidence it carried anomaly signal at all, which the
-repository's anti-theater rule requires before a mechanism is believed.
+Two recorded corpora: the four NAB files (fitted on each file's probationary
+prefix) and five ADBench tables (stratified 70/30, three seeds). Every probe is
+a series equation and ``BaseEquationProbe._to_1d`` reduces a matrix to its
+per-row mean, so tabular input is scored on that row summary.
 
-Two corpora, both recorded and byte-verified in ``tests/fixtures``:
+Pins two measured defects, both fixed:
 
-* the four NAB files (fitted on each file's probationary prefix, scored on the
-  rest, AUROC against NAB's own windows) — the instrument's declared modality,
-  since every probe is a *series* equation;
-* five ADBench tables (stratified 70/30, three seeds, train-standardised) — the
-  modality the class docstring claims by calling itself an IsolationForest
-  replacement. ``BaseEquationProbe._to_1d`` reduces a matrix to its per-row
-  mean, so matrix input is scored on that row summary.
-
-What the measurement found, and what these tests hold:
-
-1. The released ``phi_affinity`` weighting put 76% of the fused score on the
-   three top-ranked probes of a hand-written affinity order, which measure
-   0.531 / 0.524 / 0.378 on NAB, while the two strongest probes receive ~2%
-   between them. The 21-probe fusion therefore scored *below its own best
-   member*. The default is now ``uniform`` (the plain mean): +0.13 AUC on both
-   corpora. ``phi_affinity`` is retained and still reproduces its released
-   numbers exactly.
-2. ``SVDProjectionProbe`` recomputed its SVD basis from the data it was
-   scoring, so the fitted rank-1 subspace was never used and residuals were
-   compared against fit-time statistics from a different basis. It now projects
-   onto the fitted basis, directionally.
-"""
+1. ``phi_affinity`` put 76% of the fused weight on three probes measuring
+   0.531 / 0.524 / 0.378 on NAB while the two strongest got ~2% between them,
+   so the fusion scored below its own best member. Default is now ``uniform``
+   (+0.13 AUC on both corpora); ``phi_affinity`` still reproduces exactly.
+2. ``SVDProjectionProbe`` re-derived its basis from the data being scored, so
+   the fitted subspace was unused. It now projects onto the fitted basis."""
 
 from __future__ import annotations
 

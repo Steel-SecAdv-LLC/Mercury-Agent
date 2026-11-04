@@ -2,37 +2,26 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """``adaptive_domain_thresholding`` measured against the shipped operating point.
 
-``core/adaptive_domain_thresholding.py`` is 1,289 LOC promising "per-domain
-threshold calibration", Platt scaling, isotonic regression and a "domain
-ensemble weighting optimizer" to "improve domain competence across Medical,
-Financial, and Infrastructure". No path in ``src/`` reaches it (verified by
-transitive import closure from the engine, the API, the CLI and every manifest
-entry) and it had never been measured against the operating point Mercury
-actually ships. This suite measures it on real labelled data and pins the
-result, so the module's status rests on evidence instead of its docstring.
+1,289 LOC promising per-domain calibration, reached by no path in ``src/`` and
+never measured against the cut Mercury ships. Measured here on 5 recorded
+ADBench tables x 3 seeds, scoring the same detector's scores so only the
+threshold differs:
 
-What the measurement found, and what these tests hold:
+===================  =======  ========  ===================
+policy               mean F1  mean FPR  FPR range
+===================  =======  ========  ===================
+conformal a=0.05      0.4059    0.0231  0.000-0.048
+ADT label-free        0.4549    0.0873  0.013-0.160
+ADT supervised        0.3882    0.6335  0.055-0.993
+===================  =======  ========  ===================
 
-1. **The supervised path is broken, not a tradeoff.** Given a labelled
-   calibration set it flags **99.3%** of normal rows on ``pima_real``, 95.7% on
-   ``breastw`` and 97.9% on ``wbc`` — mean held-out FPR **0.6335**, and a mean
-   F1 (0.3882) *below* the shipped conformal cut's 0.4059 despite flagging
-   sixteen times as much. A calibration that flags almost every normal row
-   cannot be used, and these tests pin that it is refused rather than reached.
-2. **The label-free path is not an improvement either.** Its mean F1 (0.4549 vs
-   0.4059) looks higher, but it abandons the false-alarm guarantee — FPR
-   0.013-0.160, over the promised alpha=0.05 on three of five tables and up to
-   3.2x the budget — and the F1 mean is carried by one table (``breastw``
-   0.935 vs 0.253) while it loses 0.36 on ``wbc`` and 0.31 on ``thyroid``. The
-   shipped cut never exceeds its alpha on any table or seed. On this
-   repository's pre-registered-bar rule that is a refusal, not a promotion.
-3. **A real numerical defect, fixed.** ``PlattScalingCalibrator`` evaluated
-   ``1 / (1 + np.exp(A * s + B))`` directly, which overflows ``np.exp`` on real
-   score distributions. Its comment claimed "clipping for numerical stability",
-   but the clip was applied to the *result*, after the overflow had already
-   happened inside ``np.exp``; ``calibrate()`` had no guard at all. Both now use
-   a stable sigmoid, which is value-preserving: every number above is unchanged.
-"""
+The supervised path flags 98.7% of normal rows on ``pima_real``, 95.7% on
+``breastw``, 97.9% on ``wbc`` -- broken, not a tradeoff. The label-free path's
+higher F1 is bought by exceeding alpha on 3 of 5 tables and is carried by one
+table while it loses 0.36 F1 on ``wbc``. Refused, not promoted.
+
+Also pins the fix for ``PlattScalingCalibrator`` overflowing ``np.exp``: the
+old code clipped the *result*, after the overflow. Value-preserving."""
 
 from __future__ import annotations
 

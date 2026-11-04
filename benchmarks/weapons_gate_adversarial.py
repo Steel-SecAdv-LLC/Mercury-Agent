@@ -46,14 +46,9 @@ class AdversarialRow:
     split: str = "adversarial"
     tags: tuple[str, str] = ("none", "unspecified")  # (hazard_domain, intent_tier)
     #: The seed text this row was derived from (itself, when it IS a seed).
-    #: Recorded because the axes are NOT disjoint: the transformation operators
-    #: below re-emit one seed into several axes, so a change that fixes a seed
-    #: moves every axis that seed reaches. Without this field that structure
-    #: was invisible, and a cross-axis improvement was once mistaken for
-    #: evidence of generalisation (see the retraction in
-    #: docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md). Seed-level metrics computed from
-    #: this field do not over-weight heavily-varied seeds the way row-level
-    #: metrics do.
+    #: The axes are NOT disjoint -- the operators below re-emit one seed into
+    #: several axes -- so a fix to one seed moves every axis it reaches. Needed
+    #: for seed-level metrics, which do not over-weight heavily-varied seeds.
     seed: str = ""
 
 

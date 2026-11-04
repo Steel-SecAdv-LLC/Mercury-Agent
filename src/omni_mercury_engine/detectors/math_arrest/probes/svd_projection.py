@@ -29,13 +29,9 @@ class SVDProjectionProbe(BaseEquationProbe):
         self._fit_quality: float = 0.0
         self._residual_mean: float = 0.0
         #: Leading right-singular vector of the TRAINING Hankel matrix: the
-        #: rank-1 subspace a scored window is measured against. Scoring used to
-        #: recompute the SVD of the evaluation data instead, so the learned
-        #: subspace was never used and the residuals were compared against
-        #: fit-time statistics belonging to a different basis (and the
-        #: anomalies being scored helped define the subspace they were measured
-        #: against). Measured on the five recorded ADBench tables x 3 seeds,
-        #: that scored 0.415 mean AUROC -- below chance on four of five.
+        #: rank-1 subspace a scored window is measured against. Must not be
+        #: re-derived at scoring time -- doing so measured 0.415 mean AUROC,
+        #: below chance on four of five recorded ADBench tables.
         self._basis: npt.NDArray[np.float64] | None = None
 
     def fit_trajectory(self, data: npt.NDArray[np.float64]) -> None:
