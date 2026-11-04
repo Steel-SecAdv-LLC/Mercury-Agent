@@ -76,6 +76,56 @@ and the registry/engine seam harvest. It is **not** added to the engine's
 default set: that requires a marginal-gain ablation against the live ensemble,
 which is not claimed. See `docs/DORMANCY_LEDGER.md` §2b.
 
+**Added — full reachability sweep of the assistive mechanisms, and one
+measured refusal.** A transitive import closure from the real entry points
+(`engine.py`, every `api/` module, `cli`, and all 114 manifest `module_path`s)
+was run against every ensemble, fusion head, combiner, calibrator,
+meta-learner, drift and uncertainty mechanism in the tree. 522 modules are
+reachable. Most unreached ones are correctly unreached and say so in the module
+(a deprecated legacy fusion that warns at import; two read-only measurement
+layers that must not touch the operational path; four registered operator tools
+in `TOOL_REGISTRY`, two of them pre-commit gates; relocation shims). Four
+remain genuinely unreached and unmeasured and are now named rather than
+assumed, with their claims recorded, in `docs/DORMANCY_LEDGER.md` §2c.
+
+`core/adaptive_domain_thresholding.py` (1,289 LOC) was measured against the
+operating point Mercury ships, on the five recorded ADBench tables × 3 seeds,
+scoring the *same* detector's scores so the comparison isolates the threshold:
+
+| policy | mean F1 | mean FPR | FPR range |
+|---|---|---|---|
+| conformal α = 0.05 (shipped) | 0.4059 | **0.0231** | 0.000 – 0.048, never over α |
+| ADT label-free | 0.4549 | 0.0873 | 0.013 – 0.160 |
+| ADT supervised | 0.3882 | **0.6335** | 0.055 – **0.993** |
+
+The supervised path is **broken, not a tradeoff**: it flags 98.7% of normal
+rows on `pima_real`, 95.7% on `breastw` and 97.9% on `wbc`, with a mean F1
+*below* the shipped cut at ~27× the false-alarm rate. The label-free path does
+not clear the bar either — its higher mean F1 is bought by abandoning the α
+guarantee and is carried by one table, while it loses 0.36 F1 on `wbc` and 0.31
+on `thyroid`. **Refused, not promoted**; the measurement is pinned by
+`tests/core/test_adaptive_domain_thresholding_measured.py`.
+
+**Fixed — `PlattScalingCalibrator` overflowed `np.exp`.** It evaluated
+`1 / (1 + np.exp(A * s + B))` directly, which overflows on real score
+distributions. The comment claimed "clipping for numerical stability", but the
+clip was applied to the *result*, after the overflow had already happened
+inside `np.exp`; `calibrate()` had no guard at all. A second sigmoid used the
+branch-selecting `np.where` form, which returns correct values but evaluates
+both arms eagerly, so it still warned and did twice the work. Both now use
+`scipy.special.expit`. Value-preserving: the fitted `A`/`B` are identical to
+six figures and every measured number above is unchanged.
+
+**Changed — `ml/ensemble.py` no longer claims an uncited improvement.** The
+module and one of its class docstrings asserted "Research shows 30-40% accuracy
+improvement with proper ensemble methods" with no citation, in a module that no
+path reaches and that has never been measured. The claim is removed. The
+averaging result it gestured at is real and is cited where it is actually
+relied on (Aggarwal & Sathe 2017 — the detector tier's `consensus` combiner and
+`math_arrest`'s fusion default), but it is a statement about averaging
+dominance, not a percentage, and it does not transfer to a stacking/boosting/
+bagging head without measurement.
+
 **Changed — detector taxonomy now matches the discipline.** Tornado
 (severe-storm meteorology, NEXRAD radar morphology), hurricane (tropical
 meteorology, ERA5 wind-field physics) and flood (hydrology,

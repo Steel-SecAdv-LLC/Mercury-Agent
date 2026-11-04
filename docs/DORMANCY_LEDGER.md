@@ -188,6 +188,109 @@ seen. The class docstring nonetheless presents the instrument as an
 IsolationForest replacement, which is a tabular role — hence both corpora are
 measured and both numbers are published above.
 
+## 2c. Full reachability sweep of the assistive mechanisms (2026-11-04)
+
+§2b measured the two instruments found by a partial sweep. This is the
+**complete** sweep: a transitive import closure from Mercury's real entry
+points — `engine.py`, every `api/` module, `cli`, and the declared
+`module_path` of all 114 manifest entries — against every module whose name or
+role is an ensemble, fusion head, combiner, calibrator, meta-learner, drift or
+uncertainty mechanism. 522 modules are reachable. The sweep was run three
+times: the first two passes produced false negatives (dynamically-registered
+operator tools, and classes referenced by their export name rather than their
+module), both corrected below, which is why the dispositions here name the
+*mechanism* that reaches each module rather than just a count.
+
+**Reached and serving — not dormant.** `core/score_calibration.py` (Platt /
+isotonic / Venn-Abers, served from `engine.py`), `core/calibration.py`,
+`detectors/_calibration.py` (29 importers — the shared conformal layer),
+`core/fusion.py`, `core/three_r/fusion.py`, `ml/fusion_network.py`,
+`cognitive/uncertainty.py`, `detectors/drift.py`, `core/fibring_fusion.py`,
+`core/governed_fusion.py`, `core/attention_fusion_stack.py`,
+`core/calibration_pipeline.py`, `ml/meta_learning.py`,
+`ml/concept_drift_evaluation.py`, `core/adaptive_fusion.py`,
+`detectors/adaptive_detector.py` and `detectors/diffusion_ad.py` (both manifest
+entries).
+
+**Correctly unreached — the reason is the design, and it is stated in the
+module.** These are not gaps:
+
+| Module | LOC | Why unreached is correct |
+|---|---|---|
+| `core/stacking_fusion.py` | 802 | Explicitly deprecated, raises a `DeprecationWarning` at import, "retained for reference only". The production fusion is `OmniFusionModel`. |
+| `medical/clinical_calibration.py` | 442 | A *measurement* layer: fits calibrators on a held-out clinical split and reports ECE / Brier / conformal coverage. It states it must not sit on the operational path. |
+| `security/sigma_calibration.py` | 422 | Read-only ECE / threshold / temperature sweep over a *fresh* σ gate loading the same frozen weights. Explicitly "never trains, never writes weights", never touches the operational path. |
+| `tools/{algorithm_name_drift_gate, workflow_version_drift_gate, sigma_immutable_drift_monitor, benevolence_calibration_report}` | 930 | Registered in `TOOL_REGISTRY` (65 tools), documented in `docs/TOOLS.md`, covered by the generic envelope/exit-code contract tests, and the two *gates* run as pre-commit hooks. The other two need operator-supplied inputs (a labelled probe set; a systemd timer's rolling state) that no CI lane has. **Reached — the first sweep pass missed them because the registry loads them dynamically.** |
+| `detectors/advanced/gwo_ensemble.py` | 567 | Declared library-role with a dated measurement in its docstring; exported lazily to keep package import cheap, and tested as `GWOEnsembleDetector`. |
+| `ml/drift.py`, `core/adaptive_detector.py` | 84 | Documented relocation shims that re-export the live implementation. |
+| `federation/aggregator.py` | 420 | Belongs to the federated-learning subsystem, not the single-node detect path. |
+| `ml/multimodal_fusion.py` | 113 | Self-declares "⚠️ SIMULATION-BASED: Trained on simulated multimodal data. Real-world validation required." |
+
+### `core/adaptive_domain_thresholding.py` — measured, refused, one defect fixed
+
+1,289 LOC promising "per-domain threshold calibration", Platt scaling, isotonic
+regression, a "domain ensemble weighting optimizer", and "the strategic
+recommendations for adaptive thresholding to improve domain competence across
+Medical, Financial, and Infrastructure". No serving path reaches it, and it had
+never been measured against the operating point Mercury actually ships.
+
+Measured on the five recorded ADBench tables × 3 seeds, scoring the *same*
+detector's scores under three thresholding policies, so the comparison isolates
+the threshold and nothing else (`tests/core/test_adaptive_domain_thresholding_measured.py`):
+
+| policy | mean F1 | mean FPR | FPR range | over the promised α = 0.05? |
+|---|---|---|---|---|
+| **conformal α = 0.05** (shipped) | 0.4059 | **0.0231** | 0.000 – 0.048 | **never, on any table or seed** |
+| ADT label-free | 0.4549 | 0.0873 | 0.013 – 0.160 | 3 of 5 tables, up to 3.2× |
+| ADT supervised | 0.3882 | **0.6335** | 0.055 – **0.993** | catastrophically |
+
+**The supervised path is broken, not a tradeoff.** Given a labelled calibration
+set it flags **98.7%** of normal rows on `pima_real`, 95.7% on `breastw` and
+97.9% on `wbc` — and its mean F1 is *below* the shipped cut's while its
+false-alarm rate is ~27× higher. Flagging almost every normal row is not an
+operating point.
+
+**The label-free path does not clear the bar either.** Its higher mean F1 is
+not an improvement: it is bought by abandoning the false-alarm guarantee, and
+the mean is carried by a single table (`breastw` 0.935 vs 0.253) while it
+*loses* 0.36 F1 on `wbc` and 0.31 on `thyroid`. A policy whose per-table FPR
+ranges over an order of magnitude is not comparable to one that holds α on
+every table. On this ledger's pre-registered-bar rule, that is a refusal.
+
+A methodological note, because the first comparison was wrong: an initial
+"matched alarm budget" test returned a delta of exactly 0.0000 with zero
+bootstrap spread. That was **circular** — on a fixed score vector any threshold
+flagging *k* points flags *the top k*, so all policies at equal budget are
+identical by construction. Thresholding cannot improve a ranking; the only
+degree of freedom is the budget, and monotone recalibration (Platt and isotonic
+both are) cannot change the ranking either. The table above is the non-circular
+comparison: the candidate's own operating points placed against a sweep of the
+shipped α.
+
+**Defect fixed regardless of the refusal.** `PlattScalingCalibrator` evaluated
+`1 / (1 + np.exp(A * s + B))` directly, which overflows `np.exp` on real score
+distributions (reached on the recorded tables). Its comment claimed "clipping
+for numerical stability", but the clip was applied to the *result* — after the
+overflow had already happened inside `np.exp` — and `calibrate()` had no guard
+at all. A second sigmoid used the branch-selecting `np.where` form, which
+returns the right values (the overflowed branch is discarded) but evaluates
+both arms eagerly, so it still warned and did twice the work. Both now use
+`scipy.special.expit`. The fix is **value-preserving**: every number in the
+table above is unchanged, and the fitted `A`/`B` are identical to six figures.
+
+**Not promoted.** A module that does not reach its bar stays unreached; the
+measurement is the deliverable, and it is pinned so the disposition cannot
+drift back to resting on the docstring.
+
+### Still unreached and still unmeasured — named, not assumed
+
+| Module | LOC | Claims | Status |
+|---|---|---|---|
+| `core/three_r/learnable_fusion.py` | 1,123 | "State-of-the-art differentiable 3R fusion", backprop-trainable `w_R/w_H/w_O`, learned ethical gate, wavelet+attention | Unreached, 3 test modules, **no measurement on labelled data**. The "state-of-the-art" wording is not backed by a measurement in this repository. |
+| `ml/ensemble_coordinator.py` | 1,092 | adaptive weight learning from performance feedback, cascading detection, meta-learning detector selection, uncertainty-aware fusion | Unreached, 1 test module, **unmeasured**. §7's fusion-marginal ledger and the GOSNN analysis both found the engine's own `OmniFusionModel` already fuses detector scores better than any re-weighting of them, so this is a likely dead-by-construction candidate — but that is a hypothesis until measured, and it is recorded as one. |
+| `ml/ensemble.py` | 473 | stacking meta-learner, AdaBoost-style boosting, bagging | Unreached, **unmeasured**. Carried an uncited quantitative claim — "Research shows 30-40% accuracy improvement" — in both the module docstring and a class docstring. **Claim removed** this cycle: the averaging result it was gesturing at is real and cited where it is actually relied on (Aggarwal & Sathe 2017, in the detector tier's `consensus` combiner and `math_arrest`'s fusion default), but it is a statement about averaging dominance, not a percentage, and it does not transfer to these heads without measurement. |
+| `models/foundation/ensemble.py` | 529 | combines predictions from multiple foundation models | Unreached, **unmeasured**; needs the `[foundation]` extra to run at all. |
+
 ## 3. Correctly-quarantined (not dormant theater)
 
 `space/schumann_resonance.py` and `models/parapsychology.py` run untrained
