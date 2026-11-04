@@ -178,6 +178,18 @@ class AnomalyMathArrest:
             ``"forensic"``), a list of probe class names, or a list
             of :class:`BaseEquationProbe` instances.  Defaults to
             ``"all"`` (all 21 probes).
+        weighting: How the active probes' scores are combined — see
+            :class:`~omni_mercury_engine.detectors.math_arrest.fusion.PhiWeightedFusion`
+            for the measured comparison. ``"uniform"`` (default, the plain
+            mean) measures 0.7498 mean AUC on the four recorded NAB files and
+            0.6846 on five ADBench tables, against 0.6183 / 0.5558 for the
+            released ``"phi_affinity"`` prior.
+
+    Modality: the probes are **series** instruments (Hankel trajectories,
+    chaos/harmonic/wave equations), and ``BaseEquationProbe._to_1d`` reduces a
+    2-D input to its per-row mean, so matrix input is scored on that row
+    summary and the per-feature structure is not seen. The measured numbers
+    above reflect exactly that behaviour on each corpus.
     """
 
     def __init__(
@@ -185,12 +197,13 @@ class AnomalyMathArrest:
         domain: str = "default",
         threshold: float = 0.5,
         probes: str | list[str] | list[BaseEquationProbe] | None = None,
+        weighting: str = "uniform",
     ) -> None:
         """Initialize the instance."""
         self._domain = domain
         self.threshold = threshold
         self._probes: list[BaseEquationProbe] = self._resolve_probes(probes)
-        self._fusion = PhiWeightedFusion(n_probes=len(self._probes))
+        self._fusion = PhiWeightedFusion(n_probes=len(self._probes), weighting=weighting)
         self._decorrelator = CorrelationAwareDecorrelator()
         self._is_fitted: bool = False
         self._fit_qualities: dict[str, float] = {}

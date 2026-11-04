@@ -28,6 +28,15 @@ class SVDProjectionProbe(BaseEquationProbe):
         self._residual_std: float = 0.0
         self._fit_quality: float = 0.0
         self._residual_mean: float = 0.0
+        #: Leading right-singular vector of the TRAINING Hankel matrix: the
+        #: rank-1 subspace a scored window is measured against. Scoring used to
+        #: recompute the SVD of the evaluation data instead, so the learned
+        #: subspace was never used and the residuals were compared against
+        #: fit-time statistics belonging to a different basis (and the
+        #: anomalies being scored helped define the subspace they were measured
+        #: against). Measured on the five recorded ADBench tables x 3 seeds,
+        #: that scored 0.415 mean AUROC -- below chance on four of five.
+        self._basis: npt.NDArray[np.float64] | None = None
 
     def fit_trajectory(self, data: npt.NDArray[np.float64]) -> None:
         """Build Hankel matrix, compute SVD, and store residual statistics."""
@@ -39,9 +48,10 @@ class SVDProjectionProbe(BaseEquationProbe):
         hankel = np.lib.stride_tricks.sliding_window_view(x, self._d)
         u, s, vt = np.linalg.svd(hankel, full_matrices=False)
 
-        # Rank-1 reconstruction
-        rank1 = np.outer(u[:, 0], vt[0, :]) * s[0]
-        residuals = np.sqrt(np.sum((hankel - rank1) ** 2, axis=1))
+        # Keep the leading right-singular vector: the rank-1 subspace every
+        # scored window is projected onto (see ``_basis``).
+        self._basis = np.asarray(vt[0, :], dtype=np.float64)
+        residuals = self._residuals_against_basis(hankel)
 
         self._residual_mean = float(np.mean(residuals))
         self._residual_std = float(np.std(residuals)) + EPSILON
@@ -55,18 +65,36 @@ class SVDProjectionProbe(BaseEquationProbe):
 
         self._is_fitted = True
 
+    def _residuals_against_basis(self, hankel: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Per-window distance to the fitted rank-1 subspace.
+
+        ``||w - (w . v0) v0||`` for each Hankel row ``w`` and the fitted unit
+        right-singular vector ``v0``. Falls back to a rank-1 SVD of the given
+        matrix when no basis was stored (a probe restored from a state that
+        predates ``_basis``).
+        """
+        if self._basis is None or self._basis.shape[0] != hankel.shape[1]:
+            u, s, vt = np.linalg.svd(hankel, full_matrices=False)
+            rank1 = np.outer(u[:, 0], vt[0, :]) * s[0]
+            return np.asarray(np.sqrt(np.sum((hankel - rank1) ** 2, axis=1)), dtype=np.float64)
+        coeff = hankel @ self._basis
+        rank1 = np.outer(coeff, self._basis)
+        return np.asarray(np.sqrt(np.sum((hankel - rank1) ** 2, axis=1)), dtype=np.float64)
+
     def deviation_score(self, data: npt.NDArray[np.float64]) -> ProbeResult:
-        """Score each sample by its Hankel reconstruction residual."""
+        """Score each sample by its distance to the fitted rank-1 subspace."""
         self._validate_fitted()
         x = self._to_1d(data)
         n = len(x)
 
         if n >= self._d:
             hankel = np.lib.stride_tricks.sliding_window_view(x, self._d)
-            u, s, vt = np.linalg.svd(hankel, full_matrices=False)
-            rank1 = np.outer(u[:, 0], vt[0, :]) * s[0]
-            residuals = np.sqrt(np.sum((hankel - rank1) ** 2, axis=1))
-            raw_inner = np.abs(residuals - self._residual_mean) / self._residual_std
+            residuals = self._residuals_against_basis(hankel)
+            # Directional: a window FURTHER off the learned subspace than
+            # training is the anomaly. The former ``abs`` also scored a window
+            # that fits the subspace BETTER than training (a more collapsed,
+            # more normal window) as deviant.
+            raw_inner = np.maximum(residuals - self._residual_mean, 0.0) / self._residual_std
             pad_len = n - len(raw_inner)
             raw = np.concatenate([np.zeros(pad_len, dtype=np.float64), raw_inner])
         else:

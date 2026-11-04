@@ -174,19 +174,75 @@ class CorrelationAwareDecorrelator:
         return dict(self._weight_multipliers)
 
 
-class PhiWeightedFusion:
-    """Phi-weighted score fusion with confidence modulation and decorrelation.
+#: Fusion weightings this combiner accepts (see :class:`PhiWeightedFusion`).
+WEIGHTINGS: tuple[str, ...] = ("uniform", "confidence", "phi_affinity")
 
-    Probe scores are combined using golden-ratio-derived weights:
-    weight[rank] = PHI^(-rank), normalized to sum to 1.
+
+class PhiWeightedFusion:
+    """Probe-score fusion with confidence modulation and decorrelation.
+
+    Three label-free weightings, measured on the repository's two recorded
+    corpora (mean ROC-AUC of the 21-probe ``"all"`` preset; four NAB files
+    fitted on their probationary prefix, five ADBench tables x 3 seeds
+    stratified; ``tests/detectors/test_recorded_math_arrest.py`` pins these):
+
+    ================  ========  ===========
+    weighting           NAB       ADBench
+    ================  ========  ===========
+    ``uniform``        0.7498     0.6846
+    ``confidence``     0.7194     0.6771
+    ``phi_affinity``   0.6183     0.5558
+    ================  ========  ===========
+
+    ``uniform`` is the default: the plain mean of the active probes' scores
+    (the decorrelator's multipliers still apply in every mode). Averaging is
+    the known-dominant aggregation for outlier ensembles (Aggarwal & Sathe,
+    *Outlier Ensembles*, 2017 -- the same result the detector tier's
+    ``consensus`` combiner cites), and it measures best here on both corpora
+    by +0.13 AUC. For scale, 0.7498 on those NAB files places the 21-probe
+    ensemble above every series detector pinned in
+    ``tests/detectors/test_recorded_nab_series.py`` except
+    ``lstm_autoencoder`` (0.829).
+
+    ``phi_affinity`` is the released behaviour, retained for reproducibility:
+    ``weight[rank] = PHI^(-rank)`` over the hand-written
+    :data:`~omni_mercury_engine.detectors.math_arrest.domain_affinity.DOMAIN_AFFINITY_21`
+    order. Its decay is steep -- the first three ranks carry 76% of the weight
+    and the last probe 2.5e-05 -- so the per-probe ``confidence`` term (a
+    multiplier in [0, 1]) cannot overcome a 70,000x prior spread. On the
+    ``default`` affinity order those three ranks are ``variance_adapted``,
+    ``momentum`` and ``additive``, which measure 0.531, 0.524 and 0.378 mean
+    AUC on NAB, while the two strongest probes -- ``wave_propagation`` (0.697)
+    and ``svd_projection`` (0.669) -- sit at ranks 7+ and receive about 2%
+    between them. The prior was inverted with respect to measured signal,
+    which is why the 21-probe fusion scored below its own best member.
+
+    ``confidence`` weights each probe by its self-reported fit quality alone
+    (no positional prior), normalised; it is the evidence-only variant.
     """
 
-    def __init__(self, n_probes: int = 21) -> None:
-        """Initialize the instance."""
+    def __init__(self, n_probes: int = 21, weighting: str = "uniform") -> None:
+        """Initialize the instance.
+
+        Args:
+            n_probes: Probe count the ``phi_affinity`` prior is sized for.
+            weighting: One of :data:`WEIGHTINGS`.
+
+        Raises:
+            ValueError: If ``weighting`` is not a known weighting.
+        """
+        if weighting not in WEIGHTINGS:
+            raise ValueError(f"Unknown weighting {weighting!r}. Available: {sorted(WEIGHTINGS)}")
         self._n_probes = n_probes
+        self._weighting = weighting
         ranks = np.arange(n_probes, dtype=np.float64)
         raw_weights = PHI ** (-ranks)
         self._base_weights: npt.NDArray[np.float64] = raw_weights / raw_weights.sum()
+
+    @property
+    def weighting(self) -> str:
+        """Which of :data:`WEIGHTINGS` this combiner applies to probe scores."""
+        return self._weighting
 
     @property
     def base_weights(self) -> npt.NDArray[np.float64]:
@@ -227,18 +283,26 @@ class PhiWeightedFusion:
                     reordered.append(probe_results[i])
             probe_results = reordered
 
-        # Slice base weights to active count
-        weights = self._base_weights[:n_active].copy()
-        if len(weights) < n_active:
-            # More probes than pre-computed weights: extend
-            extra = n_active - len(weights)
-            extra_w = PHI ** (-(np.arange(extra) + self._n_probes))
-            weights = np.concatenate([weights, extra_w])
-            weights = weights / weights.sum()
-
-        # Multiply by probe confidence
-        confidences = np.array([r.confidence for r in probe_results], dtype=np.float64)
-        weights = weights * confidences
+        confidences = np.clip(
+            np.array([r.confidence for r in probe_results], dtype=np.float64), 0.0, None
+        )
+        if self._weighting == "uniform":
+            # Plain mean of the active probes (the measured default).
+            weights = np.ones(n_active, dtype=np.float64)
+        elif self._weighting == "confidence":
+            weights = confidences.copy()
+        else:
+            # Released ``phi_affinity``: the PHI^-rank prior, modulated by
+            # confidence (which the prior's spread dominates -- see the class
+            # docstring for the measurement).
+            weights = self._base_weights[:n_active].copy()
+            if len(weights) < n_active:
+                # More probes than pre-computed weights: extend
+                extra = n_active - len(weights)
+                extra_w = PHI ** (-(np.arange(extra) + self._n_probes))
+                weights = np.concatenate([weights, extra_w])
+                weights = weights / weights.sum()
+            weights = weights * confidences
 
         # Apply decorrelation multipliers if available
         if decorrelator is not None and decorrelator.is_calibrated:

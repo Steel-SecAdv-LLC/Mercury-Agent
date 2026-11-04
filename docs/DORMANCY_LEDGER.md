@@ -1,6 +1,6 @@
 # Dormancy & Salvage Ledger
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-18.
+Applies to Mercury Agent **v3.0.x**. Last updated: 2026-11-04.
 
 This ledger accounts for the **dormant** code in Mercury Agent — modules that are
 defined and exported in the public API but never run in any live inference,
@@ -93,6 +93,75 @@ order. None are deleted.
 | 11 | `hierarchical_planning.py` / `multi_agent_coordination.py` | ~1,480/~1,330 | Planning / agent coordination | **MEASURED ✓ (non-AUC, 2026-06-11)** — same harness: the planner drives every live detection episode via real options bound to the pipeline stages — **executability 129/129 episodes** with TD value learning on real stage rewards (initial-state value strictly increasing); coordination forms per-sample consensus over the five real engine detectors — **mean consensus AUC 0.841 ≥ mean member AUC 0.833** (best member 0.901; no claim of beating the trained fusion model is made), below-quorum cases **abstain explicitly** | **revived (orchestration tier)** | Both modules carried blocking defects while dormant: the planner could not select options at all (its option library returned dict projections that the planner type-checked away — every plan shipped empty, every action fell back to `default_action`), option eviction never fired, and below-quorum consensus returned a silent benign verdict (fail-open) while duck-typed dict votes were silently dropped. All fixed and pinned by `tests/cognitive/test_orchestration_behavioral.py`. |
 | 11b | `plasticity_engine.py` | ~930 | Synaptic plasticity | **No** — control/meta machinery, no harness yet | LOW | Retained as reference. |
 | — | `differentiable_logic.py` | ~990 | Scalar t-norms + embedding LTN modules | **Superseded** — its t-norm taxonomy (Gödel/Łukasiewicz) is revived as real tensor operators in the live `SymbolicConstraintModule` semantics (see `docs/NEUROSYMBOLIC.md` §2.1) | n/a | Concept revived in the measured path; file retained as reference. |
+
+## 2b. Exported instruments that no serving path reaches (2026-11-04)
+
+The §2 ranking covers the dormant *cognitive* modules. A reachability sweep of
+the **ensembles, fusion heads and mathematical instruments** found two more
+that are exported and tested but that no live path consumes, and one of them
+was carrying a measurable defect:
+
+| Instrument | LOC | Exported from | Reached by | Measured? |
+|---|---|---|---|---|
+| `detectors/math_arrest/` (`AnomalyMathArrest`, 21 probes) | ~1,900 | package root + `detectors/__init__` | nothing in `src/` (4 test modules + a CI probe-count gate) | **now measured ✓** (below) |
+| `detectors/fusion/multimodal_fusion.py` (`MultiModalFusionOptimizer`) | 827 | `detectors.fusion` | one test module only | **no** — needs a real VLM+visual corpus |
+
+### `AnomalyMathArrest` — measured, and two real defects fixed
+
+The instrument is **not in `DETECTOR_MANIFEST`**, so it is unreachable from the
+engine, the registry, the served routes, the CLI and the console catalog: it can
+only be used by importing it directly. It had never been measured on real
+labels, so there was no evidence it carried signal — the exact "interface ≠
+signal" gap this ledger exists to close. It is now measured on both recorded
+corpora and pinned by `tests/detectors/test_recorded_math_arrest.py`.
+
+**Defect 1 — the fusion prior was inverted against measured signal.** Scores
+were combined with `weight[rank] = PHI^(-rank)` over a hand-written
+affinity order. That decay is steep: the first three ranks carry 76% of the
+weight and the last probe 2.5e-05, so the per-probe `confidence` term (a
+multiplier in [0, 1]) cannot overcome a 70,000x prior spread. On the `default`
+order those three ranks are `variance_adapted`, `momentum` and `additive`,
+measuring **0.531 / 0.524 / 0.378** mean NAB AUROC — while the two strongest
+probes, `wave_propagation` (**0.697**) and `svd_projection` (**0.669**), sit at
+rank 7 and below and receive about 2% between them. The 21-probe fusion
+therefore scored *below its own best member*. The default weighting is now
+`uniform` (the plain mean — the dominant aggregation for outlier ensembles,
+Aggarwal & Sathe 2017, the same result the detector tier's `consensus` combiner
+cites); `phi_affinity` is retained and reproduces its released numbers exactly.
+
+| weighting | NAB (4 files) | ADBench (5 tables x 3 seeds) |
+|---|---|---|
+| **`uniform`** (new default) | **0.7498** | **0.6846** |
+| `confidence` (evidence only) | 0.7194 | 0.6771 |
+| `phi_affinity` (released) | 0.6183 | 0.5558 |
+
+**Defect 2 — `SVDProjectionProbe` never used its fitted basis.** `fit` computed
+the SVD of the training Hankel matrix and stored residual statistics, but
+`deviation_score` **recomputed the SVD on the evaluation data**, so the learned
+rank-1 subspace was unused, the residuals were compared against fit-time
+statistics belonging to a different basis, and the anomalies being scored
+helped define the subspace they were measured against. Its `abs` also scored a
+window fitting the subspace *better* than training (more collapsed, more
+normal) as deviant. It now projects onto the stored basis, directionally, and
+moved from the weakest probe to the second strongest (NAB 0.664 -> 0.669 with
+the per-file spread tightening, 0.415 -> 0.440 on off-modality tabular input).
+
+**Verdict: measured, repaired, still not wired by default.** At 0.7498 on the
+NAB files the ensemble now sits above every series detector pinned in
+`tests/detectors/test_recorded_nab_series.py` except `lstm_autoencoder`
+(0.829), so the reachability gap is worth closing — but on this ledger's own
+rule a manifest entry needs a `BaseDetector` seam (its `detect` returns a bare
+array, not the detector result contract) and a default-set slot needs a
+marginal-gain ablation against the live ensemble. Both are follow-on work,
+named here rather than assumed.
+
+**Modality note (why the two corpora differ).** Every probe is a *series*
+equation (Hankel trajectories, chaos, harmonic/wave), and
+`BaseEquationProbe._to_1d` reduces a 2-D input to its **per-row mean**, so
+matrix input is scored on that row summary and per-feature structure is never
+seen. The class docstring nonetheless presents the instrument as an
+IsolationForest replacement, which is a tabular role — hence both corpora are
+measured and both numbers are published above.
 
 ## 3. Correctly-quarantined (not dormant theater)
 
