@@ -178,6 +178,37 @@ evasion (earthquake 0.987→0.327, tornado 0.964→0.357); others are robust
 (hurricane, mpox). The masking flag fires iff NES (gradient-free) beats BPDA
 (gradient-based); `win_counts` is a true per-row tally.
 
+**Label-provenance split (added 2026-11-04 — this section was missing it).**
+The accuracy headline earlier in this file is split by
+`LABEL_PROVENANCE_REGISTRY` and reports external-label-only **0.770** as "the
+skill claim", noting that "label leakage flattered the mixed headline". That
+same discipline was never applied here. Applying it: by
+`research/governed_fusion/label_provenance.py`, **6 of these 7 events carry
+`statistical` labels**, which `GENUINE_LABEL_SOURCES = {expert_annotated,
+ground_truth}` excludes. Only `network_security / nsl_kdd` is admissible.
+
+| bucket | events | mean clean | mean worst-case @ `m=k/2` | drop |
+|---|--:|--:|--:|--:|
+| **external_label** (admissible) | 1 | 0.9135 | **0.8172** | **0.0962** |
+| self_label (leakage-flagged) | 6 | 0.9261 | 0.6889 | 0.2371 |
+| *mixed (the headline above)* | *7* | *0.9243* | *0.7073* | *0.2170* |
+
+Two consequences, and the second is the load-bearing one:
+
+1. **An admissible-only mean is n=1** and must not be reported as a
+   cross-domain robustness floor. `nsl_kdd` alone is a single-domain result.
+2. **The headline collapse is concentrated in the leakage-flagged bucket.** The
+   self-labelled events drop 0.2371 against the admissible event's 0.0962 —
+   2.5× — and both of the through-chance collapses (earthquake, tornado) are
+   self-labelled. A statistical label is derived from the same distributional
+   structure a half-channel attack perturbs, so a label-source-induced
+   correlation between "what is labelled anomalous" and "what the attack
+   moves" is exactly the confound to expect here. **The 0.217 drop is
+   therefore not established as a property of the fused detector.** It is
+   reported as measured, flagged as confounded, and the honest cross-domain
+   robustness claim is that there is not yet enough admissible-label evidence
+   to make one.
+
 ### Cubic-moment escape — `D_φ` over `φ(z)=[z, z²−1, z³]` vs the Gaussian floor
 
 - **Gaussian control sanity:** escape **−0.003** — the detector vanishes to the
@@ -371,7 +402,7 @@ verdict cites the committed artifact that proves it (numbers re-read from
 | operating point | conformal a disclosed **recall/coverage trade**, −0.071 F1 vs Youden/F1 (0.3982 − 0.4697) | `conformal_results.json` `overall` |
 | fusion pooling | **KILL** — rel·clipped 0.8429 < best-single 0.8779 (gap −0.035); not shipped (I3) | `reliability_fusion_results.json` `gap_to_best_single`, `verdict` |
 | decorrelated-stream fusion (Item D) | **SHIP rejected** — net-new temporal stream genuinely decorrelates (`\|ρ̄\|` 0.462→0.389) yet stack-4 0.8705 < best-single 0.8760 (paired Δ −0.0055); not promoted, runtime byte-unchanged | `decorrelation_results.json` `live_headline.step4_decision` |
-| robustness / survivability | measured floor 0.9243 → 0.7073 @ `m=k/2` + cubic-moment escape; research-only, **zero runtime change** | `survivability_results.json` `overall` |
+| robustness / survivability | measured floor 0.9243 → 0.7073 @ `m=k/2` + cubic-moment escape; research-only, **zero runtime change**. **Mixed-provenance: 6 of 7 events are leakage-flagged `statistical` labels; admissible-label only (n=1) is 0.9135 → 0.8172.** Not established as a detector property — see the provenance split | `survivability_results.json` `overall` |
 | loaders / provenance | **read-only marine synthesis guard LANDED**; NSL-KDD schema single-sourced | `tests/research/test_governed_suite_provenance.py`; `tests/loaders/test_nsl_kdd_single_source.py` |
 | reproducibility | reconstructed **7/7 byte-identical** across `PYTHONHASHSEED=1/2/random`; live 22/23 exact (marine drifts on live OBIS, disclosed); zero residual nondeterminism | `manifest.json` + `build_manifest.py` |
 | latency / throughput | recorded per-dataset (`fit_ms`/`score_ms`), CPU-only numpy/scipy; **no latency lever pursued** (out of detection-quality scope — would be the micro-benchmark theatre the constraints forbid) | `benchmarks/mercury_benchmark_results.json` `per_dataset` |

@@ -47,8 +47,15 @@ Per-component AUROC (live suite): resonance **0.824**, kinematic **0.662**
 0.30·kinematic + 0.30·info_geometry` scores **0.832** AUROC — *below its own best
 single component (0.908)*. The kinematic stream dilutes the average. This matches
 `FINDINGS.md` on branch `claude/serene-gates-fbE7W`: streams are redundant
-(|corr| 0.66), fusion dilutes (−0.074 vs best-single), and **reliability-weighted
-fusion is the measured win (+0.074 AUROC, 0.836→~0.91).**
+(|corr| 0.66) and fusion dilutes against best-single. **The "+0.074 AUROC,
+0.836→~0.91" claim that stood here is withdrawn (2026-11-04):** best-single is
+an oracle, selected per event with the evaluation labels
+(`research/omni_equation/harness_multidomain.py:78-81`), so it is an upper
+bound rather than a reachable target. Reliability-weighted fusion was never a
+*measured* win — it was an inferred one, inferred from an oracle gap. The
+label-free headroom is **+0.005** (best fixed stream `info_geometry` 0.8403 vs
+ensemble 0.8355), and `FINDINGS.md` records that label-free reliability
+rankers failed to close the sibling ADBench gap at all.
 
 ### In-constraint ranking levers already tested and REVERTED (do not repeat without a new idea)
 - Sharper kinematic finite-difference mapping (no sliding-max spread): **regresses** (the spread helps multi-sample events).

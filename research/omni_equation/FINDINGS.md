@@ -31,13 +31,47 @@ all 15 events**.
 | # | Question | Metric | Result |
 |---|---|---|---|
 | 1 | Are Mercury's streams independent? | mean \|corr\| | **0.66** — substantially redundant |
-| 2 | Does fusion beat the best single stream? | ensemble − best-single AUC | **−0.074** (worse in **13/15**, worst **−0.33**) |
+| 2 | Does fusion beat the best single stream? | ensemble − best-single AUC | **−0.074** (worse in **13/15**, worst **−0.33**) — **best-single is an ORACLE**, see note |
 | 3 | Does the outer equation beat the raw ensemble? | eq − ensemble AUC | **−0.002** — inert |
 | 4 | Does η^Φ ever change a verdict? | rank-flip / abs-flip / ΔAUC | **0.003 / 0.003 / −0.0002** — inert |
 
 Means: ensemble AUC **0.836**, best-single **0.909**. And from the earthquake
 benchmark (`benchmarks/earthquake_honest_benchmark.py`): mean **AUC 0.937 / F1 ≈ 0.09** — ranking is good, thresholding
 is broken.
+
+> ### The 0.909 "best single stream" is an oracle. Read every −0.074 below with this.
+>
+> `harness_multidomain.py:78-81` computes each stream's AUROC **against the
+> evaluation labels** and then takes `max()` over them. The winning stream is
+> chosen by the labels, so 0.909 is an **upper bound no label-free policy can
+> reach**, not an achievable operating point. There is also no train/test
+> split in that harness at all — `det.fit(feats)` then `det.detect(feats)` on
+> the same rows (`:63-64`) — so the selection and the evaluation use the same
+> labels. The ensemble's 0.836 consumes **zero** labels. The two numbers are
+> therefore not comparable as "fusion vs a stream you could have picked".
+>
+> **What is actually reachable without labels.** The argmax stream is different
+> on almost every event (6 distinct streams win across 15 events:
+> `info_geometry` ×4, `z_score_continuous` ×3, `resonance` ×3,
+> `isolation_forest` ×3, `kinematic` ×1, `iqr` ×1), so no fixed a-priori choice
+> reproduces 0.909. Fixing the best stream in advance gives:
+>
+> | fixed stream (label-free) | mean AUROC |
+> |---|--:|
+> | `info_geometry` | **0.8403** |
+> | `isolation_forest` | 0.8357 |
+> | *(the shipped ensemble)* | *0.8355* |
+> | `z_score_continuous` | 0.8293 |
+> | `resonance` | 0.8172 |
+> | `iqr` | 0.7720 |
+> | `kinematic` | 0.6655 |
+>
+> The best label-free fixed choice beats the ensemble by **+0.005**, not
+> +0.074 — and three of the six streams are *worse* than the ensemble. **About
+> 93% of the advertised gap is the oracle selection itself.** The finding that
+> survives is the weaker, true one: naive averaging of streams at |corr| 0.66
+> gives up a little (~0.005) against the single best stream, and nothing like
+> 0.074.
 
 ---
 
@@ -48,10 +82,19 @@ is broken.
    fusion of correlated streams (|corr| 0.66) **dilutes**, it doesn't combine.
    Any plan that leans on "more streams → better" is wrong as stated.
 
-2. **There is an accuracy win on the table at zero added cost:** make the fusion
-   reliability-weighted/selective so it *reaches* best-single. That is
-   **+0.074 AUC (0.836 → ~0.909)** with no new streams and no new compute — and
-   it *removes* drag rather than surrendering any value.
+2. **CORRECTED (2026-11-04). There is no +0.074 on the table.** This item read:
+   *"There is an accuracy win on the table at zero added cost: make the fusion
+   reliability-weighted/selective so it reaches best-single. That is +0.074 AUC
+   (0.836 → ~0.909) with no new streams and no new compute."* That target is an
+   **oracle** (see the note above): reaching 0.909 requires knowing, per event,
+   which stream will win — which requires the labels. The reachable, label-free
+   headroom is **+0.005** (`info_geometry` fixed in advance, 0.8403 vs the
+   ensemble's 0.8355), and §"Can reliability-weighting close the gap without
+   labels?" below answers **no** for these streams on the sibling ADBench gap
+   as well. The original wording is kept here rather than deleted because it
+   was propagated into `README.md`, `PROMPT.md` and
+   `research/engine_calibration/PHASE2_PROMPT.md`, where a **Kill criterion**
+   was built on it; those are corrected too.
 
 3. **The equation shape is not an accuracy lever.** Profiles move AUC by −0.002.
    Don't tune equation shape for accuracy; the levers are upstream (which

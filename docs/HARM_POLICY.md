@@ -287,11 +287,32 @@ halves are pinned by `tests/pillars/test_non_maleficence.py`
 (`GRAVE_HARM_REQUESTS` 12/12 refused, `MISSION_VOCABULARY` 19/19 permitted),
 including an anti-vacuity test that fails if either corpus stops discriminating.
 
+**What those two fractions are, and are not.** Both corpora are literal tuples
+in that test file, written by this project. They are **non-regression pins, not
+rate estimates**, and the samples are small enough that the distinction
+matters:
+
+* `MISSION_VOCABULARY` 19/19 is **in-sample by construction.** The lexicon's
+  contents were decided *against these very rows* — see the paragraph below,
+  where `degrade` is dropped because it false-positived on a string that is
+  itself row 19 of the tuple. A perfect score on the cases that selected the
+  lexicon is a guard against silent regression, not evidence of a
+  false-positive rate.
+* `GRAVE_HARM_REQUESTS` 12/12 is recall on twelve hand-picked harms.
+
+Their one-sided 95% Clopper-Pearson bounds, so the sample size is never
+invisible: 0 misses in 12 bounds the miss rate only below **22.09%**, and 0
+false positives in 19 bounds the false-positive rate only below **14.59%**. The
+held-out adversarial slice in `WEAPONS_GATE_ADVERSARIAL_EVAL.md` is the
+out-of-sample measurement (0/30, bound 9.50%); these two are the in-repo
+discrimination pins that sit beneath it.
+
 Polysemous verbs are excluded by measurement, not by taste: `degrade` was
 dropped after it false-positived on "these detectors degrade when we feed them
 noisy data", and `choke` / `execute` / `shoot` / `beat` / `assault` are absent
 because *choke point*, "execute them in parallel" and "shoot them a message" are
-ordinary Mercury vocabulary.
+ordinary Mercury vocabulary. Every one of those strings is a `MISSION_VOCABULARY`
+row, which is exactly why 19/19 cannot be read as an independent measurement.
 
 ### What this replaced, and why
 

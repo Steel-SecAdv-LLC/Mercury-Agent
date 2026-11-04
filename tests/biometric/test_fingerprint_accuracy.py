@@ -7,8 +7,8 @@ impostor pair, hand-built minutiae). None of them assert an *accuracy* — a
 labeled multi-identity genuine/impostor sweep with a floor on the accept
 rates. Without that, a silent regression in ``FingerprintMatcher`` (a broken
 ``_compute_score`` normaliser, an off-by-one in ``_count_matched_minutiae``,
-a tolerance drift) could halve real-world matching accuracy while every unit
-test stayed green.
+a tolerance drift) could halve matching accuracy on this corpus while every
+unit test stayed green.
 
 This module builds a small deterministic labeled corpus at the minutiae layer
 — several distinct identity templates, each probed by partial, translated,
@@ -20,7 +20,39 @@ score separation.
 Measured baseline (2026-07-21, deterministic seeds, match_threshold=40.0):
 TAR = 1.00 (min genuine score 88.9), FAR = 0.00 (max impostor score 12.5),
 separation ≈ 84. The floors below sit under those measurements with margin
-for environment variance while still failing on any real accuracy loss.
+for environment variance while still failing on any accuracy loss on this
+corpus.
+
+What this is NOT (stated because TAR 1.00 / FAR 0.00 reads like a deployable
+accuracy figure and is not one):
+
+* **The data is synthetic, and synthetic below the feature layer.** Templates
+  are ``np.random.default_rng`` uniform draws over x/y/orientation; genuine
+  probes are the same template rigid-translated with jitter and two minutiae
+  dropped. ``_features_from`` constructs ``FingerprintFeatures`` directly with
+  ``orientation_field``/``ridge_frequency`` zeroed, so segmentation,
+  enhancement and minutiae *extraction* are bypassed entirely. The pipeline a
+  real capture goes through is not exercised here at all.
+* **FAR = 0.00 is close to trivially obtainable on this corpus.** Impostors
+  are independent uniform point clouds. They carry none of the inter-finger
+  ridge-structure similarity that produces real-world false accepts, so this
+  FAR says nothing about the rate on real impostor pairs.
+* **The sample is tiny.** 5 identities x 3 probes = 15 genuine and 60 impostor
+  comparisons. 0 false accepts in 60 trials bounds the true false-accept rate
+  only below **4.9%** (one-sided 95% Clopper-Pearson); 0 rejects in 15 genuine
+  bounds the false-reject rate only below **18.1%**.
+* **No real biometric corpus is recorded anywhere in this repository** — no
+  NIST/FVC/CASIA equivalent exists under ``tests/fixtures``. This is a
+  regression floor on a synthetic corpus, not a measurement of the matcher's
+  accuracy.
+
+Sibling modalities, for the avoidance of a worse misreading: **iris and voice
+have no identity-level accuracy evidence at all**, synthetic or otherwise.
+``test_iris_recognition.py`` and ``test_voice_recognition.py`` are unit-behaviour
+suites (dataclass round-trips, Hamming distance over random bit arrays, MFCC
+shapes) on seeded synthetic arrays, with no genuine/impostor sweep, no TAR/FAR
+and no EER. ``docs/ROADMAP.md`` marks the biometric row "Functional", which that
+file defines as *not* implying external audit or production deployment.
 """
 
 from __future__ import annotations
