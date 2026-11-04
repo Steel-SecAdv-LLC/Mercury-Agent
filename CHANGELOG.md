@@ -27,6 +27,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Fixed — every Trivy job on main failed on an unchanged repository.** Right
+after PR #394 merged, "Install Trivy binary" failed in ci.yml's Docker Build
+and security.yml's Container Security Scan with curl's exit code 6, three runs
+in a row, 55 ms after the installer found the release. The step piped
+`contrib/install.sh` from the aquasecurity/trivy *main* branch into `sudo sh`;
+upstream had changed that script to fetch the archive from `get.trivy.dev`, a
+host that ordinary DNS (including the runners') did not resolve. The new
+composite action `.github/actions/install-trivy` downloads the pinned v0.70.0
+release asset from github.com, checks it against the SHA-256 published in that
+release's `trivy_0.70.0_checksums.txt`, and confirms the installed version; all
+four Trivy jobs (docker.yml's advisory scan included, which had used the
+trivy-action's own installer) use it with `skip-setup-trivy: true`. The Lean
+step in `verifiers.yml` had the same shape (`elan-init.sh` from the elan
+*master* branch, installing the latest elan and the moving "stable" Lean); it
+now installs the elan v4.2.4 release binary against a recorded SHA-256 (elan
+publishes no checksum file; the digest is recorded from the release asset) and
+the explicit toolchain `leanprover/lean4:v4.35.0`.
+`tests/test_ci_remote_install_contract.py` fails a pull request that pipes a
+downloaded script into a shell, fetches from a moving `main`/`master`/`HEAD`
+raw URL, or runs a Trivy scan without the pinned binary; it fails on main's
+workflows before this change.
+
 **Fixed — `detect -d fusion` scored any width against the bundled 16-column
 model and called the result clear.** The bundled `default_fusion.pt` predates
 the `fitted_feature_width` checkpoint key, so the width guard skipped it: a

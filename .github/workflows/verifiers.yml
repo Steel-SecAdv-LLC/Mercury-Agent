@@ -87,9 +87,28 @@ jobs:
           ama-ref: v5.0.0
 
       - name: Install Lean 4 (theorem-tier oracle)
+        # Pinned and verified, like every other tool this CI downloads. The
+        # step used to run elan-init.sh from the elan master branch, which in
+        # turn installs the *latest* elan and then the moving "stable" Lean, so
+        # an upstream change could alter or break this lane with no change
+        # here (the Trivy jobs failed exactly that way on 2026-11-03). Now: the
+        # elan v4.2.4 release binary, checked against the SHA-256 recorded from
+        # that release asset (elan publishes no checksum file), and an explicit
+        # Lean toolchain. Bump ELAN_VERSION/ELAN_SHA256 and LEAN_TOOLCHAIN
+        # together, deliberately.
+        env:
+          ELAN_VERSION: "4.2.4"
+          ELAN_SHA256: "42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63"
+          LEAN_TOOLCHAIN: "leanprover/lean4:v4.35.0"
         run: |
-          curl -fsSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o elan-init.sh
-          sh elan-init.sh -y --default-toolchain stable
+          set -euo pipefail
+          asset="elan-x86_64-unknown-linux-gnu.tar.gz"
+          work="$(mktemp -d "${RUNNER_TEMP}/elan.XXXXXX")"
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o "${work}/${asset}" \
+            "https://github.com/leanprover/elan/releases/download/v${ELAN_VERSION}/${asset}"
+          echo "${ELAN_SHA256}  ${work}/${asset}" | sha256sum -c -
+          tar -xzf "${work}/${asset}" -C "${work}"
+          "${work}/elan-init" -y --no-modify-path --default-toolchain "${LEAN_TOOLCHAIN}"
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: Verify Lean is available

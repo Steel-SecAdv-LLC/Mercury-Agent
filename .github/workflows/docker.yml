@@ -96,6 +96,11 @@ jobs:
           cache-from: type=gha
           outputs: type=docker,dest=/tmp/mercury-image.tar
 
+      - name: Install Trivy binary
+        # The same pinned, SHA-256 verified binary as ci.yml and security.yml
+        # (see the action); the scan below skips the action's own installer.
+        uses: ./.github/actions/install-trivy
+
       - name: Run Trivy vulnerability scanner on tarball
         continue-on-error: true
         # Action pinned to the same tagged version as security.yml's
@@ -117,6 +122,7 @@ jobs:
           ignore-unfixed: true
           exit-code: 0
           timeout: 10m
+          skip-setup-trivy: true
 
       - name: Upload Trivy scan results to GitHub Security tab
         if: always() && hashFiles('trivy-results.sarif') != ''

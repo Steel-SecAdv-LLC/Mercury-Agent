@@ -1,0 +1,54 @@
+name: Install Trivy
+description: >-
+  Install a pinned Trivy release binary, verified against its SHA-256, into
+  /usr/local/bin. The three Trivy jobs (ci.yml docker-build, security.yml
+  container-scan and filesystem-scan) used to pipe contrib/install.sh from
+  the aquasecurity/trivy main branch into "sudo sh". On 2026-11-03 that
+  script began downloading the archive from get.trivy.dev, a host the
+  runners could not resolve, and every Trivy job on main failed with curl's
+  exit code 6 on an unchanged repository. This action downloads the release
+  asset from github.com/aquasecurity/trivy/releases directly, checks it
+  against the digest recorded here (taken from the release's
+  trivy_<version>_checksums.txt), and refuses anything else, so neither a
+  moving script nor a changed archive can reach the scan.
+  tests/test_ci_remote_install_contract.py requires every Trivy job to use it.
+  The trivy-action steps run with ``skip-setup-trivy: true`` so they use this
+  binary: the action's bundled setup-trivy falls back, when its cache is cold,
+  to a sparse checkout of the trivy repository whose deferred fetch is not
+  credentialed and fails ("could not read Username for 'https://github.com'").
+
+inputs:
+  version:
+    description: Trivy release to install (without the leading "v").
+    required: false
+    default: "0.70.0"
+  sha256:
+    description: >-
+      SHA-256 of trivy_<version>_Linux-64bit.tar.gz, from that release's
+      trivy_<version>_checksums.txt. Changes together with ``version``.
+    required: false
+    default: "8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9"
+
+runs:
+  using: composite
+  steps:
+    - name: Download, verify and install Trivy
+      shell: bash
+      env:
+        TRIVY_VERSION: ${{ inputs.version }}
+        TRIVY_SHA256: ${{ inputs.sha256 }}
+      run: |
+        set -euo pipefail
+        asset="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+        url="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${asset}"
+        work="$(mktemp -d "${RUNNER_TEMP}/trivy.XXXXXX")"
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o "${work}/${asset}" "${url}"
+        echo "${TRIVY_SHA256}  ${work}/${asset}" | sha256sum -c -
+        tar -xzf "${work}/${asset}" -C "${work}" trivy
+        sudo install -m 0755 "${work}/trivy" /usr/local/bin/trivy
+        installed="$(trivy --version | awk '/^Version:/ {print $2; exit}')"
+        if [ "${installed}" != "${TRIVY_VERSION}" ]; then
+          echo "::error title=Trivy version mismatch::installed ${installed:-nothing}, expected ${TRIVY_VERSION}"
+          exit 1
+        fi
+        echo "Trivy ${installed} installed from ${asset} (sha256 verified)"
