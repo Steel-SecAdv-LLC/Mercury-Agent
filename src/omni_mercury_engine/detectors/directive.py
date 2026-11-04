@@ -45,6 +45,7 @@ from scipy.fft import fft
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.detectors._calibration import (
+    batch_evidence,
     fit_pca_basis,
     micro_residual_cut,
     pca_residuals,
@@ -147,6 +148,18 @@ class DirectiveWeights:
         nano_blend: Blend factor for nano-scale detection (0=disable, 1=full).
         harmonic_blend: Blend factor for harmonic analysis (0=disable, 1=full).
 
+    The three blends default to 0. Each of those protocols reduces the whole
+    *batch* to one scalar (column coherence; SHA3 entropy and chained-hash
+    "checksums" of the batch's raw bytes; an FFT over every feature flattened
+    together), and blending a batch scalar into every row makes a row's score
+    a function of its batch-mates: at the former 0.2 / 0.15 / 0.1 the share of
+    held-out normal rows flagged was 0.103 in 10-row batches, 0.062 in
+    100-row and 0.045 in 2,000-row ones, and 0.201 of ADBench breastw's. With
+    the blends at 0 it is 0.043 / 0.046 / 0.049 and 0.048, at identical
+    within-batch AUROC (a common shift does not reorder a batch). The
+    scalars are still computed and reported as ``quantum_scores``,
+    ``nano_scores`` and ``harmonic_score``.
+
     Example:
         >>> weights = DirectiveWeights(pcp_weight=0.4, gsis_weight=0.3)
         >>> detector = SigmaDirectiveDetector({"weights": weights})
@@ -156,9 +169,9 @@ class DirectiveWeights:
     gsis_weight: float = 0.3
     rmd_weight: float = 0.2
     eoa_weight: float = 0.2
-    quantum_blend: float = 0.2
-    nano_blend: float = 0.15
-    harmonic_blend: float = 0.1
+    quantum_blend: float = 0.0
+    nano_blend: float = 0.0
+    harmonic_blend: float = 0.0
 
     def __post_init__(self) -> None:
         """Validate weights sum to 1.0 for base protocols."""
@@ -235,13 +248,16 @@ class SigmaDirectiveDetector(BaseDetector):
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "Deprecated in-house rule set: PCP, GSIS, RMD and EOA protocol "
-            "scores (plus optional quantum/nano/harmonic enhancements) are "
-            "weight-combined into one [0, 1] score; is_anomaly fires when it "
-            "exceeds the configured threshold (default 0.5) or the "
-            "auto-calibrated operating point. No published threshold exists for "
-            "these protocols and no labelled corpus calibrates them; the module "
-            "is retained for reference only."
+            "Deprecated in-house rule set: PCP, GSIS, RMD and EOA per-row "
+            "protocol scores are weight-combined into one [0, 1] score "
+            "(the batch-level quantum/nano/harmonic scalars are reported but "
+            "blended at 0 by default); is_anomaly fires above the 0.95 quantile "
+            "of the training rows' own scores installed by fit, a configured "
+            "threshold, or the auto-calibrated operating point. No published "
+            "threshold exists for these protocols. Held-out normal rows "
+            "flagged 0.048-0.060 on five ADBench tables and 0.043-0.049 of "
+            "Gaussian rows at every batch size from 10 to 2,000. The module is "
+            "retained for reference only."
         ),
     )
 
@@ -281,6 +297,9 @@ class SigmaDirectiveDetector(BaseDetector):
         self._threshold_is_configured = "threshold" in self.config
         #: Whether fit() cut the threshold on the training rows' own scores.
         self._threshold_calibrated = False
+        # Sorted combined scores of the training rows (cleared memory): the
+        # reference for the conformal p-values and the batch-level test.
+        self._reference_scores: NDArray[np.float64] | None = None
         self.memory_depth: int = self.config.get("memory_depth", 5)
         self.use_quantum_enhanced: bool = self.config.get("use_quantum_enhanced", True)
         self.use_nano_detection: bool = self.config.get("use_nano_detection", True)
@@ -435,8 +454,7 @@ class SigmaDirectiveDetector(BaseDetector):
         An explicitly configured ``threshold``, or ``enable_auto_calibration``,
         is the caller's decision and is left alone.
         """
-        if self._threshold_is_configured or self._auto_calibrate:
-            return
+        self._reference_scores = None
         try:
             # Scored with a cleared buffer, and cleared again afterwards, so
             # calibration neither reads nor leaves streaming state.
@@ -445,6 +463,9 @@ class SigmaDirectiveDetector(BaseDetector):
         finally:
             self.clear_memory()
         finite = scores[np.isfinite(scores)]
+        self._reference_scores = np.sort(finite) if finite.size else None
+        if self._threshold_is_configured or self._auto_calibrate:
+            return
         if finite.size == 0:
             logger.warning(
                 "SigmaDirectiveDetector could not calibrate its threshold: no finite "
@@ -589,6 +610,9 @@ class SigmaDirectiveDetector(BaseDetector):
             # threshold rather than a cut measured on the training rows.
             "threshold_calibrated": self._threshold_calibrated,
             "calibration_diagnostics": calibration_diagnostics,
+            **batch_evidence(
+                self._reference_scores, combined_scores, 1.0 - self.CALIBRATION_QUANTILE
+            ),
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
@@ -1023,6 +1047,8 @@ class SigmaDirectiveDetector(BaseDetector):
             state["micro_residual_cut"] = np.asarray([self._micro_residual_cut], dtype=np.float64)
         if self._threshold_calibrated:
             state["calibrated_threshold"] = np.asarray([self.threshold], dtype=np.float64)
+        if self._reference_scores is not None:
+            state["reference_scores"] = np.asarray(self._reference_scores, dtype=np.float64)
         return state
 
     def set_fitted_state(self, state: dict[str, Any]) -> None:
@@ -1055,6 +1081,10 @@ class SigmaDirectiveDetector(BaseDetector):
         else:
             self._micro_basis = None
             self._micro_residual_cut = None
+        reference = state.get("reference_scores")
+        self._reference_scores = (
+            np.asarray(reference, dtype=np.float64).reshape(-1) if reference is not None else None
+        )
         if "calibrated_threshold" in state:
             self.threshold = float(np.asarray(state["calibrated_threshold"]).reshape(-1)[0])
             self._threshold_calibrated = True

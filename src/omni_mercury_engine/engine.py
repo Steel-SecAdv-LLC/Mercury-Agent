@@ -183,6 +183,7 @@ from omni_mercury_engine._version import get_version as _get_version
 __version__ = _get_version()
 
 # Core detectors - always imported (lightweight base classes)
+from omni_mercury_engine.detectors._calibration import benjamini_hochberg
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 
@@ -4538,6 +4539,54 @@ class OmniMercuryEngine(LoggerMixin):
         self._inference_auto_fit_detectors.add(name)
         detector.fit(data)
 
+    #: Probability, under the global null (every row normal and every
+    #: detector's reference independent of the batch), that ``detect`` calls a
+    #: batch anomalous through the detectors that report conformal p-values.
+    BATCH_FALSE_ALARM_BUDGET: float = 0.05
+
+    @classmethod
+    def _batch_is_anomalous(
+        cls, results: dict[str, dict[str, Any]], fitted_on_this_batch: set[str]
+    ) -> bool:
+        """Whether the batch is anomalous, from every detector's result.
+
+        OR-ing per-row flags at a per-row level alpha over ``n`` normal rows
+        fires with probability ``1 - (1 - alpha)^n``: 0.994 for 100 rows at
+        0.05 per detector, before the detectors are OR-ed together, and
+        measured as 1.00 on all-normal 100-row batches. A detector that
+        reports conformal ``p_values`` against a reference independent of the
+        batch is instead tested with Benjamini-Hochberg at
+        ``BATCH_FALSE_ALARM_BUDGET / K`` (K such detectors): each fires with
+        probability at most that under the null, so by the union bound the
+        batch verdict does at most ``BATCH_FALSE_ALARM_BUDGET`` whatever the
+        dependence between detectors. A detector fitted on this very batch has
+        the batch as its reference, against which no test has evidence, and
+        one that reports no p-values (a legacy state) keeps the per-row OR:
+        fail-loud, not quiet.
+        """
+        tested = [
+            name
+            for name, result in results.items()
+            if name not in fitted_on_this_batch and result.get("p_values") is not None
+        ]
+        level = cls.BATCH_FALSE_ALARM_BUDGET / max(len(tested), 1)
+        for name, result in results.items():
+            if name in tested:
+                p_values = np.asarray(result["p_values"], dtype=np.float64).reshape(-1)
+                if bool(benjamini_hochberg(p_values, level).any()):
+                    return True
+                # Resolution guard: when even the smallest p-value this
+                # detector can report for a row beyond its reference cannot
+                # reach level / m, the test cannot see a single outlier, and a
+                # deaf verdict is not a quiet one; keep its per-row OR.
+                floor = result.get("p_value_floor")
+                if floor is None or float(floor) * p_values.size <= level:
+                    continue
+            flags = result.get("is_anomaly", False)
+            if flags if isinstance(flags, bool) else bool(np.any(flags)):
+                return True
+        return False
+
     def _fit_for_training(self, name: str, detector: Any, X: Any) -> bool:
         """Fit ``detector`` on training rows unless it already holds a training fit.
 
@@ -4712,6 +4761,10 @@ class OmniMercuryEngine(LoggerMixin):
             detector_types = list(self.detectors.keys())
 
         results = {}
+        # Detectors fitted on this very batch: their reference *is* the batch,
+        # so a batch-level test against it carries no evidence (see
+        # ``_batch_verdict``).
+        fitted_on_this_batch: set[str] = set()
 
         # Fit sequentially (fits mutate detector state and some seed the
         # global torch RNG), then run the fitted detectors through the
@@ -4728,6 +4781,7 @@ class OmniMercuryEngine(LoggerMixin):
                         continue
                     try:
                         self._auto_fit_on_inference(detector_name, detector, data)
+                        fitted_on_this_batch.add(detector_name)
                     except InputModalityError as e:
                         # Correct refusal, not a fault: skip the detector and
                         # count it as declined, the contract documented on
@@ -4792,14 +4846,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         output: dict[str, Any] = {
             "detectors": results,
-            "is_anomaly": any(
-                (
-                    r.get("is_anomaly", False)
-                    if isinstance(r.get("is_anomaly"), bool)
-                    else any(r.get("is_anomaly", []))
-                )
-                for r in results.values()
-            ),
+            "is_anomaly": self._batch_is_anomalous(results, fitted_on_this_batch),
         }
         if self._inference_auto_fit_detectors:
             output["inference_auto_fit_detectors"] = sorted(self._inference_auto_fit_detectors)

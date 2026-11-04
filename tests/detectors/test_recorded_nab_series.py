@@ -58,7 +58,14 @@ MEASURED: dict[str, tuple[float, float, float]] = {
     "deep_svdd": (0.659, -30.0, 0.061),
     "diffusion_ad": (0.661, -32.2, 0.054),
     "digital_twin": (0.607, 53.4, 0.014),
-    "dimensional": (0.533, 48.7, 0.001),
+    # Was (0.533, 48.7, 0.001) under batch min-max normalisation and a fixed
+    # 0.5 cut, whose false-alarm rate depended on the batch: 0.001 on these
+    # 1,000-row series, 0.30 of Gaussian rows in 10-row batches. Each row is
+    # now normalised against the training range and cut at the training
+    # rows' 0.95 conformal quantile, the 5% budget of the other detectors;
+    # on these files that alarms more, and NAB's standard profile scores it
+    # lower. The ranking is unchanged.
+    "dimensional": (0.537, 22.7, 0.025),
     # Was (0.699, -368.3) at a fixed readout ridge of 1e-4, which flagged
     # 0.188 of the normal points (0.533 on rogue_agent_key_hold): the
     # 101-parameter readout's out-of-fold error exceeded the trivial

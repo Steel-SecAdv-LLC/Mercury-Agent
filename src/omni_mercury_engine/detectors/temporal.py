@@ -19,6 +19,7 @@ except ImportError:
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors._calibration import batch_evidence
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 # Fixed initialization seed for the untrained LSTM feature projector. The
@@ -81,6 +82,9 @@ class TemporalAnomalyDetector(BaseDetector):
         """Initialize the instance."""
         super().__init__(config)
         self.window_size = self.config.get("window_size", 10)
+        # Sorted training-batch combined scores (set by fit): the reference for
+        # the conformal p-values and the batch-level test.
+        self._reference_scores: np.ndarray[Any, Any] | None = None
         self.change_threshold = self.config.get("change_threshold", 2.0)
 
         # LSTM is optional: it powers the documented "LSTM-based
@@ -202,8 +206,7 @@ class TemporalAnomalyDetector(BaseDetector):
         is the caller's decision and is left alone (the same contract as
         AccelerationDynamicsDetector's fit-time calibration).
         """
-        if "threshold" in self.config or self._auto_calibrate:
-            return
+        self._reference_scores = None
         if data_np.shape[0] < 20:
             return
         trend = self._detect_trend_anomalies(data_np)
@@ -211,6 +214,11 @@ class TemporalAnomalyDetector(BaseDetector):
         prediction = self._detect_prediction_residuals(data_np)
         combined_z = np.maximum(np.maximum(trend, change), prediction)
         scores = combined_z / (3.0 + combined_z)
+        finite = scores[np.isfinite(scores)]
+        # The reference for the conformal p-values and the batch-level test.
+        self._reference_scores = np.sort(finite) if finite.size else None
+        if "threshold" in self.config or self._auto_calibrate:
+            return
         self.threshold = float(np.quantile(scores, self._THRESHOLD_CALIBRATION_QUANTILE))
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
@@ -291,6 +299,11 @@ class TemporalAnomalyDetector(BaseDetector):
             "detector_type": "temporal",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
+            **batch_evidence(
+                getattr(self, "_reference_scores", None),
+                combined_scores,
+                1.0 - self._THRESHOLD_CALIBRATION_QUANTILE,
+            ),
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
@@ -507,6 +520,7 @@ class TemporalAnomalyDetector(BaseDetector):
             "baseline_mean": self.baseline_mean,
             "baseline_std": self.baseline_std,
             "threshold": float(self.threshold),
+            "reference_scores": getattr(self, "_reference_scores", None),
             "feature_mean": self.feature_mean_,
             "feature_std": self.feature_std_,
             "diff_mean": self.diff_mean_,
@@ -533,6 +547,10 @@ class TemporalAnomalyDetector(BaseDetector):
         ):
             value = state.get(key)
             setattr(self, attr, np.asarray(value, dtype=np.float64) if value is not None else None)
+        reference = state.get("reference_scores")
+        self._reference_scores = (
+            np.asarray(reference, dtype=np.float64).reshape(-1) if reference is not None else None
+        )
         saved_threshold = state.get("threshold")
         if saved_threshold is not None and "threshold" not in self.config:
             self.threshold = float(saved_threshold)

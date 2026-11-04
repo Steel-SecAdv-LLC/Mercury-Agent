@@ -35,6 +35,7 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors._calibration import batch_evidence, conformal_cut
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
@@ -229,13 +230,15 @@ class DimensionalAnalyzer(BaseDetector):
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "In-house combination: PCA reconstruction error, optional "
-            "autoencoder reconstruction error and a Fourier 'DB term' spectral "
-            "score are weight-combined into one [0, 1] score; is_anomaly fires "
-            "when it exceeds the configured threshold (default 0.5) or the "
-            "auto-calibrated operating point at the configured contamination. "
-            "No published threshold exists for the combined score and no "
-            "labelled corpus calibrates the default weights or cut."
+            "In-house combination: PCA reconstruction error, autoencoder "
+            "reconstruction error, a Fourier 'DB term' spectral score and a "
+            "Mahalanobis channel, each normalised against the training rows' "
+            "range widened by the row (so a row's score does not depend on its "
+            "batch), are weight-combined into one [0, 1] score; is_anomaly "
+            "fires above the configured threshold, the auto-calibrated "
+            "operating point at the configured contamination, or else the "
+            "one-class split-conformal 0.95 quantile of the training rows' own "
+            "scores. No published threshold exists for the combined score."
         ),
     )
 
@@ -300,6 +303,15 @@ class DimensionalAnalyzer(BaseDetector):
         # against. Always computed at fit when the DB term is enabled, so
         # the flag can be evaluated without refitting.
         self.baseline_row_spectrum: NDArray[np.float64] | None = None
+        # Fit-time (min, max) of each raw channel over the training rows. A row
+        # is normalised against them (widened by the row itself), so its score
+        # does not depend on the rows it is scored with; None on a legacy
+        # state, which keeps the batch min-max it was saved with.
+        self._channel_ranges: dict[str, tuple[float, float]] | None = None
+        self._threshold_is_configured = isinstance(config, dict) and "threshold" in config
+        # Sorted combined scores of the training rows: the reference for the
+        # conformal p-values and the batch-level test.
+        self._reference_scores: NDArray[np.float64] | None = None
 
     def fit(self, data: NDArray[np.float64] | torch.Tensor) -> DimensionalAnalyzer:
         """Fit dimensional analyzers to training data.
@@ -400,7 +412,104 @@ class DimensionalAnalyzer(BaseDetector):
             self.baseline_row_spectrum = row_spectra.mean(axis=0) if row_spectra.size else None
 
         self._is_fitted = True
+        self._fit_anchors(data_np)
         return self
+
+    #: Share of training rows above the installed cut.
+    CALIBRATION_ALPHA = 0.05
+
+    def _fit_anchors(self, data_np: np.ndarray[Any, Any]) -> None:
+        """Anchor channel normalisation to the training rows; cut the threshold on them.
+
+        Every channel used to be min-max normalised over the batch being
+        scored, so a batch's worst row scored near 1 whatever its value and
+        the fixed 0.5 cut flagged 0.30 of held-out Gaussian rows in 10-row
+        batches and 0.28 in 100-row ones. Unless a threshold was configured,
+        the cut is the ``ceil((n + 1)(1 - alpha))``-th smallest training score.
+        """
+        raw = self._raw_channels(data_np)
+        ranges: dict[str, tuple[float, float]] = {}
+        for name in ("pca", "autoencoder", "mahalanobis"):
+            values = raw.get(name)
+            if values is None:
+                continue
+            finite = values[np.isfinite(values)]
+            if finite.size:
+                ranges[name] = (float(finite.min()), float(finite.max()))
+        self._channel_ranges = ranges
+        self._reference_scores = np.sort(self._combine(raw))
+        if self._threshold_is_configured or self._auto_calibrate:
+            return
+        cut = conformal_cut(self._reference_scores, self.CALIBRATION_ALPHA)
+        if cut is not None:
+            self.threshold = cut
+
+    def _raw_channels(self, data_np: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Per-row raw channel values: PCA and autoencoder error, DB term, Mahalanobis."""
+        if self.pca is None:
+            raise DetectorException("PCA must be fitted before detection")
+        if self.autoencoder is None:
+            raise DetectorException("Autoencoder must be fitted before detection")
+        pca_components = self.pca.transform(data_np)
+        pca_reconstructed = self.pca.inverse_transform(pca_components)
+        pca_errors = np.linalg.norm(data_np - pca_reconstructed, axis=1)
+        data_tensor = torch.tensor(np.asarray(data_np), dtype=torch.float32)
+        with torch.no_grad():
+            _, ae_reconstructed = self.autoencoder(data_tensor)
+            ae_errors = torch.norm(data_tensor - ae_reconstructed, dim=1).cpu().numpy()
+        db_scores: NDArray[np.float64] | None = None
+        if self.use_db_term and self.baseline_spectral_signature is not None:
+            db_scores = self._dimensional_code_breaking(data_np)
+        return {
+            "pca": np.asarray(pca_errors, dtype=np.float64),
+            "autoencoder": np.asarray(ae_errors, dtype=np.float64),
+            "db": db_scores,
+            "mahalanobis": self._mahalanobis_scores(data_np),
+        }
+
+    def _normalise_channel(self, name: str, values: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Min-max against the fit-time range widened by each row (batch min-max if legacy)."""
+        bounds = None if self._channel_ranges is None else self._channel_ranges.get(name)
+        if bounds is None:
+            return self._safe_normalize(values)
+        v = np.asarray(values, dtype=np.float64)
+        v = np.where(np.isfinite(v), v, np.nan)
+        lo = np.minimum(bounds[0], v)
+        hi = np.maximum(bounds[1], v)
+        span = hi - lo
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out = np.where(span < 1e-10, 0.5, (v - lo) / np.where(span < 1e-10, 1.0, span))
+        return np.asarray(np.clip(np.nan_to_num(out, nan=0.5), 0.0, 1.0), dtype=np.float64)
+
+    def _combine(self, raw: dict[str, Any]) -> NDArray[np.float64]:
+        """Weight-combine the normalised channels into the [0, 1] score."""
+        combined_scores = (
+            self._normalise_channel("pca", raw["pca"]) * self.weights.pca_weight
+            + self._normalise_channel("autoencoder", raw["autoencoder"])
+            * self.weights.autoencoder_weight
+        )
+        # The DB term refines the reconstruction view, so it blends into the
+        # base BEFORE the Mahalanobis channel: blended after, it re-diluted
+        # that channel's weight share (measured in-session, recorded in
+        # CHANGELOG.md -- correlation-break ROC-AUC 0.763 with the dilution
+        # against 0.901 for the channel's own ranking).
+        db_scores = raw.get("db")
+        if db_scores is not None:
+            blend = self.weights.db_blend
+            combined_scores = combined_scores * (1 - blend) + db_scores * blend
+        # Blend in the eigenvalue-normalized channel (see DimensionalWeights.
+        # mahalanobis_blend). None on a basis restored from a legacy
+        # checkpoint, which has no spectrum.
+        mahalanobis = raw.get("mahalanobis")
+        if mahalanobis is not None and self.weights.mahalanobis_blend > 0.0:
+            blend = self.weights.mahalanobis_blend
+            combined_scores = (
+                combined_scores * (1 - blend)
+                + self._normalise_channel("mahalanobis", mahalanobis) * blend
+            )
+        if np.any(~np.isfinite(combined_scores)):
+            combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
+        return np.asarray(np.clip(combined_scores, 0.0, 1.0), dtype=np.float64)
 
     def detect(self, data: NDArray[np.float64] | torch.Tensor) -> dict[str, Any]:
         """Detect dimensional anomalies using reconstruction error analysis.
@@ -442,72 +551,19 @@ class DimensionalAnalyzer(BaseDetector):
             raise DetectorException("Detector must be fitted before detection")
 
         data_np: np.ndarray[Any, Any]
-        data_tensor: torch.Tensor | None
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
-            data_np = data.cpu().numpy()
-            data_tensor = data
+            data_np = data.detach().cpu().numpy()
         else:
             data_np = np.asarray(data)
-            data_tensor = torch.tensor(data_np, dtype=torch.float32) if TORCH_AVAILABLE else None
-
         if data_np.ndim == 1:
             data_np = data_np.reshape(-1, 1)
-            if data_tensor is not None:
-                data_tensor = data_tensor.reshape(-1, 1)
 
-        if self.pca is None:
-            raise DetectorException("PCA must be fitted before detection")
-        if self.autoencoder is None:
-            raise DetectorException("Autoencoder must be fitted before detection")
-
-        # Compute PCA reconstruction error
-        pca_components = self.pca.transform(data_np)
-        pca_reconstructed = self.pca.inverse_transform(pca_components)
-        pca_errors = np.linalg.norm(data_np - pca_reconstructed, axis=1)
-
-        # Compute autoencoder reconstruction error
-        with torch.no_grad():
-            assert data_tensor is not None
-            _, ae_reconstructed = self.autoencoder(data_tensor)
-            ae_errors = torch.norm(data_tensor - ae_reconstructed, dim=1).cpu().numpy()
-
-        # Normalize errors to comparable scales before combining
-        pca_errors_norm = self._safe_normalize(pca_errors)
-        ae_errors_norm = self._safe_normalize(ae_errors)
-
-        # Combine using configurable weights (fixes hardcoded magic numbers)
-        combined_scores = (
-            pca_errors_norm * self.weights.pca_weight
-            + ae_errors_norm * self.weights.autoencoder_weight
-        )
-
-        # Optionally blend in DB term spectral analysis. The DB term refines
-        # the reconstruction view, so it blends into the base BEFORE the
-        # Mahalanobis channel: blended after, it re-diluted that channel's
-        # weight share (measured in-session, recorded in CHANGELOG.md — no
-        # result artifact is committed: correlation-break ROC-AUC 0.763 with
-        # the dilution against 0.901 for the channel's own ranking).
-        db_scores: NDArray[np.float64] | None = None
-        if self.use_db_term and self.baseline_spectral_signature is not None:
-            db_scores = self._dimensional_code_breaking(data_np)
-            blend = self.weights.db_blend
-            combined_scores = combined_scores * (1 - blend) + db_scores * blend
-
-        # Blend in the eigenvalue-normalized channel (see DimensionalWeights.
-        # mahalanobis_blend). None on a basis restored from a legacy
-        # checkpoint, which has no spectrum; such checkpoints keep their
-        # exact pre-upgrade scores.
-        mahalanobis = self._mahalanobis_scores(data_np)
-        if mahalanobis is not None and self.weights.mahalanobis_blend > 0.0:
-            blend = self.weights.mahalanobis_blend
-            combined_scores = (
-                combined_scores * (1 - blend) + self._safe_normalize(mahalanobis) * blend
-            )
-
-        # Ensure scores are finite and in valid range
-        if np.any(~np.isfinite(combined_scores)):
-            combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
-        combined_scores = np.clip(combined_scores, 0.0, 1.0)
+        # Each row against the fit-time channel ranges (see _fit_anchors).
+        raw = self._raw_channels(data_np)
+        pca_errors = raw["pca"]
+        ae_errors = raw["autoencoder"]
+        db_scores = raw["db"]
+        combined_scores = self._combine(raw)
 
         # Auto-calibration: compute optimal threshold from score distribution
         effective_threshold = self.threshold
@@ -528,6 +584,7 @@ class DimensionalAnalyzer(BaseDetector):
             "detector_type": "dimensional",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
+            **batch_evidence(self._reference_scores, combined_scores, self.CALIBRATION_ALPHA),
         }
 
     def _mahalanobis_scores(self, data: np.ndarray[Any, Any]) -> NDArray[np.float64] | None:
@@ -827,6 +884,17 @@ class DimensionalAnalyzer(BaseDetector):
                 if self.baseline_row_spectrum is not None
                 else None
             ),
+            "channel_ranges": (
+                {name: [lo, hi] for name, (lo, hi) in self._channel_ranges.items()}
+                if self._channel_ranges is not None
+                else None
+            ),
+            "calibrated_threshold": float(self.threshold),
+            "reference_scores": (
+                np.asarray(self._reference_scores, dtype=np.float64)
+                if self._reference_scores is not None
+                else None
+            ),
         }
 
     def set_fitted_state(self, state: dict[str, Any]) -> None:
@@ -863,6 +931,21 @@ class DimensionalAnalyzer(BaseDetector):
         self.baseline_row_spectrum = (
             np.asarray(row_spectrum, dtype=np.float64) if row_spectrum is not None else None
         )
+        # Legacy states carry no anchors and keep the batch min-max (and the
+        # threshold they were saved with) they were measured under.
+        ranges = state.get("channel_ranges")
+        self._channel_ranges = (
+            {str(name): (float(b[0]), float(b[1])) for name, b in dict(ranges).items()}
+            if ranges is not None
+            else None
+        )
+        reference = state.get("reference_scores")
+        self._reference_scores = (
+            np.asarray(reference, dtype=np.float64) if reference is not None else None
+        )
+        calibrated = state.get("calibrated_threshold")
+        if calibrated is not None and not self._threshold_is_configured:
+            self.threshold = float(calibrated)
         self._is_fitted = True
 
     def _learned_state(self) -> dict[str, Any]:

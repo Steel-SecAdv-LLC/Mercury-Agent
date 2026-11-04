@@ -215,3 +215,232 @@ def test_component_reference_survives_state_round_trip() -> None:
     assert restored._conformal_cut(restored._reference_info_geometry) == pytest.approx(
         detector._conformal_cut(detector._reference_info_geometry)
     )
+
+
+class TestConformalPValuesAndBatchVerdict:
+    """``p_values`` / ``fdr_flags`` / ``batch_anomaly`` on top of the fit-time reference."""
+
+    def test_p_values_are_super_uniform_on_normal_rows(self) -> None:
+        """Marginal over reference draws, P(p <= a) <= a (measured 0.0016 / 0.0044 /
+        0.0093 / 0.0506 at a = 0.002 / 0.005 / 0.01 / 0.05 over 12 draws)."""
+        rates = []
+        for seed in range(6):
+            rng = np.random.default_rng(100 + seed)
+            detector = MercuryAnomalyDetector()
+            detector.fit(rng.standard_normal((1000, 8)))
+            p = np.asarray(detector.detect(rng.standard_normal((3000, 8)))["p_values"])
+            rates.append([float(np.mean(p <= a)) for a in (0.01, 0.05)])
+        mean = np.mean(rates, axis=0)
+        assert mean[0] <= 0.01 + 0.006
+        assert mean[1] <= 0.05 + 0.012
+
+    def test_p_value_is_the_conformal_rank(self) -> None:
+        detector = _fitted()
+        ref = detector._reference_scores
+        assert ref is not None
+        result = detector.detect(np.random.default_rng(11).normal(0.0, 1.0, (20, 8)))
+        scores = np.asarray(result["scores"], dtype=float)
+        expected = (1.0 + np.array([(ref >= s).sum() for s in scores])) / (len(ref) + 1.0)
+        np.testing.assert_allclose(result["p_values"], expected)
+
+    def test_benjamini_hochberg_matches_the_step_up_rule(self) -> None:
+        p = np.array([0.001, 0.008, 0.039, 0.041, 0.042, 0.06, 0.074, 0.205, 0.212, 0.216])
+        flags = MercuryAnomalyDetector._benjamini_hochberg(p, 0.05)
+        # Largest k with p_(k) <= 0.05 k / 10 is k = 2 (0.008 <= 0.010; 0.039 > 0.015).
+        assert flags.tolist() == [True, True] + [False] * 8
+
+    def test_batch_verdict_holds_its_level_where_or_ing_rows_does_not(self) -> None:
+        """100 all-normal rows: the per-row OR fires every time, BH at q = 0.05 rarely."""
+        detector = _fitted()
+        rng = np.random.default_rng(12)
+        or_rate, bh_rate = [], []
+        for _ in range(40):
+            result = detector.detect(rng.normal(0.0, 1.0, (100, 8)))
+            or_rate.append(bool(np.asarray(result["is_anomaly"]).any()))
+            bh_rate.append(bool(result["batch_anomaly"]))
+        assert np.mean(or_rate) > 0.9
+        assert np.mean(bh_rate) <= 0.15
+
+    def test_a_gross_outlier_makes_the_batch_anomalous(self) -> None:
+        detector = _fitted()
+        rows = np.random.default_rng(13).normal(0.0, 1.0, (10, 8))
+        rows[0] = 50.0
+        result = detector.detect(rows)
+        assert result["batch_anomaly"] is True
+        assert bool(np.asarray(result["fdr_flags"])[0]) is True
+
+    @pytest.mark.parametrize("bad", [0.0, 1.0, 2.0])
+    def test_fdr_level_is_validated(self, bad: float) -> None:
+        with pytest.raises(ValueError, match="fdr_level"):
+            MercuryAnomalyDetector({"fdr_level": bad})
+
+
+def _batch_rates(detector: Any, sizes: tuple[int, ...] = (10, 100, 2000)) -> list[float]:
+    rng = np.random.default_rng(21)
+    rates = []
+    for n in sizes:
+        repeats = max(3, 2000 // n)  # at least 2,000 rows per size: sd ~0.005 at 0.05
+        flagged = []
+        for _ in range(repeats):
+            if hasattr(detector, "clear_memory"):
+                detector.clear_memory()
+            flagged.append(
+                float(np.mean(detector.detect(rng.standard_normal((n, 8)))["is_anomaly"]))
+            )
+        rates.append(float(np.mean(flagged)))
+    return rates
+
+
+class TestEngineBaseDetectorsAreBatchInvariant:
+    """A fitted detector's verdict on a row must not depend on its batch-mates.
+
+    Before: spatial and dimensional min-max normalised each channel over the
+    batch, and directive blended three whole-batch scalars into every row, so
+    held-out Gaussian rows were flagged at 0.40 / 0.30 / 0.10 in 10-row
+    batches against 0.012 / 0.077 / 0.045 in 2,000-row ones, and
+    ``engine.detect`` called every 10-row normal batch anomalous.
+    """
+
+    @staticmethod
+    def _spatial() -> Any:
+        from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
+
+        detector = SpatialAnomalyDetector({"spatial_autocorrelation": False})
+        detector.fit(np.random.default_rng(0).standard_normal((1000, 8)))
+        return detector
+
+    @staticmethod
+    def _dimensional() -> Any:
+        torch = pytest.importorskip("torch")
+        from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
+
+        torch.manual_seed(0)
+        detector = DimensionalAnalyzer()
+        detector.fit(np.random.default_rng(0).standard_normal((1000, 8)))
+        return detector
+
+    @staticmethod
+    def _directive() -> Any:
+        from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
+
+        detector = SigmaDirectiveDetector()
+        detector.fit(np.random.default_rng(0).standard_normal((1000, 8)))
+        return detector
+
+    @pytest.mark.parametrize("make", ["_spatial", "_dimensional", "_directive"])
+    def test_scores_do_not_depend_on_the_batch(self, make: str) -> None:
+        detector = getattr(self, make)()
+        rows = np.random.default_rng(22).standard_normal((40, 8))
+        crowd = np.vstack([rows, np.random.default_rng(23).standard_normal((600, 8))])
+        if hasattr(detector, "clear_memory"):
+            detector.clear_memory()
+        alone = np.asarray(detector.detect(rows)["scores"], dtype=float)
+        if hasattr(detector, "clear_memory"):
+            detector.clear_memory()
+        together = np.asarray(detector.detect(crowd)["scores"], dtype=float)[:40]
+        np.testing.assert_allclose(alone, together, atol=1e-9)
+
+    @pytest.mark.parametrize(
+        ("make", "pinned"),
+        [
+            ("_spatial", (0.045, 0.047, 0.054)),
+            ("_dimensional", (0.051, 0.058, 0.063)),
+            # RMD scores a row against the rows before it in its own stream,
+            # by design, so a 10-row batch gives it less history.
+            ("_directive", (0.032, 0.044, 0.050)),
+        ],
+    )
+    def test_false_alarm_rate_is_the_same_at_every_batch_size(
+        self, make: str, pinned: tuple[float, ...]
+    ) -> None:
+        """Measured on >= 2,000 held-out Gaussian rows per batch size (10, 100, 2,000)."""
+        rates = _batch_rates(getattr(self, make)())
+        assert max(rates) <= ALPHA + 0.02
+        np.testing.assert_allclose(rates, pinned, atol=0.015)
+
+    def test_lof_queries_use_the_published_reachability(self) -> None:
+        """reach-dist(p, o) = max(k-distance(o), d(p, o)) at query time, as at fit:
+        a training point queried against the others reproduces its own LOF."""
+        detector = self._spatial()
+        lof = detector.lof
+        points = np.asarray(lof._tree.data)
+        loo = lof.training_decision()
+        k = min(lof.k, len(points) - 1)
+        dists, idx = lof._tree.query(points[:5], k=k + 1)
+        dists, idx = dists[:, 1:], idx[:, 1:]
+        reach = np.maximum(dists, lof._kdist[idx])
+        lrd = 1.0 / np.maximum(reach.mean(axis=1), lof._REACH_FLOOR)
+        expected = -(lof._lrd[idx].mean(axis=1) / lrd - 1.0)
+        np.testing.assert_allclose(loo[:5], expected)
+
+    def test_spatial_anchors_survive_a_state_round_trip(self) -> None:
+        from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
+
+        detector = self._spatial()
+        restored = SpatialAnomalyDetector({"spatial_autocorrelation": False})
+        state = detector.get_fitted_state()
+        assert state is not None
+        restored.set_fitted_state(state)
+        rows = np.random.default_rng(24).standard_normal((30, 8))
+        np.testing.assert_allclose(restored.detect(rows)["scores"], detector.detect(rows)["scores"])
+        assert restored.threshold == pytest.approx(detector.threshold)
+
+    def test_dimensional_anchors_survive_a_state_round_trip(self) -> None:
+        from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
+
+        detector = self._dimensional()
+        state = detector.get_fitted_state()
+        assert state is not None
+        restored = DimensionalAnalyzer()
+        restored.set_fitted_state(state)
+        rows = np.random.default_rng(25).standard_normal((30, 8))
+        np.testing.assert_allclose(
+            restored.detect(rows)["scores"], detector.detect(rows)["scores"], atol=1e-6
+        )
+        assert restored.threshold == pytest.approx(detector.threshold)
+
+
+def test_engine_batch_verdict_uses_the_conformal_test_where_it_has_evidence() -> None:
+    from omni_mercury_engine.engine import OmniMercuryEngine
+
+    verdict = OmniMercuryEngine._batch_is_anomalous
+    weak = {"is_anomaly": np.array([True, False]), "p_values": np.array([0.04, 0.6])}
+    strong = {"is_anomaly": np.array([True, False]), "p_values": np.array([0.0001, 0.6])}
+    # Per-row flags alone no longer make the batch anomalous: p = 0.04 is not
+    # evidence at 0.05 / 2 over two rows.
+    assert verdict({"a": weak}, set()) is False
+    assert verdict({"a": strong}, set()) is True
+    # Fitted on this very batch: no independent reference, the per-row OR stands.
+    assert verdict({"a": weak}, {"a"}) is True
+    # A legacy result without p-values keeps the per-row OR.
+    assert verdict({"a": {"is_anomaly": np.array([True])}}, set()) is True
+    assert verdict({"a": {"is_anomaly": np.array([False])}}, set()) is False
+    # The budget is split across the detectors tested (union bound).
+    split = {"a": {"is_anomaly": np.array([False]), "p_values": np.array([0.03])}}
+    assert verdict(split, set()) is True
+    split["b"] = {"is_anomaly": np.array([False]), "p_values": np.array([0.9])}
+    assert verdict(split, set()) is False
+
+
+def test_engine_batch_false_alarm_rate_on_normal_batches() -> None:
+    """All five base detectors fitted on 1,000 normal rows; 40 all-normal batches.
+
+    Measured: every 10- and 100-row batch was called anomalous before (per-row
+    OR over batch-relative detectors); now 0.025 and 0.05 of them, while a
+    batch holding one +8-sigma row is still called anomalous every time.
+    """
+    from omni_mercury_engine.engine import OmniMercuryEngine
+
+    rng = np.random.default_rng(0)
+    engine = OmniMercuryEngine()
+    train = rng.standard_normal((1000, 8))
+    for detector in engine.detectors.values():
+        detector.fit(train)
+    normal, spiked = [], []
+    for _ in range(20):
+        rows = rng.standard_normal((100, 8))
+        normal.append(bool(engine.detect(rows)["is_anomaly"]))
+        rows[0] += 8.0
+        spiked.append(bool(engine.detect(rows)["is_anomaly"]))
+    assert np.mean(normal) <= 0.15
+    assert all(spiked)

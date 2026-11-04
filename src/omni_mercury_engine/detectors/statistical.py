@@ -58,6 +58,11 @@ from omni_mercury_engine.core.governed_fusion import (
     InfoGeometryCertificate,
     mahalanobis_score_to_price_threshold,
 )
+from omni_mercury_engine.detectors._calibration import (
+    benjamini_hochberg,
+    conformal_cut,
+    conformal_p_values,
+)
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
@@ -346,6 +351,12 @@ class MercuryAnomalyDetector(BaseDetector):
                 f"{self.config.get('operating_point')!r}"
             )
         self._operating_point: str = _op
+        # Benjamini-Hochberg level for the batch-level ``fdr_flags`` /
+        # ``batch_anomaly`` built from the conformal p-values (default: the
+        # same budget as the per-row cut).
+        self._fdr_level: float = float(self.config.get("fdr_level", self._reference_alpha))
+        if not 0.0 < self._fdr_level < 1.0:
+            raise ValueError(f"fdr_level must lie in (0, 1), got {self._fdr_level!r}")
         self._feature_medians: np.ndarray[Any, Any] | None = None
 
         # Adaptive component weights (set during fit)
@@ -2906,6 +2917,22 @@ class MercuryAnomalyDetector(BaseDetector):
             # scoring); empty mask on clean batches.
             "nan_rows": nan_rows,
         }
+        # Conformal p-values against the fit-time reference, and the
+        # Benjamini-Hochberg rejections they support. ``is_anomaly`` is a
+        # per-row test at ``reference_alpha``: OR-ed over a batch of n normal
+        # rows it fires with probability 1 - (1 - alpha)^n (0.994 at n = 100).
+        # Conformal p-values against one reference are PRDS, so BH at level q
+        # controls the false discovery rate at q, and under the global null
+        # (every row normal) the probability of *any* rejection is at most q
+        # (Bates, Candes, Lei, Romano & Sesia 2023, Ann. Statist. 51(1)).
+        # ``batch_anomaly`` is that batch-level verdict.
+        p_values = self._conformal_p_values(combined_scores)
+        if p_values is not None:
+            fdr_flags = self._benjamini_hochberg(p_values, self._fdr_level)
+            result["p_values"] = p_values
+            result["fdr_flags"] = fdr_flags
+            result["fdr_level"] = self._fdr_level
+            result["batch_anomaly"] = bool(fdr_flags.any())
         if self._info_geometry_certificate_enabled:
             certificate = self._info_geometry_certificate_payload(data, info_geo)
             if certificate is not None:
@@ -3357,14 +3384,21 @@ class MercuryAnomalyDetector(BaseDetector):
         """
         return self._conformal_cut(getattr(self, "_reference_scores", None))
 
-    def _conformal_cut(self, ref: np.ndarray[Any, Any] | None) -> float | None:
-        """``ceil((n + 1) * (1 - alpha))``-th smallest of sorted ``ref``; ``None`` if empty."""
+    def _conformal_p_values(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
+        """Conformal p-values against the fit-time reference; ``None`` without one."""
+        ref = getattr(self, "_reference_scores", None)
         if ref is None or len(ref) == 0:
             return None
-        n = len(ref)
-        k = int(np.ceil((n + 1) * (1.0 - self._reference_alpha)))
-        k = min(max(k, 1), n)
-        return float(ref[k - 1])
+        return conformal_p_values(ref, scores)
+
+    @staticmethod
+    def _benjamini_hochberg(p_values: np.ndarray[Any, Any], level: float) -> np.ndarray[Any, Any]:
+        """Benjamini-Hochberg (1995) step-up rejections at false discovery rate ``level``."""
+        return benjamini_hochberg(p_values, level)
+
+    def _conformal_cut(self, ref: np.ndarray[Any, Any] | None) -> float | None:
+        """``ceil((n + 1) * (1 - alpha))``-th smallest of sorted ``ref``; ``None`` if empty."""
+        return conformal_cut(ref, self._reference_alpha)
 
     # =====================================================================
     # Unsupervised operating-point calibration
