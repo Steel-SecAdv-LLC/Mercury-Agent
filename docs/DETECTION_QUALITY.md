@@ -44,7 +44,11 @@ the parameter, by construction; the tier thresholds at the contamination quantil
 The conformal flags (`conformal_alpha` = 0.05) do not move with the parameter, but
 without labels they are calibrated on the scored series itself, so they flag about
 `conformal_alpha` of it by construction: their rate is set by alpha, not by evidence.
-Evidence needs a reference independent of the batch (a fit on known-normal data).
+Evidence needs a reference independent of the batch: pass `reference` (a known-normal
+series; `--reference` on the CLI, `reference` on the MCP tool and `/detect/tier`) and
+the tier fits and calibrates there, scoring the input against it. Measured on the four
+recorded NAB files (probation as the reference, alpha 0.05): conformal flags on
+0.011-0.051 of the NAB-normal points.
 
 | contamination | flag rate | recall | FPR | conformal flag rate | conformal FPR |
 |---|---|---|---|---|---|

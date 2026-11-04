@@ -2,14 +2,14 @@
  "provenance": {
   "kernel_blob": "411ff9dfab39c5f51e8167b9e32cfe81f8f19c94",
   "inputs": {
-   "research/adversarial/served_routes.py": "12d9454e9d2b9f21580715ec976eecc9df40810b",
+   "research/adversarial/served_routes.py": "b108ced1a10d391486f61ba839d921aadd908e0a",
    "src/omni_mercury_engine/api/fusion_weights.py": "411ff9dfab39c5f51e8167b9e32cfe81f8f19c94",
-   "src/omni_mercury_engine/api/routes/detection.py": "5b4a585fd205b30bd0f0d3f8024fdff7fca5a5a5",
+   "src/omni_mercury_engine/api/routes/detection.py": "8935dfe7465164bbd41b73f3b774c766cea64a68",
    "src/omni_mercury_engine/api/routes/batch.py": "bb47b72b3a905e60e97e33819d6df08038aabc23",
    "src/omni_mercury_engine/api/server.py": "cdbf570a517f42d87ce32574a6accaf99d45fb6c",
-   "src/omni_mercury_engine/detectors/detection_tier.py": "bd9bfe229b4dabab417ffb449af9e5812e9c8714"
+   "src/omni_mercury_engine/detectors/detection_tier.py": "90c7c3b42afa8d37bdf0d2aa5cf28f9a37400193"
   },
-  "commit": "e7341ce004fa5278d7c3c4f7c65354a082f96ea8",
+  "commit": "254b37b6ee405954e3328fd2e2e1ba35bfeccab6",
   "n": 300,
   "seeds": [
    0,

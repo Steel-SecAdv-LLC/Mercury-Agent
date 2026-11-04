@@ -259,6 +259,20 @@ class MercuryMCPServer:
                             "description": "Optional per-point 0/1 labels (enables stacking/BMA).",
                             "items": {"type": "integer"},
                         },
+                        "reference": {
+                            "type": "array",
+                            "description": (
+                                "Known-normal 1-D series (>= 8 points) to fit and "
+                                "calibrate on; 'data' is then only scored, so the "
+                                "threshold and conformal cut rest on evidence "
+                                "independent of it. Without it (and without labels) "
+                                "the tier calibrates on 'data' itself and flags about "
+                                "the configured share by construction. Mutually "
+                                "exclusive with 'labels'."
+                            ),
+                            "items": {"type": "number"},
+                            "minItems": 8,
+                        },
                         "subset": {
                             "type": "array",
                             "description": "Detector names to include (default: the full tier).",
@@ -982,6 +996,15 @@ class MercuryMCPServer:
                 labels = np.asarray(labels_raw, dtype=int).ravel()
             except (ValueError, TypeError) as exc:
                 raise ToolError(f"'labels' is not an integer array: {exc}") from exc
+        reference_raw = args.get("reference")
+        reference = None
+        if reference_raw is not None:
+            if not isinstance(reference_raw, list) or not reference_raw:
+                raise ToolError("'reference' must be a non-empty numeric array")
+            try:
+                reference = np.asarray(reference_raw, dtype=float).ravel()
+            except (ValueError, TypeError) as exc:
+                raise ToolError(f"'reference' is not a numeric series: {exc}") from exc
         subset = args.get("subset")
         if subset is not None and (
             not isinstance(subset, list) or not all(isinstance(s, str) for s in subset)
@@ -995,6 +1018,7 @@ class MercuryMCPServer:
             result = run_tier_ensemble(
                 series,
                 labels=labels,
+                reference=reference,
                 subset=tuple(subset) if subset else None,
                 method=args.get("method"),
                 contamination=float(args.get("contamination", 0.05)),

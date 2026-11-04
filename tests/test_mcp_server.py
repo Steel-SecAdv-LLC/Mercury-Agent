@@ -410,6 +410,43 @@ class TestDetectionInterconnectTools:
         flagged = {i for i, f in enumerate(payload["conformal_flags"]) if f}
         assert flagged & set(range(95, 115))
 
+    def test_tier_detect_calibrates_on_a_reference(self) -> None:
+        """A known-normal reference anchors the fit; the input is only scored."""
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(3)
+        reference = rng.normal(0, 1, 150)
+        series = rng.normal(0, 1, 200)
+        series[50] += 8.0
+        result = _call(
+            server,
+            "mercury_tier_detect",
+            {
+                "data": series.tolist(),
+                "reference": reference.tolist(),
+                "subset": ["spectral_residual", "spot_evt", "bocpd"],
+                "conformal_alpha": 0.05,
+            },
+        )
+        assert result["isError"] is False
+        payload = json.loads(result["content"][0]["text"])
+        assert payload["fit_on"] == "reference"
+        assert payload["calibration_basis"] == "reference"
+        assert payload["conformal_flags"][50] == 1
+
+    def test_tier_detect_refuses_labels_with_a_reference(self) -> None:
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(4)
+        result = _call(
+            server,
+            "mercury_tier_detect",
+            {
+                "data": rng.normal(0, 1, 100).tolist(),
+                "labels": [0] * 100,
+                "reference": rng.normal(0, 1, 100).tolist(),
+            },
+        )
+        assert result["isError"] is True
+
     def test_tier_detect_stacking_without_labels_is_error(self) -> None:
         server = MercuryMCPServer()
         rng = np.random.default_rng(2)

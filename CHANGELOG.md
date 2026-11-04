@@ -133,6 +133,22 @@ was called anomalous. Now:
 false-alarm rate on those 1,000-row files and at 0.30 on 10-row batches; the
 cut is now the same 5% budget as the other detectors (0.025 on NAB).
 
+**Added — the detector tier takes a known-normal `reference`.** Without labels
+`run_tier_ensemble` fits, thresholds and conformal-calibrates on the series it
+scores, so its flag rate is set by the parameters, not by evidence (about
+`conformal_alpha` of any series by construction; the result now says so in
+`calibration_basis`). `reference=` (a probationary prefix or any known-normal
+stream, >= 8 points; `--reference` on `tier-detect`, `reference` on the MCP
+tool and `POST /detect/tier`) fits and calibrates the ensemble there and only
+scores the input. Measured on the four recorded NAB files (probation as the
+reference, alpha 0.05): conformal flags on 0.011-0.051 of the NAB-normal
+points, 0.048 of pure noise against a noise reference, an 8-sigma spike
+flagged. `labels` and `reference` are mutually exclusive (labels describe the
+scored series); `rca` is excluded under a different-length reference and
+recorded in `excluded_members` (it fits a node graph over its training
+points), and naming it in `subset` with such a reference is refused. The
+default path is byte-identical (adversarial ledger reproduced to the digit).
+
 **Added — `mercury_detect_anomaly` takes an optional `contamination`.** The MCP
 tool fits on the batch it scores, so its reference *is* the batch and the
 default cut flags about 5% of it whatever the true share; a stated share in

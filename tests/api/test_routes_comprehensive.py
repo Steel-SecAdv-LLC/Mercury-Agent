@@ -391,6 +391,28 @@ class TestDetectionRoutes:
         assert latest.max_score == max(result["scores"])
         assert latest.summary["threshold"] == result["threshold"]
 
+    def test_tier_reference_anchors_the_calibration(self, client: Any) -> None:
+        """With a known-normal reference the cut rests on evidence independent of the input."""
+        import numpy as np
+
+        rng = np.random.default_rng(7)
+        series = rng.normal(0, 1, 200)
+        series[50] += 8.0
+        response = client.post(
+            "/api/v1/detect/tier",
+            json={
+                "data": series.tolist(),
+                "reference": rng.normal(0, 1, 150).tolist(),
+                "subset": ["spectral_residual", "spot_evt", "bocpd"],
+                "conformal_alpha": 0.05,
+            },
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["fit_on"] == "reference"
+        assert result["calibration_basis"] == "reference"
+        assert result["conformal_flags"][50] == 1
+
     def test_tier_detection_bad_request(self, client: Any) -> None:
         """stacking without labels is a 400 (surfaced ValueError), not a 500."""
         rng = np.random.default_rng(1)
