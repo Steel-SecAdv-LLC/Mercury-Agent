@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,117
-- **Capability-bearing classes:** 2,090 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,118
+- **Capability-bearing classes:** 2,091 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,219 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 |---|---|
 | Other capability classes | 1219 |
 | Support types (config / result / enum / error) | 1027 |
-| Detection | 180 |
+| Detection | 181 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 113 |
 | Adapters & backends | 108 |
@@ -1069,7 +1069,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 459 classes (334 capability)
+### `detectors/` — 460 classes (335 capability)
 
 **Adapters & backends**
 
@@ -1209,6 +1209,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `MCDDetector` (`detectors.statistical_extended`) — Minimum Covariance Determinant (MCD) based detector.
 - `MarineBiodiversityDetector` (`detectors.marine.biodiversity_detector`) — Comprehensive marine biodiversity monitoring system.
 - `MarketCrashDetector` (`detectors.economic.financial_crisis_detector`) — Stock market crash detection via price decline and volatility.
+- `MathArrestDetector` (`detectors.math_arrest.detector`) — The 21-probe equation ensemble as a first-class Mercury detector.
 - `MercuryAnomalyDetector` (`detectors.statistical`) — Mercury's original anomaly detection ensemble.
 - `MultiScaleTransformerDetector` (`detectors.advanced.multi_scale_transformer`) — Multi-Scale Transformer Detector for Time-Series Anomaly Detection.
 - `MultivariateTSDetector` (`detectors.multivariate_timeseries`) — Multivariate time-series anomaly detector using LTG architecture.
@@ -1371,7 +1372,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `NavigationAnalysis` (`detectors.uiux_anomaly`) — Analysis results for navigation patterns.
 - `PersistenceDiagram` (`detectors.topological_analysis`) — Container for persistence diagram data.
 - `PhaseSpaceFeatures` (`detectors.acceleration_dynamics`) — Phase space analysis features.
-- `PhiWeightedFusion` (`detectors.math_arrest.fusion`) — Phi-weighted score fusion with confidence modulation and decorrelation.
+- `PhiWeightedFusion` (`detectors.math_arrest.fusion`) — Probe-score fusion with confidence modulation and decorrelation.
 - `PhysicsGOSNNScalars` (`detectors.physics_integration`) — GOSNN scalar network for physics-based anomaly detection.
 - `PointAdjustmentEvaluator` (`detectors.advanced.point_adjustment`) — Evaluator with point-adjustment for time-series anomaly detection.
 - `PointKinematics` (`detectors.geological.subsidence_detector`) — Per-point kinematic estimates from one LOS displacement series.

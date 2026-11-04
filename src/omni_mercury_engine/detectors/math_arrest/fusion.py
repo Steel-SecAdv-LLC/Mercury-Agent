@@ -124,7 +124,12 @@ class CorrelationAwareDecorrelator:
                     name_i = probe_names[valid_indices[i]]
                     name_j = probe_names[valid_indices[j]]
                     redundant_pairs.append((name_i, name_j, r_val))
-                    logger.warning(
+                    # Debug, not warning: redundancy is the condition this
+                    # class exists to correct and does correct below. Measured
+                    # on the four recorded NAB files the ensemble carries
+                    # 13-23 such pairs per fit, so warning severity emitted one
+                    # record per pair per fit and would bury real warnings.
+                    logger.debug(
                         "Redundant probe pair: %s <-> %s (r=%.4f)",
                         name_i,
                         name_j,
@@ -171,6 +176,15 @@ class CorrelationAwareDecorrelator:
 
         self._weight_multipliers = multipliers
         self._is_calibrated = True
+        if redundant_pairs:
+            logger.info(
+                "Decorrelated %d probes to %.2f effective dimensions "
+                "(%d redundant pairs at |r| >= %.2f)",
+                n_probes,
+                sum(multipliers.values()),
+                len(redundant_pairs),
+                self._threshold,
+            )
         return dict(self._weight_multipliers)
 
 

@@ -22,7 +22,7 @@ detectors needing an external service or model backend; ``serves X`` marks
 an adapter entry and names the domain detector behind it.
 
 
-## engine + registry (69)
+## engine + registry (70)
 
 | name | class | category | modality | notes | description |
 |---|---|---|---|---|---|
@@ -42,6 +42,7 @@ an adapter entry and names the domain detector behind it.
 | `hawkes` | `HawkesBurstDetector` | base | series_1d | -- | Hawkes self-exciting point-process event-rate / burst detector for count streams (exponential-kernel intensity residuals) |
 | `imm` | `IMMDetector` | base | series_1d | -- | Interacting-Multiple-Model switching state-space residual detector (quiet + manoeuvring Kalman bank; Blom & Bar-Shalom, 1988) |
 | `kmeans_distance` | `KMeansDistanceDetector` | base | matrix_2d | fit | Distance-to-nearest-centroid unsupervised anomaly signal (revived cognitive clusterer; held-out ROC-AUC 0.76-0.98 on four ADBench tables, 0.634 on Pima, mean 0.861) |
+| `math_arrest` | `MathArrestDetector` | base | series_1d | fit | 21-equation probe ensemble (Hankel/SVD, chaos, harmonic, robust) with per-probe attribution |
 | `nano_safeguard` | `NanoSafeguardDetector` | base | series_1d | -- | Nano-safeguard micro-anomaly detection with hierarchical scanning |
 | `page_hinkley` | `PageHinkleyDetector` | base | series_1d | fit | Page-Hinkley cumulative mean-shift test (both one-sided variants; PH_t = m_t - min m_s, alarm at PH_t > lambda; Page, Biometrika 1954) |
 | `particle_filter` | `ParticleFilterDetector` | base | series_1d | -- | Bootstrap particle-filter state-space residual detector scoring normalised one-step-ahead predictive innovations |

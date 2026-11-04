@@ -14,6 +14,7 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
     BaseEquationProbe,
     ProbeResult,
 )
+from omni_mercury_engine.detectors.math_arrest.detector import MathArrestDetector
 
 __all__ = [
     "CATALAN_G",
@@ -23,5 +24,6 @@ __all__ = [
     "PROBE_PRESETS",
     "AnomalyMathArrest",
     "BaseEquationProbe",
+    "MathArrestDetector",
     "ProbeResult",
 ]

@@ -141,6 +141,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
         "LAVADDetector",
     ),
     "omni_mercury_engine.detectors.math_arrest.arrest": ("AnomalyMathArrest",),
+    "omni_mercury_engine.detectors.math_arrest.detector": ("MathArrestDetector",),
 }
 
 _NAME_TO_MODULE: dict[str, str] = {}
@@ -198,6 +199,7 @@ __all__ = [
     "InteractionType",
     "KMeansDistanceDetector",
     "LAVADDetector",
+    "MathArrestDetector",
     "MercuryAnomalyDetector",
     "MotionState",
     "MovementAssessment",

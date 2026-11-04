@@ -216,3 +216,136 @@ def test_svd_probe_scores_against_the_fitted_basis() -> None:
     spiked[200:205] += 8.0
     spiked_scores = np.asarray(probe.deviation_score(spiked).deviation_scores, dtype=float)
     assert spiked_scores[200:215].max() > float(np.quantile(scores, 0.99))
+
+
+#: NAB file -> effective independent dimensions the decorrelator measures for
+#: the 21-probe ensemble, fitted on that file's probationary prefix. A probe
+#: count is not an evidence count: the ensemble is named for 21 equations but
+#: measures 11.64-16.00 effective dimensions on real streams, and the
+#: decorrelator down-weights the duplicates (one pair reaches r=0.9976).
+MEASURED_EFFECTIVE_DIMS: dict[str, tuple[float, int]] = {
+    "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": (12.90, 22),
+    "realAdExchange/exchange-3_cpc_results.csv": (11.64, 23),
+    "realKnownCause/rogue_agent_key_hold.csv": (14.52, 19),
+    "realTraffic/speed_7578.csv": (16.00, 13),
+}
+
+
+@pytest.fixture(scope="module")
+def effective_dims() -> dict[str, tuple[float, int]]:
+    out: dict[str, tuple[float, int]] = {}
+    for series in nab_corpus():
+        detector = AnomalyMathArrest()
+        detector.fit(series.values[: series.n_probation])
+        decorrelator = detector._decorrelator
+        out[series.name] = (
+            float(decorrelator.effective_probe_count),
+            len(decorrelator.redundant_pairs),
+        )
+    return out
+
+
+def test_effective_dimensionality_is_measured_not_assumed(
+    effective_dims: dict[str, tuple[float, int]],
+) -> None:
+    """The 21-probe ensemble's real width, pinned per recorded file.
+
+    Guards the claim in both directions: the count never silently reaches 21
+    (which would mean the decorrelator stopped finding the duplicates that are
+    demonstrably there), and never collapses below the measured floor.
+    """
+    for name, (pinned_dims, pinned_pairs) in MEASURED_EFFECTIVE_DIMS.items():
+        got_dims, got_pairs = effective_dims[name]
+        assert got_dims == pytest.approx(pinned_dims, abs=0.6), (
+            f"{name}: effective dimensions {got_dims:.2f} vs measured "
+            f"{pinned_dims:.2f}; record the change if it is real"
+        )
+        assert (
+            abs(got_pairs - pinned_pairs) <= 3
+        ), f"{name}: {got_pairs} redundant pairs vs measured {pinned_pairs}"
+        assert got_dims < 21.0, f"{name}: 21 probes are not 21 independent dimensions"
+
+
+def test_the_decorrelator_applies_under_every_weighting() -> None:
+    """Changing the default weighting must not bypass the decorrelation.
+
+    ``uniform`` builds its weight vector from scratch rather than from the
+    ``phi_affinity`` prior, so this pins that the multipliers are still
+    applied afterwards: a down-weighted duplicate stays down-weighted.
+    """
+    from omni_mercury_engine.detectors.math_arrest.base_probe import ProbeResult
+    from omni_mercury_engine.detectors.math_arrest.fusion import (
+        CorrelationAwareDecorrelator,
+        PhiWeightedFusion,
+    )
+
+    # Two probes: "solo" reads 1.0 everywhere, "dupe" reads 0.0 everywhere.
+    results = [
+        ProbeResult(
+            probe_name="solo",
+            deviation_scores=np.ones(8),
+            confidence=1.0,
+            trajectory_fit_quality=1.0,
+            anomaly_geometry="point",
+        ),
+        ProbeResult(
+            probe_name="dupe",
+            deviation_scores=np.zeros(8),
+            confidence=1.0,
+            trajectory_fit_quality=1.0,
+            anomaly_geometry="point",
+        ),
+    ]
+    decorrelator = CorrelationAwareDecorrelator()
+    decorrelator._weight_multipliers = {"solo": 1.0, "dupe": 0.25}
+    decorrelator._is_calibrated = True
+
+    for weighting in WEIGHTINGS:
+        fusion = PhiWeightedFusion(n_probes=2, weighting=weighting)
+        plain = float(fusion.fuse(results)[0])
+        decorrelated = float(fusion.fuse(results, decorrelator=decorrelator)[0])
+        assert decorrelated > plain, (
+            f"{weighting}: the decorrelator did not shift the fused score, so "
+            "its multipliers are being ignored in this mode"
+        )
+    # And the arithmetic is exactly the renormalised weighting, under uniform.
+    uniform = PhiWeightedFusion(n_probes=2, weighting="uniform")
+    assert float(uniform.fuse(results, decorrelator=decorrelator)[0]) == pytest.approx(1.0 / 1.25)
+
+
+def test_the_detector_seam_serves_the_instrument() -> None:
+    """The ``BaseDetector`` adapter the engine, registry and console reach.
+
+    Before this adapter the instrument was importable but unreachable: its
+    ``detect`` returned a bare array, satisfying no detector contract
+    (``docs/DORMANCY_LEDGER.md`` 2b).
+    """
+    from omni_mercury_engine.detectors import MathArrestDetector
+
+    rng = np.random.default_rng(7)
+    train = np.sin(np.linspace(0.0, 40.0, 400)) + 0.05 * rng.standard_normal(400)
+    detector = MathArrestDetector().fit(train)
+
+    # The alarm is the fit-time conformal cut, not a bare 0.5 on a
+    # batch-relative score.
+    assert 0.0 < detector.threshold < 1.0
+    assert detector.threshold != pytest.approx(0.5)
+
+    result = detector.detect(train)
+    assert result["scores"].shape == (400,)
+    assert len(result["probe_names"]) == 21
+    assert set(result["probe_scores"]) == set(result["probe_names"])
+    # Honest ensemble width, not the probe count.
+    assert 0.0 < result["effective_probe_count"] < 21.0
+    assert result["redundant_probe_pairs"] > 0
+    # Conformal evidence is present because a fit reference exists.
+    assert result["p_values"].shape == (400,)
+    assert 0.0 <= result["fdr_level"] <= 1.0
+
+    # Features are the interpretable per-probe breakdown.
+    assert detector.extract_features(train).shape[1] == 21
+
+    # A clear spike is caught.
+    spiked = train.copy()
+    spiked[200:206] += 9.0
+    assert bool(detector.detect(spiked)["is_anomaly"][200:215].any())

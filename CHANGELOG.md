@@ -27,6 +27,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — the 21-probe math-arrest ensemble is reachable, measured and
+repaired.** `AnomalyMathArrest` (21 equation probes: Hankel delay-embedding /
+SVD trajectory, chaos, harmonic, wave, momentum, energy, robust location) was
+exported from the package root and gated in CI for its probe count, but no path
+in `src/` consumed it and it had never been measured on real labels. It is now
+measured on both recorded corpora, three real defects are fixed, and a
+`BaseDetector` adapter (`detectors/math_arrest/detector.py`) makes it a manifest
+entry (`math_arrest`) the engine, registry, served routes, CLI and console
+catalog can reach. Measured **0.7498 mean NAB AUROC**, which places it second of
+all series detectors pinned in `tests/detectors/test_recorded_nab_series.py`
+behind `lstm_autoencoder` (0.829), at a **0.0217** false-alarm rate; the
+stationary AR(1) rate is **0.0525** against the α = 0.05 its conformal cut
+promises.
+
+* **The fusion prior was inverted against measured signal.** Probe scores were
+  combined with `weight[rank] = PHI^(-rank)` over a hand-written affinity
+  order, whose first three ranks carry 76% of the weight. On the `default`
+  order those are the probes measuring **0.531 / 0.524 / 0.378** NAB AUROC,
+  while the two strongest — `wave_propagation` (0.697) and `svd_projection`
+  (0.669) — sit at rank 7 and below and share about 2%. The 21-probe fusion
+  therefore scored *below its own best member*. The default is now `uniform`
+  (the plain mean, the dominant aggregation for outlier ensembles per
+  Aggarwal & Sathe 2017): **+0.13 AUC on both corpora**. `phi_affinity` is
+  retained and reproduces its released numbers exactly.
+* **`SVDProjectionProbe` never used its fitted basis.** `fit` stored residual
+  statistics from the training Hankel SVD, but `deviation_score` recomputed the
+  SVD *on the data being scored*, so the learned rank-1 subspace was unused,
+  residuals were compared against statistics from a different basis, and the
+  anomalies being scored helped define the subspace they were measured against.
+  Its `abs` also scored a window fitting the subspace *better* than training as
+  deviant. It now projects onto the stored basis, directionally.
+* **21 probes were not 21 dimensions, and the correction was logged as noise.**
+  The decorrelator measures **11.64–16.00 effective dimensions out of 21** on
+  the recorded NAB files (13–23 redundant pairs per fit, one at **r = 0.9976**).
+  It correctly down-weights the duplicates, but logged each pair at `warning`
+  severity — up to 23 `WARNING` records per fit for a handled design condition.
+  Now `debug`, with one `info` summary; and the served result carries
+  `effective_probe_count` and `redundant_probe_pairs` so the probe count cannot
+  read as an evidence count.
+
+The entry carries the full set of gates a new `series_1d` manifest entry is
+required to satisfy: measured stationary false-alarm pin, NAB triple,
+evidence-tied ontology row (with the structural blind spot that the probes
+reduce a matrix to its per-row mean, so a pure cross-channel correlation break
+is invisible), knowledge profile with citations, exact fitted-state round-trip
+and the registry/engine seam harvest. It is **not** added to the engine's
+default set: that requires a marginal-gain ablation against the live ensemble,
+which is not claimed. See `docs/DORMANCY_LEDGER.md` §2b.
+
 **Changed — detector taxonomy now matches the discipline.** Tornado
 (severe-storm meteorology, NEXRAD radar morphology), hurricane (tropical
 meteorology, ERA5 wind-field physics) and flood (hydrology,

@@ -1650,6 +1650,32 @@ _DETECTORS: tuple[DetectorProfile, ...] = (
         ),
     ),
     DetectorProfile(
+        name="math_arrest",
+        discipline="Singular-spectrum analysis and robust statistics (equation ensembles)",
+        lineage="Delay-embedding trajectory analysis (Takens, 1981; Broomhead & King, 1986) combined with robust location statistics (Iglewicz & Hoaglin, 1993) under the averaging rule for unsupervised outlier ensembles (Aggarwal & Sathe, 2017).",
+        mechanism="Fits twenty-one independent scalar series equations -- a Hankel delay-embedding projected onto its fitted leading right-singular vector, chaos and Lyapunov-style divergence, harmonic and wave-propagation residuals, momentum, energy and robust-location deviations -- each storing its own fit-time trajectory statistics, then fuses their per-sample deviation scores by the plain mean of the probes that fitted, after a correlation decorrelator down-weights near-duplicate members, and fires at the one-class split-conformal quantile of the fit series' own fused scores.",
+        practitioners="Signal analysts and reliability engineers who need an alert to name its cause: every score decomposes into the twenty-one probe columns that produced it, so an alarm is read as the subset of equations that raised it rather than as one opaque number.",
+        use_when="A univariate series needs an auditable, per-mechanism attribution for each alarm, or an ensemble second opinion whose members are individually inspectable.",
+        not_for="Cross-channel structure: the probes reduce a matrix to its per-row mean, so a correlation break that leaves the row mean intact is invisible. Not for discrete sequence grammars, and not a member of the engine's default set.",
+        references=(
+            _r(
+                "Takens, F. (1981). Detecting strange attractors in turbulence. In Dynamical Systems and Turbulence, Lecture Notes in Mathematics 898, 366-381.",
+                "https://doi.org/10.1007/BFb0091924",
+            ),
+            _r(
+                "Broomhead, D. S. & King, G. P. (1986). Extracting qualitative dynamics from experimental data. Physica D 20(2-3), 217-236.",
+                "https://doi.org/10.1016/0167-2789(86)90031-X",
+            ),
+            _r(
+                "Iglewicz, B. & Hoaglin, D. C. (1993). How to Detect and Handle Outliers. ASQC Quality Press, Milwaukee."
+            ),
+            _r(
+                "Aggarwal, C. C. & Sathe, S. (2017). Outlier Ensembles: An Introduction. Springer.",
+                "https://doi.org/10.1007/978-3-319-54765-7",
+            ),
+        ),
+    ),
+    DetectorProfile(
         name="spiking",
         discipline="Computational neuroscience (spiking neural networks)",
         lineage="Leaky integrate-and-fire neuron populations (Gerstner & Kistler, 2002) used as a rate-coded novelty detector.",

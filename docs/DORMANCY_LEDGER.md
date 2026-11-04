@@ -103,14 +103,14 @@ was carrying a measurable defect:
 
 | Instrument | LOC | Exported from | Reached by | Measured? |
 |---|---|---|---|---|
-| `detectors/math_arrest/` (`AnomalyMathArrest`, 21 probes) | ~1,900 | package root + `detectors/__init__` | nothing in `src/` (4 test modules + a CI probe-count gate) | **now measured ✓** (below) |
+| `detectors/math_arrest/` (`AnomalyMathArrest`, 21 probes) | ~1,900 | package root + `detectors/__init__` | **now wired ✓** — manifest entry `math_arrest` via a `BaseDetector` adapter | **now measured ✓** (below) |
 | `detectors/fusion/multimodal_fusion.py` (`MultiModalFusionOptimizer`) | 827 | `detectors.fusion` | one test module only | **no** — needs a real VLM+visual corpus |
 
 ### `AnomalyMathArrest` — measured, and two real defects fixed
 
-The instrument is **not in `DETECTOR_MANIFEST`**, so it is unreachable from the
-engine, the registry, the served routes, the CLI and the console catalog: it can
-only be used by importing it directly. It had never been measured on real
+The instrument **was not in `DETECTOR_MANIFEST`**, so it was unreachable from
+the engine, the registry, the served routes, the CLI and the console catalog: it
+could only be used by importing it directly. It had never been measured on real
 labels, so there was no evidence it carried signal — the exact "interface ≠
 signal" gap this ledger exists to close. It is now measured on both recorded
 corpora and pinned by `tests/detectors/test_recorded_math_arrest.py`.
@@ -146,14 +146,39 @@ normal) as deviant. It now projects onto the stored basis, directionally, and
 moved from the weakest probe to the second strongest (NAB 0.664 -> 0.669 with
 the per-file spread tightening, 0.415 -> 0.440 on off-modality tabular input).
 
-**Verdict: measured, repaired, still not wired by default.** At 0.7498 on the
-NAB files the ensemble now sits above every series detector pinned in
-`tests/detectors/test_recorded_nab_series.py` except `lstm_autoencoder`
-(0.829), so the reachability gap is worth closing — but on this ledger's own
-rule a manifest entry needs a `BaseDetector` seam (its `detect` returns a bare
-array, not the detector result contract) and a default-set slot needs a
-marginal-gain ablation against the live ensemble. Both are follow-on work,
-named here rather than assumed.
+**Defect 3 — 21 probes are not 21 dimensions, and the correction was logged as
+noise.** `CorrelationAwareDecorrelator` finds near-duplicate probes and
+down-weights the non-dominant member of each correlated cluster to
+`1/cluster_size`. It works, and it is needed: on the four recorded NAB files the
+ensemble measures **11.64–16.00 effective dimensions out of 21**, with 13–23
+redundant pairs per fit and one pair reaching **r = 0.9976**
+(`catalan_optimized` ↔ `exponential_decay`; `additive` ↔ `modified_zscore` at
+0.9864). Two corrections: the per-pair finding logged at **`warning`** severity,
+emitting up to 23 `WARNING` records on every single fit for a condition this
+class exists to handle and does handle — it is now `debug`, with one `info`
+summary naming the effective dimensionality; and the measurement was computed but
+never surfaced, so the served result now carries `effective_probe_count` and
+`redundant_probe_pairs`, keeping the probe count from reading as an evidence
+count. Pinned per file by `test_effective_dimensionality_is_measured_not_assumed`.
+`test_the_decorrelator_applies_under_every_weighting` pins that the new
+`uniform` default does not bypass the multipliers.
+
+**Verdict: measured, repaired, wired, still not in the default set.** At 0.7498
+on the NAB files the ensemble sits above every series detector pinned in
+`tests/detectors/test_recorded_nab_series.py` except `lstm_autoencoder` (0.829),
+so the reachability gap was worth closing, and it is closed: `detector.py` adds
+the `BaseDetector` seam the ledger's own rule demands (the raw `detect` returned
+a bare array, satisfying no detector contract), the manifest carries
+`math_arrest`, and the entry earns its keep through the gates a new `series_1d`
+entry is *forced* to satisfy — a measured stationary false-alarm pin
+(**0.0525** against its promised α = 0.05), the NAB triple
+(**0.7498 / 38.69 / 0.0217**), an evidence-tied ontology row, a knowledge
+profile, an exact state round-trip and the registry/engine seam harvest.
+
+A **default-set slot is still not granted**: that needs a marginal-gain ablation
+against the live ensemble, which this entry does not claim. Reachable and
+measured is not the same as promoted, and this repository only promotes on
+measured marginal gain.
 
 **Modality note (why the two corpora differ).** Every probe is a *series*
 equation (Hankel trajectories, chaos, harmonic/wave), and

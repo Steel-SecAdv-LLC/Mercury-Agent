@@ -362,6 +362,39 @@ class AnomalyMathArrest:
             decorrelator=self._decorrelator,
         )
 
+    def per_probe_scores(self, data: npt.NDArray[np.float64]) -> dict[str, npt.NDArray[np.float64]]:
+        """Each fitted probe's own deviation scores, by probe name.
+
+        The breakdown behind :meth:`detect`'s fused score: every alarm traces
+        to the probes that raised it, which is the auditability this ensemble
+        exists for. A probe that failed to fit, or that raises while scoring,
+        is omitted rather than contributing a fabricated column.
+
+        Args:
+            data: Evaluation data.
+
+        Returns:
+            ``{probe_name: scores}``; empty when nothing fitted.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("AnomalyMathArrest has not been fitted. Call fit() first.")
+        out: dict[str, npt.NDArray[np.float64]] = {}
+        for probe in self._probes:
+            if not probe.is_fitted:
+                continue
+            try:
+                result = probe.deviation_score(data)
+            except (RuntimeError, ValueError) as exc:
+                logger.warning(
+                    "Probe %s failed during per-probe scoring: %s", type(probe).__name__, exc
+                )
+                continue
+            out[result.probe_name] = np.asarray(result.deviation_scores, dtype=np.float64)
+        return out
+
     def predict(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.int32]:
         """Binary classification: 0=normal, 1=anomaly.
 
