@@ -226,6 +226,91 @@ against the live ensemble, which this entry does not claim. Reachable and
 measured is not the same as promoted, and this repository only promotes on
 measured marginal gain.
 
+### The marginal-gain ablation, run (2026-11-05) — HOLD
+
+The ablation the paragraph above deferred is now made, by
+`benchmarks/math_arrest_ensemble_marginal.py`. It is the same shape as
+`benchmarks/kmeans_ensemble_marginal.py`, which settled the same question for
+the revived k-means detector, so the two decisions are comparable: each
+(table, seed) trains the engine's fusion from the same split and initialisation
+with and without the detector, differing only in that one feature group. The
+pre-registered bar is the k-means one, unmoved: **add iff mean ΔAUC > +0.002
+with a majority of seeds agreeing.**
+
+Five recorded ADBench tables × **8 seeds** = 40 cells. Eight rather than the
+k-means ablation's three because the first run came in at +0.0014 against a
++0.002 bar, which is too close to call on three seeds.
+
+| table | base fused AUROC | + math_arrest | ΔAUC | seeds ≥ | headroom |
+|---|--:|--:|--:|--:|--:|
+| pima_real | 0.7861 | 0.7877 | +0.0016 | 4/8 | 0.2139 |
+| cardio | 0.9950 | 0.9959 | +0.0008 | 5/8 | 0.0050 |
+| breastw | 0.9906 | 0.9926 | **+0.0020** | **8/8** | 0.0094 |
+| wbc | 0.9874 | 0.9888 | +0.0013 | 6/8 | 0.0126 |
+| thyroid | 0.9984 | 0.9980 | −0.0004 | 3/8 | 0.0016 |
+| **mean** | | | **+0.0011** | 0.65 | |
+
+**Verdict: HOLD — reachable-but-not-default.** The mean is +0.0011 against a
++0.002 bar, so the bar is not cleared and promotion is refused.
+
+**What the 40 cells support, stated more precisely than "no gain".** Over all
+cells the mean is +0.00107 (sd 0.00460, se 0.00073) with 22 of 40 positive, and
+a 20,000-replicate bootstrap puts the 95% interval at **[−0.00029, +0.00249]**:
+
+* `P(mean > 0) = 0.937` — the gain is *probably real*;
+* `P(mean > +0.002) = 0.098` — and *probably below the bar*.
+
+So the honest reading is a **small positive effect that does not reach the
+threshold**, not an absent one. `breastw` is the one table that reaches the bar
+and it does so with 8/8 seeds agreeing at sd 0.0020, the most consistent cell
+set in the run; one table at the bar out of five is not a promotion.
+
+**The corpus limits what this test can detect, and that is not a hedge.** Four
+of the five tables leave the trained `OmniFusionModel` with **≤ 0.013 of
+headroom** (thyroid 0.0016, cardio 0.0050, breastw 0.0094, wbc 0.0126). A
+marginal-gain bar of +0.002 against a 0.9984 baseline is asking a new feature
+group to consume an eighth of the remaining error. **HOLD therefore means "not
+demonstrated on this corpus", not "demonstrated absent"**, and the same caveat
+applies to the k-means ablation that set this bar.
+
+**A hypothesis raised and then withdrawn, because the seeds killed it.** At
+three seeds the gain looked proportional to the headroom available —
+`r(headroom, ΔAUC) = 0.854`, rising to **0.992** with the one high-headroom
+table removed, which is the opposite of a leverage artefact and read as a real
+structural finding. At eight seeds the same correlations are **0.346** and
+**0.828**. With five points and per-table seed sd of 0.002–0.008, a high
+correlation is cheap, and `pima_real`'s own mean moved from +0.0043 to +0.0016
+once five more seeds were added. The direction survives weakly — the
+lowest-headroom table is the only negative one — but it is **recorded as
+unestablished**, not as a finding. This is the third small-sample pattern in
+this cycle that did not survive more data (see §2e on the mean-shift `h`, and
+the survivability note in `research/governed_fusion/FINDINGS.md`), which is the
+argument for the eight seeds rather than three.
+
+**The series side does not rescue the promotion case either.** The ablation
+above is tabular because the engine's fusion is row-wise, which is the path a
+default-set member actually joins; `math_arrest` is a `series_1d` entry, so it
+is being measured off its declared modality and the feature group is a per-row
+summary. That objection is real, and it was checked rather than used as a
+defence: the group is **not** degenerate on tabular input (21 columns, median
+542 distinct values over 548 rows, 0–2 constant columns per table), so the
+ablation measures fusion rather than a dead group. And on the corpus where the
+instrument *is* in-modality, its standing is mixed — among the 22 series
+detectors pinned in `tests/detectors/test_recorded_nab_series.py` it ranks
+**2nd of 22 by AUROC** (0.749, behind `lstm_autoencoder`'s 0.829) but **10th of
+22 by the NAB standard score** (33.7, behind `digital_twin` 53.4,
+`gaussian_process` 52.9, `survival` 48.4, `hawkes` 46.1, `temporal` 46.0 and
+four others). By the metric §2e established as governing for this instrument —
+the one that charges for a false alarm, where AUROC is blind — it is mid-pack,
+and the normalizer repair recorded in `BaseEquationProbe._normalize_scores`
+moved it there from 40.4. A strong ranker that is tenth on the streaming metric
+is not an obvious promotion on the series route either.
+
+**Disposition: shipped as reachable-but-not-default, with the measurement
+behind it rather than a deferral.** It stays a manifest entry, available by
+`engine.register_detector("math_arrest", MathArrestDetector())`, exactly as the
+revived k-means detector is.
+
 **Modality note (why the two corpora differ).** Every probe is a *series*
 equation (Hankel trajectories, chaos, harmonic/wave), and
 `BaseEquationProbe._to_1d` reduces a 2-D input to its **per-row mean**, so
