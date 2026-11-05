@@ -203,9 +203,9 @@ class PhiWeightedFusion:
     ================  ========  ===========
     weighting           NAB       ADBench
     ================  ========  ===========
-    ``uniform``        0.7498     0.6846
-    ``confidence``     0.7194     0.6771
-    ``phi_affinity``   0.6183     0.5558
+    ``uniform``        0.7581     0.6826
+    ``confidence``     0.7277     0.6686
+    ``phi_affinity``   0.6519     0.5423
     ================  ========  ===========
 
     ``uniform`` (the plain mean) is the default: +0.13 AUC over the released
@@ -218,9 +218,11 @@ class PhiWeightedFusion:
     :data:`~omni_mercury_engine.detectors.math_arrest.domain_affinity.DOMAIN_AFFINITY_21`.
     Its first three ranks carry 76% of the weight against the last probe's
     2.5e-05, so the ``confidence`` term cannot overcome the prior. Those three
-    ranks measure 0.531 / 0.524 / 0.378 on NAB while the two strongest probes
-    (0.697, 0.669) sit at rank 7+ sharing ~2% -- the prior is inverted against
-    measured signal, which is why the fusion scored below its own best member.
+    ranks measure 0.531 / 0.524 / 0.685 on NAB while the two strongest probes
+    (0.697, 0.669) sit at rank 7+ sharing ~2%. The prior is inverted against
+    measured signal on its top two ranks, which is why the fusion scored below
+    its own best member. (Rank 3, additive, measured 0.378 when that was first
+    recorded; repairing it took it to 0.685 -- see its ``deviation_score``.)
 
     ``confidence`` weights by self-reported fit quality alone, normalised.
     """

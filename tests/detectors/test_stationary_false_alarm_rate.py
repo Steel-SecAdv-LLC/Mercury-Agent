@@ -73,7 +73,7 @@ MEASURED_RATE: dict[str, float] = {
     "energy_based": 0.0755,
     # Fit-time one-class split-conformal cut at alpha 0.05 over the 21-probe
     # fused score: the measured rate matches the budget it promises.
-    "math_arrest": 0.0525,
+    "math_arrest": 0.0615,
     "deep_svdd": 0.0470,
     "extended_statistical": 0.0460,
     # At or under the contract.

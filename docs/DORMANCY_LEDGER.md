@@ -121,7 +121,7 @@ affinity order. That decay is steep: the first three ranks carry 76% of the
 weight and the last probe 2.5e-05, so the per-probe `confidence` term (a
 multiplier in [0, 1]) cannot overcome a 70,000x prior spread. On the `default`
 order those three ranks are `variance_adapted`, `momentum` and `additive`,
-measuring **0.531 / 0.524 / 0.378** mean NAB AUROC — while the two strongest
+measuring **0.531 / 0.524 / 0.685** mean NAB AUROC — while the two strongest
 probes, `wave_propagation` (**0.697**) and `svd_projection` (**0.669**), sit at
 rank 7 and below and receive about 2% between them. The 21-probe fusion
 therefore scored *below its own best member*. The default weighting is now
@@ -131,9 +131,9 @@ cites); `phi_affinity` is retained and reproduces its released numbers exactly.
 
 | weighting | NAB (4 files) | ADBench (5 tables x 3 seeds) |
 |---|---|---|
-| **`uniform`** (new default) | **0.7498** | **0.6846** |
-| `confidence` (evidence only) | 0.7194 | 0.6771 |
-| `phi_affinity` (released) | 0.6183 | 0.5558 |
+| **`uniform`** (new default) | **0.7581** | **0.6826** |
+| `confidence` (evidence only) | 0.7277 | 0.6686 |
+| `phi_affinity` (released) | 0.6519 | 0.5423 |
 
 **Defect 2 — `SVDProjectionProbe` never used its fitted basis.** `fit` computed
 the SVD of the training Hankel matrix and stored residual statistics, but
@@ -163,7 +163,26 @@ count. Pinned per file by `test_effective_dimensionality_is_measured_not_assumed
 `test_the_decorrelator_applies_under_every_weighting` pins that the new
 `uniform` default does not bypass the multipliers.
 
-**Verdict: measured, repaired, wired, still not in the default set.** At 0.7498
+**Defect 4 — `AdditiveProbe`'s fit-time intercept did not transfer, and it
+scored below chance.** The probe fits `x_hat = intercept + slope*t` with
+`t = np.arange(len(x))`, an index local to whatever array is passed, so `t`
+restarts at 0 on every scored window. The fit-time intercept belongs to the
+*start* of the fit series; reusing it on a window drawn from later in that
+series added a systematic offset of `slope x (true position)` that dominated
+the residual. Measured mean NAB AUROC **0.378**, and **0.032** on
+`realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv` — not merely
+uninformative but almost perfectly *anti*-correlated with the labels.
+
+Carrying the true time index was measured too and is **worse** (0.368): it
+extrapolates a linear fit far beyond its fitting range. The absolute level is
+not recoverable at score time, so only the trend rate and residual scale are
+carried and the level is re-anchored per window
+(`x_hat = slope*t + median(x - slope*t)`). That measures **0.685**, and lifts
+the 21-probe default from 0.7498 to **0.7581** on NAB. This is the same class
+of defect as Defect 2 — fit-time coordinates not carried to score time — found
+by the same method, measuring each probe standalone.
+
+**Verdict: measured, repaired, wired, still not in the default set.** At 0.7581
 on the NAB files the ensemble sits above every series detector pinned in
 `tests/detectors/test_recorded_nab_series.py` except `lstm_autoencoder` (0.829),
 so the reachability gap was worth closing, and it is closed: `detector.py` adds
@@ -171,8 +190,8 @@ the `BaseDetector` seam the ledger's own rule demands (the raw `detect` returned
 a bare array, satisfying no detector contract), the manifest carries
 `math_arrest`, and the entry earns its keep through the gates a new `series_1d`
 entry is *forced* to satisfy — a measured stationary false-alarm pin
-(**0.0525** against its promised α = 0.05), the NAB triple
-(**0.7498 / 38.69 / 0.0217**), an evidence-tied ontology row, a knowledge
+(**0.0615** against its promised α = 0.05), the NAB triple
+(**0.7581 / 40.35 / 0.0213**), an evidence-tied ontology row, a knowledge
 profile, an exact state round-trip and the registry/engine seam harvest.
 
 A **default-set slot is still not granted**: that needs a marginal-gain ablation

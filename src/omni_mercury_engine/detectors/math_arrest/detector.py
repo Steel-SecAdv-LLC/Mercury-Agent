@@ -5,7 +5,7 @@
 ``AnomalyMathArrest.detect`` returns a bare score array, which satisfies no
 detector contract. This adapter supplies one without changing the instrument.
 
-Measured NAB AUROC 0.7498 (``tests/detectors/test_recorded_math_arrest.py``).
+Measured NAB AUROC 0.7581 (``tests/detectors/test_recorded_math_arrest.py``).
 A manifest entry, deliberately *not* in the engine's default set: that needs a
 marginal-gain ablation. See ``docs/DORMANCY_LEDGER.md`` §2b.
 """
@@ -59,7 +59,7 @@ class MathArrestDetector(BaseDetector):
             "the fit series is bounded by alpha rather than resting on a fixed "
             "cut; an explicitly configured threshold is honoured exactly. No "
             "published threshold exists for the fused score. Measured mean "
-            "AUROC 0.7498 over the four recorded NAB files and 0.6846 over "
+            "AUROC 0.7581 over the four recorded NAB files and 0.6826 over "
             "five ADBench tables; the probes are series equations, and a 2-D "
             "input is reduced to its per-row mean before scoring."
         ),

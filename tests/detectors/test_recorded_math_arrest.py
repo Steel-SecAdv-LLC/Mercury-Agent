@@ -46,9 +46,9 @@ TOLERANCE = 0.03
 
 #: weighting -> (mean NAB AUROC, mean ADBench AUROC) of the 21-probe "all" preset.
 MEASURED: dict[str, tuple[float, float]] = {
-    "uniform": (0.7498, 0.6846),
-    "confidence": (0.7194, 0.6771),
-    "phi_affinity": (0.6183, 0.5558),
+    "uniform": (0.7581, 0.6826),
+    "confidence": (0.7277, 0.6686),
+    "phi_affinity": (0.6519, 0.5423),
 }
 
 #: Per-probe mean NAB AUROC, the evidence the weighting finding rests on. Only
@@ -58,9 +58,12 @@ MEASURED_PROBE_NAB: dict[str, float] = {
     "WavePropagationProbe": 0.697,
     "SVDProjectionProbe": 0.669,
     # The three phi_affinity ranked first, second and third (76% of the weight).
+    # Only the first two are below the strongest probes; AdditiveProbe measured
+    # 0.378 until its fit-time intercept was found not to transfer to a scored
+    # window (see the probe's deviation_score) and now measures 0.685.
     "VarianceAdaptedProbe": 0.531,
     "MomentumProbe": 0.524,
-    "AdditiveProbe": 0.378,
+    "AdditiveProbe": 0.685,
 }
 
 
@@ -138,7 +141,7 @@ def test_the_released_prior_is_still_reachable_and_unchanged(
 ) -> None:
     """``phi_affinity`` reproduces the released behaviour for anyone pinned to it."""
     assert "phi_affinity" in WEIGHTINGS
-    assert measured["phi_affinity"][0] == pytest.approx(0.6183, abs=TOLERANCE)
+    assert measured["phi_affinity"][0] == pytest.approx(0.6519, abs=TOLERANCE)
 
 
 def test_an_unknown_weighting_is_refused() -> None:
@@ -180,8 +183,16 @@ def test_the_affinity_prior_is_inverted_against_measured_signal(
     assert float(weights[:3].sum()) > 0.75
 
     strongest = min(probe_nab["WavePropagationProbe"], probe_nab["SVDProjectionProbe"])
-    for weak in ("VarianceAdaptedProbe", "MomentumProbe", "AdditiveProbe"):
+    # Ranks 1 and 2 only. Rank 3 (additive) measured 0.378 when this finding was
+    # first recorded and supported it; repairing that probe took it to 0.685,
+    # above both strong probes, so it no longer does. The inversion still holds
+    # on the two ranks carrying the most weight.
+    for weak in ("VarianceAdaptedProbe", "MomentumProbe"):
         assert probe_nab[weak] < strongest
+    assert probe_nab["AdditiveProbe"] > strongest, (
+        "additive is no longer a weak probe; if it regresses below the strong "
+        "ones again, check that its level is still re-anchored per window"
+    )
 
 
 def test_svd_probe_scores_against_the_fitted_basis() -> None:

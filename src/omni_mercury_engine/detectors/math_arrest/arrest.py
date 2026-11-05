@@ -181,8 +181,8 @@ class AnomalyMathArrest:
         weighting: How the active probes' scores are combined — see
             :class:`~omni_mercury_engine.detectors.math_arrest.fusion.PhiWeightedFusion`
             for the measured comparison. ``"uniform"`` (default, the plain
-            mean) measures 0.7498 mean AUC on the four recorded NAB files and
-            0.6846 on five ADBench tables, against 0.6183 / 0.5558 for the
+            mean) measures 0.7581 mean AUC on the four recorded NAB files and
+            0.6826 on five ADBench tables, against 0.6519 / 0.5423 for the
             released ``"phi_affinity"`` prior.
 
     Modality: the probes are **series** instruments (Hankel trajectories,

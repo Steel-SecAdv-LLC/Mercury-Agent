@@ -297,13 +297,13 @@ ONTOLOGY: dict[str, DetectorOntology] = {
             _v(
                 "generic_series",
                 _MATH_ARREST,
-                "NAB mean 0.7498 at the default uniform weighting - second of "
+                "NAB mean 0.7581 at the default uniform weighting - second of "
                 "the pinned series detectors, behind lstm_autoencoder",
             ),
             _v(
                 "generic_tabular",
                 _MATH_ARREST,
-                "ADBench mean 0.6846 over 5 tables x 3 seeds, scored on the "
+                "ADBench mean 0.6826 over 5 tables x 3 seeds, scored on the "
                 "per-row mean the probes reduce a matrix to",
             ),
         ),

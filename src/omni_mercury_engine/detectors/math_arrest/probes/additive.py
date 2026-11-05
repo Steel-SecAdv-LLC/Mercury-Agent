@@ -17,10 +17,13 @@ class AdditiveProbe(BaseEquationProbe):
     """Detect level shifts and trend breaks via a linear fit.
 
     Equation:
-        x_hat = mu + alpha * t
+        x_hat = alpha * t + median(x - alpha * t)
 
-    Residuals that deviate significantly from the fitted trend indicate
-    level-shift anomalies.
+    The fitted slope ``alpha`` carries the learned trend rate; the level is
+    re-anchored per scored window, because ``t`` is local to each array and the
+    fit-time intercept does not transfer (see :meth:`deviation_score`).
+    Residuals that deviate significantly from that trend indicate level-shift
+    anomalies.
     """
 
     def __init__(self) -> None:
@@ -46,11 +49,29 @@ class AdditiveProbe(BaseEquationProbe):
         self._is_fitted = True
 
     def deviation_score(self, data: npt.NDArray[np.float64]) -> ProbeResult:
-        """Score each sample by its deviation from the fitted linear trend."""
+        """Score each sample by its deviation from the fitted trend *rate*.
+
+        The fitted ``slope`` is applied, but the level is re-anchored to the
+        scored window instead of reusing ``self._intercept``.
+
+        ``t`` is local to whatever array is passed, so it restarts at 0 on every
+        call: the fit-time intercept belongs to the start of the fit series and
+        is meaningless on a window drawn from later in it. Reusing it added a
+        systematic offset of ``slope x (true position)``, which dominated the
+        residual and made the probe anti-correlated with anomalies -- measured
+        mean NAB AUROC 0.378, and 0.032 on
+        ``realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv``.
+
+        Carrying the true time index was measured too and is *worse* (0.368):
+        it extrapolates a linear fit far beyond its fitting range. The absolute
+        level is not recoverable at score time, so only the rate and the
+        residual scale are carried. Re-anchoring measures 0.685.
+        """
         self._validate_fitted()
         x = self._to_1d(data)
         t = np.arange(len(x), dtype=np.float64)
-        predicted = self._intercept + self._slope * t
+        trend = self._slope * t
+        predicted = trend + float(np.median(x - trend))
         raw = np.abs(x - predicted) / self._residual_std
         raw = np.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0)
         scores = self._normalize_scores(raw)
