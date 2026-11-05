@@ -335,6 +335,44 @@ leaves (dataset loaders, individual detectors, metrics — the quickstart path,
 which cannot decide, serve, sign, or encrypt) import without AMA; the split
 is pinned by `tests/test_pqc_startup_gate.py::TestScopedGateContract`.
 
+### Build options that are deliberately not enabled
+
+Two AMA build knobs come up when looking for throughput, and both are settled
+rather than open. Recorded here because the alternative is each operator
+re-deriving them blind.
+
+**Cython bindings are skipped on purpose, and it is not a performance loss.**
+`scripts/build_ama_native.sh` exports `AMA_NO_CYTHON=1`. The Python API loads
+the shared library through `ctypes` at runtime, so the optional Cython
+extension is not on the call path at all -- building it would add a build
+dependency and change nothing Mercury executes.
+
+**The AVX-512 SHA3 4-way kernel (`-DAMA_ENABLE_AVX512=ON`) is available, and
+its benefit is not established.** Measured 2026-11-05 on a 4-vCPU Xeon with
+`avx512f/bw/cd/dq/vl`, comparing two builds that differ only in that flag,
+using AMA's own `benchmark_c_raw` (thousands of iterations, medians):
+
+* Across **four** passes nothing survives as a reproducible speedup above 20%,
+  and nothing as a reproducible regression above 10%.
+* Two passes showed SHA3-256/512 at roughly **-53%** and ML-KEM-1024 at
+  **-53%**; two later, quieter passes showed SHA3-256 at -18.8% then +0.9%.
+* One pass reported AES-256-GCM at **-45%**, which an AVX-512 *SHA3* kernel
+  cannot cause -- so that pass was measuring host noise, not the kernel.
+* The only family consistent across both of the quietest passes is
+  **ML-KEM-1024 (-12%)** and **ML-DSA-65 Verify (-11%)**.
+
+Through Mercury's own integration path the effect is smaller still: repeated
+runs of `tools/pqc_capability_probe.py` disagree in sign between median and
+minimum on the primitives that matter, because those round trips are dominated
+by FFI and single-shot keygen rather than bulk SHA3.
+
+So the flag is **not** added to the build helper, for two reasons. The evidence
+does not meet this repository's bar for adopting an optimisation, and a library
+built with it requires AVX-512 at runtime -- which would make a helper intended
+to work on any host produce a non-portable artifact. An operator on dedicated
+hardware who wants it should pass the flag and measure on their own host; a
+shared vCPU cannot answer the question.
+
 ## Verify Installation
 
 ```bash
