@@ -292,6 +292,49 @@ layout across all boundary surfaces.
 
 ---
 
+#### 2.1.6 Served Stream Producers, and the Resonance Normalisation Fix
+
+§2.1 specifies how $R$, $H$ and $O$ are *combined* but not how they are
+*produced*. As served on `/three_r` (`api/routes/detection.py`), each is one
+scalar per window:
+
+$$
+R(x) = \operatorname{clip}\!\Bigl(\tfrac{1}{2}\bigl(R(x_{\text{left}}) + R(x_{\text{right}})\bigr)
+       + \tfrac{1}{2}\tfrac{\sigma(x)}{\overline{|x|} + \varepsilon},\, 0,\, 1\Bigr)
+$$
+
+recursing to `recursion_depth` (default 5) and bottoming out at the
+coefficient of variation $\sigma(x) / (\overline{|x|} + \varepsilon)$.
+
+$$
+O(\theta) = \operatorname{clip}\!\Bigl(\operatorname{sigmoid}\bigl(\log_{10}(\mathrm{SNR} + 1)\bigr),\, 0,\, 1\Bigr),
+\qquad \mathrm{SNR} = \frac{\operatorname{Var}(x)}{\tfrac{1}{2}\operatorname{Var}(\Delta x) + \varepsilon}
+$$
+
+$H(\omega)$ compares the window's $B$-band spectral energy ratios $r$ (default
+$B = 8$) against golden-ratio expected ratios $e_i \propto \Phi^{-i}$:
+
+$$
+\delta = \lVert r - e \rVert_1, \qquad H(\omega) = \operatorname{clip}\!\bigl(1 - \tfrac{\delta}{2},\, 0,\, 1\bigr)
+$$
+
+**The $\tfrac{\delta}{2}$ is a fix (2026-11-05); the served form was
+$1 - \delta$.** Both $r$ and $e$ are probability vectors, so
+$\delta \in [0, 2]$ and $1 - \delta$ is negative for any spectrum that is not
+already $\Phi$-shaped — which real spectra, being low-frequency dominated,
+never are. The clip therefore pinned the score at a saturated $0$: measured
+over the four recorded NAB files it scored mean AUROC **0.511** (chance), and
+on `realTraffic/speed_7578.csv` it was a **constant $0.0$ across all 63
+windows** — a dead stream holding 27.64% of the equation's weight. Dividing by
+the maximum attainable $\delta$ recovers the signal: mean AUROC **0.755**, and
+**0.849** on the file where it had been constant.
+
+**Pinned by:** `tests/api/test_three_r_resonance_normalisation.py` (the served
+route uses the normalised form; the unnormalised form demonstrably saturates;
+the normalised one varies and stays in $[0, 1]$).
+
+---
+
 ### 2.2 Lyapunov Stability Framework
 
 The fusion score trajectory is tracked against a Lyapunov stability envelope
@@ -1014,6 +1057,58 @@ Perturbation of $\pm 10\%$ around $\Phi = 1.618$:
 change in the ethical scaling factor for typical $\eta$ values. The system is
 **moderately insensitive** to the exponent choice in the operational range
 $\eta \in [0.93, 0.99]$.
+
+### 5.1a OAE Weight Sensitivity (measured, 2026-11-05)
+
+$\Phi : 1 : 1$ had never been measured against an alternative weighting. §2.1.1
+proves the weights *normalise*; nothing showed they *discriminate* better than
+any other convex combination. Measured on the four recorded NAB files with the
+served producers (`api/routes/detection.py` `/three_r`, `recursion_depth=5`,
+`harmonic_bands=8`), 128-point windows at stride 16, a window labelled
+anomalous iff it overlaps a NAB anomaly window; weights fitted on the first
+half of each file's windows by simplex grid search and all weightings scored on
+the held-out second half. $\eta^p$ is omitted: it is one scalar per call, so it
+is a monotone transform of the batch and cannot change AUROC.
+
+| weighting | mean held-out AUROC |
+|---|--:|
+| $\Phi : 1 : 1$ (the default) | 0.8301 |
+| uniform $(1/3, 1/3, 1/3)$ | **0.8318** |
+| learned per file | **0.8916** |
+| $R(x)$ alone | 0.7251 |
+| $H(\omega)$ alone | 0.7550 |
+| $O(\theta)$ alone | 0.8214 |
+
+**Three findings, in order of consequence.**
+
+1. **The golden-ratio weighting loses to a plain mean**, by $-0.0017$. It also
+   lost before the resonance fix below ($0.8038$ vs $0.8057$, $-0.0019$). The
+   gap is negligible in both directions, which is the point: $\Phi : 1 : 1$ is
+   not a discriminative choice, and §2.1.1's derivation should be read as
+   *fixing* the weights reproducibly, not as justifying them on performance.
+
+2. **The prior is inverted with respect to measured signal.** $\Phi$ assigns
+   $R(x)$ the largest share ($0.4472$), and $R(x)$ is both the weakest stream
+   standalone ($0.7251$) and receives **zero** learned weight on all four
+   files: $(0.00, 1.00, 0.00)$, $(0.00, 0.45, 0.55)$, $(0.00, 0.00, 1.00)$,
+   $(0.00, 1.00, 0.00)$. This is the same inversion found in the 21-probe
+   `math_arrest` fusion, whose $\varphi^{-\text{rank}}$ prior put 76% of its
+   weight on its three weakest probes.
+
+3. **Before the resonance fix the fusion scored below its own best member**:
+   $O(\theta)$ alone measured $0.8214$ against $0.8038$ for $\Phi$ and $0.8057$
+   for uniform. Fixing $H(\omega)$ (§2.1.6) is what makes fusing worthwhile at
+   all.
+
+**What the learned row does and does not show.** Weights are fitted per file on
+32–70 windows with 11–22 positives, so $0.8916$ is optimistic and unstable —
+on `realTraffic/speed_7578.csv` the learned weighting ($0.8955$) scores *below*
+$O(\theta)$ alone ($0.9273$), i.e. it overfits the training half. It is
+evidence that exploitable headroom exists, not a shippable weighting.
+
+**Harness:** `research/omni_equation/harness_oae_weights.py`.
+
+---
 
 ### 5.2 Benevolence Sigmoid Parameters
 
