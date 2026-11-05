@@ -310,6 +310,40 @@ drift back to resting on the docstring.
 | `ml/ensemble.py` | 473 | stacking meta-learner, AdaBoost-style boosting, bagging | Unreached, **unmeasured**. Carried an uncited quantitative claim — "Research shows 30-40% accuracy improvement" — in both the module docstring and a class docstring. **Claim removed** this cycle: the averaging result it was gesturing at is real and cited where it is actually relied on (Aggarwal & Sathe 2017, in the detector tier's `consensus` combiner and `math_arrest`'s fusion default), but it is a statement about averaging dominance, not a percentage, and it does not transfer to these heads without measurement. |
 | `models/foundation/ensemble.py` | 529 | combines predictions from multiple foundation models | Unreached, **unmeasured**; needs the `[foundation]` extra to run at all. |
 
+## 2d. A gate that could not fail (2026-11-05)
+
+`tools/oae_dimensionality_probe.py` advertised that it "verif[ies] the OAE
+R/H/O branches preserve dimensionality through fusion at the tensor level".
+What it did was draw three random Gaussian tensors, combine them inline as
+`w_R * a + w_H * b + w_O * c`, and assert that the result kept its shape, that
+the fused L2 norm was bounded by the largest input's, and that equal inputs
+fused to themselves.
+
+All three are convex-combination identities that hold for *any* non-negative
+weights summing to 1. Measured by substituting the weight triple, it returned
+`ok` for `(1, 0, 0)`, `(0, 0, 1)`, `(1/3, 1/3, 1/3)` and `(0.9, 0.05, 0.05)`
+alike, and failed only on a negative weight — a case
+`oae_weight_certifier` already covers. It never imported `OmniAvaEquation`, so
+no change in the served equation could reach it. It measured no dimensionality
+and certified nothing about Mercury: a gate incapable of failing, which is
+worse than no gate, because the green certificate was read as evidence.
+
+**Replaced, not deleted.** The tool now exercises the shipped
+`OmniAvaEquation` and measures what it actually does against the weights it
+publishes: each stream's influence on the fused score (sweeping one stream over
+`[0, 1]` must move the fused score by exactly that stream's declared weight),
+`eta ** Phi` decoupling across the permitted range, and convexity on the unit
+cube and its diagonal. With `oae_weight_certifier` holding the declared table
+to the published derivation, the two now form a chain of custody from
+derivation to table to served behaviour.
+
+It can fail, and that is pinned: `tests/tools/test_oae_dimensionality_probe.py`
+injects a dead stream, drifted arithmetic, a re-coupled `eta` and a constant
+fused score into the real equation and requires each to be caught. The
+dead-stream case is not hypothetical — it is the `H(omega)` saturation recorded
+in `MATH_SPEC.md` §2.1.6, which shipped and was found by hand. That class of
+defect now fails a gate.
+
 ## 3. Correctly-quarantined (not dormant theater)
 
 `space/schumann_resonance.py` and `models/parapsychology.py` run untrained

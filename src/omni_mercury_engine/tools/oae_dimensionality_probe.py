@@ -1,18 +1,39 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Operator tool: verify the OAE R/H/O branches preserve dimensionality through fusion at the tensor level.
+"""Operator tool: verify the shipped OAE fuses its three streams as published.
 
-The scalar :mod:`oae_weight_certifier` proves the (w_R, w_H, w_O)
-weights sum to 1.0 and match the documented golden-ratio derivation.
-This tool drives random tensors of the contracted shape through the
-fusion arithmetic and asserts:
+:mod:`oae_weight_certifier` proves the declared ``(w_R, w_H, w_O)`` sum to 1.0
+and match the golden-ratio derivation. Declared weights are not served
+behaviour, so this tool measures what
+:class:`~omni_mercury_engine.core.three_r.fusion.OmniAvaEquation` actually
+does and compares it against them:
 
-* every per-branch projection produces a tensor of the documented
-  output rank (no silent broadcast collapsing a (B, D) tensor to (B,));
-* the fused output's L2-norm is bounded by the convex-combination
-  identity ||w_R * R + w_H * H + w_O * O|| <= max(||R||, ||H||, ||O||);
-* fusion is invariant under the same input on all three branches —
-  R==H==O => fused==R (numerical equality to machine precision).
+* **Measured influence.** Sweeping one stream over ``[0, 1]`` against random
+  backgrounds must move the fused score by exactly that stream's declared
+  weight. A stream whose measured influence is zero is dead weight on the
+  equation, and one whose influence disagrees with its declared weight means
+  the served arithmetic has drifted from the published table.
+* **eta decoupling.** ``eta ** Phi`` is documented as not scaling the fused
+  score. Measured across the permitted eta range, the fused score must be
+  invariant -- the property that lets a batch be ranked at all, since a
+  per-call scalar cannot reorder it.
+* **Convexity.** Streams in ``[0, 1]`` must fuse into ``[0, 1]``, and three
+  equal streams must fuse to their common value.
+
+Together with the certifier this is a chain of custody: the certifier holds the
+declared table to the published derivation, and this tool holds served
+behaviour to the declared table. Neither alone is sufficient, and this half
+cannot see a table that moved in lock-step with the arithmetic -- that case is
+the certifier's.
+
+A previous version of this tool drove random Gaussian tensors through an
+inline ``w_R * a + w_H * b + w_O * c`` and asserted the result kept its shape,
+the fused L2 norm was bounded by the largest input's, and equal inputs fused
+to themselves. Those are convex-combination identities that hold for any
+non-negative weights summing to 1: it returned ``ok`` for ``(1, 0, 0)``,
+``(0, 0, 1)`` and uniform alike, failing only on a negative weight, which the
+weight certifier already covers. It never imported the OAE, so no drift in the
+served equation could have reached it.
 """
 
 from __future__ import annotations
@@ -26,92 +47,115 @@ from omni_mercury_engine.tools._base import Certificate, run_tool
 
 _SCHEMA = "mercury.tools.oae_dimensionality_probe/v1"
 
+#: Streams, in the order the published weight table names them.
+_STREAMS = (("recursion_score", "w_R"), ("resonance_score", "w_H"), ("optimization_score", "w_O"))
+
+#: Exact float arithmetic on a weighted sum; the tolerance covers rounding only.
+_TOL = 1e-9
+
+#: Permitted eta range (``OmniAvaEquation`` clamps outside it and warns).
+_ETA_SWEEP = (0.93, 0.94, 0.95, 0.96)
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m omni_mercury_engine.tools.oae_dimensionality_probe",
-        description="Drive the OAE fusion at tensor level and verify shape + bound invariants.",
+        description="Measure the shipped OAE's per-stream influence against its declared weights.",
     )
-    parser.add_argument("--batch", type=int, default=8)
-    parser.add_argument("--dim", type=int, default=16)
-    parser.add_argument("--trials", type=int, default=32)
+    parser.add_argument("--batch", type=int, default=8, help="Accepted for compatibility.")
+    parser.add_argument("--dim", type=int, default=16, help="Accepted for compatibility.")
+    parser.add_argument("--trials", type=int, default=32, help="Random backgrounds per stream.")
     parser.add_argument("--seed", type=int, default=0)
     return parser
 
 
-def _weights() -> tuple[float, float, float]:
-    """Return (w_R, w_H, w_O) from the canonical PHI:1:1 derivation.
-
-    The centralised ``FusionConstants`` legacy values (0.500, 0.309, 0.191)
-    came from an earlier ``PHI + 1 + 1/PHI`` derivation that drifted from
-    the README's documented PHI:1:1 proportion.  :mod:`oae_weight_certifier`
-    is the gate that catches a recurrence of that drift; this probe uses
-    the corrected derivation directly so the tensor checks reflect the
-    canonical contract.
-    """
-    from omni_mercury_engine.core.centralized_constants import MATH
-
-    phi = MATH.GOLDEN_RATIO
-    phi_sum = phi + 2.0
-    return phi / phi_sum, 1.0 / phi_sum, 1.0 / phi_sum
-
-
 def _collect(args: argparse.Namespace) -> Certificate:
+    from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
+
     rng = np.random.default_rng(args.seed)
-    w_r, w_h, w_o = _weights()
-    weight_sum = w_r + w_h + w_o
+    equation = OmniAvaEquation()
+    weights: dict[str, float] = {k: float(v) for k, v in equation.weights.items()}
+
+    def fuse(triple: dict[str, float], eq: OmniAvaEquation = equation) -> float:
+        return float(eq.compute(**triple).fusion_score)
 
     failures: list[str] = []
-    shape_records: list[dict[str, Any]] = []
-    bound_records: list[dict[str, float]] = []
-    for trial in range(int(args.trials)):
-        # OAE branches: R(esonance), H(armonic), O(perator).  The
-        # single-letter names mirror the canonical Mercury OAE algebra
-        # in ``docs/MATH_SPEC.md`` and the matching scalar test in
-        # :mod:`oae_weight_certifier`; renaming would obscure the
-        # one-to-one correspondence with the paper notation.
-        branch_r = rng.standard_normal((args.batch, args.dim)).astype(np.float64)
-        branch_h = rng.standard_normal((args.batch, args.dim)).astype(np.float64)
-        branch_o = rng.standard_normal((args.batch, args.dim)).astype(np.float64)
-        fused = w_r * branch_r + w_h * branch_h + w_o * branch_o
-        shape_records.append({"trial": trial, "fused_shape": list(fused.shape)})
-        if fused.shape != branch_r.shape:
+    influence: dict[str, dict[str, float]] = {}
+
+    for stream, weight_key in _STREAMS:
+        declared = weights[weight_key]
+        deltas: list[float] = []
+        for _ in range(max(1, int(args.trials))):
+            background = {s: float(rng.random()) for s, _ in _STREAMS}
+            low = fuse({**background, stream: 0.0})
+            high = fuse({**background, stream: 1.0})
+            deltas.append(high - low)
+        measured = float(np.mean(deltas))
+        spread = float(np.max(deltas) - np.min(deltas))
+        influence[stream] = {
+            "declared_weight": declared,
+            "measured_influence": measured,
+            "across_backgrounds_spread": spread,
+            "abs_error": abs(measured - declared),
+        }
+        if measured <= _TOL:
             failures.append(
-                f"trial {trial}: fused shape {fused.shape} != input shape {branch_r.shape}"
+                f"{stream} is a dead stream: sweeping it over [0, 1] moves the fused "
+                f"score by {measured:.3e}, though it is declared weight {declared:.6f}"
             )
-            continue
-        norms = (
-            float(np.linalg.norm(branch_r)),
-            float(np.linalg.norm(branch_h)),
-            float(np.linalg.norm(branch_o)),
-        )
-        fused_norm = float(np.linalg.norm(fused))
-        # Convex-combination identity: weights are non-negative and sum to 1.
-        if not (fused_norm <= max(norms) + 1e-9):
+        elif abs(measured - declared) > _TOL:
             failures.append(
-                f"trial {trial}: fused L2 {fused_norm:.6f} > max input L2 {max(norms):.6f}"
+                f"{stream} influence {measured:.9f} != declared {weight_key} "
+                f"{declared:.9f}; the served fusion has drifted from the published weights"
             )
-        bound_records.append(
-            {
-                "fused_l2": fused_norm,
-                "max_input_l2": max(norms),
-                "trial": float(trial),
-            }
+        if spread > _TOL:
+            failures.append(
+                f"{stream} influence varies by {spread:.3e} across backgrounds; the "
+                "fusion is not the additive weighted sum the equation publishes"
+            )
+
+    # eta decoupling: a per-call scalar must not move the fused score.
+    probe = {s: float(rng.random()) for s, _ in _STREAMS}
+    eta_scores = {
+        str(eta): fuse(probe, OmniAvaEquation(ethical_compliance_threshold=eta))
+        for eta in _ETA_SWEEP
+    }
+    eta_span = float(max(eta_scores.values()) - min(eta_scores.values()))
+    if eta_span > _TOL:
+        failures.append(
+            f"the fused score moved {eta_span:.3e} across the permitted eta range; "
+            "eta ** Phi is documented as decoupled from it"
         )
 
-    # Identity check: equal branches => fused equals the common input.
-    X = rng.standard_normal((args.batch, args.dim)).astype(np.float64)
-    fused_id = w_r * X + w_h * X + w_o * X
-    if not np.allclose(fused_id, X, atol=1e-12):
-        failures.append("identity check failed: R==H==O did not produce fused==R")
+    # Convexity: the unit cube maps into the unit interval, and the diagonal is fixed.
+    out_of_range: list[dict[str, float]] = []
+    for _ in range(max(1, int(args.trials))):
+        triple = {s: float(rng.random()) for s, _ in _STREAMS}
+        fused = fuse(triple)
+        if not 0.0 <= fused <= 1.0:
+            out_of_range.append({**triple, "fused": fused})
+    if out_of_range:
+        failures.append(
+            f"{len(out_of_range)} of {args.trials} unit-cube inputs fused outside [0, 1]"
+        )
+    diagonal: dict[str, float] = {}
+    for value in (0.0, 0.25, 0.5, 0.75, 1.0):
+        fused = fuse(dict.fromkeys((s for s, _ in _STREAMS), value))
+        diagonal[str(value)] = fused
+        if abs(fused - value) > _TOL:
+            failures.append(
+                f"three equal streams at {value} fused to {fused:.9f}; weights summing "
+                "to 1 must leave the diagonal fixed"
+            )
 
     body: dict[str, Any] = {
-        "batch": int(args.batch),
-        "dim": int(args.dim),
         "trials": int(args.trials),
-        "weights": {"w_R": w_r, "w_H": w_h, "w_O": w_o, "sum": weight_sum},
-        "shape_records": shape_records[:8],
-        "bound_records": bound_records[:8],
+        "weights": {**weights, "sum": float(sum(weights.values()))},
+        "influence": influence,
+        "eta_sweep": eta_scores,
+        "eta_span": eta_span,
+        "diagonal": diagonal,
+        "out_of_range": out_of_range[:8],
         "failures": failures,
     }
     if failures:
@@ -122,12 +166,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
             body=body,
             warnings=failures,
         )
-    return Certificate(
-        tool="oae_dimensionality_probe",
-        schema=_SCHEMA,
-        status="ok",
-        body=body,
-    )
+    return Certificate(tool="oae_dimensionality_probe", schema=_SCHEMA, status="ok", body=body)
 
 
 def main(argv: list[str] | None = None) -> int:

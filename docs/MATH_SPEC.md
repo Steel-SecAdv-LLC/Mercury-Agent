@@ -1100,6 +1100,34 @@ is a monotone transform of the batch and cannot change AUROC.
    for uniform. Fixing $H(\omega)$ (§2.1.6) is what makes fusing worthwhile at
    all.
 
+**Decision: the $\Phi : 1 : 1$ default stands.** Finding 1 is a $-0.0017$ mean
+difference on four files, identical to four decimal places on two of them
+(`realKnownCause` $0.7021$, `realTraffic` $0.9182$); with $n = 4$ that is not
+separable from noise. Against it, $\Phi : 1 : 1$ is a ratified invariant: seven
+numeric assertions across nine test modules, a dedicated canonical test, the
+`oae_weight_certifier` operator tool that exists to hold the four source sites
+in lock-step, and a served `weights` field in `ThreeRResponse`. Replacing a
+certified invariant to collect a noise-level gain is churn, not an improvement,
+so the measured call is to leave the number and correct the *claim* -- the
+derivation fixes the weights reproducibly and is not a performance argument.
+
+This is not the call made for the 21-probe `math_arrest` fusion, whose default
+*was* changed to uniform, and the difference is the size of the evidence:
+there `phi_affinity` lost by $0.1062$ NAB and $0.1403$ ADBench
+($0.6519 / 0.5423$ against $0.7581 / 0.6826$), two orders of magnitude beyond
+the OAE's $0.0017$. A margin that large is a defect; one this small is a
+non-difference. Finding 2 stands on its own evidence either way --
+$R(x)$ takes zero learned weight on 4/4 files -- and is unaffected by the
+weighting choice, since no fixed triple fits files whose own optima are
+$(0,1,0)$, $(0,0.45,0.55)$ and $(0,0,1)$.
+
+The gap this exposed was not the weight values but that **nothing measured the
+served equation at all**. `oae_weight_certifier` checks the declared table
+against the derivation; `oae_dimensionality_probe` now checks served behaviour
+against that table, measuring each stream's actual influence on the fused
+score. A dead stream -- exactly the $H(\omega)$ saturation of §2.1.6, which
+shipped -- now fails a gate instead of waiting to be found by hand.
+
 **What the learned row does and does not show.** Weights are fitted per file on
 32–70 windows with 11–22 positives, so $0.8916$ is optimistic and unstable —
 on `realTraffic/speed_7578.csv` the learned weighting ($0.8955$) scores *below*
