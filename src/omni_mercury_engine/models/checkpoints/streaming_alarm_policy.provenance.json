@@ -19,7 +19,17 @@
     "per_fold_seed_cells_lost_to_baseline": "4 of 15 (4 of 12 excluding the dev fold)",
     "seeds": 3,
     "thinnest_per_seed_margin_note": "1.50 is seed 0 under the pooled NAB score this file and the results JSON report (40.82 vs 39.32). Averaging the per-fold scores instead gives +0.08 for the same seed, which is the most conservative honest reading; both are stated so the margin is not read as more robust than it is.",
-    "thinnest_per_seed_margin_mean_of_per_fold": 0.08
+    "thinnest_per_seed_margin_mean_of_per_fold": 0.08,
+    "thinnest_per_fold_margin_note": "This is the thinnest margin per fold AFTER averaging the three seeds (realAdExchange, +0.55). It is not a floor on individual runs and must not be read as one: the worst single fold-seed cell is -7.49 (realTraffic, seed 0), and four of the fifteen cells lose outright. Seed averaging is what turns a -7.49 into a +0.55.",
+    "worst_fold_seed_cell_margin": -7.49,
+    "worst_fold_seed_cell": "realTraffic, seed 0",
+    "per_fold_mean_margins": {
+      "realAWSCloudwatch": 5.41,
+      "realAdExchange": 0.55,
+      "realKnownCause": 9.98,
+      "realTraffic": 2.76,
+      "realTweets": 2.19
+    }
   },
   "nab_sha256": {
     "data/realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv": "ab446fbd8b9f37507eb2fdb06315826d8daeef02e241133ce06e0ee571ba53d9",

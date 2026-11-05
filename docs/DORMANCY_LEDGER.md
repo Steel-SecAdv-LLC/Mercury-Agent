@@ -104,7 +104,34 @@ was carrying a measurable defect:
 | Instrument | LOC | Exported from | Reached by | Measured? |
 |---|---|---|---|---|
 | `detectors/math_arrest/` (`AnomalyMathArrest`, 21 probes) | ~1,900 | package root + `detectors/__init__` | **now wired ✓** — manifest entry `math_arrest` via a `BaseDetector` adapter | **now measured ✓** (below) |
-| `detectors/fusion/multimodal_fusion.py` (`MultiModalFusionOptimizer`) | 827 | `detectors.fusion` | one test module only | **no** — needs a real VLM+visual corpus |
+| `detectors/fusion/multimodal_fusion.py` (`MultiModalFusionOptimizer`) | 827 | `detectors.fusion` | three test modules only | **no** — two inputs absent, see below |
+
+### `MultiModalFusionOptimizer` — claims constrained, and the gap named exactly (2026-11-05)
+
+This entry said "needs a real VLM+visual corpus", which is correct and too
+vague to act on. The two missing inputs are missing for different reasons, and
+the distinction is what says whether the measurement is deferred or blocked:
+
+1. **No VLM backend exists in a default install.** The semantic arm needs a
+   served vision-language model, and none of `transformers`, `open_clip` or
+   `clip` is in the dependency graph. The arm cannot be exercised at all, so
+   this is an absent input rather than an untuned one.
+2. **No anomaly-labelled visual corpus is vendored.** `tests/fixtures/visual`
+   holds four CC0 photographs recorded for determinism and seam checks; they
+   carry no anomaly labels. `benchmarks/mvtec_visual_benchmark.py` names the
+   corpus a real evaluation would use, and it is not vendored.
+
+So the measurement is **blocked on inputs, not deferred by choice**, and the
+module's docstring now says so in place of the "Key innovations" list it
+carried. That list described adaptive weighting, uncertainty-aware fusion,
+domain calibration and complementary routing as innovations; they are
+implemented mechanisms with no evidence attached, and "innovation" is a claim
+about outcomes. The mechanisms are retained and relabelled, per this ledger's
+no-deletion rule.
+
+When both inputs exist the bar is the one §2c applies to the other unreached
+fusion heads: beat the plain mean of the same real per-modality scores first,
+then out-separate the engine's own trained fusion (§8).
 
 ### `AnomalyMathArrest` — measured, and two real defects fixed
 
