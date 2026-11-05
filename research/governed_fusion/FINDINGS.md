@@ -209,6 +209,56 @@ Two consequences, and the second is the load-bearing one:
    robustness claim is that there is not yet enough admissible-label evidence
    to make one.
 
+#### The n=1 objection, answered on five more externally-labelled events (2026-11-05)
+
+"Not enough admissible-label evidence" is a correct disclosure and an open
+question, so the evidence was widened.
+`research/governed_fusion/measure_survivability_recorded.py` runs the **same**
+battery — real `MercuryAnomalyDetector` fused score as the attack target, same
+`floor_curve`, same `eps = 0.6` and 160-row cap — on the five recorded ADBench
+tables, which carry published ground-truth labels and live rows. They are not
+hazard domains and do **not** become governed-fusion manifest events; what they
+expand is the evidence for the *detector property*, which is what the 0.217 was
+being read as.
+
+| table | k | clean | worst @ `m=k/2` | drop |
+|---|--:|--:|--:|--:|
+| pima_real | 8 | 0.7037 | 0.6184 | 0.0854 |
+| cardio | 21 | 0.9669 | 0.7609 | **0.2060** |
+| breastw | 9 | 0.9902 | 0.9840 | **0.0062** |
+| wbc | 9 | 1.0000 | 0.9735 | 0.0265 |
+| thyroid | 6 | 0.9924 | 0.9621 | 0.0303 |
+| **mean (n = 5)** | | **0.9306** | **0.8598** | **0.0709** |
+
+**Three results, and the first two settle the question the split left open.**
+
+1. **The admissible 0.0962 is corroborated, not contradicted.** Five more
+   externally-labelled events mean a drop of 0.0709; pooled with `nsl_kdd` the
+   six-event mean is **0.0751** (median 0.0578). The single admissible event
+   was not an optimistic outlier, which was the live possibility.
+
+2. **The 0.217 headline is confirmed as a property of the leakage-flagged
+   bucket, not of the detector.** Every externally-labelled measurement now
+   available — six of them — sits far below it. Consequence 2 above predicted
+   the confound; this is the evidence for it rather than the argument.
+
+3. **But the drop is not a detector constant either, and that is the new
+   finding.** It ranges from 0.0062 to 0.2060 across five events — a **33×
+   spread**, sd 0.0810 against a mean of 0.0709, median 0.0303. So the
+   defensible statement is a *distribution*, not a figure: on externally
+   labelled data this detector usually loses very little to a half-channel
+   attack and occasionally loses a lot, and which of those happens is a
+   property of the event. Any single number quoted as "the" survivability —
+   0.217, 0.0962 or 0.0709 — overstates what five events support.
+
+**A tempting explanation is refused on the evidence.** `cardio` is both the
+worst case (0.2060) and the widest table (k = 21, so a half-channel budget
+hands the attacker 10 channels against thyroid's 3), which suggests the drop
+scales with dimensionality. Across the five tables `r(k, drop) = 0.898`, which
+looks conclusive. Removing `cardio` takes it to **−0.194**: the correlation is
+one leverage point, not a relationship. It is recorded as a hypothesis worth
+testing on more tables, and explicitly not as a finding.
+
 ### Cubic-moment escape — `D_φ` over `φ(z)=[z, z²−1, z³]` vs the Gaussian floor
 
 - **Gaussian control sanity:** escape **−0.003** — the detector vanishes to the
@@ -402,7 +452,7 @@ verdict cites the committed artifact that proves it (numbers re-read from
 | operating point | conformal a disclosed **recall/coverage trade**, −0.071 F1 vs Youden/F1 (0.3982 − 0.4697) | `conformal_results.json` `overall` |
 | fusion pooling | **KILL** — rel·clipped 0.8429 < best-single 0.8779 (gap −0.035); not shipped (I3) | `reliability_fusion_results.json` `gap_to_best_single`, `verdict` |
 | decorrelated-stream fusion (Item D) | **SHIP rejected** — net-new temporal stream genuinely decorrelates (`\|ρ̄\|` 0.462→0.389) yet stack-4 0.8705 < best-single 0.8760 (paired Δ −0.0055); not promoted, runtime byte-unchanged | `decorrelation_results.json` `live_headline.step4_decision` |
-| robustness / survivability | measured floor 0.9243 → 0.7073 @ `m=k/2` + cubic-moment escape; research-only, **zero runtime change**. **Mixed-provenance: 6 of 7 events are leakage-flagged `statistical` labels; admissible-label only (n=1) is 0.9135 → 0.8172.** Not established as a detector property — see the provenance split | `survivability_results.json` `overall` |
+| robustness / survivability | measured floor 0.9243 → 0.7073 @ `m=k/2` + cubic-moment escape; research-only, **zero runtime change**. **Mixed-provenance: 6 of 7 events are leakage-flagged `statistical` labels; admissible-label only (n=1) is 0.9135 → 0.8172.** Widened 2026-11-05 to five recorded externally-labelled tables: mean drop **0.0709** (six-event pooled mean 0.0751), confirming the headline belongs to the leakage-flagged bucket — but with a 33× spread across events (0.0062–0.2060), so the drop is **not a detector constant** and no single figure should be quoted as one | `survivability_results.json` `overall`, `artifacts/survivability_recorded.json` |
 | loaders / provenance | **read-only marine synthesis guard LANDED**; NSL-KDD schema single-sourced | `tests/research/test_governed_suite_provenance.py`; `tests/loaders/test_nsl_kdd_single_source.py` |
 | reproducibility | reconstructed **7/7 byte-identical** across `PYTHONHASHSEED=1/2/random`; live 22/23 exact (marine drifts on live OBIS, disclosed); zero residual nondeterminism | `manifest.json` + `build_manifest.py` |
 | latency / throughput | recorded per-dataset (`fit_ms`/`score_ms`), CPU-only numpy/scipy; **no latency lever pursued** (out of detection-quality scope — would be the micro-benchmark theatre the constraints forbid) | `benchmarks/mercury_benchmark_results.json` `per_dataset` |

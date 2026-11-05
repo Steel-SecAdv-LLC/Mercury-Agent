@@ -1,0 +1,178 @@
+{
+  "eps": 0.6,
+  "mean_clean_auroc": 0.9306451112106284,
+  "mean_drop": 0.07085697036041864,
+  "mean_worst_case_auroc_at_half": 0.8597881408502099,
+  "n_events": 5,
+  "note": "Externally-labelled ADBench tables, live rows. Expands the evidence for the detector property; does NOT add governed-fusion manifest events.",
+  "per_table": [
+    {
+      "clean_auroc": 0.7037229437229438,
+      "curve": [
+        {
+          "auroc": 0.7037229437229438,
+          "m": 0
+        },
+        {
+          "auroc": 0.625974025974026,
+          "m": 2
+        },
+        {
+          "auroc": 0.6183549783549783,
+          "m": 4
+        },
+        {
+          "auroc": 0.6039826839826841,
+          "m": 6
+        }
+      ],
+      "drop": 0.08536796536796543,
+      "m_at_half": 4,
+      "n_features": 8,
+      "n_positive": 55,
+      "n_rows": 160,
+      "seed": 0,
+      "table": "pima_real",
+      "worst_attack": "condmean",
+      "worst_case_auroc_at_half": 0.6183549783549783
+    },
+    {
+      "clean_auroc": 0.9668965517241379,
+      "curve": [
+        {
+          "auroc": 0.9668965517241379,
+          "m": 0
+        },
+        {
+          "auroc": 0.9232183908045978,
+          "m": 5
+        },
+        {
+          "auroc": 0.7609195402298851,
+          "m": 10
+        },
+        {
+          "auroc": 0.5535632183908047,
+          "m": 15
+        }
+      ],
+      "drop": 0.20597701149425285,
+      "m_at_half": 10,
+      "n_features": 21,
+      "n_positive": 15,
+      "n_rows": 160,
+      "seed": 0,
+      "table": "cardio",
+      "worst_attack": "condmean",
+      "worst_case_auroc_at_half": 0.7609195402298851
+    },
+    {
+      "clean_auroc": 0.9901818181818182,
+      "curve": [
+        {
+          "auroc": 0.9901818181818182,
+          "m": 0
+        },
+        {
+          "auroc": 0.9845454545454546,
+          "m": 2
+        },
+        {
+          "auroc": 0.984,
+          "m": 4
+        },
+        {
+          "auroc": 0.973,
+          "m": 6
+        }
+      ],
+      "drop": 0.006181818181818177,
+      "m_at_half": 4,
+      "n_features": 9,
+      "n_positive": 50,
+      "n_rows": 160,
+      "seed": 0,
+      "table": "breastw",
+      "worst_attack": "condmean",
+      "worst_case_auroc_at_half": 0.984
+    },
+    {
+      "clean_auroc": 1.0,
+      "curve": [
+        {
+          "auroc": 1.0,
+          "m": 0
+        },
+        {
+          "auroc": 1.0,
+          "m": 2
+        },
+        {
+          "auroc": 0.9735449735449736,
+          "m": 4
+        },
+        {
+          "auroc": 0.9470899470899471,
+          "m": 6
+        }
+      ],
+      "drop": 0.026455026455026398,
+      "m_at_half": 4,
+      "n_features": 9,
+      "n_positive": 3,
+      "n_rows": 66,
+      "seed": 0,
+      "table": "wbc",
+      "worst_attack": "condmean",
+      "worst_case_auroc_at_half": 0.9735449735449736
+    },
+    {
+      "clean_auroc": 0.9924242424242424,
+      "curve": [
+        {
+          "auroc": 0.9924242424242424,
+          "m": 0
+        },
+        {
+          "auroc": 0.9404761904761905,
+          "m": 1
+        },
+        {
+          "auroc": 0.962121212121212,
+          "m": 3
+        },
+        {
+          "auroc": 0.7867965367965368,
+          "m": 4
+        }
+      ],
+      "drop": 0.030303030303030387,
+      "m_at_half": 3,
+      "n_features": 6,
+      "n_positive": 6,
+      "n_rows": 160,
+      "seed": 0,
+      "table": "thyroid",
+      "worst_attack": "condmean",
+      "worst_case_auroc_at_half": 0.962121212121212
+    }
+  ],
+  "recorded_buckets": {
+    "external_label_n1": {
+      "clean": 0.9135,
+      "drop": 0.0962,
+      "worst": 0.8172
+    },
+    "mixed_headline_n7": {
+      "clean": 0.9243,
+      "drop": 0.217,
+      "worst": 0.7073
+    },
+    "self_label_n6": {
+      "clean": 0.9261,
+      "drop": 0.2371,
+      "worst": 0.6889
+    }
+  },
+  "row_cap": 160
+}
