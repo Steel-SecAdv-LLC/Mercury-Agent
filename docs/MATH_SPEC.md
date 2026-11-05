@@ -333,6 +333,47 @@ the maximum attainable $\delta$ recovers the signal: mean AUROC **0.755**, and
 route uses the normalised form; the unnormalised form demonstrably saturates;
 the normalised one varies and stays in $[0, 1]$).
 
+**What $H(\omega)$ actually discriminates on, and why the $\Phi$ profile is not
+load-bearing.** The expected profile $e$ had never been compared against an
+alternative. Measured on the same windows, every fixed reference scores within
+$0.012$ of every other, and $\Phi^{-i}$ is marginally the best:
+
+| expected profile $e_i \propto$ | mean window AUROC |
+|---|--:|
+| $\Phi^{-i}$ (served) | **0.7688** |
+| flat (white) | 0.7593 |
+| $1/(i+1)$ (pink) | 0.7592 |
+| $1/(i+1)^2$ | 0.7571 |
+| spectral flatness (no profile) | 0.7248 |
+
+Three of the four files score *identically* under all four profiles, and the
+reason is structural rather than coincidental. Real telemetry is dominated by
+its lowest band: measured mean $r_0$ is $0.972$, $0.930$ and $0.996$ on those
+three files. When $r_0$ exceeds every $e_i$ and the remaining bands fall below
+theirs, the sign pattern of $r - e$ is constant across windows and the $L_1$
+distance telescopes to
+
+$$
+\delta = (r_0 - e_0) + \sum_{i>0} (e_i - r_i) = 2\,(r_0 - e_0),
+$$
+
+a linear function of $r_0$ whose only profile dependence is the additive
+constant $-2e_0$. A constant offset cannot reorder windows, so the AUROC is
+identical for *any* profile. Measured $\lvert \operatorname{corr}(\delta,
+r_0) \rvert = 1.0000$ on all three, with one or two distinct sign patterns.
+
+The profile engages only where the spectrum is not low-band dominated —
+`realKnownCause/rogue_agent_key_hold.csv`, mean $r_0 = 0.633$, 16 distinct sign
+patterns, $\lvert \operatorname{corr} \rvert = 0.586$ — and that single file
+is the entire difference between the rows above.
+
+So on real telemetry $H(\omega)$ is very nearly a measure of **how
+concentrated the spectrum is in its lowest band**, not of golden-ratio
+resonance. The $\Phi$ reference is kept because it measured best of the four
+and changing it buys nothing, but it should be read as a fixed, essentially
+arbitrary origin for a concentration measure. The normalisation above is what
+made the stream work; the choice of $\Phi$ is not what makes it work.
+
 ---
 
 ### 2.2 Lyapunov Stability Framework
