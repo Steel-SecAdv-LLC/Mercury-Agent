@@ -33,12 +33,22 @@ import pytest
 
 #: The lane runs ``-n 4 --dist=loadgroup --timeout=300`` with
 #: ``func_only: False``, so module-scoped fixture setup counts toward a
-#: test's budget. Ungrouped, these measurement fixtures were recomputed on
-#: every worker receiving one of this module's tests (measured 4 x ~26s),
-#: which on a loaded runner came within reach of 300s. Grouping computes them
-#: once; ``tests/conftest.py`` carries the shim that makes this marker work on
-#: pytest 9 + xdist 3.8, and ``tests/scripts/test_xdist_group.py`` measures it.
-pytestmark = pytest.mark.xdist_group("adaptive_domain_thresholding")
+#: test's budget. Two controls for two problems, as in
+#: ``tests/detectors/test_recorded_math_arrest.py``. Ungrouped, this module's
+#: fixtures were recomputed on every worker receiving one of its tests
+#: (measured 4 x ~26s): waste, fixed by ``xdist_group``, which works only
+#: because of the shim in ``tests/conftest.py``
+#: (``tests/scripts/test_xdist_group.py`` measures that it does). The budget
+#: is the independent control against runner variance, and it is kept rather
+#: than inferred away: dropping the equivalent budget on the math_arrest
+#: module after grouping landed turned Core Tests (3.12) red at >300s while
+#: 3.13 passed on the same commit. Grouped setup measures ~18.5s here, so the
+#: headroom is wide -- but that is the same extrapolation from one machine
+#: that failed there, and a marker that never fires costs nothing.
+pytestmark = [
+    pytest.mark.xdist_group("adaptive_domain_thresholding"),
+    pytest.mark.timeout(600),
+]
 
 from omni_mercury_engine.core.adaptive_domain_thresholding import (
     AdaptiveDomainThresholdManager,

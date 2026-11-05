@@ -24,12 +24,23 @@ import pytest
 
 #: The lane runs ``-n 4 --dist=loadgroup --timeout=300`` with
 #: ``func_only: False``, so module-scoped fixture setup counts toward a
-#: test's budget. Ungrouped, these measurement fixtures were recomputed on
-#: every worker receiving one of this module's tests (measured 4 x ~115s),
-#: which on a loaded runner came within reach of 300s. Grouping computes them
-#: once; ``tests/conftest.py`` carries the shim that makes this marker work on
-#: pytest 9 + xdist 3.8, and ``tests/scripts/test_xdist_group.py`` measures it.
-pytestmark = pytest.mark.xdist_group("recorded_math_arrest")
+#: test's budget, and these measurement fixtures are genuinely expensive.
+#:
+#: Two separate problems, so two separate controls. Ungrouped, the fixtures
+#: were recomputed on *every* worker receiving one of this module's tests
+#: (measured 4 x ~115s): waste, fixed by the ``xdist_group`` marker, which
+#: works only because of the shim in ``tests/conftest.py``
+#: (``tests/scripts/test_xdist_group.py`` measures that it does). Grouping
+#: does not make the work fast, though -- it fits 21 probes over 4 NAB files
+#: and 5 ADBench tables x 3 seeds -- so the budget is a second, independent
+#: control. It is not a workaround for the first: dropping it after grouping
+#: landed turned Core Tests (3.12) red at >300s on a CI runner while 3.13
+#: passed, which is runner variance, not duplication. Measured here at ~40s
+#: after the single-fit rework below; the budget covers the tail.
+pytestmark = [
+    pytest.mark.xdist_group("recorded_math_arrest"),
+    pytest.mark.timeout(900),
+]
 
 from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 from omni_mercury_engine.detectors.math_arrest.fusion import WEIGHTINGS, PhiWeightedFusion
@@ -94,9 +105,66 @@ def _adbench_auroc(**kwargs: object) -> float:
     return float(np.mean(per_table))
 
 
+def _all_weightings_nab() -> dict[str, float]:
+    """Mean NAB AUROC for every weighting, fitting each series once.
+
+    ``weighting`` only configures ``AnomalyMathArrest._fusion``, which is read
+    at detect time; ``fit`` never consults it. So one fit serves all three,
+    and swapping the fusion afterwards reproduces the per-weighting numbers
+    bit-identically -- verified to 1e-12 against fitting separately.
+    """
+    scores: dict[str, list[float]] = {w: [] for w in MEASURED}
+    for series in nab_corpus():
+        split = series.n_probation
+        positive = series.positive[split:]
+        detector = AnomalyMathArrest()
+        detector.fit(series.values[:split])
+        for weighting in MEASURED:
+            detector._fusion = PhiWeightedFusion(
+                n_probes=len(detector._probes), weighting=weighting
+            )
+            fused = np.asarray(detector.detect(series.values[split:]), dtype=float).ravel()
+            scores[weighting].append(auroc(fused[positive], fused[~positive]))
+    return {w: float(np.mean(v)) for w, v in scores.items()}
+
+
+def _all_weightings_adbench() -> dict[str, float]:
+    """Mean ADBench AUROC for every weighting, fitting each split once.
+
+    Same single-fit argument as :func:`_all_weightings_nab`. This is where the
+    cost is -- 5 tables x 3 seeds x 3 weightings was 45 fits where 15 do --
+    and the rework measured 79.4s to 30.9s with identical numbers.
+    """
+    per_table: dict[str, list[float]] = {w: [] for w in MEASURED}
+    for table in ADBENCH_NAMES:
+        features, labels = adbench(table)
+        per_seed: dict[str, list[float]] = {w: [] for w in MEASURED}
+        for seed in SEEDS:
+            train, test = stratified_split(labels, seed)
+            mean = features[train].mean(axis=0)
+            spread = features[train].std(axis=0)
+            spread[spread < 1e-8] = 1.0
+            detector = AnomalyMathArrest()
+            detector.fit((features[train] - mean) / spread)
+            held = labels[test]
+            for weighting in MEASURED:
+                detector._fusion = PhiWeightedFusion(
+                    n_probes=len(detector._probes), weighting=weighting
+                )
+                fused = np.asarray(
+                    detector.detect((features[test] - mean) / spread), dtype=float
+                ).ravel()
+                per_seed[weighting].append(auroc(fused[held == 1], fused[held == 0]))
+        for weighting in MEASURED:
+            per_table[weighting].append(float(np.mean(per_seed[weighting])))
+    return {w: float(np.mean(v)) for w, v in per_table.items()}
+
+
 @pytest.fixture(scope="module")
 def measured() -> dict[str, tuple[float, float]]:
-    return {w: (_nab_auroc(weighting=w), _adbench_auroc(weighting=w)) for w in MEASURED}
+    nab = _all_weightings_nab()
+    adb = _all_weightings_adbench()
+    return {w: (nab[w], adb[w]) for w in MEASURED}
 
 
 @pytest.mark.parametrize("weighting", sorted(MEASURED))
