@@ -1597,12 +1597,12 @@
     {
      "domain": "generic_series",
      "evidence": "tests/detectors/test_recorded_math_arrest.py",
-     "note": "NAB mean 0.7498 at the default uniform weighting - second of the pinned series detectors, behind lstm_autoencoder"
+     "note": "NAB mean 0.7581 at the default uniform weighting - second of the pinned series detectors, behind lstm_autoencoder"
     },
     {
      "domain": "generic_tabular",
      "evidence": "tests/detectors/test_recorded_math_arrest.py",
-     "note": "ADBench mean 0.6846 over 5 tables x 3 seeds, scored on the per-row mean the probes reduce a matrix to"
+     "note": "ADBench mean 0.6826 over 5 tables x 3 seeds, scored on the per-row mean the probes reduce a matrix to"
     }
    ]
   },

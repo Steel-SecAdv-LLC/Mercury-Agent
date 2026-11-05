@@ -1312,7 +1312,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Other capability classes**
 
 - `AREpisode` (`detectors.meteorological.atmospheric_river_detector`) — One contiguous period of AR conditions (IVT >= 250 kg m^-1 s^-1).
-- `AdditiveProbe` (`detectors.math_arrest.probes.additive`) — Detect level shifts and trend breaks via a linear fit.
+- `AdditiveProbe` (`detectors.math_arrest.probes.additive`) — Dispersion around the learned trend rate, with the level re-anchored.
 - `AirQualityAssessment` (`detectors.meteorological.air_quality`) — One graded PM2.5 day.
 - `AnomalyMathArrest` (`detectors.math_arrest.arrest`) — 21-probe Anomaly Math Arrest.
 - `AppearanceContextProvider` (`detectors.vlm.context_providers_extended`) — Appearance context provider for color and texture analysis.
