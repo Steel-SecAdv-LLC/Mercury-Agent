@@ -297,6 +297,22 @@ class AnomalyMathArrest:
                     type(probe).__name__,
                     exc,
                 )
+                continue
+            # Record the fit-time score scale, so a published score means the
+            # same thing on every later call. Without this each call divided by
+            # the scored array's own 99th percentile, which left the alarm rate
+            # a function of the caller's batch size rather than of the data
+            # (measured: 0.052 whole-series to 0.461 at 32-point batches against
+            # a cut promising alpha = 0.05). See
+            # ``BaseEquationProbe._normalize_scores``.
+            try:
+                probe.calibrate_normalizer(data)
+            except (ValueError, RuntimeError) as exc:
+                logger.warning(
+                    "Probe %s failed to calibrate its normalizer: %s",
+                    type(probe).__name__,
+                    exc,
+                )
 
         self._is_fitted = True
 

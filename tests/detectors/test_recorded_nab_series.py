@@ -79,8 +79,19 @@ MEASURED: dict[str, tuple[float, float, float]] = {
     "lstm_autoencoder": (0.829, 3.1, 0.038),
     # The 21-probe equation ensemble, reachable from this corpus for the first
     # time (docs/DORMANCY_LEDGER.md 2b): second-best ranking here, behind only
-    # lstm_autoencoder, at a 0.022 false-alarm rate on the conformal cut.
-    "math_arrest": (0.758, 40.4, 0.021),
+    # lstm_autoencoder, at a 0.017 false-alarm rate on the conformal cut.
+    #
+    # Was (0.758, 40.4, 0.021) until 2026-11-05, when the probes' shared
+    # normalizer began carrying the fit-time score scale instead of rescaling
+    # each call by the scored array's own 99th percentile. That rescaling
+    # inflated scores batch by batch, which bought sensitivity -- and the 40.4
+    # with it -- at the cost of an alarm rate that tracked the caller's batch
+    # size rather than the data (0.052 whole-series to 0.461 at 32-point
+    # batches, against a cut promising alpha = 0.05). The ranking score here
+    # was therefore only ever valid for whole-series scoring. See
+    # BaseEquationProbe._normalize_scores for the measurement and for the
+    # monotone variant that recovers the AUROC but scores 29.69 here.
+    "math_arrest": (0.749, 33.7, 0.017),
     "page_hinkley": (0.534, 26.6, 0.008),
     "particle_filter": (0.582, 39.6, 0.017),
     "spectral_residual": (0.489, 45.3, 0.010),

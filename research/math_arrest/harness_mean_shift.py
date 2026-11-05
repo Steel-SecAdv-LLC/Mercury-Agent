@@ -109,7 +109,8 @@ class SlidingMeanShiftProbe(BaseEquationProbe):
         cumulative = np.concatenate([[0.0], np.cumsum(padded)])
         before = (cumulative[h : h + n] - cumulative[0:n]) / h
         after = (cumulative[2 * h : 2 * h + n] - cumulative[h : h + n]) / h
-        return np.abs(after - before)
+        magnitude: npt.NDArray[np.float64] = np.abs(after - before)
+        return magnitude
 
     def deviation_score(self, data: npt.NDArray[np.float64]) -> ProbeResult:
         """Score each sample by its local mean-shift magnitude."""
@@ -140,6 +141,23 @@ def _fit_mean_shift(reference: npt.NDArray[np.float64], h: int) -> SlidingMeanSh
     probe = SlidingMeanShiftProbe(half_window=h)
     probe.fit_trajectory(reference)
     return probe
+
+
+#: Samples the probes are fitted on, for the two window-labelled corpora.
+#:
+#: NAB fits each file on its probationary prefix, which is 169-282 points on
+#: the four recorded files. The EEG and CWRU references are whole recordings --
+#: 38,400 and 163,840 samples if handed over entire -- so fitting on all of
+#: them would give those two corpora a 130-580x larger fit budget than NAB and
+#: make the standalone AUROCs incomparable across corpora (it is also what made
+#: the first run of this harness intractable: 21 trajectory probes, several
+#: with Hankel/SVD steps, over a 38k series).
+#:
+#: Capped at the same order as NAB's probation. The *lift* this harness
+#: measures is a within-corpus comparison -- the same fit serves the 21-column
+#: and 22-column arms -- so the cap cannot bias it in either direction; it only
+#: makes the standalone columns comparable between corpora.
+FIT_CAP = 1024
 
 
 # ---------------------------------------------------------------------------
@@ -194,9 +212,7 @@ def measure_nab(halves: tuple[int, ...]) -> dict[str, Any]:
     out["mean_column_mean_21"] = float(np.mean(base_mean))
     out["mean_standalone"] = {h: float(np.mean(standalone[h])) for h in halves}
     out["mean_column_mean_22"] = {h: float(np.mean(lifted[h])) for h in halves}
-    out["mean_lift"] = {
-        h: float(np.mean(lifted[h]) - np.mean(base_mean)) for h in halves
-    }
+    out["mean_lift"] = {h: float(np.mean(lifted[h]) - np.mean(base_mean)) for h in halves}
     return out
 
 
@@ -236,9 +252,10 @@ def _measure_windowed(
     halves: tuple[int, ...],
 ) -> dict[str, float]:
     """Fit on *reference* windows, then rank *anomalous* against *normal*."""
+    fit_series = reference.reshape(-1)[:FIT_CAP]
     arrest = AnomalyMathArrest(weighting="uniform")
-    arrest.fit(reference.reshape(-1))
-    probes = {h: _fit_mean_shift(reference.reshape(-1), h) for h in halves}
+    arrest.fit(fit_series)
+    probes = {h: _fit_mean_shift(fit_series, h) for h in halves}
 
     normal_matrix, normal_shift, names = _window_scores(arrest, probes, normal)
     anomalous_matrix, anomalous_shift, _ = _window_scores(arrest, probes, anomalous)
@@ -263,9 +280,7 @@ def _measure_windowed(
 
 def _cwru_windows(name: str, first: int, last: int) -> npt.NDArray[np.float64]:
     signal = cwru(name)
-    return np.stack(
-        [signal[i * CWRU_WINDOW : (i + 1) * CWRU_WINDOW] for i in range(first, last)]
-    )
+    return np.stack([signal[i * CWRU_WINDOW : (i + 1) * CWRU_WINDOW] for i in range(first, last)])
 
 
 def measure_cwru(halves: tuple[int, ...]) -> dict[str, Any]:
@@ -333,8 +348,10 @@ def main() -> int:
         print("-" * 78)
         nab = measure_nab(halves)
         report["nab"] = nab
-        print(f"  additive (shipped)        {nab['mean_additive']:.4f}  "
-              f"recorded {RECORDED_NAB['additive_shipped']:.4f}")
+        print(
+            f"  additive (shipped)        {nab['mean_additive']:.4f}  "
+            f"recorded {RECORDED_NAB['additive_shipped']:.4f}"
+        )
         for h in halves:
             key = f"mean_shift_h{h}"
             recorded = RECORDED_NAB.get(key)
@@ -342,9 +359,11 @@ def main() -> int:
             print(f"  {key:<25s} {nab['mean_standalone'][h]:.4f}{suffix}")
         print(f"  column mean, 21 probes    {nab['mean_column_mean_21']:.4f}")
         for h in halves:
-            print(f"  + h={h} as 22nd column     {nab['mean_column_mean_22'][h]:.4f}"
-                  f"   lift {nab['mean_lift'][h]:+.4f}"
-                  + (f"   recorded {RECORDED_NAB['column_mean_lift_h16']:+.4f}" if h == 16 else ""))
+            print(
+                f"  + h={h} as 22nd column     {nab['mean_column_mean_22'][h]:.4f}"
+                f"   lift {nab['mean_lift'][h]:+.4f}"
+                + (f"   recorded {RECORDED_NAB['column_mean_lift_h16']:+.4f}" if h == 16 else "")
+            )
         print()
 
     if "eeg" in args.corpora:

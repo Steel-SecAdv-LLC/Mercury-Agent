@@ -2,8 +2,21 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Foundation Model Ensemble.
 
-Combines predictions from multiple foundation models for
-improved anomaly detection accuracy.
+Combines predictions from multiple foundation models.
+
+**Unmeasured, unreached, and not runnable in a default install.** No path in
+``src/`` consumes this module, it has never been scored against labelled data
+in this repository, and it needs the ``[foundation]`` extra to import its
+backends at all (``docs/DORMANCY_LEDGER.md`` §2c). The original docstring said
+it combined those predictions "for improved anomaly detection accuracy"; the
+improvement is removed from the sentence because no measurement of it exists
+here. Combining predictions is what the module does; that doing so improves
+accuracy is the claim, and it is the claim that is missing evidence.
+
+Unlike the three heads measured in §2c, this one could not be put on the same
+bar: the comparison needs the extra installed and a foundation backend served,
+so "unmeasured" here means the measurement was not attempted, not that it was
+attempted and refused.
 """
 
 from __future__ import annotations

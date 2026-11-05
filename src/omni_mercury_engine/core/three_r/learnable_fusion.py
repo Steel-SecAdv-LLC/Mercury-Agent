@@ -2,8 +2,27 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Mercury Agent - Learnable 3R Fusion Module.
 
-State-of-the-art differentiable 3R (Recursion-Resonance-Refactoring) fusion
-with learnable weights, dynamic gating, and spectral attention.
+Differentiable 3R (Recursion-Resonance-Refactoring) fusion with learnable
+weights, dynamic gating, and spectral attention.
+
+**Unmeasured, and not reached by any serving path.** No path in ``src/``
+consumes this module and it has never been fitted or scored against labelled
+data in this repository (``docs/DORMANCY_LEDGER.md`` §2c). The word
+"state-of-the-art" stood in this docstring and is removed: the ledger had
+already recorded that the wording was not backed by a measurement here, and an
+unmeasured module must not be described by a ranking claim. The components it
+cites are real published methods; what is unsupported is any statement about
+how *this* implementation performs.
+
+The one adjacent measurement that does exist is a caution rather than a
+recommendation. The served ``PHI : 1 : 1`` weighting of the same three streams
+was measured on the recorded NAB files (``docs/MATH_SPEC.md`` §2.1.1): a plain
+mean scored 0.8318 against it at 0.8301, and weights *learned per file* reached
+0.8916 -- but the per-file optima were ``(0, 1, 0)``, ``(0, 0.45, 0.55)`` and
+``(0, 0, 1)``, so no single fixed triple fits the four files. Learning the
+weights is therefore the plausible direction and also the one most exposed to
+overfitting four short series; that is the measurement this module needs before
+any claim attaches to it.
 
 Features:
 - Backprop-trainable fusion weights (w_R, w_H, w_O)

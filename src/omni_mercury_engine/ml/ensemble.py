@@ -15,8 +15,26 @@ actually relied on (Aggarwal & Sathe, *Outlier Ensembles*, 2017 -- the
 detector tier's ``consensus`` combiner and ``math_arrest``'s fusion default),
 but it is a statement about averaging dominance, not a percentage, and it does
 not transfer to the stacking/boosting/bagging heads below without measurement.
-Particularly effective for multi-source intelligence fusion in humanitarian
-applications like crisis detection and medical anomaly identification.
+
+A "particularly effective for multi-source intelligence fusion in humanitarian
+applications" sentence stood here, immediately after that paragraph, and is
+removed: an effectiveness claim is exactly what the paragraph above says this
+module does not have.
+
+What is now measured, by ``research/ensembles/harness_unreached_heads.py`` on
+five recorded ADBench tables x three seeds, is the first necessary bar -- does a
+head beat the plain mean of the same real detector scores? See
+``docs/DORMANCY_LEDGER.md`` §2c for the table. Clearing that bar is not
+promotion: a fusion head must also out-separate the engine's trained
+``OmniFusionModel``, the baseline §8 established for exactly this comparison.
+
+One structural finding belongs here rather than only in the ledger:
+:class:`VotingEnsemble` publishes no continuous fused score. Its ``confidence``
+is ``|weighted_avg - 0.5| * 2``, which is symmetric about the threshold, so a
+confidently-normal row and a confidently-anomalous row receive the same value.
+That is a defensible meaning for "confidence in a binary call" and it is **not**
+an anomaly score; ranking by it inverts half the ordering. Callers wanting a
+ranking must use a head that exposes one.
 
 References:
 - Wolpert (1992): Stacked Generalization

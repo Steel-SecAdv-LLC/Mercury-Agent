@@ -1,0 +1,63 @@
+{
+  "detectors": [
+    "adaptive_anomaly",
+    "info_geometry",
+    "spatial",
+    "directive",
+    "realtime_threat"
+  ],
+  "per_cell": {
+    "cardio/s0": {
+      "best_single_on_train": 0.9385468362282878,
+      "coordinator.Bayesian": 0.9051256203473945,
+      "coordinator.Gradient": 0.902605459057072,
+      "ensemble.MetaLearner": 0.9515353598014888,
+      "ensemble.VotingEnsemble": 0.7782258064516129,
+      "plain_mean (baseline)": 0.902605459057072
+    }
+  },
+  "summary": {
+    "best_single_on_train": {
+      "cells_beating_plain_mean": 1,
+      "delta_vs_plain_mean": 0.035941377171215816,
+      "mean_auroc": 0.9385468362282878,
+      "n_cells": 1,
+      "ran": true
+    },
+    "coordinator.Bayesian": {
+      "cells_beating_plain_mean": 1,
+      "delta_vs_plain_mean": 0.002520161290322509,
+      "mean_auroc": 0.9051256203473945,
+      "n_cells": 1,
+      "ran": true
+    },
+    "coordinator.Gradient": {
+      "cells_beating_plain_mean": 0,
+      "delta_vs_plain_mean": 0.0,
+      "mean_auroc": 0.902605459057072,
+      "n_cells": 1,
+      "ran": true
+    },
+    "ensemble.MetaLearner": {
+      "cells_beating_plain_mean": 1,
+      "delta_vs_plain_mean": 0.04892990074441683,
+      "mean_auroc": 0.9515353598014888,
+      "n_cells": 1,
+      "ran": true
+    },
+    "ensemble.VotingEnsemble": {
+      "cells_beating_plain_mean": 0,
+      "delta_vs_plain_mean": -0.12437965260545913,
+      "mean_auroc": 0.7782258064516129,
+      "n_cells": 1,
+      "ran": true
+    },
+    "plain_mean (baseline)": {
+      "cells_beating_plain_mean": 0,
+      "delta_vs_plain_mean": 0.0,
+      "mean_auroc": 0.902605459057072,
+      "n_cells": 1,
+      "ran": true
+    }
+  }
+}
