@@ -33,6 +33,17 @@ accuracy figure and is not one):
   ``orientation_field``/``ridge_frequency`` zeroed, so segmentation,
   enhancement and minutiae *extraction* are bypassed entirely. The pipeline a
   real capture goes through is not exercised here at all.
+
+  To be precise about where that bypass lives, because the two are easy to
+  conflate: it is a property of **this corpus**, not a hole in the matcher's
+  API. ``FingerprintMatcher.match``/``verify`` take ``FingerprintFeatures``
+  by design, which is the correct shape for a matcher that compares *enrolled
+  templates* — re-extracting from the original image at every comparison is
+  not what an enrolment-based system does, and ``extract_features`` remains
+  the only supported way to obtain a template from a capture. What is missing
+  is therefore coverage, not an integrity boundary: no test here drives a real
+  image through extraction and then through matching, so defects confined to
+  extraction cannot fail this module.
 * **FAR = 0.00 is close to trivially obtainable on this corpus.** Impostors
   are independent uniform point clouds. They carry none of the inter-finger
   ridge-structure similarity that produces real-world false accepts, so this
