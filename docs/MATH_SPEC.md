@@ -13,10 +13,31 @@ Mercury Agent is a neuro-symbolic AI framework built on a mathematically
 grounded hybrid-fusion architecture. Multi-paradigm anomaly detection is
 one of the capabilities this AI exposes; the underlying engine combines
 neural pattern recognition with explicit symbolic reasoning and hard
-ethical bounding. The core mathematical framework is the **Omni-Ava
-Equation (OAE)**, which combines three orthogonal detection signals --
-Recursion, Resonance, and Optimization -- through golden-ratio-weighted
-convex combination, modulated by a sigmoid ethical gate.
+ethical bounding.
+
+**What decides a verdict (read this before §2.1).** The equation this document
+opens with, the **Omni-Ava Equation** (§2.1), is the framework's *named*
+combination law and is implemented and served -- but it is **not** what
+produces Mercury's anomaly verdicts, and measurement says it contributes
+approximately nothing to them: wrapping the ensemble in it moves held-out AUROC
+by **-0.002**, and its ethical exponent changes 0.3% of ranks for a AUROC delta
+of **-0.0002** (`research/omni_equation/FINDINGS.md`). The operative chain is
+statistical, not closed-form:
+
+1. **Per-detector decision** -- a one-class split-conformal cut on each
+   detector's own fit-time scores (§2.6.3), so the false-alarm rate is bounded
+   by $\alpha$ instead of resting on a fixed $0.5$. The shared implementation
+   in `detectors/_calibration.py` is imported by 30 modules.
+2. **Batch verdict** -- Benjamini-Hochberg step-up over conformal p-values at
+   $\alpha/K$ across the $K$ detectors with an independent reference (§2.6.5).
+3. **Score fusion** -- the trained `OmniFusionModel`
+   (`ml/fusion_network.py`), instantiated by the engine; the legacy
+   stacking/Bayesian-averaging ensemble is deprecated in favour of it.
+
+The OAE remains specified here because it is real, served code on the API
+detection route and the 3R/physics paths, and because its derivation is
+drift-gated. It is a documented combination law whose measured contribution is
+inert -- not the system's decision rule.
 
 The framework combines four mathematical properties — **proven** where derived
 in the sections below, and **measured at runtime** for the data-dependent ones:
@@ -35,6 +56,9 @@ operations are guarded with $\varepsilon = 10^{-8}$.
 - `core/ethical_governor.py` -- Sigma Directive
 - `core/calibration.py` -- ECE, Platt, Temperature scaling
 - `core/conformal_prediction.py` -- Conformal prediction
+- `detectors/_calibration.py` -- **shared operating points: one-class
+  split-conformal cuts, conformal p-values, Benjamini-Hochberg (30 importers)**
+- `ml/fusion_network.py` -- **`OmniFusionModel`, the production score fusion**
 - `detectors/statistical.py` -- Resonance / Kinematic / Info-Geometry ensemble
 - `core/global_omni_scalar_network.py` -- GOSNN hierarchical aggregation
 
@@ -44,8 +68,11 @@ operations are guarded with $\varepsilon = 10^{-8}$.
 
 ### 2.1 Omni-Ava Equation (OAE)
 
-The central equation of Mercury Agent computes a fused anomaly score from three
-orthogonal detection sub-systems, gated by an ethical compliance function:
+The framework's named combination law. It computes a fused anomaly score from
+three orthogonal detection sub-systems, gated by an ethical compliance
+function. It is **not** the decision rule for Mercury's anomaly verdicts and is
+measured inert against the raw ensemble (-0.002 AUROC); see the scope note in
+§1 for what actually decides a verdict.
 
 $$
 A = \bigl( w_R \cdot R(x) + w_H \cdot H(\omega) + w_O \cdot O(\theta) \bigr) \cdot \eta(b)^{\,p}
@@ -646,6 +673,56 @@ live in `_adaptive_weights` and are adapted during `fit()`.
 > domain-specific tuning.
 
 **Implementation:** `detectors/statistical.py`, combination line 2399, default weights line 269; kinematic `_compute_kinematic_score()` line 2819.
+
+---
+
+#### 2.6.5 Batch Verdict (FDR-controlled)
+
+A batch-level verdict formed by OR-ing per-row flags has no false-alarm bound:
+at a per-row level $\alpha$ over $n$ normal rows the probability that *something*
+fires approaches $1$ as $n$ grows, and across $K$ detectors it compounds. The
+measured consequence was a batch verdict that called 100% of all-normal batches
+anomalous.
+
+The engine instead tests the global null "every row in this batch is normal".
+For each detector $d$ whose reference is independent of the batch being scored
+(i.e. not fitted on it) and which reports conformal p-values
+$p^{(d)}_1 \dots p^{(d)}_n$, Benjamini-Hochberg step-up is applied at
+
+$$
+\text{level} = \frac{\alpha_{\text{batch}}}{K}, \qquad
+\alpha_{\text{batch}} = 0.05 \;\; (\texttt{BATCH\_FALSE\_ALARM\_BUDGET}),
+$$
+
+where $K$ is the number of such detectors. Sorting $p_{(1)} \le \dots \le p_{(n)}$,
+the rejection set is the largest prefix satisfying
+
+$$
+p_{(i)} \le \text{level} \cdot \frac{i}{n},
+$$
+
+and the batch is anomalous iff any detector rejects anything. Under the global
+null with PRDS p-values each detector fires with probability at most
+$\alpha_{\text{batch}}/K$, so the union over $K$ detectors is at most
+$\alpha_{\text{batch}}$ whatever the batch size.
+
+**Fallbacks, stated because they are not bounded.** A detector with no
+independent reference (fitted on this batch), or one reporting no p-values (a
+legacy state), keeps the per-row OR and is excluded from the $K$ above. A
+detector whose p-value floor cannot reach the level ($\texttt{p\_value\_floor}
+\cdot n > \text{level}$, i.e. its reference is too small to express a
+significant p-value) likewise falls back rather than silently never firing.
+
+**Measured** (`tests/detectors/test_recorded_false_alarm_rates.py`): on
+all-normal batches the batch verdict fires at $\approx 0.05$ at $n = 10$,
+$0.008$ at $n = 100$ and $0.000$ at $n = 1000$, while a single $+4\sigma$ row is
+still caught.
+
+**Provenance:** Benjamini & Hochberg (1995); PRDS sufficiency from Benjamini &
+Yekutieli (2001).
+
+**Implementation:** `engine.py`, `_batch_is_anomalous`;
+`detectors/_calibration.py`, `benjamini_hochberg` / `conformal_p_values`.
 
 ---
 
