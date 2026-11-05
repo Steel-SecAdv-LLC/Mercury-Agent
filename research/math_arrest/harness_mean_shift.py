@@ -138,8 +138,17 @@ def _probe_matrix(arrest: AnomalyMathArrest, series: npt.NDArray[np.float64]) ->
 
 
 def _fit_mean_shift(reference: npt.NDArray[np.float64], h: int) -> SlidingMeanShiftProbe:
+    """Fit the candidate probe the way ``AnomalyMathArrest.fit`` fits the 21.
+
+    ``calibrate_normalizer`` matters for the comparison, not just for tidiness:
+    without it this probe would normalize against the array being scored while
+    the 21 it is being compared with normalize against their fit series, and the
+    22nd-column lift would then be measuring the two normalizations against each
+    other rather than the statistic.
+    """
     probe = SlidingMeanShiftProbe(half_window=h)
     probe.fit_trajectory(reference)
+    probe.calibrate_normalizer(reference)
     return probe
 
 
