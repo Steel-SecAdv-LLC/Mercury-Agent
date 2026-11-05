@@ -213,6 +213,30 @@ class PhiWeightedFusion:
     outlier ensembles (Aggarwal & Sathe, *Outlier Ensembles*, 2017). The
     decorrelator's multipliers still apply in every mode.
 
+    **The multipliers cost ranking AUROC and buy operational quality.** They
+    had never been measured either way. Isolated through this method with
+    everything else fixed, *not* applying them scores higher on both corpora --
+    uniform 0.7698 NAB / 0.7073 ADBench against 0.7581 / 0.6826, better in all
+    six weighting x corpus cells and on 6 of the 9 individual datasets. On the
+    full operational triple it is worse, and decisively:
+
+    ====================  ========  ===========  ============
+    multipliers            AUROC     NAB score    alarm rate
+    ====================  ========  ===========  ============
+    applied (shipped)       0.758          40.4         0.021
+    measured only           0.770          19.6         0.034
+    ====================  ========  ===========  ============
+
+    AUROC is blind to false-alarm cost; the NAB standard score charges for it
+    and rewards earliness, and the alarm rate shows the mechanism -- suppressing
+    a redundant cluster is what keeps the ensemble quiet, at 0.021 against the
+    0.05 the conformal cut promises. Halving the purpose-built streaming metric
+    and adding 62% more false alarms to gain 0.012 of ranking is not a trade
+    worth making, so the multipliers stay. Anyone optimising this fusion on
+    AUROC alone will reach the opposite conclusion;
+    ``tests/detectors/test_recorded_nab_series.py`` pins the triple and is what
+    catches it.
+
     ``phi_affinity`` is the released behaviour, retained for reproducibility:
     ``weight[rank] = PHI^(-rank)`` over
     :data:`~omni_mercury_engine.detectors.math_arrest.domain_affinity.DOMAIN_AFFINITY_21`.

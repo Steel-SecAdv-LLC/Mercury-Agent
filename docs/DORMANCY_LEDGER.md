@@ -344,6 +344,73 @@ dead-stream case is not hypothetical — it is the `H(omega)` saturation recorde
 in `MATH_SPEC.md` §2.1.6, which shipped and was found by hand. That class of
 defect now fails a gate.
 
+## 2e. Two hypotheses this pass measured and then abandoned (2026-11-05)
+
+Both are recorded because the measurement is the deliverable either way, and
+because each conclusion is the opposite of what the first evidence suggested.
+
+**The probe decorrelator earns its place — on the metric that charges for a
+false alarm.** `CorrelationAwareDecorrelator` down-weights members of a
+correlated probe cluster. What that buys had never been measured. Isolated
+through `PhiWeightedFusion.fuse` with everything else held fixed, *dropping*
+the multipliers scores higher on ranking AUROC in all six weighting × corpus
+cells and on 6 of the 9 individual datasets (uniform 0.7698 NAB / 0.7073
+ADBench against 0.7581 / 0.6826; worst single harm −0.0476 on `wbc`,
+−0.0874 on one NAB file). On that evidence the multipliers look like
+complexity that costs accuracy, and dropping them also looked like the simpler
+system.
+
+The operational triple says otherwise, decisively:
+
+| multipliers | AUROC | NAB standard score | alarm rate |
+|---|--:|--:|--:|
+| applied (shipped) | 0.758 | **40.4** | **0.021** |
+| measured only | 0.770 | 19.6 | 0.034 |
+
+AUROC is a pure ranking metric and is blind to false-alarm cost. The NAB
+standard score charges for one and rewards earliness, and the alarm rate shows
+the mechanism: suppressing a redundant cluster is what keeps the ensemble
+quiet, at 0.021 against the 0.05 the conformal cut promises. Halving the
+purpose-built streaming metric and adding 62% more false alarms to gain 0.012
+of ranking is not a trade worth making. **The multipliers stay**, now for a
+measured reason rather than an assumed one, and
+`research/math_arrest/harness_decorrelation.py` reproduces both halves so the
+next person to optimise this fusion on AUROC alone finds the counter-evidence
+first. `tests/detectors/test_recorded_nab_series.py` pins the triple and is
+what catches it.
+
+**A real change-point statistic is wrong for this ensemble.** `AdditiveProbe`
+was repaired this cycle but its three measured variants were all the same
+"distance from a trend line" statistic with different anchors, so the obvious
+question — would a proper change-point detector do better, and restore the
+level-shift geometry the ensemble lost — stayed open. Measured on the same NAB
+protocol, against the shipped probe's 0.6848 (reproduced to four decimals by
+the harness, which validates it):
+
+| statistic | mean NAB AUROC |
+|---|--:|
+| trend dispersion (shipped) | **0.6848** |
+| two-sided CUSUM, k = 0.25 / 0.5 / 1.0 σ | 0.4244 / 0.4996 / 0.5456 |
+| sliding mean shift, h = 16 / 48 | 0.6679 / 0.5498 |
+
+CUSUM is at or below chance and strongly *anti*-correlated on one file
+(0.0609–0.1084). The reason is structural, not a tuning failure: CUSUM
+accumulates, so once a shift occurs the statistic stays elevated and flags the
+entire remainder of the window, while NAB labels a bounded window around the
+anomaly. A persistent statistic cannot score a bounded label. **The probe
+stays a dispersion probe**, and the level-shift geometry stays unclaimed rather
+than claimed by something that does not deliver it.
+
+The sliding mean shift at h = 16 is the one lead worth naming: 0.6679
+standalone, close to the shipped probe and nearly independent of it (max
+\|r\| 0.319, mean 0.200), and adding it as a 22nd column lifted a plain
+column mean by +0.0188 — gains on two files, −0.007 and −0.002 on the other
+two. **Not promoted.** It is a change-point statistic, so ADBench cannot
+corroborate it (tabular rows have no ordering), which leaves four NAB files as
+the entire evidence base — below the bar this ledger applies to everything
+else, and well below what adding a probe to a 21-probe published ensemble
+should need. Recorded as a lead, not a finding.
+
 ## 3. Correctly-quarantined (not dormant theater)
 
 `space/schumann_resonance.py` and `models/parapsychology.py` run untrained
