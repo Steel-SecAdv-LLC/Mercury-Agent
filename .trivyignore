@@ -38,10 +38,16 @@
 # CVE-2026-119586), reproduced 1:1 by the security.yml table-format scan
 # (run 41335629579) and cross-checked against the Debian Security Tracker
 # (vulnerable in bookworm, trixie, forky and sid; the upstream fix is SQLite
-# 3.54.0, which no Debian suite ships). The built runtime image now carries
-# 9 distinct unfixed CRITICAL/HIGH OS CVEs (0 CRITICAL, 9 HIGH); none has a
-# fixed version published for trixie and each package is a hard dependency
-# of CPython, bash, coreutils/tar or apt/dpkg.
+# 3.54.0, which no Debian suite ships). RE-REVIEWED 2026-11-05 (Debian 13.7)
+# after the blocking gate went red on a newly published zlib1g HIGH
+# (CVE-2026-76844) between a green run on main at 06:27Z and a push at
+# 20:17Z with no Dockerfile or dependency change: reproduced with the
+# CI-pinned trivy 0.70.0 against a Debian 13.7 dpkg manifest and
+# cross-checked against the Debian Security Tracker and NVD. The built
+# runtime image now carries 10 distinct unfixed CRITICAL/HIGH OS CVEs
+# (0 CRITICAL, 10 HIGH); none has a fixed version published for trixie and
+# each package is a hard dependency of CPython, bash, coreutils/tar or
+# apt/dpkg.
 #
 # DROPPED in the 2026-09-27 re-review (not carried inert):
 #   * CVE-2026-53615 (util-linux libblkid) — FIXED in trixie
@@ -164,6 +170,49 @@ CVE-2026-78410 exp:2026-12-26
 # 41335629579 and cross-checked against the Debian Security Tracker).
 CVE-2026-119373 exp:2027-01-30
 CVE-2026-119586 exp:2027-01-30
+
+# zlib (zlib1g 1:1.3.dfsg+really1.3.1-1) — CVE-2026-76844, one HIGH finding
+# published 2026-11-05, between a green run on main at 06:27Z and this
+# branch's failure at 20:17Z on an unchanged Dockerfile. A real heap buffer
+# overflow: after an underlying write() fails, upstream's gz_write() returns
+# without resetting strm.next_in, so a later gz* write call derives a
+# position from the stale pointer and writes past a heap allocation
+# (madler/zlib gzwrite.c; fixed upstream by madler/zlib@df84af25, after
+# 1.3.2). Debian scopes it local and publishes NO fixed version for trixie.
+#
+# Why it is accepted rather than eliminated or upgraded — both routes were
+# tried and measured, not assumed:
+#   * UPGRADING THE LIBRARY DOES NOT CLEAR THE GATE. Debian's advisory for
+#     release 13 carries no fixed version, so Trivy marks EVERY installed
+#     version `affected`. Measured with the CI-pinned trivy 0.70.0 (the
+#     install-trivy digest) against a Debian 13.7 dpkg manifest: the shipped
+#     1:1.3.dfsg+really1.3.1-1 reports 1 HIGH, and so does sid's FIXED
+#     1:1.3.dfsg+really1.3.2-4. Suite-mixing from sid, trixie-backports
+#     (which ships the same vulnerable version) and a from-source rebuild
+#     are therefore all ineffective, not merely risky — the scan reads dpkg
+#     metadata, not the binary. bookworm, trixie and forky are all
+#     `vulnerable` on the Debian tracker; only sid is `fixed`.
+#   * THE PACKAGE CANNOT BE REMOVED. `libz.so.1` is in the NEEDED list of
+#     the CPython interpreter binary itself, not just the `zlib` extension
+#     module, so purging zlib1g stops python3 from starting. This is the
+#     ledger's "eliminate, don't accept" rule reaching its hard floor.
+#
+# The vulnerable code has no caller in the image: the flaw is confined to
+# zlib's gz* stream API, and CPython's `zlib` module exports zero gz*
+# symbols, the stdlib `gzip` module builds its container over
+# compressobj/decompressobj with no reference to gz_write, and no first-party
+# source reaches the gz layer or loads libz by FFI. Those four conditions are
+# machine-checked by tests/security/test_zlib_cve_acceptance_conditions.py,
+# so the acceptance fails loudly if its premise ever stops holding.
+#
+# Observed while reproducing: trivy 0.70.0's DB attaches the WRONG Title to
+# this ID, printing "webpack-dev-middleware: Information Disclosure via Path
+# Traversal". The package, release and status mapping are correct and NVD
+# confirms the zlib gz_write overflow; only the human-readable title is a
+# Trivy metadata defect. Recorded so a future reviewer reading the CI log is
+# not misled into thinking a JavaScript package was flagged.
+# Added 2026-11-05 (owner-approved).
+CVE-2026-76844 exp:2027-02-03
 
 # Mesa GL stack (CVE-2026-40393): REMOVED, not accepted. It was installed
 # only as OpenCV's libGL dependency, but Mercury uses
