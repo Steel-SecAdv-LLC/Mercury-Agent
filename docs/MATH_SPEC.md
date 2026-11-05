@@ -1169,6 +1169,97 @@ against that table, measuring each stream's actual influence on the fused
 score. A dead stream -- exactly the $H(\omega)$ saturation of §2.1.6, which
 shipped -- now fails a gate instead of waiting to be found by hand.
 
+### 5.1b The same comparison on two independent ordered corpora (2026-11-05)
+
+§5.1a's decision rested on $n = 4$ NAB files, and said so. The evidence is now
+widened to the two **other** ordered corpora this repository records, both with
+external labels: CHB-MIT scalp EEG (clinician-annotated seizure against
+background) and CWRU bearing vibration (machined 0.007-inch faults against
+healthy). `research/omni_equation/harness_oae_weights_ordered.py` imports the
+stream producers, the weightings and the grid search from §5.1a's harness, so
+all three corpora are scored by identical code. Windows are cut
+**non-overlapping** here because these corpora label whole recordings, and
+overlapping windows would place near-duplicate rows on both sides of the split.
+
+| unit | $\Phi:1:1$ | uniform | learned | $R$ alone | $H$ alone | $O$ alone |
+|---|--:|--:|--:|--:|--:|--:|
+| eeg/chb01_03 | 0.4780 | 0.4780 | 0.4259 | 0.5017 | 0.2994 | 0.6512 |
+| eeg/chb01_04 | 0.5072 | 0.5072 | 0.4815 | 0.5000 | 0.4226 | 0.4815 |
+| cwru/inner_race | 0.0003 | 0.0003 | 0.0028 | 0.5000 | 0.0028 | 0.0000 |
+| cwru/ball | 0.0000 | 0.0000 | 0.0001 | 0.5000 | 0.0001 | 0.0000 |
+| cwru/outer_race | 0.0000 | 0.0000 | 0.0000 | 0.5000 | 0.0000 | 0.0000 |
+| **mean** | **0.1971** | **0.1971** | 0.1820 | 0.5003 | 0.1450 | 0.2265 |
+
+**On the weighting question, this settles §5.1a in the same direction, harder.**
+$\Phi : 1 : 1$ and uniform are **identical to four decimal places on every one
+of the five units**, so the difference is $+0.0000$ against NAB's $-0.0017$, and
+$\Phi$ beats uniform on **0 of 5**. Across nine units on three corpora the
+golden-ratio weighting has never been measurably better or worse than a plain
+mean. **The default stands**, now on widened evidence rather than on a
+small-$n$ caveat, and §5.1a's corrected claim is the right one: the derivation
+fixes the weights reproducibly and is not a performance argument. The learned
+arm loses to uniform here ($-0.0150$), which is the overfitting §5.1a predicted.
+
+**Two findings about the streams themselves, which matter more than the weights.**
+
+1. **$R(x)$ is a saturated constant on any approximately zero-mean signal.** It
+   is $\mathrm{clip}(\sigma / \overline{|x|}, 0, 1)$, and that ratio is
+   unbounded above: for a zero-mean signal the mean of absolute values is small
+   relative to the standard deviation, so the clip pins the output at exactly
+   $1.0$. Measured on 128-point windows: **960/960** healthy CWRU windows and
+   **320/320** inner-race windows at exactly $1.0$ (one unique value each),
+   **80/80** EEG seizure windows, and 99.7% of EEG background windows. On
+   `realTraffic` -- positive-mean telemetry -- all 8 windows are distinct and
+   none is saturated. That is why $R$ alone measures exactly $0.5000$ above: a
+   constant cannot rank anything.
+
+   This is the **same defect class as the $H(\omega)$ saturation of §2.1.6**: a
+   clip pinning a stream to a constant on real data. §2.1.6's was found on NAB
+   and fixed by dividing by the maximum attainable distance. This one is
+   invisible on NAB and appears only off that modality, which is why widening
+   the corpus found it.
+
+   It also shows a **boundary of the dead-stream gate**. The rebuilt
+   `oae_dimensionality_probe` injects a dead stream *into the equation* and
+   requires it to be caught, and it does its job: the equation's arithmetic is
+   sound. But it feeds the equation synthetic sweeps, so it cannot see a
+   *producer* that returns a constant on real input. Catching that needs a
+   producer-level informativeness check on recorded data, which does not exist.
+
+2. **$O(\theta)$'s polarity is inverted for mechanical-fault hazards, with a
+   mechanism.** $O$ is a sigmoid of $\log_{10}(\mathrm{SNR}+1)$ where
+   $\mathrm{SNR} = \sigma^2(x) \big/ \left(\sigma^2(\Delta x)/2\right)$, so it
+   is a smoothness statistic. A bearing fault makes the signal *rougher*:
+   measured on one 2048-sample segment, healthy $\mathrm{SNR} = 7.96$ against
+   fault $\mathrm{SNR} = 1.12$, because $\sigma^2(\Delta x)$ grows almost as
+   fast as $\sigma^2(x)$. So fault windows score **lower** ($O$ mean $0.5819$
+   against healthy $0.7129$), and $H(\omega)$ runs the same way ($0.4179$
+   against $0.6717$). Two inverted streams plus one saturated stream is why the
+   fused AUROC reaches $0.0000$: the equation ranks rough, high-variance fault
+   windows as the *most normal*, nearly perfectly.
+
+**What this does and does not mean.** It is a scope boundary on the `/three-r`
+route, not a defect in the shipped decision path: §2.1 already records that the
+OAE is **not** the decision rule -- the shipped fusion is the trained
+`OmniFusionModel` and the alarm decision is the shared conformal layer in
+`detectors/_calibration.py`. CWRU and EEG are served by `spectral_vibration`,
+`spectral_domain_frequency`, `physics_integration` and `neural_cognitive`, which
+are measured on exactly these fixtures and do carry signal there. The honest
+statement is that **the OAE's three streams are informative on positive-mean,
+low-frequency telemetry and are uninformative-to-inverted outside it**, and the
+`/three-r` route should not be presented as a multi-domain hazard score.
+
+**No change to the served producers is made, and that is a measured refusal
+rather than deferral.** Unsaturating $R(x)$ with a bounded monotone map is the
+obvious repair, and it buys nothing demonstrable: on NAB, where $R$ is already
+unsaturated, a monotone transform cannot change $R$ alone's ranking; off NAB,
+$R$ would become informative but the other two streams are inverted, so the
+fused score would not be rescued. The polarity inversion is the deeper issue and
+it is not a weighting or normalisation problem -- it is that a smoothness
+statistic is the wrong sign for a roughness hazard. Fixing that is a modelling
+change to a served route, and this repository promotes those on demonstrated
+gain, which no measurement here supplies.
+
 **What the learned row does and does not show.** Weights are fitted per file on
 32–70 windows with 11–22 positives, so $0.8916$ is optimistic and unstable —
 on `realTraffic/speed_7578.csv` the learned weighting ($0.8955$) scores *below*
