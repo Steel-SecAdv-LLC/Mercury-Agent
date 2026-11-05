@@ -108,17 +108,57 @@ class TestProbeResult:
 class TestAdditiveProbe:
     """AdditiveProbe unit tests."""
 
-    def test_detects_level_shift(self) -> None:
+    def test_is_invariant_to_the_window_level(self) -> None:
+        """Adding a constant to the scored window must not change the scores.
+
+        This is the property the re-anchoring buys, and the one whose absence
+        made the probe anti-correlated with real anomalies: ``t`` restarts at 0
+        on every call, so the fit-time intercept belongs to the start of the
+        fit series and reusing it added a ``slope x position`` offset.
+        """
         probe = AdditiveProbe()
-        train = make_normal_signal()
-        probe.fit_trajectory(train)
-        test_data = make_level_shift()
-        result = probe.deviation_score(test_data)
-        # Second half should have higher scores than first half
-        half = len(test_data) // 2
-        mean_first = float(np.mean(result.deviation_scores[:half]))
-        mean_second = float(np.mean(result.deviation_scores[half:]))
-        assert mean_second > mean_first
+        probe.fit_trajectory(make_normal_signal())
+        window = make_normal_signal(seed=7)
+
+        base = np.asarray(probe.deviation_score(window).deviation_scores, dtype=float)
+        shifted = np.asarray(probe.deviation_score(window + 100.0).deviation_scores, dtype=float)
+        np.testing.assert_allclose(base, shifted, atol=1e-9)
+
+    def test_a_dispersion_burst_raises_the_score(self) -> None:
+        """What the probe now measures: spread about the levelled trend."""
+        rng = np.random.default_rng(3)
+        probe = AdditiveProbe()
+        probe.fit_trajectory(rng.normal(0.0, 1.0, 300))
+
+        window = rng.normal(0.0, 1.0, 300)
+        window[150:180] += rng.normal(0.0, 8.0, 30)
+        scores = np.asarray(probe.deviation_score(window).deviation_scores, dtype=float)
+        assert scores[150:180].mean() > scores.mean()
+
+    def test_the_level_shift_assertion_was_retired_on_evidence(self) -> None:
+        """Why this class no longer asserts an asymmetric level-shift response.
+
+        The retired test fitted on a normal signal, scored a half-shifted
+        window and required the second half to score higher. It passed against
+        a probe that was *anti*-correlated with real anomalies (mean NAB AUROC
+        0.378, and 0.032 on one recorded file) -- a synthetic assertion holding
+        while the real-label measurement said the probe was worse than chance.
+
+        Re-anchoring the level fixes the real-label behaviour (0.685) and
+        absorbs part of an in-window shift, so the asymmetry is gone. The
+        alternatives were measured rather than assumed: anchoring to the
+        leading quarter keeps the asymmetry at 0.403, and to the first sample
+        at 0.364. This test pins the trade-off itself -- the probe reports the
+        geometry it actually measures, so the retirement cannot be mistaken
+        for an oversight.
+        """
+        probe = AdditiveProbe()
+        probe.fit_trajectory(make_normal_signal())
+        result = probe.deviation_score(make_level_shift())
+        assert result.anomaly_geometry == "trend_dispersion", (
+            "the probe advertises level_shift again; either the anchoring "
+            "changed back or the label is wrong"
+        )
 
     def test_fit_required_before_score(self) -> None:
         probe = AdditiveProbe()

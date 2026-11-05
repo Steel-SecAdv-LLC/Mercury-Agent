@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Probe 1: Additive linear trend model for detecting level shifts."""
+"""Probe 1: dispersion around a learned linear trend, re-anchored per window."""
 
 from __future__ import annotations
 
@@ -14,16 +14,28 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 class AdditiveProbe(BaseEquationProbe):
-    """Detect level shifts and trend breaks via a linear fit.
+    """Dispersion around the learned trend rate, with the level re-anchored.
 
     Equation:
         x_hat = alpha * t + median(x - alpha * t)
 
     The fitted slope ``alpha`` carries the learned trend rate; the level is
-    re-anchored per scored window, because ``t`` is local to each array and the
+    re-anchored per scored window because ``t`` is local to each array and the
     fit-time intercept does not transfer (see :meth:`deviation_score`).
-    Residuals that deviate significantly from that trend indicate level-shift
-    anomalies.
+
+    **This measures dispersion about a locally-levelled trend, not level
+    shifts.** It was documented as a level-shift detector and scored
+    ``|x - (intercept + alpha*t)|`` against the fit-time intercept, which made
+    it *anti*-correlated with real anomalies (mean NAB AUROC 0.378; 0.032 on
+    one file). Re-anchoring takes it to 0.685, but a shift that occupies part
+    of the window is then partly absorbed by the anchor, so the asymmetric
+    level-shift response is gone. Both alternatives were measured: anchoring to
+    the window's leading quarter keeps that asymmetry but drops back to 0.403,
+    and anchoring to the first sample to 0.364 -- i.e. preserving the stated
+    purpose costs ~0.28 AUROC on real labels. The repaired probe is kept
+    because it is a genuinely independent signal (max ``|r|`` 0.44 against its
+    nearest peers, well under the 0.85 redundancy threshold), and renamed in
+    its documentation and ``anomaly_geometry`` rather than left mislabelled.
     """
 
     def __init__(self) -> None:
@@ -80,5 +92,5 @@ class AdditiveProbe(BaseEquationProbe):
             deviation_scores=scores,
             confidence=self._fit_quality,
             trajectory_fit_quality=self._fit_quality,
-            anomaly_geometry="level_shift",
+            anomaly_geometry="trend_dispersion",
         )
