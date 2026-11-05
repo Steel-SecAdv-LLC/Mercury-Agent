@@ -1327,6 +1327,20 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     ),
     # -- Safeguards -----------------------------------------------------------
     DetectorManifestEntry(
+        "math_arrest",
+        "omni_mercury_engine.detectors.math_arrest.detector",
+        "MathArrestDetector",
+        DetectorCategory.BASE,
+        "21-equation probe ensemble (Hankel/SVD, chaos, harmonic, robust) with per-probe attribution",
+        feature_dim=21,
+        # Every probe stores fit-time trajectory statistics and raises without
+        # them; the conformal cut likewise only exists after a fit.
+        fit_required=True,
+        tags=["equation-ensemble", "auditable", "conformal-cut", "3r-recursion"],
+        seams=("engine", "registry"),
+        modality="series_1d",
+    ),
+    DetectorManifestEntry(
         "nano_safeguard",
         "omni_mercury_engine.safeguards.nano_safeguards",
         "NanoSafeguardDetector",

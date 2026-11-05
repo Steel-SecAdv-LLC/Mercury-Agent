@@ -1569,6 +1569,43 @@
    "tier_basis": "runs; no committed grade on labeled data",
    "validated": []
   },
+  "math_arrest": {
+   "cannot_detect": [
+    "correlation_break",
+    "sequence_grammar_violation"
+   ],
+   "category": "BASE",
+   "detects": [
+    "point",
+    "contextual",
+    "reconstruction_outlier",
+    "variance_change",
+    "distributional_outlier"
+   ],
+   "external": false,
+   "fit_required": true,
+   "metrics": {},
+   "modality": "series_1d",
+   "not_validated_note": "",
+   "seams": [
+    "engine",
+    "registry"
+   ],
+   "tier": "T2",
+   "tier_basis": "driven on real inputs by tests/detectors/test_recorded_math_arrest.py; no benchmark metric yet",
+   "validated": [
+    {
+     "domain": "generic_series",
+     "evidence": "tests/detectors/test_recorded_math_arrest.py",
+     "note": "NAB mean 0.7581 at the default uniform weighting - second of the pinned series detectors, behind lstm_autoencoder"
+    },
+    {
+     "domain": "generic_tabular",
+     "evidence": "tests/detectors/test_recorded_math_arrest.py",
+     "note": "ADBench mean 0.6826 over 5 tables x 3 seeds, scored on the per-row mean the probes reduce a matrix to"
+    }
+   ]
+  },
   "matrix_profile": {
    "cannot_detect": [
     "level_shift"
@@ -2859,7 +2896,7 @@
  "tier_counts": {
   "T0": 3,
   "T1": 83,
-  "T2": 17,
+  "T2": 18,
   "T3": 9,
   "T4": 1
  },

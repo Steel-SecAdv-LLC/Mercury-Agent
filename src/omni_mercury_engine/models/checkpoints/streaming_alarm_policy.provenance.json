@@ -6,6 +6,21 @@
   "description": "Streaming alarm policy: PPO candidate triage on NAB (standard profile)",
   "evaluation": "benchmarks/streaming_alarm_policy_results.json",
   "leave_one_category_out_mean_score": 45.99,
+  "leave_one_category_out_mean_score_note": "Tuning-inflated: the PPO settings and the candidate gate were chosen on the realAWSCloudwatch fold, which is also one of the five folds this mean averages over -- and it is PPO's highest-scoring fold. Use leave_one_category_out_mean_score_without_dev_fold for the clean figure.",
+  "leave_one_category_out_mean_score_without_dev_fold": 43.18,
+  "dev_fold": "realAWSCloudwatch",
+  "baseline_comparator": {
+    "feature": "threshold_rank_extremeness",
+    "selection": "chosen on the held-out folds, which flatters the baseline",
+    "score_without_dev_fold": 39.32,
+    "margin_without_dev_fold": 3.86,
+    "thinnest_per_seed_margin_without_dev_fold": 1.5,
+    "thinnest_per_fold_margin": 0.55,
+    "per_fold_seed_cells_lost_to_baseline": "4 of 15 (4 of 12 excluding the dev fold)",
+    "seeds": 3,
+    "thinnest_per_seed_margin_note": "1.50 is seed 0 under the pooled NAB score this file and the results JSON report (40.82 vs 39.32). Averaging the per-fold scores instead gives +0.08 for the same seed, which is the most conservative honest reading; both are stated so the margin is not read as more robust than it is.",
+    "thinnest_per_seed_margin_mean_of_per_fold": 0.08
+  },
   "nab_sha256": {
     "data/realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv": "ab446fbd8b9f37507eb2fdb06315826d8daeef02e241133ce06e0ee571ba53d9",
     "data/realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv": "8942e498de7b40f1b4a6d802755592c09b8fb73ce8f658763a09cb9ea1ea94ac",

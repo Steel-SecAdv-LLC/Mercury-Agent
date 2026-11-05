@@ -7,7 +7,14 @@ This module provides ensemble methods for combining multiple detector outputs:
 - Boosting for Sequential Error Correction: AdaBoost-style weighting
 - Bagging for Variance Reduction: Bootstrap aggregating
 
-Research shows 30-40% accuracy improvement with proper ensemble methods.
+No accuracy claim is made for this module. It is not reached by the engine,
+the API, the CLI or any manifest entry, and it has never been measured on
+labelled data (recorded in ``docs/DORMANCY_LEDGER.md`` 2c). The averaging
+result for unsupervised outlier ensembles is real and cited where it is
+actually relied on (Aggarwal & Sathe, *Outlier Ensembles*, 2017 -- the
+detector tier's ``consensus`` combiner and ``math_arrest``'s fusion default),
+but it is a statement about averaging dominance, not a percentage, and it does
+not transfer to the stacking/boosting/bagging heads below without measurement.
 Particularly effective for multi-source intelligence fusion in humanitarian
 applications like crisis detection and medical anomaly identification.
 
@@ -131,7 +138,8 @@ class EnsembleOmniFusionModel(nn.Module):
     """Ensemble wrapper for OmniFusionModel with stacking and boosting.
 
     Wraps the base OmniFusionModel and adds ensemble learning capabilities
-    for improved anomaly detection accuracy (30-40% improvement expected).
+    for improved anomaly detection accuracy. Unmeasured on labelled data: no
+    improvement is claimed or expected until it is.
 
     Features:
     - Stacking with neural meta-learner

@@ -550,6 +550,51 @@ def pixel_scores(deterministic_rng: DeterministicRNG) -> np.ndarray:
     return scores
 
 
+def _restore_xdist_group_scheduling(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Make ``pytest.mark.xdist_group`` group again under pytest 9 + xdist 3.8.
+
+    ``xdist/remote.py`` suffixes the nodeid on the worker with
+    ``item._nodeid = f"{item.nodeid}@{group}"``. pytest 9 replaced the string
+    ``_nodeid`` with a structured ``NodeId`` in ``_id``, and ``nodeid`` now
+    returns ``str(self._id)`` -- so xdist writes an attribute pytest no longer
+    reads. The controller's ``LoadGroupScheduling`` never sees an ``@group``,
+    and ``--dist=loadgroup`` degrades silently to plain ``load``. Nine modules
+    rely on the marker and nothing warns, because the marker is registered.
+
+    ``NodeId.__str__`` returns ``_str_cache`` when set, and pytest itself
+    populates that field with ``object.__setattr__`` (``NodeId.parse``) -- the
+    supported way to write this frozen, slotted dataclass. Setting the cache to
+    the suffixed id places ``@group`` after the ``[params]`` bracket, which is
+    what ``LoadGroupScheduling._split_scope`` requires: it honours an ``@``
+    only when its index exceeds that of the last ``]``.
+
+    Runs during worker-side collection, before the collection report reaches
+    the controller, so the suffix is present when the scheduler splits scopes.
+    The gate is ``config.option.loadgroup``, the same predicate xdist's own
+    hook uses: a worker's ``dist`` is reset to ``"no"`` so it does not itself
+    distribute, and the controller's intent is carried in that flag instead.
+    A no-op for items without the marker, and on the controller, which never
+    sets the flag. ``pytest>=9.0.3`` is a hard requirement, so ``_id`` is
+    reached directly rather than guarded: an upgrade that moves it fails here
+    loudly instead of un-grouping eleven modules in silence.
+    ``tests/scripts/test_xdist_group.py`` measures grouping end to end and pins
+    every upstream internal relied on above.
+    """
+    if not config.getoption("loadgroup", default=False):
+        return
+    for item in items:
+        names = sorted(
+            {
+                str(mark.args[0] if mark.args else mark.kwargs.get("name", "default"))
+                for mark in item.iter_markers("xdist_group")
+            }
+        )
+        if not names:
+            continue
+        suffixed = f"{item.nodeid}@{'_'.join(names)}"
+        object.__setattr__(item._id, "_str_cache", suffixed)
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Auto-skip ``@pytest.mark.network`` tests unless ``MERCURY_NETWORK_TESTS=1`` is set.
 
@@ -571,6 +616,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     safeguards (timeouts/retry/schema) first; gate only as the last
     resort, with this comment as the justification on record.
     """
+    _restore_xdist_group_scheduling(config, items)
     if os.environ.get("MERCURY_NETWORK_TESTS", "0") == "1":
         return
     skip_network = pytest.mark.skip(

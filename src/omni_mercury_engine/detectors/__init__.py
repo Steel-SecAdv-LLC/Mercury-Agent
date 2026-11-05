@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     # Resolved lazily at runtime (see ``_LAZY_IMPORTS``); declared here so type
     # checkers see the classes rather than ``__getattr__``'s ``object``.
+    from omni_mercury_engine.detectors.math_arrest.detector import MathArrestDetector
     from omni_mercury_engine.detectors.statistical import (
         MercuryAnomalyDetector,
         StatisticalAnomalyDetector,
@@ -141,6 +142,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
         "LAVADDetector",
     ),
     "omni_mercury_engine.detectors.math_arrest.arrest": ("AnomalyMathArrest",),
+    "omni_mercury_engine.detectors.math_arrest.detector": ("MathArrestDetector",),
 }
 
 _NAME_TO_MODULE: dict[str, str] = {}
@@ -198,6 +200,7 @@ __all__ = [
     "InteractionType",
     "KMeansDistanceDetector",
     "LAVADDetector",
+    "MathArrestDetector",
     "MercuryAnomalyDetector",
     "MotionState",
     "MovementAssessment",

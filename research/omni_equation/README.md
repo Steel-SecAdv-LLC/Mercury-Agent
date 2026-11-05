@@ -49,3 +49,11 @@ Ensemble AUC **0.836** vs best-single **0.909** (fusion *dilutes*); streams
 |corr| **0.66**; equation inert (**−0.002**); η^Φ gate inert (**0.003** flip);
 earthquake AUC **0.94** / F1 **0.09** (calibration is the bottleneck). See
 `FINDINGS.md`.
+
+> **best-single 0.909 is an ORACLE** — picked per event by `max()` over
+> per-stream AUROCs computed against the evaluation labels
+> (`harness_multidomain.py:78-81`), in a harness with no train/test split. The
+> ensemble's 0.836 uses no labels, so the −0.074 is not a gap any label-free
+> method can close. The winning stream differs across six streams over fifteen
+> events; the best *label-free* fixed choice (`info_geometry`, 0.8403) beats
+> the ensemble by **+0.005**. See the oracle note in `FINDINGS.md`.

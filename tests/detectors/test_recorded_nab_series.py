@@ -77,6 +77,10 @@ MEASURED: dict[str, tuple[float, float, float]] = {
     "hawkes": (0.533, 46.1, 0.011),
     "imm": (0.510, 43.6, 0.016),
     "lstm_autoencoder": (0.829, 3.1, 0.038),
+    # The 21-probe equation ensemble, reachable from this corpus for the first
+    # time (docs/DORMANCY_LEDGER.md 2b): second-best ranking here, behind only
+    # lstm_autoencoder, at a 0.022 false-alarm rate on the conformal cut.
+    "math_arrest": (0.758, 40.4, 0.021),
     "page_hinkley": (0.534, 26.6, 0.008),
     "particle_filter": (0.582, 39.6, 0.017),
     "spectral_residual": (0.489, 45.3, 0.010),

@@ -35,10 +35,22 @@ Replace the fixed-weight ensemble with a per-sample reliability-weighted
 combiner: weight each stream by its calibrated reliability, down-weight redundant
 and low-variance streams (cf. the FINDOYOU `mercury_fusion` Stouffer-over-
 conformal-p-values pattern; reliability = label coverage / variance / agreement).
-- **Target:** fused AUC ≥ best-single across the 5 real domains (close the −0.074
-  gap; 0.836 → ≥0.90).
-- **Kill:** if it cannot reach best-single, the fusion thesis is dead — stop and
-  report the numbers.
+- **Target — CORRECTED (2026-11-04).** The original target read *"fused AUC ≥
+  best-single across the 5 real domains (close the −0.074 gap; 0.836 → ≥0.90)"*
+  and the original kill read *"if it cannot reach best-single, the fusion thesis
+  is dead."* **best-single is an oracle** (chosen per event using the
+  evaluation labels — `harness_multidomain.py:78-81`), so no label-free
+  combiner can reach it and that kill criterion would always fire, declaring
+  the thesis dead on an unreachable bar.
+  The reachable comparator is the best **label-free fixed** stream,
+  `info_geometry` at **0.8403** against the ensemble's 0.8355.
+- **Target:** fused AUC > 0.8403 (beat the best stream you could have chosen
+  without labels), reported with a paired bootstrap over events.
+- **Kill:** if reliability weighting cannot beat **0.8403**, the
+  *reliability-weighting* thesis is dead for these streams — report the
+  numbers. That is a statement about this combiner, not about fusion in
+  general, and it must not be reported as "fusion is dead": the honest
+  headroom here is ~0.005 AUC, not 0.074.
 
 ## Gate 2 — Calibration → usable decisions (operational accuracy)
 Add a calibrated operating point (conformal threshold / per-domain calibration)

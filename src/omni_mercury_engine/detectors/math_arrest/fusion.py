@@ -124,7 +124,12 @@ class CorrelationAwareDecorrelator:
                     name_i = probe_names[valid_indices[i]]
                     name_j = probe_names[valid_indices[j]]
                     redundant_pairs.append((name_i, name_j, r_val))
-                    logger.warning(
+                    # Debug, not warning: redundancy is the condition this
+                    # class exists to correct and does correct below. Measured
+                    # on the four recorded NAB files the ensemble carries
+                    # 13-23 such pairs per fit, so warning severity emitted one
+                    # record per pair per fit and would bury real warnings.
+                    logger.debug(
                         "Redundant probe pair: %s <-> %s (r=%.4f)",
                         name_i,
                         name_j,
@@ -171,22 +176,103 @@ class CorrelationAwareDecorrelator:
 
         self._weight_multipliers = multipliers
         self._is_calibrated = True
+        if redundant_pairs:
+            logger.info(
+                "Decorrelated %d probes to %.2f effective dimensions "
+                "(%d redundant pairs at |r| >= %.2f)",
+                n_probes,
+                sum(multipliers.values()),
+                len(redundant_pairs),
+                self._threshold,
+            )
         return dict(self._weight_multipliers)
 
 
-class PhiWeightedFusion:
-    """Phi-weighted score fusion with confidence modulation and decorrelation.
+#: Fusion weightings this combiner accepts (see :class:`PhiWeightedFusion`).
+WEIGHTINGS: tuple[str, ...] = ("uniform", "confidence", "phi_affinity")
 
-    Probe scores are combined using golden-ratio-derived weights:
-    weight[rank] = PHI^(-rank), normalized to sum to 1.
+
+class PhiWeightedFusion:
+    """Probe-score fusion with confidence modulation and decorrelation.
+
+    Three label-free weightings, measured on the repository's two recorded
+    corpora (mean ROC-AUC of the 21-probe ``"all"`` preset; four NAB files
+    fitted on their probationary prefix, five ADBench tables x 3 seeds
+    stratified; ``tests/detectors/test_recorded_math_arrest.py`` pins these):
+
+    ================  ========  ===========
+    weighting           NAB       ADBench
+    ================  ========  ===========
+    ``uniform``        0.7581     0.6826
+    ``confidence``     0.7277     0.6686
+    ``phi_affinity``   0.6519     0.5423
+    ================  ========  ===========
+
+    ``uniform`` (the plain mean) is the default: +0.13 AUC over the released
+    prior on both corpora, and averaging is the known-dominant aggregation for
+    outlier ensembles (Aggarwal & Sathe, *Outlier Ensembles*, 2017). The
+    decorrelator's multipliers still apply in every mode.
+
+    **The multipliers cost ranking AUROC and buy operational quality.** They
+    had never been measured either way. Isolated through this method with
+    everything else fixed, *not* applying them scores higher on both corpora --
+    uniform 0.7698 NAB / 0.7073 ADBench against 0.7581 / 0.6826, better in all
+    six weighting x corpus cells and on 6 of the 9 individual datasets. On the
+    full operational triple it is worse, and decisively:
+
+    ====================  ========  ===========  ============
+    multipliers            AUROC     NAB score    alarm rate
+    ====================  ========  ===========  ============
+    applied (shipped)       0.758          40.4         0.021
+    measured only           0.770          19.6         0.034
+    ====================  ========  ===========  ============
+
+    AUROC is blind to false-alarm cost; the NAB standard score charges for it
+    and rewards earliness, and the alarm rate shows the mechanism -- suppressing
+    a redundant cluster is what keeps the ensemble quiet, at 0.021 against the
+    0.05 the conformal cut promises. Halving the purpose-built streaming metric
+    and adding 62% more false alarms to gain 0.012 of ranking is not a trade
+    worth making, so the multipliers stay. Anyone optimising this fusion on
+    AUROC alone will reach the opposite conclusion;
+    ``tests/detectors/test_recorded_nab_series.py`` pins the triple and is what
+    catches it.
+
+    ``phi_affinity`` is the released behaviour, retained for reproducibility:
+    ``weight[rank] = PHI^(-rank)`` over
+    :data:`~omni_mercury_engine.detectors.math_arrest.domain_affinity.DOMAIN_AFFINITY_21`.
+    Its first three ranks carry 76% of the weight against the last probe's
+    2.5e-05, so the ``confidence`` term cannot overcome the prior. Those three
+    ranks measure 0.531 / 0.524 / 0.685 on NAB while the two strongest probes
+    (0.697, 0.669) sit at rank 7+ sharing ~2%. The prior is inverted against
+    measured signal on its top two ranks, which is why the fusion scored below
+    its own best member. (Rank 3, additive, measured 0.378 when that was first
+    recorded; repairing it took it to 0.685 -- see its ``deviation_score``.)
+
+    ``confidence`` weights by self-reported fit quality alone, normalised.
     """
 
-    def __init__(self, n_probes: int = 21) -> None:
-        """Initialize the instance."""
+    def __init__(self, n_probes: int = 21, weighting: str = "uniform") -> None:
+        """Initialize the instance.
+
+        Args:
+            n_probes: Probe count the ``phi_affinity`` prior is sized for.
+            weighting: One of :data:`WEIGHTINGS`.
+
+        Raises:
+            ValueError: If ``weighting`` is not a known weighting.
+        """
+        if weighting not in WEIGHTINGS:
+            raise ValueError(f"Unknown weighting {weighting!r}. Available: {sorted(WEIGHTINGS)}")
         self._n_probes = n_probes
+        self._weighting = weighting
         ranks = np.arange(n_probes, dtype=np.float64)
         raw_weights = PHI ** (-ranks)
         self._base_weights: npt.NDArray[np.float64] = raw_weights / raw_weights.sum()
+
+    @property
+    def weighting(self) -> str:
+        """Which of :data:`WEIGHTINGS` this combiner applies to probe scores."""
+        return self._weighting
 
     @property
     def base_weights(self) -> npt.NDArray[np.float64]:
@@ -227,18 +313,26 @@ class PhiWeightedFusion:
                     reordered.append(probe_results[i])
             probe_results = reordered
 
-        # Slice base weights to active count
-        weights = self._base_weights[:n_active].copy()
-        if len(weights) < n_active:
-            # More probes than pre-computed weights: extend
-            extra = n_active - len(weights)
-            extra_w = PHI ** (-(np.arange(extra) + self._n_probes))
-            weights = np.concatenate([weights, extra_w])
-            weights = weights / weights.sum()
-
-        # Multiply by probe confidence
-        confidences = np.array([r.confidence for r in probe_results], dtype=np.float64)
-        weights = weights * confidences
+        confidences = np.clip(
+            np.array([r.confidence for r in probe_results], dtype=np.float64), 0.0, None
+        )
+        if self._weighting == "uniform":
+            # Plain mean of the active probes (the measured default).
+            weights = np.ones(n_active, dtype=np.float64)
+        elif self._weighting == "confidence":
+            weights = confidences.copy()
+        else:
+            # Released ``phi_affinity``: the PHI^-rank prior, modulated by
+            # confidence (which the prior's spread dominates -- see the class
+            # docstring for the measurement).
+            weights = self._base_weights[:n_active].copy()
+            if len(weights) < n_active:
+                # More probes than pre-computed weights: extend
+                extra = n_active - len(weights)
+                extra_w = PHI ** (-(np.arange(extra) + self._n_probes))
+                weights = np.concatenate([weights, extra_w])
+                weights = weights / weights.sum()
+            weights = weights * confidences
 
         # Apply decorrelation multipliers if available
         if decorrelator is not None and decorrelator.is_calibrated:

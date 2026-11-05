@@ -27,6 +27,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Added — the 21-probe math-arrest ensemble is reachable, measured and
+repaired.** `AnomalyMathArrest` (21 equation probes: Hankel delay-embedding /
+SVD trajectory, chaos, harmonic, wave, momentum, energy, robust location) was
+exported from the package root and gated in CI for its probe count, but no path
+in `src/` consumed it and it had never been measured on real labels. It is now
+measured on both recorded corpora, three real defects are fixed, and a
+`BaseDetector` adapter (`detectors/math_arrest/detector.py`) makes it a manifest
+entry (`math_arrest`) the engine, registry, served routes, CLI and console
+catalog can reach. Measured **0.7498 mean NAB AUROC**, which places it second of
+all series detectors pinned in `tests/detectors/test_recorded_nab_series.py`
+behind `lstm_autoencoder` (0.829), at a **0.0217** false-alarm rate; the
+stationary AR(1) rate is **0.0525** against the α = 0.05 its conformal cut
+promises.
+
+* **The fusion prior was inverted against measured signal.** Probe scores were
+  combined with `weight[rank] = PHI^(-rank)` over a hand-written affinity
+  order, whose first three ranks carry 76% of the weight. On the `default`
+  order those are the probes measuring **0.531 / 0.524 / 0.378** NAB AUROC,
+  while the two strongest — `wave_propagation` (0.697) and `svd_projection`
+  (0.669) — sit at rank 7 and below and share about 2%. The 21-probe fusion
+  therefore scored *below its own best member*. The default is now `uniform`
+  (the plain mean, the dominant aggregation for outlier ensembles per
+  Aggarwal & Sathe 2017): **+0.13 AUC on both corpora**. `phi_affinity` is
+  retained and reproduces its released numbers exactly.
+* **`SVDProjectionProbe` never used its fitted basis.** `fit` stored residual
+  statistics from the training Hankel SVD, but `deviation_score` recomputed the
+  SVD *on the data being scored*, so the learned rank-1 subspace was unused,
+  residuals were compared against statistics from a different basis, and the
+  anomalies being scored helped define the subspace they were measured against.
+  Its `abs` also scored a window fitting the subspace *better* than training as
+  deviant. It now projects onto the stored basis, directionally.
+* **21 probes were not 21 dimensions, and the correction was logged as noise.**
+  The decorrelator measures **11.64–16.00 effective dimensions out of 21** on
+  the recorded NAB files (13–23 redundant pairs per fit, one at **r = 0.9976**).
+  It correctly down-weights the duplicates, but logged each pair at `warning`
+  severity — up to 23 `WARNING` records per fit for a handled design condition.
+  Now `debug`, with one `info` summary; and the served result carries
+  `effective_probe_count` and `redundant_probe_pairs` so the probe count cannot
+  read as an evidence count.
+
+The entry carries the full set of gates a new `series_1d` manifest entry is
+required to satisfy: measured stationary false-alarm pin, NAB triple,
+evidence-tied ontology row (with the structural blind spot that the probes
+reduce a matrix to its per-row mean, so a pure cross-channel correlation break
+is invisible), knowledge profile with citations, exact fitted-state round-trip
+and the registry/engine seam harvest. It is **not** added to the engine's
+default set: that requires a marginal-gain ablation against the live ensemble,
+which is not claimed. See `docs/DORMANCY_LEDGER.md` §2b.
+
+**Added — full reachability sweep of the assistive mechanisms, and one
+measured refusal.** A transitive import closure from the real entry points
+(`engine.py`, every `api/` module, `cli`, and all 114 manifest `module_path`s)
+was run against every ensemble, fusion head, combiner, calibrator,
+meta-learner, drift and uncertainty mechanism in the tree. 522 modules are
+reachable. Most unreached ones are correctly unreached and say so in the module
+(a deprecated legacy fusion that warns at import; two read-only measurement
+layers that must not touch the operational path; four registered operator tools
+in `TOOL_REGISTRY`, two of them pre-commit gates; relocation shims). Four
+remain genuinely unreached and unmeasured and are now named rather than
+assumed, with their claims recorded, in `docs/DORMANCY_LEDGER.md` §2c.
+
+`core/adaptive_domain_thresholding.py` (1,289 LOC) was measured against the
+operating point Mercury ships, on the five recorded ADBench tables × 3 seeds,
+scoring the *same* detector's scores so the comparison isolates the threshold:
+
+| policy | mean F1 | mean FPR | FPR range |
+|---|---|---|---|
+| conformal α = 0.05 (shipped) | 0.4059 | **0.0231** | 0.000 – 0.048, never over α |
+| ADT label-free | 0.4549 | 0.0873 | 0.013 – 0.160 |
+| ADT supervised | 0.3882 | **0.6335** | 0.055 – **0.993** |
+
+The supervised path is **broken, not a tradeoff**: it flags 98.7% of normal
+rows on `pima_real`, 95.7% on `breastw` and 97.9% on `wbc`, with a mean F1
+*below* the shipped cut at ~27× the false-alarm rate. The label-free path does
+not clear the bar either — its higher mean F1 is bought by abandoning the α
+guarantee and is carried by one table, while it loses 0.36 F1 on `wbc` and 0.31
+on `thyroid`. **Refused, not promoted**; the measurement is pinned by
+`tests/core/test_adaptive_domain_thresholding_measured.py`.
+
+**Fixed — `PlattScalingCalibrator` overflowed `np.exp`.** It evaluated
+`1 / (1 + np.exp(A * s + B))` directly, which overflows on real score
+distributions. The comment claimed "clipping for numerical stability", but the
+clip was applied to the *result*, after the overflow had already happened
+inside `np.exp`; `calibrate()` had no guard at all. A second sigmoid used the
+branch-selecting `np.where` form, which returns correct values but evaluates
+both arms eagerly, so it still warned and did twice the work. Both now use
+`scipy.special.expit`. Value-preserving: the fitted `A`/`B` are identical to
+six figures and every measured number above is unchanged.
+
+**Changed — `ml/ensemble.py` no longer claims an uncited improvement.** The
+module and one of its class docstrings asserted "Research shows 30-40% accuracy
+improvement with proper ensemble methods" with no citation, in a module that no
+path reaches and that has never been measured. The claim is removed. The
+averaging result it gestured at is real and is cited where it is actually
+relied on (Aggarwal & Sathe 2017 — the detector tier's `consensus` combiner and
+`math_arrest`'s fusion default), but it is a statement about averaging
+dominance, not a percentage, and it does not transfer to a stacking/boosting/
+bagging head without measurement.
+
 **Changed — detector taxonomy now matches the discipline.** Tornado
 (severe-storm meteorology, NEXRAD radar morphology), hurricane (tropical
 meteorology, ERA5 wind-field physics) and flood (hydrology,

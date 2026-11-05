@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import optimize
+from scipy.special import expit
 
 from omni_mercury_engine.core.score_calibration import (
     CalibrationDiagnostics,
@@ -161,6 +162,22 @@ class PlattScalingCalibrator:
         self.B: float = 0.0
         self._fitted = False
 
+    @staticmethod
+    def _sigmoid(exponent: NDArray[np.float64]) -> NDArray[np.float64]:
+        """``1 / (1 + exp(z))``, evaluated without overflowing.
+
+        The direct form overflows ``np.exp`` on real score distributions.
+        Clipping the *result* does not help: the overflow happens inside
+        ``np.exp`` first.
+
+        Args:
+            exponent: ``A * scores + B``.
+
+        Returns:
+            Probabilities in ``(0, 1)``, saturating rather than overflowing.
+        """
+        return np.asarray(expit(-np.asarray(exponent, dtype=np.float64)), dtype=np.float64)
+
     def fit(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> PlattScalingCalibrator:
         """Fit Platt scaling parameters.
 
@@ -202,8 +219,8 @@ class PlattScalingCalibrator:
         # Optimize A, B using cross-entropy loss
         def objective(params: NDArray[np.float64]) -> float:
             a, b = params
-            p = 1.0 / (1.0 + np.exp(a * scores + b))
-            # Cross-entropy loss with clipping for numerical stability
+            p = self._sigmoid(a * scores + b)
+            # Keep the log arguments away from the saturated ends.
             p = np.clip(p, 1e-10, 1 - 1e-10)
             loss = -np.mean(targets * np.log(p) + (1 - targets) * np.log(1 - p))
             return float(loss)  # type: ignore[no-any-return, unused-ignore]
@@ -238,8 +255,7 @@ class PlattScalingCalibrator:
             raise ValueError("PlattScalingCalibrator must be fitted before calibration")
 
         scores = np.asarray(scores).flatten()
-        calibrated = 1.0 / (1.0 + np.exp(self.A * scores + self.B))
-        return calibrated
+        return self._sigmoid(self.A * scores + self.B)
 
     def get_params(self) -> dict[str, float]:
         """Get fitted parameters."""
@@ -830,12 +846,12 @@ class AdaptiveDomainThresholdManager:
         for iteration in range(1, max_iterations + 1):
             # Soft anomaly responsibility per sample.
             z = (scores - threshold) / sigmoid_temperature
-            # Numerically stable sigmoid.
-            gamma = np.where(
-                z >= 0,
-                1.0 / (1.0 + np.exp(-z)),
-                np.exp(z) / (1.0 + np.exp(z)),
-            )
+            # Numerically stable sigmoid. The branch-selecting ``np.where``
+            # form this replaced returned the right values -- the overflowed
+            # branch is discarded -- but ``np.where`` evaluates both arms
+            # eagerly, so it still raised overflow warnings and did twice the
+            # work. ``expit`` selects the branch internally.
+            gamma = expit(z)
 
             sum_gamma = float(np.sum(gamma))
             sum_one_minus_gamma = float(np.sum(1.0 - gamma))

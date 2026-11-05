@@ -45,6 +45,11 @@ class AdversarialRow:
     axis: str  # paraphrase|conjunction|obfuscation|out_of_lexicon|hard_benign
     split: str = "adversarial"
     tags: tuple[str, str] = ("none", "unspecified")  # (hazard_domain, intent_tier)
+    #: The seed text this row was derived from (itself, when it IS a seed).
+    #: The axes are NOT disjoint -- the operators below re-emit one seed into
+    #: several axes -- so a fix to one seed moves every axis it reaches. Needed
+    #: for seed-level metrics, which do not over-weight heavily-varied seeds.
+    seed: str = ""
 
 
 # Axis 1: paraphrased offensive (production verbs / lead-ins off the base template)
@@ -261,10 +266,19 @@ def build_adversarial_corpus() -> list[AdversarialRow]:
     """
     rows: dict[str, AdversarialRow] = {}
 
-    def add(text: str, label: str, expected: str, axis: str, tags: tuple[str, str]) -> None:
+    def add(
+        text: str,
+        label: str,
+        expected: str,
+        axis: str,
+        tags: tuple[str, str],
+        seed: str | None = None,
+    ) -> None:
         text = text.strip()
         if text and text not in rows:
-            rows[text] = AdversarialRow(text, label, expected, axis, tags=tags)
+            rows[text] = AdversarialRow(
+                text, label, expected, axis, tags=tags, seed=(seed or text).strip()
+            )
 
     for t, tags in zip(_PARAPHRASE_OFFENSIVE, _PARAPHRASE_TAGS):
         add(t, "offensive", "block", "paraphrase", tags)
@@ -284,15 +298,15 @@ def build_adversarial_corpus() -> list[AdversarialRow]:
     _paraphrase_and_ool_tags = _PARAPHRASE_TAGS + _OUT_OF_LEXICON_TAGS
     # Leet-mangle the plain-language seeds -> more obfuscation coverage.
     for t, tags in zip(_paraphrase_and_ool, _paraphrase_and_ool_tags):
-        add(_leet(t), "offensive", "block", "obfuscation", tags)
+        add(_leet(t), "offensive", "block", "obfuscation", tags, seed=t)
     # Prepend benign clauses to offensive seeds -> more conjunction coverage.
     for lead in _BENIGN_LEADINS:
         for t, tags in zip(_PARAPHRASE_OFFENSIVE, _PARAPHRASE_TAGS):
-            add(f"{lead} {t}", "offensive", "block", "conjunction", tags)
+            add(f"{lead} {t}", "offensive", "block", "conjunction", tags, seed=t)
     # Prepend fiction/hypothetical/jailbreak framings -> more paraphrase coverage.
     for frame in _FRAMINGS:
         for t, tags in zip(_paraphrase_and_ool, _paraphrase_and_ool_tags):
-            add(f"{frame} {t}", "offensive", "block", "paraphrase", tags)
+            add(f"{frame} {t}", "offensive", "block", "paraphrase", tags, seed=t)
 
     # Held-out invariant: no overlap with the fit-on base corpus.
     from weapons_gate_corpus import build_corpus

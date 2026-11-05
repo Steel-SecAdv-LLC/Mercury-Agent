@@ -123,6 +123,7 @@ _CRITERION = (
 )
 _DOMAIN_PACK = "Awaits its domain evaluation pack; graded generically only."
 _UNMEASURED = "No committed evaluation on labeled data yet; nothing is claimed."
+_MATH_ARREST = "tests/detectors/test_recorded_math_arrest.py"
 
 
 def _v(domain: str, evidence: str, note: str = "") -> ValidationEvidence:
@@ -276,6 +277,36 @@ ONTOLOGY: dict[str, DetectorOntology] = {
     "diffusion_ad": DetectorOntology(
         detects=("reconstruction_outlier", "point", "novel_pattern"),
         validated=(_v("generic_series", _SWEEP, "NAB mean 0.648"),),
+    ),
+    "math_arrest": DetectorOntology(
+        detects=(
+            "point",
+            "contextual",
+            "reconstruction_outlier",
+            "variance_change",
+            "distributional_outlier",
+        ),
+        # Structural, not a measurement artefact: every probe is a scalar
+        # series equation and ``BaseEquationProbe._to_1d`` reduces a matrix to
+        # its per-row mean before scoring, so a violation that lives purely
+        # between channels (and leaves the row mean intact) cannot reach any
+        # probe. The equations are continuous, so a discrete alphabet's
+        # illegal transitions are likewise outside the instrument.
+        cannot_detect=("correlation_break", "sequence_grammar_violation"),
+        validated=(
+            _v(
+                "generic_series",
+                _MATH_ARREST,
+                "NAB mean 0.7581 at the default uniform weighting - second of "
+                "the pinned series detectors, behind lstm_autoencoder",
+            ),
+            _v(
+                "generic_tabular",
+                _MATH_ARREST,
+                "ADBench mean 0.6826 over 5 tables x 3 seeds, scored on the "
+                "per-row mean the probes reduce a matrix to",
+            ),
+        ),
     ),
     "nano_safeguard": DetectorOntology(
         detects=("point", "burst_rate"),

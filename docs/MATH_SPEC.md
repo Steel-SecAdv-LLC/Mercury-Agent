@@ -13,10 +13,31 @@ Mercury Agent is a neuro-symbolic AI framework built on a mathematically
 grounded hybrid-fusion architecture. Multi-paradigm anomaly detection is
 one of the capabilities this AI exposes; the underlying engine combines
 neural pattern recognition with explicit symbolic reasoning and hard
-ethical bounding. The core mathematical framework is the **Omni-Ava
-Equation (OAE)**, which combines three orthogonal detection signals --
-Recursion, Resonance, and Optimization -- through golden-ratio-weighted
-convex combination, modulated by a sigmoid ethical gate.
+ethical bounding.
+
+**What decides a verdict (read this before §2.1).** The equation this document
+opens with, the **Omni-Ava Equation** (§2.1), is the framework's *named*
+combination law and is implemented and served -- but it is **not** what
+produces Mercury's anomaly verdicts, and measurement says it contributes
+approximately nothing to them: wrapping the ensemble in it moves held-out AUROC
+by **-0.002**, and its ethical exponent changes 0.3% of ranks for a AUROC delta
+of **-0.0002** (`research/omni_equation/FINDINGS.md`). The operative chain is
+statistical, not closed-form:
+
+1. **Per-detector decision** -- a one-class split-conformal cut on each
+   detector's own fit-time scores (§2.6.3), so the false-alarm rate is bounded
+   by $\alpha$ instead of resting on a fixed $0.5$. The shared implementation
+   in `detectors/_calibration.py` is imported by 30 modules.
+2. **Batch verdict** -- Benjamini-Hochberg step-up over conformal p-values at
+   $\alpha/K$ across the $K$ detectors with an independent reference (§2.6.5).
+3. **Score fusion** -- the trained `OmniFusionModel`
+   (`ml/fusion_network.py`), instantiated by the engine; the legacy
+   stacking/Bayesian-averaging ensemble is deprecated in favour of it.
+
+The OAE remains specified here because it is real, served code on the API
+detection route and the 3R/physics paths, and because its derivation is
+drift-gated. It is a documented combination law whose measured contribution is
+inert -- not the system's decision rule.
 
 The framework combines four mathematical properties — **proven** where derived
 in the sections below, and **measured at runtime** for the data-dependent ones:
@@ -35,6 +56,9 @@ operations are guarded with $\varepsilon = 10^{-8}$.
 - `core/ethical_governor.py` -- Sigma Directive
 - `core/calibration.py` -- ECE, Platt, Temperature scaling
 - `core/conformal_prediction.py` -- Conformal prediction
+- `detectors/_calibration.py` -- **shared operating points: one-class
+  split-conformal cuts, conformal p-values, Benjamini-Hochberg (30 importers)**
+- `ml/fusion_network.py` -- **`OmniFusionModel`, the production score fusion**
 - `detectors/statistical.py` -- Resonance / Kinematic / Info-Geometry ensemble
 - `core/global_omni_scalar_network.py` -- GOSNN hierarchical aggregation
 
@@ -44,8 +68,11 @@ operations are guarded with $\varepsilon = 10^{-8}$.
 
 ### 2.1 Omni-Ava Equation (OAE)
 
-The central equation of Mercury Agent computes a fused anomaly score from three
-orthogonal detection sub-systems, gated by an ethical compliance function:
+The framework's named combination law. It computes a fused anomaly score from
+three orthogonal detection sub-systems, gated by an ethical compliance
+function. It is **not** the decision rule for Mercury's anomaly verdicts and is
+measured inert against the raw ensemble (-0.002 AUROC); see the scope note in
+§1 for what actually decides a verdict.
 
 $$
 A = \bigl( w_R \cdot R(x) + w_H \cdot H(\omega) + w_O \cdot O(\theta) \bigr) \cdot \eta(b)^{\,p}
@@ -262,6 +289,90 @@ called from `OmniMercuryEngine._enforce_ethics_at_boundary`. The
 `NeuroSymbolicHub` and `CognitiveOrchestrator` σ-vector builders
 import the band constants from the same module to guarantee a single
 layout across all boundary surfaces.
+
+---
+
+#### 2.1.6 Served Stream Producers, and the Resonance Normalisation Fix
+
+§2.1 specifies how $R$, $H$ and $O$ are *combined* but not how they are
+*produced*. As served on `/three_r` (`api/routes/detection.py`), each is one
+scalar per window:
+
+$$
+R(x) = \operatorname{clip}\!\Bigl(\tfrac{1}{2}\bigl(R(x_{\text{left}}) + R(x_{\text{right}})\bigr)
+       + \tfrac{1}{2}\tfrac{\sigma(x)}{\overline{|x|} + \varepsilon},\, 0,\, 1\Bigr)
+$$
+
+recursing to `recursion_depth` (default 5) and bottoming out at the
+coefficient of variation $\sigma(x) / (\overline{|x|} + \varepsilon)$.
+
+$$
+O(\theta) = \operatorname{clip}\!\Bigl(\operatorname{sigmoid}\bigl(\log_{10}(\mathrm{SNR} + 1)\bigr),\, 0,\, 1\Bigr),
+\qquad \mathrm{SNR} = \frac{\operatorname{Var}(x)}{\tfrac{1}{2}\operatorname{Var}(\Delta x) + \varepsilon}
+$$
+
+$H(\omega)$ compares the window's $B$-band spectral energy ratios $r$ (default
+$B = 8$) against golden-ratio expected ratios $e_i \propto \Phi^{-i}$:
+
+$$
+\delta = \lVert r - e \rVert_1, \qquad H(\omega) = \operatorname{clip}\!\bigl(1 - \tfrac{\delta}{2},\, 0,\, 1\bigr)
+$$
+
+**The $\tfrac{\delta}{2}$ is a fix (2026-11-05); the served form was
+$1 - \delta$.** Both $r$ and $e$ are probability vectors, so
+$\delta \in [0, 2]$ and $1 - \delta$ is negative for any spectrum that is not
+already $\Phi$-shaped — which real spectra, being low-frequency dominated,
+never are. The clip therefore pinned the score at a saturated $0$: measured
+over the four recorded NAB files it scored mean AUROC **0.511** (chance), and
+on `realTraffic/speed_7578.csv` it was a **constant $0.0$ across all 63
+windows** — a dead stream holding 27.64% of the equation's weight. Dividing by
+the maximum attainable $\delta$ recovers the signal: mean AUROC **0.755**, and
+**0.849** on the file where it had been constant.
+
+**Pinned by:** `tests/api/test_three_r_resonance_normalisation.py` (the served
+route uses the normalised form; the unnormalised form demonstrably saturates;
+the normalised one varies and stays in $[0, 1]$).
+
+**What $H(\omega)$ actually discriminates on, and why the $\Phi$ profile is not
+load-bearing.** The expected profile $e$ had never been compared against an
+alternative. Measured on the same windows, every fixed reference scores within
+$0.012$ of every other, and $\Phi^{-i}$ is marginally the best:
+
+| expected profile $e_i \propto$ | mean window AUROC |
+|---|--:|
+| $\Phi^{-i}$ (served) | **0.7688** |
+| flat (white) | 0.7593 |
+| $1/(i+1)$ (pink) | 0.7592 |
+| $1/(i+1)^2$ | 0.7571 |
+| spectral flatness (no profile) | 0.7248 |
+
+Three of the four files score *identically* under all four profiles, and the
+reason is structural rather than coincidental. Real telemetry is dominated by
+its lowest band: measured mean $r_0$ is $0.972$, $0.930$ and $0.996$ on those
+three files. When $r_0$ exceeds every $e_i$ and the remaining bands fall below
+theirs, the sign pattern of $r - e$ is constant across windows and the $L_1$
+distance telescopes to
+
+$$
+\delta = (r_0 - e_0) + \sum_{i>0} (e_i - r_i) = 2\,(r_0 - e_0),
+$$
+
+a linear function of $r_0$ whose only profile dependence is the additive
+constant $-2e_0$. A constant offset cannot reorder windows, so the AUROC is
+identical for *any* profile. Measured $\lvert \operatorname{corr}(\delta,
+r_0) \rvert = 1.0000$ on all three, with one or two distinct sign patterns.
+
+The profile engages only where the spectrum is not low-band dominated —
+`realKnownCause/rogue_agent_key_hold.csv`, mean $r_0 = 0.633$, 16 distinct sign
+patterns, $\lvert \operatorname{corr} \rvert = 0.586$ — and that single file
+is the entire difference between the rows above.
+
+So on real telemetry $H(\omega)$ is very nearly a measure of **how
+concentrated the spectrum is in its lowest band**, not of golden-ratio
+resonance. The $\Phi$ reference is kept because it measured best of the four
+and changing it buys nothing, but it should be read as a fixed, essentially
+arbitrary origin for a concentration measure. The normalisation above is what
+made the stream work; the choice of $\Phi$ is not what makes it work.
 
 ---
 
@@ -649,6 +760,56 @@ live in `_adaptive_weights` and are adapted during `fit()`.
 
 ---
 
+#### 2.6.5 Batch Verdict (FDR-controlled)
+
+A batch-level verdict formed by OR-ing per-row flags has no false-alarm bound:
+at a per-row level $\alpha$ over $n$ normal rows the probability that *something*
+fires approaches $1$ as $n$ grows, and across $K$ detectors it compounds. The
+measured consequence was a batch verdict that called 100% of all-normal batches
+anomalous.
+
+The engine instead tests the global null "every row in this batch is normal".
+For each detector $d$ whose reference is independent of the batch being scored
+(i.e. not fitted on it) and which reports conformal p-values
+$p^{(d)}_1 \dots p^{(d)}_n$, Benjamini-Hochberg step-up is applied at
+
+$$
+\text{level} = \frac{\alpha_{\text{batch}}}{K}, \qquad
+\alpha_{\text{batch}} = 0.05 \;\; (\texttt{BATCH\_FALSE\_ALARM\_BUDGET}),
+$$
+
+where $K$ is the number of such detectors. Sorting $p_{(1)} \le \dots \le p_{(n)}$,
+the rejection set is the largest prefix satisfying
+
+$$
+p_{(i)} \le \text{level} \cdot \frac{i}{n},
+$$
+
+and the batch is anomalous iff any detector rejects anything. Under the global
+null with PRDS p-values each detector fires with probability at most
+$\alpha_{\text{batch}}/K$, so the union over $K$ detectors is at most
+$\alpha_{\text{batch}}$ whatever the batch size.
+
+**Fallbacks, stated because they are not bounded.** A detector with no
+independent reference (fitted on this batch), or one reporting no p-values (a
+legacy state), keeps the per-row OR and is excluded from the $K$ above. A
+detector whose p-value floor cannot reach the level ($\texttt{p\_value\_floor}
+\cdot n > \text{level}$, i.e. its reference is too small to express a
+significant p-value) likewise falls back rather than silently never firing.
+
+**Measured** (`tests/detectors/test_recorded_false_alarm_rates.py`): on
+all-normal batches the batch verdict fires at $\approx 0.05$ at $n = 10$,
+$0.008$ at $n = 100$ and $0.000$ at $n = 1000$, while a single $+4\sigma$ row is
+still caught.
+
+**Provenance:** Benjamini & Hochberg (1995); PRDS sufficiency from Benjamini &
+Yekutieli (2001).
+
+**Implementation:** `engine.py`, `_batch_is_anomalous`;
+`detectors/_calibration.py`, `benjamini_hochberg` / `conformal_p_values`.
+
+---
+
 ### 2.7 Ethical Governance
 
 #### 2.7.1 Sigma Directive Weighted Score
@@ -937,6 +1098,86 @@ Perturbation of $\pm 10\%$ around $\Phi = 1.618$:
 change in the ethical scaling factor for typical $\eta$ values. The system is
 **moderately insensitive** to the exponent choice in the operational range
 $\eta \in [0.93, 0.99]$.
+
+### 5.1a OAE Weight Sensitivity (measured, 2026-11-05)
+
+$\Phi : 1 : 1$ had never been measured against an alternative weighting. §2.1.1
+proves the weights *normalise*; nothing showed they *discriminate* better than
+any other convex combination. Measured on the four recorded NAB files with the
+served producers (`api/routes/detection.py` `/three_r`, `recursion_depth=5`,
+`harmonic_bands=8`), 128-point windows at stride 16, a window labelled
+anomalous iff it overlaps a NAB anomaly window; weights fitted on the first
+half of each file's windows by simplex grid search and all weightings scored on
+the held-out second half. $\eta^p$ is omitted: it is one scalar per call, so it
+is a monotone transform of the batch and cannot change AUROC.
+
+| weighting | mean held-out AUROC |
+|---|--:|
+| $\Phi : 1 : 1$ (the default) | 0.8301 |
+| uniform $(1/3, 1/3, 1/3)$ | **0.8318** |
+| learned per file | **0.8916** |
+| $R(x)$ alone | 0.7251 |
+| $H(\omega)$ alone | 0.7550 |
+| $O(\theta)$ alone | 0.8214 |
+
+**Three findings, in order of consequence.**
+
+1. **The golden-ratio weighting loses to a plain mean**, by $-0.0017$. It also
+   lost before the resonance fix below ($0.8038$ vs $0.8057$, $-0.0019$). The
+   gap is negligible in both directions, which is the point: $\Phi : 1 : 1$ is
+   not a discriminative choice, and §2.1.1's derivation should be read as
+   *fixing* the weights reproducibly, not as justifying them on performance.
+
+2. **The prior is inverted with respect to measured signal.** $\Phi$ assigns
+   $R(x)$ the largest share ($0.4472$), and $R(x)$ is both the weakest stream
+   standalone ($0.7251$) and receives **zero** learned weight on all four
+   files: $(0.00, 1.00, 0.00)$, $(0.00, 0.45, 0.55)$, $(0.00, 0.00, 1.00)$,
+   $(0.00, 1.00, 0.00)$. This is the same inversion found in the 21-probe
+   `math_arrest` fusion, whose $\varphi^{-\text{rank}}$ prior put 76% of its
+   weight on its three weakest probes.
+
+3. **Before the resonance fix the fusion scored below its own best member**:
+   $O(\theta)$ alone measured $0.8214$ against $0.8038$ for $\Phi$ and $0.8057$
+   for uniform. Fixing $H(\omega)$ (§2.1.6) is what makes fusing worthwhile at
+   all.
+
+**Decision: the $\Phi : 1 : 1$ default stands.** Finding 1 is a $-0.0017$ mean
+difference on four files, identical to four decimal places on two of them
+(`realKnownCause` $0.7021$, `realTraffic` $0.9182$); with $n = 4$ that is not
+separable from noise. Against it, $\Phi : 1 : 1$ is a ratified invariant: seven
+numeric assertions across nine test modules, a dedicated canonical test, the
+`oae_weight_certifier` operator tool that exists to hold the four source sites
+in lock-step, and a served `weights` field in `ThreeRResponse`. Replacing a
+certified invariant to collect a noise-level gain is churn, not an improvement,
+so the measured call is to leave the number and correct the *claim* -- the
+derivation fixes the weights reproducibly and is not a performance argument.
+
+This is not the call made for the 21-probe `math_arrest` fusion, whose default
+*was* changed to uniform, and the difference is the size of the evidence:
+there `phi_affinity` lost by $0.1062$ NAB and $0.1403$ ADBench
+($0.6519 / 0.5423$ against $0.7581 / 0.6826$), two orders of magnitude beyond
+the OAE's $0.0017$. A margin that large is a defect; one this small is a
+non-difference. Finding 2 stands on its own evidence either way --
+$R(x)$ takes zero learned weight on 4/4 files -- and is unaffected by the
+weighting choice, since no fixed triple fits files whose own optima are
+$(0,1,0)$, $(0,0.45,0.55)$ and $(0,0,1)$.
+
+The gap this exposed was not the weight values but that **nothing measured the
+served equation at all**. `oae_weight_certifier` checks the declared table
+against the derivation; `oae_dimensionality_probe` now checks served behaviour
+against that table, measuring each stream's actual influence on the fused
+score. A dead stream -- exactly the $H(\omega)$ saturation of §2.1.6, which
+shipped -- now fails a gate instead of waiting to be found by hand.
+
+**What the learned row does and does not show.** Weights are fitted per file on
+32–70 windows with 11–22 positives, so $0.8916$ is optimistic and unstable —
+on `realTraffic/speed_7578.csv` the learned weighting ($0.8955$) scores *below*
+$O(\theta)$ alone ($0.9273$), i.e. it overfits the training half. It is
+evidence that exploitable headroom exists, not a shippable weighting.
+
+**Harness:** `research/omni_equation/harness_oae_weights.py`.
+
+---
 
 ### 5.2 Benevolence Sigmoid Parameters
 

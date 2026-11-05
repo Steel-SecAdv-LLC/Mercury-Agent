@@ -638,7 +638,17 @@ async def detect_three_r(
         expected_ratios = [r / expected_sum for r in expected_ratios]
 
         harmonic_deviation = sum(abs(a - e) for a, e in zip(band_ratios, expected_ratios))
-        resonance_score = float(np.clip(1.0 - harmonic_deviation, 0.0, 1.0))
+        # Normalise by the maximum L1 distance between two probability vectors
+        # (2.0). Both band_ratios and expected_ratios sum to 1, so the raw
+        # deviation ranges over [0, 2] and ``1 - deviation`` is negative for any
+        # spectrum that is not already phi-shaped -- which clipped the score to
+        # a saturated 0 on real data. Measured on the four recorded NAB files
+        # (128-point windows, stride 16): the served form scored at chance,
+        # mean AUROC 0.511, and was a CONSTANT 0.0 across all 63 windows of
+        # realTraffic/speed_7578.csv, so the stream carried no signal at all
+        # while holding 27.6% of the OAE's weight. Dividing by 2 recovers it:
+        # mean AUROC 0.755, and 0.849 on the file where it had been constant.
+        resonance_score = float(np.clip(1.0 - harmonic_deviation / 2.0, 0.0, 1.0))
 
         signal_variance = np.var(data)
         noise_estimate = np.var(np.diff(data)) / 2

@@ -16,6 +16,12 @@ the pillar module that claims to observe it. The expected outcome is a **failing
 suite. A mutation that SURVIVES is a vacuous test and a real finding: the pillar
 it belongs to is not actually observed, and the control could regress silently.
 
+**Every selection is run unmutated first and must pass.** A kill is inferred
+from pytest exiting 1, which only means "the mutation was caught" if the
+selection was green beforehand -- on an already-red selection every mutation
+exits 1 and the gate would report a full kill rate while observing nothing.
+The gate refuses to run, rather than scoring kills, when any baseline is red.
+
 This complements the σ_Immutable hot-path mutation gate in CI
 (``.github/workflows/mutation-testing.yml``), which measures kill rate over
 ``security/sigma_immutable_gate.py``. This one covers the *pillar* controls and
@@ -192,6 +198,48 @@ MUTATIONS: tuple[Mutation, ...] = (
 )
 
 
+def run_baseline(selection: str) -> tuple[int, str]:
+    """Run one pytest selection UNMUTATED and report how it exited.
+
+    A kill is inferred from pytest exit 1, which only means "caught" if the
+    selection was green first -- otherwise every mutation exits 1 and scores
+    ``KILLED``. CI's step ordering protects this externally; checking it here
+    makes the precondition hold for the standalone invocation too.
+
+    Args:
+        selection: pytest selection to run with no mutation applied.
+
+    Returns:
+        ``(returncode, last_output_line)``. ``0`` is the only acceptable code.
+    """
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join([str(REPO_ROOT / "src"), env.get("PYTHONPATH", "")])
+    proc = subprocess.run(  # noqa: S603 - fixed argv; selection is a literal in MUTATIONS
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            selection,
+            "-q",
+            "-p",
+            "no:randomly",
+            "--timeout=900",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    tail = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else "(no output)"
+    return proc.returncode, tail
+
+
+def baseline_selections() -> tuple[str, ...]:
+    """Every distinct pytest selection the mutations use, in declaration order."""
+    return tuple(dict.fromkeys(m.selection for m in MUTATIONS))
+
+
 def run_mutation(mutation: Mutation) -> str:
     """Apply one mutation and report how the pillar suite responded.
 
@@ -275,6 +323,27 @@ def main() -> int:
     print("=" * 78)
     print("Mutation test: break each pillar control, confirm tests/pillars/ catches it")
     print("=" * 78)
+
+    # Precondition: a kill is only evidence if the selection passed first.
+    print()
+    print("Baseline -- every selection must pass UNMUTATED before a kill can mean anything:")
+    red: list[tuple[str, int, str]] = []
+    for selection in baseline_selections():
+        code, tail = run_baseline(selection)
+        print(
+            f"  {'OK  ' if code == 0 else 'RED '}  {selection} (pytest exit {code}) -- {tail[:66]}"
+        )
+        if code != 0:
+            red.append((selection, code, tail))
+    if red:
+        print()
+        print("BASELINE NOT GREEN -- refusing to run the mutation gate.")
+        print("On a red selection every mutation exits 1 and would be scored KILLED, so a")
+        print("kill rate measured here would be vacuous. No mutation was run. Fix these:")
+        for selection, code, tail in red:
+            print(f"  - {selection}: pytest exit {code} -- {tail[:80]}")
+        return 1
+    print()
 
     results = [(m, run_mutation(m)) for m in MUTATIONS]
     killed = [m for m, r in results if r == "KILLED"]

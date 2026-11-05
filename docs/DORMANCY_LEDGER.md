@@ -1,6 +1,6 @@
 # Dormancy & Salvage Ledger
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-18.
+Applies to Mercury Agent **v3.0.x**. Last updated: 2026-11-04.
 
 This ledger accounts for the **dormant** code in Mercury Agent — modules that are
 defined and exported in the public API but never run in any live inference,
@@ -93,6 +93,323 @@ order. None are deleted.
 | 11 | `hierarchical_planning.py` / `multi_agent_coordination.py` | ~1,480/~1,330 | Planning / agent coordination | **MEASURED ✓ (non-AUC, 2026-06-11)** — same harness: the planner drives every live detection episode via real options bound to the pipeline stages — **executability 129/129 episodes** with TD value learning on real stage rewards (initial-state value strictly increasing); coordination forms per-sample consensus over the five real engine detectors — **mean consensus AUC 0.841 ≥ mean member AUC 0.833** (best member 0.901; no claim of beating the trained fusion model is made), below-quorum cases **abstain explicitly** | **revived (orchestration tier)** | Both modules carried blocking defects while dormant: the planner could not select options at all (its option library returned dict projections that the planner type-checked away — every plan shipped empty, every action fell back to `default_action`), option eviction never fired, and below-quorum consensus returned a silent benign verdict (fail-open) while duck-typed dict votes were silently dropped. All fixed and pinned by `tests/cognitive/test_orchestration_behavioral.py`. |
 | 11b | `plasticity_engine.py` | ~930 | Synaptic plasticity | **No** — control/meta machinery, no harness yet | LOW | Retained as reference. |
 | — | `differentiable_logic.py` | ~990 | Scalar t-norms + embedding LTN modules | **Superseded** — its t-norm taxonomy (Gödel/Łukasiewicz) is revived as real tensor operators in the live `SymbolicConstraintModule` semantics (see `docs/NEUROSYMBOLIC.md` §2.1) | n/a | Concept revived in the measured path; file retained as reference. |
+
+## 2b. Exported instruments that no serving path reaches (2026-11-04)
+
+The §2 ranking covers the dormant *cognitive* modules. A reachability sweep of
+the **ensembles, fusion heads and mathematical instruments** found two more
+that are exported and tested but that no live path consumes, and one of them
+was carrying a measurable defect:
+
+| Instrument | LOC | Exported from | Reached by | Measured? |
+|---|---|---|---|---|
+| `detectors/math_arrest/` (`AnomalyMathArrest`, 21 probes) | ~1,900 | package root + `detectors/__init__` | **now wired ✓** — manifest entry `math_arrest` via a `BaseDetector` adapter | **now measured ✓** (below) |
+| `detectors/fusion/multimodal_fusion.py` (`MultiModalFusionOptimizer`) | 827 | `detectors.fusion` | one test module only | **no** — needs a real VLM+visual corpus |
+
+### `AnomalyMathArrest` — measured, and two real defects fixed
+
+The instrument **was not in `DETECTOR_MANIFEST`**, so it was unreachable from
+the engine, the registry, the served routes, the CLI and the console catalog: it
+could only be used by importing it directly. It had never been measured on real
+labels, so there was no evidence it carried signal — the exact "interface ≠
+signal" gap this ledger exists to close. It is now measured on both recorded
+corpora and pinned by `tests/detectors/test_recorded_math_arrest.py`.
+
+**Defect 1 — the fusion prior was inverted against measured signal.** Scores
+were combined with `weight[rank] = PHI^(-rank)` over a hand-written
+affinity order. That decay is steep: the first three ranks carry 76% of the
+weight and the last probe 2.5e-05, so the per-probe `confidence` term (a
+multiplier in [0, 1]) cannot overcome a 70,000x prior spread. On the `default`
+order those three ranks are `variance_adapted`, `momentum` and `additive`,
+measuring **0.531 / 0.524 / 0.685** mean NAB AUROC — while the two strongest
+probes, `wave_propagation` (**0.697**) and `svd_projection` (**0.669**), sit at
+rank 7 and below and receive about 2% between them. The 21-probe fusion
+therefore scored *below its own best member*. The default weighting is now
+`uniform` (the plain mean — the dominant aggregation for outlier ensembles,
+Aggarwal & Sathe 2017, the same result the detector tier's `consensus` combiner
+cites); `phi_affinity` is retained and reproduces its released numbers exactly.
+
+| weighting | NAB (4 files) | ADBench (5 tables x 3 seeds) |
+|---|---|---|
+| **`uniform`** (new default) | **0.7581** | **0.6826** |
+| `confidence` (evidence only) | 0.7277 | 0.6686 |
+| `phi_affinity` (released) | 0.6519 | 0.5423 |
+
+**Defect 2 — `SVDProjectionProbe` never used its fitted basis.** `fit` computed
+the SVD of the training Hankel matrix and stored residual statistics, but
+`deviation_score` **recomputed the SVD on the evaluation data**, so the learned
+rank-1 subspace was unused, the residuals were compared against fit-time
+statistics belonging to a different basis, and the anomalies being scored
+helped define the subspace they were measured against. Its `abs` also scored a
+window fitting the subspace *better* than training (more collapsed, more
+normal) as deviant. It now projects onto the stored basis, directionally, and
+moved from the weakest probe to the second strongest (NAB 0.664 -> 0.669 with
+the per-file spread tightening, 0.415 -> 0.440 on off-modality tabular input).
+
+**Defect 3 — 21 probes are not 21 dimensions, and the correction was logged as
+noise.** `CorrelationAwareDecorrelator` finds near-duplicate probes and
+down-weights the non-dominant member of each correlated cluster to
+`1/cluster_size`. It works, and it is needed: on the four recorded NAB files the
+ensemble measures **11.64–16.00 effective dimensions out of 21**, with 13–23
+redundant pairs per fit and one pair reaching **r = 0.9976**
+(`catalan_optimized` ↔ `exponential_decay`; `additive` ↔ `modified_zscore` at
+0.9864). Two corrections: the per-pair finding logged at **`warning`** severity,
+emitting up to 23 `WARNING` records on every single fit for a condition this
+class exists to handle and does handle — it is now `debug`, with one `info`
+summary naming the effective dimensionality; and the measurement was computed but
+never surfaced, so the served result now carries `effective_probe_count` and
+`redundant_probe_pairs`, keeping the probe count from reading as an evidence
+count. Pinned per file by `test_effective_dimensionality_is_measured_not_assumed`.
+`test_the_decorrelator_applies_under_every_weighting` pins that the new
+`uniform` default does not bypass the multipliers.
+
+**Defect 4 — `AdditiveProbe`'s fit-time intercept did not transfer, and it
+scored below chance.** The probe fits `x_hat = intercept + slope*t` with
+`t = np.arange(len(x))`, an index local to whatever array is passed, so `t`
+restarts at 0 on every scored window. The fit-time intercept belongs to the
+*start* of the fit series; reusing it on a window drawn from later in that
+series added a systematic offset of `slope x (true position)` that dominated
+the residual. Measured mean NAB AUROC **0.378**, and **0.032** on
+`realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv` — not merely
+uninformative but almost perfectly *anti*-correlated with the labels.
+
+Carrying the true time index was measured too and is **worse** (0.368): it
+extrapolates a linear fit far beyond its fitting range. The absolute level is
+not recoverable at score time, so only the trend rate and residual scale are
+carried and the level is re-anchored per window
+(`x_hat = slope*t + median(x - slope*t)`). That measures **0.685**, and lifts
+the 21-probe default from 0.7498 to **0.7581** on NAB. This is the same class
+of defect as Defect 2 — fit-time coordinates not carried to score time — found
+by the same method, measuring each probe standalone.
+
+**Verdict: measured, repaired, wired, still not in the default set.** At 0.7581
+on the NAB files the ensemble sits above every series detector pinned in
+`tests/detectors/test_recorded_nab_series.py` except `lstm_autoencoder` (0.829),
+so the reachability gap was worth closing, and it is closed: `detector.py` adds
+the `BaseDetector` seam the ledger's own rule demands (the raw `detect` returned
+a bare array, satisfying no detector contract), the manifest carries
+`math_arrest`, and the entry earns its keep through the gates a new `series_1d`
+entry is *forced* to satisfy — a measured stationary false-alarm pin
+(**0.0615** against its promised α = 0.05), the NAB triple
+(**0.7581 / 40.35 / 0.0213**), an evidence-tied ontology row, a knowledge
+profile, an exact state round-trip and the registry/engine seam harvest.
+
+A **default-set slot is still not granted**: that needs a marginal-gain ablation
+against the live ensemble, which this entry does not claim. Reachable and
+measured is not the same as promoted, and this repository only promotes on
+measured marginal gain.
+
+**Modality note (why the two corpora differ).** Every probe is a *series*
+equation (Hankel trajectories, chaos, harmonic/wave), and
+`BaseEquationProbe._to_1d` reduces a 2-D input to its **per-row mean**, so
+matrix input is scored on that row summary and per-feature structure is never
+seen. The class docstring nonetheless presents the instrument as an
+IsolationForest replacement, which is a tabular role — hence both corpora are
+measured and both numbers are published above.
+
+## 2c. Full reachability sweep of the assistive mechanisms (2026-11-04)
+
+§2b measured the two instruments found by a partial sweep. This is the
+**complete** sweep: a transitive import closure from Mercury's real entry
+points — `engine.py`, every `api/` module, `cli`, and the declared
+`module_path` of all 114 manifest entries — against every module whose name or
+role is an ensemble, fusion head, combiner, calibrator, meta-learner, drift or
+uncertainty mechanism. 522 modules are reachable. The sweep was run three
+times: the first two passes produced false negatives (dynamically-registered
+operator tools, and classes referenced by their export name rather than their
+module), both corrected below, which is why the dispositions here name the
+*mechanism* that reaches each module rather than just a count.
+
+**Reached and serving — not dormant.** `core/score_calibration.py` (Platt /
+isotonic / Venn-Abers, served from `engine.py`), `core/calibration.py`,
+`detectors/_calibration.py` (29 importers — the shared conformal layer),
+`core/fusion.py`, `core/three_r/fusion.py`, `ml/fusion_network.py`,
+`cognitive/uncertainty.py`, `detectors/drift.py`, `core/fibring_fusion.py`,
+`core/governed_fusion.py`, `core/attention_fusion_stack.py`,
+`core/calibration_pipeline.py`, `ml/meta_learning.py`,
+`ml/concept_drift_evaluation.py`, `core/adaptive_fusion.py`,
+`detectors/adaptive_detector.py` and `detectors/diffusion_ad.py` (both manifest
+entries).
+
+**Correctly unreached — the reason is the design, and it is stated in the
+module.** These are not gaps:
+
+| Module | LOC | Why unreached is correct |
+|---|---|---|
+| `core/stacking_fusion.py` | 802 | Explicitly deprecated, raises a `DeprecationWarning` at import, "retained for reference only". The production fusion is `OmniFusionModel`. |
+| `medical/clinical_calibration.py` | 442 | A *measurement* layer: fits calibrators on a held-out clinical split and reports ECE / Brier / conformal coverage. It states it must not sit on the operational path. |
+| `security/sigma_calibration.py` | 422 | Read-only ECE / threshold / temperature sweep over a *fresh* σ gate loading the same frozen weights. Explicitly "never trains, never writes weights", never touches the operational path. |
+| `tools/{algorithm_name_drift_gate, workflow_version_drift_gate, sigma_immutable_drift_monitor, benevolence_calibration_report}` | 930 | Registered in `TOOL_REGISTRY` (65 tools), documented in `docs/TOOLS.md`, covered by the generic envelope/exit-code contract tests, and the two *gates* run as pre-commit hooks. The other two need operator-supplied inputs (a labelled probe set; a systemd timer's rolling state) that no CI lane has. **Reached — the first sweep pass missed them because the registry loads them dynamically.** |
+| `detectors/advanced/gwo_ensemble.py` | 567 | Declared library-role with a dated measurement in its docstring; exported lazily to keep package import cheap, and tested as `GWOEnsembleDetector`. |
+| `ml/drift.py`, `core/adaptive_detector.py` | 84 | Documented relocation shims that re-export the live implementation. |
+| `federation/aggregator.py` | 420 | Belongs to the federated-learning subsystem, not the single-node detect path. |
+| `ml/multimodal_fusion.py` | 113 | Self-declares "⚠️ SIMULATION-BASED: Trained on simulated multimodal data. Real-world validation required." |
+
+### `core/adaptive_domain_thresholding.py` — measured, refused, one defect fixed
+
+1,289 LOC promising "per-domain threshold calibration", Platt scaling, isotonic
+regression, a "domain ensemble weighting optimizer", and "the strategic
+recommendations for adaptive thresholding to improve domain competence across
+Medical, Financial, and Infrastructure". No serving path reaches it, and it had
+never been measured against the operating point Mercury actually ships.
+
+Measured on the five recorded ADBench tables × 3 seeds, scoring the *same*
+detector's scores under three thresholding policies, so the comparison isolates
+the threshold and nothing else (`tests/core/test_adaptive_domain_thresholding_measured.py`):
+
+| policy | mean F1 | mean FPR | FPR range | over the promised α = 0.05? |
+|---|---|---|---|---|
+| **conformal α = 0.05** (shipped) | 0.4059 | **0.0231** | 0.000 – 0.048 | **never, on any table or seed** |
+| ADT label-free | 0.4549 | 0.0873 | 0.013 – 0.160 | 3 of 5 tables, up to 3.2× |
+| ADT supervised | 0.3882 | **0.6335** | 0.055 – **0.993** | catastrophically |
+
+**The supervised path is broken, not a tradeoff.** Given a labelled calibration
+set it flags **98.7%** of normal rows on `pima_real`, 95.7% on `breastw` and
+97.9% on `wbc` — and its mean F1 is *below* the shipped cut's while its
+false-alarm rate is ~27× higher. Flagging almost every normal row is not an
+operating point.
+
+**The label-free path does not clear the bar either.** Its higher mean F1 is
+not an improvement: it is bought by abandoning the false-alarm guarantee, and
+the mean is carried by a single table (`breastw` 0.935 vs 0.253) while it
+*loses* 0.36 F1 on `wbc` and 0.31 on `thyroid`. A policy whose per-table FPR
+ranges over an order of magnitude is not comparable to one that holds α on
+every table. On this ledger's pre-registered-bar rule, that is a refusal.
+
+A methodological note, because the first comparison was wrong: an initial
+"matched alarm budget" test returned a delta of exactly 0.0000 with zero
+bootstrap spread. That was **circular** — on a fixed score vector any threshold
+flagging *k* points flags *the top k*, so all policies at equal budget are
+identical by construction. Thresholding cannot improve a ranking; the only
+degree of freedom is the budget, and monotone recalibration (Platt and isotonic
+both are) cannot change the ranking either. The table above is the non-circular
+comparison: the candidate's own operating points placed against a sweep of the
+shipped α.
+
+**Defect fixed regardless of the refusal.** `PlattScalingCalibrator` evaluated
+`1 / (1 + np.exp(A * s + B))` directly, which overflows `np.exp` on real score
+distributions (reached on the recorded tables). Its comment claimed "clipping
+for numerical stability", but the clip was applied to the *result* — after the
+overflow had already happened inside `np.exp` — and `calibrate()` had no guard
+at all. A second sigmoid used the branch-selecting `np.where` form, which
+returns the right values (the overflowed branch is discarded) but evaluates
+both arms eagerly, so it still warned and did twice the work. Both now use
+`scipy.special.expit`. The fix is **value-preserving**: every number in the
+table above is unchanged, and the fitted `A`/`B` are identical to six figures.
+
+**Not promoted.** A module that does not reach its bar stays unreached; the
+measurement is the deliverable, and it is pinned so the disposition cannot
+drift back to resting on the docstring.
+
+### Still unreached and still unmeasured — named, not assumed
+
+| Module | LOC | Claims | Status |
+|---|---|---|---|
+| `core/three_r/learnable_fusion.py` | 1,123 | "State-of-the-art differentiable 3R fusion", backprop-trainable `w_R/w_H/w_O`, learned ethical gate, wavelet+attention | Unreached, 3 test modules, **no measurement on labelled data**. The "state-of-the-art" wording is not backed by a measurement in this repository. |
+| `ml/ensemble_coordinator.py` | 1,092 | adaptive weight learning from performance feedback, cascading detection, meta-learning detector selection, uncertainty-aware fusion | Unreached, 1 test module, **unmeasured**. §7's fusion-marginal ledger and the GOSNN analysis both found the engine's own `OmniFusionModel` already fuses detector scores better than any re-weighting of them, so this is a likely dead-by-construction candidate — but that is a hypothesis until measured, and it is recorded as one. |
+| `ml/ensemble.py` | 473 | stacking meta-learner, AdaBoost-style boosting, bagging | Unreached, **unmeasured**. Carried an uncited quantitative claim — "Research shows 30-40% accuracy improvement" — in both the module docstring and a class docstring. **Claim removed** this cycle: the averaging result it was gesturing at is real and cited where it is actually relied on (Aggarwal & Sathe 2017, in the detector tier's `consensus` combiner and `math_arrest`'s fusion default), but it is a statement about averaging dominance, not a percentage, and it does not transfer to these heads without measurement. |
+| `models/foundation/ensemble.py` | 529 | combines predictions from multiple foundation models | Unreached, **unmeasured**; needs the `[foundation]` extra to run at all. |
+
+## 2d. A gate that could not fail (2026-11-05)
+
+`tools/oae_dimensionality_probe.py` advertised that it "verif[ies] the OAE
+R/H/O branches preserve dimensionality through fusion at the tensor level".
+What it did was draw three random Gaussian tensors, combine them inline as
+`w_R * a + w_H * b + w_O * c`, and assert that the result kept its shape, that
+the fused L2 norm was bounded by the largest input's, and that equal inputs
+fused to themselves.
+
+All three are convex-combination identities that hold for *any* non-negative
+weights summing to 1. Measured by substituting the weight triple, it returned
+`ok` for `(1, 0, 0)`, `(0, 0, 1)`, `(1/3, 1/3, 1/3)` and `(0.9, 0.05, 0.05)`
+alike, and failed only on a negative weight — a case
+`oae_weight_certifier` already covers. It never imported `OmniAvaEquation`, so
+no change in the served equation could reach it. It measured no dimensionality
+and certified nothing about Mercury: a gate incapable of failing, which is
+worse than no gate, because the green certificate was read as evidence.
+
+**Replaced, not deleted.** The tool now exercises the shipped
+`OmniAvaEquation` and measures what it actually does against the weights it
+publishes: each stream's influence on the fused score (sweeping one stream over
+`[0, 1]` must move the fused score by exactly that stream's declared weight),
+`eta ** Phi` decoupling across the permitted range, and convexity on the unit
+cube and its diagonal. With `oae_weight_certifier` holding the declared table
+to the published derivation, the two now form a chain of custody from
+derivation to table to served behaviour.
+
+It can fail, and that is pinned: `tests/tools/test_oae_dimensionality_probe.py`
+injects a dead stream, drifted arithmetic, a re-coupled `eta` and a constant
+fused score into the real equation and requires each to be caught. The
+dead-stream case is not hypothetical — it is the `H(omega)` saturation recorded
+in `MATH_SPEC.md` §2.1.6, which shipped and was found by hand. That class of
+defect now fails a gate.
+
+## 2e. Two hypotheses this pass measured and then abandoned (2026-11-05)
+
+Both are recorded because the measurement is the deliverable either way, and
+because each conclusion is the opposite of what the first evidence suggested.
+
+**The probe decorrelator earns its place — on the metric that charges for a
+false alarm.** `CorrelationAwareDecorrelator` down-weights members of a
+correlated probe cluster. What that buys had never been measured. Isolated
+through `PhiWeightedFusion.fuse` with everything else held fixed, *dropping*
+the multipliers scores higher on ranking AUROC in all six weighting × corpus
+cells and on 6 of the 9 individual datasets (uniform 0.7698 NAB / 0.7073
+ADBench against 0.7581 / 0.6826; worst single harm −0.0476 on `wbc`,
+−0.0874 on one NAB file). On that evidence the multipliers look like
+complexity that costs accuracy, and dropping them also looked like the simpler
+system.
+
+The operational triple says otherwise, decisively:
+
+| multipliers | AUROC | NAB standard score | alarm rate |
+|---|--:|--:|--:|
+| applied (shipped) | 0.758 | **40.4** | **0.021** |
+| measured only | 0.770 | 19.6 | 0.034 |
+
+AUROC is a pure ranking metric and is blind to false-alarm cost. The NAB
+standard score charges for one and rewards earliness, and the alarm rate shows
+the mechanism: suppressing a redundant cluster is what keeps the ensemble
+quiet, at 0.021 against the 0.05 the conformal cut promises. Halving the
+purpose-built streaming metric and adding 62% more false alarms to gain 0.012
+of ranking is not a trade worth making. **The multipliers stay**, now for a
+measured reason rather than an assumed one, and
+`research/math_arrest/harness_decorrelation.py` reproduces both halves so the
+next person to optimise this fusion on AUROC alone finds the counter-evidence
+first. `tests/detectors/test_recorded_nab_series.py` pins the triple and is
+what catches it.
+
+**A real change-point statistic is wrong for this ensemble.** `AdditiveProbe`
+was repaired this cycle but its three measured variants were all the same
+"distance from a trend line" statistic with different anchors, so the obvious
+question — would a proper change-point detector do better, and restore the
+level-shift geometry the ensemble lost — stayed open. Measured on the same NAB
+protocol, against the shipped probe's 0.6848 (reproduced to four decimals by
+the harness, which validates it):
+
+| statistic | mean NAB AUROC |
+|---|--:|
+| trend dispersion (shipped) | **0.6848** |
+| two-sided CUSUM, k = 0.25 / 0.5 / 1.0 σ | 0.4244 / 0.4996 / 0.5456 |
+| sliding mean shift, h = 16 / 48 | 0.6679 / 0.5498 |
+
+CUSUM is at or below chance and strongly *anti*-correlated on one file
+(0.0609–0.1084). The reason is structural, not a tuning failure: CUSUM
+accumulates, so once a shift occurs the statistic stays elevated and flags the
+entire remainder of the window, while NAB labels a bounded window around the
+anomaly. A persistent statistic cannot score a bounded label. **The probe
+stays a dispersion probe**, and the level-shift geometry stays unclaimed rather
+than claimed by something that does not deliver it.
+
+The sliding mean shift at h = 16 is the one lead worth naming: 0.6679
+standalone, close to the shipped probe and nearly independent of it (max
+\|r\| 0.319, mean 0.200), and adding it as a 22nd column lifted a plain
+column mean by +0.0188 — gains on two files, −0.007 and −0.002 on the other
+two. **Not promoted.** It is a change-point statistic, so ADBench cannot
+corroborate it (tabular rows have no ordering), which leaves four NAB files as
+the entire evidence base — below the bar this ledger applies to everything
+else, and well below what adding a probe to a 21-probe published ensemble
+should need. Recorded as a lead, not a finding.
 
 ## 3. Correctly-quarantined (not dormant theater)
 

@@ -178,6 +178,18 @@ class AnomalyMathArrest:
             ``"forensic"``), a list of probe class names, or a list
             of :class:`BaseEquationProbe` instances.  Defaults to
             ``"all"`` (all 21 probes).
+        weighting: How the active probes' scores are combined — see
+            :class:`~omni_mercury_engine.detectors.math_arrest.fusion.PhiWeightedFusion`
+            for the measured comparison. ``"uniform"`` (default, the plain
+            mean) measures 0.7581 mean AUC on the four recorded NAB files and
+            0.6826 on five ADBench tables, against 0.6519 / 0.5423 for the
+            released ``"phi_affinity"`` prior.
+
+    Modality: the probes are **series** instruments (Hankel trajectories,
+    chaos/harmonic/wave equations), and ``BaseEquationProbe._to_1d`` reduces a
+    2-D input to its per-row mean, so matrix input is scored on that row
+    summary and the per-feature structure is not seen. The measured numbers
+    above reflect exactly that behaviour on each corpus.
     """
 
     def __init__(
@@ -185,12 +197,13 @@ class AnomalyMathArrest:
         domain: str = "default",
         threshold: float = 0.5,
         probes: str | list[str] | list[BaseEquationProbe] | None = None,
+        weighting: str = "uniform",
     ) -> None:
         """Initialize the instance."""
         self._domain = domain
         self.threshold = threshold
         self._probes: list[BaseEquationProbe] = self._resolve_probes(probes)
-        self._fusion = PhiWeightedFusion(n_probes=len(self._probes))
+        self._fusion = PhiWeightedFusion(n_probes=len(self._probes), weighting=weighting)
         self._decorrelator = CorrelationAwareDecorrelator()
         self._is_fitted: bool = False
         self._fit_qualities: dict[str, float] = {}
@@ -348,6 +361,39 @@ class AnomalyMathArrest:
             affinity_order=affinity_order,
             decorrelator=self._decorrelator,
         )
+
+    def per_probe_scores(self, data: npt.NDArray[np.float64]) -> dict[str, npt.NDArray[np.float64]]:
+        """Each fitted probe's own deviation scores, by probe name.
+
+        The breakdown behind :meth:`detect`'s fused score: every alarm traces
+        to the probes that raised it, which is the auditability this ensemble
+        exists for. A probe that failed to fit, or that raises while scoring,
+        is omitted rather than contributing a fabricated column.
+
+        Args:
+            data: Evaluation data.
+
+        Returns:
+            ``{probe_name: scores}``; empty when nothing fitted.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("AnomalyMathArrest has not been fitted. Call fit() first.")
+        out: dict[str, npt.NDArray[np.float64]] = {}
+        for probe in self._probes:
+            if not probe.is_fitted:
+                continue
+            try:
+                result = probe.deviation_score(data)
+            except (RuntimeError, ValueError) as exc:
+                logger.warning(
+                    "Probe %s failed during per-probe scoring: %s", type(probe).__name__, exc
+                )
+                continue
+            out[result.probe_name] = np.asarray(result.deviation_scores, dtype=np.float64)
+        return out
 
     def predict(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.int32]:
         """Binary classification: 0=normal, 1=anomaly.

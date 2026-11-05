@@ -15,6 +15,16 @@ All tests are deterministic: synthetic eye images are built from seeded
 integro-differential search is O(n^3), so images are kept tiny (default
 recognizer paths use 16x16) or a segmenter with small radius ranges is
 used on a modest synthetic eye to exercise the real search loops cheaply.
+
+**This module asserts no accuracy.** There is no genuine/impostor sweep here,
+no TAR/FAR/EER, and no real iris corpus is recorded anywhere in this
+repository. These are behavioural unit tests on seeded synthetic arrays: they
+catch an API or arithmetic regression, and they say nothing about whether the
+matcher would identify a person. ``test_fingerprint_accuracy.py`` is the only
+biometric accuracy sweep in the tree, it is synthetic too, and its own
+docstring records what it does and does not establish. ``docs/ROADMAP.md``
+marks the biometric row "Functional", which that file defines as *not* implying
+external audit or production deployment.
 """
 
 from __future__ import annotations
