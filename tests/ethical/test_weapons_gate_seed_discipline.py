@@ -70,6 +70,146 @@ PRE_EXISTING_HAZARD_VOCABULARY: dict[str, tuple[int, int]] = {
 }
 
 
+#: Gate vocabulary pre-dating the slice, across the two surfaces the ratchet
+#: originally missed: the Axis-A domain routing lexicon
+#: (``_HAZARD_DOMAIN_KEYWORDS``) and the literals of the Axis-B intent
+#: patterns. Mechanically derived, so it is pinned whole rather than curated:
+#: the connective words a regex alternation contributes ("that", "would",
+#: "ation") sit here beside real hazard vocabulary ("sarin", "ricin"), and
+#: that is deliberate. The control is that the set cannot change without the
+#: diff showing it, so a reviewer seeing one new line has one term to justify.
+#: Deciding per term which words "count" would be a judgment that rots.
+PRE_EXISTING_GATE_VOCABULARY: frozenset[str] = frozenset(
+    {
+        "action",
+        "aerosoli",
+        "against",
+        "anthrax",
+        "antidote",
+        "assembl",
+        "ation",
+        "attack",
+        "bomb",
+        "botulinum toxin",
+        "build",
+        "care",
+        "casualties",
+        "casualty",
+        "chemistry",
+        "chlorine gas",
+        "control",
+        "cooking",
+        "crowd",
+        "decontaminat",
+        "decontamination",
+        "design",
+        "detect",
+        "detection",
+        "detector",
+        "detectors",
+        "dirty bomb",
+        "does",
+        "enrich",
+        "enriched uranium",
+        "enriching uranium",
+        "epidemiology",
+        "equipment",
+        "evacuation",
+        "generat",
+        "grade",
+        "guide",
+        "help",
+        "highly enriched uranium",
+        "history",
+        "ication",
+        "into",
+        "kill",
+        "lethal",
+        "licensed",
+        "make",
+        "management",
+        "manufactur",
+        "manufacture",
+        "many",
+        "mass",
+        "material",
+        "mechanism",
+        "ment",
+        "method",
+        "monitor",
+        "mustard gas",
+        "need",
+        "ning",
+        "nuclear",
+        "organophosphate",
+        "people",
+        "pipe bomb",
+        "plan",
+        "plastic explosive",
+        "policy",
+        "procedure",
+        "process",
+        "produc",
+        "producing",
+        "proliferation",
+        "prophylaxis",
+        "protective",
+        "radioactive source",
+        "recipe",
+        "recogni",
+        "requirement",
+        "ricin",
+        "safeguards",
+        "safety",
+        "sarin",
+        "should",
+        "soman",
+        "stadium",
+        "steps",
+        "synthesi",
+        "synthesis",
+        "teach",
+        "that",
+        "treat",
+        "treaty",
+        "triage",
+        "turn",
+        "vaccin",
+        "weapon",
+        "weaponi",
+        "weapons",
+        "work",
+        "would",
+    }
+)
+
+
+def _gate_terms() -> set[str]:
+    """Every term the gate can match on, across both axes.
+
+    Axis A contributes its hazard-context anchors and its domain routing
+    lexicon verbatim. Axis B contributes the literals of its intent patterns,
+    extracted with ``harm_normalization``'s own regexes so there is one
+    definition of "literal" rather than a second that can drift from it.
+    """
+    from omni_mercury_engine.cognitive import ethical_bounding as eb
+    from omni_mercury_engine.cognitive.harm_normalization import (
+        _REGEX_ESCAPE_RE,
+        _REGEX_LITERAL_WORD_RE,
+    )
+
+    terms: set[str] = set(eb._HAZARD_CONTEXT_ANCHORS)
+    terms.update(t for keywords in eb._HAZARD_DOMAIN_KEYWORDS.values() for t in keywords)
+    sources = (
+        [pat.pattern for pat, _tier, _label in eb._OFFENSIVE_INTENT_PATTERNS]
+        + [pat.pattern for pat, _tier, _label in eb._ALLOW_INTENT_PATTERNS]
+        + [eb._DEFENSIVE_PRODUCTION_RE.pattern]
+    )
+    for source in sources:
+        terms.update(_REGEX_LITERAL_WORD_RE.findall(_REGEX_ESCAPE_RE.sub(" ", source.lower())))
+    return terms
+
+
 @pytest.fixture(scope="module")
 def corpus() -> list[AdversarialRow]:
     rows: list[AdversarialRow] = build_adversarial_corpus()
@@ -200,31 +340,59 @@ class TestLexiconCorpusOverlap:
                 f"recorded ({pinned_total}, {pinned_benign})"
             )
 
-    def test_no_undeclared_anchor_overlaps_the_held_out_slice(
+    def test_no_undeclared_gate_term_overlaps_the_held_out_slice(
         self, corpus: list[AdversarialRow]
     ) -> None:
-        """The ratchet: an anchor overlapping the slice must be in one bucket.
+        """The ratchet: any gate term overlapping the slice must be declared.
 
-        Deleting an anchor to pass this would be a safety regression, so the
+        Deleting a term to pass this would be a safety regression, so the
         control is disclosure, not removal. It prevents a term being lifted
         from the slice unannounced.
+
+        **Scope.** This scans all three decision-bearing surfaces. It first
+        covered only ``_HAZARD_CONTEXT_ANCHORS``, the weakest of them -- an
+        anchor hit only decides whether Axis B runs, and is never by itself a
+        refusal. Measured, that was 9 of the 110 terms overlapping the slice:
+        the Axis-A routing lexicon contributes 21 more and the Axis-B pattern
+        literals 86. A term lifted into either of those contaminates the
+        recall figure exactly as an anchor would, while passing the ratchet.
+        A control scoped to one surface is no control on the others.
         """
-        from omni_mercury_engine.cognitive.ethical_bounding import (
-            _HAZARD_CONTEXT_ANCHORS,
+        texts = [r.text.lower() for r in corpus]
+        declared = (
+            set(ADDED_AFTER_HELD_OUT_MEASUREMENT)
+            | set(PRE_EXISTING_HAZARD_VOCABULARY)
+            | set(PRE_EXISTING_GATE_VOCABULARY)
+        )
+        undeclared = {t for t in _gate_terms() if any(t.lower() in x for x in texts)} - declared
+        assert not undeclared, (
+            "gate terms occur in the held-out corpus but are declared in no "
+            f"bucket: {sorted(undeclared)}. If a term was added in response to "
+            "measuring this slice, put it in ADDED_AFTER_HELD_OUT_MEASUREMENT "
+            "and say so where the recall figures are published -- the slice is "
+            "no longer held out for it. If it pre-dates the slice, put it in "
+            "PRE_EXISTING_HAZARD_VOCABULARY (hazard-context anchors, with "
+            "counts) or PRE_EXISTING_GATE_VOCABULARY (Axis-A keywords and "
+            "Axis-B pattern literals)."
         )
 
-        texts = [r.text.lower() for r in corpus]
-        declared = set(ADDED_AFTER_HELD_OUT_MEASUREMENT) | set(PRE_EXISTING_HAZARD_VOCABULARY)
-        overlapping = {
-            anchor for anchor in _HAZARD_CONTEXT_ANCHORS if any(anchor.lower() in t for t in texts)
-        }
-        undeclared = overlapping - declared
-        assert not undeclared, (
-            "hazard-context anchors occur in the held-out corpus but are "
-            f"declared in neither bucket: {sorted(undeclared)}. If a term was "
-            "added in response to measuring this slice, put it in "
-            "ADDED_AFTER_HELD_OUT_MEASUREMENT and say so where the recall "
-            "figures are published -- the slice is no longer held out for it. "
-            "If it is ordinary hazard vocabulary that pre-dates the slice, put "
-            "it in PRE_EXISTING_HAZARD_VOCABULARY."
+    def test_the_ratchet_scans_every_decision_bearing_surface(self) -> None:
+        """The scan's input set is pinned, because narrowing it is the bug.
+
+        The original ratchet read one lexicon and missed two, and nothing
+        caught it: a control that scans too little still passes. This pins
+        what :func:`_gate_terms` draws on, so dropping a surface fails here
+        instead of silently shrinking the ratchet's reach.
+        """
+        from omni_mercury_engine.cognitive import ethical_bounding as eb
+
+        terms = _gate_terms()
+        anchors = set(eb._HAZARD_CONTEXT_ANCHORS)
+        domain = {t for keywords in eb._HAZARD_DOMAIN_KEYWORDS.values() for t in keywords}
+        assert anchors <= terms, "Axis-A hazard-context anchors dropped from the scan"
+        assert domain <= terms, "Axis-A domain routing lexicon dropped from the scan"
+        assert terms - anchors - domain, "Axis-B pattern literals dropped from the scan"
+        assert {"synthesi", "weaponi"} & terms, (
+            "the Axis-B literal harvest returned nothing recognisable; "
+            "re-derive it against harm_normalization's extraction"
         )

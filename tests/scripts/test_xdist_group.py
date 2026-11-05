@@ -38,6 +38,14 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+#: Scratch directory for the live grouping probe. It must sit under ``tests/``
+#: for ``tests/conftest.py`` -- which holds the shim -- to apply to it, which
+#: puts it in the path the module scan below walks. The scan therefore skips
+#: it by name: the probe writes a file carrying the marker, and under xdist the
+#: two tests can run on different workers at the same time, so without this the
+#: scan intermittently sees the probe as a twelfth user.
+_PROBE_DIR = "_xdist_group_probe"
+
 #: Modules whose scheduling depends on the shim. Pinned so that losing
 #: grouping is a visible change rather than a silent slowdown.
 XDIST_GROUP_USERS: frozenset[str] = frozenset(
@@ -109,7 +117,7 @@ def test_a_group_lands_on_one_worker() -> None:
     pytest.importorskip("xdist")
     # Under ``tests/``, so ``tests/conftest.py`` -- which holds the shim --
     # applies to the probe exactly as it does to the eleven real modules.
-    scratch = _REPO_ROOT / "tests" / "_xdist_group_probe"
+    scratch = _REPO_ROOT / "tests" / _PROBE_DIR
     try:
         workers, proc = _run_probe(scratch)
         assert workers, (
@@ -212,6 +220,7 @@ def test_every_module_relying_on_grouping_is_pinned() -> None:
         str(path.relative_to(_REPO_ROOT))
         for path in (_REPO_ROOT / "tests").rglob("*.py")
         if path.resolve() not in exempt
+        and _PROBE_DIR not in path.parts
         and "pytest.mark.xdist_group(" in path.read_text(encoding="utf-8")
     }
     assert found == set(XDIST_GROUP_USERS), (
