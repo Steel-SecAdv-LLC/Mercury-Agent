@@ -341,7 +341,7 @@ pqc = [
     # ``native_hmac_sha256`` / ``native_hmac_sha256_2`` Python
     # bindings consumed by
     # ``omni_mercury_engine.security.native_jwt._sign`` for the
-    # HS256 / HS512 JOSE signing path.  See CHANGELOG ``[Unreleased]``
+    # HS256 / HS512 JOSE signing path.  See CHANGELOG ``[2.0.0]``
     # § "AMA-routed JWT HMAC signatures".  Pinning the
     # git ref (rather than tracking the
     # default branch) protects Mercury's reproducible-build promise:

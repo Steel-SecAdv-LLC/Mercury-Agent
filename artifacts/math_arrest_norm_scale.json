@@ -1,0 +1,538 @@
+{
+  "adopted": [],
+  "bar": "v2.1",
+  "baseline": {
+    "adbench_auroc": 0.6762687292280958,
+    "candidate": "p99",
+    "mean_auroc": 0.7493690694113697,
+    "nab_score": 33.67219696602846,
+    "per_file": {
+      "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+        "alarm_rate_spread": 0.0047240976462830766,
+        "auroc": 0.7042862257685029,
+        "false_alarm_rate": 0.01288936627282492
+      },
+      "realAdExchange/exchange-3_cpc_results.csv": {
+        "alarm_rate_spread": 0.007645259938837922,
+        "auroc": 0.7800526271114506,
+        "false_alarm_rate": 0.0017316017316017316
+      },
+      "realKnownCause/rogue_agent_key_hold.csv": {
+        "alarm_rate_spread": 0.005000000000000001,
+        "auroc": 0.6850802538260545,
+        "false_alarm_rate": 0.012056737588652482
+      },
+      "realTraffic/speed_7578.csv": {
+        "alarm_rate_spread": 0.008350730688935284,
+        "auroc": 0.8280571709394708,
+        "false_alarm_rate": 0.04275534441805225
+      }
+    },
+    "uniform_over_confidence": {
+      "adbench": 0.018481741524468465,
+      "nab": 0.02928286068822694
+    },
+    "uniform_over_phi": {
+      "adbench": 0.14011410864922702,
+      "nab": 0.0751260222623038
+    },
+    "worst_alarm_rate_spread": 0.008350730688935284,
+    "worst_false_alarm_rate": 0.04275534441805225
+  },
+  "candidates": [
+    {
+      "adbench_auroc": 0.6762687292280958,
+      "adopt": false,
+      "candidate": "p99",
+      "mean_auroc": 0.7493690694113697,
+      "nab_score": 33.67219696602846,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.0047240976462830766,
+          "auroc": 0.7042862257685029,
+          "false_alarm_rate": 0.01288936627282492
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.007645259938837922,
+          "auroc": 0.7800526271114506,
+          "false_alarm_rate": 0.0017316017316017316
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.005000000000000001,
+          "auroc": 0.6850802538260545,
+          "false_alarm_rate": 0.012056737588652482
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.008350730688935284,
+          "auroc": 0.8280571709394708,
+          "false_alarm_rate": 0.04275534441805225
+        }
+      },
+      "reasons_against": [
+        "NAB 33.67 <= baseline 33.67"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.018481741524468465,
+        "nab": 0.02928286068822694
+      },
+      "uniform_over_phi": {
+        "adbench": 0.14011410864922702,
+        "nab": 0.0751260222623038
+      },
+      "worst_alarm_rate_spread": 0.008350730688935284,
+      "worst_false_alarm_rate": 0.04275534441805225
+    },
+    {
+      "adbench_auroc": 0.6812859286991587,
+      "adopt": false,
+      "candidate": "mean_p99_iqr",
+      "mean_auroc": 0.7542584329069444,
+      "nab_score": 35.09953091247154,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.0037789197557409476,
+          "auroc": 0.738853937565001,
+          "false_alarm_rate": 0.00966702470461869
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.0030581039755351695,
+          "auroc": 0.7666808137396373,
+          "false_alarm_rate": 0.0017316017316017316
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.010624999999999999,
+          "auroc": 0.6939156401642403,
+          "false_alarm_rate": 0.02198581560283688
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.0093945720250522,
+          "auroc": 0.8175833401588992,
+          "false_alarm_rate": 0.048693586698337295
+        }
+      },
+      "reasons_against": [
+        "per-file AUROC improves or holds on only 2/4 files",
+        "exchange-3_cpc_results.csv: AUROC -0.0134 > 0.01",
+        "speed_7578.csv: AUROC -0.0105 > 0.01"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.013009184117734995,
+        "nab": 0.032880115226335604
+      },
+      "uniform_over_phi": {
+        "adbench": 0.0754486336920347,
+        "nab": 0.10329503493787962
+      },
+      "worst_alarm_rate_spread": 0.010624999999999999,
+      "worst_false_alarm_rate": 0.048693586698337295
+    },
+    {
+      "adbench_auroc": 0.6935222383271099,
+      "adopt": false,
+      "candidate": "p75_15iqr",
+      "mean_auroc": 0.7573165739430883,
+      "nab_score": 42.96358440028351,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.009453570711848859,
+          "auroc": 0.7981006939116498,
+          "false_alarm_rate": 0.01288936627282492
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.0022935779816513763,
+          "auroc": 0.7490705373058314,
+          "false_alarm_rate": 0.0025974025974025974
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.01,
+          "auroc": 0.6798282941396043,
+          "false_alarm_rate": 0.02269503546099291
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.025052192066805853,
+          "auroc": 0.8022667704152674,
+          "false_alarm_rate": 0.04513064133016627
+        }
+      },
+      "reasons_against": [
+        "per-file AUROC improves or holds on only 1/4 files",
+        "exchange-3_cpc_results.csv: AUROC -0.0310 > 0.01",
+        "speed_7578.csv: AUROC -0.0258 > 0.01",
+        "speed_7578.csv: spread 0.0251 > 0.02"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.005776353362386355,
+        "nab": 0.028287424745206735
+      },
+      "uniform_over_phi": {
+        "adbench": 0.0570940094230965,
+        "nab": 0.10993551440169158
+      },
+      "worst_alarm_rate_spread": 0.025052192066805853,
+      "worst_false_alarm_rate": 0.04513064133016627
+    },
+    {
+      "adbench_auroc": 0.6941824763270004,
+      "adopt": false,
+      "candidate": "median_3mad",
+      "mean_auroc": 0.741628573543217,
+      "nab_score": 49.905947408177354,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.009453570711848859,
+          "auroc": 0.7344551855830052,
+          "false_alarm_rate": 0.01288936627282492
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.0015290519877675848,
+          "auroc": 0.767354214413038,
+          "false_alarm_rate": 0.0017316017316017316
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.0075000000000000015,
+          "auroc": 0.6680589772303098,
+          "false_alarm_rate": 0.02056737588652482
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.01774530271398747,
+          "auroc": 0.7966459169465149,
+          "false_alarm_rate": 0.0332541567695962
+        }
+      },
+      "reasons_against": [
+        "NAB AUROC 0.7416 < baseline 0.7494",
+        "per-file AUROC improves or holds on only 1/4 files",
+        "exchange-3_cpc_results.csv: AUROC -0.0127 > 0.01",
+        "rogue_agent_key_hold.csv: AUROC -0.0170 > 0.01",
+        "speed_7578.csv: AUROC -0.0314 > 0.01",
+        "uniform not ahead of confidence on adbench (-0.0019)"
+      ],
+      "uniform_over_confidence": {
+        "adbench": -0.0018806812841233311,
+        "nab": 0.03635712727462048
+      },
+      "uniform_over_phi": {
+        "adbench": 0.07156915856015966,
+        "nab": 0.1045754671118363
+      },
+      "worst_alarm_rate_spread": 0.01774530271398747,
+      "worst_false_alarm_rate": 0.0332541567695962
+    },
+    {
+      "adbench_auroc": 0.6735754802387481,
+      "adopt": false,
+      "candidate": "max_p99_iqr",
+      "mean_auroc": 0.7561399819212049,
+      "nab_score": 31.192603945099776,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.0028319500587712506,
+          "auroc": 0.7300052853221489,
+          "false_alarm_rate": 0.010741138560687433
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.005351681957186546,
+          "auroc": 0.7781738958209546,
+          "false_alarm_rate": 0.0017316017316017316
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.005625,
+          "auroc": 0.688876446435237,
+          "false_alarm_rate": 0.016312056737588652
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.010438413361169102,
+          "auroc": 0.8275043001064788,
+          "false_alarm_rate": 0.04513064133016627
+        }
+      },
+      "reasons_against": [
+        "NAB 31.19 <= baseline 33.67",
+        "ADBench AUROC 0.6736 < baseline 0.6763",
+        "per-file AUROC improves or holds on only 2/4 files"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.019183205374080137,
+        "nab": 0.03585900927203134
+      },
+      "uniform_over_phi": {
+        "adbench": 0.13918722940914563,
+        "nab": 0.08084699409111418
+      },
+      "worst_alarm_rate_spread": 0.010438413361169102,
+      "worst_false_alarm_rate": 0.04513064133016627
+    },
+    {
+      "adbench_auroc": 0.6895640467869009,
+      "adopt": false,
+      "candidate": "p95",
+      "mean_auroc": 0.7543835687404301,
+      "nab_score": 35.5686489702993,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.001892147587511826,
+          "auroc": 0.772151467103132,
+          "false_alarm_rate": 0.00966702470461869
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.003058103975535168,
+          "auroc": 0.7632741985683162,
+          "false_alarm_rate": 0.0008658008658008658
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.013125000000000001,
+          "auroc": 0.6800261291526689,
+          "false_alarm_rate": 0.019858156028368795
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.020876826722338218,
+          "auroc": 0.8020824801376034,
+          "false_alarm_rate": 0.05344418052256532
+        }
+      },
+      "reasons_against": [
+        "per-file AUROC improves or holds on only 1/4 files",
+        "exchange-3_cpc_results.csv: AUROC -0.0168 > 0.01",
+        "speed_7578.csv: AUROC -0.0260 > 0.01",
+        "speed_7578.csv: FAR 0.0534 > alpha",
+        "speed_7578.csv: spread 0.0209 > 0.02"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.009836165531733387,
+        "nab": 0.021148158052942456
+      },
+      "uniform_over_phi": {
+        "adbench": 0.17120676538984925,
+        "nab": 0.10939296962044698
+      },
+      "worst_alarm_rate_spread": 0.020876826722338218,
+      "worst_false_alarm_rate": 0.05344418052256532
+    },
+    {
+      "adbench_auroc": 0.6877421075149418,
+      "adopt": false,
+      "candidate": "p90",
+      "mean_auroc": 0.745573641045689,
+      "nab_score": 43.203908801041585,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.0037789197557409476,
+          "auroc": 0.7752459379741872,
+          "false_alarm_rate": 0.00966702470461869
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.0007645259938837932,
+          "auroc": 0.741051976346094,
+          "false_alarm_rate": 0.0008658008658008658
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.014374999999999999,
+          "auroc": 0.6816162747293766,
+          "false_alarm_rate": 0.01773049645390071
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.03757828810020877,
+          "auroc": 0.7843803751330986,
+          "false_alarm_rate": 0.03800475059382423
+        }
+      },
+      "reasons_against": [
+        "NAB AUROC 0.7456 < baseline 0.7494",
+        "per-file AUROC improves or holds on only 1/4 files",
+        "exchange-3_cpc_results.csv: AUROC -0.0390 > 0.01",
+        "speed_7578.csv: AUROC -0.0437 > 0.01",
+        "speed_7578.csv: spread 0.0376 > 0.02"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.006719624111527822,
+        "nab": 0.0235684290975553
+      },
+      "uniform_over_phi": {
+        "adbench": 0.14167179196682922,
+        "nab": 0.12388286764277578
+      },
+      "worst_alarm_rate_spread": 0.03757828810020877,
+      "worst_false_alarm_rate": 0.03800475059382423
+    },
+    {
+      "adbench_auroc": 0.6745590476638199,
+      "adopt": false,
+      "candidate": "p999",
+      "mean_auroc": 0.737550054014522,
+      "nab_score": 40.55127297397063,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.007564110833978384,
+          "auroc": 0.6819514773327877,
+          "false_alarm_rate": 0.01288936627282492
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.006880733944954129,
+          "auroc": 0.7821237585943468,
+          "false_alarm_rate": 0.0017316017316017316
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.008125,
+          "auroc": 0.6424748040313549,
+          "false_alarm_rate": 0.012056737588652482
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.01252609603340292,
+          "auroc": 0.8436501760995987,
+          "false_alarm_rate": 0.04631828978622328
+        }
+      },
+      "reasons_against": [
+        "NAB AUROC 0.7376 < baseline 0.7494",
+        "ADBench AUROC 0.6746 < baseline 0.6763",
+        "per-file AUROC improves or holds on only 2/4 files",
+        "iio_us-east-1_i-a2eb1cd9_NetworkIn.csv: AUROC -0.0223 > 0.01",
+        "rogue_agent_key_hold.csv: AUROC -0.0426 > 0.01"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.013512719375263438,
+        "nab": 0.034759731115141634
+      },
+      "uniform_over_phi": {
+        "adbench": 0.177961657690067,
+        "nab": 0.0665232760662553
+      },
+      "worst_alarm_rate_spread": 0.01252609603340292,
+      "worst_false_alarm_rate": 0.04631828978622328
+    },
+    {
+      "adbench_auroc": 0.6738661657686257,
+      "adopt": false,
+      "candidate": "max",
+      "mean_auroc": 0.7406256240302739,
+      "nab_score": 38.83848139649012,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.00567017144003899,
+          "auroc": 0.68919748350468,
+          "false_alarm_rate": 0.01288936627282492
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.011467889908256881,
+          "auroc": 0.7865715983363042,
+          "false_alarm_rate": 0.003463203463203463
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.008125,
+          "auroc": 0.6416498693542366,
+          "false_alarm_rate": 0.012056737588652482
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.01252609603340292,
+          "auroc": 0.8450835449258743,
+          "false_alarm_rate": 0.048693586698337295
+        }
+      },
+      "reasons_against": [
+        "NAB AUROC 0.7406 < baseline 0.7494",
+        "ADBench AUROC 0.6739 < baseline 0.6763",
+        "per-file AUROC improves or holds on only 2/4 files",
+        "iio_us-east-1_i-a2eb1cd9_NetworkIn.csv: AUROC -0.0151 > 0.01",
+        "rogue_agent_key_hold.csv: AUROC -0.0434 > 0.01"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.011817714480620634,
+        "nab": 0.033496479625364284
+      },
+      "uniform_over_phi": {
+        "adbench": 0.17911900049360452,
+        "nab": 0.05569276674020973
+      },
+      "worst_alarm_rate_spread": 0.01252609603340292,
+      "worst_false_alarm_rate": 0.048693586698337295
+    },
+    {
+      "adbench_auroc": 0.6820758222048195,
+      "adopt": false,
+      "candidate": "mean_3std",
+      "mean_auroc": 0.7532084599295719,
+      "nab_score": 27.24877288129539,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.0037780238525271645,
+          "auroc": 0.7399706749867867,
+          "false_alarm_rate": 0.011815252416756176
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.0022935779816513763,
+          "auroc": 0.7715587244999009,
+          "false_alarm_rate": 0.0017316017316017316
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.011874999999999998,
+          "auroc": 0.6749570735349011,
+          "false_alarm_rate": 0.02056737588652482
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.010438413361169116,
+          "auroc": 0.8263473666966992,
+          "false_alarm_rate": 0.048693586698337295
+        }
+      },
+      "reasons_against": [
+        "NAB 27.25 <= baseline 33.67",
+        "per-file AUROC improves or holds on only 1/4 files",
+        "rogue_agent_key_hold.csv: AUROC -0.0101 > 0.01"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.014363363974719823,
+        "nab": 0.032334285243902694
+      },
+      "uniform_over_phi": {
+        "adbench": 0.08437016071974379,
+        "nab": 0.09627010356293142
+      },
+      "worst_alarm_rate_spread": 0.011874999999999998,
+      "worst_false_alarm_rate": 0.048693586698337295
+    },
+    {
+      "adbench_auroc": 0.6930972291876132,
+      "adopt": false,
+      "candidate": "p75_30iqr",
+      "mean_auroc": 0.7741589706161166,
+      "nab_score": 31.127298912437038,
+      "per_file": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+          "alarm_rate_spread": 0.0028382213812677397,
+          "auroc": 0.8216289021874414,
+          "false_alarm_rate": 0.010741138560687433
+        },
+        "realAdExchange/exchange-3_cpc_results.csv": {
+          "alarm_rate_spread": 0.0022935779816513763,
+          "auroc": 0.758877288289053,
+          "false_alarm_rate": 0.0025974025974025974
+        },
+        "realKnownCause/rogue_agent_key_hold.csv": {
+          "alarm_rate_spread": 0.011875,
+          "auroc": 0.6875401269130272,
+          "false_alarm_rate": 0.02269503546099291
+        },
+        "realTraffic/speed_7578.csv": {
+          "alarm_rate_spread": 0.01670146137787057,
+          "auroc": 0.8285895650749447,
+          "false_alarm_rate": 0.055819477434679333
+        }
+      },
+      "reasons_against": [
+        "NAB 31.13 <= baseline 33.67",
+        "exchange-3_cpc_results.csv: AUROC -0.0212 > 0.01",
+        "speed_7578.csv: FAR 0.0558 > alpha"
+      ],
+      "uniform_over_confidence": {
+        "adbench": 0.01130959920039143,
+        "nab": 0.02818586989951022
+      },
+      "uniform_over_phi": {
+        "adbench": 0.054595688198508685,
+        "nab": 0.10507680694342714
+      },
+      "worst_alarm_rate_spread": 0.01670146137787057,
+      "worst_false_alarm_rate": 0.055819477434679333
+    }
+  ]
+}

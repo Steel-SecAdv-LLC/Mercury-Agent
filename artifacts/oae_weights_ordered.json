@@ -1,0 +1,91 @@
+{
+  "mean": {
+    "H_alone": 0.14496825810185188,
+    "O_alone": 0.2265462962962963,
+    "R_alone": 0.5003333333333334,
+    "learned": 0.18204603587962964,
+    "phi": 0.19709329668209877,
+    "uniform": 0.19709329668209877
+  },
+  "note": "Non-overlapping windows; whole-recording labels. See the module docstring for how this differs from the NAB protocol.",
+  "per_unit": {
+    "cwru/ball": {
+      "H_alone": 7.8125e-05,
+      "O_alone": 0.0,
+      "R_alone": 0.5,
+      "_n_test": 1120,
+      "_pos_test": 160,
+      "_w_learned": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "learned": 7.8125e-05,
+      "phi": 0.0,
+      "uniform": 0.0
+    },
+    "cwru/inner_race": {
+      "H_alone": 0.00275390625,
+      "O_alone": 0.0,
+      "R_alone": 0.5,
+      "_n_test": 1120,
+      "_pos_test": 160,
+      "_w_learned": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "learned": 0.00275390625,
+      "phi": 0.00030598958333333335,
+      "uniform": 0.00030598958333333335
+    },
+    "cwru/outer_race": {
+      "H_alone": 0.0,
+      "O_alone": 0.0,
+      "R_alone": 0.5,
+      "_n_test": 1120,
+      "_pos_test": 160,
+      "_w_learned": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "learned": 0.0,
+      "phi": 0.0,
+      "uniform": 0.0
+    },
+    "eeg/chb01_03": {
+      "H_alone": 0.29941666666666666,
+      "O_alone": 0.65125,
+      "R_alone": 0.5016666666666667,
+      "_n_test": 340,
+      "_pos_test": 40,
+      "_w_learned": [
+        0.4,
+        0.35,
+        0.25
+      ],
+      "learned": 0.42591666666666667,
+      "phi": 0.478,
+      "uniform": 0.478
+    },
+    "eeg/chb01_04": {
+      "H_alone": 0.4225925925925926,
+      "O_alone": 0.48148148148148145,
+      "R_alone": 0.5,
+      "_n_test": 327,
+      "_pos_test": 27,
+      "_w_learned": [
+        0.95,
+        0.0,
+        0.05
+      ],
+      "learned": 0.48148148148148145,
+      "phi": 0.5071604938271604,
+      "uniform": 0.5071604938271604
+    }
+  },
+  "phi_minus_uniform": 0.0,
+  "units_phi_beats_uniform": "0/5",
+  "window": 128
+}

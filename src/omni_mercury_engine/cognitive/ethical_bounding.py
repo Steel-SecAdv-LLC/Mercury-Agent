@@ -843,7 +843,21 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
             r"\b(?:how to|how (?:do|can|would|should) (?:i|we|one|you)|steps? to|"
             r"guide (?:to|for|on)|instructions? (?:to|for|on)|recipe (?:to|for)|"
             r"tutorial (?:to|for|on)|help me|teach me to|(?:want|trying|need) to|"
-            r"best way to)\s+(?:make|produce|synthesi[sz]e|manufacture|fabricate|"
+            # "<qualifier> way/method/approach to <production verb>". The
+            # qualifier slot is optional and generic because enumerating
+            # superlatives leaks: the released pattern listed only "best way
+            # to", so "safest way to produce <agent>" and "safest method to
+            # manufacture <agent>" carried NO offensive match and were served
+            # ALLOW_PROVENANCE / ALLOW -- a direct request for a production
+            # route, unblocked (measured on 7dd10e16, before this fix).
+            # ``production_route`` did not cover them either: it requires
+            # "method OF/FOR producing", not "method TO produce".
+            # FP exposure is bounded by the production-verb requirement -- a
+            # professional "best way to detect/treat/decontaminate X" carries
+            # no production verb -- and by the defensive-production carve-out,
+            # which still drops a B6 match whose object is a defensive artifact.
+            r"(?:\w+ )?(?:way|method|approach|procedure) to)"
+            r"\s+(?:make|produce|synthesi[sz]e|manufacture|fabricate|"
             r"build|construct|assemble|formulate|create|generate)\b"
         ),
         OperationalIntent.PRODUCTION,
@@ -929,6 +943,38 @@ _ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ..
         re.compile(r"\bhow does .* work\b|\bmechanism of action\b|\bchemistry of\b|\bphysics of\b"),
         OperationalIntent.MECHANISM,
         "mechanism",
+    ),
+    (
+        # Hazard-property misconception: a why-question about the *failure* of a
+        # risk-mitigation premise ("why can't you just make it safe by diluting
+        # it"). That asks what the agent already IS -- its toxicology and its
+        # persistence -- not for a step that produces it, and the answer which
+        # corrects the misconception is protective rather than uplifting.
+        #
+        # Why this row exists: the four MECHANISM forms above are all "how"/
+        # "what" explanatory frames, so a learner's insufficiency question
+        # matched NO allow-signal at all. ``not allowed`` then held in the
+        # meaning-level routing-raise, and the classifier's 0.755 lifted a
+        # learner's question to ESCALATE. Measured: adding this row returns it
+        # to ALLOW_PROVENANCE with held-out attack recall unchanged.
+        #
+        # It cannot admit the procedural form the earlier record feared ("how do
+        # I make <agent> safely"). Measured, that form matches the OFFENSIVE
+        # ``production_howto`` pattern -- PRODUCTION, confidence 0.971,
+        # REFUSE_REDACT on the lexical gate alone -- and on the B6 path an allow
+        # label only feeds ``_offensive_confidence``; it can never downgrade a
+        # disposition lexical evidence already earned. The worst case is
+        # therefore REFUSE_REDACT -> ESCALATE, and both block, so admission is
+        # structurally unreachable rather than merely unobserved. The two cases
+        # were never symmetric: the offensive table already separates them.
+        re.compile(
+            r"\bwhy (?:can't|cannot|can not|won't|will not|wouldn't|would not|"
+            r"doesn't|does not|don't|do not|isn't|is not|aren't|are not)\b"
+            r"[^.\n]{0,60}?\b(?:safe|safer|harmless|inert|non-?toxic|"
+            r"neutrali[sz]\w*|dilut\w*)\b"
+        ),
+        OperationalIntent.MECHANISM,
+        "hazard_property_misconception",
     ),
     (
         re.compile(

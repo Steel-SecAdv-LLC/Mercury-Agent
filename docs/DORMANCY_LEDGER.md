@@ -104,7 +104,34 @@ was carrying a measurable defect:
 | Instrument | LOC | Exported from | Reached by | Measured? |
 |---|---|---|---|---|
 | `detectors/math_arrest/` (`AnomalyMathArrest`, 21 probes) | ~1,900 | package root + `detectors/__init__` | **now wired ✓** — manifest entry `math_arrest` via a `BaseDetector` adapter | **now measured ✓** (below) |
-| `detectors/fusion/multimodal_fusion.py` (`MultiModalFusionOptimizer`) | 827 | `detectors.fusion` | one test module only | **no** — needs a real VLM+visual corpus |
+| `detectors/fusion/multimodal_fusion.py` (`MultiModalFusionOptimizer`) | 827 | `detectors.fusion` | three test modules only | **no** — two inputs absent, see below |
+
+### `MultiModalFusionOptimizer` — claims constrained, and the gap named exactly (2026-11-05)
+
+This entry said "needs a real VLM+visual corpus", which is correct and too
+vague to act on. The two missing inputs are missing for different reasons, and
+the distinction is what says whether the measurement is deferred or blocked:
+
+1. **No VLM backend exists in a default install.** The semantic arm needs a
+   served vision-language model, and none of `transformers`, `open_clip` or
+   `clip` is in the dependency graph. The arm cannot be exercised at all, so
+   this is an absent input rather than an untuned one.
+2. **No anomaly-labelled visual corpus is vendored.** `tests/fixtures/visual`
+   holds four CC0 photographs recorded for determinism and seam checks; they
+   carry no anomaly labels. `benchmarks/mvtec_visual_benchmark.py` names the
+   corpus a real evaluation would use, and it is not vendored.
+
+So the measurement is **blocked on inputs, not deferred by choice**, and the
+module's docstring now says so in place of the "Key innovations" list it
+carried. That list described adaptive weighting, uncertainty-aware fusion,
+domain calibration and complementary routing as innovations; they are
+implemented mechanisms with no evidence attached, and "innovation" is a claim
+about outcomes. The mechanisms are retained and relabelled, per this ledger's
+no-deletion rule.
+
+When both inputs exist the bar is the one §2c applies to the other unreached
+fusion heads: beat the plain mean of the same real per-modality scores first,
+then out-separate the engine's own trained fusion (§8).
 
 ### `AnomalyMathArrest` — measured, and two real defects fixed
 
@@ -198,6 +225,91 @@ A **default-set slot is still not granted**: that needs a marginal-gain ablation
 against the live ensemble, which this entry does not claim. Reachable and
 measured is not the same as promoted, and this repository only promotes on
 measured marginal gain.
+
+### The marginal-gain ablation, run (2026-11-05) — HOLD
+
+The ablation the paragraph above deferred is now made, by
+`benchmarks/math_arrest_ensemble_marginal.py`. It is the same shape as
+`benchmarks/kmeans_ensemble_marginal.py`, which settled the same question for
+the revived k-means detector, so the two decisions are comparable: each
+(table, seed) trains the engine's fusion from the same split and initialisation
+with and without the detector, differing only in that one feature group. The
+pre-registered bar is the k-means one, unmoved: **add iff mean ΔAUC > +0.002
+with a majority of seeds agreeing.**
+
+Five recorded ADBench tables × **8 seeds** = 40 cells. Eight rather than the
+k-means ablation's three because the first run came in at +0.0014 against a
++0.002 bar, which is too close to call on three seeds.
+
+| table | base fused AUROC | + math_arrest | ΔAUC | seeds ≥ | headroom |
+|---|--:|--:|--:|--:|--:|
+| pima_real | 0.7861 | 0.7877 | +0.0016 | 4/8 | 0.2139 |
+| cardio | 0.9950 | 0.9959 | +0.0008 | 5/8 | 0.0050 |
+| breastw | 0.9906 | 0.9926 | **+0.0020** | **8/8** | 0.0094 |
+| wbc | 0.9874 | 0.9888 | +0.0013 | 6/8 | 0.0126 |
+| thyroid | 0.9984 | 0.9980 | −0.0004 | 3/8 | 0.0016 |
+| **mean** | | | **+0.0011** | 0.65 | |
+
+**Verdict: HOLD — reachable-but-not-default.** The mean is +0.0011 against a
++0.002 bar, so the bar is not cleared and promotion is refused.
+
+**What the 40 cells support, stated more precisely than "no gain".** Over all
+cells the mean is +0.00107 (sd 0.00460, se 0.00073) with 22 of 40 positive, and
+a 20,000-replicate bootstrap puts the 95% interval at **[−0.00029, +0.00249]**:
+
+* `P(mean > 0) = 0.937` — the gain is *probably real*;
+* `P(mean > +0.002) = 0.098` — and *probably below the bar*.
+
+So the honest reading is a **small positive effect that does not reach the
+threshold**, not an absent one. `breastw` is the one table that reaches the bar
+and it does so with 8/8 seeds agreeing at sd 0.0020, the most consistent cell
+set in the run; one table at the bar out of five is not a promotion.
+
+**The corpus limits what this test can detect, and that is not a hedge.** Four
+of the five tables leave the trained `OmniFusionModel` with **≤ 0.013 of
+headroom** (thyroid 0.0016, cardio 0.0050, breastw 0.0094, wbc 0.0126). A
+marginal-gain bar of +0.002 against a 0.9984 baseline is asking a new feature
+group to consume an eighth of the remaining error. **HOLD therefore means "not
+demonstrated on this corpus", not "demonstrated absent"**, and the same caveat
+applies to the k-means ablation that set this bar.
+
+**A hypothesis raised and then withdrawn, because the seeds killed it.** At
+three seeds the gain looked proportional to the headroom available —
+`r(headroom, ΔAUC) = 0.854`, rising to **0.992** with the one high-headroom
+table removed, which is the opposite of a leverage artefact and read as a real
+structural finding. At eight seeds the same correlations are **0.346** and
+**0.828**. With five points and per-table seed sd of 0.002–0.008, a high
+correlation is cheap, and `pima_real`'s own mean moved from +0.0043 to +0.0016
+once five more seeds were added. The direction survives weakly — the
+lowest-headroom table is the only negative one — but it is **recorded as
+unestablished**, not as a finding. This is the third small-sample pattern in
+this cycle that did not survive more data (see §2e on the mean-shift `h`, and
+the survivability note in `research/governed_fusion/FINDINGS.md`), which is the
+argument for the eight seeds rather than three.
+
+**The series side does not rescue the promotion case either.** The ablation
+above is tabular because the engine's fusion is row-wise, which is the path a
+default-set member actually joins; `math_arrest` is a `series_1d` entry, so it
+is being measured off its declared modality and the feature group is a per-row
+summary. That objection is real, and it was checked rather than used as a
+defence: the group is **not** degenerate on tabular input (21 columns, median
+542 distinct values over 548 rows, 0–2 constant columns per table), so the
+ablation measures fusion rather than a dead group. And on the corpus where the
+instrument *is* in-modality, its standing is mixed — among the 22 series
+detectors pinned in `tests/detectors/test_recorded_nab_series.py` it ranks
+**2nd of 22 by AUROC** (0.749, behind `lstm_autoencoder`'s 0.829) but **10th of
+22 by the NAB standard score** (33.7, behind `digital_twin` 53.4,
+`gaussian_process` 52.9, `survival` 48.4, `hawkes` 46.1, `temporal` 46.0 and
+four others). By the metric §2e established as governing for this instrument —
+the one that charges for a false alarm, where AUROC is blind — it is mid-pack,
+and the normalizer repair recorded in `BaseEquationProbe._normalize_scores`
+moved it there from 40.4. A strong ranker that is tenth on the streaming metric
+is not an obvious promotion on the series route either.
+
+**Disposition: shipped as reachable-but-not-default, with the measurement
+behind it rather than a deferral.** It stays a manifest entry, available by
+`engine.register_detector("math_arrest", MathArrestDetector())`, exactly as the
+revived k-means detector is.
 
 **Modality note (why the two corpora differ).** Every probe is a *series*
 equation (Hankel trajectories, chaos, harmonic/wave), and
@@ -300,6 +412,95 @@ table above is unchanged, and the fitted `A`/`B` are identical to six figures.
 **Not promoted.** A module that does not reach its bar stays unreached; the
 measurement is the deliverable, and it is pinned so the disposition cannot
 drift back to resting on the docstring.
+
+### Three of the four unreached heads, measured (2026-11-05)
+
+The table below used to say "unreached, unmeasured" for four ensembles and
+record a *hypothesis* for the coordinator — that the engine's own
+`OmniFusionModel` already fuses detector scores better than any re-weighting of
+them. Three of the four are now on a bar, by
+`research/ensembles/harness_unreached_heads.py`.
+
+**The bar, and what it is not.** The question asked is the first necessary one:
+does the head beat **the plain mean of the same real detector scores**? For
+unsupervised outlier ensembles the plain mean is the dominant aggregation
+(Aggarwal & Sathe 2017) and it is what the detector tier's `consensus` combiner
+and `math_arrest`'s fusion default already use on that authority, so a head that
+cannot beat the mean of its own inputs cannot be worth wiring. Clearing it is
+**not** promotion: §8 established that a fusion head must out-separate the
+engine's trained `OmniFusionModel`, and that comparison is not made here.
+
+Inputs are the five manifest detectors and the protocol of
+`tests/detectors/test_recorded_adbench_tabular.py` — five recorded ADBench
+tables, stratified 70/30, three seeds, features standardised on the training
+rows — so the columns are the same real scores that module pins. Supervised
+heads see training-row scores and labels only. 15 cells.
+
+| head | mean AUROC | vs plain mean | cells won |
+|---|--:|--:|--:|
+| plain mean (the bar) | 0.8893 | — | 0/15 |
+| **best single detector, chosen on train** | **0.9142** | **+0.0249** | **14/15** |
+| `ensemble.VotingEnsemble` | 0.7577 | −0.1315 | 0/15 |
+| `ensemble.MetaLearner` | 0.6298 | −0.2595 | 8/15 |
+| `ensemble_coordinator.BayesianWeightOptimizer` | 0.8940 | +0.0047 | 11/15 |
+| `ensemble_coordinator.GradientWeightOptimizer` | 0.8895 | +0.0002 | 7/15 |
+
+**`VotingEnsemble` — refused, and it cannot rank at all.** −0.1315, losing every
+one of 15 cells. The structural reason matters more than the number: it
+publishes **no continuous fused score**. Its `confidence` is
+`|weighted_avg - 0.5| * 2`, symmetric about the threshold, so a confidently
+normal row and a confidently anomalous row receive the same value. That is a
+defensible meaning for "confidence in a binary call" and it is not an anomaly
+score; ranking by it inverts half the ordering (0.7566 against the plain mean's
+0.9026 on cardio/seed 0). The figure above uses its binary `predictions`, which
+is the most its contract supports.
+
+**`MetaLearner` — refused, and the instability is the finding.** −0.2595 on the
+mean, yet it wins 8 of 15 cells. It is not uniformly weak: it reaches 0.9515 on
+cardio and 0.9891 on breastw, then collapses **below chance** on the two tables
+with the fewest anomalies — 0.4709 / 0.5132 / 0.2222 on `wbc` and 0.1403 /
+0.1624 / 0.1224 on `thyroid`. A head that scores 0.12 is not under-performing,
+it is inverted, and a mean that hides a 0.12 behind a 0.99 is why the per-cell
+column is published beside it. This is textbook overfitting of a supervised
+second stage on a handful of positives, and it is a reason to distrust the
+cells it wins, not to average them.
+
+**The coordinator — not dead by construction, but dominated.** The ledger's
+hypothesis was that re-weighting detector scores buys nothing. Measured, the
+Bayesian optimizer buys a little: **+0.0047** with 11 of 15 cells, which clears
+the ±0.002 noise floor this ledger uses for `kmeans_ensemble_marginal`. So the
+hypothesis as stated is **not** confirmed. What refuses it instead is the
+comparison it loses: simply **picking the best single detector by training
+AUROC** scores **+0.0249** and wins 14 of 15 — five times the lift, from one
+line, against 1,092 LOC of Thompson sampling, cascading pipelines and
+meta-learning. The gradient optimizer measures +0.0002, inside the noise floor.
+Neither is promoted. The honest verdict is "works, and is beaten by something
+trivial", which is a different disposition from "does not work" and is recorded
+as such.
+
+**A finding about the baseline, not the heads.** That `best_single_on_train`
+beats the plain mean by +0.0249 on 14 of 15 cells is itself worth recording: on
+these five tables the five detectors are unequal enough that averaging them
+dilutes the strongest. It is a statement about this detector set on this corpus,
+not a recommendation — a label-free selection rule that good is also a
+single-point-of-failure — and it is the reference any future fusion head on this
+corpus should be made to beat.
+
+**`models/foundation/ensemble.py` — not measured, and not refused.** It needs
+the `[foundation]` extra to import its backends at all, so it could not be put
+on this bar. "Unmeasured" here means the measurement was not attempted, which is
+a weaker statement than the three above and is kept distinct from them.
+
+**`core/three_r/learnable_fusion.py` — not measured on this bar, which is the
+wrong bar for it.** It fuses the three OAE streams (R/H/O), not detector scores,
+so it does not take this harness's input. Its own measurement is named in
+`MATH_SPEC.md` §2.1.1 and is a caution: the served `PHI : 1 : 1` weighting of
+those same streams loses to a plain mean by 0.0017, and weights *learned per
+file* reach 0.8916 against 0.8301 — but the per-file optima are `(0, 1, 0)`,
+`(0, 0.45, 0.55)` and `(0, 0, 1)`, so no fixed triple fits the four files.
+Learning those weights is therefore both the plausible direction and the one
+most exposed to overfitting four short series. The "state-of-the-art" wording is
+removed from the module either way.
 
 ### Still unreached and still unmeasured — named, not assumed
 
@@ -410,6 +611,54 @@ corroborate it (tabular rows have no ordering), which leaves four NAB files as
 the entire evidence base — below the bar this ledger applies to everything
 else, and well below what adding a probe to a 21-probe published ensemble
 should need. Recorded as a lead, not a finding.
+
+### The lead, tested on two independent ordered corpora (2026-11-05)
+
+ADBench cannot corroborate a change-point statistic, but this repository
+records **two other ordered corpora with external labels**, and the objection
+does not reach them: CHB-MIT scalp EEG (`tests/fixtures/eeg`, background against
+clinician-annotated seizure) and CWRU bearing vibration (`tests/fixtures/cwru`,
+healthy against machined 0.007-inch faults).
+`research/math_arrest/harness_mean_shift.py` measures the same statistic on all
+three. **The lead does not survive at the `h` it was named for.**
+
+| corpus | labels | lift at h = 16 | lift at h = 48 |
+|---|---|--:|--:|
+| NAB (the original evidence) | point windows in one stream | +0.0289 | +0.0199 |
+| CHB-MIT EEG | clinician annotation | **+0.0001** | +0.0161 |
+| CWRU bearings | machined fault | +0.0171 | +0.1081 |
+
+**`h = 16`, the value §2e named, measures no lift on EEG at all** (+0.0001),
+and EEG is the independent corpus whose labelling geometry is closest to NAB's.
+`h = 48` is positive on all three and much the stronger candidate — but `h = 48`
+is the variant §2e measured as clearly *worse* (0.5498 against 0.6679), so the
+choice of `h` that produced the lead points away from the `h` that generalizes.
+That inversion is the result: the lead was an artifact of selecting `h` on the
+same four files the lift was then measured on. **Still not promoted**, now for a
+measured reason rather than a sample-size one, and promotion would need `h`
+fixed in advance of the corpora plus the engine-level marginal gain.
+
+**§2e's own figures could not be reproduced, and that is a defect in the
+record.** The harness behind them was never committed. The new one reproduces
+the *shipped* `additive` probe exactly (0.6848, before the normalizer repair
+below moved it to 0.6990), which validates the protocol, split and AUROC — but
+the mean-shift numbers differ (0.7369 against 0.6679 at h = 16), because the
+statistic's definition is not recoverable from the ledger text. The definition
+is now explicit in `SlidingMeanShiftProbe`, so the figures here are checkable in
+a way §2e's were not.
+
+**A caution the same run surfaced, flagged rather than claimed.** The absolute
+AUROCs put the 21-probe ensemble at or below chance on bearing vibration:
+`column_mean_21` measures 0.4913 on inner-race, 0.7750 on outer-race and
+**0.0063** on ball — the last is near-total inversion, not weakness. That is
+consistent with the modality note in §2b (every probe is a series equation
+tuned on low-frequency telemetry; 12 kHz vibration is a different regime), but a
+window-level reduction of a `series_1d` detector is **not** a use its contract
+covers, and a figure of 0.0063 is as likely to indict the protocol as the
+detector. It is recorded as a caution against off-modality use and explicitly
+**not** as a measured property. The lift column above is unaffected either way:
+it is a within-protocol difference, where the same fit, windows and reduction
+serve both arms and only the extra column changes.
 
 ## 3. Correctly-quarantined (not dormant theater)
 

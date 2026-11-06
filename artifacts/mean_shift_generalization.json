@@ -1,0 +1,138 @@
+{
+  "cwru": {
+    "mean": {
+      "additive": 0.5125,
+      "column_mean_21": 0.42416666666666664,
+      "column_mean_22_h16": 0.44125,
+      "column_mean_22_h48": 0.5322916666666667,
+      "lift_h16": 0.01708333333333333,
+      "lift_h48": 0.10812499999999999,
+      "mean_shift_h16": 0.5622916666666667,
+      "mean_shift_h48": 0.74125
+    },
+    "per_fault": {
+      "ball": {
+        "additive": 0.5125,
+        "column_mean_21": 0.00625,
+        "column_mean_22_h16": 0.0075,
+        "column_mean_22_h48": 0.02375,
+        "lift_h16": 0.0012499999999999994,
+        "lift_h48": 0.0175,
+        "mean_shift_h16": 0.461875,
+        "mean_shift_h48": 0.668125
+      },
+      "inner_race": {
+        "additive": 0.5125,
+        "column_mean_21": 0.49125,
+        "column_mean_22_h16": 0.50375,
+        "column_mean_22_h48": 0.631875,
+        "lift_h16": 0.012500000000000011,
+        "lift_h48": 0.14062499999999994,
+        "mean_shift_h16": 0.6125,
+        "mean_shift_h48": 0.706875
+      },
+      "outer_race": {
+        "additive": 0.5125,
+        "column_mean_21": 0.775,
+        "column_mean_22_h16": 0.8125,
+        "column_mean_22_h48": 0.94125,
+        "lift_h16": 0.03749999999999998,
+        "lift_h48": 0.16625,
+        "mean_shift_h16": 0.6125,
+        "mean_shift_h48": 0.84875
+      }
+    }
+  },
+  "eeg": {
+    "mean": {
+      "additive": 0.71,
+      "column_mean_21": 0.8708626543209876,
+      "column_mean_22_h16": 0.8709861111111111,
+      "column_mean_22_h48": 0.8869753086419754,
+      "lift_h16": 0.0001234567901234329,
+      "lift_h48": 0.01611265432098763,
+      "mean_shift_h16": 0.7233333333333334,
+      "mean_shift_h48": 0.7716666666666667
+    },
+    "per_record": {
+      "chb01_03": {
+        "additive": 0.5466666666666666,
+        "column_mean_21": 0.77975,
+        "column_mean_22_h16": 0.77975,
+        "column_mean_22_h48": 0.81,
+        "lift_h16": 0.0,
+        "lift_h48": 0.03025,
+        "mean_shift_h16": 0.5066666666666667,
+        "mean_shift_h48": 0.6433333333333333
+      },
+      "chb01_04": {
+        "additive": 0.8733333333333333,
+        "column_mean_21": 0.9619753086419753,
+        "column_mean_22_h16": 0.9622222222222222,
+        "column_mean_22_h48": 0.9639506172839506,
+        "lift_h16": 0.0002469135802468658,
+        "lift_h48": 0.0019753086419752597,
+        "mean_shift_h16": 0.94,
+        "mean_shift_h48": 0.9
+      }
+    }
+  },
+  "halves": [
+    16,
+    48
+  ],
+  "nab": {
+    "halves": [
+      16,
+      48
+    ],
+    "mean_additive": 0.6989976574571304,
+    "mean_column_mean_21": 0.772216189595046,
+    "mean_column_mean_22": {
+      "16": 0.8011389241595748,
+      "48": 0.7921436071728863
+    },
+    "mean_lift": {
+      "16": 0.028922734564528763,
+      "48": 0.019927417577840334
+    },
+    "mean_standalone": {
+      "16": 0.736914231427588,
+      "48": 0.7525108980653287
+    },
+    "per_file": {
+      "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+        "additive": 0.8715922459209248,
+        "column_mean_21": 0.8111946532999165,
+        "column_mean_22_h16": 0.8167612909825585,
+        "column_mean_22_h48": 0.8299063986496854,
+        "mean_shift_h16": 0.7084889093482004,
+        "mean_shift_h48": 0.8028148602799515
+      },
+      "realAdExchange/exchange-3_cpc_results.csv": {
+        "additive": 0.6694451517980929,
+        "column_mean_21": 0.7718303483009366,
+        "column_mean_22_h16": 0.8361599185128596,
+        "column_mean_22_h48": 0.798732422261834,
+        "mean_shift_h16": 0.8190023484141131,
+        "mean_shift_h48": 0.8310330192683134
+      },
+      "realKnownCause/rogue_agent_key_hold.csv": {
+        "additive": 0.5450261291526689,
+        "column_mean_21": 0.7124598730869728,
+        "column_mean_22_h16": 0.6990257558790594,
+        "column_mean_22_h48": 0.725464725643897,
+        "mean_shift_h16": 0.4939585666293393,
+        "mean_shift_h48": 0.6345502053004852
+      },
+      "realTraffic/speed_7578.csv": {
+        "additive": 0.7099271029568351,
+        "column_mean_21": 0.7933798836923581,
+        "column_mean_22_h16": 0.8526087312638218,
+        "column_mean_22_h48": 0.8144708821361291,
+        "mean_shift_h16": 0.9262071013186993,
+        "mean_shift_h48": 0.7416455074125645
+      }
+    }
+  }
+}

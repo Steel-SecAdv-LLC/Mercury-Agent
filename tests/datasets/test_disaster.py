@@ -151,7 +151,7 @@ class TestFEMADisasterLoader:
             label==1 matches its complement.  This is the same
             invariant that `_select_anomaly_polarity` enforces and
             is what unblocks the previously-broken FEMA Disaster
-            benchmark (see CHANGELOG `[Unreleased]`).
+            benchmark (see CHANGELOG `[3.0.0]`).
         """
         loader.download()
         features, labels = loader._load_raw()

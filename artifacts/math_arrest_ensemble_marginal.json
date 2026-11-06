@@ -1,0 +1,106 @@
+{
+  "results": [
+    {
+      "base_auc_mean": 0.781,
+      "delta_auc_mean": 0.004305555555555525,
+      "delta_auc_per_seed": [
+        0.012499999999999956,
+        -0.0022499999999999742,
+        0.002666666666666595
+      ],
+      "feature_group": {
+        "constant_columns": 0,
+        "median_distinct_values": 228,
+        "n_columns": 21,
+        "n_rows": 230
+      },
+      "math_arrest_auc_mean": 0.7853055555555555,
+      "n_seeds": 3,
+      "seeds_better": 2,
+      "table": "pima_real"
+    },
+    {
+      "base_auc_mean": 0.9950501447477254,
+      "delta_auc_mean": 0.0002584780810587217,
+      "delta_auc_per_seed": [
+        0.00027140198511166336,
+        -0.00170595533498763,
+        0.0022099875930521318
+      ],
+      "feature_group": {
+        "constant_columns": 1,
+        "median_distinct_values": 542,
+        "n_columns": 21,
+        "n_rows": 548
+      },
+      "math_arrest_auc_mean": 0.9953086228287841,
+      "n_seeds": 3,
+      "seeds_better": 2,
+      "table": "cardio"
+    },
+    {
+      "base_auc_mean": 0.9912457199336369,
+      "delta_auc_mean": 0.0015178792050548988,
+      "delta_auc_per_seed": [
+        0.002012072434607659,
+        0.001482579688658281,
+        0.0010589854918987562
+      ],
+      "feature_group": {
+        "constant_columns": 2,
+        "median_distinct_values": 83,
+        "n_columns": 21,
+        "n_rows": 204
+      },
+      "math_arrest_auc_mean": 0.9927635991386917,
+      "n_seeds": 3,
+      "seeds_better": 3,
+      "table": "breastw"
+    },
+    {
+      "base_auc_mean": 0.9894179894179894,
+      "delta_auc_mean": 0.0017636684303350414,
+      "delta_auc_per_seed": [
+        0.01058201058201047,
+        0.0,
+        -0.005291005291005346
+      ],
+      "feature_group": {
+        "constant_columns": 1,
+        "median_distinct_values": 29,
+        "n_columns": 21,
+        "n_rows": 66
+      },
+      "math_arrest_auc_mean": 0.9911816578483245,
+      "n_seeds": 3,
+      "seeds_better": 2,
+      "table": "wbc"
+    },
+    {
+      "base_auc_mean": 0.9980300639109947,
+      "delta_auc_mean": -0.0009290039510649883,
+      "delta_auc_per_seed": [
+        -0.0017125012591922006,
+        -0.0009737752258149879,
+        -0.00010073536818777651
+      ],
+      "feature_group": {
+        "constant_columns": 0,
+        "median_distinct_values": 1113,
+        "n_columns": 21,
+        "n_rows": 1130
+      },
+      "math_arrest_auc_mean": 0.9971010599599297,
+      "n_seeds": 3,
+      "seeds_better": 0,
+      "table": "thyroid"
+    }
+  ],
+  "verdict": {
+    "bar": "mean dAUC > +0.002 and seed agreement >= 0.5",
+    "mean_delta_auc": 0.0013833154641878398,
+    "passed": false,
+    "seed_agreement": 0.5999999999999999,
+    "verdict": "HOLD -- no fused improvement beyond the noise floor; keep reachable-but-not-default"
+  }
+}

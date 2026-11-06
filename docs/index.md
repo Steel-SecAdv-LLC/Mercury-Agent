@@ -38,7 +38,7 @@ attribution to code transferred from its former agent layer.)
   supported post-quantum backend (PR #144). Since v3.3.0 it also exposes the
   native HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings consumed by
   Mercury's `native_jwt` HS256 / HS384 / HS512 signing path (see CHANGELOG
-  `[Unreleased]` § "AMA-routed JWT HMAC signatures"). The agent surfaces are
+  `[2.0.0]` § "AMA-routed JWT HMAC signatures"). The agent surfaces are
   hard-gated: `omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`
   runs at import of `omni_mercury_engine.engine` / `.crypto` (and on first
   access to an AMA-backed `security` export), imports
@@ -216,8 +216,8 @@ MIGRATION-1.6-to-1.7
 - Top-level `ARCHITECTURE.md` — full system architecture, including
   the Dual-Gate Hard Ethical Enforcement contract and σ_Immutable
   layout.
-- Top-level `CHANGELOG.md` — release history; the `[Unreleased]`
-  block at the top tracks Wave A / Wave B work in flight.
+- Top-level `CHANGELOG.md` — release history; the newest version
+  section at the top carries the current release's entries.
 - Top-level `SECURITY.md` — supported versions, PQC backend audit
   status, vulnerability reporting process.
 - Top-level `CONTRIBUTING.md` — development workflow and PR

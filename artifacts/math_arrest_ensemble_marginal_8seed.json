@@ -1,0 +1,131 @@
+{
+  "results": [
+    {
+      "base_auc_mean": 0.786125,
+      "delta_auc_mean": 0.0015833333333333255,
+      "delta_auc_per_seed": [
+        0.012499999999999956,
+        -0.0022499999999999742,
+        0.002666666666666595,
+        -0.011083333333333445,
+        0.0129999999999999,
+        0.0016666666666667052,
+        -0.00024999999999986144,
+        -0.0035833333333332718
+      ],
+      "feature_group": {
+        "constant_columns": 0,
+        "median_distinct_values": 228,
+        "n_columns": 21,
+        "n_rows": 230
+      },
+      "math_arrest_auc_mean": 0.7877083333333332,
+      "n_seeds": 8,
+      "seeds_better": 4,
+      "table": "pima_real"
+    },
+    {
+      "base_auc_mean": 0.9950275279156326,
+      "delta_auc_mean": 0.0008238988833746963,
+      "delta_auc_per_seed": [
+        0.00027140198511166336,
+        -0.00170595533498763,
+        0.0022099875930521318,
+        0.006048387096774244,
+        0.0010856079404466534,
+        -0.00031017369727048827,
+        0.0003489454094293132,
+        -0.0013570099255583168
+      ],
+      "feature_group": {
+        "constant_columns": 1,
+        "median_distinct_values": 542,
+        "n_columns": 21,
+        "n_rows": 548
+      },
+      "math_arrest_auc_mean": 0.9958514267990074,
+      "n_seeds": 8,
+      "seeds_better": 5,
+      "table": "cardio"
+    },
+    {
+      "base_auc_mean": 0.990575029122101,
+      "delta_auc_mean": 0.002012072434607645,
+      "delta_auc_per_seed": [
+        0.002012072434607659,
+        0.001482579688658281,
+        0.0010589854918987562,
+        0.00010589854918985342,
+        0.006248014402202684,
+        0.0010589854918987562,
+        0.0036005506724557934,
+        0.0005294927459493781
+      ],
+      "feature_group": {
+        "constant_columns": 2,
+        "median_distinct_values": 83,
+        "n_columns": 21,
+        "n_rows": 204
+      },
+      "math_arrest_auc_mean": 0.9925871015567086,
+      "n_seeds": 8,
+      "seeds_better": 8,
+      "table": "breastw"
+    },
+    {
+      "base_auc_mean": 0.9874338624338624,
+      "delta_auc_mean": 0.0013227513227513227,
+      "delta_auc_per_seed": [
+        0.01058201058201047,
+        0.0,
+        -0.005291005291005346,
+        0.0,
+        0.0,
+        0.010582010582010692,
+        -0.005291005291005235,
+        0.0
+      ],
+      "feature_group": {
+        "constant_columns": 1,
+        "median_distinct_values": 29,
+        "n_columns": 21,
+        "n_rows": 66
+      },
+      "math_arrest_auc_mean": 0.9887566137566137,
+      "n_seeds": 8,
+      "seeds_better": 6,
+      "table": "wbc"
+    },
+    {
+      "base_auc_mean": 0.9984260098720661,
+      "delta_auc_mean": -0.00040294147275109216,
+      "delta_auc_per_seed": [
+        -0.0017125012591922006,
+        -0.0009737752258149879,
+        -0.00010073536818777651,
+        0.0003022061045632185,
+        -0.00020147073637555302,
+        -0.0008394614015647672,
+        0.0002350491924382192,
+        6.715691212511032e-05
+      ],
+      "feature_group": {
+        "constant_columns": 0,
+        "median_distinct_values": 1113,
+        "n_columns": 21,
+        "n_rows": 1130
+      },
+      "math_arrest_auc_mean": 0.998023068399315,
+      "n_seeds": 8,
+      "seeds_better": 3,
+      "table": "thyroid"
+    }
+  ],
+  "verdict": {
+    "bar": "mean dAUC > +0.002 and seed agreement >= 0.5",
+    "mean_delta_auc": 0.0010678229002631795,
+    "passed": false,
+    "seed_agreement": 0.65,
+    "verdict": "HOLD -- no fused improvement beyond the noise floor; keep reachable-but-not-default"
+  }
+}

@@ -53,7 +53,42 @@ ADDED_AFTER_HELD_OUT_MEASUREMENT: dict[str, int] = {
     "fourth-generation agent": 5,
     # Only occurrence is a hard-benign row the gate must ALLOW.
     "organophosphate nerve agent": 1,
+    # Added by the ``hazard_property_misconception`` ALLOW-signal
+    # (2026-11-05), which repaired the learner-framing over-block.
+    # Declared because it is a new gate literal that occurs in the slice, but
+    # it differs in kind from the four above and the difference is measurable:
+    # those are Axis-A/offensive-side terms, where presence can inflate
+    # recall. This one is allow-side, so it can only ever *reduce* blocking,
+    # and all 5 of its occurrences are ``hard_benign`` rows the gate must
+    # ALLOW -- there is no attack row it could lift. Measured both ways on
+    # 7dd10e16 vs this branch: shipped-posture recall unchanged at 105/133,
+    # hard-benign false positives unchanged at 0/30. None of the 5 rows
+    # carries the insufficiency frame the pattern requires, so the pattern
+    # does not in fact match any of them; the overlap is lexical only.
+    "safe": 5,
 }
+
+#: Gate literals of 2-3 characters, which ``_gate_terms`` cannot see:
+#: ``harm_normalization._REGEX_LITERAL_WORD_RE`` is ``[a-z]{4,}``, so the
+#: ratchet's overlap scan has a floor. Measured on this branch: 383 such
+#: literals exist across the Axis-B patterns and 23 of them occur as whole
+#: words in the held-out slice.
+#:
+#: That floor is a deliberate signal-to-noise choice, not a hole to close, and
+#: the measurement is what settles it: every one of the 23 is regex
+#: scaffolding or a function word (``for`` 91 rows, ``to`` 84, ``the`` 53,
+#: ``how`` 52, ``way`` 8), none is hazard vocabulary, and the hazard
+#: discrimination in every pattern that contains them comes from a 4+
+#: character token (a production verb, an agent name). Lowering the threshold
+#: would bury the terms a reviewer must actually justify under function words,
+#: and ``_REGEX_LITERAL_WORD_RE`` is additionally the segmentation vocabulary
+#: the obfuscation normalizer is built from, so lowering it there would change
+#: matching behaviour well outside this control.
+#:
+#: Pinned so the cost of the floor stays visible and cannot grow unnoticed.
+SHORT_LITERAL_FLOOR = 4
+MEASURED_SHORT_GATE_LITERALS = 383
+MEASURED_SHORT_LITERALS_IN_SLICE = 23
 
 #: Hazard vocabulary pre-dating the slice, which unavoidably occurs in a
 #: hazard corpus. Not a leak; recorded so the ratchet can exclude it.
@@ -339,6 +374,64 @@ class TestLexiconCorpusOverlap:
                 f"{term!r} now matches {total} rows ({benign} benign); "
                 f"recorded ({pinned_total}, {pinned_benign})"
             )
+
+    def test_the_scans_short_literal_floor_is_measured_not_assumed(
+        self, corpus: list[AdversarialRow]
+    ) -> None:
+        """The overlap scan has a 4-character floor; this measures what it costs.
+
+        ``_gate_terms`` extracts literals with ``_REGEX_LITERAL_WORD_RE``
+        (``[a-z]{4,}``), so a 2-3 character gate literal is invisible to the
+        ratchet no matter how often it occurs in the slice. That was unmeasured.
+
+        The measurement is also the justification for leaving the floor alone:
+        the short literals that overlap are function words, not hazard
+        vocabulary. The assertion is therefore two-sided -- the count may not
+        grow unnoticed, and no short literal may be a hazard term.
+        """
+        import re as _re
+
+        from omni_mercury_engine.cognitive import ethical_bounding as eb
+        from omni_mercury_engine.cognitive.harm_normalization import _REGEX_ESCAPE_RE
+
+        short_re = _re.compile(rf"[a-z]{{2,{SHORT_LITERAL_FLOOR - 1}}}")
+        sources = (
+            [pat.pattern for pat, _tier, _label in eb._OFFENSIVE_INTENT_PATTERNS]
+            + [pat.pattern for pat, _tier, _label in eb._ALLOW_INTENT_PATTERNS]
+            + [eb._DEFENSIVE_PRODUCTION_RE.pattern]
+        )
+        short: set[str] = set()
+        for source in sources:
+            short.update(short_re.findall(_REGEX_ESCAPE_RE.sub(" ", source.lower())))
+        assert len(short) == MEASURED_SHORT_GATE_LITERALS, (
+            f"{len(short)} short gate literals, recorded "
+            f"{MEASURED_SHORT_GATE_LITERALS}; the ratchet cannot see any of "
+            "them, so a change here must be deliberate"
+        )
+
+        texts = [r.text.lower() for r in corpus]
+        overlapping = {
+            term
+            for term in short
+            if any(_re.search(rf"\b{_re.escape(term)}\b", text) for text in texts)
+        }
+        assert len(overlapping) == MEASURED_SHORT_LITERALS_IN_SLICE, (
+            f"short literals overlapping the slice: {len(overlapping)} "
+            f"(recorded {MEASURED_SHORT_LITERALS_IN_SLICE}): {sorted(overlapping)}"
+        )
+
+        # The floor is only defensible while what it hides is scaffolding. Any
+        # Axis-A hazard term short enough to slip under it would be a real
+        # leak, so that is asserted rather than assumed.
+        hazard_terms = {t.lower() for t in eb._HAZARD_CONTEXT_ANCHORS} | {
+            t.lower() for keywords in eb._HAZARD_DOMAIN_KEYWORDS.values() for t in keywords
+        }
+        leaked = overlapping & hazard_terms
+        assert not leaked, (
+            f"a hazard term is short enough to be invisible to the overlap "
+            f"scan and occurs in the held-out slice: {sorted(leaked)}. The "
+            "4-character floor is only acceptable while it hides scaffolding."
+        )
 
     def test_no_undeclared_gate_term_overlaps_the_held_out_slice(
         self, corpus: list[AdversarialRow]

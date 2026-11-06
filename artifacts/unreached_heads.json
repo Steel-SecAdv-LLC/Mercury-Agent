@@ -1,0 +1,175 @@
+{
+  "detectors": [
+    "adaptive_anomaly",
+    "info_geometry",
+    "spatial",
+    "directive",
+    "realtime_threat"
+  ],
+  "per_cell": {
+    "breastw/s0": {
+      "best_single_on_train": 0.9888806523350631,
+      "coordinator.Bayesian": 0.9678068410462777,
+      "coordinator.Gradient": 0.9476861167002012,
+      "ensemble.MetaLearner": 0.9888806523350631,
+      "ensemble.VotingEnsemble": 0.8458646616541353,
+      "plain_mean (baseline)": 0.9474743196018215
+    },
+    "breastw/s1": {
+      "best_single_on_train": 0.9844329132690882,
+      "coordinator.Bayesian": 0.9619824208408345,
+      "coordinator.Gradient": 0.9409086095520491,
+      "ensemble.MetaLearner": 0.9890924494334428,
+      "ensemble.VotingEnsemble": 0.8458646616541353,
+      "plain_mean (baseline)": 0.9407497617282643
+    },
+    "breastw/s2": {
+      "best_single_on_train": 0.9829503335804299,
+      "coordinator.Bayesian": 0.95721698612729,
+      "coordinator.Gradient": 0.9356136820925554,
+      "ensemble.MetaLearner": 0.9392142327650111,
+      "ensemble.VotingEnsemble": 0.8388224081330086,
+      "plain_mean (baseline)": 0.9355077835433655
+    },
+    "cardio/s0": {
+      "best_single_on_train": 0.9385468362282878,
+      "coordinator.Bayesian": 0.9051256203473945,
+      "coordinator.Gradient": 0.902605459057072,
+      "ensemble.MetaLearner": 0.9515353598014888,
+      "ensemble.VotingEnsemble": 0.7782258064516129,
+      "plain_mean (baseline)": 0.902605459057072
+    },
+    "cardio/s1": {
+      "best_single_on_train": 0.9090415632754343,
+      "coordinator.Bayesian": 0.8824829404466501,
+      "coordinator.Gradient": 0.8783343672456576,
+      "ensemble.MetaLearner": 0.9226116625310173,
+      "ensemble.VotingEnsemble": 0.7913306451612904,
+      "plain_mean (baseline)": 0.8783149813895782
+    },
+    "cardio/s2": {
+      "best_single_on_train": 0.924317617866005,
+      "coordinator.Bayesian": 0.8886088709677419,
+      "coordinator.Gradient": 0.8862825682382134,
+      "ensemble.MetaLearner": 0.9688663151364765,
+      "ensemble.VotingEnsemble": 0.7872983870967742,
+      "plain_mean (baseline)": 0.8862825682382134
+    },
+    "pima_real/s0": {
+      "best_single_on_train": 0.7053333333333334,
+      "coordinator.Bayesian": 0.6869166666666666,
+      "coordinator.Gradient": 0.687,
+      "ensemble.MetaLearner": 0.7060833333333333,
+      "ensemble.VotingEnsemble": 0.6475,
+      "plain_mean (baseline)": 0.6867083333333334
+    },
+    "pima_real/s1": {
+      "best_single_on_train": 0.6650833333333334,
+      "coordinator.Bayesian": 0.6476666666666666,
+      "coordinator.Gradient": 0.64725,
+      "ensemble.MetaLearner": 0.6811666666666667,
+      "ensemble.VotingEnsemble": 0.6175,
+      "plain_mean (baseline)": 0.6473333333333333
+    },
+    "pima_real/s2": {
+      "best_single_on_train": 0.698,
+      "coordinator.Bayesian": 0.6684166666666667,
+      "coordinator.Gradient": 0.66825,
+      "ensemble.MetaLearner": 0.6679166666666667,
+      "ensemble.VotingEnsemble": 0.6504166666666666,
+      "plain_mean (baseline)": 0.668125
+    },
+    "thyroid/s0": {
+      "best_single_on_train": 0.9743124811121184,
+      "coordinator.Bayesian": 0.9591685974278903,
+      "coordinator.Gradient": 0.9592021758839528,
+      "ensemble.MetaLearner": 0.14025721097343943,
+      "ensemble.VotingEnsemble": 0.7611060743427017,
+      "plain_mean (baseline)": 0.9592021758839528
+    },
+    "thyroid/s1": {
+      "best_single_on_train": 0.9716933615392365,
+      "coordinator.Bayesian": 0.9606796279507068,
+      "coordinator.Gradient": 0.9606460494946443,
+      "ensemble.MetaLearner": 0.162418991974749,
+      "ensemble.VotingEnsemble": 0.7642792384406165,
+      "plain_mean (baseline)": 0.9606460494946443
+    },
+    "thyroid/s2": {
+      "best_single_on_train": 0.9707531647694839,
+      "coordinator.Bayesian": 0.9553742318928176,
+      "coordinator.Gradient": 0.9553070749806923,
+      "ensemble.MetaLearner": 0.12242705080420402,
+      "ensemble.VotingEnsemble": 0.7601994560290117,
+      "plain_mean (baseline)": 0.9553238642087237
+    },
+    "wbc/s0": {
+      "best_single_on_train": 1.0,
+      "coordinator.Bayesian": 1.0,
+      "coordinator.Gradient": 1.0,
+      "ensemble.MetaLearner": 0.4708994708994709,
+      "ensemble.VotingEnsemble": 0.7619047619047619,
+      "plain_mean (baseline)": 1.0
+    },
+    "wbc/s1": {
+      "best_single_on_train": 1.0,
+      "coordinator.Bayesian": 0.9841269841269841,
+      "coordinator.Gradient": 0.9894179894179894,
+      "ensemble.MetaLearner": 0.5132275132275133,
+      "ensemble.VotingEnsemble": 0.746031746031746,
+      "plain_mean (baseline)": 0.9867724867724867
+    },
+    "wbc/s2": {
+      "best_single_on_train": 1.0,
+      "coordinator.Bayesian": 0.9841269841269841,
+      "coordinator.Gradient": 0.9841269841269841,
+      "ensemble.MetaLearner": 0.2222222222222222,
+      "ensemble.VotingEnsemble": 0.7698412698412699,
+      "plain_mean (baseline)": 0.9841269841269841
+    }
+  },
+  "summary": {
+    "best_single_on_train": {
+      "cells_beating_plain_mean": 14,
+      "delta_vs_plain_mean": 0.02494483266200276,
+      "mean_auroc": 0.9142230393761209,
+      "n_cells": 15,
+      "ran": true
+    },
+    "coordinator.Bayesian": {
+      "cells_beating_plain_mean": 11,
+      "delta_vs_plain_mean": 0.004701800305986659,
+      "mean_auroc": 0.8939800070201048,
+      "n_cells": 15,
+      "ran": true
+    },
+    "coordinator.Gradient": {
+      "cells_beating_plain_mean": 7,
+      "delta_vs_plain_mean": 0.00023053173854914455,
+      "mean_auroc": 0.8895087384526673,
+      "n_cells": 15,
+      "ran": true
+    },
+    "ensemble.MetaLearner": {
+      "cells_beating_plain_mean": 8,
+      "delta_vs_plain_mean": -0.2594902201294006,
+      "mean_auroc": 0.6297879865847176,
+      "n_cells": 15,
+      "ran": true
+    },
+    "ensemble.VotingEnsemble": {
+      "cells_beating_plain_mean": 0,
+      "delta_vs_plain_mean": -0.13153248782026927,
+      "mean_auroc": 0.7577457188938489,
+      "n_cells": 15,
+      "ran": true
+    },
+    "plain_mean (baseline)": {
+      "cells_beating_plain_mean": 0,
+      "delta_vs_plain_mean": 0.0,
+      "mean_auroc": 0.8892782067141182,
+      "n_cells": 15,
+      "ran": true
+    }
+  }
+}

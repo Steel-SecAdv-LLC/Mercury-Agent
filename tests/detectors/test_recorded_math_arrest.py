@@ -50,10 +50,23 @@ SEEDS = (0, 1, 2)
 TOLERANCE = 0.03
 
 #: weighting -> (mean NAB AUROC, mean ADBench AUROC) of the 21-probe "all" preset.
+#:
+#: Re-measured 2026-11-05, when the shared normalizer stopped rescaling every
+#: call by the scored array's own 99th percentile and began carrying the
+#: fit-time scale (``BaseEquationProbe._normalize_scores``). The previous
+#: figures were ``uniform`` (0.7581, 0.6826), ``confidence`` (0.7277, 0.6686)
+#: and ``phi_affinity`` (0.6519, 0.5423).
+#:
+#: The movement is small on ``uniform`` and ``confidence`` and *upward* on
+#: ``phi_affinity``, which narrows the gap the default rests on from 0.1062 to
+#: 0.0752 on NAB. It stays decisive on both corpora, and the reason for the
+#: repair is not a ranking figure at all: the released normalizer left the
+#: alarm rate a function of the caller's batch size (0.052 whole-series to
+#: 0.461 at 32-point batches, against a cut promising alpha = 0.05).
 MEASURED: dict[str, tuple[float, float]] = {
-    "uniform": (0.7581, 0.6826),
-    "confidence": (0.7277, 0.6686),
-    "phi_affinity": (0.6519, 0.5423),
+    "uniform": (0.7494, 0.6763),
+    "confidence": (0.7201, 0.6578),
+    "phi_affinity": (0.6742, 0.5364),
 }
 
 #: Per-probe mean NAB AUROC, the evidence the weighting finding rests on. Only
@@ -189,13 +202,41 @@ def test_the_default_weighting_is_the_measured_best(
 ) -> None:
     """``uniform`` is the default and beats the released prior on both corpora.
 
-    Not a tie-break: +0.13 AUC on each, far outside the 0.03 tolerance.
+    Not a tie-break: +0.0751 NAB and +0.1399 ADBench, both far outside the
+    0.03 pin tolerance.
+
+    This assertion used to be one global ``+ 0.08`` applied to both corpora.
+    That value is **unsatisfiable on the true measurement**: the NAB gap is
+    0.0751, so the floor sat above the quantity it was gating, and it only
+    ever passed because the released normalizer's per-call p99 inflated
+    ``uniform``. Replacing the defect with the fit-time scale on 2026-11-05
+    moved ``uniform`` down 0.009 and ``phi_affinity`` up 0.022 on NAB,
+    narrowing the real gap from 0.1062 to 0.0751.
+
+    One global floor is also the wrong shape, because it is pinned to
+    whichever corpus is tightest and leaves the other unguarded: at 0.05 the
+    ADBench side carried 0.0899 of unused slack and would have accepted a
+    0.09 collapse in silence. The floors below are therefore **per corpus**
+    and set just under each measured gap, which the fixture supports because
+    both corpora are recorded and the sweep is deterministic -- two
+    consecutive runs agree to every printed digit (0.075126 / 0.139926).
+    Each floor keeps roughly 0.005 for cross-platform BLAS variation and
+    nothing more, so a real convergence of the two weightings fails here
+    instead of being absorbed.
     """
     assert AnomalyMathArrest()._fusion.weighting == "uniform"
     assert PhiWeightedFusion().weighting == "uniform"
-    for corpus in (0, 1):
-        assert measured["uniform"][corpus] > measured["phi_affinity"][corpus] + 0.08
-        assert measured["uniform"][corpus] >= measured["confidence"][corpus]
+    for corpus, name in ((0, "NAB"), (1, "ADBench")):
+        phi_gap = measured["uniform"][corpus] - measured["phi_affinity"][corpus]
+        assert phi_gap >= MIN_UNIFORM_OVER_PHI[corpus], (
+            f"{name}: uniform leads phi_affinity by {phi_gap:.4f}, under the "
+            f"{MIN_UNIFORM_OVER_PHI[corpus]:.3f} floor"
+        )
+        conf_gap = measured["uniform"][corpus] - measured["confidence"][corpus]
+        assert conf_gap >= MIN_UNIFORM_OVER_CONFIDENCE[corpus], (
+            f"{name}: uniform leads confidence by {conf_gap:.4f}, under the "
+            f"{MIN_UNIFORM_OVER_CONFIDENCE[corpus]:.3f} floor"
+        )
 
 
 def test_the_released_prior_is_still_reachable_and_unchanged(
@@ -421,3 +462,152 @@ def test_the_detector_seam_serves_the_instrument() -> None:
     spiked = train.copy()
     spiked[200:206] += 9.0
     assert bool(detector.detect(spiked)["is_anomaly"][200:215].any())
+
+
+#: Caller batch sizes the alarm rate must not depend on, and the spread it may
+#: not exceed across them. Measured on 7dd10e16, before the normalizer carried
+#: the fit-time scale, the same sweep ran 0.0520 -> 0.4612 on
+#: ``realAWSCloudwatch`` -- a spread of 0.41 against a cut promising 0.05.
+#: Per-corpus floors on ``uniform``'s lead over the other two weightings,
+#: indexed (NAB, ADBench) to match ``MEASURED``. Set just under the measured
+#: gaps -- uniform over phi_affinity 0.075126 / 0.139926, uniform over
+#: confidence 0.029283 / 0.018507 -- leaving only enough room for
+#: cross-platform floating-point variation. ``uniform`` over ``confidence``
+#: was previously a bare ``>=``, which would have accepted the entire 0.029
+#: NAB lead eroding to zero without failing.
+MIN_UNIFORM_OVER_PHI = (0.070, 0.134)
+MIN_UNIFORM_OVER_CONFIDENCE = (0.024, 0.013)
+
+BATCH_SIZES = (None, 256, 128, 64, 32)
+MAX_ALARM_RATE_SPREAD = 0.02
+
+
+@pytest.mark.parametrize("file_index", (0, 1))
+def test_the_alarm_rate_does_not_depend_on_the_callers_batch_size(file_index: int) -> None:
+    """The conformal promise is about the data, not about how it is chunked.
+
+    ``_normalize_scores`` divided by the 99th percentile of the array being
+    scored, so a quiet batch's deviations were stretched to fill ``[0, 1]``
+    exactly as a violent batch's were. Within one call that is a monotone
+    transform and changes no ranking, which is why every AUROC measurement in
+    this module was blind to it; across calls it meant a score had no fixed
+    meaning, and the alarm rate -- which compares an absolute score against a
+    fixed cut -- tracked the caller's chunking instead of the data.
+
+    Measured before the repair, on ``realAWSCloudwatch``: 0.0520 scoring the
+    held-out series whole, then 0.1769 / 0.2176 / 0.3037 / 0.4612 at 256 / 128
+    / 64 / 32-point batches. A streaming caller received a 46% false-alarm rate
+    from a detector promising 5%.
+
+    This is the pin for the property, not for the numbers: the rate must be
+    stable across chunkings and must honour alpha. It is the regression guard
+    the repair needs, because nothing else in the suite can see the defect.
+    """
+    from omni_mercury_engine.detectors.math_arrest.detector import MathArrestDetector
+
+    series = nab_corpus()[file_index]
+    split = series.n_probation
+    detector = MathArrestDetector()
+    detector.fit(series.values[:split])
+    held_out = series.values[split:]
+
+    rates = []
+    for batch in BATCH_SIZES:
+        size = len(held_out) if batch is None else batch
+        flags = [
+            np.asarray(detector.detect(held_out[i : i + size])["is_anomaly"], dtype=bool)
+            for i in range(0, len(held_out), size)
+            if len(held_out[i : i + size]) >= 8
+        ]
+        rates.append(float(np.concatenate(flags).mean()))
+
+    spread = max(rates) - min(rates)
+    assert spread <= MAX_ALARM_RATE_SPREAD, (
+        f"{series.name}: alarm rate spans {spread:.4f} across batch sizes "
+        f"{BATCH_SIZES} ({[round(r, 4) for r in rates]}); the conformal cut "
+        "must bound the rate regardless of how the caller chunks its input"
+    )
+    assert max(rates) <= MathArrestDetector.CALIBRATION_ALPHA, (
+        f"{series.name}: worst batched alarm rate {max(rates):.4f} exceeds the "
+        f"promised alpha {MathArrestDetector.CALIBRATION_ALPHA}"
+    )
+
+
+#: Probes whose scores for a window do not depend on what else was in the call.
+#:
+#: Measured 2026-11-05, after the normalizer began carrying the fit-time scale:
+#: 7 of the 21 are now exactly batch-invariant. The other 14 are not, and that
+#: is a different thing from the defect the normalizer carried.
+#:
+#: The normalizer's batch dependence was **spurious**: dividing by the scored
+#: array's own 99th percentile is a pure rescaling with no modelling content,
+#: and it applied to all 21. What remains is **intrinsic** to what the
+#: remaining probes measure -- a Lyapunov exponent, a harmonic fit, a fractal
+#: dimension or a re-anchored trend over a 64-point window is genuinely a
+#: different quantity from the same statistic over a 1000-point series, and
+#: ``AdditiveProbe``'s per-window re-anchoring is a documented, deliberate
+#: repair (see its ``deviation_score``). Measured residuals, alone versus
+#: in-context on a 64-point window: lyapunov_chaos 0.965, harmonic_oscillator
+#: 0.911, additive 0.900, fractal_self_similarity 0.884, variance_adapted
+#: 0.339, helix_multiplicative 0.226, then nine probes below 0.08.
+#:
+#: So the detector is *not* claimed to be score-invariant across batchings.
+#: What is claimed, and pinned above, is that its **alarm rate** is bounded and
+#: stable across them, which is what the conformal cut promises. This set is
+#: the regression guard for the part the repair did make exact.
+BATCH_INVARIANT_PROBES = frozenset(
+    {
+        "zeta_harmonic",
+        "r3_recursion_resonance",
+        "quantum_superposition",
+        "quantum_annealing",
+        "modified_zscore",
+        "iqr_robust",
+        "ethical_constrained",
+    }
+)
+
+
+def test_the_batch_invariant_probes_stay_exactly_batch_invariant() -> None:
+    """The part of the repair that is exact, pinned as exact.
+
+    Before the normalizer carried the fit-time scale, **no** probe was
+    batch-invariant: every one was rescaled by the 99th percentile of whatever
+    array it was handed, so the same window scored alone and in context
+    differed by up to 0.2288 on the fused score, and the installed cut then
+    flagged 28.1% of that window's points against 1.6% in context.
+
+    These seven are now bit-identical either way. If one leaves this set, a
+    window-local statistic has been introduced into a probe that did not have
+    one, which is the change worth catching.
+    """
+    series = nab_corpus()[0]
+    split = series.n_probation
+    arrest = AnomalyMathArrest(weighting="uniform")
+    arrest.fit(series.values[:split])
+    held_out = series.values[split:]
+
+    width, index = 64, 3
+    start = index * width
+    in_context = arrest.per_probe_scores(held_out)
+    alone = arrest.per_probe_scores(held_out[start : start + width])
+
+    measured_invariant = set()
+    for name, context_column in in_context.items():
+        if name not in alone:
+            continue
+        context_slice = np.asarray(context_column, dtype=float)[start : start + width]
+        alone_slice = np.asarray(alone[name], dtype=float)[:width]
+        count = min(len(context_slice), len(alone_slice))
+        if count == 0:
+            continue
+        if np.abs(context_slice[:count] - alone_slice[:count]).max() <= 1e-9:
+            measured_invariant.add(name)
+
+    assert measured_invariant == set(BATCH_INVARIANT_PROBES), (
+        "the set of batch-invariant probes changed: gained "
+        f"{sorted(measured_invariant - BATCH_INVARIANT_PROBES)}, lost "
+        f"{sorted(set(BATCH_INVARIANT_PROBES) - measured_invariant)}. A probe "
+        "leaving the set has acquired a window-local statistic; one joining it "
+        "has lost one. Either is a real change -- record it."
+    )

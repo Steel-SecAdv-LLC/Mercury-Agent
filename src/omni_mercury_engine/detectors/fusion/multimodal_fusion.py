@@ -2,21 +2,48 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Multi-Modal Fusion Optimizer for VLM + Visual Detector Ensemble.
 
-Provides intelligent fusion of features from:
-- Vision-Language Models (semantic understanding, zero-shot detection)
-- Visual Anomaly Detectors (pixel-level precision, trained representations)
+**Unmeasured, and reached by no serving path.** No module in ``src/`` consumes
+this optimizer -- only test modules import it -- and it has never been scored
+against labelled data in this repository. It is recorded as such in
+``docs/DORMANCY_LEDGER.md`` §2b, and nothing below is a validated capability.
 
-Fusion strategies:
+The mechanisms are implemented; what is absent is evidence that fusing these
+two modalities beats either alone. The list below is therefore what the module
+*does*, not what it is known to achieve. It previously read "Key innovations",
+which is a claim about outcomes, and that framing is removed rather than
+softened: an unmeasured mechanism described as an innovation is the
+interface-equals-signal error this repository's dormancy policy exists to catch.
+
+Fusion strategies implemented:
 - Feature-level: Concatenate and project features
 - Score-level: Weighted combination of anomaly scores
 - Decision-level: Ensemble voting with confidence weighting
 - Attention-based: Learn cross-modal attention weights
 
-Key innovations:
-- Adaptive weighting based on input characteristics
-- Uncertainty-aware fusion (higher weight to confident predictions)
-- Domain-specific calibration
-- Complementary fusion (VLM for semantics, Visual for localization)
+Mechanisms implemented, none of them measured:
+- Adaptive weighting driven by input characteristics
+- Confidence-scaled fusion (nominally higher weight to confident predictions)
+- Per-domain calibration hooks
+- Complementary routing (VLM for semantics, visual detector for localization)
+
+**What a real measurement needs, and why it is not made here.** Two things are
+missing, and they are missing for different reasons:
+
+1. *A VLM backend.* The semantic arm requires a served vision-language model.
+   None of ``transformers``, ``open_clip`` or ``clip`` is in the default
+   dependency graph, so the arm cannot be exercised at all in a default
+   install -- it is not a tuning gap but an absent input.
+2. *An anomaly-labelled visual corpus.* ``tests/fixtures/visual`` holds four
+   CC0 photographs, recorded for determinism and seam checks, not for scoring:
+   there are no anomaly labels on them. ``benchmarks/mvtec_visual_benchmark.py``
+   names the corpus a real evaluation would use, and it is not vendored.
+
+Until both exist, the only defensible statement is the one at the top of this
+docstring. The bar it would then have to clear is the same one applied to the
+other unreached fusion heads in §2c: beat the plain mean of the same real
+per-modality scores first, and then out-separate the engine's own trained
+fusion, which §8 established as the baseline a fusion head must beat rather
+than merely join.
 """
 
 from __future__ import annotations
