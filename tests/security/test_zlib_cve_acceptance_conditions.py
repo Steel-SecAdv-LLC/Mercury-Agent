@@ -91,8 +91,11 @@ def test_ledger_carries_the_zlib_acceptance_with_an_expiry() -> None:
     """The acceptance exists and is dated, so the gate re-opens on expiry."""
     entries = _ledger_entries()
     assert _ACCEPTED in entries, (
-        f"{_ACCEPTED} is not an active ledger entry; if the finding was "
-        "remediated rather than accepted, delete this module with the entry"
+        f"{_ACCEPTED} is not an active ledger entry, so this module is "
+        "asserting conditions for an acceptance that is not in force. "
+        "Either the entry was removed because the finding was remediated, "
+        "or the ledger drifted; the two call for opposite responses and "
+        "the record does not say which happened"
     )
     raw = entries[_ACCEPTED]
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw), (
@@ -112,10 +115,11 @@ def test_ledger_carries_the_zlib_acceptance_with_an_expiry() -> None:
     # too surfaces the re-review in the fast test lane rather than only in the
     # image-scan lane, which runs later and costs a container build.
     assert expiry >= date.today(), (
-        f"the {_ACCEPTED} acceptance expired on {expiry}. Re-review it: "
-        "confirm the Debian trixie fix status, re-measure whether the "
-        "package is still irreducible, and either renew the entry with "
-        "fresh evidence or remove it together with this module"
+        f"the {_ACCEPTED} acceptance expired on {expiry}. The ledger's "
+        "90-day cadence has lapsed, so two facts the acceptance rests on "
+        "are now unverified: Debian's trixie fix status, and whether "
+        "zlib1g is still irreducible. Both were last confirmed on the "
+        "date the entry was written"
     )
 
 
