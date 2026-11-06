@@ -99,6 +99,25 @@ CANDIDATES: dict[str, Callable[[np.ndarray[Any, Any]], float]] = {
     "p75_15iqr": lambda r: float(
         np.percentile(r, 75) + 1.5 * (np.percentile(r, 75) - np.percentile(r, 25))
     ),
+    # Round 2, added 2026-11-06 against the SAME bar (unchanged): the first
+    # sweep refused p75_15iqr on one file's batch spread while it improved
+    # every headline figure, so these interpolate between it and the shipped
+    # p99 looking for a scale that keeps the batch invariance the repair
+    # bought. A larger scale damps the alarm rate's batch sensitivity.
+    "p75_30iqr": lambda r: float(
+        np.percentile(r, 75) + 3.0 * (np.percentile(r, 75) - np.percentile(r, 25))
+    ),
+    "max_p99_iqr": lambda r: float(
+        max(
+            np.percentile(r, 99),
+            np.percentile(r, 75) + 1.5 * (np.percentile(r, 75) - np.percentile(r, 25)),
+        )
+    ),
+    "mean_p99_iqr": lambda r: float(
+        0.5 * np.percentile(r, 99)
+        + 0.5 * (np.percentile(r, 75) + 1.5 * (np.percentile(r, 75) - np.percentile(r, 25)))
+    ),
+    "p90": lambda r: float(np.percentile(r, 90)),
 }
 
 

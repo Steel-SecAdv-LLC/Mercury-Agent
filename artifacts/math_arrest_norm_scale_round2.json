@@ -1,0 +1,114 @@
+{
+  "adopted": [],
+  "bar": {
+    "alpha": 0.05,
+    "max_alarm_rate_spread": 0.02,
+    "max_auroc_loss": 0.002,
+    "min_nab_gain": 2.0
+  },
+  "candidates": [
+    {
+      "adopt": false,
+      "alarm_rate_spreads": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.0028382213812677397,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.0022935779816513763,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.011875,
+        "realTraffic/speed_7578.csv": 0.01670146137787057
+      },
+      "candidate": "p75_30iqr",
+      "false_alarm_rates": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.010741138560687433,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.0025974025974025974,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.02269503546099291,
+        "realTraffic/speed_7578.csv": 0.055819477434679333
+      },
+      "max_alarm_rate_spread": 0.01670146137787057,
+      "max_false_alarm_rate": 0.055819477434679333,
+      "mean_auroc": 0.7741589706161166,
+      "mean_false_alarm_rate": 0.022963263513440565,
+      "nab_score": 31.127298912437038,
+      "reasons_against": [
+        "NAB gain -2.54 < +2.00",
+        "false-alarm rate 0.0558 > alpha 0.05"
+      ]
+    },
+    {
+      "adopt": false,
+      "alarm_rate_spreads": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.0028319500587712506,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.005351681957186546,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.005625,
+        "realTraffic/speed_7578.csv": 0.010438413361169102
+      },
+      "candidate": "max_p99_iqr",
+      "false_alarm_rates": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.010741138560687433,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.0017316017316017316,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.016312056737588652,
+        "realTraffic/speed_7578.csv": 0.04513064133016627
+      },
+      "max_alarm_rate_spread": 0.010438413361169102,
+      "max_false_alarm_rate": 0.04513064133016627,
+      "mean_auroc": 0.7561399819212049,
+      "mean_false_alarm_rate": 0.01847885959001102,
+      "nab_score": 31.192603945099776,
+      "reasons_against": [
+        "NAB gain -2.48 < +2.00"
+      ]
+    },
+    {
+      "adopt": false,
+      "alarm_rate_spreads": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.0037789197557409476,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.0030581039755351695,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.010624999999999999,
+        "realTraffic/speed_7578.csv": 0.0093945720250522
+      },
+      "candidate": "mean_p99_iqr",
+      "false_alarm_rates": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.00966702470461869,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.0017316017316017316,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.02198581560283688,
+        "realTraffic/speed_7578.csv": 0.048693586698337295
+      },
+      "max_alarm_rate_spread": 0.010624999999999999,
+      "max_false_alarm_rate": 0.048693586698337295,
+      "mean_auroc": 0.7542584329069444,
+      "mean_false_alarm_rate": 0.020519507184348647,
+      "nab_score": 35.09953091247154,
+      "reasons_against": [
+        "NAB gain +1.43 < +2.00"
+      ]
+    },
+    {
+      "adopt": false,
+      "alarm_rate_spreads": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.0037789197557409476,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.0007645259938837932,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.014374999999999999,
+        "realTraffic/speed_7578.csv": 0.03757828810020877
+      },
+      "candidate": "p90",
+      "false_alarm_rates": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.00966702470461869,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.0008658008658008658,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.01773049645390071,
+        "realTraffic/speed_7578.csv": 0.03800475059382423
+      },
+      "max_alarm_rate_spread": 0.03757828810020877,
+      "max_false_alarm_rate": 0.03800475059382423,
+      "mean_auroc": 0.745573641045689,
+      "mean_false_alarm_rate": 0.016567018154536123,
+      "nab_score": 43.203908801041585,
+      "reasons_against": [
+        "AUROC loss +0.0038 > 0.0020",
+        "batch spread 0.0376 > 0.02"
+      ]
+    }
+  ],
+  "shipped": {
+    "auroc": 0.7494,
+    "nab": 33.67,
+    "scale": "p99"
+  }
+}
