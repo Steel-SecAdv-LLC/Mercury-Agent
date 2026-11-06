@@ -32,6 +32,16 @@ the upgrade notes from 2.0.0 — the AGPL-3.0-or-later relicense and every
 renamed or removed 2.0.0 name — are summarised where this section's earlier
 entries introduce them and in DEPRECATION.md §6.6-§6.15 and §7.
 
+**Security — three newly published container CVEs accepted on verified conditions, and a gap in how CI greenness was read.** Hours after #399 merged, the `Security` workflow on `main` failed `Container Security Scan (Trivy)` against an unchanged Dockerfile: the vulnerability DB had published `CVE-2026-119374` (arbitrary code execution via a corrupted FTS5 index) and `CVE-2026-119379` (via crafted session changesets) against `libsqlite3-0`, and `CVE-2026-85091` (heap overflow in `gz_vacate()`) against `zlib1g`.
+
+The surfacing matters as much as the finding. `main`'s commit check-runs read **58/58 green with zero failures** at the time, because the failing run belonged to a workflow run not attached to that commit's check list. A commit-level green is therefore not evidence that `main` is green, and anything that claims to verify branch health has to enumerate workflow runs, not commit checks.
+
+All three are `vulnerable` in bookworm, trixie **and forky** on the Debian tracker with only sid fixed, so no trixie upgrade exists; and the measurement already recorded for `CVE-2026-76844` applies unchanged, since a release-13 advisory carrying no fixed version makes Trivy mark every installed version `affected`. `libsqlite3-0` backs CPython's `_sqlite3` and `libz.so.1` is in the CPython interpreter binary's own NEEDED list, so neither package is removable.
+
+Reachability was established per CVE rather than inherited. The FTS5 finding rests on Mercury building no FTS table, the same condition already enforced for `CVE-2026-119373`. The session-changeset finding rests on CPython's `sqlite3` wrapping no part of the session extension — no session, changeset, patchset or rebaser API, and no session attribute on `Connection` — and deliberately **not** on `SQLITE_ENABLE_SESSION` being absent from `pragma compile_options`, which is a property of whichever libsqlite3 the interpreter links and so differs between the image and a developer's host. The `gz_vacate` finding needed no new argument at all: it is a second flaw in the same `gz*` stream API, and `gz_vacate` was already one of the function names the existing acceptance test's detector matched. `tests/security/test_sqlite_cve_acceptance_conditions.py` gains three session-extension tests including a vacuity guard, and both acceptance modules now cover every CVE they speak for.
+
+Reproduced with the CI-pinned trivy 0.70.0 against a Debian 13.7 dpkg manifest at the exact versions CI reported: all five findings appear without the ledger, the three new entries clear the gate, and removing any one of them fails it again. One correction worth recording — the first local run reported only the two older CVEs, because the Trivy DB in this container predated the publications; the verification above is from a refreshed DB, and a stale scanner DB reads exactly like a clean scan.
+
 **Added — the 21-probe math-arrest ensemble is reachable, measured and
 repaired.** `AnomalyMathArrest` (21 equation probes: Hankel delay-embedding /
 SVD trajectory, chaos, harmonic, wave, momentum, energy, robust location) was

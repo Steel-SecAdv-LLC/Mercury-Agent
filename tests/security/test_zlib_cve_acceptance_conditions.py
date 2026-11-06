@@ -48,7 +48,13 @@ _REPO = Path(__file__).resolve().parents[2]
 _LEDGER = _REPO / ".trivyignore"
 
 #: The accepted finding this module guards.
-_ACCEPTED = "CVE-2026-76844"
+#: Both accepted zlib findings live in the same ``gz*`` stream API, so one
+#: set of reachability conditions covers both. CVE-2026-76844 is the
+#: ``gz_write()`` stale-``next_in`` overflow; CVE-2026-85091 is a distinct
+#: overflow in ``gz_vacate()``, published 2026-11-06.
+_ACCEPTED = ("CVE-2026-76844", "CVE-2026-85091")
+#: Rendered into failure messages, where a bare tuple reads badly.
+_ACCEPTED_TEXT = " and ".join(_ACCEPTED)
 
 #: zlib's FILE-based streaming API, whose ``gz_write()`` carries the overflow.
 #: ``gz_vacate`` is CVE-2026-85091's function, adjacent and listed in the
@@ -87,40 +93,41 @@ def _ledger_entries() -> dict[str, str]:
     return entries
 
 
-def test_ledger_carries_the_zlib_acceptance_with_an_expiry() -> None:
+def test_ledger_carries_both_zlib_acceptances_with_an_expiry() -> None:
     """The acceptance exists and is dated, so the gate re-opens on expiry."""
     entries = _ledger_entries()
-    assert _ACCEPTED in entries, (
-        f"{_ACCEPTED} is not an active ledger entry, so this module is "
-        "asserting conditions for an acceptance that is not in force. "
-        "Either the entry was removed because the finding was remediated, "
-        "or the ledger drifted; the two call for opposite responses and "
-        "the record does not say which happened"
-    )
-    raw = entries[_ACCEPTED]
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw), (
-        f"{_ACCEPTED} carries no exp: date ({raw!r}); an undated acceptance "
-        "is a permanent waiver, which this ledger does not allow"
-    )
-    # A real calendar date, not merely a well-shaped one: "2027-02-30" would
-    # satisfy the pattern above and silently never expire.
-    try:
-        expiry = date.fromisoformat(raw)
-    except ValueError as exc:  # pragma: no cover - guards a typo, not a path
-        raise AssertionError(
-            f"{_ACCEPTED} carries {raw!r}, which is not a real calendar date, "
-            f"so the acceptance would never expire: {exc}"
-        ) from exc
-    # Trivy fails the container gate once an entry expires. Asserting it here
-    # too surfaces the re-review in the fast test lane rather than only in the
-    # image-scan lane, which runs later and costs a container build.
-    assert expiry >= date.today(), (
-        f"the {_ACCEPTED} acceptance expired on {expiry}. The ledger's "
-        "90-day cadence has lapsed, so two facts the acceptance rests on "
-        "are now unverified: Debian's trixie fix status, and whether "
-        "zlib1g is still irreducible. Both were last confirmed on the "
-        "date the entry was written"
-    )
+    for cve in _ACCEPTED:
+        assert cve in entries, (
+            f"{cve} is not an active ledger entry, so this module is "
+            "asserting conditions for an acceptance that is not in force. "
+            "Either the entry was removed because the finding was remediated, "
+            "or the ledger drifted; the two call for opposite responses and "
+            "the record does not say which happened"
+        )
+        raw = entries[cve]
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw), (
+            f"{cve} carries no exp: date ({raw!r}); an undated acceptance "
+            "is a permanent waiver, which this ledger does not allow"
+        )
+        # A real calendar date, not merely a well-shaped one: "2027-02-30" would
+        # satisfy the pattern above and silently never expire.
+        try:
+            expiry = date.fromisoformat(raw)
+        except ValueError as exc:  # pragma: no cover - guards a typo
+            raise AssertionError(
+                f"{cve} carries {raw!r}, which is not a real calendar date, "
+                f"so the acceptance would never expire: {exc}"
+            ) from exc
+        # Trivy fails the container gate once an entry expires. Asserting it here
+        # too surfaces the re-review in the fast test lane rather than only in the
+        # image-scan lane, which runs later and costs a container build.
+        assert expiry >= date.today(), (
+            f"the {cve} acceptance expired on {expiry}. The ledger's "
+            "90-day cadence has lapsed, so two facts the acceptance rests on "
+            "are now unverified: Debian's trixie fix status, and whether "
+            "zlib1g is still irreducible. Both were last confirmed on the "
+            "date the entry was written"
+        )
 
 
 def test_python_does_not_surface_zlibs_gz_file_api() -> None:
@@ -134,7 +141,7 @@ def test_python_does_not_surface_zlibs_gz_file_api() -> None:
     surfaced = sorted(name for name in dir(zlib) if name.lower().startswith("gz"))
     assert surfaced == [], (
         f"the zlib extension now exposes {surfaced}, so zlib's gz* FILE API is "
-        f"reachable from Python and {_ACCEPTED}'s acceptance no longer holds"
+        f"reachable from Python and the acceptance of {_ACCEPTED_TEXT} no longer holds"
     )
     combine = sorted(name for name in dir(zlib) if "combine" in name.lower())
     assert combine == [], (
@@ -157,7 +164,7 @@ def test_gzip_builds_its_container_over_compressobj_not_the_gz_api() -> None:
     assert "compressobj" in source, "gzip no longer uses zlib.compressobj; re-derive the premise"
     assert not _GZ_CALL.search(source), (
         "the stdlib gzip module now calls zlib's gz* API directly, so the "
-        f"vulnerable layer is reachable through ordinary use and {_ACCEPTED} "
+        f"vulnerable layer is reachable through ordinary use and {_ACCEPTED_TEXT} "
         "must be re-reviewed"
     )
 
@@ -177,7 +184,7 @@ def test_no_first_party_source_reaches_zlibs_gz_layer() -> None:
                 offenders.append(str(path.relative_to(_REPO)))
     assert offenders == [], (
         "first-party source now reaches zlib's gz* layer or loads libz through "
-        f"FFI, so {_ACCEPTED} is no longer unreachable and its ledger entry "
+        f"FFI, so {_ACCEPTED_TEXT} is no longer unreachable and the ledger entries "
         f"must be re-reviewed: {sorted(offenders)}"
     )
 
