@@ -159,9 +159,18 @@ class BaseEquationProbe(ABC):
         batch's deviations were stretched to fill ``[0, 1]`` exactly as a violent
         batch's were, so the absolute value carried no information about how
         anomalous the batch was -- only about a point's rank *within its batch*.
-        Within one call the ranking is the same either way, which is why the
-        AUROC figures are unaffected, and it is also why the defect was
-        invisible to every ranking measurement.
+        Within one call, and *per probe*, the ranking is the same either way,
+        which is why the defect was invisible to every ranking measurement.
+
+        Per probe is the necessary qualifier, and this docstring used to omit
+        it. The 21 probes are averaged by the fusion step, so each probe's
+        scale sets its implicit weight in that mean, and changing the scale
+        does move the fused ranking: the repair itself cost 0.0087 of NAB
+        AUROC. ``research/math_arrest/harness_norm_scale.py`` sweeps that
+        choice over ten estimators and records the result -- the scale is a
+        dial along an AUROC / NAB-score trade-off, and every alternative
+        bought its aggregate gain by regressing individual files past
+        tolerance, so this one stays.
 
         What it broke is the alarm decision, which compares an absolute score
         against a fixed conformal cut. Measured on the recorded NAB files with a
