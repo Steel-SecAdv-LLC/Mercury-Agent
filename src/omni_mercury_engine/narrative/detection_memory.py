@@ -18,8 +18,9 @@ entries at construction and appends every logged detection, so recall
 survives restarts and is shared by every worker on the same path.
 
 Only fixed statements with bound parameters are issued and no virtual table
-of any kind is created, which is what the ``libsqlite3-0`` acceptance in
-``.trivyignore`` rests on (``tests/security/test_sqlite_cve_acceptance_conditions.py``).
+of any kind is created. The image's ``libsqlite3-0`` is Debian's fixed 3.54.1
+build, installed in place for the FTS5 and session-extension CVEs (see
+``trivy-fixed-in-place.rego`` and SECURITY.md).
 """
 
 from __future__ import annotations

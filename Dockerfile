@@ -180,6 +180,14 @@ ARG USER_GID=$USER_UID
 # or override via --build-arg MERCURY_VERSION=...). The runtime __version__ is
 # SSOT-resolved at import; this image-metadata surface can't read it at build.
 ARG MERCURY_VERSION=3.0.0
+# Debian's fixed builds of the libc-only libraries trixie leaves vulnerable,
+# installed from one pinned snapshot (see the runtime apt layer below). These
+# values change together, and together with trivy-fixed-in-place.rego.
+ARG DEBIAN_FIX_SNAPSHOT=20261105T203824Z
+ARG ZLIB1G_FIXED_VERSION=1:1.3.dfsg+really1.3.2-4
+ARG LIBSQLITE3_FIXED_VERSION=3.54.1-2
+ARG LIBACL1_FIXED_VERSION=2.4.0-1
+ARG LIBSYSTEMD_FIXED_VERSION=262.2-1
 
 # Security labels
 LABEL maintainer="Steel Security Advisors LLC <steel.sa.llc@mercuryagent.global>"
@@ -189,15 +197,18 @@ LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
 LABEL security.hardened="true"
-LABEL security.scan-date="2026-11-01"
+LABEL security.scan-date="2026-11-06"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level
 # CVE that ships with a Debian trixie patch -- the blocking CI Trivy
 # gates (``severity: CRITICAL,HIGH``, ``ignore-unfixed: false``,
 # ``exit-code: 1``) fail on any fixable CRITICAL/HIGH finding, so this
-# upgrade is what keeps them green.  The residual ``affected`` /
-# ``will_not_fix`` Debian CVEs (no upstream fix available) are accepted
+# upgrade is what keeps them green.  Where trixie has no fix but Debian
+# unstable does, and the package is a libc-only leaf library, the fixed build
+# is installed in place instead (zlib1g, libsqlite3-0, libacl1, libsystemd0,
+# libudev1; see below).  The
+# residual ``affected`` / ``will_not_fix`` Debian CVEs are accepted
 # only via the enumerated, 90-day-expiring ledger in the repo-root
 # ``.trivyignore`` (rationale per entry; contract in SECURITY.md) and
 # are additionally mitigated below by: running as a non-root user,
@@ -228,6 +239,48 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         libgomp1 && \
+    # FIXED IN PLACE (2026-11-06): five library packages are replaced with
+    # Debian's own fixed builds instead of being accepted. Debian trixie
+    # publishes no fix for, and Debian unstable fixes:
+    #   zlib1g 1:1.3.dfsg+really1.3.2-4 -- CVE-2026-76844, CVE-2026-85091
+    #   libsqlite3-0 3.54.1-2           -- CVE-2026-119373, -119374, -119379
+    #   libacl1 2.4.0-1                 -- CVE-2026-54369
+    #   libsystemd0, libudev1 262.2-1   -- CVE-2026-16742
+    # Each depends on libc6 alone (>= 2.38 at most; trixie ships 2.41) and
+    # keeps its soname, so the swap pulls nothing else from unstable
+    # ("5 upgraded, 0 newly installed"). ncurses and util-linux are NOT
+    # swapped: their fixed builds need libc6 >= 2.42, i.e. a different glibc,
+    # so they stay in the .trivyignore ledger.
+    #   * Source: snapshot.debian.org at one fixed timestamp, so the input never
+    #     moves; apt verifies its InRelease against debian-archive-keyring
+    #     (plain HTTP is the archive's normal transport -- integrity comes from
+    #     the signature, not the channel). check-valid-until=no is required for
+    #     any snapshot, and is safe here because the timestamp and the exact
+    #     versions are pinned, so there is no newer metadata to withhold.
+    #   * Pin-Priority 1: nothing from that source is ever chosen implicitly;
+    #     only the exact package=version requests below are.
+    #   * The source and pin are deleted in this same layer, so the image has
+    #     no unstable source and later apt operations see trixie only.
+    # Trivy keys Debian findings on the image's release (13), and trixie's
+    # advisory carries no fixed version, so it still reports these CVEs against
+    # the fixed builds. trivy-fixed-in-place.rego ignores exactly those
+    # CVEs at exactly these versions; any other version, trixie's included,
+    # is reported again. The versions here and in that policy are held
+    # identical by tests/security/test_fixed_in_place_os_packages.py, and the
+    # next layer proves the installed versions.
+    echo "deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg check-valid-until=no] http://snapshot.debian.org/archive/debian/${DEBIAN_FIX_SNAPSHOT}/ sid main" \
+        > /etc/apt/sources.list.d/debian-fixed-in-place.list && \
+    printf 'Package: *\nPin: release n=sid\nPin-Priority: 1\n' \
+        > /etc/apt/preferences.d/debian-fixed-in-place && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        "zlib1g=${ZLIB1G_FIXED_VERSION}" \
+        "libsqlite3-0=${LIBSQLITE3_FIXED_VERSION}" \
+        "libacl1=${LIBACL1_FIXED_VERSION}" \
+        "libsystemd0=${LIBSYSTEMD_FIXED_VERSION}" \
+        "libudev1=${LIBSYSTEMD_FIXED_VERSION}" && \
+    rm -f /etc/apt/sources.list.d/debian-fixed-in-place.list \
+        /etc/apt/preferences.d/debian-fixed-in-place && \
     # Attack-surface reduction: ELIMINATE perl-base rather than accept its CVEs.
     # perl-base is a Debian "essential" package present in the base image, but
     # nothing in the runtime needs it -- Mercury is Python/Rust/C, and the
@@ -266,6 +319,22 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Prove the fixed-in-place builds are what the image carries, both in dpkg's
+# record (what Trivy reads) and in the libraries CPython actually loads, and
+# that no unstable source survived the layer above.
+RUN test "$(dpkg-query -W -f='${Version}' zlib1g)" = "${ZLIB1G_FIXED_VERSION}" && \
+    test "$(dpkg-query -W -f='${Version}' libsqlite3-0)" = "${LIBSQLITE3_FIXED_VERSION}" && \
+    test "$(dpkg-query -W -f='${Version}' libacl1)" = "${LIBACL1_FIXED_VERSION}" && \
+    test "$(dpkg-query -W -f='${Version}' libsystemd0)" = "${LIBSYSTEMD_FIXED_VERSION}" && \
+    test "$(dpkg-query -W -f='${Version}' libudev1)" = "${LIBSYSTEMD_FIXED_VERSION}" && \
+    dpkg --audit && \
+    test ! -e /etc/apt/sources.list.d/debian-fixed-in-place.list && \
+    test ! -e /etc/apt/preferences.d/debian-fixed-in-place && \
+    /usr/local/bin/python -c "import sqlite3, zlib; \
+assert sqlite3.sqlite_version_info >= (3, 54, 0), sqlite3.sqlite_version; \
+assert tuple(int(p) for p in zlib.ZLIB_RUNTIME_VERSION.split('.')[:3]) >= (1, 3, 2), zlib.ZLIB_RUNTIME_VERSION; \
+print('fixed in place: sqlite', sqlite3.sqlite_version, 'zlib', zlib.ZLIB_RUNTIME_VERSION)"
 
 # Security hardening: strip setuid/setgid bits from all binaries.
 # This replaces the previous "apt-get purge login passwd" approach which

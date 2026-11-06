@@ -318,6 +318,11 @@ jobs:
         # expired ledger entries fail this gate (see .trivyignore).
         ignore-unfixed: false
         trivyignores: '.trivyignore'
+        # Packages the Dockerfile fixed in place (Debian's fixed build,
+        # exact version) that Trivy still reads as `affected` under
+        # trixie's no-fix advisory. Bound to the installed version, so
+        # any other version is reported again (see the policy header).
+        ignore-policy: 'trivy-fixed-in-place.rego'
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
         skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.12/site-packages/scipy/datasets/_fetchers.py,/opt/venv/lib/python3.13/site-packages/scipy/datasets/_fetchers.py,/opt/venv/lib/python3.12/site-packages/skimage/data/_fetchers.py,/opt/venv/lib/python3.13/site-packages/skimage/data/_fetchers.py'
         timeout: '15m'

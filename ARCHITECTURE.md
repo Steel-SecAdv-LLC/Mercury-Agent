@@ -989,7 +989,7 @@ anchors, and design contract live in
 
 ### Docker Container
 
-The shipped `Dockerfile` is a two-stage build on `python:3.14-slim-trixie`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: false`, and `exit-code: 1`, applying the enumerated, expiring accepted-risk ledger in [`.trivyignore`](.trivyignore) (`.github/workflows/ci.yml`; ledger contract in [SECURITY.md](SECURITY.md)). See the README "Docker Quick Start" section for usage modes.
+The shipped `Dockerfile` is a two-stage build on `python:3.14-slim-trixie`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: false`, and `exit-code: 1`, applying the enumerated, expiring accepted-risk ledger in [`.trivyignore`](.trivyignore) and the version-exact fixed-in-place policy [`trivy-fixed-in-place.rego`](trivy-fixed-in-place.rego) for the Debian-unstable fixed builds the runtime stage installs (`.github/workflows/ci.yml`; contract in [SECURITY.md](SECURITY.md)). See the README "Docker Quick Start" section for usage modes.
 
 ### Served fusion model
 
