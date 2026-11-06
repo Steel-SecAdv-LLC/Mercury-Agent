@@ -202,22 +202,41 @@ def test_the_default_weighting_is_the_measured_best(
 ) -> None:
     """``uniform`` is the default and beats the released prior on both corpora.
 
-    Not a tie-break: +0.075 NAB and +0.140 ADBench, both outside the 0.03
-    tolerance by a wide margin.
+    Not a tie-break: +0.0751 NAB and +0.1399 ADBench, both far outside the
+    0.03 pin tolerance.
 
-    The margin was +0.106 / +0.140 until the normalizer began carrying the
-    fit-time scale on 2026-11-05, which moved ``uniform`` down 0.009 and
-    ``phi_affinity`` up 0.022 on NAB. The 0.05 floor below is therefore not a
-    relaxation to accommodate a regression -- the ADBench margin is unchanged
-    at 0.140 and the NAB margin is still 2.5x the tolerance -- but it is lower
-    than it was, and a further narrowing should be read as the two weightings
-    converging rather than as noise.
+    This assertion used to be one global ``+ 0.08`` applied to both corpora.
+    That value is **unsatisfiable on the true measurement**: the NAB gap is
+    0.0751, so the floor sat above the quantity it was gating, and it only
+    ever passed because the released normalizer's per-call p99 inflated
+    ``uniform``. Replacing the defect with the fit-time scale on 2026-11-05
+    moved ``uniform`` down 0.009 and ``phi_affinity`` up 0.022 on NAB,
+    narrowing the real gap from 0.1062 to 0.0751.
+
+    One global floor is also the wrong shape, because it is pinned to
+    whichever corpus is tightest and leaves the other unguarded: at 0.05 the
+    ADBench side carried 0.0899 of unused slack and would have accepted a
+    0.09 collapse in silence. The floors below are therefore **per corpus**
+    and set just under each measured gap, which the fixture supports because
+    both corpora are recorded and the sweep is deterministic -- two
+    consecutive runs agree to every printed digit (0.075126 / 0.139926).
+    Each floor keeps roughly 0.005 for cross-platform BLAS variation and
+    nothing more, so a real convergence of the two weightings fails here
+    instead of being absorbed.
     """
     assert AnomalyMathArrest()._fusion.weighting == "uniform"
     assert PhiWeightedFusion().weighting == "uniform"
-    for corpus in (0, 1):
-        assert measured["uniform"][corpus] > measured["phi_affinity"][corpus] + 0.05
-        assert measured["uniform"][corpus] >= measured["confidence"][corpus]
+    for corpus, name in ((0, "NAB"), (1, "ADBench")):
+        phi_gap = measured["uniform"][corpus] - measured["phi_affinity"][corpus]
+        assert phi_gap >= MIN_UNIFORM_OVER_PHI[corpus], (
+            f"{name}: uniform leads phi_affinity by {phi_gap:.4f}, under the "
+            f"{MIN_UNIFORM_OVER_PHI[corpus]:.3f} floor"
+        )
+        conf_gap = measured["uniform"][corpus] - measured["confidence"][corpus]
+        assert conf_gap >= MIN_UNIFORM_OVER_CONFIDENCE[corpus], (
+            f"{name}: uniform leads confidence by {conf_gap:.4f}, under the "
+            f"{MIN_UNIFORM_OVER_CONFIDENCE[corpus]:.3f} floor"
+        )
 
 
 def test_the_released_prior_is_still_reachable_and_unchanged(
@@ -449,6 +468,16 @@ def test_the_detector_seam_serves_the_instrument() -> None:
 #: not exceed across them. Measured on 7dd10e16, before the normalizer carried
 #: the fit-time scale, the same sweep ran 0.0520 -> 0.4612 on
 #: ``realAWSCloudwatch`` -- a spread of 0.41 against a cut promising 0.05.
+#: Per-corpus floors on ``uniform``'s lead over the other two weightings,
+#: indexed (NAB, ADBench) to match ``MEASURED``. Set just under the measured
+#: gaps -- uniform over phi_affinity 0.075126 / 0.139926, uniform over
+#: confidence 0.029283 / 0.018507 -- leaving only enough room for
+#: cross-platform floating-point variation. ``uniform`` over ``confidence``
+#: was previously a bare ``>=``, which would have accepted the entire 0.029
+#: NAB lead eroding to zero without failing.
+MIN_UNIFORM_OVER_PHI = (0.070, 0.134)
+MIN_UNIFORM_OVER_CONFIDENCE = (0.024, 0.013)
+
 BATCH_SIZES = (None, 256, 128, 64, 32)
 MAX_ALARM_RATE_SPREAD = 0.02
 
