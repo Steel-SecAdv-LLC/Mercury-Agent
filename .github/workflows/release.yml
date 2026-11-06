@@ -34,10 +34,17 @@ on:
         type: boolean
         default: false
 
+# Read-only by default. This used to grant contents/packages/id-token WRITE
+# to every job, so validate, test, build and notify -- which only read
+# code -- each held a token able to push tags, publish packages and mint
+# OIDC credentials, and anything that executed in them (a compromised
+# dependency, a poisoned cache entry) inherited that reach. Each job now
+# declares the one write it uses: docker pushes to ghcr (packages),
+# release creates the GitHub release (contents), publish-pypi mints its
+# trusted-publishing token (id-token). Pinned by
+# tests/scripts/test_release_gate_parity.py.
 permissions:
-  contents: write
-  packages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -45,6 +52,9 @@ concurrency:
 
 env:
   PYTHON_VERSION: '3.12'
+  # Must equal ci.yml's COVERAGE_THRESHOLD_FULL; pinned by
+  # tests/scripts/test_release_gate_parity.py.
+  COVERAGE_THRESHOLD_FULL: 62
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -176,61 +186,97 @@ jobs:
       - name: Guard runner disk
         uses: ./.github/actions/runner-disk-guard
 
+      # Everything from here to the test run mirrors CI's ``ml-tests`` lane
+      # step for step, minus its caches (see the uv step) -- the lane whose
+      # green on main is the evidence a release rests on. This job used to build a different environment:
+      # ``pip install -e ".[ml,dev]"``, unlocked and without ``[api]``, so it
+      # resolved package versions CI had never tested, and four modules
+      # (tests/integrations/test_egress_hardening.py,
+      # tests/integrations/test_platform_native_egress.py,
+      # tests/security/test_source_offer.py,
+      # tests/test_data_source_credential_redaction.py) errored at
+      # collection: pytest stopped with "Interrupted: 4 errors during
+      # collection" (exit 2) and build, docker, release and publish were all
+      # skipped, so pushing a tag produced no release. Those four are
+      # security tests and are deliberately not made skippable; a lane that
+      # drops the extra must fail loudly. It also skipped the real-model
+      # tiers and the full adversarial-ledger recomputation CI enforces.
+      # tests/scripts/test_release_gate_parity.py pins this job to the
+      # ml-tests lane so the two cannot drift apart again.
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+
+      # Same uv pin as the ml-tests lane, but no cache. ml-tests caches the uv
+      # store and the HuggingFace models to save minutes on every PR; in a
+      # release workflow a restored cache is an input nobody reviewed, and a
+      # tag run can restore entries main wrote. Dependencies come fresh from
+      # the index and are verified against uv.lock's hashes; models come
+      # fresh at their SafeHFLoader-pinned revisions in the prefetch step.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.32"
+          enable-cache: false
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          # Release validation runs the full ``tests/`` tree, which
-          # transitively touches engine/fusion/detector modules that
-          # import torch at module load.  Installing ``[ml]`` here
-          # matches the contract the SessionStart gate in
-          # ``tests/conftest.py`` enforces — without it, a release-time
-          # ``pytest tests/`` would either fail at first-collection
-          # (post-decorator-removal) or report a green run full of
-          # silent skips (pre-decorator-removal).  Both options were
-          # debt; this resolves it by giving the lane the deps its
-          # test selection actually requires.
-          pip install -e ".[ml,dev]"
+          # The exact locked closure CI tests: every extra, from uv.lock.
+          uv sync --locked --extra all --extra dev
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
+
+      - name: Dependency license gate ([all] runtime closure, as shipped)
+        run: python scripts/check_dependency_licenses.py --extras all
 
       # AMA Cryptography is Mercury's mandatory PQC backend: importing
       # omni_mercury_engine runs the fail-closed _enforce_pqc_production_gate(),
-      # and tests/conftest.py imports the engine at collection time. Release
-      # validation runs the full ``pytest tests/`` tree, so the native backend
-      # must be built before collection or the lane aborts at import. The
-      # composite action exports LD_LIBRARY_PATH so the test step inherits it.
+      # and tests/conftest.py imports the engine at collection time, so the
+      # native backend must be built before collection. The composite action
+      # exports LD_LIBRARY_PATH so the test step inherits it.
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
           ama-ref: v5.0.0
 
+      - name: Prefetch pinned HuggingFace models (image/video tiers)
+        run: python scripts/prefetch_pinned_models.py
+
       - name: Run tests
         env:
+          TORCH_HOME: ~/.cache/torch
+          # A no-op diagnostic since the PQC gate became unconditional
+          # (tests/test_pqc_startup_gate.py); carried for exact parity only.
+          AMA_REQUIRE_REAL_PQC: "true"
           MERCURY_REQUIRES_ML: "1"
+          MERCURY_REQUIRES_HF_MODELS: "1"
+          MERCURY_FULL_LEDGER_CHECK: "1"
         run: |
           set -o pipefail
           # NOT `pytest ... | head -100`. `head` closes the pipe the moment it
           # has its 100 lines; pytest then dies of SIGPIPE and the pipeline
           # exits 141, which `set -o pipefail` propagates as a step failure
-          # regardless of whether a single test failed. The full tree emits
-          # several hundred lines (tests/api alone emits ~50 for 1,298 of
-          # 14,547 tests), so this gate could not have passed even on a
-          # perfectly green run.
+          # regardless of whether a single test failed. Capturing to a file
+          # keeps the whole log, bounds what is echoed into the job output,
+          # and lets the step's exit status be pytest's own.
           #
-          # Capturing to a file instead keeps the whole log, bounds what is
-          # echoed into the job output, and lets the step's exit status be
-          # pytest's own.
-          if ! pytest tests/ -v --tb=short -x -q --timeout=60 > pytest-release.log 2>&1; then
+          # Flags are the ml-tests lane's (-n 4 --dist=loadgroup
+          # --timeout=300, and its coverage floor), plus -x so one real
+          # failure still stops the release. The earlier sequential
+          # --timeout=60 run was a different test from the one CI proves: a
+          # per-test timeout is a hang guard, not an assertion, and sequential
+          # order exercised an ordering CI never runs.
+          if ! pytest tests/ -n 4 --dist=loadgroup --timeout=300 -x --tb=short -q \
+              --cov=src/omni_mercury_engine --cov-report=term-missing \
+              --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }} \
+              > pytest-release.log 2>&1; then
             echo "::error::Release test gate failed. Last 200 lines follow; the"
             echo "::error::complete log is attached as the pytest-release-log artifact."
             tail -n 200 pytest-release.log
             exit 1
           fi
-          tail -n 20 pytest-release.log
+          tail -n 40 pytest-release.log
 
       - name: Upload test log
         if: always()
@@ -289,11 +335,53 @@ jobs:
           python -m pip install --upgrade "pip>=26.1"
           pip install build twine
 
-      - name: Update version in pyproject.toml
+      # Verify, do not rewrite. This step used to run
+      #   sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+      # which is unanchored, so it rewrote every line CONTAINING
+      # 'version = "': mypy's python_version, pylint's py-version and ruff's
+      # target-version all became "3.0.0" (ruff rejects that outright), and
+      # the corrupted pyproject.toml shipped inside the sdist. It also let a
+      # tag stamp a version the repository never committed, leaving the
+      # artifact inconsistent with _version._FALLBACK_VERSION, which
+      # tests/test_version_consistency.py requires to equal [project].version.
+      # The release now refuses unless the tag's version is the one already
+      # committed and reviewed in both places; PEP 440 comparison keeps
+      # pre-release tags such as v3.1.0-rc1 working.
+      - name: Verify the release version matches the committed version
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-          sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
-          echo "Updated version to $VERSION"
+          python - <<'PY'
+          import os
+          import re
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          from packaging.version import Version
+
+          wanted = Version(os.environ["RELEASE_VERSION"])
+          project = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          source = Path("src/omni_mercury_engine/_version.py").read_text()
+          match = re.search(r'^_FALLBACK_VERSION\s*=\s*"([^"]+)"', source, re.MULTILINE)
+          fallback = match.group(1) if match else "<missing>"
+          mismatched = [
+              f"{name} is {value!r}"
+              for name, value in (
+                  ("pyproject [project].version", project),
+                  ("_version._FALLBACK_VERSION", fallback),
+              )
+              if value == "<missing>" or Version(value) != wanted
+          ]
+          if mismatched:
+              print(
+                  f"::error::release version {wanted} does not match the committed "
+                  f"version ({'; '.join(mismatched)}). Bump both in a reviewed "
+                  "commit, then tag that commit."
+              )
+              sys.exit(1)
+          print(f"release version {wanted} matches [project].version and _FALLBACK_VERSION")
+          PY
 
       - name: Capture build start timestamp for SLSA provenance
         # ``startedOn`` in the SLSA Provenance v1 runDetails.metadata block
@@ -442,6 +530,9 @@ jobs:
     name: Build Docker Image
     needs: [validate, test]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code (attempt 1)
@@ -503,8 +594,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           provenance: true
           sbom: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # No GHA layer cache here, deliberately. The released image used
+          # to restore (cache-from: type=gha) layers any earlier run on main
+          # had written, and write its own back -- a cache-poisoning path
+          # straight into the published artifact. Released layers are built
+          # from the pinned base and the locked closure every time; slower,
+          # and the only build whose layers trace to this commit alone.
           build-args: |
             VERSION=${{ needs.validate.outputs.version }}
 
@@ -515,6 +610,8 @@ jobs:
     name: Create Release
     needs: [validate, build, docker]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code (attempt 1)
