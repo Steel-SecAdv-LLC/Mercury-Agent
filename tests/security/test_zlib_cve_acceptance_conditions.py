@@ -1,14 +1,27 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The conditions behind the accepted zlib1g CVE stay true.
+"""The conditions behind the accepted zlib1g CVEs stay true.
 
 ``.trivyignore`` accepts CVE-2026-76844 (heap buffer overflow in zlib's
-``gz_write()``) because the vulnerable code path has no caller in the shipped
-image, and because no fixed version exists for the suite the image is built
-from. A ledger entry states those facts once; this test re-checks the ones that
-are checkable offline on every run, so the acceptance fails loudly the day a
-dependency starts calling zlib's ``gz*`` layer instead of the entry quietly
-covering a path that has become reachable.
+``gz_write()``) and CVE-2026-85091 (heap buffer overflow in ``gz_vacate()``),
+both in zlib's ``gz*`` stream API, because no fixed version exists for the
+suite the image is built from and because the one in-process binder of that
+API is never invoked. A ledger entry states those facts once; this module
+re-checks the ones that are checkable offline on every run, so the acceptances
+fail loudly the day the ``gz*`` layer becomes reachable instead of the entries
+quietly covering a path that has.
+
+**The binder that exists, stated because an earlier version of this module
+implied there was none.** A symbol audit of every native library in
+site-packages found exactly one importer of ``gz*`` symbols:
+opencv-python-headless's ``cv2`` extension, which links the unmangled system
+``libz.so.1`` (the wheel vendors no libz) and imports
+``gzopen``/``gzclose``/``gzeof``/``gzgets``/``gzputs``/``gzrewind`` for its
+FileStorage persistence layer, entered only when a caller hands it a
+gz-suffixed filename. Mercury contains no FileStorage use and no gz-suffixed
+persistence path, so the accurate claim is binder-present, caller-absent --
+and both halves are pinned below: the audit fails on any *new* gz importer,
+and a source scan fails on any first-party FileStorage/gz use.
 
 The vulnerability is in zlib's ``gz*`` FILE-based streaming API (``gzwrite.c``):
 after an underlying ``write()`` fails, ``gz_write()`` returns without resetting
@@ -19,13 +32,17 @@ deflate-stream and checksum entry points only. Python's ``gzip`` module builds
 the gzip container itself over ``zlib.compressobj``, so the ``gz*`` layer is
 never entered.
 
-Two conditions are therefore asserted:
+Four conditions are therefore asserted:
 
 * the ``zlib`` extension exposes no ``gz*`` (and no ``crc32_combine*``) symbol,
-  which is what makes the path unreachable from Python; and
+  which is what makes the path unreachable from pure Python;
 * no first-party source in ``src/``, ``rust_crypto/`` or ``scripts/`` calls a
-  ``gz*`` entry point or opens ``libz`` through ``ctypes``/``cffi``, which is
-  the only way first-party code could reach it despite the above.
+  ``gz*`` entry point or opens ``libz`` through ``ctypes``/``cffi``;
+* no native library in site-packages imports a ``gz*`` symbol except cv2, the
+  audited and pinned binder -- a new dependency that binds the layer fails
+  here rather than extending the acceptance silently; and
+* no first-party source invokes cv2's FileStorage or names a gz-suffixed
+  persistence file, which is the only route into cv2's ``gz*`` use.
 
 What this test deliberately does **not** assert is the absence of an upstream
 fix: that is a fact about Debian's archive at a point in time, it is cited in
@@ -205,3 +222,165 @@ def test_the_detectors_would_catch_a_real_caller() -> None:
     assert not _GZ_CALL.search("zlib.compressobj(9)")
     assert not _GZ_CALL.search("import gzip; gzip.open(p)")
     assert not _LIBZ_FFI.search('ctypes.CDLL("libama_cryptography.so")')
+
+
+#: The zlib ``gz*`` FILE API, as upstream exports it. Matching against this
+#: exact list keeps the native audit precise: an unrelated symbol that merely
+#: starts with "gz" in some other library is not evidence about zlib.
+_ZLIB_GZ_API = frozenset(
+    {
+        "gzopen",
+        "gzopen64",
+        "gzdopen",
+        "gzbuffer",
+        "gzsetparams",
+        "gzread",
+        "gzfread",
+        "gzwrite",
+        "gzfwrite",
+        "gzprintf",
+        "gzvprintf",
+        "gzputs",
+        "gzgets",
+        "gzputc",
+        "gzgetc",
+        "gzgetc_",
+        "gzungetc",
+        "gzflush",
+        "gzseek",
+        "gzseek64",
+        "gzrewind",
+        "gztell",
+        "gztell64",
+        "gzoffset",
+        "gzoffset64",
+        "gzeof",
+        "gzdirect",
+        "gzclose",
+        "gzclose_r",
+        "gzclose_w",
+        "gzerror",
+        "gzclearerr",
+        "gzvacate",
+    }
+)
+
+#: The audited, accepted binder of the gz layer. Anything else that imports a
+#: gz symbol is a change to the acceptance's premise and must fail the suite.
+_PERMITTED_GZ_IMPORTERS = re.compile(r"(^|/)cv2[^/]*\.so(\.|$)|(^|/)cv2/")
+
+
+def _site_native_libraries() -> list[Path]:
+    import site
+    import sysconfig
+
+    roots: set[Path] = set()
+    for raw in [
+        *site.getsitepackages(),
+        sysconfig.get_paths().get("purelib", ""),
+        sysconfig.get_paths().get("platlib", ""),
+    ]:
+        if raw:
+            root = Path(raw)
+            if root.is_dir():
+                roots.add(root)
+    found: set[Path] = set()
+    for root in roots:
+        found.update(x for x in root.rglob("*.so*") if x.is_file())
+    return sorted(found)
+
+
+def _undefined_gz_imports(libraries: list[Path]) -> dict[str, list[str]]:
+    """``{library: [gz symbols it imports]}`` via ``nm``, batched for speed."""
+    import subprocess
+
+    importers: dict[str, list[str]] = {}
+    batch = 150
+    for start in range(0, len(libraries), batch):
+        chunk = [str(x) for x in libraries[start : start + batch]]
+        # nm exits nonzero for any file without a dynamic symbol table
+        # (static archives, stripped stubs); those contribute no imports and
+        # must not abort the batch, so the exit code is deliberately ignored.
+        result = subprocess.run(
+            ["nm", "-D", "--undefined-only", *chunk],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
+        )
+        current = chunk[0] if len(chunk) == 1 else ""
+        for line in result.stdout.splitlines():
+            if line.endswith(":") and not line.startswith(" "):
+                current = line[:-1]
+                continue
+            parts = line.split()
+            if parts and parts[-1] in _ZLIB_GZ_API and current:
+                importers.setdefault(current, []).append(parts[-1])
+    return {k: sorted(set(v)) for k, v in importers.items()}
+
+
+def test_no_native_library_imports_the_gz_layer_except_the_audited_binder() -> None:
+    """A new dependency binding zlib's gz API must fail here, not pass silently.
+
+    cv2 is the one audited importer (FileStorage persistence; see the module
+    docstring and the ledger entry). Its presence also serves as the vacuity
+    guard for the scanner itself: when cv2 is installed, the audit must FIND
+    its gz imports, or the scan is reading nothing and a pass would be
+    meaningless.
+    """
+    import shutil
+
+    if shutil.which("nm") is None:  # pragma: no cover - CI always has binutils
+        import pytest
+
+        pytest.skip("binutils' nm is unavailable, so dynamic symbols cannot be read")
+
+    libraries = _site_native_libraries()
+    assert libraries, "no native libraries found; the scan is looking nowhere"
+    importers = _undefined_gz_imports(libraries)
+
+    unexpected = {
+        lib: syms for lib, syms in importers.items() if not _PERMITTED_GZ_IMPORTERS.search(lib)
+    }
+    assert not unexpected, (
+        "native libraries outside the audited cv2 binder now import zlib's "
+        f"gz* API, so the {_ACCEPTED_TEXT} acceptances' premise no longer "
+        f"holds: {unexpected}"
+    )
+
+    cv2_installed = any(
+        "/cv2/" in str(lib) or str(lib).endswith("cv2.abi3.so") for lib in libraries
+    )
+    if cv2_installed:
+        assert any(_PERMITTED_GZ_IMPORTERS.search(lib) for lib in importers), (
+            "cv2 is installed but the audit found none of its known gz "
+            "imports -- the scanner is not reading symbols, so its pass "
+            "above is vacuous"
+        )
+
+
+def test_no_first_party_source_reaches_cv2s_gz_route() -> None:
+    """The only route into cv2's gz use is FileStorage on a gz-suffixed path.
+
+    Mercury uses cv2 for image operations only. If FileStorage or a
+    gz-suffixed persistence filename ever appears in first-party source, the
+    binder acquires a caller and the ledger entries must be re-reviewed
+    rather than this scan widened.
+    """
+    pattern = re.compile(r"FileStorage|\.(?:xml|ya?ml|json)\.gz\b", re.IGNORECASE)
+    offenders: list[str] = []
+    for root in _SOURCE_ROOTS:
+        base = _REPO / root
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*")):
+            if path.suffix not in _SOURCE_SUFFIXES or not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for match in pattern.finditer(text):
+                line = text[: match.start()].count("\n") + 1
+                offenders.append(f"{path.relative_to(_REPO)}:{line}: {match.group(0)}")
+    assert not offenders, (
+        "first-party source now reaches cv2's FileStorage/gz persistence "
+        "route, the one in-process path into zlib's gz layer:\n  " + "\n  ".join(offenders)
+    )
