@@ -25,7 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > the full reproducibility footnote and `docs/ROADMAP.md` for
 > tracked fixes.
 
-## [Unreleased]
+## [3.0.0] - 2026-11-06
+
+The first release after 2.0.0 (the work prepared as 2.1.0 was never released);
+the upgrade notes from 2.0.0 — the AGPL-3.0-or-later relicense and every
+renamed or removed 2.0.0 name — are summarised where this section's earlier
+entries introduce them and in DEPRECATION.md §6.6-§6.15 and §7.
 
 **Added — the 21-probe math-arrest ensemble is reachable, measured and
 repaired.** `AnomalyMathArrest` (21 equation probes: Hankel delay-embedding /
@@ -1702,13 +1707,6 @@ line even claimed σ_Immutable "is not the enforcement gate today because the
 underlying neural network is untrained", false on both counts — while its
 assertions already pinned `check="harm_uplift"`; the prose now matches the
 assertions. No code or test behaviour changed.
-
-## [3.0.0] - 2026-10-27
-
-The first release after 2.0.0 (the work prepared as 2.1.0 was never released);
-the upgrade notes from 2.0.0 — the AGPL-3.0-or-later relicense and every
-renamed or removed 2.0.0 name — are summarised where this section's earlier
-entries introduce them and in DEPRECATION.md §6.6-§6.15 and §7.
 
 **Added — ALFA UAV fault corpus, stuck-actuator health monitor, and the drone
 detector's first real-fault measurement.** `datasets/uav_flight.py` loads the CMU
@@ -13062,7 +13060,6 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
-[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v3.0.0...HEAD
 [3.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/2.0.0...v3.0.0
 [2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...2.0.0
 [1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
