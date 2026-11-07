@@ -49,9 +49,15 @@
 # each package is a hard dependency of CPython, bash, coreutils/tar or
 # apt/dpkg. RE-REVIEWED 2026-11-06 after the Security workflow on main went
 # red on three newly published HIGH findings (libsqlite3-0 x2, zlib1g x1)
-# against an unchanged Dockerfile; see the entries at the foot of this file,
-# and the dated correction on the CVE-2026-76844 entry made in the same
-# review.
+# against an unchanged Dockerfile. The same day all five zlib1g/libsqlite3-0
+# findings were REMEDIATED rather than accepted (Debian's fixed builds are
+# installed in place; see "FIXED IN PLACE" below), and the inert
+# CVE-2026-119586 entry was dropped; the acl and systemd acceptances were
+# remediated the same way. The ledger now holds 5 entries (0 CRITICAL,
+# 5 HIGH): ncurses x1 and util-linux x4. Both are fixed in Debian unstable,
+# but neither fixed build is installable on trixie -- each requires
+# libc6 >= 2.42 and trixie ships 2.41 -- so curing them in place would mean
+# replacing the C library itself, which this ledger does not do.
 #
 # DROPPED in the 2026-09-27 re-review (not carried inert):
 #   * CVE-2026-53615 (util-linux libblkid) — FIXED in trixie
@@ -109,26 +115,6 @@
 # Re-reviewed 2026-09-27 (previous acceptance expired 2026-09-16).
 CVE-2025-69720 exp:2026-12-26
 
-# acl (libacl1 2.3.2-2+b1) — Debian trixie `<no-dsa>` ("will be fixed first
-# in unstable, then point release update"); fixed upstream only in acl
-# >= 2.4.0. Local-only symlink-traversal privilege escalation in the
-# pathname-based acl_*_file() functions, reachable only by a local attacker
-# who controls a pathname component traversed by a *privileged* caller.
-# Mercury invokes neither the acl(1) CLIs nor the libacl API, runs non-root,
-# and exposes no path where request input reaches a privileged ACL call.
-# libacl1 stays because Debian's coreutils, sed, tar and passwd are built
-# against it. Re-reviewed 2026-09-27 (previous acceptance expired 2026-09-28).
-CVE-2026-54369 exp:2026-12-26
-
-# systemd (libsystemd0 / libudev1 257.13-1~deb13u1) — CVE-2026-16742,
-# Debian trixie `<no-dsa>` (Minor issue), fixed only in forky/sid. The bug is
-# a local privilege escalation in the systemd-homed daemon (home-record
-# signature verification). systemd-homed is NOT installed: the image carries
-# only the libsystemd0/libudev1 client libraries, which are hard
-# dependencies of coreutils, bsdutils, util-linux, apt/libapt-pkg and
-# libpam-modules, so they cannot be removed. Added 2026-09-27.
-CVE-2026-16742 exp:2026-12-26
-
 # util-linux family (bsdutils, libblkid1, liblastlog2-2, libmount1,
 # libsmartcols1, libuuid1, login, util-linux 2.41.5-0+deb13u1) — four HIGH
 # findings published after the 2026-07-09 review, all Debian trixie
@@ -153,130 +139,40 @@ CVE-2026-78408 exp:2026-12-26
 CVE-2026-78409 exp:2026-12-26
 CVE-2026-78410 exp:2026-12-26
 
-# sqlite3 (libsqlite3-0 3.46.1-7+deb13u2) — two HIGH findings published
-# 2026-11-01, both "vulnerable" in every Debian suite including sid (the
-# upstream fix is SQLite 3.54.0; Debian has published no DSA and no fixed
-# version). libsqlite3-0 backs CPython's own `_sqlite3` module, which the
-# shipped API uses for the shared rate-limit store, the key store and the
-# usage ledger, so the package is irreducible. The two conditions below are
-# machine-checked by tests/security/test_sqlite_cve_acceptance_conditions.py.
-#   * CVE-2026-119373 — heap buffer overflow in fts5MergeRowidLists() when a
-#     detail=none FTS5 table holding negative rowids is queried with a prefix
-#     MATCH. Mercury creates no FTS table of any kind (no `CREATE VIRTUAL
-#     TABLE ... USING fts*` anywhere in src/), its SQL is fixed statements
-#     with bound parameters, and no request body is ever executed as SQL, so
-#     the vulnerable code path has no caller in the image.
-#   * CVE-2026-119586 — command injection in the sqlite3 command-line
-#     shell's `.recover` dot-command (shell.c), not in the library. The image
-#     does not install the `sqlite3` CLI package (the scan lists only
-#     libsqlite3-0), and nothing in Mercury pipes `.recover` output anywhere.
-# Added 2026-11-01 (owner-approved; reproduced by security.yml run
-# 41335629579 and cross-checked against the Debian Security Tracker).
-CVE-2026-119373 exp:2027-01-30
-CVE-2026-119586 exp:2027-01-30
-
-# zlib (zlib1g 1:1.3.dfsg+really1.3.1-1) — CVE-2026-76844, one HIGH finding
-# published 2026-11-05, between a green run on main at 06:27Z and this
-# branch's failure at 20:17Z on an unchanged Dockerfile. A real heap buffer
-# overflow: after an underlying write() fails, upstream's gz_write() returns
-# without resetting strm.next_in, so a later gz* write call derives a
-# position from the stale pointer and writes past a heap allocation
-# (madler/zlib gzwrite.c; fixed upstream by madler/zlib@df84af25, after
-# 1.3.2). Debian scopes it local and publishes NO fixed version for trixie.
+# FIXED IN PLACE, not accepted (2026-11-06) -- zlib1g, libsqlite3-0, libacl1,
+# libsystemd0, libudev1. Eight entries that stood in this file were removed,
+# with the reason for each:
+#   * CVE-2026-76844, CVE-2026-85091 (zlib gz* layer); CVE-2026-119373,
+#     CVE-2026-119374, CVE-2026-119379 (SQLite FTS5 / session extension);
+#     CVE-2026-54369 (acl symlink traversal); CVE-2026-16742 (systemd-homed):
+#     REMEDIATED. The runtime stage installs Debian's own fixed builds --
+#     zlib1g 1:1.3.dfsg+really1.3.2-4, libsqlite3-0 3.54.1-2, libacl1 2.4.0-1,
+#     libsystemd0/libudev1 262.2-1, each "fixed" on the Debian tracker and each
+#     depending on libc6 alone -- from one pinned, signed snapshot.debian.org
+#     timestamp, and the build proves every version. The vulnerable code is no
+#     longer in the image.
+#     Trivy still reports all seven against the fixed builds (measured with the
+#     CI-pinned trivy 0.70.0), because it keys Debian findings on release 13,
+#     whose advisory has no fixed version. They are therefore matched by
+#     trivy-fixed-in-place.rego, which ignores each one ONLY at the exact fixed
+#     version: on trixie's vulnerable builds it ignores nothing (measured), so
+#     a regression fails the gate rather than hiding behind this file.
+#   * CVE-2026-119586 (sqlite3 CLI `.recover` command injection): DROPPED,
+#     not carried inert. The current vulnerability DB does not report it
+#     against this image at any severity (Debian status "undetermined"), so
+#     the entry suppressed nothing and would only have pre-waived a future
+#     re-scoring. The flaw is in the sqlite3 shell, which the image does not
+#     install; tests/security/test_fixed_in_place_os_packages.py keeps that
+#     true. Re-add here, don't silently drop, if it is reported again.
 #
-# Why it is accepted rather than eliminated or upgraded — both routes were
-# tried and measured, not assumed:
-#   * UPGRADING THE LIBRARY DOES NOT CLEAR THE GATE. Debian's advisory for
-#     release 13 carries no fixed version, so Trivy marks EVERY installed
-#     version `affected`. Measured with the CI-pinned trivy 0.70.0 (the
-#     install-trivy digest) against a Debian 13.7 dpkg manifest: the shipped
-#     1:1.3.dfsg+really1.3.1-1 reports 1 HIGH, and so does sid's FIXED
-#     1:1.3.dfsg+really1.3.2-4. Suite-mixing from sid, trixie-backports
-#     (which ships the same vulnerable version) and a from-source rebuild
-#     are therefore all ineffective, not merely risky — the scan reads dpkg
-#     metadata, not the binary. bookworm, trixie and forky are all
-#     `vulnerable` on the Debian tracker; only sid is `fixed`.
-#   * THE PACKAGE CANNOT BE REMOVED. `libz.so.1` is in the NEEDED list of
-#     the CPython interpreter binary itself, not just the `zlib` extension
-#     module, so purging zlib1g stops python3 from starting. This is the
-#     ledger's "eliminate, don't accept" rule reaching its hard floor.
-#
-# The flaw is confined to zlib's gz* stream API. CPython's `zlib` module
-# exports zero gz* symbols, the stdlib `gzip` module builds its container
-# over compressobj/decompressobj with no reference to gz_write, and no
-# first-party source reaches the gz layer or loads libz by FFI.
-#
-# CORRECTED 2026-11-06: this entry originally said the gz layer "has no
-# caller in the image". A symbol audit of every native library in the
-# environment found exactly one in-process binder: opencv-python-headless's
-# cv2.abi3.so links the unmangled system libz.so.1 (the wheel vendors no
-# libz of its own) and imports gzopen/gzclose/gzeof/gzgets/gzputs/gzrewind,
-# which OpenCV uses only in its FileStorage persistence layer when handed a
-# gz-suffixed filename. Mercury contains zero FileStorage uses and zero
-# gz-suffixed persistence paths, and no request-controlled filename reaches
-# cv2, so the accurate claim is the FTS5-shaped one: the binder exists, the
-# caller does not. All of it is machine-checked by
-# tests/security/test_zlib_cve_acceptance_conditions.py -- the audit pins
-# cv2 as the only permitted gz* importer, so a new dependency that binds the
-# gz layer fails the suite, as does any first-party FileStorage/gz use.
-#
-# Observed while reproducing: trivy 0.70.0's DB attaches the WRONG Title to
-# this ID, printing "webpack-dev-middleware: Information Disclosure via Path
-# Traversal". The package, release and status mapping are correct and NVD
-# confirms the zlib gz_write overflow; only the human-readable title is a
-# Trivy metadata defect. Recorded so a future reviewer reading the CI log is
-# not misled into thinking a JavaScript package was flagged.
-# Added 2026-11-05 (owner-approved).
-CVE-2026-76844 exp:2027-02-03
-
-# sqlite3 (libsqlite3-0 3.46.1-7+deb13u2) and zlib (zlib1g
-# 1:1.3.dfsg+really1.3.1-1+b1) -- three HIGH findings published 2026-11-06,
-# hours after #399 merged, against an unchanged Dockerfile. All three are
-# vulnerable in bookworm, trixie AND forky on the Debian tracker; only sid
-# carries a fix (sqlite 3.54.1-2, zlib 1:1.3.dfsg+really1.3.2-4), so there is
-# no trixie version for `apt-get upgrade` to reach, and the measurement
-# recorded for CVE-2026-76844 above applies unchanged: a release-13 advisory
-# with no fixed version makes Trivy mark every installed version `affected`,
-# so upgrading cannot clear the gate even with sid's fixed build installed.
-# Both packages remain irreducible -- libsqlite3-0 backs CPython's `_sqlite3`
-# and zlib1g's libz.so.1 is in the NEEDED list of the CPython interpreter
-# binary itself.
-#
-#   * CVE-2026-119374 -- arbitrary code execution via a corrupted FTS5 index.
-#     Mercury creates no FTS table of any kind (no `CREATE VIRTUAL TABLE ...
-#     USING fts*` anywhere in src/), so no FTS5 index exists to corrupt. FTS5
-#     IS compiled into the library, so the unreachability is a property of
-#     this codebase, not of the build. Same condition as CVE-2026-119373,
-#     enforced by the same test.
-#   * CVE-2026-119379 -- arbitrary code execution via crafted session
-#     changesets, in SQLite's session extension. CPython's `sqlite3` module
-#     wraps no part of that extension -- no session, changeset, patchset or
-#     rebaser API, and no session attribute on a Connection -- so no Python
-#     caller can construct or apply a changeset, and a native-library symbol
-#     audit of the environment found zero importers of sqlite3session_*/
-#     sqlite3changeset_*/sqlite3changegroup_*/sqlite3rebaser_* symbols. The
-#     argument deliberately does NOT rest on SQLITE_ENABLE_SESSION being
-#     absent from `pragma compile_options`, which is a property of whichever
-#     libsqlite3 the interpreter links and so differs between this image and
-#     a developer's host; the missing binding and the empty importer set hold
-#     everywhere.
-#   * CVE-2026-85091 -- heap buffer overflow in zlib's gz_vacate(). A second,
-#     distinct flaw in the same gz* stream API as CVE-2026-76844, so the
-#     corrected conditions recorded on that entry apply verbatim, including
-#     the cv2 qualification: the only in-process binder of the gz layer is
-#     OpenCV's FileStorage persistence, which Mercury never invokes with a
-#     gz-suffixed filename. gz_vacate was already one of the function names
-#     the acceptance test's detector matched, so this CVE needed no new
-#     reachability argument -- only its own ledger line.
-#
-# Conditions for all three are machine-checked by
-# tests/security/test_sqlite_cve_acceptance_conditions.py and
-# tests/security/test_zlib_cve_acceptance_conditions.py, so each acceptance
-# fails loudly if its premise stops holding. Added 2026-11-06
-# (owner-approved).
-CVE-2026-119374 exp:2027-02-04
-CVE-2026-119379 exp:2027-02-04
-CVE-2026-85091 exp:2027-02-04
+# CORRECTION (2026-11-06), recorded so the earlier reasoning is not re-used:
+# the removed 2026-11-05 CVE-2026-76844 entry (in git history and SECURITY.md)
+# stated that installing sid's fixed zlib "does not clear the gate", so
+# suite-mixing was "ineffective, not merely risky". The
+# measurement was right and the conclusion was not. Installing the fixed build
+# removes the vulnerability; what it cannot do on its own is change Trivy's
+# reading of a release-13 advisory. Binding the scanner's exception to the
+# exact fixed version closes that gap without accepting any vulnerable code.
 
 # Mesa GL stack (CVE-2026-40393): REMOVED, not accepted. It was installed
 # only as OpenCV's libGL dependency, but Mercury uses
