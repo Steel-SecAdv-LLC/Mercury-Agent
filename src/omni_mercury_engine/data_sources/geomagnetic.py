@@ -367,14 +367,22 @@ class USGSGeomagnetismSource(DataSourceBase):
 class INTERMAGNETSource(DataSourceBase):
     """INTERMAGNET (International Real-time Magnetic Observatory Network) data source.
 
-    Provides access to data from 150+ magnetometer observatories globally.
-    Data types: Definitive, quasi-definitive, variation data.
+    INTERMAGNET publishes definitive, quasi-definitive and variation data
+    from 150+ magnetometer observatories globally.
 
-    Note: Some endpoints may require account for bulk download.
+    HONESTY CONTRACT: this class does not implement the INTERMAGNET data
+    access protocol (IAGA2002 / CDF via the GIN web service), so it makes no
+    request and reads no magnetometer values. It emits one fixed catalog
+    entry per configured observatory (code, name, coordinates) and nothing
+    else. Every point is therefore labelled ``metadata["simulated"] = True``
+    with ``confidence=0.0``, which the live-ingestion seam refuses unless the
+    consumer explicitly passes ``allow_simulated=True`` (see
+    :mod:`omni_mercury_engine.data_sources.live_ingestion`). For real
+    magnetometer measurements use :class:`USGSGeomagnetismSource`.
 
     Example:
-        >>> source = INTERMAGNETSource()
-        >>> result = await source.fetch(observatory_codes=["BOU", "ESK"])
+        >>> source = INTERMAGNETSource(observatory_codes=["BOU", "ESK"])
+        >>> result = await source.fetch()
     """
 
     DEFAULT_BASE_URL = "https://imag-data.bgs.ac.uk/GIN_V1/"
@@ -414,6 +422,7 @@ class INTERMAGNETSource(DataSourceBase):
         super().__init__(base_config)
 
         self._observatory_codes = observatory_codes or ["BOU", "ESK", "NGK"]
+        self._warned_simulated = False
 
     @property
     def source_id(self) -> str:
@@ -431,18 +440,37 @@ class INTERMAGNETSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch magnetometer data from INTERMAGNET.
+        """Emit labelled placeholder observatory entries (no request is made).
 
-        Note: This is a simplified implementation. Full INTERMAGNET access
-        requires specific data format handling (IAGA2002, CDF).
+        The INTERMAGNET data access protocol (IAGA2002 / CDF) is not
+        implemented here, so nothing is measured: each point is a fixed
+        catalog entry. Every point is labelled
+        ``metadata["simulated"] = True`` with ``confidence=0.0`` so the
+        live-ingestion seam refuses it without an explicit
+        ``allow_simulated=True`` opt-in (see the class HONESTY CONTRACT).
+        These entries used to ship unlabelled with ``confidence=0.85`` and
+        were stamped ``data_provenance="live"`` by the seam.
+
+        Args:
+            start_time: Unused (kept for the DataSourceBase contract).
+            end_time: Unused (kept for the DataSourceBase contract).
+            **kwargs: Unused source-specific parameters.
+
+        Returns:
+            One labelled-simulated MAGNETOMETER point per known observatory.
         """
-        end_time = end_time or datetime.now(UTC)
-        start_time = start_time or (end_time - timedelta(hours=24))
-
         data_points: list[DataPoint] = []
 
-        # Note: INTERMAGNET has specific data access protocols
-        # This implementation provides metadata and current status
+        if not self._warned_simulated:
+            logger.warning(
+                "INTERMAGNET: the data access protocol (IAGA2002/CDF) is not "
+                "implemented; emitting PLACEHOLDER observatory entries labelled "
+                "metadata['simulated']=True with confidence=0.0. Consumers must "
+                "opt in with allow_simulated=True; use USGSGeomagnetismSource "
+                "for real magnetometer measurements."
+            )
+            self._warned_simulated = True
+
         for code in self._observatory_codes:
             obs_info = self.OBSERVATORIES.get(code)
             if not obs_info:
@@ -450,7 +478,8 @@ class INTERMAGNETSource(DataSourceBase):
 
             name, lat, lon = obs_info
 
-            # Create a status data point
+            # A fixed catalog entry, not a reading: no field values exist to
+            # report, hence no alert level and zero confidence.
             data_points.append(
                 DataPoint(
                     source_id=self.source_id,
@@ -463,15 +492,26 @@ class INTERMAGNETSource(DataSourceBase):
                         "network": "INTERMAGNET",
                         "data_types": ["definitive", "quasi-definitive", "variation"],
                         "elements": ["H", "D", "Z", "F"],
-                        "note": "Full data requires INTERMAGNET data access protocol",
+                        "note": (
+                            "PLACEHOLDER observatory entry (INTERMAGNET data access "
+                            "protocol not implemented); simulated=True, not a measurement"
+                        ),
                     },
                     location=(lat, lon, 0.0),
-                    confidence=0.85,
-                    metadata={"network": "INTERMAGNET", "format": "IAGA2002"},
+                    alert_level=AlertLevel.NONE,
+                    confidence=0.0,
+                    metadata={
+                        "network": "INTERMAGNET",
+                        "format": "IAGA2002",
+                        "simulated": True,
+                        "data_provenance": "simulated",
+                    },
                 )
             )
 
-        logger.info(f"INTERMAGNET: Created {len(data_points)} observatory entries")
+        logger.info(
+            f"INTERMAGNET: Created {len(data_points)} labelled-simulated observatory entries"
+        )
         return data_points
 
 
@@ -483,13 +523,21 @@ class INTERMAGNETSource(DataSourceBase):
 class SuperMAGSource(DataSourceBase):
     """SuperMAG ground magnetometer network data source.
 
-    Provides access to 500+ ground magnetometer stations globally.
-    Includes derived indices: SME, SMU, SML (auroral electrojet indices).
+    SuperMAG aggregates 500+ ground magnetometer stations globally and
+    derives the SME, SMU and SML auroral electrojet indices.
 
-    Note: Account required for bulk download.
+    HONESTY CONTRACT: SuperMAG data requires an account and its own API,
+    which this class does not implement -- the ``username`` / ``password``
+    arguments are stored but never sent, and no request is made. It emits one
+    fixed descriptive entry per index name and no index values. Every point
+    is therefore labelled ``metadata["simulated"] = True`` with
+    ``confidence=0.0``, which the live-ingestion seam refuses unless the
+    consumer explicitly passes ``allow_simulated=True`` (see
+    :mod:`omni_mercury_engine.data_sources.live_ingestion`). For real
+    magnetometer measurements use :class:`USGSGeomagnetismSource`.
 
     Example:
-        >>> source = SuperMAGSource(username="user", password="pass")
+        >>> source = SuperMAGSource()
         >>> result = await source.fetch()
     """
 
@@ -519,6 +567,7 @@ class SuperMAGSource(DataSourceBase):
 
         self._username = username
         self._password = password
+        self._warned_simulated = False
 
     @property
     def source_id(self) -> str:
@@ -536,12 +585,35 @@ class SuperMAGSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch magnetometer data from SuperMAG.
+        """Emit labelled placeholder index entries (no request is made).
 
-        Note: Full SuperMAG API access requires authentication and specific
-        API endpoints. This provides metadata about available indices.
+        The SuperMAG API is not implemented here, so no index value is
+        read: each point only names and describes an index. Every point is
+        labelled ``metadata["simulated"] = True`` with ``confidence=0.0`` so
+        the live-ingestion seam refuses it without an explicit
+        ``allow_simulated=True`` opt-in (see the class HONESTY CONTRACT).
+        These entries used to ship unlabelled with ``confidence=0.85`` and
+        were stamped ``data_provenance="live"`` by the seam.
+
+        Args:
+            start_time: Unused (kept for the DataSourceBase contract).
+            end_time: Unused (kept for the DataSourceBase contract).
+            **kwargs: Unused source-specific parameters.
+
+        Returns:
+            One labelled-simulated MAGNETOMETER point per index name.
         """
         data_points: list[DataPoint] = []
+
+        if not self._warned_simulated:
+            logger.warning(
+                "SuperMAG: the account-gated SuperMAG API is not implemented; "
+                "emitting PLACEHOLDER index entries labelled "
+                "metadata['simulated']=True with confidence=0.0. Consumers must "
+                "opt in with allow_simulated=True; use USGSGeomagnetismSource "
+                "for real magnetometer measurements."
+            )
+            self._warned_simulated = True
 
         # SuperMAG provides auroral electrojet indices
         indices = ["SME", "SMU", "SML"]  # Auroral electrojet indices
@@ -557,14 +629,22 @@ class SuperMAGSource(DataSourceBase):
                         "index_name": index_name,
                         "description": self._get_index_description(index_name),
                         "station_count": 500,  # Approximate
-                        "note": "Full data requires SuperMAG account",
+                        "note": (
+                            "PLACEHOLDER index entry (SuperMAG API not implemented); "
+                            "simulated=True, not a measurement"
+                        ),
                     },
-                    confidence=0.85,
-                    metadata={"network": "SuperMAG"},
+                    alert_level=AlertLevel.NONE,
+                    confidence=0.0,
+                    metadata={
+                        "network": "SuperMAG",
+                        "simulated": True,
+                        "data_provenance": "simulated",
+                    },
                 )
             )
 
-        logger.info(f"SuperMAG: Created {len(data_points)} index entries")
+        logger.info(f"SuperMAG: Created {len(data_points)} labelled-simulated index entries")
         return data_points
 
     def _get_index_description(self, index_name: str) -> str:

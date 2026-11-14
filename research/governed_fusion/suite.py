@@ -33,8 +33,10 @@ the ``loaders/`` package (only by the ``datasets/`` package); the real/reconstru
 split here is therefore made explicit in code (``RECONSTRUCTED_DOMAINS`` /
 ``RECONSTRUCTED_EVENTS``), not delegated to that flag.
 
-As defense-in-depth against a *silent* live->synthetic fallback (``marine`` on an
-empty OBIS response synthesises data tagged ``dataset_id="synthetic"``),
+As defense-in-depth against a live->synthetic fallback (``marine`` on an empty or
+unreachable OBIS used to synthesise silently; it now refuses unless
+``MERCURY_ALLOW_SYNTHETIC=1``, and under that opt-in still tags the stand-in
+``dataset_id="synthetic"``),
 ``_load_event`` additionally refuses to label any event live whose loader returned
 that marker (``_looks_synthesized`` / ``ProvenanceError``).  This is a read-only
 check on an existing column -- it never changes a loader's return contract -- so a

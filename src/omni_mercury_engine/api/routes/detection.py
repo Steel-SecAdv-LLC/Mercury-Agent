@@ -726,7 +726,11 @@ class TierDetectRequest(BaseModel):
     data: list[float] = Field(
         ...,
         min_length=8,
-        description="1-D anomaly series (the tier's native temporal contract)",
+        description=(
+            "1-D anomaly series (the tier's native temporal contract). At least 8 "
+            "points; the default tier includes spot_evt, which needs 10, so send 10 "
+            "or more unless 'subset' leaves spot_evt out"
+        ),
     )
     labels: list[int] | None = Field(
         default=None,

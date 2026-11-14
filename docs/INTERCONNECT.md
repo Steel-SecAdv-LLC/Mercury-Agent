@@ -104,6 +104,12 @@ way from the shell.
 | `mercury_check_provenance` | Enforce provenance at the output boundary: decide whether a candidate emission on a possibly hazardous topic may be emitted given its cited sources, using the weapons/mass-casualty gate to decide when attribution is required. | Always |
 | `mercury_self_consistency` | Score N sampled reasoning-path answers for disagreement and apply the calibrated decision rule (widen confidence toward 0.5 with disagreement, abstain when the paths are too split). | Always |
 | `mercury_value_metrics` | Return Mercury's intelligence-layer value board: each stream's declared, measured value metric with its baseline, target, and direction. | Always |
+| `mercury_verify_statements` | Verify statements against independent evidence: Bayesian corroboration over independence clusters, contradictions (Allen interval algebra, impossible travel), per-speaker consistency and verifiability. Never labels a person or an account. | Always |
+| `mercury_screen_intel_reports` | Counterintelligence screens over an intelligence report batch: source reliability, circular and coordinated reporting, fabrication screens, impossible travel. Flags are leads for an analyst, never a score or threat level. | Always |
+| `mercury_fuse_intelligence` | All-source fusion of screened intelligence reports into a threat assessment. The network decides only after merit-gated weights are admitted; the result says which path decided. | Always |
+| `mercury_adjudication_status` | Read-only status of the adjudication ledger: chain validity, inter-rater agreement, counts per split and level, work queues. | Always |
+| `mercury_concealed_information_test` | Score a Concealed Information Test session: recognition of event details, not deception; a finding is not evidence of guilt. | Off until the operator sets `MERCURY_HUMAN_SUBJECT_CAPABILITIES`; needs a stated purpose and a verified consent record |
+| `mercury_estimate_vital_signs` | Respiration and heart rate from contactless radar or Wi-Fi CSI; abstains rather than guesses. | Off until the operator sets `MERCURY_HUMAN_SUBJECT_CAPABILITIES`; needs a stated purpose and a lawful basis (consent, or vital interests with an incident attestation) |
 
 Every tool is **transparent and fail-closed**, exactly like the rest of Mercury:
 

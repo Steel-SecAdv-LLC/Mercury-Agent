@@ -9,6 +9,7 @@ tornadoes are labeled as anomalies against a background of weaker (EF0-EF2) even
 
 from __future__ import annotations
 
+import csv
 import logging
 from typing import Any
 
@@ -163,12 +164,18 @@ class TornadoLoader(BaseDomainLoader):
     def fetch_realtime(self) -> pd.DataFrame:
         """Fetch today's tornado reports from the SPC daily storm reports.
 
+        The daily CSV concatenates tornado / wind / hail sections, each
+        introduced by its own header row; only the tornado section
+        (``Time,F_Scale,...``) is parsed.
+
         Returns:
-            DataFrame with tornado report columns parsed from the SPC
-            daily CSV feed.
+            DataFrame with columns ``time``, ``mag``, ``location``,
+            ``county``, ``state``, ``slat``, ``slon``, ``comments``.  Empty
+            (0 rows) when no tornado has been reported yet today.
 
         Raises:
             ConnectionError: If the SPC feed is unreachable after retries.
+            ValueError: If the feed has no recognizable tornado section.
         """
         cache_key = "tornado_realtime"
         cached = self._read_cache(cache_key)
@@ -177,10 +184,8 @@ class TornadoLoader(BaseDomainLoader):
             logger.debug("Returning cached real-time tornado data.")
             return pd.DataFrame(cached)
 
-        df = self._fetch_csv(_DAILY_REPORTS_URL)
-
-        # SPC daily reports may have different column layouts; normalise
-        df = self._normalise_daily_report(df)
+        raw = self._fetch_url(_DAILY_REPORTS_URL)
+        df = self._parse_daily_tornado_section(raw)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info("Fetched %d real-time tornado reports from SPC.", len(df))
@@ -338,16 +343,28 @@ class TornadoLoader(BaseDomainLoader):
 
         df = raw_data.copy()
 
+        # Preliminary daily reports carry only time, rating, place and
+        # coordinates: indexing ``len`` / ``wid`` / ``fat`` / ``inj`` directly
+        # raised ``KeyError: 'len'`` on every ``fetch_realtime`` frame. A
+        # column the source does not publish contributes zeros, as in
+        # ``HailLoader.engineer_features``.
+        def _col(name: str) -> np.ndarray[Any, Any]:
+            if name in df.columns:
+                return np.asarray(
+                    pd.to_numeric(df[name], errors="coerce").fillna(0).values, dtype=np.float64
+                )
+            return np.zeros(len(df), dtype=np.float64)
+
         # ---- base observables ----
-        ef_scale = pd.to_numeric(df["mag"], errors="coerce").fillna(0).values.astype(np.float64)
-        path_length = pd.to_numeric(df["len"], errors="coerce").fillna(0).values.astype(np.float64)
-        path_width = pd.to_numeric(df["wid"], errors="coerce").fillna(0).values.astype(np.float64)
-        fatalities = pd.to_numeric(df["fat"], errors="coerce").fillna(0).values.astype(np.float64)
-        injuries = pd.to_numeric(df["inj"], errors="coerce").fillna(0).values.astype(np.float64)
+        ef_scale = _col("mag")
+        path_length = _col("len")
+        path_width = _col("wid")
+        fatalities = _col("fat")
+        injuries = _col("inj")
 
         # ---- geographic coordinates ----
-        slat = pd.to_numeric(df["slat"], errors="coerce").fillna(0).values.astype(np.float64)
-        slon = pd.to_numeric(df["slon"], errors="coerce").fillna(0).values.astype(np.float64)
+        slat = _col("slat")
+        slon = _col("slon")
 
         # ---- temporal features ----
         timestamps = self._parse_timestamps(df)
@@ -491,9 +508,12 @@ class TornadoLoader(BaseDomainLoader):
         df.columns = [c.strip().lower() for c in df.columns]
 
         # Common SPC daily report columns: Time, F_Scale, Location, County,
-        # State, Lat, Lon, Comments
+        # State, Lat, Lon, Comments. The dated ``YYMMDD_rpts_filtered.csv``
+        # files spell the rating column ``F-Scale`` (recorded 2012-06-29
+        # fixture); the live ``today.csv`` spells it ``F_Scale``.
         rename_map: dict[str, str] = {
             "f_scale": "mag",
+            "f-scale": "mag",
             "lat": "slat",
             "lon": "slon",
         }
@@ -503,13 +523,80 @@ class TornadoLoader(BaseDomainLoader):
 
         return df
 
+    @classmethod
+    def _parse_daily_tornado_section(cls, raw: bytes) -> pd.DataFrame:
+        """Parse the tornado section out of the SPC daily storm reports CSV.
+
+        The daily file concatenates three sections, each with its own
+        header (``Time,F_Scale,...`` tornado, ``Time,Speed,...`` wind,
+        ``Time,Size,...`` hail).  Reading the whole body as one table
+        returned the wind and hail header lines -- and every wind and hail
+        report -- as tornado reports; on a day without tornadoes the feed
+        yielded exactly two "reports", the two foreign headers.
+
+        Args:
+            raw: Raw CSV bytes from the SPC daily feed.
+
+        Returns:
+            DataFrame with normalised columns (``mag``, ``slat``, ``slon``,
+            ...).  ``mag`` is numeric with ``NaN`` for the unrated ``UNK``
+            that preliminary reports carry.  Empty (0 rows) when the
+            tornado section exists but has no reports yet today.
+
+        Raises:
+            ValueError: If no tornado section header is present (format drift).
+        """
+        # splitlines(), not split("\n"): a CRLF body would otherwise leave a
+        # carriage return on every header name and Comments value.
+        lines = raw.decode("utf-8", errors="replace").strip().splitlines()
+
+        tornado_header_idx: int | None = None
+        section_bounds: list[int] = []
+        for i, line in enumerate(lines):
+            if line.startswith("Time,"):
+                section_bounds.append(i)
+                if tornado_header_idx is None and ",f_scale," in line.lower().replace("-", "_"):
+                    tornado_header_idx = i
+        if tornado_header_idx is None:
+            raise ValueError(
+                "SPC daily reports feed has no tornado section header "
+                "('Time,F_Scale,...'); the feed format may have changed."
+            )
+
+        next_bounds = [b for b in section_bounds if b > tornado_header_idx]
+        section_end = next_bounds[0] if next_bounds else len(lines)
+        section_lines = lines[tornado_header_idx:section_end]
+
+        # SPC daily rows occasionally carry unquoted commas inside the
+        # trailing Comments field; fold any surplus fields back into it so a
+        # real report is never dropped or misaligned.
+        header = next(csv.reader([section_lines[0]]))
+        n_cols = len(header)
+        rows: list[list[str]] = []
+        for line in section_lines[1:]:
+            if not line.strip():
+                continue
+            fields = next(csv.reader([line]))
+            if len(fields) > n_cols:
+                fields = fields[: n_cols - 1] + [",".join(fields[n_cols - 1 :])]
+            elif len(fields) < n_cols:
+                fields = fields + [""] * (n_cols - len(fields))
+            rows.append(fields)
+
+        df = cls._normalise_daily_report(pd.DataFrame(rows, columns=header))
+        for col in ("mag", "slat", "slon"):
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+        return df
+
     @staticmethod
     def _parse_timestamps(df: pd.DataFrame) -> list[pd.Timestamp]:
         """Parse date and time information from the tornado DataFrame.
 
         Attempts to construct timestamps from the ``date`` and ``time``
         columns, falling back to ``yr``, ``mo``, ``dy`` columns if
-        ``date`` is not available.
+        ``date`` is not available.  Daily-report rows (``time`` only, HHMM
+        UTC) get today's date with the report hour.
 
         Args:
             df: Tornado DataFrame with date/time columns.
@@ -544,6 +631,19 @@ class TornadoLoader(BaseDomainLoader):
                     mo = int(df["mo"].iloc[i])
                     dy = int(df["dy"].iloc[i])
                     timestamps.append(pd.Timestamp(year=yr, month=mo, day=dy))
+                except (ValueError, TypeError):
+                    timestamps.append(pd.Timestamp("1970-01-01"))
+        elif "time" in df.columns:
+            # The daily feed has no date column, so every report used to land
+            # on the epoch: hour 0, and one shared "hour" for the clustering
+            # feature. Same convention as ``HailLoader._parse_timestamps``.
+            today = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+            for i in range(n):
+                try:
+                    hhmm = f"{int(df['time'].iloc[i]):04d}"
+                    timestamps.append(
+                        today + pd.Timedelta(hours=int(hhmm[:2]), minutes=int(hhmm[2:]))
+                    )
                 except (ValueError, TypeError):
                     timestamps.append(pd.Timestamp("1970-01-01"))
         else:

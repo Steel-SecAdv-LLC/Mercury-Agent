@@ -17,6 +17,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -176,7 +177,8 @@ class FinancialLoader(BaseDomainLoader):
 
         Raises:
             EnvironmentError: If FRED_API_KEY is not set.
-            ConnectionError: If the FRED API is unreachable after retries.
+            DataSourceUnavailableError: If the FRED API is unreachable after
+                retries (every series request failed).
         """
         self._require_api_key()
         cache_key = "financial_realtime"
@@ -194,6 +196,12 @@ class FinancialLoader(BaseDomainLoader):
         start_date = (pd.Timestamp.now() - pd.Timedelta(days=90)).strftime("%Y-%m-%d")
 
         df = self._fetch_merged_series(start_date, end_date)
+
+        if df.empty:
+            # Not cached, as in fetch_historical: an empty frame parked under
+            # this key was served as "no financial data" for a full CACHE_TTL.
+            logger.warning("FRED returned no observations for the last 90 days.")
+            return df
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info("Fetched %d real-time financial records from FRED.", len(df))
@@ -213,7 +221,8 @@ class FinancialLoader(BaseDomainLoader):
         Raises:
             EnvironmentError: If FRED_API_KEY is not set.
             ValueError: If *event_id* is not in the catalog.
-            ConnectionError: If the FRED API is unreachable after retries.
+            DataSourceUnavailableError: If the FRED API is unreachable after
+                retries (every series request failed).
         """
         self._require_api_key()
         if event_id not in _EVENT_CATALOG:
@@ -485,14 +494,21 @@ class FinancialLoader(BaseDomainLoader):
             DataFrame indexed by date with one column per series.
             Missing values are forward-filled then back-filled to handle
             series with different publication schedules.
+
+        Raises:
+            DataSourceUnavailableError: If every series request failed at
+                the transport, i.e. FRED itself is unreachable. A single
+                failed series stays a logged gap.
         """
         merged: pd.DataFrame | None = None
+        failures: list[ConnectionError] = []
 
         for series_id in _SERIES_IDS:
             try:
                 series_df = self._fetch_fred_series(series_id, start_date, end_date)
-            except ConnectionError:
+            except ConnectionError as exc:
                 logger.error("Failed to fetch FRED series '%s'. Skipping.", series_id)
+                failures.append(exc)
                 continue
 
             if series_df.empty:
@@ -502,6 +518,21 @@ class FinancialLoader(BaseDomainLoader):
                 merged = series_df
             else:
                 merged = merged.merge(series_df, on="date", how="outer")
+
+        if len(failures) == len(_SERIES_IDS):
+            # All five requests failing is an outage, not an empty window:
+            # with the transport down this used to fall through to the empty
+            # frame below, which fetch_realtime then cached for an hour. The
+            # transport error's text is credential-free by construction (see
+            # FetchHTTPError), and the constructor redacts regardless.
+            last_error = failures[-1]
+            raise DataSourceUnavailableError(
+                "FinancialLoader",
+                _FRED_BASE_URL,
+                f"FRED unreachable: all {len(failures)} series requests failed "
+                f"for {start_date} to {end_date}; last error: {last_error}",
+                status_code=getattr(last_error, "status_code", None),
+            )
 
         if merged is None or merged.empty:
             logger.warning("No FRED data available for range %s to %s.", start_date, end_date)

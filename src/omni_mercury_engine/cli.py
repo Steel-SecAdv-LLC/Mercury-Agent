@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -123,7 +124,7 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
             param_hint="'--detector' / '-d'",
         )
 
-    data = _load_data(input)
+    data = _load_input(input, "--input")
 
     if detector == "fusion":
         # Load the shipped default fusion checkpoint so detection runs with a
@@ -278,9 +279,21 @@ def tier_detect(
     """
     from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
 
-    series = np.asarray(_load_data(input), dtype=float).ravel()
+    if method == "stacking" and labels is None:
+        # The stacking combiner is a classifier fitted on the labels. Without
+        # them StreamingScoreEnsemble.fit raised "stacking requires per-point
+        # labels" mid-run, which reached the terminal as a traceback.
+        raise click.UsageError(
+            "--method stacking is trained on per-point labels: pass --labels/-l with a "
+            "0/1 labels file, or use a label-free combiner (-m average or -m consensus)"
+        )
+    series = np.asarray(_load_input(input, "--input"), dtype=float).ravel()
     y = _load_labels(labels) if labels else None
-    ref = np.asarray(_load_data(reference), dtype=float).ravel() if reference else None
+    ref = (
+        np.asarray(_load_input(reference, "--reference"), dtype=float).ravel()
+        if reference
+        else None
+    )
     subset_names = tuple(s.strip() for s in subset.split(",")) if subset else None
 
     result = run_tier_ensemble(
@@ -341,9 +354,9 @@ def rca(
     """
     from omni_mercury_engine.detectors.detection_tier import localize_root_cause
 
-    observations = np.asarray(_load_data(input), dtype=float)
-    train_rows = np.asarray(_load_data(train), dtype=float) if train else None
-    adj = np.asarray(_load_data(adjacency), dtype=float) if adjacency else None
+    observations = np.asarray(_load_input(input, "--input"), dtype=float)
+    train_rows = np.asarray(_load_input(train, "--train"), dtype=float) if train else None
+    adj = np.asarray(_load_input(adjacency, "--adjacency"), dtype=float) if adjacency else None
     names = [s.strip() for s in node_names.split(",")] if node_names else None
 
     result = localize_root_cause(
@@ -468,7 +481,7 @@ def hazard_viz(
         if data_path is None:
             raise click.UsageError("--detector requires --data with the detector input")
         assert hazard is not None
-        arrays = _load_hazard_arrays(data_path, hazard)
+        arrays = _read_hazard_arrays(data_path, hazard)
         params: dict[str, Any] = {}
         if sampling_rate is not None:
             params["sampling_rate_hz"] = sampling_rate
@@ -544,7 +557,7 @@ def _load_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
     if path.suffix == ".csv":
         return {
             PRIMARY_INPUT_ARRAY[hazard]: np.loadtxt(
-                path, delimiter=",", skiprows=_csv_header_rows(path)
+                path, delimiter=",", skiprows=_csv_header_rows(path), encoding=_CSV_ENCODING
             )
         }
     if path.suffix == ".json":
@@ -553,6 +566,31 @@ def _load_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
     raise click.UsageError(
         f"unsupported data file format {path.suffix!r} (use .npz, .npy, .csv, or .json)"
     )
+
+
+def _read_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
+    """Load ``hazard-viz --data`` arrays, or stop with a one-line usage error.
+
+    A missing or non-numeric file used to leave ``hazard-viz`` as a
+    ``FileNotFoundError`` / ``ValueError`` traceback.
+
+    Args:
+        data_path: Input file path.
+        hazard: The hazard the arrays feed.
+
+    Returns:
+        Named arrays for :func:`run_hazard_detector`.
+
+    Raises:
+        click.UsageError: If the file cannot be read as numeric arrays.
+    """
+    try:
+        return _load_hazard_arrays(data_path, hazard)
+    except (OSError, ValueError) as exc:
+        raise click.UsageError(
+            f"cannot read the --data file {data_path} ({exc}); check the path and "
+            "that the file holds only numbers"
+        ) from exc
 
 
 @main.command()
@@ -775,10 +813,26 @@ def causal(
         mercury-agent causal -i data.csv --names A,B,C,D
         mercury-agent causal -i series.csv --temporal --seed 0 -o graph.json
     """
+    if not 0.0 < significance < 1.0:
+        # Alpha is the p-value cut of the independence test. Measured: 5 was
+        # accepted and a graph printed with exit 0, though no p-value exceeds 1.
+        raise click.BadParameter(
+            f"the independence-test alpha is a p-value cut-off and must be between 0 and 1 "
+            f"(exclusive); got {significance}. The usual choice is 0.05.",
+            param_hint="'--significance'",
+        )
     try:
         engine = _get_engine(mode="fusion")
         data = _load_data(input)
         var_names = [s.strip() for s in names.split(",")] if names else None
+        if var_names is not None and data.ndim == 2 and len(var_names) != data.shape[1]:
+            # Discovery indexes the names by column, so two names for four
+            # columns raised IndexError inside causal_discovery.discover_structure.
+            raise click.BadParameter(
+                f"{len(var_names)} names given for the {data.shape[1]} columns of {input}; "
+                "list one name per column, comma-separated, or omit --names",
+                param_hint="'--names' / '-n'",
+            )
 
         if temporal:
             graph = engine.discover_temporal_causation(
@@ -851,9 +905,16 @@ def explain(input: str, model: str) -> None:
         raise SystemExit(1) from e
 
 
+#: CSVs are read as UTF-8 with an optional byte-order mark. Excel and
+#: PowerShell write the mark; read as plain UTF-8 it stays glued to the first
+#: cell, which then fails ``float()``. Measured on a headerless 200-row file:
+#: the first row was taken for a header and 199 rows were scored.
+_CSV_ENCODING = "utf-8-sig"
+
+
 def _csv_header_rows(path: Path) -> int:
     """Return 1 when the first line of a CSV holds column names, else 0."""
-    with open(path, encoding="utf-8") as handle:
+    with open(path, encoding=_CSV_ENCODING) as handle:
         first_line = handle.readline()
     try:
         [float(cell) for cell in first_line.strip().split(",")]
@@ -862,37 +923,139 @@ def _csv_header_rows(path: Path) -> int:
     return 0
 
 
+def _read_csv_matrix(path: Path) -> np.ndarray[Any, Any]:
+    """Read a numeric CSV as a 2-D float64 array, one row per line.
+
+    Args:
+        path: The CSV file; its first line may hold column names.
+
+    Returns:
+        ``(n_lines, n_columns)`` values. ``ndmin=2`` keeps the file's own
+        layout: a column of N numbers is ``(N, 1)`` and one line of M numbers
+        is ``(1, M)``. ``np.loadtxt`` otherwise squeezes both to the same 1-D
+        array, and reading that as a row scored a 300-row series as one sample.
+
+    Raises:
+        ValueError: If a cell below the header is not a number.
+    """
+    with warnings.catch_warnings():
+        # numpy warns "input contained no data" and returns an empty array;
+        # _load_data reports that file as an error, once, with the remedy.
+        warnings.simplefilter("ignore", UserWarning)
+        try:
+            # float64, not float32: a finite float64 cell above the float32
+            # range (~3.4e38) silently becomes +/-inf under a float32 cast,
+            # and the detector then reports "N rows contained non-finite
+            # values; imputed" -- blaming the operator's data for an infinity
+            # the loader created.
+            data = np.loadtxt(
+                path,
+                delimiter=",",
+                dtype=np.float64,
+                skiprows=_csv_header_rows(path),
+                ndmin=2,
+                encoding=_CSV_ENCODING,
+            )
+        except ValueError as exc:
+            raise ValueError(
+                f"{path}: {exc} Every cell below an optional header row must be a "
+                "number; drop the text columns or encode them as numbers."
+            ) from exc
+    return np.asarray(data, dtype=np.float64)
+
+
+def _read_json_array(path: Path) -> np.ndarray[Any, Any]:
+    """Read a JSON document as an array (a non-list document is one element).
+
+    Args:
+        path: The JSON file.
+
+    Returns:
+        The document as numpy lays it out: a flat array is 1-D, an array of
+        arrays is 2-D.
+
+    Raises:
+        ValueError: If the file is not valid JSON; the message names it.
+    """
+    with open(path) as f:
+        try:
+            loaded = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{path} is not valid JSON: {exc}") from exc
+    return np.array(loaded if isinstance(loaded, list) else [loaded])
+
+
 def _load_data(filepath: str) -> np.ndarray[Any, Any]:
-    """Load data from file (a CSV may start with a header row)."""
+    """Load a samples-by-features matrix from a CSV, NPY or JSON file.
+
+    Rows are samples and columns are features, however the file spells them:
+    a CSV column of N numbers, a 1-D ``.npy`` and a flat JSON array are all N
+    samples of one feature, ``(N, 1)``. They used to load as ``(1, N)``,
+    ``(1, N)`` and ``(N,)``, so ``detect`` scored a 300-row CSV series as one
+    300-feature sample (``"is_anomaly": [false]``) while the same values as
+    JSON flagged the spike. One sample of M features is one CSV line of M
+    values, or ``[[...]]`` in JSON.
+
+    Args:
+        filepath: Path to a ``.csv`` (optional header row), ``.npy`` or
+            ``.json`` file.
+
+    Returns:
+        The file's numbers as a 2-D array; float64 for CSV and NPY.
+
+    Raises:
+        OSError: If the file is missing or unreadable.
+        ValueError: If the format is unsupported, a cell is not a number, or
+            the file holds no data rows.
+    """
     path = Path(filepath)
+    if not path.is_file():
+        raise FileNotFoundError(f"file not found: {filepath} (check the path)")
 
+    data: np.ndarray[Any, Any]
     if path.suffix == ".json":
-        with open(path) as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return np.array(data)
-            return np.array([data])
-
+        data = _read_json_array(path)
     elif path.suffix == ".csv":
-        # float64, not float32: a finite float64 cell above the float32 range
-        # (~3.4e38) silently becomes +/-inf under a float32 cast, and the
-        # detector then reports "N rows contained non-finite values; imputed"
-        # -- blaming the operator's data for an infinity the loader created.
-        data = np.loadtxt(path, delimiter=",", dtype=np.float64, skiprows=_csv_header_rows(path))
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
-
+        data = _read_csv_matrix(path)
     elif path.suffix == ".npy":
-        data = np.load(path, allow_pickle=False)
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        # float64 for the same reason as the CSV path above, and so a .npy
-        # written as float64 round-trips at the precision it was saved with.
-        return np.asarray(data, dtype=np.float64)
-
+        # float64 for the same reason as the CSV path, and so a .npy written
+        # as float64 round-trips at the precision it was saved with.
+        data = np.asarray(np.load(path, allow_pickle=False), dtype=np.float64)
     else:
-        raise ValueError(f"Unsupported file format: {path.suffix}")
+        raise ValueError(f"Unsupported file format: {path.suffix} (use .csv, .npy, or .json)")
+
+    if data.ndim < 2 and data.dtype.kind in "biuf":
+        data = data.reshape(-1, 1)
+    if data.size == 0:
+        raise ValueError(
+            f"{filepath} holds no data rows; it needs at least one row of numbers "
+            "below the optional header"
+        )
+    return data
+
+
+def _load_input(filepath: str, option: str) -> np.ndarray[Any, Any]:
+    """Load the data file given to ``option``, or stop with a one-line error.
+
+    ``detect``, ``tier-detect`` and ``rca`` called :func:`_load_data` bare, so
+    a missing, empty or text-bearing file left the command as a Python
+    traceback. ``explain`` and ``train`` already print ``Error: ...`` and exit
+    1 for the same files; this gives the other commands that behaviour.
+
+    Args:
+        filepath: Path given on the command line.
+        option: The option that named it, for the message (e.g. ``--input``).
+
+    Returns:
+        The loaded samples-by-features matrix.
+
+    Raises:
+        click.ClickException: If the file cannot be read as numeric data.
+    """
+    try:
+        return _load_data(filepath)
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(f"cannot use the {option} file: {exc}") from exc
 
 
 def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
@@ -901,13 +1064,85 @@ def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
     if path.suffix == ".npy":
         y = np.load(path, allow_pickle=False)
     elif path.suffix == ".csv":
-        y = np.loadtxt(path, delimiter=",", skiprows=_csv_header_rows(path))
+        y = np.loadtxt(path, delimiter=",", skiprows=_csv_header_rows(path), encoding=_CSV_ENCODING)
     elif path.suffix == ".json":
         with open(path) as f:
             y = np.array(json.load(f))
     else:
         raise ValueError(f"Unsupported label file format: {path.suffix} (use .csv, .npy, or .json)")
     return np.asarray(y).reshape(-1)
+
+
+def _single_series(data: np.ndarray[Any, Any], option: str) -> np.ndarray[Any, Any]:
+    """Return the one time series a loaded file holds, as a 1-D array.
+
+    Args:
+        data: Matrix from :func:`_load_data`.
+        option: The option that named the file, for the message.
+
+    Returns:
+        The file's single column, or its single row, as ``(n_samples,)``.
+
+    Raises:
+        ValueError: If the file is a table of several rows and columns.
+            Flattening one interleaves its columns into a series nobody
+            recorded, and picking a column would discard the others unsaid.
+    """
+    matrix = np.asarray(data, dtype=np.float64)
+    if matrix.ndim == 2 and min(matrix.shape) > 1:
+        rows, columns = matrix.shape
+        raise ValueError(
+            f"the {option} file holds {rows} rows x {columns} columns, but this analysis "
+            "takes one series; pass a file with one column (or one row) of samples"
+        )
+    return matrix.ravel()
+
+
+def _axis_series(data: np.ndarray[Any, Any]) -> list[np.ndarray[Any, Any]]:
+    """Split loaded motion data into one 1-D position series per axis.
+
+    Args:
+        data: Matrix from :func:`_load_data`; rows are time steps.
+
+    Returns:
+        One ``(n_samples,)`` series per column. A single column, or a single
+        row of samples, is one series.
+    """
+    matrix = np.asarray(data, dtype=np.float64)
+    if matrix.ndim != 2 or min(matrix.shape) == 1:
+        return [matrix.ravel()]
+    return [np.ascontiguousarray(column) for column in matrix.T]
+
+
+def _integrated_time_series(
+    spectral_input: str | None, dynamics_input: str | None
+) -> np.ndarray[Any, Any] | None:
+    """Load the one time series ``physics integrated`` scores.
+
+    ``PhysicsIntegratedDetector`` scores a single time series with both the
+    spectral and the dynamics detector: its ``"mixed"`` input has one
+    ``"time_series"`` entry and nowhere to put a second recording.
+
+    Args:
+        spectral_input: File given to ``--spectral-input``, if any.
+        dynamics_input: File given to ``--dynamics-input``, if any.
+
+    Returns:
+        The series as ``(n_samples,)``, or ``None`` when neither was given.
+
+    Raises:
+        ValueError: If a file is a table rather than one series, or the two
+            options name different recordings.
+    """
+    named = (("--spectral-input", spectral_input), ("--dynamics-input", dynamics_input))
+    series = [_single_series(_load_data(path), option) for option, path in named if path]
+    if len(series) == 2 and not np.array_equal(series[0], series[1]):
+        raise ValueError(
+            "-s and -d must name the same recording: the integrated detector scores "
+            "one time series with both the spectral and the dynamics detector. Pass "
+            "the same file to both, or only one of the two"
+        )
+    return series[0] if series else None
 
 
 # =============================================================================
@@ -1057,8 +1292,13 @@ def physics_spectral(
         if reference is not None:
             # A baseline of known-good recordings: a CSV's rows are separate
             # recordings (so the spread comes from between them), a flat
-            # series is one.
-            detector.fit(_load_data(reference))
+            # series is one. _load_data returns a one-column file as (N, 1);
+            # laid out as it stands that is N one-sample recordings, with no
+            # spectrum to fit, so it is turned into the single recording it is.
+            recordings = _load_data(reference)
+            if recordings.ndim == 2 and recordings.shape[1] == 1:
+                recordings = recordings.reshape(1, -1)
+            detector.fit(recordings)
             baseline = "reference"
         else:
             detector.fit(signal)
@@ -1126,6 +1366,13 @@ def physics_dynamics(
         mercury-agent physics dynamics -i trajectory.json --time-step 0.001
         mercury-agent physics dynamics -i sensor.csv --chaos-threshold 0.05 -o results.json
     """
+    if not time_step > 0:
+        # Velocity is dx/dt: a zero step divides by zero, and the detector
+        # then refused its own NaN score ("produced a non-finite anomaly_score").
+        raise click.BadParameter(
+            f"the time step between samples must be greater than 0 seconds; got {time_step}",
+            param_hint="'--time-step'",
+        )
     try:
         from omni_mercury_engine.detectors.acceleration_dynamics import (
             AccelerationDynamicsDetector,
@@ -1138,15 +1385,21 @@ def physics_dynamics(
             "chaos_threshold": chaos_threshold,
         }
 
-        detector = AccelerationDynamicsDetector(config)
-        data = _load_data(input)
+        # The detector differentiates ONE position series (its 2-D form is a
+        # batch of independent series, one per row). A table of x,y,z columns
+        # used to be flattened into x0,y0,z0,x1,...: constant velocity on three
+        # axes became a sawtooth and scored 0.80 (is_anomaly true), where each
+        # column alone scores under 0.001. So every column is fitted and
+        # scored as its own series, exactly as a one-column file of it is.
+        axis_results = []
+        for series in _axis_series(_load_data(input)):
+            detector = AccelerationDynamicsDetector(dict(config))
+            detector.fit(series)
+            axis_results.append(detector.detect(series))
 
-        # Fit on the data
-        signal = data.flatten() if data.ndim > 1 else data
-        detector.fit(signal)
-
-        # Detect anomalies
-        result = detector.detect(signal)
+        # The motion is as anomalous as its worst axis: averaging the axes
+        # would let two steady ones hide a jump on the third.
+        result = max(axis_results, key=lambda axis: float(axis.get("anomaly_score", 0.0)))
 
         # Format output
         output_data = {
@@ -1165,6 +1418,18 @@ def physics_dynamics(
                 "max_jerk": float(result.get("max_jerk", 0.0)),
             },
         }
+        if len(axis_results) > 1:
+            # Per-column verdicts (0-based column index); the fields above
+            # describe the highest-scoring one.
+            output_data["axes"] = [
+                {
+                    "column": index,
+                    "is_anomaly": bool(axis.get("is_anomaly", False)),
+                    "anomaly_score": float(axis.get("anomaly_score", 0.0)),
+                    "motion_state": axis.get("motion_state", "unknown"),
+                }
+                for index, axis in enumerate(axis_results)
+            ]
 
         if output:
             with open(output, "w") as f:
@@ -1388,17 +1653,8 @@ def physics_integrated(
         detector = PhysicsIntegratedDetector(config)
 
         # Load data for each input type
-        spectral_data = None
-        dynamics_data = None
+        time_series = _integrated_time_series(spectral_input, dynamics_input)
         uiux_data = None
-
-        if spectral_input:
-            data = _load_data(spectral_input)
-            spectral_data = data.flatten() if data.ndim > 1 else data
-
-        if dynamics_input:
-            data = _load_data(dynamics_input)
-            dynamics_data = data.flatten() if data.ndim > 1 else data
 
         if uiux_input:
             with open(uiux_input) as f:
@@ -1426,51 +1682,63 @@ def physics_integrated(
                 )
                 uiux_data.append(interaction)
 
-        # Fit the detector
-        fit_data = {
-            "spectral": spectral_data,
-            "dynamics": dynamics_data,
-            "uiux": uiux_data,
-        }
-        detector.fit(fit_data)
+        # The detector's contract for several kinds of input at once is
+        # data_type="mixed": a mapping with "time_series" (scored by the
+        # spectral and dynamics detectors) and "interactions" (UI/UX). This
+        # command passed {"spectral", "dynamics", "uiux"} under the default
+        # data_type="time_series", so fit() treated the dict as an array and
+        # every run ended in "'dict' object has no attribute 'size'".
+        mixed_data: dict[str, Any] = {}
+        if time_series is not None:
+            mixed_data["time_series"] = time_series
+        if uiux_data is not None:
+            mixed_data["interactions"] = uiux_data
 
-        # Detect anomalies
-        detect_data = {
-            "spectral": spectral_data,
-            "dynamics": dynamics_data,
-            "uiux": uiux_data,
-        }
-        result = detector.detect(detect_data)
+        # Fit the detector, then score the same input
+        detector.fit(mixed_data, data_type="mixed")
+        result = detector.detect(mixed_data, data_type="mixed")
 
-        # Format output
-        output_data = {
+        # Format output. The detector returns "anomaly_score", "ethical_scaling",
+        # "recursion_score" and "resonance_score", and a None "<name>_result"
+        # for a detector that did not run. The names read here before
+        # ("fused_anomaly_score", "gosnn_governance", "three_r_alignment") are
+        # not in its result, so they could only ever print 0.0, {} and {}.
+        output_data: dict[str, Any] = {
             "detector": "PhysicsIntegratedDetector",
-            "is_anomaly": result.get("is_anomaly", False),
-            "fused_anomaly_score": float(result.get("fused_anomaly_score", 0.0)),
+            "is_anomaly": bool(result.get("is_anomaly", False)),
+            "fused_anomaly_score": float(result.get("anomaly_score", 0.0)),
             "enabled_detectors": [d.value for d in enabled_detectors],
             "fusion_weights": config["fusion_weights"],
             "detector_results": {},
-            "gosnn_governance": result.get("gosnn_governance", {}),
-            "three_r_alignment": result.get("three_r_alignment", {}),
+            "gosnn_governance": {
+                "ethical_scaling": float(result.get("ethical_scaling", 1.0)),
+            },
+            "three_r_alignment": {
+                "recursion_score": float(result.get("recursion_score", 0.0)),
+                "resonance_score": float(result.get("resonance_score", 0.0)),
+            },
         }
 
         # Add individual detector results
-        if "spectral_result" in result:
+        spectral_result = result.get("spectral_result")
+        if spectral_result is not None:
             output_data["detector_results"]["spectral"] = {
-                "anomaly_score": float(result["spectral_result"].get("anomaly_score", 0.0)),
-                "is_anomaly": result["spectral_result"].get("is_anomaly", False),
+                "anomaly_score": float(spectral_result.get("anomaly_score", 0.0)),
+                "is_anomaly": spectral_result.get("is_anomaly", False),
             }
-        if "dynamics_result" in result:
+        dynamics_result = result.get("dynamics_result")
+        if dynamics_result is not None:
             output_data["detector_results"]["dynamics"] = {
-                "anomaly_score": float(result["dynamics_result"].get("anomaly_score", 0.0)),
-                "is_anomaly": result["dynamics_result"].get("is_anomaly", False),
-                "motion_state": result["dynamics_result"].get("motion_state", "unknown"),
+                "anomaly_score": float(dynamics_result.get("anomaly_score", 0.0)),
+                "is_anomaly": dynamics_result.get("is_anomaly", False),
+                "motion_state": dynamics_result.get("motion_state", "unknown"),
             }
-        if "uiux_result" in result:
+        uiux_result = result.get("uiux_result")
+        if uiux_result is not None:
             output_data["detector_results"]["uiux"] = {
-                "anomaly_score": float(result["uiux_result"].get("anomaly_score", 0.0)),
-                "is_anomaly": result["uiux_result"].get("is_anomaly", False),
-                "behavior_class": result["uiux_result"].get("behavior_class", "unknown"),
+                "anomaly_score": float(uiux_result.get("anomaly_score", 0.0)),
+                "is_anomaly": uiux_result.get("is_anomaly", False),
+                "behavior_class": uiux_result.get("behavior_class", "unknown"),
             }
 
         if output:
@@ -1508,7 +1776,7 @@ def physics_list() -> None:
     click.echo("       • Wavelet multi-scale decomposition")
     click.echo("       • Predictive maintenance signatures")
     click.echo()
-    click.echo("     Command: mercury physics spectral -i <file>")
+    click.echo("     Command: mercury-agent physics spectral -i <file>")
 
     click.echo("\n  2. AccelerationDynamicsDetector")
     click.echo("     ─────────────────────────────────────────────────────")
@@ -1523,7 +1791,7 @@ def physics_list() -> None:
     click.echo("       • Motion state classification")
     click.echo("       • Impulse and momentum tracking")
     click.echo()
-    click.echo("     Command: mercury physics dynamics -i <file>")
+    click.echo("     Command: mercury-agent physics dynamics -i <file>")
 
     click.echo("\n  3. UIUXAnomalyDetector")
     click.echo("     ─────────────────────────────────────────────────────")
@@ -1538,7 +1806,7 @@ def physics_list() -> None:
     click.echo("       • Bot behavior classification")
     click.echo("       • Session engagement scoring")
     click.echo()
-    click.echo("     Command: mercury physics uiux -i <file.json>")
+    click.echo("     Command: mercury-agent physics uiux -i <file.json>")
 
     click.echo("\n  4. PhysicsIntegratedDetector")
     click.echo("     ─────────────────────────────────────────────────────")
@@ -1552,7 +1820,9 @@ def physics_list() -> None:
     click.echo("       • Cross-domain correlation analysis")
     click.echo("       • Adaptive threshold calibration")
     click.echo()
-    click.echo("     Command: mercury physics integrated -s <spectral> -d <dynamics> -u <uiux>")
+    click.echo(
+        "     Command: mercury-agent physics integrated -s <spectral> -d <dynamics> -u <uiux>"
+    )
 
     click.echo("\n" + "=" * 65 + "\n")
 
@@ -1636,6 +1906,10 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
         mercury-agent serve --reload  # Development mode with auto-reload
     """
     _require_pqc_backend_for_serve()
+    # The server builds account-email links to its own address when no public
+    # URL is configured (api/auth_service.py::public_base_url); tell it the
+    # port this process actually listens on.
+    os.environ["OMNI_API_PORT"] = str(port)
     click.echo("\n" + "=" * 60)
     click.echo("  Mercury Agent API Server")
     click.echo("=" * 60)

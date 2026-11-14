@@ -243,6 +243,48 @@ def test_console_does_not_call_an_unprobed_server_down() -> None:
     assert logic.count('"○ SERVER DOWN · PREVIEW"') == 1
 
 
+def test_alert_banner_is_opaque_over_the_header() -> None:
+    """The banner sits on top of the header, so its background must hide it.
+
+    ``--warning-bg`` is a 12 % tint. Used alone, the header's search field and
+    buttons showed through and the alert text was drawn across them. The tint
+    is layered over the solid app background.
+    """
+    template = (_CONSOLE / "template.js").read_text(encoding="utf-8")
+    assert "background:linear-gradient(var(--warning-bg),var(--warning-bg)),var(--bg);" in template
+    assert "padding:10px 16px;background:var(--warning-bg);" not in template
+    tokens = (_CONSOLE / "tokens.css").read_text(encoding="utf-8")
+    assert (
+        "--warning-bg:     rgba(245, 166, 35, 0.12);" in tokens
+    )  # translucent: why it needs a base
+
+
+def test_presence_caption_recovers_from_a_re_render() -> None:
+    """The caption read ``startingLIVE · ...`` after the runtime restored the template text."""
+    figure = (_CONSOLE / "figure.js").read_text(encoding="utf-8")
+    assert (
+        "if (text !== S.lastKey || CV.cap.textContent !== text) "
+        "{ CV.cap.textContent = text; S.lastKey = text; }" in figure
+    )
+
+
+def test_attribution_requests_get_a_longer_limit_and_report_it() -> None:
+    """``explain: true`` on the flagship route took 11.1 s against a 12 s limit for everything."""
+    api = (_CONSOLE / "api.js").read_text(encoding="utf-8")
+    assert "body.explain || body.gdpr_report || body.include_attribution" in api
+    assert "Math.max(cfg.timeoutMs, 60000)" in api
+    assert '"Timed out after " + limit + " ms"' in api
+    assert '"Timed out after " + cfg.timeoutMs + " ms"' not in api
+    mass = (_CONSOLE / "mass.js").read_text(encoding="utf-8")
+    assert "explain: true" in mass  # the capability that needs the longer limit
+
+
+def test_self_test_accepts_picking_the_command_already_selected() -> None:
+    """``detect`` is selected on a fresh console, so picking it changes nothing: not a failure."""
+    diag = (_CONSOLE / "diag.js").read_text(encoding="utf-8")
+    assert '|| (k === "commands" && T.state.sel === i.t)' in diag
+
+
 def test_committed_port_is_current() -> None:
     """Regenerate with ``python scripts/build_console_port.py`` when this fails."""
     spec = importlib.util.spec_from_file_location(

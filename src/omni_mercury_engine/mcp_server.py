@@ -57,6 +57,10 @@ _METHOD_NOT_FOUND = -32601
 _INVALID_PARAMS = -32602
 _INTERNAL_ERROR = -32603
 
+#: Formats ``mercury_write_document`` produces; the tool's schema enum and its
+#: argument check both read this.
+_DOCUMENT_FORMATS: tuple[str, ...] = ("markdown", "html", "text")
+
 
 class ToolError(RuntimeError):
     """A tool failed in a way the caller should see (returned as ``isError``)."""
@@ -250,7 +254,11 @@ class MercuryMCPServer:
                     "properties": {
                         "data": {
                             "type": "array",
-                            "description": "A 1-D numeric anomaly series.",
+                            "description": (
+                                "A 1-D numeric anomaly series. At least 8 points; the "
+                                "default tier includes spot_evt, which needs 10, so send "
+                                "10 or more unless 'subset' leaves spot_evt out."
+                            ),
                             "items": {"type": "number"},
                             "minItems": 8,
                         },
@@ -262,7 +270,8 @@ class MercuryMCPServer:
                         "reference": {
                             "type": "array",
                             "description": (
-                                "Known-normal 1-D series (>= 8 points) to fit and "
+                                "Known-normal 1-D series (>= 8 points; >= 10 when the "
+                                "tier includes spot_evt, as the default does) to fit and "
                                 "calibrate on; 'data' is then only scored, so the "
                                 "threshold and conformal cut rest on evidence "
                                 "independent of it. Without it (and without labels) "
@@ -519,7 +528,7 @@ class MercuryMCPServer:
                                 "required": ["heading", "body"],
                             },
                         },
-                        "format": {"type": "string", "enum": ["markdown", "html", "text"]},
+                        "format": {"type": "string", "enum": list(_DOCUMENT_FORMATS)},
                     },
                     "required": ["title", "sections"],
                 },
@@ -1386,6 +1395,12 @@ class MercuryMCPServer:
         }
         prob = args.get("prob")
         if prob is not None:
+            # A probability outside [0, 1] used to be thresholded as given:
+            # ``prob: 7`` came back "positive" and ``prob: -1`` "negative".
+            if isinstance(prob, bool) or not isinstance(prob, (int, float)):
+                raise ToolError(f"'prob' must be a number in [0,1]; got {prob!r}")
+            if not 0.0 <= float(prob) <= 1.0:
+                raise ToolError(f"'prob' must be a number in [0,1]; got {prob!r}")
             try:
                 dec = self_consistency_decision(float(prob), float(disagreement))
             except (TypeError, ValueError) as exc:
@@ -1435,6 +1450,15 @@ class MercuryMCPServer:
                 raise ToolError(f"section[{i}] requires string 'heading' and 'body'")
             sections.append(Section(heading, body))
         fmt = str(args.get("format", "markdown"))
+        # The schema lists the formats, but a client that sends another one
+        # (``pdf`` is the natural guess) reached the generator's ValueError,
+        # which the dispatcher reports as "internal tool error: ValueError" --
+        # a server fault for what is a bad argument. Name the choices instead.
+        if fmt not in _DOCUMENT_FORMATS:
+            raise ToolError(
+                f"'format' must be one of {', '.join(_DOCUMENT_FORMATS)}; got {fmt!r}. "
+                "PDF and DOCX are not produced: write markdown or html and convert it."
+            )
         document = self._research_assistant().write_document(title, sections, fmt=fmt)
         if document is None:
             raise ToolError("document refused by the benevolence gate")

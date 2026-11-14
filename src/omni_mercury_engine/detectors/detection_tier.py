@@ -94,6 +94,11 @@ TIER_PARADIGMS: dict[str, tuple[str, ...]] = {
 #: buildable (no optional dependency), so this is the default tier.
 STREAMING_TIER: tuple[str, ...] = tuple(name for group in TIER_PARADIGMS.values() for name in group)
 
+#: Points ``spot_evt`` needs to calibrate its tail (``SpotEvtDetector.fit``
+#: refuses fewer). The tier's own minimum is 8, so a default run on 8 or 9
+#: points is refused by this member; :func:`run_tier_ensemble` says so by name.
+SPOT_MIN_CALIBRATION_POINTS = 10
+
 #: Torch-gated tier members (SR-CNN, DDPM-AD). Not in :data:`STREAMING_TIER` so
 #: the default tier stays importable without PyTorch; pass these explicitly to
 #: :func:`build_tier_detectors` when the ML extra is installed.
@@ -948,7 +953,38 @@ def run_tier_ensemble(
         if subset is None:
             excluded["rca"] = reason
             subset = tuple(name for name in STREAMING_TIER if name != "rca")
+    if labels is not None:
+        # The same constraint under labels: the ensemble fits its members on
+        # the label-0 points only, so as soon as one point is labelled 1 the
+        # fit is shorter than the scored series and rca cannot score it. Every
+        # labelled run of the default tier failed with "input has N nodes but
+        # the detector was fitted on N-1", which made ``tier-detect -l`` and
+        # the supervised ``stacking``/``bma`` methods unusable by default.
+        label_array = np.asarray(labels).astype(int).ravel()
+        n_normal = int((label_array == 0).sum())
+        if 0 < n_normal < label_array.size:
+            reason = (
+                "fits a node graph over the training points; with labels the tier fits "
+                "on the label-0 points only, a different length than the scored series"
+            )
+            if subset is not None and "rca" in subset:
+                raise ValueError(f"rca cannot be used with labels: it {reason}")
+            if subset is None:
+                excluded["rca"] = reason
+                subset = tuple(name for name in STREAMING_TIER if name != "rca")
     detectors = build_tier_detectors(subset)
+    # ``spot_evt`` calibrates its tail on at least 10 points. With fewer, the
+    # run used to fail from inside that member ("SPOT calibration needs at
+    # least 10 samples"): true, but it named neither the series it meant nor a
+    # way out, and the declared minimum everywhere was 8. Say both here.
+    fit_size = int((_to_1d_series(series) if ref is None else ref).size)
+    if "spot_evt" in detectors and fit_size < SPOT_MIN_CALIBRATION_POINTS:
+        fitted = "reference" if ref is not None else "data"
+        raise ValueError(
+            f"the detector tier includes spot_evt, which calibrates on at least "
+            f"{SPOT_MIN_CALIBRATION_POINTS} points; '{fitted}' holds {fit_size}. Send "
+            f"{SPOT_MIN_CALIBRATION_POINTS} or more points, or pass a 'subset' without spot_evt."
+        )
     resolved_method = method or ("stacking" if labels is not None else "average")
     ensemble = StreamingScoreEnsemble(
         detectors,
@@ -975,8 +1011,8 @@ def run_tier_ensemble(
     if ref is not None:
         result["fit_on"] = "reference"
         result["n_reference"] = int(ref.size)
-        if excluded:
-            result["excluded_members"] = excluded
+    if excluded:
+        result["excluded_members"] = excluded
     if resolved_method == "bma":
         result["bma_weights"] = ensemble.bma_weights()
 

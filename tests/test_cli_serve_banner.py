@@ -11,6 +11,7 @@ never advertises a path that answers 404.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import pytest
@@ -34,6 +35,9 @@ def uvicorn_calls(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         calls.append({"app": app, **kwargs})
 
     monkeypatch.setattr(uvicorn, "run", fake_run)
+    # ``serve`` records its port in the environment; set it here first so
+    # monkeypatch restores the variable when the test ends.
+    monkeypatch.setenv("OMNI_API_PORT", "0")
     return calls
 
 
@@ -46,6 +50,8 @@ def test_banner_lists_metrics_and_omits_pages_that_are_not_mounted(
     assert "/metrics    - Prometheus metrics, including API router state" in result.output
     assert "/health     - Health check endpoint" in result.output
     assert "/console" not in result.output and "/login" not in result.output
+    # The port is handed to the server, which links account emails to itself.
+    assert os.environ["OMNI_API_PORT"] == "8123"
     assert uvicorn_calls == [
         {
             "app": "omni_mercury_engine.api.server:app",

@@ -359,8 +359,13 @@ _DIRECT_HARM_VERBS = (
 #: prisoner" and "beat and torture the prisoner" both match while a sentence
 #: that merely mentions both far apart does not. The window deliberately
 #: excludes sentence-final punctuation.
+#:
+#: A passive with an agent ("stalked by her ex", "tortured by them") is skipped:
+#: the object after "by" is the perpetrator in someone's report, not the victim
+#: of a request. "how to help my friend who is being stalked by her ex" was
+#: refused before this lookahead.
 _DIRECT_HARM_PATTERN = re.compile(
-    r"\b(?:" + _DIRECT_HARM_VERBS + r")\w*\b[^.!?;]{0,40}?\b(?:" + _OBJ + r")\b"
+    r"\b(?:" + _DIRECT_HARM_VERBS + r")\w*\b(?!\s+by\b)[^.!?;]{0,40}?\b(?:" + _OBJ + r")\b"
 )
 
 #: Lethal verb whose *manner* is stated as interpersonal violence. This is what
@@ -373,6 +378,102 @@ _VIOLENCE_MANNER = "violence|violently|brutality|brutally|bloodshed|savagery|cru
 _LETHAL_MANNER_PATTERN = re.compile(
     r"\b(?:(?:" + _LETHAL_VERBS + r")\w*\b[^.!?;]{0,60}?\b(?:" + _VIOLENCE_MANNER + r")"
     r"|(?:" + _VIOLENCE_MANNER + r")\b[^.!?;]{0,60}?\b(?:" + _LETHAL_VERBS + r")\w*)\b"
+)
+
+
+# ---------------------------------------------------------------------------
+# Lethal or grave harm stated as the speaker's own act against a person.
+#
+# The two patterns above leave the plainest request open. Measured through
+# ``mercury_score_ethics`` before this block existed, every one of these came
+# back ``is_permissible: true``:
+#
+#     "kill my neighbour"                  "i want to kill her"
+#     "I will murder John Smith tomorrow"  "help me stalk and hurt my ex-wife"
+#
+# ``kill``/``murder`` counted only with a stated manner of violence, and the
+# person-object list holds pronouns and a few roles, not the way people
+# actually name a victim ("my neighbour", "my ex-wife", a proper name).
+#
+# Widening the existing patterns would have been wrong: "could this arrhythmia
+# kill my mother", "someone is blackmailing my father" and "my neighbour keeps
+# harassing my wife" are a patient's or a victim's words, and they use the same
+# verb and the same object. What separates the two is who acts. This block
+# therefore fires only inside an AGENTIVE FRAME: the speaker's stated intent
+# ("i will", "i want to", "we're going to"), a request for help doing it
+# ("help me", "how do i"), or a bare imperative at the start of a clause. A
+# third-person subject ("he will kill her", "this dose could kill him") has no
+# such frame and is left to the patterns above, unchanged.
+#
+# ``kill`` stays excluded for the object "them": "find the idle workers and
+# kill them" is operations vocabulary. ``murder``/``assassinate`` have no such
+# technical sense, so after a first-person intent frame they match any object,
+# which is what catches a proper name; after an imperative they still need a
+# person object, because "murder mystery ideas" starts a clause too.
+#
+# Known residue, accepted: game talk in the agentive frame ("how do i kill him
+# in the final fight") is refused. The corpora that pin both directions are in
+# tests/pillars/test_non_maleficence.py (``AGENTIVE_HARM_REQUESTS`` and
+# ``AGENTIVE_FRAME_BENIGN``).
+# ---------------------------------------------------------------------------
+
+#: People named by their relation to someone, the form a real threat takes.
+_RELATION_NOUNS = (
+    "neighbou?r|wife|husband|spouse|girlfriend|boyfriend|fiancee?|partner|ex"
+    "|boss|manager|supervisor|coworker|co-worker|colleague|classmate|roommate"
+    "|flatmate|landlord|tenant|teacher|professor|mother|father|mom|mum|dad"
+    "|stepmother|stepfather|brother|sister|son|daughter|uncle|aunt|cousin"
+    "|grandmother|grandfather|grandma|grandpa|friend"
+)
+#: ``my neighbour``, ``his ex-wife``; not ``my neighbour's`` (the possessive
+#: makes the next noun the object: "kill my neighbour's weeds").
+_PERSON_BY_RELATION = (
+    r"(?:my|his|her|their|our|your)\s+(?:ex[- ]?)?(?:" + _RELATION_NOUNS + r")\b(?!['\u2019]s\b)"
+)
+#: The listed person objects without "them", for ``kill`` (see above).
+_OBJ_NOT_THEM = "|".join(re.escape(o) for o in _EUPHEMISM_OBJECT if o != "them")
+
+#: The speaker states the act as their own intent.
+_FIRST_PERSON_INTENT = (
+    r"\b(?:(?:i|we)(?:\s+(?:really|just|still|honestly|seriously))?\s+"
+    r"(?:will|shall|must|wanna|gonna|want to|need to|have to|plan to|intend to|wish to"
+    r"|would like to|am going to|are going to|am about to)"
+    r"|(?:i|we)'ll|i'm (?:going to|gonna)|we're (?:going to|gonna)|(?:i|we)'d like to)\s+"
+)
+#: A request for help doing it, or a bare imperative opening a clause.
+_HELP_OR_IMPERATIVE = (
+    r"(?:\bhelp me (?:to )?|\bhow (?:to|do i|can i|could i|should i|would i|do we|can we)\s+"
+    r"|\blet(?:'s| us)\s+"
+    r"|(?:^|[.!?;:]\s*)(?:(?:and\s+)?then\s+|please\s+|just\s+|go\s+|now\s+)?)"
+)
+_AGENTIVE_FRAME = r"(?:" + _FIRST_PERSON_INTENT + r"|" + _HELP_OR_IMPERATIVE + r")"
+
+_AGENTIVE_HARM_PATTERN = re.compile(
+    # lethal verb, person object, any agentive frame
+    _AGENTIVE_FRAME
+    + r"(?:\w+\s+and\s+)?(?:kill\s+(?:"
+    + _OBJ_NOT_THEM
+    + r"|"
+    + _PERSON_BY_RELATION
+    + r")|(?:murder|assassinate)\s+(?:"
+    + _OBJ
+    + r"|"
+    + _PERSON_BY_RELATION
+    + r"))\b"
+    # murder/assassinate after the speaker's own intent: any object, so a name
+    # ("i will murder john smith"). Not "you"/"me"/"us": a threat quoted by the
+    # person who received it ("he wrote: i will murder you") is theirs to
+    # report. Not "this"/"that"/"it": slang for doing something well.
+    r"|"
+    + _FIRST_PERSON_INTENT
+    + r"(?:murder|assassinate)\s+(?!(?:you|u|me|us|this|that|it)\b)\S+"
+    # a grave-harm act against a person named by relation, any agentive frame
+    r"|"
+    + _AGENTIVE_FRAME
+    + r"(?:\w+\s+and\s+)?(?:"
+    + _DIRECT_HARM_VERBS
+    + r")\b[^.!?;]{0,40}?\b"
+    + _PERSON_BY_RELATION
 )
 
 
@@ -389,11 +490,17 @@ def _direct_harm_present(text: str) -> bool:
         text: Lower-cased action text (plus rendered context).
 
     Returns:
-        ``True`` when a grave-harm act is pinned to a specific person, or a
-        lethal verb is qualified by an explicit manner of violence.
+        ``True`` when a grave-harm act is pinned to a specific person, a
+        lethal verb is qualified by an explicit manner of violence, or the
+        speaker states (or asks for help with) a lethal or grave-harm act
+        against a person.
     """
     t = text.lower()
-    return bool(_DIRECT_HARM_PATTERN.search(t) or _LETHAL_MANNER_PATTERN.search(t))
+    return bool(
+        _DIRECT_HARM_PATTERN.search(t)
+        or _LETHAL_MANNER_PATTERN.search(t)
+        or _AGENTIVE_HARM_PATTERN.search(t)
+    )
 
 
 def _euphemism_harm_present(text: str) -> bool:

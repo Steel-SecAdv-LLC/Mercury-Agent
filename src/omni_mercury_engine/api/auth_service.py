@@ -1105,6 +1105,46 @@ def _positive_env_seconds(name: str, default_seconds: float) -> timedelta:
     return timedelta(seconds=value)
 
 
+def public_base_url() -> str:
+    """Return the base URL that account emails link to.
+
+    ``MERCURY_PUBLIC_BASE_URL`` is used when set. Its old default was the
+    project's own site, so a server that did not set it sent every user a
+    verification, password-reset and email-change link to
+    ``https://mercuryagent.global``: the link did not reach the server that
+    issued the token, and the token itself went to a host the operator does not
+    run. The default now depends on where the mail goes:
+
+    * with the development mailer (no ``MERCURY_SMTP_HOST``) the message is
+      filed on this machine, so the link points at this server,
+      ``http://127.0.0.1:<port>`` (``OMNI_API_PORT``, which
+      ``mercury-agent serve`` sets from ``--port``; 8000 otherwise);
+    * with SMTP configured, mail leaves the machine and there is no safe
+      guess, so the setting is required.
+
+    Returns:
+        The base URL, without a trailing slash.
+
+    Raises:
+        RuntimeError: If ``MERCURY_SMTP_HOST`` is set and
+            ``MERCURY_PUBLIC_BASE_URL`` is not.
+    """
+    import os
+
+    explicit = os.getenv("MERCURY_PUBLIC_BASE_URL", "").strip()
+    if explicit:
+        return explicit.rstrip("/")
+    if os.getenv("MERCURY_SMTP_HOST", "").strip():
+        raise RuntimeError(
+            "MERCURY_PUBLIC_BASE_URL must be set when MERCURY_SMTP_HOST is: account emails "
+            "carry verification and password-reset links, and without it they would not point "
+            "at this server. Set it to the address users reach this server at, for example "
+            "MERCURY_PUBLIC_BASE_URL=https://mercury.example.org."
+        )
+    port = os.getenv("OMNI_API_PORT", "").strip()
+    return f"http://127.0.0.1:{port if port.isdigit() else '8000'}"
+
+
 def build_auth_service() -> AuthService:
     """Construct an :class:`AuthService` wired from the environment.
 
@@ -1115,7 +1155,7 @@ def build_auth_service() -> AuthService:
     :func:`build_auth_auditor` (tamper-evident when ``MERCURY_AUDIT_LOG_DIR``
     is set). Session lifetimes come from ``MERCURY_SESSION_TTL_SECONDS`` /
     ``MERCURY_SESSION_TTL_SHORT_SECONDS`` / ``MERCURY_SESSION_IDLE_SECONDS``;
-    ``MERCURY_PUBLIC_BASE_URL`` builds email links. When an SMTP host is
+    :func:`public_base_url` builds email links. When an SMTP host is
     configured, sends run on a small background executor so a slow mail
     server cannot stall (or time-fingerprint) request handling.
 
@@ -1124,7 +1164,7 @@ def build_auth_service() -> AuthService:
     """
     import os
 
-    base_url = os.getenv("MERCURY_PUBLIC_BASE_URL", "https://mercuryagent.global")
+    base_url = public_base_url()
     contact = os.getenv("MERCURY_CONTACT_EMAIL", "contact@mercuryagent.global")
 
     mail_executor = None

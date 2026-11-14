@@ -185,7 +185,12 @@ class EthicalConstants:
     # cognitive/ethical_bounding.py, see docs/HARM_POLICY.md) -- a blocking
     # disposition now raises PHYSICAL/SOCIETAL harm and hard-vetoes
     # is_permissible; cached v3 verdicts must invalidate.
-    RULESET_VERSION: int = 4
+    # v5: the grave-harm lexicon gains the agentive-frame pattern (a lethal or
+    # grave-harm act the speaker states or asks help with, against a person
+    # named by pronoun, role, relation or name) and stops reading a passive's
+    # agent as a victim; verdicts for those texts change in both directions, so
+    # cached v4 verdicts must invalidate.
+    RULESET_VERSION: int = 5
 
 
 ETHICAL = EthicalConstants()

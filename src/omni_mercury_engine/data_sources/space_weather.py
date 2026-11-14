@@ -1418,6 +1418,78 @@ class NASAEONETSource(DataSourceBase):
 
         return base_level
 
+    @staticmethod
+    def _representative_lon_lat(coordinates: Any) -> tuple[float, float]:
+        """Reduce an EONET geometry's ``coordinates`` to one ``(lon, lat)`` position.
+
+        EONET v3 geometries are GeoJSON: a ``Point`` carries a single
+        position ``[lon, lat]``, while a ``Polygon`` carries a list of rings,
+        each a list of positions (GDACS flood extents arrive this way: 7 of
+        the 100 events in a 2026-11-14 ``status=all`` response). Reading
+        ``coordinates[1]`` as the latitude regardless of type raised
+        ``TypeError`` on the first Polygon and failed the whole fetch.
+
+        A Polygon is represented by the mean of its outer ring's distinct
+        vertices -- a point guaranteed to sit within the ring's bounding box,
+        not an area-weighted centroid. Holes (later rings) are ignored, and
+        a ring whose longitudes span more than 180 degrees is treated as
+        crossing the antimeridian so its vertices do not average to the far
+        side of the globe.
+
+        Args:
+            coordinates: The ``coordinates`` member of one EONET geometry.
+
+        Returns:
+            ``(longitude, latitude)`` in degrees.
+
+        Raises:
+            ValueError: If no numeric position can be read from
+                ``coordinates``; there is then no location to report, and
+                defaulting to ``(0, 0)`` would invent one.
+        """
+
+        def _is_position(node: Any) -> bool:
+            return (
+                isinstance(node, (list, tuple))
+                and len(node) >= 2
+                and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in node[:2])
+            )
+
+        # Descend through the outermost-first nesting (MultiPolygon -> Polygon
+        # -> ring) until reaching a position or a list of positions.
+        node = coordinates
+        while (
+            isinstance(node, (list, tuple))
+            and node
+            and not _is_position(node)
+            and not _is_position(node[0])
+        ):
+            node = node[0]
+
+        if _is_position(node):
+            positions = [node]
+        elif isinstance(node, (list, tuple)) and node and all(_is_position(p) for p in node):
+            positions = list(node)
+        else:
+            raise ValueError(
+                "EONET geometry coordinates hold no readable [lon, lat] position "
+                f"(got {type(coordinates).__name__})"
+            )
+
+        # A closed GeoJSON ring repeats its first vertex last; counting it
+        # twice would pull the mean toward that vertex.
+        if len(positions) > 1 and list(positions[0][:2]) == list(positions[-1][:2]):
+            positions = positions[:-1]
+
+        lons = [float(p[0]) for p in positions]
+        lats = [float(p[1]) for p in positions]
+        if max(lons) - min(lons) > 180.0:
+            lons = [lon + 360.0 if lon < 0.0 else lon for lon in lons]
+        lon = sum(lons) / len(lons)
+        if lon > 180.0:
+            lon -= 360.0
+        return lon, sum(lats) / len(lats)
+
     async def _fetch_impl(
         self,
         start_time: datetime | None = None,
@@ -1461,7 +1533,7 @@ class NASAEONETSource(DataSourceBase):
                 # Get the most recent geometry point
                 latest_geo = geometry[-1]
                 geo_date = latest_geo.get("date", "")
-                coords = latest_geo.get("coordinates", [0, 0])
+                lon, lat = self._representative_lon_lat(latest_geo.get("coordinates"))
 
                 timestamp = datetime.fromisoformat(geo_date.replace("Z", "+00:00"))
 
@@ -1469,11 +1541,7 @@ class NASAEONETSource(DataSourceBase):
                     categories_list[0].get("id", "unknown") if categories_list else "unknown"
                 )
 
-                location = (
-                    float(coords[1]) if len(coords) > 1 else 0.0,  # lat
-                    float(coords[0]) if len(coords) > 0 else 0.0,  # lon
-                    0.0,
-                )
+                location = (lat, lon, 0.0)
 
                 data_points.append(
                     DataPoint(
@@ -1485,6 +1553,9 @@ class NASAEONETSource(DataSourceBase):
                             "title": title,
                             "category": category_name,
                             "geometry_count": len(geometry),
+                            # A Polygon's location is a representative vertex
+                            # mean, not a reported point; say which it is.
+                            "geometry_type": latest_geo.get("type", "Point"),
                             "sources": [s.get("url") for s in sources],
                             "closed": event.get("closed"),
                         },

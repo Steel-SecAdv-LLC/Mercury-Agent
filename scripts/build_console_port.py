@@ -403,6 +403,42 @@ MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
     ),
 )
 
+# The presence caption is a template node whose text ("starting") the runtime
+# owns, and the figure module writes its own text into the same element. The
+# module skipped the write when its text had not changed, so after a re-render
+# restored the template's node the caption read "startingLIVE · activity …"
+# until the next change, which on an idle console can be a long time. The
+# module now also rewrites when the element no longer holds what it wrote.
+MODULE_PATCHES["mercury-cli-figure.js"] = MODULE_PATCHES.get("mercury-cli-figure.js", ()) + (
+    (
+        "the presence caption is rewritten when a re-render has put the template text back",
+        "if (text !== S.lastKey) { CV.cap.textContent = text; S.lastKey = text; }",
+        "if (text !== S.lastKey || CV.cap.textContent !== text) { CV.cap.textContent = text; S.lastKey = text; }",
+    ),
+)
+
+# A request that asks for an attribution is slow by design. The flagship route
+# with ``explain: true`` (Integrated Gradients; the Mass Run capability sends
+# it) took 11.1 s for the built-in 16-row sample on a 4-core machine, against
+# the console's 12 s limit for every request: it passed on a quiet machine and
+# was reported "Timed out after 12000 ms" on a busy one, while the server went
+# on to finish it and raise its alert. Such requests get at least a minute, and
+# the message states the limit that actually applied.
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "requests that ask for an attribution or a GDPR report get at least 60 s",
+        'const to = setTimeout(() => ctrl.abort(), path === "/health" ? PROBE_TIMEOUT : cfg.timeoutMs);',
+        'const limit = path === "/health" ? PROBE_TIMEOUT : body && (body.explain || body.gdpr_report '
+        "|| body.include_attribution || body.include_counterfactual) ? Math.max(cfg.timeoutMs, 60000) "
+        ": cfg.timeoutMs; const to = setTimeout(() => ctrl.abort(), limit);",
+    ),
+    (
+        "the timeout message reports the limit that applied to this request",
+        '"Timed out after " + cfg.timeoutMs + " ms"',
+        '"Timed out after " + limit + " ms"',
+    ),
+)
+
 MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
     (
         "proactive alerts: GET /api/v1/voice/alerts is a server-sent event stream, consumed with a "
@@ -896,7 +932,11 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
         'const sig = () => JSON.stringify([T.state.sel, T.state.ref && (T.state.ref.kind + (T.state.ref.n ? T.state.ref.n.t : "")), T.state.menu, '
         "T.state.ws, T.state.tool, T.state.domain, T.state.input, T.state.showAdmin, T.state.lines.length, T.state.script.length, T.state.browse, "
         "T.state.pal, T.state.panel, T.state.tab]); const b0 = sig(); if (it) it.act(); "
-        's.ok(!it || sig() !== b0 || T._exec || T._dl || T._said, k + " · " + i.t + " does something when picked", "no state change"); }',
+        # Picking the command that is already selected changes nothing, and
+        # ``detect`` is selected on every fresh console, so the unqualified
+        # check failed once on each first run of ``:diag``.
+        's.ok(!it || sig() !== b0 || T._exec || T._dl || T._said || (k === "commands" && T.state.sel === i.t), '
+        'k + " · " + i.t + " does something when picked", "no state change"); }',
     ),
     (
         "the AMA notes are menu items too",
@@ -1156,7 +1196,7 @@ TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     (
         "an alert banner and an assertive live region sit above the shell",
         '    <sc-if value="{{ setOpen }}" hint-placeholder-val="{{ false }}">',
-        '    <sc-if value="{{ alertBanner }}" hint-placeholder-val="{{ false }}">\n      <div role="alert" style="position:absolute;left:0;right:0;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--warning-bg);border-bottom:2px solid var(--warning);color:var(--fg);font-family:var(--font-mono);font-size:12px;"><span style="flex:none;font-size:10px;letter-spacing:.18em;color:var(--warning);">◆ MERCURY ALERT</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ alertBannerText }}</span><button onClick="{{ alertDismiss }}" aria-label="Dismiss alert" style="flex:none;cursor:pointer;font-family:var(--font-mono);font-size:12px;border-radius:var(--r-sm);padding:3px 9px;background:transparent;color:var(--fg-2);border:1px solid var(--border);">DISMISS</button></div>\n    </sc-if>\n    <div class="sr-only" aria-live="assertive" aria-atomic="true">{{ announceText }}</div>\n    <sc-if value="{{ setOpen }}" hint-placeholder-val="{{ false }}">',
+        '    <sc-if value="{{ alertBanner }}" hint-placeholder-val="{{ false }}">\n      <div role="alert" style="position:absolute;left:0;right:0;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 16px;background:linear-gradient(var(--warning-bg),var(--warning-bg)),var(--bg);border-bottom:2px solid var(--warning);color:var(--fg);font-family:var(--font-mono);font-size:12px;"><span style="flex:none;font-size:10px;letter-spacing:.18em;color:var(--warning);">◆ MERCURY ALERT</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ alertBannerText }}</span><button onClick="{{ alertDismiss }}" aria-label="Dismiss alert" style="flex:none;cursor:pointer;font-family:var(--font-mono);font-size:12px;border-radius:var(--r-sm);padding:3px 9px;background:transparent;color:var(--fg-2);border:1px solid var(--border);">DISMISS</button></div>\n    </sc-if>\n    <div class="sr-only" aria-live="assertive" aria-atomic="true">{{ announceText }}</div>\n    <sc-if value="{{ setOpen }}" hint-placeholder-val="{{ false }}">',
     ),
 )
 

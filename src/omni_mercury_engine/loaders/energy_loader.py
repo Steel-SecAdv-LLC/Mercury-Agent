@@ -280,6 +280,17 @@ class EnergyLoader(BaseDomainLoader):
 
         if event.get("grid_event") and self._eia_api_key:
             df = self._fetch_eia_grid_data(event)
+        elif event.get("grid_event"):
+            # A grid event has a real keyed source; the refusal used to reuse
+            # the pre-SWPC wording below, which is false for a 2021 event and
+            # never named the variable that fixes it.
+            check_synthetic_allowed(
+                "EnergyLoader",
+                f"event '{event_id}' is served from EIA grid data and EIA_API_KEY is "
+                "not set; set the EIA_API_KEY environment variable (free key from "
+                "https://www.eia.gov/opendata/)",
+            )
+            df = self._generate_synthetic_kp_series(event)
         else:
             check_synthetic_allowed(
                 "EnergyLoader",
