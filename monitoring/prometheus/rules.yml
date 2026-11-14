@@ -14,7 +14,14 @@ groups:
   - record: omni_mercury:http_request_duration_seconds:p99
     expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, service))
   - record: omni_mercury:http_errors:rate5m
-    expr: sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[5m])) by (service) / sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service)
+    expr: |
+      (
+        sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[5m])) by (service)
+        or
+        sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service) * 0
+      )
+      /
+      (sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service) > 0)
   - record: omni_mercury:detections:rate5m
     expr: sum(rate(omni_detection_requests_total{app="mercury-agent"}[5m])) by (detector_type)
   - record: omni_mercury:detection_duration_seconds:p95

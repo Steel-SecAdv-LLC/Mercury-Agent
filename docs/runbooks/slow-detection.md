@@ -7,7 +7,8 @@ for 10 minutes.
 ## What the series measures
 
 The histogram records the wall-clock time of each component `detect`/`predict`
-call (see [detection-success.md](detection-success.md)). Feature extraction is
+call, and of each API detection route that computes without the engine
+(`detector_type="api_<route>"`; see [detection-success.md](detection-success.md)). Feature extraction is
 timed separately in `omni_detector_extraction_duration_seconds`, and the fusion
 head in `omni_fusion_inference_duration_seconds`. Feature-cache hits run no
 detector and record nothing, so latency reflects real computation only.

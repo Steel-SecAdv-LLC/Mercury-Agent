@@ -32,6 +32,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from pydantic import BaseModel, Field, field_validator
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+from omni_mercury_engine.api.detection_metrics import records_detection
 from omni_mercury_engine.api.fusion_weights import (
     TEMPORAL_STEP_SCALE,
     calibrated_max_z,
@@ -474,6 +475,7 @@ async def process_batch_job(
             await _send_callback(callback_url, job_id, JobStatus.FAILED)
 
 
+@records_detection("batch")
 async def _process_chunk(
     chunk: list[list[float]],
     method: BatchDetectionMethod,

@@ -32,9 +32,20 @@ spec:
         - record: omni_mercury:http_request_duration_seconds:p99
           expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, service))
 
-        # Error rate
+        # Error rate. A server that has returned no 5xx has no status=~"5.."
+        # series at all, so the plain ratio produced no sample and the Error
+        # Rate panel read "No data" on a healthy service. The numerator falls
+        # back to 0 for a service that has traffic, so the rule reports 0; a
+        # service with no traffic in the window still reports nothing.
         - record: omni_mercury:http_errors:rate5m
-          expr: sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[5m])) by (service) / sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service)
+          expr: |
+            (
+              sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[5m])) by (service)
+              or
+              sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service) * 0
+            )
+            /
+            (sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service) > 0)
 
         # Detection processing metrics
         - record: omni_mercury:detections:rate5m

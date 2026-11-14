@@ -69,6 +69,7 @@ del _pqc_enforce
 
 from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.api.detection_metrics import records_detection
 from omni_mercury_engine.api.fusion_weights import (
     calibrated_max_z,
     chi_norm_z,
@@ -1217,6 +1218,7 @@ A validation failure (bad input) returns HTTP 400 with structured detail.
         },
     },
 )
+@records_detection("univariate", skip=_WARMUP.get)
 async def detect_univariate(
     request: UnivariateRequest, user: User | None = Depends(_get_optional_user)
 ) -> UnivariateResponse:
@@ -1449,6 +1451,7 @@ not be detectable in individual features.
         },
     },
 )
+@records_detection("multivariate", skip=_WARMUP.get)
 async def detect_multivariate(
     request: MultivariateRequest, user: User | None = Depends(_get_optional_user)
 ) -> MultivariateResponse:

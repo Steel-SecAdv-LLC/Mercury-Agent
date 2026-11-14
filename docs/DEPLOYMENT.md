@@ -555,6 +555,15 @@ container starts. After running `docker compose up -d grafana` the
 Mercury-Agent Overview dashboard is immediately available at
 `http://localhost:3000` (default credentials: admin / admin).
 
+What each row needs:
+
+| Panels | Source | Under docker compose |
+|---|---|---|
+| API Status, Availability SLI, Error Budget, Request Rate, Error Rate, Request Rate by Status, Latency Percentiles | `http_requests_total` / `http_request_duration_seconds` from the API | Data as soon as there is traffic. Error Rate reads 0 on a service with traffic and no 5xx |
+| Routers Down | `omni_mercury_api_router_state` | Always has data; 0 is the only good value |
+| Detections by Type, Detection Processing Time (p95) | `omni_detection_*`, written per engine detector and per API route (`api_<route>`) | Data after the first detection request |
+| API Replicas, CPU Utilization, Memory Utilization | `kube_deployment_*` (kube-state-metrics) and `container_*` (cAdvisor) | **Empty by design.** The compose stack runs neither exporter; these panels have data on Kubernetes only |
+
 ### AlertManager
 
 AlertManager rules are in `monitoring/alertmanager/`. Configure receivers

@@ -18,6 +18,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.api.detection_metrics import records_detection
 from omni_mercury_engine.api.fusion_weights import (
     as_matrix,
     column_statistics,
@@ -296,6 +297,7 @@ Perform hybrid neural-symbolic anomaly detection using the NeurosymbolicFusionEn
 - **confidence_weighted**: Dynamic weighting based on component confidence
 """,
 )
+@records_detection("neurosymbolic")
 async def detect_neurosymbolic(
     request: NeurosymbolicRequest,
     user: User | None = Depends(_get_optional_user),
@@ -470,6 +472,7 @@ Combines outputs from statistical, temporal, dimensional, and other
 specialized detectors using weighted ensemble.
 """,
 )
+@records_detection("fusion")
 async def detect_fusion(
     request: FusionRequest,
     user: User | None = Depends(_get_optional_user),
@@ -590,6 +593,7 @@ Where:
 Guarantees convergence: V(S_t) ≤ ε × e^(-0.25t)
 """,
 )
+@records_detection("three_r")
 async def detect_three_r(
     request: ThreeRRequest,
     user: User | None = Depends(_get_optional_user),
@@ -798,6 +802,7 @@ threshold, cross-detector uncertainty, and (when ``conformal_alpha`` is set)
 flags with a distribution-free false-positive guarantee. Torch-free.
 """,
 )
+@records_detection("tier")
 async def detect_tier(
     request: TierDetectRequest,
     user: User | None = Depends(_get_optional_user),
@@ -1045,6 +1050,7 @@ channel) most likely originated the fault. Torch-free. The same analysis behind
 ``mercury-agent rca`` and the ``mercury_localize_root_cause`` MCP tool.
 """,
 )
+@records_detection("rca")
 async def detect_rca(
     request: RootCauseRequest,
     user: User | None = Depends(_get_optional_user),
