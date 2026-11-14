@@ -29,6 +29,8 @@ from omni_mercury_engine.api.security_headers import (
     CONSOLE_CSP,
     DOCS_CSP,
     FRONTEND_CSP,
+    PERMISSIONS_POLICY,
+    PERMISSIONS_POLICY_FEATURES,
     SecurityHeadersMiddleware,
 )
 
@@ -162,6 +164,73 @@ class TestPolicySelection:
     def test_no_other_path_can_reach_the_docs_policy(self, client: TestClient) -> None:
         for path in ("/health", "/", "/login", "/dashboard", "/static/mercury.css"):
             assert client.get(path).headers["content-security-policy"] != DOCS_CSP
+
+
+class TestPermissionsPolicy:
+    """Every denied feature is one a browser enforces.
+
+    Chromium answers a name it does not know with an ``Unrecognized feature``
+    console error on every response and ignores the denial. The header carried
+    three such names; the set here is the one measured to load without a
+    console message in Chromium 153.0.8010.12.
+    """
+
+    #: Names Chromium 153 rejects. ``bluetooth`` was a candidate addition.
+    _UNRECOGNISED = ("ambient-light-sensor", "battery", "document-domain", "bluetooth")
+
+    #: The measured set. Change it only together with a fresh browser run.
+    _MEASURED = (
+        "accelerometer",
+        "autoplay",
+        "browsing-topics",
+        "camera",
+        "captured-surface-control",
+        "compute-pressure",
+        "display-capture",
+        "encrypted-media",
+        "fullscreen",
+        "geolocation",
+        "gyroscope",
+        "hid",
+        "identity-credentials-get",
+        "idle-detection",
+        "local-fonts",
+        "magnetometer",
+        "microphone",
+        "midi",
+        "otp-credentials",
+        "payment",
+        "picture-in-picture",
+        "publickey-credentials-create",
+        "publickey-credentials-get",
+        "screen-wake-lock",
+        "serial",
+        "usb",
+        "window-management",
+        "xr-spatial-tracking",
+    )
+
+    def test_feature_set_is_the_measured_one(self) -> None:
+        assert PERMISSIONS_POLICY_FEATURES == self._MEASURED
+
+    @pytest.mark.parametrize("name", _UNRECOGNISED)
+    def test_unrecognised_names_stay_out(self, name: str) -> None:
+        assert name not in PERMISSIONS_POLICY_FEATURES
+        assert f"{name}=" not in PERMISSIONS_POLICY
+
+    def test_every_feature_is_denied_to_every_origin_once(self) -> None:
+        directives = PERMISSIONS_POLICY.split(", ")
+        assert directives == [f"{name}=()" for name in PERMISSIONS_POLICY_FEATURES]
+        assert len(set(PERMISSIONS_POLICY_FEATURES)) == len(PERMISSIONS_POLICY_FEATURES)
+        assert list(PERMISSIONS_POLICY_FEATURES) == sorted(PERMISSIONS_POLICY_FEATURES)
+
+    def test_device_and_credential_surfaces_are_denied(self) -> None:
+        for name in ("camera", "microphone", "geolocation", "usb", "serial", "hid", "payment"):
+            assert f"{name}=()" in PERMISSIONS_POLICY
+
+    @pytest.mark.parametrize("path", ["/health", "/login", "/console", "/docs", "/nope"])
+    def test_header_is_sent_on_every_surface(self, client: TestClient, path: str) -> None:
+        assert client.get(path).headers["permissions-policy"] == PERMISSIONS_POLICY
 
 
 class TestHsts:

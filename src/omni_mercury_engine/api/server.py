@@ -53,6 +53,20 @@ correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
     "correlation_id", default=""
 )
 
+# The API is an agent surface: it serves the engine, seals account secrets and
+# signs with AMA. The engine's own import runs the fail-closed PQC gate, but
+# this module reaches the engine lazily, inside request handlers, so without
+# the gate here a server on an install with no AMA backend started, answered
+# ``/health`` with ``healthy``, dropped the account routes on an ImportError
+# and returned 500 from the first request that touched the engine. Running the
+# gate at import makes the documented contract true: the API does not start
+# without AMA v5.0.0 and all three PQC algorithms. Pinned by
+# ``tests/test_pqc_startup_gate.py::TestScopedGateContract``.
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as _pqc_enforce
+
+_pqc_enforce()
+del _pqc_enforce
+
 from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.api.fusion_weights import (
@@ -62,6 +76,7 @@ from omni_mercury_engine.api.fusion_weights import (
     deseasonalize,
     null_dof,
 )
+from omni_mercury_engine.api.router_manifest import RouterState, mounting, router_manifest
 from omni_mercury_engine.utils.logging import ensure_logging_configured
 from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
@@ -1633,123 +1648,129 @@ app.openapi = custom_openapi  # type: ignore[method-assign, unused-ignore]
 # =============================================================================
 # Include Modular API Routes
 # =============================================================================
+#
+# Each surface is attached inside ``mounting(...)``, which records the outcome
+# in the router manifest (``api/router_manifest.py``): mounted, disabled by
+# configuration, or unavailable because its import failed. An unavailable
+# router used to leave one warning line and a shorter OpenAPI document while
+# ``/health`` went on reporting ``healthy``; its state is now a series on
+# ``/metrics`` (``omni_mercury_api_router_state``). The imports stay written
+# out, one per surface, so the static import graph keeps every route module
+# reachable from the server.
+
+
+def _require_frontend_backend() -> None:
+    """Refuse to start with the browser frontend mounted over a missing account API.
+
+    Every frontend page is a form over ``/api/v1/auth``. Mounted without that
+    router, the pages load and each request they make answers 404, which a
+    visitor reads as a broken sign-in rather than as a server fault.
+
+    Raises:
+        RuntimeError: If the frontend is mounted and the account router is not.
+    """
+    states = {record.name: record for record in router_manifest()}
+    frontend = states.get("frontend")
+    if frontend is None or frontend.state is not RouterState.MOUNTED:
+        return
+    accounts = states.get("accounts")
+    if accounts is not None and accounts.state is RouterState.MOUNTED:
+        return
+    reason = accounts.detail if accounts is not None else "the account router was never attached"
+    raise RuntimeError(
+        "MERCURY_FRONTEND_ENABLED=true, but the account API the frontend drives "
+        f"(/api/v1/auth) did not load: {reason}. Fix the import, or unset "
+        "MERCURY_FRONTEND_ENABLED to serve the API without the browser pages."
+    )
+
 
 # Include Batch Processing Routes
-try:
+with mounting("batch", "Batch processing routes", logger):
     from omni_mercury_engine.api.routes.batch import router as batch_router
 
     app.include_router(batch_router)
-    logger.info("Batch processing routes registered")
-except ImportError as e:
-    logger.warning(f"Batch processing routes not available: {e}")
 
 # Include Model Management Routes
-try:
+with mounting("models", "Model management routes", logger):
     from omni_mercury_engine.api.routes.models import router as models_router
 
     app.include_router(models_router)
-    logger.info("Model management routes registered")
-except ImportError as e:
-    logger.warning(f"Model management routes not available: {e}")
 
 # Include Data Export Routes
-try:
+with mounting("export", "Data export routes", logger):
     from omni_mercury_engine.api.routes.export import router as export_router
 
     app.include_router(export_router)
-    logger.info("Data export routes registered")
-except ImportError as e:
-    logger.warning(f"Data export routes not available: {e}")
 
 # Include Advanced Detection Routes
-try:
+with mounting("detection", "Advanced detection routes", logger):
     from omni_mercury_engine.api.routes.detection import router as detection_router
 
     app.include_router(detection_router)
-    logger.info("Advanced detection routes registered")
-except ImportError as e:
-    logger.warning(f"Advanced detection routes not available: {e}")
 
 # Include Self-Service Account Routes (opt-in: inert unless the flows are used;
 # store/mailer default to in-memory/console without MERCURY_KEYSTORE_PATH/SMTP)
-try:
+with mounting("accounts", "Account routes", logger):
     from omni_mercury_engine.api.routes.accounts import router as accounts_router
 
     app.include_router(accounts_router)
-    logger.info("Account routes registered")
-except ImportError as e:
-    logger.warning(f"Account routes not available: {e}")
 
 # Include Hazard Visualization Routes
-try:
+with mounting("hazard", "Hazard visualization routes", logger):
     from omni_mercury_engine.api.routes.hazard import router as hazard_router
 
     app.include_router(hazard_router)
-    logger.info("Hazard visualization routes registered")
-except ImportError as e:
-    logger.warning(f"Hazard visualization routes not available: {e}")
 
 # Include Evidence-Assessment and Human-Subject Routes (statement verification,
 # CIT, counterintelligence screening and fusion, vital signs, adjudication)
-try:
+with mounting("assessment", "Assessment routes", logger):
     from omni_mercury_engine.api.routes.assessment import router as assessment_router
 
     app.include_router(assessment_router)
-    logger.info("Assessment routes registered")
-except ImportError as e:
-    logger.warning(f"Assessment routes not available: {e}")
 
 # Include the Agent Notice and RFC 9116 security.txt (always on: read-only,
 # unauthenticated public documents that accept no input)
-try:
+with mounting("agent_notice", "Agent notice routes", logger):
     from omni_mercury_engine.api.routes.agent_notice import router as agent_notice_router
 
     app.include_router(agent_notice_router)
-    logger.info("Agent notice routes registered")
-except ImportError as e:
-    logger.warning(f"Agent notice routes not available: {e}")
 
 # Include the corresponding-source offer (AGPL-3.0 section 13; always on:
 # read-only, unauthenticated, accepts no input)
-try:
+with mounting("source", "Source offer route", logger):
     from omni_mercury_engine.api.routes.source import router as source_router
 
     app.include_router(source_router)
-    logger.info("Source offer route registered")
-except ImportError as e:
-    logger.warning(f"Source offer route not available: {e}")
 
 
 # Include the catalog (always on: read-only, unauthenticated declarations of
 # what every domain and detector is and whose knowledge it carries)
-try:
+with mounting("catalog", "Catalog routes", logger):
     from omni_mercury_engine.api.routes.catalog import router as catalog_router
 
     app.include_router(catalog_router)
-    logger.info("Catalog routes registered")
-except ImportError as e:
-    logger.warning(f"Catalog routes not available: {e}")
 
 
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)
-try:
+with mounting("frontend", "Account frontend", logger) as _frontend_mount:
     from omni_mercury_engine.api.frontend import frontend_enabled, register_frontend
 
     if frontend_enabled():
         register_frontend(app)
-        logger.info("Account frontend registered")
-except ImportError as e:
-    logger.warning(f"Account frontend not available: {e}")
+    else:
+        _frontend_mount.disable("MERCURY_FRONTEND_ENABLED is not true")
+
+# The frontend's pages are forms over the account API. Serving them while that
+# API is missing gives a visitor a sign-in page whose every request answers
+# 404, on a server whose /health says healthy. Refuse to start instead.
+_require_frontend_backend()
 
 # Include Voice Interface Routes
-try:
+with mounting("voice", "Voice interface routes", logger):
     from omni_mercury_engine.api.voice import router as voice_router
 
     app.include_router(voice_router)
-    logger.info("Voice interface routes registered")
-except ImportError as e:
-    logger.warning(f"Voice interface routes not available: {e}")
 
 
 # Prometheus metrics at the conventional root path (/metrics) — the target scraped
@@ -1757,7 +1778,7 @@ except ImportError as e:
 # annotations, and the Helm chart. The Prometheus exposition handler lives on
 # health_router (api/health.py); register it directly on the app at root so the
 # scrape target resolves instead of returning 404.
-try:
+with mounting("metrics", "Prometheus /metrics endpoint", logger):
     from omni_mercury_engine.api.health import health_metrics as _health_metrics
 
     app.add_api_route(
@@ -1767,21 +1788,16 @@ try:
         tags=["Health"],
         include_in_schema=False,
     )
-    logger.info("Prometheus /metrics endpoint registered at root")
-except ImportError as e:
-    logger.warning(f"/metrics endpoint not available: {e}")
 
 # Include the Decoy Surface (opt-in via MERCURY_DECEPTION_ENABLED=true; left
 # off, nothing is registered and every existing route stays byte-identical).
 # Registered after every real route so each decoy path can be checked against
 # all of them: a decoy the application already serves is refused.
-try:
+with mounting("decoys", "Deception decoy surface", logger) as _decoy_mount:
     from omni_mercury_engine.api.routes.decoys import register_decoys
 
-    if register_decoys(app) is not None:
-        logger.info("Deception decoy surface registered")
-except ImportError as e:
-    logger.warning(f"Deception decoy surface not available: {e}")
+    if register_decoys(app) is None:
+        _decoy_mount.disable("MERCURY_DECEPTION_ENABLED is not true")
 
 
 # =============================================================================

@@ -10,7 +10,7 @@ behaviour, so you can run it locally to confirm a successful migration.
 > **Scope.** This document covers user-visible API and runtime-mode
 > changes only.  Internal refactors (test-debt mypy disables,
 > documentation refreshes, benchmark metadata, RNG-reproducibility
-> sweeps) are described in `CHANGELOG.md` and require no caller
+> sweeps) are described in `docs/changelog/CHANGELOG-pre-3.0.md` and require no caller
 > changes.
 
 ---

@@ -1563,6 +1563,49 @@ def physics_list() -> None:
 # =============================================================================
 # API Server Command
 # =============================================================================
+def _serve_endpoints() -> list[tuple[str, str]]:
+    """Return the ``(path, purpose)`` rows the ``serve`` banner lists.
+
+    The browser pages are opt-in, so ``/console`` is listed only when
+    ``MERCURY_FRONTEND_ENABLED=true`` will make the server mount it; the banner
+    never advertises a path that answers 404.
+    """
+    rows = [
+        ("/docs", "Interactive API documentation (Swagger)"),
+        ("/redoc", "ReDoc API documentation"),
+        ("/health", "Health check endpoint"),
+        ("/metrics", "Prometheus metrics, including API router state"),
+        ("/api/v1/...", "API endpoints"),
+    ]
+    try:
+        from omni_mercury_engine.api.frontend import frontend_enabled
+    except ImportError:  # the [api] extra is absent; serve reports that below
+        return rows
+    if frontend_enabled():
+        rows.append(("/console", "Mercury Console (browser front end)"))
+        rows.append(("/login", "Account sign-in and dashboard pages"))
+    return rows
+
+
+def _require_pqc_backend_for_serve() -> None:
+    """Stop ``serve`` before it prints a banner if the AMA backend is missing.
+
+    The API module runs the same gate at import, but uvicorn would reach it
+    only after the banner, and once per worker. Checking here gives one clear
+    refusal with the build instructions and a non-zero exit.
+
+    Raises:
+        SystemExit: With status 1 when the PQC gate refuses.
+    """
+    from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
+
+    try:
+        _enforce_pqc_production_gate()
+    except RuntimeError as exc:
+        click.echo(f"Error: the API server cannot start.\n\n{exc}", err=True)
+        raise SystemExit(1) from exc
+
+
 @main.command()
 @click.option(
     "--host",
@@ -1592,6 +1635,7 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
         mercury-agent serve --workers 4 --log-level debug
         mercury-agent serve --reload  # Development mode with auto-reload
     """
+    _require_pqc_backend_for_serve()
     click.echo("\n" + "=" * 60)
     click.echo("  Mercury Agent API Server")
     click.echo("=" * 60)
@@ -1603,10 +1647,8 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
     click.echo(f"  Log Level: {log_level}")
     click.echo()
     click.echo("  Endpoints:")
-    click.echo("    /docs       - Interactive API documentation (Swagger)")
-    click.echo("    /redoc      - ReDoc API documentation")
-    click.echo("    /health     - Health check endpoint")
-    click.echo("    /api/v1/... - API endpoints")
+    for path, purpose in _serve_endpoints():
+        click.echo(f"    {path:<11} - {purpose}")
     click.echo()
     click.echo("-" * 60)
     click.echo()

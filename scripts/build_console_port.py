@@ -77,6 +77,36 @@ LOGIC_PATCHES: tuple[tuple[str, str, str], ...] = (
         'o.brMark = kind === "ama" ? "ama-monogram.png" : "";',
         'o.brMark = kind === "ama" ? "/static/console/ama-monogram.png" : "";',
     ),
+    # The three patches below give the console a third connection state. The
+    # prototype knows two -- live, or not -- and its first GET /health leaves
+    # 1.2 s after mount, so a console served by a running engine opened on
+    # "no server · browser preview" and "SERVER DOWN" before it had asked.
+    # ``pending()`` is true from mount until the first probe answers; a probe
+    # that fails clears it, so a server that really is down still reads as down.
+    (
+        "a configured server that has not answered its first probe is pending, not down",
+        "  live() { return !!(this.A && this.A.connected() && this.state.health "
+        "&& this.state.health.ok); }",
+        "  live() { return !!(this.A && this.A.connected() && this.state.health "
+        "&& this.state.health.ok); }\n"
+        "  pending() { return !!(this.A && this.A.connected() && !this._probeAnswered); }",
+    ),
+    (
+        "the first probe's answer, either way, ends the pending state",
+        "this.setState({ testing: false, health: h });",
+        "this._probeAnswered = true; this.setState({ testing: false, health: h });",
+    ),
+    (
+        "the boot line reports an unanswered first probe as a check in progress",
+        '"engine live") : "no server · browser preview")',
+        '"engine live") : this.pending() ? "checking engine…" : "no server · browser preview")',
+    ),
+    (
+        "the header reports an unanswered first probe as a check in progress",
+        '(this.A && this.A.connected() ? "○ SERVER DOWN · PREVIEW" : "PREVIEW · NO SERVER")',
+        '(this.pending() ? "◌ CHECKING ENGINE…" : this.A && this.A.connected() '
+        '? "○ SERVER DOWN · PREVIEW" : "PREVIEW · NO SERVER")',
+    ),
 )
 
 #: (description, old, new) applied to the prototype's helmet stylesheet.

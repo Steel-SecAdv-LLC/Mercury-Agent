@@ -547,6 +547,16 @@ jobs:
         # --update README.md` and commit the regenerated block.
         run: python scripts/measure_codebase_scale.py --check README.md
 
+      - name: Run skip-ledger gate (no test parked, none guarded out of every lane)
+        # A skipped test reports as a pass. This reads tests/ with ast and
+        # uv.lock for what the full test lane installs, and fails on a test
+        # behind importorskip() of a dependency no extra provides (it skips in
+        # every lane and has never run), on an unconditional skip, and on an
+        # expected failure, unless the script declares it with a reason. Pure
+        # stdlib. If the block is stale, run `python
+        # scripts/measure_skip_ledger.py --update docs/SKIP_LEDGER.md`.
+        run: python scripts/measure_skip_ledger.py --check docs/SKIP_LEDGER.md
+
       - name: Run benchmark-integrity gate (ROADMAP row 17 offline fallback)
         # Dependency-free, no-network structural + recomputation gate over
         # benchmarks/mercury_benchmark_results.json and the README benchmark
@@ -818,6 +828,8 @@ jobs:
             scripts/record_gdacs_fixtures.py \
             scripts/check_lock_downgrades.py \
             scripts/simulate_dependabot_uv.py \
+            scripts/measure_skip_ledger.py \
+            scripts/api_boot_smoke.py \
             --show-error-codes \
             --pretty
 
@@ -1168,12 +1180,30 @@ jobs:
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
 
+      - name: API refuses to boot before AMA is provisioned
+        # This is the one moment in CI that looks like a bare
+        # ``pip install "mercury-agent-global[api]"``: the API extra is
+        # installed and AMA is not. On that install the server used to start,
+        # report /health "healthy" and serve sign-in pages with no account API
+        # behind them, and no lane ever ran it because every lane builds AMA
+        # before its first import. The script exits 2 if AMA is already
+        # importable, so moving the build earlier fails here instead of
+        # turning the check into a no-op.
+        run: python scripts/api_boot_smoke.py --expect refuse
+
       - name: Build + install AMA Cryptography (native PQC backend)
         # AMA takes a backseat to none: every test lane now runs against the
         # real native AMA backend; non-native PQC execution is not a CI mode.
         uses: ./.github/actions/build-ama-cryptography
         with:
           ama-ref: v5.0.0
+
+      - name: API boots with every router mounted
+        # The same install, now with AMA: start uvicorn with the frontend on
+        # and require /health, the account API in the OpenAPI document, the
+        # frontend pages, no router reported unavailable on /metrics and no
+        # traceback in the startup log.
+        run: python scripts/api_boot_smoke.py --expect serve
 
       - name: Run core tests with coverage
         env:

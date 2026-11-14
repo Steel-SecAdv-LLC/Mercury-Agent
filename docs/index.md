@@ -160,6 +160,7 @@ RETRAIN_RUNBOOK
 ESCALATION_AUDIT_RUNBOOK
 DETECTION_MECHANISMS_RUNBOOK
 DORMANCY_LEDGER
+SKIP_LEDGER
 ```
 
 ```{toctree}
@@ -216,8 +217,9 @@ MIGRATION-1.6-to-1.7
 - Top-level `ARCHITECTURE.md` — full system architecture, including
   the Dual-Gate Hard Ethical Enforcement contract and σ_Immutable
   layout.
-- Top-level `CHANGELOG.md` — release history; the newest version
-  section at the top carries the current release's entries.
+- Top-level `CHANGELOG.md` — release history from 3.0.0; the newest version
+  section at the top carries the current release's entries. Releases
+  before 3.0.0 are in `docs/changelog/CHANGELOG-pre-3.0.md`.
 - Top-level `SECURITY.md` — supported versions, PQC backend audit
   status, vulnerability reporting process.
 - Top-level `CONTRIBUTING.md` — development workflow and PR

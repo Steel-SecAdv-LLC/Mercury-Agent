@@ -447,7 +447,7 @@ Both gates must be GREEN for any PR to merge. The Python-package gate
 runs with **zero risk acceptance**: `.safety-policy.yml` accepts nothing
 (`tests/security/test_safety_policy.py` pins that) and no `--ignore` /
 `--ignore-vuln` flags are wired into either CI workflow. Findings are remediated by upgrade, isolation, or native
-re-implementation — see the CHANGELOG entries dated 2026-05-20
+re-implementation — see the entries dated 2026-05-20 in `docs/changelog/CHANGELOG-pre-3.0.md`
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable
 CRITICAL/HIGH finding and every unfixed finding not enumerated in

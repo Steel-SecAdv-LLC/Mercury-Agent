@@ -327,9 +327,12 @@ is missing. No extra steps are required to deploy a PQC-complete image.
 The gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is
 scoped to the agent surfaces: it runs at import of
 `omni_mercury_engine.engine` (which the CLI and API serve),
-`omni_mercury_engine.crypto`, and every AMA-backed `security` export, and
+`omni_mercury_engine.api.server` (the API reaches the engine only inside
+request handlers, so it runs the gate itself), `omni_mercury_engine.crypto`,
+and every AMA-backed `security` export, and
 refuses to proceed if the native library is unloadable — those imports raise
-`RuntimeError` before any agent state is materialised. There is no stub path
+`RuntimeError` before any agent state is materialised. `mercury-agent serve`
+checks first and exits 1 with the build steps before it prints a banner. There is no stub path
 and no fallback chain to a non-AMA backend. Only the standalone analytic
 leaves (dataset loaders, individual detectors, metrics — the quickstart path,
 which cannot decide, serve, sign, or encrypt) import without AMA; the split

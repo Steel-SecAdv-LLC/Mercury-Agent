@@ -109,6 +109,7 @@ __all__ = [
     "DOCS_PATHS",
     "FRONTEND_CSP",
     "PERMISSIONS_POLICY",
+    "PERMISSIONS_POLICY_FEATURES",
     "STATIC_PREFIX",
     "SecurityHeadersMiddleware",
     "hsts_value",
@@ -177,14 +178,50 @@ STATIC_PREFIX = "/static/"
 
 #: Every browser feature the API and its frontend have no use for. Denying
 #: them shrinks what an injected script could reach if one ever landed.
-PERMISSIONS_POLICY = (
-    "accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), "
-    "camera=(), display-capture=(), document-domain=(), encrypted-media=(), "
-    "fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), "
-    "microphone=(), midi=(), payment=(), picture-in-picture=(), "
-    "publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), "
-    "xr-spatial-tracking=()"
+#:
+#: Each name must be one a browser actually enforces. Chromium logs
+#: ``Unrecognized feature`` to the page console, on every response, for a name
+#: it does not know, and a denial it ignores protects nothing.
+#: ``ambient-light-sensor``, ``battery`` and ``document-domain`` were listed
+#: here and were exactly that: three console errors per page load and no
+#: effect. The set below was loaded as a response header in Chromium
+#: 153.0.8010.12 and produced no console message; ``bluetooth`` was tried for
+#: the same reason as ``usb`` and ``serial`` and is not recognised by that
+#: build, so it is left out. ``tests/api/test_security_headers.py`` pins the
+#: set, so a name is added only with the same measurement.
+PERMISSIONS_POLICY_FEATURES: tuple[str, ...] = (
+    "accelerometer",
+    "autoplay",
+    "browsing-topics",
+    "camera",
+    "captured-surface-control",
+    "compute-pressure",
+    "display-capture",
+    "encrypted-media",
+    "fullscreen",
+    "geolocation",
+    "gyroscope",
+    "hid",
+    "identity-credentials-get",
+    "idle-detection",
+    "local-fonts",
+    "magnetometer",
+    "microphone",
+    "midi",
+    "otp-credentials",
+    "payment",
+    "picture-in-picture",
+    "publickey-credentials-create",
+    "publickey-credentials-get",
+    "screen-wake-lock",
+    "serial",
+    "usb",
+    "window-management",
+    "xr-spatial-tracking",
 )
+
+#: The header value: every feature above denied to every origin.
+PERMISSIONS_POLICY = ", ".join(f"{feature}=()" for feature in PERMISSIONS_POLICY_FEATURES)
 
 #: Headers applied to every response regardless of content type.
 _STATIC_HEADERS: tuple[tuple[str, str], ...] = (

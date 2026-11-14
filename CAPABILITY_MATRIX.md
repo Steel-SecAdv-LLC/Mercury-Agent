@@ -41,7 +41,7 @@ path that exists in this repository.
 | `torch.nn.Module` subclasses | this source tree | AST count | **174** | `python scripts/measure_codebase_scale.py` | **measured** (CI-gated in README "Codebase Scale") |
 | Data-loader classes in `loaders/` | this source tree | regex `class *Loader` | **22** | `python scripts/measure_codebase_scale.py` | **measured** — concrete loaders plus `BaseDomainLoader`, which the CI regex also matches. Earlier published values of "16" and "21" were stale. |
 | Detector classes under `detectors/` | this source tree | AST count | **110** | `python scripts/measure_codebase_scale.py` | **measured** — the published "88" was stale by 22. This row cites the same script and the same metric as README's CI-gated "Codebase Scale" block, which read 110 while this read 88; the figures here are now held to the live measurement by `tests/docs/test_capability_matrix_counts.py`. See also the package-wide public count (170) in that block — a different metric, not a contradiction. |
-| Source files / LOC | this source tree | file + line count | **884 / ~493,000** | `python scripts/measure_codebase_scale.py` | **measured** — the published "801 / 435,834" was stale. |
+| Source files / LOC | this source tree | file + line count | **885 / ~493,000** | `python scripts/measure_codebase_scale.py` | **measured** — the published "801 / 435,834" was stale. |
 | Cognitive components wired at runtime | `CognitiveOrchestrator` | count | **ten** | `python -c "from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator"` | **measured** — the "nine components" figure was stale; the "7-phase" spine is *historical build order*, not a runtime pipeline |
 
 ## 2. Safety controls

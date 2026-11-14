@@ -460,7 +460,13 @@ API some other way, restrict `/metrics` the same way. (The engine /
 streaming-worker tier serves its own metrics on `:9090`, see the streaming
 section above). The `/metrics` endpoint merges the health gauges
 (`omni_mercury_up`, component status/latency) with the `prometheus_client`
-default registry, so a single scrape target covers both. This requires the
+default registry, so a single scrape target covers both. It also carries
+`omni_mercury_api_router_state{router,state}`: one series per API router and
+state (`mounted`, `disabled`, `unavailable`), valued 1 on the router's current
+state. `/health` reports `healthy` whenever the process is up, so a router
+whose import failed at startup is visible only here; the
+`OmniMercuryApiRouterUnavailable` alert fires on it
+(`docs/runbooks/api-router-unavailable.md`). This requires the
 `prometheus-client` dependency from the `[api]` extra (installed by `[all]`; the
 `[api]` extra also carries `torch>=2.2.0`, so a server installed with it serves the
 neural detection routes without a second install);

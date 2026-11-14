@@ -164,6 +164,16 @@ repos:
         language: system
         pass_filenames: false
         files: ^(README\.md|(src|tests)/.*\.py|\.github/workflows/.*\.ya?ml)$
+      - id: mercury-skip-ledger
+        name: mercury — skip ledger gate
+        # Local twin of the Workflow Hardening step (ci.yml "Run skip-ledger
+        # gate"): fails on a test guarded by a dependency no extra installs,
+        # on an unconditional skip or expected failure, and on a stale
+        # docs/SKIP_LEDGER.md block.  Pure stdlib (ast + tomllib).
+        entry: python scripts/measure_skip_ledger.py --check docs/SKIP_LEDGER.md
+        language: system
+        pass_filenames: false
+        files: ^(docs/SKIP_LEDGER\.md|tests/.*\.py|uv\.lock|scripts/measure_skip_ledger\.py)$
       - id: mercury-convergence-proof
         name: mercury — convergence-proof emitter (--check)
         entry: python -m omni_mercury_engine.tools.convergence_proof_emitter --check

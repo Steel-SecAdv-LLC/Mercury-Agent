@@ -101,6 +101,9 @@ run_gate "Lyapunov λ documentation drift (ci.yml: check_readme_lyapunov)" \
 run_gate "codebase-scale documentation drift (ci.yml: measure_codebase_scale --check)" \
   python scripts/measure_codebase_scale.py --check README.md
 
+run_gate "skip ledger (ci.yml: measure_skip_ledger --check)" \
+  python scripts/measure_skip_ledger.py --check docs/SKIP_LEDGER.md
+
 # --- Other repository drift gates CI runs --------------------------------
 # These ran only in CI (or only inside the pytest lane), so a stale generated
 # file reached a pushed head before anything local flagged it. Each takes a
@@ -194,6 +197,8 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/record_gdacs_fixtures.py \
     scripts/check_lock_downgrades.py \
     scripts/simulate_dependabot_uv.py \
+    scripts/measure_skip_ledger.py \
+    scripts/api_boot_smoke.py \
     --show-error-codes
 else
   echo ""

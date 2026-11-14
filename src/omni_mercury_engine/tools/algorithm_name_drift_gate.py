@@ -164,6 +164,9 @@ def _default_docs(root: Path) -> list[Path]:
         root / "docs" / "ARCHITECTURE.md",
         root / "docs" / "SECURITY.md",
         root / "CHANGELOG.md",
+        # Releases before 3.0.0, moved out of CHANGELOG.md; still scanned so the
+        # split did not shrink what this gate reads.
+        root / "docs" / "changelog" / "CHANGELOG-pre-3.0.md",
     ]
     return [c for c in candidates if c.is_file()]
 

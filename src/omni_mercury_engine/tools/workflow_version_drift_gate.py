@@ -93,7 +93,7 @@ _RUNTIME_PATTERN = re.compile(
 _DOC_PIN_PATTERN = re.compile(r"(?i)\bpinned\s+to\s+[`*]*(?P<ref>v?\d+\.\d+\.\d+)")
 # Markdown that is a historical record (past pins are preserved, not rewritten)
 # or a local dataset cache rather than project documentation.
-_DOC_SKIP_FILES = frozenset({"CHANGELOG.md"})
+_DOC_SKIP_FILES = frozenset({"CHANGELOG.md", "CHANGELOG-pre-3.0.md"})
 _DOC_SKIP_TOP_DIRS = frozenset({"data", "node_modules"})
 
 
