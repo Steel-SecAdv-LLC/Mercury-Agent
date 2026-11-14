@@ -441,6 +441,14 @@ number:
       import gate.
 - [ ] **Behavioural claims** (env-var toggles, fallbacks, gates) must match a
       test that pins the behaviour (e.g. `tests/test_pqc_startup_gate.py`).
+- [ ] **Skips** must be able to end. A test behind
+      `pytest.importorskip("x")` needs `x` in an extra the full test lane
+      installs, or it skips in every lane and never runs; an unconditional
+      `pytest.skip`, `@pytest.mark.skip` or `@pytest.mark.xfail` needs a
+      declared reason. `python scripts/measure_skip_ledger.py --check
+      docs/SKIP_LEDGER.md` enforces both (CI and pre-commit); regenerate the
+      page with `--update` when a new optional dependency starts guarding
+      tests.
 - [ ] **Experimental wins** must clear their pre-registered bar *and* survive
       paired inference (`benchmarks/statistical_significance.py`) before a
       default is changed. "Directionally better" is not "better".
@@ -468,6 +476,7 @@ link to the script that would verify it.
    # Docs/claims consistency gates (dependency-free):
    python scripts/measure_codebase_scale.py --check README.md
    python scripts/check_readme_lyapunov.py
+   python scripts/measure_skip_ledger.py --check docs/SKIP_LEDGER.md
    ```
 
 3. **Update documentation:**

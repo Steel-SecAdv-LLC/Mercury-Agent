@@ -318,6 +318,7 @@ jobs:
             --commit-sha "${{ github.sha }}"
 
       - name: Open PR with mercury results + README block (API-signed)
+        id: persist_mercury
         if: |
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
           (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
@@ -356,7 +357,7 @@ jobs:
           \"Latest Benchmark Results\" block.
 
           Required status checks are triggered automatically by the
-          *Re-trigger required checks* step below, which dispatches the
+          *Re-trigger required checks* step at the end of this job, which dispatches the
           CI workflow against this branch via \`workflow_dispatch\`.
           Unlike \`push\`/\`pull_request\` events, \`workflow_dispatch\`
           events **are** delivered even when created by the default
@@ -370,40 +371,6 @@ jobs:
 
           [skip ci]" \
             --files benchmarks/mercury_benchmark_results.json README.md
-
-      - name: Re-trigger required checks on the benchmark PR (workflow_dispatch)
-        # ROOT CAUSE FIX for PRs like #261 that sit forever with pending
-        # checks: GitHub does not run workflows for push/pull_request events
-        # created by the default GITHUB_TOKEN (loop-prevention).  But
-        # workflow_dispatch and repository_dispatch are explicit exceptions —
-        # they fire even from GITHUB_TOKEN.  Dispatching ci.yml against the
-        # benchmark branch runs the required jobs on this branch's head SHA,
-        # which is what branch protection evaluates, so the PR becomes
-        # mergeable without a PAT.  Requires ci.yml to expose
-        # ``on: workflow_dispatch`` (it does) and its required-check jobs to
-        # run on that event.
-        if: |
-          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
-          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # Give the just-created branch a moment to be visible to the API.
-          for attempt in 1 2 3; do
-            if gh workflow run ci.yml --ref ci/benchmark-results; then
-              echo "Dispatched ci.yml against ci/benchmark-results."
-              exit 0
-            fi
-            echo "dispatch attempt ${attempt} failed; retrying..."
-            sleep $((attempt * 5))
-          done
-          # Fallback to the raw REST dispatch endpoint.
-          gh api -X POST \
-            "repos/${{ github.repository }}/actions/workflows/ci.yml/dispatches" \
-            -f ref=ci/benchmark-results
 
       # Empirical comparison baselines run on schedule / workflow_dispatch.
       # The previous `continue-on-error: true` swallowed failures from
@@ -459,6 +426,7 @@ jobs:
       # picks up the seven-axis file as a follow-up commit on the
       # same head SHA without opening a second PR.
       - name: Add seven-axis results to benchmark PR (API-signed)
+        id: persist_seven_axis
         if: |
           always() && (
             (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
@@ -504,6 +472,57 @@ jobs:
               benchmarks/mercury_benchmark_results.json \
               benchmarks/seven_axis_results.json \
               README.md
+
+      - name: Re-trigger required checks on the benchmark PR (workflow_dispatch)
+        # ROOT CAUSE FIX for PRs like #261 that sit forever with pending
+        # checks: GitHub does not run workflows for push/pull_request events
+        # created by the default GITHUB_TOKEN (loop-prevention).  But
+        # workflow_dispatch and repository_dispatch are explicit exceptions —
+        # they fire even from GITHUB_TOKEN.  Dispatching ci.yml against the
+        # benchmark branch runs the required jobs on this branch's head SHA,
+        # which is what branch protection evaluates, so the PR becomes
+        # mergeable without a PAT.  Requires ci.yml to expose
+        # ``on: workflow_dispatch`` (it does) and its required-check jobs to
+        # run on that event.
+        #
+        # ORDER MATTERS: this step must come after the LAST step that moves
+        # the branch. It used to sit between the two persist steps, so ci.yml
+        # was dispatched against the first persist commit and the seven-axis
+        # step then force-updated ci/benchmark-results to a new head. Branch
+        # protection evaluates the head, which had no check runs, and the
+        # benchmark PR stayed blocked on "pending" however often it was
+        # refreshed (run of 2026-11-08: CI ran on 42952ab, head became 408a6fa
+        # 108 seconds later). ``always()`` keeps the dispatch when the
+        # seven-axis runner fails, because the first persist commit is then the
+        # head; the outcome test skips it when neither persist step moved the
+        # branch. Pinned by tests/scripts/test_benchmark_pr_dispatch_order.py.
+        if: |
+          always() && (
+            steps.persist_mercury.outcome == 'success' ||
+            steps.persist_seven_axis.outcome == 'success'
+          ) && (
+            (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+            (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
+            (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+          )
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Give the just-created branch a moment to be visible to the API.
+          for attempt in 1 2 3; do
+            if gh workflow run ci.yml --ref ci/benchmark-results; then
+              echo "Dispatched ci.yml against ci/benchmark-results."
+              exit 0
+            fi
+            echo "dispatch attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          # Fallback to the raw REST dispatch endpoint.
+          gh api -X POST \
+            "repos/${{ github.repository }}/actions/workflows/ci.yml/dispatches" \
+            -f ref=ci/benchmark-results
 
   # ===========================================================================
   # Performance Regression Check

@@ -31,6 +31,7 @@ from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
+from omni_mercury_engine.api.router_manifest import render_prometheus
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -560,6 +561,13 @@ async def health_metrics() -> Response:
         if component.latency_ms is not None:
             metric = f'omni_mercury_component_latency_ms{{component="{component.name}"}}'
             lines.append(f"{metric} {component.latency_ms}")
+
+    # Router manifest: which API surfaces the server mounted, which configuration
+    # left off, and which failed to import. An unavailable router is otherwise
+    # visible only as one startup log line (api/router_manifest.py).
+    router_lines = render_prometheus()
+    if router_lines:
+        lines += ["", *router_lines]
 
     # Ethical-gate observability: emit the live σ_Alignment score and enforced
     # benevolence scalar so the helm PrometheusRule alerts

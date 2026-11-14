@@ -220,6 +220,29 @@ def test_alert_dock_reads_the_server_sent_event_stream() -> None:
     assert "{{ alertsLabel }}" in template and "{{ alertsColor }}" in template
 
 
+def test_console_does_not_call_an_unprobed_server_down() -> None:
+    """A console that has not yet asked the server must not report it down.
+
+    The first ``GET /health`` leaves 1.2 s after mount. Until it answered, a
+    console served by a running engine showed ``no server · browser preview``
+    on its boot screen and ``SERVER DOWN`` in its header. ``pending()`` covers
+    that interval; the probe's answer, success or failure, ends it, so a server
+    that really is down still reads as down.
+    """
+    logic = (_CONSOLE / "logic.js").read_text(encoding="utf-8")
+    assert "pending() { return !!(this.A && this.A.connected() && !this._probeAnswered); }" in logic
+    assert logic.count("this._probeAnswered = true;") == 1
+    assert "this._probeAnswered = true; this.setState({ testing: false, health: h });" in logic
+    assert 'this.pending() ? "checking engine…" : "no server · browser preview"' in logic
+    assert (
+        '(this.pending() ? "◌ CHECKING ENGINE…" : this.A && this.A.connected() '
+        '? "○ SERVER DOWN · PREVIEW" : "PREVIEW · NO SERVER")' in logic
+    )
+    # No remaining branch reaches either "down" string without asking pending() first.
+    assert logic.count('"no server · browser preview"') == 1
+    assert logic.count('"○ SERVER DOWN · PREVIEW"') == 1
+
+
 def test_committed_port_is_current() -> None:
     """Regenerate with ``python scripts/build_console_port.py`` when this fails."""
     spec = importlib.util.spec_from_file_location(

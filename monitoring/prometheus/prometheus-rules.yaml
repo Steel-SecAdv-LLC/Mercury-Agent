@@ -178,6 +178,18 @@ spec:
             description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
             runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/high-latency.md"
 
+        # API router failed to import: the server is up with part of its surface missing
+        - alert: OmniMercuryApiRouterUnavailable
+          expr: max by (router) (omni_mercury_api_router_state{state="unavailable"}) == 1
+          for: 2m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Mercury-Agent API is running without one of its routers"
+            description: "Router {{ $labels.router }} failed to import at startup; its routes answer 404 while /health reports healthy"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/api-router-unavailable.md"
+
         # Low replica count
         - alert: OmniMercuryLowReplicaCount
           expr: |

@@ -289,7 +289,7 @@ api = [
     # CVE-2025-45768 advisory from the audited supply chain.  No
     # third-party JWT library is required at runtime; see the
     # 2026-05-20 "Permanent supply-chain remediation" entry in
-    # ``CHANGELOG.md`` for the rationale.
+    # ``docs/changelog/CHANGELOG-pre-3.0.md`` for the rationale.
     # Prometheus instrumentation: core.metrics records http_requests_total /
     # http_request_duration_seconds (and the omni_* metric surface) into the
     # default registry, exposed at /metrics. Without this the metrics no-op and
@@ -341,7 +341,8 @@ pqc = [
     # ``native_hmac_sha256`` / ``native_hmac_sha256_2`` Python
     # bindings consumed by
     # ``omni_mercury_engine.security.native_jwt._sign`` for the
-    # HS256 / HS512 JOSE signing path.  See CHANGELOG ``[2.0.0]``
+    # HS256 / HS512 JOSE signing path.  See ``docs/changelog/CHANGELOG-pre-3.0.md``
+    # ``[2.0.0]``
     # § "AMA-routed JWT HMAC signatures".  Pinning the
     # git ref (rather than tracking the
     # default branch) protects Mercury's reproducible-build promise:
@@ -365,7 +366,7 @@ streaming = [
 # :mod:`concurrent.futures` from the stdlib, retiring the
 # upstream-disputed PYSEC-2024-277 / CVE-2024-34997 advisory.  See the
 # 2026-05-20 "Permanent supply-chain remediation" entry in
-# ``CHANGELOG.md`` for the supply-chain rationale.
+# ``docs/changelog/CHANGELOG-pre-3.0.md`` for the supply-chain rationale.
 optimization = [
     "psutil>=7.2.2",
 ]
@@ -400,6 +401,17 @@ dev = [
     "pytest-mock>=3.15.1",
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
+    # gymnasium is NOT a runtime dependency: ``ml.rl_envs`` serves its in-tree
+    # environments without it and only widens the environment id space when an
+    # operator installs it. It is here so the path that does use it is tested.
+    # No extra installed it, so ``tests/ml/test_ppo_trainer.py::
+    # test_gymnasium_vector_environments`` (``importorskip("gymnasium")``)
+    # skipped in every lane and the Gymnasium vector-environment interop had
+    # never run in CI. Found by scripts/measure_skip_ledger.py, which now fails
+    # on any test guarded by a dependency the full test lane does not install.
+    # 1.4.0 is the release the replay fixtures were recorded with
+    # (tests/fixtures/rl_envs/PROVENANCE.json).
+    "gymnasium>=1.4.0",
     "black==26.10.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
     "mypy==2.4.1",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20261030",  # PINNED with mypy (see [ml])
@@ -496,8 +508,19 @@ Changelog = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/CHANGEL
 # direct dependency on each pull request that changes this file, uv.lock or
 # .github/dependabot.yml, and weekly ahead of Dependabot's run, so an
 # unsolvable update fails there instead of in Dependabot.
+#
+# Emscripten (Pyodide) is excluded for the same reason. Nothing in the stack
+# targets it, but ``sys_platform != 'darwin'`` alone admits it, and httpx2
+# carries an emscripten-only dependency (httpx2-jsfetch), so the lock grew an
+# emscripten fork. torch ships no emscripten wheel. uv 0.11.32, which writes
+# this lock, tolerated that fork; Dependabot's bundled uv (0.13.7 on
+# 2026-11-09) does not, and all seven of that week's updates failed with
+# "No solution found when resolving dependencies for split (markers:
+# python_full_version >= '3.15' and sys_platform == 'emscripten')". The
+# replay ran only under 0.11.32 and so passed the day before; it now runs
+# under both (.github/workflows/dependabot-replay.yml).
 environments = [
-    "sys_platform != 'darwin'",
+    "sys_platform != 'darwin' and sys_platform != 'emscripten'",
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 # uv resolves one version per package across every Python the lock covers

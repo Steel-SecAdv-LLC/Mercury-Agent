@@ -213,7 +213,9 @@ def _stub(
     calls: list[dict[str, str]] = []
     monkeypatch.setattr(replay, "releases", lambda name, floor: [Version(v) for v in available])
 
-    def fake_lock(pins: dict[str, Any], pyproject_text: str, lock_text: str) -> Any:
+    def fake_lock(
+        pins: dict[str, Any], pyproject_text: str, lock_text: str, resolver: Any = None
+    ) -> Any:
         key = {n: str(v) for n, (_, v) in pins.items()}
         calls.append(key)
         status = solvable.get("+".join(f"{n}=={v}" for n, v in sorted(key.items())), "ok")
@@ -264,6 +266,133 @@ def test_a_semver_major_ignore_skips_majors_only(monkeypatch: pytest.MonkeyPatch
     _stub(monkeypatch, ["3.0.0", "2.5.0"], {})
     outcome = _run("torch", "2.4.0", {"torch": replay.Ignore([], True)})
     assert (outcome.status, str(outcome.candidate)) == ("ok", "2.5.0")
+
+
+def test_the_replay_locks_with_the_repository_uv_and_with_dependabots() -> None:
+    """Both resolvers run by default; Dependabot's is a pinned release, fetched by uv.
+
+    The replay ran only under the repository's uv 0.11.32. Dependabot bundles
+    its own (0.13.7 on 2026-11-09), which found no solution on an emscripten
+    fork 0.11.32 tolerated, so the replay passed the day before every update
+    of that week failed.
+    """
+    assert replay.REPO_RESOLVER.argv == ("uv",)
+    version = replay.DEPENDABOT_UV_VERSION
+    assert Version(version) >= Version("0.13.7")
+    assert replay.DEPENDABOT_RESOLVER.argv == (
+        "uv",
+        "tool",
+        "run",
+        "--quiet",
+        "--from",
+        f"uv=={version}",
+        "uv",
+    )
+    assert replay.RESOLVERS["both"] == (replay.REPO_RESOLVER, replay.DEPENDABOT_RESOLVER)
+    assert replay.RESOLVERS["repo"] == (replay.REPO_RESOLVER,)
+
+
+def _record_uv(monkeypatch: pytest.MonkeyPatch, returncode: int, stderr: str) -> list[list[str]]:
+    """Replace the subprocess call so ``lock_with_pins`` records its argv."""
+    seen: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> Any:
+        seen.append(argv)
+        return replay.subprocess.CompletedProcess(argv, returncode, "", stderr)
+
+    monkeypatch.setattr(replay.subprocess, "run", fake_run)
+    return seen
+
+
+def test_the_lock_command_is_the_resolvers(monkeypatch: pytest.MonkeyPatch) -> None:
+    lock_text = (REPO / "uv.lock").read_text(encoding="utf-8")
+    seen = _record_uv(monkeypatch, 1, "error: No solution found when resolving dependencies")
+    status, detail, _ = replay.lock_with_pins(
+        {"pandas": (["pandas>=2"], Version("9.9.9"))},
+        'dependencies = ["pandas>=2"]\n',
+        lock_text,
+        resolver=replay.DEPENDABOT_RESOLVER,
+    )
+    assert status == "unsolvable" and "No solution found" in detail
+    assert seen == [
+        [*replay.DEPENDABOT_RESOLVER.argv, "lock", "--no-progress", "--upgrade-package", "pandas"]
+    ]
+
+
+def test_a_resolver_that_cannot_relock_the_project_is_reported_once(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The baseline failure is one row, not one per dependency, and it fails the run."""
+    simulated: list[str] = []
+
+    def never_simulated(name: str, *args: Any, **kwargs: Any) -> None:
+        simulated.append(name)
+
+    monkeypatch.setattr(replay, "simulate", never_simulated)
+
+    def fake_lock(
+        pins: dict[str, Any], pyproject_text: str, lock_text: str, resolver: Any = None
+    ) -> Any:
+        assert pins == {}
+        return "unsolvable", "error: No solution found ... sys_platform == 'emscripten'", None
+
+    monkeypatch.setattr(replay, "lock_with_pins", fake_lock)
+    outcomes = replay.replay(
+        replay.DEPENDABOT_RESOLVER, ["pandas", "numpy"], {}, {}, Version("3.11"), {}, [], "", "", 2
+    )
+    assert [(o.name, o.status) for o in outcomes] == [("baseline", "unsolvable")]
+    assert simulated == []
+    assert replay.report(replay.DEPENDABOT_RESOLVER, outcomes) == 1
+    out = capsys.readouterr().out
+    assert (
+        f"::error title=Dependabot uv replay (unsolvable, {replay.DEPENDABOT_RESOLVER.name})" in out
+    )
+    assert "emscripten" in out
+
+
+def test_a_passing_baseline_is_followed_by_every_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(replay, "lock_with_pins", lambda *args, **kwargs: ("ok", "", None))
+    seen: list[tuple[str, str]] = []
+
+    def fake_simulate(name: str, *args: Any) -> Any:
+        seen.append((name, args[-1].name))
+        return replay.Outcome(name, Version("1.0"), None, "current")
+
+    monkeypatch.setattr(replay, "simulate", fake_simulate)
+    outcomes = replay.replay(
+        replay.REPO_RESOLVER,
+        ["numpy", "pandas"],
+        {"numpy": ["numpy"], "pandas": ["pandas"]},
+        {"numpy": "1.0", "pandas": "1.0"},
+        Version("3.11"),
+        {},
+        [],
+        "",
+        "",
+        2,
+    )
+    assert [o.name for o in outcomes] == ["baseline", "numpy", "pandas"]
+    assert sorted(seen) == [("numpy", "repo"), ("pandas", "repo")]
+    assert replay.report(replay.REPO_RESOLVER, outcomes) == 0
+
+
+def test_the_lock_excludes_the_emscripten_fork() -> None:
+    """No fork of the lock targets emscripten, and its one emscripten-only package is gone.
+
+    ``sys_platform != 'darwin'`` admitted emscripten; httpx2's emscripten-only
+    dependency then gave the lock an emscripten fork on which torch has no
+    wheel, and Dependabot's uv refused to resolve it.
+    """
+    pyproject = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    environments = pyproject["tool"]["uv"]["environments"]
+    assert "sys_platform != 'darwin' and sys_platform != 'emscripten'" in environments
+    assert all("emscripten" not in env or "!= 'emscripten'" in env for env in environments)
+    lock = tomllib.loads((REPO / "uv.lock").read_text(encoding="utf-8"))
+    assert "httpx2-jsfetch" not in {package["name"] for package in lock["package"]}
+    markers = [m for m in lock.get("resolution-markers", []) if "emscripten" in m]
+    assert all("sys_platform == 'emscripten'" not in m for m in markers), markers
 
 
 def test_groups_take_members_in_order_and_by_update_type() -> None:

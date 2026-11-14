@@ -13,6 +13,8 @@ from typing import Any
 import pytest
 import yaml
 
+from omni_mercury_engine.api.router_manifest import METRIC_NAME as ROUTER_STATE_METRIC
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROM_DIR = REPO_ROOT / "monitoring" / "prometheus"
 
@@ -31,9 +33,14 @@ render_rules = _load_script()
 
 
 def _emitted_series() -> set[str]:
-    """Metric names core/metrics.py registers (histograms also expose _bucket/_count/_sum)."""
+    """Metric names the code emits.
+
+    ``core/metrics.py`` registers the application metrics (histograms also
+    expose ``_bucket``/``_count``/``_sum``); the API router state is rendered by
+    hand beside the health gauges on ``/metrics`` (``api/router_manifest.py``).
+    """
     source = (REPO_ROOT / "src" / "omni_mercury_engine" / "core" / "metrics.py").read_text()
-    names: set[str] = set()
+    names: set[str] = {ROUTER_STATE_METRIC}
     for kind, name in re.findall(r'_create_(counter|histogram|gauge)\(\s*"([a-z0-9_]+)"', source):
         names.add(name)
         if kind == "histogram":

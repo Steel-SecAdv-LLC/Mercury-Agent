@@ -53,6 +53,7 @@ class Component extends DCLogic {
   }
   tailEl() { return document.getElementById("mcli-tail"); }
   live() { return !!(this.A && this.A.connected() && this.state.health && this.state.health.ok); }
+  pending() { return !!(this.A && this.A.connected() && !this._probeAnswered); }
   componentWillUnmount() { clearTimeout(this._ic); this.alertsClose(); if (this._mup) document.removeEventListener("mouseup", this._mup); if (this._unload) window.removeEventListener("pagehide", this._unload); window.removeEventListener("keydown", this._key); document.removeEventListener("click", this._docClick); clearTimeout(this._t); (cancelAnimationFrame(this._run), clearTimeout(this._run)); clearTimeout(this._c); }
   componentDidUpdate() { const wsUrl = this.A ? this.A.cfg.baseUrl : "", wsKey = this.A ? this.A.cfg.apiKey || "" : ""; if (this._wsTried && (this._wsUrl !== wsUrl || this._wsKey !== wsKey)) { this._wsTried = false; this.alertsClose(true); } if (this.live() && !this._wsTried) { this._wsTried = true; this._wsUrl = wsUrl; this._wsKey = wsKey; this.alertsConnect(); } if (!this.live() && this._wsTried) { this._wsTried = false; this.alertsClose(true); } this.capSave(); if (!this.state.running) this.persist(); if (this._lastChat !== this.state.chat) { this._lastChat = this.state.chat; const ce = this.chatRef.current; if (ce) ce.scrollTop = ce.scrollHeight; } if (this._last !== this.state.lines) { this._last = this.state.lines; const el = this.bodyRef.current; if (el) el.scrollTop = el.scrollHeight; } }
 
@@ -401,7 +402,7 @@ class Component extends DCLogic {
     if (!this.A.connected()) { this.setState({ health: null }); return; }
     this.setState({ testing: true });
     const h = await this.A.health();
-    this.setState({ testing: false, health: h }); if (h.ok) setTimeout(() => this.agentRefresh(true), 0);
+    this._probeAnswered = true; this.setState({ testing: false, health: h }); if (h.ok) setTimeout(() => this.agentRefresh(true), 0);
     if (!quiet || h.ok) this.append([this.row(h.ok ? "● connected · GET /health → " + ((h.data && h.data.status) || h.status) + " · " + (h.meta ? h.meta.ms + " ms" : "") : "✗ server unreachable · " + h.error, h.ok ? "var(--normal)" : "var(--anomaly-soft)"), this.row("")]);
   }
   runKey(a) { const l = a.f.filter((x) => x.startsWith("--")); return (l[0] || a.f[0]); }
@@ -1647,7 +1648,7 @@ class Component extends DCLogic {
       setScaleV: String(this.settingVal("scale") || 1), setScaleText: Math.round((this.settingVal("scale") || 1) * 100) + "%", setScaleOn: (e) => this.settingSet("scale", Math.min(1.25, Math.max(0.85, +e.target.value || 1))),
       bootShow: !s.opened, bootName: this.brand("Mercury Agent ♱"), bootAma: this.brand("AMA Cryptography ♱"),
       bootVersion: "v" + ((s.health && s.health.ok && s.health.data && s.health.data.version) || this.D.version || "3.0.0"),
-      bootStatus: !s.ready ? "Loading detector manifest · " + this.D.detectors.length + " detectors" : "Detector manifest loaded · " + this.D.detectors.length + " detectors · " + (this.live() ? (this.A.simulated() ? "simulated engine" : "engine live") : "no server · browser preview"),
+      bootStatus: !s.ready ? "Loading detector manifest · " + this.D.detectors.length + " detectors" : "Detector manifest loaded · " + this.D.detectors.length + " detectors · " + (this.live() ? (this.A.simulated() ? "simulated engine" : "engine live") : this.pending() ? "checking engine…" : "no server · browser preview"),
       // The manifest bar streams end to end the whole time the opening is up (reduced motion: a full static bar).
       bootFillW: "38%", bootFillAnim: this.reducedMotion() ? "none" : "mcliBootFill 1.9s ease-in-out infinite", bootHaloAnim: this.reducedMotion() ? "none" : "mcliBreathe 3.1s ease-in-out infinite",
       enterConsole: () => this.setState({ opened: true }, () => { try { const el = document.querySelector('input[placeholder^="type a command"]'); if (el) el.focus(); } catch (e) { /* focus is a courtesy */ } }),
@@ -1734,7 +1735,7 @@ class Component extends DCLogic {
       probe: () => this.probe(false), probeLabel: s.probing ? "PROBING…" : "FIND LOCAL ENGINE", connCta: this.live() ? "CONNECTION" : "CONNECT",
       domainLabel: this.domainUse(s.sel).arg ? "DOMAIN" : "CONTEXT", domainNote: this.domainUse(s.sel).note,
 
-      connLabel: this.live() && this.A.simulated() ? "◐ SIMULATED ENGINE" : this.live() ? "● LIVE · " + (this.A.cfg.baseUrl || "").replace(/^https?:\/\//, "") : (this.A && this.A.connected() ? "○ SERVER DOWN · PREVIEW" : "PREVIEW · NO SERVER"),
+      connLabel: this.live() && this.A.simulated() ? "◐ SIMULATED ENGINE" : this.live() ? "● LIVE · " + (this.A.cfg.baseUrl || "").replace(/^https?:\/\//, "") : (this.pending() ? "◌ CHECKING ENGINE…" : this.A && this.A.connected() ? "○ SERVER DOWN · PREVIEW" : "PREVIEW · NO SERVER"),
       connBg: this.live() && !this.A.simulated() ? "var(--normal-bg)" : "var(--warning-bg)", connFg: this.live() && !this.A.simulated() ? "var(--normal)" : "var(--warning)", connBd: this.live() && !this.A.simulated() ? "var(--normal-deep)" : "var(--warning-deep)",
       openConn: () => this.setState({ conn: true, menu: null, pal: false }), connOpen: s.conn, connExpanded: s.conn ? "true" : "false", closeConn: () => this.setState({ conn: false }),
       onConnUrl: (e) => this.setState({ connUrl: e.target.value }), onConnKey: (e) => this.setState({ connKey: e.target.value }), connRemember: !!(this.A && this.A.cfg.remember), onConnRemember: (e) => { this.A.set({ remember: !!e.target.checked }); this.forceUpdate(); },
