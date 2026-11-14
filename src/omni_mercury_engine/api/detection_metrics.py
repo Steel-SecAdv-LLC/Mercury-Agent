@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import TYPE_CHECKING, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
 from fastapi import HTTPException
 
@@ -46,7 +46,7 @@ from omni_mercury_engine.core.metrics import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Callable, Coroutine
 
 __all__ = ["ROUTE_PREFIX", "records_detection"]
 
@@ -67,7 +67,7 @@ def _attempted(detector_type: str, started: float, *, succeeded: bool) -> None:
 
 def records_detection(
     name: str, *, skip: Callable[[], bool] | None = None
-) -> Callable[[Callable[_P, Awaitable[_R]]], Callable[_P, Awaitable[_R]]]:
+) -> Callable[[Callable[_P, Coroutine[Any, Any, _R]]], Callable[_P, Coroutine[Any, Any, _R]]]:
     """Decorate an async detection handler so it writes the detection series.
 
     Place it under the route decorator, so the router registers the wrapped
@@ -90,7 +90,9 @@ def records_detection(
         raise ValueError(f"detection route name {name!r} must be a lower-case identifier")
     detector_type = ROUTE_PREFIX + name
 
-    def decorate(handler: Callable[_P, Awaitable[_R]]) -> Callable[_P, Awaitable[_R]]:
+    def decorate(
+        handler: Callable[_P, Coroutine[Any, Any, _R]],
+    ) -> Callable[_P, Coroutine[Any, Any, _R]]:
         @functools.wraps(handler)
         async def recorded(*args: _P.args, **kwargs: _P.kwargs) -> _R:
             if skip is not None and skip():
