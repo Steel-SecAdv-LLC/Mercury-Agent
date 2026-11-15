@@ -789,7 +789,11 @@ class BaseDomainLoader(ABC):
         try:
             payload = json.dumps({"timestamp": time.time(), "data": data})
         except (TypeError, ValueError) as exc:
-            logger.debug("Cache write failed for %s: %s", key, exc)
+            # WARNING, not DEBUG: a payload that cannot be serialised is never
+            # cached, on every call. At DEBUG that went unseen for the
+            # financial, flood and tsunami loaders, whose frames hold
+            # Timestamps (use ``_write_frame_cache`` for a frame).
+            logger.warning("Cache write failed for %s: %s", key, exc)
             return
         try:
             with open(path, "w") as f:

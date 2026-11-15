@@ -209,9 +209,9 @@ class TsunamiLoader(BaseDomainLoader):
 
         # Try the cache first.
         cache_key = f"tsunami_historical_{event_id}"
-        cached = self._read_cache(cache_key)
+        cached = self._read_frame_cache(cache_key)
         if cached is not None:
-            return pd.DataFrame(cached)
+            return cached
 
         event = _EVENTS_BY_ID[event_id]
 
@@ -222,7 +222,7 @@ class TsunamiLoader(BaseDomainLoader):
         # as recorded sensor data.
         df = self._synthesize_event(event)
         df["bpr_series_source"] = "reconstructed"
-        self._write_cache(cache_key, df.to_dict(orient="list"))
+        self._write_frame_cache(cache_key, df)
         return df
 
     def list_events(self) -> list[dict[str, Any]]:

@@ -193,3 +193,19 @@ def test_a_complete_frame_is_cached_and_served_without_a_second_fetch(
     assert second["date"].tolist() == first["date"].tolist()
     assert second["vix"].tolist() == first["vix"].tolist()
     assert str(second["date"].dtype).startswith("datetime64")
+
+
+def test_a_payload_that_cannot_be_serialised_is_reported_not_hidden(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Was: logged at DEBUG, so three loaders never cached and nothing said so."""
+    import logging
+
+    import pandas as pd
+
+    loader = _loader(tmp_path)
+    with caplog.at_level(logging.WARNING, logger="omni_mercury_engine.loaders.base"):
+        loader._write_cache("unserialisable", {"when": [pd.Timestamp("2026-01-01")]})
+
+    assert "Cache write failed for unserialisable" in caplog.text
+    assert list(tmp_path.glob("*.json")) == []

@@ -136,11 +136,11 @@ class FloodLoader(BaseDomainLoader):
                 unreachable after retries.
         """
         cache_key = "flood_realtime"
-        cached = self._read_cache(cache_key)
+        cached = self._read_frame_cache(cache_key)
 
         if cached is not None:
             logger.debug("Returning cached real-time flood data.")
-            return pd.DataFrame(cached)
+            return cached
 
         # Collect all unique site IDs across the catalog
         all_sites: list[str] = []
@@ -159,7 +159,7 @@ class FloodLoader(BaseDomainLoader):
         )
 
         if not df.empty:
-            self._write_cache(cache_key, df.to_dict(orient="list"))
+            self._write_frame_cache(cache_key, df)
         logger.info(
             "Fetched %d real-time flood records from USGS Water Services.",
             len(df),
@@ -188,11 +188,11 @@ class FloodLoader(BaseDomainLoader):
             )
 
         cache_key = f"flood_historical_{event_id}"
-        cached = self._read_cache(cache_key)
+        cached = self._read_frame_cache(cache_key)
 
         if cached is not None:
             logger.debug("Returning cached historical data for '%s'.", event_id)
-            return pd.DataFrame(cached)
+            return cached
 
         event = _EVENT_CATALOG[event_id]
 
@@ -203,7 +203,7 @@ class FloodLoader(BaseDomainLoader):
                 end_date=event["end"],
             )
             if not df.empty:
-                self._write_cache(cache_key, df.to_dict(orient="list"))
+                self._write_frame_cache(cache_key, df)
             logger.info(
                 "Fetched %d FEMA declaration records for event '%s'.",
                 len(df),
@@ -228,7 +228,7 @@ class FloodLoader(BaseDomainLoader):
         # Sort chronologically
         df = df.sort_values("datetime").reset_index(drop=True)
 
-        self._write_cache(cache_key, df.to_dict(orient="list"))
+        self._write_frame_cache(cache_key, df)
         logger.info(
             "Fetched %d historical records for event '%s'.",
             len(df),
