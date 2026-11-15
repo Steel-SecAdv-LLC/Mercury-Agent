@@ -116,3 +116,45 @@ def test_the_server_boots_with_every_router_mounted() -> None:
     pytest.importorskip("uvicorn", reason="booting the API needs the [api] extra")
     pytest.importorskip("ama_cryptography", reason="the API does not start without AMA")
     assert smoke.check_serve() == []
+
+
+def test_a_serve_that_starts_instead_of_refusing_is_a_reported_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Was: ``subprocess.TimeoutExpired`` left ``check_refuse`` as a traceback."""
+    import subprocess
+
+    def _run(argv: list[str], env: dict[str, str], timeout: float = 300.0) -> Any:
+        if argv[-1] == "serve":
+            raise subprocess.TimeoutExpired(argv, timeout)
+        return subprocess.CompletedProcess(argv, 1, "", "AMA backend missing")
+
+    monkeypatch.setattr(smoke, "_run", _run)
+
+    failures = smoke.check_refuse()
+
+    assert len(failures) == 1
+    assert "started instead of refusing" in failures[0]
+
+
+def test_a_port_taken_before_the_server_binds_is_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Was: reported as "the server exited before answering /health"."""
+    outcomes = iter([(["the server exited with status 1"], True), ([], False)])
+    monkeypatch.setattr(smoke, "_serve_once", lambda: next(outcomes))
+
+    assert smoke.check_serve() == []
+
+
+def test_a_real_boot_failure_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+
+    def _once() -> tuple[list[str], bool]:
+        calls.append(1)
+        return ["routers unavailable: accounts"], False
+
+    monkeypatch.setattr(smoke, "_serve_once", _once)
+
+    assert smoke.check_serve() == ["routers unavailable: accounts"]
+    assert len(calls) == 1

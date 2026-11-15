@@ -56,6 +56,14 @@ from pathlib import Path
 #: Seconds to wait for ``/health`` after starting the server.
 BOOT_TIMEOUT = 180.0
 
+#: Seconds a refusing ``serve`` may take. The refusal is printed before the
+#: banner, so anything still running after this has started serving.
+REFUSAL_TIMEOUT = 90.0
+
+#: A port picked by binding and releasing it can be taken before the server
+#: binds it. Such a server exits at once; try again on another port.
+SERVE_ATTEMPTS = 3
+
 #: Paths the account API must serve; their absence was the original fault.
 REQUIRED_PATHS = ("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/me")
 
@@ -64,6 +72,9 @@ FRONTEND_PAGES = ("/login", "/dashboard", "/console")
 
 #: Log fragments that mean startup did not finish cleanly.
 LOG_FAULTS = ("Traceback (most recent call last)", "startup maintenance sweep failed")
+
+#: How uvicorn reports that its port is already bound (errno 98 / 48 / 10048).
+PORT_IN_USE = ("address already in use", "Address already in use", "error while attempting to bind")
 
 _ROUTER_STATE = re.compile(
     r'^omni_mercury_api_router_state\{router="([a-z0-9_]+)",state="([a-z]+)"\} 1$', re.MULTILINE
@@ -80,9 +91,11 @@ def _base_env() -> dict[str, str]:
     return env
 
 
-def _run(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+def _run(
+    argv: list[str], env: dict[str, str], timeout: float = 300.0
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 # nosec B603 - fixed argv, no shell
-        argv, capture_output=True, text=True, env=env, timeout=300, check=False
+        argv, capture_output=True, text=True, env=env, timeout=timeout, check=False
     )
 
 
@@ -99,7 +112,19 @@ def check_refuse() -> list[str]:
             "the API import failed without naming AMA: " + imported.stderr.strip()[-300:]
         )
 
-    served = _run([sys.executable, "-m", "omni_mercury_engine.cli", "serve"], env)
+    try:
+        served = _run(
+            [sys.executable, "-m", "omni_mercury_engine.cli", "serve"], env, REFUSAL_TIMEOUT
+        )
+    except subprocess.TimeoutExpired:
+        # The regression this mode exists for: ``serve`` started. It then
+        # never returns, and the timeout used to leave here as a traceback
+        # instead of a reported failure.
+        failures.append(
+            f"`serve` was still running after {REFUSAL_TIMEOUT:.0f} s without AMA: "
+            "it started instead of refusing"
+        )
+        return failures
     if served.returncode != 1:
         failures.append(f"`serve` exited {served.returncode} without AMA, expected 1")
     if "Mercury Agent API Server" in served.stdout:
@@ -182,6 +207,17 @@ def _check_served(base: str) -> list[str]:
 
 def check_serve() -> list[str]:
     """Start the server and return what is wrong with it; empty when correct."""
+    failures: list[str] = []
+    for attempt in range(1, SERVE_ATTEMPTS + 1):
+        failures, port_was_taken = _serve_once()
+        if not port_was_taken:
+            break
+        print(f"  attempt {attempt}: the chosen port was taken before the server bound it")
+    return failures
+
+
+def _serve_once() -> tuple[list[str], bool]:
+    """One boot on a fresh port: ``(failures, whether the port was already in use)``."""
     port = _free_port()
     base = f"http://127.0.0.1:{port}"
     argv = [
@@ -215,7 +251,7 @@ def check_serve() -> list[str]:
     if failures:
         print("---- server log (tail) ----")
         print(text[-3000:])
-    return failures
+    return failures, bool(failures) and any(marker in text for marker in PORT_IN_USE)
 
 
 def main(argv: list[str] | None = None) -> int:
