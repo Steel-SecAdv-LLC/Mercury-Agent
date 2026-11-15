@@ -27,7 +27,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.loaders.base import BaseDomainLoader, spc_convective_day_timestamps
 from omni_mercury_engine.utils.geo import haversine_km_to_point, neighbor_counts_within_km
 
 logger = logging.getLogger(__name__)
@@ -570,15 +570,9 @@ class HailLoader(BaseDomainLoader):
                 except (ValueError, TypeError):
                     timestamps.append(pd.Timestamp("1970-01-01"))
         elif "time" in df.columns:
-            today = pd.Timestamp.utcnow().tz_localize(None).normalize()
-            for i in range(n):
-                try:
-                    hhmm = f"{int(df['time'].iloc[i]):04d}"
-                    timestamps.append(
-                        today + pd.Timedelta(hours=int(hhmm[:2]), minutes=int(hhmm[2:]))
-                    )
-                except (ValueError, TypeError):
-                    timestamps.append(pd.Timestamp("1970-01-01"))
+            # Dated on the SPC convective day (1200 UTC to 1159 UTC), not on
+            # today's calendar date: see ``spc_convective_day_timestamps``.
+            timestamps = spc_convective_day_timestamps(df["time"])
         else:
             timestamps = [pd.Timestamp("1970-01-01")] * n
 

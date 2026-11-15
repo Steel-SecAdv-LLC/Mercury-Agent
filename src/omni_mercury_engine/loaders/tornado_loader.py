@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.loaders.base import BaseDomainLoader, spc_convective_day_timestamps
 from omni_mercury_engine.utils.geo import haversine_km_to_point, neighbor_counts_within_km
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _ARCHIVE_URL = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
 _DAILY_REPORTS_URL = "https://www.spc.noaa.gov/climo/reports/today.csv"
+
+#: An (enhanced) Fujita rating as a daily report spells it: ``3``, ``F3`` or
+#: ``EF3``. The group is the number.
+_F_SCALE_RATING = r"(?i)^E?F?(\d(?:\.\d+)?)$"
 
 # ---------------------------------------------------------------------------
 # SPC CSV column names (canonical ordering)
@@ -584,7 +588,14 @@ class TornadoLoader(BaseDomainLoader):
             rows.append(fields)
 
         df = cls._normalise_daily_report(pd.DataFrame(rows, columns=header))
-        for col in ("mag", "slat", "slon"):
+        if "mag" in df.columns:
+            # "EF3" and "F2" are ratings, not text to discard: coerced
+            # straight to a number they became NaN, and a rated EF3 report
+            # was featurised as ef_scale 0 and labelled normal. "UNK" (and
+            # anything else that is not a rating) stays NaN.
+            rating = df["mag"].astype(str).str.strip().str.extract(_F_SCALE_RATING, expand=False)
+            df["mag"] = pd.to_numeric(rating, errors="coerce")
+        for col in ("slat", "slon"):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
         return df
@@ -636,16 +647,9 @@ class TornadoLoader(BaseDomainLoader):
         elif "time" in df.columns:
             # The daily feed has no date column, so every report used to land
             # on the epoch: hour 0, and one shared "hour" for the clustering
-            # feature. Same convention as ``HailLoader._parse_timestamps``.
-            today = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
-            for i in range(n):
-                try:
-                    hhmm = f"{int(df['time'].iloc[i]):04d}"
-                    timestamps.append(
-                        today + pd.Timedelta(hours=int(hhmm[:2]), minutes=int(hhmm[2:]))
-                    )
-                except (ValueError, TypeError):
-                    timestamps.append(pd.Timestamp("1970-01-01"))
+            # feature. Dated on the SPC convective day (1200 UTC to 1159 UTC),
+            # as ``HailLoader._parse_timestamps`` does.
+            timestamps = spc_convective_day_timestamps(df["time"])
         else:
             timestamps = [pd.Timestamp("1970-01-01")] * n
 

@@ -19,12 +19,13 @@ the network.
 
 from __future__ import annotations
 
+import copy
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 
-from omni_mercury_engine.data_sources.base import DataSourceType
+from omni_mercury_engine.data_sources.base import DataSourceError, DataSourceType
 from omni_mercury_engine.data_sources.space_weather import NASAEONETSource
 
 _POLYGON_RING: list[list[float]] = [
@@ -198,3 +199,79 @@ def test_unreadable_coordinates_are_rejected(coordinates: Any) -> None:
     """Shapes with no readable position raise instead of defaulting to (0, 0)."""
     with pytest.raises(ValueError, match="EONET"):
         NASAEONETSource._representative_lon_lat(coordinates)
+
+
+# ---------------------------------------------------------------------------
+# One malformed event, schema drift, and positions that are not places.
+# ---------------------------------------------------------------------------
+
+
+def _with_second_event(**changes: Any) -> dict[str, Any]:
+    """The recorded payload with fields of its second (flood) event replaced."""
+    payload = copy.deepcopy(_EONET_PAYLOAD)
+    payload["events"][1].update(changes)
+    return payload
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"categories": ["floods"]},
+        {"geometry": [{"date": None, "type": "Point", "coordinates": [1.0, 2.0]}]},
+        {"geometry": {"date": "2026-11-06T20:00:00Z", "coordinates": [1.0, 2.0]}},
+        {"geometry": [{"date": "2026-11-06T20:00:00Z", "coordinates": [500.0, 95.0]}]},
+        {"geometry": [{"date": "2026-11-06T20:00:00Z", "coordinates": [float("nan"), 5.0]}]},
+    ],
+)
+async def test_one_malformed_event_does_not_cost_the_well_formed_one(
+    monkeypatch: pytest.MonkeyPatch, changes: dict[str, Any]
+) -> None:
+    """Was: an uncaught TypeError/AttributeError failed the fetch, or a point at latitude 95."""
+    points = await _fetch_points(monkeypatch, _with_second_event(**changes))
+
+    assert [p.event_id for p in points] == ["EONET_26331"]
+
+
+async def test_a_null_sources_list_keeps_the_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Was: ``'NoneType' object is not iterable`` failed the whole fetch."""
+    points = await _fetch_points(monkeypatch, _with_second_event(sources=None))
+
+    assert [p.event_id for p in points] == ["EONET_26331", "EONET_26164"]
+    assert points[1].data["sources"] == []
+
+
+@pytest.mark.parametrize("payload", [{}, {"events": None}, ["not", "an", "envelope"]])
+async def test_a_response_without_an_events_array_is_an_error(
+    monkeypatch: pytest.MonkeyPatch, payload: Any
+) -> None:
+    """Was: ``success=True`` with zero points, indistinguishable from a quiet day."""
+    with pytest.raises(DataSourceError, match="no 'events' array"):
+        await _fetch_points(monkeypatch, payload)
+
+
+async def test_events_that_all_fail_to_parse_are_schema_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Was: ``success=True`` with zero points and the reasons logged at DEBUG."""
+    payload = {
+        "events": [
+            {"id": "a", "geometry": [{"type": "Point", "coordinates": [1.0, 2.0]}]},
+            {"id": "b", "geometry": [{"date": "2026-11-06T20:00:00Z", "coordinates": [[]]}]},
+        ]
+    }
+
+    with pytest.raises(DataSourceError, match="2 events but none parsed"):
+        await _fetch_points(monkeypatch, payload)
+
+
+async def test_an_empty_events_array_is_still_a_quiet_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert await _fetch_points(monkeypatch, {"events": []}) == []
+
+
+async def test_a_date_without_a_zone_is_read_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Was: a naive timestamp, which raises when compared with the aware ones."""
+    geometry = [{"date": "2026-11-06T20:00:00", "type": "Point", "coordinates": [1.0, 2.0]}]
+    points = await _fetch_points(monkeypatch, _with_second_event(geometry=geometry))
+
+    assert points[1].timestamp == datetime(2026, 11, 6, 20, 0, tzinfo=UTC)
+    assert points[0].timestamp < points[1].timestamp or points[0].timestamp >= points[1].timestamp

@@ -19,7 +19,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import numpy as np
@@ -27,6 +27,9 @@ import pandas as pd
 
 from omni_mercury_engine.datasets.exceptions import OfflineModeError
 from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +79,55 @@ class FetchHTTPError(ConnectionError):
 #: produce a "de-leaked" matrix from such a frame, and persisted through the
 #: frame cache so the mark survives a process restart.
 SYNTHETIC_ATTR = "mercury_synthetic"
+
+
+#: The hour (UTC) an SPC convective day begins. The daily storm-reports file
+#: (``today.csv``) covers 1200 UTC through 1159 UTC of the next calendar day.
+SPC_CONVECTIVE_DAY_START_HOUR = 12
+
+
+def spc_convective_day_timestamps(
+    times: Iterable[Any], now: pd.Timestamp | None = None
+) -> list[pd.Timestamp]:
+    """Date the ``HHMM`` UTC report times of an SPC daily storm-reports file.
+
+    The file carries no date column, and its rows span two calendar days: a
+    report at 2330 and one at 0010 are forty minutes apart. Stamping every
+    row with today's date put them 23 h 20 min apart in the wrong order
+    (so the hourly clustering feature never saw them together), and dated a
+    2330 report in the future when read shortly after midnight UTC.
+
+    Args:
+        times: The file's ``Time`` values (``"2330"``, ``10``, ...).
+        now: The current time, UTC; defaults to the clock. Only used to
+            decide which convective day the file belongs to.
+
+    Returns:
+        One naive-UTC timestamp per value; the epoch for a value that is not
+        a valid ``HHMM`` time, as the loaders' other branches do.
+    """
+    current = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    if current.tzinfo is not None:
+        current = current.tz_convert("UTC").tz_localize(None)
+    day_start = current.normalize()
+    if current.hour < SPC_CONVECTIVE_DAY_START_HOUR:
+        day_start -= pd.Timedelta(days=1)
+
+    stamps: list[pd.Timestamp] = []
+    for value in times:
+        try:
+            hhmm = f"{int(value):04d}"
+            hour, minute = int(hhmm[:2]), int(hhmm[2:])
+            if len(hhmm) != 4 or hour > 23 or minute > 59:
+                raise ValueError(hhmm)
+        except (ValueError, TypeError):
+            stamps.append(pd.Timestamp("1970-01-01"))
+            continue
+        day = (
+            day_start if hour >= SPC_CONVECTIVE_DAY_START_HOUR else day_start + pd.Timedelta(days=1)
+        )
+        stamps.append(day + pd.Timedelta(hours=hour, minutes=minute))
+    return stamps
 
 
 class SyntheticDataNotDeleakable(ValueError):

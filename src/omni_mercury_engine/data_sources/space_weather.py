@@ -1483,6 +1483,18 @@ class NASAEONETSource(DataSourceBase):
 
         lons = [float(p[0]) for p in positions]
         lats = [float(p[1]) for p in positions]
+        # RFC 7946 bounds a position to [-180, 180] x [-90, 90]. A NaN or an
+        # out-of-range value is not a place: it produced a DataPoint at
+        # latitude 95, or at ``nan``, that every downstream distance and map
+        # treated as real.
+        if not all(math.isfinite(v) for v in (*lons, *lats)) or not (
+            all(-180.0 <= lon <= 180.0 for lon in lons)
+            and all(-90.0 <= lat <= 90.0 for lat in lats)
+        ):
+            raise ValueError(
+                "EONET geometry coordinates are outside longitude [-180, 180] / "
+                "latitude [-90, 90] or not finite"
+            )
         if max(lons) - min(lons) > 180.0:
             lons = [lon + 360.0 if lon < 0.0 else lon for lon in lons]
         lon = sum(lons) / len(lons)
@@ -1516,10 +1528,21 @@ class NASAEONETSource(DataSourceBase):
 
         response = await self._http_get("events", params=params)
         data = response.json()
+        events = data.get("events") if isinstance(data, dict) else None
+        if not isinstance(events, list):
+            # No ``events`` array is not "no events": an envelope without it
+            # ({}, ``"events": null``, an error document) read as a
+            # successful, quiet day.
+            raise DataSourceError(
+                "NASA EONET response has no 'events' array; schema drift or an error document",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
         data_points: list[DataPoint] = []
+        parse_failures = 0
 
-        for event in data.get("events", []):
+        for event in events:
             try:
                 event_id = event.get("id", "")
                 title = event.get("title", "")
@@ -1529,6 +1552,8 @@ class NASAEONETSource(DataSourceBase):
 
                 if not geometry:
                     continue
+                if not isinstance(geometry, list):
+                    raise TypeError(f"geometry is {type(geometry).__name__}, expected a list")
 
                 # Get the most recent geometry point
                 latest_geo = geometry[-1]
@@ -1536,6 +1561,11 @@ class NASAEONETSource(DataSourceBase):
                 lon, lat = self._representative_lon_lat(latest_geo.get("coordinates"))
 
                 timestamp = datetime.fromisoformat(geo_date.replace("Z", "+00:00"))
+                if timestamp.tzinfo is None:
+                    # EONET dates are UTC; one written without the "Z" must
+                    # not become a naive datetime that cannot be compared
+                    # with every other point's aware one.
+                    timestamp = timestamp.replace(tzinfo=UTC)
 
                 category_name = (
                     categories_list[0].get("id", "unknown") if categories_list else "unknown"
@@ -1556,7 +1586,7 @@ class NASAEONETSource(DataSourceBase):
                             # A Polygon's location is a representative vertex
                             # mean, not a reported point; say which it is.
                             "geometry_type": latest_geo.get("type", "Point"),
-                            "sources": [s.get("url") for s in sources],
+                            "sources": [s.get("url") for s in sources or []],
                             "closed": event.get("closed"),
                         },
                         location=location,
@@ -1566,9 +1596,24 @@ class NASAEONETSource(DataSourceBase):
                     )
                 )
 
-            except (ValueError, KeyError, IndexError) as e:
-                logger.debug(f"Failed to parse EONET event: {e}")
+            except (ValueError, KeyError, IndexError, TypeError, AttributeError) as e:
+                # One malformed event (``"sources": null``, a null date, a
+                # category that is not an object) is skipped, not allowed to
+                # fail the fetch for the well-formed events beside it.
+                parse_failures += 1
+                logger.warning(f"Failed to parse EONET event: {e}")
                 continue
+
+        if parse_failures and not data_points:
+            # Events arrived and none could be read: schema drift, not a
+            # quiet day. Refuse to return a fabricated empty success (the
+            # USGS earthquake source guards the same way).
+            raise DataSourceError(
+                f"NASA EONET returned {len(events)} events but none parsed "
+                f"({parse_failures} parse failures); schema drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
         logger.info(f"EONET: Fetched {len(data_points)} natural events")
         return data_points

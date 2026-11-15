@@ -138,3 +138,71 @@ def test_missing_tornado_section_fails_loud(tmp_path: Path) -> None:
         pytest.raises(ValueError, match="no tornado section"),
     ):
         loader.fetch_realtime()
+
+
+# ---------------------------------------------------------------------------
+# Ratings and the convective day.
+# ---------------------------------------------------------------------------
+
+_RATED_DAY = (
+    b"Time,F_Scale,Location,County,State,Lat,Lon,Comments\n"
+    b"2330,EF3,3 W ELKHORN,DOUGLAS,NE,41.28,-96.30,RATED BY SURVEY. (OAX)\n"
+    b"0010,F2,BLAIR,WASHINGTON,NE,41.54,-96.13,RATED BY SURVEY. (OAX)\n"
+    b"0020,UNK,ARLINGTON,WASHINGTON,NE,41.45,-96.35,PRELIMINARY. (OAX)\n"
+)
+
+
+def test_a_rated_report_keeps_its_rating() -> None:
+    """Was: "EF3" coerced to NaN, then featurised as ef_scale 0 and labelled normal."""
+    df = TornadoLoader._parse_daily_tornado_section(_RATED_DAY)
+
+    assert df["mag"].iloc[:2].tolist() == [3.0, 2.0]
+    assert np.isnan(df["mag"].iloc[2])
+
+
+def test_reports_either_side_of_midnight_are_forty_minutes_apart() -> None:
+    """Was: 2330 and 0010 both dated today, 23 h 20 min apart and out of order."""
+    import pandas as pd
+
+    from omni_mercury_engine.loaders.base import spc_convective_day_timestamps
+
+    # Read at 03:00 UTC on the 15th: the file is the convective day that
+    # began at 12:00 UTC on the 14th.
+    now = pd.Timestamp("2026-11-15 03:00", tz="UTC")
+    stamps = spc_convective_day_timestamps(["2330", "0010", 1200, "1159"], now=now)
+
+    assert stamps == [
+        pd.Timestamp("2026-11-14 23:30"),
+        pd.Timestamp("2026-11-15 00:10"),
+        pd.Timestamp("2026-11-14 12:00"),
+        pd.Timestamp("2026-11-15 11:59"),
+    ]
+    assert stamps[1] - stamps[0] == pd.Timedelta(minutes=40)
+    # Nothing that has been reported is dated after the moment it is read.
+    assert stamps[0] <= now.tz_localize(None)
+
+    # Read at 15:00 UTC the convective day began at 12:00 the same date.
+    afternoon = pd.Timestamp("2026-11-15 15:00", tz="UTC")
+    assert spc_convective_day_timestamps(["1330"], now=afternoon) == [
+        pd.Timestamp("2026-11-15 13:30")
+    ]
+
+
+def test_a_value_that_is_not_a_time_falls_back_to_the_epoch() -> None:
+    import pandas as pd
+
+    from omni_mercury_engine.loaders.base import spc_convective_day_timestamps
+
+    assert spc_convective_day_timestamps(["2460", "abc", None]) == [pd.Timestamp("1970-01-01")] * 3
+
+
+def test_reports_across_midnight_cluster_in_the_tornado_and_hail_loaders() -> None:
+    """Both loaders date the daily feed through the same convective-day rule."""
+    import pandas as pd
+
+    from omni_mercury_engine.loaders.hail_loader import HailLoader
+
+    frame = pd.DataFrame({"time": ["2350", "0005"]})
+    for loader in (TornadoLoader, HailLoader):
+        first, second = loader._parse_timestamps(frame)
+        assert second - first == pd.Timedelta(minutes=15)

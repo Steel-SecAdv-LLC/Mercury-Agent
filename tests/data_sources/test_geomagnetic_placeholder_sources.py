@@ -72,3 +72,24 @@ def test_live_ingestion_refuses_the_placeholder_without_opt_in(
     fetched = fetch_live_datapoints(source, allow_simulated=True)
     assert fetched.data_provenance == PROVENANCE_SIMULATED
     assert len(fetched.data_points) == 3
+
+
+def test_unknown_observatories_are_an_error_not_an_empty_live_fetch() -> None:
+    """Was: ``data_provenance="live"`` with zero points, from a source that makes no request."""
+    from omni_mercury_engine.data_sources.live_ingestion import LiveDataError
+
+    source = INTERMAGNETSource(observatory_codes=["XXX", "YYY"])
+
+    with pytest.raises(LiveDataError, match="XXX, YYY"):
+        fetch_live_datapoints(source)
+
+
+async def test_a_known_observatory_beside_an_unknown_one_is_still_labelled() -> None:
+    source = INTERMAGNETSource(
+        observatory_codes=["XXX", *list(INTERMAGNETSource.OBSERVATORIES)[:1]]
+    )
+
+    points = await source._fetch_impl()
+
+    assert len(points) == 1
+    assert points[0].metadata["simulated"] is True

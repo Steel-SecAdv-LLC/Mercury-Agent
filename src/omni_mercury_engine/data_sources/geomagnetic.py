@@ -471,9 +471,26 @@ class INTERMAGNETSource(DataSourceBase):
             )
             self._warned_simulated = True
 
+        unknown = [code for code in self._observatory_codes if code not in self.OBSERVATORIES]
+        if unknown and len(unknown) == len(self._observatory_codes):
+            # Every requested code is outside the catalog, so there is not
+            # even a placeholder to label. An empty list here was returned as
+            # a successful fetch and stamped ``data_provenance="live"`` by the
+            # seam (no point carried the simulated label to refuse), from a
+            # source that makes no request.
+            raise DataSourceError(
+                "INTERMAGNET: no requested observatory is in the placeholder catalog "
+                f"({', '.join(unknown)}); the data access protocol is not implemented, "
+                "so nothing can be fetched for them. Use USGSGeomagnetismSource for "
+                "real magnetometer measurements.",
+                source_id=self.source_id,
+                retryable=False,
+            )
+
         for code in self._observatory_codes:
             obs_info = self.OBSERVATORIES.get(code)
             if not obs_info:
+                logger.warning("INTERMAGNET: observatory %s is not in the catalog; skipped", code)
                 continue
 
             name, lat, lon = obs_info
