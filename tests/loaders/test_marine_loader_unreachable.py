@@ -15,6 +15,7 @@ patched, and the air-gap tests additionally fail on any DNS lookup.
 
 from __future__ import annotations
 
+import json
 import socket
 from typing import TYPE_CHECKING, Any
 
@@ -126,3 +127,40 @@ def test_opted_in_synthetic_stand_in_is_marked_and_never_cached(
     assert loader._read_cache(f"marine_historical_{_EVENT_ID}") is None
     with pytest.raises(SyntheticDataNotDeleakable):
         loader.engineer_scored_features(frame)
+
+
+def _baseline_down(_url: str, *, params: dict[str, Any], **_kwargs: Any) -> bytes:
+    """OBIS answering the event-period queries and failing every baseline one."""
+    if str(params.get("startdate", "")).startswith("2011"):
+        raise ConnectionError("simulated: baseline query failed")
+    record = {
+        "scientificName": "Acropora",
+        "decimalLatitude": -18.0,
+        "decimalLongitude": 147.0,
+        "eventDate": "2016-03-01",
+    }
+    return json.dumps({"total": 1, "results": [record]}).encode()
+
+
+def test_a_partial_obis_outage_is_refused_and_never_cached(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Was: event rows only, ``is_real_data`` True, cached for a day, labelled all-normal."""
+    monkeypatch.setattr(_GET_BYTES, _baseline_down)
+    loader = _loader(tmp_path)
+
+    with pytest.raises(DataSourceUnavailableError, match="partially unreachable"):
+        loader.fetch_historical(_EVENT_ID)
+
+    assert loader._read_cache(f"marine_historical_{_EVENT_ID}") is None
+
+
+def test_a_partial_outage_is_refused_even_with_the_synthetic_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The opt-in permits a labelled stand-in for no data, not a real-stamped half record."""
+    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "1")
+    monkeypatch.setattr(_GET_BYTES, _baseline_down)
+
+    with pytest.raises(DataSourceUnavailableError, match="partially unreachable"):
+        _loader(tmp_path).fetch_historical(_EVENT_ID)

@@ -22,6 +22,23 @@ from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
 
+#: Frame attribute naming the columns whose FRED request failed at the
+#: transport. Such a frame is a partial outage, not the record: the lost
+#: columns are NaN because the request never completed, not because FRED
+#: published nothing. It is returned (the series that did arrive are real) but
+#: never cached, and :meth:`FinancialLoader.get_ground_truth` refuses to label
+#: from it when a label-bearing column is among the lost ones.
+INCOMPLETE_SERIES_ATTR = "mercury_incomplete_series"
+
+#: The columns the crisis label is computed from (see ``get_ground_truth``).
+_LABEL_COLUMNS: frozenset[str] = frozenset({"vix", "yield_curve_10y2y"})
+
+
+def _renamed(columns: list[str]) -> list[str]:
+    """Column names as the returned frame spells them (``VIX`` becomes ``vix``)."""
+    return ["vix" if name == "VIX" else name for name in columns]
+
+
 # ---------------------------------------------------------------------------
 # FRED API configuration
 # ---------------------------------------------------------------------------
@@ -182,14 +199,11 @@ class FinancialLoader(BaseDomainLoader):
         """
         self._require_api_key()
         cache_key = "financial_realtime"
-        cached = self._read_cache(cache_key)
+        cached = self._read_frame_cache(cache_key)
 
         if cached is not None:
             logger.debug("Returning cached real-time financial data.")
-            df = pd.DataFrame(cached)
-            if "date" in df.columns:
-                df["date"] = pd.to_datetime(df["date"])
-            return df
+            return cached
 
         # Use a 90-day lookback for real-time context
         end_date = pd.Timestamp.now().strftime("%Y-%m-%d")
@@ -203,8 +217,8 @@ class FinancialLoader(BaseDomainLoader):
             logger.warning("FRED returned no observations for the last 90 days.")
             return df
 
-        self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info("Fetched %d real-time financial records from FRED.", len(df))
+        if self._cache_if_complete(cache_key, df):
+            logger.info("Fetched %d real-time financial records from FRED.", len(df))
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
@@ -231,14 +245,11 @@ class FinancialLoader(BaseDomainLoader):
             )
 
         cache_key = f"financial_historical_{event_id}"
-        cached = self._read_cache(cache_key)
+        cached = self._read_frame_cache(cache_key)
 
         if cached is not None:
             logger.debug("Returning cached historical data for '%s'.", event_id)
-            df = pd.DataFrame(cached)
-            if "date" in df.columns:
-                df["date"] = pd.to_datetime(df["date"])
-            return df
+            return cached
 
         event = _EVENT_CATALOG[event_id]
         df = self._fetch_merged_series(event["start"], event["end"])
@@ -247,8 +258,8 @@ class FinancialLoader(BaseDomainLoader):
             logger.warning("FRED returned no observations for event '%s'.", event_id)
             return df
 
-        self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info("Fetched %d historical records for event '%s'.", len(df), event_id)
+        if self._cache_if_complete(cache_key, df):
+            logger.info("Fetched %d historical records for event '%s'.", len(df), event_id)
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
@@ -289,6 +300,10 @@ class FinancialLoader(BaseDomainLoader):
         Raises:
             ValueError: If *event_id* is not recognized or no data is
                 available.
+            DataSourceUnavailableError: If the VIX or yield-curve request
+                failed at the transport. Their NaN days would otherwise be
+                labelled normal, turning a crisis into an all-zero label
+                vector because of a network fault.
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
@@ -296,6 +311,14 @@ class FinancialLoader(BaseDomainLoader):
             )
 
         df = self.fetch_historical(event_id)
+        lost_label_columns = sorted(_LABEL_COLUMNS & set(df.attrs.get(INCOMPLETE_SERIES_ATTR, ())))
+        if lost_label_columns:
+            raise DataSourceUnavailableError(
+                "FinancialLoader",
+                _FRED_BASE_URL,
+                f"cannot label event '{event_id}': the FRED request for "
+                f"{', '.join(lost_label_columns)} failed, and the label is computed from it",
+            )
         if df.empty:
             return np.array([], dtype=np.int64)
 
@@ -479,6 +502,28 @@ class FinancialLoader(BaseDomainLoader):
         df = df.dropna(subset=["date"])
         return df
 
+    def _cache_if_complete(self, cache_key: str, frame: pd.DataFrame) -> bool:
+        """Cache ``frame`` unless a series was lost at the transport; True when cached.
+
+        A partial frame parked under the event's key was served as the record
+        for a full ``CACHE_TTL`` with the lost columns all NaN, long after
+        FRED had recovered.
+        """
+        lost = frame.attrs.get(INCOMPLETE_SERIES_ATTR)
+        if lost:
+            logger.warning(
+                "FRED partial outage: %s not retrieved; returning %d rows uncached.",
+                ", ".join(lost),
+                len(frame),
+            )
+            return False
+        # The frame cache, not ``_write_cache(frame.to_dict(...))``: the
+        # ``date`` column holds Timestamps, which the plain JSON writer cannot
+        # serialise, so every write here failed (logged at DEBUG only) and
+        # each call re-fetched all five series from FRED.
+        self._write_frame_cache(cache_key, frame)
+        return True
+
     def _fetch_merged_series(
         self,
         start_date: str,
@@ -498,17 +543,21 @@ class FinancialLoader(BaseDomainLoader):
         Raises:
             DataSourceUnavailableError: If every series request failed at
                 the transport, i.e. FRED itself is unreachable. A single
-                failed series stays a logged gap.
+                failed series stays a logged gap, and the returned frame
+                names it in ``attrs[INCOMPLETE_SERIES_ATTR]`` so that the
+                callers neither cache the frame nor label from it.
         """
         merged: pd.DataFrame | None = None
         failures: list[ConnectionError] = []
+        failed_columns: list[str] = []
 
-        for series_id in _SERIES_IDS:
+        for series_id, column in _SERIES_IDS.items():
             try:
                 series_df = self._fetch_fred_series(series_id, start_date, end_date)
             except ConnectionError as exc:
                 logger.error("Failed to fetch FRED series '%s'. Skipping.", series_id)
                 failures.append(exc)
+                failed_columns.append(column)
                 continue
 
             if series_df.empty:
@@ -537,7 +586,10 @@ class FinancialLoader(BaseDomainLoader):
         if merged is None or merged.empty:
             logger.warning("No FRED data available for range %s to %s.", start_date, end_date)
             columns = ["date"] + list(_SERIES_IDS.values())
-            return pd.DataFrame(columns=columns)
+            empty = pd.DataFrame(columns=columns)
+            if failed_columns:
+                empty.attrs[INCOMPLETE_SERIES_ATTR] = _renamed(failed_columns)
+            return empty
 
         # Sort chronologically and fill gaps
         merged = merged.sort_values("date").reset_index(drop=True)
@@ -555,6 +607,10 @@ class FinancialLoader(BaseDomainLoader):
         if "VIX" in merged.columns:
             merged = merged.rename(columns={"VIX": "vix"})
 
+        if failed_columns:
+            # Set last: ``merge`` and ``rename`` build new frames, and only
+            # the final one is what the callers inspect.
+            merged.attrs[INCOMPLETE_SERIES_ATTR] = _renamed(failed_columns)
         return merged
 
     # ------------------------------------------------------------------

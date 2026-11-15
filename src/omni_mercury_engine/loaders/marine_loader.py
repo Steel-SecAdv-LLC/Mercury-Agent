@@ -22,7 +22,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.datasets.exceptions import OfflineModeError, check_synthetic_allowed
+from omni_mercury_engine.datasets.exceptions import (
+    DataSourceUnavailableError,
+    OfflineModeError,
+    check_synthetic_allowed,
+)
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -264,7 +268,9 @@ class MarineLoader(BaseDomainLoader):
                 (``MERCURY_ALLOW_SYNTHETIC=1``) is not set.  With the opt-in
                 a synthetic stand-in is returned instead, carrying the
                 synthetic mark (:meth:`is_synthetic`) and
-                ``is_real_data=False``; it is never cached.
+                ``is_real_data=False``; it is never cached.  Also raised,
+                regardless of the opt-in, when only some of the species
+                queries failed: the answered ones are not the record.
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
@@ -368,6 +374,21 @@ class MarineLoader(BaseDomainLoader):
             df = self._synthesize_event(event)
             df["is_real_data"] = False
             return self.mark_synthetic(df)
+
+        if fetch_errors:
+            # Some queries answered and some failed at the transport. The
+            # label is the species-richness loss between the two periods, so
+            # a species or a whole period missing for a network reason
+            # changes it: with every baseline query failing the frame held
+            # event rows only, was stamped real, cached for CACHE_TTL and
+            # labelled all-normal. A partial fetch is refused, never cached.
+            raise DataSourceUnavailableError(
+                "MarineLoader",
+                _OBIS_BASE_URL,
+                f"OBIS partially unreachable for event '{event_id}': "
+                f"{len(fetch_errors)} of {2 * len(event['species'])} species queries "
+                f"failed, last error {fetch_errors[-1]}",
+            )
 
         df = pd.concat(all_frames, ignore_index=True)
         df = self._normalize_columns(df)
