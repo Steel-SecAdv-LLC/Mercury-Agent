@@ -187,8 +187,12 @@ feature first runs.
 
 ### Biometric image analysis (DeepFace) assets
 
-DeepFace is installed only on Python < 3.14 (TensorFlow has no 3.14 wheel), so
-the container image, which runs 3.14, uses the harmonic fallback instead. On
+DeepFace is installed only on Python 3.11.5 through 3.13. Above that range
+TensorFlow has no wheel, so the container image, which runs 3.14, uses the
+harmonic fallback instead. Below it (3.11.0 to 3.11.4) DeepFace's dependency
+chain reaches soupsieve, which has no release with its open advisories fixed
+for those interpreters, so the `[face]` extra installs without DeepFace there
+and the same fallback applies. On
 other installs the first image analysis downloads, into
 `$DEEPFACE_HOME/.deepface/weights` (default `~/.deepface/weights`):
 
