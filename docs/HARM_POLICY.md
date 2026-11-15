@@ -183,8 +183,8 @@ for **weapons and mass-casualty uplift**, which is the scope it was built for.
 from nothing else; `HarmReducer.evaluate_harm` raises the `PHYSICAL` /
 `SOCIETAL` harm categories on a blocking disposition (max-only — fail-closed,
 never lowering). The `EthicalScore` surfaces `hazard_domain`,
-`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **5**
-(the agentive-frame lexicon of §5a), invalidating cached verdicts.
+`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **6**
+(the agentive-frame lexicon of §5a and its corrections), invalidating cached verdicts.
 
 ### 5a. The second enforced signal — grave harm directed at a person
 
@@ -226,9 +226,24 @@ bare imperative opening a clause. A third-person subject has no such frame.
 them"), and a passive's agent is no longer read as a victim ("stalked by her
 ex" is a report). Measured on the corpora pinned in
 `tests/pillars/test_non_maleficence.py`: **18/18 refused** (0/18 before) and
-**26/26 permitted** (25/26 before; the passive report was the one). Accepted
-residue: game talk in the agentive frame ("how do i kill him in the final
-fight") is refused.
+**26/26 permitted** (25/26 before; the passive report was the one).
+
+That first version had three defects, corrected in ruleset 6 against the same
+corpora, extended to **29 refused** and **34 permitted** (11 and 6 of the
+additions failed before the correction). The passive lookahead skipped every
+verb form before "by", so the active voice with a stated manner ("torture by
+waterboarding the prisoner") went from refused to permitted; only a past
+participle is now skipped. Plain variants of the pinned threats were permitted
+(a typographic apostrophe, a threat on a second line, "am gonna", "should",
+an intensifier after the modal, "can you", a step- relation, children). And
+the frame refused ordinary text: the relation could sit anywhere in the clause
+("intimidate the other team so my son wins"), and "her" after `kill` was
+always a victim ("kill her session before deploying"); the person must now be
+the verb's own object, and `kill her <operations noun>` is not a victim.
+Accepted residue: game talk in the agentive frame ("how do i kill him in the
+final fight") and food or sport slang after a first-person `murder` ("i wanna
+murder some tacos") are refused; "i will kill you" is not matched, because the
+same words are a recipient's report of a threat.
 
 Alongside it runs a third signal on the same evidence: `direct_physical_harm`,
 which refuses when the **PHYSICAL** category alone reaches

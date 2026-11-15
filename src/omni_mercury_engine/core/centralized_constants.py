@@ -190,7 +190,11 @@ class EthicalConstants:
     # named by pronoun, role, relation or name) and stops reading a passive's
     # agent as a victim; verdicts for those texts change in both directions, so
     # cached v4 verdicts must invalidate.
-    RULESET_VERSION: int = 5
+    # v6: corrections to the v5 pattern -- only a past participle before "by"
+    # is a passive (the active voice with a stated manner was being permitted),
+    # the person must be the harm verb's own object, and plain variants of the
+    # pinned threats match; verdicts change in both directions again.
+    RULESET_VERSION: int = 6
 
 
 ETHICAL = EthicalConstants()

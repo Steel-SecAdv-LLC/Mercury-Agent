@@ -364,8 +364,14 @@ _DIRECT_HARM_VERBS = (
 #: the object after "by" is the perpetrator in someone's report, not the victim
 #: of a request. "how to help my friend who is being stalked by her ex" was
 #: refused before this lookahead.
+#:
+#: Only a past participle is a passive. The lookahead first skipped every form
+#: before "by", which also dropped the active voice with a stated manner:
+#: "torture by waterboarding the prisoner" and "harass by phone and email him"
+#: were refused before it and permitted after. Every verb in the list is
+#: regular, so the participle is the form ending in "ed".
 _DIRECT_HARM_PATTERN = re.compile(
-    r"\b(?:" + _DIRECT_HARM_VERBS + r")\w*\b(?!\s+by\b)[^.!?;]{0,40}?\b(?:" + _OBJ + r")\b"
+    r"\b(?:" + _DIRECT_HARM_VERBS + r")\w*\b(?!(?<=ed)\s+by\b)[^.!?;]{0,40}?\b(?:" + _OBJ + r")\b"
 )
 
 #: Lethal verb whose *manner* is stated as interpersonal violence. This is what
@@ -421,30 +427,51 @@ _LETHAL_MANNER_PATTERN = re.compile(
 _RELATION_NOUNS = (
     "neighbou?r|wife|husband|spouse|girlfriend|boyfriend|fiancee?|partner|ex"
     "|boss|manager|supervisor|coworker|co-worker|colleague|classmate|roommate"
-    "|flatmate|landlord|tenant|teacher|professor|mother|father|mom|mum|dad"
-    "|stepmother|stepfather|brother|sister|son|daughter|uncle|aunt|cousin"
-    "|grandmother|grandfather|grandma|grandpa|friend"
+    "|flatmate|landlord|tenant|teacher|professor|mom|mum|dad"
+    "|mother|father|brother|sister|son|daughter|uncle|aunt|cousin"
+    "|grandmother|grandfather|grandma|grandpa|grandson|granddaughter|niece|nephew"
+    "|kids?|child(?:ren)?|baby|parents?|family|friend"
 )
 #: ``my neighbour``, ``his ex-wife``; not ``my neighbour's`` (the possessive
 #: makes the next noun the object: "kill my neighbour's weeds").
 _PERSON_BY_RELATION = (
-    r"(?:my|his|her|their|our|your)\s+(?:ex[- ]?)?(?:" + _RELATION_NOUNS + r")\b(?!['\u2019]s\b)"
+    r"(?:my|his|her|their|our|your)\s+(?:ex[- ]?|step[- ]?)?(?:"
+    + _RELATION_NOUNS
+    + r")\b(?!['\u2019]s\b)"
 )
 #: The listed person objects without "them", for ``kill`` (see above).
 _OBJ_NOT_THEM = "|".join(re.escape(o) for o in _EUPHEMISM_OBJECT if o != "them")
 
-#: The speaker states the act as their own intent.
+#: The speaker states the act as their own intent. An intensifier may sit on
+#: either side of the modal ("i really will", "i will definitely"). "could"
+#: and "might" are absent: "i could kill my brother" is exasperation, not
+#: intent.
+_INTENSIFIER = r"(?:really|just|still|honestly|seriously|definitely|absolutely|totally|actually)"
 _FIRST_PERSON_INTENT = (
-    r"\b(?:(?:i|we)(?:\s+(?:really|just|still|honestly|seriously))?\s+"
-    r"(?:will|shall|must|wanna|gonna|want to|need to|have to|plan to|intend to|wish to"
-    r"|would like to|am going to|are going to|am about to)"
+    r"\b(?:(?:i|we)(?:\s+" + _INTENSIFIER + r")?\s+"
+    r"(?:will|shall|must|should|wanna|gonna|want to|need to|have to|plan to|intend to|wish to"
+    r"|would like to|am going to|are going to|am gonna|are gonna|am about to)"
     r"|(?:i|we)'ll|i'm (?:going to|gonna)|we're (?:going to|gonna)|(?:i|we)'d like to)\s+"
+    r"(?:" + _INTENSIFIER + r"\s+)?"
 )
 #: A request for help doing it, or a bare imperative opening a clause.
 _HELP_OR_IMPERATIVE = (
     r"(?:\bhelp me (?:to )?|\bhow (?:to|do i|can i|could i|should i|would i|do we|can we)\s+"
+    r"|\b(?:can|could|will|would) you (?:please\s+)?(?:help me (?:to )?)?"
     r"|\blet(?:'s| us)\s+"
+    # ``^`` is every line start (the pattern is compiled MULTILINE): a threat
+    # on the second line of a message opens a clause as much as one after a
+    # full stop does.
     r"|(?:^|[.!?;:]\s*)(?:(?:and\s+)?then\s+|please\s+|just\s+|go\s+|now\s+)?)"
+)
+
+#: "kill her process", "kill her session": after ``kill`` the word "her" is as
+#: often a possessive on operations vocabulary as it is a victim, and "kill
+#: her with kindness" is an idiom. Measured as refusals before this list.
+_NOT_A_VICTIM = (
+    r"(?!\s+(?:process(?:es)?|sessions?|jobs?|tasks?|threads?|connections?|containers?|pods?"
+    r"|scripts?|servers?|services?|instances?|quer(?:y|ies)|daemons?|apps?|vms?|builds?"
+    r"|shells?|terminals?|tabs?|windows?|with kindness)\b)"
 )
 _AGENTIVE_FRAME = r"(?:" + _FIRST_PERSON_INTENT + r"|" + _HELP_OR_IMPERATIVE + r")"
 
@@ -460,20 +487,22 @@ _AGENTIVE_HARM_PATTERN = re.compile(
     + r"|"
     + _PERSON_BY_RELATION
     + r"))\b"
+    + _NOT_A_VICTIM
     # murder/assassinate after the speaker's own intent: any object, so a name
     # ("i will murder john smith"). Not "you"/"me"/"us": a threat quoted by the
     # person who received it ("he wrote: i will murder you") is theirs to
     # report. Not "this"/"that"/"it": slang for doing something well.
-    r"|"
+    + r"|"
     + _FIRST_PERSON_INTENT
     + r"(?:murder|assassinate)\s+(?!(?:you|u|me|us|this|that|it)\b)\S+"
     # a grave-harm act against a person named by relation, any agentive frame
-    r"|"
-    + _AGENTIVE_FRAME
-    + r"(?:\w+\s+and\s+)?(?:"
-    + _DIRECT_HARM_VERBS
-    + r")\b[^.!?;]{0,40}?\b"
-    + _PERSON_BY_RELATION
+    r"|" + _AGENTIVE_FRAME + r"(?:\w+\s+and\s+)?(?:" + _DIRECT_HARM_VERBS
+    # The person is the verb's own object ("stalk my ex", "stalk and hurt my
+    # ex-wife"), not any relation later in the clause: a 40-character window
+    # here refused "intimidate the other team so my son wins" and "torture
+    # test the build for my manager".
+    + r")\b(?:\s+(?:and|or)\s+\w+)?\s+" + _PERSON_BY_RELATION,
+    re.MULTILINE,
 )
 
 
@@ -495,7 +524,9 @@ def _direct_harm_present(text: str) -> bool:
         speaker states (or asks for help with) a lethal or grave-harm act
         against a person.
     """
-    t = text.lower()
+    # A typographic apostrophe is the same contraction: "i\u2019ll kill my wife"
+    # was permitted while "i'll kill my wife" was refused.
+    t = text.lower().replace("\u2019", "'")
     return bool(
         _DIRECT_HARM_PATTERN.search(t)
         or _LETHAL_MANNER_PATTERN.search(t)
