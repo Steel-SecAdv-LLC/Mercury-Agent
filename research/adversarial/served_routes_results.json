@@ -5,11 +5,11 @@
    "research/adversarial/served_routes.py": "b108ced1a10d391486f61ba839d921aadd908e0a",
    "src/omni_mercury_engine/api/fusion_weights.py": "411ff9dfab39c5f51e8167b9e32cfe81f8f19c94",
    "src/omni_mercury_engine/api/routes/detection.py": "bad40b2d7b3872431182373b06bbd91cb1392c9f",
-   "src/omni_mercury_engine/api/routes/batch.py": "a53d13d9fd321e8ec03383d4835e88b01a04ac61",
-   "src/omni_mercury_engine/api/server.py": "4f70819f2957b50fb3b3cc3cc6814c4030918ae6",
-   "src/omni_mercury_engine/detectors/detection_tier.py": "ef0f2fe7fc22493ef3b2523552437f681c77882a"
+   "src/omni_mercury_engine/api/routes/batch.py": "360e62ab8f50d3e0edb2d67669a1e41f25bf7218",
+   "src/omni_mercury_engine/api/server.py": "6b0d7100f32b82268e386753f5522e9784d9b684",
+   "src/omni_mercury_engine/detectors/detection_tier.py": "8c08bfc389c5ef1a991187ece96612654b981e20"
   },
-  "commit": "44c4d104ba1b87a0b748c3fc4f8b9dd17c90e1b7",
+  "commit": "f8a5b1c705e43e35488af18348aa47d6cba51932",
   "n": 300,
   "seeds": [
    0,
