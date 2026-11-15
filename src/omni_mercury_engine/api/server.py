@@ -1669,11 +1669,26 @@ def _require_frontend_backend() -> None:
     router, the pages load and each request they make answers 404, which a
     visitor reads as a broken sign-in rather than as a server fault.
 
+    The mirror case is refused too: the frontend was asked for and its own
+    import failed. That left a server with ``/health`` healthy and ``/login``
+    answering 404, reported only by a warning-level alert.
+
     Raises:
-        RuntimeError: If the frontend is mounted and the account router is not.
+        RuntimeError: If the frontend is mounted and the account router is
+            not, or the frontend is enabled and did not load.
     """
     states = {record.name: record for record in router_manifest()}
     frontend = states.get("frontend")
+    if (
+        frontend is not None
+        and frontend.state is RouterState.UNAVAILABLE
+        and os.getenv("MERCURY_FRONTEND_ENABLED", "false").strip().lower() == "true"
+    ):
+        raise RuntimeError(
+            "MERCURY_FRONTEND_ENABLED=true, but the browser frontend did not load: "
+            f"{frontend.detail}. Fix the import, or unset MERCURY_FRONTEND_ENABLED to "
+            "serve the API without the browser pages."
+        )
     if frontend is None or frontend.state is not RouterState.MOUNTED:
         return
     accounts = states.get("accounts")
@@ -1685,6 +1700,28 @@ def _require_frontend_backend() -> None:
         f"(/api/v1/auth) did not load: {reason}. Fix the import, or unset "
         "MERCURY_FRONTEND_ENABLED to serve the API without the browser pages."
     )
+
+
+def _require_account_email_base_url() -> None:
+    """Refuse to start when account emails could not carry a usable link.
+
+    ``public_base_url`` raises when ``MERCURY_SMTP_HOST`` is set without
+    ``MERCURY_PUBLIC_BASE_URL`` (or with one that is not a URL). The account
+    service is built on the first account request, so that refusal used to
+    surface there: the server booted, ``/health`` answered healthy, and
+    ``/register`` and ``/login`` returned 500 until someone read the log.
+
+    Raises:
+        RuntimeError: If the account router is mounted and the base URL
+            configuration is unusable.
+    """
+    states = {record.name: record for record in router_manifest()}
+    accounts = states.get("accounts")
+    if accounts is None or accounts.state is not RouterState.MOUNTED:
+        return
+    from omni_mercury_engine.api.auth_service import public_base_url
+
+    public_base_url()
 
 
 # Include Batch Processing Routes
@@ -1768,6 +1805,7 @@ with mounting("frontend", "Account frontend", logger) as _frontend_mount:
 # API is missing gives a visitor a sign-in page whose every request answers
 # 404, on a server whose /health says healthy. Refuse to start instead.
 _require_frontend_backend()
+_require_account_email_base_url()
 
 # Include Voice Interface Routes
 with mounting("voice", "Voice interface routes", logger):

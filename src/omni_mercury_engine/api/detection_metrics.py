@@ -37,7 +37,10 @@ import functools
 import time
 from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
-from fastapi import HTTPException
+# Starlette's class, which FastAPI's ``HTTPException`` subclasses: a handler
+# (or a dependency it calls) raising the base class with a 4xx is refusing the
+# request just the same, and was being counted as a failed detection.
+from starlette.exceptions import HTTPException
 
 from omni_mercury_engine.core.metrics import (
     DETECTION_DURATION,
@@ -66,7 +69,10 @@ def _attempted(detector_type: str, started: float, *, succeeded: bool) -> None:
 
 
 def records_detection(
-    name: str, *, skip: Callable[[], bool] | None = None
+    name: str,
+    *,
+    skip: Callable[[], bool] | None = None,
+    failed: Callable[[Any], bool] | None = None,
 ) -> Callable[[Callable[_P, Coroutine[Any, Any, _R]]], Callable[_P, Coroutine[Any, Any, _R]]]:
     """Decorate an async detection handler so it writes the detection series.
 
@@ -79,6 +85,11 @@ def records_detection(
         skip: Called per request; when it returns true the call is not
             recorded. The server passes its warm-up flag, so the two calls it
             makes to itself at startup are not counted as traffic.
+        failed: Called with the handler's return value; when it returns true
+            the attempt is recorded without a success. For a handler that
+            reports failure in its result instead of raising (the batch chunk
+            processor catches each sample's exception), which would otherwise
+            record a success for every call whatever happened inside it.
 
     Returns:
         The decorator.
@@ -107,7 +118,7 @@ def records_detection(
             except Exception:
                 _attempted(detector_type, started, succeeded=False)
                 raise
-            _attempted(detector_type, started, succeeded=True)
+            _attempted(detector_type, started, succeeded=failed is None or not failed(result))
             return result
 
         return recorded

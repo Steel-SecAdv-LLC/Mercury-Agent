@@ -1127,12 +1127,24 @@ def public_base_url() -> str:
 
     Raises:
         RuntimeError: If ``MERCURY_SMTP_HOST`` is set and
-            ``MERCURY_PUBLIC_BASE_URL`` is not.
+            ``MERCURY_PUBLIC_BASE_URL`` is not, or if the latter is not an
+            ``http://`` or ``https://`` URL with a host.
     """
     import os
+    from urllib.parse import urlsplit
 
     explicit = os.getenv("MERCURY_PUBLIC_BASE_URL", "").strip()
     if explicit:
+        parts = urlsplit(explicit)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            # "mercury.example.org" was accepted and produced emailed links
+            # of the form "mercury.example.org/verify-email?token=...", which
+            # no mail client turns into a link.
+            raise RuntimeError(
+                f"MERCURY_PUBLIC_BASE_URL={explicit!r} is not a URL account emails can link "
+                "to: it needs a scheme and a host, for example "
+                "MERCURY_PUBLIC_BASE_URL=https://mercury.example.org."
+            )
         return explicit.rstrip("/")
     if os.getenv("MERCURY_SMTP_HOST", "").strip():
         raise RuntimeError(

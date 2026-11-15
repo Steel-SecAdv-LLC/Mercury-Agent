@@ -100,3 +100,51 @@ def test_the_platform_deployment_sets_it_explicitly() -> None:
     compose = (_REPO / "docker-compose.platform.yml").read_text(encoding="utf-8")
     assert "MERCURY_SMTP_HOST" in compose
     assert "MERCURY_PUBLIC_BASE_URL: ${MERCURY_PUBLIC_BASE_URL:-https://" in compose
+
+
+@pytest.mark.parametrize("value", ["mercury.example.org", "ftp://mercury.example.org", "https://"])
+def test_a_setting_that_is_not_a_web_url_is_refused(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    """Was: accepted as given, so emailed links read ``mercury.example.org/verify-email?...``."""
+    monkeypatch.setenv("MERCURY_PUBLIC_BASE_URL", value)
+
+    with pytest.raises(RuntimeError, match="needs a scheme and a host"):
+        public_base_url()
+
+
+def test_smtp_without_a_base_url_stops_the_server_at_startup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Was: the server booted, /health was healthy, and every account request answered 500."""
+    from omni_mercury_engine.api import server
+
+    server._require_account_email_base_url()  # development mailer: nothing to refuse
+
+    monkeypatch.setenv("MERCURY_SMTP_HOST", "smtp.example.org")
+    with pytest.raises(RuntimeError, match="MERCURY_PUBLIC_BASE_URL must be set"):
+        server._require_account_email_base_url()
+
+    monkeypatch.setenv("MERCURY_PUBLIC_BASE_URL", "https://mercury.example.org")
+    server._require_account_email_base_url()
+
+
+def test_an_enabled_frontend_that_failed_to_load_stops_the_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Was: the server booted with /health healthy and /login answering 404."""
+    from omni_mercury_engine.api import server
+    from omni_mercury_engine.api.router_manifest import RouterRecord, RouterState
+
+    broken = [
+        RouterRecord("frontend", "Account frontend", RouterState.UNAVAILABLE, "ImportError: x"),
+        RouterRecord("accounts", "Account routes", RouterState.MOUNTED),
+    ]
+    monkeypatch.setattr(server, "router_manifest", lambda: broken)
+
+    monkeypatch.setenv("MERCURY_FRONTEND_ENABLED", "false")
+    server._require_frontend_backend()  # not asked for: the API alone is a valid server
+
+    monkeypatch.setenv("MERCURY_FRONTEND_ENABLED", "true")
+    with pytest.raises(RuntimeError, match="browser frontend did not load: ImportError: x"):
+        server._require_frontend_backend()

@@ -98,6 +98,63 @@ class TestRecorder:
             asyncio.run(handler())
         assert _delta("unit_refused", before) == (0.0, 0.0, 0.0)
 
+    def test_a_refusal_raised_as_the_starlette_base_class_is_not_an_attempt(self) -> None:
+        """Was: counted as a failed detection, because only FastAPI's subclass was a refusal."""
+        from starlette.exceptions import HTTPException as StarletteHTTPException
+
+        @records_detection("unit_starlette")
+        async def handler() -> None:
+            raise StarletteHTTPException(status_code=404)
+
+        before = _snapshot("unit_starlette")
+        with pytest.raises(StarletteHTTPException):
+            asyncio.run(handler())
+        assert _delta("unit_starlette", before) == (0.0, 0.0, 0.0)
+
+    def test_a_result_that_reports_failure_is_counted_without_a_success(self) -> None:
+        @records_detection("unit_result", failed=lambda result: "error" in result)
+        async def handler(ok: bool) -> dict[str, Any]:
+            return {"score": 1.0} if ok else {"error": "failed inside"}
+
+        before = _snapshot("unit_result")
+        asyncio.run(handler(True))
+        assert _delta("unit_result", before) == (1.0, 1.0, 1.0)
+        asyncio.run(handler(False))
+        assert _delta("unit_result", before) == (2.0, 1.0, 2.0)
+
+    def test_a_batch_chunk_with_a_failed_sample_is_not_a_success(self) -> None:
+        """Was: success == requests always; the chunk catches each sample's exception."""
+        import numpy as np
+
+        from omni_mercury_engine.api.routes.batch import (
+            BatchDetectionMethod,
+            _process_chunk,
+        )
+
+        def run(chunk: list[list[float]]) -> list[dict[str, Any]]:
+            return asyncio.run(
+                _process_chunk(
+                    chunk,
+                    BatchDetectionMethod.STATISTICAL,
+                    0.5,
+                    0,
+                    np.zeros(3),
+                    np.ones(3),
+                    None,
+                    5.0,
+                    baseline=np.zeros((1, 3)),
+                )
+            )
+
+        before = _snapshot("batch")
+        good = run([[0.1, 0.2, 0.3]])
+        assert "error" not in good[0]
+        assert _delta("batch", before) == (1.0, 1.0, 1.0)
+
+        mixed = run([[0.1, 0.2, 0.3], [1.0]])
+        assert "error" in mixed[1]
+        assert _delta("batch", before) == (2.0, 1.0, 2.0)
+
     def test_skip_leaves_the_series_untouched(self) -> None:
         skipping = True
 

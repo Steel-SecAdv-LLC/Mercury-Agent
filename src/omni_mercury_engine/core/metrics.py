@@ -133,7 +133,11 @@ DETECTION_DURATION = _create_histogram(
     "omni_detection_duration_seconds",
     "Detection processing duration in seconds",
     ["detector_type"],
-    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+    # The buckets above 10 s exist for ``OmniMercurySlowDetection`` (p95 >
+    # 10 s). ``histogram_quantile`` returns the upper bound of the highest
+    # finite bucket for anything beyond it, so with 10.0 as that bound the
+    # quantile could equal 10 and never exceed it: the alert could not fire.
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 30.0, 60.0),
 )
 
 DETECTION_SUCCESS = _create_counter(
