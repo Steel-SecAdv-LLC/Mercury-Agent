@@ -148,3 +148,22 @@ def test_an_enabled_frontend_that_failed_to_load_stops_the_server(
     monkeypatch.setenv("MERCURY_FRONTEND_ENABLED", "true")
     with pytest.raises(RuntimeError, match="browser frontend did not load: ImportError: x"):
         server._require_frontend_backend()
+
+
+def test_a_base_url_with_a_port_and_no_host_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``https://:8080`` has a netloc and no host; it was accepted."""
+    monkeypatch.setenv("MERCURY_PUBLIC_BASE_URL", "https://:8080")
+
+    with pytest.raises(RuntimeError, match="needs a scheme and a host"):
+        public_base_url()
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["https://host:8443/mercury", "HTTPS://Mercury.Example.org", "http://[::1]:8000"],
+)
+def test_a_path_a_port_and_an_ipv6_host_are_accepted(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("MERCURY_PUBLIC_BASE_URL", value)
+    assert public_base_url() == value

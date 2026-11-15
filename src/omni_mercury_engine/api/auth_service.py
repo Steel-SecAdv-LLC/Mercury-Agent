@@ -1136,7 +1136,7 @@ def public_base_url() -> str:
     explicit = os.getenv("MERCURY_PUBLIC_BASE_URL", "").strip()
     if explicit:
         parts = urlsplit(explicit)
-        if parts.scheme not in ("http", "https") or not parts.netloc:
+        if parts.scheme not in ("http", "https") or not parts.hostname:
             # "mercury.example.org" was accepted and produced emailed links
             # of the form "mercury.example.org/verify-email?token=...", which
             # no mail client turns into a link.

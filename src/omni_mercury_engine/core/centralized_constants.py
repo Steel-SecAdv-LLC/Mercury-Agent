@@ -194,7 +194,12 @@ class EthicalConstants:
     # is a passive (the active voice with a stated manner was being permitted),
     # the person must be the harm verb's own object, and plain variants of the
     # pinned threats match; verdicts change in both directions again.
-    RULESET_VERSION: int = 6
+    # v7: corrections to v6 found by a differential against v5 over 1,797
+    # sentences -- the person may sit anywhere in the verb's own object phrase
+    # again (v6 required adjacency and permitted "extort money from my boss"),
+    # the agent after "by" is skipped whatever form names the act, and a line
+    # break is a clause boundary only after a complete line.
+    RULESET_VERSION: int = 7
 
 
 ETHICAL = EthicalConstants()

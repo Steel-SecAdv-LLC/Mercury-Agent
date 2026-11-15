@@ -68,7 +68,14 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* scroll-padding-top keeps a control that receives focus (or a #fragment
+   target) clear of the sticky header: without it, tabbing upward scrolled
+   the focused input underneath the header (WCAG 2.2 SC 2.4.11). */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: 5rem;
+}
 
 body {
   margin: 0;
@@ -461,6 +468,11 @@ dl.kv dt { color: var(--muted); }
 dl.kv dd { margin: 0; overflow-wrap: anywhere; }
 
 @media (max-width: 30rem) {
+  /* The header wraps to two rows here; pinned, it would cover a sixth of a
+     phone screen and whatever is focused beneath it. It scrolls with the
+     page instead. */
+  .site-header { position: static; }
+  html { scroll-padding-top: 0.5rem; }
   main { padding: 1.25rem 0.85rem 2.5rem; }
   .card { padding: 1.05rem; }
   .site-header { padding: 0.6rem 0.85rem; }

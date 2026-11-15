@@ -996,18 +996,30 @@ def _read_json_array(path: Path) -> np.ndarray[Any, Any]:
             loaded = json.load(f)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{path} is not valid JSON: {exc}") from exc
+    document = loaded if isinstance(loaded, list) else [loaded]
     try:
-        array = np.array(loaded if isinstance(loaded, list) else [loaded])
+        array = np.array(document)
     except ValueError as exc:  # rows of unequal length
         raise ValueError(f"{path} must hold rows of equal length: {exc}") from exc
+    if array.dtype.kind == "O" and _only_numbers_and_nulls(document):
+        # JSON has no NaN; a missing reading is written ``null``. It is the
+        # gap it stands for, as it was before the numeric check below existed.
+        array = np.array(document, dtype=np.float64)
     if array.dtype.kind not in "biuf":
         # Strings and objects ({"data": [...]}, ["a", "b"]) passed through and
         # failed later, inside a detector, as a TypeError traceback.
         raise ValueError(
-            f"{path} must hold numbers: a JSON array of numbers, or an array of "
-            "equal-length arrays of numbers"
+            f"{path} must hold numbers: a JSON array of numbers (null for a missing "
+            "value), or an array of equal-length arrays of numbers"
         )
     return array
+
+
+def _only_numbers_and_nulls(node: Any) -> bool:
+    """Whether a parsed JSON value is numbers and nulls, nested in lists or not."""
+    if isinstance(node, list):
+        return all(_only_numbers_and_nulls(item) for item in node)
+    return node is None or (isinstance(node, (int, float)) and not isinstance(node, bool))
 
 
 def _load_data(filepath: str) -> np.ndarray[Any, Any]:

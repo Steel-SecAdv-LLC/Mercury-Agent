@@ -29,7 +29,10 @@ function openModal(title, bodyBuilder) {
   // walked out of the dialog into the page behind it, and closing it left
   // focus on <body> instead of the control that opened it.
   const opener = document.activeElement;
-  const background = Array.from(document.body.children);
+  // Only what this dialog makes inert is restored when it closes: with a
+  // second dialog open on top, closing one must not wake the page behind
+  // the other. An earlier dialog's backdrop is made inert here too.
+  const background = Array.from(document.body.children).filter((el) => !el.inert);
   background.forEach((el) => { el.inert = true; });
 
   const close = document.createElement("button");
@@ -40,11 +43,17 @@ function openModal(title, bodyBuilder) {
     backdrop.remove();
     document.removeEventListener("keydown", onKey);
     background.forEach((el) => { el.inert = false; });
-    if (opener && typeof opener.focus === "function" && document.contains(opener)) {
-      opener.focus();
-    }
+    // The opener may have been hidden by the action that opened the dialog
+    // (confirming two-factor hides the enrolment form). focus() on a hidden
+    // element does nothing and leaves focus on <body>; fall back to the page's
+    // main region, which is focusable for the skip link.
+    const visible = opener && document.contains(opener) && opener.offsetParent !== null;
+    const target = visible ? opener : document.getElementById("main");
+    if (target && typeof target.focus === "function") { target.focus(); }
   });
   const onKey = (event) => {
+    // A dialog underneath another is inert: only the top one answers keys.
+    if (backdrop.inert) { return; }
     if (event.key === "Escape") { close.click(); return; }
     if (event.key !== "Tab") { return; }
     const focusable = Array.from(modal.querySelectorAll(

@@ -365,13 +365,27 @@ _DIRECT_HARM_VERBS = (
 #: of a request. "how to help my friend who is being stalked by her ex" was
 #: refused before this lookahead.
 #:
-#: Only a past participle is a passive. The lookahead first skipped every form
-#: before "by", which also dropped the active voice with a stated manner:
-#: "torture by waterboarding the prisoner" and "harass by phone and email him"
-#: were refused before it and permitted after. Every verb in the list is
-#: regular, so the participle is the form ending in "ed".
+#: The agent of a report is skipped; a stated manner is not. Two earlier
+#: forms of this lookahead were each wrong in one direction. Skipping every
+#: verb form before "by" permitted the active voice with a manner ("torture by
+#: waterboarding the prisoner", "harass by phone and email him"). Skipping
+#: only a past participle then refused a victim's report that names the act
+#: as a noun ("harassment by him", "stalking by her manager", "torture by
+#: them"). What follows "by" decides it: a pronoun, a possessive or an article
+#: introduces whoever did it; a gerund or a bare noun is how it was done. A
+#: past participle before "by" is a passive whatever follows.
+_BY_AGENT = (
+    r"\s+by\s+(?:(?:him|her|them|us|me|you|someone|somebody|anyone)\b"
+    r"|(?:his|her|their|my|our|your|the|an?|some|another)\s+\w)"
+)
 _DIRECT_HARM_PATTERN = re.compile(
-    r"\b(?:" + _DIRECT_HARM_VERBS + r")\w*\b(?!(?<=ed)\s+by\b)[^.!?;]{0,40}?\b(?:" + _OBJ + r")\b"
+    r"\b(?:"
+    + _DIRECT_HARM_VERBS
+    + r")\w*\b(?!(?<=ed)\s+by\b)(?!"
+    + _BY_AGENT
+    + r")[^.!?;]{0,40}?\b(?:"
+    + _OBJ
+    + r")\b"
 )
 
 #: Lethal verb whose *manner* is stated as interpersonal violence. This is what
@@ -430,14 +444,19 @@ _RELATION_NOUNS = (
     "|flatmate|landlord|tenant|teacher|professor|mom|mum|dad"
     "|mother|father|brother|sister|son|daughter|uncle|aunt|cousin"
     "|grandmother|grandfather|grandma|grandpa|grandson|granddaughter|niece|nephew"
-    "|kids?|child(?:ren)?|baby|parents?|family|friend"
+    # "child", "parent", "baby" and "family" are absent on purpose: each is
+    # as often a modifier ("kill my child subprocess", "my parent process",
+    # "my baby tomato seedlings", "my family plan"). "children", "kids" and
+    # "parents" carry the grave case.
+    "|kids?|children|parents|friend"
 )
-#: ``my neighbour``, ``his ex-wife``; not ``my neighbour's`` (the possessive
-#: makes the next noun the object: "kill my neighbour's weeds").
+#: ``my neighbour``, ``his ex-wife``; not ``my neighbour's`` or ``my kids'``
+#: (the possessive makes the next noun the object: "kill my neighbour's
+#: weeds", "kill my kids' head lice").
 _PERSON_BY_RELATION = (
     r"(?:my|his|her|their|our|your)\s+(?:ex[- ]?|step[- ]?)?(?:"
     + _RELATION_NOUNS
-    + r")\b(?!['\u2019]s\b)"
+    + r")\b(?!['\u2019])"
 )
 #: The listed person objects without "them", for ``kill`` (see above).
 _OBJ_NOT_THEM = "|".join(re.escape(o) for o in _EUPHEMISM_OBJECT if o != "them")
@@ -457,11 +476,13 @@ _FIRST_PERSON_INTENT = (
 #: A request for help doing it, or a bare imperative opening a clause.
 _HELP_OR_IMPERATIVE = (
     r"(?:\bhelp me (?:to )?|\bhow (?:to|do i|can i|could i|should i|would i|do we|can we)\s+"
-    r"|\b(?:can|could|will|would) you (?:please\s+)?(?:help me (?:to )?)?"
+    # "can you" / "could you" ask for the act. "will you" / "would you" do
+    # not: "would you kill him if you were in my position" is a hypothetical.
+    r"|\b(?:can|could) you (?:please\s+)?(?:help me (?:to )?)?"
     r"|\blet(?:'s| us)\s+"
-    # ``^`` is every line start (the pattern is compiled MULTILINE): a threat
-    # on the second line of a message opens a clause as much as one after a
-    # full stop does.
+    # A line break that opens a clause is written ";" by
+    # :func:`_clause_breaks` before this pattern runs, so a threat on the
+    # second line of a message is found here.
     r"|(?:^|[.!?;:]\s*)(?:(?:and\s+)?then\s+|please\s+|just\s+|go\s+|now\s+)?)"
 )
 
@@ -471,8 +492,22 @@ _HELP_OR_IMPERATIVE = (
 _NOT_A_VICTIM = (
     r"(?!\s+(?:process(?:es)?|sessions?|jobs?|tasks?|threads?|connections?|containers?|pods?"
     r"|scripts?|servers?|services?|instances?|quer(?:y|ies)|daemons?|apps?|vms?|builds?"
-    r"|shells?|terminals?|tabs?|windows?|with kindness)\b)"
+    r"|shells?|terminals?|tabs?|windows?|subprocess(?:es)?|off|with kindness)\b)"
 )
+#: The exclusion applies after "her" only: it is the one object that is also
+#: a possessive. " her" is matched with its leading space so that "mother"
+#: and "father" do not count.
+_NOT_A_VICTIM_AFTER_HER = r"(?:(?<=\sher)" + _NOT_A_VICTIM + r"|(?<!\sher))"
+
+#: Words that end the verb's own object phrase. Between a grave-harm verb and
+#: the person, any of them means the person belongs to another clause or
+#: phrase: "intimidate the other team so my son wins", "torture test the build
+#: for my manager", "stab at guessing what my wife wants".
+_OBJECT_PHRASE_BREAK = (
+    r"(?:so|for|because|what|which|while|when|if|unless|until|before|after|than|about"
+    r"|at|test|tests|testing)"
+)
+_SAME_OBJECT_GAP = r"(?:(?!\b" + _OBJECT_PHRASE_BREAK + r"\b)[^.!?;]){0,40}?"
 _AGENTIVE_FRAME = r"(?:" + _FIRST_PERSON_INTENT + r"|" + _HELP_OR_IMPERATIVE + r")"
 
 _AGENTIVE_HARM_PATTERN = re.compile(
@@ -487,23 +522,53 @@ _AGENTIVE_HARM_PATTERN = re.compile(
     + r"|"
     + _PERSON_BY_RELATION
     + r"))\b"
-    + _NOT_A_VICTIM
+    + _NOT_A_VICTIM_AFTER_HER
     # murder/assassinate after the speaker's own intent: any object, so a name
     # ("i will murder john smith"). Not "you"/"me"/"us": a threat quoted by the
     # person who received it ("he wrote: i will murder you") is theirs to
     # report. Not "this"/"that"/"it": slang for doing something well.
-    + r"|"
-    + _FIRST_PERSON_INTENT
-    + r"(?:murder|assassinate)\s+(?!(?:you|u|me|us|this|that|it)\b)\S+"
+    + r"|" + _FIRST_PERSON_INTENT
+    # Not a possessive either: with one, the first branch decides, and it
+    # asks for a relation ("murder my husband", not "murder my to-do list").
+    + r"(?:murder|assassinate)\s+"
+    r"(?!(?:you|u|me|us|this|that|it|my|our|your|his|her|their)\b)\S+"
     # a grave-harm act against a person named by relation, any agentive frame
     r"|" + _AGENTIVE_FRAME + r"(?:\w+\s+and\s+)?(?:" + _DIRECT_HARM_VERBS
-    # The person is the verb's own object ("stalk my ex", "stalk and hurt my
-    # ex-wife"), not any relation later in the clause: a 40-character window
-    # here refused "intimidate the other team so my son wins" and "torture
-    # test the build for my manager".
-    + r")\b(?:\s+(?:and|or)\s+\w+)?\s+" + _PERSON_BY_RELATION,
-    re.MULTILINE,
+    # The person is the verb's own object, reached without leaving its
+    # object phrase: "extort money from my boss", "torture and then kill my
+    # wife", "harass the hell out of my ex". Plain adjacency (verb, person)
+    # permitted all three; a bare 40-character window refused "intimidate the
+    # other team so my son wins". The window stays, minus the words that end
+    # an object phrase.
+    + r")\b" + _SAME_OBJECT_GAP + r"\b" + _PERSON_BY_RELATION
 )
+
+#: A line ending in one of these continues on the next line: the verb that
+#: follows belongs to this clause, not to a new one.
+_LINE_CONTINUES = re.compile(
+    r"(\b(?:to|would|could|will|shall|should|might|may|can|must|not|never|and|or|but|he|she"
+    r"|they|it|who|that|which|did|does|do|is|was|were|are|be|been|\w+n't))[ \t]*\n\s*"
+)
+
+
+def _clause_breaks(text: str) -> str:
+    r"""Rewrite line breaks as what they mean for clause structure.
+
+    A hard-wrapped sentence is one clause: "he threatened to\nkill her" must
+    read as "he threatened to kill her", which has no agentive frame. A line
+    break after a complete line opens a new clause: "hello\nkill my
+    neighbour" is an imperative. Treating every line start as a clause start
+    refused the first; treating none as one permitted the second.
+
+    Args:
+        text: Lower-cased text.
+
+    Returns:
+        ``text`` with a continuing line joined by a space and any other line
+        break written as ``"; "``.
+    """
+    joined = _LINE_CONTINUES.sub(r"\1 ", text)
+    return re.sub(r"[ \t]*\n\s*", "; ", joined)
 
 
 def _direct_harm_present(text: str) -> bool:
@@ -530,7 +595,7 @@ def _direct_harm_present(text: str) -> bool:
     return bool(
         _DIRECT_HARM_PATTERN.search(t)
         or _LETHAL_MANNER_PATTERN.search(t)
-        or _AGENTIVE_HARM_PATTERN.search(t)
+        or _AGENTIVE_HARM_PATTERN.search(_clause_breaks(t))
     )
 
 

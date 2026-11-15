@@ -604,3 +604,26 @@ def test_one_column_is_one_sample_only_when_the_model_needs_that_width() -> None
     for width in (1, 8, None):
         engine = SimpleNamespace(fitted_feature_width=width)
         assert _one_sample_if_feature_vector(engine, column).shape == (16, 1)
+
+
+def test_a_json_null_is_a_missing_reading_not_a_refusal(tmp_path: Path) -> None:
+    """Was (after the numeric check was added): refused, though JSON has no other way to say NaN."""
+    values = [float(v) for v in np.random.default_rng(5).normal(size=60)]
+    document: list[float | None] = list(values)
+    document[7] = None
+    path = _write(tmp_path / "gap.json", json.dumps(document))
+
+    loaded = _load_data(path)
+
+    assert loaded.shape == (60, 1)
+    assert np.isnan(loaded[7, 0])
+    assert loaded[8, 0] == values[8]
+    nested = _load_data(_write(tmp_path / "nested.json", "[[1, null], [3, 4]]"))
+    assert nested.shape == (2, 2)
+    assert np.isnan(nested[0, 1])
+
+
+@pytest.mark.parametrize("document", ['[1, "2"]', "[true, null]", '[null, "a"]'])
+def test_null_does_not_let_text_or_mixed_types_through(tmp_path: Path, document: str) -> None:
+    with pytest.raises(ValueError, match="must hold numbers"):
+        _load_data(_write(tmp_path / "mixed.json", document))
