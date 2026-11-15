@@ -1778,6 +1778,21 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
 )
 
 
+# The right-panel tab buttons carry role="tab" (patch "right-panel tabs are
+# tabs"), but their container had no role. ARIA requires a tab to be owned by
+# a tablist; without one a screen reader announces neither the set nor a
+# position in it. Measured with axe-core 4 on the served console: critical
+# ``aria-required-parent`` on each tab button.
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "right-panel tabs sit in a tablist",
+        '<div style="display:flex;align-items:center;gap:4px;padding:0 12px 10px;border-bottom:1px solid var(--border);flex:none;">',
+        '<div role="tablist" aria-label="Side panel" style="display:flex;align-items:center;gap:4px;padding:0 12px 10px;'
+        'border-bottom:1px solid var(--border);flex:none;">',
+    ),
+)
+
+
 def _unescape(value: str) -> str:
     import html
 

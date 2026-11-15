@@ -5,6 +5,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Dashboard — Mercury Agent</title>
   <link rel="stylesheet" href="/static/mercury.css">
   <script src="/static/common.js" defer></script>
@@ -12,6 +13,7 @@
   <script src="/static/dashboard.js" defer></script>
 </head>
 <body data-page="dashboard">
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="/">Mercury Agent</a>
     <nav aria-label="Account">
@@ -23,7 +25,7 @@
       </span>
     </nav>
   </header>
-  <main>
+  <main id="main" tabindex="-1">
     <h1>Your account</h1>
 
     <div class="grid-2">
@@ -43,12 +45,14 @@
         <h2 id="usage-heading">Usage</h2>
         <p class="hint" id="usage-window"></p>
         <p>Requests</p>
-        <div id="usage-requests-meter" class="meter" role="img" aria-label="Request quota usage">
+        <div id="usage-requests-meter" class="meter" role="progressbar" aria-label="Request quota used"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <span></span>
         </div>
         <p id="usage-requests-text" class="hint"></p>
         <p>Compute</p>
-        <div id="usage-compute-meter" class="meter" role="img" aria-label="Compute quota usage">
+        <div id="usage-compute-meter" class="meter" role="progressbar" aria-label="Compute quota used"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <span></span>
         </div>
         <p id="usage-compute-text" class="hint"></p>
@@ -60,12 +64,18 @@
       <h2 id="api-keys-heading">API keys</h2>
       <p class="hint">Send a key as the <code>X-API-Key</code> header. The raw key is shown
         exactly once at creation and can never be retrieved again.</p>
-      <table>
-        <thead>
-          <tr><th>Name</th><th>Key id</th><th>Permissions</th><th>State</th><th>Created</th><th></th></tr>
-        </thead>
-        <tbody id="api-keys-body"></tbody>
-      </table>
+      <div class="table-wrap" role="region" aria-label="API keys table" tabindex="0">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Name</th><th scope="col">Key id</th><th scope="col">Permissions</th>
+              <th scope="col">State</th><th scope="col">Created</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="api-keys-body"></tbody>
+        </table>
+      </div>
       <p id="api-keys-empty" class="hint hidden">No API keys yet.</p>
       <form id="api-key-form">
         <div>

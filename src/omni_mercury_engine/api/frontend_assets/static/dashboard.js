@@ -25,6 +25,13 @@ function openModal(title, bodyBuilder) {
   modal.appendChild(heading);
   bodyBuilder(modal);
 
+  // A modal dialog owns the keyboard while it is open. Before this, Tab
+  // walked out of the dialog into the page behind it, and closing it left
+  // focus on <body> instead of the control that opened it.
+  const opener = document.activeElement;
+  const background = Array.from(document.body.children);
+  background.forEach((el) => { el.inert = true; });
+
   const close = document.createElement("button");
   close.type = "button";
   close.textContent = "Close";
@@ -32,8 +39,31 @@ function openModal(title, bodyBuilder) {
   close.addEventListener("click", () => {
     backdrop.remove();
     document.removeEventListener("keydown", onKey);
+    background.forEach((el) => { el.inert = false; });
+    if (opener && typeof opener.focus === "function" && document.contains(opener)) {
+      opener.focus();
+    }
   });
-  const onKey = (event) => { if (event.key === "Escape") { close.click(); } };
+  const onKey = (event) => {
+    if (event.key === "Escape") { close.click(); return; }
+    if (event.key !== "Tab") { return; }
+    const focusable = Array.from(modal.querySelectorAll(
+      "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])"
+    ));
+    if (focusable.length === 0) { return; }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    } else if (!modal.contains(document.activeElement)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
   document.addEventListener("keydown", onKey);
 
   modal.appendChild(close);
@@ -104,6 +134,10 @@ function renderMeter(meterId, textId, used, limit, unitLabel) {
   meter.classList.toggle("high", fraction >= 0.85);
   text.textContent = Math.round(used).toLocaleString() + " / " +
     Math.round(limit).toLocaleString() + " " + unitLabel;
+  // The bar is a progressbar: expose the figure, not only its width.
+  const bar = document.getElementById(meterId);
+  bar.setAttribute("aria-valuenow", String(Math.round(fraction * 100)));
+  bar.setAttribute("aria-valuetext", text.textContent);
 }
 
 async function loadUsage() {
