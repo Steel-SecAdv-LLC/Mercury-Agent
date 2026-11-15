@@ -961,6 +961,16 @@ def run_tier_ensemble(
         # the detector was fitted on N-1", which made ``tier-detect -l`` and
         # the supervised ``stacking``/``bma`` methods unusable by default.
         label_array = np.asarray(labels).astype(int).ravel()
+        # One label per fitted point. A shorter or longer vector reached the
+        # boolean index in ``StreamingScoreEnsemble.fit`` and left as an
+        # IndexError, which the MCP server reports as an internal fault.
+        labelled = _to_1d_series(series) if ref is None else ref
+        if label_array.size != labelled.size:
+            fitted = "reference" if ref is not None else "data"
+            raise ValueError(
+                f"'labels' holds {label_array.size} values but '{fitted}', the series the "
+                f"tier is fitted on, holds {labelled.size} points; send one 0/1 label per point"
+            )
         n_normal = int((label_array == 0).sum())
         if 0 < n_normal < label_array.size:
             reason = (
@@ -978,11 +988,18 @@ def run_tier_ensemble(
     # least 10 samples"): true, but it named neither the series it meant nor a
     # way out, and the declared minimum everywhere was 8. Say both here.
     fit_size = int((_to_1d_series(series) if ref is None else ref).size)
+    fitted = "'reference'" if ref is not None else "'data'"
+    if labels is not None:
+        # The members are fitted on the label-0 points only (when there are
+        # any), so that count is the calibration length, not the series'.
+        n_label_zero = int((np.asarray(labels).astype(int).ravel() == 0).sum())
+        if n_label_zero:
+            fit_size = n_label_zero
+            fitted = f"the label-0 part of {fitted}"
     if "spot_evt" in detectors and fit_size < SPOT_MIN_CALIBRATION_POINTS:
-        fitted = "reference" if ref is not None else "data"
         raise ValueError(
             f"the detector tier includes spot_evt, which calibrates on at least "
-            f"{SPOT_MIN_CALIBRATION_POINTS} points; '{fitted}' holds {fit_size}. Send "
+            f"{SPOT_MIN_CALIBRATION_POINTS} points; {fitted} holds {fit_size}. Send "
             f"{SPOT_MIN_CALIBRATION_POINTS} or more points, or pass a 'subset' without spot_evt."
         )
     resolved_method = method or ("stacking" if labels is not None else "average")

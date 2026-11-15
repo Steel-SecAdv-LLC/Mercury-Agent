@@ -124,9 +124,17 @@ def test_a_stale_detector_state_does_not_lend_its_width(
     assert bundled.fitted_feature_width is None
 
 
-@pytest.mark.parametrize("payload", ["[0, 0.1, 0.2, 0.3, 0.4]", '{"medical": [0.1, 0.2]}'])
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ("[0, 0.1, 0.2, 0.3, 0.4]", "fitted on 16"),
+        # A mapping is not a matrix of any width: it is refused when the file
+        # is read, naming what the file must hold, before the width check.
+        ('{"medical": [0.1, 0.2]}', "must hold numbers"),
+    ],
+)
 def test_cli_refuses_one_dimensional_and_mapping_json_without_a_traceback(
-    payload: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    payload: str, message: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from click.testing import CliRunner
 
@@ -138,7 +146,7 @@ def test_cli_refuses_one_dimensional_and_mapping_json_without_a_traceback(
     data.write_text(payload, encoding="utf-8")
     result = CliRunner().invoke(main, ["detect", "-i", str(data), "-d", "fusion"])
     assert result.exit_code == 1
-    assert "fitted on 16" in result.output
+    assert message in result.output
     assert not isinstance(result.exception, ValueError)  # a usage error, not a crash
 
 

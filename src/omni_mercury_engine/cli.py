@@ -145,6 +145,7 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
         engine.enable_decision_layer()
         from omni_mercury_engine.core.exceptions import FeatureWidthMismatchError
 
+        data = _one_sample_if_feature_vector(engine, data)
         try:
             results = engine.detect_with_fusion(data)
         except FeatureWidthMismatchError as exc:
@@ -287,28 +288,36 @@ def tier_detect(
             "--method stacking is trained on per-point labels: pass --labels/-l with a "
             "0/1 labels file, or use a label-free combiner (-m average or -m consensus)"
         )
-    series = np.asarray(_load_input(input, "--input"), dtype=float).ravel()
-    y = _load_labels(labels) if labels else None
-    ref = (
-        np.asarray(_load_input(reference, "--reference"), dtype=float).ravel()
-        if reference
-        else None
-    )
+    # ``_single_series``, not ``ravel``: a ``t,value`` table was flattened row
+    # by row into a 2N-point series of alternating timestamps and values, and
+    # the tier flagged the rising timestamps instead of the spike.
+    series = _one_series_input(input, "--input")
+    ref = _one_series_input(reference, "--reference") if reference else None
     subset_names = tuple(s.strip() for s in subset.split(",")) if subset else None
+    try:
+        y = _load_labels(labels) if labels else None
+    except (OSError, ValueError, TypeError) as exc:
+        raise click.ClickException(f"cannot use the --labels file: {exc}") from exc
 
-    result = run_tier_ensemble(
-        series,
-        labels=y,
-        reference=ref,
-        subset=subset_names,
-        method=method,
-        contamination=contamination,
-        conformal_alpha=conformal_alpha,
-        include_attribution=attribution,
-        include_counterfactual=counterfactual,
-        counterfactual_index=cf_index,
-        counterfactual_method=cf_method,
-    )
+    try:
+        result = run_tier_ensemble(
+            series,
+            labels=y,
+            reference=ref,
+            subset=subset_names,
+            method=method,
+            contamination=contamination,
+            conformal_alpha=conformal_alpha,
+            include_attribution=attribution,
+            include_counterfactual=counterfactual,
+            counterfactual_index=cf_index,
+            counterfactual_method=cf_method,
+        )
+    except ValueError as exc:
+        # Every refusal the tier states about its arguments (too few points
+        # for spot_evt, rca with labels, an unknown subset member, a labels
+        # vector of the wrong length) is a ValueError with a usable message.
+        raise click.ClickException(str(exc)) from exc
 
     text = json.dumps(result, indent=2, default=_json_default)
     if output:
@@ -359,9 +368,14 @@ def rca(
     adj = np.asarray(_load_input(adjacency, "--adjacency"), dtype=float) if adjacency else None
     names = [s.strip() for s in node_names.split(",")] if node_names else None
 
-    result = localize_root_cause(
-        observations, adjacency=adj, train=train_rows, top_k=top_k, node_names=names
-    )
+    try:
+        result = localize_root_cause(
+            observations, adjacency=adj, train=train_rows, top_k=top_k, node_names=names
+        )
+    except ValueError as exc:
+        # A node-name count or adjacency shape that does not match the
+        # observations is the caller's argument, not a fault to trace.
+        raise click.ClickException(str(exc)) from exc
 
     text = json.dumps(result, indent=2, default=_json_default)
     if output:
@@ -586,7 +600,7 @@ def _read_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
     """
     try:
         return _load_hazard_arrays(data_path, hazard)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, TypeError) as exc:
         raise click.UsageError(
             f"cannot read the --data file {data_path} ({exc}); check the path and "
             "that the file holds only numbers"
@@ -887,7 +901,7 @@ def explain(input: str, model: str) -> None:
         if model == "fusion":
             engine.load_default_fusion_checkpoint()
 
-        data = _load_data(input)
+        data = _one_sample_if_feature_vector(engine, _load_data(input))
 
         result = engine.detect_with_fusion(data)
 
@@ -982,7 +996,18 @@ def _read_json_array(path: Path) -> np.ndarray[Any, Any]:
             loaded = json.load(f)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{path} is not valid JSON: {exc}") from exc
-    return np.array(loaded if isinstance(loaded, list) else [loaded])
+    try:
+        array = np.array(loaded if isinstance(loaded, list) else [loaded])
+    except ValueError as exc:  # rows of unequal length
+        raise ValueError(f"{path} must hold rows of equal length: {exc}") from exc
+    if array.dtype.kind not in "biuf":
+        # Strings and objects ({"data": [...]}, ["a", "b"]) passed through and
+        # failed later, inside a detector, as a TypeError traceback.
+        raise ValueError(
+            f"{path} must hold numbers: a JSON array of numbers, or an array of "
+            "equal-length arrays of numbers"
+        )
+    return array
 
 
 def _load_data(filepath: str) -> np.ndarray[Any, Any]:
@@ -1055,6 +1080,54 @@ def _load_input(filepath: str, option: str) -> np.ndarray[Any, Any]:
     try:
         return _load_data(filepath)
     except (OSError, ValueError) as exc:
+        raise click.ClickException(f"cannot use the {option} file: {exc}") from exc
+
+
+def _one_sample_if_feature_vector(engine: Any, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Read a one-column file as one sample when only that fits the fitted model.
+
+    :func:`_load_data` lays a column of N numbers out as N samples of one
+    feature. A model fitted on N > 1 features cannot score that layout at all
+    (the engine refuses the width), while the same N numbers as one sample is
+    exactly what it scores, and is how a single feature vector saved with
+    ``np.save`` loaded before the samples-by-features convention. That one
+    unambiguous case is read as the sample; the choice is reported on stderr.
+
+    Args:
+        engine: The fusion engine about to score ``data``.
+        data: Matrix from :func:`_load_data`.
+
+    Returns:
+        ``data`` as ``(1, N)`` in the case above, otherwise unchanged.
+    """
+    width = getattr(engine, "fitted_feature_width", None)
+    if isinstance(width, int) and width > 1 and data.ndim == 2 and data.shape == (width, 1):
+        click.echo(
+            f"Read the {width} values as one sample of {width} features: the model "
+            f"is fitted on {width} feature columns.",
+            err=True,
+        )
+        return data.reshape(1, width)
+    return data
+
+
+def _one_series_input(filepath: str, option: str) -> np.ndarray[Any, Any]:
+    """Load the single time series given to ``option``, or stop with a one-line error.
+
+    Args:
+        filepath: Path given on the command line.
+        option: The option that named it, for the message.
+
+    Returns:
+        The series as ``(n_samples,)``.
+
+    Raises:
+        click.ClickException: If the file cannot be read as numeric data or
+            holds a table of several rows and columns.
+    """
+    try:
+        return _single_series(_load_input(filepath, option), option)
+    except (ValueError, TypeError) as exc:
         raise click.ClickException(f"cannot use the {option} file: {exc}") from exc
 
 
@@ -1136,7 +1209,9 @@ def _integrated_time_series(
     """
     named = (("--spectral-input", spectral_input), ("--dynamics-input", dynamics_input))
     series = [_single_series(_load_data(path), option) for option, path in named if path]
-    if len(series) == 2 and not np.array_equal(series[0], series[1]):
+    # ``equal_nan``: a recording with a gap is still the same recording as
+    # itself; without it the same file passed to both options was refused.
+    if len(series) == 2 and not np.array_equal(series[0], series[1], equal_nan=True):
         raise ValueError(
             "-s and -d must name the same recording: the integrated detector scores "
             "one time series with both the spectral and the dynamics detector. Pass "
@@ -1608,7 +1683,7 @@ def physics_integrated(
     with golden-ratio weighted fusion aligned with GOSNN ethical governance.
 
     Examples:
-        mercury-agent physics integrated -s vibration.csv -d motion.csv
+        mercury-agent physics integrated -s vibration.csv -d vibration.csv
         mercury-agent physics integrated -s sensor.csv -u interactions.json -o report.json
         mercury-agent physics integrated -s data.csv -d data.csv -u session.json -w 0.5,0.3,0.2
     """

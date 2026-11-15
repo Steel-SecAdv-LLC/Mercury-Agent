@@ -451,3 +451,156 @@ def test_causal_rejects_a_significance_outside_the_unit_interval(
 
     assert result.exit_code == 2, result.output
     _assert_one_line_error(result, "--significance", "between 0 and 1")
+
+
+# ---------------------------------------------------------------------------
+# tier-detect, rca and the JSON reader: found by an independent review of the
+# fixes above. Each case below was a traceback, a wrong answer or a refusal of
+# a valid input before it was changed.
+# ---------------------------------------------------------------------------
+
+
+def _one_line_error(result: Result) -> str:
+    assert result.exit_code == 1, result.output
+    assert "Traceback" not in result.output
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    return result.output
+
+
+def test_tier_detect_refuses_a_table_instead_of_interleaving_it(tmp_path: Path) -> None:
+    """Was: a ``t,value`` file became 2N alternating points and the timestamps were flagged."""
+    values = np.random.default_rng(1).normal(size=60)
+    values[40] += 15.0
+    table = np.column_stack([np.arange(60.0), values])
+    path = _table_csv(tmp_path / "tv.csv", table, "t,value")
+
+    result = CliRunner().invoke(main, ["tier-detect", "-i", path])
+
+    assert "60 rows x 2 columns" in _one_line_error(result)
+
+
+def test_tier_detect_scores_the_same_values_as_one_column(tmp_path: Path) -> None:
+    values = np.random.default_rng(1).normal(size=60)
+    values[40] += 15.0
+    path = _column_csv(tmp_path / "v.csv", values, header="value")
+
+    result = CliRunner().invoke(main, ["tier-detect", "-i", path])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["n_points"] == 60
+    assert payload["flags"][40] == 1
+
+
+@pytest.mark.parametrize(
+    ("labels_text", "labels_name", "extra", "fragment"),
+    [
+        ("0\n" * 5 + "1\n" * 55, "few0.csv", [], "label-0 part of 'data' holds 5"),
+        ("0\n" * 50, "short.csv", [], "'labels' holds 50 values"),
+        ("yes\nno\n", "text.csv", [], "--labels file"),
+        ("0\n" * 60, "labels.txt", [], "Unsupported label file format"),
+        (
+            "0\n" * 59 + "1\n",
+            "ok.csv",
+            ["--subset", "rca,spot_evt"],
+            "rca cannot be used with labels",
+        ),
+        ("0\n" * 60, "ok.csv", ["--subset", "spot_evt,bogus"], "bogus"),
+    ],
+)
+def test_tier_detect_states_a_bad_argument_in_one_line(
+    tmp_path: Path, labels_text: str, labels_name: str, extra: list[str], fragment: str
+) -> None:
+    """Was: a Python traceback for each, including the two messages added for this command."""
+    series = _column_csv(tmp_path / "series.csv", np.random.default_rng(2).normal(size=60))
+    labels = _write(tmp_path / labels_name, labels_text)
+
+    result = CliRunner().invoke(main, ["tier-detect", "-i", series, "-l", labels, *extra])
+
+    assert fragment in _one_line_error(result)
+
+
+def test_tier_detect_states_too_few_points_in_one_line(tmp_path: Path) -> None:
+    series = _column_csv(tmp_path / "nine.csv", np.arange(9.0))
+
+    result = CliRunner().invoke(main, ["tier-detect", "-i", series])
+
+    assert "spot_evt" in _one_line_error(result)
+
+
+def test_tier_detect_refuses_a_missing_labels_file_in_one_line(tmp_path: Path) -> None:
+    series = _column_csv(tmp_path / "series.csv", np.random.default_rng(2).normal(size=60))
+
+    result = CliRunner().invoke(
+        main, ["tier-detect", "-i", series, "-l", str(tmp_path / "absent.csv")]
+    )
+
+    assert "--labels file" in _one_line_error(result)
+
+
+@pytest.mark.parametrize("document", ['["a", "b"]', '{"data": [1, 2, 3]}', "[[1, 2], [3]]"])
+def test_a_json_file_that_is_not_a_numeric_array_is_refused_on_load(
+    tmp_path: Path, document: str
+) -> None:
+    """Was: passed through unchanged and failed inside a detector as a TypeError."""
+    path = _write(tmp_path / "bad.json", document)
+
+    with pytest.raises(ValueError, match="must hold"):
+        _load_data(path)
+
+    result = CliRunner().invoke(main, ["tier-detect", "-i", path])
+    assert "--input file" in _one_line_error(result)
+
+
+def test_rca_states_a_node_name_mismatch_in_one_line(tmp_path: Path) -> None:
+    table = np.random.default_rng(3).normal(size=(40, 3))
+    path = _table_csv(tmp_path / "obs.csv", table, "a,b,c")
+
+    result = CliRunner().invoke(main, ["rca", "-i", path, "--node-names", "a,b"])
+
+    _one_line_error(result)
+
+
+def test_a_labels_vector_of_the_wrong_length_is_a_value_error() -> None:
+    """Was: an IndexError, reported by the MCP server as an internal tool error."""
+    from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
+
+    with pytest.raises(ValueError, match=r"'labels' holds 50 values .* holds 60 points"):
+        run_tier_ensemble(np.random.default_rng(4).normal(size=60), labels=np.zeros(50))
+
+
+@requires_torch
+def test_integrated_accepts_one_recording_with_a_gap_for_both_options(tmp_path: Path) -> None:
+    """Was: refused as two different recordings, because NaN != NaN."""
+    values = np.sin(np.linspace(0.0, 60.0, 1024))
+    values[10] = np.nan
+    path = tmp_path / "gap.npy"
+    np.save(path, values)
+
+    result = CliRunner().invoke(main, ["physics", "integrated", "-s", str(path), "-d", str(path)])
+
+    assert "must name the same recording" not in result.output
+
+
+def test_the_integrated_help_example_names_one_recording() -> None:
+    """The first example passed two different files, which the command refuses."""
+    result = CliRunner().invoke(main, ["physics", "integrated", "--help"])
+
+    assert "-s vibration.csv -d motion.csv" not in " ".join(result.output.split())
+
+
+def test_one_column_is_one_sample_only_when_the_model_needs_that_width() -> None:
+    """A saved feature vector scored before the samples-by-features convention."""
+    from types import SimpleNamespace
+
+    from omni_mercury_engine.cli import _one_sample_if_feature_vector
+
+    column = np.arange(16.0).reshape(-1, 1)
+    fitted_on_16 = SimpleNamespace(fitted_feature_width=16)
+
+    assert _one_sample_if_feature_vector(fitted_on_16, column).shape == (1, 16)
+    # A series for a one-feature model, any other width, and an unfitted
+    # engine keep the samples-by-features reading.
+    for width in (1, 8, None):
+        engine = SimpleNamespace(fitted_feature_width=width)
+        assert _one_sample_if_feature_vector(engine, column).shape == (16, 1)
