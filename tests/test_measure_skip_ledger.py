@@ -253,6 +253,117 @@ class TestScan:
             ("TestWhole", "skip", ""),
         ]
 
+    def test_every_way_of_parking_a_test_is_seen(self, tmp_path: Path) -> None:
+        """Was: ``parked == []`` for each of these, so the gate stayed green."""
+        scan = msl.scan_tests(
+            _tree(
+                tmp_path,
+                {
+                    "test_module_mark.py": """
+                    import pytest
+
+                    pytestmark = pytest.mark.skip(reason="whole module off")
+
+                    def test_a():
+                        pass
+                    """,
+                    "test_forms.py": """
+                    import unittest
+
+                    import pytest
+                    from pytest import mark, skip
+
+                    class TestClassMark:
+                        pytestmark = pytest.mark.xfail
+
+                        def test_b(self):
+                            pass
+
+                    @pytest.mark.parametrize(
+                        "value", [1, pytest.param(2, marks=pytest.mark.skip(reason="one case off"))]
+                    )
+                    def test_param(value):
+                        pass
+
+                    def test_imperative_xfail():
+                        pytest.xfail("not yet")
+
+                    @pytest.mark.skipif(True, reason="always")
+                    def test_literal_condition():
+                        pass
+
+                    class Legacy(unittest.TestCase):
+                        @unittest.skip("legacy off")
+                        def test_c(self):
+                            pass
+
+                    @mark.skip
+                    def test_aliased_mark():
+                        pass
+
+                    def test_aliased_call():
+                        skip("aliased")
+
+                    def test_raised():
+                        raise pytest.skip.Exception("raised")
+
+                    def test_helper_return_does_not_hide_it():
+                        def helper():
+                            return 1
+
+                        pytest.skip("after a nested return")
+                    """,
+                },
+            )
+        )
+        found = {(parked.name, parked.kind) for parked in scan.parked}
+        assert found == {
+            ("pytestmark", "skip"),
+            ("TestClassMark.pytestmark", "xfail"),
+            ("test_param", "skip"),
+            ("test_imperative_xfail", "xfail"),
+            ("test_literal_condition", "skip"),
+            ("test_c", "skip"),
+            ("test_aliased_mark", "skip"),
+            ("test_aliased_call", "skip"),
+            ("test_raised", "skip"),
+            ("test_helper_return_does_not_hide_it", "skip"),
+        }
+
+    def test_a_mark_that_is_only_a_value_is_not_parked(self, tmp_path: Path) -> None:
+        """A hook that adds a skip under a condition, and a check against the exception."""
+        scan = msl.scan_tests(
+            _tree(
+                tmp_path,
+                {
+                    "conftest.py": """
+                    import os
+
+                    import pytest
+
+                    def pytest_collection_modifyitems(config, items):
+                        if os.environ.get("NETWORK") == "1":
+                            return
+                        off = pytest.mark.skip(reason="network lane off")
+                        for item in items:
+                            if "network" in item.keywords:
+                                item.add_marker(off)
+                    """,
+                    "test_checks.py": """
+                    import pytest
+
+                    def test_it_skips():
+                        with pytest.raises(BaseException) as caught:
+                            pytest.importorskip(modname="numpy")
+                        assert isinstance(caught.value, pytest.skip.Exception)
+                    """,
+                },
+            )
+        )
+        assert scan.parked == []
+        assert scan.dynamic_guards == []
+        assert "numpy" in scan.guards
+
     def test_conditional_skips_are_not_parked(self, tmp_path: Path) -> None:
         root = _tree(
             tmp_path,

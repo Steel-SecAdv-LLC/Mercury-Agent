@@ -101,6 +101,27 @@ ALLOWED_UNINSTALLED: dict[str, str] = {
 #: the reason the test is parked and what would bring it back. Empty: none.
 ALLOWED_PARKED: dict[str, str] = {}
 
+#: Modules whose skip machinery the ledger follows through import aliases.
+_SKIP_MODULES = frozenset({"pytest", "unittest"})
+
+_IMPORTORSKIP = frozenset({"pytest.importorskip", "importorskip"})
+
+#: Calls that switch the running test off, and the kind they park it as.
+_IMPERATIVE = {
+    "pytest.skip": "skip",
+    "pytest.skip.Exception": "skip",
+    "pytest.xfail": "xfail",
+    "pytest.xfail.Exception": "xfail",
+}
+
+#: Marks and decorators that switch a test off without a condition.
+_MARKS = {
+    "pytest.mark.skip": "skip",
+    "pytest.mark.xfail": "xfail",
+    "unittest.skip": "skip",
+    "unittest.expectedFailure": "xfail",
+}
+
 _BRANCHING = (
     ast.If,
     ast.Try,
@@ -187,10 +208,18 @@ def _enclosing(
 
 def _returns_before(function: ast.FunctionDef | ast.AsyncFunctionDef, line: int) -> bool:
     """Whether the function can leave before ``line`` (a ``return`` or ``yield``)."""
-    return any(
-        isinstance(node, (ast.Return, ast.Yield, ast.YieldFrom)) and node.lineno < line
-        for node in ast.walk(function)
-    )
+    # The function's own statements only: a ``return`` inside a nested helper
+    # does not let the test leave, and used to make an unconditional skip
+    # after it count as conditional.
+    pending: list[ast.AST] = list(ast.iter_child_nodes(function))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            continue
+        if isinstance(node, (ast.Return, ast.Yield, ast.YieldFrom)) and node.lineno < line:
+            return True
+        pending.extend(ast.iter_child_nodes(node))
+    return False
 
 
 def _under_module_branch(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
@@ -243,51 +272,154 @@ def _guard_targets(argument: ast.AST | None, tables: dict[str, list[str]]) -> li
     return None
 
 
+def _import_aliases(tree: ast.Module) -> dict[str, str]:
+    """Local names that stand for ``pytest`` / ``unittest`` or one of their members.
+
+    ``import pytest as pt`` maps ``pt`` to ``pytest``; ``from pytest import
+    skip, mark`` maps ``skip`` to ``pytest.skip`` and ``mark`` to
+    ``pytest.mark``. Without this, ``@mark.skip`` and a bare ``skip(...)``
+    were invisible to the ledger.
+    """
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name in _SKIP_MODULES:
+                    aliases[alias.asname or alias.name] = alias.name
+        elif isinstance(node, ast.ImportFrom) and node.module in _SKIP_MODULES:
+            for alias in node.names:
+                aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    return aliases
+
+
+def _resolved(node: ast.AST, aliases: dict[str, str]) -> str | None:
+    """:func:`_dotted` with the first segment resolved through the file's imports."""
+    name = _dotted(node)
+    if name is None:
+        return None
+    head, _, rest = name.partition(".")
+    if head in aliases:
+        return f"{aliases[head]}.{rest}" if rest else aliases[head]
+    return name
+
+
+def _is_literal_true(call: ast.Call) -> bool:
+    """Whether a ``skipif`` call's condition is the constant ``True`` (or ``1``)."""
+    condition: ast.AST | None = call.args[0] if call.args else None
+    for keyword in call.keywords:
+        if keyword.arg == "condition":
+            condition = keyword.value
+    return isinstance(condition, ast.Constant) and condition.value in (True, 1)
+
+
+def _owner(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> str:
+    """Name of the test, class or module-level target a mark is attached to."""
+    current = node
+    while current in parents:
+        parent = parents[current]
+        if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            return parent.name
+        if isinstance(parent, (ast.Assign, ast.AnnAssign)):
+            targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+            names = [target.id for target in targets if isinstance(target, ast.Name)]
+            if names:
+                scope = _owner(parent, parents)
+                return names[0] if scope == "<module>" else f"{scope}.{names[0]}"
+        current = parent
+    return "<module>"
+
+
+def _is_attached(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
+    """Whether a mark expression is where pytest reads marks from.
+
+    That is a decorator, a ``pytestmark`` assignment (module or class), or the
+    ``marks=`` of ``pytest.param``. A mark built as a value elsewhere (the
+    collection hook that adds a skip to ``network`` items when the lane is
+    off) switches nothing off by being written, and is not counted.
+    """
+    current = node
+    while current in parents:
+        parent = parents[current]
+        if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            return any(current is decorator for decorator in parent.decorator_list)
+        if isinstance(parent, (ast.Assign, ast.AnnAssign)):
+            targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+            return any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in targets)
+        if isinstance(parent, ast.keyword) and parent.arg == "marks":
+            return True
+        current = parent
+    return False
+
+
+def _is_raised(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
+    """Whether an exception class reference is the subject of a ``raise``."""
+    parent = parents.get(node)
+    if isinstance(parent, ast.Call) and parent.func is node:
+        parent = parents.get(parent)
+    return isinstance(parent, ast.Raise)
+
+
 def _scan_file(path: Path, rel: str, scan: Scan) -> None:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel)
     tables = _module_string_tables(tree)
+    aliases = _import_aliases(tree)
     parents: dict[ast.AST, ast.AST] = {}
     for parent in ast.walk(tree):
         for child in ast.iter_child_nodes(parent):
             parents[child] = parent
 
+    def park(node: ast.AST, kind: str, reason_source: ast.AST) -> None:
+        scan.parked.append(
+            Parked(
+                rel, getattr(node, "lineno", 0), _owner(node, parents), kind, _reason(reason_source)
+            )
+        )
+
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            name = _dotted(node.func)
-            if name in {"pytest.importorskip", "importorskip"}:
-                targets = _guard_targets(node.args[0] if node.args else None, tables)
-                if targets is None:
-                    scan.dynamic_guards.append(f"{rel}:{node.lineno}")
-                else:
-                    for target in targets:
-                        scan.guards.setdefault(target, set()).add(rel)
-            elif name == "pytest.skip":
-                function, branched = _enclosing(node, parents)
-                if function is None:
-                    scan.module_skips += 1
-                elif branched or _returns_before(function, node.lineno):
-                    scan.conditional_skips += 1
-                else:
-                    scan.parked.append(
-                        Parked(rel, node.lineno, function.name, "skip", _reason(node))
-                    )
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            for decorator in node.decorator_list:
-                marker = decorator.func if isinstance(decorator, ast.Call) else decorator
-                name = _dotted(marker)
-                if name == "pytest.mark.skipif":
-                    scan.skipif_marks += 1
-                elif name == "pytest.mark.skip":
-                    if _under_module_branch(node, parents):
-                        scan.conditional_skips += 1
-                    else:
-                        scan.parked.append(
-                            Parked(rel, decorator.lineno, node.name, "skip", _reason(decorator))
-                        )
-                elif name == "pytest.mark.xfail":
-                    scan.parked.append(
-                        Parked(rel, decorator.lineno, node.name, "xfail", _reason(decorator))
-                    )
+        if not isinstance(node, (ast.Attribute, ast.Name)):
+            continue
+        name = _resolved(node, aliases)
+        if name is None:
+            continue
+        holder = parents.get(node)
+        # The call this name is the callee of, if any (``pytest.mark.skip(...)``).
+        call = holder if isinstance(holder, ast.Call) and holder.func is node else None
+
+        if name in _IMPORTORSKIP and call is not None:
+            argument: ast.AST | None = call.args[0] if call.args else None
+            for keyword in call.keywords:
+                if keyword.arg == "modname":
+                    argument = keyword.value
+            targets = _guard_targets(argument, tables)
+            if targets is None:
+                scan.dynamic_guards.append(f"{rel}:{node.lineno}")
+            else:
+                for target in targets:
+                    scan.guards.setdefault(target, set()).add(rel)
+        elif name in _IMPERATIVE and (
+            _is_raised(node, parents) if name.endswith(".Exception") else call is not None
+        ):
+            # ``pytest.skip(...)``, ``pytest.xfail(...)`` and
+            # ``raise pytest.skip.Exception(...)``, inside a test or at import.
+            function, branched = _enclosing(node, parents)
+            if function is None:
+                scan.module_skips += 1
+            elif branched or _returns_before(function, node.lineno):
+                scan.conditional_skips += 1
+            else:
+                park(node, _IMPERATIVE[name], call if call is not None else node)
+        elif name in _MARKS and _is_attached(call or node, parents):
+            # A mark wherever it is written: a decorator, ``pytestmark = ...``
+            # at module or class level, or ``pytest.param(..., marks=...)``.
+            if _MARKS[name] == "skip" and _under_module_branch(node, parents):
+                scan.conditional_skips += 1
+            else:
+                park(node, _MARKS[name], call if call is not None else node)
+        elif name == "pytest.mark.skipif":
+            if call is not None and _is_literal_true(call) and _is_attached(call, parents):
+                park(node, "skip", call)
+            else:
+                scan.skipif_marks += 1
 
 
 def scan_tests(root: Path = TESTS) -> Scan:
