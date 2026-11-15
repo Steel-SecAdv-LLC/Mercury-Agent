@@ -190,12 +190,19 @@ class TestServedRoutes:
         assert 400 <= response.status_code < 500
         assert _delta("univariate", before) == (0.0, 0.0, 0.0)
 
-    def test_every_non_engine_detection_route_is_recorded(self, client: TestClient) -> None:
+    def test_every_non_engine_detection_route_is_recorded(self) -> None:
         """A new detection route must be recorded, or declared engine-backed here."""
+        # The schema is read from the application itself, not ``client.app``:
+        # the client types that attribute as a bare ASGI callable, so reaching
+        # ``openapi()`` through it needs a ``type: ignore`` wherever FastAPI is
+        # installed and trips ``unused-ignore`` wherever it is not (the
+        # type-check lane installs only ``[ml,dev]``).
+        from omni_mercury_engine.api.server import app
+
         engine_backed = {"/api/v1/detect/flagship"}
         served = {
             path
-            for path, methods in client.app.openapi()["paths"].items()  # type: ignore[attr-defined]
+            for path, methods in app.openapi()["paths"].items()
             if path.startswith("/api/v1/detect/") and "post" in methods
         }
         assert served - engine_backed == {path for path, _body in _ROUTES.values()}
