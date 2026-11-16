@@ -73,6 +73,22 @@ _EIA930_BALANCE_URL = (
 #: load-shed period of Winter Storm Uri.
 GRID_SHORTFALL_THRESHOLD = 0.20
 
+#: DOE Form OE-417, "Electric Emergency Incident and Disturbance Report":
+#: what utilities and grid operators must file with the Department of Energy
+#: when service is lost or the bulk system is disturbed. Served by Oak Ridge
+#: National Laboratory's Open Energy Hub. DOE's own site
+#: (``oe.netl.doe.gov``) was unreachable when this was written, and the hub's
+#: copy is the 2023 annual summary; the reader reports the years it finds, so
+#: an event outside them is refused, not labelled empty.
+_OE417_URL = (
+    "https://openenergyhub.ornl.gov/api/explore/v2.1/catalog/datasets/"
+    "oe-417-annual-summaries/records"
+)
+_OE417_PAGE = 100
+
+#: Name of the label column a DOE-labelled grid frame carries.
+DOE_DISTURBANCE_COLUMN = "doe_disturbance"
+
 #: ``series_source`` values of a historical frame.
 SERIES_SOURCE_OMNI2 = "nasa_omni2"
 SERIES_SOURCE_EIA930 = "eia_930+nasa_omni2"
@@ -156,6 +172,27 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "grid_event": True,
         # EIA-930 code of the grid operator: ERCOT.
         "balancing_authority": "ERCO",
+    },
+    "texas_2023": {
+        "name": "2023 Texas Grid Disturbances (DOE OE-417)",
+        "date": "2023-01-31",
+        "description": (
+            "ERCOT's recorded hours for 2023 (EIA-930), labelled by the "
+            "disturbances utilities reported to the Department of Energy on "
+            "Form OE-417 for the Texas reliability region: nine incidents "
+            "with a stated loss of load or of customers, among them the "
+            "January-February ice storm (360,000 customers) and the March "
+            "windstorm (470,000). The labels come from DOE, not from any "
+            "column the detector scores."
+        ),
+        "start": "2023-01-01",
+        "end": "2023-12-31",
+        "peak_kp": 0,
+        "synthetic_hours": 8760,
+        "grid_event": True,
+        "balancing_authority": "ERCO",
+        # NERC region code OE-417 files Texas incidents under.
+        "oe417_region": "TRE",
     },
     "bastille_day_2000": {
         "name": "2000 Bastille Day Solar Event",
@@ -338,6 +375,11 @@ class EnergyLoader(BaseDomainLoader):
                 grid = self._fetch_eia930(str(event["balancing_authority"]), start, end)
                 df = grid.merge(df, on="timestamp", how="left")
                 df["series_source"] = SERIES_SOURCE_EIA930
+                if event.get("oe417_region"):
+                    reports = self.fetch_disturbance_reports(str(event["oe417_region"]))
+                    df[DOE_DISTURBANCE_COLUMN] = self._disturbance_labels(
+                        df["timestamp"], reports, start, end
+                    )
             else:
                 df["series_source"] = SERIES_SOURCE_OMNI2
         except OfflineModeError:
@@ -363,6 +405,122 @@ class EnergyLoader(BaseDomainLoader):
             event_id,
         )
         return df
+
+    def fetch_disturbance_reports(self, nerc_region: str | None = None) -> pd.DataFrame:
+        """DOE OE-417 electric disturbance reports, optionally for one NERC region.
+
+        Args:
+            nerc_region: NERC region code as OE-417 writes it (``"TRE"``,
+                ``"WECC"``, ``"SERC"``, ...); ``None`` for every region.
+
+        Returns:
+            One row per report: ``began`` and ``restored`` (UTC dates;
+            ``restored`` is NaT when the form gives none), ``nerc_region``,
+            ``event_type``, ``area_affected``, ``demand_loss_mw`` and
+            ``customers_affected`` (NaN where the form leaves them blank).
+            Reports with no start date are dropped.
+
+        Raises:
+            ConnectionError: If the hub cannot be reached.
+            ValueError: If the response is not the dataset's record list.
+        """
+        cache_key = "energy_oe417_v1"
+        reports = self._read_frame_cache(cache_key)
+        if reports is None:
+            records: list[dict[str, Any]] = []
+            total = None
+            while total is None or len(records) < total:
+                page = self._fetch_json(
+                    _OE417_URL,
+                    params={
+                        "limit": str(_OE417_PAGE),
+                        "offset": str(len(records)),
+                        "order_by": "date_event_began",
+                    },
+                )
+                results = page.get("results") if isinstance(page, dict) else None
+                if not isinstance(results, list) or "total_count" not in page:
+                    raise ValueError("OE-417 response is not a record list")
+                total = int(page["total_count"])
+                if not results:
+                    break
+                records.extend(results)
+            reports = pd.DataFrame(
+                {
+                    "began": pd.to_datetime(
+                        [r.get("date_event_began") for r in records], utc=True, errors="coerce"
+                    ),
+                    "restored": pd.to_datetime(
+                        [r.get("date_of_restoration") for r in records], utc=True, errors="coerce"
+                    ),
+                    "nerc_region": [str(r.get("nerc_region") or "") for r in records],
+                    "event_type": [str(r.get("event_type") or "") for r in records],
+                    "area_affected": [str(r.get("area_affected") or "") for r in records],
+                    "demand_loss_mw": pd.to_numeric(
+                        [r.get("demand_loss_mw") for r in records], errors="coerce"
+                    ),
+                    "customers_affected": pd.to_numeric(
+                        [r.get("number_of_customers_affected") for r in records], errors="coerce"
+                    ),
+                }
+            )
+            reports = reports.dropna(subset=["began"]).reset_index(drop=True)
+            if reports.empty:
+                raise ValueError("OE-417 dataset holds no dated reports")
+            self._write_frame_cache(cache_key, reports)
+        if nerc_region is not None:
+            reports = reports[reports["nerc_region"] == nerc_region].reset_index(drop=True)
+        return reports
+
+    @staticmethod
+    def _disturbance_labels(
+        timestamps: pd.Series,
+        reports: pd.DataFrame,
+        start: pd.Timestamp,
+        end: pd.Timestamp,
+    ) -> np.ndarray[Any, Any]:
+        """Label the steps that fall inside a reported disturbance with an impact.
+
+        A report counts when the form states a loss: of load
+        (``demand_loss_mw`` > 0) or of customers (``customers_affected`` >
+        0). Reports of vandalism or suspicious activity with neither are
+        security filings, not interruptions of service. The form gives dates,
+        so a disturbance covers its first day through its restoration day
+        (its first day alone when no restoration date is given).
+
+        Args:
+            timestamps: Step timestamps (UTC).
+            reports: Frame from :meth:`fetch_disturbance_reports`.
+            start: First instant of the event window.
+            end: End of the event window, exclusive.
+
+        Returns:
+            1-D binary array, one entry per step.
+
+        Raises:
+            ValueError: If the reports do not cover the window's years: an
+                uncovered period would otherwise read as "no disturbances".
+        """
+        covered = set(reports["began"].dt.year)
+        wanted = set(range(start.year, (end - pd.Timedelta(seconds=1)).year + 1))
+        if not wanted <= covered:
+            raise ValueError(
+                f"OE-417 reports cover {sorted(covered)} and the event needs "
+                f"{sorted(wanted)}; refusing to label an uncovered period as quiet"
+            )
+        impact = reports[
+            (reports["demand_loss_mw"].fillna(0) > 0)
+            | (reports["customers_affected"].fillna(0) > 0)
+        ]
+        labels = np.zeros(len(timestamps), dtype=np.int64)
+        stamps = pd.DatetimeIndex(timestamps)
+        for began, restored in zip(impact["began"], impact["restored"], strict=True):
+            last_day = restored if pd.notna(restored) and restored >= began else began
+            inside = (stamps >= began.normalize()) & (
+                stamps < last_day.normalize() + pd.Timedelta(days=1)
+            )
+            labels[inside] = 1
+        return labels
 
     def _fetch_omni2(self, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
         """Recorded Kp and solar wind for ``[start, end)`` from OMNI2, in 3-hour steps.
@@ -582,7 +740,17 @@ class EnergyLoader(BaseDomainLoader):
 
         event = _EVENT_CATALOG[event_id]
 
-        if event.get("grid_event") and "grid_demand" in df.columns:
+        if event.get("oe417_region"):
+            # DOE's own record of the disturbances: independent of every
+            # column the detector scores. A frame without the column (a
+            # synthetic stand-in) has no such labels to give.
+            if DOE_DISTURBANCE_COLUMN not in df.columns:
+                raise ValueError(
+                    f"event '{event_id}' is labelled by DOE OE-417 reports and this "
+                    "frame carries none (it is a synthetic stand-in)"
+                )
+            labels = np.asarray(df[DOE_DISTURBANCE_COLUMN], dtype=np.int64)
+        elif event.get("grid_event") and "grid_demand" in df.columns:
             # For grid events, anomaly = served demand well below the forecast
             labels = self._label_grid_anomalies(df)
         else:

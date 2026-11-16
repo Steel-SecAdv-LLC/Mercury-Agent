@@ -13,3 +13,10 @@ from being cut to the rows the tests need.
   every ERCOT (`ERCO`) hour of 2021-02-13 to 2021-02-19, Winter Storm Uri,
   plus one day of another balancing authority (`CISO`) so that the reader's
   filter is exercised.
+- `eia930_balance_2023_ice_storm.csv` and `omni2_2023_ice_storm.dat`: the same
+  two archives for 2023-01-28 to 2023-02-08 (ERCOT only), the North Texas ice
+  storm.
+- `oe417_2023.json`: all 341 records of the DOE OE-417 2023 annual summary as
+  served by Oak Ridge National Laboratory's Open Energy Hub
+  (`https://openenergyhub.ornl.gov/api/explore/v2.1/catalog/datasets/oe-417-annual-summaries/records`),
+  in one response-shaped document.

@@ -679,6 +679,9 @@ class TrustedEndpoints:
             # EIA-930 Hourly Electric Grid Monitor six-month balance files
             # (keyless; the energy loader's grid events read them).
             "www.eia.gov",
+            # Oak Ridge National Laboratory's Open Energy Hub: DOE's OE-417
+            # electric disturbance reports (energy loader grid-event labels).
+            "openenergyhub.ornl.gov",
             "www.alphavantage.co",  # Alpha Vantage market/financial time series (financial market loader)
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
