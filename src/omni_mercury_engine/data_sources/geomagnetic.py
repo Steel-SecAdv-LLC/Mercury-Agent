@@ -254,6 +254,40 @@ class USGSGeomagnetismSource(DataSourceBase):
             )
         return self._parse_response(observatory, data)
 
+    def _observatory_location(
+        self, observatory: USGSObservatory, data: dict[str, Any]
+    ) -> tuple[float, float, float] | None:
+        """Where an observatory is: from the response, else the table.
+
+        The USGS web service states the observatory in every response
+        (``metadata.intermagnet.imo.coordinates``, as longitude, latitude,
+        elevation in metres). An observatory missing from
+        :attr:`OBSERVATORY_COORDS` used to be placed at latitude 0,
+        longitude 0.
+
+        Args:
+            observatory: The observatory requested.
+            data: The parsed web-service response.
+
+        Returns:
+            ``(lat, lon, altitude_km)``, or ``None`` when neither source
+            gives a position.
+        """
+        try:
+            lon, lat, *rest = data["metadata"]["intermagnet"]["imo"]["coordinates"]
+            lon, lat = float(lon), float(lat)
+            # The service writes longitude east of Greenwich, 0 to 360.
+            if lon > 180.0:
+                lon -= 360.0
+            elevation_m = float(rest[0]) if rest and rest[0] is not None else 0.0
+        except (KeyError, TypeError, ValueError):
+            pass
+        else:
+            if abs(lat) <= 90.0 and abs(lon) <= 180.0:
+                return (lat, lon, elevation_m / 1000.0)
+        known = self.OBSERVATORY_COORDS.get(observatory)
+        return (known[0], known[1], 0.0) if known is not None else None
+
     def _parse_response(
         self,
         observatory: USGSObservatory,
@@ -275,9 +309,7 @@ class USGSGeomagnetismSource(DataSourceBase):
         if not values or not times:
             return []
 
-        # Get observatory coordinates
-        coords = self.OBSERVATORY_COORDS.get(observatory, (0.0, 0.0))
-        location = (coords[0], coords[1], 0.0)
+        location = self._observatory_location(observatory, data)
 
         # values is a list of lists, one per element
         # times is a list of ISO timestamps

@@ -170,14 +170,24 @@ class USGSEarthquakeSource(DataSourceBase):
 
         for feature in features:
             try:
-                props = feature.get("properties", {})
-                coords = feature.get("geometry", {}).get("coordinates", [0, 0, 0])
+                props = feature.get("properties") or {}
+                coords = (feature.get("geometry") or {}).get("coordinates")
+                # An event with no hypocentre, origin time or magnitude is
+                # skipped (and counted), not completed with defaults: those
+                # were latitude 0 / longitude 0, 1970-01-01 and magnitude 0.0,
+                # each a value USGS never reported.
+                if not isinstance(coords, (list, tuple)) or len(coords) < 2:
+                    raise ValueError("feature has no hypocentre coordinates")
+                if props.get("time") is None:
+                    raise ValueError("feature has no origin time")
+                if props.get("mag") is None:
+                    raise ValueError("feature has no magnitude")
 
                 event_id = feature.get("id", "")
-                magnitude = float(props.get("mag", 0) or 0)
+                magnitude = float(props["mag"])
 
                 # Parse timestamp (milliseconds since epoch)
-                time_ms = props.get("time", 0)
+                time_ms = props["time"]
                 timestamp = datetime.fromtimestamp(time_ms / 1000, tz=UTC)
 
                 # Confidence based on magnitude type quality
@@ -185,9 +195,10 @@ class USGSEarthquakeSource(DataSourceBase):
                 confidence = 0.9 if mag_type in ["mw", "mww", "mwb"] else 0.8
 
                 location = (
-                    float(coords[1]) if len(coords) > 1 else 0.0,  # latitude
-                    float(coords[0]) if len(coords) > 0 else 0.0,  # longitude
-                    float(coords[2]) if len(coords) > 2 else 0.0,  # depth in km
+                    float(coords[1]),  # latitude
+                    float(coords[0]),  # longitude
+                    # Depth is absent for a few events; 0.0 is "not given".
+                    float(coords[2]) if len(coords) > 2 and coords[2] is not None else 0.0,
                 )
 
                 data_points.append(
@@ -825,9 +836,7 @@ class NOAACOOPSSource(DataSourceBase):
                 retryable=False,
             )
 
-        # Get station info
-        station_info = self.SAMPLE_STATIONS.get(self._station_id, ("Unknown Station", 0.0, 0.0))
-        station_name, lat, lon = station_info
+        station_name, location = self._station_identity(data)
 
         readings = data.get("data", [])
 
@@ -855,7 +864,7 @@ class NOAACOOPSSource(DataSourceBase):
                             "unit": "meters" if product == COOPSProduct.WATER_LEVEL else None,
                             "quality": reading.get("q"),
                         },
-                        location=(lat, lon, 0.0),
+                        location=location,
                         confidence=0.95 if reading.get("q") == "v" else 0.8,
                         metadata={"datum": "MLLW"},
                     )
@@ -866,6 +875,40 @@ class NOAACOOPSSource(DataSourceBase):
                 continue
 
         return data_points
+
+    def _station_identity(self, data: Any) -> tuple[str, tuple[float, float, float] | None]:
+        """The station's name and position: from the response, else the table.
+
+        Every CO-OPS data response carries ``metadata`` with the station's
+        ``name``, ``lat`` and ``lon``, so any of the roughly 3,000 stations
+        can be placed. Only the five in :attr:`SAMPLE_STATIONS` used to be:
+        every other station was reported as "Unknown Station" at latitude 0,
+        longitude 0, a point in the Gulf of Guinea.
+
+        Args:
+            data: The parsed CO-OPS response.
+
+        Returns:
+            ``(name, (lat, lon, 0.0))``; the position is ``None`` when neither
+            the response nor the table gives one, never an invented point.
+        """
+        metadata = data.get("metadata") if isinstance(data, dict) else None
+        if isinstance(metadata, dict):
+            try:
+                lat, lon = float(metadata["lat"]), float(metadata["lon"])
+            except (KeyError, TypeError, ValueError):
+                pass
+            else:
+                if math.isfinite(lat) and math.isfinite(lon) and abs(lat) <= 90 and abs(lon) <= 180:
+                    return str(metadata.get("name") or f"Station {self._station_id}"), (
+                        lat,
+                        lon,
+                        0.0,
+                    )
+        known = self.SAMPLE_STATIONS.get(self._station_id)
+        if known is not None:
+            return known[0], (known[1], known[2], 0.0)
+        return f"Station {self._station_id}", None
 
     async def _fetch_impl(
         self,

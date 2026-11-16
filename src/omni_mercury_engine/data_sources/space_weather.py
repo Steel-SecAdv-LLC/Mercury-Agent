@@ -1434,7 +1434,11 @@ class NASAEONETSource(DataSourceBase):
         not an area-weighted centroid. Holes (later rings) are ignored, and
         a ring whose longitudes span more than 180 degrees is treated as
         crossing the antimeridian so its vertices do not average to the far
-        side of the globe.
+        side of the globe. RFC 7946 would read such a ring as genuinely that
+        wide; no natural event's extent is, and none is in the feed: of
+        3,000 events fetched on 2026-11-16 (``status=all``), 144 had Polygon
+        geometry (all GDACS flood extents) and the widest spanned well under
+        180 degrees, with none within 10 degrees of the antimeridian.
 
         Args:
             coordinates: The ``coordinates`` member of one EONET geometry.

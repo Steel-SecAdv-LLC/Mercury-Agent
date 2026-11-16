@@ -85,6 +85,10 @@ SYNTHETIC_ATTR = "mercury_synthetic"
 #: (``today.csv``) covers 1200 UTC through 1159 UTC of the next calendar day.
 SPC_CONVECTIVE_DAY_START_HOUR = 12
 
+#: How far ahead of the reader's clock a report time may sit before the file
+#: is taken to be the previous convective day's (clock skew, not reports).
+_SPC_CLOCK_TOLERANCE = pd.Timedelta(minutes=10)
+
 
 def spc_convective_day_timestamps(
     times: Iterable[Any], now: pd.Timestamp | None = None
@@ -100,7 +104,8 @@ def spc_convective_day_timestamps(
     Args:
         times: The file's ``Time`` values (``"2330"``, ``10``, ...).
         now: The current time, UTC; defaults to the clock. Only used to
-            decide which convective day the file belongs to.
+            decide which convective day the file belongs to: the one in
+            progress, unless that would date a report in the future.
 
     Returns:
         One naive-UTC timestamp per value; the epoch for a value that is not
@@ -127,6 +132,16 @@ def spc_convective_day_timestamps(
             day_start if hour >= SPC_CONVECTIVE_DAY_START_HOUR else day_start + pd.Timedelta(days=1)
         )
         stamps.append(day + pd.Timedelta(hours=hour, minutes=minute))
+
+    # A report cannot be later than the moment it is read. If one would be,
+    # the file is still the previous convective day's: SPC rebuilds
+    # ``today.csv`` every few minutes, and in the minutes after 1200 UTC it
+    # can hold yesterday's rows while the clock already says today. Every
+    # row then moves back one day together.
+    epoch = pd.Timestamp("1970-01-01")
+    dated = [stamp for stamp in stamps if stamp != epoch]
+    if dated and max(dated) > current + _SPC_CLOCK_TOLERANCE:
+        stamps = [s if s == epoch else s - pd.Timedelta(days=1) for s in stamps]
     return stamps
 
 

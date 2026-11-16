@@ -169,13 +169,13 @@ def test_reports_either_side_of_midnight_are_forty_minutes_apart() -> None:
     # Read at 03:00 UTC on the 15th: the file is the convective day that
     # began at 12:00 UTC on the 14th.
     now = pd.Timestamp("2026-11-15 03:00", tz="UTC")
-    stamps = spc_convective_day_timestamps(["2330", "0010", 1200, "1159"], now=now)
+    stamps = spc_convective_day_timestamps(["2330", "0010", 1200, "0259"], now=now)
 
     assert stamps == [
         pd.Timestamp("2026-11-14 23:30"),
         pd.Timestamp("2026-11-15 00:10"),
         pd.Timestamp("2026-11-14 12:00"),
-        pd.Timestamp("2026-11-15 11:59"),
+        pd.Timestamp("2026-11-15 02:59"),
     ]
     assert stamps[1] - stamps[0] == pd.Timedelta(minutes=40)
     # Nothing that has been reported is dated after the moment it is read.
@@ -206,3 +206,33 @@ def test_reports_across_midnight_cluster_in_the_tornado_and_hail_loaders() -> No
     for loader in (TornadoLoader, HailLoader):
         first, second = loader._parse_timestamps(frame)
         assert second - first == pd.Timedelta(minutes=15)
+
+
+def test_a_file_not_yet_rolled_over_is_dated_on_the_day_it_covers() -> None:
+    """Just after 1200 UTC the clock says a new convective day; the rows say otherwise."""
+    import pandas as pd
+
+    from omni_mercury_engine.loaders.base import spc_convective_day_timestamps
+
+    # 12:05 UTC on the 15th. A row at 2330 or 0010 cannot have happened yet in
+    # the day that began five minutes ago, so the file is the previous day's.
+    just_after = pd.Timestamp("2026-11-15 12:05", tz="UTC")
+    assert spc_convective_day_timestamps(["2330", "0010", "1215"], now=just_after) == [
+        pd.Timestamp("2026-11-14 23:30"),
+        pd.Timestamp("2026-11-15 00:10"),
+        pd.Timestamp("2026-11-14 12:15"),
+    ]
+    # A file that has rolled over holds only rows up to now: dated today.
+    assert spc_convective_day_timestamps(["1201", "1203"], now=just_after) == [
+        pd.Timestamp("2026-11-15 12:01"),
+        pd.Timestamp("2026-11-15 12:03"),
+    ]
+    # A few minutes of clock skew is not a different day.
+    assert spc_convective_day_timestamps(["1210"], now=just_after) == [
+        pd.Timestamp("2026-11-15 12:10")
+    ]
+    # The epoch fallback for a value that is not a time is left alone.
+    assert spc_convective_day_timestamps(["abc", "2330"], now=just_after) == [
+        pd.Timestamp("1970-01-01"),
+        pd.Timestamp("2026-11-14 23:30"),
+    ]
