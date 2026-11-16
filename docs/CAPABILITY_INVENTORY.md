@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,122
-- **Capability-bearing classes:** 2,093 (excludes config/result/enum/error support types)
-- **Subsystems (top-level packages):** 50
+- **Total top-level classes:** 3,135
+- **Capability-bearing classes:** 2,103 (excludes config/result/enum/error support types)
+- **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,220 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,230 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1220 |
-| Support types (config / result / enum / error) | 1029 |
+| Other capability classes | 1230 |
+| Support types (config / result / enum / error) | 1032 |
 | Detection | 181 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 114 |
@@ -3052,6 +3052,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <details><summary>Support types (4)</summary>
 
 `AnalyzerConfig`, `EnvironmentReport`, `StreamEvent`, `VisualAnomalyReport`
+
+</details>
+
+### `watch/` — 13 classes (10 capability)
+
+**Other capability classes**
+
+- `DeclarationFeed` (`watch.feeds`) — FEMA tropical-cyclone declarations: new ones, and the year's busiest week.
+- `EarthquakeFeed` (`watch.feeds`) — USGS earthquakes of the past hour, by magnitude class.
+- `Feed` (`watch.feeds`) — One live source and its judgment.
+- `Finding` (`watch.model`) — One thing a feed showed that is worth a person's attention.
+- `Judgment` (`watch.feeds`) — What a feed made of one read.
+- `RiverGaugeFeed` (`watch.feeds`) — USGS river gauges: a gauge above everything recorded for it.
+- `SpaceWeatherFeed` (`watch.feeds`) — Planetary Kp and the solar wind (NOAA SWPC), by the NOAA G scale.
+- `TsunamiBuoyFeed` (`watch.feeds`) — NOAA DART buoys: a buoy in event mode has itself detected a disturbance.
+- `WatchStore` (`watch.store`) — SQLite-backed memory of the watch.
+- `Watcher` (`watch.watcher`) — Reads feeds on their cadences and keeps the store current.
+
+<details><summary>Support types (3)</summary>
+
+`FeedStatus`, `SeriesRecord`, `Severity`
 
 </details>
 

@@ -319,9 +319,21 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     from omni_mercury_engine.api.maintenance import start_maintenance_task
 
     maintenance_task = start_maintenance_task()
+    # The watch (opt-in, MERCURY_WATCH_ENABLED=true) reads the live feeds on a
+    # daemon thread; a feed that fails is recorded as down and never blocks
+    # serving.
+    from omni_mercury_engine.watch.service import (
+        start_background_watch,
+        stop_background_watch,
+        watch_enabled,
+    )
+
+    if watch_enabled():
+        start_background_watch()
     try:
         yield
     finally:
+        stop_background_watch()
         if maintenance_task is not None:
             maintenance_task.cancel()
         from omni_mercury_engine.api.alert_egress import shutdown_alert_egress
@@ -1789,6 +1801,14 @@ with mounting("catalog", "Catalog routes", logger):
     from omni_mercury_engine.api.routes.catalog import router as catalog_router
 
     app.include_router(catalog_router)
+
+
+# Include the watch routes (always on: read-only, unauthenticated; they report
+# what the watch has recorded and never read a feed themselves)
+with mounting("watch", "Watch routes", logger):
+    from omni_mercury_engine.api.routes.watch import router as watch_router
+
+    app.include_router(watch_router)
 
 
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left

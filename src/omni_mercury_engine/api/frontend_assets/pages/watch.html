@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<!-- Copyright (C) 2025 Steel Security Advisors LLC
+     SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Watch — Mercury Agent</title>
+  <link rel="stylesheet" href="/static/mercury.css">
+  <script src="/static/common.js" defer></script>
+  <script src="/static/watch.js" defer></script>
+</head>
+<body data-page="watch">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/">Mercury Agent</a>
+    <nav aria-label="Account">
+      <span data-nav-anon class="hidden">
+        <a href="/login">Log in</a>
+        <a href="/register">Register</a>
+      </span>
+      <span data-nav-authed class="hidden">
+        <a href="/dashboard">Dashboard</a>
+      </span>
+      <a href="/watch" aria-current="page">Watch</a>
+      <a href="/console">Console</a>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <h1>Watch</h1>
+    <p id="watch-lede" class="watch-lede" role="status" aria-live="polite">Reading what the watch last saw…</p>
+    <p id="watch-meta" class="hint"></p>
+
+    <section aria-labelledby="findings-heading">
+      <h2 id="findings-heading">Findings</h2>
+      <div id="findings"></div>
+    </section>
+
+    <section aria-labelledby="feeds-heading" class="card">
+      <h2 id="feeds-heading">Feeds</h2>
+      <div class="table-wrap" role="region" aria-label="Feeds table" tabindex="0">
+        <table>
+          <caption class="visually-hidden">Each live feed, its state and what it last showed</caption>
+          <thead>
+            <tr><th scope="col">Feed</th><th scope="col">State</th><th scope="col">What it showed</th><th scope="col">Latest reading</th></tr>
+          </thead>
+          <tbody id="feeds"></tbody>
+        </table>
+      </div>
+      <p class="hint">A finding is reported when a published scale says so (USGS magnitude classes,
+        the NOAA G scale, a tsunami buoy's own event mode) or when a series passes everything
+        Mercury has recorded for it. Most reads report nothing.</p>
+    </section>
+
+    <section aria-labelledby="earlier-heading" class="card hidden" id="earlier-card">
+      <h2 id="earlier-heading">Ended</h2>
+      <div id="earlier"></div>
+    </section>
+  </main>
+  <footer class="site-footer">Mercury Agent — Steel Security Advisors LLC</footer>
+</body>
+</html>

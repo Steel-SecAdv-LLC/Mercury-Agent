@@ -2041,6 +2041,91 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
 
 
 @main.command()
+@click.option("--once", is_flag=True, help="Read every feed once, say what was seen, and exit.")
+@click.option(
+    "--status", is_flag=True, help="Say what the watch last saw, without reading any feed."
+)
+@click.option(
+    "--feed",
+    "feed_names",
+    multiple=True,
+    help="Watch only this feed (repeatable). Default: every feed.",
+)
+@click.option(
+    "--state-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Where the watch keeps its memory. Default: $MERCURY_WATCH_DIR or ~/.mercury/watch.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Print machine-readable JSON.")
+def watch(
+    once: bool, status: bool, feed_names: tuple[str, ...], state_dir: Path | None, as_json: bool
+) -> None:
+    """Watch the live feeds and say what matters.
+
+    Mercury reads each feed on its own schedule (earthquakes every five
+    minutes, FEMA declarations hourly), remembers what each station and gauge
+    has done, and reports a finding only when a published scale or the
+    series' own record says it is worth a person's attention. Most reads
+    report nothing, and say so.
+
+    Feeds: USGS earthquakes, NOAA geomagnetic activity, NOAA DART tsunami
+    buoys, USGS river gauges, FEMA tropical-cyclone declarations.
+
+    With no option it keeps watching until interrupted and prints each new
+    finding as it appears. Use --once for a single read of every feed, and
+    --status to see what was last recorded without reading anything.
+    """
+    import json as json_module
+
+    from omni_mercury_engine.watch import FEEDS, Watcher, WatchStore
+    from omni_mercury_engine.watch.voice import brief, finding_text
+
+    unknown = [name for name in feed_names if name not in FEEDS]
+    if unknown:
+        raise click.UsageError(
+            f"no such feed: {', '.join(unknown)}. Feeds: {', '.join(sorted(FEEDS))}"
+        )
+    store = WatchStore(state_dir)
+    chosen = [FEEDS[name]() for name in (feed_names or sorted(FEEDS))]
+
+    def say() -> None:
+        statuses, findings = store.statuses(), store.findings()
+        if feed_names:
+            statuses = [entry for entry in statuses if entry["feed"] in feed_names]
+            findings = [entry for entry in findings if entry["feed"] in feed_names]
+        if as_json:
+            click.echo(json_module.dumps({"feeds": statuses, "findings": findings}, indent=2))
+        else:
+            click.echo(brief(statuses, findings))
+
+    if status:
+        say()
+        return
+
+    def announce(finding: Any) -> None:
+        if not as_json and not once:
+            entry = finding.to_dict() | {"first_seen": None, "ended": None}
+            click.echo("")
+            click.echo(finding_text(entry))
+
+    watcher = Watcher(store, chosen, on_finding=announce)
+    watcher.run_once()
+    say()
+    if once:
+        return
+    if not as_json:
+        click.echo("")
+        click.echo(f"Watching {len(chosen)} feeds. New findings appear below. Ctrl-C to stop.")
+    try:
+        watcher.run_forever()
+    except KeyboardInterrupt:
+        if not as_json:
+            click.echo("")
+            click.echo("Stopped. `mercury-agent watch --status` shows what was last seen.")
+
+
+@main.command()
 def mcp() -> None:
     """Run Mercury as an MCP server on stdio (the universal interconnect).
 

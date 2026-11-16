@@ -495,3 +495,26 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; }
   .site-header nav a[aria-current="page"] { outline: 1px solid CanvasText; }
   button { border-color: ButtonText; }
 }
+
+/* ------------------------------------------------------------------ watch */
+
+.watch-lede { font-size: 1.25rem; font-weight: 600; margin: 0.25rem 0 0.35rem; }
+.finding { border-left: 4px solid var(--control-border); }
+.finding h3 { margin: 0 0 0.5rem; font-size: 1.05rem; line-height: 1.35; }
+.finding p { margin: 0 0 0.6rem; }
+.finding-significant { border-left-color: var(--warn); }
+.finding-severe { border-left-color: var(--danger); }
+.badge.severity-notable, .badge.state-ok { color: var(--ok); border-color: var(--ok); }
+.badge.severity-significant, .badge.state-stale { color: var(--warn); border-color: var(--warn); }
+.badge.severity-severe, .badge.state-down { color: var(--danger); border-color: var(--danger); }
+.badge.severity-notable, .badge.severity-significant, .badge.severity-severe {
+  text-transform: capitalize;
+}
+.badge { white-space: nowrap; }
+tbody th[scope="row"] {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--text);
+}
