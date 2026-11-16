@@ -1004,7 +1004,12 @@ def _read_json_array(path: Path) -> np.ndarray[Any, Any]:
     if array.dtype.kind == "O" and _only_numbers_and_nulls(document):
         # JSON has no NaN; a missing reading is written ``null``. It is the
         # gap it stands for, as it was before the numeric check below existed.
-        array = np.array(document, dtype=np.float64)
+        try:
+            array = np.array(document, dtype=np.float64)
+        except OverflowError as exc:
+            # An integer too large for a float (hundreds of digits) left as
+            # an OverflowError traceback; it is not a usable reading.
+            raise ValueError(f"{path} holds a number too large to read: {exc}") from exc
     if array.dtype.kind not in "biuf":
         # Strings and objects ({"data": [...]}, ["a", "b"]) passed through and
         # failed later, inside a detector, as a TypeError traceback.

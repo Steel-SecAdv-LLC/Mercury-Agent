@@ -25,6 +25,7 @@ Notes:
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -276,14 +277,20 @@ class USGSGeomagnetismSource(DataSourceBase):
         try:
             lon, lat, *rest = data["metadata"]["intermagnet"]["imo"]["coordinates"]
             lon, lat = float(lon), float(lat)
-            # The service writes longitude east of Greenwich, 0 to 360.
-            if lon > 180.0:
-                lon -= 360.0
-            elevation_m = float(rest[0]) if rest and rest[0] is not None else 0.0
         except (KeyError, TypeError, ValueError):
             pass
         else:
-            if abs(lat) <= 90.0 and abs(lon) <= 180.0:
+            # The service writes longitude east of Greenwich, 0 to 360.
+            if 180.0 < lon <= 360.0:
+                lon -= 360.0
+            if math.isfinite(lat) and math.isfinite(lon) and abs(lat) <= 90.0 and abs(lon) <= 180.0:
+                # An elevation that cannot be read does not cost the position.
+                try:
+                    elevation_m = float(rest[0]) if rest and rest[0] is not None else 0.0
+                except (TypeError, ValueError):
+                    elevation_m = 0.0
+                if not math.isfinite(elevation_m):
+                    elevation_m = 0.0
                 return (lat, lon, elevation_m / 1000.0)
         known = self.OBSERVATORY_COORDS.get(observatory)
         return (known[0], known[1], 0.0) if known is not None else None

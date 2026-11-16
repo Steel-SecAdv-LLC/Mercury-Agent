@@ -8,8 +8,8 @@ Two defects, both measured against NDBC on 2026-11-16.
 rotate out after about 45 days, and it built a sine wave with a decaying
 oscillation in the event window for every event, unmarked. NDBC keeps a
 yearly archive of every DART station (``data/historical/dart/``), and the
-archive holds each catalogued event, event-mode samples included: 857
-recorded minutes for Tohoku 2011 at station 21418.
+archive holds each catalogued event: 405 of the 409 quarter hours around
+Tohoku 2011 at station 21418.
 
 ``fetch_realtime`` parsed NDBC's ``YY MM DD hh mm ss T HEIGHT`` layout as if
 there were no seconds column. Every field after the minute shifted by one, so
@@ -75,19 +75,40 @@ def test_a_historical_event_is_the_recorded_series(
     assert not loader.is_synthetic(frame)
     assert (frame["bpr_series_source"] == "ndbc_dart_archive").all()
     assert (frame["station_id"] == "21418").all()
-    # One row per minute across the event window and its baseline.
-    assert frame["timestamp"].diff().dropna().eq(pd.Timedelta(minutes=1)).all()
-    assert frame["timestamp"].iloc[0] == pd.Timestamp("2011-03-10T23:46:00Z")
-    assert frame["timestamp"].iloc[-1] == pd.Timestamp("2011-03-11T18:00:00Z")
-    # The recorded depth at 21418 and the recorded wave: about 5,662.8 m of
-    # water, and a swing of nearly three metres as the tsunami passed.
-    assert 5661.0 < frame["bpr"].min() < 5661.5
-    assert 5664.0 < frame["bpr"].max() < 5664.5
+    # One row per quarter hour, the buoy's standard cadence, across the event
+    # window and two days of baseline either side. A finer grid would record
+    # when the buoy switched to event mode, which is the answer, not a reading.
+    assert frame["timestamp"].diff().dropna().eq(pd.Timedelta(minutes=15)).all()
+    assert frame["timestamp"].iloc[0] == pd.Timestamp("2011-03-09T06:00:00Z")
+    assert frame["timestamp"].iloc[-1] == pd.Timestamp("2011-03-13T12:00:00Z")
+    # The recorded depth at 21418: about 5,662.6 m of water, a tide of under a
+    # metre, and nothing interpolated across more than a few steps.
+    assert 5662.0 < frame["bpr"].min() < 5662.3
+    assert 5663.0 < frame["bpr"].max() < 5663.1
     assert not frame["bpr"].isna().any()
-    # Most minutes hold a recorded sample; the rest are interpolated and say so.
-    assert 800 < int(frame["measured"].sum()) < len(frame)
-    quiet = frame[frame["timestamp"] < pd.Timestamp("2011-03-11T05:00:00Z")]
-    assert quiet["bpr"].max() - quiet["bpr"].min() < 1.0
+    assert int(frame["measured"].sum()) == 405
+    assert len(frame) == 409
+
+
+def test_whether_a_step_was_measured_does_not_give_the_window_away(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Was: on a 1-minute grid ``measured`` alone ranked the window at AUROC 0.60-0.67.
+
+    The buoy reports every 15 minutes until it detects an event and every
+    minute or faster afterwards, so at one minute "a sample exists" is the
+    buoy's own detection, handed to the detector as a feature.
+    """
+    monkeypatch.setattr(_GET_BYTES, _serve(gzip.compress(_ARCHIVE.read_bytes())))
+    loader = _loader(tmp_path)
+
+    frame = loader.fetch_historical("tohoku_2011")
+    labels = loader.get_ground_truth("tohoku_2011")
+
+    inside = frame["measured"].to_numpy()[labels == 1]
+    outside = frame["measured"].to_numpy()[labels == 0]
+    assert inside.all()
+    assert outside.mean() > 0.98
 
 
 def test_the_recorded_wave_is_inside_the_labelled_window(
@@ -103,14 +124,13 @@ def test_the_recorded_wave_is_inside_the_labelled_window(
     assert len(labels) == len(frame)
     step = np.abs(np.diff(frame["bpr"].to_numpy(), prepend=frame["bpr"].iloc[0]))
     assert labels[int(step.argmax())] == 1
-    # Minute-to-minute movement is several times larger inside the window at
-    # every quantile. The maximum is not compared: the record has three
-    # single-sample dips of 0.6 m to 1 m after the window (12:07, 14:07 and
-    # 15:07 UTC), which are the buoy's, not the loader's, and stay in.
+    # Step-to-step movement is several times larger inside the window than
+    # the tide moves the column outside it (measured: 4.0x at the median,
+    # 5.0x at the 90th percentile).
     for quantile in (50, 90):
         inside = np.percentile(step[labels == 1], quantile)
         outside = np.percentile(step[labels == 0], quantile)
-        assert inside > 5 * outside, (quantile, inside, outside)
+        assert inside > 3.5 * outside, (quantile, inside, outside)
     assert loader.engineer_scored_features(frame).shape == (len(frame), 6)
 
 
@@ -207,3 +227,65 @@ def test_a_missing_file_is_not_retried(tmp_path: Path, monkeypatch: pytest.Monke
 
     assert caught.value.status_code == 404
     assert len(calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# Robustness: found by an independent review of the loader.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("cut", [20, 2000], ids=["header-cut", "body-cut"])
+def test_a_download_cut_short_is_refused_not_raised_bare(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cut: int
+) -> None:
+    """Was: ``EOFError`` / ``zlib.error`` escaped ``fetch_historical`` as a traceback."""
+    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+    whole = gzip.compress(_ARCHIVE.read_bytes())
+    monkeypatch.setattr(_GET_BYTES, _serve(whole[:cut]))
+
+    with pytest.raises(DataSourceUnavailableError, match="not a complete gzip file"):
+        _loader(tmp_path).fetch_historical("tohoku_2011")
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_a_span_that_is_mostly_gap_is_not_drawn_in_and_called_the_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Thirty samples used to be enough for four days of interpolated "record"."""
+    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+    lines = _ARCHIVE.read_text(encoding="utf-8").splitlines()
+    one_day = [line for line in lines if line.startswith(("#", "2011 03 11"))]
+    monkeypatch.setattr(_GET_BYTES, _serve(gzip.compress("\n".join(one_day).encode())))
+
+    with pytest.raises(DataSourceUnavailableError, match="at least 90% are needed"):
+        _loader(tmp_path).fetch_historical("tohoku_2011")
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_a_file_with_only_its_header_parses_to_no_samples() -> None:
+    """Was: ``EmptyDataError`` from pandas."""
+    header = "#YY  MM DD hh mm ss T   HEIGHT\n#yr  mo dy hr mn  s -        m\n"
+
+    for text in (header, ""):
+        parsed = TsunamiLoader._parse_dart_text(text, "21418")
+        assert parsed.empty
+        assert list(parsed.columns) == ["timestamp", "bpr", "sample_type", "station_id"]
+
+
+def test_rows_that_cannot_be_read_are_dropped_and_the_rest_kept() -> None:
+    """Was: one malformed row failed the whole file (``ParserError`` / ``ValueError``)."""
+    text = (
+        "#YY  MM DD hh mm ss T   HEIGHT\n"
+        "2011 03 11 05 00 00 1 5662.500\n"
+        "2011 03 11 05 15 00 1 5662.600 extra tokens here\n"
+        "2011 13 41 05 30 00 1 5662.700\n"
+        "2011 03 11 05 45 00 1 MM\n"
+        "2011 03 11 06 00\n"
+        "2011 03 11 06 15 00 1 0.250\n"
+        "2011 03 11 06 30 00 1 5662.800\n"
+    )
+
+    parsed = TsunamiLoader._parse_dart_text(text, "21418")
+
+    assert parsed["bpr"].tolist() == [5662.5, 5662.8]
+    assert parsed["timestamp"].dt.strftime("%H:%M").tolist() == ["05:00", "06:30"]

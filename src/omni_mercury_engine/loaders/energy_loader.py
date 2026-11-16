@@ -66,6 +66,10 @@ _EIA930_BALANCE_URL = (
     "https://www.eia.gov/electricity/gridmonitor/sixMonthFiles/EIA930_BALANCE_{year}_{half}.csv"
 )
 
+#: Share of a grid event's hours EIA-930 must hold for the frame to be the
+#: event's record. The files start a few hours into their first UTC day.
+_EIA930_MIN_COVERAGE = 0.95
+
 #: A grid step is labelled when served demand fell this far below the
 #: day-ahead forecast. Measured on ERCOT, January to March 2021 (2,153
 #: hours): the median shortfall is 0.1%, the 95th percentile 14.6%, and the
@@ -119,11 +123,18 @@ _SEVERE_G_LEVEL = 3
 
 
 def _g_levels(kp_values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """NOAA G level per Kp value (values outside [0, 9] are clipped first)."""
-    clipped = np.clip(np.asarray(kp_values, dtype=np.float64), 0.0, 9.0)
-    return np.fromiter(
+    """NOAA G level per Kp value (values outside [0, 9] are clipped first).
+
+    A missing Kp has no G level and is 0 (no storm): a step with no reading
+    cannot be labelled a storm, and ``noaa_g_scale`` refuses a NaN outright.
+    """
+    values = np.asarray(kp_values, dtype=np.float64)
+    clipped = np.clip(np.nan_to_num(values, nan=0.0), 0.0, 9.0)
+    levels = np.fromiter(
         (noaa_g_scale(float(k)) for k in clipped), dtype=np.int64, count=clipped.size
     )
+    levels[np.isnan(values)] = 0
+    return levels
 
 
 # ---------------------------------------------------------------------------
@@ -617,27 +628,49 @@ class EnergyLoader(BaseDomainLoader):
             ConnectionError: If a balance file cannot be downloaded.
             ValueError: If the operator has no rows in the span.
         """
-        halves = sorted(
-            {
-                (stamp.year, "Jan_Jun" if stamp.month <= 6 else "Jul_Dec")
-                for stamp in pd.date_range(start, end - pd.Timedelta(seconds=1), freq="MS").union(
-                    pd.DatetimeIndex([start])
-                )
-            }
+        # The files are cut at local midnight, not UTC: the January-June file
+        # for ERCOT runs from 06:00 UTC on 1 January to 04:00 UTC on 1 July.
+        # A day either side of the window is therefore included when choosing
+        # files, or a window that starts on a boundary loses its first hours.
+        day = pd.Timedelta(days=1)
+        months = pd.date_range(
+            (start - day).normalize().replace(day=1), end + day, freq="MS", tz="UTC"
         )
+        halves = sorted({(m.year, "Jan_Jun" if m.month <= 6 else "Jul_Dec") for m in months})
         records: list[dict[str, Any]] = []
         for year, half in halves:
-            raw = self._fetch_url(_EIA930_BALANCE_URL.format(year=year, half=half))
+            try:
+                raw = self._fetch_url(_EIA930_BALANCE_URL.format(year=year, half=half))
+            except ConnectionError:
+                # A neighbouring half that EIA has not published yet (or no
+                # longer serves) is tolerated; completeness is checked below.
+                if (year, half) in self._required_halves(start, end):
+                    raise
+                continue
             records.extend(self._parse_eia930(raw, balancing_authority))
         hourly = pd.DataFrame.from_records(records)
         if hourly.empty:
             raise ValueError(f"EIA-930 has no rows for balancing authority {balancing_authority}")
+        hourly = hourly.drop_duplicates(subset="timestamp")
         hourly = hourly[(hourly["timestamp"] >= start) & (hourly["timestamp"] < end)]
-        if hourly.empty:
+        expected = int((end - start) / pd.Timedelta(hours=1))
+        if len(hourly) < _EIA930_MIN_COVERAGE * expected:
+            # A truncated download or a missing file would otherwise be cached
+            # as the event's record with most of its hours absent.
             raise ValueError(
-                f"EIA-930 has no {balancing_authority} rows between {start.date()} and {end.date()}"
+                f"EIA-930 holds {len(hourly)} of {expected} hours for {balancing_authority} "
+                f"between {start.date()} and {end.date()}; at least "
+                f"{_EIA930_MIN_COVERAGE:.0%} are needed"
             )
         return hourly.set_index("timestamp").resample(_STEP).mean().reset_index()
+
+    @staticmethod
+    def _required_halves(start: pd.Timestamp, end: pd.Timestamp) -> set[tuple[int, str]]:
+        """The half-year files that hold the window's own months."""
+        months = pd.date_range(
+            start.normalize().replace(day=1), end - pd.Timedelta(seconds=1), freq="MS", tz="UTC"
+        )
+        return {(m.year, "Jan_Jun" if m.month <= 6 else "Jul_Dec") for m in months}
 
     @staticmethod
     def _parse_eia930(raw: bytes, balancing_authority: str) -> list[dict[str, Any]]:
@@ -675,13 +708,25 @@ class EnergyLoader(BaseDomainLoader):
 
         def number(cell: str) -> float:
             cell = cell.replace(",", "").strip()
-            return float(cell) if cell else float("nan")
+            try:
+                return float(cell) if cell else float("nan")
+            except ValueError:
+                # "NA" and the like: not reported, as a blank cell is.
+                return float("nan")
+
+        needed = max(time_at, authority_at, *value_at.values())
 
         records = []
         for row in reader:
-            if len(row) <= time_at or row[authority_at] != balancing_authority:
+            # A row cut short (a truncated transfer) is skipped; the caller's
+            # coverage check then decides whether enough of the span arrived.
+            if len(row) <= needed or row[authority_at] != balancing_authority:
                 continue
-            end_of_hour = pd.to_datetime(row[time_at], format="%m/%d/%Y %I:%M:%S %p", utc=True)
+            end_of_hour = pd.to_datetime(
+                row[time_at], format="%m/%d/%Y %I:%M:%S %p", utc=True, errors="coerce"
+            )
+            if pd.isna(end_of_hour):
+                continue
             record: dict[str, Any] = {"timestamp": end_of_hour - pd.Timedelta(hours=1)}
             record.update({name: number(row[at]) for name, at in value_at.items()})
             records.append(record)
@@ -1420,7 +1465,9 @@ class EnergyLoader(BaseDomainLoader):
         result = np.zeros(n, dtype=np.float64)
         for i in range(n):
             start = max(0, i - window + 1)
-            result[i] = np.sum(values[start : i + 1])
+            # A missing Kp is skipped, not propagated: one gap would otherwise
+            # blank this feature for the next ``window`` steps (a day).
+            result[i] = np.nansum(values[start : i + 1])
         return result
 
     @staticmethod
@@ -1438,5 +1485,8 @@ class EnergyLoader(BaseDomainLoader):
         result = np.zeros(n, dtype=np.float64)
         for i in range(n):
             start = max(0, i - window + 1)
-            result[i] = np.max(values[start : i + 1])
+            chunk = values[start : i + 1]
+            # As above: the largest reading in the window, ignoring gaps; NaN
+            # only when the whole window is missing.
+            result[i] = np.nan if np.isnan(chunk).all() else np.nanmax(chunk)
         return result

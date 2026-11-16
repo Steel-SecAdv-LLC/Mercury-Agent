@@ -627,3 +627,13 @@ def test_a_json_null_is_a_missing_reading_not_a_refusal(tmp_path: Path) -> None:
 def test_null_does_not_let_text_or_mixed_types_through(tmp_path: Path, document: str) -> None:
     with pytest.raises(ValueError, match="must hold numbers"):
         _load_data(_write(tmp_path / "mixed.json", document))
+
+
+def test_a_number_too_large_to_read_is_refused_in_one_line(tmp_path: Path) -> None:
+    """Was: an ``OverflowError`` traceback from an integer of several hundred digits."""
+    path = _write(tmp_path / "huge.json", "[1" + "0" * 400 + ", 2, null]")
+
+    with pytest.raises(ValueError, match="too large to read"):
+        _load_data(path)
+    result = CliRunner().invoke(main, ["tier-detect", "-i", path])
+    assert "--input file" in _one_line_error(result)

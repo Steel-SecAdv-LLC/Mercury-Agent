@@ -199,7 +199,13 @@ class EthicalConstants:
     # again (v6 required adjacency and permitted "extort money from my boss"),
     # the agent after "by" is skipped whatever form names the act, and a line
     # break is a clause boundary only after a complete line.
-    RULESET_VERSION: int = 7
+    # v8: v7 was run against v5 on 1,797 sentences and reported as releasing
+    # six benign ones. A wider differential (9,111) found 188 threats v5 refused
+    # and v7 permitted ("i will murder my family", a threat broken across a
+    # line). v8 restores them, reads a wrapped line both joined and split, and
+    # is held to a frozen floor of 6,278 sentences that must stay refused
+    # (tests/pillars/test_ruleset_floor.py).
+    RULESET_VERSION: int = 8
 
 
 ETHICAL = EthicalConstants()

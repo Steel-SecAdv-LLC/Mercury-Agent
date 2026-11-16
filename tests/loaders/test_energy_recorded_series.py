@@ -33,6 +33,7 @@ import pytest
 
 from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 from omni_mercury_engine.loaders.energy_loader import (
+    _EVENT_CATALOG,
     DOE_DISTURBANCE_COLUMN,
     GRID_SHORTFALL_THRESHOLD,
     EnergyLoader,
@@ -77,6 +78,23 @@ def _archives(seen: list[str] | None = None) -> Callable[..., bytes]:
         raise ConnectionError(f"no recorded file for {url}")
 
     return _transport
+
+
+#: The days each fixture holds. The catalogued windows are months long; the
+#: tests narrow them to the recorded days so that the loader's completeness
+#: check (at least 95% of a grid event's hours) sees a complete span.
+_FIXTURE_WINDOWS = {
+    "quebec_1989": ("1989-03-11", "1989-03-15"),
+    "texas_2021": ("2021-02-13", "2021-02-19"),
+    "texas_2023": ("2023-01-28", "2023-02-08"),
+}
+
+
+@pytest.fixture(autouse=True)
+def _fixture_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    for event_id, (start, end) in _FIXTURE_WINDOWS.items():
+        monkeypatch.setitem(_EVENT_CATALOG[event_id], "start", start)
+        monkeypatch.setitem(_EVENT_CATALOG[event_id], "end", end)
 
 
 def _unreachable(*_args: Any, **_kwargs: Any) -> bytes:
@@ -345,3 +363,90 @@ def test_a_stand_in_frame_has_no_doe_labels_to_give(
     assert loader.is_synthetic(loader.fetch_historical("texas_2023"))
     with pytest.raises(ValueError, match="labelled by DOE OE-417"):
         loader.get_ground_truth("texas_2023")
+
+
+# ---------------------------------------------------------------------------
+# Robustness: found by an independent review of the loader.
+# ---------------------------------------------------------------------------
+
+
+def test_a_span_with_most_of_its_hours_missing_is_not_the_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Was: a truncated download gave a short frame that was cached as recorded."""
+    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+    monkeypatch.setitem(_EVENT_CATALOG["texas_2021"], "start", "2021-01-01")
+    monkeypatch.setitem(_EVENT_CATALOG["texas_2021"], "end", "2021-03-31")
+    monkeypatch.setattr(_GET_BYTES, _archives())
+    loader = _loader(tmp_path)
+
+    with pytest.raises(DataSourceUnavailableError, match="168 of 2160 hours"):
+        loader.fetch_historical("texas_2021")
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_a_row_cut_short_and_a_non_numeric_cell_do_not_fail_the_file() -> None:
+    """Was: ``IndexError`` for a truncated row, ``ValueError`` for an "NA" cell."""
+    raw = (
+        b'"Balancing Authority","UTC Time at End of Hour","Demand Forecast (MW)","Demand (MW)",'
+        b'"Net Generation (MW)","Total Interchange (MW)"\n'
+        b'"ERCO","02/15/2021 2:00:00 PM","72,183","NA","50,588","-814"\n'
+        b'"ERCO","not a time","1","2","3","4"\n'
+        b'"ERCO","02/15/2021 3:00:00 PM","72,0'
+    )
+
+    records = EnergyLoader._parse_eia930(raw, "ERCO")
+
+    assert len(records) == 1
+    assert np.isnan(records[0]["grid_demand"])
+    assert records[0]["grid_net_generation"] == 50588.0
+
+
+def test_a_window_starting_on_a_file_boundary_reads_the_neighbouring_half(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """EIA cuts its files at local midnight, so the first UTC hours sit in the other half."""
+    seen: list[str] = []
+
+    def _transport(url: str, **_kwargs: Any) -> bytes:
+        seen.append(url.rsplit("/", 1)[1])
+        raise ConnectionError("not recorded")
+
+    monkeypatch.setattr(_GET_BYTES, _transport)
+    start, end = pd.Timestamp("2021-07-01", tz="UTC"), pd.Timestamp("2021-07-03", tz="UTC")
+
+    with pytest.raises(ConnectionError):
+        _loader(tmp_path)._fetch_eia930("ERCO", start, end)
+
+    # The January-June file is tried first and tolerated when absent; the
+    # July-December file holds the window's own months and is required.
+    assert seen == ["EIA930_BALANCE_2021_Jan_Jun.csv", "EIA930_BALANCE_2021_Jul_Dec.csv"]
+
+
+def test_one_missing_kp_does_not_blank_a_day_of_features() -> None:
+    """Was: a NaN Kp propagated through the 24-hour sum and maximum for 8 steps."""
+    kp = np.array([1.0, 2.0, 3.0, 9.0, np.nan, 8.0, 4.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+
+    rolling_max = EnergyLoader._compute_rolling_max(kp, window=8)
+    rolling_sum = EnergyLoader._compute_rolling_sum(kp, window=8)
+
+    assert rolling_max[4:11].tolist() == [9.0] * 7
+    assert not np.isnan(rolling_sum).any()
+    assert rolling_sum[5] == 1.0 + 2.0 + 3.0 + 9.0 + 8.0
+
+
+def test_a_step_with_no_kp_is_not_a_storm_and_does_not_raise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Was: ``ValueError: kp must be finite`` from the labels of a frame with one gap."""
+    monkeypatch.setattr(_GET_BYTES, _archives())
+    loader = _loader(tmp_path)
+    frame = loader.fetch_historical("quebec_1989")
+    peak = int(frame["kp"].idxmax())
+    frame.loc[peak, "kp"] = np.nan
+    monkeypatch.setattr(loader, "fetch_historical", lambda _event_id: frame)
+
+    labels = loader.get_ground_truth("quebec_1989")
+
+    assert labels[peak] == 0
+    assert labels.sum() > 0

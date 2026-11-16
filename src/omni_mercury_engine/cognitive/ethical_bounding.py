@@ -27,6 +27,7 @@ Integration:
 from __future__ import annotations
 
 import functools
+import itertools
 import logging
 import re
 import time
@@ -365,25 +366,23 @@ _DIRECT_HARM_VERBS = (
 #: of a request. "how to help my friend who is being stalked by her ex" was
 #: refused before this lookahead.
 #:
-#: The agent of a report is skipped; a stated manner is not. Two earlier
-#: forms of this lookahead were each wrong in one direction. Skipping every
-#: verb form before "by" permitted the active voice with a manner ("torture by
-#: waterboarding the prisoner", "harass by phone and email him"). Skipping
-#: only a past participle then refused a victim's report that names the act
-#: as a noun ("harassment by him", "stalking by her manager", "torture by
-#: them"). What follows "by" decides it: a pronoun, a possessive or an article
-#: introduces whoever did it; a gerund or a bare noun is how it was done. A
-#: past participle before "by" is a passive whatever follows.
-_BY_AGENT = (
-    r"\s+by\s+(?:(?:him|her|them|us|me|you|someone|somebody|anyone)\b"
-    r"|(?:his|her|their|my|our|your|the|an?|some|another)\s+\w)"
-)
+#: The agent of a report is not its victim. Three forms of this rule were
+#: wrong before this one. Skipping every verb form before "by" permitted the
+#: active voice with a manner ("torture by waterboarding the prisoner").
+#: Skipping only a past participle refused a victim's report that names the
+#: act as a noun ("harassment by him"). Skipping when a pronoun, possessive or
+#: article follows "by" permitted "harass by an anonymous account her". What
+#: actually went wrong in the reports was narrower: the person the pattern
+#: found was the one standing directly after "by". So a past participle
+#: before "by" is a passive and is skipped, and otherwise the object must not
+#: be the word "by" introduces. "stalking by her manager" finds no other
+#: object and is permitted; "stalk by her house and scare her" finds the
+#: second "her" and is refused. A colon ends the clause as a full stop does:
+#: "stalking by a stranger: how to protect her" is a heading and a question.
 _DIRECT_HARM_PATTERN = re.compile(
     r"\b(?:"
     + _DIRECT_HARM_VERBS
-    + r")\w*\b(?!(?<=ed)\s+by\b)(?!"
-    + _BY_AGENT
-    + r")[^.!?;]{0,40}?\b(?:"
+    + r")\w*\b(?!(?<=ed)\s+by\b)[^.!?;:]{0,40}?(?<!\bby )\b(?:"
     + _OBJ
     + r")\b"
 )
@@ -444,19 +443,61 @@ _RELATION_NOUNS = (
     "|flatmate|landlord|tenant|teacher|professor|mom|mum|dad"
     "|mother|father|brother|sister|son|daughter|uncle|aunt|cousin"
     "|grandmother|grandfather|grandma|grandpa|grandson|granddaughter|niece|nephew"
-    # "child", "parent", "baby" and "family" are absent on purpose: each is
-    # as often a modifier ("kill my child subprocess", "my parent process",
-    # "my baby tomato seedlings", "my family plan"). "children", "kids" and
-    # "parents" carry the grave case.
     "|kids?|children|parents|friend"
+)
+#: Relation nouns that are as often a modifier of the next word: "my child
+#: subprocess", "my parent process", "my baby tomato seedlings", "my family
+#: plan". Each names a victim only when it ends its phrase: at the end of the
+#: text, before punctuation, or before a word that starts the next phrase.
+#: Dropping them (ruleset 7) permitted "i want to kill my child" and "i will
+#: murder my family"; keeping them unconditionally (ruleset 6) refused the
+#: operations sentences.
+_MODIFIER_PRONE_NOUNS = "child|parent|baby|family"
+_PHRASE_END = (
+    # The scorer checks the action followed by the rendered context, so the
+    # phrase can also end at the "{" or "[" that opens it.
+    r"(?=(?:\s*(?:$|[.!?;:,)(\[{\n])"
+    r"|\s+(?:tonight|today|tomorrow|now|soon|and|or|with|for|if|when|because|before|after"
+    r"|in|at|on|so|while|unless|then|too|first|next|myself|ourselves)\b))"
 )
 #: ``my neighbour``, ``his ex-wife``; not ``my neighbour's`` or ``my kids'``
 #: (the possessive makes the next noun the object: "kill my neighbour's
-#: weeds", "kill my kids' head lice").
+#: weeds", "kill my kids' head lice"). A plural possessive is an apostrophe
+#: after an "s" with a word following; a bare trailing apostrophe is a quote
+#: or a slip ("i will kill my wife'") and was being read as one.
+_NOT_POSSESSIVE = r"(?!['’]s\b)(?!(?<=s)['’]\s+\w)"
+#: Words that sit between the possessive and the relation without changing
+#: who is meant: "my own child", "my whole family", "my little sister".
+_RELATION_ADJECTIVE = (
+    r"(?:(?:own|whole|entire|little|big|older|younger|elder|eldest|youngest|baby|dear"
+    r"|beloved|new|old|former|current|stupid|damn|damned|bloody|fucking|lovely)\s+){0,2}"
+)
 _PERSON_BY_RELATION = (
-    r"(?:my|his|her|their|our|your)\s+(?:ex[- ]?|step[- ]?)?(?:"
+    r"(?:my|his|her|their|our|your)\s+"
+    + _RELATION_ADJECTIVE
+    + r"(?:(?:ex[- ]?|step[- ]?)?(?:"
     + _RELATION_NOUNS
-    + r")\b(?!['\u2019])"
+    + r")\b"
+    + _NOT_POSSESSIVE
+    + r"|(?:"
+    + _MODIFIER_PRONE_NOUNS
+    + r")\b"
+    + _NOT_POSSESSIVE
+    + _PHRASE_END
+    + r")"
+)
+#: A person named through someone else: "my wife's lover", "my boss's son".
+#: The possessive guard above stops at "my wife's" because the next noun is
+#: the object ("my neighbour's weeds"); when that noun is itself a person, the
+#: object is one. Permitted by every earlier ruleset.
+_PERSON_BY_POSSESSIVE = (
+    r"(?:my|his|her|their|our|your)\s+"
+    + _RELATION_ADJECTIVE
+    + r"(?:ex[- ]?|step[- ]?)?(?:"
+    + _RELATION_NOUNS
+    + r")(?:['’]s|s['’])\s+(?:new\s+|old\s+|whole\s+)?(?:"
+    + _RELATION_NOUNS
+    + r"|lover|family|child|baby|parent|fianc[eé]e?)\b"
 )
 #: The listed person objects without "them", for ``kill`` (see above).
 _OBJ_NOT_THEM = "|".join(re.escape(o) for o in _EUPHEMISM_OBJECT if o != "them")
@@ -473,42 +514,85 @@ _FIRST_PERSON_INTENT = (
     r"|(?:i|we)'ll|i'm (?:going to|gonna)|we're (?:going to|gonna)|(?:i|we)'d like to)\s+"
     r"(?:" + _INTENSIFIER + r"\s+)?"
 )
-#: A request for help doing it, or a bare imperative opening a clause.
+#: A request for help doing it, a request that the listener do it, or a bare
+#: imperative opening a clause. "would you ... if you were/had/could" is a
+#: hypothetical put to the listener and is excluded by the lookahead; "would
+#: you kill my husband for $5000" is a solicitation and is not.
 _HELP_OR_IMPERATIVE = (
     r"(?:\bhelp me (?:to )?|\bhow (?:to|do i|can i|could i|should i|would i|do we|can we)\s+"
-    # "can you" / "could you" ask for the act. "will you" / "would you" do
-    # not: "would you kill him if you were in my position" is a hypothetical.
-    r"|\b(?:can|could) you (?:please\s+)?(?:help me (?:to )?)?"
+    r"|\b(?:can|could|will|would) you (?!.{0,60}\bif you (?:were|had|could)\b)"
+    r"(?:please\s+)?(?:help me (?:to )?)?"
     r"|\blet(?:'s| us)\s+"
-    # A line break that opens a clause is written ";" by
-    # :func:`_clause_breaks` before this pattern runs, so a threat on the
-    # second line of a message is found here.
     r"|(?:^|[.!?;:]\s*)(?:(?:and\s+)?then\s+|please\s+|just\s+|go\s+|now\s+)?)"
 )
-
-#: "kill her process", "kill her session": after ``kill`` the word "her" is as
-#: often a possessive on operations vocabulary as it is a victim, and "kill
-#: her with kindness" is an idiom. Measured as refusals before this list.
-_NOT_A_VICTIM = (
-    r"(?!\s+(?:process(?:es)?|sessions?|jobs?|tasks?|threads?|connections?|containers?|pods?"
-    r"|scripts?|servers?|services?|instances?|quer(?:y|ies)|daemons?|apps?|vms?|builds?"
-    r"|shells?|terminals?|tabs?|windows?|subprocess(?:es)?|off|with kindness)\b)"
-)
-#: The exclusion applies after "her" only: it is the one object that is also
-#: a possessive. " her" is matched with its leading space so that "mother"
-#: and "father" do not count.
-_NOT_A_VICTIM_AFTER_HER = r"(?:(?<=\sher)" + _NOT_A_VICTIM + r"|(?<!\sher))"
-
-#: Words that end the verb's own object phrase. Between a grave-harm verb and
-#: the person, any of them means the person belongs to another clause or
-#: phrase: "intimidate the other team so my son wins", "torture test the build
-#: for my manager", "stab at guessing what my wife wants".
-_OBJECT_PHRASE_BREAK = (
-    r"(?:so|for|because|what|which|while|when|if|unless|until|before|after|than|about"
-    r"|at|test|tests|testing)"
-)
-_SAME_OBJECT_GAP = r"(?:(?!\b" + _OBJECT_PHRASE_BREAK + r"\b)[^.!?;]){0,40}?"
 _AGENTIVE_FRAME = r"(?:" + _FIRST_PERSON_INTENT + r"|" + _HELP_OR_IMPERATIVE + r")"
+
+#: After ``kill <person>``, these make the object a thing or the phrase an
+#: idiom: "kill her process", "kill my manager daemon", "kill him with
+#: kindness". Operations vocabulary, a fixed idiom, and writing about a
+#: character ("kill her off in chapter three"). A bare "kill her off" is not
+#: excluded: it was refused before this list existed and stays refused. The
+#: idiom is the whole of the act only when nothing follows it: "kill her with
+#: kindness, then a knife" is not the idiom.
+_NOT_A_VICTIM = (
+    r"(?!\s+(?:process(?:es)?|subprocess(?:es)?|sessions?|jobs?|tasks?|threads?|connections?"
+    r"|containers?|pods?|scripts?|servers?|services?|instances?|quer(?:y|ies)|daemons?|apps?"
+    r"|vms?|builds?|shells?|terminals?|tabs?|windows?|workers?|nodes?|plan|subscription"
+    r"|account|requests?|bots?|database|chromatids?"
+    r"|with kindness(?!\s*,?\s*(?:and\s+)?(?:then|and|before|until)\b)"
+    r"|off (?:in|by|at|during) (?:the |this |that |my |our )?"
+    r"(?:chapter|season|episode|act|book|story|novel|script|sequel|finale|ending|scene|show"
+    r"|series|campaign|game|draft)\b)\b)"
+)
+
+#: Acts left out of :data:`_DIRECT_HARM_VERBS` because their bare form has
+#: ordinary uses ("poison control centre", "assault rifle"), but which name a
+#: grave harm when the speaker asks to do them to a person named by relation:
+#: "help me poison my family" was permitted by every earlier ruleset.
+_FRAMED_HARM_VERBS = "|poison|kidnap|abduct|drown|assault"
+
+#: A word standing directly before the person makes them the subject of a new
+#: clause or a bystander, not the harm verb's object: "intimidate the other
+#: team so my son wins", "stab at guessing what my wife wants", "stalk deer
+#: with my dad", "torture test the build for my manager". Each alternative is
+#: a fixed-width lookbehind. Only the word directly before the person counts:
+#: "extort $5000 for myself from my boss" and "torture for hours my wife"
+#: keep the person as the object and are refused (ruleset 7 excluded a
+#: connector anywhere in between and permitted both).
+_NOT_THE_OBJECT = "".join(
+    rf"(?<!\b{word} )"
+    for word in (
+        "so",
+        "what",
+        "that",
+        "because",
+        "while",
+        "when",
+        "if",
+        "unless",
+        "until",
+        "before",
+        "after",
+        "for",
+        "with",
+        "like",
+        "than",
+        "about",
+        "as",
+        "near",
+        "beside",
+        "front of",
+    )
+)
+
+#: First-person ``murder`` is also slang for doing something thoroughly. These
+#: objects are the slang's, never a person's.
+_MURDER_SLANG_OBJECT = (
+    r"(?:(?:my|our|his|her|their|your|this|that|the|some|a|an)\s+)?"
+    r"(?:to-?do list|inbox|backlog|homework|exams?|workouts?|presentations?|interviews?"
+    r"|deadlines?|diet|sales targets?|records?|defen[cs]e|competition|leg day|tacos?|pizza"
+    r"|burgers?|buffet|playlist|set|solo|track|mix)\b"
+)
 
 _AGENTIVE_HARM_PATTERN = re.compile(
     # lethal verb, person object, any agentive frame
@@ -516,59 +600,109 @@ _AGENTIVE_HARM_PATTERN = re.compile(
     + r"(?:\w+\s+and\s+)?(?:kill\s+(?:"
     + _OBJ_NOT_THEM
     + r"|"
+    + _PERSON_BY_POSSESSIVE
+    + r"|"
     + _PERSON_BY_RELATION
     + r")|(?:murder|assassinate)\s+(?:"
     + _OBJ
     + r"|"
     + _PERSON_BY_RELATION
     + r"))\b"
-    + _NOT_A_VICTIM_AFTER_HER
+    + _NOT_A_VICTIM
     # murder/assassinate after the speaker's own intent: any object, so a name
-    # ("i will murder john smith"). Not "you"/"me"/"us": a threat quoted by the
-    # person who received it ("he wrote: i will murder you") is theirs to
-    # report. Not "this"/"that"/"it": slang for doing something well.
-    + r"|" + _FIRST_PERSON_INTENT
-    # Not a possessive either: with one, the first branch decides, and it
-    # asks for a relation ("murder my husband", not "murder my to-do list").
-    + r"(?:murder|assassinate)\s+"
-    r"(?!(?:you|u|me|us|this|that|it|my|our|your|his|her|their)\b)\S+"
-    # a grave-harm act against a person named by relation, any agentive frame
-    r"|" + _AGENTIVE_FRAME + r"(?:\w+\s+and\s+)?(?:" + _DIRECT_HARM_VERBS
-    # The person is the verb's own object, reached without leaving its
-    # object phrase: "extort money from my boss", "torture and then kill my
-    # wife", "harass the hell out of my ex". Plain adjacency (verb, person)
-    # permitted all three; a bare 40-character window refused "intimidate the
-    # other team so my son wins". The window stays, minus the words that end
-    # an object phrase.
-    + r")\b" + _SAME_OBJECT_GAP + r"\b" + _PERSON_BY_RELATION
+    # ("i will murder john smith"), a possessive phrase the relation list does
+    # not hold ("my wife's lover", "our president", "his whole family"). Not
+    # "you"/"me"/"us": a threat quoted by the person who received it ("he
+    # wrote: i will murder you") is theirs to report. Not "this"/"that"/"it"
+    # or a slang object: doing something well.
+    + r"|"
+    + _FIRST_PERSON_INTENT
+    + r"(?:murder|assassinate)\s+(?!(?:you|u|me|us|this|that|it)\b)(?!"
+    + _MURDER_SLANG_OBJECT
+    + r")\S+"
+    # a grave-harm act against a person named by relation, any agentive
+    # frame. The person may sit anywhere in the clause's next 40 characters
+    # ("extort money from my boss", "torture and then kill my wife"), unless
+    # the word directly before them says they are not the object.
+    r"|"
+    + _AGENTIVE_FRAME
+    + r"(?:\w+\s+and\s+)?(?:"
+    + _DIRECT_HARM_VERBS
+    + _FRAMED_HARM_VERBS
+    # "torture test" and "stab at guessing": the verb is not being used of a
+    # person. "stalk at night my ex-wife" is, so only "stab at" is excluded.
+    + r")\b(?!\s+(?:test|tests|testing)\b)(?!(?<=stab)\s+at\b)[^.!?;]{0,40}?"
+    + _NOT_THE_OBJECT
+    + r"\b"
+    + _PERSON_BY_RELATION
 )
 
-#: A line ending in one of these continues on the next line: the verb that
-#: follows belongs to this clause, not to a new one.
-_LINE_CONTINUES = re.compile(
-    r"(\b(?:to|would|could|will|shall|should|might|may|can|must|not|never|and|or|but|he|she"
-    r"|they|it|who|that|which|did|does|do|is|was|were|are|be|been|\w+n't))[ \t]*\n\s*"
+#: A line longer than this that ends without punctuation is wrapped prose and
+#: continues on the next line; a shorter one is a message of its own.
+_WRAPPED_LINE_CHARS = 60
+
+#: A line ending in one of these has not finished its clause, however short:
+#: the verb on the next line belongs to it ("he threatened to\nkill her").
+_CONTINUES = re.compile(
+    # A word that requires more (an infinitive marker, a modal, a negation, a
+    # conjunction, a relative pronoun, an adverb), or a verb of saying that
+    # introduces what someone else wrote ("the letter said\nkill my wife or
+    # pay" is the recipient's report). A pronoun or "that" at the end of a
+    # line is usually the end of a sentence ("you know what to do", "she
+    # deserves it") and is not here.
+    r"(?:\b(?:to|would|could|will|shall|should|might|may|can|must|not|never|and|or|but|who"
+    r"|which|said|says|say|wrote|writes|read|reads|screamed|shouted|yelled|texted|threatened)"
+    r"|n't|\w+ly)$"
 )
 
 
-def _clause_breaks(text: str) -> str:
-    r"""Rewrite line breaks as what they mean for clause structure.
+def _line_readings(text: str) -> tuple[str, str]:
+    r"""Return the two ways a multi-line text can be read as clauses.
 
-    A hard-wrapped sentence is one clause: "he threatened to\nkill her" must
-    read as "he threatened to kill her", which has no agentive frame. A line
-    break after a complete line opens a new clause: "hello\nkill my
-    neighbour" is an imperative. Treating every line start as a clause start
-    refused the first; treating none as one permitted the second.
+    A line break carries no grammar, so both readings are checked:
+
+    * ``joined``: every break is a space. A threat written across lines ("i
+      will kill\nmy wife") is one clause, and wrapped third-person prose ("he
+      threatened to\nkill her") stays third person. Treating a break as a
+      clause boundary here (ruleset 7) cut such a threat in two and permitted
+      it.
+    * ``split``: a break after a complete line is a clause boundary, so an
+      imperative on the next line ("you know what to do\nkill my wife") opens
+      a clause. A line is complete when it ends in punctuation, or is short
+      and does not end in a word that needs a continuation. Treating every
+      break as a boundary refused "the cancer may eventually\nkill my wife".
+
+    The work is done line by line; a regular expression over runs of
+    whitespace made this quadratic in the length of a run.
 
     Args:
         text: Lower-cased text.
 
     Returns:
-        ``text`` with a continuing line joined by a space and any other line
-        break written as ``"; "``.
+        ``(joined, split)``.
     """
-    joined = _LINE_CONTINUES.sub(r"\1 ", text)
-    return re.sub(r"[ \t]*\n\s*", "; ", joined)
+    # Every Unicode line boundary is a line break, and a run of spaces or tabs
+    # is one space: "help me\tkill my wife" and "help me  kill my wife" were
+    # permitted by every earlier ruleset because the frames are written with
+    # single spaces.
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    if len(lines) < 2:
+        only = lines[0] if lines else ""
+        return only, only
+    pieces = [lines[0]]
+    for previous, line in itertools.pairwise(lines):
+        complete = previous[-1] in ".!?;:," or (
+            len(previous) <= _WRAPPED_LINE_CHARS and not _CONTINUES.search(previous)
+        )
+        pieces.append(("; " if complete else " ") + line)
+    return " ".join(lines), "".join(pieces)
+
+
+#: A pair of single quotation marks around a short phrase. An apostrophe
+#: inside a word ("wife's") or closing a plural possessive ("my kids' head
+#: lice") opens no pair and stays.
+_WRAPPING_QUOTE = re.compile(r"(?<![a-z0-9])'([^'\n]{1,60})'(?![a-z0-9])")
 
 
 def _direct_harm_present(text: str) -> bool:
@@ -589,13 +723,21 @@ def _direct_harm_present(text: str) -> bool:
         speaker states (or asks for help with) a lethal or grave-harm act
         against a person.
     """
-    # A typographic apostrophe is the same contraction: "i\u2019ll kill my wife"
+    # A typographic apostrophe is the same contraction: "i’ll kill my wife"
     # was permitted while "i'll kill my wife" was refused.
-    t = text.lower().replace("\u2019", "'")
+    # Double quotation marks are dropped for the same reason: kill my
+    # "wife" names the same person.
+    t = text.lower().replace("’", "'").replace("‘", "'")
+    for mark in ('"', "“", "”"):
+        t = t.replace(mark, "")
+    # So is a pair of single quotation marks: kill my 'wife'.
+    t = _WRAPPING_QUOTE.sub(r"\1", t)
+    joined, split = _line_readings(t)
     return bool(
         _DIRECT_HARM_PATTERN.search(t)
         or _LETHAL_MANNER_PATTERN.search(t)
-        or _AGENTIVE_HARM_PATTERN.search(_clause_breaks(t))
+        or _AGENTIVE_HARM_PATTERN.search(joined)
+        or (split != joined and _AGENTIVE_HARM_PATTERN.search(split))
     )
 
 

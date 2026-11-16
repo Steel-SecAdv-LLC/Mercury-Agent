@@ -344,3 +344,19 @@ def test_dashboard_offers_exactly_the_self_service_key_permissions() -> None:
     js = (frontend._STATIC_DIR / "dashboard.js").read_text(encoding="utf-8")
     assert "payload.permissions = granted" in js
     assert "Permissions" in html  # the key table names what each key holds
+
+
+def test_dialog_bookkeeping_is_shared_across_open_dialogs() -> None:
+    """Closing a lower dialog first used to wake the page under the one above it.
+
+    Behaviour was checked in Chromium against the previous file (page inert
+    with one dialog left; a ``position: fixed`` opener refocused; a disabled
+    opener falls back to ``#main``). This pins the mechanism those rely on.
+    """
+    js = (frontend._STATIC_DIR / "dashboard.js").read_text(encoding="utf-8")
+
+    assert "const madeInert = new Set();" in js
+    assert "remaining[remaining.length - 1].inert = false;" in js
+    assert "opener.getClientRects().length > 0" in js
+    assert "!opener.disabled" in js
+    assert "offsetParent !== null" not in js

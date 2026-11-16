@@ -175,6 +175,17 @@ class TestRecorder:
         assert prometheus_client.REGISTRY.get_sample_value(_SUCCESS, engine) == 0.0
         assert prometheus_client.REGISTRY.get_sample_value(_REQUESTS, engine) == 1.0
 
+    def test_a_route_exports_both_counters_before_its_first_request(self) -> None:
+        """``increase`` ignores the sample that creates a series: a first failure was invisible."""
+
+        @records_detection("unit_never_called")
+        async def handler() -> None:
+            return None
+
+        labels = {"detector_type": ROUTE_PREFIX + "unit_never_called"}
+        assert prometheus_client.REGISTRY.get_sample_value(_REQUESTS, labels) == 0.0
+        assert prometheus_client.REGISTRY.get_sample_value(_SUCCESS, labels) == 0.0
+
     def test_skip_leaves_the_series_untouched(self) -> None:
         skipping = True
 

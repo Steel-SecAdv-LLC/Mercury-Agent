@@ -236,3 +236,15 @@ def test_a_file_not_yet_rolled_over_is_dated_on_the_day_it_covers() -> None:
         pd.Timestamp("1970-01-01"),
         pd.Timestamp("2026-11-14 23:30"),
     ]
+
+
+def test_one_mistyped_time_does_not_re_date_the_whole_file() -> None:
+    """Was: a single row "in the future" moved every row back a day."""
+    import pandas as pd
+
+    from omni_mercury_engine.loaders.base import spc_convective_day_timestamps
+
+    afternoon = pd.Timestamp("2026-11-16 14:00", tz="UTC")
+    stamps = spc_convective_day_timestamps(["1230", "1300", "2350"], now=afternoon)
+
+    assert stamps[:2] == [pd.Timestamp("2026-11-16 12:30"), pd.Timestamp("2026-11-16 13:00")]

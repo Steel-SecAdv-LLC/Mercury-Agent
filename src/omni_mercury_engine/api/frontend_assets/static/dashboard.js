@@ -11,6 +11,9 @@ let currentAccount = null;
 
 /* ------------------------------------------------------------------ modal */
 
+// Elements the open dialogs have made inert, across all of them.
+const madeInert = new Set();
+
 function openModal(title, bodyBuilder) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
@@ -29,11 +32,13 @@ function openModal(title, bodyBuilder) {
   // walked out of the dialog into the page behind it, and closing it left
   // focus on <body> instead of the control that opened it.
   const opener = document.activeElement;
-  // Only what this dialog makes inert is restored when it closes: with a
-  // second dialog open on top, closing one must not wake the page behind
-  // the other. An earlier dialog's backdrop is made inert here too.
-  const background = Array.from(document.body.children).filter((el) => !el.inert);
-  background.forEach((el) => { el.inert = true; });
+  // Everything behind the dialog sleeps, an earlier dialog's backdrop
+  // included. Elements that were already inert are not recorded, so closing
+  // never wakes something this module did not put to sleep.
+  Array.from(document.body.children).filter((el) => !el.inert).forEach((el) => {
+    el.inert = true;
+    madeInert.add(el);
+  });
 
   const close = document.createElement("button");
   close.type = "button";
@@ -42,14 +47,30 @@ function openModal(title, bodyBuilder) {
   close.addEventListener("click", () => {
     backdrop.remove();
     document.removeEventListener("keydown", onKey);
-    background.forEach((el) => { el.inert = false; });
+    // With another dialog still open the page stays asleep and only the
+    // top remaining dialog wakes; with none left, everything any dialog put
+    // to sleep wakes, whichever order they were closed in.
+    const remaining = document.querySelectorAll(".modal-backdrop");
+    if (remaining.length > 0) {
+      remaining[remaining.length - 1].inert = false;
+    } else {
+      madeInert.forEach((el) => { el.inert = false; });
+      madeInert.clear();
+    }
     // The opener may have been hidden by the action that opened the dialog
     // (confirming two-factor hides the enrolment form). focus() on a hidden
     // element does nothing and leaves focus on <body>; fall back to the page's
     // main region, which is focusable for the skip link.
-    const visible = opener && document.contains(opener) && opener.offsetParent !== null;
-    const target = visible ? opener : document.getElementById("main");
-    if (target && typeof target.focus === "function") { target.focus(); }
+    // getClientRects, not offsetParent: a position:fixed control has no
+    // offsetParent while being perfectly visible. A disabled control cannot
+    // take focus either.
+    const usable = opener && document.contains(opener) && !opener.disabled &&
+      opener.getClientRects().length > 0;
+    const target = usable ? opener : document.getElementById("main");
+    if (target && typeof target.focus === "function") {
+      // The fallback is a landmark, not a destination: do not scroll to it.
+      target.focus({ preventScroll: !usable });
+    }
   });
   const onKey = (event) => {
     // A dialog underneath another is inert: only the top one answers keys.

@@ -133,14 +133,16 @@ def spc_convective_day_timestamps(
         )
         stamps.append(day + pd.Timedelta(hours=hour, minutes=minute))
 
-    # A report cannot be later than the moment it is read. If one would be,
-    # the file is still the previous convective day's: SPC rebuilds
+    # A report cannot be later than the moment it is read. If most of the
+    # file would be, it is still the previous convective day's: SPC rebuilds
     # ``today.csv`` every few minutes, and in the minutes after 1200 UTC it
-    # can hold yesterday's rows while the clock already says today. Every
-    # row then moves back one day together.
+    # can hold yesterday's rows while the clock already says today. Every row
+    # then moves back one day together. "Most", not "any": one mistyped time
+    # used to re-date a whole day of correctly dated reports.
     epoch = pd.Timestamp("1970-01-01")
     dated = [stamp for stamp in stamps if stamp != epoch]
-    if dated and max(dated) > current + _SPC_CLOCK_TOLERANCE:
+    ahead = [stamp for stamp in dated if stamp > current + _SPC_CLOCK_TOLERANCE]
+    if dated and 2 * len(ahead) > len(dated):
         stamps = [s if s == epoch else s - pd.Timedelta(days=1) for s in stamps]
     return stamps
 

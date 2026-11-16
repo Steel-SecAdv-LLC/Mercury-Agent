@@ -103,6 +103,12 @@ def records_detection(
     if not name.isidentifier() or name != name.lower():
         raise ValueError(f"detection route name {name!r} must be a lower-case identifier")
     detector_type = ROUTE_PREFIX + name
+    # Export both counters at 0 from the moment the route exists. ``rate`` and
+    # ``increase`` do not count the sample that creates a series, so a route
+    # whose first request failed was invisible to the per-component alert
+    # until its second.
+    DETECTION_REQUESTS.labels(detector_type=detector_type)
+    DETECTION_SUCCESS.labels(detector_type=detector_type)
 
     def decorate(
         handler: Callable[_P, Coroutine[Any, Any, _R]],

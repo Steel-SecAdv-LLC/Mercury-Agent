@@ -149,3 +149,31 @@ async def test_earthquakes_that_all_lack_a_field_are_schema_drift(
 
     with pytest.raises(DataSourceError, match="none parsed"):
         await source._fetch_impl()
+
+
+@pytest.mark.parametrize(
+    ("coordinates", "expected"),
+    [
+        ([254.763, 40.137, "x"], (40.137, -105.237, 0.0)),
+        ([254.763, 40.137, float("nan")], (40.137, -105.237, 0.0)),
+        ([254.763, 40.137], (40.137, -105.237, 0.0)),
+    ],
+)
+def test_an_unreadable_elevation_does_not_cost_the_position(
+    coordinates: list[Any], expected: tuple[float, float, float]
+) -> None:
+    """Was: the table fallback (None for an unlisted observatory), or an altitude of NaN."""
+    response = {"metadata": {"intermagnet": {"imo": {"coordinates": coordinates}}}}
+
+    location = USGSGeomagnetismSource()._observatory_location(USGSObservatory.BOULDER, response)
+
+    assert location == pytest.approx(expected)
+
+
+def test_a_longitude_outside_the_globe_is_not_wrapped_into_it() -> None:
+    """``[400, 10, 0]`` was accepted as longitude 40."""
+    response = {"metadata": {"intermagnet": {"imo": {"coordinates": [400.0, 10.0, 0.0]}}}}
+
+    location = USGSGeomagnetismSource()._observatory_location(USGSObservatory.BOULDER, response)
+
+    assert location == (40.137, -105.237, 0.0)  # the table's entry, not the response's

@@ -91,8 +91,6 @@ def test_one_failing_component_has_its_own_alert() -> None:
         for rule in group["rules"]
         if "alert" in rule
     }
-    assert 96 / 100 >= 0.95  # the case the global alert cannot see
-
     expr = " ".join(str(rules["OmniMercuryDetectorFailing"]["expr"]).split())
     assert expr.count("sum by (detector_type)") == 4
     assert "omni_detection_success_total" in expr
