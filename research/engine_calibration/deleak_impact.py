@@ -111,7 +111,7 @@ def _auroc(x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> float:
     detector = stat.MercuryAnomalyDetector()
     if x.ndim == 1:
         x = x.reshape(-1, 1)
-    detector.fit(x)
+    detector.fit(x, unlabeled_reference=True)
     scores = np.asarray(detector.detect(x)["scores"], float).reshape(-1)
     return float(roc_auc_score(y, scores))
 

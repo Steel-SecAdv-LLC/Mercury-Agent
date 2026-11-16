@@ -134,7 +134,7 @@ def _evaluate_event(
     if use_calibration:
         det.fit_with_labels(X, y, strategy=calibration_strategy)
     else:
-        det.fit(X)
+        det.fit(X, unlabeled_reference=True)
 
     detection = det.detect(X)
     scores = np.asarray(detection["scores"])

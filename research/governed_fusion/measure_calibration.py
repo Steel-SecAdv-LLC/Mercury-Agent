@@ -88,6 +88,30 @@ def _mean(rows: list[dict[str, Any]], method: str, k: str) -> float:
     return float(np.mean(xs)) if xs else float("nan")
 
 
+def _paired_delta(
+    rows: list[dict[str, Any]], method: str, other: str, key: str, resamples: int = 10_000
+) -> dict[str, float]:
+    """Paired bootstrap over events of ``method - other`` on one measure."""
+    deltas = np.array(
+        [
+            r[method][key] - r[other][key]
+            for r in rows
+            if np.isfinite(r[method][key]) and np.isfinite(r[other][key])
+        ]
+    )
+    rng = np.random.RandomState(12345)
+    means = [
+        float(deltas[rng.randint(0, deltas.size, size=deltas.size)].mean())
+        for _ in range(resamples)
+    ]
+    return {
+        "mean": float(deltas.mean()),
+        "ci95_low": float(np.percentile(means, 2.5)),
+        "ci95_high": float(np.percentile(means, 97.5)),
+        "n_events": int(deltas.size),
+    }
+
+
 def main() -> None:
     events = load_scores()
     rows: list[dict[str, Any]] = []
@@ -201,6 +225,12 @@ def main() -> None:
             k: overall["beta_va"][k] - overall["beta_mca"][k] for k in keys
         },
         "venn_abers_mean_interval_width": float(np.nanmean([r["va_interval_width"] for r in rows])),
+        # Beta-MCA against isotonic, event by event. Which of the two has the
+        # lower mean Brier or ECE has changed between measurements; the
+        # interval says whether either lead is more than noise.
+        "beta_mca_minus_isotonic": {
+            k: _paired_delta(rows, "beta_mca", "isotonic", k) for k in keys
+        },
         "beta_gated_domain_regressions": regressions,
         "per_event": rows,
         "per_domain": {

@@ -87,7 +87,8 @@ def event_scores(
             )
 
     X, y = stratified_subsample(ev.X, ev.y, cap, seed=seed)
-    det = MercuryAnomalyDetector().fit(X)
+    # The event is fitted on and scored in place: an unlabelled reference.
+    det = MercuryAnomalyDetector().fit(X, unlabeled_reference=True)
     r = det.detect(X)
     es = EventScores(
         domain=ev.domain,

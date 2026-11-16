@@ -47,6 +47,12 @@ _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "energy"
 _GET_BYTES = "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes"
 
 
+class _NotFound(Exception):
+    """What the transport raises for HTTP 404 (``requests.HTTPError`` in shape)."""
+
+    response = type("Response", (), {"status_code": 404})()
+
+
 def _archives(seen: list[str] | None = None) -> Callable[..., bytes]:
     """A transport serving the recorded files by the URL the loader asks for."""
 
@@ -55,6 +61,11 @@ def _archives(seen: list[str] | None = None) -> Callable[..., bytes]:
             seen.append(url)
         if url.endswith("omni2_1989.dat"):
             return (_FIXTURES / "omni2_1989_quebec.dat").read_bytes()
+        if url.endswith("goes-xrs-report_1989.txt"):
+            return (_FIXTURES / "goes_xrs_1989_quebec.txt").read_bytes()
+        if "goes-xrs-report_" in url:
+            # The flare archive ends in 2017: later years answer 404.
+            raise _NotFound("404")
         if url.endswith("omni2_2021.dat"):
             return (_FIXTURES / "omni2_2021_uri.dat").read_bytes()
         if url.endswith("EIA930_BALANCE_2021_Jan_Jun.csv"):
@@ -115,7 +126,11 @@ def test_a_storm_is_read_from_omni2(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
     frame = loader.fetch_historical("quebec_1989")
 
-    assert seen == ["https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_1989.dat"]
+    assert seen == [
+        "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_1989.dat",
+        "https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-flares/"
+        "x-rays/goes/xrs/goes-xrs-report_1989.txt",
+    ]
     assert not loader.is_synthetic(frame)
     assert (frame["series_source"] == "nasa_omni2").all()
     # Five recorded days in 3-hour steps.
@@ -128,7 +143,7 @@ def test_a_storm_is_read_from_omni2(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # No spacecraft measured the solar wind for much of it; that is NaN, not 0.
     assert frame["solar_wind_speed"].isna().any()
     assert frame["solar_wind_speed"].dropna().between(250.0, 1200.0).all()
-    assert frame["xray_class"].isna().all()
+    assert not frame["xray_class"].isna().any()
 
 
 def test_storm_labels_and_features_come_from_the_recorded_kp(
@@ -148,7 +163,7 @@ def test_storm_labels_and_features_come_from_the_recorded_kp(
     speed = features[:, columns.index("solar_wind_speed")]
     # A step with no coverage takes the recorded median, never zero.
     assert speed.min() > 250.0
-    assert (features[:, columns.index("xray_class")] == 0.0).all()
+    assert features[:, columns.index("xray_class")].max() == 5.0  # recorded X-class flares
     assert loader.engineer_scored_features(frame).shape == (len(frame), 3)
 
 
@@ -513,3 +528,67 @@ def test_a_storm_frame_has_no_grid_view(tmp_path: Path, monkeypatch: pytest.Monk
     assert not loader.is_grid_frame(frame)
     with pytest.raises(ValueError, match="not a grid-event frame"):
         loader.engineer_grid_features(frame)
+
+
+# ---------------------------------------------------------------------------
+# The X-ray class of a historical storm is the recorded one.
+# ---------------------------------------------------------------------------
+
+
+def test_a_storm_frame_carries_the_recorded_flare_classes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Was: NaN in every step, on the ground that OMNI2 does not hold it.
+
+    NOAA NCEI keeps the GOES XRS flare reports by year. Region 5395, whose
+    X4.5 flare of 1989-03-10 preceded the Quebec storm, produced an X1.2 flare
+    peaking at 03:20 UTC on 1989-03-13, the day of the blackout.
+    """
+    monkeypatch.setattr(_GET_BYTES, _archives())
+    loader = _loader(tmp_path)
+
+    frame = loader.fetch_historical("quebec_1989")
+
+    assert not frame["xray_class"].isna().any()
+    assert set(frame["xray_class"].unique()) <= {0.0, 1.0, 2.0, 3.0, 4.0, 5.0}
+    step = frame[frame["timestamp"] == pd.Timestamp("1989-03-13T03:00:00Z")]
+    assert step["xray_class"].iloc[0] == 5.0  # the X-class flare
+    quiet = frame[frame["timestamp"] == pd.Timestamp("1989-03-15T09:00:00Z")]
+    assert quiet["xray_class"].iloc[0] < 5.0
+    features = loader.engineer_features(frame)
+    column = EnergyLoader.FEATURE_COLUMNS.index("xray_class")
+    assert features[:, column].max() == 5.0
+
+
+def test_a_year_outside_the_flare_archive_is_unknown_not_quiet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The archive ends in 2017; a 2021 frame must not claim there were no flares."""
+    monkeypatch.setattr(_GET_BYTES, _archives())
+
+    frame = _loader(tmp_path).fetch_historical("texas_2021")
+
+    assert frame["xray_class"].isna().all()
+
+
+def test_flare_report_rows_that_do_not_fit_are_skipped() -> None:
+    """Lines as NOAA writes them, then three that are not flare records."""
+    recorded = (_FIXTURES / "goes_xrs_1989_quebec.txt").read_text(encoding="ascii").splitlines()
+    x_flare = next(line for line in recorded if line.startswith("31777890310  1848"))
+    m_flare = next(line for line in recorded if line[59] == "M")
+    text = "\n".join(
+        [
+            x_flare,
+            m_flare,
+            x_flare[:23] + "    " + x_flare[27:],  # no peak time: the start time stands
+            "short line",
+            x_flare[:5] + "89XX10" + x_flare[11:],  # unreadable date
+            x_flare[:59] + "?" + x_flare[60:],  # no such class
+        ]
+    )
+
+    parsed = EnergyLoader._parse_flare_report(text)
+
+    assert parsed["xray_class"].tolist() == [5.0, 4.0, 5.0]
+    assert parsed["timestamp"].iloc[0] == pd.Timestamp("1989-03-10T19:12:00Z")
+    assert parsed["timestamp"].iloc[2] == pd.Timestamp("1989-03-10T18:48:00Z")

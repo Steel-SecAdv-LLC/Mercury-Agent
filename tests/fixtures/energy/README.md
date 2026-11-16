@@ -20,3 +20,6 @@ from being cut to the rows the tests need.
   served by Oak Ridge National Laboratory's Open Energy Hub
   (`https://openenergyhub.ornl.gov/api/explore/v2.1/catalog/datasets/oe-417-annual-summaries/records`),
   in one response-shaped document.
+- `goes_xrs_1989_quebec.txt`: the rows for 1989-03-08 to 1989-03-19 of NOAA
+  NCEI's GOES XRS flare report for 1989
+  (`https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-flares/x-rays/goes/xrs/goes-xrs-report_1989.txt`).

@@ -243,7 +243,7 @@ def main():
         if y.min() == y.max():
             continue
         det = MAD()
-        det.fit(X)
+        det.fit(X, unlabeled_reference=True)
         R = det.detect(X)
         s = np.asarray(R["scores"], float).reshape(-1)
         diag_rows.append(

@@ -74,7 +74,7 @@ def _measure_event(loader: Any, domain: str, event_id: str) -> dict[str, Any] | 
     if labels.size == 0 or labels.min() == labels.max():
         return None
     detector = statistical.MercuryAnomalyDetector()
-    detector.fit(features)
+    detector.fit(features, unlabeled_reference=True)  # the event is its own reference
     result = detector.detect(features)
     scores = np.asarray(result["scores"], dtype=float).reshape(-1)
     after = np.asarray(result["is_anomaly"]).astype(int).reshape(-1)

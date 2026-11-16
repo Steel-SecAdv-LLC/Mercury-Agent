@@ -4537,7 +4537,12 @@ class OmniMercuryEngine(LoggerMixin):
                 getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
             )
         self._inference_auto_fit_detectors.add(name)
-        detector.fit(data)
+        if isinstance(detector, MercuryAnomalyDetector):
+            # The batch is unlabelled and may hold the anomalies being looked
+            # for; the detector must not treat it as a vetted normal reference.
+            detector.fit(data, unlabeled_reference=True)
+        else:
+            detector.fit(data)
 
     #: Probability, under the global null (every row normal and every
     #: detector's reference independent of the batch), that ``detect`` calls a

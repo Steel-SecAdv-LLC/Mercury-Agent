@@ -126,6 +126,14 @@ run_gate "weapons-gate corpus drift (ci.yml: ingest_weapons_gate_corpus --check)
 run_gate "Prometheus rule render drift (render_prometheus_rules --check)" \
   python scripts/render_prometheus_rules.py --check
 
+# promtool is a system package (apt: prometheus). Where it is absent the gate
+# fails rather than passing unrun: CI installs it, and so should a release host.
+run_gate "Prometheus rules (ci.yml: promtool check + unit tests)" \
+  bash -c 'command -v promtool >/dev/null || { echo "promtool is not installed (apt-get install prometheus)"; exit 1; }
+           promtool check rules monitoring/prometheus/rules.yml &&
+           promtool check config monitoring/prometheus/prometheus.yml &&
+           cd monitoring/prometheus && promtool test rules rules.test.yml'
+
 # --- pqc-production-check job: tests/security without torch ----------------
 # That lane installs only [dev,api]. scripts/no_torch hides torch the way an
 # absent package does, so torch-dependent imports fail here as they do there.

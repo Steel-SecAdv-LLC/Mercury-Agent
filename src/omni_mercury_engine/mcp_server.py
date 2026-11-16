@@ -867,7 +867,7 @@ class MercuryMCPServer:
             if contamination is not None
             else None
         )
-        detector.fit(X)
+        detector.fit(X, unlabeled_reference=True)
         result = detector.detect(X)
         scores = np.asarray(result["scores"], dtype=float).reshape(-1)
         flags = np.asarray(result["is_anomaly"]).reshape(-1).astype(bool)

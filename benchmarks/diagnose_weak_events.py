@@ -101,7 +101,7 @@ def diagnose_event(
     det = detector_cls()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        det.fit(X)
+        det.fit(X, unlabeled_reference=True)
         detection = det.detect(X)
     scores = np.asarray(detection["scores"])
     anomaly_ratio = float(np.mean(y))

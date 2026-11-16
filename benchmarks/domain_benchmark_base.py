@@ -188,7 +188,7 @@ def run_domain_benchmark(
 
             # Fit and detect
             detector = MercuryAnomalyDetector()
-            detector.fit(features)
+            detector.fit(features, unlabeled_reference=True)
             detection = detector.detect(features)
 
             scores = np.asarray(detection["scores"])

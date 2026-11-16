@@ -455,6 +455,8 @@ class MercuryAnomalyDetector(BaseDetector):
         # ``knn_stream_weight`` config key. None means the stream is off.
         self._knn_fusion_weight: float | None = None
         self._knn_consec_nn_ratio: float | None = None
+        # Whether the last fit was on unlabelled data (see ``fit``).
+        self._unlabeled_reference: bool = False
         # (state key, median, scale) of the ensemble part on the reference
         # sample; recomputed whenever the key (weights, fitted components)
         # changes, so the fusion always aligns the current ensemble.
@@ -481,6 +483,8 @@ class MercuryAnomalyDetector(BaseDetector):
         self,
         data: np.ndarray[Any, Any] | torch.Tensor,
         calibration_labels: np.ndarray[Any, Any] | None = None,
+        *,
+        unlabeled_reference: bool | None = None,
     ) -> MercuryAnomalyDetector:
         """Fit detector on training data.
 
@@ -500,6 +504,13 @@ class MercuryAnomalyDetector(BaseDetector):
                 with the same length as *data*.  When provided, the
                 supervised adaptive weighting and threshold calibration
                 pipeline are automatically invoked.
+            unlabeled_reference: Whether *data* is unlabelled data that may
+                hold the anomalies themselves (a batch fitted on because
+                nothing else exists, an event scored in place) rather than a
+                reference known to be normal. ``True`` caps the kNN density
+                stream's fusion weight at :attr:`_KNN_WEIGHT_UNLABELED_CAP`.
+                ``None`` (default) reads the ``unlabeled_reference`` config
+                key, which defaults to ``False``.
 
         Returns:
             Self for method chaining.
@@ -568,6 +579,11 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # --- kNN density stream: reference tree over the training rows ---
         self._fit_generation = next(_FIT_EVENTS)
+        self._unlabeled_reference = (
+            bool(self.config.get("unlabeled_reference", False))
+            if unlabeled_reference is None
+            else bool(unlabeled_reference)
+        )
         self._fit_knn_stream(arr)
 
         self._is_fitted = True
@@ -3256,6 +3272,22 @@ class MercuryAnomalyDetector(BaseDetector):
     # cached ADBench sets verified), so none of this moves those records.
     _KNN_WEIGHT_TEMPORAL_CAP: float = 0.25
     _KNN_SERIES_CONTINUITY_MAX: float = 3.5
+    # The dimensional weight was measured with the reference the density
+    # stream presumes: rows known to be normal (the benchmark fits on normal
+    # rows only). Fitted instead on unlabelled data that contains the
+    # anomalies, density can rank them as the most normal rows: a dense
+    # attack cluster is the tightest neighbourhood in the file. At the 0.85
+    # cap the fused score then follows the inverted stream. Measured by
+    # fitting on, and scoring, the same unlabelled rows of the 47 ADBench
+    # sets at weights 0, 0.25, 0.5 and the dimensional weight: mean AUROC
+    # 0.7614 / 0.7716 / 0.7751 / 0.7590, worst loss against the best of the
+    # four 0.259 / 0.135 / 0.076 / 0.793 (one set scores 0.2021 at the
+    # dimensional weight and 0.9956 without the stream). Equal weight is best
+    # on both counts, so an unlabelled reference caps the weight there:
+    # neither stream's premise is verified, neither is given priority. Not
+    # used to choose it, the 31 governed-fusion events agree (0.8306 at 0.5
+    # against 0.8239 at the dimensional weight).
+    _KNN_WEIGHT_UNLABELED_CAP: float = 0.5
 
     def _knn_dimension_weight(self, n_features: int) -> float:
         """Fit-time fusion weight of the kNN z-stream, gated on feature width.
@@ -3275,7 +3307,9 @@ class MercuryAnomalyDetector(BaseDetector):
         unknown) the result is additionally capped at
         :attr:`_KNN_WEIGHT_TEMPORAL_CAP`; time-ordered independent
         instances keep the dimensional weight (measurements at the
-        constants).
+        constants). A fit on unlabelled data (``fit(...,
+        unlabeled_reference=True)``) is capped at
+        :attr:`_KNN_WEIGHT_UNLABELED_CAP` first.
         """
         explicit = self.config.get("knn_stream_weight")
         if explicit is not None:
@@ -3284,6 +3318,8 @@ class MercuryAnomalyDetector(BaseDetector):
         position = (midpoint - math.log2(max(n_features, 1))) / self._KNN_WEIGHT_LOG_SCALE
         gate = 1.0 / (1.0 + math.exp(-position))
         weight = self._KNN_WEIGHT_MIN + (self._KNN_WEIGHT_MAX - self._KNN_WEIGHT_MIN) * gate
+        if getattr(self, "_unlabeled_reference", False):
+            weight = min(weight, self._KNN_WEIGHT_UNLABELED_CAP)
         if self._data_type == DataCharacteristics.TEMPORAL and (
             self._knn_consec_nn_ratio is None
             or self._knn_consec_nn_ratio < self._KNN_SERIES_CONTINUITY_MAX

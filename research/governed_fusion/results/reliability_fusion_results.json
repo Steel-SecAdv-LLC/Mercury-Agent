@@ -1,17 +1,17 @@
 {
   "n_events": 27,
   "overall": {
-    "baseline_linear": 0.8169185917127229,
-    "reliability_linear": 0.8354821523466819,
-    "reliability_clipped": 0.8367134267980637,
-    "reliability_trimmed": 0.7978239533400807,
-    "best_single": 0.8724564324846641
+    "baseline_linear": 0.8166219838832453,
+    "reliability_linear": 0.8351934799643217,
+    "reliability_clipped": 0.8364340733789368,
+    "reliability_trimmed": 0.7946594470194357,
+    "best_single": 0.8724456494285457
   },
   "best_reliability_variant": "reliability_clipped",
-  "gap_to_best_single": -0.03574300568660038,
+  "gap_to_best_single": -0.03601157604960892,
   "verdict": "KILL CONFIRMED: cannot reach best-single (see per-domain regressions)",
   "per_domain_regressions": {
-    "energy": -0.016,
+    "energy": -0.018,
     "fema": -0.035,
     "hurricane": -0.125,
     "marine": -0.14,
@@ -218,31 +218,31 @@
     {
       "domain": "energy",
       "event": "quebec_1989",
-      "baseline_linear": 0.9368876080691644,
-      "reliability_linear": 0.9515850144092219,
-      "reliability_clipped": 0.9521613832853026,
-      "reliability_trimmed": 0.9512968299711816,
-      "best_single": 0.9512968299711816,
+      "baseline_linear": 0.9342939481268012,
+      "reliability_linear": 0.9481268011527378,
+      "reliability_clipped": 0.9481268011527378,
+      "reliability_trimmed": 0.9487031700288185,
+      "best_single": 0.9487031700288185,
       "best_single_name": "info_geometry",
       "rel_weights": [
-        0.275,
-        0.034,
-        0.691
+        0.274,
+        0.0,
+        0.726
       ]
     },
     {
       "domain": "energy",
       "event": "halloween_2003",
-      "baseline_linear": 0.974412955465587,
-      "reliability_linear": 0.9765182186234818,
-      "reliability_clipped": 0.9765182186234818,
-      "reliability_trimmed": 0.9433198380566802,
-      "best_single": 0.9787854251012146,
+      "baseline_linear": 0.9729554655870445,
+      "reliability_linear": 0.9737651821862349,
+      "reliability_clipped": 0.9753846153846155,
+      "reliability_trimmed": 0.8984615384615384,
+      "best_single": 0.9791093117408907,
       "best_single_name": "info_geometry",
       "rel_weights": [
-        0.247,
-        0.331,
-        0.422
+        0.258,
+        0.338,
+        0.404
       ]
     },
     {
@@ -278,16 +278,16 @@
     {
       "domain": "energy",
       "event": "bastille_day_2000",
-      "baseline_linear": 0.9711119905025722,
-      "reliability_linear": 0.9722991689750693,
-      "reliability_clipped": 0.9699248120300752,
-      "reliability_trimmed": 0.9259992085476849,
-      "best_single": 0.9715077166600712,
+      "baseline_linear": 0.9671547289275821,
+      "reliability_linear": 0.9707162643450733,
+      "reliability_clipped": 0.9675504550850811,
+      "reliability_trimmed": 0.8880094974277799,
+      "best_single": 0.9734863474475663,
       "best_single_name": "info_geometry",
       "rel_weights": [
-        0.317,
-        0.275,
-        0.409
+        0.311,
+        0.276,
+        0.413
       ]
     },
     {

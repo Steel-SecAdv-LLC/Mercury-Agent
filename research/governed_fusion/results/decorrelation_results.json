@@ -8,29 +8,30 @@
     "cap": 6000,
     "headline": true,
     "step1_redundancy": {
-      "mean_abs_pairwise_spearman_3": 0.44103789407204197
+      "mean_abs_pairwise_spearman_3": 0.43867188609487234
     },
     "step2_decorrelation": {
-      "temporal_vs_3_mean_abs_spearman": 0.33784166621350614,
-      "knn_vs_3_mean_abs_spearman": 0.5226496889488799,
-      "mean_abs_pairwise_spearman_4_temporal": 0.389439780142774
+      "temporal_vs_3_mean_abs_spearman": 0.3361382511740803,
+      "knn_vs_3_mean_abs_spearman": 0.5205222999206528,
+      "mean_abs_pairwise_spearman_4_temporal": 0.38740506863447627
     },
     "step3_stacking": {
-      "best_single": 0.8724564324846641,
-      "stack3": 0.879146371130561,
-      "stack4_temporal": 0.8757234821925588,
-      "stack4_knn": 0.8803303370314217,
-      "stack5": 0.8764166475481217
+      "best_single": 0.8724456494285457,
+      "stack3": 0.878127966223662,
+      "stack4_temporal": 0.8748292245775369,
+      "stack4_knn": 0.8793845688974874,
+      "stack5": 0.8753390818779657
     },
     "step4_decision": {
-      "paired_delta_mean": 0.0032670497078949846,
+      "paired_delta_mean": 0.0023835751489911404,
       "paired_delta_ci95": [
-        -0.04542656185576157,
-        0.05613245403788213
+        -0.04635565324198713,
+        0.0552289610197649
       ],
       "ship_delta_threshold": 0.01,
       "kill_rho_threshold": 0.5,
       "per_domain_regressions": {
+        "energy": -0.013,
         "hurricane": -0.125
       },
       "verdict": "INCONCLUSIVE: neither SHIP nor KILL criteria met"
@@ -260,36 +261,36 @@
       {
         "domain": "energy",
         "event": "quebec_1989",
-        "rho_bar_3": 0.45163905142253996,
-        "rho_bar_4_temporal": 0.3653331079774968,
-        "rho_temporal_vs_3": 0.2790271645324536,
-        "rho_knn_vs_3": 0.40635218362533454,
-        "single_temporal": 0.7884726224783862,
-        "single_knn": 0.7328530259365995,
-        "best_single": 0.9512968299711816,
+        "rho_bar_3": 0.42644746599395345,
+        "rho_bar_4_temporal": 0.34245915188451126,
+        "rho_temporal_vs_3": 0.2584708377750691,
+        "rho_knn_vs_3": 0.40130425916605783,
+        "single_temporal": 0.7965417867435158,
+        "single_knn": 0.7334293948126802,
+        "best_single": 0.9487031700288185,
         "best_single_name": "info_geometry",
-        "stack3": 0.9394812680115274,
-        "stack4_temporal": 0.9360230547550433,
-        "stack4_knn": 0.9377521613832853,
-        "stack5": 0.8567723342939482,
-        "delta_temporal": -0.015273775216138263
+        "stack3": 0.9184438040345821,
+        "stack4_temporal": 0.9204610951008647,
+        "stack4_knn": 0.9170028818443804,
+        "stack5": 0.8391930835734871,
+        "delta_temporal": -0.02824207492795383
       },
       {
         "domain": "energy",
         "event": "halloween_2003",
-        "rho_bar_3": 0.5169137240081603,
-        "rho_bar_4_temporal": 0.5361712950784833,
-        "rho_temporal_vs_3": 0.555428866148806,
-        "rho_knn_vs_3": 0.6809030395995473,
-        "single_temporal": 0.8320647773279353,
-        "single_knn": 0.9774898785425101,
-        "best_single": 0.9787854251012146,
+        "rho_bar_3": 0.5088743493438019,
+        "rho_bar_4_temporal": 0.5310719413867434,
+        "rho_temporal_vs_3": 0.5532695334296848,
+        "rho_knn_vs_3": 0.6633557822990669,
+        "single_temporal": 0.848744939271255,
+        "single_knn": 0.9791093117408907,
+        "best_single": 0.9791093117408907,
         "best_single_name": "info_geometry",
-        "stack3": 0.9724696356275304,
-        "stack4_temporal": 0.9682591093117409,
-        "stack4_knn": 0.9718218623481781,
-        "stack5": 0.9682591093117409,
-        "delta_temporal": -0.010526315789473717
+        "stack3": 0.9668016194331983,
+        "stack4_temporal": 0.9596761133603239,
+        "stack4_knn": 0.9666396761133603,
+        "stack5": 0.9595141700404859,
+        "delta_temporal": -0.019433198380566785
       },
       {
         "domain": "energy",
@@ -328,19 +329,19 @@
       {
         "domain": "energy",
         "event": "bastille_day_2000",
-        "rho_bar_3": 0.5082489769942762,
-        "rho_bar_4_temporal": 0.5275272211439654,
-        "rho_temporal_vs_3": 0.5468054652936548,
-        "rho_knn_vs_3": 0.7113820771290936,
-        "single_temporal": 0.7898694103680253,
-        "single_knn": 0.9897111199050258,
-        "best_single": 0.9715077166600712,
+        "rho_bar_3": 0.47759772170364173,
+        "rho_bar_4_temporal": 0.5005633202046536,
+        "rho_temporal_vs_3": 0.5235289187056654,
+        "rho_knn_vs_3": 0.6765377551267212,
+        "single_temporal": 0.777601899485556,
+        "single_knn": 0.9877324891175308,
+        "best_single": 0.9734863474475663,
         "best_single_name": "info_geometry",
-        "stack3": 0.9726948951325682,
+        "stack3": 0.9719034428175702,
         "stack4_temporal": 0.961614562722596,
-        "stack4_knn": 0.9833795013850415,
-        "stack5": 0.9758607043925603,
-        "delta_temporal": -0.009893153937475141
+        "stack4_knn": 0.9837752275425405,
+        "stack5": 0.9730906212900673,
+        "delta_temporal": -0.011871784724970302
       },
       {
         "domain": "fema",
@@ -506,12 +507,12 @@
         "stack4_knn": 0.9931719303899453
       },
       "energy": {
-        "rho_bar_3": 0.46577951364477366,
-        "rho_temporal_vs_3": 0.42955295563439916,
-        "best_single": 0.9139463005368708,
-        "stack3": 0.9089801559866716,
-        "stack4_temporal": 0.905633383945782,
-        "stack4_knn": 0.9105161105991643
+        "rho_bar_3": 0.4530030705680578,
+        "rho_temporal_vs_3": 0.4203545144215002,
+        "best_single": 0.9138880720338323,
+        "stack3": 0.9034807694894165,
+        "stack4_temporal": 0.9008043928246628,
+        "stack4_knn": 0.9054089626759195
       },
       "fema": {
         "rho_bar_3": 0.3368105340193958,
@@ -576,10 +577,10 @@
   },
   "combined_power_sensitivity": {
     "n_events": 27,
-    "paired_delta_mean": 0.0032670497078949846,
+    "paired_delta_mean": 0.0023835751489911404,
     "paired_delta_ci95": [
-      -0.04542656185576157,
-      0.05613245403788213
+      -0.04635565324198713,
+      0.0552289610197649
     ],
     "ship_delta_threshold": 0.01,
     "verdict": "still underpowered: combined CI upper bound remains >= +0.01"

@@ -25,7 +25,11 @@ import pandas as pd
 
 from omni_mercury_engine.datasets.exceptions import OfflineModeError, check_synthetic_allowed
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
-from omni_mercury_engine.loaders.base import BaseDomainLoader, SyntheticDataNotDeleakable
+from omni_mercury_engine.loaders.base import (
+    BaseDomainLoader,
+    FetchHTTPError,
+    SyntheticDataNotDeleakable,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +38,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _KP_INDEX_URL = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
 _XRAY_FLARES_URL = "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json"
+#: NOAA NCEI's yearly GOES XRS flare reports (1975 to 2017), one text file per year.
+_FLARE_REPORT_URL = (
+    "https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-flares/"
+    "x-rays/goes/xrs/goes-xrs-report_{year}.txt"
+)
 # SWPC retired the whole ``/products/solar-wind/`` tree (every ``plasma-*`` and
 # ``mag-*`` file under it now answers 404); real-time solar wind plasma moved to
 # the RTSW feed, which serves 1-minute records for the trailing 24 hours.
@@ -396,7 +405,8 @@ class EnergyLoader(BaseDomainLoader):
         # the grid event, EIA demand beside invented columns).
         # v3 key: a v2 frame could be a truncated download or lack the hours
         # EIA files under the neighbouring half-year.
-        cache_key = f"energy_historical_v3_{event_id}"
+        # v4 key: earlier frames have no recorded X-ray class.
+        cache_key = f"energy_historical_v4_{event_id}"
         cached_frame = self._read_frame_cache(cache_key)
 
         if cached_frame is not None:
@@ -568,7 +578,8 @@ class EnergyLoader(BaseDomainLoader):
 
         Returns:
             DataFrame with ``timestamp``, ``kp``, ``solar_wind_speed``,
-            ``solar_wind_density`` and an all-NaN ``xray_class``.
+            ``solar_wind_density`` and ``xray_class`` (the strongest recorded
+            flare of each step; NaN for a year outside the flare archive).
 
         Raises:
             ConnectionError: If a yearly file cannot be downloaded.
@@ -589,8 +600,87 @@ class EnergyLoader(BaseDomainLoader):
             .mean()
             .reset_index()
         )
-        steps["xray_class"] = np.nan
+        steps["xray_class"] = self._recorded_flare_classes(steps["timestamp"], start, end)
         return steps
+
+    def _recorded_flare_classes(
+        self, timestamps: pd.Series[Any], start: pd.Timestamp, end: pd.Timestamp
+    ) -> np.ndarray[Any, Any]:
+        """Strongest recorded GOES X-ray flare in each step, as a class number.
+
+        Read from NOAA NCEI's yearly GOES XRS flare reports. A step in which
+        no flare peaked is 0. A year the archive does not hold (it ends in
+        2017) is NaN: unknown, not quiet.
+
+        Args:
+            timestamps: Step starts (UTC), one per row.
+            start: First instant of the span (UTC).
+            end: End of the span, exclusive (UTC).
+
+        Returns:
+            1-D float array aligned with ``timestamps``.
+
+        Raises:
+            ConnectionError: If a yearly report cannot be downloaded for a
+                reason other than not existing.
+        """
+        stamps = pd.to_datetime(timestamps, utc=True)
+        classes = np.full(len(stamps), np.nan, dtype=np.float64)
+        step = pd.Timedelta(_STEP)
+        for year in range(start.year, (end - pd.Timedelta(seconds=1)).year + 1):
+            try:
+                raw = self._fetch_url(_FLARE_REPORT_URL.format(year=year))
+            except FetchHTTPError as exc:
+                if exc.status_code == 404:
+                    logger.info("No GOES XRS flare report for %d; xray_class stays unknown.", year)
+                    continue
+                raise
+            flares = self._parse_flare_report(raw.decode("ascii", errors="replace"))
+            in_year = np.asarray(stamps.dt.year == year)
+            classes[in_year] = 0.0
+            for position in np.flatnonzero(in_year):
+                opened = stamps.iloc[position]
+                peaked = (flares["timestamp"] >= opened) & (flares["timestamp"] < opened + step)
+                if peaked.any():
+                    classes[position] = float(flares.loc[peaked, "xray_class"].max())
+        return classes
+
+    @staticmethod
+    def _parse_flare_report(text: str) -> pd.DataFrame:
+        """Parse one yearly GOES XRS flare report.
+
+        Fixed columns: the date ``YYMMDD`` at 5-11, start, end and peak times
+        (``HHMM``) at 13-17, 18-22 and 23-27, the class letter at 59. A row
+        that does not fit (a short line, an unreadable date, no class) is
+        skipped.
+
+        Args:
+            text: Contents of ``goes-xrs-report_YYYY.txt``.
+
+        Returns:
+            DataFrame with ``timestamp`` (UTC, the peak time, or the start
+            time when no peak is given) and ``xray_class`` (A=1 ... X=5).
+        """
+        rows: list[dict[str, Any]] = []
+        for line in text.splitlines():
+            if len(line) < 60:
+                continue
+            value = _FLARE_CLASS_MAP.get(line[59])
+            date, begun, peak = line[5:11], line[13:17], line[23:27]
+            clock = peak if peak.isdigit() else begun
+            if value is None or not date.isdigit() or not clock.isdigit():
+                continue
+            year = int(date[:2])
+            stamp = pd.to_datetime(
+                f"{1900 + year if year >= 70 else 2000 + year}{date[2:]}{clock}",
+                format="%Y%m%d%H%M",
+                utc=True,
+                errors="coerce",
+            )
+            if pd.isna(stamp):
+                continue
+            rows.append({"timestamp": stamp, "xray_class": value})
+        return pd.DataFrame(rows, columns=["timestamp", "xray_class"])
 
     @staticmethod
     def _parse_omni2(text: str) -> pd.DataFrame:

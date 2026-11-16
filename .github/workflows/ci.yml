@@ -557,6 +557,20 @@ jobs:
         # scripts/measure_skip_ledger.py --update docs/SKIP_LEDGER.md`.
         run: python scripts/measure_skip_ledger.py --check docs/SKIP_LEDGER.md
 
+      - name: Validate Prometheus rules (promtool check + unit tests)
+        # `check rules` parses every expression; `test rules` feeds series to
+        # the rule file and asserts which alerts fire
+        # (monitoring/prometheus/rules.test.yml). A rule that parses but can
+        # never fire passes the first and fails the second. promtool comes
+        # from the runner's own package repository.
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends prometheus
+          python scripts/render_prometheus_rules.py --check
+          promtool check rules monitoring/prometheus/rules.yml
+          promtool check config monitoring/prometheus/prometheus.yml
+          cd monitoring/prometheus && promtool test rules rules.test.yml
+
       - name: Run benchmark-integrity gate (ROADMAP row 17 offline fallback)
         # Dependency-free, no-network structural + recomputation gate over
         # benchmarks/mercury_benchmark_results.json and the README benchmark
