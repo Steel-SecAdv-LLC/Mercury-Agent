@@ -221,8 +221,8 @@ class FEMALoader(BaseDomainLoader):
 
     DOMAIN: str = "fema"
     SOURCE_URL: str = _DECLARATIONS_URL
-    # Labels = (declarationType == "DR") AND iaProgramDeclared AND
-    # paProgramDeclared. The ``ia_program`` / ``pa_program`` flags are also
+    # Labels = (declarationType == "DR") AND individual assistance
+    # (iaProgramDeclared OR ihProgramDeclared) AND paProgramDeclared. The ``ia_program`` / ``pa_program`` flags are also
     # scored features, so the label is a direct conjunction of feature
     # columns. Circular.
     LABEL_SOURCE: str = "statistical"
@@ -426,12 +426,29 @@ class FEMALoader(BaseDomainLoader):
             )
         return events
 
+    @classmethod
+    def _individual_assistance(cls, df: pd.DataFrame) -> np.ndarray[Any, Any]:
+        """Whether individual assistance was declared, as 0.0 / 1.0 per record.
+
+        FEMA records it in two columns. ``iaProgramDeclared`` is set on
+        declarations up to about 2007; later ones carry it as
+        ``ihProgramDeclared`` (the Individuals and Households Program) and
+        leave ``iaProgramDeclared`` false. Measured on the live earthquake
+        history 2026-11-16: 67 of 82 declarations to 2005 have IA and 3 have
+        IH; of 137 since 2010, none has IA and 51 have IH. Reading IA alone
+        labelled every declaration of 2023 and 2024 normal.
+        """
+        ia = cls._bool_column(df, "iaProgramDeclared")
+        ih = cls._bool_column(df, "ihProgramDeclared")
+        return np.asarray(np.maximum(ia, ih), dtype=np.float64)
+
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """Generate binary anomaly labels for a historical FEMA event.
 
         Labeling strategy: a declaration is labeled *anomalous* (``1``)
         if it is a Major Disaster (declaration type ``DR``) with both
-        Individual Assistance (IA) and Public Assistance (PA) programs
+        individual assistance (``iaProgramDeclared`` or, on declarations
+        since about 2007, ``ihProgramDeclared``) and Public Assistance (PA)
         designated.  These represent the most severe events requiring
         full federal response.  Emergency-only (``EM``) declarations
         and declarations without both IA and PA are labeled *normal*
@@ -460,7 +477,7 @@ class FEMALoader(BaseDomainLoader):
         # and Public Assistance (PA) programs designated.  These represent
         # the most severe events requiring full federal response.
         is_major_disaster = df["declarationType"].values == "DR"
-        has_ia = df["iaProgramDeclared"].fillna(False).values.astype(bool)
+        has_ia = self._individual_assistance(df).astype(bool)
         has_pa = df["paProgramDeclared"].fillna(False).values.astype(bool)
 
         labels = (is_major_disaster & has_ia & has_pa).astype(np.int64)
@@ -547,7 +564,7 @@ class FEMALoader(BaseDomainLoader):
         _, trailing_national = self._compute_trailing_counts(df)
 
         # ---- Feature 4: IA program flag ----
-        ia = self._bool_column(df, "iaProgramDeclared")
+        ia = self._individual_assistance(df)
 
         # ---- Feature 5: HM program flag ----
         hm = self._bool_column(df, "hmProgramDeclared")

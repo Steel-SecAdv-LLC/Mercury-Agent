@@ -7,9 +7,9 @@ per-event macro-mean metrics per-domain and overall.  This is the reference the
 conformal (Item 4) and reliability-fusion (Item 3) corrections measure against.
 
 Two clearly-separated blocks are written: the **live headline suite**
-(23 events / 7 domains -- every other governed-fusion script measures this set)
-and the **reconstructed-from-live group** (tsunami / energy / ebola_2014, 7
-events), reported separately and never folded into the headline mean.
+(every other governed-fusion script measures this set) and the
+**reconstructed-from-live group** (``ebola_2014``; empty without the synthetic
+opt-in), reported separately and never folded into the headline mean.
 
 Run::
 
@@ -46,6 +46,17 @@ def load_scores(kind: str = "real", cap: int = CAP) -> list[EventScores]:
 
 def _summarize(events: list[EventScores]) -> dict[str, Any]:
     """Per-event macro mean + per-domain + per-provenance + pooled-row metrics."""
+    if not events:
+        # An empty class is a valid outcome: since the tsunami and energy
+        # loaders read recorded history, and the Ebola stand-in is refused
+        # without the synthetic opt-in, nothing is reconstructed.
+        return {
+            "overall": {"n_events": 0},
+            "per_domain": {},
+            "per_provenance": {},
+            "pooled_rows": {},
+            "per_event": [],
+        }
     res = aggregate(events, baseline_scorer)
     yy = np.concatenate([e.y for e in events])
     ss = np.concatenate([e.combined for e in events])
@@ -62,6 +73,9 @@ def _summarize(events: list[EventScores]) -> dict[str, Any]:
 def _print_block(title: str, block: dict[str, Any]) -> None:
     """Print one group's per-domain + per-provenance + overall + pooled row."""
     print(f"\n==== {title}: {block['overall']['n_events']} events (cap={CAP}) ====")
+    if block["overall"]["n_events"] == 0:
+        print("(none)")
+        return
     print(f"{'domain':<18}{'AUROC':>8}{'AUPRC':>8}{'F1':>8}{'P':>8}{'R':>8}  events")
     for dom in sorted(block["per_domain"]):
         d = block["per_domain"][dom]

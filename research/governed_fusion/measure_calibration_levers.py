@@ -3,7 +3,7 @@
 """Stage 2 calibration lever probe (held-out Brier/ECE vs the shipped default).
 
 Can the composite objective, the accept-gate tolerance, or the beta warm-start
-lower **held-out** Brier+ECE on the 23-event live suite WITHOUT breaking the
+lower **held-out** Brier+ECE on the live headline suite WITHOUT breaking the
 AUROC exact tie or the no-regression accept-gate?  Three levers named in the
 Stage-2 brief are swept on the same seeded 50/50 splits ``measure_calibration.py``
 uses:
@@ -202,7 +202,8 @@ def main() -> None:
     cfg_summary, gate_summary = _holdout_metrics()
     base = cfg_summary["default(l_ece=1,l_nb=0,identity)"]
 
-    print("\n==== STAGE 2 LEVER PROBE (held-out, 23-event live suite) ====")
+    n_events = int(base["n"])
+    print(f"\n==== STAGE 2 LEVER PROBE (held-out, live suite, {n_events} events used) ====")
     print(f"{'config':<34}{'brier':>10}{'ece':>10}{'d_auroc':>10}{'dBrier':>10}{'dECE':>10}")
     landed = []
     for label, *_ in _CONFIGS:
@@ -229,7 +230,9 @@ def main() -> None:
     print(f"\nVERDICT -> {verdict}")
 
     out = {
-        "suite": "live headline (real) 23 events",
+        # Was the literal "23 events", which the file kept saying after the
+        # suite changed size.
+        "suite": f"live headline (real), {n_events} events used",
         "default_config": "lambda_ece=1, lambda_nb=0, warm_start=identity",
         "note_d_auroc": "paired (config - identity) per-event AUROC; ~0 confirms the monotone tie",
         "configs": cfg_summary,

@@ -25,7 +25,7 @@ import pandas as pd
 
 from omni_mercury_engine.datasets.exceptions import OfflineModeError, check_synthetic_allowed
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
-from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.loaders.base import BaseDomainLoader, SyntheticDataNotDeleakable
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,30 @@ _OE417_PAGE = 100
 
 #: Name of the label column a DOE-labelled grid frame carries.
 DOE_DISTURBANCE_COLUMN = "doe_disturbance"
+
+#: The EIA-930 series a grid-event frame holds.
+_GRID_SERIES_COLUMNS: tuple[str, ...] = (
+    "grid_demand",
+    "grid_demand_forecast",
+    "grid_net_generation",
+    "grid_interchange",
+)
+
+#: Columns of :meth:`EnergyLoader.engineer_grid_features`, in order.
+GRID_FEATURE_COLUMNS: tuple[str, ...] = (
+    "grid_demand",
+    "grid_net_generation",
+    "grid_interchange",
+    "grid_forecast_error",
+    "grid_demand_change",
+    "grid_generation_change",
+)
+
+#: Grid features that are functions of demand or its forecast. A grid event
+#: labelled by the shortfall of demand against forecast is not scored on them.
+GRID_SHORTFALL_DERIVED_FEATURES: frozenset[str] = frozenset(
+    {"grid_demand", "grid_forecast_error", "grid_demand_change"}
+)
 
 #: ``series_source`` values of a historical frame.
 SERIES_SOURCE_OMNI2 = "nasa_omni2"
@@ -370,7 +394,9 @@ class EnergyLoader(BaseDomainLoader):
 
         # v2 key: frames under the old key were synthetic Kp profiles (or, for
         # the grid event, EIA demand beside invented columns).
-        cache_key = f"energy_historical_v2_{event_id}"
+        # v3 key: a v2 frame could be a truncated download or lack the hours
+        # EIA files under the neighbouring half-year.
+        cache_key = f"energy_historical_v3_{event_id}"
         cached_frame = self._read_frame_cache(cache_key)
 
         if cached_frame is not None:
@@ -893,19 +919,106 @@ class EnergyLoader(BaseDomainLoader):
             ]
         )
 
-        # Clean up non-finite values
+        # A channel with no reading at all (X-ray class for a recorded
+        # historical event) carries no information and becomes 0; a gap in a
+        # channel takes the column median.
+        return self._fill_missing(features)
+
+    @staticmethod
+    def _fill_missing(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Replace non-finite cells: the column median, or 0 for an empty column."""
         features = np.where(np.isinf(features), np.nan, features)
         for col_idx in range(features.shape[1]):
             col = features[:, col_idx]
             mask = np.isnan(col)
             if mask.all():
-                # A channel with no reading at all (X-ray class for a
-                # recorded historical event) carries no information: 0.
                 col[:] = 0.0
             elif mask.any():
                 col[mask] = np.nanmedian(col)
-
         return features
+
+    @staticmethod
+    def is_grid_frame(raw_data: pd.DataFrame) -> bool:
+        """Whether a frame holds a balancing authority's recorded EIA-930 series."""
+        return all(column in raw_data.columns for column in _GRID_SERIES_COLUMNS)
+
+    def engineer_grid_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
+        """Feature matrix of a grid event, from the grid's own recorded series.
+
+        :meth:`engineer_features` describes space weather. A grid event (a
+        winter storm, a year of DOE-reported disturbances) is not a space
+        weather event, and scoring it on solar wind measures nothing: the
+        detector was never shown the grid.
+
+        Columns, in :data:`GRID_FEATURE_COLUMNS` order:
+
+        1. **grid_demand** -- served demand (MW).
+        2. **grid_net_generation** -- net generation (MW).
+        3. **grid_interchange** -- total interchange (MW, exports positive).
+        4. **grid_forecast_error** -- ``(forecast - demand) / forecast``.
+        5. **grid_demand_change** -- step-to-step change in demand (MW).
+        6. **grid_generation_change** -- step-to-step change in generation (MW).
+
+        Args:
+            raw_data: A grid-event frame from :meth:`fetch_historical`.
+
+        Returns:
+            2-D numpy array of shape ``(n_samples, 6)``.
+
+        Raises:
+            ValueError: If the frame does not hold the EIA-930 columns.
+        """
+        if not self.is_grid_frame(raw_data):
+            raise ValueError("not a grid-event frame: it lacks " + ", ".join(_GRID_SERIES_COLUMNS))
+        df = raw_data
+        if "timestamp" in df.columns:
+            df = df.sort_values("timestamp").reset_index(drop=True)
+        demand = self._safe_column(df, "grid_demand")
+        forecast = self._safe_column(df, "grid_demand_forecast")
+        generation = self._safe_column(df, "grid_net_generation")
+        interchange = self._safe_column(df, "grid_interchange")
+        with np.errstate(divide="ignore", invalid="ignore"):
+            forecast_error = (forecast - demand) / forecast
+
+        def _change(series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            change = np.zeros(len(series), dtype=np.float64)
+            if len(series) > 1:
+                change[1:] = np.diff(series)
+            return change
+
+        features = np.column_stack(
+            [demand, generation, interchange, forecast_error, _change(demand), _change(generation)]
+        )
+        return self._fill_missing(features)
+
+    def engineer_scored_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
+        """The matrix to score: label-disjoint, and of the event's own kind.
+
+        A storm frame is the space-weather matrix without its Kp columns (the
+        labels are ``kp >= 7``). A grid frame is the grid matrix: all of it
+        when the labels are DOE's disturbance reports, which no column
+        produces, and without the demand-derived columns when the labels are
+        the shortfall of demand against forecast.
+
+        Raises:
+            SyntheticDataNotDeleakable: For a synthetic stand-in.
+        """
+        if not self.is_grid_frame(raw_data):
+            return super().engineer_scored_features(raw_data)
+        if self.is_synthetic(raw_data):
+            raise SyntheticDataNotDeleakable(
+                f"{type(self).__name__}: the frame is synthetic, so no label-disjoint scored "
+                "matrix exists"
+            )
+        features = self.engineer_grid_features(raw_data)
+        if DOE_DISTURBANCE_COLUMN in raw_data.columns:
+            return features
+        keep = [
+            index
+            for index, name in enumerate(GRID_FEATURE_COLUMNS)
+            if name not in GRID_SHORTFALL_DERIVED_FEATURES
+        ]
+        return np.asarray(features[:, keep])
 
     # ------------------------------------------------------------------
     # Private helpers -- data fetching

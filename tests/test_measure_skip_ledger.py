@@ -330,6 +330,150 @@ class TestScan:
             ("test_helper_return_does_not_hide_it", "skip"),
         }
 
+    def test_named_dynamic_and_unittest_forms_are_seen(self, tmp_path: Path) -> None:
+        """Was: ``parked == []`` for every test here (found by review of the gate)."""
+        scan = msl.scan_tests(
+            _tree(
+                tmp_path,
+                {
+                    "test_named.py": """
+                    import unittest
+
+                    import pytest
+
+                    parked = pytest.mark.skip(reason="named")
+                    always: pytest.MarkDecorator = pytest.mark.skipif(True, reason="named skipif")
+
+                    @parked
+                    def test_named_decorator():
+                        pass
+
+                    @pytest.mark.parametrize("v", [pytest.param(1, marks=parked)])
+                    def test_named_param(v):
+                        pass
+
+                    @always
+                    def test_named_skipif():
+                        pass
+
+                    class Legacy(unittest.TestCase):
+                        def test_skiptest_method(self):
+                            self.skipTest("off")
+
+                        def test_raises_skiptest(self):
+                            raise unittest.SkipTest("off")
+
+                        @unittest.skipIf(True, "always")
+                        def test_skipif_true(self):
+                            pass
+
+                        @unittest.skipUnless(False, "never")
+                        def test_skipunless_false(self):
+                            pass
+
+                    def test_applymarker(request):
+                        request.applymarker(pytest.mark.xfail(reason="dynamic"))
+
+                    def test_add_marker(request):
+                        request.node.add_marker(parked)
+
+                    def test_inside_with(tmp_path):
+                        with open(tmp_path / "f", "w"):
+                            pytest.skip("a with block is not a condition")
+                    """,
+                    "test_grown.py": """
+                    import pytest
+
+                    pytestmark = []
+                    pytestmark += [pytest.mark.skip(reason="grown")]
+                    """,
+                    "test_appended.py": """
+                    import pytest
+
+                    pytestmark = []
+                    pytestmark.append(pytest.mark.xfail)
+                    """,
+                    "test_module_named.py": """
+                    import pytest
+
+                    off = pytest.mark.skip(reason="module, by name")
+                    pytestmark = off
+                    """,
+                },
+            )
+        )
+        found = {
+            (parked.path.rsplit("/", 1)[1], parked.name, parked.kind) for parked in scan.parked
+        }
+        assert found == {
+            ("test_named.py", "test_named_decorator", "skip"),
+            ("test_named.py", "test_named_param", "skip"),
+            ("test_named.py", "test_named_skipif", "skip"),
+            ("test_named.py", "test_skiptest_method", "skip"),
+            ("test_named.py", "test_raises_skiptest", "skip"),
+            ("test_named.py", "test_skipif_true", "skip"),
+            ("test_named.py", "test_skipunless_false", "skip"),
+            ("test_named.py", "test_applymarker", "xfail"),
+            ("test_named.py", "test_add_marker", "skip"),
+            ("test_named.py", "test_inside_with", "skip"),
+            ("test_grown.py", "<module>", "skip"),
+            ("test_appended.py", "<module>", "xfail"),
+            ("test_module_named.py", "pytestmark", "skip"),
+        }
+        reasons = {parked.name: parked.reason for parked in scan.parked}
+        assert reasons["test_named_decorator"] == "named"
+        assert reasons["test_skiptest_method"] == "off"
+
+    def test_what_only_looks_like_a_parked_test_is_not_one(self, tmp_path: Path) -> None:
+        """Was: the first three were reported as parked."""
+        scan = msl.scan_tests(
+            _tree(
+                tmp_path,
+                {"test_a.py": """
+                    import sys
+                    import unittest
+
+                    import pytest
+
+                    def test_local_name():
+                        pytestmark = pytest.mark.skip(reason="a local variable")
+                        assert pytestmark
+
+                    @pytest.mark.xfail(False, reason="never applies")
+                    def test_xfail_false():
+                        pass
+
+                    @pytest.mark.xfail(sys.platform == "win32", reason="windows only")
+                    def test_xfail_conditional():
+                        pass
+
+                    @pytest.mark.skipif("sys.platform == 'win32'", reason="a condition string")
+                    def test_string_condition():
+                        pass
+
+                    def test_checks_the_skip():
+                        with pytest.raises(pytest.skip.Exception):
+                            pytest.skip("asserted, not taken")
+
+                    class Legacy(unittest.TestCase):
+                        @unittest.skipIf(sys.platform == "win32", "posix only")
+                        def test_conditional(self):
+                            if sys.platform == "darwin":
+                                self.skipTest("not on mac")
+
+                    if sys.platform == "win32":
+                        maybe = pytest.mark.skip(reason="decided at import")
+                    else:
+                        maybe = pytest.mark.usefixtures()
+
+                    @maybe
+                    def test_branch_named():
+                        pass
+                """},
+            )
+        )
+        assert scan.parked == []
+
     def test_a_mark_that_is_only_a_value_is_not_parked(self, tmp_path: Path) -> None:
         """A hook that adds a skip under a condition, and a check against the exception."""
         scan = msl.scan_tests(

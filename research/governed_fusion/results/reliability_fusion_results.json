@@ -1,18 +1,20 @@
 {
-  "n_events": 20,
+  "n_events": 27,
   "overall": {
-    "baseline_linear": 0.804442067419553,
-    "reliability_linear": 0.8401862897980678,
-    "reliability_clipped": 0.8429319266517069,
-    "reliability_trimmed": 0.810699372133502,
-    "best_single": 0.8778835323912855
+    "baseline_linear": 0.8169185917127229,
+    "reliability_linear": 0.8354821523466819,
+    "reliability_clipped": 0.8367134267980637,
+    "reliability_trimmed": 0.7978239533400807,
+    "best_single": 0.8724564324846641
   },
   "best_reliability_variant": "reliability_clipped",
-  "gap_to_best_single": -0.03495160573957856,
+  "gap_to_best_single": -0.03574300568660038,
   "verdict": "KILL CONFIRMED: cannot reach best-single (see per-domain regressions)",
   "per_domain_regressions": {
-    "fema": -0.047,
+    "energy": -0.016,
+    "fema": -0.035,
     "hurricane": -0.125,
+    "marine": -0.14,
     "network_security": -0.019
   },
   "clip_c": 2.0,
@@ -49,6 +51,51 @@
       ]
     },
     {
+      "domain": "tsunami",
+      "event": "tohoku_2011",
+      "baseline_linear": 0.9567307692307693,
+      "reliability_linear": 0.9655448717948719,
+      "reliability_clipped": 0.9557291666666667,
+      "reliability_trimmed": 0.9491185897435899,
+      "best_single": 0.9611378205128206,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.32,
+        0.416,
+        0.264
+      ]
+    },
+    {
+      "domain": "tsunami",
+      "event": "chile_2010",
+      "baseline_linear": 0.9472222222222222,
+      "reliability_linear": 0.9774305555555556,
+      "reliability_clipped": 0.9774305555555556,
+      "reliability_trimmed": 0.9774305555555556,
+      "best_single": 0.9748263888888888,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.0,
+        0.842,
+        0.158
+      ]
+    },
+    {
+      "domain": "tsunami",
+      "event": "tonga_2022",
+      "baseline_linear": 0.7840711805555556,
+      "reliability_linear": 0.783203125,
+      "reliability_clipped": 0.7821180555555556,
+      "reliability_trimmed": 0.7918836805555556,
+      "best_single": 0.7606336805555555,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.284,
+        0.421,
+        0.295
+      ]
+    },
+    {
       "domain": "tornado",
       "event": "super_outbreak_2011",
       "baseline_linear": 0.8387314439946019,
@@ -81,11 +128,11 @@
     {
       "domain": "marine",
       "event": "gbr_bleaching_2016",
-      "baseline_linear": 0.33333333333333337,
-      "reliability_linear": 0.7619047619047619,
-      "reliability_clipped": 0.7619047619047619,
-      "reliability_trimmed": 0.7619047619047619,
-      "best_single": 0.7619047619047619,
+      "baseline_linear": 0.25,
+      "reliability_linear": 0.5416666666666667,
+      "reliability_clipped": 0.5416666666666667,
+      "reliability_trimmed": 0.5416666666666667,
+      "best_single": 0.5416666666666667,
       "best_single_name": "kinematic",
       "rel_weights": [
         0.0,
@@ -95,17 +142,17 @@
     },
     {
       "domain": "marine",
-      "event": "marine_heatwave_2023",
-      "baseline_linear": 0.6520376175548589,
-      "reliability_linear": 0.6865203761755486,
-      "reliability_clipped": 0.7084639498432601,
-      "reliability_trimmed": 0.6489028213166144,
-      "best_single": 0.7178683385579937,
-      "best_single_name": "resonance",
+      "event": "gbr_bleaching_2020",
+      "baseline_linear": 0.76,
+      "reliability_linear": 0.72,
+      "reliability_clipped": 0.72,
+      "reliability_trimmed": 0.72,
+      "best_single": 1.0,
+      "best_single_name": "info_geometry",
       "rel_weights": [
-        0.61,
-        0.184,
-        0.205
+        0.0,
+        1.0,
+        0.0
       ]
     },
     {
@@ -169,48 +216,108 @@
       ]
     },
     {
-      "domain": "fema",
-      "event": "hurricane_2024",
-      "baseline_linear": 0.8172337909971078,
-      "reliability_linear": 0.8407942160158126,
-      "reliability_clipped": 0.8460490206479134,
-      "reliability_trimmed": 0.8127648689544272,
-      "best_single": 0.8805838842421467,
-      "best_single_name": "resonance",
-      "rel_weights": [
-        0.486,
-        0.1,
-        0.414
-      ]
-    },
-    {
-      "domain": "fema",
-      "event": "fire_2023",
-      "baseline_linear": 0.7762806637806638,
-      "reliability_linear": 0.8406746031746032,
-      "reliability_clipped": 0.7793350168350168,
-      "reliability_trimmed": 0.811988936988937,
-      "best_single": 0.8897667147667148,
+      "domain": "energy",
+      "event": "quebec_1989",
+      "baseline_linear": 0.9368876080691644,
+      "reliability_linear": 0.9515850144092219,
+      "reliability_clipped": 0.9521613832853026,
+      "reliability_trimmed": 0.9512968299711816,
+      "best_single": 0.9512968299711816,
       "best_single_name": "info_geometry",
       "rel_weights": [
-        0.415,
-        0.136,
-        0.449
+        0.275,
+        0.034,
+        0.691
+      ]
+    },
+    {
+      "domain": "energy",
+      "event": "halloween_2003",
+      "baseline_linear": 0.974412955465587,
+      "reliability_linear": 0.9765182186234818,
+      "reliability_clipped": 0.9765182186234818,
+      "reliability_trimmed": 0.9433198380566802,
+      "best_single": 0.9787854251012146,
+      "best_single_name": "info_geometry",
+      "rel_weights": [
+        0.247,
+        0.331,
+        0.422
+      ]
+    },
+    {
+      "domain": "energy",
+      "event": "texas_2021",
+      "baseline_linear": 0.9776623376623377,
+      "reliability_linear": 0.9805194805194806,
+      "reliability_clipped": 0.9729870129870131,
+      "reliability_trimmed": 0.7319480519480519,
+      "best_single": 0.978961038961039,
+      "best_single_name": "info_geometry",
+      "rel_weights": [
+        0.387,
+        0.157,
+        0.456
+      ]
+    },
+    {
+      "domain": "energy",
+      "event": "texas_2023",
+      "baseline_linear": 0.6223779557589626,
+      "reliability_linear": 0.6579106280193237,
+      "reliability_clipped": 0.6164426010678872,
+      "reliability_trimmed": 0.6004084032545132,
+      "best_single": 0.6891804919908466,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.403,
+        0.401,
+        0.196
+      ]
+    },
+    {
+      "domain": "energy",
+      "event": "bastille_day_2000",
+      "baseline_linear": 0.9711119905025722,
+      "reliability_linear": 0.9722991689750693,
+      "reliability_clipped": 0.9699248120300752,
+      "reliability_trimmed": 0.9259992085476849,
+      "best_single": 0.9715077166600712,
+      "best_single_name": "info_geometry",
+      "rel_weights": [
+        0.317,
+        0.275,
+        0.409
       ]
     },
     {
       "domain": "fema",
-      "event": "earthquake_all",
-      "baseline_linear": 0.7675021607605877,
-      "reliability_linear": 0.766637856525497,
-      "reliability_clipped": 0.7731201382886775,
-      "reliability_trimmed": 0.7571305099394988,
-      "best_single": 0.768798617113224,
-      "best_single_name": "resonance",
+      "event": "flood_2024",
+      "baseline_linear": 0.3630867709815078,
+      "reliability_linear": 0.362375533428165,
+      "reliability_clipped": 0.378022759601707,
+      "reliability_trimmed": 0.310099573257468,
+      "best_single": 0.4690611664295875,
+      "best_single_name": "kinematic",
       "rel_weights": [
-        0.358,
-        0.35,
-        0.292
+        0.333,
+        0.333,
+        0.333
+      ]
+    },
+    {
+      "domain": "fema",
+      "event": "hurricane_2024",
+      "baseline_linear": 0.7405263157894737,
+      "reliability_linear": 0.7396842105263158,
+      "reliability_clipped": 0.741157894736842,
+      "reliability_trimmed": 0.6842105263157896,
+      "best_single": 0.7206842105263157,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.359,
+        0.452,
+        0.189
       ]
     },
     {
@@ -246,40 +353,40 @@
     {
       "domain": "pandemic",
       "event": "covid_usa_wave1",
-      "baseline_linear": 0.9326828063241107,
-      "reliability_linear": 0.9402791501976285,
-      "reliability_clipped": 0.9359560276679842,
-      "reliability_trimmed": 0.7679100790513833,
-      "best_single": 0.9520133399209487,
+      "baseline_linear": 0.9297183794466404,
+      "reliability_linear": 0.9370676877470356,
+      "reliability_clipped": 0.9332386363636365,
+      "reliability_trimmed": 0.764266304347826,
+      "best_single": 0.9491724308300395,
       "best_single_name": "info_geometry",
       "rel_weights": [
         0.342,
         0.261,
-        0.397
+        0.396
       ]
     },
     {
       "domain": "pandemic",
       "event": "covid_italy_wave1",
       "baseline_linear": 0.8906752411575563,
-      "reliability_linear": 0.8905778037610835,
-      "reliability_clipped": 0.8848289973691903,
-      "reliability_trimmed": 0.8629055831628178,
-      "best_single": 0.8657312676605281,
+      "reliability_linear": 0.8904803663646107,
+      "reliability_clipped": 0.8851213095586086,
+      "reliability_trimmed": 0.8631004579557634,
+      "best_single": 0.8659261424534737,
       "best_single_name": "info_geometry",
       "rel_weights": [
         0.35,
-        0.26,
+        0.261,
         0.389
       ]
     },
     {
       "domain": "pandemic",
       "event": "covid_india_delta",
-      "baseline_linear": 0.9032894736842104,
-      "reliability_linear": 0.9046052631578947,
-      "reliability_clipped": 0.9054276315789473,
-      "reliability_trimmed": 0.8875548245614034,
+      "baseline_linear": 0.8999451754385964,
+      "reliability_linear": 0.9013706140350877,
+      "reliability_clipped": 0.9025219298245614,
+      "reliability_trimmed": 0.8729714912280702,
       "best_single": 0.9155701754385965,
       "best_single_name": "resonance",
       "rel_weights": [
@@ -291,11 +398,11 @@
     {
       "domain": "pandemic",
       "event": "mpox_2022",
-      "baseline_linear": 0.7633433913731698,
-      "reliability_linear": 0.7830956915314602,
-      "reliability_clipped": 0.7960742728531855,
-      "reliability_trimmed": 0.6733960724178868,
-      "best_single": 0.7948515408587258,
+      "baseline_linear": 0.7632599178868223,
+      "reliability_linear": 0.7829380193905818,
+      "reliability_clipped": 0.7960155322516819,
+      "reliability_trimmed": 0.6736372180451128,
+      "best_single": 0.7946042120102889,
       "best_single_name": "info_geometry",
       "rel_weights": [
         0.377,
@@ -306,16 +413,16 @@
     {
       "domain": "pandemic",
       "event": "cholera_yemen_2017",
-      "baseline_linear": 0.962121212121212,
-      "reliability_linear": 0.9712121212121212,
-      "reliability_clipped": 0.9772727272727273,
-      "reliability_trimmed": 0.9257575757575758,
-      "best_single": 0.9772727272727272,
-      "best_single_name": "info_geometry",
+      "baseline_linear": 0.9987714987714987,
+      "reliability_linear": 1.0,
+      "reliability_clipped": 0.9999999999999999,
+      "reliability_trimmed": 0.9361179361179361,
+      "best_single": 1.0,
+      "best_single_name": "resonance",
       "rel_weights": [
-        0.346,
-        0.285,
-        0.369
+        0.344,
+        0.311,
+        0.345
       ]
     }
   ]

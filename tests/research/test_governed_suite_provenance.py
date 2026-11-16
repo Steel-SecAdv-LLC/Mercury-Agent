@@ -97,10 +97,31 @@ def test_reconstructed_event_is_allowed_to_synthesize(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Any
 ) -> None:
     """A RECONSTRUCTED-labelled event may synthesise -- the guard must not fire."""
-    fake = _fake_loader_module(_synthetic_marine_frame(), "EnergyLoader")
+    fake = _fake_loader_module(_synthetic_marine_frame(), "PandemicLoader")
     _patch_loader_import(monkeypatch, tmp_path, fake)
 
-    assert suite.is_reconstructed("energy", "quebec_1989") is True
-    event = suite._load_event("energy", "energy_loader", "EnergyLoader", "quebec_1989")
+    assert suite.is_reconstructed("pandemic", "ebola_2014") is True
+    event = suite._load_event("pandemic", "pandemic_loader", "PandemicLoader", "ebola_2014")
     assert event is not None
     assert event.reconstructed is True
+
+
+def test_energy_and_tsunami_are_live_and_take_the_guard(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """Both read recorded archives since 2026-11-16; a stand-in is refused.
+
+    The stand-in here carries only the loaders' own mark
+    (``BaseDomainLoader.mark_synthetic``), with no ``dataset_id`` column: the
+    guard used to look at that column alone.
+    """
+    frame = _synthetic_marine_frame().drop(columns=["dataset_id"])
+    frame.attrs["mercury_synthetic"] = True
+    fake = _fake_loader_module(frame, "EnergyLoader")
+    _patch_loader_import(monkeypatch, tmp_path, fake)
+
+    assert not suite.RECONSTRUCTED_DOMAINS
+    assert suite.is_reconstructed("energy", "quebec_1989") is False
+    assert suite.is_reconstructed("tsunami", "tohoku_2011") is False
+    with pytest.raises(suite.ProvenanceError):
+        suite._load_event("energy", "energy_loader", "EnergyLoader", "quebec_1989")

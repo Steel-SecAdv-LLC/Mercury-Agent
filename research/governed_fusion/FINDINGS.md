@@ -1,6 +1,108 @@
 # Governed Fusion Substrate — Phase 2 correction pass (PR #278)
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-16.
+
+## Re-measurement of 2026-11-16 (read first; supersedes the figures below)
+
+Every file under `results/` and `manifest.json` was regenerated on 2026-11-16
+from live sources with `MERCURY_ALLOW_SYNTHETIC=0`. The sections after this one
+are the record of the measurement of 2026-07-11 on 23 live events and are kept
+as written; **their figures no longer match `results/`**. Where a conclusion
+changed, it is stated here.
+
+**What changed in the inputs.**
+
+- `tsunami` (3) and `energy` (5) are live. Their loaders read recorded archives
+  (NDBC DART; NASA OMNI2, EIA-930, DOE OE-417) and no longer synthesise, so
+  `RECONSTRUCTED_DOMAINS` is empty and both take the synthetic-fallback guard.
+  The two grid events (`texas_2021`, `texas_2023`) are scored on the grid's own
+  series, not on space weather.
+- `pandemic/ebola_2014` is refused without the synthetic opt-in, so the
+  reconstructed class is empty (0 events).
+- `fema` labels were empty for every declaration since about 2007 (the rule read
+  `iaProgramDeclared`; FEMA records individual assistance as
+  `ihProgramDeclared` since). Corrected; three FEMA events are scorable.
+- The suite is **31 live events / 9 domains**: earthquake 5, energy 5,
+  pandemic 5, hurricane 4, fema 3, tsunami 3, marine 2, network_security 2,
+  tornado 2. Two events carry externally audited labels (`network_security`),
+  29 are self-labelled. Inputs are pinned in `manifest.json`
+  (`input_pin.py --check`: 31 match).
+
+**Figures (macro mean over events, cap 6000).**
+
+| Measurement | 2026-07-11 (23 events) | 2026-11-16 (31 events) |
+|---|---|---|
+| Baseline AUROC, all live | 0.823 | 0.8239 |
+| Baseline AUROC, external-label (n=2) | 0.7704 | 0.6378 |
+| Baseline AUROC, self-label | 0.8282 (n=21) | 0.8367 (n=29) |
+| Conformal F1 vs Youden F1 | −0.0714 | −0.0456 (27 of 31 events usable) |
+| Reliability fusion, gap to best single | −0.0350 | −0.0357 |
+| Survivability, clean → worst case at k/2 | 0.924 → 0.707 | 0.843 → 0.687 |
+| Beta-MCA Brier / ECE | 0.0893 / 0.0387 | 0.0780 / 0.0421 |
+| Isotonic Brier / ECE | 0.0920 / 0.0484 | 0.0768 / 0.0334 |
+| Decorrelation, stack4_temporal − best single | −0.0055 | +0.0033, 95% CI [−0.045, +0.056] |
+
+**Conclusions that hold.** The conformal operating point still loses F1 to the
+Youden point it would displace. Reliability-weighted fusion still cannot reach
+the best single component (regressions in energy, fema, hurricane, marine and
+network_security). The ablation ledger, which reads the three component
+scores of the two external-label events, reproduces its previous record
+exactly.
+
+**The external-label figure fell, and the inputs did not change.** The two
+externally labelled events are byte-identical to the previous manifest
+(`sha256_xy` match), yet their baseline AUROC is 0.6378 against the 0.7704
+committed on 2026-06-18: `nsl_kdd` 0.6788 → 0.3973, `batadal` 0.8621 → 0.8783.
+Fifteen events have identical inputs across the two manifests and all fifteen
+score differently; `earthquake/turkey_syria_2023` fell 0.9806 → 0.7672 and
+`pandemic/mpox_2022` rose 0.7627 → 0.9038. The committed figures were
+therefore stale against the detector, not against the data.
+
+Scoring the same capped inputs with `MercuryAnomalyDetector` at each commit
+that touched it reproduces both ends exactly and places the change:
+
+| Detector at | `nsl_kdd` | `batadal` | `turkey_syria_2023` | `mpox_2022` |
+|---|---|---|---|---|
+| `be604c1e` (2026-06-18) | 0.6788 | 0.8621 | 0.9806 | 0.7627 |
+| `f7590a6c` (2026-07-02) | 0.7280 | 0.8893 | 0.9806 | 0.8048 |
+| `8c54010f` (2026-10-21) | 0.5427 | 0.8890 | 0.7996 | 0.8974 |
+| `8ce85ec9` (2026-10-28) and after, including `v3.0.0` | 0.3973 | 0.8783 | 0.7672 | 0.9038 |
+
+The cause is the kNN density stream in the fused score. With
+`knn_stream_weight=0` the current detector returns `nsl_kdd` 0.7280 and
+`turkey_syria_2023` 0.9806; with its fitted weight (0.84 at eight or nine
+features) it returns 0.3973 and 0.7672. On `nsl_kdd` 48% of the capped rows
+are attacks, so the dense attack clusters are what a density stream calls
+normal.
+
+**Open.** The stream was added for the tabular benchmark, where it raised the
+headline; here it lowers the only externally labelled events the promotion
+gate reads. Nothing is changed in the detector on this evidence. What is
+missing to decide: the 67-dataset benchmark re-run with the stream gated on
+this regime, so that a gate chosen on two events is not paid for elsewhere.
+
+**Conclusions that changed. Each is open, not re-decided here.**
+
+1. *Beta-MCA no longer beats isotonic on both measures.* Isotonic is now ahead
+   on Brier (0.0768 against 0.0780) and on ECE (0.0334 against 0.0421).
+   Beta-MCA still preserves AUROC exactly (0.8065), which isotonic does not
+   (0.7911), and that was the reason it was chosen. The statement under R1
+   below that it "beats isotonic on both" is no longer true.
+2. *The calibration lever probe is no longer a conclusive negative.*
+   `l_nb=0.5` beats the shipped default on both held-out measures: Brier 0.0779
+   against 0.0780, ECE 0.0392 against 0.0421. The Brier margin is 0.0001 over
+   27 events and the probe reports no interval for it. The default is not
+   changed on that evidence. What is missing to decide: a paired bootstrap
+   interval for both margins.
+3. *The decorrelation verdict is no longer KILL.* The earlier KILL rested on
+   pooling 20 live and 7 reconstructed events. There are no reconstructed
+   events now, the paired difference is +0.0033 and its interval spans both
+   the ship line and zero. The protocol's own verdict is INCONCLUSIVE and the
+   pooled check reports "still underpowered". Fusion is still not promoted;
+   the claim that the lever is closed is withdrawn.
+
+`measure_decorrelation.py` wrote NaN (not valid JSON) and a verdict for the
+empty reconstructed class; it now writes `{"n_events": 0}`.
 
 All numbers below were reproduced **in this branch from committed code** on the
 real reachable suite (cold cache; `measure_*.py` + `build_manifest.py`). Nothing

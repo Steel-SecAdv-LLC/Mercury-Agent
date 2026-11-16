@@ -43,6 +43,23 @@ The gate fails on:
 - an unconditional skip or an expected failure;
 - a stale block below, or a declaration that no longer matches anything.
 
+"Unconditional" covers these forms, each pinned by
+`tests/test_measure_skip_ledger.py`:
+
+- `@pytest.mark.skip`, `@pytest.mark.xfail` without a condition or with a
+  constant true one, `@pytest.mark.skipif(True)`, `@unittest.skip`,
+  `@unittest.expectedFailure`, `@unittest.skipIf(True)` and
+  `@unittest.skipUnless(False)`, on a test or a class;
+- the same marks in `pytestmark` (assigned, `+=` or `.append`, at module or
+  class level) and in `pytest.param(..., marks=...)`;
+- a mark bound to a name first (`parked = pytest.mark.skip(...)`, then
+  `@parked`);
+- `pytest.skip(...)`, `pytest.xfail(...)`, `self.skipTest(...)`, a raised
+  `pytest.skip.Exception` or `unittest.SkipTest`, and `add_marker` /
+  `applymarker` with such a mark, when no branch or earlier `return` stands
+  between the start of the test and the call (a `with` block is not a branch);
+- `pytest`/`unittest` imported under another name.
+
 An exception is declared in the script (`ALLOWED_UNINSTALLED`,
 `ALLOWED_PARKED`) with its reason, and the reason is printed in the block.
 
@@ -53,6 +70,9 @@ optional dependency starts guarding tests or a test is parked.
 
 ## What it does not measure
 
+- A mark it cannot follow by name: one returned by a helper function, fetched
+  with `getattr`, or imported from another test module. The pass reads source
+  and does not execute it.
 - Whether a conditional skip's condition is ever true. A `skipif` on an
   environment variable that no workflow sets is out of its reach.
 - Which lane runs a test, beyond "the full lane installs its dependency". The

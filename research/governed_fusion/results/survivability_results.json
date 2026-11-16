@@ -3,171 +3,177 @@
     "earthquake": {
       "event": "turkey_syria_2023",
       "k": 8,
-      "clean_auroc": 0.9874213836477987,
+      "clean_auroc": 0.9748427672955975,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.9874213836477987,
+          "worst_case_auroc": 0.9748427672955975,
           "worst_attack": "none"
         },
         {
           "m": 2,
-          "worst_case_auroc": 0.48427672955974843,
+          "worst_case_auroc": 0.5534591194968553,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 4,
-          "worst_case_auroc": 0.32704402515723274,
+          "worst_case_auroc": 0.5031446540880503,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.20125786163522008,
+          "worst_case_auroc": 0.5157232704402516,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.32704402515723274,
+      "worst_case_half_channel_auroc": 0.5031446540880503,
       "cubic_moment": {
         "floor_auc": 1.0,
         "cubic_auc": 1.0,
         "escape": 0.0
       }
     },
-    "fema": {
-      "event": "hurricane_2024",
-      "k": 7,
-      "clean_auroc": 0.923583984375,
+    "energy": {
+      "event": "texas_2023",
+      "k": 6,
+      "clean_auroc": 0.7313333333333334,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.923583984375,
+          "worst_case_auroc": 0.7313333333333334,
           "worst_attack": "none"
         },
         {
           "m": 1,
-          "worst_case_auroc": 0.802001953125,
-          "worst_attack": "condmean",
+          "worst_case_auroc": 0.5800000000000001,
+          "worst_attack": "transfer",
           "gradient_masking_flag": false
         },
         {
           "m": 3,
-          "worst_case_auroc": 0.828857421875,
+          "worst_case_auroc": 0.5786666666666667,
           "worst_attack": "condmean",
-          "gradient_masking_flag": false
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 4,
+          "worst_case_auroc": 0.5793333333333334,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.5786666666666667,
+      "cubic_moment": {
+        "floor_auc": 0.7293333333333334,
+        "cubic_auc": 0.6766666666666667,
+        "escape": -0.05266666666666664
+      }
+    },
+    "fema": {
+      "event": "hurricane_2024",
+      "k": 7,
+      "clean_auroc": 0.7243333333333333,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.7243333333333333,
+          "worst_attack": "none"
+        },
+        {
+          "m": 1,
+          "worst_case_auroc": 0.7243333333333333,
+          "worst_attack": "nes",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 3,
+          "worst_case_auroc": 0.7446666666666666,
+          "worst_attack": "nes",
+          "gradient_masking_flag": true
         },
         {
           "m": 5,
-          "worst_case_auroc": 0.59423828125,
-          "worst_attack": "condmean",
-          "gradient_masking_flag": false
+          "worst_case_auroc": 0.74,
+          "worst_attack": "nes",
+          "gradient_masking_flag": true
         }
       ],
-      "worst_case_half_channel_auroc": 0.828857421875,
+      "worst_case_half_channel_auroc": 0.7446666666666666,
       "cubic_moment": {
-        "floor_auc": 0.931884765625,
-        "cubic_auc": 0.92333984375,
-        "escape": -0.008544921875
+        "floor_auc": 0.7788333333333334,
+        "cubic_auc": 0.8128333333333333,
+        "escape": 0.03399999999999992
       }
     },
     "hurricane": {
       "event": "milton_2024",
       "k": 8,
-      "clean_auroc": 0.8865384615384616,
+      "clean_auroc": 0.8846153846153847,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.8865384615384616,
+          "worst_case_auroc": 0.8846153846153847,
           "worst_attack": "none"
         },
         {
           "m": 2,
-          "worst_case_auroc": 0.8865384615384616,
+          "worst_case_auroc": 0.8807692307692307,
           "worst_attack": "bpda",
           "gradient_masking_flag": false
         },
         {
           "m": 4,
-          "worst_case_auroc": 0.8500000000000001,
+          "worst_case_auroc": 0.8288461538461538,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.8538461538461538,
+          "worst_case_auroc": 0.8423076923076923,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.8500000000000001,
+      "worst_case_half_channel_auroc": 0.8288461538461538,
       "cubic_moment": {
         "floor_auc": 0.8807692307692309,
         "cubic_auc": 1.0,
         "escape": 0.11923076923076914
       }
     },
-    "marine": {
-      "event": "marine_heatwave_2023",
-      "k": 3,
-      "clean_auroc": 0.9991645781119466,
-      "floor_curve": [
-        {
-          "m": 0,
-          "worst_case_auroc": 0.9991645781119466,
-          "worst_attack": "none"
-        },
-        {
-          "m": 1,
-          "worst_case_auroc": 0.9766081871345029,
-          "worst_attack": "transfer",
-          "gradient_masking_flag": true
-        },
-        {
-          "m": 2,
-          "worst_case_auroc": 0.9465329991645781,
-          "worst_attack": "condmean",
-          "gradient_masking_flag": true
-        }
-      ],
-      "worst_case_half_channel_auroc": 0.9766081871345029,
-      "cubic_moment": {
-        "floor_auc": 1.0,
-        "cubic_auc": 1.0,
-        "escape": 0.0
-      }
-    },
     "network_security": {
       "event": "nsl_kdd",
       "k": 9,
-      "clean_auroc": 0.9134720700985761,
+      "clean_auroc": 0.9210608668439995,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.9134720700985761,
+          "worst_case_auroc": 0.9210608668439995,
           "worst_attack": "none"
         },
         {
           "m": 2,
-          "worst_case_auroc": 0.8773274917853232,
+          "worst_case_auroc": 0.904631513065248,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 4,
-          "worst_case_auroc": 0.8172429979658895,
+          "worst_case_auroc": 0.8654357690502269,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.7585667344703488,
+          "worst_case_auroc": 0.7515255828508839,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.8172429979658895,
+      "worst_case_half_channel_auroc": 0.8654357690502269,
       "cubic_moment": {
         "floor_auc": 0.9274761383195118,
         "cubic_auc": 0.9745736191519323,
@@ -177,33 +183,33 @@
     "pandemic": {
       "event": "mpox_2022",
       "k": 12,
-      "clean_auroc": 0.7954545454545454,
+      "clean_auroc": 0.8787878787878788,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.7954545454545454,
+          "worst_case_auroc": 0.8787878787878788,
           "worst_attack": "none"
         },
         {
           "m": 3,
-          "worst_case_auroc": 0.7932900432900434,
-          "worst_attack": "bpda",
+          "worst_case_auroc": 0.8149350649350651,
+          "worst_attack": "transfer",
           "gradient_masking_flag": false
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.7943722943722944,
-          "worst_attack": "bpda",
+          "worst_case_auroc": 0.8149350649350651,
+          "worst_attack": "transfer",
           "gradient_masking_flag": false
         },
         {
           "m": 9,
-          "worst_case_auroc": 0.7911255411255412,
-          "worst_attack": "condmean",
+          "worst_case_auroc": 0.8160173160173161,
+          "worst_attack": "transfer",
           "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.7943722943722944,
+      "worst_case_half_channel_auroc": 0.8149350649350651,
       "cubic_moment": {
         "floor_auc": 0.8625541125541125,
         "cubic_auc": 0.9794372294372294,
@@ -213,45 +219,81 @@
     "tornado": {
       "event": "super_outbreak_2011",
       "k": 12,
-      "clean_auroc": 0.9642122583299053,
+      "clean_auroc": 0.9555738379267791,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.9642122583299053,
+          "worst_case_auroc": 0.9555738379267791,
           "worst_attack": "none"
         },
         {
           "m": 3,
-          "worst_case_auroc": 0.8576717400246813,
+          "worst_case_auroc": 0.9016865487453722,
           "worst_attack": "condmean",
           "gradient_masking_flag": true
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.3566433566433566,
+          "worst_case_auroc": 0.5298231180584122,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 9,
-          "worst_case_auroc": 0.41999177293294937,
+          "worst_case_auroc": 0.5997531879884821,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.3566433566433566,
+      "worst_case_half_channel_auroc": 0.5298231180584122,
       "cubic_moment": {
         "floor_auc": 0.9666803784450843,
         "cubic_auc": 0.9954751131221719,
         "escape": 0.028794734677087597
+      }
+    },
+    "tsunami": {
+      "event": "tonga_2022",
+      "k": 6,
+      "clean_auroc": 0.6725352112676057,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.6725352112676057,
+          "worst_attack": "none"
+        },
+        {
+          "m": 1,
+          "worst_case_auroc": 0.6725352112676057,
+          "worst_attack": "nes",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 3,
+          "worst_case_auroc": 0.6338028169014085,
+          "worst_attack": "transfer",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 4,
+          "worst_case_auroc": 0.5179968701095462,
+          "worst_attack": "bpda",
+          "gradient_masking_flag": false
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.6338028169014085,
+      "cubic_moment": {
+        "floor_auc": 0.761737089201878,
+        "cubic_auc": 0.662754303599374,
+        "escape": -0.09898278560250395
       }
     }
   },
   "eps": 0.6,
   "row_cap": 160,
   "overall": {
-    "mean_clean_auroc": 0.9242638973651763,
-    "mean_worst_case_half_channel_auroc": 0.7072526118783252,
+    "mean_clean_auroc": 0.842885326675489,
+    "mean_worst_case_half_channel_auroc": 0.6874151137765813,
     "gaussian_control_escape": -0.0032222222222223484
   }
 }

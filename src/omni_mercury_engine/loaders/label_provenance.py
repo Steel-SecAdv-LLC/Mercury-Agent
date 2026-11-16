@@ -21,7 +21,7 @@ reconstruct the entire series from documented event statistics:
 * ``hurricane``   -- 24h wind delta >= 30 kt rapid-intensification window on
   the scored wind-delta feature.
 * ``tornado``     -- ``mag >= 3`` (EF3+) on feature[0] ``ef_scale``.
-* ``fema``        -- (declarationType == ``DR``) AND ``iaProgramDeclared``
+* ``fema``        -- (declarationType == ``DR``) AND individual assistance (IA or IH)
   AND ``paProgramDeclared`` -- ``ia_program`` and ``hm_program`` flags are
   features 4 and 5.
 * ``marine``      -- (baseline_richness - event_richness) / baseline > 0.70,

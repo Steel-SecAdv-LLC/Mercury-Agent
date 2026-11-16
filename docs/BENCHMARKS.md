@@ -1,14 +1,13 @@
 # Mercury Agent Benchmark Results
 
-Applies to Mercury Agent **v3.0.x**. Last updated: 2026-10-28.
+Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-16.
 
 > **Current committed run (v2.1.x).** The public headline is the committed
 > `benchmarks/mercury_benchmark_results.json` run — **67 successful /
-> 76 attempted**, Mean ROC-AUC **0.8610**, Median **0.9077**, Mean
-> Oracle F1 **0.6476** (54 genuine-label datasets, now including the
-> expert-annotated `DTU_AIS_Abnormal` maritime set; regenerated on
-> `steel/version-cov4` with the kNN density stream and its minimum-
-> reference gate) — surfaced in the
+> 76 attempted**, Mean ROC-AUC **0.8619**, Median **0.9038**, Mean
+> Oracle F1 **0.6492** (55 genuine-label datasets, now including
+> `MSDS`, whose labels are recorded ground truth; run of 2026-11-15 on
+> commit `d1985e4`) — surfaced in the
 > README "Latest Benchmark Results" block and regenerated on every
 > push to `main` by `.github/workflows/benchmark.yml`. The FEMA
 > Disaster label-polarity fix and the 11-loader reachability
@@ -19,13 +18,13 @@ Applies to Mercury Agent **v3.0.x**. Last updated: 2026-10-28.
 >
 > **Label-provenance of the headline.** The committed run records
 > `headline_label_policy = genuine_labels_only`: the headline AUC/F1 are
-> computed over the **54** datasets carrying genuine labels
-> (`n_genuine_labeled = 54`; ground-truth or expert-annotated), with
-> Median Oracle F1 **0.7005**. A separate 13-dataset **unsupervised**
+> computed over the **55** datasets carrying genuine labels
+> (`n_genuine_labeled = 55`; ground-truth or expert-annotated), with
+> Median Oracle F1 **0.7168**. A separate 12-dataset **unsupervised**
 > subset (`USGS_Earthquake`, `NOAA_Weather`, `Wildfire`, `NOAA_Buoy`,
 > `NOAA_StormEvents`, `NOAA_GSOD`, `NOAA_ERDDAP`, `EPA_AirQuality`,
-> `FEMA_Disaster`, `NASA_Exoplanet`, `SolarDynamics`, `MSDS`, `ThreatIntel`)
-> scores Mean AUC **0.9325** but is **excluded from the headline as
+> `FEMA_Disaster`, `NASA_Exoplanet`, `SolarDynamics`, `ThreatIntel`)
+> scores Mean AUC **0.9272** but is **excluded from the headline as
 > circular**: its labels are manufactured by thresholding a detector-like
 > score/feature, so they are reported for unsupervised evaluation only and
 > never folded into the graded headline. All figures are from the `summary`
@@ -231,23 +230,20 @@ Results" block.
 Phase 1 of the governed recursive self-improvement work (see
 `docs/SELF_IMPROVEMENT_LOOP.md`) extends the same label-provenance
 discipline that already gates the `datasets/` side to the live-API
-`loaders/` path that feeds `research/governed_fusion/`. Of the 23 events
-in the live headline manifest, only **2** have audited ground-truth labels
-(independent of any scored feature) — both from `network_security`
-(`batadal`, `nsl_kdd`). The other 21 threshold a scored feature
-(statistical / circular) and are reported separately as leakage-flagged;
-7 events (`tsunami/*`, `energy/*`, `pandemic/ebola_2014`) are reported in
-their own block by existing design: reconstructed series when this suite was
-measured. The tsunami and energy events have since become recorded series
-(NDBC DART archive; NASA OMNI2 and EIA-930); they stay in this block until the
-suite is re-run.
+`loaders/` path that feeds `research/governed_fusion/`. Of the 31 events
+in the live headline manifest (re-measured 2026-11-16), only **2** have
+audited ground-truth labels (independent of any scored feature) — both from
+`network_security` (`batadal`, `nsl_kdd`). The other 29 are self-labelled and
+are reported separately as leakage-flagged. The tsunami and energy events are
+recorded series (NDBC DART archive; NASA OMNI2, EIA-930 and DOE OE-417) and
+are part of the live suite; no event is reconstructed.
 
 | Bucket | n_events | Mean AUROC | Mean F1 | Notes |
 |---|---:|---:|---:|---|
-| `external_label` (FITNESS) | 2 | 0.7704 | 0.1863 | The transparent fitness signal Phase 2's promotion gate reads from. |
-| `self_label` (leakage-flagged) | 21 | 0.8282 | 0.2854 | Reported for pipeline transparency; never folded into the headline that grades self-improvement. |
-| `reconstructed` | 7 | n/a | n/a | Reported separately by existing suite design. |
-| Mixed (historical) | 23 | 0.8231 | 0.2768 | The pre-Phase-1 headline; superseded by the provenance split above. |
+| `external_label` (FITNESS) | 2 | 0.6378 | 0.1579 | The transparent fitness signal Phase 2's promotion gate reads from. It was 0.7704 when measured on 2026-06-18; the inputs are byte-identical and the detector's kNN density stream accounts for the fall (`research/governed_fusion/FINDINGS.md`). Open. |
+| `self_label` (leakage-flagged) | 29 | 0.8367 | 0.2283 | Reported for pipeline transparency; never folded into the headline that grades self-improvement. |
+| `reconstructed` | 0 | n/a | n/a | Empty: `ebola_2014` is refused without the synthetic opt-in. |
+| Mixed (historical) | 31 | 0.8239 | 0.2237 | The pre-Phase-1 form of the headline; superseded by the provenance split above. |
 
 The audit is committed in
 `src/omni_mercury_engine/loaders/label_provenance.py`
@@ -604,7 +600,7 @@ seeded input and must never be quoted as skill.
 
 | Blocking lane | Data | Provenance | Reads as |
 |---|---|---|---|
-| `Run Mercury Benchmarks` headline floors (AUC ≥ 0.75, F1 ≥ 0.55) | 54 genuinely-labeled real datasets (47 ADBench live-downloaded sha-pinned + 7 real domain, incl. expert-annotated `DTU_AIS_Abnormal`) | **real, external labels** | skill claim |
+| `Run Mercury Benchmarks` headline floors (AUC ≥ 0.75, F1 ≥ 0.55) | 55 genuinely-labeled real datasets (47 ADBench live-downloaded sha-pinned + 8 real domain, incl. expert-annotated `DTU_AIS_Abnormal`) | **real, external labels** | skill claim |
 | `anomaly_regression_guard` | 8 ADBench sets, sha256-pinned, downloaded per run | **real, external labels** | skill regression floor |
 | `ci/hazard-regression` — solar row | 83 windows of measured SWPC/GOES data, cached in-repo | **real, measured** | real-data floor |
 | `ci/hazard-regression` — other 6 domains | 124 constructed scenarios (seeded, physics-shaped, disclosed per-row in `docs/HAZARD_REGRESSION.md`) | constructed | behavior pin — **not** skill |
@@ -612,11 +608,11 @@ seeded input and must never be quoted as skill.
 | `ci/rolling-corpus-eval` (weapons gate) | 362 template-expanded text cases; adversarial paraphrase recall measured separately (`docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`: shipped two-layer posture recall 0.714; the lexical layer alone floors at 0.256, precision 1.00) | constructed text | control-calibration pin; the measured paraphrase gap is open and documented |
 | `ci/red-team` | deterministic mutation registry over seed prompts | constructed | control-survival pin |
 | CI `Performance Benchmark` latency asserts | `np.random.randn` arrays | synthetic | latency pin only |
-| Governed-fusion promotion gate | external_label live events only (2: `nsl_kdd`, `batadal`; AUROC 0.7704) | **real, external labels** | the only fusion skill claim |
+| Governed-fusion promotion gate | external_label live events only (2: `nsl_kdd`, `batadal`; AUROC 0.6378) | **real, external labels** | the only fusion skill claim |
 
 Counting individual blocking thresholds: **~24 rest on real data, ~40 on
 constructed/synthetic input.** The published headline numbers (ADBench
-0.8571/0.6443, governed-fusion external-label 0.7704) rest exclusively on
+0.8571/0.6443, governed-fusion external-label 0.6378) rest exclusively on
 the real side; every constructed lane above is a pin, and quoting one as
 skill is a documentation bug — report it.
 

@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 r"""Regenerate the README's benchmark blocks from ``benchmarks/mercury_benchmark_results.json``.
 
-Two marker blocks are rewritten: ``<!-- BENCHMARK:START -->`` … ``END``
-(headline, current vs previous run) and ``<!-- BENCHMARK-DOMAINS:START -->``
-… ``END`` (per-domain means over the genuinely labelled datasets).
+Three marker blocks are rewritten: ``<!-- BENCHMARK:START -->`` … ``END``
+(headline, current vs previous run), ``<!-- BENCHMARK-DOMAINS:START -->`` …
+``END`` (per-domain means over the genuinely labelled datasets) and
+``<!-- BENCHMARK-HEADLINE:START -->`` … ``END`` (the "Headline results"
+component and aggregate tables).
 
 This script is invoked by ``.github/workflows/benchmark.yml`` after every
 benchmark run on ``main`` so the live-data results are auto-committed and
@@ -41,6 +43,15 @@ START_MARKER = "<!-- BENCHMARK:START -->"
 END_MARKER = "<!-- BENCHMARK:END -->"
 DOMAINS_START_MARKER = "<!-- BENCHMARK-DOMAINS:START -->"
 DOMAINS_END_MARKER = "<!-- BENCHMARK-DOMAINS:END -->"
+HEADLINE_START_MARKER = "<!-- BENCHMARK-HEADLINE:START -->"
+HEADLINE_END_MARKER = "<!-- BENCHMARK-HEADLINE:END -->"
+
+#: Component rows of the headline table: (results key, label, weight, method).
+_COMPONENTS: tuple[tuple[str, str, str, str], ...] = (
+    ("resonance", "ResonanceScore", "40%", "FFT harmonic spectral profiles"),
+    ("kinematic", "KinematicScore", "30%", "Physics jerk/curvature via `np.diff`"),
+    ("info_geometry", "InfoGeometryScore", "30%", "Fisher-information Mahalanobis OOD"),
+)
 
 #: Label sources that count as independent of the scored signal; the same
 #: policy as ``summary.headline_label_policy``. ``statistical`` labels are
@@ -258,6 +269,41 @@ datasets are easy to separate at that size{comparable}.*
 {DOMAINS_END_MARKER}"""
 
 
+def render_headline_block(current: dict[str, Any]) -> str:
+    """Render the "Headline results" tables from the run's own summaries.
+
+    These rows were typed by hand beside the regenerated block, so every
+    refresh left them describing the previous run, and the refresh's own pull
+    request failed ``tests/docs/test_readme_claims_match_artifacts.py``.
+    """
+    summary = current.get("summary") or {}
+    components = current.get("component_summary") or {}
+    rows = []
+    for key, label, weight, method in _COMPONENTS:
+        stats = components.get(key) or {}
+        rows.append(
+            f"| {label} | {weight} | {method} | {_fmt(stats.get('mean_auc'))} "
+            f"| {_fmt(stats.get('median_auc'))} |"
+        )
+    mean_auc, median_auc = _fmt(summary.get("mean_auc")), _fmt(summary.get("median_auc"))
+    genuine = _fmt(summary.get("n_genuine_labeled"), kind="int")
+    successful = _fmt(summary.get("successful"), kind="int")
+    header = f"| Aggregate ({genuine} genuine-label datasets of {successful} successful) | Value |"
+    component_rows = "\n".join(rows)
+    return f"""{HEADLINE_START_MARKER}
+| Component | Weight | Method | Mean AUC | Median AUC |
+|-----------|--------|--------|----------|------------|
+{component_rows}
+| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **{mean_auc}** | **{median_auc}** |
+
+{header}
+|{"-" * (len(header) - len("| Value |") - 1)}|-------|
+| Mean AUC / Median AUC | {mean_auc} / {median_auc} |
+| Std AUC | {_fmt(summary.get("std_auc"))} |
+| Mean / Median Oracle F1 | {_fmt(summary.get("mean_oracle_f1"))} / {_fmt(summary.get("median_oracle_f1"))} |
+{HEADLINE_END_MARKER}"""
+
+
 def update_readme(
     readme_path: Path,
     new_block: str,
@@ -319,6 +365,9 @@ def main(argv: list[str] | None = None) -> int:
     changed = update_readme(args.readme, block)
     changed |= update_readme(
         args.readme, render_domain_block(current), DOMAINS_START_MARKER, DOMAINS_END_MARKER
+    )
+    changed |= update_readme(
+        args.readme, render_headline_block(current), HEADLINE_START_MARKER, HEADLINE_END_MARKER
     )
     print("README updated." if changed else "README already up-to-date.")
     return 0

@@ -17,6 +17,10 @@ neither shows up in a green run:
   ``pytest.skip(...)`` and ``@pytest.mark.xfail`` each park a test without a
   condition under which it comes back.
 
+The forms followed are listed in ``docs/SKIP_LEDGER.md``. The pass is static
+and by name: a mark built by a function call, fetched with ``getattr`` or
+imported from another module under a new name is not followed.
+
 This script reads ``tests/`` with :mod:`ast` (nothing is imported, so it needs
 no ML or native install) and ``uv.lock`` for what the fullest test lane
 installs, and reports:
@@ -109,10 +113,26 @@ _IMPORTORSKIP = frozenset({"pytest.importorskip", "importorskip"})
 #: Calls that switch the running test off, and the kind they park it as.
 _IMPERATIVE = {
     "pytest.skip": "skip",
-    "pytest.skip.Exception": "skip",
     "pytest.xfail": "xfail",
-    "pytest.xfail.Exception": "xfail",
 }
+
+#: Exception classes that do the same when raised.
+_RAISED = {
+    "pytest.skip.Exception": "skip",
+    "pytest.xfail.Exception": "xfail",
+    "unittest.SkipTest": "skip",
+    "unittest.case.SkipTest": "skip",
+}
+
+#: ``unittest`` decorators that skip on a condition, and the literal value of
+#: that condition which makes the skip unconditional.
+_UNITTEST_CONDITIONAL = {"unittest.skipIf": True, "unittest.skipUnless": False}
+
+#: Methods that attach a mark to a collected item or the running test.
+_ATTACHING_METHODS = frozenset({"add_marker", "applymarker"})
+
+#: List methods that add to ``pytestmark`` after it was assigned.
+_LIST_GROWERS = frozenset({"append", "extend", "insert"})
 
 #: Marks and decorators that switch a test off without a condition.
 _MARKS = {
@@ -129,8 +149,6 @@ _BRANCHING = (
     ast.While,
     ast.For,
     ast.AsyncFor,
-    ast.With,
-    ast.AsyncWith,
     ast.Match,
     ast.IfExp,
     ast.BoolOp,
@@ -303,13 +321,54 @@ def _resolved(node: ast.AST, aliases: dict[str, str]) -> str | None:
     return name
 
 
-def _is_literal_true(call: ast.Call) -> bool:
-    """Whether a ``skipif`` call's condition is the constant ``True`` (or ``1``)."""
-    condition: ast.AST | None = call.args[0] if call.args else None
+def _literal_condition(call: ast.AST | None) -> bool | None:
+    """The truth of a mark's condition when it is a constant.
+
+    Returns:
+        ``True`` / ``False`` for a constant condition, ``None`` when the
+        condition is computed. A mark with no condition at all (``xfail`` with
+        only a reason) is ``True``: nothing can switch it back on.
+    """
+    if not isinstance(call, ast.Call):
+        return True
+    condition: ast.AST | None = None
+    if call.args and not (
+        isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str)
+    ):
+        condition = call.args[0]
     for keyword in call.keywords:
         if keyword.arg == "condition":
             condition = keyword.value
-    return isinstance(condition, ast.Constant) and condition.value in (True, 1)
+    if condition is None:
+        return True
+    if isinstance(condition, ast.Constant):
+        return bool(condition.value)
+    return None
+
+
+def _in_function(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
+    current = node
+    while current in parents:
+        current = parents[current]
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            return True
+    return False
+
+
+def _inside_raises(node: ast.AST, parents: dict[ast.AST, ast.AST], aliases: dict[str, str]) -> bool:
+    """Whether a skip is the subject of a ``with pytest.raises(...)`` check."""
+    current = node
+    while current in parents:
+        current = parents[current]
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return False
+        if isinstance(current, (ast.With, ast.AsyncWith)):
+            for item in current.items:
+                expression = item.context_expr
+                callee = expression.func if isinstance(expression, ast.Call) else expression
+                if _resolved(callee, aliases) == "pytest.raises":
+                    return True
+    return False
 
 
 def _owner(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> str:
@@ -329,26 +388,72 @@ def _owner(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> str:
     return "<module>"
 
 
-def _is_attached(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
-    """Whether a mark expression is where pytest reads marks from.
+def _attachment(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> str | None:
+    """Where a mark expression is attached, if it is.
 
-    That is a decorator, a ``pytestmark`` assignment (module or class), or the
-    ``marks=`` of ``pytest.param``. A mark built as a value elsewhere (the
-    collection hook that adds a skip to ``network`` items when the lane is
-    off) switches nothing off by being written, and is not counted.
+    Returns:
+        ``"static"`` for a place pytest reads marks from at collection: a
+        decorator, ``pytestmark`` assigned or grown at module or class level,
+        or the ``marks=`` of ``pytest.param``. ``"dynamic"`` for the argument
+        of ``add_marker`` / ``applymarker``, which attaches when that line
+        runs. ``None`` for a mark that is only a value.
     """
     current = node
     while current in parents:
         parent = parents[current]
         if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            return any(current is decorator for decorator in parent.decorator_list)
-        if isinstance(parent, (ast.Assign, ast.AnnAssign)):
+            decorated = any(current is decorator for decorator in parent.decorator_list)
+            return "static" if decorated else None
+        if isinstance(parent, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
             targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
-            return any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in targets)
+            named = any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in targets)
+            # A local variable that happens to be called ``pytestmark`` is not
+            # read by pytest.
+            return "static" if named and not _in_function(parent, parents) else None
         if isinstance(parent, ast.keyword) and parent.arg == "marks":
-            return True
+            return "static"
+        if isinstance(parent, ast.Call) and current is not parent.func:
+            callee = parent.func
+            if isinstance(callee, ast.Attribute):
+                if callee.attr in _ATTACHING_METHODS:
+                    return "dynamic"
+                grows = callee.attr in _LIST_GROWERS and _dotted(callee.value) == "pytestmark"
+                if grows:
+                    return None if _in_function(parent, parents) else "static"
         current = parent
-    return False
+    return None
+
+
+def _named_marks(
+    tree: ast.Module, aliases: dict[str, str], parents: dict[ast.AST, ast.AST]
+) -> dict[str, tuple[str, ast.AST]]:
+    """Names bound to a mark that switches a test off without a condition.
+
+    ``parked = pytest.mark.skip(reason="...")`` followed by ``@parked`` (or
+    ``marks=parked``, ``pytestmark = parked``) parks the test exactly as the
+    inline form does, and was invisible. A name bound under a branch is left
+    out: which mark it holds is decided at import.
+    """
+    named: dict[str, tuple[str, ast.AST]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        names = [t.id for t in targets if isinstance(t, ast.Name) and t.id != "pytestmark"]
+        if not names or _under_module_branch(node, parents):
+            continue
+        value = node.value
+        callee = value.func if isinstance(value, ast.Call) else value
+        resolved = _resolved(callee, aliases)
+        kind: str | None = None
+        if resolved in _MARKS and _literal_condition(value) is True:
+            kind = _MARKS[resolved]
+        elif resolved == "pytest.mark.skipif" and _literal_condition(value) is True:
+            kind = "skip"
+        if kind is not None:
+            for name in names:
+                named[name] = (kind, value)
+    return named
 
 
 def _is_raised(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
@@ -367,6 +472,7 @@ def _scan_file(path: Path, rel: str, scan: Scan) -> None:
     for parent in ast.walk(tree):
         for child in ast.iter_child_nodes(parent):
             parents[child] = parent
+    named = _named_marks(tree, aliases, parents)
 
     def park(node: ast.AST, kind: str, reason_source: ast.AST) -> None:
         scan.parked.append(
@@ -396,30 +502,78 @@ def _scan_file(path: Path, rel: str, scan: Scan) -> None:
             else:
                 for target in targets:
                     scan.guards.setdefault(target, set()).add(rel)
-        elif name in _IMPERATIVE and (
-            _is_raised(node, parents) if name.endswith(".Exception") else call is not None
-        ):
-            # ``pytest.skip(...)``, ``pytest.xfail(...)`` and
-            # ``raise pytest.skip.Exception(...)``, inside a test or at import.
+        elif _imperative_kind(node, name, call, parents) is not None:
+            # ``pytest.skip(...)``, ``self.skipTest(...)``, ``pytest.xfail(...)``
+            # and a raised skip exception, inside a test or at import.
+            if _inside_raises(node, parents, aliases):
+                continue
             function, branched = _enclosing(node, parents)
             if function is None:
                 scan.module_skips += 1
             elif branched or _returns_before(function, node.lineno):
                 scan.conditional_skips += 1
             else:
-                park(node, _IMPERATIVE[name], call if call is not None else node)
-        elif name in _MARKS and _is_attached(call or node, parents):
-            # A mark wherever it is written: a decorator, ``pytestmark = ...``
-            # at module or class level, or ``pytest.param(..., marks=...)``.
-            if _MARKS[name] == "skip" and _under_module_branch(node, parents):
+                kind = _imperative_kind(node, name, call, parents)
+                assert kind is not None
+                park(node, kind, call if call is not None else node)
+        elif name in _MARKS or name in named:
+            if isinstance(node, ast.Name) and name in named and name not in _MARKS:
+                if not isinstance(node.ctx, ast.Load):
+                    continue
+                kind, source = named[name]
+            else:
+                kind, source = _MARKS[name], call if call is not None else node
+                condition = _literal_condition(call)
+                if condition is False:
+                    continue  # ``xfail(False)``: the mark never applies
+                if condition is None:
+                    scan.skipif_marks += 1
+                    continue
+            attachment = _attachment(call or node, parents)
+            if attachment is None:
+                continue
+            function, branched = _enclosing(node, parents)
+            if attachment == "dynamic" and (
+                function is None or branched or _returns_before(function, node.lineno)
+            ):
+                # A hook that marks some items under a condition.
+                scan.conditional_skips += 1
+            elif kind == "skip" and _under_module_branch(node, parents):
                 scan.conditional_skips += 1
             else:
-                park(node, _MARKS[name], call if call is not None else node)
-        elif name == "pytest.mark.skipif":
-            if call is not None and _is_literal_true(call) and _is_attached(call, parents):
-                park(node, "skip", call)
+                park(node, kind, source)
+        elif name == "pytest.mark.skipif" or name in _UNITTEST_CONDITIONAL:
+            parks_when = _UNITTEST_CONDITIONAL.get(name, True)
+            # Here the first positional argument is always the condition. A
+            # string is one pytest evaluates at collection, so it is computed,
+            # not constant ("sys.platform == 'win32'").
+            condition = None
+            subject: ast.AST | None = call.args[0] if call is not None and call.args else None
+            if call is not None:
+                for keyword in call.keywords:
+                    if keyword.arg == "condition":
+                        subject = keyword.value
+            if isinstance(subject, ast.Constant) and not isinstance(subject.value, str):
+                condition = bool(subject.value)
+            if condition is parks_when and _attachment(call or node, parents) is not None:
+                park(node, "skip", call if call is not None else node)
             else:
                 scan.skipif_marks += 1
+
+
+def _imperative_kind(
+    node: ast.AST, name: str, call: ast.Call | None, parents: dict[ast.AST, ast.AST]
+) -> str | None:
+    """The kind a name parks the running test as when called or raised, if it does."""
+    if name in _RAISED:
+        return _RAISED[name] if _is_raised(node, parents) else None
+    if call is None:
+        return None
+    if name in _IMPERATIVE:
+        return _IMPERATIVE[name]
+    if isinstance(node, ast.Attribute) and node.attr == "skipTest":
+        return "skip"
+    return None
 
 
 def scan_tests(root: Path = TESTS) -> Scan:

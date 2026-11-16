@@ -78,7 +78,13 @@ def fetch(domain: str) -> None:
         eid = event["event_id"]
         started = time.time()
         raw = loader.fetch_historical(eid)
-        x_full = np.asarray(loader.engineer_features(raw), float)
+        # A grid event's full view is the grid matrix: the space-weather
+        # matrix is not what its scored columns are a subset of.
+        is_grid = getattr(loader, "is_grid_frame", None)
+        if is_grid is not None and is_grid(raw):
+            x_full = np.asarray(loader.engineer_grid_features(raw), float)
+        else:
+            x_full = np.asarray(loader.engineer_features(raw), float)
         try:
             x_scored = np.asarray(loader.engineer_scored_features(raw), float)
         except SyntheticDataNotDeleakable as exc:

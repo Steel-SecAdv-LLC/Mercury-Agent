@@ -35,6 +35,7 @@ from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 from omni_mercury_engine.loaders.energy_loader import (
     _EVENT_CATALOG,
     DOE_DISTURBANCE_COLUMN,
+    GRID_FEATURE_COLUMNS,
     GRID_SHORTFALL_THRESHOLD,
     EnergyLoader,
 )
@@ -450,3 +451,65 @@ def test_a_step_with_no_kp_is_not_a_storm_and_does_not_raise(
 
     assert labels[peak] == 0
     assert labels.sum() > 0
+
+
+# ---------------------------------------------------------------------------
+# A grid event is scored on the grid.
+# ---------------------------------------------------------------------------
+
+
+def test_a_grid_event_is_scored_on_its_own_series_not_on_the_solar_wind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Was: three solar-wind columns, for a winter storm and a year of outages."""
+    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+    monkeypatch.setattr(_GET_BYTES, _archives())
+    loader = _loader(tmp_path)
+    frame = loader.fetch_historical("texas_2023")
+
+    grid = loader.engineer_grid_features(frame)
+    scored = loader.engineer_scored_features(frame)
+
+    assert loader.is_grid_frame(frame)
+    assert grid.shape == (len(frame), len(GRID_FEATURE_COLUMNS))
+    assert np.isfinite(grid).all()
+    demand = grid[:, GRID_FEATURE_COLUMNS.index("grid_demand")]
+    assert np.allclose(demand, frame["grid_demand"].to_numpy(dtype=float))
+    change = grid[:, GRID_FEATURE_COLUMNS.index("grid_demand_change")]
+    assert change[0] == 0.0
+    assert np.allclose(change[1:], np.diff(demand))
+    error = grid[:, GRID_FEATURE_COLUMNS.index("grid_forecast_error")]
+    forecast = frame["grid_demand_forecast"].to_numpy(dtype=float)
+    assert np.allclose(error, (forecast - demand) / forecast)
+    # DOE's reports label this event and no column produces them: all six score.
+    assert np.array_equal(scored, grid)
+    # The space-weather matrix is unchanged for callers that ask for it.
+    assert loader.engineer_features(frame).shape == (len(frame), 8)
+
+
+def test_a_shortfall_labelled_grid_event_is_not_scored_on_demand(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Texas 2021 is labelled by demand against forecast; neither is scored."""
+    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+    monkeypatch.setattr(_GET_BYTES, _archives())
+    loader = _loader(tmp_path)
+    frame = loader.fetch_historical("texas_2021")
+
+    grid = loader.engineer_grid_features(frame)
+    scored = loader.engineer_scored_features(frame)
+
+    kept = ["grid_net_generation", "grid_interchange", "grid_generation_change"]
+    assert scored.shape == (len(frame), 3)
+    for position, name in enumerate(kept):
+        assert np.array_equal(scored[:, position], grid[:, GRID_FEATURE_COLUMNS.index(name)])
+
+
+def test_a_storm_frame_has_no_grid_view(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(_GET_BYTES, _archives())
+    loader = _loader(tmp_path)
+    frame = loader.fetch_historical("quebec_1989")
+
+    assert not loader.is_grid_frame(frame)
+    with pytest.raises(ValueError, match="not a grid-event frame"):
+        loader.engineer_grid_features(frame)

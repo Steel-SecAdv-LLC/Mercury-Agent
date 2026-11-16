@@ -4,9 +4,10 @@ Last updated: 2026-07-11.
 
 Every figure in `FINDINGS.md` (and the PR body) is reproduced **in this branch
 from committed code** on the **real reachable suite**: a **live headline suite of
-23 real events / 7 domains** plus a separately-reported **reconstructed-from-live
-group of 7 events / 3 domains** (tsunami, energy, `ebola_2014`), always labelled
-reconstruction and never folded into the headline mean. This file is the exact
+31 real events / 9 domains** (as measured 2026-11-16) plus a separately-reported
+**reconstructed-from-live group** (`ebola_2014` only, and empty unless
+`MERCURY_ALLOW_SYNTHETIC=1`), always labelled reconstruction and never folded
+into the headline mean. This file is the exact
 recipe; the per-event results JSON in `results/` and the data manifest
 `manifest.json` let a reviewer match every figure **without live API access**.
 
@@ -105,11 +106,12 @@ different data is not a gate.
 
 - `pandemic/ebola_2014` has no live WHO GHO feed (it 404s), so the loader
   reconstructs the documented 2014 epidemic curve. It is reported in the
-  **reconstructed-from-live group** (tsunami / energy / `ebola_2014`, 7 events /
-  3 domains) and **never folded into the 23-event live headline mean** — it is
-  labelled, not excluded. `MERCURY_ALLOW_SYNTHETIC=0` does not gate the
-  `loaders/` path (only `datasets/`), so the live/reconstructed split is made
-  explicit in code (`suite.py: RECONSTRUCTED_DOMAINS / RECONSTRUCTED_EVENTS`).
+  **reconstructed-from-live group** and **never folded into the live headline
+  mean** — it is labelled, not excluded. With `MERCURY_ALLOW_SYNTHETIC=0` (what
+  `gf_env.sh` sets) the loader refuses it and the group is empty. The
+  live/reconstructed split is explicit in code
+  (`suite.py: RECONSTRUCTED_DOMAINS / RECONSTRUCTED_EVENTS`); tsunami and energy
+  left it when their loaders began reading recorded archives.
 - Unreachable domains (wildfire, flood, volcanic, landslide, financial, sepsis)
   never enter the suite; their loaders fetch live or raise
   `DataSourceUnavailableError` — none synthesise.

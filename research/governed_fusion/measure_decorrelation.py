@@ -281,12 +281,20 @@ def main() -> None:
     real_rows, real_by_dom = _measure_group("real")
     recon_rows, recon_by_dom = _measure_group("reconstructed")
     real_summary = _report("LIVE HEADLINE SUITE", real_rows, real_by_dom, headline=True)
-    recon_summary = _report(
-        "RECONSTRUCTED-FROM-LIVE (labelled; not in headline)",
-        recon_rows,
-        recon_by_dom,
-        headline=False,
-    )
+    if recon_rows:
+        recon_summary = _report(
+            "RECONSTRUCTED-FROM-LIVE (labelled; not in headline)",
+            recon_rows,
+            recon_by_dom,
+            headline=False,
+        )
+    else:
+        # No reconstructed event is reachable since the tsunami and energy
+        # loaders read recorded archives. Reporting the empty class through
+        # ``_report`` wrote NaN for every figure (not valid JSON) and a
+        # verdict about no data.
+        print("\n==== RECONSTRUCTED-FROM-LIVE: 0 events ====\n(none)")
+        recon_summary = {"n_events": 0}
     combined = _combined_power_check(real_rows, recon_rows)
     _write_artifact(real_summary, recon_summary, combined)
 

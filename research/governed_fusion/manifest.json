@@ -1,10 +1,10 @@
 {
   "suite": "governed-fusion reachable suite",
-  "n_real_events": 23,
-  "n_real_domains": 7,
-  "n_reconstructed_events": 7,
-  "n_reconstructed_domains": 3,
-  "reconstructed_note": "tsunami/energy synthesise the series by design and ebola_2014 has no live WHO feed; these reconstruct documented real events and are reported separately, never folded into the live headline mean",
+  "n_real_events": 31,
+  "n_real_domains": 9,
+  "n_reconstructed_events": 0,
+  "n_reconstructed_domains": 0,
+  "reconstructed_note": "ebola_2014 has no live WHO feed and is reconstructed when the synthetic opt-in is set; it is reported separately, never folded into the live headline mean. tsunami and energy read recorded archives and are live",
   "cap": 6000,
   "provenance_summary": {
     "real": {
@@ -14,9 +14,9 @@
         "n_pos": 71682
       },
       "self_label": {
-        "n_events": 21,
-        "n_rows": 84378,
-        "n_pos": 4927
+        "n_events": 29,
+        "n_rows": 78233,
+        "n_pos": 3290
       },
       "reconstructed": {
         "n_events": 0,
@@ -36,9 +36,9 @@
         "n_pos": 0
       },
       "reconstructed": {
-        "n_events": 7,
-        "n_rows": 7113,
-        "n_pos": 1611
+        "n_events": 0,
+        "n_rows": 0,
+        "n_pos": 0
       }
     },
     "transparent_fitness_bucket": "external_label",
@@ -51,10 +51,10 @@
       "n_rows": 216,
       "n_features": 8,
       "n_pos": 2,
+      "sha256_xy": "06244cb9a7f2b02519ce558c6627a0bb258e93795c2414155e3ba183ca7a978f",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "06244cb9a7f2b02519ce558c6627a0bb258e93795c2414155e3ba183ca7a978f",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -69,10 +69,10 @@
       "n_rows": 361,
       "n_features": 8,
       "n_pos": 1,
+      "sha256_xy": "3b012a33de27350b278bdeafe20c606dce555e08baea0b89b0d1c8f7b4df4973",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "3b012a33de27350b278bdeafe20c606dce555e08baea0b89b0d1c8f7b4df4973",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -87,10 +87,10 @@
       "n_rows": 333,
       "n_features": 8,
       "n_pos": 1,
+      "sha256_xy": "01e7401d45ed94668b49fa7149170e75f8483c23c3748848f4ad8df015228bc8",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "01e7401d45ed94668b49fa7149170e75f8483c23c3748848f4ad8df015228bc8",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -105,10 +105,10 @@
       "n_rows": 1491,
       "n_features": 8,
       "n_pos": 1,
+      "sha256_xy": "b0ad28cc9181a7e5cce90b4ca3f6d30b386ca1b67d51a4843b2a2687513c473e",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "b0ad28cc9181a7e5cce90b4ca3f6d30b386ca1b67d51a4843b2a2687513c473e",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -123,10 +123,10 @@
       "n_rows": 466,
       "n_features": 8,
       "n_pos": 2,
+      "sha256_xy": "55c2c15635f37602a5bf14767cc29574e15fb8ad006bcfc4b9c88dbc675da0cc",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "55c2c15635f37602a5bf14767cc29574e15fb8ad006bcfc4b9c88dbc675da0cc",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -136,57 +136,147 @@
       }
     },
     {
-      "domain": "fema",
-      "event_id": "earthquake_all",
-      "n_rows": 228,
-      "n_features": 7,
-      "n_pos": 51,
+      "domain": "energy",
+      "event_id": "bastille_day_2000",
+      "n_rows": 736,
+      "n_features": 8,
+      "n_pos": 14,
+      "sha256_xy": "2d43a0cdcd306f9f893270c4a436321e388d6f137663aa5f6ee782f0cd86109c",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "6fca18b2429ed8f47ed55ea45f37647c77e77790db7950b133e09929c3a07717",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 228,
-        "n_pos": 51,
-        "sha256_xy": "6fca18b2429ed8f47ed55ea45f37647c77e77790db7950b133e09929c3a07717"
+        "n_rows": 736,
+        "n_pos": 14,
+        "sha256_xy": "2d43a0cdcd306f9f893270c4a436321e388d6f137663aa5f6ee782f0cd86109c"
+      }
+    },
+    {
+      "domain": "energy",
+      "event_id": "halloween_2003",
+      "n_rows": 976,
+      "n_features": 8,
+      "n_pos": 26,
+      "sha256_xy": "8fe222fbd6b678d50d7e4bb0882a4b7326d18506b22d8ccd7958c19edd1d9e42",
+      "label_provenance": "statistical",
+      "series_provenance": "live",
+      "external_label": false,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 976,
+        "n_pos": 26,
+        "sha256_xy": "8fe222fbd6b678d50d7e4bb0882a4b7326d18506b22d8ccd7958c19edd1d9e42"
+      }
+    },
+    {
+      "domain": "energy",
+      "event_id": "quebec_1989",
+      "n_rows": 712,
+      "n_features": 8,
+      "n_pos": 19,
+      "sha256_xy": "0520a4d79b19b2043c137b233beccfe17dd2627ae254f62c7aa8ae0bd4a2722b",
+      "label_provenance": "statistical",
+      "series_provenance": "live",
+      "external_label": false,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 712,
+        "n_pos": 19,
+        "sha256_xy": "0520a4d79b19b2043c137b233beccfe17dd2627ae254f62c7aa8ae0bd4a2722b"
+      }
+    },
+    {
+      "domain": "energy",
+      "event_id": "texas_2021",
+      "n_rows": 720,
+      "n_features": 6,
+      "n_pos": 21,
+      "sha256_xy": "61d346c2b66d689bc70e656e34bc034df4e8b27b62022c5b0168c35d0ea424aa",
+      "label_provenance": "statistical",
+      "series_provenance": "live",
+      "external_label": false,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 720,
+        "n_pos": 21,
+        "sha256_xy": "61d346c2b66d689bc70e656e34bc034df4e8b27b62022c5b0168c35d0ea424aa"
+      }
+    },
+    {
+      "domain": "energy",
+      "event_id": "texas_2023",
+      "n_rows": 2920,
+      "n_features": 6,
+      "n_pos": 184,
+      "sha256_xy": "a8c24c8299b38fb8481021be60ae93c75ab26226f6badb47abe8b0d705c1b5c0",
+      "label_provenance": "statistical",
+      "series_provenance": "live",
+      "external_label": false,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 2920,
+        "n_pos": 184,
+        "sha256_xy": "a8c24c8299b38fb8481021be60ae93c75ab26226f6badb47abe8b0d705c1b5c0"
       }
     },
     {
       "domain": "fema",
       "event_id": "fire_2023",
-      "n_rows": 3876,
+      "n_rows": 36,
       "n_features": 7,
-      "n_pos": 180,
+      "n_pos": 1,
+      "sha256_xy": "a14e8280b4ccb7c5e0f132399ef75d6f352bcfe9076f5e698f5b4dd98a183b44",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "bb90095f4196989af229c9b73727031afb49e1b647b56101a81ba930d77d45e5",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 3876,
-        "n_pos": 180,
-        "sha256_xy": "bb90095f4196989af229c9b73727031afb49e1b647b56101a81ba930d77d45e5"
+        "n_rows": 36,
+        "n_pos": 1,
+        "sha256_xy": "a14e8280b4ccb7c5e0f132399ef75d6f352bcfe9076f5e698f5b4dd98a183b44"
+      }
+    },
+    {
+      "domain": "fema",
+      "event_id": "flood_2024",
+      "n_rows": 225,
+      "n_features": 7,
+      "n_pos": 74,
+      "sha256_xy": "ed2719b76dc55241a827b0dd082c3a32bee5674682189fadf83a2ff016e85edf",
+      "label_provenance": "statistical",
+      "series_provenance": "live",
+      "external_label": false,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 225,
+        "n_pos": 74,
+        "sha256_xy": "ed2719b76dc55241a827b0dd082c3a32bee5674682189fadf83a2ff016e85edf"
       }
     },
     {
       "domain": "fema",
       "event_id": "hurricane_2024",
-      "n_rows": 10000,
+      "n_rows": 400,
       "n_features": 7,
-      "n_pos": 1987,
+      "n_pos": 151,
+      "sha256_xy": "6f19ec426bdb4ab3069c350ba7d31f5e8ef57e6304af1165e1644dad2d487d41",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "b3e07fede932b21d227d07a5e7615f673382bc52b62f38a9ed50d31661afe502",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 6000,
-        "n_pos": 1192,
-        "sha256_xy": "2817c40bdb4c4e13662fb4d57d479142b6bd8703806ff3fa25c5dcaaa482916b"
+        "n_rows": 400,
+        "n_pos": 151,
+        "sha256_xy": "6f19ec426bdb4ab3069c350ba7d31f5e8ef57e6304af1165e1644dad2d487d41"
       }
     },
     {
@@ -195,10 +285,10 @@
       "n_rows": 45,
       "n_features": 8,
       "n_pos": 7,
+      "sha256_xy": "c8ff8af5cfd873a72cf01b244a50b5bda0c3fe0f097d06f6eb61a8763863db25",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "c8ff8af5cfd873a72cf01b244a50b5bda0c3fe0f097d06f6eb61a8763863db25",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -213,10 +303,10 @@
       "n_rows": 123,
       "n_features": 8,
       "n_pos": 5,
+      "sha256_xy": "271368e9e082d8ba5c5386a22c2372438ee75565df3edddc123ec18c47bcec5f",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "271368e9e082d8ba5c5386a22c2372438ee75565df3edddc123ec18c47bcec5f",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -231,10 +321,10 @@
       "n_rows": 64,
       "n_features": 8,
       "n_pos": 7,
+      "sha256_xy": "8a62800a9304b953fb05d179d1faf3e454bd6ef5259a10abe00816c57139d6de",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "8a62800a9304b953fb05d179d1faf3e454bd6ef5259a10abe00816c57139d6de",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -249,10 +339,10 @@
       "n_rows": 62,
       "n_features": 8,
       "n_pos": 10,
+      "sha256_xy": "92008e73971a9615042c6da77d2910354663d6be93cc280447d67a51d1daa418",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "92008e73971a9615042c6da77d2910354663d6be93cc280447d67a51d1daa418",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -264,37 +354,37 @@
     {
       "domain": "marine",
       "event_id": "gbr_bleaching_2016",
-      "n_rows": 18,
+      "n_rows": 21,
       "n_features": 3,
-      "n_pos": 13,
+      "n_pos": 15,
+      "sha256_xy": "d8418d2513106605f59602a0a6acacd746027e9eebe72b71c4b9dcedecef5795",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "f157b0bc76535306f3f66322d65416e6f69113e7645d2172d35af5c335993387",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 18,
-        "n_pos": 13,
-        "sha256_xy": "f157b0bc76535306f3f66322d65416e6f69113e7645d2172d35af5c335993387"
+        "n_rows": 21,
+        "n_pos": 15,
+        "sha256_xy": "d8418d2513106605f59602a0a6acacd746027e9eebe72b71c4b9dcedecef5795"
       }
     },
     {
       "domain": "marine",
-      "event_id": "marine_heatwave_2023",
-      "n_rows": 78,
+      "event_id": "gbr_bleaching_2020",
+      "n_rows": 18,
       "n_features": 3,
-      "n_pos": 21,
+      "n_pos": 9,
+      "sha256_xy": "5744e071c4f0e562a7fdc73041f2b431a44e4f1ea9a43bac45a676c3467fb98b",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "3c126e6de978c6561dec6acb496e3a9b31068cc2bf6907d60d5149a9ed6e7d5b",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 78,
-        "n_pos": 21,
-        "sha256_xy": "3c126e6de978c6561dec6acb496e3a9b31068cc2bf6907d60d5149a9ed6e7d5b"
+        "n_rows": 18,
+        "n_pos": 9,
+        "sha256_xy": "5744e071c4f0e562a7fdc73041f2b431a44e4f1ea9a43bac45a676c3467fb98b"
       }
     },
     {
@@ -303,10 +393,10 @@
       "n_rows": 12938,
       "n_features": 43,
       "n_pos": 219,
+      "sha256_xy": "661c8a8c1ea52ede805171a3f49a9213faa04fc90aa294ce56435fc2191916a4",
       "label_provenance": "ground_truth",
       "series_provenance": "live",
       "external_label": true,
-      "sha256_xy": "661c8a8c1ea52ede805171a3f49a9213faa04fc90aa294ce56435fc2191916a4",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -321,10 +411,10 @@
       "n_rows": 148517,
       "n_features": 9,
       "n_pos": 71463,
+      "sha256_xy": "eee86f237983766ef17cdfb5c0cebf06d8fbf3eb0a1d238985ad4cb78f6bdc7a",
       "label_provenance": "ground_truth",
       "series_provenance": "live",
       "external_label": true,
-      "sha256_xy": "eee86f237983766ef17cdfb5c0cebf06d8fbf3eb0a1d238985ad4cb78f6bdc7a",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -336,19 +426,19 @@
     {
       "domain": "pandemic",
       "event_id": "cholera_yemen_2017",
-      "n_rows": 132,
+      "n_rows": 168,
       "n_features": 12,
-      "n_pos": 23,
+      "n_pos": 21,
+      "sha256_xy": "9924e67130e90c7fd434a03400ea6511e36c93383ba96e264d607660846ba52a",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "80c5de312e3edcbf0b27f1194969ac85b663b0ace24f3b8c1889df0bef799c94",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 132,
-        "n_pos": 23,
-        "sha256_xy": "80c5de312e3edcbf0b27f1194969ac85b663b0ace24f3b8c1889df0bef799c94"
+        "n_rows": 168,
+        "n_pos": 21,
+        "sha256_xy": "9924e67130e90c7fd434a03400ea6511e36c93383ba96e264d607660846ba52a"
       }
     },
     {
@@ -357,10 +447,10 @@
       "n_rows": 1036,
       "n_features": 12,
       "n_pos": 76,
+      "sha256_xy": "5fc9dac76277d54db507cded24acec6ddf16a5575e8edbe0e6069b528f1d4895",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "5fc9dac76277d54db507cded24acec6ddf16a5575e8edbe0e6069b528f1d4895",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -375,10 +465,10 @@
       "n_rows": 686,
       "n_features": 12,
       "n_pos": 65,
+      "sha256_xy": "7153c0e049a894b83f12fbc76042d158a109b341a29f04d9c6baf4b08c8ec165",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "7153c0e049a894b83f12fbc76042d158a109b341a29f04d9c6baf4b08c8ec165",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -393,10 +483,10 @@
       "n_rows": 1075,
       "n_features": 12,
       "n_pos": 63,
+      "sha256_xy": "6cfa0da4282acb74a92ad9fcb81f6b1e2adef41f84680790f8556a67b2211d90",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "6cfa0da4282acb74a92ad9fcb81f6b1e2adef41f84680790f8556a67b2211d90",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -411,10 +501,10 @@
       "n_rows": 63674,
       "n_features": 12,
       "n_pos": 2372,
+      "sha256_xy": "fa743741cca493ba4ad4ea40a6b1007aa99d3a04c7ff22c21c16abf5765c2123",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "fa743741cca493ba4ad4ea40a6b1007aa99d3a04c7ff22c21c16abf5765c2123",
       "capped": {
         "cap": 6000,
         "seed": 42,
@@ -429,16 +519,16 @@
       "n_rows": 65,
       "n_features": 12,
       "n_pos": 3,
+      "sha256_xy": "33247bfe605bad2ab1bf4c67d958faeb7b79d67466ffb8fa10622fa4bf4fcba2",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "9ad5730191e2faa51cef00279a825ba7d039945fad43bb3a2c81a7ca61ec757d",
       "capped": {
         "cap": 6000,
         "seed": 42,
         "n_rows": 65,
         "n_pos": 3,
-        "sha256_xy": "9ad5730191e2faa51cef00279a825ba7d039945fad43bb3a2c81a7ca61ec757d"
+        "sha256_xy": "33247bfe605bad2ab1bf4c67d958faeb7b79d67466ffb8fa10622fa4bf4fcba2"
       }
     },
     {
@@ -447,145 +537,72 @@
       "n_rows": 349,
       "n_features": 12,
       "n_pos": 37,
+      "sha256_xy": "348b5701b54506c820cd3247e3446efbe2b8f601fa7a146bcd1a8a3637133e34",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "a43c07dfa0032a88b1c0443b2d74981114964a86b9e78531aa96d3288c9db96f",
       "capped": {
         "cap": 6000,
         "seed": 42,
         "n_rows": 349,
         "n_pos": 37,
-        "sha256_xy": "a43c07dfa0032a88b1c0443b2d74981114964a86b9e78531aa96d3288c9db96f"
-      }
-    }
-  ],
-  "reconstructed": [
-    {
-      "domain": "energy",
-      "event_id": "bastille_day_2000",
-      "n_rows": 736,
-      "n_features": 8,
-      "n_pos": 22,
-      "label_provenance": "statistical",
-      "series_provenance": "reconstructed",
-      "external_label": false,
-      "sha256_xy": "c63029f26889290658fe019b9c27ff444550b6c0ff7e9aa294d990485c2dd448",
-      "capped": {
-        "cap": 6000,
-        "seed": 42,
-        "n_rows": 736,
-        "n_pos": 22,
-        "sha256_xy": "c63029f26889290658fe019b9c27ff444550b6c0ff7e9aa294d990485c2dd448"
-      }
-    },
-    {
-      "domain": "energy",
-      "event_id": "halloween_2003",
-      "n_rows": 976,
-      "n_features": 8,
-      "n_pos": 22,
-      "label_provenance": "statistical",
-      "series_provenance": "reconstructed",
-      "external_label": false,
-      "sha256_xy": "7dd9a2015d353306a3649f6e657c8523a9a9e1b6e09031f4cbeba72f1e5e2fb8",
-      "capped": {
-        "cap": 6000,
-        "seed": 42,
-        "n_rows": 976,
-        "n_pos": 22,
-        "sha256_xy": "7dd9a2015d353306a3649f6e657c8523a9a9e1b6e09031f4cbeba72f1e5e2fb8"
-      }
-    },
-    {
-      "domain": "energy",
-      "event_id": "quebec_1989",
-      "n_rows": 720,
-      "n_features": 8,
-      "n_pos": 22,
-      "label_provenance": "statistical",
-      "series_provenance": "reconstructed",
-      "external_label": false,
-      "sha256_xy": "b01043f217e9b1cd780e36bd02a094d7de7fa3a9a70c4f95c447ac9de56e2811",
-      "capped": {
-        "cap": 6000,
-        "seed": 42,
-        "n_rows": 720,
-        "n_pos": 22,
-        "sha256_xy": "b01043f217e9b1cd780e36bd02a094d7de7fa3a9a70c4f95c447ac9de56e2811"
-      }
-    },
-    {
-      "domain": "pandemic",
-      "event_id": "ebola_2014",
-      "n_rows": 306,
-      "n_features": 12,
-      "n_pos": 17,
-      "label_provenance": "statistical",
-      "series_provenance": "reconstructed",
-      "external_label": false,
-      "sha256_xy": "491f33900a82f4a3a304c0eb21f5abe9c26eadf5b0fcf439ef7178ef4fb3f216",
-      "capped": {
-        "cap": 6000,
-        "seed": 42,
-        "n_rows": 306,
-        "n_pos": 17,
-        "sha256_xy": "491f33900a82f4a3a304c0eb21f5abe9c26eadf5b0fcf439ef7178ef4fb3f216"
+        "sha256_xy": "348b5701b54506c820cd3247e3446efbe2b8f601fa7a146bcd1a8a3637133e34"
       }
     },
     {
       "domain": "tsunami",
       "event_id": "chile_2010",
-      "n_rows": 1166,
+      "n_rows": 414,
       "n_features": 6,
-      "n_pos": 447,
+      "n_pos": 30,
+      "sha256_xy": "8351dea5dd69bf0381a2f55fd245532f30611630d78d9ce9524348b006d74cac",
       "label_provenance": "statistical",
-      "series_provenance": "reconstructed",
+      "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "4702678b7a390e7d4a5597fa0f3cca932a8b5147d17cf9f45e6e4fa1c76c62af",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 1166,
-        "n_pos": 447,
-        "sha256_xy": "4702678b7a390e7d4a5597fa0f3cca932a8b5147d17cf9f45e6e4fa1c76c62af"
+        "n_rows": 414,
+        "n_pos": 30,
+        "sha256_xy": "8351dea5dd69bf0381a2f55fd245532f30611630d78d9ce9524348b006d74cac"
       }
     },
     {
       "domain": "tsunami",
       "event_id": "tohoku_2011",
-      "n_rows": 1094,
+      "n_rows": 409,
       "n_features": 6,
-      "n_pos": 375,
+      "n_pos": 25,
+      "sha256_xy": "80ce14c162ba6c575ff054f2e0fc522573e8bb3f644dd119b9d8a6a41f97fba4",
       "label_provenance": "statistical",
-      "series_provenance": "reconstructed",
+      "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "6c2a8df4360445aa838f84512ab511e55ee9f9aeb600166dc2e8234e7422f2e8",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 1094,
-        "n_pos": 375,
-        "sha256_xy": "6c2a8df4360445aa838f84512ab511e55ee9f9aeb600166dc2e8234e7422f2e8"
+        "n_rows": 409,
+        "n_pos": 25,
+        "sha256_xy": "80ce14c162ba6c575ff054f2e0fc522573e8bb3f644dd119b9d8a6a41f97fba4"
       }
     },
     {
       "domain": "tsunami",
       "event_id": "tonga_2022",
-      "n_rows": 2115,
+      "n_rows": 432,
       "n_features": 6,
-      "n_pos": 706,
+      "n_pos": 48,
+      "sha256_xy": "6d4e4272163719d48352a37a514f398dc75c22bfe9b9166f02d32fce34f7c2ec",
       "label_provenance": "statistical",
-      "series_provenance": "reconstructed",
+      "series_provenance": "live",
       "external_label": false,
-      "sha256_xy": "10c62cdd694e2df85cae7f3a529fe3857fcd3b330b6ccaa7cce687b3d2719327",
       "capped": {
         "cap": 6000,
         "seed": 42,
-        "n_rows": 2115,
-        "n_pos": 706,
-        "sha256_xy": "10c62cdd694e2df85cae7f3a529fe3857fcd3b330b6ccaa7cce687b3d2719327"
+        "n_rows": 432,
+        "n_pos": 48,
+        "sha256_xy": "6d4e4272163719d48352a37a514f398dc75c22bfe9b9166f02d32fce34f7c2ec"
       }
     }
-  ]
+  ],
+  "reconstructed": []
 }

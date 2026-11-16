@@ -11,8 +11,9 @@ scikit-learn).
 
 Two clearly-separated event classes (a reviewer must never conflate them):
 
-* **Live headline suite -- 23 real events / 7 domains.**  earthquake 5,
-  pandemic 5, hurricane 4, fema 3, tornado 2, marine 2, network_security 2.
+* **Live headline suite -- 31 real events / 9 domains** (measured
+  2026-11-16).  earthquake 5, energy 5, pandemic 5, hurricane 4, fema 3,
+  tsunami 3, marine 2, network_security 2, tornado 2.
   Every figure headlined in ``FINDINGS.md`` is computed on this set.  These
   loaders return genuine live-API payloads (verified: no synthetic-generation
   method is reached -- ``build_suite(kind="real")``).
@@ -70,21 +71,17 @@ REACHABLE: dict[str, tuple[str, str, int]] = {
     "tornado": ("tornado_loader", "TornadoLoader", 2),
     "marine": ("marine_loader", "MarineLoader", 2),
     "hurricane": ("hurricane_loader", "HurricaneLoader", 4),
-    "energy": ("energy_loader", "EnergyLoader", 3),
+    "energy": ("energy_loader", "EnergyLoader", 5),
     "fema": ("fema_loader", "FEMALoader", 3),
     "network_security": ("network_security_loader", "NetworkSecurityLoader", 2),
     "pandemic": ("pandemic_loader", "PandemicLoader", 6),
 }
 
-# Domains reported outside the headline manifest. When this suite was
-# measured their loaders synthesised the series (tsunami BPR patterns, energy
-# Kp storm profiles). Neither does any longer: since 2026-11-16
-# ``TsunamiLoader`` reads NDBC's DART archive and ``EnergyLoader`` reads OMNI2
-# and EIA-930. Both stay in this set because every file under ``results/``
-# was measured with them outside the 23-event headline manifest; moving them
-# changes that manifest, so they move together with a re-run of the suite,
-# not before.
-RECONSTRUCTED_DOMAINS: frozenset[str] = frozenset({"tsunami", "energy"})
+# Domains whose loaders synthesise the series by design. Empty since
+# 2026-11-16: ``TsunamiLoader`` reads NDBC's DART archive and ``EnergyLoader``
+# reads NASA OMNI2 and EIA-930, so both are live-labelled and take the
+# ``_looks_synthesized`` guard like every other live domain.
+RECONSTRUCTED_DOMAINS: frozenset[str] = frozenset()
 # Individual events that fall back to reconstruction inside an otherwise-live
 # domain (the WHO GHO Ebola series is unavailable, so pandemic/ebola_2014
 # reconstructs the documented 2014 epidemic curve).
@@ -131,6 +128,11 @@ def _looks_synthesized(raw: Any) -> bool:
         True iff ``raw`` exposes a ``dataset_id`` column containing the value
         ``"synthetic"``.
     """
+    # The loaders' own mark (``BaseDomainLoader.mark_synthetic``): the energy,
+    # tsunami, marine and pandemic stand-ins all carry it, which closes the
+    # "synthesises without the marker" residual for those loaders.
+    if bool(getattr(raw, "attrs", {}).get("mercury_synthetic", False)):
+        return True
     columns = getattr(raw, "columns", None)
     if columns is None or "dataset_id" not in columns:
         return False
@@ -215,7 +217,13 @@ def _load_event(domain: str, mod: str, cls: str, event_id: str) -> EventData | N
             "mislabel a silent fallback as live (restore the live source / use "
             "the committed cache, or add it to RECONSTRUCTED_* if reconstructed)."
         )
-    feats = np.asarray(loader.engineer_features(raw), dtype=np.float64)
+    # A grid event (energy/texas_*) is described by the grid's own series;
+    # the loader's default matrix is space weather and says nothing about it.
+    is_grid = getattr(loader, "is_grid_frame", None)
+    if is_grid is not None and is_grid(raw):
+        feats = np.asarray(loader.engineer_grid_features(raw), dtype=np.float64)
+    else:
+        feats = np.asarray(loader.engineer_features(raw), dtype=np.float64)
     y = np.asarray(loader.get_ground_truth(event_id)).astype(int).reshape(-1)
     if feats.ndim == 1:
         feats = feats.reshape(-1, 1)
@@ -281,10 +289,10 @@ def build_suite(*, kind: str = "real", verbose: bool = False) -> list[EventData]
     """Build the reachable suite for the requested event class.
 
     Args:
-        kind: ``"real"`` -> the 23-event / 7-domain live headline suite
-            (default); ``"reconstructed"`` -> the 7-event / 3-domain
-            reconstructed-from-live group (tsunami, energy, ebola_2014);
-            ``"all"`` -> both (30 events).
+        kind: ``"real"`` -> the live headline suite (default; 31 events / 9
+            domains as measured 2026-11-16); ``"reconstructed"`` -> the
+            reconstructed-from-live group (``ebola_2014`` only, and empty
+            unless the synthetic opt-in is set); ``"all"`` -> both.
         verbose: print per-event provenance while building.
 
     Returns:
