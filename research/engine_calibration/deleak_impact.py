@@ -61,6 +61,7 @@ LOADERS = {
     "hurricane": ("hurricane_loader", "HurricaneLoader"),
     "volcanic": ("volcanic_loader", "VolcanicLoader"),
     "fema": ("fema_loader", "FEMALoader"),
+    "fema_activity": ("fema_activity_loader", "FEMAActivityLoader"),
     "network_security": ("network_security_loader", "NetworkSecurityLoader"),
     "pandemic": ("pandemic_loader", "PandemicLoader"),
 }

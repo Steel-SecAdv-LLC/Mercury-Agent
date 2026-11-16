@@ -23,6 +23,7 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+from research.governed_fusion.label_provenance import event_is_external_label
 from research.governed_fusion.suite import EventData, stratified_subsample
 
 _CACHE_DIR = os.environ.get("GF_CACHE_DIR", "/home/user/gf_cache")
@@ -57,8 +58,40 @@ def _scores_path(
     *,
     cache_dir: str = _CACHE_DIR,
 ) -> str:
-    key = hashlib.sha256(f"{domain}:{event_id}:{cap}:{seed}".encode()).hexdigest()[:16]
+    # The protocol is part of the key: scores of the externally labelled
+    # events from the fit-in-place protocol must not be read back as these.
+    protocol = ":normal-reference" if event_is_external_label(domain, event_id) else ""
+    key = hashlib.sha256(f"{domain}:{event_id}:{cap}:{seed}{protocol}".encode()).hexdigest()[:16]
     return os.path.join(cache_dir, f"scores_{domain}_{event_id}_{cap}_{key}.npz")
+
+
+def scored_rows(
+    ev: EventData, *, cap: int = 6000, seed: int = 42
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], bool]:
+    """The rows the detector is fitted on and the rows it scores, for one event.
+
+    Two protocols, by what the event's labels allow:
+
+    * **Self-labelled event.** The detector is fitted on the capped event and
+      scores the same rows: an unlabelled reference, declared as such.
+    * **Externally labelled event.** Its labels are audited ground truth, so a
+      reference known to be normal exists: every other normal row of the
+      capped event. The detector is fitted on that and scores the remaining
+      rows, which is the protocol of ``benchmarks/mercury_benchmark.py`` and
+      the detector's own contract. Fitting on the whole event measured what
+      the detector does with a reference that is half attacks (``nsl_kdd``:
+      48%), not whether it finds the attacks.
+
+    Returns:
+        ``(reference, scored, labels_of_scored, in_place)``.
+    """
+    x_sub, y_sub = stratified_subsample(ev.X, ev.y, cap, seed=seed)
+    y_sub = np.asarray(y_sub, dtype=int).reshape(-1)
+    if not event_is_external_label(ev.domain, ev.event_id):
+        return x_sub, x_sub, y_sub, True
+    reference = np.flatnonzero(y_sub == 0)[::2]
+    held_out = np.setdiff1d(np.arange(len(y_sub)), reference)
+    return x_sub[reference], x_sub[held_out], y_sub[held_out], False
 
 
 def event_scores(
@@ -86,9 +119,8 @@ def event_scores(
                 z["ig_cov_inv"],
             )
 
-    X, y = stratified_subsample(ev.X, ev.y, cap, seed=seed)
-    # The event is fitted on and scored in place: an unlabelled reference.
-    det = MercuryAnomalyDetector().fit(X, unlabeled_reference=True)
+    reference, X, y, in_place = scored_rows(ev, cap=cap, seed=seed)
+    det = MercuryAnomalyDetector().fit(reference, unlabeled_reference=in_place)
     r = det.detect(X)
     es = EventScores(
         domain=ev.domain,

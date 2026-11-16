@@ -60,7 +60,8 @@ from omni_mercury_engine.ml.mercury_ml import LogisticRegression, NearestNeighbo
 from research.governed_fusion.measure_baseline import load_scores
 from research.governed_fusion.measure_conformal import _split
 from research.governed_fusion.metrics import _safe_auc
-from research.governed_fusion.suite import build_suite, stratified_subsample
+from research.governed_fusion.score_cache import scored_rows
+from research.governed_fusion.suite import build_suite
 
 if TYPE_CHECKING:
     from research.governed_fusion.score_cache import EventScores
@@ -187,12 +188,12 @@ def _stack_auroc(
 def _aligned_features(ev: EventData, es: EventScores) -> np.ndarray[Any, Any]:
     """Reproduce the exact subsample the cached scores were computed on.
 
-    ``score_cache.event_scores`` fits the detector on
-    ``stratified_subsample(ev.X, ev.y, CAP, seed=SEED)``; reproducing it with the
-    same seed yields the identical row set and order, so a new stream computed on
-    it aligns element-for-element with the cached component scores.
+    ``score_cache.scored_rows`` decides which rows the cached scores cover (the
+    capped event, or its held-out rows for an externally labelled event);
+    calling it with the same seed yields the identical row set and order, so a
+    new stream computed on it aligns element-for-element with the cached scores.
     """
-    x_sub, y_sub = stratified_subsample(ev.X, ev.y, CAP, seed=SEED)
+    _reference, x_sub, y_sub, _in_place = scored_rows(ev, cap=CAP, seed=SEED)
     if not np.array_equal(np.asarray(y_sub, dtype=int).reshape(-1), es.y):
         raise RuntimeError(
             f"{ev.domain}/{ev.event_id}: subsample labels do not match cached scores; "

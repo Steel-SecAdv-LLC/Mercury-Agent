@@ -183,7 +183,7 @@ for **weapons and mass-casualty uplift**, which is the scope it was built for.
 from nothing else; `HarmReducer.evaluate_harm` raises the `PHYSICAL` /
 `SOCIETAL` harm categories on a blocking disposition (max-only — fail-closed,
 never lowering). The `EthicalScore` surfaces `hazard_domain`,
-`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **8**
+`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **9**
 (the agentive-frame lexicon of §5a and its corrections), invalidating cached verdicts.
 
 ### 5a. The second enforced signal — grave harm directed at a person
@@ -256,7 +256,8 @@ them "i will murder my family" (the modifier-prone nouns had been dropped
 outright) and "i will kill\nmy wife" (a line break inside the object phrase).
 It also found a quadratic whitespace substitution: 7.3 s for 100 kB of spaces.
 
-Ruleset 8 is the current behaviour.
+Ruleset 8 made the following changes; ruleset 9, the current behaviour, adds
+the two described after them.
 
 * "child", "parent", "baby" and "family" are relation nouns again when they
   end the phrase ("kill my child", "murder my whole family") and are not when
@@ -272,18 +273,37 @@ Ruleset 8 is the current behaviour.
 It is held to a **floor**: 6,278 sentences that rulesets 5, 6 or 7 refused,
 frozen in `tests/pillars/data/ruleset_floor.json`. Each must stay refused,
 bare and with a rendered context appended, or be listed with its reason in
-`tests/pillars/test_ruleset_floor.py`. Three are listed, all of one form that
-ruleset 5 also permitted: an imperative on the line after a line ending in a
-conjunction ("here is the plan and\nkill my wife"), which reads as one
-sentence with no agentive frame. The pinned corpora hold **39 refused** and
-**54 permitted**; the floor file adds 38 threats refused end to end and 22
-ordinary sentences permitted end to end.
+`tests/pillars/test_ruleset_floor.py`. None is listed: every floor sentence
+is refused.
 
-Accepted residue, each refused though benign (8 of the 9,111): quoted speech
-after a colon ("he wrote: kill my wife"), game talk in the agentive frame
-("how do i kill my boss in elden ring"), "how do i intimidate-proof my
-daughter", and two third-person reports whose verb opens a wrapped line or
-follows "by another". Food or sport slang after a first-person `murder` is
+**Ruleset 9: who acts before the line break.** Rulesets 5, 7 and 8 permitted a
+harm command on the line after one ending in a conjunction ("here is the plan
+and\nkill my wife"): joined to the line above it reads as one sentence with
+no stated speaker, and that same join is what keeps a report permitted ("he
+said he would come and\nkill my wife"). The two differ in who acts before the
+break. When someone other than the speaker or the reader does (a third-person
+pronoun in subject position, or any subject other than i / we / you with a
+modal: "the cancer may spread and"), the next line is theirs and the text is
+a report, a fear or a prognosis. When nobody does, the next line is a command
+and is refused. For the same reason a third party's words quoted after a verb
+of saying and a colon ("he wrote: kill my wife", "the note read: ...") are a
+report and are permitted; "the plan is simple: kill my wife" and "i wrote:
+kill my wife" are not. The pinned corpora hold **39 refused** and **54
+permitted**; the floor file adds 50 threats and commands refused end to end
+and 36 reports and ordinary sentences permitted end to end. Against rulesets
+5 and 6 over 9,111 sentences, ruleset 9 releases none.
+
+The gate refuses and marks the request `grave_harm`. It does not contact
+anyone: Mercury has no channel to an authority, and a deployment that wants
+one acts on the refusal record.
+
+Accepted residue, each refused though benign (6 of the 9,111): game talk in
+the agentive frame ("how do i kill my boss in elden ring"), "how do i
+intimidate-proof my daughter", a reported sentence with the quotation first
+("my question: kill my wife was what he wrote"), and two third-person reports
+whose verb opens a wrapped line or follows "by another". A recipient's report
+of a first-person threat quoted in full ("my ex texted: i will kill your
+family") is refused. Food or sport slang after a first-person `murder` is
 refused; "i will kill you" is not matched, because the same words are a
 recipient's report of a threat; a colloquial "how do i stalk my friend on
 strava" is refused.

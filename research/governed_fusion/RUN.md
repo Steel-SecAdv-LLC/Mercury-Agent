@@ -4,7 +4,7 @@ Last updated: 2026-07-11.
 
 Every figure in `FINDINGS.md` (and the PR body) is reproduced **in this branch
 from committed code** on the **real reachable suite**: a **live headline suite of
-31 real events / 9 domains** (as measured 2026-11-16) plus a separately-reported
+39 real events / 10 domains** (as measured 2026-11-16) plus a separately-reported
 **reconstructed-from-live group** (`ebola_2014` only, and empty unless
 `MERCURY_ALLOW_SYNTHETIC=1`), always labelled reconstruction and never folded
 into the headline mean. This file is the exact

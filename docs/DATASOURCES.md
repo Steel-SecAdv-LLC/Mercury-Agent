@@ -360,7 +360,7 @@ No synthetic data is used in any benchmark.
 | **Historical storms** | NASA/GSFC OMNI2 hourly archive, 1963 onward (`spdf.gsfc.nasa.gov`): recorded Kp, solar-wind speed and density |
 | **Historical flare class** | NOAA NCEI GOES XRS flare reports, one text file per year, 1975 to 2017 (`www.ngdc.noaa.gov`): the strongest flare peaking in each 3-hour step of a storm. Years after 2017 are not in the archive and stay unknown |
 | **Historical grid events** | EIA-930 Hourly Electric Grid Monitor six-month balance files (`www.eia.gov`): each grid operator's hourly demand, day-ahead forecast, net generation and interchange |
-| **Grid disturbance labels** | DOE Form OE-417 (Electric Emergency Incident and Disturbance Report), 2023 annual summary, from Oak Ridge National Laboratory's Open Energy Hub (`openenergyhub.ornl.gov`): labels the `texas_2023` event independently of every scored column |
+| **Grid disturbance labels** | DOE Form OE-417 (Electric Emergency Incident and Disturbance Report) as republished in EIA's Electric Power Monthly, Appendix B (`www.eia.gov/electricity/monthly/archive/`): each disturbance with the hour it began and was restored, NERC region, load lost and customers affected. Labels `texas_2021` and `texas_2023` independently of every scored column. EIA carried the appendix through the February 2024 issue, so 2023 is the last complete year and a later year is refused. Fallback for 2023 only: ORNL's Open Energy Hub copy of the annual summary (`openenergyhub.ornl.gov`), which has dates without times |
 | **Key** | None. `EIA_API_KEY` is read but not needed: the EIA-930 files are keyless |
 | **Synthetic** | Only when an archive is unreachable and `MERCURY_ALLOW_SYNTHETIC=1`; the frame is marked and never cached |
 
@@ -389,6 +389,17 @@ No synthetic data is used in any benchmark.
 | **Loader** | `FEMALoader` |
 | **API** | OpenFEMA |
 | **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+
+### Domain: FEMA Declaration Activity
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `FEMAActivityLoader` |
+| **Series** | OpenFEMA `DisasterDeclarationsSummaries`: county designations for hurricanes, tropical storms and typhoons, counted per day of a calendar year (2017 to 2024) |
+| **Labels** | NOAA NCEI Billion-Dollar Weather and Climate Disasters, event list (`www.ncei.noaa.gov/access/billions/`, 1980 to 2024): a day is labelled from the first day of a billion-dollar tropical cyclone to thirty days after its last (the request period of 44 CFR 206.36(a)). Independent of every scored column |
+| **API Key** | Not required |
+| **Synthetic stand-in** | None: an external label cannot be invented, so an unreachable source is refused |
 | **License** | Public Domain (US Government) |
 
 ### Domain: Drought

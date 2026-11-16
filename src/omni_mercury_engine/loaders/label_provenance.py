@@ -130,6 +130,11 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "statistical",
         "Labels = ``mag >= 3`` (EF3+) and feature[0] is the same ``ef_scale`` column.",
     ),
+    "fema_activity_loader.FEMAActivityLoader": (
+        "expert_annotated",
+        "Labels = NOAA NCEI billion-dollar tropical cyclone windows (event dates plus the "
+        "30-day request window); no scored column is derived from them.",
+    ),
     "fema_loader.FEMALoader": (
         "statistical",
         "Labels = DR + IA + PA program flags; ia/hm program flags are scored features.",

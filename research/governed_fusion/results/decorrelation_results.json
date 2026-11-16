@@ -4,34 +4,33 @@
   "ship_delta_threshold": 0.01,
   "kill_rho_threshold": 0.5,
   "live_headline": {
-    "n_events": 27,
+    "n_events": 35,
     "cap": 6000,
     "headline": true,
     "step1_redundancy": {
-      "mean_abs_pairwise_spearman_3": 0.43867188609487234
+      "mean_abs_pairwise_spearman_3": 0.537522748855979
     },
     "step2_decorrelation": {
-      "temporal_vs_3_mean_abs_spearman": 0.3361382511740803,
-      "knn_vs_3_mean_abs_spearman": 0.5205222999206528,
-      "mean_abs_pairwise_spearman_4_temporal": 0.38740506863447627
+      "temporal_vs_3_mean_abs_spearman": 0.44095492263774827,
+      "knn_vs_3_mean_abs_spearman": 0.5928838348624784,
+      "mean_abs_pairwise_spearman_4_temporal": 0.4892388357468636
     },
     "step3_stacking": {
-      "best_single": 0.8724456494285457,
-      "stack3": 0.878127966223662,
-      "stack4_temporal": 0.8748292245775369,
-      "stack4_knn": 0.8793845688974874,
-      "stack5": 0.8753390818779657
+      "best_single": 0.865804565800178,
+      "stack3": 0.8715498965619726,
+      "stack4_temporal": 0.8681717251278531,
+      "stack4_knn": 0.8733501640379059,
+      "stack5": 0.8694535550859543
     },
     "step4_decision": {
-      "paired_delta_mean": 0.0023835751489911404,
+      "paired_delta_mean": 0.0023671593276751056,
       "paired_delta_ci95": [
-        -0.04635565324198713,
-        0.0552289610197649
+        -0.0333767176331457,
+        0.0428047156581361
       ],
       "ship_delta_threshold": 0.01,
       "kill_rho_threshold": 0.5,
       "per_domain_regressions": {
-        "energy": -0.013,
         "hurricane": -0.125
       },
       "verdict": "INCONCLUSIVE: neither SHIP nor KILL criteria met"
@@ -299,15 +298,15 @@
         "rho_bar_4_temporal": 0.45258036622493797,
         "rho_temporal_vs_3": 0.442625588606763,
         "rho_knn_vs_3": 0.5956858407692883,
-        "single_temporal": 0.610909090909091,
-        "single_knn": 0.9574025974025975,
-        "best_single": 0.978961038961039,
+        "single_temporal": 0.6885381253035454,
+        "single_knn": 0.9196697425934921,
+        "best_single": 0.8952889752306945,
         "best_single_name": "info_geometry",
-        "stack3": 0.9781818181818183,
-        "stack4_temporal": 0.9851948051948052,
-        "stack4_knn": 0.9815584415584415,
-        "stack5": 0.9851948051948052,
-        "delta_temporal": 0.006233766233766147
+        "stack3": 0.9088392423506557,
+        "stack4_temporal": 0.9051966974259349,
+        "stack4_knn": 0.9236036911121904,
+        "stack5": 0.9176299174356484,
+        "delta_temporal": 0.009907722195240387
       },
       {
         "domain": "energy",
@@ -316,15 +315,15 @@
         "rho_bar_4_temporal": 0.35671918277304876,
         "rho_temporal_vs_3": 0.32387769359031854,
         "rho_knn_vs_3": 0.5678805682122964,
-        "single_temporal": 0.5706998474446987,
-        "single_knn": 0.5723247203152809,
-        "best_single": 0.6891804919908466,
+        "single_temporal": 0.5965593660458453,
+        "single_knn": 0.6325326826647565,
+        "best_single": 0.6840918248567336,
         "best_single_name": "kinematic",
-        "stack3": 0.6820731629799136,
-        "stack4_temporal": 0.6770753877447242,
-        "stack4_knn": 0.6780685863208746,
-        "stack5": 0.671775680142385,
-        "delta_temporal": -0.012105104246122433
+        "stack3": 0.6943387356733524,
+        "stack4_temporal": 0.6901862464183381,
+        "stack4_knn": 0.7063708810888252,
+        "stack5": 0.7019161891117479,
+        "delta_temporal": 0.006094421561604557
       },
       {
         "domain": "energy",
@@ -378,38 +377,174 @@
         "delta_temporal": 0.021736842105263277
       },
       {
+        "domain": "fema_activity",
+        "event": "tropical_declarations_2017",
+        "rho_bar_3": 0.8935112584385677,
+        "rho_bar_4_temporal": 0.8965555990997087,
+        "rho_temporal_vs_3": 0.8995999397608497,
+        "rho_knn_vs_3": 0.796195814612395,
+        "single_temporal": 0.9755933721450962,
+        "single_knn": 0.8557993730407523,
+        "best_single": 0.9587998208687863,
+        "best_single_name": "kinematic",
+        "stack3": 0.9785042543663233,
+        "stack4_temporal": 0.9793999104343931,
+        "stack4_knn": 0.9789520824003582,
+        "stack5": 0.9834303627407075,
+        "delta_temporal": 0.020600089565606772
+      },
+      {
+        "domain": "fema_activity",
+        "event": "tropical_declarations_2018",
+        "rho_bar_3": 0.8127778913325647,
+        "rho_bar_4_temporal": 0.6809584054499882,
+        "rho_temporal_vs_3": 0.5491389195674117,
+        "rho_knn_vs_3": 0.7643406876185992,
+        "single_temporal": 0.7952380952380953,
+        "single_knn": 0.8253246753246752,
+        "best_single": 0.9212121212121211,
+        "best_single_name": "kinematic",
+        "stack3": 0.9454545454545454,
+        "stack4_temporal": 0.9506493506493506,
+        "stack4_knn": 0.9489177489177489,
+        "stack5": 0.9506493506493506,
+        "delta_temporal": 0.029437229437229484
+      },
+      {
+        "domain": "fema_activity",
+        "event": "tropical_declarations_2019",
+        "rho_bar_3": 0.803733555503507,
+        "rho_bar_4_temporal": 0.8107859333381132,
+        "rho_temporal_vs_3": 0.8178383111727193,
+        "rho_knn_vs_3": 0.900466208388598,
+        "single_temporal": 0.7781593406593407,
+        "single_knn": 0.7740384615384615,
+        "best_single": 0.8131868131868132,
+        "best_single_name": "kinematic",
+        "stack3": 0.8383699633699633,
+        "stack4_temporal": 0.838598901098901,
+        "stack4_knn": 0.8383699633699633,
+        "stack5": 0.8395146520146519,
+        "delta_temporal": 0.025412087912087822
+      },
+      {
+        "domain": "fema_activity",
+        "event": "tropical_declarations_2020",
+        "rho_bar_3": 0.8222616833855093,
+        "rho_bar_4_temporal": 0.8049522917072741,
+        "rho_temporal_vs_3": 0.7876429000290389,
+        "rho_knn_vs_3": 0.8703233773440212,
+        "single_temporal": 0.8589034205231388,
+        "single_knn": 0.8116197183098591,
+        "best_single": 0.9060613682092556,
+        "best_single_name": "kinematic",
+        "stack3": 0.9307092555331993,
+        "stack4_temporal": 0.9319668008048291,
+        "stack4_knn": 0.9314637826961771,
+        "stack5": 0.932469818913481,
+        "delta_temporal": 0.02590543259557343
+      },
+      {
+        "domain": "fema_activity",
+        "event": "tropical_declarations_2021",
+        "rho_bar_3": 0.8471422880021976,
+        "rho_bar_4_temporal": 0.8396126807005116,
+        "rho_temporal_vs_3": 0.8320830733988256,
+        "rho_knn_vs_3": 0.8739420629681115,
+        "single_temporal": 0.6279317697228146,
+        "single_knn": 0.6200121839780688,
+        "best_single": 0.6536704233932379,
+        "best_single_name": "resonance",
+        "stack3": 0.6366128540968626,
+        "stack4_temporal": 0.630520865062443,
+        "stack4_knn": 0.6375266524520257,
+        "stack5": 0.630520865062443,
+        "delta_temporal": -0.023149558330794906
+      },
+      {
+        "domain": "fema_activity",
+        "event": "tropical_declarations_2022",
+        "rho_bar_3": 0.8191515042930976,
+        "rho_bar_4_temporal": 0.8371447599556355,
+        "rho_temporal_vs_3": 0.8551380156181735,
+        "rho_knn_vs_3": 0.826607501703411,
+        "single_temporal": 0.7609649122807017,
+        "single_knn": 0.6787280701754387,
+        "best_single": 0.7609649122807017,
+        "best_single_name": "kinematic",
+        "stack3": 0.7735745614035087,
+        "stack4_temporal": 0.7690058479532162,
+        "stack4_knn": 0.7757675438596491,
+        "stack5": 0.769736842105263,
+        "delta_temporal": 0.008040935672514515
+      },
+      {
+        "domain": "fema_activity",
+        "event": "tropical_declarations_2023",
+        "rho_bar_3": 0.8435736441238157,
+        "rho_bar_4_temporal": 0.7753550929890417,
+        "rho_temporal_vs_3": 0.7071365418542678,
+        "rho_knn_vs_3": 0.7299615095752441,
+        "single_temporal": 0.7472727272727272,
+        "single_knn": 0.6119191919191919,
+        "best_single": 0.7927272727272727,
+        "best_single_name": "info_geometry",
+        "stack3": 0.7832323232323232,
+        "stack4_temporal": 0.7806060606060605,
+        "stack4_knn": 0.7816161616161615,
+        "stack5": 0.7785858585858585,
+        "delta_temporal": -0.0121212121212122
+      },
+      {
+        "domain": "fema_activity",
+        "event": "tropical_declarations_2024",
+        "rho_bar_3": 0.8307443230434063,
+        "rho_bar_4_temporal": 0.8379940660737123,
+        "rho_temporal_vs_3": 0.8452438091040183,
+        "rho_knn_vs_3": 0.8217633626455404,
+        "single_temporal": 0.8402961396086727,
+        "single_knn": 0.7505288207297726,
+        "best_single": 0.8463775780010576,
+        "best_single_name": "info_geometry",
+        "stack3": 0.8588048651507139,
+        "stack4_temporal": 0.860655737704918,
+        "stack4_knn": 0.8582760444209413,
+        "stack5": 0.8611845584346907,
+        "delta_temporal": 0.014278159703860371
+      },
+      {
         "domain": "network_security",
         "event": "nsl_kdd",
-        "rho_bar_3": 0.0906540238996994,
-        "rho_bar_4_temporal": 0.17878608791936568,
-        "rho_temporal_vs_3": 0.26691815193903196,
-        "rho_knn_vs_3": 0.3340886333300879,
-        "single_temporal": 0.5186157768419629,
-        "single_knn": 0.28320385819024796,
-        "best_single": 0.7894545587170441,
-        "best_single_name": "resonance",
-        "stack3": 0.8890205434486734,
-        "stack4_temporal": 0.9098980210896372,
-        "stack4_knn": 0.8943138573540637,
-        "stack5": 0.9093318175267802,
-        "delta_temporal": 0.12044346237259318
+        "rho_bar_3": 0.36060242509925783,
+        "rho_bar_4_temporal": 0.352883828917671,
+        "rho_temporal_vs_3": 0.3451652327360842,
+        "rho_knn_vs_3": 0.4287634855920109,
+        "single_temporal": 0.15861841215133626,
+        "single_knn": 0.25472302729493196,
+        "best_single": 0.9500223422512445,
+        "best_single_name": "info_geometry",
+        "stack3": 0.9500223422512444,
+        "stack4_temporal": 0.9528863340193265,
+        "stack4_knn": 0.9514047134138961,
+        "stack5": 0.9533554322825057,
+        "delta_temporal": 0.0028639917680820526
       },
       {
         "domain": "network_security",
         "event": "batadal",
-        "rho_bar_3": 0.2757235812540007,
-        "rho_bar_4_temporal": 0.34547073382990606,
-        "rho_temporal_vs_3": 0.41521788640581136,
-        "rho_knn_vs_3": 0.482616868167469,
-        "single_temporal": 0.7184223299357044,
-        "single_knn": 0.8612224815324571,
-        "best_single": 0.881767830903131,
+        "rho_bar_3": 0.30203431732948577,
+        "rho_bar_4_temporal": 0.3514365615269812,
+        "rho_temporal_vs_3": 0.40083880572447655,
+        "rho_knn_vs_3": 0.5011736133787434,
+        "single_temporal": 0.6959986706547026,
+        "single_knn": 0.8193020937188435,
+        "best_single": 0.9040877367896312,
         "best_single_name": "info_geometry",
-        "stack3": 0.8607304569844214,
-        "stack4_temporal": 0.8594272568301651,
-        "stack4_knn": 0.8608833835331351,
-        "stack5": 0.8634631879201324,
-        "delta_temporal": -0.02234057407296597
+        "stack3": 0.9063343303423064,
+        "stack4_temporal": 0.9075440345629777,
+        "stack4_knn": 0.9064273845131273,
+        "stack5": 0.9074908607510802,
+        "delta_temporal": 0.0034562977733465505
       },
       {
         "domain": "pandemic",
@@ -509,10 +644,10 @@
       "energy": {
         "rho_bar_3": 0.4530030705680578,
         "rho_temporal_vs_3": 0.4203545144215002,
-        "best_single": 0.9138880720338323,
-        "stack3": 0.9034807694894165,
-        "stack4_temporal": 0.9008043928246628,
-        "stack4_knn": 0.9054089626759195
+        "best_single": 0.8961359258609407,
+        "stack3": 0.8920653688618717,
+        "stack4_temporal": 0.8874269430056116,
+        "stack4_knn": 0.8994784715402593
       },
       "fema": {
         "rho_bar_3": 0.3368105340193958,
@@ -521,6 +656,14 @@
         "stack3": 0.702597439544808,
         "stack4_temporal": 0.7165163584637269,
         "stack4_knn": 0.7126159317211949
+      },
+      "fema_activity": {
+        "rho_bar_3": 0.8341120185153332,
+        "rho_temporal_vs_3": 0.7867276888131631,
+        "best_single": 0.8316250387349058,
+        "stack3": 0.84315782782593,
+        "stack4_temporal": 0.842675434289264,
+        "stack4_knn": 0.8438612474666282
       },
       "hurricane": {
         "rho_bar_3": 0.680791679990631,
@@ -539,12 +682,12 @@
         "stack4_knn": 0.96
       },
       "network_security": {
-        "rho_bar_3": 0.18318880257685005,
-        "rho_temporal_vs_3": 0.3410680191724217,
-        "best_single": 0.8356111948100875,
-        "stack3": 0.8748755002165474,
-        "stack4_temporal": 0.8846626389599012,
-        "stack4_knn": 0.8775986204435994
+        "rho_bar_3": 0.3313183712143718,
+        "rho_temporal_vs_3": 0.37300201923028037,
+        "best_single": 0.9270550395204378,
+        "stack3": 0.9281783362967754,
+        "stack4_temporal": 0.9302151842911521,
+        "stack4_knn": 0.9289160489635118
       },
       "pandemic": {
         "rho_bar_3": 0.4714474348029932,
@@ -576,11 +719,11 @@
     "n_events": 0
   },
   "combined_power_sensitivity": {
-    "n_events": 27,
-    "paired_delta_mean": 0.0023835751489911404,
+    "n_events": 35,
+    "paired_delta_mean": 0.0023671593276751056,
     "paired_delta_ci95": [
-      -0.04635565324198713,
-      0.0552289610197649
+      -0.0333767176331457,
+      0.0428047156581361
     ],
     "ship_delta_threshold": 0.01,
     "verdict": "still underpowered: combined CI upper bound remains >= +0.01"

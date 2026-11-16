@@ -229,20 +229,21 @@ Results" block.
 Phase 1 of the governed recursive self-improvement work (see
 `docs/SELF_IMPROVEMENT_LOOP.md`) extends the same label-provenance
 discipline that already gates the `datasets/` side to the live-API
-`loaders/` path that feeds `research/governed_fusion/`. Of the 31 events
-in the live headline manifest (re-measured 2026-11-16), only **2** have
-audited ground-truth labels (independent of any scored feature) — both from
-`network_security` (`batadal`, `nsl_kdd`). The other 29 are self-labelled and
-are reported separately as leakage-flagged. The tsunami and energy events are
+`loaders/` path that feeds `research/governed_fusion/`. Of the 39 events
+in the live headline manifest (re-measured 2026-11-16), **10** have audited
+labels independent of any scored feature: two from `network_security`
+(`batadal`, `nsl_kdd`) and eight from `fema_activity` (FEMA declaration
+activity labelled by NOAA NCEI's billion-dollar disaster catalogue). The
+other 29 are self-labelled and are reported separately as leakage-flagged. The tsunami and energy events are
 recorded series (NDBC DART archive; NASA OMNI2, EIA-930 and DOE OE-417) and
 are part of the live suite; no event is reconstructed.
 
 | Bucket | n_events | Mean AUROC | Mean F1 | Notes |
 |---|---:|---:|---:|---|
-| `external_label` (FITNESS) | 2 | 0.7158 | 0.1651 | The transparent fitness signal Phase 2's promotion gate reads from. It was 0.7704 when measured on 2026-06-18 with a detector that had no kNN density stream; the cause and the fix (an unlabelled reference caps the stream's weight) are in `research/governed_fusion/FINDINGS.md`. |
-| `self_label` (leakage-flagged) | 29 | 0.8393 | 0.2286 | Reported for pipeline transparency; never folded into the headline that grades self-improvement. |
+| `external_label` (FITNESS) | 10 | 0.8627 | 0.6198 | The transparent fitness signal Phase 2's promotion gate reads from. Each event is fitted on a normal reference and scored on the rest. It was 0.7704 over two events fitted in place when measured on 2026-06-18; what changed and why is in `research/governed_fusion/FINDINGS.md`. |
+| `self_label` (leakage-flagged) | 29 | 0.8399 | 0.2347 | Reported for pipeline transparency; never folded into the headline that grades self-improvement. |
 | `reconstructed` | 0 | n/a | n/a | Empty: `ebola_2014` is refused without the synthetic opt-in. |
-| Mixed (historical) | 31 | 0.8313 | 0.2245 | The pre-Phase-1 form of the headline; superseded by the provenance split above. |
+| Mixed (historical) | 39 | 0.8457 | 0.3334 | The pre-Phase-1 form of the headline; superseded by the provenance split above. |
 
 The audit is committed in
 `src/omni_mercury_engine/loaders/label_provenance.py`
@@ -607,11 +608,11 @@ seeded input and must never be quoted as skill.
 | `ci/rolling-corpus-eval` (weapons gate) | 362 template-expanded text cases; adversarial paraphrase recall measured separately (`docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`: shipped two-layer posture recall 0.714; the lexical layer alone floors at 0.256, precision 1.00) | constructed text | control-calibration pin; the measured paraphrase gap is open and documented |
 | `ci/red-team` | deterministic mutation registry over seed prompts | constructed | control-survival pin |
 | CI `Performance Benchmark` latency asserts | `np.random.randn` arrays | synthetic | latency pin only |
-| Governed-fusion promotion gate | external_label live events only (2: `nsl_kdd`, `batadal`; AUROC 0.7158) | **real, external labels** | the only fusion skill claim |
+| Governed-fusion promotion gate | external_label live events only (10: `nsl_kdd`, `batadal` and eight `fema_activity` years; AUROC 0.8627) | **real, external labels** | the only fusion skill claim |
 
 Counting individual blocking thresholds: **~24 rest on real data, ~40 on
 constructed/synthetic input.** The published headline numbers (ADBench
-0.8571/0.6443, governed-fusion external-label 0.7158) rest exclusively on
+0.8571/0.6443, governed-fusion external-label 0.8627) rest exclusively on
 the real side; every constructed lane above is a pin, and quoting one as
 skill is a documentation bug — report it.
 

@@ -97,7 +97,7 @@ def test_a_pre_provenance_cache_entry_is_not_trusted(
     # timestamps already rendered as text (``_write_cache`` writes nothing for
     # a payload JSON cannot serialise, which would make this test vacuous).
     legacy = frame.assign(timestamp=frame["timestamp"].astype(str)).to_dict(orient="list")
-    for key in ("energy_historical_quebec_1989", "energy_historical_v4_quebec_1989"):
+    for key in ("energy_historical_quebec_1989", "energy_historical_v5_quebec_1989"):
         loader._write_cache(key, legacy)
         assert loader._read_cache(key) == legacy
         assert loader._read_frame_cache(key) is None

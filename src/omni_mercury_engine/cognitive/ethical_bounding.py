@@ -699,6 +699,65 @@ def _line_readings(text: str) -> tuple[str, str]:
     return " ".join(lines), "".join(pieces)
 
 
+#: A third party's words introduced by a verb of saying and a colon: "he
+#: wrote: ...", "the note read: ...". "the plan is simple: ..." is not one.
+_REPORTED_SPEECH = re.compile(
+    # Single spaces only and a word boundary to start from: nothing here can
+    # run over a long stretch of whitespace.
+    r"(\b(?:he|she|they|someone|somebody|(?:the|my|his|her|their|a|an) [a-z']+)"
+    r" (?:[a-z']+ ){0,2}?(?:wrote|writes|said|says|read|reads|texted|screamed|shouted|yelled"
+    r"|posted|commented)) ?: ?"
+)
+
+#: A line that ends by promising more of the same clause.
+_ENDS_IN_CONJUNCTION = re.compile(r"\b(?:and|or|then|but|so|who)$")
+
+#: Someone other than the speaker or the reader is doing what the unfinished
+#: line describes, so the verb on the next line is theirs: a report, a fear, a
+#: prognosis. Either a third-person pronoun in subject position ("he said he
+#: would come and", "they break in and"), or any subject other than i / we /
+#: you followed by a modal ("the cancer may spread and", "my ex will find us
+#: and"). "do it and" has no subject; "here is the plan and" has no agent.
+_THIRD_PERSON_ACTS = re.compile(
+    r"(?:^|[,;:]\s*|\b(?:that|if|when|because|said|says|and|but|then|so|while|before|after"
+    r"|until|unless|whether)\s+)"
+    r"(?:he|she|they|it|someone|somebody|anyone|anybody|everyone|nobody|people)\s+\w"
+    r"|\b(?!(?:i|we|you)\b)[a-z']+\s+(?:will|would|could|might|may|can|must|should|shall"
+    r"|is going to|are going to|was going to|were going to|wants to|want to|threatened to"
+    r"|threatens to|tried to|tries to|plans to|planned to)\b"
+)
+
+
+def _command_after_unfinished_line(text: str) -> bool:
+    r"""A harm command on the line after one that ends in a conjunction.
+
+    "here is the plan and\nkill my wife" joins into one sentence with no
+    stated speaker, and every earlier ruleset permitted it for that reason:
+    the same join is what keeps "he said he would come and\nkill my wife" a
+    report. The two differ in who acts before the break. When nobody other
+    than the speaker or the reader does, the next line is a command.
+
+    Args:
+        text: Lower-cased, quote-normalised text.
+
+    Returns:
+        ``True`` when a line ending in a conjunction, with no third party
+        acting in it, is followed by a line that opens with a harm command.
+    """
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    for previous, line in itertools.pairwise(lines):
+        if not _ENDS_IN_CONJUNCTION.search(previous):
+            continue
+        # The clause the conjunction belongs to: back to the last full stop.
+        clause = re.split(r"[.!?]\s+", previous)[-1]
+        if _THIRD_PERSON_ACTS.search(clause):
+            continue
+        if _AGENTIVE_HARM_PATTERN.search(line):
+            return True
+    return False
+
+
 #: A pair of single quotation marks around a short phrase. An apostrophe
 #: inside a word ("wife's") or closing a plural possessive ("my kids' head
 #: lice") opens no pair and stays.
@@ -732,12 +791,16 @@ def _direct_harm_present(text: str) -> bool:
         t = t.replace(mark, "")
     # So is a pair of single quotation marks: kill my 'wife'.
     t = _WRAPPING_QUOTE.sub(r"\1", t)
+    # "he wrote: kill my wife" reports what someone else said. The colon is
+    # not a clause boundary there, so the words after it open no command.
+    t = _REPORTED_SPEECH.sub(r"\1 that ", t)
     joined, split = _line_readings(t)
     return bool(
         _DIRECT_HARM_PATTERN.search(t)
         or _LETHAL_MANNER_PATTERN.search(t)
         or _AGENTIVE_HARM_PATTERN.search(joined)
         or (split != joined and _AGENTIVE_HARM_PATTERN.search(split))
+        or _command_after_unfinished_line(t)
     )
 
 

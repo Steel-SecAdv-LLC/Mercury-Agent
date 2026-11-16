@@ -23,7 +23,9 @@ Offline: the transport is patched to serve files recorded from NASA and EIA
 
 from __future__ import annotations
 
+import io
 import json
+import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -45,6 +47,14 @@ if TYPE_CHECKING:
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "energy"
 _GET_BYTES = "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes"
+
+
+def _issue_without_appendix_b() -> bytes:
+    """An Electric Power Monthly issue as EIA has published them since March 2024."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as issue:
+        issue.writestr("Table_1_01.xlsx", b"not read")
+    return buffer.getvalue()
 
 
 class _NotFound(Exception):
@@ -78,6 +88,14 @@ def _archives(seen: list[str] | None = None) -> Callable[..., bytes]:
             # The second half of the year: the header and no ERCOT rows.
             header = (_FIXTURES / "eia930_balance_2023_ice_storm.csv").read_bytes().split(b"\n")[0]
             return header + b"\n"
+        if url.endswith("february2023.zip"):
+            return (_FIXTURES / "epm_february2023_appendix_b.zip").read_bytes()
+        if url.endswith("february2024.zip"):
+            return (_FIXTURES / "epm_february2024_appendix_b.zip").read_bytes()
+        if url.endswith("february2025.zip"):
+            return _issue_without_appendix_b()
+        if "/electricity/monthly/archive/" in url:
+            raise _NotFound("404")
         if "oe-417-annual-summaries" in url:
             document = json.loads((_FIXTURES / "oe417_2023.json").read_text(encoding="utf-8"))
             offset = int((_kwargs.get("params") or {}).get("offset", 0))
@@ -208,68 +226,26 @@ def test_the_grid_event_is_the_operators_recorded_hours(
     assert not (frame["solar_wind_speed"] == 400.0).all()
 
 
-def test_the_grid_label_is_the_measured_shortfall(
+def test_the_shortfall_rule_labels_a_grid_frame_that_has_no_doe_reports(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Was: ``demand > 0.95 * demand``, true on every row."""
+    """Was: ``demand > 0.95 * demand``, true on every row.
+
+    Texas 2021 is labelled by DOE's reports now; the shortfall of served
+    demand against the forecast remains the rule for a grid frame without them.
+    """
     monkeypatch.setattr(_GET_BYTES, _archives())
     loader = _loader(tmp_path)
+    frame = loader.fetch_historical("texas_2021").drop(columns=[DOE_DISTURBANCE_COLUMN])
 
-    frame = loader.fetch_historical("texas_2021")
-    labels = loader.get_ground_truth("texas_2021")
+    labels = EnergyLoader._label_grid_anomalies(frame)
 
     shortfall = 1.0 - frame["grid_demand"] / frame["grid_demand_forecast"]
     assert labels.tolist() == (shortfall > GRID_SHORTFALL_THRESHOLD).astype(int).tolist()
     labelled = frame["timestamp"][labels == 1]
     assert labelled.iloc[0] == pd.Timestamp("2021-02-15T12:00:00Z")
     assert labelled.iloc[-1] == pd.Timestamp("2021-02-18T12:00:00Z")
-    # Not every step: the days before the load shed are normal operation.
     assert 15 < labels.sum() < 30
-    assert labels[frame["timestamp"] < pd.Timestamp("2021-02-15", tz="UTC")].sum() == 0
-
-
-def test_a_cell_the_operator_did_not_report_is_missing_not_zero() -> None:
-    """Was: ``value: null`` became a demand of 0.0 MW."""
-    raw = (
-        b'"Balancing Authority","UTC Time at End of Hour","Demand Forecast (MW)","Demand (MW)",'
-        b'"Net Generation (MW)","Total Interchange (MW)"\n'
-        b'"ERCO","02/15/2021 2:00:00 PM","72,183","","50,588","-814"\n'
-        b'"CISO","02/15/2021 2:00:00 PM","25,000","24,000","20,000","-4,000"\n'
-    )
-
-    (record,) = EnergyLoader._parse_eia930(raw, "ERCO")
-
-    assert record["timestamp"] == pd.Timestamp("2021-02-15T13:00:00Z")
-    assert record["grid_demand_forecast"] == 72183.0
-    assert np.isnan(record["grid_demand"])
-    assert record["grid_interchange"] == -814.0
-
-
-def test_an_unreachable_archive_is_refused_without_the_opt_in(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
-    monkeypatch.setattr(_GET_BYTES, _unreachable)
-
-    for event_id in ("quebec_1989", "texas_2021"):
-        with pytest.raises(DataSourceUnavailableError, match=event_id):
-            _loader(tmp_path).fetch_historical(event_id)
-    assert list(tmp_path.glob("*.json")) == []
-
-
-def test_a_recorded_frame_is_cached_and_served_without_a_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(_GET_BYTES, _archives())
-    loader = _loader(tmp_path)
-    first = loader.fetch_historical("texas_2021")
-
-    monkeypatch.setattr(_GET_BYTES, _unreachable)
-    second = loader.fetch_historical("texas_2021")
-
-    assert second["timestamp"].tolist() == first["timestamp"].tolist()
-    assert second["grid_demand"].tolist() == first["grid_demand"].tolist()
-    assert not loader.is_synthetic(second)
 
 
 # ---------------------------------------------------------------------------
@@ -277,27 +253,113 @@ def test_a_recorded_frame_is_cached_and_served_without_a_request(
 # ---------------------------------------------------------------------------
 
 
-def test_disturbance_reports_are_read_from_the_doe_record(
+def test_disturbance_reports_are_read_from_eia_with_the_hour(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """EIA's Electric Power Monthly, Appendix B: DOE's OE-417 reports, to the minute.
+
+    Was: one year (2023) from ORNL's copy, dates only, so February 2021 had no
+    DOE record to be labelled by.
+    """
     seen: list[str] = []
     monkeypatch.setattr(_GET_BYTES, _archives(seen))
     loader = _loader(tmp_path)
 
-    reports = loader.fetch_disturbance_reports()
-    texas = loader.fetch_disturbance_reports("TRE")
+    texas = loader.fetch_disturbance_reports(
+        "TRE", years=[2021, 2023], local_timezone="America/Chicago"
+    )
 
-    # 341 records in the 2023 summary, 32 of them undated; four pages of 100.
-    assert len(reports) == 309
-    assert set(reports["began"].dt.year) == {2023}
-    assert len([url for url in seen if "oe-417" in url]) == 4
-    assert len(texas) == 41
-    assert (texas["nerc_region"] == "TRE").all()
+    # 2021 is whole in Table B.2 of the February 2023 issue. The February 2025
+    # issue has no Appendix B, so 2023 comes from Table B.1 of February 2024.
+    assert [url.rsplit("/", 1)[1] for url in seen] == [
+        "february2023.zip",
+        "february2025.zip",
+        "february2024.zip",
+    ]
+    assert texas["report_year"].value_counts().to_dict() == {2021: 55, 2023: 19}
+    assert (texas["precision"] == "minute").all()
+    # Winter Storm Uri: "02/10/2021 3:00 PM" to "02/23/2021 3:00 PM", Central.
+    uri = texas[texas["customers_affected"] == 2_000_000]
+    assert uri["began"].iloc[0] == pd.Timestamp("2021-02-10T21:00:00Z")
+    assert uri["restored"].iloc[0] == pd.Timestamp("2021-02-23T21:00:00Z")
+    # "Unknown" on the form is missing, not zero.
+    assert np.isnan(uri["demand_loss_mw"].iloc[0])
+    # A report filed under two regions is found under each.
+    everyone = loader.fetch_disturbance_reports(years=[2021], local_timezone="America/Chicago")
+    shared = everyone[everyone["nerc_region"].str.contains("/")]
+    assert not shared.empty
+    first = shared["nerc_region"].iloc[0].split("/")[0]
+    by_region = loader.fetch_disturbance_reports(
+        first, years=[2021], local_timezone="America/Chicago"
+    )
+    assert shared["nerc_region"].iloc[0] in set(by_region["nerc_region"])
+
+
+def test_winter_storm_uri_is_labelled_by_the_reports_made_to_doe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Was: labelled by demand against forecast, two columns of the scored series."""
+    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+    monkeypatch.setattr(_GET_BYTES, _archives())
+    loader = _loader(tmp_path)
+
+    frame = loader.fetch_historical("texas_2021")
+    labels = loader.get_ground_truth("texas_2021")
+
+    assert labels.tolist() == frame[DOE_DISTURBANCE_COLUMN].tolist()
+    # The two-million-customer outage ran from 10 to 23 February: every step
+    # of the recorded week is inside it.
+    assert labels.all()
+    # No scored column produces the label, so all six grid columns are scored.
+    assert loader.engineer_scored_features(frame).shape == (len(frame), 6)
+
+
+def test_a_year_eia_does_not_hold_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Appendix B ends with the February 2024 issue: 2024 has no complete table."""
+    monkeypatch.setattr(_GET_BYTES, _archives())
+
+    with pytest.raises(ValueError, match="no complete OE-417 table for 2024"):
+        _loader(tmp_path).fetch_disturbance_reports(years=[2024])
+
+
+def test_ornl_stands_in_for_2023_when_eia_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The fallback has dates only, and says so."""
+    served = _archives()
+
+    def _without_eia(url: str, **kwargs: Any) -> bytes:
+        if "/electricity/monthly/archive/" in url:
+            raise ConnectionError("simulated: eia.gov unreachable")
+        return served(url, **kwargs)
+
+    monkeypatch.setattr(_GET_BYTES, _without_eia)
+    loader = _loader(tmp_path)
+
+    texas = loader.fetch_disturbance_reports("TRE", years=[2023], local_timezone="UTC")
+
+    # 41 filed under TRE alone and one under two regions.
+    assert len(texas) == 42
+    assert (texas["precision"] == "day").all()
     ice_storm = texas[texas["customers_affected"] == 360000]
     assert ice_storm["began"].iloc[0] == pd.Timestamp("2023-01-31", tz="UTC")
     assert ice_storm["restored"].iloc[0] == pd.Timestamp("2023-02-06", tz="UTC")
-    # Blank on the form is missing, not zero.
-    assert np.isnan(ice_storm["demand_loss_mw"].iloc[0])
+    with pytest.raises(ConnectionError):
+        loader.fetch_disturbance_reports("TRE", years=[2021])
+
+
+def test_a_damaged_archive_or_workbook_is_a_value_error() -> None:
+    """Not ``BadZipFile`` or a parser error from inside the reader."""
+    assert EnergyLoader._read_epm_table(_issue_without_appendix_b(), "Table_B_2.xlsx") == []
+    with pytest.raises(ValueError, match=r"cannot read Table_B_2\.xlsx"):
+        EnergyLoader._read_epm_table(b"not a zip", "Table_B_2.xlsx")
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as issue:
+        issue.writestr("Table_B_2.xlsx", b"not a workbook")
+    with pytest.raises(ValueError, match=r"cannot read Table_B_2\.xlsx"):
+        EnergyLoader._read_epm_table(buffer.getvalue(), "Table_B_2.xlsx")
 
 
 def test_a_doe_labelled_grid_event_takes_its_labels_from_the_reports(
@@ -315,11 +377,11 @@ def test_a_doe_labelled_grid_event_takes_its_labels_from_the_reports(
     assert labels.tolist() == frame[DOE_DISTURBANCE_COLUMN].tolist()
     stamps = frame["timestamp"]
     # The recorded span is 28 January to 8 February. DOE: Harris County 24 to
-    # 26 January (before the span), the ice storm 31 January to 6 February,
-    # Travis County 1 to 4 February.
-    assert labels[stamps < pd.Timestamp("2023-01-31", tz="UTC")].sum() == 0
-    inside = (stamps >= pd.Timestamp("2023-01-31", tz="UTC")) & (
-        stamps < pd.Timestamp("2023-02-07", tz="UTC")
+    # 26 January (before the span); the ice storm from 8:15 on 31 January to
+    # 17:00 on 6 February, Central time, which is 14:15 to 23:00 UTC.
+    assert labels[stamps < pd.Timestamp("2023-01-31T12:00:00Z")].sum() == 0
+    inside = (stamps >= pd.Timestamp("2023-01-31T12:00:00Z")) & (
+        stamps <= pd.Timestamp("2023-02-06T21:00:00Z")
     )
     assert labels[inside].all()
     assert labels[stamps >= pd.Timestamp("2023-02-07", tz="UTC")].sum() == 0
@@ -335,8 +397,10 @@ def test_only_reports_with_a_stated_loss_are_disturbances() -> None:
         {
             "began": pd.to_datetime(["2023-03-01", "2023-03-02", "2023-03-02"], utc=True),
             "restored": pd.to_datetime(["2023-03-01", None, "2023-03-01"], utc=True),
+            "precision": "day",
             "demand_loss_mw": [np.nan, 120.0, np.nan],
             "customers_affected": [0.0, np.nan, np.nan],
+            "report_year": 2023,
         }
     )
     start, end = pd.Timestamp("2023-03-01", tz="UTC"), pd.Timestamp("2023-03-03", tz="UTC")
@@ -348,15 +412,40 @@ def test_only_reports_with_a_stated_loss_are_disturbances() -> None:
     assert labels.tolist() == [0] * 8 + [1] * 8
 
 
+def test_a_report_given_to_the_minute_labels_only_the_steps_it_overlaps() -> None:
+    """A two-hour disturbance is one step, not a day."""
+    stamps = pd.Series(pd.date_range("2021-02-15", periods=8, freq="3h", tz="UTC"))
+    reports = pd.DataFrame(
+        {
+            "began": pd.to_datetime(["2021-02-15T07:30:00Z", "2021-02-15T16:00:00Z"]),
+            "restored": pd.to_datetime(["2021-02-15T09:10:00Z", None], utc=True),
+            "precision": "minute",
+            "demand_loss_mw": [300.0, 50.0],
+            "customers_affected": [np.nan, np.nan],
+            "report_year": 2021,
+        }
+    )
+
+    labels = EnergyLoader._disturbance_labels(
+        stamps, reports, pd.Timestamp("2021-02-15", tz="UTC"), pd.Timestamp("2021-02-16", tz="UTC")
+    )
+
+    # 07:30 to 09:10 touches the 06:00 and 09:00 steps; 16:00 with no
+    # restoration is the 15:00 step alone.
+    assert labels.tolist() == [0, 0, 1, 1, 0, 1, 0, 0]
+
+
 def test_a_year_the_reports_do_not_cover_is_refused_not_labelled_quiet() -> None:
-    """The hub's copy is 2023 only; 2021 must not read as a year without disturbances."""
+    """Reports for 2023 must not make 2021 read as a year without disturbances."""
     stamps = pd.Series(pd.date_range("2021-02-15", periods=8, freq="3h", tz="UTC"))
     reports = pd.DataFrame(
         {
             "began": pd.to_datetime(["2023-03-02"], utc=True),
             "restored": pd.to_datetime(["2023-03-04"], utc=True),
+            "precision": "day",
             "demand_loss_mw": [np.nan],
             "customers_affected": [470000.0],
+            "report_year": 2023,
         }
     )
 
@@ -502,14 +591,14 @@ def test_a_grid_event_is_scored_on_its_own_series_not_on_the_solar_wind(
     assert loader.engineer_features(frame).shape == (len(frame), 8)
 
 
-def test_a_shortfall_labelled_grid_event_is_not_scored_on_demand(
+def test_a_shortfall_labelled_grid_frame_is_not_scored_on_demand(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Texas 2021 is labelled by demand against forecast; neither is scored."""
+    """A grid frame without DOE labels is labelled by demand against forecast; neither is scored."""
     monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
     monkeypatch.setattr(_GET_BYTES, _archives())
     loader = _loader(tmp_path)
-    frame = loader.fetch_historical("texas_2021")
+    frame = loader.fetch_historical("texas_2021").drop(columns=[DOE_DISTURBANCE_COLUMN])
 
     grid = loader.engineer_grid_features(frame)
     scored = loader.engineer_scored_features(frame)

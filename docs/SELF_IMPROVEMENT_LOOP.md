@@ -58,13 +58,13 @@ Reported as of this PR, computed from the committed
 `research/governed_fusion/results/baseline_results.json`:
 
 * **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8571**, Mean F1 **0.6443** (committed run of 2026-10-26). *(`docs/BENCHMARKS.md`, README.md § "Label provenance and comparability")*
-* **Governed-fusion live suite (31 events as re-measured 2026-11-16, mixed regime — historical form).** Macro-mean AUROC **0.8313**, F1 **0.2245**. This number is the headline before Phase 1's leakage-split: it blends 2 ground-truth-labelled events with 29 statistical-labelled ones.
+* **Governed-fusion live suite (39 events as re-measured 2026-11-16, mixed regime — historical form).** Macro-mean AUROC **0.8457**, F1 **0.3334**. This number is the headline before Phase 1's leakage-split: it blends 10 externally labelled events with 29 statistical-labelled ones.
 * **Governed-fusion live suite, provenance split (Phase 1 result):**
 
 | Bucket | n_events | mean AUROC | mean F1 | source |
 |---|---:|---:|---:|---|
-| `external_label` (FITNESS) | **2** | **0.7158** | **0.1651** | `network_security/{batadal, nsl_kdd}` |
-| `self_label` (leakage-flagged) | 29 | 0.8393 | 0.2286 | every other live loader |
+| `external_label` (FITNESS) | **10** | **0.8627** | **0.6198** | `network_security/{batadal, nsl_kdd}`, `fema_activity/tropical_declarations_{2017..2024}` |
+| `self_label` (leakage-flagged) | 29 | 0.8399 | 0.2347 | every other live loader |
 | `reconstructed` | 0 | n/a (reported separately by design) | | `pandemic/ebola_2014`, refused without the synthetic opt-in |
 
 The `external_label` row above is the transparent fitness signal Phase 2's
@@ -220,15 +220,16 @@ threshold, ethics floor, or assertion was loosened to make CI pass:
 
 The two findings that *moved* and must be surfaced transparently:
 
-1. The governed-fusion live headline's external-label subset is **2 events from
-   one domain**, not 31 across nine. Every public Mercury claim of "live
-   AUROC ~0.82 on real-world events" has been silently averaging two
-   externally-labelled events with 29 leakage-contaminated ones. Phase 1
+1. The governed-fusion live headline's external-label subset was **2 events from
+   one domain** when Phase 1 measured it (10 from two since 2026-11-16), not
+   39 across ten. Every public Mercury claim of "live
+   AUROC ~0.82 on real-world events" had been silently averaging two
+   externally-labelled events with the leakage-contaminated rest. Phase 1
    stops doing that.
-2. The two ground-truth events' external-label mean (AUROC 0.7158, F1 0.1651;
-   0.7704 before the detector had a kNN density stream — see
-   `research/governed_fusion/FINDINGS.md`)
-   is **below** the previously-reported mixed mean. Leakage does not
+2. The two ground-truth events' external-label mean as Phase 1 measured it
+   (AUROC 0.7704, F1 0.1863, fitted in place; the current protocol and figure
+   are in `research/governed_fusion/FINDINGS.md`)
+   was **below** the previously-reported mixed mean. Leakage does not
    only inflate; it can also degrade in either direction. The discipline
    is the same: don't grade self-improvement against it.
 

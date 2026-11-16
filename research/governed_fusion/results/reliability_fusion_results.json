@@ -1,21 +1,19 @@
 {
-  "n_events": 27,
+  "n_events": 35,
   "overall": {
-    "baseline_linear": 0.8166219838832453,
-    "reliability_linear": 0.8351934799643217,
-    "reliability_clipped": 0.8364340733789368,
-    "reliability_trimmed": 0.7946594470194357,
-    "best_single": 0.8724456494285457
+    "baseline_linear": 0.8288623551133582,
+    "reliability_linear": 0.8422295453303285,
+    "reliability_clipped": 0.8442009200964671,
+    "reliability_trimmed": 0.812922449862946,
+    "best_single": 0.865804565800178
   },
   "best_reliability_variant": "reliability_clipped",
-  "gap_to_best_single": -0.03601157604960892,
+  "gap_to_best_single": -0.021603645703710872,
   "verdict": "KILL CONFIRMED: cannot reach best-single (see per-domain regressions)",
   "per_domain_regressions": {
-    "energy": -0.018,
     "fema": -0.035,
     "hurricane": -0.125,
-    "marine": -0.14,
-    "network_security": -0.019
+    "marine": -0.14
   },
   "clip_c": 2.0,
   "trim_t": 1,
@@ -248,31 +246,31 @@
     {
       "domain": "energy",
       "event": "texas_2021",
-      "baseline_linear": 0.9776623376623377,
-      "reliability_linear": 0.9805194805194806,
-      "reliability_clipped": 0.9729870129870131,
-      "reliability_trimmed": 0.7319480519480519,
-      "best_single": 0.978961038961039,
+      "baseline_linear": 0.9130160271976688,
+      "reliability_linear": 0.9132588635259835,
+      "reliability_clipped": 0.9040796503156873,
+      "reliability_trimmed": 0.8198154443904808,
+      "best_single": 0.8952889752306945,
       "best_single_name": "info_geometry",
       "rel_weights": [
-        0.387,
-        0.157,
-        0.456
+        0.375,
+        0.212,
+        0.413
       ]
     },
     {
       "domain": "energy",
       "event": "texas_2023",
-      "baseline_linear": 0.6223779557589626,
-      "reliability_linear": 0.6579106280193237,
-      "reliability_clipped": 0.6164426010678872,
-      "reliability_trimmed": 0.6004084032545132,
-      "best_single": 0.6891804919908466,
+      "baseline_linear": 0.6235113717765044,
+      "reliability_linear": 0.6641408488538683,
+      "reliability_clipped": 0.6747179441260744,
+      "reliability_trimmed": 0.6659988359598854,
+      "best_single": 0.6840918248567336,
       "best_single_name": "kinematic",
       "rel_weights": [
-        0.403,
-        0.401,
-        0.196
+        0.305,
+        0.507,
+        0.188
       ]
     },
     {
@@ -321,33 +319,153 @@
       ]
     },
     {
-      "domain": "network_security",
-      "event": "nsl_kdd",
-      "baseline_linear": 0.7167367638241735,
-      "reliability_linear": 0.7454681476025528,
-      "reliability_clipped": 0.7557723408002819,
-      "reliability_trimmed": 0.8596159867776123,
-      "best_single": 0.7894545587170441,
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2017",
+      "baseline_linear": 0.9785042543663233,
+      "reliability_linear": 0.9785042543663233,
+      "reliability_clipped": 0.9785042543663233,
+      "reliability_trimmed": 0.9785042543663233,
+      "best_single": 0.9587998208687863,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.342,
+        0.316,
+        0.342
+      ]
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2018",
+      "baseline_linear": 0.9463203463203463,
+      "reliability_linear": 0.9458874458874459,
+      "reliability_clipped": 0.9463203463203463,
+      "reliability_trimmed": 0.9298701298701298,
+      "best_single": 0.9212121212121211,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.318,
+        0.36,
+        0.322
+      ]
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2019",
+      "baseline_linear": 0.8379120879120878,
+      "reliability_linear": 0.8379120879120878,
+      "reliability_clipped": 0.8383699633699633,
+      "reliability_trimmed": 0.841117216117216,
+      "best_single": 0.8131868131868132,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.309,
+        0.381,
+        0.309
+      ]
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2020",
+      "baseline_linear": 0.9312122736418512,
+      "reliability_linear": 0.9312122736418512,
+      "reliability_clipped": 0.9307092555331993,
+      "reliability_trimmed": 0.9307092555331993,
+      "best_single": 0.9060613682092556,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.308,
+        0.379,
+        0.312
+      ]
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2021",
+      "baseline_linear": 0.6311300639658849,
+      "reliability_linear": 0.6311300639658849,
+      "reliability_clipped": 0.630216265610722,
+      "reliability_trimmed": 0.6289978678038379,
+      "best_single": 0.6536704233932379,
       "best_single_name": "resonance",
       "rel_weights": [
-        0.523,
-        0.105,
-        0.372
+        0.336,
+        0.344,
+        0.321
+      ]
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2022",
+      "baseline_linear": 0.7754020467836257,
+      "reliability_linear": 0.7761330409356725,
+      "reliability_clipped": 0.7754020467836257,
+      "reliability_trimmed": 0.7754020467836257,
+      "best_single": 0.7609649122807017,
+      "best_single_name": "kinematic",
+      "rel_weights": [
+        0.297,
+        0.394,
+        0.308
+      ]
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2023",
+      "baseline_linear": 0.7816161616161615,
+      "reliability_linear": 0.7816161616161615,
+      "reliability_clipped": 0.7816161616161615,
+      "reliability_trimmed": 0.7743434343434343,
+      "best_single": 0.7927272727272727,
+      "best_single_name": "info_geometry",
+      "rel_weights": [
+        0.321,
+        0.36,
+        0.318
+      ]
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2024",
+      "baseline_linear": 0.8638286620835537,
+      "reliability_linear": 0.8627710206240085,
+      "reliability_clipped": 0.8627710206240085,
+      "reliability_trimmed": 0.8529878371232151,
+      "best_single": 0.8463775780010576,
+      "best_single_name": "info_geometry",
+      "rel_weights": [
+        0.313,
+        0.379,
+        0.308
+      ]
+    },
+    {
+      "domain": "network_security",
+      "event": "nsl_kdd",
+      "baseline_linear": 0.9505163641413099,
+      "reliability_linear": 0.9506285204622977,
+      "reliability_clipped": 0.9506975055010005,
+      "reliability_trimmed": 0.9509049056818749,
+      "best_single": 0.9500223422512445,
+      "best_single_name": "info_geometry",
+      "rel_weights": [
+        0.494,
+        0.002,
+        0.505
       ]
     },
     {
       "domain": "network_security",
       "event": "batadal",
-      "baseline_linear": 0.8671068291677471,
-      "reliability_linear": 0.8744805484079017,
-      "reliability_clipped": 0.8771800344417184,
-      "reliability_trimmed": 0.8589352322821295,
-      "best_single": 0.881767830903131,
+      "baseline_linear": 0.9123030907278167,
+      "reliability_linear": 0.9129943502824859,
+      "reliability_clipped": 0.9122897972748422,
+      "reliability_trimmed": 0.8987371219674309,
+      "best_single": 0.9040877367896312,
       "best_single_name": "info_geometry",
       "rel_weights": [
-        0.234,
-        0.297,
-        0.469
+        0.26,
+        0.233,
+        0.507
       ]
     },
     {

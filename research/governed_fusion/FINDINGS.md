@@ -22,57 +22,60 @@ changed, it is stated here.
 - `fema` labels were empty for every declaration since about 2007 (the rule read
   `iaProgramDeclared`; FEMA records individual assistance as
   `ihProgramDeclared` since). Corrected; three FEMA events are scorable.
-- The suite is **31 live events / 9 domains**: earthquake 5, energy 5,
-  pandemic 5, hurricane 4, fema 3, tsunami 3, marine 2, network_security 2,
-  tornado 2. Two events carry externally audited labels (`network_security`),
-  29 are self-labelled. Inputs are pinned in `manifest.json`
-  (`input_pin.py --check`: 31 match).
-- Each event is fitted on and scored in place, so the detector is told the
-  reference is unlabelled (`fit(..., unlabeled_reference=True)`; see below).
+- `fema_activity` (8) is new: daily FEMA declaration activity labelled by NOAA
+  NCEI's billion-dollar tropical cyclone catalogue, an external label.
+- The suite is **39 live events / 10 domains**: fema_activity 8, earthquake 5,
+  energy 5, pandemic 5, hurricane 4, fema 3, tsunami 3, marine 2,
+  network_security 2, tornado 2. **Ten events carry externally audited labels**
+  (`network_security`, `fema_activity`), 29 are self-labelled. Inputs are
+  pinned in `manifest.json` (`input_pin.py --check`: 39 match).
+- Two scoring protocols, by what the labels allow (`score_cache.scored_rows`).
+  A self-labelled event is fitted on and scored in place, and the detector is
+  told that reference is unlabelled. An externally labelled event has a
+  reference known to be normal, so the detector is fitted on every other
+  normal row and scores the rest, as `benchmarks/mercury_benchmark.py` does.
 
 **Figures (macro mean over events, cap 6000).**
 
-| Measurement | 2026-07-11 (23 events) | 2026-11-16 (31 events) |
+| Measurement | 2026-07-11 (23 events) | 2026-11-16 (39 events) |
 |---|---|---|
-| Baseline AUROC, all live | 0.823 | 0.8313 |
-| Baseline AUROC, external-label (n=2) | 0.7704 | 0.7158 |
-| Baseline AUROC, self-label | 0.8282 (n=21) | 0.8393 (n=29) |
-| Conformal F1 vs Youden F1 | −0.0714 | −0.0529 (27 of 31 events usable) |
-| Reliability fusion, gap to best single | −0.0350 | −0.0360 |
-| Survivability, clean → worst case at k/2 | 0.924 → 0.707 | 0.843 → 0.687 |
-| Beta-MCA Brier / ECE | 0.0893 / 0.0387 | 0.0782 / 0.0424 |
-| Isotonic Brier / ECE | 0.0920 / 0.0484 | 0.0754 / 0.0330 |
-| Decorrelation, stack4_temporal − best single | −0.0055 | +0.0024, 95% CI [−0.046, +0.055] |
+| Baseline AUROC, all live | 0.823 | 0.8457 |
+| Baseline AUROC, external-label | 0.7704 (n=2, fitted in place) | 0.8627 (n=10, normal reference) |
+| Baseline AUROC, self-label | 0.8282 (n=21) | 0.8399 (n=29) |
+| Conformal F1 vs Youden F1 | −0.0714 | −0.0557 (35 of 39 events usable) |
+| Reliability fusion, gap to best single | −0.0350 | −0.0216 |
+| Survivability, clean → worst case at k/2 | 0.924 → 0.707 | 0.850 → 0.701 |
+| Beta-MCA Brier / ECE | 0.0893 / 0.0387 | 0.0851 / 0.0510 |
+| Isotonic Brier / ECE | 0.0920 / 0.0484 | 0.1114 / 0.0840 |
+| Decorrelation, stack4_temporal − best single | −0.0055 | +0.0024, 95% CI [−0.033, +0.043] |
 
 **Conclusions that hold.** The conformal operating point still loses F1 to the
 Youden point it would displace. Reliability-weighted fusion still cannot reach
-the best single component (regressions in energy, fema, hurricane, marine and
-network_security). The ablation ledger reads the three component scores of the
-two external-label events and reproduces its previous record exactly.
+the best single component (regressions in fema, hurricane and marine).
 
 **The calibration lever probe is a conclusive negative, now with an interval.**
 On the first re-measurement one lever (`l_nb=0.5`) had a lower mean Brier than
 the shipped default by 0.0001 and the probe named it a candidate. A difference
 of means cannot tell a lever from noise, so the probe now reports a paired
 bootstrap interval over events for each lever against the default, and a
-lever lands only when both intervals lie below zero. None does: for every
-lever the 95% upper bound of the Brier difference is above zero.
+lever lands only when both intervals lie below zero. None does.
 
-**Beta-MCA against isotonic, with an interval.** Isotonic has the lower mean
-Brier (0.0754 against 0.0782) and ECE (0.0330 against 0.0424); the paired
-intervals of both differences contain zero (Brier [−0.0036, +0.0107], ECE
-[−0.0063, +0.0274]), so neither is ahead on calibration. Beta-MCA is ahead on
-AUROC by 0.035 (interval [+0.0003, +0.077]) because it is monotone and
-isotonic is not. The choice of Beta-MCA stands on that; the statement under R1
-below that it "beats isotonic on both" Brier and ECE was a difference of means
-on 20 events and is withdrawn.
+**Beta-MCA against isotonic, with an interval.** Over 35 events Beta-MCA has
+the lower Brier (0.0851 against 0.1114; paired difference −0.0263, interval
+[−0.055, −0.003]), the higher AUROC (+0.039, interval [+0.013, +0.071]) and the
+higher net benefit (+0.016, interval [+0.003, +0.032]). Its ECE is lower by
+0.033 with an interval that contains zero ([−0.081, +0.007]). So the statement
+under R1 below stands on Brier and is not established on ECE.
 
 **Decorrelation: INCONCLUSIVE, and fusion stays unpromoted.** The earlier KILL
 rested on pooling 20 live and 7 reconstructed events. There are no
-reconstructed events now; the paired difference is +0.0024 and its interval
-spans both zero and the ship line. By the protocol's own rule that is neither
-SHIP nor KILL. Nothing is promoted and the stream stays default-off; the claim
-that the lever is closed is withdrawn.
+reconstructed events now; over 35 events the paired difference is +0.0024 and
+its interval spans both zero and the ship line. By the protocol's own rule
+that is neither SHIP nor KILL. Nothing is promoted and the stream stays
+default-off; the claim that the lever is closed is withdrawn. The standard
+deviation of the paired difference is about 0.115, so an interval narrow
+enough to separate +0.01 from zero needs on the order of 500 events; this
+question will not be settled by adding a few.
 
 `measure_decorrelation.py` wrote NaN (not valid JSON) and a verdict for the
 empty reconstructed class; it now writes `{"n_events": 0}`.
@@ -116,19 +119,22 @@ fitted on and scored in place (`benchmarks/knn_unlabeled_reference.py`).
 |---|---|---|---|---|
 | ADBench mean AUROC (47 sets) | 0.7614 | 0.7716 | **0.7751** | 0.7590 |
 | ADBench worst loss against the best of the four | 0.259 | 0.135 | **0.076** | 0.793 |
-| This suite, mean AUROC (31 events; not used to choose) | 0.8383 | 0.8368 | 0.8306 | 0.8239 |
+| This suite as it then stood, fitted in place (31 events; not used to choose) | 0.8383 | 0.8368 | 0.8306 | 0.8239 |
 
 The suite, the calibration scripts, the engine's auto-fit on an inference
 batch and the MCP detection tool declare the unlabelled reference. A plain
 `fit` is unchanged, and the 76-dataset benchmark re-run on the changed tree
 matches the run before it on every dataset.
 
-**Where that leaves the external-label figure: 0.7158** (`nsl_kdd` 0.5427,
-`batadal` 0.8890). It is below the 0.7704 of June because that detector had no
-density stream, which on this one event is the better detector, and above the
-0.6378 the unverified weight produced. `nsl_kdd` fitted on itself is the limit
-case for any density evidence; with the normal reference its labels make
-available it scores 0.97.
+
+**The suite's own protocol was the other half.** An externally labelled event
+has audited ground truth, so a normal reference exists for it, and the suite
+fitted the detector on the whole event regardless. With the cap alone the two
+network events scored 0.7158 (`nsl_kdd` 0.5427, `batadal` 0.8890) fitted in
+place. Scored against a normal reference, as authorised on 2026-11-16, they
+score 0.9280 (`nsl_kdd` 0.9664, `batadal` 0.8896), and the ten externally
+labelled events together 0.8627. The 0.7704 of June was the in-place figure
+of a detector without a density stream; it is not comparable to either.
 
 ## Transparent correction this pass made (read first)
 

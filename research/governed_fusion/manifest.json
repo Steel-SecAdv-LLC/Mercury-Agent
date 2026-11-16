@@ -1,7 +1,7 @@
 {
   "suite": "governed-fusion reachable suite",
-  "n_real_events": 31,
-  "n_real_domains": 9,
+  "n_real_events": 39,
+  "n_real_domains": 10,
   "n_reconstructed_events": 0,
   "n_reconstructed_domains": 0,
   "reconstructed_note": "ebola_2014 has no live WHO feed and is reconstructed when the synthetic opt-in is set; it is reported separately, never folded into the live headline mean. tsunami and energy read recorded archives and are live",
@@ -9,14 +9,14 @@
   "provenance_summary": {
     "real": {
       "external_label": {
-        "n_events": 2,
-        "n_rows": 161455,
-        "n_pos": 71682
+        "n_events": 10,
+        "n_rows": 164377,
+        "n_pos": 72356
       },
       "self_label": {
         "n_events": 29,
         "n_rows": 78233,
-        "n_pos": 3290
+        "n_pos": 3354
       },
       "reconstructed": {
         "n_events": 0,
@@ -194,8 +194,8 @@
       "event_id": "texas_2021",
       "n_rows": 720,
       "n_features": 6,
-      "n_pos": 21,
-      "sha256_xy": "61d346c2b66d689bc70e656e34bc034df4e8b27b62022c5b0168c35d0ea424aa",
+      "n_pos": 141,
+      "sha256_xy": "4f453bc50a9f3cfad4c89525927683ba9b88bef39d0a35927c7527c41fd719ca",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
@@ -203,8 +203,8 @@
         "cap": 6000,
         "seed": 42,
         "n_rows": 720,
-        "n_pos": 21,
-        "sha256_xy": "61d346c2b66d689bc70e656e34bc034df4e8b27b62022c5b0168c35d0ea424aa"
+        "n_pos": 141,
+        "sha256_xy": "4f453bc50a9f3cfad4c89525927683ba9b88bef39d0a35927c7527c41fd719ca"
       }
     },
     {
@@ -212,8 +212,8 @@
       "event_id": "texas_2023",
       "n_rows": 2920,
       "n_features": 6,
-      "n_pos": 184,
-      "sha256_xy": "a8c24c8299b38fb8481021be60ae93c75ab26226f6badb47abe8b0d705c1b5c0",
+      "n_pos": 128,
+      "sha256_xy": "c506a2e9ed08ec8ac1e331caae78fc4b54313a7447e2d601afcd2fa7e3f1113d",
       "label_provenance": "statistical",
       "series_provenance": "live",
       "external_label": false,
@@ -221,8 +221,8 @@
         "cap": 6000,
         "seed": 42,
         "n_rows": 2920,
-        "n_pos": 184,
-        "sha256_xy": "a8c24c8299b38fb8481021be60ae93c75ab26226f6badb47abe8b0d705c1b5c0"
+        "n_pos": 128,
+        "sha256_xy": "c506a2e9ed08ec8ac1e331caae78fc4b54313a7447e2d601afcd2fa7e3f1113d"
       }
     },
     {
@@ -277,6 +277,150 @@
         "n_rows": 400,
         "n_pos": 151,
         "sha256_xy": "6f19ec426bdb4ab3069c350ba7d31f5e8ef57e6304af1165e1644dad2d487d41"
+      }
+    },
+    {
+      "domain": "fema_activity",
+      "event_id": "tropical_declarations_2017",
+      "n_rows": 365,
+      "n_features": 5,
+      "n_pos": 58,
+      "sha256_xy": "75680051270b76518eced3de71e4869f952d32423a2510f86d6a18e32d9b8564",
+      "label_provenance": "expert_annotated",
+      "series_provenance": "live",
+      "external_label": true,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 365,
+        "n_pos": 58,
+        "sha256_xy": "75680051270b76518eced3de71e4869f952d32423a2510f86d6a18e32d9b8564"
+      }
+    },
+    {
+      "domain": "fema_activity",
+      "event_id": "tropical_declarations_2018",
+      "n_rows": 365,
+      "n_features": 5,
+      "n_pos": 59,
+      "sha256_xy": "7ecddafd354724f43e6e223244416c86e8b5b3e72e45f61b620ed2bb57d2c2db",
+      "label_provenance": "expert_annotated",
+      "series_provenance": "live",
+      "external_label": true,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 365,
+        "n_pos": 59,
+        "sha256_xy": "7ecddafd354724f43e6e223244416c86e8b5b3e72e45f61b620ed2bb57d2c2db"
+      }
+    },
+    {
+      "domain": "fema_activity",
+      "event_id": "tropical_declarations_2019",
+      "n_rows": 365,
+      "n_features": 5,
+      "n_pos": 55,
+      "sha256_xy": "3cec3c0d99f621a9547ace240446a19a1aac0ed8d2cba87eb275cfddfd2fa777",
+      "label_provenance": "expert_annotated",
+      "series_provenance": "live",
+      "external_label": true,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 365,
+        "n_pos": 55,
+        "sha256_xy": "3cec3c0d99f621a9547ace240446a19a1aac0ed8d2cba87eb275cfddfd2fa777"
+      }
+    },
+    {
+      "domain": "fema_activity",
+      "event_id": "tropical_declarations_2020",
+      "n_rows": 366,
+      "n_features": 5,
+      "n_pos": 141,
+      "sha256_xy": "857ceb2b59e4537e435d17d4e50e53dfa993eae26672cff74f7b784ebeb88c5a",
+      "label_provenance": "expert_annotated",
+      "series_provenance": "live",
+      "external_label": true,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 366,
+        "n_pos": 141,
+        "sha256_xy": "857ceb2b59e4537e435d17d4e50e53dfa993eae26672cff74f7b784ebeb88c5a"
+      }
+    },
+    {
+      "domain": "fema_activity",
+      "event_id": "tropical_declarations_2021",
+      "n_rows": 365,
+      "n_features": 5,
+      "n_pos": 97,
+      "sha256_xy": "3f3d746b0d389cc710eb4eea4b38c6d2eb01065f7e20dd5a6898ee906a03651f",
+      "label_provenance": "expert_annotated",
+      "series_provenance": "live",
+      "external_label": true,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 365,
+        "n_pos": 97,
+        "sha256_xy": "3f3d746b0d389cc710eb4eea4b38c6d2eb01065f7e20dd5a6898ee906a03651f"
+      }
+    },
+    {
+      "domain": "fema_activity",
+      "event_id": "tropical_declarations_2022",
+      "n_rows": 365,
+      "n_features": 5,
+      "n_pos": 76,
+      "sha256_xy": "0c48ea4c9b095a9e735598e372e0e12dee5ead0cf703cbfb75adfb6c8ea76b16",
+      "label_provenance": "expert_annotated",
+      "series_provenance": "live",
+      "external_label": true,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 365,
+        "n_pos": 76,
+        "sha256_xy": "0c48ea4c9b095a9e735598e372e0e12dee5ead0cf703cbfb75adfb6c8ea76b16"
+      }
+    },
+    {
+      "domain": "fema_activity",
+      "event_id": "tropical_declarations_2023",
+      "n_rows": 365,
+      "n_features": 5,
+      "n_pos": 65,
+      "sha256_xy": "8c78a23b73a1781411a66b718aa9f14ae8a0d880b8859e0ec9ec52c8ae2b9645",
+      "label_provenance": "expert_annotated",
+      "series_provenance": "live",
+      "external_label": true,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 365,
+        "n_pos": 65,
+        "sha256_xy": "8c78a23b73a1781411a66b718aa9f14ae8a0d880b8859e0ec9ec52c8ae2b9645"
+      }
+    },
+    {
+      "domain": "fema_activity",
+      "event_id": "tropical_declarations_2024",
+      "n_rows": 366,
+      "n_features": 5,
+      "n_pos": 123,
+      "sha256_xy": "bedee25e311ca5d062f03c7a2b1987e13bff143851709dd7ceec13fa1223b71b",
+      "label_provenance": "expert_annotated",
+      "series_provenance": "live",
+      "external_label": true,
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 366,
+        "n_pos": 123,
+        "sha256_xy": "bedee25e311ca5d062f03c7a2b1987e13bff143851709dd7ceec13fa1223b71b"
       }
     },
     {

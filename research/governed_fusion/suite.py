@@ -11,9 +11,9 @@ scikit-learn).
 
 Two clearly-separated event classes (a reviewer must never conflate them):
 
-* **Live headline suite -- 31 real events / 9 domains** (measured
-  2026-11-16).  earthquake 5, energy 5, pandemic 5, hurricane 4, fema 3,
-  tsunami 3, marine 2, network_security 2, tornado 2.
+* **Live headline suite -- 39 real events / 10 domains** (measured
+  2026-11-16).  fema_activity 8, earthquake 5, energy 5, pandemic 5,
+  hurricane 4, fema 3, tsunami 3, marine 2, network_security 2, tornado 2.
   Every figure headlined in ``FINDINGS.md`` is computed on this set.  These
   loaders return genuine live-API payloads (verified: no synthetic-generation
   method is reached -- ``build_suite(kind="real")``).
@@ -73,6 +73,9 @@ REACHABLE: dict[str, tuple[str, str, int]] = {
     "hurricane": ("hurricane_loader", "HurricaneLoader", 4),
     "energy": ("energy_loader", "EnergyLoader", 5),
     "fema": ("fema_loader", "FEMALoader", 3),
+    # Declaration surges labelled by NOAA's billion-dollar catalogue: the only
+    # externally labelled domain beside network_security.
+    "fema_activity": ("fema_activity_loader", "FEMAActivityLoader", 8),
     "network_security": ("network_security_loader", "NetworkSecurityLoader", 2),
     "pandemic": ("pandemic_loader", "PandemicLoader", 6),
 }
@@ -289,7 +292,7 @@ def build_suite(*, kind: str = "real", verbose: bool = False) -> list[EventData]
     """Build the reachable suite for the requested event class.
 
     Args:
-        kind: ``"real"`` -> the live headline suite (default; 31 events / 9
+        kind: ``"real"`` -> the live headline suite (default; 39 events / 10
             domains as measured 2026-11-16); ``"reconstructed"`` -> the
             reconstructed-from-live group (``ebola_2014`` only, and empty
             unless the synthetic opt-in is set); ``"all"`` -> both.

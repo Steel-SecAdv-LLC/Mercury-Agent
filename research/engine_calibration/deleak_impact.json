@@ -4,23 +4,25 @@
   "honest_limits": {
     "not_a_replacement_table": "7 of the 9 canonical domains could not be re-fetched here (wildfire needs a NASA FIRMS key, financial a FRED key, landslide's host does not resolve, flood and CICIDS are stale URLs the SafeHTTPClient refuses to redirect to, volcanic's USGS endpoint was unavailable). This file is evidence of the de-leak's impact, not a new canonical measurement.",
     "confound": "Domains with ZERO exclusions also moved (max |delta| 0.119), so the canonical artifact is stale against both the current detector and the live data. Only a delta materially larger than that band is attributable to de-leaking.",
-    "attributable": "earthquake -0.5718 is five times the largest no-exclusion drift, so the magnitude leak explains the bulk of its canonical 0.9367. fema (-0.2138 over five events, re-measured 2026-11-16 with the corrected label rule) and energy (-0.1582) are also outside the band. pandemic and hurricane move within it, so de-leaking's effect there is not separable on this evidence.",
+    "attributable": "earthquake -0.5718 is five times the largest no-exclusion drift, so the magnitude leak explains the bulk of its canonical 0.9367. fema's declaration flags (-0.2138 over five events, re-measured 2026-11-16 with the corrected label rule) are also outside the band. energy (-0.1151), pandemic and hurricane move within it, so de-leaking's effect there is not separable on this evidence.",
     "correlation_remains": "Exclusion removes identity, not correlation. tornado rose despite dropping ef_scale because fatalities, injuries and path_length covary strongly with EF scale; they are distinct measurements, but physically downstream of the labelled quantity.",
     "earthquake_remeasured_2026_11_01": "Earthquake was re-fetched from USGS and re-scored with the current detector after b_value joined its exclusion list (the rolling Gutenberg-Richter estimate includes the current event's magnitude). Both views moved against the previous artifact (circular 0.9367 -> 0.8995) because the detector and the live catalog both changed since that measurement; the delta is the comparable quantity and it remains far outside the no-exclusion control band.",
     "volcanic_unmeasurable": "volcanoes.usgs.gov/vsc/api/volcanoApi/alerts answered HTTP 404 on 2026-11-01, so the volcanic loader's widened exclusion (days_since_last_change) has no measured impact figure; it is declared, gated by the provenance audit, and not quoted anywhere.",
-    "energy_remeasured_2026_11_16": "Energy reads recorded history (NASA OMNI2, NOAA GOES XRS flare reports, EIA-930, DOE OE-417) and is measured here on all five events. Storm events lose their Kp columns; Texas 2021 loses its demand-derived columns; Texas 2023 is labelled by DOE's reports and loses none. A grid event's full view is the grid matrix, not the space-weather one. The earlier 0.9237 was measured on a synthetic Kp profile and is not comparable.",
+    "energy_remeasured_2026_11_16": "Energy reads recorded history (NASA OMNI2, NOAA GOES XRS flare reports, EIA-930) and is measured here on all five events. Storm events lose their Kp columns. Both grid events are labelled by the disturbances reported to DOE on Form OE-417 (EIA Electric Power Monthly, to the hour) and lose none: no scored column produces that label. A grid event's full view is the grid matrix, not the space-weather one. The earlier 0.9237 was measured on a synthetic Kp profile and is not comparable.",
     "tsunami_remeasured_2026_11_16": "Tsunami reads the NDBC DART archive on the buoy's 15-minute cadence and declares no label-derived column, so both views are the same matrix.",
     "fema_remeasured_2026_11_16": "FEMA's label read iaProgramDeclared, which is unset on declarations since about 2007 (individual assistance is recorded as ihProgramDeclared); every 2023 and 2024 declaration was labelled normal. All five events are re-fetched and measured with the rule reading either flag. The de-leaked mean is 0.4930: without the declaration flags the detector does not find these declarations.",
-    "unlabeled_reference_2026_11_16": "Every event here is fitted on and scored in place, so the detector is fitted with unlabeled_reference=True (the kNN stream's weight is capped at 0.5). Rows carried over from earlier measurements predate that."
+    "unlabeled_reference_2026_11_16": "Every event here is fitted on and scored in place, so the detector is fitted with unlabeled_reference=True (the kNN stream's weight is capped at 0.5). Rows carried over from earlier measurements predate that.",
+    "fema_activity_2026_11_16": "fema_activity is labelled by NOAA NCEI's billion-dollar tropical cyclone catalogue and declares no label-derived column, so both views are the same matrix."
   },
   "provenance": {
-    "commit": "a1bae565349c7258f7c997798027506453e87e21",
+    "commit": "0a769e0113647af6025482402256998710a5c7bb",
     "python": "3.12.3",
     "numpy": "2.5.4",
     "script": "research/engine_calibration/deleak_impact.py",
     "measured_domains": [
       "energy",
       "fema",
+      "fema_activity",
       "tsunami"
     ],
     "carried_over_domains": [
@@ -55,9 +57,9 @@
     },
     "energy": {
       "n_events": 5,
-      "auroc_circular": 0.8925,
-      "auroc_deleaked": 0.7343,
-      "delta": -0.1582,
+      "auroc_circular": 0.8959,
+      "auroc_deleaked": 0.7808,
+      "delta": -0.1151,
       "excluded_features": [
         "kp",
         "kp_rate_of_change",
@@ -76,6 +78,13 @@
         "hm_program",
         "is_major_disaster"
       ]
+    },
+    "fema_activity": {
+      "n_events": 8,
+      "auroc_circular": 0.8583,
+      "auroc_deleaked": 0.8583,
+      "delta": 0.0,
+      "excluded_features": []
     },
     "hurricane": {
       "n_events": 4,
@@ -160,15 +169,15 @@
     {
       "domain": "energy",
       "event": "texas_2021",
-      "auroc_circular": 0.931,
-      "auroc_deleaked": 0.7155,
-      "delta": -0.2155
+      "auroc_circular": 0.9012,
+      "auroc_deleaked": 0.9012,
+      "delta": 0.0
     },
     {
       "domain": "energy",
       "event": "texas_2023",
-      "auroc_circular": 0.6213,
-      "auroc_deleaked": 0.6213,
+      "auroc_circular": 0.668,
+      "auroc_deleaked": 0.668,
       "delta": 0.0
     },
     {
@@ -205,6 +214,62 @@
       "auroc_circular": 0.714,
       "auroc_deleaked": 0.5358,
       "delta": -0.1782
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2017",
+      "auroc_circular": 0.9536,
+      "auroc_deleaked": 0.9536,
+      "delta": 0.0
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2018",
+      "auroc_circular": 0.9529,
+      "auroc_deleaked": 0.9529,
+      "delta": 0.0
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2019",
+      "auroc_circular": 0.9003,
+      "auroc_deleaked": 0.9003,
+      "delta": 0.0
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2020",
+      "auroc_circular": 0.821,
+      "auroc_deleaked": 0.821,
+      "delta": 0.0
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2021",
+      "auroc_circular": 0.7381,
+      "auroc_deleaked": 0.7381,
+      "delta": 0.0
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2022",
+      "auroc_circular": 0.7037,
+      "auroc_deleaked": 0.7037,
+      "delta": 0.0
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2023",
+      "auroc_circular": 0.8691,
+      "auroc_deleaked": 0.8691,
+      "delta": 0.0
+    },
+    {
+      "domain": "fema_activity",
+      "event": "tropical_declarations_2024",
+      "auroc_circular": 0.9275,
+      "auroc_deleaked": 0.9275,
+      "delta": 0.0
     },
     {
       "domain": "tsunami",

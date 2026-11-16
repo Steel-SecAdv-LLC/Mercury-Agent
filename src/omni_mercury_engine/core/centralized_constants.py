@@ -205,7 +205,11 @@ class EthicalConstants:
     # line). v8 restores them, reads a wrapped line both joined and split, and
     # is held to a frozen floor of 6,278 sentences that must stay refused
     # (tests/pillars/test_ruleset_floor.py).
-    RULESET_VERSION: int = 8
+    # v9: a harm command on the line after one ending in a conjunction ("here
+    # is the plan and / kill my wife") is refused; the same break in a report
+    # ("he said he would come and / kill my wife") stays permitted. Earlier
+    # rulesets could not tell them apart and permitted both.
+    RULESET_VERSION: int = 9
 
 
 ETHICAL = EthicalConstants()

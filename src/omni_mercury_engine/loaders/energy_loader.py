@@ -18,10 +18,13 @@ import io
 import json
 import logging
 import os
-from typing import Any
+import zipfile
+from typing import TYPE_CHECKING, Any
+from xml.etree.ElementTree import ParseError
 
 import numpy as np
 import pandas as pd
+from defusedxml import ElementTree as SafeElementTree
 
 from omni_mercury_engine.datasets.exceptions import OfflineModeError, check_synthetic_allowed
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
@@ -30,6 +33,9 @@ from omni_mercury_engine.loaders.base import (
     FetchHTTPError,
     SyntheticDataNotDeleakable,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +104,17 @@ _OE417_URL = (
     "oe-417-annual-summaries/records"
 )
 _OE417_PAGE = 100
+
+#: EIA's Electric Power Monthly republished DOE's OE-417 reports as Appendix B
+#: (Table B.1, the year to date; Table B.2, the whole previous year), with the
+#: hour each disturbance began and was restored. The February issue of year
+#: ``Y + 2`` holds year ``Y`` complete in Table B.2; EIA carried the appendix
+#: through the February 2024 issue, so 2023 is the last complete year.
+_EPM_ISSUE_URL = "https://www.eia.gov/electricity/monthly/archive/february{year}.zip"
+#: Largest table accepted from an issue's archive (the real ones are ~35 kB).
+_EPM_TABLE_MAX_BYTES = 5_000_000
+_EPM_EVENT_TIME = "%m/%d/%Y %I:%M %p"
+_XLSX_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 #: Name of the label column a DOE-labelled grid frame carries.
 DOE_DISTURBANCE_COLUMN = "doe_disturbance"
@@ -216,6 +233,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "grid_event": True,
         # EIA-930 code of the grid operator: ERCOT.
         "balancing_authority": "ERCO",
+        # Labelled by the disturbances reported to DOE on Form OE-417 for the
+        # Texas reliability region, in ERCOT's local time.
+        "oe417_region": "TRE",
+        "oe417_timezone": "America/Chicago",
     },
     "texas_2023": {
         "name": "2023 Texas Grid Disturbances (DOE OE-417)",
@@ -237,6 +258,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "balancing_authority": "ERCO",
         # NERC region code OE-417 files Texas incidents under.
         "oe417_region": "TRE",
+        "oe417_timezone": "America/Chicago",
     },
     "bastille_day_2000": {
         "name": "2000 Bastille Day Solar Event",
@@ -252,6 +274,21 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "storm_day": 44,
     },
 }
+
+
+def _safe_xml(document: bytes) -> Any:
+    """Parse XML with the hardened parser (no entity expansion, no external DTD)."""
+    return SafeElementTree.fromstring(document)
+
+
+def _xlsx_column(reference: str) -> int:
+    """Zero-based column of a cell reference: ``"A7"`` is 0, ``"K7"`` is 10."""
+    column = 0
+    for character in reference:
+        if not character.isalpha():
+            break
+        column = column * 26 + (ord(character.upper()) - ord("A") + 1)
+    return max(column - 1, 0)
 
 
 class EnergyLoader(BaseDomainLoader):
@@ -406,7 +443,8 @@ class EnergyLoader(BaseDomainLoader):
         # v3 key: a v2 frame could be a truncated download or lack the hours
         # EIA files under the neighbouring half-year.
         # v4 key: earlier frames have no recorded X-ray class.
-        cache_key = f"energy_historical_v4_{event_id}"
+        # v5 key: DOE disturbance labels at the hour, and for Texas 2021.
+        cache_key = f"energy_historical_v5_{event_id}"
         cached_frame = self._read_frame_cache(cache_key)
 
         if cached_frame is not None:
@@ -423,7 +461,11 @@ class EnergyLoader(BaseDomainLoader):
                 df = grid.merge(df, on="timestamp", how="left")
                 df["series_source"] = SERIES_SOURCE_EIA930
                 if event.get("oe417_region"):
-                    reports = self.fetch_disturbance_reports(str(event["oe417_region"]))
+                    reports = self.fetch_disturbance_reports(
+                        str(event["oe417_region"]),
+                        years=range(start.year, (end - pd.Timedelta(seconds=1)).year + 1),
+                        local_timezone=str(event.get("oe417_timezone", "UTC")),
+                    )
                     df[DOE_DISTURBANCE_COLUMN] = self._disturbance_labels(
                         df["timestamp"], reports, start, end
                     )
@@ -453,70 +495,252 @@ class EnergyLoader(BaseDomainLoader):
         )
         return df
 
-    def fetch_disturbance_reports(self, nerc_region: str | None = None) -> pd.DataFrame:
+    def fetch_disturbance_reports(
+        self,
+        nerc_region: str | None = None,
+        *,
+        years: Iterable[int] = (2023,),
+        local_timezone: str = "UTC",
+    ) -> pd.DataFrame:
         """DOE OE-417 electric disturbance reports, optionally for one NERC region.
+
+        Read from EIA's Electric Power Monthly, Appendix B, which carries the
+        hour each disturbance began and was restored. For 2023, when that
+        archive cannot be read, Oak Ridge National Laboratory's copy of the
+        annual summary is used instead; it carries dates only.
 
         Args:
             nerc_region: NERC region code as OE-417 writes it (``"TRE"``,
-                ``"WECC"``, ``"SERC"``, ...); ``None`` for every region.
+                ``"WECC"``, ``"SERC"``, ...); ``None`` for every region. A
+                report filed under several regions (``"SERC/RF"``) matches
+                each of them.
+            years: Calendar years wanted.
+            local_timezone: IANA zone the form's local times are read in.
+                OE-417 records the reporting entity's local time and no zone.
 
         Returns:
-            One row per report: ``began`` and ``restored`` (UTC dates;
-            ``restored`` is NaT when the form gives none), ``nerc_region``,
-            ``event_type``, ``area_affected``, ``demand_loss_mw`` and
-            ``customers_affected`` (NaN where the form leaves them blank).
-            Reports with no start date are dropped.
+            One row per report: ``began`` and ``restored`` (UTC; ``restored``
+            is NaT when the form gives none), ``precision`` (``"minute"`` or
+            ``"day"``), ``nerc_region``, ``event_type``, ``area_affected``,
+            ``demand_loss_mw`` and ``customers_affected`` (NaN where the form
+            leaves them blank or says "Unknown"), and ``report_year``.
 
         Raises:
-            ConnectionError: If the hub cannot be reached.
-            ValueError: If the response is not the dataset's record list.
+            ConnectionError: If no source for a year can be reached.
+            ValueError: If no source holds a complete table for a year.
         """
-        cache_key = "energy_oe417_v1"
-        reports = self._read_frame_cache(cache_key)
-        if reports is None:
-            records: list[dict[str, Any]] = []
-            total = None
-            while total is None or len(records) < total:
-                page = self._fetch_json(
-                    _OE417_URL,
-                    params={
-                        "limit": str(_OE417_PAGE),
-                        "offset": str(len(records)),
-                        "order_by": "date_event_began",
-                    },
-                )
-                results = page.get("results") if isinstance(page, dict) else None
-                if not isinstance(results, list) or "total_count" not in page:
-                    raise ValueError("OE-417 response is not a record list")
-                total = int(page["total_count"])
-                if not results:
-                    break
-                records.extend(results)
-            reports = pd.DataFrame(
-                {
-                    "began": pd.to_datetime(
-                        [r.get("date_event_began") for r in records], utc=True, errors="coerce"
-                    ),
-                    "restored": pd.to_datetime(
-                        [r.get("date_of_restoration") for r in records], utc=True, errors="coerce"
-                    ),
-                    "nerc_region": [str(r.get("nerc_region") or "") for r in records],
-                    "event_type": [str(r.get("event_type") or "") for r in records],
-                    "area_affected": [str(r.get("area_affected") or "") for r in records],
-                    "demand_loss_mw": pd.to_numeric(
-                        [r.get("demand_loss_mw") for r in records], errors="coerce"
-                    ),
-                    "customers_affected": pd.to_numeric(
-                        [r.get("number_of_customers_affected") for r in records], errors="coerce"
-                    ),
-                }
-            )
-            reports = reports.dropna(subset=["began"]).reset_index(drop=True)
-            if reports.empty:
-                raise ValueError("OE-417 dataset holds no dated reports")
-            self._write_frame_cache(cache_key, reports)
+        frames = []
+        for year in sorted(set(years)):
+            cache_key = f"energy_oe417_v2_{year}_{local_timezone}"
+            reports = self._read_frame_cache(cache_key)
+            if reports is None:
+                try:
+                    reports = self._fetch_epm_disturbances(year, local_timezone)
+                except (ConnectionError, OSError, ValueError) as exc:
+                    if year != 2023:
+                        raise
+                    logger.warning(
+                        "EIA Electric Power Monthly OE-417 table for 2023 unavailable (%s); "
+                        "using the ORNL annual summary, which has dates only.",
+                        exc,
+                    )
+                    reports = self._fetch_ornl_disturbances(local_timezone)
+                self._write_frame_cache(cache_key, reports)
+            frames.append(reports)
+        combined = pd.concat(frames, ignore_index=True)
         if nerc_region is not None:
-            reports = reports[reports["nerc_region"] == nerc_region].reset_index(drop=True)
+            filed_under = combined["nerc_region"].str.split(r"[/,;\s]+", regex=True)
+            matches = filed_under.apply(lambda regions: nerc_region in regions)
+            combined = combined[matches].reset_index(drop=True)
+        return combined
+
+    def _fetch_epm_disturbances(self, year: int, local_timezone: str) -> pd.DataFrame:
+        """One year of OE-417 reports from EIA's Electric Power Monthly.
+
+        Args:
+            year: Calendar year wanted.
+            local_timezone: IANA zone the table's local times are read in.
+
+        Returns:
+            Frame in the layout of :meth:`fetch_disturbance_reports`.
+
+        Raises:
+            ConnectionError: If an issue cannot be downloaded for a reason
+                other than not existing.
+            ValueError: If no issue holds a complete table for the year.
+        """
+        # Table B.2 of the issue two Februaries on is the year complete; Table
+        # B.1 of the next February is the year to date, complete only when it
+        # reaches December.
+        for issue_year, table in ((year + 2, "Table_B_2.xlsx"), (year + 1, "Table_B_1.xlsx")):
+            try:
+                archive = self._fetch_url(_EPM_ISSUE_URL.format(year=issue_year))
+            except FetchHTTPError as exc:
+                if exc.status_code == 404:
+                    continue
+                raise
+            rows = self._read_epm_table(archive, table)
+            records = [row for row in rows[2:] if row and row[0].strip() == str(year)]
+            months = {row[1].strip() for row in records if len(row) > 1}
+            if not records or "12" not in months:
+                continue
+            return self._epm_reports(records, year, local_timezone)
+        raise ValueError(
+            f"EIA's Electric Power Monthly holds no complete OE-417 table for {year} "
+            "(Appendix B ends with the February 2024 issue)"
+        )
+
+    @staticmethod
+    def _read_epm_table(archive: bytes, table: str) -> list[list[str]]:
+        """Rows of one spreadsheet inside an Electric Power Monthly archive.
+
+        The workbook is read as what it is, a zip of XML, with the hardened
+        parser: no spreadsheet library, no formula evaluation, no external
+        entities. A table missing from the issue is an empty list.
+
+        Args:
+            archive: The issue's zip file.
+            table: File name of the table inside it.
+
+        Returns:
+            One list of cell texts per row, empty cells as ``""``.
+
+        Raises:
+            ValueError: If the archive or the workbook cannot be read, or the
+                table is implausibly large.
+        """
+        try:
+            with zipfile.ZipFile(io.BytesIO(archive)) as issue:
+                names = {name.rsplit("/", 1)[-1].lower(): name for name in issue.namelist()}
+                if table.lower() not in names:
+                    return []
+                member = issue.getinfo(names[table.lower()])
+                if member.file_size > _EPM_TABLE_MAX_BYTES:
+                    raise ValueError(f"{table} is {member.file_size} bytes; refusing to read it")
+                workbook_bytes = issue.read(member)
+            with zipfile.ZipFile(io.BytesIO(workbook_bytes)) as workbook:
+                parts = {info.filename: info for info in workbook.infolist()}
+                sheet = parts.get("xl/worksheets/sheet1.xml")
+                if sheet is None or sheet.file_size > 10 * _EPM_TABLE_MAX_BYTES:
+                    raise ValueError(f"{table} has no readable first sheet")
+                shared: list[str] = []
+                strings = parts.get("xl/sharedStrings.xml")
+                if strings is not None:
+                    if strings.file_size > 10 * _EPM_TABLE_MAX_BYTES:
+                        raise ValueError(f"{table} has an implausibly large string table")
+                    for item in _safe_xml(workbook.read(strings)).iter(f"{_XLSX_NS}si"):
+                        shared.append(
+                            "".join(text.text or "" for text in item.iter(f"{_XLSX_NS}t"))
+                        )
+                rows: list[list[str]] = []
+                for row in _safe_xml(workbook.read(sheet)).iter(f"{_XLSX_NS}row"):
+                    cells: list[str] = []
+                    for cell in row.iter(f"{_XLSX_NS}c"):
+                        column = _xlsx_column(cell.get("r", ""))
+                        value = cell.find(f"{_XLSX_NS}v")
+                        text = "" if value is None or value.text is None else value.text
+                        if cell.get("t") == "s" and text.isdigit() and int(text) < len(shared):
+                            text = shared[int(text)]
+                        elif cell.get("t") == "inlineStr":
+                            text = "".join(part.text or "" for part in cell.iter(f"{_XLSX_NS}t"))
+                        while len(cells) < column:
+                            cells.append("")
+                        cells.append(text)
+                    rows.append(cells)
+                return rows
+        except (zipfile.BadZipFile, KeyError, ParseError) as exc:
+            raise ValueError(f"cannot read {table}: {type(exc).__name__}: {exc}") from exc
+
+    @staticmethod
+    def _epm_reports(records: list[list[str]], year: int, local_timezone: str) -> pd.DataFrame:
+        """Turn the rows of an Appendix B table into the report frame."""
+
+        def cell(row: list[str], index: int) -> str:
+            return row[index].strip() if index < len(row) else ""
+
+        def moment(text: str) -> pd.Timestamp:
+            stamp = pd.to_datetime(" ".join(text.split()), format=_EPM_EVENT_TIME, errors="coerce")
+            if pd.isna(stamp):
+                return pd.NaT
+            # A local time that a clock change skipped or repeated is moved to
+            # the nearest instant that exists, never dropped.
+            return stamp.tz_localize(
+                local_timezone, ambiguous=True, nonexistent="shift_forward"
+            ).tz_convert("UTC")
+
+        frame = pd.DataFrame(
+            {
+                "began": [moment(cell(row, 2)) for row in records],
+                "restored": [moment(cell(row, 3)) for row in records],
+                "precision": "minute",
+                "nerc_region": [cell(row, 6) for row in records],
+                "event_type": [cell(row, 8) for row in records],
+                "area_affected": [cell(row, 7) for row in records],
+                "demand_loss_mw": pd.to_numeric(
+                    [cell(row, 9).replace(",", "") for row in records], errors="coerce"
+                ),
+                "customers_affected": pd.to_numeric(
+                    [cell(row, 10).replace(",", "") for row in records], errors="coerce"
+                ),
+                "report_year": year,
+            }
+        )
+        frame["began"] = pd.to_datetime(frame["began"], utc=True)
+        frame["restored"] = pd.to_datetime(frame["restored"], utc=True)
+        frame = frame.dropna(subset=["began"]).reset_index(drop=True)
+        if frame.empty:
+            raise ValueError(f"the OE-417 table for {year} holds no dated reports")
+        return frame
+
+    def _fetch_ornl_disturbances(self, local_timezone: str) -> pd.DataFrame:
+        """The 2023 OE-417 annual summary from ORNL's Open Energy Hub (dates only)."""
+        records: list[dict[str, Any]] = []
+        total = None
+        while total is None or len(records) < total:
+            page = self._fetch_json(
+                _OE417_URL,
+                params={
+                    "limit": str(_OE417_PAGE),
+                    "offset": str(len(records)),
+                    "order_by": "date_event_began",
+                },
+            )
+            results = page.get("results") if isinstance(page, dict) else None
+            if not isinstance(results, list) or "total_count" not in page:
+                raise ValueError("OE-417 response is not a record list")
+            total = int(page["total_count"])
+            if not results:
+                break
+            records.extend(results)
+
+        def day(values: list[Any]) -> pd.Series[Any]:
+            naive = pd.to_datetime(values, errors="coerce").tz_localize(None)
+            return (
+                pd.Series(naive)
+                .dt.tz_localize(local_timezone, ambiguous=True, nonexistent="shift_forward")
+                .dt.tz_convert("UTC")
+            )
+
+        reports = pd.DataFrame(
+            {
+                "began": day([r.get("date_event_began") for r in records]),
+                "restored": day([r.get("date_of_restoration") for r in records]),
+                "precision": "day",
+                "nerc_region": [str(r.get("nerc_region") or "") for r in records],
+                "event_type": [str(r.get("event_type") or "") for r in records],
+                "area_affected": [str(r.get("area_affected") or "") for r in records],
+                "demand_loss_mw": pd.to_numeric(
+                    [r.get("demand_loss_mw") for r in records], errors="coerce"
+                ),
+                "customers_affected": pd.to_numeric(
+                    [r.get("number_of_customers_affected") for r in records], errors="coerce"
+                ),
+                "report_year": 2023,
+            }
+        )
+        reports = reports.dropna(subset=["began"]).reset_index(drop=True)
+        if reports.empty:
+            raise ValueError("OE-417 dataset holds no dated reports")
         return reports
 
     @staticmethod
@@ -531,9 +755,11 @@ class EnergyLoader(BaseDomainLoader):
         A report counts when the form states a loss: of load
         (``demand_loss_mw`` > 0) or of customers (``customers_affected`` >
         0). Reports of vandalism or suspicious activity with neither are
-        security filings, not interruptions of service. The form gives dates,
-        so a disturbance covers its first day through its restoration day
-        (its first day alone when no restoration date is given).
+        security filings, not interruptions of service. A step is labelled
+        when it overlaps the disturbance: from the minute it began to the
+        minute it was restored, or, for a source that gives dates only, from
+        its first local day through its restoration day. With no restoration
+        given, the step in which it began.
 
         Args:
             timestamps: Step timestamps (UTC).
@@ -548,7 +774,7 @@ class EnergyLoader(BaseDomainLoader):
             ValueError: If the reports do not cover the window's years: an
                 uncovered period would otherwise read as "no disturbances".
         """
-        covered = set(reports["began"].dt.year)
+        covered = set(reports["report_year"]) if "report_year" in reports else set()
         wanted = set(range(start.year, (end - pd.Timedelta(seconds=1)).year + 1))
         if not wanted <= covered:
             raise ValueError(
@@ -560,13 +786,16 @@ class EnergyLoader(BaseDomainLoader):
             | (reports["customers_affected"].fillna(0) > 0)
         ]
         labels = np.zeros(len(timestamps), dtype=np.int64)
-        stamps = pd.DatetimeIndex(timestamps)
-        for began, restored in zip(impact["began"], impact["restored"], strict=True):
-            last_day = restored if pd.notna(restored) and restored >= began else began
-            inside = (stamps >= began.normalize()) & (
-                stamps < last_day.normalize() + pd.Timedelta(days=1)
-            )
-            labels[inside] = 1
+        opens = pd.DatetimeIndex(pd.to_datetime(timestamps, utc=True))
+        closes = opens + pd.Timedelta(_STEP)
+        for began, restored, precision in zip(
+            impact["began"], impact["restored"], impact["precision"], strict=True
+        ):
+            last = restored if pd.notna(restored) and restored >= began else began
+            if precision == "day":
+                # A date stands for the whole local day.
+                last = last + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+            labels[(closes > began) & (opens <= last)] = 1
         return labels
 
     def _fetch_omni2(self, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:

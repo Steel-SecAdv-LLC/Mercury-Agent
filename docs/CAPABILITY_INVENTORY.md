@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,121
-- **Capability-bearing classes:** 2,092 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,122
+- **Capability-bearing classes:** 2,093 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 50
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
 - **Unresolved (`Other`):** 1,220 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Support types (config / result / enum / error) | 1029 |
 | Detection | 181 |
 | Neural models & layers | 162 |
-| Data sources & loaders | 113 |
+| Data sources & loaders | 114 |
 | Adapters & backends | 108 |
 | Engines & orchestration | 102 |
 | Training & optimization | 65 |
@@ -1880,7 +1880,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `loaders/` — 29 classes (27 capability)
+### `loaders/` — 30 classes (28 capability)
 
 **Data sources & loaders**
 
@@ -1889,6 +1889,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DroughtLoader` (`loaders.drought_loader`) — Loader for drought data from NOAA NCEI GSOM monthly summaries.
 - `EarthquakeLoader` (`loaders.earthquake_loader`) — Loader for earthquake data from the USGS Earthquake Hazards Program.
 - `EnergyLoader` (`loaders.energy_loader`) — Loader for EMP/energy grid data from NOAA SWPC and EIA.
+- `FEMAActivityLoader` (`loaders.fema_activity_loader`) — Daily tropical-cyclone declaration activity, labelled by NOAA's catalogue.
 - `FEMALoader` (`loaders.fema_loader`) — Domain loader for FEMA disaster declaration data from OpenFEMA.
 - `FinancialLoader` (`loaders.financial_loader`) — Loader for financial crisis data from the FRED API.
 - `FloodLoader` (`loaders.flood_loader`) — Loader for flood data from USGS Water Services and FEMA.

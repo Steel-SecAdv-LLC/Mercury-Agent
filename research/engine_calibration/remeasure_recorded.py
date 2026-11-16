@@ -41,6 +41,7 @@ _RESULTS = _HERE / "results.json"
 RECORDED = {
     "energy": ("energy_loader", "EnergyLoader"),
     "fema": ("fema_loader", "FEMALoader"),
+    "fema_activity": ("fema_activity_loader", "FEMAActivityLoader"),
     "tsunami": ("tsunami_loader", "TsunamiLoader"),
 }
 
@@ -131,6 +132,7 @@ def remeasure() -> dict[str, Any]:
     rows.sort(key=lambda row: (row["dom"], row["event"]))
     artifact["per_event"] = rows
     artifact["events"] = len(rows)
+    artifact["domains"] = sorted({row["dom"] for row in rows})
     artifact["overall"] = {key: _mean(rows, key) for key in _METRICS}
     for domain in RECORDED:
         artifact["per_domain"][domain] = {key: _mean(rows, key, domain) for key in _METRICS}
