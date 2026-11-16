@@ -269,10 +269,11 @@ detectors:
   detector recovers them almost trivially (0.97–1.00 AUC). That is **label
   leakage**, not accuracy — reported below for pipeline transparency only.
 
-The same provenance discipline extends to the live-API loaders: of 21 concrete
-loaders, only 2 (`network_security`, `sepsis`) produce labels independent of any
-scored feature, and the governed-fusion suite gates self-improvement on those 2
-alone. CI enforces the split (`python -m omni_mercury_engine.loaders.label_provenance --check`);
+The same provenance discipline extends to the live-API loaders: of 22 concrete
+loaders, only 3 (`network_security`, `sepsis`, `fema_activity`) produce labels
+independent of any scored feature, and the governed-fusion suite gates
+self-improvement on the events of those it can reach (`network_security` and
+`fema_activity`) alone. CI enforces the split (`python -m omni_mercury_engine.loaders.label_provenance --check`);
 see [docs/SELF_IMPROVEMENT_LOOP.md](docs/SELF_IMPROVEMENT_LOOP.md) for the
 governed self-improvement rollout.
 

@@ -233,7 +233,8 @@ def test_hazard_domain_table_matches_the_engine_calibration_run() -> None:
         "Tornado": "tornado",
         "Network Security": "network_security",
         "Hurricane": "hurricane",
-        "FEMA": "fema",
+        "FEMA declaration flags": "fema",
+        "FEMA declaration activity": "fema_activity",
         "Marine": "marine",
     }
     text = _text()
@@ -259,11 +260,12 @@ def test_each_hazard_row_states_its_loaders_declared_provenance() -> None:
     from omni_mercury_engine.loaders.label_provenance import LABEL_PROVENANCE_REGISTRY
 
     rows = re.findall(
-        r"\|\s*(Network Security|Earthquake|Pandemic|Energy|Tsunami|Tornado|Hurricane|FEMA|"
-        r"Marine)\s*\|\s*[0-9.]+\s*\|\s*([^|]+?)\s*\|",
+        r"\|\s*(Network Security|Earthquake|Pandemic|Energy|Tsunami|Tornado|Hurricane|"
+        r"FEMA declaration flags|FEMA declaration activity|Marine)"
+        r"\s*\|\s*[0-9.]+\s*\|\s*([^|]+?)\s*\|",
         _text(),
     )
-    assert len(rows) == 9, f"expected 9 hazard rows, matched {len(rows)}"
+    assert len(rows) == 10, f"expected 10 hazard rows, matched {len(rows)}"
 
     for label, stated in rows:
         key = next(
@@ -281,7 +283,8 @@ def test_each_hazard_row_states_its_loaders_declared_provenance() -> None:
 
 def _loader_stem(readme_label: str) -> str:
     """Map a README domain label onto its loader module stem."""
-    return readme_label.lower().replace(" ", "_")
+    two_fema_rows = {"FEMA declaration flags": "fema", "FEMA declaration activity": "fema_activity"}
+    return two_fema_rows.get(readme_label, readme_label.lower().replace(" ", "_"))
 
 
 def test_deleak_impact_figures_match_the_evidence_artifact() -> None:
