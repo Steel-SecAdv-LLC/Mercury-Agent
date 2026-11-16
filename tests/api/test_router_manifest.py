@@ -53,6 +53,7 @@ _SERVER_ROUTERS = (
     "agent_notice",
     "source",
     "catalog",
+    "watch",
     "frontend",
     "voice",
     "metrics",
