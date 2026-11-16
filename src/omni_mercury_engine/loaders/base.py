@@ -130,6 +130,12 @@ def spc_convective_day_timestamps(
     return stamps
 
 
+#: HTTP statuses that describe the request, not the moment: retrying cannot
+#: change them. 408 and 425 are absent (they are about timing), and 429 has
+#: its own branch in ``_fetch_url``.
+_NOT_TRANSIENT_STATUSES = frozenset({400, 401, 403, 404, 405, 406, 410, 414, 422, 451})
+
+
 class SyntheticDataNotDeleakable(ValueError):
     """A de-leaked feature matrix was requested from a synthetic frame.
 
@@ -596,6 +602,12 @@ class BaseDomainLoader(ABC):
                     # not on our backoff, so further attempts only burn
                     # more of the same quota (FIRMS: ~4 min of blind
                     # retries per tripped call before this guard).
+                    break
+                if last_status in _NOT_TRANSIENT_STATUSES:
+                    # The request itself is what the server refused (no such
+                    # file, bad credential, malformed query): the answer is
+                    # the same on the next attempt. A retired DART station's
+                    # 404 was retried three times over 14 s, per station.
                     break
                 if attempt < self.max_retries:
                     wait = self.retry_backoff * (2**attempt)

@@ -12,14 +12,14 @@
     "tsunami"
   ],
   "overall": {
-    "auroc": 0.8501,
-    "auprc": 0.447,
-    "f1_before": 0.2199,
-    "f1_after": 0.3175,
-    "prec_before": 0.3305,
-    "prec_after": 0.3223,
-    "rec_before": 0.3487,
-    "rec_after": 0.5756
+    "auroc": 0.8418,
+    "auprc": 0.436,
+    "f1_before": 0.2333,
+    "f1_after": 0.286,
+    "prec_before": 0.39,
+    "prec_after": 0.3245,
+    "rec_before": 0.356,
+    "rec_after": 0.5464
   },
   "per_domain": {
     "earthquake": {
@@ -103,14 +103,14 @@
       "rec_after": 0.6486
     },
     "tsunami": {
-      "auroc": 0.8905,
-      "auprc": 0.8356,
-      "f1_before": 0.0157,
-      "f1_after": 0.5421,
-      "prec_before": 0.3333,
-      "prec_after": 0.9035,
-      "rec_before": 0.008,
-      "rec_after": 0.4222
+      "auroc": 0.8078,
+      "auprc": 0.7262,
+      "f1_before": 0.1495,
+      "f1_after": 0.2272,
+      "prec_before": 0.9281,
+      "prec_after": 0.9252,
+      "rec_before": 0.0814,
+      "rec_after": 0.1296
     }
   },
   "per_event": [
@@ -522,47 +522,47 @@
     {
       "dom": "tsunami",
       "event": "chile_2010",
-      "n": 1166,
+      "n": 1167,
       "pos": 447,
       "subsampled": false,
-      "auroc": 0.879925822902179,
-      "auprc": 0.8350921194740413,
-      "f1_before": 0,
-      "prec_before": 0,
-      "rec_before": 0.0,
-      "f1_after": 0.26589595375722547,
-      "prec_after": 0.9583333333333334,
-      "rec_after": 0.15436241610738255
+      "auroc": 0.8461813323390505,
+      "auprc": 0.8234042272802211,
+      "f1_before": 0.1642710472279261,
+      "prec_before": 1.0,
+      "rec_before": 0.0894854586129754,
+      "f1_after": 0.22619047619047622,
+      "prec_after": 1.0,
+      "rec_after": 0.12751677852348994
     },
     {
       "dom": "tsunami",
       "event": "tohoku_2011",
-      "n": 1094,
+      "n": 1095,
       "pos": 375,
       "subsampled": false,
-      "auroc": 0.9075827538247567,
-      "auprc": 0.8466915393831556,
-      "f1_before": 0,
-      "prec_before": 0,
-      "rec_before": 0.0,
-      "f1_after": 0.7041800643086816,
-      "prec_after": 0.8866396761133604,
-      "rec_after": 0.584
+      "auroc": 0.8286703703703704,
+      "auprc": 0.7125666909426228,
+      "f1_before": 0.15496368038740918,
+      "prec_before": 0.8421052631578947,
+      "rec_before": 0.08533333333333333,
+      "f1_after": 0.21962616822429906,
+      "prec_after": 0.8867924528301887,
+      "rec_after": 0.12533333333333332
     },
     {
       "dom": "tsunami",
       "event": "tonga_2022",
-      "n": 2115,
+      "n": 2116,
       "pos": 706,
       "subsampled": false,
-      "auroc": 0.8841140623711994,
-      "auprc": 0.8249760640091224,
-      "f1_before": 0.04702627939142461,
-      "prec_before": 1.0,
-      "rec_before": 0.024079320113314446,
-      "f1_after": 0.656112576956904,
-      "prec_after": 0.8654292343387471,
-      "rec_after": 0.5283286118980169
+      "auroc": 0.7485906013300383,
+      "auprc": 0.6427315230208243,
+      "f1_before": 0.12928759894459105,
+      "prec_before": 0.9423076923076923,
+      "rec_before": 0.06940509915014165,
+      "f1_after": 0.2358722358722359,
+      "prec_after": 0.8888888888888888,
+      "rec_after": 0.1359773371104816
     }
   ]
 }

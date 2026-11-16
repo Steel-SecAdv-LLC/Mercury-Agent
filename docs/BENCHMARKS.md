@@ -236,8 +236,10 @@ in the live headline manifest, only **2** have audited ground-truth labels
 (independent of any scored feature) — both from `network_security`
 (`batadal`, `nsl_kdd`). The other 21 threshold a scored feature
 (statistical / circular) and are reported separately as leakage-flagged;
-7 reconstructed-series events (`tsunami/*`, `energy/*`,
-`pandemic/ebola_2014`) are reported in their own block by existing design.
+7 events (`tsunami/*`, `energy/*`, `pandemic/ebola_2014`) are reported in
+their own block by existing design: reconstructed series when this suite was
+measured. The tsunami events have since become recorded series (NDBC DART
+archive); they stay in this block until the suite is re-run.
 
 | Bucket | n_events | Mean AUROC | Mean F1 | Notes |
 |---|---:|---:|---:|---|

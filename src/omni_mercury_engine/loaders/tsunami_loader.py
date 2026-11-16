@@ -14,14 +14,16 @@ at specific DART stations.
 
 from __future__ import annotations
 
+import gzip
 import io
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import OfflineModeError, check_synthetic_allowed
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,23 @@ DART_STATIONS: list[str] = [
     "21418",
     "52402",
 ]
+
+#: NDBC's yearly archive of every DART station:
+#: ``<station>t<year>.txt.gz``, the same ``YY MM DD hh mm ss T HEIGHT`` layout
+#: as the real-time files. The archive holds the event-mode (1-minute and
+#: 15-second) samples a buoy sends while a tsunami passes, so each catalogued
+#: event below is a recorded series, not one that needs to be made up.
+_HISTORICAL_URL = "https://www.ndbc.noaa.gov/data/historical/dart/"
+
+#: ``HEIGHT`` value NDBC writes for a sample that was not received.
+_MISSING_HEIGHT = 9999.0
+
+#: ``bpr_series_source`` values: where a historical frame's series came from.
+SERIES_SOURCE_ARCHIVE = "ndbc_dart_archive"
+SERIES_SOURCE_SYNTHETIC = "synthetic"
+
+#: Fewest recorded samples an event span must hold to count as retrieved.
+_MIN_RECORDED_SAMPLES = 30
 
 # ---------------------------------------------------------------------------
 # Ground-truth event catalog
@@ -109,9 +128,9 @@ class TsunamiLoader(BaseDomainLoader):
     """Domain loader for NOAA NDBC DART tsunami buoy data.
 
     Connects to the NDBC real-time data service and retrieves bottom
-    pressure recorder (BPR) readings from the DART network.  For
-    historical ground-truth events the loader synthesises labeled
-    datasets based on documented tsunami arrival windows.
+    pressure recorder (BPR) readings from the DART network.  Historical
+    ground-truth events are read from NDBC's yearly DART archive: the
+    series each buoy recorded, labelled by the documented event window.
 
     Attributes:
         DOMAIN: ``"tsunami"``
@@ -121,10 +140,12 @@ class TsunamiLoader(BaseDomainLoader):
 
     DOMAIN: str = "tsunami"
     SOURCE_URL: str = "https://www.ndbc.noaa.gov/data/realtime2/"
-    # Labels are documented arrival-time windows (genuinely external), but
-    # the BPR series itself is reconstructed (NDBC files rotate out after
-    # ~45 days). Synthesized data is excluded from the supervised headline
-    # by the same discipline that excludes feature-threshold loaders.
+    # The BPR series is the recorded one (NDBC yearly DART archive). The
+    # labels are a catalogued window per event, from the origin time to a
+    # fixed end, not a per-sample annotation of when the wave was at the
+    # buoy, so they stay outside the supervised headline: ``statistical``
+    # is the registry's class for labels that are not independent per-row
+    # ground truth.
     LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
@@ -185,45 +206,134 @@ class TsunamiLoader(BaseDomainLoader):
         return combined
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """Fetch data for a specific historical tsunami event.
+        """Fetch the recorded DART series for a historical tsunami event.
 
-        Because NDBC real-time files rotate frequently, historical event
-        data is synthesised from characteristic BPR patterns observed
-        during well-documented tsunamis.  The synthesised data mirrors
-        the statistical properties (amplitude, period, noise floor) of
-        the original recordings.
+        Reads the event station's year from NDBC's DART archive and returns
+        the span around the event window on a 1-minute grid. A buoy reports
+        every 15 minutes in standard mode and every minute (briefly every 15
+        seconds) in event mode, so the grid holds the 1-minute mean of the
+        recorded samples where there are any and a time interpolation
+        between them elsewhere; ``measured`` says which is which.
 
         Args:
             event_id: One of ``"tohoku_2011"``, ``"chile_2010"``, or
                 ``"tonga_2022"``.
 
         Returns:
-            DataFrame with columns ``timestamp``, ``bpr``, and
-            ``station_id``.
+            DataFrame with columns ``timestamp``, ``bpr`` (water-column
+            height, metres), ``station_id``, ``measured`` and
+            ``bpr_series_source``.
 
         Raises:
             ValueError: If *event_id* is not recognised.
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the event is
+                not cached.
+            DataSourceUnavailableError: If the archive cannot be read and the
+                synthetic opt-in (``MERCURY_ALLOW_SYNTHETIC=1``) is not set.
+                With the opt-in a synthetic stand-in is returned instead,
+                carrying the synthetic mark (:meth:`is_synthetic`) and
+                ``bpr_series_source == "synthetic"``; it is never cached.
         """
         if event_id not in _EVENTS_BY_ID:
             raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENTS_BY_ID)}")
 
-        # Try the cache first.
-        cache_key = f"tsunami_historical_{event_id}"
+        # v2 key: frames cached under the old key were synthesised and carry
+        # no mark, so they must not be served as the recorded series.
+        cache_key = f"tsunami_historical_v2_{event_id}"
         cached = self._read_frame_cache(cache_key)
         if cached is not None:
             return cached
 
         event = _EVENTS_BY_ID[event_id]
+        try:
+            df = self._fetch_event_archive(event)
+        except OfflineModeError:
+            raise
+        except (ConnectionError, OSError, ValueError) as exc:
+            # This used to be the only path: every historical frame was
+            # synthesised, unmarked, whether or not NDBC was reachable.
+            check_synthetic_allowed(
+                "TsunamiLoader",
+                f"NDBC DART archive ({_HISTORICAL_URL}) unavailable for event "
+                f"'{event_id}': {type(exc).__name__}: {exc}",
+            )
+            df = self._synthesize_event(event)
+            df["measured"] = False
+            df["bpr_series_source"] = SERIES_SOURCE_SYNTHETIC
+            return self.mark_synthetic(df)
 
-        # NDBC real-time files only cover the most recent ~45 days, so
-        # historical events (all of which predate that window) must be
-        # reconstructed from characteristic BPR patterns. The frame carries
-        # that provenance so downstream outputs cannot present the series
-        # as recorded sensor data.
-        df = self._synthesize_event(event)
-        df["bpr_series_source"] = "reconstructed"
+        df["bpr_series_source"] = SERIES_SOURCE_ARCHIVE
         self._write_frame_cache(cache_key, df)
+        logger.info(
+            "tsunami: event %s from the NDBC archive, station %s: %d minutes, %d recorded",
+            event_id,
+            event["station_id"],
+            len(df),
+            int(df["measured"].sum()),
+        )
         return df
+
+    @staticmethod
+    def _event_span(event: dict[str, Any]) -> tuple[datetime, datetime]:
+        """The observation span of an event: its window plus baseline either side.
+
+        The padding rule is the one the synthetic series used, so the share
+        of labelled minutes is unchanged: at least six hours each side, and
+        for a window longer than eight hours the window's own length.
+        """
+        window_start = datetime.fromisoformat(event["window_start"].replace("Z", "+00:00"))
+        window_end = datetime.fromisoformat(event["window_end"].replace("Z", "+00:00"))
+        duration = (window_end - window_start).total_seconds()
+        padding = max(6 * 3600, int(duration * (1.0 if duration > 8 * 3600 else 0.75)))
+        pad = pd.Timedelta(seconds=padding)
+        return window_start - pad, window_end + pad
+
+    def _fetch_event_archive(self, event: dict[str, Any]) -> pd.DataFrame:
+        """Read an event's recorded span from the NDBC DART archive.
+
+        Args:
+            event: Event dict from :pydata:`_EVENT_CATALOG`.
+
+        Returns:
+            1-minute frame with ``timestamp``, ``bpr``, ``station_id`` and
+            ``measured``.
+
+        Raises:
+            ConnectionError: If the archive file cannot be downloaded.
+            ValueError: If the file holds too few recorded samples in the
+                event span to stand for the event.
+        """
+        station = str(event["station_id"])
+        span_start, span_end = self._event_span(event)
+        frames = []
+        for year in range(span_start.year, span_end.year + 1):
+            raw = self._fetch_url(f"{_HISTORICAL_URL}{station}t{year}.txt.gz")
+            text = gzip.decompress(raw).decode("utf-8", errors="replace")
+            frames.append(self._parse_dart_text(text, station))
+        recorded = pd.concat(frames, ignore_index=True)
+        in_span = recorded[
+            (recorded["timestamp"] >= span_start) & (recorded["timestamp"] <= span_end)
+        ]
+        if len(in_span) < _MIN_RECORDED_SAMPLES:
+            raise ValueError(
+                f"station {station} has {len(in_span)} recorded samples between "
+                f"{span_start.isoformat()} and {span_end.isoformat()}; "
+                f"at least {_MIN_RECORDED_SAMPLES} are needed"
+            )
+
+        per_minute = in_span.set_index("timestamp")["bpr"].resample("1min").mean()
+        grid = pd.date_range(
+            pd.Timestamp(span_start).ceil("1min"), pd.Timestamp(span_end), freq="1min"
+        )
+        on_grid = per_minute.reindex(grid)
+        return pd.DataFrame(
+            {
+                "timestamp": grid,
+                "bpr": on_grid.interpolate(method="time", limit_direction="both").to_numpy(),
+                "station_id": station,
+                "measured": on_grid.notna().to_numpy(),
+            }
+        )
 
     def list_events(self) -> list[dict[str, Any]]:
         """Return the catalog of ground-truth tsunami events.
@@ -316,6 +426,21 @@ class TsunamiLoader(BaseDomainLoader):
             # Fall back to base class behaviour for non-standard data.
             return super().engineer_features(raw_data)
 
+        if "station_id" in raw_data.columns and raw_data["station_id"].nunique() > 1:
+            # A real-time frame holds every station, one after another. Each
+            # buoy sits at its own depth (3,265 m to 5,886 m in one live
+            # fetch), so differencing or averaging across the seam between
+            # two stations turned a change of buoy into a kilometre-high
+            # "wave". Features are computed per station and returned in the
+            # frame's own row order.
+            features = np.zeros((len(raw_data), len(self.FEATURE_COLUMNS)), dtype=np.float64)
+            positions = np.arange(len(raw_data))
+            for _, rows in raw_data.assign(_position=positions).groupby("station_id", sort=False):
+                features[rows["_position"].to_numpy()] = self.engineer_features(
+                    rows.drop(columns=["station_id", "_position"])
+                )
+            return features
+
         bpr = raw_data["bpr"].astype(np.float64).values.copy()
 
         # Replace non-finite values with forward-fill then backward-fill.
@@ -371,99 +496,78 @@ class TsunamiLoader(BaseDomainLoader):
         """
         url = f"{self.SOURCE_URL}{station_id}.dart"
         raw_bytes = self._fetch_url(url)
-        text = raw_bytes.decode("utf-8", errors="replace")
-
-        # DART files have comment header lines starting with '#'.
-        df = pd.read_csv(
-            io.StringIO(text),
-            comment="#",
-            sep=r"\s+",
-            header=None,
-            na_values=["MM", "99.00", "999.0", "9999.0", "99999.0"],
-        )
-
+        df = self._parse_dart_text(raw_bytes.decode("utf-8", errors="replace"), station_id)
         if df.empty:
             logger.warning("tsunami: empty data for station %s", station_id)
-            return df
-
-        # The first five columns are typically: YY MM DD hh mm
-        # followed by measurement columns.  Build a timestamp from
-        # the date/time fields when they look plausible.
-        df = self._parse_dart_columns(df, station_id)
         return df
 
     @staticmethod
-    def _parse_dart_columns(df: pd.DataFrame, station_id: str) -> pd.DataFrame:
-        """Assign column names and build a timestamp from date fields.
+    def _parse_dart_text(text: str, station_id: str) -> pd.DataFrame:
+        """Parse an NDBC DART file (real-time or archive) into recorded samples.
+
+        The layout is ``YY MM DD hh mm ss T HEIGHT``: a timestamp to the
+        second, the measurement type (1 = 15-minute, 2 = 1-minute, 3 =
+        15-second) and the water-column height in metres. The previous
+        parser assumed there was no seconds column, which shifted every
+        field after the minute by one: ``bpr`` held the type code (1, 2 or
+        3) on every live row, the height was left in an unnamed column, and
+        15-second samples shared one timestamp.
 
         Args:
-            df: Raw dataframe read from NDBC DART file.
+            text: Decoded file contents; ``#`` lines are headers.
             station_id: Station identifier for tagging.
 
         Returns:
-            DataFrame with ``timestamp``, ``bpr``, ``station_id`` and
-            any additional measurement columns.
+            DataFrame with ``timestamp`` (UTC), ``bpr`` (height, metres),
+            ``sample_type`` and ``station_id``, oldest first, without the
+            samples NDBC marks as not received. Empty when the file has no
+            data rows.
+
+        Raises:
+            ValueError: If the rows do not have the eight DART columns.
         """
-        ncols = df.shape[1]
+        columns = ["timestamp", "bpr", "sample_type", "station_id"]
+        frame = pd.read_csv(io.StringIO(text), comment="#", sep=r"\s+", header=None)
+        if frame.empty:
+            return pd.DataFrame(columns=columns)
+        if frame.shape[1] != 8:
+            raise ValueError(
+                f"DART file for station {station_id} has {frame.shape[1]} columns; "
+                "expected 8 (YY MM DD hh mm ss T HEIGHT)"
+            )
+        frame.columns = ["year", "month", "day", "hour", "minute", "second", "sample_type", "bpr"]
+        numeric = frame.apply(pd.to_numeric, errors="coerce")
+        timestamps = pd.to_datetime(
+            numeric[["year", "month", "day", "hour", "minute", "second"]],
+            utc=True,
+            errors="coerce",
+        )
+        parsed = pd.DataFrame(
+            {
+                "timestamp": timestamps,
+                "bpr": numeric["bpr"],
+                "sample_type": numeric["sample_type"],
+                "station_id": station_id,
+            }
+        )
+        received = parsed["bpr"].notna() & (parsed["bpr"] < _MISSING_HEIGHT)
+        parsed = parsed[received & parsed["timestamp"].notna()]
+        parsed = parsed.astype({"sample_type": "int64"})
+        return parsed.sort_values("timestamp", kind="stable").reset_index(drop=True)
 
-        # Minimal expected layout: YY MM DD hh mm T(TYPE) HEIGHT
-        # Real DART files vary slightly, so we handle common formats.
-        if ncols >= 7:
-            base_names = ["year", "month", "day", "hour", "minute", "type", "bpr"]
-            extra_names = [f"col_{i}" for i in range(7, ncols)]
-            df.columns = base_names + extra_names
+    @staticmethod
+    def _parse_dart_columns(df: pd.DataFrame, station_id: str) -> pd.DataFrame:
+        """Name the columns of an already-read DART table (kept for callers).
 
-            # Build timestamp (handle 2-digit and 4-digit years).
-            years = df["year"].astype(int)
-            years = np.where(years < 100, years + 2000, years)
+        Args:
+            df: Headerless frame read from an NDBC DART file.
+            station_id: Station identifier for tagging.
 
-            timestamps: list[datetime] = []
-            for _, row in df.iterrows():
-                try:
-                    ts = datetime(
-                        int(years[_]) if isinstance(_, int) else int(row["year"]),
-                        int(row["month"]),
-                        int(row["day"]),
-                        int(row["hour"]),
-                        int(row["minute"]),
-                        tzinfo=UTC,
-                    )
-                except (ValueError, OverflowError):
-                    ts = datetime(2000, 1, 1, tzinfo=UTC)
-                timestamps.append(ts)
-
-            # Vectorised timestamp construction (faster for large files).
-            try:
-                ts_series = pd.to_datetime(
-                    {
-                        "year": years,
-                        "month": df["month"].astype(int),
-                        "day": df["day"].astype(int),
-                        "hour": df["hour"].astype(int),
-                        "minute": df["minute"].astype(int),
-                    },
-                    utc=True,
-                )
-            except Exception:
-                ts_series = pd.Series(timestamps)
-
-            df["timestamp"] = ts_series
-
-        elif ncols >= 2:
-            # Minimal fallback: treat first column as index, last as BPR.
-            df.columns = [f"col_{i}" for i in range(ncols)]
-            df = df.rename(columns={f"col_{ncols - 1}": "bpr"})
-            df["timestamp"] = pd.Timestamp.now(tz="UTC")
-        else:
-            df["bpr"] = np.nan
-            df["timestamp"] = pd.Timestamp.now(tz="UTC")
-
-        df["station_id"] = station_id
-
-        # Coerce BPR to numeric.
-        df["bpr"] = pd.to_numeric(df["bpr"], errors="coerce")
-
-        return df
+        Returns:
+            The frame :meth:`_parse_dart_text` returns for the same rows.
+        """
+        text = df.to_csv(sep=" ", header=False, index=False)
+        return TsunamiLoader._parse_dart_text(text, station_id)
 
     @staticmethod
     def _synthesize_event(event: dict[str, Any]) -> pd.DataFrame:

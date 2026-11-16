@@ -30,8 +30,9 @@ reconstruct the entire series from documented event statistics:
   the same 7d-smoothed feature; ``ebola_2014`` additionally reconstructs the
   series (no live WHO GHO feed).
 * ``energy``      -- ``kp >= 7`` on feature[0]; series reconstructed.
-* ``tsunami``     -- external arrival-time window labels, but series is
-  reconstructed (NDBC files rotate out after ~45 days).
+* ``tsunami``     -- a catalogued window per event (origin time to a fixed
+  end), not a per-sample annotation; the series is the recorded one, from
+  NDBC's yearly DART archive.
 * ``financial``   -- (VIX > 30 AND yield_curve < 0) OR VIX > 45, on scored
   features.
 * ``flood``       -- ``gauge_height_ft >= NWS_flood_stage`` on feature[0].
@@ -147,7 +148,8 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
     ),
     "tsunami_loader.TsunamiLoader": (
         "statistical",
-        "Arrival-time labels are external, but the BPR series itself is reconstructed.",
+        "Labels are one catalogued window per event (origin time to a fixed end), not a "
+        "per-sample annotation; the BPR series is recorded (NDBC DART archive).",
     ),
     "financial_loader.FinancialLoader": (
         "statistical",

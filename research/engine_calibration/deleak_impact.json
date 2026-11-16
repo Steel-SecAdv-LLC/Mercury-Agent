@@ -11,21 +11,21 @@
     "volcanic_unmeasurable": "volcanoes.usgs.gov/vsc/api/volcanoApi/alerts answered HTTP 404 on 2026-11-01, so the volcanic loader's widened exclusion (days_since_last_change) has no measured impact figure; it is declared, gated by the provenance audit, and not quoted anywhere."
   },
   "provenance": {
-    "commit": "24ee86aaccace475701f9185151e4531da1e4c0c",
-    "python": "3.13.18",
-    "numpy": "2.5.3",
+    "commit": "9d63f8542ab51fe33364b99c6f409c2ace4a1470",
+    "python": "3.12.3",
+    "numpy": "2.5.4",
     "script": "research/engine_calibration/deleak_impact.py",
     "measured_domains": [
-      "earthquake"
+      "tsunami"
     ],
     "carried_over_domains": [
+      "earthquake",
       "fema",
       "hurricane",
       "marine",
       "network_security",
       "pandemic",
-      "tornado",
-      "tsunami"
+      "tornado"
     ],
     "baseline_artifact": "research/engine_calibration/results.json (canonical, pre-de-leak)"
   },
@@ -112,13 +112,34 @@
     },
     "tsunami": {
       "n_events": 3,
-      "auroc_circular": 0.8905,
-      "auroc_deleaked": 0.9753,
-      "delta": 0.0848,
+      "auroc_circular": 0.8078,
+      "auroc_deleaked": 0.8078,
+      "delta": 0.0,
       "excluded_features": []
     }
   },
   "per_event": [
+    {
+      "domain": "tsunami",
+      "event": "chile_2010",
+      "auroc_circular": 0.8462,
+      "auroc_deleaked": 0.8462,
+      "delta": 0.0
+    },
+    {
+      "domain": "tsunami",
+      "event": "tohoku_2011",
+      "auroc_circular": 0.8287,
+      "auroc_deleaked": 0.8287,
+      "delta": 0.0
+    },
+    {
+      "domain": "tsunami",
+      "event": "tonga_2022",
+      "auroc_circular": 0.7486,
+      "auroc_deleaked": 0.7486,
+      "delta": 0.0
+    },
     {
       "domain": "earthquake",
       "event": "haiti_2010",
@@ -258,27 +279,6 @@
       "auroc_circular": 0.7606,
       "auroc_deleaked": 0.9008,
       "delta": 0.1402
-    },
-    {
-      "domain": "tsunami",
-      "event": "chile_2010",
-      "auroc_circular": 0.8799,
-      "auroc_deleaked": 0.9607,
-      "delta": 0.0808
-    },
-    {
-      "domain": "tsunami",
-      "event": "tohoku_2011",
-      "auroc_circular": 0.9076,
-      "auroc_deleaked": 0.9824,
-      "delta": 0.0748
-    },
-    {
-      "domain": "tsunami",
-      "event": "tonga_2022",
-      "auroc_circular": 0.8841,
-      "auroc_deleaked": 0.9829,
-      "delta": 0.0988
     }
   ]
 }

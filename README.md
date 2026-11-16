@@ -406,12 +406,12 @@ several values — including a Flood row — that matched no committed artifact)
 | Earthquake | 0.9367 | self-labelled | `magnitude >= mainshock_mag - 1.0`, and `magnitude` is feature[0] |
 | Pandemic | 0.9256 | self-labelled | 7d rolling cases > 2x 30d baseline, on the same smoothed series |
 | Energy | 0.9237 | self-labelled | `kp >= 7` on feature[0]; series also reconstructed — "doubly circular" in the loader |
-| Tsunami | 0.8905 | external labels, reconstructed series | arrival-time windows; BPR series reconstructed |
+| Tsunami | 0.8078 | catalogued windows, recorded series | origin time to a fixed end per event; BPR series from the NDBC DART archive |
 | Tornado | 0.8803 | self-labelled | `mag >= 3` (EF3+) on the raw magnitude behind `ef_scale` |
 | Hurricane | 0.7792 | self-labelled | 24h wind delta >= 30 kt, which is also scored |
 | FEMA | 0.7598 | self-labelled | the DR/IA/PA declaration flags themselves |
 | Marine | 0.5412 | self-labelled | richness-decline threshold on scored `richness_loss` |
-| *Overall* | *0.8501* | *mixed* | *pools all nine; not a comparable figure* |
+| *Overall* | *0.8418* | *mixed* | *pools all nine; not a comparable figure* |
 
 **What the leak was worth, measured.** Every loader now declares its
 label-derived columns and the scored matrix excludes them
