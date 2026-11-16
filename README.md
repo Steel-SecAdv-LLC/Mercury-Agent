@@ -125,12 +125,12 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8619 | 0.8619 | +0.0000 |
+| Mean ROC-AUC | 0.8616 | 0.8619 | -0.0003 |
 | Median ROC-AUC | 0.9038 | 0.9038 | +0.0000 |
-| Mean Oracle F1 | 0.6492 | 0.6492 | +0.0000 |
+| Mean Oracle F1 | 0.6493 | 0.6492 | +0.0000 |
 | Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
-| Run timestamp (UTC) | 2026-11-15T02:17:12.191047+00:00 | 2026-11-15T02:17:12.191047+00:00 | — |
-| Commit | `d1985e4` | `d1985e4` | — |
+| Run timestamp (UTC) | 2026-11-16T16:23:02.474673+00:00 | 2026-11-15T02:17:12.191047+00:00 | — |
+| Commit | `e356358` | `d1985e4` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
@@ -283,16 +283,16 @@ governed self-improvement rollout.
 <!-- BENCHMARK-HEADLINE:START -->
 | Component | Weight | Method | Mean AUC | Median AUC |
 |-----------|--------|--------|----------|------------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7640 | 0.7723 |
-| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6010 | 0.5720 |
+| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7639 | 0.7723 |
+| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6009 | 0.5720 |
 | InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8269 | 0.8582 |
-| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8619** | **0.9038** |
+| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8616** | **0.9038** |
 
 | Aggregate (55 genuine-label datasets of 67 successful) | Value |
 |--------------------------------------------------------|-------|
-| Mean AUC / Median AUC | 0.8619 / 0.9038 |
-| Std AUC | 0.1422 |
-| Mean / Median Oracle F1 | 0.6492 / 0.7168 |
+| Mean AUC / Median AUC | 0.8616 / 0.9038 |
+| Std AUC | 0.1426 |
+| Mean / Median Oracle F1 | 0.6493 / 0.7168 |
 <!-- BENCHMARK-HEADLINE:END -->
 
 *Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
@@ -307,7 +307,7 @@ against other detectors.
 | Domain | Datasets | Mean AUC | Mean oracle F1 |
 |--------|----------|----------|----------------|
 | ADBench | 47 | 0.8571 | 0.6443 |
-| Time series (SMD, NAB) | 2 | 0.7815 | 0.4681 |
+| Time series (SMD, NAB) | 2 | 0.7738 | 0.4690 |
 | Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
 | General (ADRepository) | 1 | 0.9116 | 0.6162 |
 | Industrial (BATADAL) | 1 | 0.8976 | 0.5548 |
@@ -494,7 +494,7 @@ AUC (ensemble inversion on high-dimensional data); no tuning was performed.
 ### Visual proof
 
 The benchmark panels below are generated from the current committed
-`mercury_benchmark_results.json` run (2026-11-15; Mean AUC 0.8619 over the 55
+`mercury_benchmark_results.json` run (2026-11-16; Mean AUC 0.8616 over the 55
 genuinely labelled of 67 successful datasets) by
 `scripts/generate_docs_images.py`; the calibration panels come from
 `scripts/generate_calibration_visuals.py` over the committed
@@ -841,7 +841,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Verification Rigor | Rigor over raw count: property-based testing (Hypothesis), full-enumeration mutation testing with kill-rate floors enforced in CI on ten module sets, security scanning, and label-provenance/leakage and drift gates. Structural test-module counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block — the headline is the method, not a test tally |
-| Benchmark Coverage | 67 reproducible datasets (47 ADBench + 20 domain) of 76 attempted (47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8619** / Median **0.9038** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8571** |
+| Benchmark Coverage | 67 reproducible datasets (47 ADBench + 20 domain) of 76 attempted (47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8616** / Median **0.9038** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8571** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+ on Apple silicon (Intel Macs: core package only), Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`: a design-time proof certified by `tools/lyapunov_validator.py`, *monitored* at runtime and not enforced by default — `LyapunovRuntimeEnforcer` has `halt_on_violation=False`; see [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |

@@ -4,10 +4,9 @@ Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-16.
 
 > **Current committed run (v2.1.x).** The public headline is the committed
 > `benchmarks/mercury_benchmark_results.json` run — **67 successful /
-> 76 attempted**, Mean ROC-AUC **0.8619**, Median **0.9038**, Mean
-> Oracle F1 **0.6492** (55 genuine-label datasets, now including
-> `MSDS`, whose labels are recorded ground truth; run of 2026-11-15 on
-> commit `d1985e4`) — surfaced in the
+> 76 attempted**, Mean ROC-AUC **0.8616**, Median **0.9038**, Mean
+> Oracle F1 **0.6493** (55 genuine-label datasets; run of 2026-11-16 on
+> commit `e356358`) — surfaced in the
 > README "Latest Benchmark Results" block and regenerated on every
 > push to `main` by `.github/workflows/benchmark.yml`. The FEMA
 > Disaster label-polarity fix and the 11-loader reachability
@@ -24,7 +23,7 @@ Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-16.
 > subset (`USGS_Earthquake`, `NOAA_Weather`, `Wildfire`, `NOAA_Buoy`,
 > `NOAA_StormEvents`, `NOAA_GSOD`, `NOAA_ERDDAP`, `EPA_AirQuality`,
 > `FEMA_Disaster`, `NASA_Exoplanet`, `SolarDynamics`, `ThreatIntel`)
-> scores Mean AUC **0.9272** but is **excluded from the headline as
+> scores Mean AUC **0.9274** but is **excluded from the headline as
 > circular**: its labels are manufactured by thresholding a detector-like
 > score/feature, so they are reported for unsupervised evaluation only and
 > never folded into the graded headline. All figures are from the `summary`

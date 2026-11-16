@@ -53,8 +53,8 @@ attribution to code transferred from its former agent layer.)
   contract.
 - **Committed benchmark run.** The README headline is the committed
   `mercury_benchmark_results.json` run — **67 successful / 76
-  attempted**, Mean AUC **0.8619**, Median **0.9038**, Mean Oracle
-  F1 **0.6492** (2026-11-15) — surfaced in the README "Latest
+  attempted**, Mean AUC **0.8616**, Median **0.9038**, Mean Oracle
+  F1 **0.6493** (2026-11-16) — surfaced in the README "Latest
   Benchmark Results" block. CI's coarse regression-gate floors are
   **ROC-AUC 0.75 / F1 0.55** (`.github/workflows/benchmark.yml`), ~7%
   below the historical **0.803 AUC / 0.589 F1** baseline.
