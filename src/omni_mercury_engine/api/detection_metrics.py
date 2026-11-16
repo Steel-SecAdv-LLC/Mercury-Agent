@@ -63,8 +63,11 @@ _R = TypeVar("_R")
 def _attempted(detector_type: str, started: float, *, succeeded: bool) -> None:
     """Write one attempt: a request, its duration, and a success if it had one."""
     DETECTION_REQUESTS.labels(detector_type=detector_type).inc()
+    # ``labels()`` alone creates the series at 0, so a route that has only
+    # ever failed still exports a success series for the ratio to read.
+    success = DETECTION_SUCCESS.labels(detector_type=detector_type)
     if succeeded:
-        DETECTION_SUCCESS.labels(detector_type=detector_type).inc()
+        success.inc()
     DETECTION_DURATION.labels(detector_type=detector_type).observe(time.perf_counter() - started)
 
 

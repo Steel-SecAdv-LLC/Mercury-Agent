@@ -74,3 +74,38 @@ def test_the_highest_finite_bucket_lies_above_the_alert_threshold(
         f"{alert} fires above {threshold}, but {metric}'s highest finite bucket is "
         f"{max(buckets)}: histogram_quantile can never exceed it"
     )
+
+
+def test_one_failing_component_has_its_own_alert() -> None:
+    """The fleet-wide ratio hides a low-traffic component that fails every request.
+
+    With 96 requests succeeding elsewhere and 4 failing on one route, the
+    global success ratio is 0.96 and ``OmniMercuryDetectionSuccessRateDrop``
+    (below 0.95) is silent. ``OmniMercuryDetectorFailing`` takes the ratio per
+    ``detector_type``, supplies a zero where a component has no success
+    series, and requires a minimum number of requests.
+    """
+    rules = {
+        rule["alert"]: rule
+        for group in yaml.safe_load(_RULES.read_text())["groups"]
+        for rule in group["rules"]
+        if "alert" in rule
+    }
+    assert 96 / 100 >= 0.95  # the case the global alert cannot see
+
+    expr = " ".join(str(rules["OmniMercuryDetectorFailing"]["expr"]).split())
+    assert expr.count("sum by (detector_type)") == 4
+    assert "omni_detection_success_total" in expr
+    assert "or sum by (detector_type) (rate(omni_detection_requests_total" in expr
+    assert "* 0 )" in expr or "* 0)" in expr
+    assert "< 0.80 and" in expr
+    assert "increase(omni_detection_requests_total" in expr
+    assert ">= 5" in expr
+    assert (
+        "{{ $labels.detector_type }}"
+        in rules["OmniMercuryDetectorFailing"]["annotations"]["summary"]
+    )
+
+    runbook = rules["OmniMercuryDetectorFailing"]["annotations"]["runbook_url"].rsplit("/", 1)[1]
+    text = (_RULES.parents[2] / "docs" / "runbooks" / runbook).read_text(encoding="utf-8")
+    assert "OmniMercuryDetectorFailing" in text

@@ -155,6 +155,26 @@ class TestRecorder:
         assert "error" in mixed[1]
         assert _delta("batch", before) == (2.0, 1.0, 2.0)
 
+    def test_a_component_that_only_fails_still_exports_a_success_series(self) -> None:
+        """Was: no success series at all, so a per-component ratio had no sample to alert on."""
+        from omni_mercury_engine.core.metrics import time_detection
+
+        @records_detection("unit_only_fails")
+        async def handler() -> None:
+            raise RuntimeError("always")
+
+        with pytest.raises(RuntimeError):
+            asyncio.run(handler())
+        route = {"detector_type": ROUTE_PREFIX + "unit_only_fails"}
+        assert prometheus_client.REGISTRY.get_sample_value(_SUCCESS, route) == 0.0
+        assert prometheus_client.REGISTRY.get_sample_value(_REQUESTS, route) == 1.0
+
+        with pytest.raises(RuntimeError), time_detection("unit_engine_only_fails"):
+            raise RuntimeError("always")
+        engine = {"detector_type": "unit_engine_only_fails"}
+        assert prometheus_client.REGISTRY.get_sample_value(_SUCCESS, engine) == 0.0
+        assert prometheus_client.REGISTRY.get_sample_value(_REQUESTS, engine) == 1.0
+
     def test_skip_leaves_the_series_untouched(self) -> None:
         skipping = True
 

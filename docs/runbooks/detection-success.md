@@ -3,6 +3,13 @@
 **Fires when** `sum(rate(omni_detection_success_total[5m])) / sum(rate(omni_detection_requests_total[5m])) < 0.95`
 for 10 minutes (`monitoring/prometheus/prometheus-rules.yaml`).
 
+`OmniMercuryDetectorFailing` is the same ratio per `detector_type`, over 10
+minutes, below 80%, for a component with at least five detections in the
+window. It exists because the ratio above is taken over everything: a route
+with 4% of the traffic can fail every request and leave the total at 96%.
+Its label names the component, so start at step 1 below with that
+`detector_type`.
+
 ## What the series count
 
 `core.metrics.time_detection` wraps every component `detect`/`predict` call in

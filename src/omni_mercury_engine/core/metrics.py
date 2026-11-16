@@ -349,6 +349,12 @@ def time_detection(detector_type: str) -> Generator[None, None, None]:
         raise
     except Exception:
         DETECTION_REQUESTS.labels(detector_type=detector_type).inc()
+        # Touch the success series so it exists at 0. A labelled child is
+        # only exported once used, and a component that has never succeeded
+        # had a request series and no success series: the per-component
+        # ratio then has no sample at all, and an alert on it stays silent
+        # for exactly the component that fails every time.
+        DETECTION_SUCCESS.labels(detector_type=detector_type)
         DETECTION_DURATION.labels(detector_type=detector_type).observe(
             time.perf_counter() - start_time
         )

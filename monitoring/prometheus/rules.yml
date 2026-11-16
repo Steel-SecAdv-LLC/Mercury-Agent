@@ -209,6 +209,27 @@ groups:
       summary: Detection success rate has dropped
       description: 'Detection success rate is {{ $value | humanizePercentage }} (threshold: 95%)'
       runbook_url: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/detection-success.md
+  - alert: OmniMercuryDetectorFailing
+    expr: |
+      (
+        (
+          sum by (detector_type) (rate(omni_detection_success_total{app="mercury-agent"}[10m]))
+          or
+          sum by (detector_type) (rate(omni_detection_requests_total{app="mercury-agent"}[10m])) * 0
+        )
+        /
+        sum by (detector_type) (rate(omni_detection_requests_total{app="mercury-agent"}[10m]))
+      ) < 0.80
+      and
+      sum by (detector_type) (increase(omni_detection_requests_total{app="mercury-agent"}[10m])) >= 5
+    for: 10m
+    labels:
+      severity: warning
+      team: ml
+    annotations:
+      summary: Detector {{ $labels.detector_type }} is failing
+      description: '{{ $labels.detector_type }} succeeded on {{ $value | humanizePercentage }} of its detections over 10 minutes (threshold: 80%)'
+      runbook_url: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/detection-success.md
   - alert: OmniMercurySlowDetection
     expr: omni_mercury:detection_duration_seconds:p95 > 10
     for: 10m
