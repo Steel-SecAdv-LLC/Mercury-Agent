@@ -20,6 +20,9 @@ which rules the environment out and attributes the move to the detector. The
 refreshed ledger is a larger mean gain on a worse win rate: 13 W / 1 tie / 4 L,
 +0.0348. ``cardio`` (−0.0855) and ``optdigits`` (−0.0624) are the regressions
 to look at.
+
+Re-measured at ``15b0eea``, when the harness began declaring its reference
+unlabelled (the kNN stream at equal weight): 0.7737, still 13 W / 1 tie / 4 L.
 """
 
 from __future__ import annotations
@@ -62,8 +65,8 @@ class TestCommittedHeadline:
         summary = comparison["summary"]
         assert (summary["wins"], summary["ties"], summary["losses"]) == (13, 1, 4)
         assert summary["mean_baseline"] == 0.7397
-        assert summary["mean_current"] == 0.7745
-        assert summary["mean_delta"] == 0.0348
+        assert summary["mean_current"] == 0.7737
+        assert summary["mean_delta"] == 0.034
 
     def test_the_current_run_records_the_detector_it_measured(self) -> None:
         """Both sides date themselves, so a stale ledger cannot hide again.

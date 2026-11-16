@@ -137,7 +137,7 @@ Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the co
 
 **Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8571**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
 
-**Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7745 (+3.48 pts, 13 W / 1 tie / 4 L)** from base `e118e1f` to the detector at `e7341ce` (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`. The re-measurement at `e7341ce` (fit-time conformal operating point, conformal p-values) reproduced 0.7745 on all 18 sets: those changes move the cut, not the ranking.
+**Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7737 (+3.40 pts, 13 W / 1 tie / 4 L)** from base `e118e1f` to the detector at `15b0eea` (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`. The harness fits the detector on the rows it scores, so since `15b0eea` it declares that reference unlabelled and the kNN stream is fused at equal weight; the previous ledger (`e7341ce`, 0.7745) gave the stream its dimensional weight. Eight sets rose, nine fell, the mean moved by −0.0008.
 
 > **Both sides were measured on one tree, in one environment.** The earlier
 > ledger (`0.7634`, 14 W / 2 tie / 2 L) was recorded at `bdcdf6a` and left behind by
@@ -147,8 +147,9 @@ Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the co
 > reproduced the committed 0.7397 on all 18 sets byte-for-byte, which rules the
 > environment out as a confound and attributes the whole current-side movement to the
 > detector revisions. The harness is deterministic: two runs on one tree are identical.
-> The refreshed ledger is a larger mean gain and a worse win rate — `cardio` −0.0855 and
-> `optdigits` −0.0624 are the two real regressions, enumerated in
+> The four losses against the base are `optdigits` −0.0424, `cardio` −0.0330,
+> `vertebral` −0.0263 and `Cardiotocography` −0.0193 (`cardio` was −0.0855 and
+> `optdigits` −0.0624 at the dimensional weight), enumerated in
 > [`adbench_base_vs_current.json`](research/omni_equation/adbench_base_vs_current.json).
 
 **Adversarial shapes on the served routes (measured).** The detection routes

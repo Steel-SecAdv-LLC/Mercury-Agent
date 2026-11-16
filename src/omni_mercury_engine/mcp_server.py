@@ -863,7 +863,14 @@ class MercuryMCPServer:
         # Measured on ADBench breastw (35% anomalous) scored on itself: F1
         # 0.221 at the default, 0.921 with contamination=0.35.
         detector = MercuryAnomalyDetector(
-            {"auto_calibrate": True, "contamination": contamination}
+            # "percentile", not the default "auto": the caller stated the share,
+            # so the cut is that share. "auto" picks a method from the shape of
+            # the scores and landed near it (64 of 200 for a stated 30%).
+            {
+                "auto_calibrate": True,
+                "contamination": contamination,
+                "calibration_method": "percentile",
+            }
             if contamination is not None
             else None
         )
