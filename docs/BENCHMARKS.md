@@ -238,8 +238,9 @@ in the live headline manifest, only **2** have audited ground-truth labels
 (statistical / circular) and are reported separately as leakage-flagged;
 7 events (`tsunami/*`, `energy/*`, `pandemic/ebola_2014`) are reported in
 their own block by existing design: reconstructed series when this suite was
-measured. The tsunami events have since become recorded series (NDBC DART
-archive); they stay in this block until the suite is re-run.
+measured. The tsunami and energy events have since become recorded series
+(NDBC DART archive; NASA OMNI2 and EIA-930); they stay in this block until the
+suite is re-run.
 
 | Bucket | n_events | Mean AUROC | Mean F1 | Notes |
 |---|---:|---:|---:|---|

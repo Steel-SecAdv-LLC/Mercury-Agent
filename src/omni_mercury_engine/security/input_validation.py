@@ -676,6 +676,9 @@ class TrustedEndpoints:
             "www.spc.noaa.gov",  # NOAA Storm Prediction Center (tornadoes)
             "api.stlouisfed.org",  # FRED (Federal Reserve Economic Data)
             "api.eia.gov",  # EIA (Energy Information Administration)
+            # EIA-930 Hourly Electric Grid Monitor six-month balance files
+            # (keyless; the energy loader's grid events read them).
+            "www.eia.gov",
             "www.alphavantage.co",  # Alpha Vantage market/financial time series (financial market loader)
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory

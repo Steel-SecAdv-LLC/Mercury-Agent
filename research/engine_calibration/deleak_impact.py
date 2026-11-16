@@ -53,6 +53,9 @@ CACHE = Path(cache_dir())
 LOADERS = {
     "earthquake": ("earthquake_loader", "EarthquakeLoader"),
     "tsunami": ("tsunami_loader", "TsunamiLoader"),
+    # Energy reads recorded history (OMNI2, EIA-930) since 2026-11-16; while
+    # its historical frames were synthetic it could not be measured here.
+    "energy": ("energy_loader", "EnergyLoader"),
     "tornado": ("tornado_loader", "TornadoLoader"),
     "marine": ("marine_loader", "MarineLoader"),
     "hurricane": ("hurricane_loader", "HurricaneLoader"),

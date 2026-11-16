@@ -6,9 +6,11 @@ The energy loader's synthetic historical series builds solar-wind speed as
 ``350 + 50 * kp``, density as ``10 - 0.5 * kp`` and flare classes from the
 same Kp profile that builds the ``kp >= 7`` labels, so dropping the five
 declared Kp columns still leaves a matrix that is a function of the label.
-Such a frame now carries a synthetic mark that survives the loader's cache,
-and ``engineer_scored_features`` refuses it instead of reporting a disjoint
-matrix; ``engineer_features`` still returns the full matrix for display.
+Such a frame carries a synthetic mark, and ``engineer_scored_features``
+refuses it instead of reporting a disjoint matrix; ``engineer_features``
+still returns the full matrix for display. Since the loader reads recorded
+history (OMNI2, EIA-930), the synthetic series is reached only when that
+archive is unreachable and the opt-in is set, and it is never cached.
 """
 
 from __future__ import annotations
@@ -25,6 +27,12 @@ from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+_GET_BYTES = "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes"
+
+
+def _unreachable(*_args: object, **_kwargs: object) -> bytes:
+    raise ConnectionError("simulated: archive unreachable")
 
 
 def _real_frame() -> pd.DataFrame:
@@ -44,30 +52,37 @@ def _real_frame() -> pd.DataFrame:
 def test_synthetic_energy_history_is_marked_and_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The stand-in, now only reached when the recorded archive cannot be."""
     monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "1")
-    monkeypatch.delenv("EIA_API_KEY", raising=False)
-    loader = EnergyLoader(cache_dir=tmp_path)
+    monkeypatch.setattr(_GET_BYTES, _unreachable)
+    loader = EnergyLoader(cache_dir=tmp_path, max_retries=0)
     frame = loader.fetch_historical("quebec_1989")
     assert frame.attrs.get(SYNTHETIC_ATTR) is True
+    assert (frame["series_source"] == "synthetic").all()
     full = loader.engineer_features(frame)
     assert full.shape == (len(frame), len(EnergyLoader.FEATURE_COLUMNS))
     with pytest.raises(SyntheticDataNotDeleakable, match="synthetic"):
         loader.engineer_scored_features(frame)
 
 
-def test_the_mark_survives_the_loader_cache(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A second process reads the cached frame: its provenance must come back with it."""
+def test_the_stand_in_is_never_cached(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Was: cached, and then served to a process that had not opted in.
+
+    The mark did survive the cache, but so did the frame: with
+    ``MERCURY_ALLOW_SYNTHETIC=0`` the second loader still returned synthetic
+    data because the cache answered. A stand-in is not stored; without the
+    opt-in the second loader is refused.
+    """
+    from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
+
     monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "1")
-    monkeypatch.delenv("EIA_API_KEY", raising=False)
-    EnergyLoader(cache_dir=tmp_path).fetch_historical("quebec_1989")
-    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")  # the cache, not a fresh synthesis, answers
-    again = EnergyLoader(cache_dir=tmp_path)
-    cached = again.fetch_historical("quebec_1989")
-    assert again.is_synthetic(cached)
-    with pytest.raises(SyntheticDataNotDeleakable):
-        again.engineer_scored_features(cached)
+    monkeypatch.setattr(_GET_BYTES, _unreachable)
+    EnergyLoader(cache_dir=tmp_path, max_retries=0).fetch_historical("quebec_1989")
+    assert list(tmp_path.glob("*.json")) == []
+
+    monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+    with pytest.raises(DataSourceUnavailableError, match="quebec_1989"):
+        EnergyLoader(cache_dir=tmp_path, max_retries=0).fetch_historical("quebec_1989")
 
 
 def test_a_pre_provenance_cache_entry_is_not_trusted(
@@ -75,16 +90,17 @@ def test_a_pre_provenance_cache_entry_is_not_trusted(
 ) -> None:
     """A bare column-dict payload (the old shape) has unknown provenance and is refetched."""
     monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "1")
-    monkeypatch.delenv("EIA_API_KEY", raising=False)
-    loader = EnergyLoader(cache_dir=tmp_path)
+    monkeypatch.setattr(_GET_BYTES, _unreachable)
+    loader = EnergyLoader(cache_dir=tmp_path, max_retries=0)
     frame = _real_frame()
     # The old shape, as the previous writer produced it: a column dict with
     # timestamps already rendered as text (``_write_cache`` writes nothing for
     # a payload JSON cannot serialise, which would make this test vacuous).
     legacy = frame.assign(timestamp=frame["timestamp"].astype(str)).to_dict(orient="list")
-    loader._write_cache("energy_historical_quebec_1989", legacy)
-    assert loader._read_cache("energy_historical_quebec_1989") == legacy
-    assert loader._read_frame_cache("energy_historical_quebec_1989") is None
+    for key in ("energy_historical_quebec_1989", "energy_historical_v2_quebec_1989"):
+        loader._write_cache(key, legacy)
+        assert loader._read_cache(key) == legacy
+        assert loader._read_frame_cache(key) is None
     frame = loader.fetch_historical("quebec_1989")
     assert loader.is_synthetic(frame)
 

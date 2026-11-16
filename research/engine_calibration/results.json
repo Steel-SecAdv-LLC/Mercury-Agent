@@ -1,5 +1,5 @@
 {
-  "events": 30,
+  "events": 31,
   "domains": [
     "earthquake",
     "energy",
@@ -12,14 +12,14 @@
     "tsunami"
   ],
   "overall": {
-    "auroc": 0.8418,
-    "auprc": 0.436,
-    "f1_before": 0.2333,
-    "f1_after": 0.286,
-    "prec_before": 0.39,
-    "prec_after": 0.3245,
-    "rec_before": 0.356,
-    "rec_after": 0.5464
+    "auroc": 0.8104,
+    "auprc": 0.4373,
+    "f1_before": 0.2289,
+    "f1_after": 0.2816,
+    "prec_before": 0.3807,
+    "prec_after": 0.3179,
+    "rec_before": 0.3458,
+    "rec_after": 0.5349
   },
   "per_domain": {
     "earthquake": {
@@ -33,14 +33,14 @@
       "rec_after": 0.7
     },
     "energy": {
-      "auroc": 0.9237,
-      "auprc": 0.1803,
-      "f1_before": 0.2256,
-      "f1_after": 0.2431,
-      "prec_before": 0.161,
-      "prec_after": 0.1768,
-      "rec_before": 0.3788,
-      "rec_after": 0.3939
+      "auroc": 0.6597,
+      "auprc": 0.2537,
+      "f1_before": 0.1937,
+      "f1_after": 0.2194,
+      "prec_before": 0.1467,
+      "prec_after": 0.1626,
+      "rec_before": 0.294,
+      "rec_after": 0.343
     },
     "fema": {
       "auroc": 0.7598,
@@ -193,46 +193,61 @@
       "dom": "energy",
       "event": "bastille_day_2000",
       "n": 736,
-      "pos": 22,
+      "pos": 14,
       "subsampled": false,
-      "auroc": 0.9208046855105678,
-      "auprc": 0.17821095667604625,
-      "f1_before": 0.2285714285714286,
-      "prec_before": 0.16666666666666666,
-      "rec_before": 0.36363636363636365,
-      "f1_after": 0.25396825396825395,
-      "prec_after": 0.1951219512195122,
-      "rec_after": 0.36363636363636365
+      "auroc": 0.9806094182825486,
+      "auprc": 0.6069110130016822,
+      "f1_before": 0.4166666666666667,
+      "prec_before": 0.29411764705882354,
+      "rec_before": 0.7142857142857143,
+      "f1_after": 0.40816326530612246,
+      "prec_after": 0.2857142857142857,
+      "rec_after": 0.7142857142857143
     },
     {
       "dom": "energy",
       "event": "halloween_2003",
       "n": 976,
-      "pos": 22,
+      "pos": 26,
       "subsampled": false,
-      "auroc": 0.8965122927387079,
-      "auprc": 0.09790589415574535,
-      "f1_before": 0.09195402298850576,
-      "prec_before": 0.06153846153846154,
-      "rec_before": 0.18181818181818182,
-      "f1_after": 0.059701492537313425,
-      "prec_after": 0.044444444444444446,
-      "rec_after": 0.09090909090909091
+      "auroc": 0.5930769230769231,
+      "auprc": 0.30840015730101444,
+      "f1_before": 0.35820895522388063,
+      "prec_before": 0.2926829268292683,
+      "rec_before": 0.46153846153846156,
+      "f1_after": 0.3561643835616438,
+      "prec_after": 0.2765957446808511,
+      "rec_after": 0.5
     },
     {
       "dom": "energy",
       "event": "quebec_1989",
-      "n": 720,
-      "pos": 22,
+      "n": 712,
+      "pos": 19,
       "subsampled": false,
-      "auroc": 0.9536337587913519,
-      "auprc": 0.26473246939724704,
-      "f1_before": 0.35616438356164387,
-      "prec_before": 0.2549019607843137,
-      "rec_before": 0.5909090909090909,
-      "f1_after": 0.4155844155844156,
-      "prec_after": 0.2909090909090909,
-      "rec_after": 0.7272727272727273
+      "auroc": 0.5211513632566265,
+      "auprc": 0.06327183917921084,
+      "f1_before": 0,
+      "prec_before": 0.0,
+      "rec_before": 0.0,
+      "f1_after": 0.11320754716981131,
+      "prec_after": 0.08823529411764706,
+      "rec_after": 0.15789473684210525
+    },
+    {
+      "dom": "energy",
+      "event": "texas_2021",
+      "n": 718,
+      "pos": 21,
+      "subsampled": false,
+      "auroc": 0.5438956070232972,
+      "auprc": 0.03639601593100822,
+      "f1_before": 0,
+      "prec_before": 0.0,
+      "rec_before": 0.0,
+      "f1_after": 0,
+      "prec_after": 0.0,
+      "rec_after": 0.0
     },
     {
       "dom": "fema",

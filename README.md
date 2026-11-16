@@ -405,13 +405,13 @@ several values — including a Flood row — that matched no committed artifact)
 | Network Security | 0.7925 | **independent** | per-row attack flags (NSL-KDD `label`, BATADAL `ATT_FLAG`) |
 | Earthquake | 0.9367 | self-labelled | `magnitude >= mainshock_mag - 1.0`, and `magnitude` is feature[0] |
 | Pandemic | 0.9256 | self-labelled | 7d rolling cases > 2x 30d baseline, on the same smoothed series |
-| Energy | 0.9237 | self-labelled | `kp >= 7` on feature[0]; series also reconstructed — "doubly circular" in the loader |
+| Energy | 0.6597 | self-labelled, recorded series | storms: `kp >= 7`, scored on the recorded solar wind only (Kp columns excluded); Texas 2021: served demand 20% below the operator's forecast (EIA-930) |
 | Tsunami | 0.8078 | catalogued windows, recorded series | origin time to a fixed end per event; BPR series from the NDBC DART archive |
 | Tornado | 0.8803 | self-labelled | `mag >= 3` (EF3+) on the raw magnitude behind `ef_scale` |
 | Hurricane | 0.7792 | self-labelled | 24h wind delta >= 30 kt, which is also scored |
 | FEMA | 0.7598 | self-labelled | the DR/IA/PA declaration flags themselves |
 | Marine | 0.5412 | self-labelled | richness-decline threshold on scored `richness_loss` |
-| *Overall* | *0.8418* | *mixed* | *pools all nine; not a comparable figure* |
+| *Overall* | *0.8104* | *mixed* | *pools all nine; not a comparable figure* |
 
 **What the leak was worth, measured.** Every loader now declares its
 label-derived columns and the scored matrix excludes them
@@ -430,12 +430,17 @@ Tornado *rose* with `ef_scale` dropped, because path length, injuries and
 fatalities covary with EF scale — distinct measurements, still physically
 downstream of the labelled quantity.
 
-**Energy cannot currently be reproduced at all.** All four of its events
-predate the live SWPC window, so the loader refuses rather than reconstructing;
-the committed 0.9237 was measured on a reconstructed series with circular
-labels. The table above is retained as the record of what was published, not as
-a performance claim, and the numbers are not restated anywhere as domain
-accuracy.
+**Energy and Tsunami were measured on synthetic series until 2026-11-16.**
+The loaders built both series themselves, and the figures then published
+(Energy 0.9237, Tsunami 0.8905) were scores on those constructions. Both
+loaders now read the recorded history: NASA OMNI2 for the three geomagnetic
+storms, EIA-930 for the Texas 2021 grid event, and NDBC's DART archive for the
+tsunami events. The rows above are re-measured on that data with the same
+detector and procedure; the other seven domains are unchanged. Energy's four
+events are 0.9806 (Bastille Day 2000), 0.5931 (Halloween 2003), 0.5212
+(Quebec 1989, where no spacecraft measured the solar wind for 56% of the
+window) and 0.5439 (Texas 2021, a winter storm, for which space-weather
+features carry no signal). `Overall` now pools 31 events, Texas 2021 being new.
 
 ### Transparency: self-labeled loaders (leakage-flagged, not comparable)
 

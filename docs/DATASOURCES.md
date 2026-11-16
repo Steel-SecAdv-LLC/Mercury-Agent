@@ -356,9 +356,11 @@ No synthetic data is used in any benchmark.
 | Field | Value |
 |-------|-------|
 | **Loader** | `EnergyLoader` |
-| **API** | NOAA Space Weather Prediction Center + EIA |
-| **EIA Key** | Optional (free) — Register at https://www.eia.gov/opendata/register.php |
-| **Env Variable** | `EIA_API_KEY` (optional) |
+| **Live** | NOAA Space Weather Prediction Center (Kp, solar wind, X-ray flares) |
+| **Historical storms** | NASA/GSFC OMNI2 hourly archive, 1963 onward (`spdf.gsfc.nasa.gov`): recorded Kp, solar-wind speed and density |
+| **Historical grid events** | EIA-930 Hourly Electric Grid Monitor six-month balance files (`www.eia.gov`): each grid operator's hourly demand, day-ahead forecast, net generation and interchange |
+| **Key** | None. `EIA_API_KEY` is read but not needed: the EIA-930 files are keyless |
+| **Synthetic** | Only when an archive is unreachable and `MERCURY_ALLOW_SYNTHETIC=1`; the frame is marked and never cached |
 
 ### Domain: Marine Biodiversity
 

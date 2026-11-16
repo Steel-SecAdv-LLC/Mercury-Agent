@@ -11,11 +11,12 @@
     "volcanic_unmeasurable": "volcanoes.usgs.gov/vsc/api/volcanoApi/alerts answered HTTP 404 on 2026-11-01, so the volcanic loader's widened exclusion (days_since_last_change) has no measured impact figure; it is declared, gated by the provenance audit, and not quoted anywhere."
   },
   "provenance": {
-    "commit": "9d63f8542ab51fe33364b99c6f409c2ace4a1470",
+    "commit": "cb738eeaacf581f48ced4e35df62c429391aaadb",
     "python": "3.12.3",
     "numpy": "2.5.4",
     "script": "research/engine_calibration/deleak_impact.py",
     "measured_domains": [
+      "energy",
       "tsunami"
     ],
     "carried_over_domains": [
@@ -47,6 +48,19 @@
         "magnitude",
         "mag_deviation",
         "b_value"
+      ]
+    },
+    "energy": {
+      "n_events": 4,
+      "auroc_circular": 0.879,
+      "auroc_deleaked": 0.6597,
+      "delta": -0.2193,
+      "excluded_features": [
+        "kp",
+        "kp_rate_of_change",
+        "kp_sum_24h",
+        "delta_kp_6h",
+        "max_kp_24h"
       ]
     },
     "fema": {
@@ -119,6 +133,34 @@
     }
   },
   "per_event": [
+    {
+      "domain": "energy",
+      "event": "bastille_day_2000",
+      "auroc_circular": 0.9836,
+      "auroc_deleaked": 0.9806,
+      "delta": -0.003
+    },
+    {
+      "domain": "energy",
+      "event": "halloween_2003",
+      "auroc_circular": 0.9806,
+      "auroc_deleaked": 0.5931,
+      "delta": -0.3876
+    },
+    {
+      "domain": "energy",
+      "event": "quebec_1989",
+      "auroc_circular": 0.9515,
+      "auroc_deleaked": 0.5212,
+      "delta": -0.4304
+    },
+    {
+      "domain": "energy",
+      "event": "texas_2021",
+      "auroc_circular": 0.6004,
+      "auroc_deleaked": 0.5439,
+      "delta": -0.0565
+    },
     {
       "domain": "tsunami",
       "event": "chile_2010",

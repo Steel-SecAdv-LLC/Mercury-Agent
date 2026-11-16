@@ -76,14 +76,14 @@ REACHABLE: dict[str, tuple[str, str, int]] = {
     "pandemic": ("pandemic_loader", "PandemicLoader", 6),
 }
 
-# Domains whose loaders synthesise the series by design (no live path exists):
-# tsunami reconstructs BPR patterns; energy reconstructs Kp storm profiles.
-#
-# tsunami no longer reconstructs: since 2026-11-16 ``TsunamiLoader`` reads the
-# recorded series from NDBC's DART archive. It stays in this set because every
-# file under ``results/`` was measured with tsunami outside the 23-event
-# headline manifest; moving it changes that manifest, so it moves together
-# with a re-run of the suite, not before.
+# Domains reported outside the headline manifest. When this suite was
+# measured their loaders synthesised the series (tsunami BPR patterns, energy
+# Kp storm profiles). Neither does any longer: since 2026-11-16
+# ``TsunamiLoader`` reads NDBC's DART archive and ``EnergyLoader`` reads OMNI2
+# and EIA-930. Both stay in this set because every file under ``results/``
+# was measured with them outside the 23-event headline manifest; moving them
+# changes that manifest, so they move together with a re-run of the suite,
+# not before.
 RECONSTRUCTED_DOMAINS: frozenset[str] = frozenset({"tsunami", "energy"})
 # Individual events that fall back to reconstruction inside an otherwise-live
 # domain (the WHO GHO Ebola series is unavailable, so pandemic/ebola_2014

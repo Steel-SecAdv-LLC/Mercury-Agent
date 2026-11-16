@@ -29,7 +29,8 @@ reconstruct the entire series from documented event statistics:
 * ``pandemic``    -- 7-day rolling new_cases > 2 * 30-day baseline mean, on
   the same 7d-smoothed feature; ``ebola_2014`` additionally reconstructs the
   series (no live WHO GHO feed).
-* ``energy``      -- ``kp >= 7`` on feature[0]; series reconstructed.
+* ``energy``      -- ``kp >= 7`` on feature[0] (storms), served demand 20%
+  below forecast (grid event); recorded series (OMNI2, EIA-930).
 * ``tsunami``     -- a catalogued window per event (origin time to a fixed
   end), not a per-sample annotation; the series is the recorded one, from
   NDBC's yearly DART archive.
@@ -144,7 +145,8 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
     ),
     "energy_loader.EnergyLoader": (
         "statistical",
-        "Labels = ``kp >= 7`` on feature[0]; series reconstructed from documented Kp storm profiles.",
+        "Labels = ``kp >= 7`` on feature[0] for the storms and a 20% shortfall of served "
+        "demand against forecast for the grid event; the series are recorded (OMNI2, EIA-930).",
     ),
     "tsunami_loader.TsunamiLoader": (
         "statistical",

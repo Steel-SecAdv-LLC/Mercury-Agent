@@ -12,7 +12,9 @@ Ground truth events cover major geomagnetic storms and grid disruptions where se
 
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import json
 import logging
 import os
@@ -21,7 +23,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.datasets.exceptions import check_synthetic_allowed
+from omni_mercury_engine.datasets.exceptions import OfflineModeError, check_synthetic_allowed
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
@@ -41,9 +43,44 @@ _SOLAR_WIND_URL = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
 _ACE_SWEPAM_URL = "https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json"
 
 # ---------------------------------------------------------------------------
-# EIA API v2 endpoint (requires API key)
+# Recorded history
 # ---------------------------------------------------------------------------
-_EIA_DAILY_REGION_URL = "https://api.eia.gov/v2/electricity/rto/daily-region-data/data/"
+#: NASA/GSFC OMNI2: one file per year since 1963 of hourly near-Earth solar
+#: wind and geomagnetic indices, merged from every spacecraft that measured
+#: them. It holds each catalogued storm, so no historical event has to be
+#: reconstructed.
+_OMNI2_URL = "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_{year}.dat"
+
+#: OMNI2 whitespace-token positions (0-based) and fill values, from the
+#: format description beside the files (``omni2.text``): word 1 year, 2 day
+#: of year, 3 hour, 24 proton density (N/cm^3), 25 bulk speed (km/s), 39
+#: Kp * 10. The same positions ``ml/hazard_training/solar_storm.parse_omni2``
+#: reads; ``tests/loaders/test_energy_recorded_series.py`` holds the two to
+#: each other.
+_OMNI2_COLUMNS = {"density": (23, 999.9), "speed": (24, 9999.0), "kp10": (38, 99.0)}
+
+#: EIA-930, the Hourly Electric Grid Monitor: what every U.S. balancing
+#: authority reported each hour (demand, day-ahead demand forecast, net
+#: generation, interchange). The six-month balance files need no API key.
+_EIA930_BALANCE_URL = (
+    "https://www.eia.gov/electricity/gridmonitor/sixMonthFiles/EIA930_BALANCE_{year}_{half}.csv"
+)
+
+#: A grid step is labelled when served demand fell this far below the
+#: day-ahead forecast. Measured on ERCOT, January to March 2021 (2,153
+#: hours): the median shortfall is 0.1%, the 95th percentile 14.6%, and the
+#: only hours above 20% are 2021-02-15 13:00 to 2021-02-18 14:00 UTC, the
+#: load-shed period of Winter Storm Uri.
+GRID_SHORTFALL_THRESHOLD = 0.20
+
+#: ``series_source`` values of a historical frame.
+SERIES_SOURCE_OMNI2 = "nasa_omni2"
+SERIES_SOURCE_EIA930 = "eia_930+nasa_omni2"
+SERIES_SOURCE_SYNTHETIC = "synthetic"
+
+#: The loader's cadence: Kp is a 3-hour index, and the rolling features count
+#: steps of it (8 steps = 24 h).
+_STEP = "3h"
 
 # ---------------------------------------------------------------------------
 # Solar flare classification mapping (X-ray peak flux class -> numeric)
@@ -117,6 +154,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "peak_kp": 2,
         "synthetic_hours": 2160,
         "grid_event": True,
+        # EIA-930 code of the grid operator: ERCOT.
+        "balancing_authority": "ERCO",
     },
     "bastille_day_2000": {
         "name": "2000 Bastille Day Solar Event",
@@ -146,8 +185,10 @@ class EnergyLoader(BaseDomainLoader):
     * **Solar wind** -- proton density, bulk speed, and temperature from
       the DSCOVR/ACE spacecraft at L1.
 
-    Optionally uses the EIA API v2 for U.S. electricity grid data when
-    ``EIA_API_KEY`` is set in the environment.
+    Historical events are recorded series: NASA's OMNI2 archive (hourly Kp
+    and solar wind since 1963) for the geomagnetic storms, and EIA-930, the
+    U.S. Energy Information Administration's hourly record of each grid
+    operator, for grid events. Neither needs an API key.
 
     Feature engineering produces space-weather observables suitable for
     anomaly detection: Kp index, Kp rate of change, solar wind speed
@@ -157,9 +198,10 @@ class EnergyLoader(BaseDomainLoader):
 
     DOMAIN: str = "energy"
     SOURCE_URL: str = "https://services.swpc.noaa.gov/json/"
-    # Labels = (kp >= 7) and feature[0] is the same ``kp`` index.  The series
-    # itself is also reconstructed from documented Kp storm profiles (no live
-    # pre-realtime SWPC feed). Doubly circular.
+    # Labels = (kp >= 7) and feature[0] is the same ``kp`` index, so they are
+    # circular against the full matrix (``LABEL_DERIVED_FEATURES`` removes the
+    # Kp columns from the scored one). The series themselves are recorded:
+    # OMNI2 and EIA-930.
     LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     API_KEY_ENV_VAR: str = ""
@@ -198,10 +240,10 @@ class EnergyLoader(BaseDomainLoader):
         """
         super().__init__(**kwargs)
         self._eia_api_key: str = os.environ.get("EIA_API_KEY", "")
+        # Kept as an attribute for callers that read it. Nothing here needs
+        # the key: grid events are read from the keyless EIA-930 files.
         if self._eia_api_key:
-            logger.info("EIA API key found; grid data endpoints enabled.")
-        else:
-            logger.debug("No EIA_API_KEY set. EIA grid data will not be available.")
+            logger.debug("EIA_API_KEY is set; grid events use the keyless EIA-930 files.")
 
     # ------------------------------------------------------------------
     # Abstract interface implementation
@@ -241,35 +283,46 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """Fetch data for a specific historical energy/space-weather event.
+        """Fetch the recorded series for a historical energy/space-weather event.
 
-        For historical geomagnetic events predating SWPC real-time feeds,
-        this method generates synthetic Kp time-series data based on
-        documented storm profiles.  The synthetic data reproduces the
-        temporal pattern of Kp escalation, peak, and recovery observed
-        in the cataloged event.
+        A geomagnetic storm is read from NASA's OMNI2 archive: Kp and the
+        solar-wind speed and density near Earth, in 3-hour steps. A grid
+        event is read from EIA-930 (the grid operator's hourly demand,
+        day-ahead demand forecast, net generation and interchange) joined to
+        OMNI2 for the same hours, so its space-weather columns are what was
+        measured then, not constants.
 
-        For the ``texas_2021`` event, if an EIA API key is available,
-        grid demand/supply data is fetched from the EIA API v2.
+        ``solar_wind_speed`` and ``solar_wind_density`` are NaN where no
+        spacecraft was measuring (more than half of 1989), and ``xray_class``
+        is NaN throughout: OMNI2 carries no X-ray flux.
 
         Args:
             event_id: Key into the ground truth catalog (e.g.
                 ``"quebec_1989"``).
 
         Returns:
-            DataFrame with columns: timestamp, kp, solar_wind_speed,
-            solar_wind_density, xray_class.
+            DataFrame with ``timestamp``, ``kp``, ``solar_wind_speed``,
+            ``solar_wind_density``, ``xray_class`` and ``series_source``;
+            a grid event adds ``grid_demand``, ``grid_demand_forecast``,
+            ``grid_net_generation`` and ``grid_interchange`` (MW).
 
         Raises:
             ValueError: If *event_id* is not in the catalog.
-            ConnectionError: If data sources are unreachable.
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the event is
+                not cached.
+            DataSourceUnavailableError: If the archive cannot be read and the
+                synthetic opt-in (``MERCURY_ALLOW_SYNTHETIC=1``) is not set.
+                With the opt-in a synthetic Kp profile is returned instead,
+                carrying the synthetic mark; it is never cached.
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"energy_historical_{event_id}"
+        # v2 key: frames under the old key were synthetic Kp profiles (or, for
+        # the grid event, EIA demand beside invented columns).
+        cache_key = f"energy_historical_v2_{event_id}"
         cached_frame = self._read_frame_cache(cache_key)
 
         if cached_frame is not None:
@@ -277,42 +330,204 @@ class EnergyLoader(BaseDomainLoader):
             return cached_frame
 
         event = _EVENT_CATALOG[event_id]
-
-        if event.get("grid_event") and self._eia_api_key:
-            df = self._fetch_eia_grid_data(event)
-        elif event.get("grid_event"):
-            # A grid event has a real keyed source; the refusal used to reuse
-            # the pre-SWPC wording below, which is false for a 2021 event and
-            # never named the variable that fixes it.
+        start = pd.Timestamp(event["start"], tz="UTC")
+        end = pd.Timestamp(event["end"], tz="UTC") + pd.Timedelta(days=1)
+        try:
+            df = self._fetch_omni2(start, end)
+            if event.get("grid_event"):
+                grid = self._fetch_eia930(str(event["balancing_authority"]), start, end)
+                df = grid.merge(df, on="timestamp", how="left")
+                df["series_source"] = SERIES_SOURCE_EIA930
+            else:
+                df["series_source"] = SERIES_SOURCE_OMNI2
+        except OfflineModeError:
+            raise
+        except (ConnectionError, OSError, ValueError) as exc:
+            # Every historical event used to take this path, unconditionally
+            # for the storms: a synthetic Kp profile whose solar-wind and
+            # flare channels are functions of the same profile.
             check_synthetic_allowed(
                 "EnergyLoader",
-                f"event '{event_id}' is served from EIA grid data and EIA_API_KEY is "
-                "not set; set the EIA_API_KEY environment variable (free key from "
-                "https://www.eia.gov/opendata/)",
+                f"recorded series for event '{event_id}' unavailable "
+                f"({type(exc).__name__}: {exc})",
             )
-            df = self._generate_synthetic_kp_series(event)
-        else:
-            check_synthetic_allowed(
-                "EnergyLoader",
-                f"event '{event_id}' predates the SWPC real-time feeds and no "
-                "keyed grid source is configured for it",
-            )
-            df = self._generate_synthetic_kp_series(event)
+            synthetic = self._generate_synthetic_kp_series(event)
+            synthetic["series_source"] = SERIES_SOURCE_SYNTHETIC
+            return self.mark_synthetic(synthetic)
 
-        if df.empty:
-            logger.warning("No data generated for event '%s'.", event_id)
-            return df
-
-        # Sort chronologically
         df = df.sort_values("timestamp").reset_index(drop=True)
-
         self._write_frame_cache(cache_key, df)
         logger.info(
-            "Fetched %d historical records for event '%s'.",
+            "Fetched %d recorded 3-hour steps for event '%s'.",
             len(df),
             event_id,
         )
         return df
+
+    def _fetch_omni2(self, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
+        """Recorded Kp and solar wind for ``[start, end)`` from OMNI2, in 3-hour steps.
+
+        Args:
+            start: First instant wanted (UTC).
+            end: End of the span, exclusive (UTC).
+
+        Returns:
+            DataFrame with ``timestamp``, ``kp``, ``solar_wind_speed``,
+            ``solar_wind_density`` and an all-NaN ``xray_class``.
+
+        Raises:
+            ConnectionError: If a yearly file cannot be downloaded.
+            ValueError: If a file does not have the OMNI2 layout, or holds
+                no Kp for the span.
+        """
+        frames = []
+        for year in range(start.year, (end - pd.Timedelta(seconds=1)).year + 1):
+            text = self._fetch_url(_OMNI2_URL.format(year=year)).decode("ascii", errors="replace")
+            frames.append(self._parse_omni2(text))
+        hourly = pd.concat(frames, ignore_index=True)
+        hourly = hourly[(hourly["timestamp"] >= start) & (hourly["timestamp"] < end)]
+        if hourly["kp"].notna().sum() == 0:
+            raise ValueError(f"OMNI2 holds no Kp between {start.date()} and {end.date()}")
+        steps = (
+            hourly.set_index("timestamp")[["kp", "solar_wind_speed", "solar_wind_density"]]
+            .resample(_STEP)
+            .mean()
+            .reset_index()
+        )
+        steps["xray_class"] = np.nan
+        return steps
+
+    @staticmethod
+    def _parse_omni2(text: str) -> pd.DataFrame:
+        """Parse one OMNI2 yearly file into hourly Kp and solar wind.
+
+        Args:
+            text: Contents of ``omni2_YYYY.dat``.
+
+        Returns:
+            DataFrame with ``timestamp`` (UTC), ``kp``, ``solar_wind_speed``
+            (km/s) and ``solar_wind_density`` (N/cm^3); the archive's fill
+            values are NaN.
+
+        Raises:
+            ValueError: If a row is too short to hold the Kp word.
+        """
+        table = np.loadtxt(io.StringIO(text), dtype=np.float64, ndmin=2)
+        last = max(position for position, _ in _OMNI2_COLUMNS.values())
+        if table.shape[1] <= last:
+            raise ValueError(
+                f"OMNI2 row has {table.shape[1]} words, expected more than {last}; "
+                "the format may have changed"
+            )
+
+        def column(name: str) -> np.ndarray[Any, Any]:
+            position, fill = _OMNI2_COLUMNS[name]
+            values = table[:, position].copy()
+            values[np.isclose(values, fill, rtol=0.0, atol=abs(fill) * 1e-6)] = np.nan
+            return values
+
+        timestamps = (
+            pd.to_datetime(table[:, 0].astype(int).astype(str), format="%Y", utc=True)
+            + pd.to_timedelta(table[:, 1] - 1, unit="D")
+            + pd.to_timedelta(table[:, 2], unit="h")
+        )
+        return pd.DataFrame(
+            {
+                "timestamp": timestamps,
+                "kp": column("kp10") / 10.0,
+                "solar_wind_speed": column("speed"),
+                "solar_wind_density": column("density"),
+            }
+        )
+
+    def _fetch_eia930(
+        self, balancing_authority: str, start: pd.Timestamp, end: pd.Timestamp
+    ) -> pd.DataFrame:
+        """A grid operator's recorded hours from EIA-930, in 3-hour steps.
+
+        Args:
+            balancing_authority: EIA-930 code, e.g. ``"ERCO"``.
+            start: First instant wanted (UTC).
+            end: End of the span, exclusive (UTC).
+
+        Returns:
+            DataFrame with ``timestamp``, ``grid_demand``,
+            ``grid_demand_forecast``, ``grid_net_generation`` and
+            ``grid_interchange`` (MW; the mean of the hours in each step).
+
+        Raises:
+            ConnectionError: If a balance file cannot be downloaded.
+            ValueError: If the operator has no rows in the span.
+        """
+        halves = sorted(
+            {
+                (stamp.year, "Jan_Jun" if stamp.month <= 6 else "Jul_Dec")
+                for stamp in pd.date_range(start, end - pd.Timedelta(seconds=1), freq="MS").union(
+                    pd.DatetimeIndex([start])
+                )
+            }
+        )
+        records: list[dict[str, Any]] = []
+        for year, half in halves:
+            raw = self._fetch_url(_EIA930_BALANCE_URL.format(year=year, half=half))
+            records.extend(self._parse_eia930(raw, balancing_authority))
+        hourly = pd.DataFrame.from_records(records)
+        if hourly.empty:
+            raise ValueError(f"EIA-930 has no rows for balancing authority {balancing_authority}")
+        hourly = hourly[(hourly["timestamp"] >= start) & (hourly["timestamp"] < end)]
+        if hourly.empty:
+            raise ValueError(
+                f"EIA-930 has no {balancing_authority} rows between {start.date()} and {end.date()}"
+            )
+        return hourly.set_index("timestamp").resample(_STEP).mean().reset_index()
+
+    @staticmethod
+    def _parse_eia930(raw: bytes, balancing_authority: str) -> list[dict[str, Any]]:
+        """Read one operator's hours out of an EIA-930 balance file.
+
+        The file holds every balancing authority (about 43 MB per half
+        year), so it is streamed and only the wanted operator's rows are
+        kept. A blank cell is a value the operator did not report: NaN,
+        not zero.
+
+        Args:
+            raw: The CSV file's bytes.
+            balancing_authority: EIA-930 code to keep.
+
+        Returns:
+            One dict per reported hour, stamped at the hour's start (UTC).
+
+        Raises:
+            ValueError: If the header lacks an expected column.
+        """
+        fields = {
+            "grid_demand_forecast": "Demand Forecast (MW)",
+            "grid_demand": "Demand (MW)",
+            "grid_net_generation": "Net Generation (MW)",
+            "grid_interchange": "Total Interchange (MW)",
+        }
+        reader = csv.reader(io.TextIOWrapper(io.BytesIO(raw), encoding="utf-8-sig", newline=""))
+        header = next(reader, [])
+        try:
+            authority_at = header.index("Balancing Authority")
+            time_at = header.index("UTC Time at End of Hour")
+            value_at = {name: header.index(column) for name, column in fields.items()}
+        except ValueError as exc:
+            raise ValueError(f"EIA-930 balance file is missing a column: {exc}") from exc
+
+        def number(cell: str) -> float:
+            cell = cell.replace(",", "").strip()
+            return float(cell) if cell else float("nan")
+
+        records = []
+        for row in reader:
+            if len(row) <= time_at or row[authority_at] != balancing_authority:
+                continue
+            end_of_hour = pd.to_datetime(row[time_at], format="%m/%d/%Y %I:%M:%S %p", utc=True)
+            record: dict[str, Any] = {"timestamp": end_of_hour - pd.Timedelta(hours=1)}
+            record.update({name: number(row[at]) for name, at in value_at.items()})
+            records.append(record)
+        return records
 
     def list_events(self) -> list[dict[str, Any]]:
         """Return the catalog of ground truth energy/space-weather events.
@@ -368,7 +583,7 @@ class EnergyLoader(BaseDomainLoader):
         event = _EVENT_CATALOG[event_id]
 
         if event.get("grid_event") and "grid_demand" in df.columns:
-            # For grid events, anomaly = demand exceeds supply capacity
+            # For grid events, anomaly = served demand well below the forecast
             labels = self._label_grid_anomalies(df)
         else:
             # For geomagnetic events, anomaly = NOAA G3+ (severe; Kp 7- and up)
@@ -470,9 +685,12 @@ class EnergyLoader(BaseDomainLoader):
         for col_idx in range(features.shape[1]):
             col = features[:, col_idx]
             mask = np.isnan(col)
-            if mask.any():
-                median_val = np.nanmedian(col)
-                col[mask] = median_val if np.isfinite(median_val) else 0.0
+            if mask.all():
+                # A channel with no reading at all (X-ray class for a
+                # recorded historical event) carries no information: 0.
+                col[:] = 0.0
+            elif mask.any():
+                col[mask] = np.nanmedian(col)
 
         return features
 
@@ -704,73 +922,24 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     def _fetch_eia_grid_data(self, event: dict[str, Any]) -> pd.DataFrame:
-        """Fetch EIA electricity grid data for a grid event.
+        """Recorded grid data for a grid event (kept for callers of the old name).
 
-        Uses the EIA API v2 daily region data endpoint to retrieve
-        electricity demand and generation data for the event time window.
+        This method used to query the keyed EIA API v2 daily endpoint without
+        a region filter and to fill the space-weather columns and a
+        ``grid_supply`` of 95% of demand with constants. It now returns what
+        :meth:`fetch_historical` does for the event: the operator's EIA-930
+        hours joined to OMNI2. No API key is involved.
 
         Args:
             event: Event metadata dict from the catalog.
 
         Returns:
-            DataFrame with columns: timestamp, kp, grid_demand,
-            grid_supply, solar_wind_speed, solar_wind_density, xray_class.
+            The event's recorded frame, as :meth:`fetch_historical` builds it.
         """
-        if not self._eia_api_key:
-            check_synthetic_allowed("EnergyLoader", "EIA_API_KEY is not set")
-            return self._generate_synthetic_kp_series(event)
-
-        params: dict[str, str] = {
-            "api_key": self._eia_api_key,
-            "frequency": "daily",
-            "data[0]": "value",
-            "start": event["start"],
-            "end": event["end"],
-            "sort[0][column]": "period",
-            "sort[0][direction]": "asc",
-        }
-
-        try:
-            response = self._fetch_json(_EIA_DAILY_REGION_URL, params=params)
-        except ConnectionError:
-            check_synthetic_allowed("EnergyLoader", "EIA API unreachable")
-            return self._generate_synthetic_kp_series(event)
-
-        data_rows = (
-            response.get("response", {}).get("data", []) if isinstance(response, dict) else []
-        )
-
-        if not data_rows:
-            check_synthetic_allowed("EnergyLoader", "EIA returned no observations")
-            return self._generate_synthetic_kp_series(event)
-
-        records: list[dict[str, Any]] = []
-        for row in data_rows:
-            # ``row.get("value", 0)`` returns the default only when the key is
-            # absent; the EIA API can send an explicit ``null`` for a reporting
-            # gap, which would reach ``float(None)`` and raise TypeError. Coerce
-            # a missing/None value to 0.0 explicitly.
-            raw_value = row.get("value")
-            demand = float(raw_value) if raw_value is not None else 0.0
-            raw_kp = event.get("peak_kp")
-            peak_kp = float(raw_kp) if raw_kp is not None else 0.0
-            records.append(
-                {
-                    "timestamp": row.get("period", ""),
-                    "grid_demand": demand,
-                    "grid_supply": demand * 0.95,
-                    "kp": peak_kp,
-                    "solar_wind_speed": 400.0,
-                    "solar_wind_density": 5.0,
-                    "xray_class": 0.0,
-                }
-            )
-
-        df = pd.DataFrame(records)
-        if not df.empty:
-            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
-            df = df.dropna(subset=["timestamp"])
-        return df
+        start = pd.Timestamp(event["start"], tz="UTC")
+        end = pd.Timestamp(event["end"], tz="UTC") + pd.Timedelta(days=1)
+        grid = self._fetch_eia930(str(event["balancing_authority"]), start, end)
+        return grid.merge(self._fetch_omni2(start, end), on="timestamp", how="left")
 
     # ------------------------------------------------------------------
     # Private helpers -- synthetic data generation
@@ -1010,21 +1179,39 @@ class EnergyLoader(BaseDomainLoader):
 
     @staticmethod
     def _label_grid_anomalies(df: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """Generate anomaly labels for grid demand/supply events.
+        """Label the steps of a grid event where the grid could not serve its load.
 
-        Labels time periods where grid demand exceeds grid supply
-        (supply shortfall) as anomalies.
+        The measure is the shortfall of served demand against the operator's
+        own day-ahead forecast, ``(forecast - demand) / forecast``, above
+        :data:`GRID_SHORTFALL_THRESHOLD`. Both columns are EIA-930
+        measurements. The previous rule compared demand with a
+        ``grid_supply`` column this loader had set to 95% of demand, so it
+        labelled every step.
+
+        A frame without a forecast (one built before EIA-930 was read, or a
+        synthetic stand-in) falls back to that ``demand > supply`` comparison
+        when it has a supply column, and to no labels otherwise.
 
         Args:
-            df: DataFrame with ``grid_demand`` and ``grid_supply`` columns.
+            df: Grid-event frame.
 
         Returns:
-            1-D binary numpy array.
+            1-D binary numpy array; a step with a missing value is 0.
         """
-        demand = df["grid_demand"].values.astype(np.float64)
-        supply = df["grid_supply"].values.astype(np.float64)
-        labels = (demand > supply).astype(np.int64)
-        return np.asarray(labels)
+        demand = pd.to_numeric(df["grid_demand"], errors="coerce").to_numpy(dtype=np.float64)
+        if "grid_demand_forecast" in df.columns:
+            forecast = pd.to_numeric(df["grid_demand_forecast"], errors="coerce").to_numpy(
+                dtype=np.float64
+            )
+            with np.errstate(divide="ignore", invalid="ignore"):
+                shortfall = (forecast - demand) / forecast
+            return np.asarray(np.nan_to_num(shortfall, nan=0.0) > GRID_SHORTFALL_THRESHOLD).astype(
+                np.int64
+            )
+        if "grid_supply" in df.columns:
+            supply = pd.to_numeric(df["grid_supply"], errors="coerce").to_numpy(dtype=np.float64)
+            return np.asarray(demand > supply).astype(np.int64)
+        return np.zeros(len(df), dtype=np.int64)
 
     # ------------------------------------------------------------------
     # Private helpers -- utilities
@@ -1039,13 +1226,15 @@ class EnergyLoader(BaseDomainLoader):
             column: Column name to extract.
 
         Returns:
-            1-D float64 numpy array of column values, or zeros if the
-            column does not exist.
+            1-D float64 numpy array of column values with missing readings
+            as NaN, or zeros if the column does not exist.
         """
         if column in df.columns:
-            return np.asarray(
-                pd.to_numeric(df[column], errors="coerce").fillna(0.0).values, dtype=np.float64
-            )
+            # A missing reading stays NaN here and takes the column's median
+            # at the end of ``engineer_features``. Filled with 0.0 at this
+            # point, an hour with no spacecraft coverage became a solar wind
+            # of 0 km/s, a value that is never observed.
+            return np.asarray(pd.to_numeric(df[column], errors="coerce").values, dtype=np.float64)
         return np.zeros(len(df), dtype=np.float64)
 
     @staticmethod
