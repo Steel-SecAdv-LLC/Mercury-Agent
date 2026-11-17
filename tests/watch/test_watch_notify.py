@@ -700,13 +700,13 @@ class TestWarnings:
     ) -> None:
         """Was: one failed lookup raised, and the whole feed, Extreme alerts included, was down."""
         home = store.add_subscriber("a@example.org", place="Home", latitude=28.37, longitude=-80.87)
-        store.add_subscriber("b@example.org", place="Abroad", latitude=35.68, longitude=139.69)
+        store.add_subscriber("b@example.org", place="Cabin", latitude=44.0, longitude=-110.0)
         feed = WarningsFeed()
         feed.bind(store)
 
         def answer(params: dict[str, str]) -> list[dict[str, Any]]:
-            if params.get("point") == "35.68,139.69":
-                raise ValueError("HTTP 400: point is outside the Service's area")
+            if params.get("point") == "44.0,-110.0":
+                raise ConnectionError("simulated: timed out")
             source = [_alert("ee", "Flood Warning", "Severe")] if "point" in params else [
                 _alert("aa", "Tornado Warning", "Extreme")
             ]  # fmt: skip
@@ -719,6 +719,70 @@ class TestWarnings:
         assert "1 subscribed place checked; 1 place could not be checked this time" in (
             judgment.summary
         )
+
+    @staticmethod
+    def _out_of_bounds() -> Exception:
+        """What the Service answers for a point outside the United States (read 2026-11-17)."""
+        import requests
+
+        response = requests.Response()
+        response.status_code = 400
+        response._content = json.dumps(
+            {
+                "title": "Invalid Parameter",
+                "type": "https://api.weather.gov/problems/InvalidParameter",
+                "status": 400,
+                "detail": 'Parameter "point" is invalid: out of bounds',
+            }
+        ).encode()
+        return requests.HTTPError("400 Client Error", response=response)
+
+    def test_a_place_abroad_is_outside_the_services_area_not_a_failure(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A deployment whose only subscriber is in Tokyo still relays; it is not "down"."""
+        store.add_subscriber("t@example.org", place="Tokyo", latitude=35.68, longitude=139.69)
+        feed, asked = WarningsFeed(), []
+        feed.bind(store)
+
+        def answer(params: dict[str, str]) -> list[dict[str, Any]]:
+            asked.append(params.get("point"))
+            if "point" in params:
+                raise self._out_of_bounds()
+            return [_alert("aa", "Tornado Warning", "Extreme")["properties"]]
+
+        monkeypatch.setattr(feed, "_alerts", answer)
+        first = feed.judge(feed.read(), NOW)
+        second = feed.judge(feed.read(), NOW)
+
+        assert len(first.findings) == 1 and first.findings[0].place_ids == ()
+        for judgment in (first, second):
+            assert judgment.summary.endswith(
+                "1 subscribed place outside the Service's area (it covers the United States)"
+            )
+        assert asked == [None, "35.68,139.69", None]  # asked once, then remembered
+
+    def test_another_refusal_is_a_failure_not_an_answer(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import requests
+
+        store.add_subscriber("a@example.org", place="Home", latitude=28.37, longitude=-80.87)
+        feed = WarningsFeed()
+        feed.bind(store)
+        refused = requests.Response()
+        refused.status_code = 400
+        refused._content = b'{"detail": "Parameter \\"status\\" is invalid"}'
+
+        def answer(params: dict[str, str]) -> list[dict[str, Any]]:
+            if "point" in params:
+                raise requests.HTTPError("400", response=refused)
+            return []
+
+        monkeypatch.setattr(feed, "_alerts", answer)
+
+        with pytest.raises(ConnectionError, match="all 1 subscribed places"):
+            feed.read()
 
     def test_more_places_than_one_read_looks_up_are_said_and_the_rest_are_still_checked(
         self, store: WatchStore, monkeypatch: pytest.MonkeyPatch

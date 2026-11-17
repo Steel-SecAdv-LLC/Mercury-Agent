@@ -2274,10 +2274,13 @@ def alerts_list(as_json: bool, state_dir: Path | None) -> None:
 @_STATE_DIR
 def alerts_test(email: str, state_dir: Path | None) -> None:
     """Send a test message, to prove a subscriber can be reached before it matters."""
-    from omni_mercury_engine.watch.notify import Notifier
+    from omni_mercury_engine.watch.notify import AUTOMATIC, Notifier
 
     store = _watch_store(state_dir)
-    if not any(entry["email"] == email for entry in store.subscribers()):
+    # An address is the same address however it is capitalised; the message
+    # goes to it as it was subscribed.
+    held = store.subscriptions_of(email)
+    if not held:
         raise click.UsageError(f"{email} is not subscribed; add it with `alerts add`.")
     mailer = Notifier(store).mailer
     if mailer is None:
@@ -2286,7 +2289,8 @@ def alerts_test(email: str, state_dir: Path | None) -> None:
         )
     try:
         mailer.send(
-            to=email,
+            to=str(held[0]["email"]),
+            headers=AUTOMATIC,
             subject="[Mercury watch] Test: you can be reached",
             body=(
                 "This is a test from the Mercury watch. Nothing has happened.\n\n"

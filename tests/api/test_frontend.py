@@ -353,6 +353,8 @@ def test_dashboard_lets_an_account_manage_its_watch_alerts() -> None:
     # It says when the server cannot act on a subscription, and results are announced.
     assert card.count('role="status" aria-live="polite"') == 2
     assert "view.email_delivery" in js and "view.watching" in js
+    # A place is added, changed (its values loaded back into the form) and stopped.
+    assert 'change.textContent = "Change"' in js and 'remove.textContent = "Stop"' in js
     # The picture is decoration; the caption beside it carries the same fact as text.
     assert '<svg id="watch-locator" viewBox="0 0 360 180" aria-hidden="true"' in card
     assert 'id="watch-readback"' in card

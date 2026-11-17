@@ -427,8 +427,32 @@ function renderWatchSubscriptions(view) {
         .focus({ preventScroll: true });
     });
 
+    const actions = document.createElement("div");
+    actions.className = "place-actions";
+    if (!everywhere) {
+      // Changing a place is naming it again: put what it holds into the form.
+      const change = document.createElement("button");
+      change.type = "button";
+      change.className = "secondary";
+      change.textContent = "Change";
+      change.setAttribute("aria-label", "Change " + name);
+      change.addEventListener("click", () => {
+        document.getElementById("watch-place").value = subscription.place;
+        document.getElementById("watch-latitude").value = subscription.latitude;
+        document.getElementById("watch-longitude").value = subscription.longitude;
+        document.getElementById("watch-radius").value = subscription.radius_km;
+        document.getElementById("watch-severity").value = subscription.min_severity;
+        updateWatchPreview();
+        setStatus(document.getElementById("watch-status"),
+          "Change how far or how severe for " + name + " below, then save. " +
+          "A different name adds a new place.");
+        document.getElementById("watch-radius").focus();
+      });
+      actions.appendChild(change);
+    }
+    actions.appendChild(remove);
     item.appendChild(text);
-    item.appendChild(remove);
+    item.appendChild(actions);
     list.appendChild(item);
   });
 }
@@ -468,10 +492,14 @@ function initWatch() {
         : apiErrorMessage(result.body), "error");
       return;
     }
+    const before = document.querySelectorAll("#watch-list li").length;
     renderWatchSubscriptions(result.body);
     form.reset();
-    setStatus(status, "You will be told about " + place + ". Anything standing there now " +
-      "is sent on the watch's next pass.", "ok");
+    const added = result.body.subscriptions.length > before;
+    setStatus(status, added
+      ? "You will be told about " + place + ". Anything standing there now is sent on the " +
+        "watch's next pass."
+      : "Saved the change to " + place + ".", "ok");
   });
 }
 

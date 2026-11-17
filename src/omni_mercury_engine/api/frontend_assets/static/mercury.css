@@ -562,6 +562,7 @@ tbody th[scope="row"] {
   border-bottom: 1px solid var(--border);
 }
 .place-list li:last-child { border-bottom: 0; }
+.place-list .place-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .place-list .place-name { font-weight: 600; overflow-wrap: anywhere; }
 .place-list .place-detail {
   display: block;

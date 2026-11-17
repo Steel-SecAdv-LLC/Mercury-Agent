@@ -145,6 +145,24 @@ def _utc(value: Any) -> datetime:
     return moment
 
 
+def _out_of_bounds(exc: Exception) -> bool:
+    """Whether ``exc`` is the National Weather Service saying a point is outside its area.
+
+    For a point outside the United States its alert query answers HTTP 400
+    with the detail ``Parameter "point" is invalid: out of bounds`` (read
+    2026-11-17 for Tokyo and London). Any other refusal is a failure, not an
+    answer.
+    """
+    response = getattr(exc, "response", None)
+    if response is None or getattr(response, "status_code", None) != 400:
+        return False
+    try:
+        detail = str(response.json().get("detail", ""))
+    except Exception:
+        return False
+    return "out of bounds" in detail
+
+
 def _count(number: int, noun: str) -> str:
     """``number`` with ``noun`` in the singular or plural: "1 gauge", "11,435 gauges"."""
     return f"{number:,} {noun}{'' if number == 1 else 's'}"
@@ -862,6 +880,8 @@ class WarningsFeed(Feed):
 
     def __init__(self) -> None:
         self._store: WatchStore | None = None
+        #: Places the Service has refused as outside its area, learned as they are asked.
+        self._outside: set[tuple[float, float]] = set()
 
     def bind(self, store: WatchStore) -> None:
         self._store = store
@@ -910,33 +930,42 @@ class WarningsFeed(Feed):
 
         for alert in self._alerts({"status": "actual"}):
             take(alert, None)
-        points = self._store.places() if self._store is not None else {}
+        subscribed = self._store.places() if self._store is not None else {}
+        # A place the Service has said is outside its area is not asked about
+        # again, and takes none of the places one read may look up.
+        points = {point: ids for point, ids in subscribed.items() if point not in self._outside}
         # The nationwide relay never depends on the places. More places than
         # one read may look up, or a place the Service will not answer for,
         # used to raise here: every subscriber then lost every warning, the
         # Extreme ones included, for as long as that place was subscribed.
         beyond = max(0, len(points) - self.MAX_PLACES)
-        unanswered = 0
-        for (latitude, longitude), ids in list(points.items())[: self.MAX_PLACES]:
+        asked = unanswered = 0
+        for point, ids in list(points.items())[: self.MAX_PLACES]:
             try:
-                here = self._alerts({"status": "actual", "point": f"{latitude},{longitude}"})
+                here = self._alerts({"status": "actual", "point": f"{point[0]},{point[1]}"})
             except Exception as exc:
+                if _out_of_bounds(exc):
+                    self._outside.add(point)
+                    continue
+                asked += 1
                 unanswered += 1
                 logger.warning("watch: no alert lookup for a subscribed place: %s", exc)
                 continue
+            asked += 1
             for alert in here:
                 for place in ids:
                     take(alert, place)
-        if points and unanswered == min(len(points), self.MAX_PLACES):
+        if asked and unanswered == asked:
             # Every lookup failed: that is the Service's point query being
             # down, and saying "no alert in effect" there would be a guess.
             raise ConnectionError(
                 f"the alert lookup failed for all {unanswered} subscribed places checked"
             )
         frame = pd.DataFrame(list(rows.values()), columns=self._COLUMNS)
-        frame.attrs["places"] = min(len(points), self.MAX_PLACES) - unanswered
+        frame.attrs["places"] = asked - unanswered
         frame.attrs["places_unanswered"] = unanswered
         frame.attrs["places_beyond"] = beyond
+        frame.attrs["places_outside"] = sum(1 for point in subscribed if point in self._outside)
         return frame
 
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
@@ -945,6 +974,12 @@ class WarningsFeed(Feed):
         unanswered = int(frame.attrs.get("places_unanswered", 0))
         if unanswered:
             watched += f"; {_count(unanswered, 'place')} could not be checked this time"
+        outside = int(frame.attrs.get("places_outside", 0))
+        if outside:
+            watched += (
+                f"; {_count(outside, 'subscribed place')} outside the Service's area "
+                "(it covers the United States)"
+            )
         beyond = int(frame.attrs.get("places_beyond", 0))
         if beyond:
             watched += (

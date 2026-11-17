@@ -108,7 +108,9 @@ A finding is delivered to the people it concerns.
   Accounts cannot add a place beyond that. If the operator's command does,
   the longest-subscribed 250 are checked and the feed's summary says how many
   were not; a place the Service will not answer for is skipped and counted,
-  and the nationwide relay goes on either way.
+  and the nationwide relay goes on either way. A place outside the United
+  States is outside the Service's area: it is counted as such, not asked
+  about again, and takes none of the 250.
 - **One webhook.** `MERCURY_WATCH_WEBHOOK_URL` receives a JSON message
   (`title`, `message`, `text`, `priority`, `tags`, and `topic` when
   `MERCURY_WATCH_WEBHOOK_TOPIC` is set) for findings at significant and above

@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["MAX_ATTEMPTS", "Notifier", "audience", "distance_km", "notice"]
+__all__ = ["AUTOMATIC", "MAX_ATTEMPTS", "Notifier", "audience", "distance_km", "notice"]
 
 #: A delivery that has failed this many times is left as failed.
 MAX_ATTEMPTS = 5
@@ -59,6 +59,10 @@ WEBHOOK_MIN_SEVERITY_ENV = "MERCURY_WATCH_WEBHOOK_MIN_SEVERITY"
 PUBLIC_URL_ENV = "MERCURY_PUBLIC_URL"
 
 _RANK = {"notable": 1, "significant": 2, "severe": 3}
+
+#: Headers on every message the watch sends. RFC 3834: a message no person
+#: wrote says so, and an out-of-office responder does not answer each alert.
+AUTOMATIC = {"Auto-Submitted": "auto-generated"}
 
 
 def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -242,7 +246,7 @@ class Notifier:
                     self._attempt(
                         key, rank, int(subscriber["id"]), "email", done,
                         lambda s=subscriber, t=subject, b=body: self.mailer.send(  # type: ignore[union-attr,misc]
-                            to=s["email"], subject=t, body=b
+                            to=s["email"], subject=t, body=b, headers=AUTOMATIC
                         ),
                     )  # fmt: skip
                     if heartbeat is not None:
