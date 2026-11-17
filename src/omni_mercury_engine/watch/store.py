@@ -57,6 +57,9 @@ CREATE TABLE IF NOT EXISTS phones (
     sends INTEGER NOT NULL DEFAULT 0, sends_since TEXT, last_send TEXT,
     verified_at TEXT, created TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS reach (
+    subject TEXT PRIMARY KEY, body TEXT NOT NULL, read_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS lease (name TEXT PRIMARY KEY, holder TEXT NOT NULL, until TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS deliveries (
     finding_key TEXT NOT NULL, severity INTEGER NOT NULL, subscriber INTEGER NOT NULL,
@@ -868,6 +871,39 @@ class WatchStore:
                 (feed, horizon.isoformat()),
             ).fetchone()
         return int(row[0])
+
+    # ------------------------------------------------------------------- reach
+
+    def save_reach(self, subject: str, reach: dict[str, Any], now: datetime) -> None:
+        """Keep where an earthquake was felt, as its source said at ``now``.
+
+        Kept beside the finding, not in it: the grid is thousands of numbers
+        and the finding is what the public route serves. Reach older than a
+        fortnight is dropped; its earthquake stopped standing after a day.
+        """
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute(
+                "INSERT INTO reach (subject, body, read_at) VALUES (?, ?, ?) "
+                "ON CONFLICT (subject) DO UPDATE SET body=excluded.body, read_at=excluded.read_at",
+                (subject, json.dumps(reach), now.isoformat()),
+            )
+            connection.execute(
+                "DELETE FROM reach WHERE read_at < ?", ((now - timedelta(days=14)).isoformat(),)
+            )
+
+    def reach_read_at(self, subject: str) -> datetime | None:
+        """When ``subject``'s reach was last read, or ``None`` if it never was."""
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT read_at FROM reach WHERE subject = ?", (subject,)
+            ).fetchone()
+        return datetime.fromisoformat(row["read_at"]) if row else None
+
+    def reaches(self) -> dict[str, dict[str, Any]]:
+        """Every reach kept, by its finding's subject."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute("SELECT subject, body FROM reach").fetchall()
+        return {str(row["subject"]): json.loads(row["body"]) for row in rows}
 
     # ------------------------------------------------------------------- lease
 

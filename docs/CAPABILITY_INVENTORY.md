@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,152
-- **Capability-bearing classes:** 2,110 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,153
+- **Capability-bearing classes:** 2,111 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 93 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,237 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,238 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1237 |
+| Other capability classes | 1238 |
 | Support types (config / result / enum / error) | 1042 |
 | Detection | 181 |
 | Neural models & layers | 162 |
@@ -3055,13 +3055,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `watch/` — 24 classes (17 capability)
+### `watch/` — 25 classes (18 capability)
 
 **Other capability classes**
 
 - `DeclarationFeed` (`watch.feeds`) — FEMA tropical-cyclone declarations: new ones, and the year's busiest week.
 - `EarthquakeFeed` (`watch.feeds`) — USGS earthquakes of the past hour, by magnitude class.
 - `Feed` (`watch.feeds`) — One live source and its judgment.
+- `Felt` (`watch.shaking`) — What USGS says of an earthquake at one place.
 - `Finding` (`watch.model`) — One thing a feed showed that is worth a person's attention.
 - `GdacsFeed` (`watch.world`) — Disasters GDACS rates Orange or Red: cyclones, floods, volcanoes, wildfires.
 - `Judgment` (`watch.feeds`) — What a feed made of one read.

@@ -217,8 +217,62 @@ class EarthquakeFeed(Feed):
         (4.0, "light"),
     )
 
+    #: How often an earthquake's felt extent is read again while it stands.
+    #: USGS revises its shaking map and gathers reports for hours.
+    REACH_EVERY: ClassVar[timedelta] = timedelta(minutes=10)
+    #: Earthquakes whose felt extent is read in one pass.
+    REACH_PER_READ: ClassVar[int] = 12
+
+    def __init__(self) -> None:
+        """Start with no store bound."""
+        self._store: WatchStore | None = None
+
+    def bind(self, store: WatchStore) -> None:
+        """Take the store, to keep each earthquake's felt extent beside its finding."""
+        self._store = store
+
     def read(self) -> pd.DataFrame:
-        return pd.DataFrame(self._loader("EarthquakeLoader").fetch_realtime())
+        frame = pd.DataFrame(self._loader("EarthquakeLoader").fetch_realtime())
+        try:
+            self._refresh_reach(frame, datetime.now(UTC))
+        except Exception as exc:  # where it was felt is an addition; the read stands without it
+            logger.warning("watch: could not refresh where earthquakes were felt: %s", exc)
+        return frame
+
+    def _refresh_reach(self, frame: pd.DataFrame, now: datetime) -> int:
+        """Read where USGS says each reportable earthquake was felt. Returns how many were read.
+
+        The earthquakes in this read at the reporting magnitude, and those
+        already standing (USGS publishes its shaking map some minutes after
+        the earthquake and gathers reports for hours, after it has left the
+        hourly feed).
+        """
+        from omni_mercury_engine.watch.shaking import read_reach
+
+        if self._store is None:
+            return 0
+        subjects: list[str] = []
+        if not frame.empty and "event_id" in frame:
+            strong = pd.to_numeric(frame["magnitude"], errors="coerce") >= self.NOTABLE
+            subjects += [str(event) for event in frame.loc[strong, "event_id"] if event]
+        subjects += [
+            str(finding["subject"])
+            for finding in self._store.standing(now=now, feed=self.name)
+            if finding.get("kind") == "earthquake"
+        ]
+        read = 0
+        for subject in dict.fromkeys(subjects):
+            if read >= self.REACH_PER_READ:
+                break
+            last = self._store.reach_read_at(subject)
+            if last is not None and now - last < self.REACH_EVERY:
+                continue
+            try:
+                self._store.save_reach(subject, read_reach(subject), now)
+                read += 1
+            except Exception as exc:  # one earthquake's products failing costs no other
+                logger.warning("watch: no felt extent for %s: %s", subject, exc)
+        return read
 
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         if frame.empty:

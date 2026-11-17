@@ -39,6 +39,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.watch.guidance import EMERGENCY_LINE
+from omni_mercury_engine.watch.shaking import felt_at
 from omni_mercury_engine.watch.sms import (
     SmsOptedOutError,
     SmsSender,
@@ -63,6 +64,7 @@ __all__ = [
     "distance_km",
     "notice",
     "one_per_address",
+    "shaking_note",
 ]
 
 #: A delivery that has failed this many times is left as failed.
@@ -92,9 +94,22 @@ def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def audience(
-    finding: dict[str, Any], subscribers: list[dict[str, Any]]
+    finding: dict[str, Any],
+    subscribers: list[dict[str, Any]],
+    reach: dict[str, Any] | None = None,
 ) -> list[tuple[dict[str, Any], float | None]]:
-    """The subscribers a finding concerns, each with its distance where one is known."""
+    """The subscribers a finding concerns, each with its distance where one is known.
+
+    Args:
+        finding: The finding as the store holds it.
+        subscribers: Every subscription.
+        reach: For an earthquake, where USGS says it was felt
+            (:mod:`~omni_mercury_engine.watch.shaking`). With it, a place
+            USGS has spoken of is decided by what USGS said, not by the
+            subscriber's radius: told when it was felt there however far
+            away, not told when the estimated shaking there is below what
+            people notice. A place USGS has said nothing of keeps its radius.
+    """
     rank = _RANK.get(str(finding.get("severity")), 1)
     places = {int(place) for place in finding.get("place_ids") or ()}
     lat, lon = finding.get("latitude"), finding.get("longitude")
@@ -111,7 +126,12 @@ def audience(
             away = distance_km(
                 float(lat), float(lon), subscriber["latitude"], subscriber["longitude"]
             )
-            if away <= float(subscriber["radius_km"]):
+            said = (
+                felt_at(reach, subscriber["latitude"], subscriber["longitude"])
+                if reach is not None and finding.get("kind") == "earthquake"
+                else None
+            )
+            if said.felt if said is not None else away <= float(subscriber["radius_km"]):
                 out.append((subscriber, away))
         elif finding.get("kind") != "nws_alert" and not places:
             out.append((subscriber, None))  # nowhere in particular: everyone
@@ -136,10 +156,34 @@ def one_per_address(
     return list(best.values())
 
 
+def shaking_note(
+    finding: dict[str, Any], subscriber: dict[str, Any] | None, reach: dict[str, Any] | None
+) -> str:
+    """For an earthquake, what USGS says of the subscriber's place (``""`` when nothing)."""
+    if (
+        reach is None
+        or subscriber is None
+        or finding.get("kind") != "earthquake"
+        or subscriber.get("latitude") is None
+        or subscriber.get("longitude") is None
+    ):
+        return ""
+    said = felt_at(reach, subscriber["latitude"], subscriber["longitude"])
+    place = str(subscriber.get("place") or "your place")
+    return said.said(place) if said is not None else ""
+
+
 def notice(
-    finding: dict[str, Any], subscriber: dict[str, Any] | None = None, away: float | None = None
+    finding: dict[str, Any],
+    subscriber: dict[str, Any] | None = None,
+    away: float | None = None,
+    note: str = "",
 ) -> tuple[str, str]:
-    """The subject and body of the message that tells a person about a finding."""
+    """The subject and body of the message that tells a person about a finding.
+
+    ``note`` is one more sentence about the reader's place (for an
+    earthquake, what USGS says of the shaking there).
+    """
     severity = str(finding.get("severity", "notable")).capitalize()
     lines = [str(finding["headline"]), "", str(finding["detail"])]
     if finding.get("area"):
@@ -154,6 +198,8 @@ def notice(
                 else f'About {away:,.0f} km from "{place}".'
             ),
         ]
+    if note:
+        lines += ["", note]
     if finding.get("action"):
         lines += ["", "WHAT TO DO", str(finding["action"])]
         if finding.get("action_source"):
@@ -294,14 +340,24 @@ class Notifier:
         except ValueError:
             least = 2
         ledger = self.store.standing_deliveries()
+        reaches = self.store.reaches() if subscribers else {}
         for finding in self.store.standing(now=self._clock(), limit=1000):
             rank = _RANK.get(str(finding.get("severity")), 1)
             key = str(finding["key"])
-            for subscriber, away in one_per_address(audience(finding, subscribers)):
+            # Where USGS says an earthquake was felt, once it has said.
+            reach = (
+                reaches.get(str(finding.get("subject")))
+                if finding.get("kind") == "earthquake"
+                else None
+            )
+            if reach is not None and not reach.get("grid") and not reach.get("cells"):
+                reach = None
+            for subscriber, away in one_per_address(audience(finding, subscribers, reach)):
+                note = shaking_note(finding, subscriber, reach)
                 if mailer is not None and self._due(
                     ledger, key, rank, int(subscriber["id"]), "email"
                 ):
-                    subject, body = notice(finding, subscriber, away)
+                    subject, body = notice(finding, subscriber, away, note)
                     self._attempt(
                         key, rank, int(subscriber["id"]), "email", done,
                         partial(
@@ -320,7 +376,7 @@ class Notifier:
                     and rank >= int(phone["min_severity"])
                     and self._due(ledger, key, rank, int(phone["id"]), "sms")
                 ):
-                    text = text_message(finding, subscriber, away)
+                    text = text_message(finding, subscriber, away, note)
                     self._attempt(
                         key, rank, int(phone["id"]), "sms", done,
                         partial(self._text, str(phone["number"]), text),

@@ -371,7 +371,7 @@ class TestDelivery:
 
         store._connect = counting  # type: ignore[method-assign]
         assert notifier.sync() == {"sent": 0, "failed": 0}
-        assert opened[0] <= 3  # subscribers, the ledger, the findings: not 200
+        assert opened[0] <= 4  # subscribers, the ledger, the reaches, the findings: not 200
 
     def test_the_ledger_read_leaves_out_findings_that_have_ended(self, store: WatchStore) -> None:
         store.add_subscriber("a@example.org")

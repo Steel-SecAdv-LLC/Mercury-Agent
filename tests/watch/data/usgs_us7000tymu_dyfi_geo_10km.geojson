@@ -1,0 +1,170 @@
+{
+   "features" : [
+      {
+         "geometry" : {
+            "coordinates" : [
+               [
+                  [
+                     130.84024,
+                     -12.47705
+                  ],
+                  [
+                     130.93222,
+                     -12.4764
+                  ],
+                  [
+                     130.93155,
+                     -12.38602
+                  ],
+                  [
+                     130.83961,
+                     -12.38666
+                  ]
+               ]
+            ],
+            "type" : "Polygon"
+         },
+         "type" : "Feature",
+         "properties" : {
+            "name" : "UTM:(52L 070 862 10000)<br>Darwin",
+            "stddev" : 0.293,
+            "dist" : 708,
+            "nresp" : 5,
+            "cdi" : 2.8
+         }
+      },
+      {
+         "type" : "Feature",
+         "geometry" : {
+            "coordinates" : [
+               [
+                  [
+                     125.54381,
+                     -8.5859
+                  ],
+                  [
+                     125.6346,
+                     -8.58529
+                  ],
+                  [
+                     125.63398,
+                     -8.49493
+                  ],
+                  [
+                     125.54321,
+                     -8.49554
+                  ]
+               ]
+            ],
+            "type" : "Polygon"
+         },
+         "properties" : {
+            "stddev" : 0.33,
+            "dist" : 709,
+            "name" : "UTM:(51L 078 905 10000)<br>Dili",
+            "nresp" : 1,
+            "cdi" : 2.7
+         }
+      },
+      {
+         "type" : "Feature",
+         "geometry" : {
+            "type" : "Polygon",
+            "coordinates" : [
+               [
+                  [
+                     136.65457,
+                     -12.20706
+                  ],
+                  [
+                     136.74646,
+                     -12.20649
+                  ],
+                  [
+                     136.74587,
+                     -12.1161
+                  ],
+                  [
+                     136.65401,
+                     -12.11666
+                  ]
+               ]
+            ]
+         },
+         "properties" : {
+            "name" : "UTM:(53L 068 865 10000)<br>Nhulunbuy",
+            "stddev" : 0.33,
+            "dist" : 886,
+            "nresp" : 1,
+            "cdi" : 2.2
+         }
+      },
+      {
+         "geometry" : {
+            "type" : "Polygon",
+            "coordinates" : [
+               [
+                  [
+                     130.84088,
+                     -12.56743
+                  ],
+                  [
+                     130.93289,
+                     -12.56678
+                  ],
+                  [
+                     130.93222,
+                     -12.4764
+                  ],
+                  [
+                     130.84024,
+                     -12.47705
+                  ]
+               ]
+            ]
+         },
+         "type" : "Feature",
+         "properties" : {
+            "nresp" : 1,
+            "cdi" : 2.2,
+            "name" : "UTM:(52L 070 861 10000)<br>Darwin",
+            "stddev" : 0.33,
+            "dist" : 718
+         }
+      },
+      {
+         "properties" : {
+            "name" : "UTM:(52L 070 863 10000)<br>Coonawarra",
+            "dist" : 698,
+            "stddev" : 0.33,
+            "cdi" : 2.2,
+            "nresp" : 1
+         },
+         "type" : "Feature",
+         "geometry" : {
+            "coordinates" : [
+               [
+                  [
+                     130.83961,
+                     -12.38666
+                  ],
+                  [
+                     130.93155,
+                     -12.38602
+                  ],
+                  [
+                     130.93089,
+                     -12.29564
+                  ],
+                  [
+                     130.83898,
+                     -12.29628
+                  ]
+               ]
+            ],
+            "type" : "Polygon"
+         }
+      }
+   ],
+   "type" : "FeatureCollection"
+}

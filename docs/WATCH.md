@@ -91,8 +91,10 @@ A finding is delivered to the people it concerns.
   usually with a place and a radius (200 km unless given) and the least
   severity wanted. A finding with coordinates goes to subscribers within their
   radius of it. A National Weather Service alert goes to the subscribers at
-  whose place the Service says it is in effect. A finding with no place (a
-  geomagnetic storm) goes to everyone. A subscriber with no place is told
+  whose place the Service says it is in effect, and an alert from another
+  country's authority likewise. An earthquake goes to the places where USGS
+  says it was felt, however far (see "What it does not do"). A finding with
+  no place (a geomagnetic storm) goes to everyone. A subscriber with no place is told
   everything. Email needs the deployment's SMTP server (`MERCURY_SMTP_HOST`
   and the other `MERCURY_SMTP_*` settings); without one nothing is sent and
   the command, the page and the route all say subscribers cannot be reached.
@@ -180,9 +182,13 @@ the loaders' default is an hour, and a day for the buoys.
 - It places no calls. Text messages need the operator's own provider account,
   and no text was delivered in testing: the request was checked against the
   provider's live API only as far as authentication.
-- A subscriber is told of earthquakes within their radius, whatever the
-  magnitude: a great earthquake is felt further than 200 km, so someone who
-  wants those sets a larger radius.
+- An earthquake goes to the places where USGS says it was felt: where its
+  ShakeMap estimates intensity III (weak shaking) or more, or where people in
+  the place's 10 km cell reported it to "Did You Feel It?". The message says
+  which. USGS publishes both some minutes to hours after an earthquake, and
+  maps only the area around it: until it has published, and for a place its
+  map does not cover and nobody reported from, the subscriber's own radius
+  decides, as before. Mercury estimates no shaking itself.
 - It reads nine feeds. The other loaders are either not live (benchmark files,
   series that end in 2024), need a key, or have no rule yet that would say
   something true and useful.

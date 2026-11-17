@@ -179,15 +179,24 @@ def build_sms_sender() -> SmsSender | None:
 
 
 def text_message(
-    finding: dict[str, Any], subscriber: dict[str, Any] | None = None, away: float | None = None
+    finding: dict[str, Any],
+    subscriber: dict[str, Any] | None = None,
+    away: float | None = None,
+    note: str = "",
 ) -> str:
-    """A finding as one text: what, where from the reader, the first thing to do."""
+    """A finding as one text: what, where from the reader, the first thing to do.
+
+    ``note`` is one more sentence about the reader's place (for an
+    earthquake, what USGS says of the shaking there).
+    """
     parts = [f"Mercury watch: {' '.join(str(finding['headline']).split())}."]
     place = str((subscriber or {}).get("place") or "")
     if place and away is not None:
         parts.append(
             f'In effect at "{place}".' if away == 0.0 else f'About {away:,.0f} km from "{place}".'
         )
+    if note:
+        parts.append(note)
     action = " ".join(str(finding.get("action") or "").split())
     if action:
         first = re.split(r"(?<=[.!?])\s", action, maxsplit=1)[0]

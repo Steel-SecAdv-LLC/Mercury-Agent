@@ -363,8 +363,8 @@ function updateWatchPreview() {
   caption.appendChild(where);
   caption.appendChild(document.createTextNode(
     radius === null ? "." : ". You would be told about findings within " +
-      radius.toLocaleString() + " km of it, and about any National Weather Service " +
-      "alert in effect there (the Service covers the United States)."));
+      radius.toLocaleString() + " km of it, earthquakes USGS says were felt there, and " +
+      "official weather alerts in effect there (where the country's authority publishes them)."));
 }
 
 function renderWatchSubscriptions(view) {
