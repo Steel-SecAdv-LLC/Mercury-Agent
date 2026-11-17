@@ -77,12 +77,7 @@ class Watcher:
             judgment = feed.judge(feed.read(), now)
         except Exception as exc:  # a feed must never stop the watch
             logger.warning("watch: feed %s could not be read: %s", feed.name, exc)
-            status.state = "down"
-            status.error = f"{type(exc).__name__}: {str(exc)[:200]}"
-            status.summary = "could not be read"
-            status.open_findings = self.store.open_count(feed.name)
-            self.store.save_status(status)
-            return status
+            return self._down(status, "could not be read", exc)
 
         announced = 0
         findings = [with_guidance(finding) for finding in judgment.findings]
@@ -110,6 +105,18 @@ class Watcher:
         status.new_findings = announced
         status.open_findings = self.store.open_count(feed.name)
         self.store.save_status(status)
+        return status
+
+    def _down(self, status: FeedStatus, summary: str, exc: Exception) -> FeedStatus:
+        """Record ``status`` as down with why, as far as the store allows."""
+        status.state = "down"
+        status.error = f"{type(exc).__name__}: {str(exc)[:200]}"
+        status.summary = summary
+        try:
+            status.open_findings = self.store.open_count(status.feed)
+            self.store.save_status(status)
+        except Exception as store_exc:  # the store may be what failed
+            logger.warning("watch: could not record %s as down: %s", status.feed, store_exc)
         return status
 
     def review_feed(self, feed: Feed) -> int:
@@ -155,10 +162,24 @@ class Watcher:
         now = self._clock()
         statuses = []
         for feed in self.feeds:
-            if force or self.due(feed, now):
-                statuses.append(self.read_feed(feed))
-                if statuses[-1].state != "down":
+            if not (force or self.due(feed, now)):
+                continue
+            # Reading a feed is guarded where it is read. What follows it is
+            # not: remembering, announcing and checking all use the store, and
+            # one "database is locked" there ended the loop's thread for good
+            # while the server went on serving. Each feed's pass stands alone.
+            try:
+                status = self.read_feed(feed)
+                if status.state != "down":
                     self.review_feed(feed)
+            except Exception as exc:
+                logger.exception("watch: the pass over feed %s failed", feed.name)
+                status = self._down(
+                    FeedStatus(feed=feed.name, title=feed.title, checked_at=now),
+                    "its reading could not be recorded",
+                    exc,
+                )
+            statuses.append(status)
         return statuses
 
     def run_forever(
@@ -172,5 +193,8 @@ class Watcher:
         """
         halt = stop if stop is not None else threading.Event()
         while not halt.is_set():
-            self.run_once(force=False)
+            try:
+                self.run_once(force=False)
+            except Exception:  # nothing a pass raises may end the watch
+                logger.exception("watch: a pass failed; trying again at the next tick")
             halt.wait(tick_seconds)

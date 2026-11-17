@@ -75,6 +75,23 @@ run_gate "benchmark-integrity gate (ci.yml: ROADMAP row 17 offline fallback)" \
 run_gate "torch.load safety gate (ci.yml: no raw torch.load outside safe wrapper)" \
   python scripts/check_torch_load_safety.py
 
+# --- Security Scan job (ci.yml) / Dependency Security Scan (security.yml) ---
+# Both lanes run this exact Bandit command and both block. It was not mirrored
+# here, and Ruff's flake8-bandit rules are not a stand-in for it: a line marked
+# ``# noqa: S608`` passes Ruff and still fails Bandit, which reads only
+# ``# nosec``. That is how a B608 finding reached a pushed head with every
+# local gate green. CI installs Bandit unpinned, so the newest release is used.
+BANDIT_REPORT="$(mktemp)"
+run_gate "bandit, medium and above (ci.yml + security.yml: Run Bandit)" \
+  bash -c 'if command -v bandit >/dev/null; then b=(bandit); else b=(uv tool run --from "bandit[toml]" bandit); fi
+           "${b[@]}" -r src/omni_mercury_engine/ -c pyproject.toml -f json -o "$1" --severity-level medium -q 2>/dev/null && exit 0
+           python -c "import json, sys
+for r in json.load(open(sys.argv[1]))[\"results\"]:
+    print(\"{filename}:{line_number}: {test_id} {issue_severity}: {issue_text}\".format(**r))" "$1" 2>/dev/null ||
+             echo "bandit did not run (install it, or uv, to mirror the Security Scan lane)"
+           exit 1' _ "${BANDIT_REPORT}"
+rm -f "${BANDIT_REPORT}"
+
 # --- Workflow Hardening job (repository script gates) ----------------------
 # actionlint and zizmor need their own toolchains and are not mirrored here.
 run_gate "uv.lock matches pyproject.toml (ci.yml: uv lock --check)" \

@@ -130,7 +130,11 @@ def notice(
             "watch" + (f' for "{place}"' if place else "") + ". To stop, ask whoever runs it, "
             "or change it under your account there.",
         ]
-    return f"[Mercury watch] {severity}: {finding['headline']}", "\n".join(lines)
+    # A headline carries text from the source (a place, an alert's area). A
+    # line break in it is refused as a mail header, and the finding would
+    # fail every attempt and never be delivered.
+    subject = " ".join(f"[Mercury watch] {severity}: {finding['headline']}".split())
+    return subject, "\n".join(lines)
 
 
 def _smtp_mailer() -> Mailer | None:
@@ -221,11 +225,12 @@ class Notifier:
             least = int(os.environ.get(WEBHOOK_MIN_SEVERITY_ENV, "2"))
         except ValueError:
             least = 2
+        ledger = self.store.standing_deliveries()
         for finding in self.store.findings(limit=1000, open_only=True):
             rank = _RANK.get(str(finding.get("severity")), 1)
             key = str(finding["key"])
             for subscriber, away in audience(finding, subscribers):
-                if self._due(key, rank, int(subscriber["id"]), "email"):
+                if self._due(ledger, key, rank, int(subscriber["id"]), "email"):
                     subject, body = notice(finding, subscriber, away)
                     self._attempt(
                         key, rank, int(subscriber["id"]), "email", done,
@@ -233,7 +238,11 @@ class Notifier:
                             to=s["email"], subject=t, body=b
                         ),
                     )  # fmt: skip
-            if hook and rank >= least and self._due(key, rank, WEBHOOK_SUBSCRIBER, "webhook"):
+            if (
+                hook
+                and rank >= least
+                and self._due(ledger, key, rank, WEBHOOK_SUBSCRIBER, "webhook")
+            ):
                 subject, body = notice(finding)
                 payload: dict[str, Any] = {
                     "title": subject,
@@ -251,8 +260,15 @@ class Notifier:
                 )  # fmt: skip
         return done
 
-    def _due(self, key: str, rank: int, subscriber: int, channel: str) -> bool:
-        record = self.store.delivery(key, rank, subscriber, channel)
+    @staticmethod
+    def _due(
+        ledger: dict[tuple[str, int, int, str], dict[str, Any]],
+        key: str,
+        rank: int,
+        subscriber: int,
+        channel: str,
+    ) -> bool:
+        record = ledger.get((key, rank, subscriber, channel))
         return not record or (
             record["status"] == "failed" and int(record["attempts"]) < MAX_ATTEMPTS
         )

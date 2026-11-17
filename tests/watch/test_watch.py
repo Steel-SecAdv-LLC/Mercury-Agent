@@ -467,6 +467,40 @@ class TestStore:
 
         assert store.close_absent("space_weather", set(), NOW + timedelta(hours=2)) == 0
 
+    def test_findings_are_filtered_by_feed_and_by_open_in_any_combination(
+        self, store: WatchStore
+    ) -> None:
+        """One fixed statement serves every filter (it was assembled per call)."""
+        storm = _finding()
+        quake = Finding(
+            feed="earthquakes", kind="earthquake", subject="us7000abcd",
+            severity=Severity.SIGNIFICANT, headline="M 6.4 earthquake", detail="detail",
+            observed_at=NOW, source="USGS", basis="magnitude class", ongoing=False,
+        )  # fmt: skip
+        flood = Finding(
+            feed="river_gauges", kind="river_flood", subject="COCF1", severity=Severity.SEVERE,
+            headline="Major flooding", detail="detail", observed_at=NOW, source="NWS",
+            basis="NWS flood category",
+        )  # fmt: skip
+        store.report(storm, NOW)
+        store.report(quake, NOW + timedelta(minutes=1))
+        store.report(flood, NOW + timedelta(minutes=2))
+        store.close_absent("space_weather", set(), NOW + timedelta(hours=3))
+
+        def keys(**filters: Any) -> list[str]:
+            return [finding["key"] for finding in store.findings(**filters)]
+
+        assert keys() == [flood.key, quake.key, storm.key]  # newest first
+        assert keys(open_only=True) == [flood.key, quake.key]
+        assert keys(feed="space_weather") == [storm.key]
+        assert keys(feed="space_weather", open_only=True) == []
+        assert keys(feed="river_gauges", open_only=True) == [flood.key]
+        assert keys(feed="no_such_feed") == []
+        assert keys(limit=1) == [flood.key]
+        assert keys(feed="earthquakes", limit=0) == []
+        # A feed name is data, never SQL.
+        assert keys(feed="x' OR '1'='1") == []
+
 
 # --------------------------------------------------------------------------- #
 # The loop
@@ -520,6 +554,51 @@ class TestWatcher:
         down, ok = watcher.run_once()
 
         assert down.state == "down" and "ConnectionError" in down.error
+        assert ok.state == "ok"
+        assert {status["feed"]: status["state"] for status in store.statuses()} == {
+            "scripted": "down",
+            "working": "ok",
+        }
+
+    def test_a_store_that_fails_once_does_not_end_the_watch(self, store: WatchStore) -> None:
+        """Was: one 'database is locked' ended the loop's thread; the server served on."""
+        import sqlite3
+        import threading
+
+        storm = Judgment([_finding(feed="scripted")], "Kp 5.3, G1", NOW, 1, 1)
+        feed = _Scripted([storm, storm])
+        feed.cadence = timedelta(0)  # type: ignore[misc]
+        report, calls, stop = store.report, [0], threading.Event()
+
+        def locked_once(finding: Finding, now: datetime) -> bool:
+            calls[0] += 1
+            if calls[0] == 1:
+                raise sqlite3.OperationalError("database is locked")
+            stop.set()
+            return report(finding, now)
+
+        store.report = locked_once  # type: ignore[method-assign]
+        Watcher(store, [feed], clock=lambda: NOW).run_forever(tick_seconds=0.0, stop=stop)
+
+        assert calls[0] == 2 and [found["headline"] for found in store.findings()] == ["G1 storm"]
+
+    def test_a_feed_whose_reading_cannot_be_recorded_is_down_and_the_rest_are_read(
+        self, store: WatchStore
+    ) -> None:
+        import sqlite3
+
+        storm = Judgment([_finding(feed="scripted")], "Kp 5.3, G1", NOW, 1, 1)
+        working = _Scripted([Judgment(summary="nothing notable", latest_reading=NOW)])
+        working.name = "working"  # type: ignore[misc]
+
+        def locked(finding: Finding, now: datetime) -> bool:
+            raise sqlite3.OperationalError("database is locked")
+
+        store.report = locked  # type: ignore[method-assign]
+        down, ok = Watcher(store, [_Scripted([storm]), working], clock=lambda: NOW).run_once()
+
+        assert down.state == "down" and "database is locked" in down.error
+        assert down.summary == "its reading could not be recorded"
         assert ok.state == "ok"
         assert {status["feed"]: status["state"] for status in store.statuses()} == {
             "scripted": "down",

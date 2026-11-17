@@ -179,17 +179,15 @@ class WatchStore:
         self, *, limit: int = 50, open_only: bool = False, feed: str | None = None
     ) -> list[dict[str, Any]]:
         """Recorded findings, newest first, each with when it was first and last seen."""
-        clauses, arguments = [], []
-        if open_only:
-            clauses.append("(ended IS NULL)")
-        if feed is not None:
-            clauses.append("feed=?")
-            arguments.append(feed)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        # One fixed statement: a filter that is not asked for is switched off by
+        # its own bound parameter, so no part of the SQL is ever assembled.
         with closing(self._connect()) as connection:
             rows = connection.execute(
-                f"SELECT * FROM findings {where} ORDER BY last_seen DESC, key LIMIT ?",  # noqa: S608
-                (*arguments, int(limit)),
+                "SELECT * FROM findings"
+                " WHERE (:open_only = 0 OR ended IS NULL)"
+                " AND (:feed IS NULL OR feed = :feed)"
+                " ORDER BY last_seen DESC, key LIMIT :limit",
+                {"open_only": int(bool(open_only)), "feed": feed, "limit": int(limit)},
             ).fetchall()
         out = []
         for row in rows:
@@ -336,6 +334,31 @@ class WatchStore:
                 (key, severity, subscriber, channel),
             ).fetchone()
         return dict(row) if row else {}
+
+    def standing_deliveries(self) -> dict[tuple[str, int, int, str], dict[str, Any]]:
+        """The ledger for every finding that stands, in one read.
+
+        A delivery pass asks about each standing finding for each subscriber;
+        asked one at a time that is a connection per pair on every feed read.
+
+        Returns:
+            ``(finding key, severity, subscriber, channel)`` to its status and attempts.
+        """
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT d.finding_key, d.severity, d.subscriber, d.channel, d.status, "
+                "d.attempts, d.at, d.error FROM deliveries AS d "
+                "JOIN findings AS f ON f.key = d.finding_key WHERE f.ended IS NULL"
+            ).fetchall()
+        return {
+            (
+                str(row["finding_key"]),
+                int(row["severity"]),
+                int(row["subscriber"]),
+                str(row["channel"]),
+            ): {name: row[name] for name in ("status", "attempts", "at", "error")}
+            for row in rows
+        }
 
     def record_delivery(
         self,
