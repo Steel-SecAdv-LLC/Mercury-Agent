@@ -198,7 +198,11 @@ def test_every_job_holds_only_the_token_scopes_it_uses() -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["Dependency license gate", "Prefetch pinned HuggingFace models"],
+    [
+        "Dependency license gate",
+        "Prefetch pinned HuggingFace models",
+        "Install the headless-browser driver",
+    ],
 )
 def test_shared_validation_steps_run_the_same_command(name: str) -> None:
     lane = _step(_ml_lane(), name=name)["run"].strip()
