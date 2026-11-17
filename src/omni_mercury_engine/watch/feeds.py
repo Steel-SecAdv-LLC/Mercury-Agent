@@ -96,6 +96,21 @@ class Feed:
     review_every: ClassVar[timedelta] = timedelta(hours=12)
     #: After this long the last answer stands and the finding is not checked again.
     review_until: ClassVar[timedelta] = timedelta(days=7)
+    #: How soon after one of this feed's conditions clears a return is still
+    #: the same episode: reopened, not told to everyone again. ``None`` is two
+    #: reads (:meth:`episode_window`). A feed sets it only from its own
+    #: records; the measurements are in ``research/watch_thresholds``.
+    same_episode: ClassVar[timedelta | None] = None
+
+    def episode_window(self) -> timedelta:
+        """How soon after clearing a return is still the same episode.
+
+        The feed's own :attr:`same_episode` when it has measured one.
+        Otherwise two reads: a finding missing from one read and back on the
+        next was not seen to end, only not seen (a source that answered
+        short); that says nothing about the hazard and needs no data.
+        """
+        return self.same_episode if self.same_episode is not None else 2 * self.cadence
 
     def read(self) -> pd.DataFrame:
         """Read the live source. Raises when it cannot be read."""
@@ -217,9 +232,16 @@ class EarthquakeFeed(Feed):
         (4.0, "light"),
     )
 
-    #: How often an earthquake's felt extent is read again while it stands.
-    #: USGS revises its shaking map and gathers reports for hours.
+    #: How often an earthquake's felt extent is read again while it stands:
+    #: every ten minutes for its first three hours, then hourly. On 385
+    #: earthquakes (research/watch_thresholds) USGS's first ShakeMap came a
+    #: median 20 minutes after the earthquake and 93% within three hours, and
+    #: the median earthquake had 72% of its felt reports by three hours and
+    #: 97% by a day. Read every ten minutes for the whole day it stands, an
+    #: earthquake cost 144 reads; this is 39.
     REACH_EVERY: ClassVar[timedelta] = timedelta(minutes=10)
+    REACH_SOON: ClassVar[timedelta] = timedelta(hours=3)
+    REACH_LATER_EVERY: ClassVar[timedelta] = timedelta(hours=1)
     #: Earthquakes whose felt extent is read in one pass.
     REACH_PER_READ: ClassVar[int] = 12
 
@@ -251,21 +273,30 @@ class EarthquakeFeed(Feed):
 
         if self._store is None:
             return 0
-        subjects: list[str] = []
+        # Each earthquake with when it happened: the ones in this read first.
+        happened: dict[str, datetime] = {}
         if not frame.empty and "event_id" in frame:
             strong = pd.to_numeric(frame["magnitude"], errors="coerce") >= self.NOTABLE
-            subjects += [str(event) for event in frame.loc[strong, "event_id"] if event]
-        subjects += [
-            str(finding["subject"])
-            for finding in self._store.standing(now=now, feed=self.name)
-            if finding.get("kind") == "earthquake"
-        ]
+            times = pd.to_datetime(frame["time"], unit="ms", utc=True) if "time" in frame else None
+            for index in np.flatnonzero(strong.to_numpy()):
+                event = frame["event_id"].iloc[int(index)]
+                if event:
+                    when = times.iloc[int(index)] if times is not None else None
+                    happened[str(event)] = (
+                        _utc(when) if when is not None and pd.notna(when) else now
+                    )
+        for finding in self._store.standing(now=now, feed=self.name):
+            if finding.get("kind") == "earthquake":
+                happened.setdefault(
+                    str(finding["subject"]), datetime.fromisoformat(str(finding["observed_at"]))
+                )
         read = 0
-        for subject in dict.fromkeys(subjects):
+        for subject, when in happened.items():
             if read >= self.REACH_PER_READ:
                 break
             last = self._store.reach_read_at(subject)
-            if last is not None and now - last < self.REACH_EVERY:
+            every = self.REACH_EVERY if now - when < self.REACH_SOON else self.REACH_LATER_EVERY
+            if last is not None and now - last < every:
                 continue
             try:
                 self._store.save_reach(subject, read_reach(subject), now)
@@ -391,6 +422,15 @@ class SpaceWeatherFeed(Feed):
     source = "NOAA Space Weather Prediction Center"
     cadence = timedelta(minutes=15)
     stale_after = timedelta(hours=9)
+    #: Kp is one value per three hours, so a storm that dips under G1 for an
+    #: interval "ends" and "returns" three hours later. In the Kp record from
+    #: 1932 to 2026 (277,232 intervals, 8,339 runs at G1 or above) the storm
+    #: was back after one interval below 1,638 times, and activity had stayed
+    #: at Kp 4 ("active") in 84% of those; after two intervals, 56%; after
+    #: three, 30%. NOAA keeps one G1 warning in force across such dips. Two
+    #: intervals is where a return is still more often the same disturbance
+    #: than not; 7.5 hours covers two and is clear of the three-hour grain.
+    same_episode = timedelta(hours=7, minutes=30)
 
     _G_NAMES: ClassVar[dict[int, str]] = {
         1: "minor", 2: "moderate", 3: "strong", 4: "severe", 5: "extreme",
@@ -631,6 +671,17 @@ class RiverGaugeFeed(Feed):
     source = "NOAA National Weather Service, National Water Prediction Service"
     cadence = timedelta(minutes=30)
     stale_after = timedelta(hours=6)
+    #: Many NWS gauges are tidal: they pass flood stage at a high tide, drop
+    #: below it and pass it again at the next. In thirty days of readings from
+    #: 1,424 gauges (5.2 million readings, 884 runs at or above minor flood
+    #: stage) a gauge that dropped below flood stage came back 789 times: 29%
+    #: within three hours (flicker at the stage), 57% between six and
+    #: twenty-four (the two tidal rhythms), none between twenty-six and thirty,
+    #: and 5% later (median four days: another flood). Twenty-six hours, just
+    #: past the lunar day of 24 h 50 min, is where the record breaks: under it
+    #: those 884 runs are 138 episodes. A flood that worsens is told whatever
+    #: the window.
+    same_episode = timedelta(hours=26)
 
     #: NWS flood category to severity. "action" stage is below flood and is counted, not reported.
     SEVERITY: ClassVar[dict[str, Severity]] = {

@@ -413,9 +413,13 @@ class NetworkSecurityLoader(BaseDomainLoader):
         if categorical_cols:
             df = df.drop(columns=categorical_cols)
 
-        # Convert to numeric, coercing errors
+        # Convert to numeric, coercing errors -- and to float64 before any
+        # arithmetic. The dataset loader hands over float32 and the JSON cache
+        # hands the same values back as float64, so ``log1p`` ran in a
+        # different precision on a cached frame than on a fetched one and the
+        # two feature matrices differed (by up to 9.2e-7 on NSL-KDD).
         for col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype(np.float64)
 
         # Log1p transform for heavy-tailed features
         for col in self._LOG_TRANSFORM_COLUMNS:

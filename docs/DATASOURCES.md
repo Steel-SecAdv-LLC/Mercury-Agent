@@ -319,7 +319,7 @@ No synthetic data is used in any benchmark.
 | Field | Value |
 |-------|-------|
 | **Loader** | `LandslideLoader` |
-| **API** | NASA Global Landslide Catalog (COOLR) |
+| **API** | NASA Global Landslide Catalog (COOLR): NASA's ArcGIS service first, then the public ArcGIS Online copy of the same catalog when NASA's host cannot be reached (it publishes no IPv4 address). Each frame names its source in `catalog_source`. |
 | **API Key** | Not required |
 | **License** | Public Domain (US Government / NASA) |
 

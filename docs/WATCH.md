@@ -143,9 +143,18 @@ sent to a subscriber once per severity, a failed delivery is tried again on
 later passes (five attempts) and counted as failed, never dropped silently.
 Delivery works from the findings that stand, so someone who subscribes during
 a flood is told of it. A condition (a flood, a storm) stands until a read no
-longer shows it, and is told again when it comes back; a single occurrence (an
-earthquake) stands for a day. Subscribe only an address whose owner asked for
-it.
+longer shows it, and is told again when it comes back, unless it comes back
+soon enough to be the same episode. How soon is the feed's to say, from its
+own records (`research/watch_thresholds`): 26 hours for river gauges, most of
+whose repeat floods are the next high tide (in thirty days of readings from
+1,424 gauges, no gauge that dropped below flood stage returned between 26 and
+30 hours, and 884 runs above flood stage are 138 episodes); 7.5 hours for
+geomagnetic storms, which covers Kp dipping under G1 for one or two of its
+three-hour intervals; two reads for a feed that has measured nothing. A
+finding that worsens is told whatever the window. A single occurrence (an
+earthquake) stands for a day: by then 85% of earthquakes have nine in ten of
+the felt reports they will get. Subscribe only an address whose owner asked
+for it.
 
 ## One watch per store
 

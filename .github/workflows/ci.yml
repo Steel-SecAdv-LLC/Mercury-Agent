@@ -1585,9 +1585,30 @@ jobs:
         # below can declare them must-run instead of silently skipped.
         run: python scripts/prefetch_pinned_models.py
 
+      - name: Install the headless-browser driver (console browser test)
+        # tests/api/test_console_watch_alert_browser.py opens the served
+        # console in headless Chromium and watches a finding arrive. No lane
+        # installed a browser, so the test skipped everywhere and the
+        # console's alert path was never exercised in CI.
+        #
+        # ``npm ci`` installs exactly tests/api/browser/package-lock.json and
+        # verifies each package against its integrity hash; ``--ignore-scripts``
+        # runs no package install script. The browser is then fetched by the
+        # pinned Playwright itself, with the system libraries it needs.
+        # Node is the runner image's own; nothing here writes to /tmp.
+        run: |
+          set -euo pipefail
+          node --version
+          npm ci --prefix tests/api/browser --ignore-scripts --no-audit --no-fund
+          tests/api/browser/node_modules/.bin/playwright install --with-deps chromium
+
       - name: Run full test suite with parallelization
         env:
           TORCH_HOME: ~/.cache/torch
+          # The step above installed the driver, so the browser tier must
+          # run; a missing browser is a red, not a skip (tests/conftest.py
+          # session gate).
+          MERCURY_REQUIRES_BROWSER: "1"
           # AMA takes a backseat to none: require the real native AMA backend
           # at package import. The build step above provisions it, so this
           # fails the lane closed if AMA ever fails to load.

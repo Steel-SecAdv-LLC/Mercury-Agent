@@ -191,17 +191,27 @@ class WatchStore:
 
     # ---------------------------------------------------------------- findings
 
-    #: A condition that returns within this long of clearing is the same episode.
-    SAME_EPISODE: ClassVar[timedelta] = timedelta(hours=3)
-
-    def report(self, finding: Finding, now: datetime) -> bool:
+    def report(
+        self, finding: Finding, now: datetime, same_episode: timedelta = timedelta(0)
+    ) -> bool:
         """Record a finding. Returns ``True`` when it is new.
 
         A finding with the same key that is still open is the same finding
         seen again: its last-seen time and body are updated (a storm's
         strongest reading so far) and it is not new. One that ended less
-        than :attr:`SAME_EPISODE` ago is reopened as the same finding. One
-        that ended longer ago and recurs is new again.
+        than ``same_episode`` ago is reopened as the same finding. One that
+        ended longer ago and recurs is new again.
+
+        Args:
+            finding: What the feed found.
+            now: Time of the read.
+            same_episode: How soon after clearing a return is still the
+                same episode. It is the feed's to say, because it is a
+                property of what the feed measures: a tide gauge floods
+                again at the next high tide, a storm index dips for one
+                interval (:attr:`Feed.same_episode
+                <omni_mercury_engine.watch.feeds.Feed.same_episode>`). The
+                default merges nothing.
         """
         with self._lock, closing(self._connect()) as connection, connection:
             # Reading whether it is known and writing it are one step. The
@@ -218,8 +228,7 @@ class WatchStore:
             # for an hour. It is the same finding seen again, not a new one to
             # tell everyone about each time it crosses back.
             resumed = row is not None and (
-                row["ended"] is None
-                or now - datetime.fromisoformat(row["ended"]) < self.SAME_EPISODE
+                row["ended"] is None or now - datetime.fromisoformat(row["ended"]) < same_episode
             )
             if row is not None and resumed:
                 escalated = int(finding.severity) > int(row["severity"])
@@ -300,6 +309,13 @@ class WatchStore:
             return len(ended)
 
     #: How long a single occurrence (an earthquake) stands after it was last seen.
+    #: While it stands it is news, a new subscriber is told of it, and USGS's
+    #: account of where it was felt is still read. Measured on the 385
+    #: earthquakes of magnitude 4.5 and above between 2026-09-01 and 2026-11-16
+    #: for which USGS published either product (research/watch_thresholds): 91%
+    #: of first ShakeMaps come within an hour; of the earthquakes with ten or
+    #: more "Did You Feel It?" reports, 58% had nine in ten of their reports
+    #: by 12 hours, 85% by 24 hours and 86% by 48. A day is where it levels off.
     OCCURRENCE_STANDS: ClassVar[timedelta] = timedelta(days=1)
 
     def findings(

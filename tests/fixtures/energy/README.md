@@ -23,3 +23,12 @@ from being cut to the rows the tests need.
 - `goes_xrs_1989_quebec.txt`: the rows for 1989-03-08 to 1989-03-19 of NOAA
   NCEI's GOES XRS flare report for 1989
   (`https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-flares/x-rays/goes/xrs/goes-xrs-report_1989.txt`).
+- `swpc_planetary_k_index_2026_11_17.json`: the whole of NOAA SWPC's
+  `https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json` as
+  served on 2026-11-17 (62 three-hour values).
+- `swpc_rtsw_wind_1m_2026_11_17_head.json` and
+  `swpc_ace_swepam_1h_2026_11_17_head.json`: the first 180 and the first 72
+  records (newest first, as SWPC serves them) of
+  `https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json` and
+  `https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json` on the
+  same day. Together, the three requests `EnergyLoader.fetch_realtime` makes.

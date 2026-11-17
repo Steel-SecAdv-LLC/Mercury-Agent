@@ -1,0 +1,623 @@
+{
+ "exceededTransferLimit": true,
+ "features": [
+  {
+   "attributes": {
+    "FID": 71,
+    "admin_divi": "California",
+    "comments": " ",
+    "country_co": "US",
+    "country_na": "United States",
+    "event_date": 1543449600000,
+    "event_desc": "Rain over the Woolsey and Holy Fire burn area caused a mudslide from Rice Canyon. A channel saved several homes on Dale Ct.",
+    "event_id": 14445,
+    "event_im_1": " ",
+    "event_impo": "GLC",
+    "event_time": "unknown",
+    "event_titl": "Rice Canyon Mudslide",
+    "fatality_c": 0,
+    "gazetteer1": 13.49,
+    "gazetteer_": "Lake Elsinore",
+    "injury_cou": 0,
+    "landslid_1": "catastrophic",
+    "landslid_2": "burned_area",
+    "landslide1": "downpour",
+    "landslide_": "mudslide",
+    "last_edite": null,
+    "latitude": 33.69788889,
+    "location_a": "1km",
+    "location_d": "Dale Ct, Rice Canyon, Lake Elsinore, CA",
+    "longitude": -117.40327778,
+    "photo_link": " ",
+    "source_lin": "https://abc7.com/weather/socal-braces-for-rain-possibility-of-mudslides-in-burn-areas/4788090/",
+    "source_nam": "abc7",
+    "storm_name": " ",
+    "submitted_": 1596499200000
+   },
+   "geometry": {
+    "x": -13069273.099708207,
+    "y": 3988307.66561365
+   }
+  },
+  {
+   "attributes": {
+    "FID": 570,
+    "admin_divi": "Qaasuitsup Kommunia",
+    "comments": "From the article: \"Two clues that led scientists to see that there had in fact been no earthquake were the duration and characteristic of the seismic signals. Not only did the seismic waves last for approximately five minutes, but they were monochromatic",
+    "country_co": "GL",
+    "country_na": "Greenland",
+    "event_date": 1497657600000,
+    "event_desc": "Large landslide near town of Nuugaatsiaq triggers a fatal seiche wave in bay that destroys 11 homes and kills 4. Initially believed to be triggered by an M=4.1 earthquake due to large seismic signal, which was later attributed to the landslide, meaning t",
+    "event_id": 9686,
+    "event_im_1": " ",
+    "event_impo": "GLC",
+    "event_time": " ",
+    "event_titl": "Massive landslide triggers tsunami",
+    "fatality_c": 4,
+    "gazetteer1": 1.15,
+    "gazetteer_": "Nugatsiaq",
+    "injury_cou": 9,
+    "landslid_1": "catastrophic",
+    "landslid_2": "above_coast",
+    "landslide1": "freeze_thaw",
+    "landslide_": "landslide",
+    "last_edite": null,
+    "latitude": 71.53659933,
+    "location_a": "1km",
+    "location_d": "Hill near Nuugaatsiaq",
+    "longitude": -53.20874578,
+    "photo_link": "http://static.temblor.net/wp-content/uploads/2017/06/greenland-landslide-greenland-tsunami-picture.jpg",
+    "source_lin": "http://temblor.net/earthquake-insights/greenland-earthquake-was-a-phantom-the-landslide-and-tsunami-were-real-4468/",
+    "source_nam": "Temblor",
+    "storm_name": " ",
+    "submitted_": 1498780800000
+   },
+   "geometry": {
+    "x": -5923170.486089658,
+    "y": 11588292.389251316
+   }
+  },
+  {
+   "attributes": {
+    "FID": 604,
+    "admin_divi": "Kerala",
+    "comments": " ",
+    "country_co": "IN",
+    "country_na": "India",
+    "event_date": 1565222400000,
+    "event_desc": "A devastating landslide occurred in kavalappara near Nilambur in malappuram district of Kerala. The landslide occurred due to the heavy and continuous rain that hit this region. It is said that more than 60 people were buried under the mud. The exact num",
+    "event_id": 13710,
+    "event_im_1": " ",
+    "event_impo": "LRC",
+    "event_time": "17:00",
+    "event_titl": "Kavalappara landslide",
+    "fatality_c": 60,
+    "gazetteer1": 2.13,
+    "gazetteer_": "Chaliyar",
+    "injury_cou": 20,
+    "landslid_1": "catastrophic",
+    "landslid_2": "natural_slope",
+    "landslide1": "continuous_rain",
+    "landslide_": "landslide",
+    "last_edite": null,
+    "latitude": 11.41001301,
+    "location_a": "1km",
+    "location_d": "679334",
+    "longitude": 76.24145818,
+    "photo_link": " ",
+    "source_lin": " ",
+    "source_nam": "Government of Kerala",
+    "storm_name": "South West monsoon",
+    "submitted_": 1565740800000
+   },
+   "geometry": {
+    "x": 8487160.301488988,
+    "y": 1278636.2827020842
+   }
+  },
+  {
+   "attributes": {
+    "FID": 7,
+    "admin_divi": "Haute-Normandie",
+    "comments": " ",
+    "country_co": "FR",
+    "country_na": "France",
+    "event_date": 1439510400000,
+    "event_desc": "A cliff landslide occurred in the early afternoon Friday in Varengeville-sur-Mer (Seine-Maritime) near Dieppe and important aid were mobilized because of the possible presence of a victim under rocks crumbling, but the search was suspended for security r",
+    "event_id": 7332,
+    "event_im_1": "7332",
+    "event_impo": "GLC",
+    "event_time": "15:00",
+    "event_titl": "Varengeville-sur-Mer",
+    "fatality_c": 0,
+    "gazetteer1": 6.72,
+    "gazetteer_": "Dieppe",
+    "injury_cou": 0,
+    "landslid_1": "medium",
+    "landslid_2": "bluff",
+    "landslide1": "unknown",
+    "landslide_": "rock_fall",
+    "last_edite": null,
+    "latitude": 49.9171,
+    "location_a": "5km",
+    "location_d": "Varengeville-sur-Mer",
+    "longitude": 0.9997,
+    "photo_link": "http://www.lepoint.fr/images/2015/08/14/1954854lpw-1954856-article-jpg_3008776_660x281.jpg",
+    "source_lin": "http://www.lepoint.fr/villes/dieppe-eboulement-d-une-falaise-une-possible-victime-recherchee-14-08-2015-1956862_27.php#xtor=CS1-32",
+    "source_nam": "Le Point",
+    "storm_name": " ",
+    "submitted_": 1440028800000
+   },
+   "geometry": {
+    "x": 111286.09494604397,
+    "y": 6431931.380046138
+   }
+  },
+  {
+   "attributes": {
+    "FID": 26,
+    "admin_divi": "Jammu and Kashmir",
+    "comments": " ",
+    "country_co": "IN",
+    "country_na": "India",
+    "event_date": 1492300800000,
+    "event_desc": "Rockfalls along road force its complete closure in both directions",
+    "event_id": 10850,
+    "event_im_1": " ",
+    "event_impo": "GLC",
+    "event_time": " ",
+    "event_titl": "Multiple rockfalls along Batote-Doda Road",
+    "fatality_c": 0,
+    "gazetteer1": 9.65,
+    "gazetteer_": "Doda",
+    "injury_cou": 0,
+    "landslid_1": "small",
+    "landslid_2": "above_road",
+    "landslide1": "rain",
+    "landslide_": "rock_fall",
+    "last_edite": null,
+    "latitude": 33.1292173,
+    "location_a": "10km",
+    "location_d": "Batote-Doda Road, Doda, Jammu & Kashmir, India",
+    "longitude": 75.44618906,
+    "photo_link": " ",
+    "source_lin": "http://m.dailyhunt.in/news/india/english/u4uvoice-epaper-uvoice/landslide+at+jammu+srinagar+national+highway-newsid-66520969",
+    "source_nam": "Dailyhunt",
+    "storm_name": " ",
+    "submitted_": 1501200000000
+   },
+   "geometry": {
+    "x": 8398631.348563572,
+    "y": 3912467.9857574217
+   }
+  },
+  {
+   "attributes": {
+    "FID": 303,
+    "admin_divi": "Otago",
+    "comments": " ",
+    "country_co": "NZ",
+    "country_na": "New Zealand",
+    "event_date": 302918400000,
+    "event_desc": "After weeks of slow movement, a 5 million cubic meter block slid in an urban area of Abbotsford, damaging houses and infrastructure. The landslide occurred on a dip slope of clay deposits near an old sand quarry. Rising groundwater levels and a leaking w",
+    "event_id": 14635,
+    "event_im_1": " ",
+    "event_impo": "GLC",
+    "event_time": "21:00",
+    "event_titl": "Abbotsford Landslide",
+    "fatality_c": 0,
+    "gazetteer1": 3.65,
+    "gazetteer_": "Waldronville",
+    "injury_cou": 0,
+    "landslid_1": "very_large",
+    "landslid_2": "urban",
+    "landslide1": "other",
+    "landslide_": "landslide",
+    "last_edite": null,
+    "latitude": -45.8951003,
+    "location_a": "1km",
+    "location_d": "Abbotsford, Dunedin, NZ 9018",
+    "longitude": 170.43307844,
+    "photo_link": "https://media.springernature.com/full/springer-static/image/art%3A10.1007%2Fs10346-007-0097-9/MediaObjects/10346_2007_97_Fig5_HTML.gif?as=webp",
+    "source_lin": "https://link.springer.com/article/10.1007/s10346-007-0097-9",
+    "source_nam": "Landslides",
+    "storm_name": " ",
+    "submitted_": 1593993600000
+   },
+   "geometry": {
+    "x": 18972523.506159537,
+    "y": -5763554.876039595
+   }
+  },
+  {
+   "attributes": {
+    "FID": 572,
+    "admin_divi": "Camarines Sur",
+    "comments": " ",
+    "country_co": "PH",
+    "country_na": "Philippines",
+    "event_date": 594864000000,
+    "event_desc": "He recalled that on Nov.7, 1988, 18 families were buried in the same place by a landslide after days of heavy rain.",
+    "event_id": 6436,
+    "event_im_1": "6436",
+    "event_impo": "GLC",
+    "event_time": " ",
+    "event_titl": "Sta. Rosa del Sur",
+    "fatality_c": 0,
+    "gazetteer1": 1.19,
+    "gazetteer_": "Pasacao",
+    "injury_cou": 0,
+    "landslid_1": "medium",
+    "landslid_2": "unknown",
+    "landslide1": "continuous_rain",
+    "landslide_": "landslide",
+    "last_edite": null,
+    "latitude": 13.5107,
+    "location_a": "25km",
+    "location_d": "Sta. Rosa del Sur",
+    "longitude": 123.0319,
+    "photo_link": " ",
+    "source_lin": "http://newsinfo.inquirer.net/655816/landslide-threat-prompts-re-evacuation-of-camarines-sur-village",
+    "source_nam": "Philippine Daily Inquirer",
+    "storm_name": " ",
+    "submitted_": 1418083200000
+   },
+   "geometry": {
+    "x": 13695848.45932896,
+    "y": 1518139.4372214866
+   }
+  },
+  {
+   "attributes": {
+    "FID": 734,
+    "admin_divi": "Oregon",
+    "comments": " ",
+    "country_co": "US",
+    "country_na": "United States",
+    "event_date": 914803200000,
+    "event_desc": "Temporarily blocked road, 2nd pulse nearly struck maintenance equipment",
+    "event_id": 7818,
+    "event_im_1": "7818",
+    "event_impo": "GLC",
+    "event_time": " ",
+    "event_titl": "Nestucca River basin, 14 miles north of Beaver",
+    "fatality_c": 0,
+    "gazetteer1": 19.58,
+    "gazetteer_": "Cloverdale",
+    "injury_cou": 0,
+    "landslid_1": "small",
+    "landslid_2": "above_road",
+    "landslide1": "downpour",
+    "landslide_": "earth_flow",
+    "last_edite": null,
+    "latitude": 45.2398,
+    "location_a": "exact",
+    "location_d": "Nestucca River basin, 14 miles north of Beaver",
+    "longitude": -123.602,
+    "photo_link": " ",
+    "source_lin": "http://landslides.usgs.gov/recent/archives/1998pnwstorms/",
+    "source_nam": "USGS",
+    "storm_name": " ",
+    "submitted_": 1466640000000
+   },
+   "geometry": {
+    "x": -13759311.701030197,
+    "y": 5659352.421156172
+   }
+  },
+  {
+   "attributes": {
+    "FID": 1058,
+    "admin_divi": "Attiki",
+    "comments": "03/2020",
+    "country_co": "GR",
+    "country_na": "Greece",
+    "event_date": null,
+    "event_desc": "Slope collapse due to river erosion",
+    "event_id": 21170,
+    "event_im_1": "144",
+    "event_impo": "DIAS",
+    "event_time": " ",
+    "event_titl": "Landslide in Attica",
+    "fatality_c": 0,
+    "gazetteer1": 7.12,
+    "gazetteer_": "Tatoi",
+    "injury_cou": 0,
+    "landslid_1": "Unknown",
+    "landslid_2": "Unknown",
+    "landslide1": "Unknown",
+    "landslide_": "Riverbank collapse",
+    "last_edite": null,
+    "latitude": 38.06124955,
+    "location_a": "Unknown",
+    "location_d": " ",
+    "longitude": 23.83823944,
+    "photo_link": " ",
+    "source_lin": "https://doi.org/10.3390/land10020148",
+    "source_nam": "Development of the Landslide Susceptibility Map of Attica Region, Greece, Based on the Method of Rock Engineering System",
+    "storm_name": " ",
+    "submitted_": null
+   },
+   "geometry": {
+    "x": 2653660.676091573,
+    "y": 4588081.937438462
+   }
+  }
+ ],
+ "fields": [
+  {
+   "alias": "FID",
+   "defaultValue": null,
+   "domain": null,
+   "name": "FID",
+   "sqlType": "sqlTypeInteger",
+   "type": "esriFieldTypeOID"
+  },
+  {
+   "alias": "source_nam",
+   "defaultValue": null,
+   "domain": null,
+   "length": 254,
+   "name": "source_nam",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "source_lin",
+   "defaultValue": null,
+   "domain": null,
+   "length": 254,
+   "name": "source_lin",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "event_id",
+   "defaultValue": null,
+   "domain": null,
+   "name": "event_id",
+   "sqlType": "sqlTypeInteger",
+   "type": "esriFieldTypeInteger"
+  },
+  {
+   "alias": "event_date",
+   "defaultValue": null,
+   "domain": null,
+   "length": 8,
+   "name": "event_date",
+   "sqlType": "sqlTypeTimestamp2",
+   "type": "esriFieldTypeDate"
+  },
+  {
+   "alias": "event_time",
+   "defaultValue": null,
+   "domain": null,
+   "length": 10,
+   "name": "event_time",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "event_titl",
+   "defaultValue": null,
+   "domain": null,
+   "length": 150,
+   "name": "event_titl",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "event_desc",
+   "defaultValue": null,
+   "domain": null,
+   "length": 254,
+   "name": "event_desc",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "location_d",
+   "defaultValue": null,
+   "domain": null,
+   "length": 254,
+   "name": "location_d",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "location_a",
+   "defaultValue": null,
+   "domain": null,
+   "length": 50,
+   "name": "location_a",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "landslide_",
+   "defaultValue": null,
+   "domain": null,
+   "length": 50,
+   "name": "landslide_",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "landslide1",
+   "defaultValue": null,
+   "domain": null,
+   "length": 50,
+   "name": "landslide1",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "landslid_1",
+   "defaultValue": null,
+   "domain": null,
+   "length": 50,
+   "name": "landslid_1",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "landslid_2",
+   "defaultValue": null,
+   "domain": null,
+   "length": 50,
+   "name": "landslid_2",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "fatality_c",
+   "defaultValue": null,
+   "domain": null,
+   "name": "fatality_c",
+   "sqlType": "sqlTypeInteger",
+   "type": "esriFieldTypeInteger"
+  },
+  {
+   "alias": "injury_cou",
+   "defaultValue": null,
+   "domain": null,
+   "name": "injury_cou",
+   "sqlType": "sqlTypeInteger",
+   "type": "esriFieldTypeInteger"
+  },
+  {
+   "alias": "storm_name",
+   "defaultValue": null,
+   "domain": null,
+   "length": 150,
+   "name": "storm_name",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "photo_link",
+   "defaultValue": null,
+   "domain": null,
+   "length": 254,
+   "name": "photo_link",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "comments",
+   "defaultValue": null,
+   "domain": null,
+   "length": 254,
+   "name": "comments",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "event_impo",
+   "defaultValue": null,
+   "domain": null,
+   "length": 150,
+   "name": "event_impo",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "event_im_1",
+   "defaultValue": null,
+   "domain": null,
+   "length": 20,
+   "name": "event_im_1",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "latitude",
+   "defaultValue": null,
+   "domain": null,
+   "name": "latitude",
+   "sqlType": "sqlTypeFloat",
+   "type": "esriFieldTypeDouble"
+  },
+  {
+   "alias": "longitude",
+   "defaultValue": null,
+   "domain": null,
+   "name": "longitude",
+   "sqlType": "sqlTypeFloat",
+   "type": "esriFieldTypeDouble"
+  },
+  {
+   "alias": "country_na",
+   "defaultValue": null,
+   "domain": null,
+   "length": 50,
+   "name": "country_na",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "country_co",
+   "defaultValue": null,
+   "domain": null,
+   "length": 2,
+   "name": "country_co",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "admin_divi",
+   "defaultValue": null,
+   "domain": null,
+   "length": 44,
+   "name": "admin_divi",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "gazetteer_",
+   "defaultValue": null,
+   "domain": null,
+   "length": 50,
+   "name": "gazetteer_",
+   "sqlType": "sqlTypeNVarchar",
+   "type": "esriFieldTypeString"
+  },
+  {
+   "alias": "gazetteer1",
+   "defaultValue": null,
+   "domain": null,
+   "name": "gazetteer1",
+   "sqlType": "sqlTypeFloat",
+   "type": "esriFieldTypeDouble"
+  },
+  {
+   "alias": "submitted_",
+   "defaultValue": null,
+   "domain": null,
+   "length": 8,
+   "name": "submitted_",
+   "sqlType": "sqlTypeTimestamp2",
+   "type": "esriFieldTypeDate"
+  },
+  {
+   "alias": "last_edite",
+   "defaultValue": null,
+   "domain": null,
+   "length": 8,
+   "name": "last_edite",
+   "sqlType": "sqlTypeTimestamp2",
+   "type": "esriFieldTypeDate"
+  }
+ ],
+ "geometryType": "esriGeometryPoint",
+ "globalIdFieldName": "",
+ "objectIdFieldName": "FID",
+ "spatialReference": {
+  "latestWkid": 3857,
+  "wkid": 102100
+ },
+ "uniqueIdField": {
+  "isSystemMaintained": true,
+  "name": "FID"
+ }
+}

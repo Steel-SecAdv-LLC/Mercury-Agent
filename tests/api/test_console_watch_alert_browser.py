@@ -9,9 +9,16 @@ watched a finding arrive. This starts the real application
 (``scripts/console_watch_alert_check.js``), and has the watcher report one
 finding once the console is connected.
 
-It needs Node with Playwright and a Chromium it can launch. Where those are
-absent the test is skipped; ``.github/workflows`` does not install them, so
-today this runs on a developer's machine and not in CI.
+It needs Node with Playwright and a Chromium it can launch::
+
+    npm ci --prefix tests/api/browser --ignore-scripts
+    tests/api/browser/node_modules/.bin/playwright install chromium
+
+``npm ci`` installs exactly ``tests/api/browser/package-lock.json`` and checks
+each package against its integrity hash. CI's full-suite lane does this and
+sets ``MERCURY_REQUIRES_BROWSER=1``, which makes a missing browser a failed
+session there (``tests/conftest.py``), never a skip. Where the flag is unset
+and Playwright is absent, the test skips.
 """
 
 from __future__ import annotations
@@ -25,34 +32,16 @@ from pathlib import Path
 
 import pytest
 
+from tests.browser_driver import node_env, playwright_available
+
 REPO = Path(__file__).resolve().parents[2]
 SERVER = Path(__file__).with_name("console_alert_server.py")
 CHECK = REPO / "scripts" / "console_watch_alert_check.js"
 NODE = shutil.which("node")
 
 
-def _node_env() -> dict[str, str]:
-    """The environment Node needs to find a globally installed Playwright."""
-    env = dict(os.environ)
-    npm = shutil.which("npm")
-    if npm and "NODE_PATH" not in env:
-        root = subprocess.run([npm, "root", "-g"], capture_output=True, text=True, check=False)
-        if root.returncode == 0 and root.stdout.strip():
-            env["NODE_PATH"] = root.stdout.strip()
-    return env
-
-
-def _playwright_available() -> bool:
-    if NODE is None:
-        return False
-    probe = subprocess.run(
-        [NODE, "-e", "require('playwright')"], capture_output=True, env=_node_env(), check=False
-    )
-    return probe.returncode == 0
-
-
 pytestmark = pytest.mark.skipif(
-    not _playwright_available(),
+    not playwright_available(),
     reason="Node with Playwright is not installed: the console is opened in headless Chromium",
 )
 
@@ -100,7 +89,7 @@ def test_a_new_finding_appears_in_an_open_consoles_banner_terminal_and_agent_pan
             text=True,
             timeout=240,
             check=False,
-            env={**_node_env(), "BASE": f"http://127.0.0.1:{port}", "TRIGGER": str(trigger)},
+            env={**node_env(), "BASE": f"http://127.0.0.1:{port}", "TRIGGER": str(trigger)},
         )
 
         report = check.stdout + check.stderr

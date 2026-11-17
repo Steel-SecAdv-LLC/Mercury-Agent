@@ -380,12 +380,15 @@ class EnergyLoader(BaseDomainLoader):
         Raises:
             ConnectionError: If the SWPC feeds are unreachable after retries.
         """
+        # The frame cache: the ``timestamp`` column is datetimes, which the
+        # plain JSON cache cannot write, so this frame was never cached and
+        # both SWPC feeds were fetched again on every call.
         cache_key = "energy_realtime"
-        cached = self._read_cache(cache_key)
+        cached = self._read_frame_cache(cache_key)
 
         if cached is not None:
             logger.debug("Returning cached real-time energy/space-weather data.")
-            return pd.DataFrame(cached)
+            return cached
 
         # Fetch Kp index data
         kp_df = self._fetch_kp_index()
@@ -396,7 +399,7 @@ class EnergyLoader(BaseDomainLoader):
         # Merge on nearest timestamp
         df = self._merge_kp_and_solar_wind(kp_df, sw_df)
 
-        self._write_cache(cache_key, df.to_dict(orient="list"))
+        self._write_frame_cache(cache_key, df)
         logger.info("Fetched %d real-time energy/space-weather records.", len(df))
         return df
 

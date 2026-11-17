@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import io
 import logging
+import os
+import time
 from typing import Any
 
 import numpy as np
@@ -906,9 +908,14 @@ class PandemicLoader(BaseDomainLoader):
     def _load_owid_data(self) -> pd.DataFrame:
         """Load the full OWID COVID-19 dataset, using cache when available.
 
-        The OWID CSV is ~60MB.  This method caches the raw CSV as a
-        Parquet file in the loader's cache directory to avoid repeated
-        large downloads.
+        The OWID CSV is ~60MB. The downloaded file itself is kept in the
+        loader's cache directory for ``CACHE_TTL`` seconds, so a second call
+        reads it from disk instead of downloading it again.
+
+        It used to be kept as Parquet, which needs ``pyarrow`` or
+        ``fastparquet``. Neither is a dependency of this package in any
+        install, so the write failed on every call (logged at DEBUG) and the
+        whole file was downloaded again each time.
 
         Returns:
             DataFrame with all OWID COVID-19 columns.
@@ -916,27 +923,30 @@ class PandemicLoader(BaseDomainLoader):
         Raises:
             ConnectionError: If the OWID CSV cannot be downloaded.
         """
-        parquet_path = self.cache_dir / "owid_covid_data.parquet"
+        csv_path = self.cache_dir / "owid_covid_data.csv"
 
-        # Check if a fresh cached parquet exists
-        if parquet_path.exists():
-            import time as _time
-
-            age_seconds = _time.time() - parquet_path.stat().st_mtime
-            if age_seconds < self.CACHE_TTL:
-                logger.debug("Loading cached OWID data from %s.", parquet_path)
-                return pd.read_parquet(parquet_path)
+        if csv_path.exists() and time.time() - csv_path.stat().st_mtime < self.CACHE_TTL:
+            try:
+                logger.debug("Loading cached OWID data from %s.", csv_path)
+                return pd.read_csv(csv_path, low_memory=False)
+            except (OSError, ValueError) as exc:
+                # An unreadable copy is not a reason to fail: fetch it again.
+                logger.warning("Cached OWID data at %s is unreadable (%s).", csv_path, exc)
 
         logger.info("Downloading OWID COVID-19 CSV (~60MB). This may take a moment.")
         raw_bytes = self._fetch_url(_OWID_CSV_URL)
         df = pd.read_csv(io.BytesIO(raw_bytes), low_memory=False)
 
-        # Cache as parquet for faster subsequent loads
+        # Kept only once it has parsed, and moved into place whole, so a
+        # reader never finds a half-written file under the cached name.
+        partial = csv_path.with_name(f"{csv_path.name}.{os.getpid()}.part")
         try:
-            df.to_parquet(parquet_path, index=False)
-            logger.debug("Cached OWID data to %s.", parquet_path)
-        except Exception as exc:
-            logger.debug("Failed to cache OWID parquet: %s", exc)
+            partial.write_bytes(raw_bytes)
+            partial.replace(csv_path)
+            logger.debug("Cached OWID data to %s.", csv_path)
+        except OSError as exc:
+            logger.warning("OWID data could not be cached at %s: %s", csv_path, exc)
+            partial.unlink(missing_ok=True)
 
         return df
 

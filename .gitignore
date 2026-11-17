@@ -201,3 +201,6 @@ corpus/pending/*.jsonl
 
 # Output of scripts/console_control_crawl.js (OUT defaults to the working directory)
 crawl_audit.json
+
+# The console browser test's driver (npm ci --prefix tests/api/browser)
+node_modules/

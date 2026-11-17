@@ -461,26 +461,37 @@ class TestStore:
         assert store.findings(open_only=True) == []
         assert store.report(_finding(), NOW + timedelta(hours=9)) is True  # a new storm
 
-    def test_a_condition_that_returns_within_hours_of_clearing_is_the_same_episode(
+    def test_a_condition_that_returns_within_its_feeds_window_is_the_same_episode(
         self, store: WatchStore
     ) -> None:
         """A gauge hovering at flood stage is one flood, not a new one at every crossing."""
-        store.report(_finding(), NOW)
+        window = timedelta(hours=26)
+        store.report(_finding(), NOW, window)
         store.close_absent("space_weather", set(), NOW + timedelta(hours=1))
 
-        back = NOW + timedelta(hours=3, minutes=59)  # under three hours after it cleared
-        assert store.report(_finding(), back) is False
+        back = NOW + timedelta(hours=26, minutes=59)  # under 26 hours after it cleared
+        assert store.report(_finding(), back, window) is False
         (resumed,) = store.findings(now=back)
         assert resumed["ended"] is None and resumed["first_seen"] == NOW.isoformat()
-        # Stronger than it was: that is told, as for any standing finding.
-        assert store.report(_finding(Severity.SEVERE), back + timedelta(minutes=5)) is True
+        # Stronger than it was: that is told, whatever the window.
+        assert store.report(_finding(Severity.SEVERE), back + timedelta(minutes=5), window) is True
 
-    def test_a_condition_that_returns_long_after_clearing_is_new(self, store: WatchStore) -> None:
-        store.report(_finding(), NOW)
+    def test_a_condition_that_returns_after_its_feeds_window_is_new(
+        self, store: WatchStore
+    ) -> None:
+        window = timedelta(hours=26)
+        store.report(_finding(), NOW, window)
         store.close_absent("space_weather", set(), NOW + timedelta(hours=1))
 
-        assert store.report(_finding(), NOW + timedelta(hours=4, minutes=1)) is True
-        assert len(store.findings(now=NOW + timedelta(hours=5))) == 2  # each occurrence kept
+        assert store.report(_finding(), NOW + timedelta(hours=27, minutes=1), window) is True
+        assert len(store.findings(now=NOW + timedelta(hours=28))) == 2  # each occurrence kept
+
+    def test_nothing_is_merged_unless_the_feed_says_how_soon(self, store: WatchStore) -> None:
+        """The window belongs to what a feed measures; the store has none of its own."""
+        store.report(_finding(), NOW)
+        store.close_absent("space_weather", set(), NOW + timedelta(minutes=5))
+
+        assert store.report(_finding(), NOW + timedelta(minutes=6)) is True
 
     def test_a_single_occurrence_is_not_ended_by_the_next_read(self, store: WatchStore) -> None:
         """An earthquake leaves the hourly feed; it did not stop having happened."""
@@ -647,17 +658,32 @@ class TestWatcher:
         storm = Judgment([_finding(feed="scripted")], "Kp 5.3, G1", NOW, 1, 1)
         feed = _Scripted([storm, storm])
         feed.cadence = timedelta(0)  # type: ignore[misc]
-        report, calls, stop = store.report, [0], threading.Event()
+        report, calls = store.report, [0]
 
-        def locked_once(finding: Finding, now: datetime) -> bool:
+        def locked_once(
+            finding: Finding, now: datetime, same_episode: timedelta = timedelta(0)
+        ) -> bool:
             calls[0] += 1
             if calls[0] == 1:
                 raise sqlite3.OperationalError("database is locked")
             stop.set()
-            return report(finding, now)
+            return report(finding, now, same_episode)
 
+        class _Bounded(threading.Event):
+            """Ends the loop after a few ticks whatever happens: a test must not hang."""
+
+            def wait(self, timeout: float | None = None) -> bool:
+                ticks[0] += 1
+                if ticks[0] >= 50:
+                    self.set()
+                return self.is_set()
+
+        ticks = [0]
+        stop = _Bounded()
         store.report = locked_once  # type: ignore[method-assign]
         Watcher(store, [feed], clock=lambda: NOW).run_forever(tick_seconds=0.0, stop=stop)
+
+        assert ticks[0] < 50, "the loop never recovered"
 
         assert calls[0] == 2 and [found["headline"] for found in store.findings()] == ["G1 storm"]
 
@@ -670,7 +696,7 @@ class TestWatcher:
         working = _Scripted([Judgment(summary="nothing notable", latest_reading=NOW)])
         working.name = "working"  # type: ignore[misc]
 
-        def locked(finding: Finding, now: datetime) -> bool:
+        def locked(finding: Finding, now: datetime, same_episode: timedelta = timedelta(0)) -> bool:
             raise sqlite3.OperationalError("database is locked")
 
         store.report = locked  # type: ignore[method-assign]
@@ -816,6 +842,27 @@ class TestWatcher:
         assert announced == ["G1 storm"]  # once, not again after the blind read
         assert [status.open_findings for status in states] == [1, 1, 1]
         assert store.findings(now=NOW)[0]["ended"] is None
+
+    def test_the_watch_uses_each_feeds_own_window(self, store: WatchStore) -> None:
+        """A feed that has measured none merges a finding missed by one read, and no more."""
+        moment = [NOW]
+        storm = Judgment([_finding(feed="scripted")], "Kp 5.3, G1", NOW, 1, 1)
+        quiet = Judgment(summary="nothing notable", latest_reading=NOW)
+        feed = _Scripted([storm, quiet, storm, quiet, storm])
+        announced: list[str] = []
+        watcher = Watcher(store, [feed], on_finding=lambda f: announced.append(f.headline),
+                          clock=lambda: moment[0])  # fmt: skip
+        assert feed.episode_window() == 2 * feed.cadence == timedelta(minutes=10)
+
+        for minutes in (0, 5, 10):  # seen, missed by one read, seen again: the same finding
+            moment[0] = NOW + timedelta(minutes=minutes)
+            watcher.run_once()
+        assert announced == ["G1 storm"]
+
+        for minutes in (15, 40):  # gone for longer than two reads: a new one
+            moment[0] = NOW + timedelta(minutes=minutes)
+            watcher.run_once()
+        assert announced == ["G1 storm", "G1 storm"]
 
     def test_a_feed_with_only_old_readings_is_stale(self, store: WatchStore) -> None:
         old = Judgment(summary="nothing notable", latest_reading=NOW - timedelta(hours=5))

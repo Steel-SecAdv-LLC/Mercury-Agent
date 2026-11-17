@@ -99,7 +99,7 @@ class Watcher:
         announced = 0
         findings = [with_guidance(finding) for finding in judgment.findings]
         for finding in findings:
-            if self.store.report(finding, now):
+            if self.store.report(finding, now, feed.episode_window()):
                 announced += 1
                 self.notifier.broadcast(finding)
                 if self.on_finding is not None:

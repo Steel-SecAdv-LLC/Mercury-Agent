@@ -360,6 +360,26 @@ class TestTheFeedReadsIt:
         assert feed._refresh_reach(frame, NOW + timedelta(minutes=5)) == 0  # read ten minutes apart
         assert feed._refresh_reach(frame, NOW + timedelta(minutes=11)) == 2
 
+    def test_it_is_read_every_ten_minutes_at_first_and_hourly_once_the_reports_are_in(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: every ten minutes for the whole day it stands, 144 reads an earthquake.
+
+        Measured on 385 earthquakes: 93% of first ShakeMaps and most felt
+        reports arrive within three hours (research/watch_thresholds).
+        """
+        feed, read = self._feed(store, monkeypatch)
+        store.report(_quake(), NOW)  # happened at NOW
+        nothing = pd.DataFrame()
+
+        times = [10 * n for n in range(0, 6 * 24 + 1)]  # a read every ten minutes for a day
+        for minutes in times:
+            feed._refresh_reach(nothing, NOW + timedelta(minutes=minutes))
+
+        first_three_hours = sum(1 for m in times if m < 180)
+        assert len(read) == first_three_hours + 21  # 18 reads, then one an hour to the day's end
+        assert len(read) == 39
+
     def test_one_earthquakes_products_failing_costs_no_other_and_not_the_read(
         self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
