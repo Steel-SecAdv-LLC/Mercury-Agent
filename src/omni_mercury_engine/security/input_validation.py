@@ -583,6 +583,7 @@ class TrustedEndpoints:
             "www.nhc.noaa.gov",
             "api.tidesandcurrents.noaa.gov",
             "www.ndbc.noaa.gov",
+            "api.water.noaa.gov",  # NOAA National Water Prediction Service (river gauges)
             "www.ngdc.noaa.gov",
             "www.ncei.noaa.gov",  # NCEI World Ocean Database
             "exoplanetarchive.ipac.caltech.edu",

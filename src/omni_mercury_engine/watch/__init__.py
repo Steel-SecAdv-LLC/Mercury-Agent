@@ -7,14 +7,13 @@ batch, but nothing ran them: Mercury acted only when called, and a batch
 scored against itself flags about one row in twenty whatever it holds. This
 package is the part in between.
 
-* :mod:`~omni_mercury_engine.watch.store` remembers. Each series keeps a
-  bounded record across pulls, so "unusual" means unusual against what this
-  gauge or buoy did before, and a finding already reported is not reported
-  again.
+* :mod:`~omni_mercury_engine.watch.store` remembers every finding, so one
+  already reported is not reported again, and what a later record said of it.
 * :mod:`~omni_mercury_engine.watch.feeds` judges. Each feed turns a pull into
-  at most a few findings, by a published scale where one exists (USGS
-  magnitude classes, the NOAA G scale, a DART buoy's own event mode) and by a
-  series exceeding its own record where none does. Most pulls yield none.
+  at most a few findings by the scale its field already uses (USGS magnitude
+  classes, the NOAA G scale, a DART buoy's own event mode, the NWS flood
+  category), and later checks each finding against the record that settles
+  it. Most pulls yield none.
 * :mod:`~omni_mercury_engine.watch.voice` speaks: one plain account per
   finding, with its source and what it cannot tell.
 * :mod:`~omni_mercury_engine.watch.watcher` runs them on a schedule, from

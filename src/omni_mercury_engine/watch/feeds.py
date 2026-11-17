@@ -5,34 +5,42 @@
 A feed reads one live source through its loader and judges the result. The
 judgment is deliberately not "score the batch and flag the top rows": a batch
 scored against itself flags about one row in twenty whatever it holds. Each
-feed instead uses the rule its field already uses, where one exists:
+feed instead uses the rule its field already uses:
 
 * **Earthquakes** by USGS magnitude class.
 * **Geomagnetic activity** by the NOAA G scale.
 * **Tsunami buoys** by the buoy's own event mode, which its tsunameter enters
   when it detects a disturbance.
+* **River gauges** by the flood category the National Weather Service sets
+  for each gauge.
+* **Volcanoes** by the USGS volcano alert levels.
+* **Disaster declarations** by their count against the year's own weeks.
 
-and, where the source carries no such scale (a river gauge's flood stage is
-not in the USGS reading), by the plainest true statement available: this
-series has exceeded everything the watch has recorded for it.
+Each feed also knows the later record that settles one of its findings
+(``review``): the reviewed catalogue entry, the final Kp, the tsunami event
+database, the gauge's own record.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 import pandas as pd
 
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
-from omni_mercury_engine.watch.model import Finding, Severity
-
-if TYPE_CHECKING:
-    from omni_mercury_engine.watch.store import WatchStore
+from omni_mercury_engine.watch.model import Finding, Outcome, Severity
 
 __all__ = ["FEEDS", "Feed", "Judgment"]
+
+#: USGS event lookup: the catalogue's current entry for one event id.
+_USGS_EVENT_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+#: NOAA NCEI Global Historical Tsunami Database, event list.
+_NCEI_TSUNAMI_URL = "https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/tsunamis/events"
+#: NCEI validity codes that mean a tsunami did occur.
+_TSUNAMI_VALID = {3: "probable", 4: "definite"}
 
 
 @dataclass
@@ -71,13 +79,31 @@ class Feed:
     source: ClassVar[str]
     cadence: ClassVar[timedelta]
     stale_after: ClassVar[timedelta]
+    #: How long after a finding is first seen a later record is worth consulting.
+    review_after: ClassVar[timedelta] = timedelta(hours=6)
+    #: How often to consult it again while the record is not settled.
+    review_every: ClassVar[timedelta] = timedelta(hours=12)
+    #: After this long the last answer stands and the finding is not checked again.
+    review_until: ClassVar[timedelta] = timedelta(days=7)
 
     def read(self) -> pd.DataFrame:
         """Read the live source. Raises when it cannot be read."""
         raise NotImplementedError
 
-    def judge(self, frame: pd.DataFrame, store: WatchStore, now: datetime) -> Judgment:
-        """Decide what in ``frame`` is worth saying, given what is remembered."""
+    def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
+        """Say what a later, authoritative record makes of a finding.
+
+        Args:
+            finding: The finding as the store holds it.
+            now: Time of the check (UTC).
+
+        Returns:
+            The outcome, or ``None`` when the record cannot say yet.
+        """
+        return None
+
+    def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
+        """Decide what in ``frame`` is worth saying."""
         raise NotImplementedError
 
     def _loader(self, name: str) -> Any:
@@ -106,6 +132,17 @@ def _utc(value: Any) -> datetime:
     stamp = stamp.tz_localize("UTC") if stamp.tzinfo is None else stamp.tz_convert("UTC")
     moment: datetime = stamp.to_pydatetime()
     return moment
+
+
+def _count(number: int, noun: str) -> str:
+    """``number`` with ``noun`` in the singular or plural: "1 gauge", "11,435 gauges"."""
+    return f"{number:,} {noun}{'' if number == 1 else 's'}"
+
+
+def _finite(value: Any) -> float | None:
+    """``value`` as a float, or ``None`` when it is missing or not a number."""
+    number = pd.to_numeric(value, errors="coerce")
+    return float(number) if np.isfinite(number) else None
 
 
 def _clock(moment: datetime) -> str:
@@ -143,7 +180,7 @@ class EarthquakeFeed(Feed):
     def read(self) -> pd.DataFrame:
         return pd.DataFrame(self._loader("EarthquakeLoader").fetch_realtime())
 
-    def judge(self, frame: pd.DataFrame, store: WatchStore, now: datetime) -> Judgment:
+    def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         if frame.empty:
             return Judgment(summary="USGS lists no earthquake in the past hour")
         times = pd.to_datetime(frame["time"], unit="ms", utc=True)
@@ -187,7 +224,8 @@ class EarthquakeFeed(Feed):
             )
         largest = float(magnitudes.max()) if magnitudes.notna().any() else float("nan")
         summary = (
-            f"{len(frame)} earthquakes in the past hour, the largest magnitude {largest:.1f}; "
+            f"{_count(len(frame), 'earthquake')} in the past hour, "
+            f"the largest magnitude {largest:.1f}; "
             + (
                 f"{len(findings)} at magnitude {self.NOTABLE} or above"
                 if findings
@@ -195,6 +233,55 @@ class EarthquakeFeed(Feed):
             )
         )
         return Judgment(findings, summary, _utc(times.max()), len(frame), len(frame))
+
+    review_after = timedelta(hours=2)
+    review_until = timedelta(days=14)
+
+    def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
+        """Compare the reported magnitude with the USGS catalogue's current entry."""
+        from omni_mercury_engine.loaders.base import FetchHTTPError
+
+        record = "USGS earthquake catalogue"
+        try:
+            entry = self._loader("EarthquakeLoader")._fetch_json(
+                _USGS_EVENT_URL, {"format": "geojson", "eventid": str(finding["subject"])}
+            )
+        except FetchHTTPError as exc:
+            if exc.status_code in (404, 409):
+                return Outcome(
+                    "withdrawn",
+                    "USGS no longer lists this event: an automatic solution that did not "
+                    "survive review.",
+                    record,
+                    final=True,
+                )
+            raise
+        properties = entry.get("properties", {}) if isinstance(entry, dict) else {}
+        magnitude = pd.to_numeric(properties.get("mag"), errors="coerce")
+        status = str(properties.get("status") or "automatic")
+        if status == "deleted":
+            return Outcome("withdrawn", "USGS deleted this event after review.", record, final=True)
+        if not np.isfinite(magnitude):
+            return None
+        reported = float(finding["value"])
+        settled = status == "reviewed"
+        standing = "reviewed by a seismologist" if settled else "still an automatic solution"
+        if abs(float(magnitude) - reported) < 0.05:
+            return Outcome(
+                "confirmed",
+                f"USGS lists it at magnitude {magnitude:.1f}, as reported ({standing}).",
+                record,
+                final=settled,
+            )
+        below = float(magnitude) < self.NOTABLE
+        return Outcome(
+            "revised",
+            f"USGS now lists it at magnitude {magnitude:.1f}; it was reported at "
+            f"{reported:.1f} ({standing})."
+            + (f" That is below the {self.NOTABLE} at which the watch reports." if below else ""),
+            record,
+            final=settled,
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -225,7 +312,7 @@ class SpaceWeatherFeed(Feed):
     def read(self) -> pd.DataFrame:
         return pd.DataFrame(self._loader("EnergyLoader").fetch_realtime())
 
-    def judge(self, frame: pd.DataFrame, store: WatchStore, now: datetime) -> Judgment:
+    def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         if frame.empty or "kp" not in frame:
             return Judgment(summary="NOAA returned no Kp readings")
         frame = frame.sort_values("timestamp")
@@ -274,6 +361,39 @@ class SpaceWeatherFeed(Feed):
             summary += f"; solar wind {wind:.0f} km/s"
         return Judgment(findings, summary, when, len(frame), 1)
 
+    review_until = timedelta(days=3)
+
+    def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
+        """Compare the reported Kp with what NOAA lists for that interval now."""
+        frame = self.read()
+        if frame.empty or "kp" not in frame:
+            return None
+        observed = pd.Timestamp(finding["observed_at"])
+        rows = frame[pd.to_datetime(frame["timestamp"], utc=True) == observed].dropna(subset=["kp"])
+        if rows.empty:
+            return None
+        kp, reported = float(rows["kp"].iloc[-1]), float(finding["value"])
+        level, was = noaa_g_scale(min(max(kp, 0.0), 9.0)), noaa_g_scale(
+            min(max(reported, 0.0), 9.0)
+        )
+        record = "NOAA SWPC planetary Kp record"
+        settled = now - observed.to_pydatetime() >= timedelta(days=2)
+        if level == was:
+            return Outcome(
+                "confirmed",
+                f"NOAA lists Kp {kp:.1f} for that interval: G{level}, as reported.",
+                record,
+                final=settled,
+            )
+        return Outcome(
+            "revised",
+            f"NOAA now lists Kp {kp:.1f} for that interval, which is "
+            + (f"G{level}" if level else "below storm level")
+            + f"; it was reported as G{was} at Kp {reported:.1f}.",
+            record,
+            final=settled,
+        )
+
 
 # --------------------------------------------------------------------------- #
 # Tsunami buoys
@@ -297,7 +417,7 @@ class TsunamiBuoyFeed(Feed):
     def read(self) -> pd.DataFrame:
         return pd.DataFrame(self._loader("TsunamiLoader").fetch_realtime())
 
-    def judge(self, frame: pd.DataFrame, store: WatchStore, now: datetime) -> Judgment:
+    def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         if frame.empty:
             return Judgment(summary="no DART buoy returned readings")
         times = pd.to_datetime(frame["timestamp"], utc=True)
@@ -340,10 +460,68 @@ class TsunamiBuoyFeed(Feed):
                     ongoing=True,
                 )
             )
-        summary = f"{len(stations)} buoys reporting; " + (
+        summary = f"{_count(len(stations), 'buoy')} reporting; " + (
             f"in event mode: {', '.join(triggered)}" if triggered else "none in event mode"
         )
         return Judgment(findings, summary, latest, len(frame), len(stations))
+
+    review_after = timedelta(hours=12)
+    review_every = timedelta(days=3)
+    review_until = timedelta(days=45)
+
+    #: A tsunami reaches a deep-ocean buoy within a day of its source.
+    TRAVEL: ClassVar[timedelta] = timedelta(hours=24)
+
+    def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
+        """Look for a tsunami in NOAA NCEI's event database around the trigger."""
+        seen = pd.Timestamp(finding["observed_at"])
+        earliest = seen - self.TRAVEL - self.RECENT
+        listing = self._loader("TsunamiLoader")._fetch_json(
+            _NCEI_TSUNAMI_URL, {"minYear": str(earliest.year), "maxYear": str(seen.year)}
+        )
+        items = listing.get("items", []) if isinstance(listing, dict) else []
+        record = "NOAA NCEI Global Historical Tsunami Database"
+        for item in items:
+            if item.get("eventValidity") not in _TSUNAMI_VALID:
+                continue
+            try:
+                day = pd.Timestamp(
+                    year=int(item["year"]), month=int(item["month"]), day=int(item["day"]), tz="UTC"
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+            hour = item.get("hour")
+            began = (
+                day + pd.Timedelta(hours=int(hour), minutes=int(item.get("minute") or 0))
+                if hour is not None
+                else day
+            )
+            ended = began if hour is not None else day + pd.Timedelta(days=1)
+            if ended < earliest or began > seen:
+                continue
+            place = str(item.get("locationName") or "location not given").title()
+            height = pd.to_numeric(item.get("maxWaterHeight"), errors="coerce")
+            return Outcome(
+                "confirmed",
+                f"NCEI lists a {_TSUNAMI_VALID[item['eventValidity']]} tsunami at {place} on "
+                f"{began:%d %B %Y}"
+                + (f", {began:%H:%M} UTC" if hour is not None else "")
+                + (
+                    f", with a largest recorded water height of {height:.2f} m"
+                    if np.isfinite(height)
+                    else ""
+                )
+                + ". The buoy's trigger falls within a day of it.",
+                record,
+                final=True,
+            )
+        return Outcome(
+            "unconfirmed",
+            "NCEI lists no tsunami in the day before the buoy triggered. Its database is "
+            "updated weeks after an event, and a buoy also triggers on seismic shaking and "
+            "on tests.",
+            record,
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -352,85 +530,278 @@ class TsunamiBuoyFeed(Feed):
 
 
 class RiverGaugeFeed(Feed):
-    """USGS river gauges: a gauge above everything recorded for it."""
+    """NWS river gauges: a gauge the National Weather Service classes as in flood."""
 
     name = "river_gauges"
-    title = "River gauges (USGS Water Services)"
-    source = "U.S. Geological Survey, National Water Information System"
-    cadence = timedelta(minutes=15)
+    title = "River gauges in flood (NOAA National Water Prediction Service)"
+    source = "NOAA National Weather Service, National Water Prediction Service"
+    cadence = timedelta(minutes=30)
     stale_after = timedelta(hours=6)
 
-    #: Readings a gauge needs on record before a new high means anything: two
-    #: days at the 15-minute cadence.
-    MIN_RECORD: ClassVar[int] = 192
-    #: How far above the recorded maximum, in robust standard deviations of
-    #: the record, the latest reading must be. Below this a "record" is noise.
-    MARGIN: ClassVar[float] = 3.0
+    #: NWS flood category to severity. "action" stage is below flood and is counted, not reported.
+    SEVERITY: ClassVar[dict[str, Severity]] = {
+        "minor": Severity.NOTABLE,
+        "moderate": Severity.SIGNIFICANT,
+        "major": Severity.SEVERE,
+    }
+    #: A reading older than this is the gauge's last word, not its present state.
+    CURRENT: ClassVar[timedelta] = timedelta(hours=6)
+    #: Two readings of a stage this close (in the gauge's unit) are the same reading.
+    SAME: ClassVar[float] = 0.02
 
     def read(self) -> pd.DataFrame:
-        return pd.DataFrame(self._loader("FloodLoader").fetch_realtime())
+        return pd.DataFrame(self._loader("FloodLoader").fetch_flood_status())
 
-    def judge(self, frame: pd.DataFrame, store: WatchStore, now: datetime) -> Judgment:
+    def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         if frame.empty:
-            return Judgment(summary="no gauge returned readings")
-        times = pd.to_datetime(frame["datetime"], utc=True)
-        frame = frame.assign(_time=times).sort_values("_time")
-        findings, sites = [], 0
-        for site, readings in frame.groupby(frame["site_id"].astype(str)):
-            sites += 1
-            heights = pd.to_numeric(readings["gauge_height_ft"], errors="coerce")
-            usable = readings[heights.notna()]
-            if usable.empty:
-                continue
-            record = store.remember(
-                self.name,
-                site,
-                "gauge_height_ft",
-                [_utc(t) for t in usable["_time"]],
-                heights[heights.notna()].to_numpy(),
+            return Judgment(summary="no gauge returned a reading")
+        times = pd.to_datetime(frame["observed_at"], utc=True, errors="coerce")
+        # Stamp before filtering: assigning a series to an empty selection would bring its rows back.
+        frame = frame.assign(read_at=times)
+        current = frame[times >= pd.Timestamp(now - self.CURRENT)]
+        if current.empty:
+            latest = _utc(times.max()) if times.notna().any() else None
+            return Judgment([], "no gauge has a current reading", latest, len(frame), 0)
+        findings = []
+        for row in current[current["category"].isin(list(self.SEVERITY))].itertuples(index=False):
+            category, when = str(row.category), _utc(row.read_at)
+            place = f"{row.name}, {row.state}" if row.state else str(row.name)
+            level = f"{row.stage:g} {row.unit}".strip() if np.isfinite(row.stage) else "a level"
+            forecast = str(row.forecast_category)
+            ahead = (
+                f" Its forecast reaches {forecast} flooding."
+                if forecast in self.SEVERITY and forecast != category
+                else ""
             )
-            if record.latest is None:
-                # First sight of this gauge: the read itself becomes its record.
-                continue
-            new = usable[usable["_time"] > pd.Timestamp(record.latest)]
-            if new.empty or len(record) < self.MIN_RECORD:
-                continue
-            level = float(pd.to_numeric(new["gauge_height_ft"]).max())
-            margin = self.MARGIN * max(record.spread, 0.01)
-            if level <= record.maximum + margin:
-                continue
-            when = _utc(new["_time"].iloc[-1])
-            name = str(readings["site_name"].iloc[-1]).title()
             findings.append(
                 Finding(
                     feed=self.name,
-                    kind="gauge_record_high",
-                    subject=site,
-                    severity=Severity.NOTABLE,
-                    headline=f"{name}: highest level Mercury has recorded",
+                    kind="river_flood",
+                    subject=str(row.gauge_id),
+                    severity=self.SEVERITY[category],
+                    headline=f"{category.capitalize()} flooding: {place}",
                     detail=(
-                        f"The gauge at {name} (USGS {site}) read {level:.2f} ft at "
-                        f"{_clock(when)}, above the {record.maximum:.2f} ft maximum of the "
-                        f"{len(record)} readings Mercury holds for it (median "
-                        f"{record.median:.2f} ft). Mercury does not have this gauge's flood "
-                        "stage, so it cannot say whether the river is in flood: the National "
-                        "Weather Service sets that level. These are provisional USGS readings."
+                        f"The gauge at {place} (NWS {row.gauge_id}) read {level} at "
+                        f"{_clock(when)}, which the National Weather Service classes as "
+                        f"{category} flooding at this gauge.{ahead} Flood stages are set gauge "
+                        "by gauge by the local forecast office. Mercury reports the reading and "
+                        "its category; flood warnings come from the National Weather Service."
                     ),
                     observed_at=when,
                     source=self.source,
                     basis=(
-                        f"above the gauge's own recorded maximum by more than {self.MARGIN:g} "
-                        "robust standard deviations"
+                        f"NWS flood category at this gauge: {category} "
+                        "(minor flooding and above is reported)"
                     ),
-                    value=level,
-                    unit="ft",
+                    value=float(row.stage) if np.isfinite(row.stage) else None,
+                    unit=str(row.unit),
                     ongoing=True,
                 )
             )
-        summary = f"{sites} gauges reporting; " + (
-            f"{len(findings)} above their recorded maximum" if findings else "none above its record"
+        counts = current["category"].value_counts()
+        in_flood = [f"{int(counts[c])} {c}" for c in ("major", "moderate", "minor") if c in counts]
+        summary = f"{_count(len(current), 'gauge')} reporting; " + (
+            f"{len(findings)} in flood ({', '.join(in_flood)})" if findings else "none in flood"
         )
-        return Judgment(findings, summary, _utc(times.max()), len(frame), sites)
+        if int(counts.get("action", 0)):
+            summary += f"; {int(counts['action'])} at action stage, below flood"
+        return Judgment(findings, summary, _utc(current["read_at"].max()), len(frame), len(current))
+
+    review_until = timedelta(days=7)
+
+    def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
+        """Re-read the gauge's record: does it still show that level, and how far did it go."""
+        reported = finding.get("value")
+        if reported is None:
+            return None
+        stages, record = self._loader("FloodLoader").fetch_gauge_record(str(finding["subject"]))
+        observed = pd.Timestamp(finding["observed_at"])
+        if record.empty or record["observed_at"].max() < observed:
+            return None
+        unit = str(finding.get("unit") or "")
+        source = "NWS record of the same gauge"
+        settled = finding.get("ended") is not None
+
+        def category(level: float) -> str:
+            reached = [
+                name for name in ("minor", "moderate", "major") if level >= stages.get(name, np.inf)
+            ]
+            return f"{reached[-1]} flooding" if reached else "below flood stage"
+
+        since = record[record["observed_at"] >= observed]
+        peak_row = since.loc[since["stage"].idxmax()]
+        peak, latest = float(peak_row["stage"]), float(since["stage"].iloc[-1])
+        course = (
+            f"It went on to {peak:g} {unit} at {_clock(_utc(peak_row['observed_at']))}"
+            + (f" ({category(peak)})" if stages else "")
+            + f" and stands at {latest:g} {unit}"
+            if peak > float(reported) + self.SAME
+            else f"That is the highest since; it stands at {latest:g} {unit}"
+        ) + (f" ({category(latest)})." if stages else ".")
+        at_the_time = record[record["observed_at"] == observed]
+        if at_the_time.empty:
+            return Outcome(
+                "withdrawn",
+                "The NWS record no longer holds a reading for that time: the provisional value "
+                "was removed.",
+                source,
+                final=settled,
+            )
+        current = float(at_the_time["stage"].iloc[-1])
+        if abs(current - float(reported)) <= self.SAME:
+            return Outcome(
+                "confirmed",
+                f"The NWS record still shows {current:g} {unit} for that time. {course}",
+                source,
+                final=settled,
+            )
+        if "minor" in stages and current < stages["minor"]:
+            return Outcome(
+                "withdrawn",
+                f"The NWS record now shows {current:g} {unit} for that time, below this gauge's "
+                f"minor flood stage of {stages['minor']:g} {unit}; {float(reported):g} {unit} was "
+                "reported.",
+                source,
+                final=settled,
+            )
+        return Outcome(
+            "revised",
+            f"The NWS record now shows {current:g} {unit} for that time; {float(reported):g} "
+            f"{unit} was reported. {course}",
+            source,
+            final=settled,
+        )
+
+
+# --------------------------------------------------------------------------- #
+# Volcanoes
+# --------------------------------------------------------------------------- #
+
+
+class VolcanoFeed(Feed):
+    """USGS-monitored volcanoes: one above NORMAL on the USGS volcano alert levels."""
+
+    name = "volcanoes"
+    title = "U.S. volcano alert levels (USGS Volcano Hazards Program)"
+    source = "U.S. Geological Survey, Volcano Hazards Program"
+    cadence = timedelta(minutes=30)
+    # A quiet volcano's last notice can be years old; the list itself is current when read.
+    stale_after = timedelta(days=36500)
+
+    SEVERITY: ClassVar[dict[str, Severity]] = {
+        "ADVISORY": Severity.NOTABLE,
+        "WATCH": Severity.SIGNIFICANT,
+        "WARNING": Severity.SEVERE,
+    }
+    #: What each level means, after the USGS definitions of its volcano alert levels.
+    MEANING: ClassVar[dict[str, str]] = {
+        "ADVISORY": "elevated unrest above its known background, or activity that has "
+        "decreased from a higher level and is still closely watched",
+        "WATCH": "heightened or escalating unrest with increased potential of eruption, or an "
+        "eruption under way that poses limited hazards",
+        "WARNING": "a hazardous eruption that is imminent, under way or suspected",
+    }
+
+    def read(self) -> pd.DataFrame:
+        return pd.DataFrame(self._loader("VolcanicLoader").fetch_realtime())
+
+    def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
+        if frame.empty:
+            return Judgment(summary="USGS listed no monitored volcano")
+        levels = frame["alert_level"].astype(str).str.upper()
+        findings = []
+        for row in frame[levels.isin(list(self.SEVERITY))].itertuples(index=False):
+            level, colour = str(row.alert_level).upper(), str(row.color_code).upper()
+            issued = pd.to_datetime(row.alert_date, utc=True, errors="coerce")
+            when = _utc(issued) if pd.notna(issued) else now
+            observatory = f" ({row.observatory})" if str(row.observatory) else ""
+            findings.append(
+                Finding(
+                    feed=self.name,
+                    kind="volcano_alert",
+                    subject=str(row.volcano_number) or str(row.volcano_name),
+                    severity=self.SEVERITY[level],
+                    headline=f"{row.volcano_name} volcano: USGS alert level {level}",
+                    detail=(
+                        f"USGS has {row.volcano_name} at alert level {level}"
+                        + (f", aviation colour code {colour}" if colour else "")
+                        + (
+                            f", by the notice of {_clock(when)}{observatory}"
+                            if pd.notna(issued)
+                            else ""
+                        )
+                        + f". USGS uses {level} for {self.MEANING[level]}. Mercury reports the "
+                        "level USGS set; it does not assess the volcano."
+                    ),
+                    observed_at=when,
+                    source=self.source,
+                    basis=f"USGS volcano alert level {level} (ADVISORY and above is reported)",
+                    value=float(row.alert_level_numeric),
+                    latitude=_finite(getattr(row, "latitude", None)),
+                    longitude=_finite(getattr(row, "longitude", None)),
+                    ongoing=True,
+                    reference=str(row.notice_id),
+                )
+            )
+        counts = levels.value_counts()
+        above = [
+            f"{int(counts[lv])} {lv}" for lv in ("WARNING", "WATCH", "ADVISORY") if lv in counts
+        ]
+        summary = f"{len(frame)} monitored volcano{'' if len(frame) == 1 else 'es'}; " + (
+            f"{len(findings)} above NORMAL ({', '.join(above)})" if findings else "all at NORMAL"
+        )
+        return Judgment(findings, summary, None, len(frame), len(frame))
+
+    review_after = timedelta(hours=1)
+    review_until = timedelta(days=3)
+
+    def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
+        """Read the observatory's notice: does it give this volcano that level."""
+        from omni_mercury_engine.loaders.base import FetchHTTPError
+
+        notice_id = str(finding.get("reference") or "")
+        if not notice_id:
+            return None
+        record = "observatory's notice in the USGS Hazard Notification System"
+        try:
+            notice = self._loader("VolcanicLoader").fetch_notice(notice_id)
+        except FetchHTTPError as exc:
+            if exc.status_code in (400, 404):
+                return Outcome(
+                    "withdrawn",
+                    "USGS no longer holds the notice the level came from.",
+                    record,
+                    True,
+                )
+            raise
+        sections = notice.get("notice_sections")
+        about = [
+            section
+            for section in (sections if isinstance(sections, list) else [])
+            if isinstance(section, dict) and str(section.get("vnum")) == str(finding["subject"])
+        ]
+        if not about:
+            return None
+        stated = str(about[0].get("alertLevel") or "").upper()
+        reported = next(
+            (lv for lv in self.SEVERITY if f"alert level {lv}" in str(finding.get("basis"))), ""
+        )
+        synopsis = " ".join(str(about[0].get("synopsis") or "").split())
+        said = f' It reads: "{synopsis}"' if synopsis else ""
+        title = str(notice.get("notice_type_title") or "notice").lower()
+        if stated == reported:
+            return Outcome(
+                "confirmed",
+                f"The observatory's {title} gives {stated}, as reported.{said}",
+                record,
+                True,
+            )
+        return Outcome(
+            "revised",
+            f"The observatory's {title} gives {stated or 'no level'}; {reported} was reported.{said}",
+            record,
+            True,
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -453,7 +824,7 @@ class DeclarationFeed(Feed):
     def read(self) -> pd.DataFrame:
         return pd.DataFrame(self._loader("FEMAActivityLoader").fetch_realtime())
 
-    def judge(self, frame: pd.DataFrame, store: WatchStore, now: datetime) -> Judgment:
+    def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         if frame.empty:
             return Judgment(summary="OpenFEMA returned no record for this year")
         frame = frame.sort_values("timestamp").reset_index(drop=True)
@@ -509,9 +880,48 @@ class DeclarationFeed(Feed):
         )
         return Judgment(findings, summary, _utc(days.max()), len(frame), 1)
 
+    review_after = timedelta(days=1)
+    review_every = timedelta(days=3)
+    review_until = timedelta(days=14)
+
+    def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
+        """Re-read OpenFEMA: are the same days still declared as reported."""
+        frame = self.read()
+        if frame.empty:
+            return None
+        days = pd.to_datetime(frame["timestamp"], utc=True)
+        last = pd.Timestamp(finding["observed_at"]).floor("D")
+        window = frame[(days <= last) & (days >= last - pd.Timedelta(days=self.RECENT_DAYS))]
+        if window.empty:
+            return None
+        total, reported = int(window["designations"].sum()), int(finding["value"])
+        record = "OpenFEMA Disaster Declarations Summaries, re-read"
+        settled = now - last.to_pydatetime() >= timedelta(days=10)
+        if total == reported:
+            return Outcome(
+                "confirmed",
+                f"OpenFEMA still lists {total} designations for those days.",
+                record,
+                final=settled,
+            )
+        return Outcome(
+            "revised",
+            f"OpenFEMA now lists {total} designations for those days; {reported} were reported. "
+            "FEMA amends a declaration as counties are added.",
+            record,
+            final=settled,
+        )
+
 
 #: The feeds the watch reads, by name.
 FEEDS: dict[str, type[Feed]] = {
     feed.name: feed
-    for feed in (EarthquakeFeed, SpaceWeatherFeed, TsunamiBuoyFeed, RiverGaugeFeed, DeclarationFeed)
+    for feed in (
+        EarthquakeFeed,
+        SpaceWeatherFeed,
+        TsunamiBuoyFeed,
+        RiverGaugeFeed,
+        VolcanoFeed,
+        DeclarationFeed,
+    )
 }

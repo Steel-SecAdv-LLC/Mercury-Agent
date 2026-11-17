@@ -8,14 +8,16 @@ eruptions where WARNING/RED alert levels are labeled as anomalies against
 a background of NORMAL/GREEN activity.
 
 Data sources:
-- Real-time alerts: https://volcanoes.usgs.gov/vsc/api/volcanoApi/alerts
-- Volcano list: https://volcanoes.usgs.gov/vsc/api/volcanoApi/volcanoList
+- Current alert levels: https://volcanoes.usgs.gov/hans-public/api/volcano/getMonitoredVolcanoes
+- Volcano list: https://volcanoes.usgs.gov/hans-public/api/volcano/getUSVolcanoes
+- Observatory notices: https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/{id}
 - Smithsonian GVP (supplemental): eruption records
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import numpy as np
@@ -29,9 +31,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # USGS Volcano API endpoints
 # ---------------------------------------------------------------------------
-_API_BASE = "https://volcanoes.usgs.gov/vsc/api/volcanoApi/"
-_ALERTS_URL = f"{_API_BASE}alerts"
-_VOLCANO_LIST_URL = f"{_API_BASE}volcanoList"
+# The Hazard Notification System (HANS) public API. The loader used
+# ``/vsc/api/volcanoApi/``, which USGS retired: both of its endpoints answer
+# HTTP 404 "Resource not found in API" (measured 2026-11-17).
+_API_BASE = "https://volcanoes.usgs.gov/hans-public/api/volcano/"
+_ALERTS_URL = f"{_API_BASE}getMonitoredVolcanoes"
+_VOLCANO_LIST_URL = f"{_API_BASE}getUSVolcanoes"
+_NOTICE_URL = "https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/"
+#: A HANS notice identifier: ``DOI-USGS-AVO-2026-11-13T19:12:01+00:00``.
+_NOTICE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9:+.\-]{5,79}")
 
 # ---------------------------------------------------------------------------
 # Alert level and color code encodings
@@ -222,6 +230,30 @@ class VolcanicLoader(BaseDomainLoader):
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info("Fetched %d real-time volcanic alert records from USGS.", len(df))
         return df
+
+    def fetch_notice(self, notice_id: str) -> dict[str, Any]:
+        """One observatory notice from the USGS Hazard Notification System.
+
+        Args:
+            notice_id: The notice identifier, as ``notice_id`` in
+                :meth:`fetch_realtime` gives it.
+
+        Returns:
+            The notice: its title, when it was sent, and one section per
+            volcano with that volcano's alert level, aviation colour code
+            and synopsis (``notice_sections``).
+
+        Raises:
+            ValueError: If ``notice_id`` is not a notice identifier.
+            ConnectionError: If USGS cannot be reached, or has no such
+                notice (HTTP 400).
+        """
+        if not _NOTICE_ID.fullmatch(notice_id):
+            raise ValueError(f"not a USGS notice identifier: {notice_id!r}")
+        notice = self._fetch_json(f"{_NOTICE_URL}{notice_id}")
+        if not isinstance(notice, dict):
+            raise ConnectionError(f"volcanic: notice {notice_id} is not the documented shape")
+        return notice
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
         """Fetch volcanic activity data for a specific historical eruption.
@@ -513,7 +545,8 @@ class VolcanicLoader(BaseDomainLoader):
         Returns:
             DataFrame with columns: volcano_name, alert_level,
             color_code, alert_level_numeric, color_code_numeric,
-            alert_date.
+            alert_date, volcano_number, observatory, notice_id (the last
+            three empty where the response does not carry them).
         """
         columns = [
             "volcano_name",
@@ -522,6 +555,9 @@ class VolcanicLoader(BaseDomainLoader):
             "alert_level_numeric",
             "color_code_numeric",
             "alert_date",
+            "volcano_number",
+            "observatory",
+            "notice_id",
         ]
 
         # Handle different response formats from the API
@@ -559,6 +595,7 @@ class VolcanicLoader(BaseDomainLoader):
             )
             alert_date = (
                 props.get("alertDate", "")
+                or props.get("sent_utc", "")
                 or props.get("date", "")
                 or props.get("updated", "")
                 or ""
@@ -575,6 +612,9 @@ class VolcanicLoader(BaseDomainLoader):
                     "alert_level_numeric": _ALERT_LEVEL_MAP.get(alert_upper, 0),
                     "color_code_numeric": _COLOR_CODE_MAP.get(color_upper, 0),
                     "alert_date": alert_date,
+                    "volcano_number": str(props.get("vnum") or "").strip(),
+                    "observatory": str(props.get("obs_fullname") or "").strip(),
+                    "notice_id": str(props.get("notice_identifier") or "").strip(),
                 }
             )
 
@@ -715,7 +755,9 @@ class VolcanicLoader(BaseDomainLoader):
 
             elev = props.get(
                 "elevation",
-                props.get("elev", props.get("summit_elevation", None)),
+                props.get(
+                    "elevation_meters", props.get("elev", props.get("summit_elevation", None))
+                ),
             )
 
             rows.append(

@@ -1,8 +1,8 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The watch's memory: series history, findings and feed statuses, in SQLite.
+"""The watch's memory: findings, what later records said of them, and feed statuses.
 
-One file, three tables. Writes are small and each is its own transaction, so
+One SQLite file, two tables. Writes are small and each is its own transaction, so
 a watcher that is killed loses at most the read in progress, and a reader
 (the API, ``watch status``) can open the file while the watcher runs.
 """
@@ -18,24 +18,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
 
-    from omni_mercury_engine.watch.model import FeedStatus, Finding
+    from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
 
-__all__ = ["SeriesRecord", "WatchStore", "default_state_dir"]
-
-#: Readings kept per series. At a 15-minute cadence this is about ten days.
-SERIES_CAPACITY = 1000
+__all__ = ["WatchStore", "default_state_dir"]
 
 _SCHEMA = """
-CREATE TABLE IF NOT EXISTS series (
-    feed TEXT NOT NULL, subject TEXT NOT NULL, signal TEXT NOT NULL,
-    readings TEXT NOT NULL, latest TEXT NOT NULL,
-    PRIMARY KEY (feed, subject, signal)
-);
 CREATE TABLE IF NOT EXISTS findings (
     key TEXT PRIMARY KEY, feed TEXT NOT NULL, severity INTEGER NOT NULL,
     first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, ended TEXT,
@@ -52,41 +41,6 @@ def default_state_dir() -> Path:
     return Path(override).expanduser() if override else Path.home() / ".mercury" / "watch"
 
 
-class SeriesRecord:
-    """What the store remembers of one series before a new read is added.
-
-    Attributes:
-        values: Past readings, oldest first.
-        latest: Time of the newest reading remembered, or ``None``.
-    """
-
-    def __init__(self, values: Sequence[float], latest: datetime | None) -> None:
-        """Hold ``values`` and the time of the newest of them."""
-        self.values = np.asarray(values, dtype=np.float64)
-        self.latest = latest
-
-    def __len__(self) -> int:
-        """How many readings are remembered."""
-        return int(self.values.size)
-
-    @property
-    def median(self) -> float:
-        """Median of the record; NaN when it is empty."""
-        return float(np.median(self.values)) if self.values.size else float("nan")
-
-    @property
-    def spread(self) -> float:
-        """Robust standard deviation (1.4826 x MAD); NaN when the record is empty."""
-        if not self.values.size:
-            return float("nan")
-        return float(1.4826 * np.median(np.abs(self.values - np.median(self.values))))
-
-    @property
-    def maximum(self) -> float:
-        """Largest reading remembered; NaN when the record is empty."""
-        return float(self.values.max()) if self.values.size else float("nan")
-
-
 class WatchStore:
     """SQLite-backed memory of the watch."""
 
@@ -98,62 +52,20 @@ class WatchStore:
         self._lock = threading.Lock()
         with closing(self._connect()) as connection, connection:
             connection.executescript(_SCHEMA)
+            # Stores written before the watch checked itself lack these columns.
+            present = {row["name"] for row in connection.execute("PRAGMA table_info(findings)")}
+            for column, kind in (
+                ("outcome", "TEXT"),
+                ("reviewed_at", "TEXT"),
+                ("review_final", "INTEGER NOT NULL DEFAULT 0"),
+            ):
+                if column not in present:
+                    connection.execute(f"ALTER TABLE findings ADD COLUMN {column} {kind}")
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=30.0)
         connection.row_factory = sqlite3.Row
         return connection
-
-    # ------------------------------------------------------------------ series
-
-    def remember(
-        self,
-        feed: str,
-        subject: str,
-        signal: str,
-        times: Iterable[datetime],
-        values: Iterable[float],
-    ) -> SeriesRecord:
-        """Add the readings newer than the record, and return the record as it was.
-
-        A pull usually overlaps the one before it. Only readings later than
-        the newest one remembered are added, so the same reading is never
-        counted twice, and what is returned is the history a new reading
-        should be judged against: it does not contain that reading.
-
-        Args:
-            feed: Feed name.
-            subject: Station, gauge or other series owner.
-            signal: Which quantity of the subject.
-            times: Reading times (UTC), in any order.
-            values: Readings, aligned with ``times``. Non-finite ones are dropped.
-
-        Returns:
-            The record before this call.
-        """
-        pairs = sorted(
-            (time, float(value))
-            for time, value in zip(times, values, strict=True)
-            if np.isfinite(value)
-        )
-        with self._lock, closing(self._connect()) as connection, connection:
-            row = connection.execute(
-                "SELECT readings, latest FROM series WHERE feed=? AND subject=? AND signal=?",
-                (feed, subject, signal),
-            ).fetchone()
-            past: list[float] = json.loads(row["readings"]) if row else []
-            latest = datetime.fromisoformat(row["latest"]) if row else None
-            before = SeriesRecord(past, latest)
-            fresh = [(time, value) for time, value in pairs if latest is None or time > latest]
-            if fresh:
-                kept = (past + [value for _, value in fresh])[-SERIES_CAPACITY:]
-                connection.execute(
-                    "INSERT INTO series (feed, subject, signal, readings, latest) "
-                    "VALUES (?, ?, ?, ?, ?) ON CONFLICT (feed, subject, signal) "
-                    "DO UPDATE SET readings=excluded.readings, latest=excluded.latest",
-                    (feed, subject, signal, json.dumps(kept), fresh[-1][0].isoformat()),
-                )
-        return before
 
     # ---------------------------------------------------------------- findings
 
@@ -181,9 +93,28 @@ class WatchStore:
                         finding.key,
                     ),
                 )
+                if escalated:
+                    # What a later record said was said of the milder statement; the
+                    # stronger one has not been checked.
+                    connection.execute(
+                        "UPDATE findings SET outcome=NULL, reviewed_at=NULL, review_final=0 "
+                        "WHERE key=?",
+                        (finding.key,),
+                    )
                 return escalated
+            if row is not None:
+                # It ended and has recurred. The earlier occurrence keeps its
+                # own row, with its outcome, under a key that names when it
+                # began; this one starts clean.
+                began = connection.execute(
+                    "SELECT first_seen FROM findings WHERE key=?", (finding.key,)
+                ).fetchone()["first_seen"]
+                connection.execute(
+                    "UPDATE findings SET key=? WHERE key=?",
+                    (f"{finding.key}@{began}", finding.key),
+                )
             connection.execute(
-                "INSERT OR REPLACE INTO findings "
+                "INSERT INTO findings "
                 "(key, feed, severity, first_seen, last_seen, ended, body) "
                 "VALUES (?, ?, ?, ?, ?, NULL, ?)",
                 (
@@ -240,12 +171,63 @@ class WatchStore:
             ).fetchall()
         out = []
         for row in rows:
-            body = json.loads(row["body"])
-            body.update(
-                first_seen=row["first_seen"], last_seen=row["last_seen"], ended=row["ended"]
-            )
-            out.append(body)
+            out.append(self._finding(row))
         return out
+
+    @staticmethod
+    def _finding(row: sqlite3.Row) -> dict[str, Any]:
+        body: dict[str, Any] = json.loads(row["body"])
+        body.update(
+            key=row["key"],
+            first_seen=row["first_seen"],
+            last_seen=row["last_seen"],
+            ended=row["ended"],
+            outcome=json.loads(row["outcome"]) if row["outcome"] else None,
+            reviewed_at=row["reviewed_at"],
+        )
+        return body
+
+    # ------------------------------------------------------------------ review
+
+    def awaiting_review(
+        self, feed: str, first_seen_before: datetime, not_since: datetime
+    ) -> list[dict[str, Any]]:
+        """The feed's findings that are due a check against a later record.
+
+        Args:
+            feed: Feed name.
+            first_seen_before: Only findings first seen before this: a record
+                needs time to exist.
+            not_since: Only findings not checked since this.
+
+        Returns:
+            Findings whose outcome is not final, oldest first.
+        """
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT * FROM findings WHERE feed=? AND review_final=0 AND first_seen<=? "
+                "AND (reviewed_at IS NULL OR reviewed_at<=?) ORDER BY first_seen",
+                (feed, first_seen_before.isoformat(), not_since.isoformat()),
+            ).fetchall()
+        return [self._finding(row) for row in rows]
+
+    def record_outcome(self, key: str, outcome: Outcome, now: datetime) -> None:
+        """Record what a later record says about a finding."""
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute(
+                "UPDATE findings SET outcome=?, reviewed_at=?, review_final=? WHERE key=?",
+                (json.dumps(outcome.to_dict()), now.isoformat(), int(outcome.final), key),
+            )
+
+    def track_record(self) -> dict[str, int]:
+        """How the findings turned out: a count per verdict, and those not yet checked."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute("SELECT outcome FROM findings").fetchall()
+        tally = {"confirmed": 0, "revised": 0, "withdrawn": 0, "unconfirmed": 0, "unchecked": 0}
+        for row in rows:
+            verdict = json.loads(row["outcome"])["verdict"] if row["outcome"] else "unchecked"
+            tally[verdict] = tally.get(verdict, 0) + 1
+        return tally
 
     def open_count(self, feed: str) -> int:
         """How many of the feed's findings are standing.

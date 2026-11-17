@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-__all__ = ["age", "brief", "finding_text", "status_line"]
+__all__ = ["age", "brief", "finding_text", "record_line", "status_line"]
 
 _MARK = {"severe": "!!!", "significant": "!! ", "notable": "!  "}
 _STATE = {"ok": "ok   ", "stale": "stale", "down": "down ", "waiting": "wait "}
@@ -36,15 +36,41 @@ def finding_text(finding: dict[str, Any], now: datetime | None = None) -> str:
     """One finding as a short block: headline, account, source and basis."""
     severity = str(finding.get("severity", "notable"))
     state = "ended " + age(finding["ended"], now) if finding.get("ended") else "standing"
-    return "\n".join(
-        [
-            f"{_MARK.get(severity, '!  ')} {finding['headline']}",
-            f"    {finding['detail']}",
-            f"    Source: {finding['source']}. Basis: {finding['basis']}.",
-            f"    {severity.capitalize()}; first seen {age(finding.get('first_seen'), now)}, "
-            f"{state}.",
-        ]
-    )
+    lines = [
+        f"{_MARK.get(severity, '!  ')} {finding['headline']}",
+        f"    {finding['detail']}",
+        f"    Source: {finding['source']}. Basis: {finding['basis']}.",
+        f"    {severity.capitalize()}; first seen {age(finding.get('first_seen'), now)}, {state}.",
+    ]
+    outcome = finding.get("outcome")
+    if outcome:
+        lines.append(
+            f"    Checked {age(finding.get('reviewed_at'), now)} against the {outcome['record']}: "
+            f"{outcome['verdict']}. {outcome['note']}"
+        )
+    return "\n".join(lines)
+
+
+def record_line(tally: dict[str, int]) -> str:
+    """The watch's track record in one line: how its checked findings turned out."""
+    checked = sum(count for verdict, count in tally.items() if verdict != "unchecked")
+    if checked == 0:
+        waiting = tally.get("unchecked", 0)
+        return (
+            f"Track record: {waiting} finding{'s' if waiting != 1 else ''} not yet checked "
+            "against a later record."
+            if waiting
+            else "Track record: no findings yet."
+        )
+    parts = [
+        f"{tally[verdict]} {verdict}"
+        for verdict in ("confirmed", "revised", "withdrawn", "unconfirmed")
+        if tally.get(verdict)
+    ]
+    line = f"Track record: of {checked} checked against later records, {', '.join(parts)}"
+    if tally.get("unchecked"):
+        line += f"; {tally['unchecked']} not yet checked"
+    return line + "."
 
 
 def status_line(status: dict[str, Any], now: datetime | None = None) -> str:
@@ -63,9 +89,12 @@ def status_line(status: dict[str, Any], now: datetime | None = None) -> str:
 
 
 def brief(
-    statuses: list[dict[str, Any]], findings: list[dict[str, Any]], now: datetime | None = None
+    statuses: list[dict[str, Any]],
+    findings: list[dict[str, Any]],
+    now: datetime | None = None,
+    tally: dict[str, int] | None = None,
 ) -> str:
-    """Everything the watch has to say: standing findings, then every feed."""
+    """Everything the watch has to say: standing findings, every feed, its track record."""
     standing = [finding for finding in findings if not finding.get("ended")]
     order = {"severe": 0, "significant": 1, "notable": 2}
     standing.sort(key=lambda f: (order.get(str(f.get("severity")), 3), f.get("first_seen", "")))
@@ -82,4 +111,7 @@ def brief(
     reachable = sum(1 for status in statuses if status.get("state") in ("ok", "stale"))
     lines.append(f"Feeds ({reachable} of {len(statuses)} answering)")
     lines.extend("  " + status_line(status, now) for status in statuses)
+    if tally is not None:
+        lines.append("")
+        lines.append(record_line(tally))
     return "\n".join(lines)

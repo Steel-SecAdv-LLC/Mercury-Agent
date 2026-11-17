@@ -42,7 +42,29 @@ function findingCard(finding) {
   facts.textContent = "Source: " + finding.source + ". Basis: " + finding.basis +
     ". First seen " + ago(finding.first_seen) + "; " + state + ".";
   card.appendChild(facts);
+  if (finding.outcome) {
+    const checked = element("p", "outcome outcome-" + finding.outcome.verdict);
+    checked.appendChild(element("span", "badge", finding.outcome.verdict));
+    checked.appendChild(document.createTextNode(
+      " Checked " + ago(finding.reviewed_at) + " against the " + finding.outcome.record +
+      ". " + finding.outcome.note));
+    card.appendChild(checked);
+  }
   return card;
+}
+
+function trackRecord(tally) {
+  const verdicts = ["confirmed", "revised", "withdrawn", "unconfirmed"];
+  const checked = verdicts.reduce((sum, verdict) => sum + (tally[verdict] || 0), 0);
+  const waiting = tally.unchecked || 0;
+  if (checked === 0) {
+    return waiting
+      ? waiting + (waiting === 1 ? " finding" : " findings") + " not yet checked against a later record."
+      : "No findings yet.";
+  }
+  const parts = verdicts.filter((verdict) => tally[verdict]).map((verdict) => tally[verdict] + " " + verdict);
+  return "Of " + checked + " checked against later records: " + parts.join(", ") +
+    (waiting ? "; " + waiting + " not yet checked." : ".");
 }
 
 function feedRow(feed) {
@@ -87,6 +109,8 @@ function draw(data) {
     standing.sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3));
     standing.forEach((finding) => findings.appendChild(findingCard(finding)));
   }
+
+  document.getElementById("track-record").textContent = trackRecord(data.track_record || {});
 
   const feeds = document.getElementById("feeds");
   feeds.replaceChildren();

@@ -1158,18 +1158,44 @@ GREY_THEME_CSS = """
    neutral slate greys, the same signal hues. Applied as html.ds-grey by the
    console's MercurySettings (dc-runtime.js). */
 html.ds-grey {
-  --void:#2A2E33; --bg:#31363C; --surface-1:#383E45; --surface-2:#41484F;
-  --surface-3:#4B535B; --surface-4:#565F68;
-  --border-faint:#454D55; --border:#525B64; --border-strong:#6B7681;
-  --fg:#EEF1F4; --fg-2:#CBD2D9; --fg-3:#A3ADB8; --fg-muted:#8893A0; --fg-faint:#6F7A86;
+  --void:#24282C; --bg:#2A2E33; --surface-1:#30353B; --surface-2:#383E44;
+  --surface-3:#40474E; --surface-4:#4B535B;
+  --border-faint:#3E454C; --border:#4C545C; --border-strong:#69747F;
+  --fg:#EEF1F4; --fg-2:#CBD2D9; --fg-3:#B2BBC4; --fg-muted:#8893A0; --fg-faint:#6F7A86;
+  --brand-cyan:#52C5F3; --brand-ink-grey:#B2BAC4; --cognitive:#B8B1F1; --cognitive-soft:#CFCAF6;
+  --anomaly:#FF9A9C; --anomaly-soft:#FFB3B5;
   --shadow-sm:0 1px 2px rgba(0,0,0,.18); --shadow-md:0 4px 14px rgba(0,0,0,.22);
   --shadow-lg:0 14px 40px rgba(0,0,0,.30);
-  background:#31363C;
+  background:#2A2E33;
 }
 html.ds-contrast.ds-grey {
   --fg:#FFFFFF; --fg-2:#EEF1F4; --fg-3:#D5DBE1; --fg-muted:#B6BFC9;
   --border-faint:#5A636C; --border:#6E7882; --border-strong:#8C97A2;
 }
+
+/* ---- TEXT CONTRAST (console) ----------------------------------------------
+   The design system's tokens were tuned on its darkest surface. The console
+   also sets text on raised surfaces, on tinted status grounds and, in the
+   light theme, on the terminal's own ground; there several tokens fell
+   under WCAG AA's 4.5:1 (as low as 2.5:1 for the primary button's label in
+   the light theme). Each value below is the token's own hue moved only as
+   far as 4.5:1 needs on every ground the console sets it on; the grey
+   theme's are in its block above. */
+:root { --fg-3:#95A2B1; --brand-ink-grey:#98A3B0; }
+html.ds-grey { --fg-3:#B2BBC4; --brand-ink-grey:#B2BAC4; }
+html.ds-light {
+  --fg-3:#545F6E; --brand-ink-grey:#545F6E;
+  --mercury-300:#0A6578; --mercury-400:#057083; --mercury-500:#007385;
+  --brand-cyan:#057083; --brand-gold:#7D630E;
+  --normal:#167342; --normal-bright:#115A33;
+  --warning:#935C00; --warning-bright:#7A4C00;
+  --anomaly:#C32B25; --cognitive:#6352D4; --verified:#2564C2; --benevolence:#86630E;
+}
+html.ds-contrast { --fg-3:#C2CCD6; --brand-ink-grey:#C2CCD6; }
+html.ds-contrast.ds-light { --fg-3:#33404F; --brand-ink-grey:#33404F; }
+html.ds-contrast.ds-grey { --fg-3:#D5DBE1; --brand-ink-grey:#D5DBE1; }
+/* A heading for the page once the opening screen (which carries its own) is gone; read, not shown. */
+.mcli-sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
 
 /* ---- VISUAL ALERT CUE (console) -------------------------------------------
    The frame flashes when an alert lands; under reduced motion it holds the
@@ -2219,6 +2245,347 @@ MODULE_PATCHES["mercury-cli-agent.js"] = MODULE_PATCHES["mercury-cli-agent.js"] 
     ),
 )
 
+# --------------------------------------------------------------------------- #
+# The watch: a WATCH tab in the Mercury Agent workspace
+# --------------------------------------------------------------------------- #
+# The console could call GET /api/v1/watch as a raw route and nothing else: what
+# Mercury is reading live, what it found and how its findings turned out were
+# only on the separate /watch page. The tab reads the same route, re-reads it
+# every 30 seconds while it is open, and invents nothing when the engine is
+# offline or the route fails.
+
+OLD_AG_FLAGS = 'agFleet: tab === "fleet", agTrust: tab === "trust" };\n'
+OLD_AG_BASE = "agFleet: false, agTrust: false, "
+OLD_AG_TABS = (
+    '["trust", "TRUST", "Agent notice, security contact and source"]].map(([id, t, tip]) =>'
+)
+OLD_AG_TRUST_BRANCH = '    if (tab === "trust") {\n      const N = G.NOTICE, L2 = s.agLive;\n'
+OLD_AG_UNMOUNT = "  componentWillUnmount() { clearTimeout(this._ic); this.alertsClose();"
+OLD_AG_UPDATE_END = "if (!this.live() && this._wsTried) { this._wsTried = false; this.alertsClose(true); } this.capSave();"
+OLD_AG_PALETTE = (
+    '    { const h = hit("run diagnostics self test selftest verify health check console");'
+)
+OLD_AG_INTENT = "    if (/architecture|how are you built|neuro.?symbolic (ai|architecture)|your components/.test(q))"
+OLD_AG_SESSION_ITEM = '{ t: "Use simulated engine", s: window.MercuryCLISim ?'
+OLD_ALERT_BANNER = '    <sc-if value="{{ alertBanner }}" hint-placeholder-val="{{ false }}">'
+OLD_BOOT_SHOW = "bootShow: !s.opened,"
+OLD_PRESENCE_CAP = 'letter-spacing:.12em;color:var(--mercury-200);text-shadow:0 0 6px rgba(0,0,0,.9);">starting</span>'
+OLD_AG_TAB_STRIP = '<sc-for list="{{ agTabs }}" as="at" hint-placeholder-count="4">'
+OLD_AG_TRUST_END = (
+    'max-height:320px;">{{ agTrustText }}</pre></div></sc-if>\n              </sc-if>\n'
+)
+OLD_DIAG_TABS = 'for (const tb of ["act", "arch", "fleet", "trust"]) s.guard("agent tab " + tb,'
+OLD_DIAG_TAB_COUNT = (
+    's.ok(o.wsAgent && o.agTabs.length === 4, "agent workspace " + tb + " renders", "");\n'
+)
+OLD_DIAG_TRUST = (
+    'if (tb === "trust") s.ok(o.agNotice.length === 8 && o.agPrinciples.length === 8, '
+    '"trust tab renders the notice", ""); });\n'
+)
+
+_WATCH_VALS = (
+    '    if (tab === "watch") {\n'
+    "      const W = s.agWatch || {}, d = W.data || null, all = d && Array.isArray(d.findings) ? d.findings : [], "
+    "feeds = d && Array.isArray(d.feeds) ? d.feeds : [], tr = d && d.track_record || {};\n"
+    '      const ago = (iso) => { const at = typeof iso === "number" ? iso : Date.parse(iso); if (!iso || !isFinite(at)) '
+    'return "never"; const sec = Math.max(0, (Date.now() - at) / 1000); if (sec < 90) return "just now"; if (sec < 5400) '
+    'return Math.round(sec / 60) + " min ago"; if (sec < 129600) return Math.round(sec / 3600) + " h ago"; return '
+    'Math.round(sec / 86400) + " d ago"; };\n'
+    '      const SEV = { severe: "var(--anomaly)", significant: "var(--warning)", notable: "var(--mercury-300)" }, '
+    'ST = { ok: "var(--normal)", stale: "var(--warning)", down: "var(--anomaly)" }, VC = { confirmed: "var(--normal)", '
+    'revised: "var(--warning)", unconfirmed: "var(--warning)", withdrawn: "var(--anomaly)" }, VERDICTS = ["confirmed", '
+    '"revised", "withdrawn", "unconfirmed"];\n'
+    '      const str = (v) => v == null ? "" : String(v), card = (f) => { const oc = f.outcome || null, sev = str(f.severity); '
+    'return { sev: sev.toUpperCase(), c: SEV[sev] || "var(--fg-2)", head: str(f.headline), detail: str(f.detail), '
+    'meta: "Source: " + str(f.source) + " · Basis: " + str(f.basis), when: "first seen " + ago(f.first_seen) + '
+    '(f.ended ? " · ended " + ago(f.ended) : " · standing"), has: !!oc, verdict: oc ? str(oc.verdict).toUpperCase() : "", '
+    'vc: oc ? VC[oc.verdict] || "var(--fg-2)" : "var(--fg-2)", check: oc ? "Checked " + ago(f.reviewed_at) + " against the " '
+    '+ str(oc.record) + ". " + str(oc.note) : "" }; };\n'
+    "      const RANK = { severe: 0, significant: 1, notable: 2 }, rank = (f) => RANK[f.severity] == null ? 3 : RANK[f.severity], open = all.filter((f) => !f.ended).sort((a, b) => rank(a) - rank(b)), past = all.filter((f) => f.ended).slice(0, 5), up = "
+    'feeds.filter((f) => f.state === "ok" || f.state === "stale").length, read = feeds.some((f) => f.state !== "waiting"), '
+    "checked = VERDICTS.reduce((n, v) => n + (+tr[v] || 0), 0), waiting = +tr.unchecked || 0;\n"
+    '      const lead = !live ? "Connect mercury-agent serve to see the watch. It reads public feeds (USGS, NOAA, FEMA) on '
+    'the engine; this tab shows what it recorded and never invents a reading." : W.err && !d ? "The engine did not answer '
+    'GET /api/v1/watch: " + W.err : !d ? "Reading the watch…" : (open.length ? open.length + (open.length === 1 ? " finding" '
+    ': " findings") + " standing. " : read ? "Nothing notable in any feed. " : "") + (read ? up + " of " + feeds.length + '
+    '" feeds answering." : "No feed has been read yet.") + (d.watching ? "" : " The watch is not running in this engine: '
+    'start it with MERCURY_WATCH_ENABLED=true, or run mercury-agent watch beside it.") + (W.err ? " Last refresh failed: " '
+    '+ W.err : "");\n'
+    "      Object.assign(o, {\n"
+    '        agWatchMeta: !live ? "OFFLINE" : W.busy ? "READING…" : !d ? (W.err ? "UNREACHABLE" : "") : (d.watching ? '
+    '"WATCHING" : "NOT WATCHING") + " · read " + ago(W.at) + " · refreshes every 30 s", agWatchLead: lead,\n'
+    "        agWatchRefresh: () => this.watchRefresh(), agWatchHasOpen: open.length > 0, agWatchOpen: open.map(card), "
+    "agWatchHasPast: past.length > 0, agWatchPast: past.map(card), agWatchHasFeeds: feeds.length > 0,\n"
+    '        agWatchFeeds: feeds.map((f) => ({ st: str(f.state).toUpperCase(), c: ST[f.state] || "var(--fg-3)", title: '
+    'str(f.title || f.feed), sum: str(f.summary) + (f.error ? " (" + f.error + ")" : ""), when: f.checked_at ? "read " + '
+    'ago(f.checked_at) : "not read yet" })),\n'
+    '        agWatchRecord: !d ? "" : checked === 0 ? (waiting ? waiting + (waiting === 1 ? " finding" : " findings") + '
+    '" not yet checked against a later record." : "No findings yet.") : "Of " + checked + " checked against later records: " '
+    '+ VERDICTS.filter((v) => +tr[v]).map((v) => tr[v] + " " + v).join(", ") + (waiting ? "; " + waiting + " not yet checked." '
+    ': "."),\n'
+    "      });\n"
+    "    }\n"
+)
+
+_WATCH_METHODS = (
+    "  async watchRefresh() {\n"
+    "    // The WATCH tab's only source is GET /api/v1/watch. A failed read keeps the last good one on screen and says so.\n"
+    "    clearTimeout(this._watchT); const again = () => { if (this._watchOn) this._watchT = setTimeout(() => "
+    "this.watchRefresh(), 30000); };\n"
+    "    if (!this.live()) { again(); return; }\n"
+    "    if (this._watchBusy) return; this._watchBusy = true; const seq = (this._watchSeq = (this._watchSeq || 0) + 1);\n"
+    "    this.setState((p) => ({ agWatch: Object.assign({}, p.agWatch, { busy: true }) }));\n"
+    '    let r; try { r = await this.A.get("/api/v1/watch?limit=25"); } catch (e) { r = { ok: false, status: 0, error: '
+    "String(e && e.message || e) }; }\n"
+    "    this._watchBusy = false; if (seq !== this._watchSeq) return;\n"
+    "    this.setState((p) => ({ agWatch: r.ok && r.data && Array.isArray(r.data.feeds) ? { data: r.data, at: Date.now() } : "
+    '{ data: (p.agWatch || {}).data || null, at: (p.agWatch || {}).at || null, err: (r.status || "no response") + " " + '
+    '(r.error || "unexpected response") } }));\n'
+    "    again();\n"
+    "  }\n"
+    "  watchSync() {\n"
+    "    // Reads when the tab opens (a click, the palette, the agent, a restored session) and stops when it closes.\n"
+    '    const on = this.state.ws === "agent" && this.state.agTab === "watch";\n'
+    "    if (on && !this._watchOn) { this._watchOn = true; this.watchRefresh(); }\n"
+    "    else if (!on && this._watchOn) { this._watchOn = false; clearTimeout(this._watchT); }\n"
+    "  }\n"
+)
+
+_WATCH_CARD = (
+    '<div style="border:1px solid var(--border);border-left:3px solid {{ wf.c }};border-radius:var(--r-md);'
+    'background:var(--surface-1);padding:12px 14px;display:flex;flex-direction:column;gap:6px;">'
+    '<div style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;">'
+    '<span style="font-size:10px;letter-spacing:.18em;color:{{ wf.c }};">{{ wf.sev }}</span>'
+    '<span style="font-size:13px;color:var(--fg);font-family:var(--font-sans);">{{ wf.head }}</span></div>'
+    '<span style="font-size:12px;line-height:1.6;color:var(--fg-2);font-family:var(--font-sans);text-wrap:pretty;">'
+    "{{ wf.detail }}</span>"
+    '<span style="font-size:11px;line-height:1.5;color:var(--fg-3);font-family:var(--font-sans);">{{ wf.meta }}</span>'
+    '<span style="font-size:10.5px;color:var(--fg-3);">{{ wf.when }}</span>'
+    '<sc-if value="{{ wf.has }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;border-top:1px solid var(--border-faint);'
+    'padding-top:6px;"><span style="font-size:10px;letter-spacing:.14em;color:{{ wf.vc }};border:1px solid {{ wf.vc }};'
+    'border-radius:999px;padding:1px 8px;">{{ wf.verdict }}</span>'
+    '<span style="flex:1;min-width:220px;font-size:11.5px;line-height:1.55;color:var(--fg-2);font-family:var(--font-sans);'
+    'text-wrap:pretty;">{{ wf.check }}</span></div></sc-if></div>'
+)
+
+_WATCH_GRID = (
+    "display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:12px;"
+)
+_WATCH_LABEL = "font-size:10px;letter-spacing:.18em;color:var(--fg-3);"
+
+_WATCH_TAB = (
+    '              <sc-if value="{{ agWatch }}" hint-placeholder-val="{{ false }}">\n'
+    '                <div style="display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline;">'
+    '<span style="font-size:15px;color:var(--fg);">What Mercury is watching</span>'
+    '<span style="font-size:11px;color:var(--fg-3);flex:1;min-width:0;">{{ agWatchMeta }}</span>'
+    '<button onClick="{{ agWatchRefresh }}" title="Read GET /api/v1/watch now" style="cursor:pointer;'
+    "font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;letter-spacing:.1em;"
+    'padding:5px 10px;background:transparent;color:var(--fg-2);border:1px solid var(--border-strong);">REFRESH</button>'
+    "</div>\n"
+    '                <span role="status" style="font-size:12.5px;line-height:1.6;color:var(--fg);'
+    'font-family:var(--font-sans);text-wrap:pretty;">{{ agWatchLead }}</span>\n'
+    '                <sc-if value="{{ agWatchHasOpen }}" hint-placeholder-val="{{ false }}">'
+    f'<div style="{_WATCH_GRID}"><sc-for list="{{{{ agWatchOpen }}}}" as="wf" hint-placeholder-count="1">'
+    f"{_WATCH_CARD}</sc-for></div></sc-if>\n"
+    '                <sc-if value="{{ agWatchHasFeeds }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:4px;">'
+    f'<span style="{_WATCH_LABEL}">FEEDS</span>'
+    '<sc-for list="{{ agWatchFeeds }}" as="fd" hint-placeholder-count="5">'
+    '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;padding:7px 0;'
+    'border-top:1px solid var(--border-faint);">'
+    '<span style="flex:0 0 64px;font-size:10px;letter-spacing:.14em;color:{{ fd.c }};">{{ fd.st }}</span>'
+    '<span style="flex:0 1 250px;font-size:12px;color:var(--fg);font-family:var(--font-sans);">{{ fd.title }}</span>'
+    '<span style="flex:1 1 280px;min-width:0;font-size:12px;line-height:1.5;color:var(--fg-2);'
+    'font-family:var(--font-sans);overflow-wrap:anywhere;">{{ fd.sum }}</span>'
+    '<span style="flex:none;font-size:10.5px;color:var(--fg-3);">{{ fd.when }}</span></div></sc-for></div></sc-if>\n'
+    '                <sc-if value="{{ agWatchHasFeeds }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:4px;">'
+    f'<span style="{_WATCH_LABEL}">TRACK RECORD</span>'
+    '<span style="font-size:12px;line-height:1.6;color:var(--fg);font-family:var(--font-sans);">{{ agWatchRecord }}</span>'
+    '<span style="font-size:11px;line-height:1.55;color:var(--fg-3);font-family:var(--font-sans);text-wrap:pretty;">'
+    "Mercury checks each finding later against the record that settles it: the USGS catalogue once a seismologist has "
+    "reviewed an earthquake, NOAA's tsunami database, the same gauge's later readings.</span></div></sc-if>\n"
+    '                <sc-if value="{{ agWatchHasPast }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:8px;">'
+    f'<span style="{_WATCH_LABEL}">EARLIER</span>'
+    f'<div style="{_WATCH_GRID}"><sc-for list="{{{{ agWatchPast }}}}" as="wf" hint-placeholder-count="0">'
+    f"{_WATCH_CARD}</sc-for></div></div></sc-if>\n"
+    "              </sc-if>\n"
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the shell's heading shows when the opening screen does not",
+        OLD_BOOT_SHOW,
+        OLD_BOOT_SHOW + " shellHead: !!s.opened,",
+    ),
+    (
+        "the agent workspace has a WATCH tab",
+        OLD_AG_FLAGS,
+        'agFleet: tab === "fleet", agTrust: tab === "trust", agWatch: tab === "watch" };\n',
+    ),
+    (
+        "the WATCH tab's bindings have defaults",
+        OLD_AG_BASE,
+        OLD_AG_BASE
+        + 'agWatch: false, agWatchMeta: "", agWatchLead: "", agWatchRefresh: noop, agWatchHasOpen: false, '
+        "agWatchOpen: [], agWatchHasPast: false, agWatchPast: [], agWatchHasFeeds: false, agWatchFeeds: [], "
+        'agWatchRecord: "", ',
+    ),
+    (
+        "WATCH sits beside ACT in the tab strip",
+        OLD_AG_TABS,
+        '["trust", "TRUST", "Agent notice, security contact and source"], ["watch", "WATCH", "What Mercury is '
+        'reading live, what it found and how its findings turned out"]].map(([id, t, tip]) =>',
+    ),
+    (
+        "the WATCH tab renders what GET /api/v1/watch returned",
+        OLD_AG_TRUST_BRANCH,
+        _WATCH_VALS + OLD_AG_TRUST_BRANCH,
+    ),
+    (
+        "the watch is read while its tab is open and its timer ends with the console",
+        OLD_AG_UNMOUNT,
+        _WATCH_METHODS
+        + "  componentWillUnmount() { clearTimeout(this._watchT); clearTimeout(this._ic); this.alertsClose();",
+    ),
+    (
+        "opening or leaving the WATCH tab starts or stops its reads",
+        OLD_AG_UPDATE_END,
+        OLD_AG_UPDATE_END + " this.watchSync();",
+    ),
+    (
+        "the agent's search finds the watch",
+        OLD_AG_PALETTE,
+        '    { const h = hit("watch live feeds findings earthquake tsunami space weather river gauge declarations '
+        'volcano flood happening now track record"); if (h) out.push({ h, label: "Agent · Watch · live feeds and findings", act: () => '
+        'this.setState({ ws: "agent", agTab: "watch", menu: null, pal: false }) }); }\n'
+        + OLD_AG_PALETTE,
+    ),
+    (
+        "the command palette opens the watch",
+        OLD_AG_SESSION_ITEM,
+        '{ t: "Open the watch", s: "live feeds, findings and how they turned out · Mercury Agent, WATCH tab", '
+        'k: "SESSION", act: () => this.setState({ ws: "agent", agTab: "watch", menu: null, pal: false }) }, '
+        + OLD_AG_SESSION_ITEM,
+    ),
+    (
+        "asked what it is watching, the agent opens the watch",
+        OLD_AG_INTENT,
+        "    if (/what are you (watching|monitoring|seeing)|anything happening|what(?:'s| is) happening|live feeds?|"
+        'the watch\\b|any (earthquakes?|tsunamis?|storms?|floods?|eruptions?|findings)/.test(q)) return { steps: ["intent · watch"], text: '
+        '"The watch reads six public feeds on the engine (USGS earthquakes and volcano alert levels, NOAA space '
+        "weather and tsunami buoys, NWS river gauges, FEMA declarations), reports what is notable by each source's own scale, and later checks each "
+        'finding against the record that settles it. The WATCH tab shows what it has recorded.", acts: [{ label: "Open '
+        'WATCH", act: () => this.setState({ ws: "agent", agTab: "watch" }) }] };\n' + OLD_AG_INTENT,
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the console has a level-one heading once the opening screen, which carried the only one, is dismissed",
+        OLD_ALERT_BANNER,
+        '    <sc-if value="{{ shellHead }}" hint-placeholder-val="{{ false }}"><h1 class="mcli-sr">Mercury Console</h1>'
+        "</sc-if>\n" + OLD_ALERT_BANNER,
+    ),
+    (
+        "the caption over the agent figure sits on the figure's own dark ground in every theme, so its colour is "
+        "that ground's, not the theme's (in the light theme the theme's was 2.8:1 against it)",
+        OLD_PRESENCE_CAP,
+        'letter-spacing:.12em;color:#8AE3F5;text-shadow:0 0 6px rgba(0,0,0,.9);">starting</span>',
+    ),
+    (
+        "the tab strip reserves room for five tabs",
+        OLD_AG_TAB_STRIP,
+        '<sc-for list="{{ agTabs }}" as="at" hint-placeholder-count="5">',
+    ),
+    ("the WATCH tab's markup", OLD_AG_TRUST_END, OLD_AG_TRUST_END + _WATCH_TAB),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "self-test: the WATCH tab is one of the agent tabs",
+        OLD_DIAG_TABS,
+        'for (const tb of ["act", "arch", "fleet", "trust", "watch"]) s.guard("agent tab " + tb,',
+    ),
+    (
+        "self-test: five agent tabs",
+        OLD_DIAG_TAB_COUNT,
+        's.ok(o.wsAgent && o.agTabs.length === 5, "agent workspace " + tb + " renders", "");\n',
+    ),
+    (
+        "self-test: the WATCH tab offline, unreachable, quiet and with findings",
+        OLD_DIAG_TRUST,
+        OLD_DIAG_TRUST.replace(" });\n", "\n")
+        + '          if (tb === "watch") { const st = { bg: "a", fg: "b", bd: "c" }, iso = (h) => new Date(Date.now() - h * '
+        "3600000).toISOString(), bad = /undefined|NaN|\\[object Object\\]/;\n"
+        "            T.live = () => false; const off = T.agentVals(st, st); s.ok(off.agWatch && /Connect mercury-agent serve/"
+        '.test(off.agWatchLead) && off.agWatchMeta === "OFFLINE" && !off.agWatchHasFeeds && !off.agWatchHasOpen, '
+        '"watch tab offline: says how to connect and shows no reading", off.agWatchLead);\n'
+        '            T.live = () => true; T.state.agWatch = { err: "503 Service Unavailable" }; const un = T.agentVals(st, st); '
+        's.ok(/did not answer GET \\/api\\/v1\\/watch: 503/.test(un.agWatchLead) && un.agWatchMeta === "UNREACHABLE" && '
+        '!un.agWatchHasFeeds, "watch tab unreachable: names the failure and shows no reading", un.agWatchLead);\n'
+        '            const feeds = [{ feed: "earthquakes", title: "Earthquakes worldwide (USGS)", state: "ok", summary: '
+        '"9 earthquakes in the past hour", checked_at: iso(0.1) }, { feed: "river_gauges", title: "River gauges in flood (NOAA NWPS)", '
+        'state: "down", summary: "could not be read", error: "ConnectionError: unreachable", checked_at: iso(0.2) }, '
+        '{ feed: "declarations", title: "FEMA declarations", state: "waiting", summary: "not read yet" }];\n'
+        "            T.state.agWatch = { data: { watching: false, feeds: feeds.map((f) => Object.assign({}, f, { state: "
+        '"waiting", checked_at: null })), findings: [], track_record: {} }, at: Date.now() }; const idle = '
+        "T.agentVals(st, st); s.ok(/No feed has been read yet\\. The watch is not running/.test(idle.agWatchLead) && "
+        'idle.agWatchRecord === "No findings yet." && idle.agWatchFeeds.every((f) => f.when === "not read yet"), '
+        '"watch tab before any read: says nothing was read and how to start the watch", idle.agWatchLead);\n'
+        "            T.state.agWatch = { data: { watching: true, feeds, findings: [], track_record: { unchecked: 0 } }, at: "
+        "Date.now() }; const quiet = T.agentVals(st, st); s.ok(/^Nothing notable in any feed\\. 1 of 3 feeds answering\\.$/"
+        ".test(quiet.agWatchLead) && /^WATCHING · read just now/.test(quiet.agWatchMeta) && !quiet.agWatchHasOpen, "
+        '"watch tab quiet: nothing notable, feeds counted", quiet.agWatchLead);\n'
+        '            const fnd = [{ severity: "notable", headline: "Minor flooding: Test River", detail: "d", source: "NWS", basis: "NWS flood category", first_seen: iso(1), ended: null, outcome: null }, { severity: "severe", headline: "Magnitude 7.4 earthquake, 130 km E of Sendai, Japan", '
+        'detail: "USGS located it 29 km deep.", source: "U.S. Geological Survey", basis: "USGS magnitude class: major", '
+        'first_seen: iso(3), ended: null, reviewed_at: iso(2), outcome: { verdict: "revised", note: "USGS now lists it at '
+        'magnitude 7.1.", record: "USGS earthquake catalogue", final: true } }, { severity: "notable", headline: "G1 storm", '
+        'detail: "Kp 5.", source: "NOAA SWPC", basis: "NOAA G scale", first_seen: iso(50), ended: iso(40), outcome: null }];\n'
+        "            T.state.agWatch = { data: { watching: true, feeds, findings: fnd, track_record: { confirmed: 0, revised: 1, "
+        'withdrawn: 0, unconfirmed: 0, unchecked: 2 } }, at: Date.now(), err: "0 Network error" }; const w = '
+        "T.agentVals(st, st);\n"
+        '            s.ok(w.agWatchOpen.length === 2 && w.agWatchOpen[0].sev === "SEVERE" && w.agWatchPast.length === 1 && /^2 findings standing\\. 1 of 3 feeds '
+        'answering\\. Last refresh failed: 0 Network error$/.test(w.agWatchLead), "watch tab: standing and ended findings '
+        'are separated; a failed refresh keeps the last reading and says so", w.agWatchLead);\n'
+        '            s.ok(w.agWatchOpen[0].has && w.agWatchOpen[0].verdict === "REVISED" && w.agWatchOpen[0].check === '
+        '"Checked 2 h ago against the USGS earthquake catalogue. USGS now lists it at magnitude 7.1." && '
+        '!w.agWatchPast[0].has && /ended 2 d ago/.test(w.agWatchPast[0].when), "watch tab: a checked finding says what the '
+        'later record said; an unchecked one claims no check", w.agWatchOpen[0].check);\n'
+        '            s.ok(w.agWatchFeeds.length === 3 && w.agWatchFeeds[1].st === "DOWN" && /ConnectionError/.test('
+        'w.agWatchFeeds[1].sum) && w.agWatchFeeds[2].when === "not read yet", "watch tab: every feed has a row; a feed that '
+        'is down says why", w.agWatchFeeds[1].sum);\n'
+        '            s.ok(w.agWatchRecord === "Of 1 checked against later records: 1 revised; 2 not yet checked.", '
+        '"watch tab: the track record is counted", w.agWatchRecord);\n'
+        "            s.ok(!bad.test(JSON.stringify([off, un, idle, quiet, w].map((x) => [x.agWatchLead, x.agWatchMeta, "
+        'x.agWatchRecord, x.agWatchOpen, x.agWatchPast, x.agWatchFeeds]))), "watch tab output is clean in every state", "");\n'
+        '            const a = T.agentIntent("what are you watching"); s.ok(a && a.acts && /WATCH/.test(a.acts[0].label), '
+        '"asked what it is watching, the agent offers the WATCH tab", a && a.text);\n'
+        "            } });\n"
+        "        { const T5 = mk(); T5.live = () => true; T5._watchOn = false; T5._watchBusy = false; let calls = 0; "
+        'const snap = { watching: true, feeds: [{ feed: "earthquakes", title: "Earthquakes worldwide (USGS)", state: '
+        '"ok", summary: "quiet" }], findings: [], track_record: {} }; T5.A = Object.assign({}, T5.A, { get: async () => '
+        "{ calls++; return calls === 1 ? { ok: true, status: 200, data: snap } : { ok: false, status: 502, error: "
+        '"Bad Gateway" }; } }); T5.state.ws = "agent"; T5.state.agTab = "watch"; T5.watchSync(); T5.watchSync(); '
+        "await new Promise((r) => setTimeout(r, 30)); const first = T5.state.agWatch || {}; await T5.watchRefresh(); "
+        'const second = T5.state.agWatch || {}; T5.state.agTab = "act"; T5.watchSync(); clearTimeout(T5._watchT); '
+        "s.ok(calls === 2 && first.data === snap && !first.err && !first.busy && second.data === snap && "
+        '/502 Bad Gateway/.test(second.err || "") && T5._watchOn === false, "opening the WATCH tab reads the route once; '
+        'a failed re-read keeps the last reading; leaving the tab stops the reads", calls + " calls · " + (second.err || "")); }\n'
+        "        { const q = (sel, at) => Array.from(document.querySelectorAll(sel)).filter((el) => !el.hasAttribute(at)), "
+        'miss = q(\'[role="radio"],[role="checkbox"],[role="switch"]\', "aria-checked").concat(q(\'[role="tab"]\', '
+        '"aria-selected")); s.ok(miss.length === 0, "every radio, checkbox, switch and tab on screen states whether it is '
+        'chosen (a false state is written, not dropped)", miss.length + " without the state: " + miss.slice(0, 3).map((el) => '
+        '(el.getAttribute("title") || el.textContent || "").slice(0, 24)).join(" | ")); '
+        's.ok(Array.from(document.querySelectorAll("pre")).every((el) => !/auto|scroll/.test(getComputedStyle(el).overflowY) '
+        '|| el.tabIndex === 0), "every scrolling block can take keyboard focus", ""); '
+        's.ok(document.querySelectorAll("h1").length === 1, "the page has one level-one heading", '
+        'document.querySelectorAll("h1").length); }\n',
+    ),
+)
+
 
 def _apply(text: str, patches: tuple[tuple[str, str, str], ...], where: str) -> str:
     for desc, old, new in patches:
@@ -2252,6 +2619,14 @@ def build() -> dict[str, str]:
     source = PROTOTYPE.read_text(encoding="utf-8")
     template, helmet_css, logic = _extract(source)
     template = _apply(template, TEMPLATE_PATCHES, "template")
+    # A scrolling block must be reachable from the keyboard (WCAG 2.1.1): every <pre> that scrolls takes focus.
+    template, focusable = re.subn(
+        r'<pre style="(margin:0;(?:max-height:\d+px;)?overflow:auto;)',
+        r'<pre tabindex="0" style="\1',
+        template,
+    )
+    if focusable < 6:
+        raise SystemExit(f"template: expected at least 6 scrolling <pre> blocks, found {focusable}")
     parser = _TreeBuilder()
     parser.feed(template)
     parser.close()

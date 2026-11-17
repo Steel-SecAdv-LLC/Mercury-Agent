@@ -20,7 +20,7 @@ from omni_mercury_engine.api.routes.watch import router, snapshot
 from omni_mercury_engine.cli import main
 from omni_mercury_engine.watch import FEEDS, Severity, WatchStore, service
 from omni_mercury_engine.watch.feeds import EarthquakeFeed
-from omni_mercury_engine.watch.model import FeedStatus, Finding
+from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -77,6 +77,26 @@ class TestRoute:
         assert states["earthquakes"] == "ok" and states["river_gauges"] == "waiting"
         assert TestClient(app).get("/api/v1/watch?limit=0").status_code == 422
 
+    def test_it_serves_each_findings_outcome_and_the_track_record(self, state: Path) -> None:
+        """Was: the route had no way to say a finding had since been revised."""
+        assert snapshot()["track_record"]["unchecked"] == 0  # no store yet
+        _record(state)
+        store = WatchStore(state)
+        (stored,) = store.findings()
+        store.record_outcome(
+            stored["key"],
+            Outcome("revised", "USGS now lists it at magnitude 7.1.", "USGS earthquake catalogue"),
+            NOW + timedelta(hours=2),
+        )
+
+        data = snapshot()
+
+        assert data["findings"][0]["outcome"]["verdict"] == "revised"
+        assert data["findings"][0]["reviewed_at"] == (NOW + timedelta(hours=2)).isoformat()
+        assert data["track_record"] == {
+            "confirmed": 0, "revised": 1, "withdrawn": 0, "unconfirmed": 0, "unchecked": 0,
+        }  # fmt: skip
+
     def test_the_server_mounts_it(self) -> None:
         from omni_mercury_engine.api.server import app
 
@@ -101,6 +121,11 @@ class TestCommand:
         assert "1 finding standing" in result.output
         assert "!!! Magnitude 7.4 earthquake, 130 km E of Sendai, Japan" in result.output
         assert "ok    Earthquakes worldwide (USGS): 9 earthquakes in the past hour" in result.output
+        assert result.output.rstrip().endswith(
+            "Track record: 1 finding not yet checked against a later record."
+        )
+        as_json = CliRunner().invoke(main, ["watch", "--status", "--json"])
+        assert json.loads(as_json.output)["track_record"]["unchecked"] == 1
 
     def test_once_reads_the_chosen_feed_and_reports_it(
         self, state: Path, monkeypatch: pytest.MonkeyPatch
@@ -136,10 +161,10 @@ class TestCommand:
         )
 
     def test_an_unknown_feed_is_a_usage_error_naming_the_feeds(self, state: Path) -> None:
-        result = CliRunner().invoke(main, ["watch", "--once", "--feed", "volcanoes"])
+        result = CliRunner().invoke(main, ["watch", "--once", "--feed", "wildfires"])
 
         assert result.exit_code == 2
-        assert "no such feed: volcanoes" in result.output and "tsunami_buoys" in result.output
+        assert "no such feed: wildfires" in result.output and "tsunami_buoys" in result.output
 
 
 class TestService:
@@ -184,4 +209,6 @@ class TestPage:
         # A finding's text comes from public feeds: it is never parsed as markup.
         assert "innerHTML" not in script.text and "insertAdjacentHTML" not in script.text
         assert "/api/v1/watch" in script.text
+        assert 'id="track-record"' in page.text and "track_record" in script.text
+        assert "finding.outcome" in script.text and "innerHTML" not in script.text
         assert 'href="/watch"' in client.get("/").text

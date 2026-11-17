@@ -291,7 +291,7 @@ No synthetic data is used in any benchmark.
 | Field | Value |
 |-------|-------|
 | **Loader** | `FloodLoader` |
-| **API** | USGS Water Services + OpenFEMA |
+| **API** | USGS Water Services + OpenFEMA; NOAA National Water Prediction Service for national flood status (`fetch_flood_status`) |
 | **API Key** | Not required |
 | **License** | Public Domain (US Government) |
 

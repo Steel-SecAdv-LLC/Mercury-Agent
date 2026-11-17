@@ -33,10 +33,12 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
     directory = default_state_dir()
     statuses: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
+    tally = {"confirmed": 0, "revised": 0, "withdrawn": 0, "unconfirmed": 0, "unchecked": 0}
     if (directory / "watch.sqlite").exists():
         store = WatchStore(directory)
         statuses = store.statuses()
         findings = store.findings(limit=limit, open_only=open_only)
+        tally = store.track_record()
     seen = {status["feed"] for status in statuses}
     for name, feed in sorted(FEEDS.items()):
         if name not in seen:
@@ -49,6 +51,7 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
         "watching": watching(),
         "feeds": statuses,
         "findings": findings,
+        "track_record": tally,
     }
 
 

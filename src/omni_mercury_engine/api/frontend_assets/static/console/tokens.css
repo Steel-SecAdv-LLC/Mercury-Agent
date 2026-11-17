@@ -630,18 +630,44 @@ html.mn-reduce-motion .ms-state--loading .ms-state-ico{animation:none;}
    neutral slate greys, the same signal hues. Applied as html.ds-grey by the
    console's MercurySettings (dc-runtime.js). */
 html.ds-grey {
-  --void:#2A2E33; --bg:#31363C; --surface-1:#383E45; --surface-2:#41484F;
-  --surface-3:#4B535B; --surface-4:#565F68;
-  --border-faint:#454D55; --border:#525B64; --border-strong:#6B7681;
-  --fg:#EEF1F4; --fg-2:#CBD2D9; --fg-3:#A3ADB8; --fg-muted:#8893A0; --fg-faint:#6F7A86;
+  --void:#24282C; --bg:#2A2E33; --surface-1:#30353B; --surface-2:#383E44;
+  --surface-3:#40474E; --surface-4:#4B535B;
+  --border-faint:#3E454C; --border:#4C545C; --border-strong:#69747F;
+  --fg:#EEF1F4; --fg-2:#CBD2D9; --fg-3:#B2BBC4; --fg-muted:#8893A0; --fg-faint:#6F7A86;
+  --brand-cyan:#52C5F3; --brand-ink-grey:#B2BAC4; --cognitive:#B8B1F1; --cognitive-soft:#CFCAF6;
+  --anomaly:#FF9A9C; --anomaly-soft:#FFB3B5;
   --shadow-sm:0 1px 2px rgba(0,0,0,.18); --shadow-md:0 4px 14px rgba(0,0,0,.22);
   --shadow-lg:0 14px 40px rgba(0,0,0,.30);
-  background:#31363C;
+  background:#2A2E33;
 }
 html.ds-contrast.ds-grey {
   --fg:#FFFFFF; --fg-2:#EEF1F4; --fg-3:#D5DBE1; --fg-muted:#B6BFC9;
   --border-faint:#5A636C; --border:#6E7882; --border-strong:#8C97A2;
 }
+
+/* ---- TEXT CONTRAST (console) ----------------------------------------------
+   The design system's tokens were tuned on its darkest surface. The console
+   also sets text on raised surfaces, on tinted status grounds and, in the
+   light theme, on the terminal's own ground; there several tokens fell
+   under WCAG AA's 4.5:1 (as low as 2.5:1 for the primary button's label in
+   the light theme). Each value below is the token's own hue moved only as
+   far as 4.5:1 needs on every ground the console sets it on; the grey
+   theme's are in its block above. */
+:root { --fg-3:#95A2B1; --brand-ink-grey:#98A3B0; }
+html.ds-grey { --fg-3:#B2BBC4; --brand-ink-grey:#B2BAC4; }
+html.ds-light {
+  --fg-3:#545F6E; --brand-ink-grey:#545F6E;
+  --mercury-300:#0A6578; --mercury-400:#057083; --mercury-500:#007385;
+  --brand-cyan:#057083; --brand-gold:#7D630E;
+  --normal:#167342; --normal-bright:#115A33;
+  --warning:#935C00; --warning-bright:#7A4C00;
+  --anomaly:#C32B25; --cognitive:#6352D4; --verified:#2564C2; --benevolence:#86630E;
+}
+html.ds-contrast { --fg-3:#C2CCD6; --brand-ink-grey:#C2CCD6; }
+html.ds-contrast.ds-light { --fg-3:#33404F; --brand-ink-grey:#33404F; }
+html.ds-contrast.ds-grey { --fg-3:#D5DBE1; --brand-ink-grey:#D5DBE1; }
+/* A heading for the page once the opening screen (which carries its own) is gone; read, not shown. */
+.mcli-sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
 
 /* ---- VISUAL ALERT CUE (console) -------------------------------------------
    The frame flashes when an alert lands; under reduced motion it holds the

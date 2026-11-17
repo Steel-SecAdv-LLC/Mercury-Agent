@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The loop: read each feed when it is due, judge it, remember, report."""
+"""The loop: read each feed when it is due, judge it, remember, report, check."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from omni_mercury_engine.watch.feeds import FEEDS, Feed
-from omni_mercury_engine.watch.model import FeedStatus, Finding
+from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
 from omni_mercury_engine.watch.store import WatchStore
 
 if TYPE_CHECKING:
@@ -64,7 +64,7 @@ class Watcher:
         self._last_read[feed.name] = now
         status = FeedStatus(feed=feed.name, title=feed.title, checked_at=now)
         try:
-            judgment = feed.judge(feed.read(), self.store, now)
+            judgment = feed.judge(feed.read(), now)
         except Exception as exc:  # a feed must never stop the watch
             logger.warning("watch: feed %s could not be read: %s", feed.name, exc)
             status.state = "down"
@@ -96,10 +96,54 @@ class Watcher:
         self.store.save_status(status)
         return status
 
-    def run_once(self, *, force: bool = True) -> list[FeedStatus]:
-        """Read every feed that is due (every feed, when ``force``)."""
+    def review_feed(self, feed: Feed) -> int:
+        """Check the feed's past findings against later records.
+
+        A finding is checked once a record has had time to exist, again at
+        intervals while that record is not settled, and for the last time
+        when the feed's review period is over. A record that cannot be
+        reached leaves the finding as it was, to be tried again.
+
+        Returns:
+            How many findings were given an outcome.
+        """
         now = self._clock()
-        return [self.read_feed(feed) for feed in self.feeds if force or self.due(feed, now)]
+        reviewed = 0
+        for finding in self.store.awaiting_review(
+            feed.name, now - feed.review_after, now - feed.review_every
+        ):
+            try:
+                outcome = feed.review(finding, now)
+            except Exception as exc:  # the record being down must not stop the watch
+                logger.warning("watch: could not check %s: %s", finding.get("headline"), exc)
+                continue
+            last_chance = now - datetime.fromisoformat(finding["first_seen"]) >= feed.review_until
+            if outcome is None:
+                if last_chance:
+                    outcome = Outcome(
+                        "unconfirmed",
+                        "No later record could be consulted for it.",
+                        feed.source,
+                        final=True,
+                    )
+                else:
+                    continue
+            elif last_chance and not outcome.final:
+                outcome = Outcome(outcome.verdict, outcome.note, outcome.record, final=True)
+            self.store.record_outcome(str(finding["key"]), outcome, now)
+            reviewed += 1
+        return reviewed
+
+    def run_once(self, *, force: bool = True) -> list[FeedStatus]:
+        """Read every feed that is due (every feed, when ``force``), then check past findings."""
+        now = self._clock()
+        statuses = []
+        for feed in self.feeds:
+            if force or self.due(feed, now):
+                statuses.append(self.read_feed(feed))
+                if statuses[-1].state != "down":
+                    self.review_feed(feed)
+        return statuses
 
     def run_forever(
         self, *, tick_seconds: float = 30.0, stop: threading.Event | None = None

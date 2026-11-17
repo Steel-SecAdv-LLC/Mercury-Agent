@@ -518,3 +518,8 @@ tbody th[scope="row"] {
   font-weight: 600;
   color: var(--text);
 }
+.outcome { margin: 0; padding-top: 0.6rem; border-top: 1px solid var(--border); font-size: 0.92rem; }
+.outcome .badge { text-transform: capitalize; }
+.outcome-confirmed .badge { color: var(--ok); border-color: var(--ok); }
+.outcome-revised .badge, .outcome-unconfirmed .badge { color: var(--warn); border-color: var(--warn); }
+.outcome-withdrawn .badge { color: var(--danger); border-color: var(--danger); }

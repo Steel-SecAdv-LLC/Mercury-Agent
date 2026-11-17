@@ -32,6 +32,37 @@ _USGS_IV_URL = "https://nwis.waterservices.usgs.gov/nwis/iv/"
 _PARAM_GAUGE_HEIGHT = "00065"  # Gauge height, ft
 _PARAM_DISCHARGE = "00060"  # Discharge, cubic feet per second
 
+# NOAA National Water Prediction Service: every National Weather Service river
+# gauge, with the flood category its forecast office assigns the latest reading.
+_NWPS_GAUGES_URL = "https://api.water.noaa.gov/nwps/v1/gauges"
+#: The service times out on a national request (HTTP 504 after 60 s, measured
+#: 2026-11-17). These tiles (west, south, east, north, in degrees) cover the
+#: fifty states, Puerto Rico and the U.S. Virgin Islands.
+_NWPS_TILES: tuple[tuple[int, int, int, int], ...] = (
+    (-125, 24, -105, 50),
+    (-105, 24, -90, 50),
+    (-90, 24, -66, 50),
+    (-180, 51, -129, 72),
+    (-161, 18, -154, 23),
+    (-68, 17, -64, 19),
+)
+#: The service's "no value" for a stage or flow.
+_NWPS_MISSING = -900.0
+#: NWS flood categories, lowest first. "action" is below flood stage.
+FLOOD_CATEGORIES: tuple[str, ...] = ("action", "minor", "moderate", "major")
+_STATUS_COLUMNS = [
+    "gauge_id",
+    "name",
+    "state",
+    "latitude",
+    "longitude",
+    "stage",
+    "unit",
+    "category",
+    "observed_at",
+    "forecast_category",
+]
+
 # Supplemental FEMA endpoint
 _FEMA_DECLARATIONS_URL = "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
 
@@ -393,6 +424,147 @@ class FloodLoader(BaseDomainLoader):
                 col[mask] = median_val if np.isfinite(median_val) else 0.0
 
         return features
+
+    # ------------------------------------------------------------------
+    # National flood status (NOAA National Water Prediction Service)
+    # ------------------------------------------------------------------
+
+    def fetch_flood_status(self) -> pd.DataFrame:
+        """Every NWS river gauge's latest reading and its flood category.
+
+        One row per gauge of the National Water Prediction Service: about
+        12,000 across the fifty states and Puerto Rico. ``category`` is the
+        service's own word for the latest observation: ``no_flooding``,
+        ``action``, ``minor``, ``moderate`` or ``major`` where the forecast
+        office has set flood stages, and ``not_defined``,
+        ``obs_not_current``, ``out_of_service`` or ``low_threshold``
+        otherwise.
+
+        Returns:
+            DataFrame with columns ``gauge_id``, ``name``, ``state``,
+            ``latitude``, ``longitude``, ``stage``, ``unit``, ``category``,
+            ``observed_at`` (UTC; ``NaT`` when the gauge has no reading) and
+            ``forecast_category``.
+
+        Raises:
+            ConnectionError: If any tile cannot be fetched. A partial read
+                would report the country with a region missing.
+            ValueError: If a tile is not the documented shape.
+        """
+        cache_key = "flood_status"
+        cached = self._read_frame_cache(cache_key)
+        if cached is not None:
+            return cached
+        rows: dict[str, dict[str, Any]] = {}
+        for west, south, east, north in _NWPS_TILES:
+            payload = self._fetch_json(
+                _NWPS_GAUGES_URL,
+                {
+                    "bbox.xmin": str(west),
+                    "bbox.ymin": str(south),
+                    "bbox.xmax": str(east),
+                    "bbox.ymax": str(north),
+                    "srid": "EPSG_4326",
+                },
+            )
+            gauges = payload.get("gauges") if isinstance(payload, dict) else None
+            if not isinstance(gauges, list):
+                raise ValueError("NWPS gauge listing is not the documented shape: no 'gauges' list")
+            for gauge in gauges:
+                row = self._status_row(gauge)
+                if row is not None:
+                    rows[row["gauge_id"]] = row  # a gauge on a tile edge is listed twice
+        frame = pd.DataFrame(list(rows.values()), columns=_STATUS_COLUMNS)
+        frame["observed_at"] = pd.to_datetime(frame["observed_at"], utc=True, errors="coerce")
+        if not frame.empty:
+            self._write_frame_cache(cache_key, frame)
+        logger.info("Fetched flood status for %d NWS gauges.", len(frame))
+        return frame
+
+    @staticmethod
+    def _status_row(gauge: Any) -> dict[str, Any] | None:
+        """One gauge of the NWPS listing as a row, or ``None`` when it has no identifier."""
+        if not isinstance(gauge, dict) or not gauge.get("lid"):
+            return None
+
+        def part(holder: dict[str, Any], key: str) -> dict[str, Any]:
+            value = holder.get(key)
+            return value if isinstance(value, dict) else {}
+
+        status = part(gauge, "status")
+        observed, forecast, state = (
+            part(status, "observed"),
+            part(status, "forecast"),
+            part(gauge, "state"),
+        )
+        stage = pd.to_numeric(observed.get("primary"), errors="coerce")
+        when = pd.to_datetime(observed.get("validTime"), utc=True, errors="coerce")
+        return {
+            "gauge_id": str(gauge["lid"]),
+            "name": str(gauge.get("name") or gauge["lid"]).strip(),
+            "state": str(state.get("name") or state.get("abbreviation") or "").strip(),
+            "latitude": pd.to_numeric(gauge.get("latitude"), errors="coerce"),
+            "longitude": pd.to_numeric(gauge.get("longitude"), errors="coerce"),
+            "stage": float(stage) if np.isfinite(stage) and stage > _NWPS_MISSING else np.nan,
+            "unit": str(observed.get("primaryUnit") or ""),
+            "category": str(observed.get("floodCategory") or "not_defined"),
+            # The service writes year 1 for "no reading".
+            "observed_at": when if pd.notna(when) and when.year > 1900 else pd.NaT,
+            "forecast_category": str(forecast.get("floodCategory") or ""),
+        }
+
+    def fetch_gauge_record(self, gauge_id: str) -> tuple[dict[str, float], pd.DataFrame]:
+        """A gauge's flood stages and its observed record of the past 30 days.
+
+        Args:
+            gauge_id: The gauge's NWS location identifier (``COCF1``).
+
+        Returns:
+            ``(stages, record)``: the stage at which each flood category
+            begins, in the record's unit, for the categories the forecast
+            office has set (empty when it has set none in that unit); and a
+            DataFrame with columns ``observed_at`` (UTC) and ``stage``,
+            oldest first.
+
+        Raises:
+            ConnectionError: If the service cannot be reached.
+            ValueError: If ``gauge_id`` is not an NWS identifier.
+        """
+        if not gauge_id.isalnum():
+            raise ValueError(f"not an NWS gauge identifier: {gauge_id!r}")
+        gauge = self._fetch_json(f"{_NWPS_GAUGES_URL}/{gauge_id}")
+        series = self._fetch_json(f"{_NWPS_GAUGES_URL}/{gauge_id}/stageflow/observed")
+        points = series.get("data") if isinstance(series, dict) else None
+        record = pd.DataFrame(points if isinstance(points, list) else [])
+        if record.empty or not {"validTime", "primary"} <= set(record.columns):
+            record = pd.DataFrame({"observed_at": pd.to_datetime([], utc=True), "stage": []})
+        else:
+            record = pd.DataFrame(
+                {
+                    "observed_at": pd.to_datetime(record["validTime"], utc=True, errors="coerce"),
+                    "stage": pd.to_numeric(record["primary"], errors="coerce"),
+                }
+            )
+            record = record[record["observed_at"].notna() & (record["stage"] > _NWPS_MISSING)]
+            record = record.sort_values("observed_at").reset_index(drop=True)
+        described = gauge.get("flood") if isinstance(gauge, dict) else None
+        flood: dict[str, Any] = described if isinstance(described, dict) else {}
+        unit = str(series.get("primaryUnits") or "") if isinstance(series, dict) else ""
+        # Stages are given as a stage (ft) and as a flow (cfs); the record is in one of them.
+        if unit == str(flood.get("stageUnits") or "ft"):
+            field, scale = "stage", 1.0
+        elif unit == "kcfs" and str(flood.get("flowUnits") or "cfs") == "cfs":
+            field, scale = "flow", 1e-3
+        else:
+            field, scale = "", 1.0
+        stages: dict[str, float] = {}
+        listed = flood.get("categories")
+        categories: dict[str, Any] = listed if isinstance(listed, dict) else {}
+        for category in FLOOD_CATEGORIES:
+            level = pd.to_numeric((categories.get(category) or {}).get(field), errors="coerce")
+            if field and np.isfinite(level) and level > _NWPS_MISSING:
+                stages[category] = float(level) * scale
+        return stages, record
 
     # ------------------------------------------------------------------
     # Private helpers — data fetching

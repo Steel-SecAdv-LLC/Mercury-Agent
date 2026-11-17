@@ -2064,13 +2064,14 @@ def watch(
     """Watch the live feeds and say what matters.
 
     Mercury reads each feed on its own schedule (earthquakes every five
-    minutes, FEMA declarations hourly), remembers what each station and gauge
-    has done, and reports a finding only when a published scale or the
-    series' own record says it is worth a person's attention. Most reads
-    report nothing, and say so.
+    minutes, FEMA declarations hourly) and reports a finding only when the
+    source's own scale says it is worth a person's attention. Most reads
+    report nothing, and say so. Each finding is later checked against the
+    record that settles it; --status shows how they turned out.
 
     Feeds: USGS earthquakes, NOAA geomagnetic activity, NOAA DART tsunami
-    buoys, USGS river gauges, FEMA tropical-cyclone declarations.
+    buoys, NWS river gauges, USGS volcano alert levels, FEMA tropical-cyclone
+    declarations.
 
     With no option it keeps watching until interrupted and prints each new
     finding as it appears. Use --once for a single read of every feed, and
@@ -2095,9 +2096,14 @@ def watch(
             statuses = [entry for entry in statuses if entry["feed"] in feed_names]
             findings = [entry for entry in findings if entry["feed"] in feed_names]
         if as_json:
-            click.echo(json_module.dumps({"feeds": statuses, "findings": findings}, indent=2))
+            click.echo(
+                json_module.dumps(
+                    {"feeds": statuses, "findings": findings, "track_record": store.track_record()},
+                    indent=2,
+                )
+            )
         else:
-            click.echo(brief(statuses, findings))
+            click.echo(brief(statuses, findings, tally=store.track_record()))
 
     if status:
         say()

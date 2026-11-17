@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import datetime
 
-__all__ = ["FeedStatus", "Finding", "Severity"]
+__all__ = ["FeedStatus", "Finding", "Outcome", "Severity"]
 
 
 class Severity(IntEnum):
@@ -48,6 +48,8 @@ class Finding:
         longitude: Where, when the feed says.
         ongoing: Whether the condition can persist across pulls (a storm) or
             is a single occurrence (an earthquake).
+        reference: The source's own identifier for the record behind the
+            finding (an observatory notice), when it has one.
     """
 
     feed: str
@@ -64,6 +66,7 @@ class Finding:
     latitude: float | None = None
     longitude: float | None = None
     ongoing: bool = False
+    reference: str = ""
 
     @property
     def key(self) -> str:
@@ -78,6 +81,32 @@ class Finding:
         data["observed_at"] = self.observed_at.isoformat()
         data["key"] = self.key
         return data
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """What a later, authoritative record says about a finding.
+
+    Attributes:
+        verdict: ``"confirmed"`` (the record agrees), ``"revised"`` (it
+            agrees something happened and changes the particulars),
+            ``"withdrawn"`` (the source no longer lists it) or
+            ``"unconfirmed"`` (the record that would confirm it does not, so
+            far).
+        note: One sentence saying what the record shows.
+        record: Which record was consulted, as a person would cite it.
+        final: Whether the record is settled, so the finding need not be
+            checked again.
+    """
+
+    verdict: str
+    note: str
+    record: str
+    final: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Plain JSON types."""
+        return asdict(self)
 
 
 @dataclass
