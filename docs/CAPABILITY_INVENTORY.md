@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,136
-- **Capability-bearing classes:** 2,105 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,138
+- **Capability-bearing classes:** 2,107 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,232 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,234 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1232 |
+| Other capability classes | 1234 |
 | Support types (config / result / enum / error) | 1031 |
 | Detection | 181 |
 | Neural models & layers | 162 |
@@ -3055,7 +3055,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `watch/` — 14 classes (12 capability)
+### `watch/` — 16 classes (14 capability)
 
 **Other capability classes**
 
@@ -3064,11 +3064,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Feed` (`watch.feeds`) — One live source and its judgment.
 - `Finding` (`watch.model`) — One thing a feed showed that is worth a person's attention.
 - `Judgment` (`watch.feeds`) — What a feed made of one read.
+- `Notifier` (`watch.notify`) — Delivers the findings that stand to the people they concern.
 - `Outcome` (`watch.model`) — What a later, authoritative record says about a finding.
 - `RiverGaugeFeed` (`watch.feeds`) — NWS river gauges: a gauge the National Weather Service classes as in flood.
 - `SpaceWeatherFeed` (`watch.feeds`) — Planetary Kp and the solar wind (NOAA SWPC), by the NOAA G scale.
 - `TsunamiBuoyFeed` (`watch.feeds`) — NOAA DART buoys: a buoy in event mode has itself detected a disturbance.
 - `VolcanoFeed` (`watch.feeds`) — USGS-monitored volcanoes: one above NORMAL on the USGS volcano alert levels.
+- `WarningsFeed` (`watch.feeds`) — National Weather Service alerts in effect: the official warnings themselves.
 - `WatchStore` (`watch.store`) — SQLite-backed memory of the watch.
 - `Watcher` (`watch.watcher`) — Reads feeds on their cadences and keeps the store current.
 

@@ -55,6 +55,10 @@ def to_alert(entry: dict[str, Any]) -> dict[str, Any]:
     fraction, ``domain``, and ``message``; the full record travels under
     ``event`` so "Explain the latest detection" and the alert agree.
     """
+    ready = entry.get("alert")
+    if isinstance(ready, dict):
+        # A watch finding arrives already worded: its headline and what to do.
+        return dict(ready)
     record = dict(entry.get("detection") or {})
     timestamp = entry.get("timestamp")
     flagged = bool(record.get("anomaly_detected", False))

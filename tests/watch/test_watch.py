@@ -283,8 +283,8 @@ class TestRiverGauges:
     ) -> None:
         feed = RiverGaugeFeed()
         said: list[Finding] = []
-        clock = iter([NOW, NOW + timedelta(hours=1), NOW + timedelta(hours=2)])
-        watcher = Watcher(store, [feed], on_finding=said.append, clock=lambda: next(clock))
+        moment = [NOW]
+        watcher = Watcher(store, [feed], on_finding=said.append, clock=lambda: moment[0])
         frames = iter(
             [
                 self._frame(("COCF1", "minor", 15.0, "")),
@@ -294,7 +294,8 @@ class TestRiverGauges:
         )
         feed.read = lambda: next(frames)  # type: ignore[method-assign]
 
-        for _ in range(3):
+        for hours in range(3):
+            moment[0] = NOW + timedelta(hours=hours)
             watcher.read_feed(feed)
 
         assert [finding.headline.split(":")[0] for finding in said] == [
@@ -572,10 +573,10 @@ def test_every_feed_reads_fresh_at_its_cadence(
         "volcanoes": "VolcanicLoader",
         "fema_declarations": "FEMAActivityLoader",
     }
-    assert set(FEEDS) == set(loaders)
-    for name, feed_class in FEEDS.items():
-        feed = feed_class()
-        loader: Any = feed._loader(loaders[name])
+    assert set(FEEDS) == {*loaders, "warnings"}  # warnings are read uncached, every time
+    for name, loader_name in loaders.items():
+        feed = FEEDS[name]()
+        loader: Any = feed._loader(loader_name)
 
         assert feed.cadence.total_seconds() > loader.CACHE_TTL, name
         assert loader.cache_dir == tmp_path / "cache" / name

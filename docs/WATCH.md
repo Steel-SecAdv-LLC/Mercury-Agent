@@ -6,6 +6,9 @@ Mercury reading its live feeds on its own and saying what matters.
 mercury-agent watch --once     # read every feed once and say what was seen
 mercury-agent watch            # keep watching; new findings are printed as they appear
 mercury-agent watch --status   # what the watch last saw, without reading anything
+
+mercury-agent alerts add --email you@example.org --place Home --lat 28.37 --lon -80.87
+mercury-agent alerts test --email you@example.org   # prove the message arrives, before it matters
 ```
 
 A server runs the same watch in the background when `MERCURY_WATCH_ENABLED=true`
@@ -22,6 +25,7 @@ shown at `/watch` and in the console (`/console`, Mercury Agent, WATCH tab; or
 | `tsunami_buoys` | NOAA NDBC, DART buoys | 15 minutes | a buoy in event mode in the past three hours (its tsunameter switched to rapid sampling); significant when two or more are |
 | `river_gauges` | NOAA National Water Prediction Service, every NWS river gauge (about 12,000) | 30 minutes | a gauge whose latest reading the NWS classes as minor flooding or above; significant at moderate, severe at major. Action stage is counted, not reported |
 | `volcanoes` | USGS Hazard Notification System, every monitored U.S. volcano | 30 minutes | a volcano above NORMAL on the USGS volcano alert levels: ADVISORY, significant at WATCH, severe at WARNING |
+| `warnings` | National Weather Service alerts in effect | 5 minutes | every alert the Service rates Extreme, nationwide; and every alert in effect at a subscriber's place. Relayed as issued, with the Service's instruction |
 | `fema_declarations` | OpenFEMA, tropical-cyclone declarations | 1 hour | declarations in the past three days; significant in the busiest week of the year |
 
 ## How it decides
@@ -51,6 +55,7 @@ is kept with the finding:
 | `tsunami_buoys` | NOAA NCEI's tsunami event database | 12 hours | when NCEI lists a probable or definite tsunami within a day before the trigger; otherwise after 45 days |
 | `river_gauges` | the NWS record of the same gauge | 6 hours | once the flood has ended; otherwise after 7 days |
 | `volcanoes` | the observatory notice the level came from | 1 hour | once the notice is read |
+| `warnings` | the Service's own record of the alert | 30 minutes | once the record is read |
 | `fema_declarations` | OpenFEMA, read again | 1 day | ten days after the declarations |
 
 The verdict is one of four words. `confirmed`: the record says what was
@@ -66,24 +71,74 @@ The track record is the count of each verdict over every finding the watch has
 made. It is printed by `mercury-agent watch --status`, returned as
 `track_record` by the route, and shown on the page and in the console.
 
+## What to do
+
+Every finding says what a person there should do, in the words of the agency
+responsible for that hazard and attributed to it: the National Weather
+Service's own instruction on its alerts, word for word; its flood safety
+guidance on a river in flood; USGS and Ready.gov on an earthquake; the tsunami
+warning centers on a buoy's detection; the FEMA Helpline on a declaration.
+Mercury writes no safety advice of its own.
+
+## Who it tells
+
+A finding is delivered to the people it concerns.
+
+- **Subscribers, by email.** `mercury-agent alerts add` subscribes an address,
+  usually with a place and a radius (200 km unless given) and the least
+  severity wanted. A finding with coordinates goes to subscribers within their
+  radius of it. A National Weather Service alert goes to the subscribers at
+  whose place the Service says it is in effect. A finding with no place (a
+  geomagnetic storm) goes to everyone. A subscriber with no place is told
+  everything. Email needs the deployment's SMTP server (`MERCURY_SMTP_HOST`
+  and the other `MERCURY_SMTP_*` settings); without one nothing is sent and
+  the command, the page and the route all say subscribers cannot be reached.
+- **Open consoles.** A new finding appears in the console's alert dock and
+  banner as it is made, and is spoken if the console is set to speak.
+- **One webhook.** `MERCURY_WATCH_WEBHOOK_URL` receives a JSON message
+  (`title`, `message`, `text`, `priority`, `tags`, and `topic` when
+  `MERCURY_WATCH_WEBHOOK_TOPIC` is set) for findings at significant and above
+  (`MERCURY_WATCH_WEBHOOK_MIN_SEVERITY`, 1 to 3). That shape is read by ntfy
+  and by Slack-compatible chat hooks, which is how a finding reaches a phone.
+
+Each message says what happened, where and how far from the subscriber's
+place, what to do and whose guidance that is, the source and basis, and that
+Mercury does not issue warnings. Every delivery is recorded: a finding is
+sent to a subscriber once per severity, a failed delivery is tried again on
+later passes (five attempts) and counted as failed, never dropped silently.
+Delivery works from the findings that stand, so someone who subscribes during
+a flood is told of it. Subscribe only an address whose owner asked for it.
+
 ## What it keeps
 
 One SQLite file under `MERCURY_WATCH_DIR` (default `~/.mercury/watch`): every
 finding with when it was first and last seen and what the later record said,
-and each feed's last status. A finding that ends and recurs is a new finding;
+each feed's last status, the subscribers and the delivery ledger. The file is
+readable by its owner only; the route serves counts of subscribers and
+deliveries, never an address or a place, and an alert that is there only
+because it is in effect at a subscriber's place is sent to that subscriber
+and not shown on the page. A finding that ends and recurs is a new finding;
 the earlier one keeps its own outcome. The watch gives each loader its own cache with a
 lifetime shorter than the feed's cadence, so every read reaches the source;
 the loaders' default is an hour, and a day for the buoys.
 
 ## What it does not do
 
-- It does not issue warnings. Tsunami warnings come from the NOAA tsunami
-  warning centers and flood warnings from the National Weather Service.
-- It does not notify anyone. Findings are printed, stored and served; sending
-  them somewhere is the deployment's choice.
-- It reads six feeds. The other loaders are either not live (benchmark files,
+- It does not issue warnings. It relays the National Weather Service's, and
+  tsunami warnings come from the NOAA tsunami warning centers. It is not a
+  replacement for Wireless Emergency Alerts, NOAA Weather Radio or local
+  sirens, which reach people without a subscription or a working internet
+  connection.
+- It does not send text messages or place calls itself; a phone is reached
+  through the webhook.
+- A subscriber is told of earthquakes within their radius, whatever the
+  magnitude: a great earthquake is felt further than 200 km, so someone who
+  wants those sets a larger radius.
+- It reads seven feeds. The other loaders are either not live (benchmark files,
   series that end in 2024), need a key, or have no rule yet that would say
   something true and useful.
-- River gauges are the National Weather Service's and volcano alert levels
-  the USGS's, so those two feeds cover the United States and its territories.
+- River gauges and alerts are the National Weather Service's and volcano
+  alert levels the USGS's, so those feeds cover the United States and its
+  territories. Outside them a subscriber is told of earthquakes, tsunami
+  buoys and geomagnetic storms only.
 - A feed that cannot be read is shown as down and tried again at its cadence.

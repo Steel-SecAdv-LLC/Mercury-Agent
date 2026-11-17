@@ -14,6 +14,7 @@ feed instead uses the rule its field already uses:
 * **River gauges** by the flood category the National Weather Service sets
   for each gauge.
 * **Volcanoes** by the USGS volcano alert levels.
+* **Warnings** are the National Weather Service's own alerts, relayed.
 * **Disaster declarations** by their count against the year's own weeks.
 
 Each feed also knows the later record that settles one of its findings
@@ -25,13 +26,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import pandas as pd
 
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
 from omni_mercury_engine.watch.model import Finding, Outcome, Severity
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.watch.store import WatchStore
 
 __all__ = ["FEEDS", "Feed", "Judgment"]
 
@@ -106,6 +110,10 @@ class Feed:
         """Decide what in ``frame`` is worth saying."""
         raise NotImplementedError
 
+    def bind(self, store: WatchStore) -> None:
+        """Give the feed the watch's store. Most feeds need nothing from it."""
+        return
+
     def _loader(self, name: str) -> Any:
         """Build the feed's loader so that every read is a fresh one.
 
@@ -137,6 +145,13 @@ def _utc(value: Any) -> datetime:
 def _count(number: int, noun: str) -> str:
     """``number`` with ``noun`` in the singular or plural: "1 gauge", "11,435 gauges"."""
     return f"{number:,} {noun}{'' if number == 1 else 's'}"
+
+
+def _shorten(text: str, limit: int) -> str:
+    """``text`` cut at a word to ``limit`` characters, with an ellipsis when cut."""
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0].rstrip(",;") + "…"
 
 
 def _finite(value: Any) -> float | None:
@@ -595,6 +610,8 @@ class RiverGaugeFeed(Feed):
                     ),
                     value=float(row.stage) if np.isfinite(row.stage) else None,
                     unit=str(row.unit),
+                    latitude=_finite(row.latitude),
+                    longitude=_finite(row.longitude),
                     ongoing=True,
                 )
             )
@@ -805,6 +822,216 @@ class VolcanoFeed(Feed):
 
 
 # --------------------------------------------------------------------------- #
+# Official warnings
+# --------------------------------------------------------------------------- #
+
+_NWS_ALERTS_URL = "https://api.weather.gov/alerts/active"
+_NWS_ALERT_URL = "https://api.weather.gov/alerts/"
+_NWS_HEADERS = {"Accept": "application/geo+json"}
+
+
+class WarningsFeed(Feed):
+    """National Weather Service alerts in effect: the official warnings themselves.
+
+    Every other feed reports a measurement and says "warnings come from the
+    National Weather Service". This one relays them: nationwide, every alert
+    the Service rates Extreme (its word for an extraordinary threat to life
+    or property: a tornado warning, a flash flood emergency), and, for each
+    place a subscriber has given, every alert in effect at that point.
+    """
+
+    name = "warnings"
+    title = "Warnings in effect (National Weather Service)"
+    source = "NOAA National Weather Service"
+    cadence = timedelta(minutes=5)
+    stale_after = timedelta(days=36500)  # a quiet day has no recent alert; the list is current
+
+    SEVERITY: ClassVar[dict[str, Severity]] = {
+        "Extreme": Severity.SEVERE,
+        "Severe": Severity.SIGNIFICANT,
+    }
+    #: Distinct places looked up per read. Each is one request to the Service.
+    MAX_PLACES: ClassVar[int] = 250
+    _COLUMNS: ClassVar[list[str]] = [
+        "id", "event", "severity", "urgency", "certainty", "area", "headline",
+        "instruction", "sender", "sent", "until", "place_ids",
+    ]  # fmt: skip
+
+    def __init__(self) -> None:
+        self._store: WatchStore | None = None
+
+    def bind(self, store: WatchStore) -> None:
+        self._store = store
+
+    def _alerts(self, params: dict[str, str]) -> list[dict[str, Any]]:
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        payload = SafeHTTPClient.get_json(
+            _NWS_ALERTS_URL, params=params, headers=_NWS_HEADERS, timeout=30.0
+        )
+        features = payload.get("features") if isinstance(payload, dict) else None
+        if not isinstance(features, list):
+            raise ValueError("NWS alerts are not the documented shape: no 'features' list")
+        return [
+            feature["properties"]
+            for feature in features
+            if isinstance(feature, dict) and isinstance(feature.get("properties"), dict)
+        ]
+
+    def read(self) -> pd.DataFrame:
+        rows: dict[str, dict[str, Any]] = {}
+
+        def take(alert: dict[str, Any], place: int | None) -> None:
+            identifier = str(alert.get("id") or "")
+            if not identifier or alert.get("messageType") == "Cancel":
+                return
+            row = rows.setdefault(
+                identifier,
+                {
+                    "id": identifier,
+                    "event": str(alert.get("event") or "Alert"),
+                    "severity": str(alert.get("severity") or "Unknown"),
+                    "urgency": str(alert.get("urgency") or ""),
+                    "certainty": str(alert.get("certainty") or ""),
+                    "area": str(alert.get("areaDesc") or ""),
+                    "headline": str(alert.get("headline") or ""),
+                    "instruction": " ".join(str(alert.get("instruction") or "").split()),
+                    "sender": str(alert.get("senderName") or "National Weather Service"),
+                    "sent": alert.get("sent"),
+                    "until": alert.get("ends") or alert.get("expires"),
+                    "place_ids": [],
+                },
+            )
+            if place is not None and place not in row["place_ids"]:
+                row["place_ids"].append(place)
+
+        for alert in self._alerts({"status": "actual"}):
+            take(alert, None)
+        points: dict[tuple[float, float], list[int]] = {}
+        for subscriber in self._store.subscribers() if self._store is not None else []:
+            if subscriber["latitude"] is not None and subscriber["longitude"] is not None:
+                point = (round(subscriber["latitude"], 2), round(subscriber["longitude"], 2))
+                points.setdefault(point, []).append(int(subscriber["id"]))
+        if len(points) > self.MAX_PLACES:
+            raise ValueError(
+                f"{len(points)} distinct places are subscribed; this feed looks up at most "
+                f"{self.MAX_PLACES} per read"
+            )
+        for (latitude, longitude), ids in points.items():
+            for alert in self._alerts({"status": "actual", "point": f"{latitude},{longitude}"}):
+                for place in ids:
+                    take(alert, place)
+        frame = pd.DataFrame(list(rows.values()), columns=self._COLUMNS)
+        frame.attrs["places"] = len(points)
+        return frame
+
+    def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
+        places = int(frame.attrs.get("places", 0))
+        watched = f"; {_count(places, 'subscribed place')} checked" if places else ""
+        if frame.empty:
+            return Judgment([], f"no alert in effect{watched}", None, 0, 0)
+        findings = []
+        for row in frame.itertuples(index=False):
+            here = tuple(int(place) for place in row.place_ids)
+            if row.severity != "Extreme" and not here:
+                continue
+            sent = pd.to_datetime(row.sent, utc=True, errors="coerce")
+            until = pd.to_datetime(row.until, utc=True, errors="coerce")
+            rated = ", ".join(
+                part for part in (row.severity, row.urgency, row.certainty) if part
+            ).lower()
+            findings.append(
+                Finding(
+                    feed=self.name,
+                    kind="nws_alert",
+                    subject=str(row.id),
+                    severity=self.SEVERITY.get(str(row.severity), Severity.NOTABLE),
+                    headline=f"{row.event}: {_shorten(str(row.area), 90)}",
+                    detail=(
+                        (
+                            f"{row.headline}. "
+                            if row.headline
+                            else f"{row.event} from {row.sender}. "
+                        )
+                        + (f"In effect until {_clock(_utc(until))}. " if pd.notna(until) else "")
+                        + f"The National Weather Service rates it {rated}. This is the "
+                        "Service's own alert, relayed as issued."
+                    ),
+                    observed_at=_utc(sent) if pd.notna(sent) else now,
+                    source=str(row.sender),
+                    basis=(
+                        "an NWS alert in effect at a subscribed place"
+                        if here
+                        else "an NWS alert rated Extreme (every Extreme alert is reported)"
+                    ),
+                    ongoing=True,
+                    reference=str(row.id),
+                    action=str(row.instruction),
+                    action_source=str(row.sender) if row.instruction else "",
+                    area=str(row.area),
+                    place_ids=here,
+                )
+            )
+        rated_counts = frame["severity"].value_counts()
+        summary = (
+            f"{_count(len(frame), 'alert')} in effect nationwide ("
+            + ", ".join(
+                f"{int(rated_counts.get(level, 0))} {level.lower()}"
+                for level in ("Extreme", "Severe")
+            )
+            + f"){watched}"
+        )
+        at_places = sum(1 for finding in findings if finding.place_ids)
+        if at_places:
+            summary += f"; {at_places} in effect at subscribed places"
+        return Judgment(findings, summary, None, len(frame), len(frame))
+
+    review_after = timedelta(minutes=30)
+    review_until = timedelta(days=2)
+
+    def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
+        """Read the Service's own record of the alert: was it issued as relayed."""
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        record = "National Weather Service record of the alert"
+        identifier = str(finding.get("reference") or "")
+        if not identifier.startswith("urn:oid:") or not all(
+            part.isalnum() for part in identifier[8:].split(".")
+        ):
+            return None
+        try:
+            payload = SafeHTTPClient.get_json(
+                _NWS_ALERT_URL + identifier, headers=_NWS_HEADERS, timeout=30.0
+            )
+        except Exception as exc:
+            if getattr(getattr(exc, "response", None), "status_code", None) == 404:
+                return Outcome(
+                    "withdrawn", "The Service holds no alert by that identifier.", record, True
+                )
+            raise
+        held = payload.get("properties") if isinstance(payload, dict) else None
+        if not isinstance(held, dict):
+            return None
+        event, sender = str(held.get("event") or ""), str(held.get("senderName") or "the Service")
+        if held.get("status") != "Actual":
+            return Outcome(
+                "withdrawn",
+                f"The Service's record marks it {str(held.get('status')).lower()}, not an actual alert.",
+                record,
+                True,
+            )
+        if event and not str(finding.get("headline", "")).startswith(event):
+            return Outcome("revised", f"The Service's record holds it as {event}.", record, True)
+        return Outcome(
+            "confirmed",
+            f"The Service's record holds this {event or 'alert'} as issued by {sender}. Mercury "
+            "relayed it; whether the hazard occurred is the Service's to verify.",
+            record,
+            True,
+        )
+
+
+# --------------------------------------------------------------------------- #
 # FEMA declarations
 # --------------------------------------------------------------------------- #
 
@@ -922,6 +1149,7 @@ FEEDS: dict[str, type[Feed]] = {
         TsunamiBuoyFeed,
         RiverGaugeFeed,
         VolcanoFeed,
+        WarningsFeed,
         DeclarationFeed,
     )
 }

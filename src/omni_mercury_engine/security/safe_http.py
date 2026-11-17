@@ -955,6 +955,36 @@ class SafeHTTPClient:
             return text
 
     @classmethod
+    def post(
+        cls,
+        url: str,
+        *,
+        json_body: Any,
+        headers: dict[str, str] | None = None,
+        timeout: float = 60.0,
+        allow_http: bool = False,
+        user_configured: bool = False,
+        loopback_only: bool = False,
+        allow_private: bool = False,
+    ) -> requests.Response:
+        """POST a JSON body; the returned response is closed by the caller.
+
+        For endpoints whose reply is not JSON (a chat webhook answers ``ok``).
+        Every gate of :meth:`get` applies, and a 4xx/5xx raises.
+        """
+        return cls._request(
+            "POST",
+            url,
+            json_body=json_body,
+            headers=headers,
+            timeout=timeout,
+            allow_http=allow_http,
+            user_configured=user_configured,
+            loopback_only=loopback_only,
+            allow_private=allow_private,
+        )
+
+    @classmethod
     def post_json(
         cls,
         url: str,

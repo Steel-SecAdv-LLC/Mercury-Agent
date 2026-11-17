@@ -60,6 +60,7 @@ COMMAND_SECTIONS: dict[str, str] = {
     "explain": "Detection",
     "stream": "Detection",
     "watch": "Detection",
+    "alerts": "Detection",
     "hazard-viz": "Hazards",
     "physics": "Physics",
     "train": "Models",

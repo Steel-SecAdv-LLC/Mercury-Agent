@@ -42,6 +42,13 @@ function findingCard(finding) {
   facts.textContent = "Source: " + finding.source + ". Basis: " + finding.basis +
     ". First seen " + ago(finding.first_seen) + "; " + state + ".";
   card.appendChild(facts);
+  if (finding.action) {
+    const todo = element("p", "todo");
+    todo.appendChild(element("strong", "", "What to do. "));
+    todo.appendChild(document.createTextNode(
+      finding.action + (finding.action_source ? " (" + finding.action_source + ")" : "")));
+    card.insertBefore(todo, facts);
+  }
   if (finding.outcome) {
     const checked = element("p", "outcome outcome-" + finding.outcome.verdict);
     checked.appendChild(element("span", "badge", finding.outcome.verdict));
@@ -51,6 +58,17 @@ function findingCard(finding) {
     card.appendChild(checked);
   }
   return card;
+}
+
+function telling(state) {
+  const people = state.subscribers || 0;
+  const who = people === 0 ? "No one is subscribed to be told."
+    : people + (people === 1 ? " subscription is" : " subscriptions are") + " told by email" +
+      (state.email ? "." : ", but this server has no mail server configured, so they cannot be reached.");
+  const hook = state.webhook ? " Findings also go to the operator's webhook." : "";
+  const ledger = (state.sent || state.failed)
+    ? " Delivered: " + (state.sent || 0) + "; failed: " + (state.failed || 0) + "." : "";
+  return who + hook + ledger;
 }
 
 function trackRecord(tally) {
@@ -111,6 +129,7 @@ function draw(data) {
   }
 
   document.getElementById("track-record").textContent = trackRecord(data.track_record || {});
+  document.getElementById("telling").textContent = telling(data.telling || {});
 
   const feeds = document.getElementById("feeds");
   feeds.replaceChildren();

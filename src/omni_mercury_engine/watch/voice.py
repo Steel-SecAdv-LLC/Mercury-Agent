@@ -42,6 +42,9 @@ def finding_text(finding: dict[str, Any], now: datetime | None = None) -> str:
         f"    Source: {finding['source']}. Basis: {finding['basis']}.",
         f"    {severity.capitalize()}; first seen {age(finding.get('first_seen'), now)}, {state}.",
     ]
+    if finding.get("action"):
+        whose = f" ({finding['action_source']})" if finding.get("action_source") else ""
+        lines.append(f"    What to do: {finding['action']}{whose}")
     outcome = finding.get("outcome")
     if outcome:
         lines.append(

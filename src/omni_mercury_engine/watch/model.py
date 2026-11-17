@@ -50,6 +50,13 @@ class Finding:
             is a single occurrence (an earthquake).
         reference: The source's own identifier for the record behind the
             finding (an observatory notice), when it has one.
+        action: What a person there should do, in the words of the agency
+            responsible for that hazard.
+        action_source: Whose guidance ``action`` is.
+        area: Where it applies, as the source describes it, when it gives
+            no coordinates (the counties of a warning).
+        place_ids: Subscribers' places the source itself says it applies
+            to (a warning in effect at that point).
     """
 
     feed: str
@@ -67,6 +74,10 @@ class Finding:
     longitude: float | None = None
     ongoing: bool = False
     reference: str = ""
+    action: str = ""
+    action_source: str = ""
+    area: str = ""
+    place_ids: tuple[int, ...] = ()
 
     @property
     def key(self) -> str:

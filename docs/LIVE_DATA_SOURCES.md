@@ -87,7 +87,8 @@ Every host above is on the `SafeHTTPClient` trusted-domain allowlist
 matched on the final host after any redirect. `www.alphavantage.co` and
 `api.openweathermap.org` were added alongside this wiring. `api.water.noaa.gov`
 (NOAA National Water Prediction Service) was added for
-`FloodLoader.fetch_flood_status`.
+`FloodLoader.fetch_flood_status`, and `api.weather.gov` (National Weather
+Service alerts) for the watch's `warnings` feed.
 
 ## Handling rules (non-negotiable)
 

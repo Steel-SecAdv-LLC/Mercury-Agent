@@ -523,3 +523,4 @@ tbody th[scope="row"] {
 .outcome-confirmed .badge { color: var(--ok); border-color: var(--ok); }
 .outcome-revised .badge, .outcome-unconfirmed .badge { color: var(--warn); border-color: var(--warn); }
 .outcome-withdrawn .badge { color: var(--danger); border-color: var(--danger); }
+.todo { margin: 0; padding: 0.55rem 0.75rem; border-left: 3px solid var(--accent); background: var(--surface-2, transparent); font-size: 0.95rem; }

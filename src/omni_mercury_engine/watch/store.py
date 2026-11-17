@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import threading
-from contextlib import closing
+from contextlib import closing, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -32,7 +33,24 @@ CREATE TABLE IF NOT EXISTS findings (
 );
 CREATE INDEX IF NOT EXISTS findings_last_seen ON findings (last_seen);
 CREATE TABLE IF NOT EXISTS feeds (feed TEXT PRIMARY KEY, body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, place TEXT NOT NULL DEFAULT '',
+    latitude REAL, longitude REAL, radius_km REAL NOT NULL DEFAULT 200,
+    min_severity INTEGER NOT NULL DEFAULT 1, created TEXT NOT NULL,
+    UNIQUE (email, place)
+);
+CREATE TABLE IF NOT EXISTS deliveries (
+    finding_key TEXT NOT NULL, severity INTEGER NOT NULL, subscriber INTEGER NOT NULL,
+    channel TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, at TEXT NOT NULL,
+    error TEXT, PRIMARY KEY (finding_key, severity, subscriber, channel)
+);
 """
+
+
+#: An address a mail server could accept; delivery is the real test.
+_EMAIL = re.compile(
+    r"[^@\s<>,;\"']{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,253}[A-Za-z0-9])?\.[A-Za-z]{2,63}"
+)
 
 
 def default_state_dir() -> Path:
@@ -52,6 +70,10 @@ class WatchStore:
         self._lock = threading.Lock()
         with closing(self._connect()) as connection, connection:
             connection.executescript(_SCHEMA)
+        # The store holds subscribers' addresses and places: readable by its owner only.
+        with suppress(OSError):
+            self.path.chmod(0o600)
+        with closing(self._connect()) as connection, connection:
             # Stores written before the watch checked itself lack these columns.
             present = {row["name"] for row in connection.execute("PRAGMA table_info(findings)")}
             for column, kind in (
@@ -228,6 +250,129 @@ class WatchStore:
             verdict = json.loads(row["outcome"])["verdict"] if row["outcome"] else "unchecked"
             tally[verdict] = tally.get(verdict, 0) + 1
         return tally
+
+    # ------------------------------------------------------------- subscribers
+
+    def add_subscriber(
+        self,
+        email: str,
+        *,
+        place: str = "",
+        latitude: float | None = None,
+        longitude: float | None = None,
+        radius_km: float = 200.0,
+        min_severity: int = 1,
+        now: datetime | None = None,
+    ) -> int:
+        """Subscribe ``email``, for one place or (with no place) for everything.
+
+        Subscribing the same address to the same place again updates it.
+
+        Returns:
+            The subscriber's id.
+
+        Raises:
+            ValueError: If the address, the coordinates or the radius cannot
+                be what they claim to be.
+        """
+        address = email.strip()
+        if not _EMAIL.fullmatch(address):
+            raise ValueError(f"not an email address: {email!r}")
+        located = latitude is not None or longitude is not None
+        if located and (
+            latitude is None
+            or longitude is None
+            or not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0)
+        ):
+            raise ValueError("a place needs a latitude in [-90, 90] and a longitude in [-180, 180]")
+        if not 1.0 <= radius_km <= 2000.0:
+            raise ValueError("the radius must be between 1 and 2,000 km")
+        if min_severity not in (1, 2, 3):
+            raise ValueError("the least severity is 1 (notable), 2 (significant) or 3 (severe)")
+        label = place.strip() or ("" if not located else f"{latitude:.2f}, {longitude:.2f}")
+        moment = (now or datetime.now(UTC)).isoformat()
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute(
+                "INSERT INTO subscribers "
+                "(email, place, latitude, longitude, radius_km, min_severity, created) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (email, place) DO UPDATE SET "
+                "latitude=excluded.latitude, longitude=excluded.longitude, "
+                "radius_km=excluded.radius_km, min_severity=excluded.min_severity",
+                (address, label, latitude, longitude, float(radius_km), min_severity, moment),
+            )
+            row = connection.execute(
+                "SELECT id FROM subscribers WHERE email=? AND place=?", (address, label)
+            ).fetchone()
+        return int(row["id"])
+
+    def remove_subscriber(self, email: str, place: str | None = None) -> int:
+        """Unsubscribe ``email`` from ``place``, or from everything. Returns how many ended."""
+        with self._lock, closing(self._connect()) as connection, connection:
+            if place is None:
+                cursor = connection.execute(
+                    "DELETE FROM subscribers WHERE email=?", (email.strip(),)
+                )
+            else:
+                cursor = connection.execute(
+                    "DELETE FROM subscribers WHERE email=? AND place=?",
+                    (email.strip(), place.strip()),
+                )
+            return int(cursor.rowcount)
+
+    def subscribers(self) -> list[dict[str, Any]]:
+        """Every subscription, oldest first."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute("SELECT * FROM subscribers ORDER BY id").fetchall()
+        return [dict(row) for row in rows]
+
+    # -------------------------------------------------------------- deliveries
+
+    def delivery(self, key: str, severity: int, subscriber: int, channel: str) -> dict[str, Any]:
+        """What is recorded of one delivery: its status and attempts (``{}`` when none)."""
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT status, attempts, at, error FROM deliveries WHERE finding_key=? AND "
+                "severity=? AND subscriber=? AND channel=?",
+                (key, severity, subscriber, channel),
+            ).fetchone()
+        return dict(row) if row else {}
+
+    def record_delivery(
+        self,
+        key: str,
+        severity: int,
+        subscriber: int,
+        channel: str,
+        *,
+        error: str | None,
+        now: datetime,
+    ) -> None:
+        """Record an attempt to deliver a finding: sent, or failed with why."""
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute(
+                "INSERT INTO deliveries VALUES (?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT "
+                "(finding_key, severity, subscriber, channel) DO UPDATE SET "
+                "status=excluded.status, attempts=attempts+1, at=excluded.at, error=excluded.error",
+                (
+                    key,
+                    severity,
+                    subscriber,
+                    channel,
+                    "failed" if error else "sent",
+                    now.isoformat(),
+                    error,
+                ),
+            )
+
+    def delivery_counts(self) -> dict[str, int]:
+        """How many deliveries were sent and how many last failed."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT status, COUNT(*) AS n FROM deliveries GROUP BY status"
+            ).fetchall()
+        counts = {"sent": 0, "failed": 0}
+        counts.update({str(row["status"]): int(row["n"]) for row in rows})
+        return counts
 
     def open_count(self, feed: str) -> int:
         """How many of the feed's findings are standing.

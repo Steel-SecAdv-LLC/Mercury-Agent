@@ -2299,7 +2299,7 @@ _WATCH_VALS = (
     'return { sev: sev.toUpperCase(), c: SEV[sev] || "var(--fg-2)", head: str(f.headline), detail: str(f.detail), '
     'meta: "Source: " + str(f.source) + " · Basis: " + str(f.basis), when: "first seen " + ago(f.first_seen) + '
     '(f.ended ? " · ended " + ago(f.ended) : " · standing"), has: !!oc, verdict: oc ? str(oc.verdict).toUpperCase() : "", '
-    'vc: oc ? VC[oc.verdict] || "var(--fg-2)" : "var(--fg-2)", check: oc ? "Checked " + ago(f.reviewed_at) + " against the " '
+    'todo: f.action ? str(f.action) + (f.action_source ? " (" + str(f.action_source) + ")" : "") : "", hasTodo: !!f.action, vc: oc ? VC[oc.verdict] || "var(--fg-2)" : "var(--fg-2)", check: oc ? "Checked " + ago(f.reviewed_at) + " against the " '
     '+ str(oc.record) + ". " + str(oc.note) : "" }; };\n'
     "      const RANK = { severe: 0, significant: 1, notable: 2 }, rank = (f) => RANK[f.severity] == null ? 3 : RANK[f.severity], open = all.filter((f) => !f.ended).sort((a, b) => rank(a) - rank(b)), past = all.filter((f) => f.ended).slice(0, 5), up = "
     'feeds.filter((f) => f.state === "ok" || f.state === "stale").length, read = feeds.some((f) => f.state !== "waiting"), '
@@ -2319,6 +2319,7 @@ _WATCH_VALS = (
     '        agWatchFeeds: feeds.map((f) => ({ st: str(f.state).toUpperCase(), c: ST[f.state] || "var(--fg-3)", title: '
     'str(f.title || f.feed), sum: str(f.summary) + (f.error ? " (" + f.error + ")" : ""), when: f.checked_at ? "read " + '
     'ago(f.checked_at) : "not read yet" })),\n'
+    '        agWatchTelling: !d || !d.telling ? "" : (!d.telling.subscribers ? "No one is subscribed to be told. Whoever runs the engine subscribes people with mercury-agent alerts add." : d.telling.subscribers + (d.telling.subscribers === 1 ? " subscription is" : " subscriptions are") + " told by email" + (d.telling.email ? "." : ", but the engine has no mail server configured, so they cannot be reached.")) + (d.telling.webhook ? " Findings also go to the operator webhook." : "") + (d.telling.sent || d.telling.failed ? " Delivered: " + (d.telling.sent || 0) + "; failed: " + (d.telling.failed || 0) + "." : ""),\n'
     '        agWatchRecord: !d ? "" : checked === 0 ? (waiting ? waiting + (waiting === 1 ? " finding" : " findings") + '
     '" not yet checked against a later record." : "No findings yet.") : "Of " + checked + " checked against later records: " '
     '+ VERDICTS.filter((v) => +tr[v]).map((v) => tr[v] + " " + v).join(", ") + (waiting ? "; " + waiting + " not yet checked." '
@@ -2359,6 +2360,11 @@ _WATCH_CARD = (
     '<span style="font-size:13px;color:var(--fg);font-family:var(--font-sans);">{{ wf.head }}</span></div>'
     '<span style="font-size:12px;line-height:1.6;color:var(--fg-2);font-family:var(--font-sans);text-wrap:pretty;">'
     "{{ wf.detail }}</span>"
+    '<sc-if value="{{ wf.hasTodo }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:3px;border-left:2px solid var(--mercury-400);padding:2px 0 2px 10px;">'
+    '<span style="font-size:10px;letter-spacing:.18em;color:var(--mercury-300);">WHAT TO DO</span>'
+    '<span style="font-size:12px;line-height:1.6;color:var(--fg);font-family:var(--font-sans);text-wrap:pretty;">'
+    "{{ wf.todo }}</span></div></sc-if>"
     '<span style="font-size:11px;line-height:1.5;color:var(--fg-3);font-family:var(--font-sans);">{{ wf.meta }}</span>'
     '<span style="font-size:10.5px;color:var(--fg-3);">{{ wf.when }}</span>'
     '<sc-if value="{{ wf.has }}" hint-placeholder-val="{{ false }}">'
@@ -2406,6 +2412,11 @@ _WATCH_TAB = (
     '<span style="font-size:11px;line-height:1.55;color:var(--fg-3);font-family:var(--font-sans);text-wrap:pretty;">'
     "Mercury checks each finding later against the record that settles it: the USGS catalogue once a seismologist has "
     "reviewed an earthquake, NOAA's tsunami database, the same gauge's later readings.</span></div></sc-if>\n"
+    '                <sc-if value="{{ agWatchHasFeeds }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:4px;">'
+    f'<span style="{_WATCH_LABEL}">WHO IS TOLD</span>'
+    '<span style="font-size:12px;line-height:1.6;color:var(--fg);font-family:var(--font-sans);text-wrap:pretty;">'
+    "{{ agWatchTelling }}</span></div></sc-if>\n"
     '                <sc-if value="{{ agWatchHasPast }}" hint-placeholder-val="{{ false }}">'
     '<div style="display:flex;flex-direction:column;gap:8px;">'
     f'<span style="{_WATCH_LABEL}">EARLIER</span>'
@@ -2431,7 +2442,7 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         OLD_AG_BASE
         + 'agWatch: false, agWatchMeta: "", agWatchLead: "", agWatchRefresh: noop, agWatchHasOpen: false, '
         "agWatchOpen: [], agWatchHasPast: false, agWatchPast: [], agWatchHasFeeds: false, agWatchFeeds: [], "
-        'agWatchRecord: "", ',
+        'agWatchRecord: "", agWatchTelling: "", ',
     ),
     (
         "WATCH sits beside ACT in the tab strip",
@@ -2475,8 +2486,8 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         OLD_AG_INTENT,
         "    if (/what are you (watching|monitoring|seeing)|anything happening|what(?:'s| is) happening|live feeds?|"
         'the watch\\b|any (earthquakes?|tsunamis?|storms?|floods?|eruptions?|findings)/.test(q)) return { steps: ["intent · watch"], text: '
-        '"The watch reads six public feeds on the engine (USGS earthquakes and volcano alert levels, NOAA space '
-        "weather and tsunami buoys, NWS river gauges, FEMA declarations), reports what is notable by each source's own scale, and later checks each "
+        '"The watch reads seven public feeds on the engine (USGS earthquakes and volcano alert levels, NOAA space '
+        "weather and tsunami buoys, NWS river gauges and warnings, FEMA declarations), reports what is notable by each source's own scale, and later checks each "
         'finding against the record that settles it. The WATCH tab shows what it has recorded.", acts: [{ label: "Open '
         'WATCH", act: () => this.setState({ ws: "agent", agTab: "watch" }) }] };\n' + OLD_AG_INTENT,
     ),
@@ -2540,12 +2551,12 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
         ".test(quiet.agWatchLead) && /^WATCHING · read just now/.test(quiet.agWatchMeta) && !quiet.agWatchHasOpen, "
         '"watch tab quiet: nothing notable, feeds counted", quiet.agWatchLead);\n'
         '            const fnd = [{ severity: "notable", headline: "Minor flooding: Test River", detail: "d", source: "NWS", basis: "NWS flood category", first_seen: iso(1), ended: null, outcome: null }, { severity: "severe", headline: "Magnitude 7.4 earthquake, 130 km E of Sendai, Japan", '
-        'detail: "USGS located it 29 km deep.", source: "U.S. Geological Survey", basis: "USGS magnitude class: major", '
+        'detail: "USGS located it 29 km deep.", action: "Drop, cover and hold on.", action_source: "USGS", source: "U.S. Geological Survey", basis: "USGS magnitude class: major", '
         'first_seen: iso(3), ended: null, reviewed_at: iso(2), outcome: { verdict: "revised", note: "USGS now lists it at '
         'magnitude 7.1.", record: "USGS earthquake catalogue", final: true } }, { severity: "notable", headline: "G1 storm", '
         'detail: "Kp 5.", source: "NOAA SWPC", basis: "NOAA G scale", first_seen: iso(50), ended: iso(40), outcome: null }];\n'
         "            T.state.agWatch = { data: { watching: true, feeds, findings: fnd, track_record: { confirmed: 0, revised: 1, "
-        'withdrawn: 0, unconfirmed: 0, unchecked: 2 } }, at: Date.now(), err: "0 Network error" }; const w = '
+        'withdrawn: 0, unconfirmed: 0, unchecked: 2 }, telling: { subscribers: 2, email: false, webhook: true, sent: 3, failed: 1 } }, at: Date.now(), err: "0 Network error" }; const w = '
         "T.agentVals(st, st);\n"
         '            s.ok(w.agWatchOpen.length === 2 && w.agWatchOpen[0].sev === "SEVERE" && w.agWatchPast.length === 1 && /^2 findings standing\\. 1 of 3 feeds '
         'answering\\. Last refresh failed: 0 Network error$/.test(w.agWatchLead), "watch tab: standing and ended findings '
@@ -2557,6 +2568,8 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
         '            s.ok(w.agWatchFeeds.length === 3 && w.agWatchFeeds[1].st === "DOWN" && /ConnectionError/.test('
         'w.agWatchFeeds[1].sum) && w.agWatchFeeds[2].when === "not read yet", "watch tab: every feed has a row; a feed that '
         'is down says why", w.agWatchFeeds[1].sum);\n'
+        '            s.ok(w.agWatchOpen[0].hasTodo && w.agWatchOpen[0].todo === "Drop, cover and hold on. (USGS)" && !w.agWatchOpen[1].hasTodo, "watch tab: a finding says what to do, in the agency words, when it has guidance", w.agWatchOpen[0].todo);\n'
+        '            s.ok(w.agWatchTelling === "2 subscriptions are told by email, but the engine has no mail server configured, so they cannot be reached. Findings also go to the operator webhook. Delivered: 3; failed: 1.", "watch tab: says who is told, and when they cannot be reached", w.agWatchTelling);\n'
         '            s.ok(w.agWatchRecord === "Of 1 checked against later records: 1 revised; 2 not yet checked.", '
         '"watch tab: the track record is counted", w.agWatchRecord);\n'
         "            s.ok(!bad.test(JSON.stringify([off, un, idle, quiet, w].map((x) => [x.agWatchLead, x.agWatchMeta, "

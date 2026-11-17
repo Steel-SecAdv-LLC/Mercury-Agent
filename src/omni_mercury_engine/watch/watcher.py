@@ -10,7 +10,9 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from omni_mercury_engine.watch.feeds import FEEDS, Feed
+from omni_mercury_engine.watch.guidance import with_guidance
 from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
+from omni_mercury_engine.watch.notify import Notifier
 from omni_mercury_engine.watch.store import WatchStore
 
 if TYPE_CHECKING:
@@ -36,6 +38,7 @@ class Watcher:
         *,
         on_finding: Callable[[Finding], None] | None = None,
         clock: Callable[[], datetime] | None = None,
+        notifier: Notifier | None = None,
     ) -> None:
         """Build a watcher.
 
@@ -46,12 +49,19 @@ class Watcher:
             on_finding: Called with each finding when it is first reported or
                 escalates.
             clock: Returns the current UTC time; replaceable in tests.
+            notifier: Delivers findings to the people they concern. Defaults
+                to one over ``store`` with the deployment's channels.
         """
         self.store = store if store is not None else WatchStore()
         self.feeds = list(feeds) if feeds is not None else [feed() for feed in FEEDS.values()]
         self.on_finding = on_finding
         self._clock = clock if clock is not None else (lambda: datetime.now(UTC))
         self._last_read: dict[str, datetime] = {}
+        self.notifier = (
+            notifier if notifier is not None else Notifier(self.store, clock=self._clock)
+        )
+        for feed in self.feeds:
+            feed.bind(self.store)
 
     def due(self, feed: Feed, now: datetime) -> bool:
         """Whether ``feed`` should be read at ``now``."""
@@ -75,14 +85,20 @@ class Watcher:
             return status
 
         announced = 0
-        for finding in judgment.findings:
+        findings = [with_guidance(finding) for finding in judgment.findings]
+        for finding in findings:
             if self.store.report(finding, now):
                 announced += 1
+                self.notifier.broadcast(finding)
                 if self.on_finding is not None:
                     self.on_finding(finding)
         self.store.close_absent(
-            feed.name, {finding.key for finding in judgment.findings if finding.ongoing}, now
+            feed.name, {finding.key for finding in findings if finding.ongoing}, now
         )
+        try:
+            self.notifier.sync()
+        except Exception as exc:  # telling people must not stop the watching
+            logger.warning("watch: delivery pass failed: %s", exc)
         status.latest_reading = judgment.latest_reading
         stale = (
             judgment.latest_reading is not None and now - judgment.latest_reading > feed.stale_after

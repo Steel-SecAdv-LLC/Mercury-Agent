@@ -2070,8 +2070,11 @@ def watch(
     record that settles it; --status shows how they turned out.
 
     Feeds: USGS earthquakes, NOAA geomagnetic activity, NOAA DART tsunami
-    buoys, NWS river gauges, USGS volcano alert levels, FEMA tropical-cyclone
-    declarations.
+    buoys, NWS river gauges, USGS volcano alert levels, National Weather
+    Service warnings, FEMA tropical-cyclone declarations.
+
+    Every finding says what to do and is delivered to the people it concerns;
+    `mercury-agent alerts` manages who that is.
 
     With no option it keeps watching until interrupted and prints each new
     finding as it appears. Use --once for a single read of every feed, and
@@ -2129,6 +2132,163 @@ def watch(
         if not as_json:
             click.echo("")
             click.echo("Stopped. `mercury-agent watch --status` shows what was last seen.")
+
+
+@main.group()
+def alerts() -> None:
+    """Who the watch tells, and where they are.
+
+    The watch delivers each finding to the people it concerns: by email to
+    subscribers (through the SMTP server in MERCURY_SMTP_HOST), to open
+    consoles, and to one webhook (MERCURY_WATCH_WEBHOOK_URL) for a phone-push
+    or chat service. A subscriber with a place is told what happens within
+    their radius of it and every National Weather Service alert in effect
+    there; one without a place is told everything.
+    """
+
+
+def _watch_store(state_dir: Path | None) -> Any:
+    from omni_mercury_engine.watch import WatchStore
+
+    return WatchStore(state_dir)
+
+
+_STATE_DIR = click.option(
+    "--state-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Where the watch keeps its memory (default: MERCURY_WATCH_DIR or ~/.mercury/watch).",
+)
+_SEVERITIES = {"notable": 1, "significant": 2, "severe": 3}
+
+
+@alerts.command("add")
+@click.option("--email", required=True, help="Address to tell.")
+@click.option("--place", default="", help='A name for the place ("Home").')
+@click.option("--lat", type=float, default=None, help="Latitude of the place, in degrees.")
+@click.option("--lon", type=float, default=None, help="Longitude of the place, in degrees.")
+@click.option(
+    "--radius-km", type=float, default=200.0, show_default=True,
+    help="How far from the place a finding may be and still be sent.",
+)  # fmt: skip
+@click.option(
+    "--min-severity", type=click.Choice(sorted(_SEVERITIES, key=_SEVERITIES.__getitem__)),
+    default="notable", show_default=True, help="The least severe finding to send.",
+)  # fmt: skip
+@_STATE_DIR
+def alerts_add(
+    email: str, place: str, lat: float | None, lon: float | None, radius_km: float,
+    min_severity: str, state_dir: Path | None,
+) -> None:  # fmt: skip
+    """Subscribe an address, for a place or (with no --lat/--lon) for everything.
+
+    Subscribe only an address whose owner asked for it.
+    """
+    try:
+        _watch_store(state_dir).add_subscriber(
+            email, place=place, latitude=lat, longitude=lon, radius_km=radius_km,
+            min_severity=_SEVERITIES[min_severity],
+        )  # fmt: skip
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
+    where = (
+        f"within {radius_km:g} km of {place or f'{lat}, {lon}'}"
+        if lat is not None
+        else "everywhere"
+    )
+    click.echo(f"{email} will be told of findings {where}, {min_severity} and above.")
+    from omni_mercury_engine.watch.notify import Notifier
+
+    if not Notifier(_watch_store(state_dir)).channels()["email"]:
+        click.echo(
+            "No SMTP server is configured (MERCURY_SMTP_HOST), so no email can be sent yet: "
+            "this subscriber will not be reached until one is.",
+            err=True,
+        )
+
+
+@alerts.command("remove")
+@click.option("--email", required=True, help="Address to stop telling.")
+@click.option("--place", default=None, help="Only this place; default: every subscription.")
+@_STATE_DIR
+def alerts_remove(email: str, place: str | None, state_dir: Path | None) -> None:
+    """Unsubscribe an address."""
+    ended = _watch_store(state_dir).remove_subscriber(email, place)
+    click.echo(f"Ended {ended} subscription{'s' if ended != 1 else ''} for {email}.")
+    if not ended:
+        raise SystemExit(1)
+
+
+@alerts.command("list")
+@click.option("--json", "as_json", is_flag=True, help="Print machine-readable JSON.")
+@_STATE_DIR
+def alerts_list(as_json: bool, state_dir: Path | None) -> None:
+    """Show who is told, how they can be reached, and what has been delivered."""
+    from omni_mercury_engine.watch.notify import Notifier
+
+    store = _watch_store(state_dir)
+    subscribers, channels = store.subscribers(), Notifier(store).channels()
+    counts = store.delivery_counts()
+    if as_json:
+        click.echo(
+            json.dumps(
+                {"subscribers": subscribers, "channels": channels, "deliveries": counts}, indent=2
+            )
+        )
+        return
+    names = {rank: name for name, rank in _SEVERITIES.items()}
+    for entry in subscribers:
+        where = (
+            f"within {entry['radius_km']:g} km of {entry['place']} "
+            f"({entry['latitude']:.2f}, {entry['longitude']:.2f})"
+            if entry["latitude"] is not None
+            else "everywhere"
+        )
+        click.echo(f"{entry['email']}: {where}; {names[entry['min_severity']]} and above")
+    if not subscribers:
+        click.echo("No one is subscribed.")
+    click.echo(
+        "Email: "
+        + (
+            "through the configured SMTP server"
+            if channels["email"]
+            else "NOT CONFIGURED (set MERCURY_SMTP_HOST); subscribers cannot be reached"
+        )
+        + ". Webhook: "
+        + ("set" if channels["webhook"] else "not set (MERCURY_WATCH_WEBHOOK_URL)")
+        + f". Delivered: {counts['sent']}; failed: {counts['failed']}."
+    )
+
+
+@alerts.command("test")
+@click.option("--email", required=True, help="A subscribed address to send a test message to.")
+@_STATE_DIR
+def alerts_test(email: str, state_dir: Path | None) -> None:
+    """Send a test message, to prove a subscriber can be reached before it matters."""
+    from omni_mercury_engine.watch.notify import Notifier
+
+    store = _watch_store(state_dir)
+    if not any(entry["email"] == email for entry in store.subscribers()):
+        raise click.UsageError(f"{email} is not subscribed; add it with `alerts add`.")
+    mailer = Notifier(store).mailer
+    if mailer is None:
+        raise click.ClickException(
+            "No SMTP server is configured (MERCURY_SMTP_HOST): no email can be sent."
+        )
+    try:
+        mailer.send(
+            to=email,
+            subject="[Mercury watch] Test: you can be reached",
+            body=(
+                "This is a test from the Mercury watch. Nothing has happened.\n\n"
+                "You are subscribed, and messages can reach you. When the watch reports "
+                "something that concerns you, it will arrive like this one, with what "
+                "happened, where, and what to do."
+            ),
+        )
+    except Exception as exc:
+        raise click.ClickException(f"The test message could not be sent: {exc}") from exc
+    click.echo(f"Test message sent to {email}.")
 
 
 @main.command()
