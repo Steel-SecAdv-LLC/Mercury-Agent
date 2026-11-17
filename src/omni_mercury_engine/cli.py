@@ -2256,6 +2256,14 @@ def alerts_list(as_json: bool, state_dir: Path | None) -> None:
         click.echo(f"{entry['email']}: {where}; {names[entry['min_severity']]} and above")
     if not subscribers:
         click.echo("No one is subscribed.")
+    for address in sorted({str(entry["email"]).lower() for entry in subscribers}):
+        held = store.phone_of(address)
+        if held:
+            state = "verified" if held["verified_at"] else "NOT VERIFIED (no text is sent)"
+            click.echo(
+                f"{address}: texts to {held['number']}, {state}; "
+                f"{names[held['min_severity']]} and above"
+            )
     click.echo(
         "Email: "
         + (
@@ -2263,9 +2271,100 @@ def alerts_list(as_json: bool, state_dir: Path | None) -> None:
             if channels["email"]
             else "NOT CONFIGURED (set MERCURY_SMTP_HOST); subscribers cannot be reached"
         )
+        + ". Text messages: "
+        + (
+            "through the configured Twilio account"
+            if channels["sms"]
+            else "not configured (MERCURY_SMS_TWILIO_ACCOUNT_SID and the other MERCURY_SMS_*)"
+        )
         + ". Webhook: "
         + ("set" if channels["webhook"] else "not set (MERCURY_WATCH_WEBHOOK_URL)")
         + f". Delivered: {counts['sent']}; failed: {counts['failed']}."
+    )
+
+
+@alerts.command("phone")
+@click.option("--email", required=True, help="The subscribed address the number belongs to.")
+@click.option("--number", default=None, help="Text a verification code to this number (+1415...).")
+@click.option("--code", default=None, help="Verify the number with the code that was texted.")
+@click.option("--remove", is_flag=True, help="Forget the address's number.")
+@click.option(
+    "--min-severity",
+    type=click.Choice(sorted(_SEVERITIES, key=_SEVERITIES.__getitem__)),
+    default="significant",
+    show_default=True,
+    help="Least severity to text.",
+)
+@_STATE_DIR
+def alerts_phone(
+    email: str, number: str | None, code: str | None, remove: bool, min_severity: str,
+    state_dir: Path | None,
+) -> None:  # fmt: skip
+    """Give a subscriber a phone number for text messages, verified by its owner.
+
+    A number is texted a finding only after a code sent to it has been typed
+    back: `--number` texts the code, `--code` verifies it. With neither, shows
+    what is recorded. Texts need the operator's provider account
+    (MERCURY_SMS_TWILIO_ACCOUNT_SID, MERCURY_SMS_TWILIO_AUTH_TOKEN and
+    MERCURY_SMS_FROM or MERCURY_SMS_TWILIO_MESSAGING_SERVICE_SID).
+    """
+    from omni_mercury_engine.watch.sms import SmsRefusedError, build_sms_sender
+    from omni_mercury_engine.watch.store import PhoneLimitError
+
+    store = _watch_store(state_dir)
+    if sum((number is not None, code is not None, remove)) > 1:
+        raise click.UsageError("give one of --number, --code or --remove")
+    if remove:
+        click.echo(
+            f"{email}'s number is forgotten." if store.remove_phone(email) else "No number is set."
+        )
+        return
+    if code is not None:
+        if not store.confirm_phone(email, code):
+            raise click.ClickException(
+                "That code is not right, or it has expired. Ask for a new one with --number."
+            )
+        click.echo(f"{store.phone_of(email)['number']} is verified and will be texted.")
+        return
+    if number is None:
+        held = store.phone_of(email)
+        if not held:
+            click.echo(f"No number is set for {email}.")
+        else:
+            state = "verified" if held["verified_at"] else "not verified: no text is sent to it"
+            click.echo(f"{held['number']}: {state}.")
+        return
+    if not store.subscriptions_of(email):
+        raise click.UsageError(f"{email} is not subscribed; add it with `alerts add`.")
+    try:
+        sender = build_sms_sender()
+    except ValueError as exc:
+        raise click.ClickException(f"The text-message settings are not valid: {exc}") from exc
+    if sender is None:
+        raise click.ClickException(
+            "No text-message provider is configured (MERCURY_SMS_TWILIO_ACCOUNT_SID, "
+            "MERCURY_SMS_TWILIO_AUTH_TOKEN): no text can be sent."
+        )
+    try:
+        issued = store.request_phone(email, number, min_severity=_SEVERITIES[min_severity])
+    except PhoneLimitError as exc:
+        raise click.ClickException(str(exc)) from exc
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
+    if not issued:
+        click.echo(f"{number} is already verified; it is texted {min_severity} and above.")
+        return
+    try:
+        sender.send(
+            to=number,
+            body=f"Mercury watch: your code is {issued}. It is good for 10 minutes. "
+            "If you did not ask for it, ignore this message.",
+        )
+    except (SmsRefusedError, ValueError) as exc:
+        raise click.ClickException(f"The code could not be sent: {exc}") from exc
+    click.echo(
+        f"A code was texted to {number}. Verify it with: "
+        f"mercury-agent alerts phone --email {email} --code <the code>"
     )
 
 

@@ -67,6 +67,7 @@ from omni_mercury_engine.api.request_audit import set_audit_actor
 if TYPE_CHECKING:
     from omni_mercury_engine.api.auth import APIKey
     from omni_mercury_engine.api.identity_store import Account, Session
+    from omni_mercury_engine.watch.sms import SmsSender
 
 logger = logging.getLogger(__name__)
 
@@ -470,6 +471,27 @@ class WatchSubscriptionResponse(BaseModel):
     created: str
 
 
+class WatchPhoneRequest(BaseModel):
+    """A phone number to text the account's findings to, once it is verified."""
+
+    number: str = Field(pattern=r"^\+[1-9]\d{6,14}$", description="E.164, like +14155550123.")
+    min_severity: Literal["notable", "significant", "severe"] = "significant"
+
+
+class WatchPhoneCodeRequest(BaseModel):
+    """The code that was texted to the number."""
+
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class WatchPhoneResponse(BaseModel):
+    """The account's phone number for texts, and whether its owner has verified it."""
+
+    number: str
+    verified: bool
+    min_severity: str
+
+
 class WatchSubscriptionsResponse(BaseModel):
     """The account's watch subscriptions, and whether this server can act on them."""
 
@@ -477,6 +499,8 @@ class WatchSubscriptionsResponse(BaseModel):
     limit: int
     email_delivery: bool
     watching: bool
+    sms_delivery: bool = False
+    phone: WatchPhoneResponse | None = None
 
 
 def _watch_subscription_view(row: dict[str, Any]) -> WatchSubscriptionResponse:
@@ -757,6 +781,12 @@ def export_data(
         _watch_subscription_view(row).model_dump()
         for row in (store.subscriptions_of(account.email) if store is not None else [])
     ]
+    held = store.phone_of(account.email) if store is not None else {}
+    data["watch_phone"] = (
+        {"number": held["number"], "verified_at": held["verified_at"], "created": held["created"]}
+        if held
+        else None
+    )
     return data
 
 
@@ -1147,12 +1177,31 @@ def _watch_subscriptions_view(account: Account) -> WatchSubscriptionsResponse:
 
     store = existing_store()
     rows = store.subscriptions_of(account.email) if store is not None else []
+    held = store.phone_of(account.email) if store is not None else {}
+    ranks = {rank: name for name, rank in _WATCH_SEVERITY_RANK.items()}
     return WatchSubscriptionsResponse(
         subscriptions=[_watch_subscription_view(row) for row in rows],
         limit=_max_watch_places_per_account(),
         email_delivery=bool(os.getenv(SMTP_HOST_ENV, "").strip()),
         watching=watching(),
+        sms_delivery=_sms_sender() is not None,
+        phone=(
+            WatchPhoneResponse(
+                number=str(held["number"]),
+                verified=bool(held["verified_at"]),
+                min_severity=ranks.get(int(held["min_severity"]), "significant"),
+            )
+            if held
+            else None
+        ),
     )
+
+
+def _sms_sender() -> SmsSender | None:
+    """The deployment's text-message sender, or ``None`` when it has none it can use."""
+    from omni_mercury_engine.watch.notify import _sms_sender as configured
+
+    return configured()
 
 
 @router.get("/watch-subscriptions", response_model=WatchSubscriptionsResponse)
@@ -1258,3 +1307,128 @@ def remove_watch_subscription(
         client_ip=_client_ip(request),
     )
     return MessageResponse(message="You will no longer be told about that place.")
+
+
+# --------------------------------------------------------------------------- #
+# the account's phone number for text messages (verified by a code texted to it)
+# --------------------------------------------------------------------------- #
+@router.post(
+    "/watch-phone",
+    response_model=WatchSubscriptionsResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def request_watch_phone(
+    payload: WatchPhoneRequest,
+    request: Request,
+    session_pair: tuple[Account, Session] = Depends(csrf_protected),
+    service: AuthService = Depends(get_auth_service),
+) -> WatchSubscriptionsResponse:
+    """Text a verification code to a number the current account gives.
+
+    Nothing is texted a finding until the number's owner types the code
+    back (``POST /watch-phone/confirm``). A code is sent only by a signed-in,
+    verified account, at most once a minute and five times a day for it: a
+    form that texts on request is otherwise a way to spend the operator's
+    money and ring a stranger's phone. Changing only the severity of a
+    number already verified sends nothing.
+    """
+    from omni_mercury_engine.watch.sms import SmsRefusedError
+    from omni_mercury_engine.watch.store import PhoneLimitError, WatchStore, default_state_dir
+
+    account, _session = session_pair
+    if not account.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": "verify your email before adding a phone number"},
+        )
+    sender = _sms_sender()
+    if sender is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": "this server is not set up to send text messages"},
+        )
+    store = WatchStore(default_state_dir())
+    try:
+        code = store.request_phone(
+            account.email,
+            payload.number,
+            min_severity=_WATCH_SEVERITY_RANK[payload.min_severity],
+        )
+    except PhoneLimitError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"message": str(exc)},
+            headers={"Retry-After": str(max(1, int(exc.retry_after) + 1))},
+        ) from exc
+    if code:
+        try:
+            sender.send(
+                to=payload.number,
+                body=f"Mercury watch: your code is {code}. It is good for 10 minutes. "
+                "If you did not ask for it, ignore this message.",
+            )
+        except (SmsRefusedError, ValueError) as exc:
+            service.record_event(
+                "watch_phone_code",
+                outcome="failure",
+                account_id=account.id,
+                client_ip=_client_ip(request),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail={"message": f"the code could not be sent to that number: {exc}"},
+            ) from exc
+        service.record_event(
+            "watch_phone_code", outcome="success", account_id=account.id,
+            client_ip=_client_ip(request),
+        )  # fmt: skip
+    return _watch_subscriptions_view(account)
+
+
+@router.post("/watch-phone/confirm", response_model=WatchSubscriptionsResponse)
+def confirm_watch_phone(
+    payload: WatchPhoneCodeRequest,
+    request: Request,
+    session_pair: tuple[Account, Session] = Depends(csrf_protected),
+    service: AuthService = Depends(get_auth_service),
+) -> WatchSubscriptionsResponse:
+    """Verify the current account's number with the code texted to it."""
+    from omni_mercury_engine.watch.store import existing_store
+
+    account, _session = session_pair
+    store = existing_store()
+    confirmed = store is not None and store.confirm_phone(account.email, payload.code)
+    service.record_event(
+        "watch_phone_verified",
+        outcome="success" if confirmed else "failure",
+        account_id=account.id,
+        client_ip=_client_ip(request),
+    )
+    if not confirmed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "that code is not right, or it has expired; ask for a new one"},
+        )
+    return _watch_subscriptions_view(account)
+
+
+@router.delete("/watch-phone", response_model=MessageResponse)
+def remove_watch_phone(
+    request: Request,
+    session_pair: tuple[Account, Session] = Depends(csrf_protected),
+    service: AuthService = Depends(get_auth_service),
+) -> MessageResponse:
+    """Forget the current account's phone number; no more texts are sent to it."""
+    from omni_mercury_engine.watch.store import existing_store
+
+    account, _session = session_pair
+    store = existing_store()
+    if store is None or not store.remove_phone(account.email):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail={"message": "no phone number is set"}
+        )
+    service.record_event(
+        "watch_phone_removed", outcome="success", account_id=account.id,
+        client_ip=_client_ip(request),
+    )  # fmt: skip
+    return MessageResponse(message="That number will not be texted again.")

@@ -12,9 +12,10 @@ delivers them.
   effect at a subscriber's place goes to that subscriber; a finding with no
   place (a geomagnetic storm) goes to everyone. A subscriber with no place
   receives everything.
-* **How.** By email through the deployment's mailer, to the console's alert
-  dock through the alert bus, and to one operator webhook (a phone-push or
-  chat service).
+* **How.** By email through the deployment's mailer, by text message to a
+  number its owner has verified (:mod:`~omni_mercury_engine.watch.sms`), to
+  the console's alert dock through the alert bus, and to one operator
+  webhook (a phone-push or chat service).
 * **Once, and provably.** Every delivery is recorded. A finding is sent to
   a subscriber once per severity; one that failed is tried again on later
   passes, and the failure is shown, not swallowed. Delivery works from the
@@ -34,9 +35,16 @@ import logging
 import math
 import os
 from datetime import UTC, datetime
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.watch.guidance import EMERGENCY_LINE
+from omni_mercury_engine.watch.sms import (
+    SmsOptedOutError,
+    SmsSender,
+    build_sms_sender,
+    text_message,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -47,7 +55,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["AUTOMATIC", "MAX_ATTEMPTS", "Notifier", "audience", "distance_km", "notice"]
+__all__ = [
+    "AUTOMATIC",
+    "MAX_ATTEMPTS",
+    "Notifier",
+    "audience",
+    "distance_km",
+    "notice",
+    "one_per_address",
+]
 
 #: A delivery that has failed this many times is left as failed.
 MAX_ATTEMPTS = 5
@@ -102,6 +118,24 @@ def audience(
     return out
 
 
+def one_per_address(
+    reached: list[tuple[dict[str, Any], float | None]],
+) -> list[tuple[dict[str, Any], float | None]]:
+    """One entry for each address: its place nearest the finding.
+
+    Someone with two places near each other (home and work) was sent the
+    same finding twice, once for each. A place with a known distance comes
+    before one without; ties go to the longer-held subscription.
+    """
+    best: dict[str, tuple[dict[str, Any], float | None]] = {}
+    for subscriber, away in reached:
+        address = str(subscriber["email"]).lower()
+        held = best.get(address)
+        if held is None or (away is not None and (held[1] is None or away < held[1])):
+            best[address] = (subscriber, away)
+    return list(best.values())
+
+
 def notice(
     finding: dict[str, Any], subscriber: dict[str, Any] | None = None, away: float | None = None
 ) -> tuple[str, str]:
@@ -143,6 +177,17 @@ def notice(
     return subject, "\n".join(lines)
 
 
+def _sms_sender() -> SmsSender | None:
+    """The deployment's text-message sender, or ``None`` when it has none it can use."""
+    try:
+        return build_sms_sender()
+    except ValueError as exc:
+        # Settings that are present and wrong: say so, and treat texts as off
+        # (every surface then says they cannot be sent) instead of failing to start.
+        logger.error("watch: text messages are misconfigured and will not be sent: %s", exc)
+        return None
+
+
 def _smtp_mailer() -> Mailer | None:
     """The deployment's SMTP mailer, or ``None`` when it has none."""
     from omni_mercury_engine.api.mailer import SMTP_HOST_ENV, build_mailer
@@ -160,6 +205,7 @@ class Notifier:
         mailer: Mailer | None = None,
         post: Callable[[str, dict[str, Any]], None] | None = None,
         clock: Callable[[], datetime] | None = None,
+        sms: SmsSender | None = None,
     ) -> None:
         """Build a notifier.
 
@@ -167,11 +213,15 @@ class Notifier:
             store: The watch's store: subscribers, findings, the ledger.
             mailer: Sends email. Defaults to the deployment's SMTP mailer;
                 with none configured, email is not attempted.
+            sms: Sends text messages. Defaults to the deployment's provider
+                account (:func:`~omni_mercury_engine.watch.sms.build_sms_sender`);
+                with none configured, no text is attempted.
             post: Sends the webhook's JSON body to its URL; replaceable in tests.
             clock: Returns the current UTC time; replaceable in tests.
         """
         self.store = store
         self.mailer = mailer if mailer is not None else _smtp_mailer()
+        self.sms = sms if sms is not None else _sms_sender()
         self._post = post if post is not None else _post_json
         self._clock = clock if clock is not None else (lambda: datetime.now(UTC))
 
@@ -182,7 +232,11 @@ class Notifier:
 
     def channels(self) -> dict[str, bool]:
         """Which ways of reaching people this deployment has."""
-        return {"email": self.mailer is not None, "webhook": bool(self.webhook_url)}
+        return {
+            "email": self.mailer is not None,
+            "sms": self.sms is not None,
+            "webhook": bool(self.webhook_url),
+        }
 
     def broadcast(self, finding: Finding) -> None:
         """Put a new finding on the alert bus, for consoles that are open now."""
@@ -228,7 +282,10 @@ class Notifier:
             How many deliveries were ``sent`` and how many ``failed`` in this pass.
         """
         done = {"sent": 0, "failed": 0}
-        subscribers = self.store.subscribers() if self.mailer is not None else []
+        mailer = self.mailer
+        reachable = mailer is not None or self.sms is not None
+        subscribers = self.store.subscribers() if reachable else []
+        phones = self.store.verified_phones() if self.sms is not None else {}
         hook = self.webhook_url
         if not subscribers and not hook:
             return done
@@ -240,14 +297,33 @@ class Notifier:
         for finding in self.store.standing(now=self._clock(), limit=1000):
             rank = _RANK.get(str(finding.get("severity")), 1)
             key = str(finding["key"])
-            for subscriber, away in audience(finding, subscribers):
-                if self._due(ledger, key, rank, int(subscriber["id"]), "email"):
+            for subscriber, away in one_per_address(audience(finding, subscribers)):
+                if mailer is not None and self._due(
+                    ledger, key, rank, int(subscriber["id"]), "email"
+                ):
                     subject, body = notice(finding, subscriber, away)
                     self._attempt(
                         key, rank, int(subscriber["id"]), "email", done,
-                        lambda s=subscriber, t=subject, b=body: self.mailer.send(  # type: ignore[union-attr,misc]
-                            to=s["email"], subject=t, body=b, headers=AUTOMATIC
+                        partial(
+                            mailer.send, to=str(subscriber["email"]), subject=subject,
+                            body=body, headers=AUTOMATIC,
                         ),
+                    )  # fmt: skip
+                    if heartbeat is not None:
+                        heartbeat()
+                # A text goes to the address's verified number, for findings at or
+                # above the severity its owner chose for texts. The ledger entry is
+                # the phone's, so it is texted once whichever place matched.
+                phone = phones.get(str(subscriber["email"]).lower())
+                if (
+                    phone is not None
+                    and rank >= int(phone["min_severity"])
+                    and self._due(ledger, key, rank, int(phone["id"]), "sms")
+                ):
+                    text = text_message(finding, subscriber, away)
+                    self._attempt(
+                        key, rank, int(phone["id"]), "sms", done,
+                        partial(self._text, str(phone["number"]), text),
                     )  # fmt: skip
                     if heartbeat is not None:
                         heartbeat()
@@ -269,9 +345,19 @@ class Notifier:
                     payload["topic"] = topic
                 self._attempt(
                     key, rank, WEBHOOK_SUBSCRIBER, "webhook", done,
-                    lambda u=hook, p=payload: self._post(u, p),  # type: ignore[misc]
+                    partial(self._post, hook, payload),
                 )  # fmt: skip
         return done
+
+    def _text(self, number: str, text: str) -> None:
+        """Send one text; a number whose owner replied STOP is not texted again."""
+        if self.sms is None:
+            raise RuntimeError("no text-message sender is configured")
+        try:
+            self.sms.send(to=number, body=text)
+        except SmsOptedOutError:
+            self.store.unverify_phone(number)
+            raise
 
     @staticmethod
     def _due(
@@ -293,7 +379,7 @@ class Notifier:
         subscriber: int,
         channel: str,
         done: dict[str, int],
-        send: Callable[[], None],
+        send: Callable[[], object],
     ) -> None:
         error: str | None = None
         try:

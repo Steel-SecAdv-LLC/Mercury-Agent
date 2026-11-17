@@ -36,7 +36,9 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
     findings: list[dict[str, Any]] = []
     tally = {"confirmed": 0, "revised": 0, "withdrawn": 0, "unconfirmed": 0, "unchecked": 0}
     # Who is told: counts only. Addresses and places are never served.
-    telling = {"subscribers": 0, "email": False, "webhook": False, "sent": 0, "failed": 0}
+    telling = {
+        "subscribers": 0, "email": False, "sms": False, "webhook": False, "sent": 0, "failed": 0,
+    }  # fmt: skip
     if (directory / "watch.sqlite").exists():
         store = WatchStore(directory)
         statuses = store.statuses()

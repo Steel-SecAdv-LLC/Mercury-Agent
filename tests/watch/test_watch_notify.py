@@ -536,7 +536,7 @@ class TestDelivery:
         self._standing(store)
         notifier = Notifier(store)
 
-        assert notifier.channels() == {"email": False, "webhook": False}
+        assert notifier.channels() == {"email": False, "sms": False, "webhook": False}
         assert notifier.sync() == {"sent": 0, "failed": 0}
         assert store.delivery_counts() == {"sent": 0, "failed": 0}
 
@@ -915,7 +915,7 @@ class TestSurfaces:
         data = snapshot_of(store)
 
         assert data["telling"] == {
-            "subscribers": 1, "email": False, "webhook": False, "sent": 0, "failed": 0,
+            "subscribers": 1, "email": False, "sms": False, "webhook": False, "sent": 0, "failed": 0,
         }  # fmt: skip
         assert "private@example.org" not in json.dumps(data) and "28.37" not in json.dumps(data)
 

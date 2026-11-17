@@ -111,6 +111,8 @@ class TestSubscribing:
             "limit": 5,
             "email_delivery": False,
             "watching": False,
+            "sms_delivery": False,
+            "phone": None,
         }
         assert existing_store() is None  # reading never makes the store
 
@@ -361,3 +363,181 @@ class TestTheyFollowTheAccount:
 
         assert service._on_email_changed is carry_address
         assert service._on_account_deleting is forget_address
+
+
+# --------------------------------------------------------------------------- #
+# the account's phone number for text messages
+# --------------------------------------------------------------------------- #
+PHONE = "/api/v1/auth/watch-phone"
+NUMBER = "+14155550123"
+
+
+class _Texts:
+    """A text-message sender that records, and can be told to refuse."""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, str]] = []
+        self.refuse: Exception | None = None
+
+    def send(self, *, to: str, body: str) -> None:
+        if self.refuse is not None:
+            raise self.refuse
+        self.sent.append((to, body))
+
+    def code(self) -> str:
+        found = re.search(r"your code is (\d{6})", self.sent[-1][1])
+        assert found is not None
+        return found.group(1)
+
+
+@pytest.fixture
+def texts(monkeypatch: pytest.MonkeyPatch) -> _Texts:
+    sender = _Texts()
+    monkeypatch.setattr(accounts, "_sms_sender", lambda: sender)
+    return sender
+
+
+class TestPhone:
+    def test_a_server_without_a_provider_says_so_and_texts_nothing(self, setup: Setup) -> None:
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+
+        answer = client.post(PHONE, headers=csrf, json={"number": NUMBER})
+
+        assert answer.status_code == 409
+        assert answer.json()["detail"]["message"] == (
+            "this server is not set up to send text messages"
+        )
+        assert existing_store() is None
+
+    def test_a_number_is_texted_a_code_and_is_not_verified_until_it_is_typed_back(
+        self, setup: Setup, texts: _Texts
+    ) -> None:
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+
+        asked = client.post(PHONE, headers=csrf, json={"number": NUMBER, "min_severity": "severe"})
+
+        assert asked.status_code == 202
+        assert asked.json()["sms_delivery"] is True
+        assert asked.json()["phone"] == {
+            "number": NUMBER, "verified": False, "min_severity": "severe",
+        }  # fmt: skip
+        ((to, body),) = texts.sent
+        assert to == NUMBER and "good for 10 minutes" in body
+        assert _store().verified_phones() == {}
+
+        wrong = client.post(f"{PHONE}/confirm", headers=csrf, json={"code": "000000"})
+        right = client.post(f"{PHONE}/confirm", headers=csrf, json={"code": texts.code()})
+
+        assert wrong.status_code == 400 and "not right" in wrong.json()["detail"]["message"]
+        assert right.status_code == 200 and right.json()["phone"]["verified"] is True
+        assert list(_store().verified_phones()) == ["ana@example.org"]
+        # A code is used once.
+        again = client.post(f"{PHONE}/confirm", headers=csrf, json={"code": texts.code()})
+        assert again.status_code == 400
+
+    def test_changing_only_the_severity_of_a_verified_number_sends_nothing(
+        self, setup: Setup, texts: _Texts
+    ) -> None:
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        client.post(PHONE, headers=csrf, json={"number": NUMBER})
+        client.post(f"{PHONE}/confirm", headers=csrf, json={"code": texts.code()})
+
+        changed = client.post(
+            PHONE, headers=csrf, json={"number": NUMBER, "min_severity": "notable"}
+        )
+
+        assert changed.status_code == 202 and len(texts.sent) == 1
+        assert changed.json()["phone"] == {
+            "number": NUMBER, "verified": True, "min_severity": "notable",
+        }  # fmt: skip
+
+    def test_codes_cannot_be_asked_for_faster_than_one_a_minute(
+        self, setup: Setup, texts: _Texts
+    ) -> None:
+        """A form that texts on request is a way to spend money and ring strangers."""
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        assert client.post(PHONE, headers=csrf, json={"number": NUMBER}).status_code == 202
+
+        again = client.post(PHONE, headers=csrf, json={"number": "+14155550199"})
+
+        assert again.status_code == 429 and 1 <= int(again.headers["Retry-After"]) <= 61
+        assert len(texts.sent) == 1 and _store().phone_of("ana@example.org")["number"] == NUMBER
+
+    def test_a_number_the_provider_will_not_text_is_said_not_claimed(
+        self, setup: Setup, texts: _Texts
+    ) -> None:
+        from omni_mercury_engine.watch.sms import SmsRefusedError
+
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        texts.refuse = SmsRefusedError("Twilio error 21211: Invalid 'To' Phone Number", 21211)
+
+        answer = client.post(PHONE, headers=csrf, json={"number": NUMBER})
+
+        assert answer.status_code == 502 and "21211" in answer.json()["detail"]["message"]
+        assert _store().verified_phones() == {}
+
+    @pytest.mark.parametrize(
+        "bad", ["4155550123", "+0415555", "+1 415 555 0123", "+1415555012345678"]
+    )
+    def test_what_is_not_an_international_number_is_refused(
+        self, setup: Setup, texts: _Texts, bad: str
+    ) -> None:
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+
+        assert client.post(PHONE, headers=csrf, json={"number": bad}).status_code == 422
+        assert texts.sent == []
+
+    def test_who_may(self, setup: Setup, texts: _Texts) -> None:
+        client, mailer = setup
+        assert client.post(PHONE, json={"number": NUMBER}).status_code == 401
+        csrf = _sign_in(client, mailer)
+
+        assert client.post(PHONE, json={"number": NUMBER}).status_code == 403  # no CSRF token
+        assert client.post(f"{PHONE}/confirm", json={"code": "123456"}).status_code == 403
+        assert client.delete(PHONE).status_code == 403
+        assert client.delete(PHONE, headers=csrf).status_code == 404  # none set
+        assert texts.sent == []
+
+    def test_it_is_removed_exported_and_follows_the_account(
+        self, setup: Setup, texts: _Texts
+    ) -> None:
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        client.post(PHONE, headers=csrf, json={"number": NUMBER})
+        client.post(f"{PHONE}/confirm", headers=csrf, json={"code": texts.code()})
+
+        exported = client.get("/api/v1/auth/export").json()["watch_phone"]
+        assert exported["number"] == NUMBER and exported["verified_at"]
+
+        client.post(
+            "/api/v1/auth/email-change/request",
+            headers=csrf,
+            json={"new_email": "ana@new.example.org", "current_password": "a-strong-pw"},
+        )
+        client.post("/api/v1/auth/email-change/confirm", json={"token": mailer.last_token()})
+        assert list(_store().verified_phones()) == ["ana@new.example.org"]
+
+        login = client.post(
+            "/api/v1/auth/login", json={"email": "ana@new.example.org", "password": "a-strong-pw"}
+        )
+        csrf = {"X-CSRF-Token": str(login.json()["csrf_token"])}
+        assert client.delete(PHONE, headers=csrf).status_code == 200
+        assert _store().phone_of("ana@new.example.org") == {}
+
+    def test_it_is_gone_before_the_account_is(self, setup: Setup, texts: _Texts) -> None:
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        client.post(PHONE, headers=csrf, json={"number": NUMBER})
+        client.post(f"{PHONE}/confirm", headers=csrf, json={"code": texts.code()})
+
+        client.post(
+            "/api/v1/auth/account/delete", headers=csrf, json={"current_password": "a-strong-pw"}
+        )
+
+        assert _store().phone_of("ana@example.org") == {}

@@ -103,6 +103,20 @@ A finding is delivered to the people it concerns.
   `MERCURY_WATCH_MAX_PLACES_PER_ACCOUNT` places (default 5). The
   subscriptions move with the account when its address changes, are in its
   data export, and are removed before the account is deleted.
+- **By text message.** An address can have one phone number, texted the
+  findings that concern its places at or above a severity its owner chooses
+  (significant unless changed). The number is texted nothing until a
+  six-digit code sent to it has been typed back, from the account page or
+  with `mercury-agent alerts phone --email … --number +1415…` and then
+  `--code …`. A code is good for ten minutes and five wrong guesses; an
+  address is sent at most one a minute and five a day. Texts go through the
+  operator's own Twilio account: `MERCURY_SMS_TWILIO_ACCOUNT_SID`,
+  `MERCURY_SMS_TWILIO_AUTH_TOKEN`, and `MERCURY_SMS_FROM` (a number the
+  account owns) or `MERCURY_SMS_TWILIO_MESSAGING_SERVICE_SID`. Without them
+  no text is attempted and the page and the command say so. A reply of STOP
+  is honoured by the provider, and the number is then not texted from here
+  either. Deliveries are in the same ledger: once per severity, retried when
+  they fail.
 - **How many places.** The `warnings` feed asks the Service about each
   distinct place (coordinates to two decimals) on every read, up to 250.
   Accounts cannot add a place beyond that. If the operator's command does,

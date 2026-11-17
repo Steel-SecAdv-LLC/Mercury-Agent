@@ -9,9 +9,12 @@ a watcher that is killed loses at most the read in progress, and a reader
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import re
+import secrets
 import sqlite3
 import threading
 from contextlib import closing, suppress
@@ -24,6 +27,7 @@ if TYPE_CHECKING:
     from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
 
 __all__ = [
+    "PhoneLimitError",
     "SubscriptionLimitError",
     "WatchStore",
     "carry_address",
@@ -46,6 +50,13 @@ CREATE TABLE IF NOT EXISTS subscribers (
     min_severity INTEGER NOT NULL DEFAULT 1, created TEXT NOT NULL,
     UNIQUE (email, place)
 );
+CREATE TABLE IF NOT EXISTS phones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    number TEXT NOT NULL, min_severity INTEGER NOT NULL DEFAULT 2,
+    code_hash TEXT, code_expires TEXT, code_attempts INTEGER NOT NULL DEFAULT 0,
+    sends INTEGER NOT NULL DEFAULT 0, sends_since TEXT, last_send TEXT,
+    verified_at TEXT, created TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS lease (name TEXT PRIMARY KEY, holder TEXT NOT NULL, until TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS deliveries (
     finding_key TEXT NOT NULL, severity INTEGER NOT NULL, subscriber INTEGER NOT NULL,
@@ -59,6 +70,10 @@ CREATE TABLE IF NOT EXISTS deliveries (
 _EMAIL = re.compile(
     r"[^@\s<>,;\"']{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,253}[A-Za-z0-9])?\.[A-Za-z]{2,63}"
 )
+
+
+#: An international phone number as E.164 writes it.
+_E164 = re.compile(r"\+[1-9]\d{6,14}")
 
 
 def default_state_dir() -> Path:
@@ -83,6 +98,19 @@ class SubscriptionLimitError(ValueError):
         self.limit = limit
 
 
+class PhoneLimitError(ValueError):
+    """A verification code was refused: too many were asked for, or too soon.
+
+    Attributes:
+        retry_after: Seconds until another may be asked for.
+    """
+
+    def __init__(self, message: str, retry_after: float) -> None:
+        """Record why, and how long to wait."""
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 def existing_store() -> WatchStore | None:
     """The watch's store, when this deployment has one. Never creates it."""
     directory = default_state_dir()
@@ -90,10 +118,11 @@ def existing_store() -> WatchStore | None:
 
 
 def forget_address(email: str) -> None:
-    """End every subscription of ``email``: its account is being deleted."""
+    """End every subscription of ``email``, and forget its phone: its account is being deleted."""
     store = existing_store()
     if store is not None:
         store.remove_subscriber(email)
+        store.remove_phone(email)
 
 
 def carry_address(previous: str, current: str) -> None:
@@ -101,6 +130,7 @@ def carry_address(previous: str, current: str) -> None:
     store = existing_store()
     if store is not None:
         store.move_subscriber(previous, current)
+        store.move_phone(previous, current)
 
 
 class WatchStore:
@@ -560,6 +590,178 @@ class WatchStore:
         with closing(self._connect()) as connection:
             rows = connection.execute("SELECT * FROM subscribers ORDER BY id").fetchall()
         return [dict(row) for row in rows]
+
+    # ------------------------------------------------------------------ phones
+
+    #: A verification code is good for this long.
+    CODE_LIFETIME: ClassVar[timedelta] = timedelta(minutes=10)
+    #: Wrong guesses at one code before it is void.
+    CODE_ATTEMPTS: ClassVar[int] = 5
+    #: Codes one address may be sent in a day, and the least gap between two.
+    #: A text costs the operator money and a stranger's phone its peace: a
+    #: form that sends one on request is a known way to abuse both.
+    CODE_SENDS_PER_DAY: ClassVar[int] = 5
+    CODE_GAP: ClassVar[timedelta] = timedelta(seconds=60)
+
+    @staticmethod
+    def _code_hash(email: str, number: str, code: str) -> str:
+        """What is kept of a code: never the code. Bound to the address and number."""
+        return hashlib.sha256(f"{email.strip().lower()}\n{number}\n{code}".encode()).hexdigest()
+
+    def request_phone(
+        self, email: str, number: str, *, min_severity: int = 2, now: datetime | None = None
+    ) -> str:
+        """Record ``number`` for ``email``, unverified, and issue a code to text to it.
+
+        A number its address has already verified keeps its verification
+        when only the least severity changes; no code is issued then.
+
+        Returns:
+            The six-digit code to send to the number, or ``""`` when none is needed.
+
+        Raises:
+            PhoneLimitError: If a code was sent under a minute ago, or five in the past day.
+            ValueError: If the address, the number or the severity is not valid.
+        """
+        address = email.strip()
+        if not _EMAIL.fullmatch(address):
+            raise ValueError(f"not an email address: {email!r}")
+        if not _E164.fullmatch(number):
+            raise ValueError("a phone number must be written like +14155550123")
+        if min_severity not in (1, 2, 3):
+            raise ValueError("the least severity is 1 (notable), 2 (significant) or 3 (severe)")
+        moment = now or datetime.now(UTC)
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM phones WHERE email = ? COLLATE NOCASE", (address,)
+            ).fetchone()
+            if row is not None and row["number"] == number and row["verified_at"]:
+                connection.execute(
+                    "UPDATE phones SET min_severity=? WHERE id=?", (min_severity, row["id"])
+                )
+                return ""
+            sends, since = 0, moment
+            if row is not None:
+                if row["last_send"]:
+                    wait = self.CODE_GAP - (moment - datetime.fromisoformat(row["last_send"]))
+                    if wait > timedelta(0):
+                        raise PhoneLimitError(
+                            "a code was sent a moment ago; wait a minute before asking again",
+                            wait.total_seconds(),
+                        )
+                if row["sends_since"]:
+                    began = datetime.fromisoformat(row["sends_since"])
+                    if moment - began < timedelta(days=1):
+                        sends, since = int(row["sends"]), began
+                if sends >= self.CODE_SENDS_PER_DAY:
+                    raise PhoneLimitError(
+                        f"{self.CODE_SENDS_PER_DAY} codes have been sent today; try again tomorrow",
+                        (since + timedelta(days=1) - moment).total_seconds(),
+                    )
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            connection.execute(
+                "INSERT INTO phones (email, number, min_severity, code_hash, code_expires, "
+                "code_attempts, sends, sends_since, last_send, verified_at, created) "
+                "VALUES (:email, :number, :least, :hash, :expires, 0, :sends, :since, :now, "
+                "NULL, :now) ON CONFLICT (email) DO UPDATE SET email=excluded.email, "
+                "number=excluded.number, min_severity=excluded.min_severity, "
+                "code_hash=excluded.code_hash, code_expires=excluded.code_expires, "
+                "code_attempts=0, sends=excluded.sends, sends_since=excluded.sends_since, "
+                "last_send=excluded.last_send, verified_at=NULL",
+                {
+                    "email": address,
+                    "number": number,
+                    "least": min_severity,
+                    "hash": self._code_hash(address, number, code),
+                    "expires": (moment + self.CODE_LIFETIME).isoformat(),
+                    "sends": sends + 1,
+                    "since": since.isoformat(),
+                    "now": moment.isoformat(),
+                },
+            )
+            return code
+
+    def confirm_phone(self, email: str, code: str, now: datetime | None = None) -> bool:
+        """Verify ``email``'s number with the code texted to it. Returns whether it was right.
+
+        A code is void once it has expired or been guessed wrong
+        :attr:`CODE_ATTEMPTS` times; a right code is used once.
+        """
+        moment = (now or datetime.now(UTC)).isoformat()
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM phones WHERE email = ? COLLATE NOCASE", (email.strip(),)
+            ).fetchone()
+            if (
+                row is None
+                or not row["code_hash"]
+                or row["code_expires"] <= moment
+                or int(row["code_attempts"]) >= self.CODE_ATTEMPTS
+            ):
+                return False
+            given = self._code_hash(str(row["email"]), str(row["number"]), code.strip())
+            if not hmac.compare_digest(given, str(row["code_hash"])):
+                connection.execute(
+                    "UPDATE phones SET code_attempts = code_attempts + 1 WHERE id=?", (row["id"],)
+                )
+                return False
+            connection.execute(
+                "UPDATE phones SET verified_at=?, code_hash=NULL, code_expires=NULL, "
+                "code_attempts=0 WHERE id=?",
+                (moment, row["id"]),
+            )
+            return True
+
+    def phone_of(self, email: str) -> dict[str, Any]:
+        """The number recorded for ``email`` and whether it is verified (``{}`` when none)."""
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT id, email, number, min_severity, verified_at, created FROM phones "
+                "WHERE email = ? COLLATE NOCASE",
+                (email.strip(),),
+            ).fetchone()
+        return dict(row) if row else {}
+
+    def verified_phones(self) -> dict[str, dict[str, Any]]:
+        """Every verified number, by its address in lower case."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT id, email, number, min_severity FROM phones WHERE verified_at IS NOT NULL"
+            ).fetchall()
+        return {str(row["email"]).lower(): dict(row) for row in rows}
+
+    def remove_phone(self, email: str) -> bool:
+        """Forget ``email``'s number. Returns whether there was one."""
+        with self._lock, closing(self._connect()) as connection, connection:
+            cursor = connection.execute(
+                "DELETE FROM phones WHERE email = ? COLLATE NOCASE", (email.strip(),)
+            )
+            return cursor.rowcount == 1
+
+    def unverify_phone(self, number: str) -> int:
+        """Stop texting ``number``: its owner told the provider to stop. Returns how many."""
+        with self._lock, closing(self._connect()) as connection, connection:
+            cursor = connection.execute(
+                "UPDATE phones SET verified_at=NULL, code_hash=NULL WHERE number=?", (number,)
+            )
+            return int(cursor.rowcount)
+
+    def move_phone(self, previous: str, current: str) -> None:
+        """Carry an address's number to the address that replaces it."""
+        old, new = previous.strip(), current.strip()
+        with self._lock, closing(self._connect()) as connection, connection:
+            if old.lower() != new.lower():
+                connection.execute(
+                    "DELETE FROM phones WHERE email = :new COLLATE NOCASE AND EXISTS "
+                    "(SELECT 1 FROM phones WHERE email = :old COLLATE NOCASE)",
+                    {"old": old, "new": new},
+                )
+            connection.execute(
+                "UPDATE phones SET email = :new WHERE email = :old COLLATE NOCASE",
+                {"old": old, "new": new},
+            )
 
     # -------------------------------------------------------------- deliveries
 

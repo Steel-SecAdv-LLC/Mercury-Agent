@@ -214,7 +214,7 @@ label { font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 0.3r
 label.label-inline { display: inline; margin: 0; font-weight: 500; }
 
 input[type="text"], input[type="email"], input[type="password"], input[type="number"],
-select {
+input[type="tel"], select {
   width: 100%;
   min-height: 2.75rem;
   padding: 0.55rem 0.75rem;
@@ -229,7 +229,7 @@ select {
 
 input[type="text"]:hover, input[type="email"]:hover,
 input[type="password"]:hover, input[type="number"]:hover,
-select:hover { border-color: var(--text); }
+input[type="tel"]:hover, select:hover { border-color: var(--text); }
 
 input:focus-visible, select:focus-visible {
   outline: 2px solid var(--focus);
@@ -550,6 +550,21 @@ tbody th[scope="row"] {
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
+}
+.card h3.subhead {
+  margin: 1.5rem 0 0.5rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+.place-list .place-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.7rem 0.85rem;
 }
 .place-list:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .place-list li {

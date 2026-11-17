@@ -457,9 +457,90 @@ function renderWatchSubscriptions(view) {
   });
 }
 
+/** Draw the text-message block from what the server holds and can do. */
+function renderWatchPhone(view) {
+  const capability = document.getElementById("watch-phone-capability");
+  const current = document.getElementById("watch-phone-current");
+  const form = document.getElementById("watch-phone-form");
+  const codeForm = document.getElementById("watch-phone-code-form");
+  const phone = view.phone;
+  if (!view.sms_delivery) {
+    setStatus(capability, "This server is not set up to send text messages. Whoever runs it " +
+      "can add a messaging provider; until then only email reaches you.", "warn");
+    hide(form); hide(codeForm);
+  } else {
+    setStatus(capability, "");
+    show(form);
+    (phone && !phone.verified ? show : hide)(codeForm);
+  }
+  // A verified number is saved, not texted again, unless the number itself changes.
+  form.querySelector("button[type=submit]").textContent =
+    phone && phone.verified ? "Save" : "Text me a code";
+  if (!phone) { hide(current); return; }
+  show(current);
+  document.getElementById("watch-phone-number").textContent = phone.number;
+  document.getElementById("watch-phone-detail").textContent = (phone.verified
+    ? "Verified · texted about: " + (WATCH_SEVERITY_WORDS[phone.min_severity] || "").toLowerCase()
+    : "Not verified yet: nothing is texted to it until you enter the code");
+  document.getElementById("watch-phone-input").value = phone.number;
+  document.getElementById("watch-phone-severity").value = phone.min_severity;
+}
+
+function initWatchPhone() {
+  const status = document.getElementById("watch-phone-status");
+  document.getElementById("watch-phone-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const number = document.getElementById("watch-phone-input").value.trim();
+    setStatus(status, "Sending…");
+    const result = await api("POST", "/watch-phone", {
+      number: number,
+      min_severity: document.getElementById("watch-phone-severity").value,
+    });
+    if (!result.ok) {
+      setStatus(status, result.status === 422
+        ? "Write the number with its country code and no spaces, like +14155550123."
+        : apiErrorMessage(result.body), "error");
+      return;
+    }
+    renderWatchPhone(result.body);
+    if (result.body.phone && result.body.phone.verified) {
+      setStatus(status, "Saved. " + number + " is texted about: " +
+        WATCH_SEVERITY_WORDS[result.body.phone.min_severity].toLowerCase() + ".", "ok");
+      return;
+    }
+    setStatus(status, "A code was texted to " + number + ". Enter it below within 10 minutes.", "ok");
+    document.getElementById("watch-phone-code").focus();
+  });
+
+  document.getElementById("watch-phone-code-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const field = document.getElementById("watch-phone-code");
+    const result = await api("POST", "/watch-phone/confirm", { code: field.value.trim() });
+    if (!result.ok) {
+      setStatus(status, result.status === 422 ? "The code is six digits."
+        : apiErrorMessage(result.body), "error");
+      return;
+    }
+    field.value = "";
+    renderWatchPhone(result.body);
+    setStatus(status, result.body.phone.number + " is verified. Findings are texted to it.", "ok");
+    document.getElementById("watch-phone-remove").focus({ preventScroll: true });
+  });
+
+  document.getElementById("watch-phone-remove").addEventListener("click", async () => {
+    const result = await api("DELETE", "/watch-phone");
+    if (!result.ok) { setStatus(status, apiErrorMessage(result.body), "error"); return; }
+    document.getElementById("watch-phone-form").reset();
+    await loadWatchSubscriptions();
+    setStatus(status, "That number will not be texted again.", "ok");
+    const input = document.getElementById("watch-phone-input");
+    if (input.getClientRects().length > 0) { input.focus({ preventScroll: true }); }
+  });
+}
+
 async function loadWatchSubscriptions() {
   const result = await api("GET", "/watch-subscriptions");
-  if (result.ok) { renderWatchSubscriptions(result.body); }
+  if (result.ok) { renderWatchSubscriptions(result.body); renderWatchPhone(result.body); }
   return result.ok;
 }
 
@@ -472,6 +553,7 @@ function initWatch() {
   });
   form.addEventListener("reset", () => { window.setTimeout(updateWatchPreview, 0); });
   updateWatchPreview();
+  initWatchPhone();
   loadWatchSubscriptions();
 
   form.addEventListener("submit", async (event) => {

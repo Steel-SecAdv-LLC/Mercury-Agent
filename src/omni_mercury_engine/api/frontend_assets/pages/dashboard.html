@@ -114,6 +114,51 @@
         <button type="submit">Tell me about this place</button>
       </form>
       <p id="watch-status" class="status" role="status" aria-live="polite"></p>
+
+      <h3 id="watch-phone-heading" class="subhead">Text messages</h3>
+      <p class="hint">A text reaches you when email will not: at night, away from a desk. The
+        number is texted only after you type back a code sent to it, and only for findings at
+        or above the severity you choose. Reply STOP to any text to end them.</p>
+      <p id="watch-phone-capability" class="status" role="status" aria-live="polite"></p>
+      <div id="watch-phone-current" class="place-list hidden">
+        <div class="place-row">
+          <div>
+            <span id="watch-phone-number" class="place-name"></span>
+            <span id="watch-phone-detail" class="place-detail"></span>
+          </div>
+          <button id="watch-phone-remove" type="button" class="danger">Remove</button>
+        </div>
+      </div>
+      <form id="watch-phone-form" aria-labelledby="watch-phone-heading">
+        <div class="field-row">
+          <div>
+            <label for="watch-phone-input">Mobile number</label>
+            <input id="watch-phone-input" name="watch-phone-input" type="tel" inputmode="tel"
+                   autocomplete="tel" pattern="\+[1-9][0-9]{6,14}" maxlength="16"
+                   aria-describedby="watch-phone-input-hint" required>
+            <p id="watch-phone-input-hint" class="hint">With its country code and no spaces,
+              like +14155550123.</p>
+          </div>
+          <div>
+            <label for="watch-phone-severity">Text me about</label>
+            <select id="watch-phone-severity" name="watch-phone-severity">
+              <option value="notable">Anything notable</option>
+              <option value="significant" selected>Significant and severe only</option>
+              <option value="severe">Severe only</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit">Text me a code</button>
+      </form>
+      <form id="watch-phone-code-form" class="hidden" aria-label="Verify your number">
+        <div>
+          <label for="watch-phone-code">The 6-digit code we texted you</label>
+          <input id="watch-phone-code" name="watch-phone-code" type="text" inputmode="numeric"
+                 autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+        </div>
+        <button type="submit">Verify number</button>
+      </form>
+      <p id="watch-phone-status" class="status" role="status" aria-live="polite"></p>
     </section>
 
     <section class="card" aria-labelledby="api-keys-heading">

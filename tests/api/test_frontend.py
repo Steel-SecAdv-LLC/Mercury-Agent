@@ -340,6 +340,7 @@ def test_dashboard_lets_an_account_manage_its_watch_alerts() -> None:
     controls = re.findall(r'<(?:input|select) id="([\w-]+)"', card)
     assert controls == [
         "watch-place", "watch-latitude", "watch-longitude", "watch-radius", "watch-severity",
+        "watch-phone-input", "watch-phone-severity", "watch-phone-code",
     ]  # fmt: skip
     for control in controls:
         assert f'<label for="{control}">' in card, control
@@ -350,8 +351,14 @@ def test_dashboard_lets_an_account_manage_its_watch_alerts() -> None:
     assert set(re.findall(r'<option value="(\w+)"', card)) == set(
         accounts_module._WATCH_SEVERITY_RANK
     )
+    # The phone field takes what the server takes: E.164, and a text defaults to significant.
+    phone = accounts_module.WatchPhoneRequest.model_fields
+    assert 'type="tel"' in card and 'pattern="\\+[1-9][0-9]{6,14}"' in card
+    assert f'<option value="{phone["min_severity"].default}" selected>' in card
+    assert 'autocomplete="one-time-code" pattern="[0-9]{6}"' in card
+    assert "view.sms_delivery" in js and "phone.verified" in js
     # It says when the server cannot act on a subscription, and results are announced.
-    assert card.count('role="status" aria-live="polite"') == 2
+    assert card.count('role="status" aria-live="polite"') == 4
     assert "view.email_delivery" in js and "view.watching" in js
     # A place is added, changed (its values loaded back into the form) and stopped.
     assert 'change.textContent = "Change"' in js and 'remove.textContent = "Stop"' in js
