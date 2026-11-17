@@ -121,7 +121,22 @@ Mercury does not issue warnings. Every delivery is recorded: a finding is
 sent to a subscriber once per severity, a failed delivery is tried again on
 later passes (five attempts) and counted as failed, never dropped silently.
 Delivery works from the findings that stand, so someone who subscribes during
-a flood is told of it. Subscribe only an address whose owner asked for it.
+a flood is told of it. A condition (a flood, a storm) stands until a read no
+longer shows it, and is told again when it comes back; a single occurrence (an
+earthquake) stands for a day. Subscribe only an address whose owner asked for
+it.
+
+## One watch per store
+
+Any process that opens the store may run a watch: each worker of
+`mercury-agent serve --workers 4` does when `MERCURY_WATCH_ENABLED=true`, and
+so does `mercury-agent watch` beside a server. One of them holds the store's
+lease and does the reading and the telling; the others stand by and take over
+when it stops, or 15 minutes after it last renewed. The store is one SQLite
+file, so this holds for processes that share its directory on one host.
+Replicas that each have their own directory are each a separate watch with
+its own subscribers: run the watch in one place and point `MERCURY_WATCH_DIR`
+at it.
 
 ## What it keeps
 

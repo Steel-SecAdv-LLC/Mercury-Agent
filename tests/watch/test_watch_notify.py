@@ -438,6 +438,82 @@ class TestDelivery:
 
         assert store.places() == {(28.37, -80.87): [one, two], (47.6, -122.3): [three]}
 
+    def test_someone_who_subscribes_is_not_sent_every_earthquake_the_store_remembers(
+        self, store: WatchStore
+    ) -> None:
+        """Was: a new subscriber was mailed each past earthquake, months old, as news."""
+        for days, subject in ((90, "old"), (3, "recent"), (0, "today")):
+            when = NOW - timedelta(days=days, hours=1)
+            quake = _finding(kind="earthquake", subject=subject, latitude=None, longitude=None)
+            store.report(Finding(**{**quake.__dict__, "ongoing": False}), when)
+        self._standing(store)  # and a flood under way
+        store.add_subscriber("new@example.org")
+        mail = _Mail()
+
+        assert Notifier(store, mailer=mail, clock=lambda: NOW).sync() == {"sent": 2, "failed": 0}
+        assert len(mail.sent) == 2  # the flood, and the earthquake an hour ago
+
+    def test_a_long_pass_says_it_is_alive_after_every_message(self, store: WatchStore) -> None:
+        """The watch renews its lease from this, so a slow mail server is not taken for a dead watch."""
+        for name in ("a", "b", "c"):
+            store.add_subscriber(f"{name}@example.org")
+        self._standing(store)
+        beats: list[int] = []
+        mail = _Mail(failing={"b@example.org"})
+
+        Notifier(store, mailer=mail, clock=lambda: NOW).sync(lambda: beats.append(len(mail.sent)))
+
+        assert beats == [1, 1, 2]  # after each attempt, sent or failed
+
+    def test_a_hazard_that_recurs_is_told_again(self, store: WatchStore) -> None:
+        """Was: whoever was told of the first flood at a gauge was never told of the next.
+
+        The ended occurrence was archived under ``key@began`` and its
+        deliveries were left under the bare key, where they read as
+        deliveries of the new occurrence.
+        """
+        store.add_subscriber("a@example.org")
+        mail = _Mail()
+        notifier = Notifier(store, mailer=mail, post=lambda url, body: None, clock=lambda: NOW)
+        first = self._standing(store)
+        assert notifier.sync() == {"sent": 1, "failed": 0}
+        store.close_absent("river_gauges", set(), NOW + timedelta(days=2))
+
+        month = NOW + timedelta(days=30)
+        assert store.report(with_guidance(_finding()), month) is True  # it floods again
+        later = Notifier(store, mailer=mail, clock=lambda: month)
+
+        assert later.sync() == {"sent": 1, "failed": 0}
+        assert later.sync() == {"sent": 0, "failed": 0}  # once per occurrence
+        assert len(mail.sent) == 2
+        # Each occurrence keeps its own record.
+        archived = f"{first.key}@{NOW.isoformat()}"
+        assert store.delivery(archived, 3, 1, "email")["at"] == NOW.isoformat()
+        assert store.delivery(first.key, 3, 1, "email")["at"] == month.isoformat()
+
+    def test_a_store_whose_deliveries_stayed_under_the_bare_key_tells_the_recurrence_too(
+        self, store: WatchStore
+    ) -> None:
+        """A store written before the fix: the old record must not pass for a new delivery."""
+        import sqlite3
+        from contextlib import closing
+
+        store.add_subscriber("a@example.org")
+        made = self._standing(store, when=NOW + timedelta(days=30))  # the occurrence that stands
+        with closing(sqlite3.connect(store.path)) as connection, connection:
+            connection.execute(  # what the first occurrence left behind: failed five times
+                "INSERT INTO deliveries VALUES (?, 3, 1, 'email', 'failed', 5, ?, 'old')",
+                (made.key, NOW.isoformat()),
+            )
+        mail = _Mail()
+        notifier = Notifier(store, mailer=mail, clock=lambda: NOW + timedelta(days=30))
+
+        assert store.standing_deliveries() == {}
+        assert notifier.sync() == {"sent": 1, "failed": 0}
+        record = store.delivery(made.key, 3, 1, "email")
+        assert (record["status"], record["attempts"]) == ("sent", 1)  # this occurrence's first
+        assert notifier.sync() == {"sent": 0, "failed": 0}
+
     def test_a_delivery_that_keeps_failing_is_left_failed_not_retried_for_ever(
         self, store: WatchStore
     ) -> None:
@@ -495,7 +571,7 @@ class TestDelivery:
 
     def test_a_delivery_fault_does_not_stop_the_watch(self, store: WatchStore) -> None:
         class _Broken(Notifier):
-            def sync(self) -> dict[str, int]:
+            def sync(self, heartbeat: Any = None) -> dict[str, int]:
                 raise RuntimeError("ledger unavailable")
 
         watcher = Watcher(store, [_Fixed([_finding()])], notifier=_Broken(store), clock=lambda: NOW)

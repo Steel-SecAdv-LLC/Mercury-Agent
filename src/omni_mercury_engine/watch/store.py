@@ -15,9 +15,9 @@ import re
 import sqlite3
 import threading
 from contextlib import closing, suppress
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
 
@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS subscribers (
     min_severity INTEGER NOT NULL DEFAULT 1, created TEXT NOT NULL,
     UNIQUE (email, place)
 );
+CREATE TABLE IF NOT EXISTS lease (name TEXT PRIMARY KEY, holder TEXT NOT NULL, until TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS deliveries (
     finding_key TEXT NOT NULL, severity INTEGER NOT NULL, subscriber INTEGER NOT NULL,
     channel TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, at TEXT NOT NULL,
@@ -123,9 +124,32 @@ class WatchStore:
                 ("outcome", "TEXT"),
                 ("reviewed_at", "TEXT"),
                 ("review_final", "INTEGER NOT NULL DEFAULT 0"),
+                # Whether it can persist across reads, and how it turned out: both were
+                # only inside the JSON, so "what stands" and the track record were
+                # answered by parsing every finding ever recorded.
+                ("ongoing", "INTEGER NOT NULL DEFAULT 0"),
+                ("verdict", "TEXT"),
             ):
                 if column not in present:
                     connection.execute(f"ALTER TABLE findings ADD COLUMN {column} {kind}")
+            if "ongoing" not in present or "verdict" not in present:
+                connection.executemany(
+                    "UPDATE findings SET ongoing=?, verdict=? WHERE key=?",
+                    [
+                        (
+                            int(bool(json.loads(row["body"]).get("ongoing"))),
+                            json.loads(row["outcome"]).get("verdict") if row["outcome"] else None,
+                            row["key"],
+                        )
+                        for row in connection.execute(
+                            "SELECT key, body, outcome FROM findings"
+                        ).fetchall()
+                    ],
+                )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS findings_standing "
+                "ON findings (feed, ongoing, last_seen) WHERE ended IS NULL"
+            )
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=30.0)
@@ -143,6 +167,11 @@ class WatchStore:
         recurs is new again.
         """
         with self._lock, closing(self._connect()) as connection, connection:
+            # Reading whether it is known and writing it are one step. The
+            # lock above is this handle's; another process's watch read
+            # "unknown" at the same moment and both inserted: one of them
+            # failed on the key and its whole pass was recorded as down.
+            connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 "SELECT ended, severity FROM findings WHERE key=?", (finding.key,)
             ).fetchone()
@@ -150,11 +179,12 @@ class WatchStore:
             if row is not None and row["ended"] is None:
                 escalated = int(finding.severity) > int(row["severity"])
                 connection.execute(
-                    "UPDATE findings SET last_seen=?, body=?, severity=? WHERE key=?",
+                    "UPDATE findings SET last_seen=?, body=?, severity=?, ongoing=? WHERE key=?",
                     (
                         now.isoformat(),
                         body,
                         max(int(finding.severity), int(row["severity"])),
+                        int(finding.ongoing),
                         finding.key,
                     ),
                 )
@@ -162,8 +192,8 @@ class WatchStore:
                     # What a later record said was said of the milder statement; the
                     # stronger one has not been checked.
                     connection.execute(
-                        "UPDATE findings SET outcome=NULL, reviewed_at=NULL, review_final=0 "
-                        "WHERE key=?",
+                        "UPDATE findings SET outcome=NULL, verdict=NULL, reviewed_at=NULL, "
+                        "review_final=0 WHERE key=?",
                         (finding.key,),
                     )
                 return escalated
@@ -178,10 +208,17 @@ class WatchStore:
                     "UPDATE findings SET key=? WHERE key=?",
                     (f"{finding.key}@{began}", finding.key),
                 )
+                # Its deliveries go with it. Left under the bare key they read
+                # as deliveries of this occurrence, and nobody who was told of
+                # the first flood at a gauge was ever told of the next.
+                connection.execute(
+                    "UPDATE OR REPLACE deliveries SET finding_key=? WHERE finding_key=?",
+                    (f"{finding.key}@{began}", finding.key),
+                )
             connection.execute(
                 "INSERT INTO findings "
-                "(key, feed, severity, first_seen, last_seen, ended, body) "
-                "VALUES (?, ?, ?, ?, ?, NULL, ?)",
+                "(key, feed, severity, first_seen, last_seen, ended, body, ongoing) "
+                "VALUES (?, ?, ?, ?, ?, NULL, ?, ?)",
                 (
                     finding.key,
                     finding.feed,
@@ -189,6 +226,7 @@ class WatchStore:
                     now.isoformat(),
                     now.isoformat(),
                     body,
+                    int(finding.ongoing),
                 ),
             )
             return True
@@ -205,46 +243,82 @@ class WatchStore:
             How many findings ended.
         """
         with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
-                "SELECT key, body FROM findings WHERE feed=? AND ended IS NULL", (feed,)
+                "SELECT key FROM findings WHERE feed=? AND ended IS NULL AND ongoing=1", (feed,)
             ).fetchall()
-            ended = [
-                row["key"]
-                for row in rows
-                if json.loads(row["body"]).get("ongoing") and row["key"] not in standing
-            ]
+            ended = [row["key"] for row in rows if row["key"] not in standing]
             connection.executemany(
                 "UPDATE findings SET ended=? WHERE key=?", [(now.isoformat(), key) for key in ended]
             )
             return len(ended)
 
+    #: How long a single occurrence (an earthquake) stands after it was last seen.
+    OCCURRENCE_STANDS: ClassVar[timedelta] = timedelta(days=1)
+
     def findings(
-        self, *, limit: int = 50, open_only: bool = False, feed: str | None = None
+        self,
+        *,
+        limit: int = 50,
+        open_only: bool = False,
+        feed: str | None = None,
+        now: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        """Recorded findings, newest first, each with when it was first and last seen."""
+        """Recorded findings, newest first, each with when it was first and last seen.
+
+        An ongoing finding (a flood) stands until a read no longer shows it.
+        A single occurrence (an earthquake) is never ended by a read; it
+        stands for :attr:`OCCURRENCE_STANDS` after it was last seen and is
+        then reported as ended at that moment. It was reported as standing
+        for as long as the store kept it: the page called a three-month-old
+        earthquake "standing", and a new subscriber was sent every one.
+
+        Args:
+            limit: Most findings to return.
+            open_only: Only findings that stand at ``now``.
+            feed: Only this feed's.
+            now: The moment to judge standing at; defaults to the present.
+        """
+        horizon = ((now or datetime.now(UTC)) - self.OCCURRENCE_STANDS).isoformat()
         # One fixed statement: a filter that is not asked for is switched off by
         # its own bound parameter, so no part of the SQL is ever assembled.
         with closing(self._connect()) as connection:
             rows = connection.execute(
                 "SELECT * FROM findings"
-                " WHERE (:open_only = 0 OR ended IS NULL)"
+                " WHERE (:open_only = 0"
+                " OR (ended IS NULL AND (ongoing = 1 OR last_seen >= :horizon)))"
                 " AND (:feed IS NULL OR feed = :feed)"
                 " ORDER BY last_seen DESC, key LIMIT :limit",
-                {"open_only": int(bool(open_only)), "feed": feed, "limit": int(limit)},
+                {
+                    "open_only": int(bool(open_only)),
+                    "horizon": horizon,
+                    "feed": feed,
+                    "limit": int(limit),
+                },
             ).fetchall()
-        out = []
-        for row in rows:
-            out.append(self._finding(row))
-        return out
+        return [self._finding(row, horizon) for row in rows]
 
-    @staticmethod
-    def _finding(row: sqlite3.Row) -> dict[str, Any]:
+    def standing(
+        self, *, now: datetime | None = None, limit: int = 1000, feed: str | None = None
+    ) -> list[dict[str, Any]]:
+        """The findings that stand at ``now``, most recently seen first."""
+        return self.findings(limit=limit, open_only=True, feed=feed, now=now)
+
+    @classmethod
+    def _finding(cls, row: sqlite3.Row, horizon: str | None = None) -> dict[str, Any]:
+        """A stored finding as a mapping; with ``horizon``, a lapsed occurrence has ended."""
+        ended = row["ended"]
+        if horizon is not None and ended is None and not row["ongoing"]:
+            if row["last_seen"] < horizon:
+                ended = (
+                    datetime.fromisoformat(row["last_seen"]) + cls.OCCURRENCE_STANDS
+                ).isoformat()
         body: dict[str, Any] = json.loads(row["body"])
         body.update(
             key=row["key"],
             first_seen=row["first_seen"],
             last_seen=row["last_seen"],
-            ended=row["ended"],
+            ended=ended,
             outcome=json.loads(row["outcome"]) if row["outcome"] else None,
             reviewed_at=row["reviewed_at"],
         )
@@ -278,19 +352,32 @@ class WatchStore:
         """Record what a later record says about a finding."""
         with self._lock, closing(self._connect()) as connection, connection:
             connection.execute(
-                "UPDATE findings SET outcome=?, reviewed_at=?, review_final=? WHERE key=?",
-                (json.dumps(outcome.to_dict()), now.isoformat(), int(outcome.final), key),
+                "UPDATE findings SET outcome=?, verdict=?, reviewed_at=?, review_final=? "
+                "WHERE key=?",
+                (
+                    json.dumps(outcome.to_dict()),
+                    outcome.verdict,
+                    now.isoformat(),
+                    int(outcome.final),
+                    key,
+                ),
             )
 
     def track_record(self) -> dict[str, int]:
         """How the findings turned out: a count per verdict, and those not yet checked."""
         with closing(self._connect()) as connection:
-            rows = connection.execute("SELECT outcome FROM findings").fetchall()
+            rows = connection.execute(
+                "SELECT COALESCE(verdict, 'unchecked') AS verdict, COUNT(*) AS n "
+                "FROM findings GROUP BY 1"
+            ).fetchall()
         tally = {"confirmed": 0, "revised": 0, "withdrawn": 0, "unconfirmed": 0, "unchecked": 0}
-        for row in rows:
-            verdict = json.loads(row["outcome"])["verdict"] if row["outcome"] else "unchecked"
-            tally[verdict] = tally.get(verdict, 0) + 1
+        tally.update({str(row["verdict"]): int(row["n"]) for row in rows})
         return tally
+
+    def subscriber_count(self) -> int:
+        """How many subscriptions there are."""
+        with closing(self._connect()) as connection:
+            return int(connection.execute("SELECT COUNT(*) FROM subscribers").fetchone()[0])
 
     # ------------------------------------------------------------- subscribers
 
@@ -491,6 +578,7 @@ class WatchStore:
 
         A delivery pass asks about each standing finding for each subscriber;
         asked one at a time that is a connection per pair on every feed read.
+        Only deliveries of the occurrence that stands are returned.
 
         Returns:
             ``(finding key, severity, subscriber, channel)`` to its status and attempts.
@@ -499,7 +587,11 @@ class WatchStore:
             rows = connection.execute(
                 "SELECT d.finding_key, d.severity, d.subscriber, d.channel, d.status, "
                 "d.attempts, d.at, d.error FROM deliveries AS d "
-                "JOIN findings AS f ON f.key = d.finding_key WHERE f.ended IS NULL"
+                "JOIN findings AS f ON f.key = d.finding_key "
+                # A delivery made before the finding was first seen is of an
+                # earlier occurrence (a store written before deliveries
+                # followed their occurrence into the archive).
+                "WHERE f.ended IS NULL AND d.at >= f.first_seen"
             ).fetchall()
         return {
             (
@@ -526,7 +618,10 @@ class WatchStore:
             connection.execute(
                 "INSERT INTO deliveries VALUES (?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT "
                 "(finding_key, severity, subscriber, channel) DO UPDATE SET "
-                "status=excluded.status, attempts=attempts+1, at=excluded.at, error=excluded.error",
+                "status=excluded.status, at=excluded.at, error=excluded.error, "
+                # An attempt on a record left by an earlier occurrence is this one's first.
+                "attempts = CASE WHEN deliveries.at < COALESCE((SELECT first_seen FROM findings "
+                "WHERE key = excluded.finding_key), '') THEN 1 ELSE deliveries.attempts + 1 END",
                 (
                     key,
                     severity,
@@ -548,21 +643,52 @@ class WatchStore:
         counts.update({str(row["status"]): int(row["n"]) for row in rows})
         return counts
 
-    def open_count(self, feed: str) -> int:
-        """How many of the feed's findings are standing.
+    def open_count(self, feed: str, now: datetime | None = None) -> int:
+        """How many of the feed's findings are standing (see :meth:`standing`)."""
+        horizon = (now or datetime.now(UTC)) - self.OCCURRENCE_STANDS
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) FROM findings WHERE feed = ? AND ended IS NULL "
+                "AND (ongoing = 1 OR last_seen >= ?)",
+                (feed, horizon.isoformat()),
+            ).fetchone()
+        return int(row[0])
 
-        A single occurrence (an earthquake) stands for a day after it was
-        last seen; an ongoing one stands until a read no longer shows it.
+    # ------------------------------------------------------------------- lease
+
+    def hold_lease(self, holder: str, now: datetime, ttl: timedelta) -> bool:
+        """Take or renew the watch's lease for ``holder`` until ``now + ttl``.
+
+        Every process that opens this store may run a watch (each worker of
+        ``serve --workers 4`` does, and so does ``mercury-agent watch`` beside
+        a server). Unco-ordinated, each read every source and each sent every
+        message. The lease is held by one at a time: it is taken when free or
+        lapsed, renewed by its holder, and refused to anyone else.
+
+        Returns:
+            Whether ``holder`` holds the lease now.
         """
-        horizon = datetime.now(UTC).timestamp() - 86400.0
-        count = 0
-        for finding in self.findings(limit=500, open_only=True, feed=feed):
-            if (
-                finding.get("ongoing")
-                or datetime.fromisoformat(finding["last_seen"]).timestamp() >= horizon
-            ):
-                count += 1
-        return count
+        with self._lock, closing(self._connect()) as connection, connection:
+            cursor = connection.execute(
+                "INSERT INTO lease (name, holder, until) VALUES ('watch', :holder, :until) "
+                "ON CONFLICT (name) DO UPDATE SET holder = excluded.holder, until = excluded.until "
+                "WHERE lease.holder = excluded.holder OR lease.until <= :now",
+                {"holder": holder, "until": (now + ttl).isoformat(), "now": now.isoformat()},
+            )
+            return cursor.rowcount == 1
+
+    def release_lease(self, holder: str) -> None:
+        """Give the lease up, if ``holder`` has it, so another watch can take it at once."""
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute("DELETE FROM lease WHERE name = 'watch' AND holder = ?", (holder,))
+
+    def lease(self) -> dict[str, str]:
+        """Who holds the watch's lease and until when (``{}`` when no one does)."""
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT holder, until FROM lease WHERE name = 'watch'"
+            ).fetchone()
+        return dict(row) if row else {}
 
     # ------------------------------------------------------------------- feeds
 

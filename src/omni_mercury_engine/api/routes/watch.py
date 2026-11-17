@@ -42,7 +42,7 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
         statuses = store.statuses()
         findings = store.findings(limit=limit, open_only=open_only)
         tally = store.track_record()
-        telling.update(subscribers=len(store.subscribers()), **store.delivery_counts())
+        telling.update(subscribers=store.subscriber_count(), **store.delivery_counts())
         telling.update(Notifier(store).channels())
     # An alert that is here only because it is in effect at a subscriber's place says
     # where a subscriber is. It goes to that subscriber, not to everyone who opens the page.

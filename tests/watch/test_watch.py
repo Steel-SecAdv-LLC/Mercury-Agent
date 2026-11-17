@@ -467,6 +467,62 @@ class TestStore:
 
         assert store.close_absent("space_weather", set(), NOW + timedelta(hours=2)) == 0
 
+    def test_an_earthquake_stands_for_a_day_and_a_flood_until_it_clears(
+        self, store: WatchStore
+    ) -> None:
+        """Was: the page called a three-month-old earthquake "standing".
+
+        A single occurrence is never ended by a read, so every surface that
+        took "not ended" for "standing" showed it as standing for ever, while
+        the feed's own count said none was.
+        """
+        quake, flood = _finding(ongoing=False, feed="earthquakes"), _finding(feed="river_gauges")
+        store.report(quake, NOW)
+        store.report(flood, NOW)
+
+        def at(hours: float) -> dict[str, str | None]:
+            moment = NOW + timedelta(hours=hours)
+            return {f["feed"]: f["ended"] for f in store.findings(now=moment)}
+
+        assert at(23) == {"earthquakes": None, "river_gauges": None}
+        lapsed = (NOW + timedelta(days=1)).isoformat()
+        assert at(25) == {"earthquakes": lapsed, "river_gauges": None}
+        assert at(24 * 90) == {"earthquakes": lapsed, "river_gauges": None}
+
+        later = NOW + timedelta(days=90)
+        assert [f["feed"] for f in store.standing(now=later)] == ["river_gauges"]
+        assert [f["feed"] for f in store.findings(open_only=True, now=later)] == ["river_gauges"]
+        assert store.open_count("earthquakes", later) == 0
+        assert store.open_count("earthquakes", NOW + timedelta(hours=2)) == 1
+        assert store.open_count("river_gauges", later) == 1
+        # Seen again, it stands again from then.
+        store.report(quake, NOW + timedelta(days=3))
+        assert store.open_count("earthquakes", NOW + timedelta(days=3, hours=1)) == 1
+
+    def test_a_store_written_before_these_columns_is_read_as_it_was(self, tmp_path: Path) -> None:
+        """An existing store gains ``ongoing`` and ``verdict`` from what it already holds."""
+        import sqlite3
+        from contextlib import closing
+
+        from omni_mercury_engine.watch.model import Outcome
+
+        store = WatchStore(tmp_path)
+        store.report(_finding(ongoing=False, feed="earthquakes"), NOW)
+        store.report(_finding(feed="river_gauges"), NOW)
+        store.record_outcome(_finding(feed="river_gauges").key, Outcome("confirmed", "n", "r"), NOW)
+        with closing(sqlite3.connect(store.path)) as connection, connection:
+            connection.execute("DROP INDEX findings_standing")
+            connection.execute("ALTER TABLE findings DROP COLUMN ongoing")
+            connection.execute("ALTER TABLE findings DROP COLUMN verdict")
+
+        reopened = WatchStore(tmp_path)
+
+        assert reopened.track_record() == {
+            "confirmed": 1, "revised": 0, "withdrawn": 0, "unconfirmed": 0, "unchecked": 1,
+        }  # fmt: skip
+        assert reopened.close_absent("river_gauges", set(), NOW + timedelta(hours=1)) == 1
+        assert reopened.close_absent("earthquakes", set(), NOW + timedelta(hours=1)) == 0
+
     def test_findings_are_filtered_by_feed_and_by_open_in_any_combination(
         self, store: WatchStore
     ) -> None:
@@ -487,8 +543,10 @@ class TestStore:
         store.report(flood, NOW + timedelta(minutes=2))
         store.close_absent("space_weather", set(), NOW + timedelta(hours=3))
 
+        at = NOW + timedelta(hours=4)  # the earthquake is hours old: it still stands
+
         def keys(**filters: Any) -> list[str]:
-            return [finding["key"] for finding in store.findings(**filters)]
+            return [finding["key"] for finding in store.findings(now=at, **filters)]
 
         assert keys() == [flood.key, quake.key, storm.key]  # newest first
         assert keys(open_only=True) == [flood.key, quake.key]
@@ -604,6 +662,120 @@ class TestWatcher:
             "scripted": "down",
             "working": "ok",
         }
+
+    def test_the_lease_is_held_by_one_watch_at_a_time(self, store: WatchStore) -> None:
+        quarter = timedelta(minutes=15)
+
+        assert store.lease() == {}
+        assert store.hold_lease("first", NOW, quarter) is True
+        assert store.hold_lease("second", NOW + timedelta(minutes=5), quarter) is False
+        assert store.hold_lease("first", NOW + timedelta(minutes=10), quarter) is True  # renewed
+        assert store.lease() == {
+            "holder": "first",
+            "until": (NOW + timedelta(minutes=25)).isoformat(),
+        }
+        assert store.hold_lease("second", NOW + timedelta(minutes=24), quarter) is False
+        assert store.hold_lease("second", NOW + timedelta(minutes=25), quarter) is True  # lapsed
+        store.release_lease("first")  # not the holder: nothing changes
+        assert store.lease()["holder"] == "second"
+        store.release_lease("second")
+        assert store.hold_lease("first", NOW + timedelta(minutes=26), quarter) is True
+
+    def test_watches_sharing_a_store_send_one_message_not_one_each(self, tmp_path: Path) -> None:
+        """Was: `serve --workers 4` with the watch on sent three copies of one email."""
+        import threading
+        import time
+
+        from omni_mercury_engine.watch.notify import Notifier
+
+        sent: list[str] = []
+        states: list[str] = []
+
+        class _SlowMail:
+            def send(self, *, to: str, subject: str, body: str, **_: Any) -> None:
+                time.sleep(0.05)  # long enough for every other worker to reach its own pass
+                sent.append(to)
+
+        WatchStore(tmp_path).add_subscriber("a@example.org")
+        storm = Judgment([_finding(feed="scripted")], "Kp 5.3, G1", NOW, 1, 1)
+        together = threading.Barrier(4)
+
+        def worker() -> None:  # one worker's watch: its own handle on the same store
+            own = WatchStore(tmp_path)
+            watcher = Watcher(
+                own, [_Scripted([storm])], clock=lambda: NOW,
+                notifier=Notifier(own, mailer=_SlowMail(), clock=lambda: NOW),
+            )  # fmt: skip
+            together.wait()
+            states.extend(status.state for status in watcher.run_once())
+
+        workers = [threading.Thread(target=worker) for _ in range(4)]
+        for thread in workers:
+            thread.start()
+        for thread in workers:
+            thread.join()
+
+        assert sent == ["a@example.org"]
+        # Every worker recorded its read. Before, two wrote the same new finding at
+        # once, one failed on its key, and that worker's pass was recorded as down.
+        assert states == ["ok"] * 4
+        assert len(WatchStore(tmp_path).findings(now=NOW)) == 1
+        assert WatchStore(tmp_path).lease() == {}  # a single pass gives the lease back
+
+    def test_a_watch_standing_by_reads_nothing_and_takes_over_when_the_other_stops(
+        self, store: WatchStore
+    ) -> None:
+        import threading
+
+        storm = Judgment([_finding(feed="scripted")], "Kp 5.3, G1", NOW, 1, 1)
+        leading, standby = _Scripted([storm]), _Scripted([storm])
+        first = Watcher(store, [leading], clock=lambda: NOW)
+        second = Watcher(store, [standby], clock=lambda: NOW)
+        assert first.leads() is True  # the first watch is running
+
+        ticks = [0]
+
+        class _CountedStop(threading.Event):
+            def wait(self, timeout: float | None = None) -> bool:
+                ticks[0] += 1
+                if ticks[0] == 3:
+                    store.release_lease(first.holder)  # the first watch stops
+                if ticks[0] == 5:
+                    self.set()
+                return self.is_set()
+
+        halt = _CountedStop()
+        second.run_forever(tick_seconds=0.0, stop=halt)
+
+        assert standby.reads == 1  # nothing while standing by; one read at its cadence after
+        assert leading.reads == 0
+        assert store.lease() == {}  # and it gave the lease back when it stopped
+
+    def test_a_single_pass_beside_a_running_watch_records_but_leaves_the_telling_to_it(
+        self, store: WatchStore
+    ) -> None:
+        """`watch --once` while a server watches must not send what the server will send."""
+        from omni_mercury_engine.watch.notify import Notifier
+
+        sent: list[str] = []
+
+        class _Mail:
+            def send(self, *, to: str, subject: str, body: str, **_: Any) -> None:
+                sent.append(to)
+
+        store.add_subscriber("a@example.org")
+        storm = Judgment([_finding(feed="scripted")], "Kp 5.3, G1", NOW, 1, 1)
+        notifier = Notifier(store, mailer=_Mail(), clock=lambda: NOW)
+        server = Watcher(store, [_Scripted([storm])], clock=lambda: NOW, notifier=notifier)
+        assert server.leads() is True
+
+        Watcher(store, [_Scripted([storm])], clock=lambda: NOW, notifier=notifier).run_once()
+
+        assert sent == [] and len(store.findings(now=NOW)) == 1
+        assert store.lease()["holder"] == server.holder  # still the server's
+        server._looping = True  # as inside its loop
+        server.run_once()
+        assert sent == ["a@example.org"]
 
     def test_a_feed_with_only_old_readings_is_stale(self, store: WatchStore) -> None:
         old = Judgment(summary="nothing notable", latest_reading=NOW - timedelta(hours=5))

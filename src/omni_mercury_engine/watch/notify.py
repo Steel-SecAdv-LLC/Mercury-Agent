@@ -19,7 +19,9 @@ delivers them.
   a subscriber once per severity; one that failed is tried again on later
   passes, and the failure is shown, not swallowed. Delivery works from the
   findings that stand, not from the moment they appeared, so someone who
-  subscribes while a flood is under way is told about it.
+  subscribes while a flood is under way is told about it. A single
+  occurrence (an earthquake) stands for a day: a new subscriber is not sent
+  every earthquake the store remembers.
 
 Email is sent only through a configured SMTP server. Without one the
 subscribers cannot be reached, and the watch says so instead of filing the
@@ -210,8 +212,13 @@ class Notifier:
         except Exception as exc:  # an open console is a courtesy; it must not stop delivery
             logger.warning("watch: could not broadcast %s: %s", finding.headline, exc)
 
-    def sync(self) -> dict[str, int]:
+    def sync(self, heartbeat: Callable[[], object] | None = None) -> dict[str, int]:
         """Deliver every standing finding to everyone it concerns and has not reached.
+
+        Args:
+            heartbeat: Called after each delivery attempt. A long pass (many
+                subscribers, a slow mail server) uses it to renew the
+                watch's lease, so no other watch takes the pass for dead.
 
         Returns:
             How many deliveries were ``sent`` and how many ``failed`` in this pass.
@@ -226,7 +233,7 @@ class Notifier:
         except ValueError:
             least = 2
         ledger = self.store.standing_deliveries()
-        for finding in self.store.findings(limit=1000, open_only=True):
+        for finding in self.store.standing(now=self._clock(), limit=1000):
             rank = _RANK.get(str(finding.get("severity")), 1)
             key = str(finding["key"])
             for subscriber, away in audience(finding, subscribers):
@@ -238,6 +245,8 @@ class Notifier:
                             to=s["email"], subject=t, body=b
                         ),
                     )  # fmt: skip
+                    if heartbeat is not None:
+                        heartbeat()
             if (
                 hook
                 and rank >= least

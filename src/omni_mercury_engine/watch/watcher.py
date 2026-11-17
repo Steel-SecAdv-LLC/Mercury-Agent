@@ -5,9 +5,12 @@
 from __future__ import annotations
 
 import logging
+import os
+import socket
 import threading
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+import uuid
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, ClassVar
 
 from omni_mercury_engine.watch.feeds import FEEDS, Feed
 from omni_mercury_engine.watch.guidance import with_guidance
@@ -29,7 +32,17 @@ class Watcher:
     A feed that cannot be read is recorded as down and tried again at its next
     cadence; it never stops the others. A finding is announced once, when it
     first appears or when it becomes more severe.
+
+    Several watchers may share one store (the workers of ``serve --workers
+    4``; ``mercury-agent watch`` beside a server). One of them holds the
+    store's lease and does the watching; the rest stand by and take over
+    when it stops or its lease lapses. Without that each read every source
+    and each sent every message: four workers, three copies of one email.
     """
+
+    #: How long a lease lasts unrenewed. It is renewed before every feed read
+    #: and after every delivery, so it lapses only when its holder has died.
+    LEASE: ClassVar[timedelta] = timedelta(minutes=15)
 
     def __init__(
         self,
@@ -57,6 +70,10 @@ class Watcher:
         self.on_finding = on_finding
         self._clock = clock if clock is not None else (lambda: datetime.now(UTC))
         self._last_read: dict[str, datetime] = {}
+        #: This watcher's name on the lease: unique to it, readable by a person.
+        self.holder = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
+        self._standing_by = False
+        self._looping = False
         self.notifier = (
             notifier if notifier is not None else Notifier(self.store, clock=self._clock)
         )
@@ -91,7 +108,11 @@ class Watcher:
             feed.name, {finding.key for finding in findings if finding.ongoing}, now
         )
         try:
-            self.notifier.sync()
+            # Only the watch that holds the lease delivers. One that was run
+            # beside it (``watch --once`` while a server watches) has recorded
+            # what it read; the holder's next pass sends it, once.
+            if self.leads():
+                self.notifier.sync(heartbeat=self.leads)
         except Exception as exc:  # telling people must not stop the watching
             logger.warning("watch: delivery pass failed: %s", exc)
         status.latest_reading = judgment.latest_reading
@@ -103,9 +124,13 @@ class Watcher:
         status.subjects = judgment.subjects
         status.summary = judgment.summary
         status.new_findings = announced
-        status.open_findings = self.store.open_count(feed.name)
+        status.open_findings = self.store.open_count(feed.name, now)
         self.store.save_status(status)
         return status
+
+    def leads(self) -> bool:
+        """Take or renew the store's lease. Returns whether this watcher holds it."""
+        return self.store.hold_lease(self.holder, self._clock(), self.LEASE)
 
     def _down(self, status: FeedStatus, summary: str, exc: Exception) -> FeedStatus:
         """Record ``status`` as down with why, as far as the store allows."""
@@ -113,7 +138,7 @@ class Watcher:
         status.error = f"{type(exc).__name__}: {str(exc)[:200]}"
         status.summary = summary
         try:
-            status.open_findings = self.store.open_count(status.feed)
+            status.open_findings = self.store.open_count(status.feed, status.checked_at)
             self.store.save_status(status)
         except Exception as store_exc:  # the store may be what failed
             logger.warning("watch: could not record %s as down: %s", status.feed, store_exc)
@@ -158,7 +183,19 @@ class Watcher:
         return reviewed
 
     def run_once(self, *, force: bool = True) -> list[FeedStatus]:
-        """Read every feed that is due (every feed, when ``force``), then check past findings."""
+        """Read every feed that is due (every feed, when ``force``), then check past findings.
+
+        Called on its own it is one pass: it delivers if no other watch holds
+        the store's lease, and gives the lease back when it is done, so a
+        ``watch --once`` beside a server does not leave the server standing by.
+        """
+        try:
+            return self._pass(force=force)
+        finally:
+            if not self._looping:
+                self.store.release_lease(self.holder)
+
+    def _pass(self, *, force: bool) -> list[FeedStatus]:
         now = self._clock()
         statuses = []
         for feed in self.feeds:
@@ -192,9 +229,28 @@ class Watcher:
             stop: Set it to end the loop after the read in progress.
         """
         halt = stop if stop is not None else threading.Event()
-        while not halt.is_set():
+        self._looping = True
+        try:
+            while not halt.is_set():
+                try:
+                    if self.leads():
+                        if self._standing_by:
+                            logger.info("watch: %s has taken over the watch", self.holder)
+                        self._standing_by = False
+                        self.run_once(force=False)
+                    elif not self._standing_by:
+                        self._standing_by = True
+                        logger.info(
+                            "watch: %s is watching this store; %s stands by",
+                            self.store.lease().get("holder", "another watch"),
+                            self.holder,
+                        )
+                except Exception:  # nothing a pass raises may end the watch
+                    logger.exception("watch: a pass failed; trying again at the next tick")
+                halt.wait(tick_seconds)
+        finally:
+            self._looping = False
             try:
-                self.run_once(force=False)
-            except Exception:  # nothing a pass raises may end the watch
-                logger.exception("watch: a pass failed; trying again at the next tick")
-            halt.wait(tick_seconds)
+                self.store.release_lease(self.holder)
+            except Exception as exc:  # stopping must not raise; the lease lapses on its own
+                logger.warning("watch: could not release the lease: %s", exc)
