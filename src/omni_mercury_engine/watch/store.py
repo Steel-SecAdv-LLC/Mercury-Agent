@@ -188,13 +188,17 @@ class WatchStore:
 
     # ---------------------------------------------------------------- findings
 
+    #: A condition that returns within this long of clearing is the same episode.
+    SAME_EPISODE: ClassVar[timedelta] = timedelta(hours=3)
+
     def report(self, finding: Finding, now: datetime) -> bool:
         """Record a finding. Returns ``True`` when it is new.
 
         A finding with the same key that is still open is the same finding
         seen again: its last-seen time and body are updated (a storm's
-        strongest reading so far) and it is not new. One that had ended and
-        recurs is new again.
+        strongest reading so far) and it is not new. One that ended less
+        than :attr:`SAME_EPISODE` ago is reopened as the same finding. One
+        that ended longer ago and recurs is new again.
         """
         with self._lock, closing(self._connect()) as connection, connection:
             # Reading whether it is known and writing it are one step. The
@@ -206,10 +210,19 @@ class WatchStore:
                 "SELECT ended, severity FROM findings WHERE key=?", (finding.key,)
             ).fetchone()
             body = json.dumps(finding.to_dict())
-            if row is not None and row["ended"] is None:
+            # Open, or ended so recently that this is the same episode: a gauge
+            # hovering at its flood stage, a storm dipping under its threshold
+            # for an hour. It is the same finding seen again, not a new one to
+            # tell everyone about each time it crosses back.
+            resumed = row is not None and (
+                row["ended"] is None
+                or now - datetime.fromisoformat(row["ended"]) < self.SAME_EPISODE
+            )
+            if row is not None and resumed:
                 escalated = int(finding.severity) > int(row["severity"])
                 connection.execute(
-                    "UPDATE findings SET last_seen=?, body=?, severity=?, ongoing=? WHERE key=?",
+                    "UPDATE findings SET ended=NULL, last_seen=?, body=?, severity=?, ongoing=? "
+                    "WHERE key=?",
                     (
                         now.isoformat(),
                         body,

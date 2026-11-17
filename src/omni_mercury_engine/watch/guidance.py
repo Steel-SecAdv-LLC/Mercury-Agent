@@ -68,6 +68,18 @@ GUIDANCE: dict[str, tuple[str, str]] = {
         "Follow the instructions of the National Weather Service and your local officials.",
         "National Weather Service",
     ),
+    # An alert whose authority gave an instruction carries that, word for word.
+    # These say only whom to follow, where the source gave none.
+    "cap_alert": (
+        "Follow the warnings and instructions of the authority that issued this alert and "
+        "of your local emergency officials.",
+        "no instruction accompanied the alert",
+    ),
+    "gdacs_event": (
+        "GDACS does not issue public warnings. Follow the warnings and instructions of your "
+        "national and local emergency authorities.",
+        "no public instruction accompanies a GDACS alert",
+    ),
 }
 
 

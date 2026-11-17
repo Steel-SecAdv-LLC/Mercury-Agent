@@ -586,6 +586,8 @@ class TrustedEndpoints:
             "api.water.noaa.gov",  # NOAA National Water Prediction Service (river gauges)
             "api.weather.gov",  # National Weather Service alerts in effect (the watch)
             "api.twilio.com",  # text messages, with the operator's own account (the watch)
+            "severeweather.wmo.int",  # WMO Severe Weather Information Centre: CAP alerts (the watch)
+            "www.gdacs.org",  # Global Disaster Alert and Coordination System (the watch)
             "www.ngdc.noaa.gov",
             "www.ncei.noaa.gov",  # NCEI World Ocean Database
             "exoplanetarchive.ipac.caltech.edu",

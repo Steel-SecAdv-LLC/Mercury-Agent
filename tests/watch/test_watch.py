@@ -461,6 +461,27 @@ class TestStore:
         assert store.findings(open_only=True) == []
         assert store.report(_finding(), NOW + timedelta(hours=9)) is True  # a new storm
 
+    def test_a_condition_that_returns_within_hours_of_clearing_is_the_same_episode(
+        self, store: WatchStore
+    ) -> None:
+        """A gauge hovering at flood stage is one flood, not a new one at every crossing."""
+        store.report(_finding(), NOW)
+        store.close_absent("space_weather", set(), NOW + timedelta(hours=1))
+
+        back = NOW + timedelta(hours=3, minutes=59)  # under three hours after it cleared
+        assert store.report(_finding(), back) is False
+        (resumed,) = store.findings(now=back)
+        assert resumed["ended"] is None and resumed["first_seen"] == NOW.isoformat()
+        # Stronger than it was: that is told, as for any standing finding.
+        assert store.report(_finding(Severity.SEVERE), back + timedelta(minutes=5)) is True
+
+    def test_a_condition_that_returns_long_after_clearing_is_new(self, store: WatchStore) -> None:
+        store.report(_finding(), NOW)
+        store.close_absent("space_weather", set(), NOW + timedelta(hours=1))
+
+        assert store.report(_finding(), NOW + timedelta(hours=4, minutes=1)) is True
+        assert len(store.findings(now=NOW + timedelta(hours=5))) == 2  # each occurrence kept
+
     def test_a_single_occurrence_is_not_ended_by_the_next_read(self, store: WatchStore) -> None:
         """An earthquake leaves the hourly feed; it did not stop having happened."""
         store.report(_finding(ongoing=False), NOW)
@@ -777,6 +798,25 @@ class TestWatcher:
         server.run_once()
         assert sent == ["a@example.org"]
 
+    def test_a_read_that_could_not_look_everywhere_ends_nothing(self, store: WatchStore) -> None:
+        """Was not possible before deliveries followed their occurrence; now it would re-send.
+
+        A lookup that fails for one read leaves its alerts out of that read.
+        Ending them and finding them again on the next read would make each a
+        new occurrence, told to everyone again.
+        """
+        storm = Judgment([_finding(feed="scripted")], "Kp 5.3, G1", NOW, 1, 1)
+        blind = Judgment([], "1 place could not be checked this time", NOW, 0, 0, partial=True)
+        announced: list[str] = []
+        watcher = Watcher(store, [_Scripted([storm, blind, storm])],
+                          on_finding=lambda f: announced.append(f.headline), clock=lambda: NOW)  # fmt: skip
+
+        states = [watcher.run_once()[0] for _ in range(3)]
+
+        assert announced == ["G1 storm"]  # once, not again after the blind read
+        assert [status.open_findings for status in states] == [1, 1, 1]
+        assert store.findings(now=NOW)[0]["ended"] is None
+
     def test_a_feed_with_only_old_readings_is_stale(self, store: WatchStore) -> None:
         old = Judgment(summary="nothing notable", latest_reading=NOW - timedelta(hours=5))
         (status,) = Watcher(store, [_Scripted([old])], clock=lambda: NOW).run_once()
@@ -824,7 +864,8 @@ def test_every_feed_reads_fresh_at_its_cadence(
         "volcanoes": "VolcanicLoader",
         "fema_declarations": "FEMAActivityLoader",
     }
-    assert set(FEEDS) == {*loaders, "warnings"}  # warnings are read uncached, every time
+    # The alert feeds and GDACS read their source directly, uncached, every time.
+    assert set(FEEDS) == {*loaders, "warnings", "world_warnings", "gdacs"}
     for name, loader_name in loaders.items():
         feed = FEEDS[name]()
         loader: Any = feed._loader(loader_name)

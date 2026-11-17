@@ -1,0 +1,103 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": "postgis_geojsons.fid--62d15a65_1a1eabeb25a_-7ccf",
+   "geometry": null,
+   "properties": {
+    "capurl": "us-noaa-nws-en/2026/11/17/14/21/00-909a0e661d4268d8d4993942662de5e7.xml",
+    "sent": "2026-11-17T06:21:00Z",
+    "description": "...The Flood Warning continues for the following rivers in Florida... St Johns",
+    "event": "Flood Warning",
+    "s": 3,
+    "u": 4,
+    "c": 4,
+    "sn": "",
+    "effective": "2026-11-17T06:21:00Z",
+    "onset": "2026-11-17T06:21:00Z",
+    "mem": "093",
+    "marine": "0",
+    "areadesc": "Brevard, FL",
+    "expires": "2026-11-17T20:00:00Z",
+    "gc": "",
+    "cn": null,
+    "headline": "",
+    "row_type": "POLYGON"
+   },
+   "bbox": [
+    -80.99,
+    28.05,
+    -80.72,
+    28.55
+   ]
+  },
+  {
+   "type": "Feature",
+   "id": "postgis_geojsons.fid--62d15a65_1a1eabeb25a_-7cce",
+   "geometry": null,
+   "properties": {
+    "capurl": "us-noaa-nws-en/2026/11/17/14/21/00-909a0e661d4268d8d4993942662de5e7.xml",
+    "sent": "2026-11-17T06:21:00Z",
+    "description": "...The Flood Warning continues for the following rivers in Florida... St Johns",
+    "event": "Flood Warning",
+    "s": 3,
+    "u": 4,
+    "c": 4,
+    "sn": "",
+    "effective": "2026-11-17T06:21:00Z",
+    "onset": "2026-11-17T06:21:00Z",
+    "mem": "093",
+    "marine": "0",
+    "areadesc": "Brevard, FL",
+    "expires": "2026-11-17T20:00:00Z",
+    "gc": "",
+    "cn": null,
+    "headline": "",
+    "row_type": "MULTIPOLYGON"
+   },
+   "bbox": [
+    -80.9872,
+    27.8221,
+    -80.447,
+    28.7931
+   ]
+  },
+  {
+   "type": "Feature",
+   "id": "postgis_geojsons.fid--62d15a65_1a1eabeb25a_-7ccd",
+   "geometry": null,
+   "properties": {
+    "capurl": "us-noaa-nws-en/2026/11/16/20/18/00-76c0b77719a2e106088f72fc62b4b828.xml",
+    "sent": "2026-11-16T12:18:00Z",
+    "description": "* WHAT...Flooding caused by excessive rainfall is possible. * WHERE...Most of",
+    "event": "Flood Watch",
+    "s": 3,
+    "u": 2,
+    "c": 2,
+    "sn": "",
+    "effective": "2026-11-16T12:18:00Z",
+    "onset": "2026-11-17T14:00:00Z",
+    "mem": "093",
+    "marine": "0",
+    "areadesc": "Inland Volusia; Orange; Seminole; Osceola; Okeechobee; Coastal Volusia; Coastal Indian River; Coastal St. Lucie; Coastal Martin; Inland Northern Brevard; Inland Indian River; Inland St. Lucie; Inland Martin; Mainland Northern Brevard; Northern Brevard Barrier Islands; Inland Southern Brevard; Mainland Southern Brevard; Southern Brevard Barrier Islands",
+    "expires": "2026-11-20T16:00:00Z",
+    "gc": "",
+    "cn": null,
+    "headline": "",
+    "row_type": "POLYGON"
+   },
+   "bbox": [
+    -80.8885,
+    27.8223,
+    -80.5539,
+    28.4125
+   ]
+  }
+ ],
+ "totalFeatures": 3,
+ "numberMatched": 3,
+ "numberReturned": 3,
+ "timeStamp": "2026-11-17T18:22:12.285Z",
+ "crs": null
+}

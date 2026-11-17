@@ -60,6 +60,9 @@ class Judgment:
         latest_reading: Time of the newest reading (UTC).
         readings: Rows read.
         subjects: Distinct stations, gauges or events among them.
+        partial: The read could not look at everything it covers (a lookup
+            failed). What it does not show may only be what it could not
+            see, so no standing finding is ended on its account.
     """
 
     findings: list[Finding] = field(default_factory=list)
@@ -67,6 +70,7 @@ class Judgment:
     latest_reading: datetime | None = None
     readings: int = 0
     subjects: int = 0
+    partial: bool = False
 
 
 class Feed:
@@ -987,7 +991,7 @@ class WarningsFeed(Feed):
                 f"{self.MAX_PLACES} one read looks up"
             )
         if frame.empty:
-            return Judgment([], f"no alert in effect{watched}", None, 0, 0)
+            return Judgment([], f"no alert in effect{watched}", None, 0, 0, partial=unanswered > 0)
         findings = []
         for row in frame.itertuples(index=False):
             here = tuple(int(place) for place in row.place_ids)
@@ -1042,7 +1046,7 @@ class WarningsFeed(Feed):
         at_places = sum(1 for finding in findings if finding.place_ids)
         if at_places:
             summary += f"; {at_places} in effect at subscribed places"
-        return Judgment(findings, summary, None, len(frame), len(frame))
+        return Judgment(findings, summary, None, len(frame), len(frame), partial=unanswered > 0)
 
     review_after = timedelta(minutes=30)
     review_until = timedelta(days=2)
@@ -1198,16 +1202,25 @@ class DeclarationFeed(Feed):
         )
 
 
+def _feeds() -> dict[str, type[Feed]]:
+    """Every feed the watch reads, by name. The world feeds are built on this module."""
+    from omni_mercury_engine.watch.world import GdacsFeed, WorldWarningsFeed
+
+    return {
+        feed.name: feed
+        for feed in (
+            EarthquakeFeed,
+            SpaceWeatherFeed,
+            TsunamiBuoyFeed,
+            RiverGaugeFeed,
+            VolcanoFeed,
+            WarningsFeed,
+            WorldWarningsFeed,
+            GdacsFeed,
+            DeclarationFeed,
+        )
+    }
+
+
 #: The feeds the watch reads, by name.
-FEEDS: dict[str, type[Feed]] = {
-    feed.name: feed
-    for feed in (
-        EarthquakeFeed,
-        SpaceWeatherFeed,
-        TsunamiBuoyFeed,
-        RiverGaugeFeed,
-        VolcanoFeed,
-        WarningsFeed,
-        DeclarationFeed,
-    )
-}
+FEEDS: dict[str, type[Feed]] = _feeds()

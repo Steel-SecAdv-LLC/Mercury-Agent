@@ -2486,8 +2486,8 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         OLD_AG_INTENT,
         "    if (/what are you (watching|monitoring|seeing)|anything happening|what(?:'s| is) happening|live feeds?|"
         'the watch\\b|any (earthquakes?|tsunamis?|storms?|floods?|eruptions?|findings)/.test(q)) return { steps: ["intent · watch"], text: '
-        '"The watch reads seven public feeds on the engine (USGS earthquakes and volcano alert levels, NOAA space '
-        "weather and tsunami buoys, NWS river gauges and warnings, FEMA declarations), reports what is notable by each source's own scale, and later checks each "
+        '"The watch reads nine public feeds on the engine (USGS earthquakes and volcano alert levels, NOAA space '
+        "weather and tsunami buoys, NWS river gauges and warnings, national authorities' alerts through the WMO, GDACS, FEMA declarations), reports what is notable by each source's own scale, and later checks each "
         'finding against the record that settles it. The WATCH tab shows what it has recorded.", acts: [{ label: "Open '
         'WATCH", act: () => this.setState({ ws: "agent", agTab: "watch" }) }] };\n' + OLD_AG_INTENT,
     ),

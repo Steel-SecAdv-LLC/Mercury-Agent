@@ -104,9 +104,13 @@ class Watcher:
                 self.notifier.broadcast(finding)
                 if self.on_finding is not None:
                     self.on_finding(finding)
-        self.store.close_absent(
-            feed.name, {finding.key for finding in findings if finding.ongoing}, now
-        )
+        if not judgment.partial:
+            # A read that could not look everywhere ends nothing: what it does
+            # not show may only be what it could not see, and a finding ended
+            # for one read and found again would be told as if it were new.
+            self.store.close_absent(
+                feed.name, {finding.key for finding in findings if finding.ongoing}, now
+            )
         try:
             # Only the watch that holds the lease delivers. One that was run
             # beside it (``watch --once`` while a server watches) has recorded

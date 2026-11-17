@@ -81,10 +81,11 @@ class TestGuidance:
     def test_every_kind_of_finding_a_feed_makes_says_what_to_do(self) -> None:
         import inspect
 
-        from omni_mercury_engine.watch import feeds
+        from omni_mercury_engine.watch import feeds, world
 
-        kinds = set(__import__("re").findall(r'kind="(\w+)"', inspect.getsource(feeds)))
-        assert kinds == set(GUIDANCE) and len(kinds) == 7
+        source = inspect.getsource(feeds) + inspect.getsource(world)
+        kinds = set(__import__("re").findall(r'kind="(\w+)"', source))
+        assert kinds == set(GUIDANCE) and len(kinds) == 9
         for kind, (action, source) in GUIDANCE.items():
             assert len(action) > 40 and source, kind
 
@@ -973,4 +974,4 @@ class TestSurfaces:
         script = (frontend._STATIC_DIR / "watch.js").read_text(encoding="utf-8")
 
         assert 'id="telling"' in page and "finding.action" in script and "innerHTML" not in script
-        assert "warnings" in FEEDS and len(FEEDS) == 7
+        assert {"warnings", "world_warnings", "gdacs"} <= set(FEEDS) and len(FEEDS) == 9

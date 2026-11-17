@@ -26,6 +26,8 @@ shown at `/watch` and in the console (`/console`, Mercury Agent, WATCH tab; or
 | `river_gauges` | NOAA National Water Prediction Service, every NWS river gauge (about 12,000) | 30 minutes | a gauge whose latest reading the NWS classes as minor flooding or above; significant at moderate, severe at major. Action stage is counted, not reported |
 | `volcanoes` | USGS Hazard Notification System, every monitored U.S. volcano | 30 minutes | a volcano above NORMAL on the USGS volcano alert levels: ADVISORY, significant at WATCH, severe at WARNING |
 | `warnings` | National Weather Service alerts in effect | 5 minutes | every alert the Service rates Extreme, nationwide; and every alert in effect at a subscriber's place. Relayed as issued, with the Service's instruction |
+| `world_warnings` | National authorities' Common Alerting Protocol alerts, through the WMO Severe Weather Information Centre (50 countries on 2026-11-17; not Japan or India) | 10 minutes | every alert in effect at a subscriber's place, matched by the issuing authority's own polygon; significant when it rates the alert Severe, severe when Extreme. Relayed as issued, with the authority's name and instruction. United States alerts are left to `warnings` |
+| `gdacs` | Global Disaster Alert and Coordination System (United Nations and European Commission) | 30 minutes | a current tropical cyclone, flood, volcanic eruption or wildfire GDACS rates Orange (significant) or Red (severe), at the point GDACS gives. Earthquakes are the USGS feed's; a drought has no point a radius can be drawn from |
 | `fema_declarations` | OpenFEMA, tropical-cyclone declarations | 1 hour | declarations in the past three days; significant in the busiest week of the year |
 
 ## How it decides
@@ -56,6 +58,7 @@ is kept with the finding:
 | `river_gauges` | the NWS record of the same gauge | 6 hours | once the flood has ended; otherwise after 7 days |
 | `volcanoes` | the observatory notice the level came from | 1 hour | once the notice is read |
 | `warnings` | the Service's own record of the alert | 30 minutes | once the record is read |
+| `world_warnings` | the alert's CAP document at the WMO centre, read again | 30 minutes | two days |
 | `fema_declarations` | OpenFEMA, read again | 1 day | ten days after the declarations |
 
 The verdict is one of four words. `confirmed`: the record says what was
@@ -174,16 +177,22 @@ the loaders' default is an hour, and a day for the buoys.
   replacement for Wireless Emergency Alerts, NOAA Weather Radio or local
   sirens, which reach people without a subscription or a working internet
   connection.
-- It does not send text messages or place calls itself; a phone is reached
-  through the webhook.
+- It places no calls. Text messages need the operator's own provider account,
+  and no text was delivered in testing: the request was checked against the
+  provider's live API only as far as authentication.
 - A subscriber is told of earthquakes within their radius, whatever the
   magnitude: a great earthquake is felt further than 200 km, so someone who
   wants those sets a larger radius.
-- It reads seven feeds. The other loaders are either not live (benchmark files,
+- It reads nine feeds. The other loaders are either not live (benchmark files,
   series that end in 2024), need a key, or have no rule yet that would say
   something true and useful.
-- River gauges and alerts are the National Weather Service's and volcano
-  alert levels the USGS's, so those feeds cover the United States and its
-  territories. Outside them a subscriber is told of earthquakes, tsunami
-  buoys and geomagnetic storms only.
+- River gauges and volcano alert levels are United States sources. Outside
+  the United States a subscriber is told of their national authority's alerts
+  where it publishes them to the WMO centre (most of Europe, China, Russia,
+  Australia, Canada, parts of South America, Africa and Asia), of GDACS's
+  Orange and Red events, and of earthquakes, tsunami buoys and geomagnetic
+  storms. A country whose authority does not publish there (Japan and India
+  among them) has no warning feed here.
+- The WMO centre's alerts are looked up for subscribed places only; no alert
+  outside the United States is reported without a place.
 - A feed that cannot be read is shown as down and tried again at its cadence.
