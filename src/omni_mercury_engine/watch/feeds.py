@@ -24,6 +24,7 @@ database, the gauge's own record.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -36,6 +37,8 @@ from omni_mercury_engine.watch.model import Finding, Outcome, Severity
 
 if TYPE_CHECKING:
     from omni_mercury_engine.watch.store import WatchStore
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["FEEDS", "Feed", "Judgment"]
 
@@ -907,27 +910,47 @@ class WarningsFeed(Feed):
 
         for alert in self._alerts({"status": "actual"}):
             take(alert, None)
-        points: dict[tuple[float, float], list[int]] = {}
-        for subscriber in self._store.subscribers() if self._store is not None else []:
-            if subscriber["latitude"] is not None and subscriber["longitude"] is not None:
-                point = (round(subscriber["latitude"], 2), round(subscriber["longitude"], 2))
-                points.setdefault(point, []).append(int(subscriber["id"]))
-        if len(points) > self.MAX_PLACES:
-            raise ValueError(
-                f"{len(points)} distinct places are subscribed; this feed looks up at most "
-                f"{self.MAX_PLACES} per read"
-            )
-        for (latitude, longitude), ids in points.items():
-            for alert in self._alerts({"status": "actual", "point": f"{latitude},{longitude}"}):
+        points = self._store.places() if self._store is not None else {}
+        # The nationwide relay never depends on the places. More places than
+        # one read may look up, or a place the Service will not answer for,
+        # used to raise here: every subscriber then lost every warning, the
+        # Extreme ones included, for as long as that place was subscribed.
+        beyond = max(0, len(points) - self.MAX_PLACES)
+        unanswered = 0
+        for (latitude, longitude), ids in list(points.items())[: self.MAX_PLACES]:
+            try:
+                here = self._alerts({"status": "actual", "point": f"{latitude},{longitude}"})
+            except Exception as exc:
+                unanswered += 1
+                logger.warning("watch: no alert lookup for a subscribed place: %s", exc)
+                continue
+            for alert in here:
                 for place in ids:
                     take(alert, place)
+        if points and unanswered == min(len(points), self.MAX_PLACES):
+            # Every lookup failed: that is the Service's point query being
+            # down, and saying "no alert in effect" there would be a guess.
+            raise ConnectionError(
+                f"the alert lookup failed for all {unanswered} subscribed places checked"
+            )
         frame = pd.DataFrame(list(rows.values()), columns=self._COLUMNS)
-        frame.attrs["places"] = len(points)
+        frame.attrs["places"] = min(len(points), self.MAX_PLACES) - unanswered
+        frame.attrs["places_unanswered"] = unanswered
+        frame.attrs["places_beyond"] = beyond
         return frame
 
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         places = int(frame.attrs.get("places", 0))
         watched = f"; {_count(places, 'subscribed place')} checked" if places else ""
+        unanswered = int(frame.attrs.get("places_unanswered", 0))
+        if unanswered:
+            watched += f"; {_count(unanswered, 'place')} could not be checked this time"
+        beyond = int(frame.attrs.get("places_beyond", 0))
+        if beyond:
+            watched += (
+                f"; {_count(beyond, 'place')} NOT checked: more are subscribed than the "
+                f"{self.MAX_PLACES} one read looks up"
+            )
         if frame.empty:
             return Judgment([], f"no alert in effect{watched}", None, 0, 0)
         findings = []

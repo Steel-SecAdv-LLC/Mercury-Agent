@@ -205,8 +205,9 @@ def test_frontend_js_covers_every_account_route() -> None:
     missing = {
         path
         for path in router_paths
-        # The JS calls DELETE /api-keys/{id} by string concatenation.
-        if path.replace("/{key_id}", "/") not in js_text
+        # The JS calls DELETE /api-keys/{id} and /watch-subscriptions/{id} by
+        # string concatenation.
+        if re.sub(r"/\{\w+\}$", "/", path) not in js_text
     }
     assert not missing, f"account routes with no frontend affordance: {sorted(missing)}"
 
@@ -321,6 +322,40 @@ def test_pages_have_accessible_status_regions() -> None:
     for name in ("register", "login", "reset-password", "dashboard"):
         html = (frontend._PAGES_DIR / f"{name}.html").read_text(encoding="utf-8")
         assert "<label" in html, name
+
+
+def test_dashboard_lets_an_account_manage_its_watch_alerts() -> None:
+    """The watch's messages say "change it under your account"; this is where.
+
+    Before, nothing on the account page touched the watch: only the
+    operator's command line could subscribe or unsubscribe anyone.
+    """
+    from omni_mercury_engine.api.routes import accounts as accounts_module
+
+    html = (frontend._PAGES_DIR / "dashboard.html").read_text(encoding="utf-8")
+    js = (frontend._STATIC_DIR / "dashboard.js").read_text(encoding="utf-8")
+    card = html[html.index('aria-labelledby="watch-heading"') : html.index("api-keys-heading")]
+
+    # Every control is labelled, and bounded as the server bounds it.
+    controls = re.findall(r'<(?:input|select) id="([\w-]+)"', card)
+    assert controls == [
+        "watch-place", "watch-latitude", "watch-longitude", "watch-radius", "watch-severity",
+    ]  # fmt: skip
+    for control in controls:
+        assert f'<label for="{control}">' in card, control
+    fields = accounts_module.WatchSubscriptionRequest.model_fields
+    assert 'min="-90" max="90"' in card and 'min="-180" max="180"' in card
+    assert 'min="1" max="2000"' in card and 'maxlength="80"' in card
+    assert f'value="{fields["radius_km"].default:g}"' in card
+    assert set(re.findall(r'<option value="(\w+)"', card)) == set(
+        accounts_module._WATCH_SEVERITY_RANK
+    )
+    # It says when the server cannot act on a subscription, and results are announced.
+    assert card.count('role="status" aria-live="polite"') == 2
+    assert "view.email_delivery" in js and "view.watching" in js
+    # The picture is decoration; the caption beside it carries the same fact as text.
+    assert '<svg id="watch-locator" viewBox="0 0 360 180" aria-hidden="true"' in card
+    assert 'id="watch-readback"' in card
 
 
 def test_dashboard_offers_exactly_the_self_service_key_permissions() -> None:

@@ -23,7 +23,14 @@ if TYPE_CHECKING:
 
     from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
 
-__all__ = ["WatchStore", "default_state_dir"]
+__all__ = [
+    "SubscriptionLimitError",
+    "WatchStore",
+    "carry_address",
+    "default_state_dir",
+    "existing_store",
+    "forget_address",
+]
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS findings (
@@ -57,6 +64,42 @@ def default_state_dir() -> Path:
     """Where the watch keeps its memory: ``MERCURY_WATCH_DIR`` or ``~/.mercury/watch``."""
     override = os.environ.get("MERCURY_WATCH_DIR")
     return Path(override).expanduser() if override else Path.home() / ".mercury" / "watch"
+
+
+class SubscriptionLimitError(ValueError):
+    """A subscription was refused because a limit would be passed.
+
+    Attributes:
+        scope: ``"address"`` (the address holds as many as it may) or
+            ``"places"`` (the store holds as many distinct places as it may).
+        limit: The limit.
+    """
+
+    def __init__(self, scope: str, limit: int) -> None:
+        """Record which limit, and its value."""
+        super().__init__(f"the {scope} limit of {limit} subscriptions is reached")
+        self.scope = scope
+        self.limit = limit
+
+
+def existing_store() -> WatchStore | None:
+    """The watch's store, when this deployment has one. Never creates it."""
+    directory = default_state_dir()
+    return WatchStore(directory) if (directory / "watch.sqlite").exists() else None
+
+
+def forget_address(email: str) -> None:
+    """End every subscription of ``email``: its account is being deleted."""
+    store = existing_store()
+    if store is not None:
+        store.remove_subscriber(email)
+
+
+def carry_address(previous: str, current: str) -> None:
+    """Carry ``previous``'s subscriptions to ``current``: its account changed address."""
+    store = existing_store()
+    if store is not None:
+        store.move_subscriber(previous, current)
 
 
 class WatchStore:
@@ -261,15 +304,33 @@ class WatchStore:
         radius_km: float = 200.0,
         min_severity: int = 1,
         now: datetime | None = None,
+        address_limit: int | None = None,
+        place_limit: int | None = None,
     ) -> int:
         """Subscribe ``email``, for one place or (with no place) for everything.
 
         Subscribing the same address to the same place again updates it.
 
+        Args:
+            email: The address to tell.
+            place: What the subscriber calls the place.
+            latitude: Where it is.
+            longitude: Where it is.
+            radius_km: How far from it a finding still concerns them.
+            min_severity: The least severity to be told of (1 to 3).
+            now: When; defaults to the present.
+            address_limit: Refuse a subscription that would be the
+                address's first beyond this many. ``None``: no limit.
+            place_limit: Refuse one that would add a distinct place (see
+                :meth:`places`) beyond this many. ``None``: no limit.
+
         Returns:
             The subscriber's id.
 
         Raises:
+            SubscriptionLimitError: If a limit would be passed. The limits
+                are checked in the transaction that writes, so concurrent
+                requests cannot pass them together.
             ValueError: If the address, the coordinates or the radius cannot
                 be what they claim to be.
         """
@@ -290,32 +351,122 @@ class WatchStore:
         label = place.strip() or ("" if not located else f"{latitude:.2f}, {longitude:.2f}")
         moment = (now or datetime.now(UTC)).isoformat()
         with self._lock, closing(self._connect()) as connection, connection:
-            connection.execute(
+            connection.execute("BEGIN IMMEDIATE")  # the checks below and the write are one step
+            # A mailbox is one subscriber however it is capitalised: the
+            # table's own uniqueness compares bytes, and "A@x.org" beside
+            # "a@x.org" was two rows and two copies of every message.
+            row = connection.execute(
+                "SELECT id, latitude, longitude FROM subscribers "
+                "WHERE email = ? COLLATE NOCASE AND place = ?",
+                (address, label),
+            ).fetchone()
+            if address_limit is not None and row is None:
+                held = connection.execute(
+                    "SELECT COUNT(*) AS n FROM subscribers WHERE email = ? COLLATE NOCASE",
+                    (address,),
+                ).fetchone()
+                if int(held["n"]) >= address_limit:
+                    raise SubscriptionLimitError("address", address_limit)
+            if place_limit is not None and latitude is not None and longitude is not None:
+                points = {
+                    (round(float(other["latitude"]), 2), round(float(other["longitude"]), 2))
+                    for other in connection.execute(
+                        "SELECT latitude, longitude FROM subscribers "
+                        "WHERE latitude IS NOT NULL AND longitude IS NOT NULL"
+                    )
+                }
+                if (round(latitude, 2), round(longitude, 2)) not in points and (
+                    len(points) >= place_limit
+                ):
+                    raise SubscriptionLimitError("places", place_limit)
+            if row is not None:
+                connection.execute(
+                    "UPDATE subscribers SET email=?, latitude=?, longitude=?, radius_km=?, "
+                    "min_severity=? WHERE id=?",
+                    (address, latitude, longitude, float(radius_km), min_severity, row["id"]),
+                )
+                return int(row["id"])
+            cursor = connection.execute(
                 "INSERT INTO subscribers "
                 "(email, place, latitude, longitude, radius_km, min_severity, created) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (email, place) DO UPDATE SET "
-                "latitude=excluded.latitude, longitude=excluded.longitude, "
-                "radius_km=excluded.radius_km, min_severity=excluded.min_severity",
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (address, label, latitude, longitude, float(radius_km), min_severity, moment),
             )
-            row = connection.execute(
-                "SELECT id FROM subscribers WHERE email=? AND place=?", (address, label)
-            ).fetchone()
-        return int(row["id"])
+            return int(cursor.lastrowid or 0)
 
     def remove_subscriber(self, email: str, place: str | None = None) -> int:
         """Unsubscribe ``email`` from ``place``, or from everything. Returns how many ended."""
         with self._lock, closing(self._connect()) as connection, connection:
             if place is None:
                 cursor = connection.execute(
-                    "DELETE FROM subscribers WHERE email=?", (email.strip(),)
+                    "DELETE FROM subscribers WHERE email = ? COLLATE NOCASE", (email.strip(),)
                 )
             else:
                 cursor = connection.execute(
-                    "DELETE FROM subscribers WHERE email=? AND place=?",
+                    "DELETE FROM subscribers WHERE email = ? COLLATE NOCASE AND place = ?",
                     (email.strip(), place.strip()),
                 )
             return int(cursor.rowcount)
+
+    def subscriptions_of(self, email: str) -> list[dict[str, Any]]:
+        """The subscriptions of one address, oldest first."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT * FROM subscribers WHERE email = ? COLLATE NOCASE ORDER BY id",
+                (email.strip(),),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def remove_subscription(self, email: str, subscription: int) -> bool:
+        """End one subscription, if it is ``email``'s. Returns whether it was."""
+        with self._lock, closing(self._connect()) as connection, connection:
+            cursor = connection.execute(
+                "DELETE FROM subscribers WHERE id = ? AND email = ? COLLATE NOCASE",
+                (int(subscription), email.strip()),
+            )
+            return cursor.rowcount == 1
+
+    def move_subscriber(self, previous: str, current: str) -> int:
+        """Carry an address's subscriptions to the address that replaces it.
+
+        A place the new address is already subscribed to keeps the new
+        address's settings; the old one's copy ends. Returns how many moved.
+
+        Raises:
+            ValueError: If ``current`` is not an email address.
+        """
+        old, new = previous.strip(), current.strip()
+        if not _EMAIL.fullmatch(new):
+            raise ValueError(f"not an email address: {current!r}")
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute(
+                "DELETE FROM subscribers WHERE email = :old COLLATE NOCASE AND place IN "
+                "(SELECT place FROM subscribers WHERE email = :new COLLATE NOCASE "
+                "AND email <> :old COLLATE NOCASE)",
+                {"old": old, "new": new},
+            )
+            cursor = connection.execute(
+                "UPDATE subscribers SET email = :new WHERE email = :old COLLATE NOCASE",
+                {"old": old, "new": new},
+            )
+            return int(cursor.rowcount)
+
+    def places(self) -> dict[tuple[float, float], list[int]]:
+        """The distinct places subscribed, each with its subscribers' ids.
+
+        A place is its coordinates to two decimals (about a kilometre): the
+        precision an alert lookup is made at. Oldest subscription first.
+        """
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT id, latitude, longitude FROM subscribers "
+                "WHERE latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY id"
+            ).fetchall()
+        points: dict[tuple[float, float], list[int]] = {}
+        for row in rows:
+            point = (round(float(row["latitude"]), 2), round(float(row["longitude"]), 2))
+            points.setdefault(point, []).append(int(row["id"]))
+        return points
 
     def subscribers(self) -> list[dict[str, Any]]:
         """Every subscription, oldest first."""

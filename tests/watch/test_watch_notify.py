@@ -387,6 +387,57 @@ class TestDelivery:
         assert store.standing_deliveries() == {}
         assert store.delivery(made.key, 3, 1, "email")["status"] == "sent"  # still on record
 
+    def test_one_mailbox_is_one_subscriber_however_it_is_capitalised(
+        self, store: WatchStore
+    ) -> None:
+        """Was: 'A@Example.org' beside 'a@example.org' was two rows and two copies."""
+        first = store.add_subscriber("Ana@Example.org", place="Home", latitude=1.0, longitude=2.0)
+        again = store.add_subscriber("ana@example.org", place="Home", latitude=3.0, longitude=4.0)
+
+        assert first == again
+        (row,) = store.subscribers()
+        assert (row["email"], row["latitude"]) == ("ana@example.org", 3.0)
+        assert store.remove_subscriber("ANA@example.org") == 1
+
+    def test_subscriptions_are_listed_ended_and_carried_by_address(self, store: WatchStore) -> None:
+        home = store.add_subscriber("old@example.org", place="Home", latitude=1.0, longitude=2.0)
+        work = store.add_subscriber("old@example.org", place="Work", latitude=5.0, longitude=6.0)
+        kept = store.add_subscriber("new@example.org", place="Home", latitude=9.0, longitude=9.0)
+        other = store.add_subscriber("other@example.org")
+
+        assert [row["id"] for row in store.subscriptions_of("OLD@example.org")] == [home, work]
+        assert store.remove_subscription("other@example.org", home) is False  # not theirs
+        assert store.remove_subscription("old@example.org", 9999) is False
+        assert len(store.subscribers()) == 4
+
+        # "Home" exists at the new address already and keeps its settings there.
+        assert store.move_subscriber("old@example.org", "new@example.org") == 1
+        assert store.subscriptions_of("old@example.org") == []
+        assert [(row["id"], row["place"], row["latitude"]) for row in
+                store.subscriptions_of("new@example.org")] == [(work, "Work", 5.0), (kept, "Home", 9.0)]  # fmt: skip
+        assert store.remove_subscription("new@example.org", work) is True
+        assert [row["id"] for row in store.subscribers()] == [kept, other]
+        with pytest.raises(ValueError, match="not an email address"):
+            store.move_subscriber("new@example.org", "nobody")
+
+    def test_changing_only_the_capitals_of_an_address_keeps_its_subscriptions(
+        self, store: WatchStore
+    ) -> None:
+        store.add_subscriber("ana@example.org", place="Home", latitude=1.0, longitude=2.0)
+
+        assert store.move_subscriber("ana@example.org", "Ana@Example.org") == 1
+        assert [row["email"] for row in store.subscribers()] == ["Ana@Example.org"]
+
+    def test_places_are_distinct_to_about_a_kilometre(self, store: WatchStore) -> None:
+        one = store.add_subscriber(
+            "a@example.org", place="Home", latitude=28.371, longitude=-80.874
+        )
+        two = store.add_subscriber("b@example.org", place="Work", latitude=28.37, longitude=-80.87)
+        three = store.add_subscriber("c@example.org", place="Far", latitude=47.6, longitude=-122.3)
+        store.add_subscriber("d@example.org")
+
+        assert store.places() == {(28.37, -80.87): [one, two], (47.6, -122.3): [three]}
+
     def test_a_delivery_that_keeps_failing_is_left_failed_not_retried_for_ever(
         self, store: WatchStore
     ) -> None:
@@ -568,6 +619,72 @@ class TestWarnings:
             "1 subscribed place checked; 2 in effect at subscribed places"
         )
 
+    def test_a_place_the_service_will_not_answer_for_costs_no_one_else_their_warnings(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: one failed lookup raised, and the whole feed, Extreme alerts included, was down."""
+        home = store.add_subscriber("a@example.org", place="Home", latitude=28.37, longitude=-80.87)
+        store.add_subscriber("b@example.org", place="Abroad", latitude=35.68, longitude=139.69)
+        feed = WarningsFeed()
+        feed.bind(store)
+
+        def answer(params: dict[str, str]) -> list[dict[str, Any]]:
+            if params.get("point") == "35.68,139.69":
+                raise ValueError("HTTP 400: point is outside the Service's area")
+            source = [_alert("ee", "Flood Warning", "Severe")] if "point" in params else [
+                _alert("aa", "Tornado Warning", "Extreme")
+            ]  # fmt: skip
+            return [alert["properties"] for alert in source]
+
+        monkeypatch.setattr(feed, "_alerts", answer)
+        judgment = feed.judge(feed.read(), NOW)
+
+        assert sorted(finding.place_ids for finding in judgment.findings) == [(), (home,)]
+        assert "1 subscribed place checked; 1 place could not be checked this time" in (
+            judgment.summary
+        )
+
+    def test_more_places_than_one_read_looks_up_are_said_and_the_rest_are_still_checked(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: the 251st place raised, and every subscriber lost every warning."""
+        monkeypatch.setattr(WarningsFeed, "MAX_PLACES", 2)
+        ids = [
+            store.add_subscriber(f"p{n}@example.org", place="P", latitude=30.0 + n, longitude=-90.0)
+            for n in range(3)
+        ]
+        feed, asked = self._feed(
+            store, monkeypatch, [_alert("aa", "Tornado Warning", "Extreme")],
+            [_alert("ee", "Flood Warning", "Severe")],
+        )  # fmt: skip
+
+        judgment = feed.judge(feed.read(), NOW)
+
+        assert [params.get("point") for params in asked] == [None, "30.0,-90.0", "31.0,-90.0"]
+        local = next(finding for finding in judgment.findings if finding.place_ids)
+        assert local.place_ids == tuple(ids[:2])  # the longest-subscribed places first
+        assert judgment.summary.endswith(
+            "2 subscribed places checked; 1 place NOT checked: more are subscribed than the "
+            "2 one read looks up; 1 in effect at subscribed places"
+        )
+
+    def test_the_point_lookup_failing_everywhere_is_down_not_no_alert_in_effect(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        store.add_subscriber("a@example.org", place="Home", latitude=28.37, longitude=-80.87)
+        feed = WarningsFeed()
+        feed.bind(store)
+
+        def answer(params: dict[str, str]) -> list[dict[str, Any]]:
+            if "point" in params:
+                raise ConnectionError("simulated: 503")
+            return []
+
+        monkeypatch.setattr(feed, "_alerts", answer)
+
+        with pytest.raises(ConnectionError, match="all 1 subscribed places"):
+            feed.read()
+
     def test_a_quiet_day_is_said(self, store: WatchStore, monkeypatch: pytest.MonkeyPatch) -> None:
         feed, _ = self._feed(store, monkeypatch, [], [])
 
@@ -661,6 +778,22 @@ class TestSurfaces:
             "subscribers": 1, "email": False, "webhook": False, "sent": 0, "failed": 0,
         }  # fmt: skip
         assert "private@example.org" not in json.dumps(data) and "28.37" not in json.dumps(data)
+
+    def test_the_command_says_when_a_place_will_not_be_checked_for_alerts(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(WarningsFeed, "MAX_PLACES", 1)
+        run, where = CliRunner(), ["--state-dir", str(tmp_path)]
+
+        def add(email: str, lat: str) -> str:
+            result = run.invoke(
+                main, ["alerts", "add", "--email", email, "--lat", lat, "--lon", "-80.87", *where]
+            )
+            assert result.exit_code == 0, result.output
+            return str(result.output)
+
+        assert "not checked" not in add("a@example.org", "28.37")
+        assert "1 more distinct place(s) are subscribed than the 1" in add("b@example.org", "40.0")
 
     def test_the_command_subscribes_lists_and_unsubscribes(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

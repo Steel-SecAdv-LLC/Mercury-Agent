@@ -1,8 +1,8 @@
 /* Copyright (C) 2025 Steel Security Advisors LLC
    SPDX-License-Identifier: AGPL-3.0-or-later
 
-   Dashboard page logic: profile, usage vs. limits, API keys (one-time
-   reveal), password/email change, 2FA lifecycle (QR drawn client-side by the
+   Dashboard page logic: profile, usage vs. limits, watch alerts (the places
+   the account is told about), API keys (one-time reveal), password/email change, 2FA lifecycle (QR drawn client-side by the
    vendored qrcode-generator library), data export, account deletion. */
 
 "use strict";
@@ -272,6 +272,209 @@ function initApiKeyForm() {
   });
 }
 
+/* ------------------------------------------------------------ watch alerts */
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const KM_PER_DEGREE = 111.2;
+const WATCH_SEVERITY_WORDS = {
+  notable: "Anything notable",
+  significant: "Significant and severe",
+  severe: "Severe only",
+};
+
+/** "28.37° N, 80.87° W": coordinates as a person reads them. */
+function formatCoordinates(latitude, longitude) {
+  const part = (value, positive, negative) =>
+    Math.abs(value).toFixed(2) + "° " + (value < 0 ? negative : positive);
+  return part(latitude, "N", "S") + ", " + part(longitude, "E", "W");
+}
+
+/** A finite number in [low, high] from an input's text, or null. */
+function numberInRange(text, low, high) {
+  if (typeof text !== "string" || text.trim() === "") { return null; }
+  const value = Number(text);
+  return Number.isFinite(value) && value >= low && value <= high ? value : null;
+}
+
+function svgNode(name, attributes) {
+  const node = document.createElementNS(SVG_NS, name);
+  Object.keys(attributes).forEach((key) => node.setAttribute(key, String(attributes[key])));
+  return node;
+}
+
+/**
+ * Draw where a point falls on the world: a 30-degree graticule with the
+ * equator and prime meridian marked, the point, and its reach to scale. The
+ * map is 360 by 180 units, one per degree, so x = longitude + 180 and
+ * y = 90 - latitude. With no point it draws the empty graticule.
+ */
+function drawLocator(svg, latitude, longitude, radiusKm) {
+  if (!svg) { return; }
+  svg.textContent = "";
+  for (let x = 30; x < 360; x += 30) {
+    svg.appendChild(svgNode("line", {
+      x1: x, y1: 0, x2: x, y2: 180, class: x === 180 ? "axis" : "graticule",
+    }));
+  }
+  for (let y = 30; y < 180; y += 30) {
+    svg.appendChild(svgNode("line", {
+      x1: 0, y1: y, x2: 360, y2: y, class: y === 90 ? "axis" : "graticule",
+    }));
+  }
+  [["N", 184, 11], ["S", 184, 176], ["W", 4, 87], ["E", 349, 87]].forEach((label) => {
+    const text = svgNode("text", { x: label[1], y: label[2], class: "axis-label" });
+    text.textContent = label[0];
+    svg.appendChild(text);
+  });
+  if (latitude === null || longitude === null) { return; }
+  const x = longitude + 180;
+  const y = 90 - latitude;
+  svg.appendChild(svgNode("line", { x1: x, y1: 0, x2: x, y2: 180, class: "cross" }));
+  svg.appendChild(svgNode("line", { x1: 0, y1: y, x2: 360, y2: y, class: "cross" }));
+  if (radiusKm !== null) {
+    // A degree of longitude shrinks with the cosine of the latitude.
+    const shrink = Math.max(Math.cos(latitude * Math.PI / 180), 0.02);
+    svg.appendChild(svgNode("ellipse", {
+      cx: x, cy: y, class: "reach",
+      rx: Math.min(radiusKm / (KM_PER_DEGREE * shrink), 180),
+      ry: Math.min(radiusKm / KM_PER_DEGREE, 90),
+    }));
+  }
+  svg.appendChild(svgNode("circle", { cx: x, cy: y, r: 4, class: "marker-halo" }));
+  svg.appendChild(svgNode("circle", { cx: x, cy: y, r: 3, class: "marker" }));
+}
+
+/** Redraw the locator and its caption from what the form holds now. */
+function updateWatchPreview() {
+  const latitude = numberInRange(document.getElementById("watch-latitude").value, -90, 90);
+  const longitude = numberInRange(document.getElementById("watch-longitude").value, -180, 180);
+  const radius = numberInRange(document.getElementById("watch-radius").value, 1, 2000);
+  const caption = document.getElementById("watch-readback");
+  const located = latitude !== null && longitude !== null;
+  drawLocator(document.getElementById("watch-locator"),
+    located ? latitude : null, located ? longitude : null, radius);
+  caption.textContent = "";
+  if (!located) {
+    caption.textContent = "Enter a latitude and longitude to see where that is.";
+    return;
+  }
+  const where = document.createElement("strong");
+  where.textContent = formatCoordinates(latitude, longitude);
+  caption.appendChild(where);
+  caption.appendChild(document.createTextNode(
+    radius === null ? "." : ". You would be told about findings within " +
+      radius.toLocaleString() + " km of it, and about any National Weather Service " +
+      "alert in effect there (the Service covers the United States)."));
+}
+
+function renderWatchSubscriptions(view) {
+  const list = document.getElementById("watch-list");
+  const subscriptions = view.subscriptions || [];
+  list.textContent = "";
+  (subscriptions.length === 0 ? show : hide)(document.getElementById("watch-empty"));
+  (subscriptions.length === 0 ? hide : show)(list);
+  document.getElementById("watch-limit").textContent =
+    "You have " + subscriptions.length + " of " + view.limit + " places.";
+
+  const capability = document.getElementById("watch-capability");
+  if (!view.email_delivery) {
+    setStatus(capability, "This server has no mail server set up, so it cannot email you yet. " +
+      "The places you add are kept, and used as soon as it can.", "warn");
+  } else if (!view.watching) {
+    setStatus(capability, "The watch is not running inside this server. Unless whoever runs " +
+      "it runs the watch separately, nothing is being read and no message will come.", "warn");
+  } else {
+    setStatus(capability, "");
+  }
+
+  subscriptions.forEach((subscription) => {
+    const everywhere = subscription.latitude === null || subscription.longitude === null;
+    const name = subscription.place || "Everything, everywhere";
+    const item = document.createElement("li");
+    const text = document.createElement("div");
+    const title = document.createElement("span");
+    title.className = "place-name";
+    title.textContent = name;
+    const detail = document.createElement("span");
+    detail.className = "place-detail";
+    detail.textContent = (everywhere ? "No place: every finding"
+      : formatCoordinates(subscription.latitude, subscription.longitude) + " · within " +
+        subscription.radius_km.toLocaleString() + " km") + " · " +
+      (WATCH_SEVERITY_WORDS[subscription.min_severity] || WATCH_SEVERITY_WORDS.notable);
+    text.appendChild(title);
+    text.appendChild(detail);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "danger";
+    remove.textContent = "Stop";
+    remove.setAttribute("aria-label", "Stop telling me about " + name);
+    remove.addEventListener("click", async () => {
+      remove.disabled = true;
+      const status = document.getElementById("watch-status");
+      const removed = await api("DELETE", "/watch-subscriptions/" +
+        encodeURIComponent(subscription.id));
+      if (!removed.ok) {
+        remove.disabled = false;
+        setStatus(status, apiErrorMessage(removed.body), "error");
+        return;
+      }
+      await loadWatchSubscriptions();
+      setStatus(status, "You will no longer be told about " + name + ".", "ok");
+      // The button that had focus is gone with its item; leave focus on the
+      // list when there still is one, and on the form when there is not.
+      (list.classList.contains("hidden") ? document.getElementById("watch-place") : list)
+        .focus({ preventScroll: true });
+    });
+
+    item.appendChild(text);
+    item.appendChild(remove);
+    list.appendChild(item);
+  });
+}
+
+async function loadWatchSubscriptions() {
+  const result = await api("GET", "/watch-subscriptions");
+  if (result.ok) { renderWatchSubscriptions(result.body); }
+  return result.ok;
+}
+
+function initWatch() {
+  const form = document.getElementById("watch-form");
+  const status = document.getElementById("watch-status");
+  document.getElementById("watch-address").textContent = currentAccount.email;
+  ["watch-latitude", "watch-longitude", "watch-radius"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", updateWatchPreview);
+  });
+  form.addEventListener("reset", () => { window.setTimeout(updateWatchPreview, 0); });
+  updateWatchPreview();
+  loadWatchSubscriptions();
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const place = document.getElementById("watch-place").value.trim();
+    setStatus(status, "Saving…");
+    const result = await api("POST", "/watch-subscriptions", {
+      place: place,
+      latitude: Number(document.getElementById("watch-latitude").value),
+      longitude: Number(document.getElementById("watch-longitude").value),
+      radius_km: Number(document.getElementById("watch-radius").value),
+      min_severity: document.getElementById("watch-severity").value,
+    });
+    if (!result.ok) {
+      setStatus(status, result.status === 422
+        ? "Check the place: a name, a latitude from -90 to 90, a longitude from -180 to 180 " +
+          "and a distance from 1 to 2,000 km."
+        : apiErrorMessage(result.body), "error");
+      return;
+    }
+    renderWatchSubscriptions(result.body);
+    form.reset();
+    setStatus(status, "You will be told about " + place + ". Anything standing there now " +
+      "is sent on the watch's next pass.", "ok");
+  });
+}
+
 /* --------------------------------------------------- password/email change */
 
 function initPasswordChange() {
@@ -471,6 +674,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const authed = await loadProfile();
   if (!authed) { return; }
   loadUsage();
+  initWatch();
   loadApiKeys();
   initApiKeyForm();
   initPasswordChange();

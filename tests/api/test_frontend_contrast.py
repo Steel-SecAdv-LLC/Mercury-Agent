@@ -66,6 +66,8 @@ _PAIRS: tuple[tuple[str, str, float, str], ...] = (
     ("danger-contrast", "danger-fill-hover", _TEXT, "danger button label, hovered"),
     ("danger", "tint-danger", _TEXT, "error status"),
     ("ok", "tint-ok", _TEXT, "success status"),
+    ("warn", "tint-warn", _TEXT, "warning status"),
+    ("accent", "surface-2", _NON_TEXT, "locator marker on its map"),
     ("danger", "surface", _TEXT, "error text in a card"),
     ("ok", "surface", _TEXT, "success text in a card"),
     ("control-border", "surface", _NON_TEXT, "input boundary in a card"),

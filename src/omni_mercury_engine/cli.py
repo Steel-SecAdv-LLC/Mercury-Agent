@@ -2197,8 +2197,17 @@ def alerts_add(
         else "everywhere"
     )
     click.echo(f"{email} will be told of findings {where}, {min_severity} and above.")
+    from omni_mercury_engine.watch.feeds import WarningsFeed
     from omni_mercury_engine.watch.notify import Notifier
 
+    beyond = len(_watch_store(state_dir).places()) - WarningsFeed.MAX_PLACES
+    if beyond > 0:
+        click.echo(
+            f"{beyond} more distinct place(s) are subscribed than the {WarningsFeed.MAX_PLACES} "
+            "the warnings feed looks up on one read: the most recently added are not checked "
+            "for National Weather Service alerts in effect there.",
+            err=True,
+        )
     if not Notifier(_watch_store(state_dir)).channels()["email"]:
         click.echo(
             "No SMTP server is configured (MERCURY_SMTP_HOST), so no email can be sent yet: "

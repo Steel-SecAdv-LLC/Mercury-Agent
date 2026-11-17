@@ -33,10 +33,10 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from omni_mercury_engine.api import platform_metrics
 from omni_mercury_engine.api.auth import Permission, get_api_key_store
@@ -110,6 +110,14 @@ DISPATCHED_THROTTLE_ACTIONS: tuple[str, ...] = (
     "email_change_ip",
     "email_change_account",
 )
+
+#: Fallback cap on the places one account may be told about (override with
+#: ``MERCURY_WATCH_MAX_PLACES_PER_ACCOUNT``). Every distinct place is one
+#: request to the National Weather Service on each read of its alerts.
+_DEFAULT_MAX_WATCH_PLACES_PER_ACCOUNT = 5
+
+#: A subscription's least severity, as the watch names it, to its stored rank.
+_WATCH_SEVERITY_RANK: dict[str, int] = {"notable": 1, "significant": 2, "severe": 3}
 
 _service: AuthService | None = None
 _service_lock = threading.Lock()
@@ -431,6 +439,60 @@ class ApiKeyCreatedResponse(BaseModel):
     message: str
 
 
+class WatchSubscriptionRequest(BaseModel):
+    """A place to be told about, for the signed-in account's own address."""
+
+    place: str = Field(min_length=1, max_length=80, description="What you call the place.")
+    latitude: float = Field(ge=-90.0, le=90.0)
+    longitude: float = Field(ge=-180.0, le=180.0)
+    radius_km: float = Field(200.0, ge=1.0, le=2000.0)
+    min_severity: Literal["notable", "significant", "severe"] = "notable"
+
+    @field_validator("place")
+    @classmethod
+    def _one_printable_line(cls, value: str) -> str:
+        """A name is one line of ordinary text; it is quoted in every message."""
+        name = " ".join(value.split())
+        if not name or not name.isprintable():
+            raise ValueError("the place needs a name in ordinary characters")
+        return name
+
+
+class WatchSubscriptionResponse(BaseModel):
+    """One of the account's watch subscriptions."""
+
+    id: int
+    place: str
+    latitude: float | None
+    longitude: float | None
+    radius_km: float
+    min_severity: str
+    created: str
+
+
+class WatchSubscriptionsResponse(BaseModel):
+    """The account's watch subscriptions, and whether this server can act on them."""
+
+    subscriptions: list[WatchSubscriptionResponse]
+    limit: int
+    email_delivery: bool
+    watching: bool
+
+
+def _watch_subscription_view(row: dict[str, Any]) -> WatchSubscriptionResponse:
+    """Project a stored subscription to its public shape (never the address)."""
+    ranks = {rank: name for name, rank in _WATCH_SEVERITY_RANK.items()}
+    return WatchSubscriptionResponse(
+        id=int(row["id"]),
+        place=str(row["place"]),
+        latitude=row["latitude"],
+        longitude=row["longitude"],
+        radius_km=float(row["radius_km"]),
+        min_severity=ranks.get(int(row["min_severity"]), "notable"),
+        created=str(row["created"]),
+    )
+
+
 def _account_view(account: Account) -> AccountResponse:
     """Project an :class:`Account` to its public response shape."""
     return AccountResponse(
@@ -687,7 +749,15 @@ def export_data(
     service: AuthService = Depends(get_auth_service),
 ) -> dict[str, object]:
     """Export the account's stored personal data (portability)."""
-    return service.export_account_data(account.id)
+    from omni_mercury_engine.watch.store import existing_store
+
+    data = service.export_account_data(account.id)
+    store = existing_store()
+    data["watch_subscriptions"] = [
+        _watch_subscription_view(row).model_dump()
+        for row in (store.subscriptions_of(account.email) if store is not None else [])
+    ]
+    return data
 
 
 def session_or_api_key_account(
@@ -1054,3 +1124,137 @@ def revoke_api_key(
         details={"key_id": key_id},
     )
     return MessageResponse(message="API key revoked.")
+
+
+# --------------------------------------------------------------------------- #
+# watch subscriptions (the account's own address, the places it names)
+# --------------------------------------------------------------------------- #
+def _max_watch_places_per_account() -> int:
+    """How many places one account may be told about."""
+    raw = os.getenv("MERCURY_WATCH_MAX_PLACES_PER_ACCOUNT", "").strip()
+    try:
+        value = int(raw) if raw else _DEFAULT_MAX_WATCH_PLACES_PER_ACCOUNT
+    except ValueError:
+        return _DEFAULT_MAX_WATCH_PLACES_PER_ACCOUNT
+    return value if value > 0 else _DEFAULT_MAX_WATCH_PLACES_PER_ACCOUNT
+
+
+def _watch_subscriptions_view(account: Account) -> WatchSubscriptionsResponse:
+    """The account's subscriptions and what this server can do with them."""
+    from omni_mercury_engine.api.mailer import SMTP_HOST_ENV
+    from omni_mercury_engine.watch.service import watching
+    from omni_mercury_engine.watch.store import existing_store
+
+    store = existing_store()
+    rows = store.subscriptions_of(account.email) if store is not None else []
+    return WatchSubscriptionsResponse(
+        subscriptions=[_watch_subscription_view(row) for row in rows],
+        limit=_max_watch_places_per_account(),
+        email_delivery=bool(os.getenv(SMTP_HOST_ENV, "").strip()),
+        watching=watching(),
+    )
+
+
+@router.get("/watch-subscriptions", response_model=WatchSubscriptionsResponse)
+def list_watch_subscriptions(
+    account: Account = Depends(current_account),
+) -> WatchSubscriptionsResponse:
+    """List the places the current account is told about by the watch.
+
+    ``email_delivery`` and ``watching`` say whether this server can send the
+    messages at all: a subscription on a server with no mail server, or one
+    that is not running the watch, tells no one, and the page must say so.
+    """
+    return _watch_subscriptions_view(account)
+
+
+@router.post(
+    "/watch-subscriptions",
+    response_model=WatchSubscriptionsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_watch_subscription(
+    payload: WatchSubscriptionRequest,
+    request: Request,
+    session_pair: tuple[Account, Session] = Depends(csrf_protected),
+    service: AuthService = Depends(get_auth_service),
+) -> WatchSubscriptionsResponse:
+    """Tell the current account about what the watch finds near a place.
+
+    The address is the account's own, which it proved it receives when it
+    verified: nobody can subscribe an address that is not theirs. Naming a
+    place again updates it. Two bounds hold: a per-account cap, and the
+    number of distinct places the alert feed looks up on one read, so that
+    self-service can never crowd out the places already being checked.
+    """
+    from omni_mercury_engine.watch.feeds import WarningsFeed
+    from omni_mercury_engine.watch.store import (
+        SubscriptionLimitError,
+        WatchStore,
+        default_state_dir,
+    )
+
+    account, _session = session_pair
+    if not account.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": "verify your email before subscribing to the watch"},
+        )
+    cap = _max_watch_places_per_account()
+    try:
+        WatchStore(default_state_dir()).add_subscriber(
+            account.email,
+            place=payload.place,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            radius_km=payload.radius_km,
+            min_severity=_WATCH_SEVERITY_RANK[payload.min_severity],
+            address_limit=cap,
+            place_limit=WarningsFeed.MAX_PLACES,
+        )
+    except SubscriptionLimitError as exc:
+        message = (
+            f"an account can be told about at most {cap} places"
+            if exc.scope == "address"
+            else "this server is already checking as many places as it can; ask whoever runs it"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail={"message": message}
+        ) from exc
+    service.record_event(
+        "watch_subscribed",
+        outcome="success",
+        account_id=account.id,
+        client_ip=_client_ip(request),
+    )
+    return _watch_subscriptions_view(account)
+
+
+@router.delete("/watch-subscriptions/{subscription_id}", response_model=MessageResponse)
+def remove_watch_subscription(
+    subscription_id: int,
+    request: Request,
+    session_pair: tuple[Account, Session] = Depends(csrf_protected),
+    service: AuthService = Depends(get_auth_service),
+) -> MessageResponse:
+    """Stop telling the current account about one place.
+
+    404 for a subscription that does not exist *or* is another address's: a
+    caller learns nothing about subscriptions that are not its own.
+    """
+    from omni_mercury_engine.watch.store import existing_store
+
+    account, _session = session_pair
+    store = existing_store()
+    if store is None or not store.remove_subscription(account.email, subscription_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "subscription not found"},
+        )
+    service.record_event(
+        "watch_unsubscribed",
+        outcome="success",
+        account_id=account.id,
+        client_ip=_client_ip(request),
+    )
+    return MessageResponse(message="You will no longer be told about that place.")

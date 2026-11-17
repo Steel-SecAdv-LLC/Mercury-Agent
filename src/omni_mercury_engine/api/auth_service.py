@@ -234,6 +234,8 @@ class AuthService:
         sealer: SecretSealer | None = None,
         auditor: AuthAuditor | None = None,
         mail_executor: Executor | None = None,
+        on_email_changed: Callable[[str, str], None] | None = None,
+        on_account_deleting: Callable[[str], None] | None = None,
     ) -> None:
         """Wire the service to its collaborators and lifetime policy.
 
@@ -257,6 +259,15 @@ class AuthService:
                 (fire-and-forget) so a slow SMTP server can neither block the
                 request thread nor leak timing; ``None`` sends synchronously
                 but still failure-tolerantly.
+            on_email_changed: Called with ``(previous, current)`` once an
+                account's address has changed, so that what is held under
+                the address outside the identity store (its watch
+                subscriptions) follows it. A failure is raised to the caller.
+            on_account_deleting: Called with the account's address after
+                its password is verified and before the account is removed,
+                so that what is held under the address goes first. A failure
+                stops the deletion: no account is deleted while something
+                still mails its address.
         """
         self._store = store
         self._mailer = mailer
@@ -272,6 +283,8 @@ class AuthService:
         self._sealer = sealer or SecretSealer(secrets.token_bytes(32), key_is_stable=True)
         self._auditor = auditor or AuthAuditor(None)
         self._mail_executor = mail_executor
+        self._on_email_changed = on_email_changed
+        self._on_account_deleting = on_account_deleting
 
     # -- email delivery (best-effort by contract) -------------------------- #
     def _send(self, to: str, content: EmailContent) -> None:
@@ -870,12 +883,15 @@ class AuthService:
         account = self._require_account(token.account_id)
         if not token.payload or not _is_valid_email(token.payload):
             raise InvalidTokenError("invalid or unknown token")
+        previous = account.email
         account.email = token.payload
         account.is_verified = True  # the new mailbox just proved receipt
         try:
             self._store.update_account(account)
         except DuplicateEmailError as exc:
             raise EmailAlreadyRegisteredError("email already registered") from exc
+        if self._on_email_changed is not None and previous != account.email:
+            self._on_email_changed(previous, account.email)
         self._store.delete_sessions_for_account(account.id)
         self._auditor.record("email_change", outcome="success", account_id=account.id)
         return account
@@ -887,7 +903,8 @@ class AuthService:
         """Hard-delete an account after re-authentication.
 
         Sessions, email tokens, and recovery codes are removed with the
-        account row. Usage-ledger rows are pseudonymous accounting facts and
+        account row, and its watch subscriptions before it (see
+        ``on_account_deleting``). Usage-ledger rows are pseudonymous accounting facts and
         age out via the retention sweep instead (documented in the security
         notes).
 
@@ -909,6 +926,8 @@ class AuthService:
                 details={"reason": "bad_current_password"},
             )
             raise InvalidCredentialsError("current password is incorrect")
+        if self._on_account_deleting is not None:
+            self._on_account_deleting(account.email)
         self._store.delete_account(account.id)
         self._auditor.record(
             "account_delete", outcome="success", account_id=account.id, client_ip=client_ip
@@ -1176,6 +1195,8 @@ def build_auth_service() -> AuthService:
     """
     import os
 
+    from omni_mercury_engine.watch.store import carry_address, forget_address
+
     base_url = public_base_url()
     contact = os.getenv("MERCURY_CONTACT_EMAIL", "contact@mercuryagent.global")
 
@@ -1196,4 +1217,6 @@ def build_auth_service() -> AuthService:
         sealer=build_secret_sealer(store_is_durable=identity_store_is_durable()),
         auditor=build_auth_auditor(),
         mail_executor=mail_executor,
+        on_email_changed=carry_address,
+        on_account_deleting=forget_address,
     )

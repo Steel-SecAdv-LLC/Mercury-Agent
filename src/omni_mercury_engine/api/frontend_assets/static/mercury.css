@@ -31,6 +31,7 @@
   --warn: #7a5f00;
   --tint-danger: #fdecea;
   --tint-ok: #e8f5ec;
+  --tint-warn: #fdf4d3;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 16px rgba(16, 24, 40, 0.06);
   --shadow-raised: 0 12px 40px rgba(16, 24, 40, 0.22);
   --radius: 12px;
@@ -61,6 +62,7 @@
     --warn: #e3c04b;
     --tint-danger: #3a1b1a;
     --tint-ok: #15301f;
+    --tint-warn: #33290c;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.28);
     --shadow-raised: 0 12px 40px rgba(0, 0, 0, 0.6);
   }
@@ -211,7 +213,8 @@ form { display: grid; gap: 0.9rem; }
 label { font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 0.3rem; }
 label.label-inline { display: inline; margin: 0; font-weight: 500; }
 
-input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
+input[type="text"], input[type="email"], input[type="password"], input[type="number"],
+select {
   width: 100%;
   min-height: 2.75rem;
   padding: 0.55rem 0.75rem;
@@ -225,9 +228,10 @@ input[type="text"], input[type="email"], input[type="password"], input[type="num
 }
 
 input[type="text"]:hover, input[type="email"]:hover,
-input[type="password"]:hover, input[type="number"]:hover { border-color: var(--text); }
+input[type="password"]:hover, input[type="number"]:hover,
+select:hover { border-color: var(--text); }
 
-input:focus-visible {
+input:focus-visible, select:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
   border-color: var(--focus);
@@ -292,7 +296,7 @@ button:disabled, button[aria-disabled="true"] {
 }
 
 /* Compact controls inside a sentence, a table row or the header. */
-.hint button, td button, .site-header button {
+.hint button, td button, .place-list button, .site-header button {
   min-height: 2rem;
   padding: 0.25rem 0.7rem;
   font-size: 0.88rem;
@@ -303,13 +307,14 @@ button:disabled, button[aria-disabled="true"] {
   margin: 0.75rem 0 0;
   font-size: 0.92rem;
 }
-.status.error, .status.ok {
+.status.error, .status.ok, .status.warn {
   padding: 0.55rem 0.75rem;
   border-radius: var(--radius-control);
   border-left: 3px solid currentColor;
 }
 .status.error { color: var(--danger); background: var(--tint-danger); }
 .status.ok { color: var(--ok); background: var(--tint-ok); }
+.status.warn { color: var(--warn); background: var(--tint-warn); }
 .status:empty { min-height: 0; margin: 0; padding: 0; border: 0; background: none; }
 
 .hint { color: var(--muted); font-size: 0.88rem; margin: 0 0 0.6rem; }
@@ -524,3 +529,81 @@ tbody th[scope="row"] {
 .outcome-revised .badge, .outcome-unconfirmed .badge { color: var(--warn); border-color: var(--warn); }
 .outcome-withdrawn .badge { color: var(--danger); border-color: var(--danger); }
 .todo { margin: 0; padding: 0.55rem 0.75rem; border-left: 3px solid var(--accent); background: var(--surface-2, transparent); font-size: 0.95rem; }
+
+/* ----------------------------------------------------- watch alerts (account) */
+
+/* Fields that belong on one line when there is room, and stack when not. */
+.field-row {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  align-items: start;
+}
+.field-row .hint { margin: 0.3rem 0 0; }
+#watch-place-hint { margin: 0.3rem 0 0; }
+
+/* The places an account is told about. A list, not a table: on a phone a
+   table put the button that ends a subscription off the side of the screen. */
+.place-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+.place-list:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.place-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.place-list li:last-child { border-bottom: 0; }
+.place-list .place-name { font-weight: 600; overflow-wrap: anywhere; }
+.place-list .place-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Where the coordinates fall on the world, so a missing minus sign is seen
+   before it is saved. Drawn by dashboard.js; the caption carries the same
+   fact as text. */
+.locator {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 20rem) minmax(12rem, 1fr);
+  align-items: center;
+}
+@media (max-width: 40rem) { .locator { grid-template-columns: 1fr; } }
+.locator svg {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+.locator figcaption { color: var(--muted); font-size: 0.92rem; }
+.locator figcaption strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.locator .graticule { stroke: var(--border); stroke-width: 0.5; fill: none; }
+.locator .axis { stroke: var(--control-border); stroke-width: 0.75; fill: none; }
+.locator .axis-label { fill: var(--muted); font-size: 9px; font-family: inherit; }
+.locator .cross { stroke: var(--accent); stroke-width: 0.75; stroke-dasharray: 3 3; fill: none; }
+.locator .reach { stroke: var(--accent); stroke-width: 1; fill: var(--accent); fill-opacity: 0.18; }
+.locator .marker { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
+.locator .marker-halo { fill: var(--accent); opacity: 0.25; transform-box: fill-box;
+  transform-origin: center; animation: locator-pulse 2.4s var(--ease) infinite; }
+@keyframes locator-pulse { 50% { transform: scale(1.9); opacity: 0; } }
+
+@media (forced-colors: active) {
+  .locator .graticule, .locator .axis { stroke: GrayText; }
+  .locator .cross, .locator .reach { stroke: Highlight; }
+  .locator .marker, .locator .marker-halo { fill: Highlight; }
+  .locator .axis-label { fill: CanvasText; }
+}

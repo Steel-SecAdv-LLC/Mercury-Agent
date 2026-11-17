@@ -95,6 +95,20 @@ A finding is delivered to the people it concerns.
   the command, the page and the route all say subscribers cannot be reached.
 - **Open consoles.** A new finding appears in the console's alert dock and
   banner as it is made, and is spoken if the console is set to speak.
+- **From an account.** With the browser front end on, a signed-in person
+  manages this for their own address under "Watch alerts" on their account
+  page (`GET`/`POST /api/v1/auth/watch-subscriptions`, `DELETE
+  /api/v1/auth/watch-subscriptions/{id}`): the places, how far, how severe.
+  The address is always the account's verified one. An account names at most
+  `MERCURY_WATCH_MAX_PLACES_PER_ACCOUNT` places (default 5). The
+  subscriptions move with the account when its address changes, are in its
+  data export, and are removed before the account is deleted.
+- **How many places.** The `warnings` feed asks the Service about each
+  distinct place (coordinates to two decimals) on every read, up to 250.
+  Accounts cannot add a place beyond that. If the operator's command does,
+  the longest-subscribed 250 are checked and the feed's summary says how many
+  were not; a place the Service will not answer for is skipped and counted,
+  and the nationwide relay goes on either way.
 - **One webhook.** `MERCURY_WATCH_WEBHOOK_URL` receives a JSON message
   (`title`, `message`, `text`, `priority`, `tags`, and `topic` when
   `MERCURY_WATCH_WEBHOOK_TOPIC` is set) for findings at significant and above
