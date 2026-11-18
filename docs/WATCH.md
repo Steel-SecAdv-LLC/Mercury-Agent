@@ -8,7 +8,8 @@ mercury-agent watch            # keep watching; new findings are printed as they
 mercury-agent watch --status   # what the watch last saw, without reading anything
 
 mercury-agent alerts add --email you@example.org --place Home --lat 28.37 --lon -80.87
-mercury-agent alerts test --email you@example.org   # prove the message arrives, before it matters
+mercury-agent alerts test --email you@example.org   # send a test message
+mercury-agent alerts canary --email you@example.org --wait 300   # and learn whether it arrived
 ```
 
 A server runs the same watch in the background when `MERCURY_WATCH_ENABLED=true`
@@ -181,6 +182,49 @@ earthquake) stands for a day: by then 85% of earthquakes have nine in ten of
 the felt reports they will get. Subscribe only an address whose owner asked
 for it.
 
+## Whether a message arrives
+
+"Sent" in the ledger means a mail server or a text provider took the message.
+It does not mean anyone received it: a message that is taken and then dropped,
+filed as spam or never handed to the handset is "sent" too. The watch finds
+out by sending a test the way it sends an alert, through the same mailer, text
+sender and webhook, and counting it proven only when something outside the
+watch says it arrived:
+
+- **acknowledged**: the link in it is opened and its one button pressed
+  (`POST /api/v1/watch/ack/{token}`), or its code is given to
+  `mercury-agent alerts ack`. Opening the link alone records nothing: mail
+  scanners and link previews fetch every link in a message.
+- **carrier**: the text provider reports the message delivered to the handset.
+- **mailbox**: the email is found in the mailbox it was sent to, read over IMAP
+  with TLS (`MERCURY_WATCH_CANARY_IMAP_HOST`, `_USERNAME`, `_PASSWORD`;
+  `_PORT` 993 and `_FOLDER` INBOX unless set).
+
+A webhook that answers 2xx has accepted the message, which is all a webhook can
+say; it is proven when someone presses the button.
+
+```bash
+mercury-agent alerts canary --email you@example.org --phone +14155550123 --wait 300
+mercury-agent alerts proof        # each channel's latest test: proven, awaiting, unproven, failing
+mercury-agent alerts ack 482913   # the code in a test message, when no link can be opened
+```
+
+Set `MERCURY_WATCH_CANARY_EMAIL` and `MERCURY_WATCH_CANARY_PHONE` to the
+operator's own address and number (and `MERCURY_WATCH_CANARY_WEBHOOK=true` for
+the webhook) and the watch that tells people sends one every
+`MERCURY_WATCH_CANARY_HOURS` (24), and sends a channel that refused its last
+test another after an hour. A test that a channel refuses, or that the
+carrier reports undelivered, is *failing*; one that nothing has vouched for
+within an hour is *unproven*. Both are logged as errors once, shown by
+`alerts proof` (which then exits 1) and served as `proof_of_delivery` in
+`GET /api/v1/watch`, by channel, with no address, id or provider message in it.
+The store keeps which channel a test went by, when, and what came back; not the
+address, and only hashes of the link and the code.
+
+What a test proves is that one message, to one address, by that channel,
+arrived then. It does not prove the next alert will, or that a subscriber's
+provider treats mail as the operator's does.
+
 ## One watch per store
 
 Any process that opens the store may run a watch: each worker of
@@ -223,7 +267,10 @@ the loaders' default is an hour, and a day for the buoys.
   connection.
 - It places no calls. Text messages need the operator's own provider account,
   and no text was delivered in testing: the request was checked against the
-  provider's live API only as far as authentication.
+  provider's live API only as far as authentication. Nor was a test message
+  sent to a real inbox or a real phone: the tests send through a mail server
+  and read a mailbox that listen on the test's own machine. On a deployment,
+  `mercury-agent alerts canary --wait 300` is that proof.
 - An earthquake goes to the places where USGS says it was felt: where its
   ShakeMap estimates intensity III (weak shaking) or more, or where people in
   the place's 10 km cell reported it to "Did You Feel It?". The message says

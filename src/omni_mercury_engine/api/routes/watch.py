@@ -6,6 +6,13 @@ Read-only and unauthenticated, like the catalog: these routes publish what the
 watch saw in public feeds (USGS, NOAA, FEMA). They read the watch's store and
 never start a read of a feed themselves, so a request costs one small SQLite
 query whatever the feeds are doing.
+
+One route writes: ``POST /api/v1/watch/ack/{token}`` records that a test
+message the watch sent (:mod:`~omni_mercury_engine.watch.canary`) reached
+someone. The token in the link is the whole credential: 192 random bits the
+store keeps only a hash of. Opening the link (``GET``) changes nothing and
+shows one button: mail scanners and link previews fetch every link in a
+message, and a fetch must not count as a person saying it arrived.
 """
 
 from __future__ import annotations
@@ -13,13 +20,20 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Path as PathParameter,
+    Query,
+)
+from fastapi.responses import HTMLResponse
 
+from omni_mercury_engine.watch.canary import proof_of_delivery
 from omni_mercury_engine.watch.feeds import FEEDS
 from omni_mercury_engine.watch.model import public_view
 from omni_mercury_engine.watch.notify import configured_channels
 from omni_mercury_engine.watch.service import watching
-from omni_mercury_engine.watch.store import default_state_dir, open_store
+from omni_mercury_engine.watch.store import default_state_dir, existing_store, open_store
 
 __all__ = ["router", "snapshot"]
 
@@ -37,9 +51,14 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
     findings: list[dict[str, Any]] = []
     tally = {"confirmed": 0, "revised": 0, "withdrawn": 0, "unconfirmed": 0, "unchecked": 0}
     # Who is told: counts only. Addresses and places are never served.
-    telling = {
+    telling: dict[str, Any] = {
         "subscribers": 0, "email": False, "sms": False, "webhook": False, "sent": 0, "failed": 0,
     }  # fmt: skip
+    # Whether a message would arrive, by channel: "sent" above counts what a
+    # provider took, and this is what came back from the other end.
+    proof: dict[str, dict[str, Any]] = {
+        channel: {"state": "never"} for channel in ("email", "sms", "webhook")
+    }
     if (directory / "watch.sqlite").exists():
         store = open_store(directory)
         statuses = store.statuses()
@@ -47,6 +66,7 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
         tally = store.track_record()
         telling.update(subscribers=store.subscriber_count(), **store.delivery_counts())
         telling.update(configured_channels())
+        proof = proof_of_delivery(store)
     # An alert that is here only because it is in effect at a subscriber's place says
     # where a subscriber is. It goes to that subscriber, not to everyone who opens the
     # page. Being rated severe used to exempt it, which published a foreign authority's
@@ -68,6 +88,7 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
         "findings": findings,
         "track_record": tally,
         "telling": telling,
+        "proof_of_delivery": proof,
     }
 
 
@@ -78,3 +99,49 @@ def watch_snapshot(
 ) -> dict[str, Any]:
     """Return the last status of every feed and the recorded findings."""
     return snapshot(limit=limit, open_only=open_only)
+
+
+_TOKEN = PathParameter(..., min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+_PAGE = (
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<meta name="robots" content="noindex"><title>Mercury watch test</title></head>'
+    '<body style="font-family: system-ui, sans-serif; max-width: 34rem; margin: 3rem auto; '
+    'padding: 0 1rem; line-height: 1.5"><h1 style="font-size: 1.25rem">Mercury watch test</h1>'
+    "{body}</body></html>"
+)
+
+
+@router.get(
+    "/ack/{token}",
+    response_class=HTMLResponse,
+    summary="The page a test message's link opens",
+)
+def acknowledgement_page(token: str = _TOKEN) -> HTMLResponse:
+    """Show one button. Nothing is recorded until it is pressed."""
+    return HTMLResponse(
+        _PAGE.format(
+            body="<p>The Mercury watch sent you a test to find out whether its alerts reach "
+            'you. Nothing has happened.</p><form method="post"><button type="submit" '
+            'style="font-size: 1rem; padding: 0.6rem 1rem">Yes, this reached me</button></form>'
+        ),
+        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+    )
+
+
+@router.post(
+    "/ack/{token}",
+    response_class=HTMLResponse,
+    summary="Record that a test message from the watch arrived",
+)
+def acknowledge(token: str = _TOKEN) -> HTMLResponse:
+    """Record that the test message this link was sent in reached someone."""
+    store = existing_store()
+    if store is None or not store.prove_canary(
+        token=token, by="acknowledged", now=datetime.now(UTC)
+    ):
+        raise HTTPException(status_code=404, detail="No test message has that link.")
+    return HTMLResponse(
+        _PAGE.format(body="<p>Thank you. The watch now knows this test reached you.</p>"),
+        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+    )

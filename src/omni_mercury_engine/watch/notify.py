@@ -503,14 +503,23 @@ class Notifier:
                     "priority": 2 + rank,
                     "tags": [str(finding.get("severity")), str(finding.get("feed"))],
                 }
-                topic = os.environ.get(WEBHOOK_TOPIC_ENV, "").strip()
-                if topic:
-                    payload["topic"] = topic
                 self._attempt(
                     key, rank, WEBHOOK_SUBSCRIBER, "webhook", done,
-                    partial(self._post, hook, payload),
+                    partial(self.post_webhook, payload),
                 )  # fmt: skip
         return done
+
+    def post_webhook(self, payload: dict[str, Any]) -> None:
+        """Post ``payload`` to the operator's webhook, under its topic when one is set.
+
+        Raises:
+            RuntimeError: If no webhook is configured.
+        """
+        hook = self.webhook_url
+        if not hook:
+            raise RuntimeError("no webhook is configured")
+        topic = os.environ.get(WEBHOOK_TOPIC_ENV, "").strip()
+        self._post(hook, {**payload, "topic": topic} if topic else payload)
 
     def _text(self, number: str, text: str) -> None:
         """Send one text; a number whose owner replied STOP is not texted again."""

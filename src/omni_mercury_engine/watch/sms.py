@@ -21,8 +21,9 @@ The request shape was checked against the live API as far as it can be
 without an account: the endpoint, Basic authentication and form encoding
 are accepted and answered with the documented error object
 (``{"code": 20003, "message": ..., "status": 401}``). A message accepted and
-delivered needs the operator's credentials; ``mercury-agent alerts phone``
-is the proof on a real deployment.
+delivered needs the operator's credentials; ``mercury-agent alerts canary
+--phone ... --wait 300`` is the proof on a real deployment: it sends one and
+asks the provider whether the carrier delivered it (:meth:`TwilioSms.status`).
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ __all__ = [
     "TwilioSms",
     "build_sms_sender",
     "text_message",
+    "two_segments",
 ]
 
 #: An international phone number as E.164 writes it: ``+``, then 7 to 15 digits.
@@ -149,8 +151,13 @@ class SmsUnreachableError(RuntimeError):
 class SmsSender(Protocol):
     """Contract for sending one text message."""
 
-    def send(self, *, to: str, body: str) -> None:
-        """Send ``body`` to the E.164 number ``to``; raise if it is not accepted."""
+    def send(self, *, to: str, body: str) -> str | None:
+        """Send ``body`` to the E.164 number ``to``; raise if it is not accepted.
+
+        Returns:
+            The provider's id for the message, when it gives one: what its
+            delivery to the handset can be asked about afterwards.
+        """
         ...
 
 
@@ -189,8 +196,12 @@ class TwilioSms:
             else {"From": from_number}
         )
 
-    def send(self, *, to: str, body: str) -> None:
+    def send(self, *, to: str, body: str) -> str:
         """Send one message.
+
+        Returns:
+            Twilio's SID for the message (``""`` if its answer carried none):
+            :meth:`status` is asked about it.
 
         Raises:
             SmsOptedOutError: If the number's owner has replied STOP.
@@ -209,7 +220,7 @@ class TwilioSms:
             raise ValueError("a phone number must be written like +14155550123")
         url = f"https://api.twilio.com/2010-04-01/Accounts/{self._sid}/Messages.json"
         try:
-            SafeHTTPClient.post_form(
+            answer = SafeHTTPClient.post_form(
                 url,
                 form_data={"To": to, "Body": body, **self._sender},
                 headers={"Authorization": self._authorization},
@@ -226,6 +237,40 @@ class TwilioSms:
             raise SmsUnreachableError(
                 f"Twilio could not be reached ({type(exc).__name__})"
             ) from None
+        return str(answer.get("sid") or "") if isinstance(answer, dict) else ""
+
+    def status(self, message_sid: str) -> str:
+        """What Twilio says became of a message: ``queued``, ``sent``, ``delivered``, ...
+
+        Accepting a message is not delivering it. ``delivered`` is the
+        carrier's receipt that it reached the handset; ``undelivered`` and
+        ``failed`` are its saying that it did not.
+
+        Raises:
+            ValueError: If ``message_sid`` is not a message SID.
+            SmsRefusedError: If Twilio answers with an error.
+            SmsUnreachableError: If Twilio could not be reached.
+        """
+        import requests
+
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
+
+        if not re.fullmatch(r"(?:SM|MM)[0-9a-fA-F]{32}", message_sid):
+            raise ValueError("a message SID is 'SM' or 'MM' followed by 32 hexadecimal digits")
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{self._sid}/Messages/{message_sid}.json"
+        try:
+            answer = SafeHTTPClient.get_json(
+                url, headers={"Authorization": self._authorization}, timeout=20.0
+            )
+        except requests.HTTPError as exc:
+            code, reason = _twilio_error(exc)
+            raise SmsRefusedError(reason, code) from None
+        except (requests.RequestException, OSError, UnsafeURLError, OfflineModeError) as exc:
+            raise SmsUnreachableError(
+                f"Twilio could not be reached ({type(exc).__name__})"
+            ) from None
+        return str(answer.get("status") or "") if isinstance(answer, dict) else ""
 
 
 def _twilio_error(exc: Exception) -> tuple[int | None, str]:

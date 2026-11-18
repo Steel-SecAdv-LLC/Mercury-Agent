@@ -2387,6 +2387,145 @@ def alerts_phone(
     )
 
 
+@alerts.command("canary")
+@click.option(
+    "--email", default=None, help="Send the test here (default: MERCURY_WATCH_CANARY_EMAIL)."
+)
+@click.option(
+    "--phone", default=None, help="Text the test here (default: MERCURY_WATCH_CANARY_PHONE)."
+)
+@click.option("--webhook", is_flag=True, help="Send the test to the webhook too.")
+@click.option(
+    "--wait",
+    type=click.IntRange(0, 3600),
+    default=0,
+    show_default=True,
+    help="Seconds to wait for proof that it arrived.",
+)
+@_STATE_DIR
+def alerts_canary(
+    email: str | None, phone: str | None, webhook: bool, wait: int, state_dir: Path | None
+) -> None:
+    """Send a test the way an alert is sent, and learn whether it arrived.
+
+    A mail server or a text provider taking a message is not the message
+    arriving. This sends one through the deployment's own mailer, text
+    sender and webhook, and counts it proven only when something outside the
+    watch says so: the link in it is opened and confirmed (or its code given
+    to `alerts ack`), the carrier reports the text delivered, or the email
+    is found in the mailbox named by MERCURY_WATCH_CANARY_IMAP_HOST,
+    _USERNAME and _PASSWORD. Exits 1 if a channel did not take it, or if
+    --wait was given and one is still unproven when the wait ends.
+    """
+    import time
+    from datetime import timedelta
+
+    from omni_mercury_engine.watch.canary import Canary, proof_of_delivery, targets
+    from omni_mercury_engine.watch.notify import Notifier
+
+    store = _watch_store(state_dir)
+    wanted = targets()
+    email = wanted.email if email is None else email
+    phone = wanted.phone if phone is None else phone
+    webhook = webhook or wanted.webhook
+    if not (email or phone or webhook):
+        raise click.UsageError(
+            "say where the test goes: --email, --phone or --webhook "
+            "(or set MERCURY_WATCH_CANARY_EMAIL / MERCURY_WATCH_CANARY_PHONE)"
+        )
+    canary = Canary(store, Notifier(store))
+    try:
+        sent = canary.send(email=email, phone=phone, webhook=webhook)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    for entry in sent:
+        if entry["error"]:
+            click.echo(f"{entry['channel']}: NOT taken by the channel: {entry['error']}")
+        else:
+            click.echo(
+                f"{entry['channel']}: taken by the channel (test {entry['id']}). "
+                f"By hand: mercury-agent alerts ack {entry['code']}"
+            )
+    mine = {entry["channel"] for entry in sent}
+    deadline = time.monotonic() + wait
+    while True:
+        canary.settle(every=timedelta(0))
+        shown = {
+            channel: state for channel, state in proof_of_delivery(store).items() if channel in mine
+        }
+        if all(state["state"] != "awaiting" for state in shown.values()):
+            break
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(min(5.0, max(deadline - time.monotonic(), 0.0)))
+    for channel, state in shown.items():
+        if state["state"] == "proven":
+            click.echo(f"{channel}: PROVEN ({state['by']}).")
+        elif state["state"] == "awaiting":
+            click.echo(f"{channel}: nothing has yet said it arrived.")
+    failed = any(entry["error"] for entry in sent) or any(
+        state["state"] == "failing" for state in shown.values()
+    )
+    unproven = wait and any(state["state"] != "proven" for state in shown.values())
+    if failed or unproven:
+        raise click.exceptions.Exit(1)
+    if not wait:
+        click.echo("`mercury-agent alerts proof` shows what comes back.")
+
+
+@alerts.command("ack")
+@click.argument("code")
+@_STATE_DIR
+def alerts_ack(code: str, state_dir: Path | None) -> None:
+    """Confirm that a test message arrived, with the code in it."""
+    from datetime import UTC, datetime
+
+    store = _watch_store(state_dir)
+    if not store.prove_canary(code=code, by="acknowledged", now=datetime.now(UTC)):
+        raise click.ClickException(
+            "No test message of the last 24 hours has that code. "
+            "Send another with `alerts canary`."
+        )
+    click.echo("Recorded: that test arrived.")
+
+
+@alerts.command("proof")
+@click.option("--json", "as_json", is_flag=True, help="Print the proof as JSON.")
+@_STATE_DIR
+def alerts_proof(as_json: bool, state_dir: Path | None) -> None:
+    """Show, for each channel, whether its latest test message is known to have arrived.
+
+    Asks the carrier and the mailbox about any test still open first. Exits
+    1 if a channel's latest test failed or went unproven.
+    """
+    from datetime import timedelta
+
+    from omni_mercury_engine.watch.canary import Canary, proof_of_delivery
+    from omni_mercury_engine.watch.notify import Notifier
+
+    store = _watch_store(state_dir)
+    Canary(store, Notifier(store)).settle(every=timedelta(0))
+    shown = proof_of_delivery(store, detail=True)
+    if as_json:
+        click.echo(json.dumps(shown, indent=2))
+    else:
+        for channel, state in shown.items():
+            line = f"{channel:8s} {state['state']}"
+            if state["state"] == "never":
+                line += ": no test has been sent by it"
+            else:
+                line += f": sent {state['sent_at']}"
+                if state["proven_at"]:
+                    line += f", proven {state['proven_at']} ({state['by']})"
+                elif state.get("error"):
+                    line += f", {state['error']}"
+                if state["last_proven_at"] and state["last_proven_at"] != state["proven_at"]:
+                    line += f"; last proven {state['last_proven_at']}"
+            click.echo(line)
+    if any(state["state"] in ("failing", "unproven") for state in shown.values()):
+        raise click.exceptions.Exit(1)
+
+
 @alerts.command("test")
 @click.option("--email", required=True, help="A subscribed address to send a test message to.")
 @_STATE_DIR

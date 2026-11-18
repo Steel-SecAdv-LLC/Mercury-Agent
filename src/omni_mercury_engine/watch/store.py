@@ -75,6 +75,12 @@ CREATE TABLE IF NOT EXISTS deliveries (
     channel TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, at TEXT NOT NULL,
     error TEXT, PRIMARY KEY (finding_key, severity, subscriber, channel)
 );
+CREATE TABLE IF NOT EXISTS canaries (
+    id TEXT PRIMARY KEY, channel TEXT NOT NULL, entry INTEGER NOT NULL,
+    token_hash TEXT NOT NULL, code_hash TEXT NOT NULL, sent_at TEXT NOT NULL,
+    receipt TEXT NOT NULL DEFAULT '', error TEXT, proven_at TEXT, proven_by TEXT
+);
+CREATE INDEX IF NOT EXISTS canaries_sent ON canaries (channel, sent_at);
 CREATE TABLE IF NOT EXISTS marks (name TEXT PRIMARY KEY, n INTEGER NOT NULL);
 INSERT OR IGNORE INTO marks (name, n) VALUES ('told', 0);
 CREATE TRIGGER IF NOT EXISTS told_subscriber_added AFTER INSERT ON subscribers
@@ -101,6 +107,16 @@ WHEN OLD.body IS NOT NEW.body
 BEGIN UPDATE marks SET n = n + 1 WHERE name = 'told'; END;
 """
 
+
+#: The newest canary with a given id, link token or code, sent since a time.
+_CANARY_NAMED_BY = {
+    "id": "SELECT id, proven_at FROM canaries WHERE id = ? AND sent_at >= ? "
+    "ORDER BY sent_at DESC LIMIT 1",
+    "token_hash": "SELECT id, proven_at FROM canaries WHERE token_hash = ? AND sent_at >= ? "
+    "ORDER BY sent_at DESC LIMIT 1",
+    "code_hash": "SELECT id, proven_at FROM canaries WHERE code_hash = ? AND sent_at >= ? "
+    "ORDER BY sent_at DESC LIMIT 1",
+}
 
 _handles: dict[Path, WatchStore] = {}
 _handles_guard = threading.Lock()
@@ -1239,6 +1255,128 @@ class WatchStore:
         counts = {"sent": 0, "failed": 0}
         counts.update({str(row["status"]): int(row["n"]) for row in rows})
         return counts
+
+    # ---------------------------------------------------------------- canaries
+
+    #: How long a canary is remembered. The newest proven one of a channel
+    #: is what "last proven" means, so it is long enough to span a watch
+    #: that was down for a holiday.
+    CANARIES_KEPT: ClassVar[timedelta] = timedelta(days=90)
+    #: How long a canary's code acknowledges it. A code is six digits: it
+    #: names one canary among the day's, not one among all there ever were.
+    CANARY_CODE_GOOD: ClassVar[timedelta] = timedelta(hours=24)
+
+    @staticmethod
+    def _canary_hash(kind: str, secret: str) -> str:
+        return hashlib.sha256(f"canary-{kind}:{secret}".encode()).hexdigest()
+
+    def issue_canary(self, channel: str, entry: int, now: datetime) -> dict[str, str]:
+        """Record a test message that is about to be sent by ``channel``.
+
+        Args:
+            channel: ``email``, ``sms`` or ``webhook``.
+            entry: The address's entry in the ledger
+                (:func:`address_entry`). The address itself is not kept.
+            now: When it is sent.
+
+        Returns:
+            Its ``id`` (which the message carries openly), the ``token`` its
+            link is made of and the ``code`` that acknowledges it by hand.
+            The store keeps hashes of the last two; they are returned here
+            and nowhere else.
+        """
+        issued = {
+            "id": secrets.token_hex(8),
+            "token": secrets.token_urlsafe(24),
+            "code": f"{secrets.randbelow(1_000_000):06d}",
+        }
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute(
+                "DELETE FROM canaries WHERE sent_at < ?",
+                ((now - self.CANARIES_KEPT).isoformat(),),
+            )
+            connection.execute(
+                "INSERT INTO canaries (id, channel, entry, token_hash, code_hash, sent_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    issued["id"],
+                    channel,
+                    entry,
+                    self._canary_hash("token", issued["token"]),
+                    self._canary_hash("code", issued["code"]),
+                    now.isoformat(),
+                ),
+            )
+        return issued
+
+    def record_canary(self, canary: str, *, receipt: str = "", error: str | None = None) -> None:
+        """Record what the channel said of a canary: its receipt, or why it was not taken."""
+        with self._lock, closing(self._connect()) as connection, connection:
+            connection.execute(
+                "UPDATE canaries SET receipt = ?, error = ? WHERE id = ?",
+                (receipt, error, canary),
+            )
+
+    def prove_canary(
+        self, *, by: str, now: datetime, canary: str = "", token: str = "", code: str = ""
+    ) -> bool:
+        """Record that a canary arrived, named by its id, its link's token or its code.
+
+        Args:
+            by: What said so: ``acknowledged``, ``carrier`` or ``mailbox``.
+            now: When it was learned.
+            canary: Its id.
+            token: The token in its link.
+            code: Its code; the newest canary of the last
+                :attr:`CANARY_CODE_GOOD` with that code.
+
+        Returns:
+            Whether there is such a canary. One already proven stays as it
+            was first proven and is still ``True``: a link opened twice is
+            not an error.
+        """
+        if canary:
+            column, value, since = "id", canary, ""
+        elif token:
+            column, value, since = "token_hash", self._canary_hash("token", token), ""
+        elif code:
+            column, value = "code_hash", self._canary_hash("code", code.strip())
+            since = (now - self.CANARY_CODE_GOOD).isoformat()
+        else:
+            return False
+        with self._lock, closing(self._connect()) as connection, connection:
+            row = connection.execute(_CANARY_NAMED_BY[column], (value, since)).fetchone()
+            if row is None:
+                return False
+            if row["proven_at"] is None:
+                # What the carrier said of it before is answered: it arrived.
+                connection.execute(
+                    "UPDATE canaries SET proven_at = ?, proven_by = ?, error = NULL WHERE id = ?",
+                    (now.isoformat(), by, row["id"]),
+                )
+        return True
+
+    def open_canaries(self, since: datetime) -> list[dict[str, Any]]:
+        """Canaries sent since ``since`` that a channel took and nothing has yet proven."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT id, channel, sent_at, receipt FROM canaries "
+                "WHERE proven_at IS NULL AND error IS NULL AND sent_at >= ? ORDER BY sent_at",
+                (since.isoformat(),),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def latest_canaries(self) -> dict[str, dict[str, Any]]:
+        """Each channel's newest canary, and when a canary of that channel was last proven."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT c.id, c.channel, c.sent_at, c.receipt, c.error, c.proven_at, "
+                "c.proven_by, (SELECT MAX(p.proven_at) FROM canaries AS p "
+                "WHERE p.channel = c.channel) AS last_proven_at FROM canaries AS c "
+                "WHERE c.sent_at = (SELECT MAX(n.sent_at) FROM canaries AS n "
+                "WHERE n.channel = c.channel)"
+            ).fetchall()
+        return {str(row["channel"]): dict(row) for row in rows}
 
     def open_count(self, feed: str, now: datetime | None = None) -> int:
         """How many of the feed's findings are standing (see :meth:`standing`)."""

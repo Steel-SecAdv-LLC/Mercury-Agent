@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,161
-- **Capability-bearing classes:** 2,115 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,165
+- **Capability-bearing classes:** 2,118 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
-- **Refined via base-class analysis:** 93 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,242 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 94 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,245 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1242 |
-| Support types (config / result / enum / error) | 1046 |
+| Other capability classes | 1245 |
+| Support types (config / result / enum / error) | 1047 |
 | Detection | 181 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 114 |
@@ -3059,21 +3059,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `watch/` — 26 classes (18 capability)
+### `watch/` — 30 classes (21 capability)
 
 **Other capability classes**
 
+- `Canary` (`watch.canary`) — Sends test messages the way findings are sent, and learns whether they arrived.
 - `DeclarationFeed` (`watch.feeds`) — FEMA tropical-cyclone declarations: new ones, and the year's busiest week.
 - `EarthquakeFeed` (`watch.feeds`) — USGS earthquakes of the past hour, by magnitude class.
 - `Feed` (`watch.feeds`) — One live source and its judgment.
 - `Felt` (`watch.shaking`) — What USGS says of an earthquake at one place.
 - `Finding` (`watch.model`) — One thing a feed showed that is worth a person's attention.
 - `GdacsFeed` (`watch.world`) — Disasters GDACS rates Orange or Red: cyclones, floods, volcanoes, wildfires.
+- `ImapMailbox` (`watch.canary`) — A mailbox read over IMAP with TLS from the first byte (RFC 8314).
 - `Judgment` (`watch.feeds`) — What a feed made of one read.
 - `Notifier` (`watch.notify`) — Delivers the findings that stand to the people they concern.
 - `Outcome` (`watch.model`) — What a later, authoritative record says about a finding.
 - `RiverGaugeFeed` (`watch.feeds`) — NWS river gauges: a gauge the National Weather Service classes as in flood.
 - `SpaceWeatherFeed` (`watch.feeds`) — Planetary Kp and the solar wind (NOAA SWPC), by the NOAA G scale.
+- `Targets` (`watch.canary`) — Where the watch's own canary goes, from the deployment's settings.
 - `TsunamiBuoyFeed` (`watch.feeds`) — NOAA DART buoys: a buoy in event mode has itself detected a disturbance.
 - `TwilioSms` (`watch.sms`) — Sends through Twilio's Programmable Messaging API.
 - `VolcanoFeed` (`watch.feeds`) — USGS-monitored volcanoes: one above NORMAL on the USGS volcano alert levels.
@@ -3082,9 +3085,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Watcher` (`watch.watcher`) — Reads feeds on their cadences and keeps the store current.
 - `WorldWarningsFeed` (`watch.world`) — Alerts in effect at subscribed places, from the national authority that issued them.
 
-<details><summary>Support types (8)</summary>
+<details><summary>Support types (9)</summary>
 
-`FeedStatus`, `PhoneLimitError`, `Severity`, `SmsOptedOutError`, `SmsRefusedError`, `SmsSender`, `SmsUnreachableError`, `SubscriptionLimitError`
+`FeedStatus`, `Mailbox`, `PhoneLimitError`, `Severity`, `SmsOptedOutError`, `SmsRefusedError`, `SmsSender`, `SmsUnreachableError`, `SubscriptionLimitError`
 
 </details>
 

@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from omni_mercury_engine.watch.canary import Canary
 from omni_mercury_engine.watch.feeds import FEEDS, Feed
 from omni_mercury_engine.watch.guidance import with_guidance
 from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
@@ -96,6 +97,8 @@ class Watcher:
         self.notifier = (
             notifier if notifier is not None else Notifier(self.store, clock=self._clock)
         )
+        #: Test messages sent the way findings are, to learn whether one arrives.
+        self.canary = Canary(self.store, self.notifier, clock=self._clock)
         #: The last announcement this watcher has told its consoles of. It
         #: starts at the store's newest: what was found before this process
         #: began is the page's to show, not a fresh alert.
@@ -376,6 +379,12 @@ class Watcher:
                     self._delivered_mark = mark
         except Exception as exc:  # telling people must not stop the watching
             logger.warning("watch: delivery pass failed: %s", exc)
+        try:
+            # Whether a message would arrive, asked of the channels themselves:
+            # a ledger that says "sent" says only that a provider took it.
+            self.canary.run(self.leads)
+        except Exception as exc:  # proving delivery must not stop the watching either
+            logger.warning("watch: the delivery canary failed: %s", exc)
         return statuses
 
     def _owes_a_delivery_pass(self, read_a_feed: bool, now: datetime) -> bool:
