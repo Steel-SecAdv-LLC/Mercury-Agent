@@ -2094,7 +2094,9 @@ def watch(
     chosen = [FEEDS[name]() for name in (feed_names or sorted(FEEDS))]
 
     def say() -> None:
-        statuses, findings = store.statuses(), store.findings()
+        # Everything that stands, then what ended lately. The newest fifty rows
+        # were neither: with 181 standing the first line said "50 findings standing".
+        statuses, findings = store.statuses(), store.overview()
         if feed_names:
             statuses = [entry for entry in statuses if entry["feed"] in feed_names]
             findings = [entry for entry in findings if entry["feed"] in feed_names]
@@ -2118,7 +2120,13 @@ def watch(
             click.echo("")
             click.echo(finding_text(entry))
 
-    watcher = Watcher(store, chosen, on_finding=announce)
+    def heard(entry: dict[str, Any]) -> None:
+        """A finding another watch on this store recorded (the server's, say)."""
+        if not as_json and not once and (not feed_names or entry.get("feed") in feed_names):
+            click.echo("")
+            click.echo(finding_text(entry))
+
+    watcher = Watcher(store, chosen, on_finding=announce, on_announced=heard)
     watcher.run_once()
     say()
     if once:

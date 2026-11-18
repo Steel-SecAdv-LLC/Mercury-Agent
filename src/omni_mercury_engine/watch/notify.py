@@ -87,7 +87,12 @@ WEBHOOK_SUBSCRIBER = 0
 WEBHOOK_URL_ENV = "MERCURY_WATCH_WEBHOOK_URL"
 WEBHOOK_TOPIC_ENV = "MERCURY_WATCH_WEBHOOK_TOPIC"
 WEBHOOK_MIN_SEVERITY_ENV = "MERCURY_WATCH_WEBHOOK_MIN_SEVERITY"
-PUBLIC_URL_ENV = "MERCURY_PUBLIC_URL"
+#: Where this server is reached, for the link in a message. The deployment's
+#: own setting, which it must already give for account emails; the watch read
+#: a name of its own that nothing documented, so no alert carried the link.
+PUBLIC_URL_ENV = "MERCURY_PUBLIC_BASE_URL"
+#: The name the watch used to read; still honoured.
+LEGACY_PUBLIC_URL_ENV = "MERCURY_PUBLIC_URL"
 
 _RANK = RANKS
 
@@ -103,7 +108,8 @@ def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 def retry_wait(failures: int) -> timedelta:
     """How long to wait after ``failures`` failed attempts before the next."""
-    return min(RETRY_FIRST * 2 ** max(failures - 1, 0), RETRY_CAP)
+    doublings = min(max(failures - 1, 0), 16)  # far past the cap; keeps the shift small
+    return min(RETRY_FIRST * (1 << doublings), RETRY_CAP)
 
 
 def audience(
@@ -222,7 +228,11 @@ def notice(
         if finding.get("action_source"):
             lines.append(f"({finding['action_source']})")
     lines += ["", f"Source: {finding['source']}.", f"Basis: {finding['basis']}."]
-    public = os.environ.get(PUBLIC_URL_ENV, "").strip().rstrip("/")
+    public = (
+        (os.environ.get(PUBLIC_URL_ENV) or os.environ.get(LEGACY_PUBLIC_URL_ENV) or "")
+        .strip()
+        .rstrip("/")
+    )
     if public:
         lines += ["", f"What Mercury is watching now: {public}/watch"]
     lines += ["", EMERGENCY_LINE]
@@ -377,13 +387,18 @@ class Notifier:
             return False
         return True
 
-    def sync(self, heartbeat: Callable[[], object] | None = None) -> dict[str, int]:
+    def sync(
+        self, heartbeat: Callable[[], object] | None = None, feed: str | None = None
+    ) -> dict[str, int]:
         """Deliver every standing finding to everyone it concerns and has not reached.
 
         Args:
             heartbeat: Called after each delivery attempt. A long pass (many
                 subscribers, a slow mail server) uses it to renew the
                 watch's lease, so no other watch takes the pass for dead.
+            feed: Only this feed's findings. The watch delivers after each
+                feed it reads; going over every feed's findings each time
+                was nine full passes where one does.
 
         Returns:
             How many deliveries were ``sent`` and how many ``failed`` in this pass.
@@ -400,12 +415,29 @@ class Notifier:
             least = int(os.environ.get(WEBHOOK_MIN_SEVERITY_ENV, "2"))
         except ValueError:
             least = 2
-        ledger = self.store.standing_deliveries()
-        reaches = self.store.reaches() if subscribers else {}
         now = self._clock()
-        for finding in self.store.standing(now=self._clock(), limit=1000):
+        standing = self.store.standing(now=now, limit=1000, feed=feed)
+        if not standing:
+            return done
+        ledger = self.store.standing_deliveries(now)
+        shaken = subscribers and any(f.get("kind") == "earthquake" for f in standing)
+        reaches = self.store.reaches() if shaken else {}
+        # One ledger entry for an address, whichever of its places a finding
+        # is nearest. The entry was the place's: when the nearest place
+        # changed between passes (USGS's felt reports arriving for "work"
+        # after the radius had chosen "home") the same finding went again.
+        entry_of: dict[str, int] = {}
+        for subscriber in subscribers:
+            address = str(subscriber["email"]).lower()
+            entry_of[address] = min(
+                entry_of.get(address, int(subscriber["id"])), int(subscriber["id"])
+            )
+        for finding in standing:
             rank = _RANK.get(str(finding.get("severity")), 1)
             key = str(finding["key"])
+            # What was sent before it last became more severe was sent of a
+            # milder thing and does not count.
+            since = str(finding.get("raised_at") or finding.get("first_seen") or "")
             # Where USGS says an earthquake was felt, once it has said.
             reach = (
                 reaches.get(str(finding.get("subject")))
@@ -416,12 +448,11 @@ class Notifier:
                 reach = None
             for subscriber, away in one_per_address(audience(finding, subscribers, reach)):
                 note = shaking_note(finding, subscriber, reach)
-                if mailer is not None and self._due(
-                    ledger, key, rank, int(subscriber["id"]), "email", now
-                ):
+                entry = entry_of[str(subscriber["email"]).lower()]
+                if mailer is not None and self._due(ledger, key, rank, entry, "email", now, since):
                     subject, body = notice(finding, subscriber, away, note)
                     self._attempt(
-                        key, rank, int(subscriber["id"]), "email", done,
+                        key, rank, entry, "email", done,
                         partial(
                             mailer.send, to=str(subscriber["email"]), subject=subject,
                             body=body, headers=AUTOMATIC,
@@ -436,7 +467,7 @@ class Notifier:
                 if (
                     phone is not None
                     and rank >= int(phone["min_severity"])
-                    and self._due(ledger, key, rank, int(phone["id"]), "sms", now)
+                    and self._due(ledger, key, rank, int(phone["id"]), "sms", now, since)
                 ):
                     text = text_message(finding, subscriber, away, note)
                     self._attempt(
@@ -448,7 +479,7 @@ class Notifier:
             if (
                 hook
                 and rank >= least
-                and self._due(ledger, key, rank, WEBHOOK_SUBSCRIBER, "webhook", now)
+                and self._due(ledger, key, rank, WEBHOOK_SUBSCRIBER, "webhook", now, since)
             ):
                 subject, body = notice(finding)
                 payload: dict[str, Any] = {
@@ -485,21 +516,24 @@ class Notifier:
         subscriber: int,
         channel: str,
         now: datetime,
+        since: str = "",
     ) -> bool:
         """Whether this finding, at this severity, is still owed on this channel.
 
-        Not when it was sent at this severity or a higher one: a flood that
-        falls from major to moderate to minor is one flood the reader has been
-        told of, and each step down used to go out as a new alert. A failed
-        attempt is tried again once its wait has passed, up to
+        Not when it was sent at this severity or a higher one since it last
+        became more severe (``since``): a flood that falls from major to
+        moderate to minor is one flood the reader has been told of, and each
+        step down used to go out as a new alert. One that falls and then
+        climbs back is told again, because what was sent was sent before
+        that. A failed attempt is tried again once its wait has passed, up to
         :data:`MAX_ATTEMPTS`.
         """
         for told in range(rank, max(RANKS.values()) + 1):
             sent = ledger.get((key, told, subscriber, channel))
-            if sent and sent["status"] == "sent":
+            if sent and sent["status"] == "sent" and str(sent["at"]) >= since:
                 return False
         record = ledger.get((key, rank, subscriber, channel))
-        if not record:
+        if not record or str(record["at"]) < since:
             return True
         failures = int(record["attempts"])
         if failures >= MAX_ATTEMPTS:

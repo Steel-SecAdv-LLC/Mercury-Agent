@@ -588,7 +588,7 @@ class TestDelivery:
 
     def test_a_delivery_fault_does_not_stop_the_watch(self, store: WatchStore) -> None:
         class _Broken(Notifier):
-            def sync(self, heartbeat: Any = None) -> dict[str, int]:
+            def sync(self, heartbeat: Any = None, feed: str | None = None) -> dict[str, int]:
                 raise RuntimeError("ledger unavailable")
 
         watcher = Watcher(store, [_Fixed([_finding()])], notifier=_Broken(store), clock=lambda: NOW)

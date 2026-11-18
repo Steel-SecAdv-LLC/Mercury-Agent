@@ -739,6 +739,12 @@ class MercuryCrypto:
         classical_ok, pqc_ok = self.hybrid_provider.verify(
             data_bytes, package.hybrid_signature, classical_public, pqc_public
         )
+        if classical_public is None and self.hybrid_provider.classical_provider is not None:
+            # No classical key, supplied or carried: that half was not checked.
+            # The provider's opt-out answers True for it, and a package with
+            # the classical half and its key both stripped read as "both
+            # halves hold".
+            classical_ok = False
         core_valid = bool(hash_ok and classical_ok and pqc_ok)
         return {
             "hash": bool(hash_ok),

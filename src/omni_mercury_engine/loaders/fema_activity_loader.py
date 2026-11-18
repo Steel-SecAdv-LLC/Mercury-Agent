@@ -152,8 +152,15 @@ class FEMAActivityLoader(FEMALoader):
         self._write_frame_cache(cache_key, frame)
         return frame
 
-    def fetch_realtime(self) -> pd.DataFrame:
+    def fetch_realtime(self, days_before_year: int = 0) -> pd.DataFrame:
         """Daily tropical-cyclone declaration activity for the current year so far.
+
+        Args:
+            days_before_year: While the year is younger than this many days,
+                the last that-many days of the year before are included. A
+                reader that looks back a few days (the watch) otherwise sees
+                nothing of late December from 1 January: a declaration of
+                30 December vanished from its record on New Year's Day.
 
         Returns:
             DataFrame with ``timestamp``, ``designations``, ``states`` and
@@ -162,7 +169,13 @@ class FEMAActivityLoader(FEMALoader):
         today = pd.Timestamp.now(tz="UTC").floor("D")
         declarations = self._fetch_tropical_declarations(today.year)
         frame = self._daily_activity(declarations, today.year)
-        return frame[frame["timestamp"] <= today].reset_index(drop=True)
+        frame = frame[frame["timestamp"] <= today]
+        if days_before_year > 0 and today.dayofyear <= days_before_year:
+            before = self._daily_activity(
+                self._fetch_tropical_declarations(today.year - 1), today.year - 1
+            )
+            frame = pd.concat([before.tail(days_before_year), frame])
+        return frame.reset_index(drop=True)
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """Days inside a billion-dollar tropical cyclone's window, as NOAA lists them.

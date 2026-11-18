@@ -255,7 +255,9 @@ class TestText:
 
         text = text_message(long.to_dict())
 
-        assert len(text) <= MAX_TEXT and text.endswith("…") and not text[:-1].endswith(" ")
+        assert len(text) <= MAX_TEXT == 306  # two segments of 153, not three
+        assert text.endswith("...") and not text[:-3].endswith((" ", ","))
+        assert text.isascii()  # the ellipsis character would make every segment 67 long
 
 
 # --------------------------------------------------------------------------- #
@@ -311,11 +313,40 @@ class TestVerifying:
         assert store.request_phone("ana@example.org", NUMBER, now=NOW + timedelta(hours=25))
 
     def test_a_new_number_is_unverified_until_its_own_code(self, store: WatchStore) -> None:
+        """The new number is texted nothing until its code; the verified one keeps being texted.
+
+        Was: asking for a different number replaced the verified one at once.
+        A mistyped number, a code never entered, or a refusal by the provider
+        left the address with no verified number and the flood texts stopped.
+        """
+        other = "+14155550199"
         _verified(store, "ana@example.org")
 
+        code = store.request_phone("ana@example.org", other, now=NOW + timedelta(minutes=5))
+
+        held = store.phone_of("ana@example.org")
+        assert (held["number"], held["pending_number"]) == (NUMBER, other)
+        assert [p["number"] for p in store.verified_phones().values()] == [NUMBER]
+        assert not store.confirm_phone("ana@example.org", "000000", NOW + timedelta(minutes=6))
+        assert [p["number"] for p in store.verified_phones().values()] == [NUMBER]
+
+        assert store.confirm_phone("ana@example.org", code, NOW + timedelta(minutes=7))
+        held = store.phone_of("ana@example.org")
+        assert (held["number"], held["pending_number"]) == (other, None)
+        assert [p["number"] for p in store.verified_phones().values()] == [other]
+
+    def test_a_change_of_number_can_be_called_off(self, store: WatchStore) -> None:
+        _verified(store, "ana@example.org")
         store.request_phone("ana@example.org", "+14155550199", now=NOW + timedelta(minutes=5))
 
-        assert store.verified_phones() == {}
+        assert store.request_phone("ana@example.org", NUMBER, now=NOW + timedelta(minutes=6)) == ""
+
+        held = store.phone_of("ana@example.org")
+        assert (held["number"], held["pending_number"], bool(held["verified_at"])) == (
+            NUMBER,
+            None,
+            True,
+        )
 
     def test_what_is_not_a_number_or_an_address_is_refused(self, store: WatchStore) -> None:
         for email, number in (("nope", NUMBER), ("ana@example.org", "4155550123")):

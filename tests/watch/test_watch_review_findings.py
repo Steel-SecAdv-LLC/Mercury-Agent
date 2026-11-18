@@ -89,18 +89,27 @@ class _Fixed(Feed):
     title = "River gauges"
     source = "test"
     cadence = timedelta(minutes=5)
+    stale_after = timedelta(hours=1)
 
-    def __init__(self, findings: list[Finding], name: str = "river_gauges") -> None:
+    def __init__(self, findings: list[Finding]) -> None:
         self.findings = findings
-        self.name = name
+        self.read_count = 0
 
     def read(self) -> pd.DataFrame:
         import pandas as pd
 
+        self.read_count += 1
         return pd.DataFrame()
 
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         return Judgment(list(self.findings), "read", now, 1, 1)
+
+
+def _fixed(findings: list[Finding], name: str) -> _Fixed:
+    """A test feed under another feed's name."""
+    named = type("_Named", (_Fixed,), {"name": name})
+    feed: _Fixed = named(findings)
+    return feed
 
 
 # --------------------------------------------------------------------------- #
@@ -300,18 +309,15 @@ class TestAPlaceBoundAlertIsNotPublic:
         assert [finding["kind"] for finding in shown] == ["river_flood"]
         assert all("place_ids" not in finding for finding in shown)
 
-    def test_it_is_not_put_on_the_bus_every_open_console_hears(self, store: WatchStore) -> None:
+    def test_it_is_not_put_on_the_bus_every_open_console_hears(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Was: published with ``principal=None``, place ids and area in the event."""
         heard: list[dict[str, Any]] = []
-        bus = get_alert_bus()
-        real = bus.publish
-        bus.publish = heard.append  # type: ignore[method-assign]
-        try:
-            notifier = Notifier(store, clock=lambda: NOW)
-            private = notifier.broadcast(_alert("cap_alert", Severity.SEVERE, "world_warnings"))
-            public = notifier.broadcast(_finding())
-        finally:
-            bus.publish = real  # type: ignore[method-assign]
+        monkeypatch.setattr(get_alert_bus(), "publish", heard.append)
+        notifier = Notifier(store, clock=lambda: NOW)
+        private = notifier.broadcast(_alert("cap_alert", Severity.SEVERE, "world_warnings"))
+        public = notifier.broadcast(_finding())
 
         assert (private, public) == (False, True)
         assert [entry["alert"]["event"]["kind"] for entry in heard] == ["river_flood"]
@@ -325,15 +331,18 @@ class TestAPlaceBoundAlertIsNotPublic:
 
 class TestEveryWatcherTellsItsOwnConsoles:
     @staticmethod
-    def _heard(watcher: Watcher) -> list[str]:
+    def _heard(watcher: Watcher, monkeypatch: pytest.MonkeyPatch) -> list[str]:
         said: list[str] = []
-        watcher.notifier.broadcast = lambda finding: (  # type: ignore[method-assign]
-            said.append(str(finding["subject"])) or True
-        )
+
+        def broadcast(finding: dict[str, Any]) -> bool:
+            said.append(str(finding["subject"]))
+            return True
+
+        monkeypatch.setattr(watcher.notifier, "broadcast", broadcast)
         return said
 
     def test_a_watcher_standing_by_announces_what_the_leading_one_found(
-        self, store: WatchStore
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Was: only the process that read the feed published, on its own in-process bus.
 
@@ -342,9 +351,9 @@ class TestEveryWatcherTellsItsOwnConsoles:
         """
         leader = Watcher(store, [_Fixed([_finding(subject="COCF1")])], clock=lambda: NOW)
         standby = Watcher(store, [_Fixed([])], clock=lambda: NOW)
-        leader_heard, standby_heard = self._heard(leader), self._heard(standby)
+        leader_heard = self._heard(leader, monkeypatch)
+        standby_heard = self._heard(standby, monkeypatch)
 
-        assert leader.leads() and not standby.leads()
         leader.run_once()
 
         assert leader_heard == ["COCF1"]
@@ -354,22 +363,22 @@ class TestEveryWatcherTellsItsOwnConsoles:
         assert standby.announce() == 0  # once
 
     def test_what_was_found_before_a_process_started_is_not_replayed(
-        self, store: WatchStore
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         Watcher(store, [_Fixed([_finding(subject="old")])], clock=lambda: NOW).run_once()
 
         late = Watcher(store, [_Fixed([])], clock=lambda: NOW)
-        heard = self._heard(late)
+        heard = self._heard(late, monkeypatch)
 
         assert late.announce() == 0 and heard == []
         store.report(_finding(subject="new"), NOW + timedelta(minutes=5))
         assert late.announce() == 1 and heard == ["new"]
 
     def test_a_finding_is_announced_when_new_and_when_more_severe_only(
-        self, store: WatchStore
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         watcher = Watcher(store, [_Fixed([])], clock=lambda: NOW)
-        heard = self._heard(watcher)
+        heard = self._heard(watcher, monkeypatch)
         for minutes, severity in enumerate(
             (Severity.NOTABLE, Severity.NOTABLE, Severity.SEVERE, Severity.SIGNIFICANT)
         ):
@@ -532,7 +541,7 @@ class TestOneRule:
     def test_a_phone_number_is_judged_by_one_pattern(self) -> None:
         from omni_mercury_engine.watch import store as store_module
 
-        assert store_module.E164 is sms_module.E164
+        assert getattr(store_module, "E164") is sms_module.E164  # noqa: B009 - not re-exported
         assert not hasattr(store_module, "_E164")
 
 
@@ -578,3 +587,441 @@ class TestTheSnapshotIsCheap:
 
         monkeypatch.setenv("MERCURY_SMTP_HOST", "smtp.example.org")
         assert configured_channels()["email"] is True
+
+
+# =========================================================================== #
+# The second pass over the same diff
+# =========================================================================== #
+
+
+class TestAFindingThatClimbsBackIsToldAgain:
+    def test_a_volcano_back_at_warning_after_months_at_advisory_is_announced_and_sent(
+        self, store: WatchStore
+    ) -> None:
+        """Was: never again. The row kept the highest severity it had ever reached.
+
+        WARNING on day 0, ADVISORY from day 30, WARNING on day 90, never
+        NORMAL in between, so one standing finding: ``report`` answered False
+        on day 90 and nobody was told.
+        """
+        store.add_subscriber("ana@example.org")
+        mail = _Mail()
+        clock = [NOW]
+        notifier = Notifier(store, mailer=mail, clock=lambda: clock[0])
+        new = []
+        for day, severity in ((0, Severity.SEVERE), (30, Severity.NOTABLE), (90, Severity.SEVERE)):
+            clock[0] = NOW + timedelta(days=day)
+            new.append(store.report(_finding(severity), clock[0], timedelta(hours=26)))
+            notifier.sync()
+
+        assert new == [True, False, True]
+        assert [subject.split(":")[0] for _, subject in mail.sent] == [
+            "[Mercury watch] Severe",
+            "[Mercury watch] Severe",
+        ]
+        assert len(store.announcements_after(0)) == 1  # the first is older than a day
+
+
+class TestWhatIsShown:
+    def test_private_alerts_do_not_crowd_the_public_page(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: one public flood and sixty place-bound alerts gave a page of nothing."""
+        from omni_mercury_engine.api.routes.watch import snapshot
+
+        monkeypatch.setenv("MERCURY_WATCH_DIR", str(tmp_path))
+        store = WatchStore(tmp_path)
+        store.report(_finding(subject="flood"), NOW)
+        for n in range(60):
+            alert = _alert("cap_alert", Severity.NOTABLE, "world_warnings")
+            store.report(
+                Finding(**{**alert.__dict__, "subject": f"urn:alert:{n}"}),
+                NOW + timedelta(minutes=1),
+            )
+
+        shown = snapshot(limit=50)["findings"]
+
+        assert [finding["subject"] for finding in shown] == ["flood"]
+
+    def test_what_stands_comes_first_the_most_severe_first(self, store: WatchStore) -> None:
+        """Was: newest sighting first, so fifty gauges hid a magnitude 7 of two hours ago."""
+        quake = _finding(Severity.SEVERE, kind="earthquake", feed="earthquakes", subject="us7000")
+        store.report(Finding(**{**quake.__dict__, "ongoing": False}), NOW - timedelta(hours=2))
+        for n in range(60):
+            store.report(_finding(Severity.NOTABLE, subject=f"gauge{n}"), NOW)
+
+        shown = store.overview(limit=50, now=NOW)
+
+        assert shown[0]["subject"] == "us7000"
+        assert len(store.overview(open_only=True, now=NOW)) == 61
+
+    def test_the_commands_first_line_counts_everything_that_stands(self, tmp_path: Path) -> None:
+        """Was: "50 findings standing" of 181."""
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main
+
+        store = WatchStore(tmp_path)
+        for n in range(181):
+            store.report(_finding(Severity.NOTABLE, subject=f"gauge{n}"), datetime.now(UTC))
+
+        said = CliRunner().invoke(main, ["watch", "--status", "--state-dir", str(tmp_path)])
+
+        assert said.exit_code == 0, said.output
+        assert said.output.splitlines()[0] == "181 findings standing"
+
+
+class TestEachFeedHasItsOwnReader:
+    def test_a_watch_of_one_feed_does_not_stop_the_others_being_read(
+        self, store: WatchStore
+    ) -> None:
+        """Was: ``watch --feed earthquakes`` took the one lease; eight feeds went unread."""
+        import threading
+
+        quakes, floods = _fixed([], "earthquakes"), _fixed([], "river_gauges")
+        servers_quakes = _fixed([], "earthquakes")
+        only_quakes = Watcher(store, [quakes], clock=lambda: NOW)
+        server = Watcher(store, [servers_quakes, floods], clock=lambda: NOW)
+        assert only_quakes.reads(quakes)  # the one-feed watch is running
+
+        class Once(threading.Event):
+            def wait(self, timeout: float | None = None) -> bool:
+                self.set()
+                return True
+
+        server.run_forever(tick_seconds=0.0, stop=Once())
+
+        assert (servers_quakes.read_count, floods.read_count) == (0, 1)
+
+    def test_a_command_standing_by_prints_what_the_server_found(self, store: WatchStore) -> None:
+        """Was: "New findings appear below", and none ever did: a standby never reads."""
+        printed: list[str] = []
+        command = Watcher(
+            store, [_Fixed([])], clock=lambda: NOW,
+            on_announced=lambda entry: printed.append(str(entry["subject"])),
+        )  # fmt: skip
+        server = Watcher(store, [_Fixed([_finding(subject="COCF1")])], clock=lambda: NOW)
+        own: list[str] = []
+        server.on_announced = lambda entry: own.append(str(entry["subject"]))
+
+        server.run_once()
+        command.announce()
+
+        assert printed == ["COCF1"]
+        assert own == []  # its own finding is not said to it twice
+
+    def test_a_watcher_that_can_tell_no_one_does_not_hold_the_lease_for_telling(
+        self, store: WatchStore
+    ) -> None:
+        """Was: a command run without the server's mail settings took it, and nobody was told."""
+        mute = Watcher(store, [_Fixed([])], clock=lambda: NOW)
+        able = Watcher(
+            store, [_Fixed([])], clock=lambda: NOW,
+            notifier=Notifier(store, mailer=_Mail(), clock=lambda: NOW),
+        )  # fmt: skip
+
+        assert mute.leads() is False
+        assert able.leads() is True
+
+    def test_stopping_gives_the_leases_up_at_once(self, store: WatchStore) -> None:
+        """Was: a server restarted mid-read left them to lapse: fifteen minutes with no watch."""
+        feed = _Fixed([])
+        first = Watcher(
+            store, [feed], clock=lambda: NOW,
+            notifier=Notifier(store, mailer=_Mail(), clock=lambda: NOW),
+        )  # fmt: skip
+        assert first.leads() and first.reads(feed)
+
+        first.stop()
+
+        assert store.lease() == {} and store.lease("feed:river_gauges") == {}
+        assert not first.leads() and not first.reads(feed)  # and takes none again
+        second = Watcher(
+            store, [feed], clock=lambda: NOW,
+            notifier=Notifier(store, mailer=_Mail(), clock=lambda: NOW),
+        )  # fmt: skip
+        assert second.leads() and second.reads(feed)
+
+    def test_a_failure_while_checking_past_findings_does_not_mark_the_feed_down(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        watcher = Watcher(store, [_Fixed([_finding()])], clock=lambda: NOW)
+
+        def locked(*_a: Any, **_k: Any) -> Any:
+            raise RuntimeError("database is locked")
+
+        monkeypatch.setattr(watcher, "review_feed", locked)
+
+        (status,) = watcher.run_once()
+
+        assert status.state == "ok"
+        assert store.statuses()[0]["state"] == "ok"
+
+
+class TestOneUnansweredPlaceDoesNotKeepEverythingStanding:
+    def test_only_what_is_in_effect_at_the_unchecked_place_is_kept(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: one failed lookup in 250 skipped the closing of every finding of the feed."""
+        here = _alert("nws_alert", Severity.NOTABLE, "warnings")
+        at_seven = Finding(**{**here.__dict__, "subject": "a", "place_ids": (7,)})
+        at_eight = Finding(**{**here.__dict__, "subject": "b", "place_ids": (8,)})
+        nationwide = Finding(**{**here.__dict__, "subject": "c", "place_ids": ()})
+        feed = _fixed([at_seven, at_eight, nationwide], "warnings")
+        watcher = Watcher(store, [feed], clock=lambda: NOW)
+        watcher.run_once()
+
+        # The next read shows none of them, and could not look at place 8.
+        monkeypatch.setattr(
+            feed,
+            "judge",
+            lambda frame, now: Judgment(
+                [], "read", now, 0, 0, partial=True, unchecked_places=frozenset({8})
+            ),
+        )
+        watcher.run_once()
+
+        assert sorted(f["subject"] for f in store.standing(now=NOW)) == ["b"]
+
+    def test_a_read_that_cannot_say_where_it_did_not_look_still_ends_nothing(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        feed = _Fixed([_finding(subject="a")])
+        watcher = Watcher(store, [feed], clock=lambda: NOW)
+        watcher.run_once()
+        monkeypatch.setattr(
+            feed, "judge", lambda frame, now: Judgment([], "read", now, 0, 0, partial=True)
+        )
+
+        watcher.run_once()
+
+        assert [f["subject"] for f in store.standing(now=NOW)] == ["a"]
+
+
+class TestAWarningIsOneFindingAcrossItsUpdates:
+    def test_the_thread_is_the_first_message_of_the_warning(self) -> None:
+        """Measured 2026-11-17: 194 of 517 alerts in effect were updates, each with a new id."""
+        from omni_mercury_engine.watch.feeds import _alert_thread
+
+        first, second, third = "urn:oid:1.1", "urn:oid:1.2", "urn:oid:1.3"
+        references = [
+            {"identifier": second, "sent": "2026-11-17T12:00:00-09:00"},
+            {"identifier": first, "sent": "2026-11-17T06:00:00-09:00"},
+        ]
+
+        assert _alert_thread(first, []) == first
+        assert _alert_thread(second, references[1:]) == first
+        assert _alert_thread(third, references) == first
+
+    def test_an_update_from_the_service_is_the_same_finding(
+        self, store: WatchStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: keyed by message, so each update of a warning was told as a new alert."""
+        from omni_mercury_engine.watch.feeds import WarningsFeed
+
+        def alert(identifier: str, references: list[dict[str, str]]) -> dict[str, Any]:
+            return {
+                "id": identifier, "event": "Flood Warning", "severity": "Extreme",
+                "areaDesc": "Brevard, FL", "headline": "Flood Warning", "messageType": "Update",
+                "senderName": "NWS Melbourne FL", "sent": "2026-11-17T01:00:00+00:00",
+                "references": references,
+            }  # fmt: skip
+
+        feed = WarningsFeed()
+        feed.bind(store)
+        keys = []
+        for identifier, references in (
+            ("urn:oid:1.1", []),
+            ("urn:oid:1.2", [{"identifier": "urn:oid:1.1", "sent": "2026-11-17T00:00:00+00:00"}]),
+        ):
+            issued = [alert(identifier, references)]
+            monkeypatch.setattr(feed, "_alerts", lambda params, issued=issued: issued)
+            (finding,) = feed.judge(feed.read(), NOW).findings
+            keys.append(finding.key)
+            assert finding.reference == identifier  # the message it is now
+
+        assert keys[0] == keys[1]
+
+    def test_a_foreign_authoritys_update_is_the_same_finding_too(self) -> None:
+        """The recorded Deutscher Wetterdienst alert is itself an update of an earlier one."""
+        from pathlib import Path as _Path
+
+        from omni_mercury_engine.watch.world import parse_cap
+
+        cap = (_Path(__file__).parent / "data" / "dwd_wind_gusts.cap.xml").read_text()
+
+        parsed = parse_cap(cap)
+
+        assert parsed["msg_type"] == "Update"
+        assert parsed["thread"] != parsed["identifier"]
+        assert parsed["thread"].endswith("b71f5037-8ec8-448b-bce4-21d51d533a92.ENG")
+
+
+class TestAnEarthquakeUnderAnotherId:
+    def test_an_event_already_recorded_under_one_of_its_ids_keeps_it(
+        self, store: WatchStore
+    ) -> None:
+        """USGS lists every id an event has; the preferred one can change between reads."""
+        import pandas as pd
+
+        from omni_mercury_engine.watch.feeds import EarthquakeFeed
+
+        feed = EarthquakeFeed()
+        feed.bind(store)
+
+        def frame(preferred: str) -> pd.DataFrame:
+            return pd.DataFrame(
+                [
+                    {
+                        "time": NOW.timestamp() * 1000, "latitude": -5.6, "longitude": 132.7,
+                        "depth": 10.0, "magnitude": 6.6, "place": "Tual, Indonesia",
+                        "event_id": preferred, "event_ids": "pt26322050,us7000tywi",
+                    }
+                ]
+            )  # fmt: skip
+
+        (first,) = feed.judge(frame("pt26322050"), NOW).findings
+        store.report(first, NOW)
+        (second,) = feed.judge(frame("us7000tywi"), NOW).findings
+
+        assert first.key == second.key
+        assert store.report(second, NOW + timedelta(minutes=5)) is False
+
+
+class TestDeclarations:
+    @staticmethod
+    def _frame(designations: dict[str, int]) -> Any:
+        import pandas as pd
+
+        days = pd.date_range("2026-09-01", "2026-09-10", freq="D", tz="UTC")
+        return pd.DataFrame(
+            {
+                "timestamp": days,
+                "designations": [designations.get(f"{d:%m-%d}", 0) for d in days],
+                "states": 1,
+                "disasters": 1,
+            }
+        )
+
+    def test_the_review_counts_the_days_the_finding_said(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: 10 on 6 Sep and 5 on 8 Sep, judged on the 10th, reported 5; reviewed as 15, "revised"."""
+        from omni_mercury_engine.watch.feeds import DeclarationFeed
+
+        feed = DeclarationFeed()
+        frame = self._frame({"09-06": 10, "09-08": 5})
+        monkeypatch.setattr(feed, "read", lambda: frame)
+        now = datetime(2026, 9, 10, 12, tzinfo=UTC)
+
+        (finding,) = feed.judge(frame, now).findings
+        outcome = feed.review(finding.to_dict(), now + timedelta(days=2))
+
+        assert finding.value == 15.0 and "In the 3 days to 08 September 2026" in finding.detail
+        assert outcome is not None and outcome.verdict == "confirmed"
+
+    def test_the_first_declaration_of_a_year_is_not_its_busiest_week(self) -> None:
+        """Was: one designation, no earlier one, rated significant and called the busiest week."""
+        from omni_mercury_engine.watch.feeds import DeclarationFeed
+
+        frame = self._frame({"09-09": 1})
+
+        (finding,) = DeclarationFeed().judge(frame, datetime(2026, 9, 10, 12, tzinfo=UTC)).findings
+
+        assert finding.severity is Severity.NOTABLE
+        assert "busiest" not in finding.headline
+
+    def test_the_last_days_of_december_are_still_read_in_january(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Was: from 1 January the record began on 1 January."""
+        import pandas as pd
+
+        from omni_mercury_engine.loaders.fema_activity_loader import FEMAActivityLoader
+
+        loader = FEMAActivityLoader(cache_dir=tmp_path, max_retries=0)
+        asked: list[int] = []
+
+        def declarations(year: int) -> pd.DataFrame:
+            asked.append(year)
+            return pd.DataFrame({"declarationDate": [], "state": [], "disasterNumber": []})
+
+        monkeypatch.setattr(loader, "_fetch_tropical_declarations", declarations)
+        monkeypatch.setattr(
+            pd.Timestamp, "now", classmethod(lambda cls, tz=None: pd.Timestamp("2027-01-02", tz=tz))
+        )
+
+        frame = loader.fetch_realtime(days_before_year=14)
+
+        assert asked == [2027, 2026]
+        assert str(frame["timestamp"].min().date()) == "2026-12-18"
+        assert str(frame["timestamp"].max().date()) == "2027-01-02"
+        assert list(loader.fetch_realtime()["timestamp"].dt.year.unique()) == [2027]
+
+
+class TestOneMessageForAnAddress:
+    def test_the_nearest_place_changing_does_not_send_the_finding_again(
+        self, store: WatchStore
+    ) -> None:
+        """Was: the ledger entry was the place's, so "home" then "work" was two emails."""
+        store.add_subscriber("ana@example.org", place="Home", latitude=28.37, longitude=-80.87)
+        store.add_subscriber("ana@example.org", place="Work", latitude=28.60, longitude=-81.20)
+        mail = _Mail()
+        notifier = Notifier(store, mailer=mail, clock=lambda: NOW)
+        near_home = _finding(latitude=28.36, longitude=-80.80)
+        store.report(near_home, NOW)
+        notifier.sync()
+
+        # Seen again, now nearer the other place.
+        store.report(
+            Finding(**{**near_home.__dict__, "latitude": 28.61, "longitude": -81.21}),
+            NOW + timedelta(minutes=5),
+        )
+        notifier.sync()
+
+        assert [to for to, _ in mail.sent] == ["ana@example.org"]
+
+
+class TestTheLedgerReadIsOfWhatStands:
+    def test_an_earthquake_of_last_week_is_not_loaded_on_every_pass(
+        self, store: WatchStore
+    ) -> None:
+        """Was: a single occurrence is never given an end, so its deliveries were loaded for ever."""
+        quake = _finding(kind="earthquake", feed="earthquakes", subject="us7000")
+        store.report(Finding(**{**quake.__dict__, "ongoing": False}), NOW - timedelta(days=7))
+        store.record_delivery(quake.key, 3, 1, "email", error=None, now=NOW - timedelta(days=7))
+        flood = _finding(subject="COCF1")
+        store.report(flood, NOW)
+        store.record_delivery(flood.key, 3, 1, "email", error=None, now=NOW)
+
+        assert list(store.standing_deliveries(NOW)) == [(flood.key, 3, 1, "email")]
+
+
+class TestSmallThings:
+    def test_a_name_that_does_not_resolve_is_the_provider_being_unreachable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: the egress gate's ``ValueError``, so the code was counted for a text never sent."""
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
+
+        def no_dns(*_a: Any, **_k: Any) -> Any:
+            raise UnsafeURLError("host 'api.twilio.com' did not resolve")
+
+        monkeypatch.setattr(SafeHTTPClient, "post_form", no_dns)
+        sender = TwilioSms(account_sid="AC" + "0" * 32, auth_token=TOKEN, from_number=NUMBER)
+
+        with pytest.raises(SmsUnreachableError, match="UnsafeURLError"):
+            sender.send(to=NUMBER, body="x")
+
+    def test_the_link_in_a_message_is_the_deployments_own_address(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: read from a setting nothing documented, so no alert carried the link."""
+        from omni_mercury_engine.watch.notify import notice
+
+        monkeypatch.delenv("MERCURY_PUBLIC_URL", raising=False)
+        monkeypatch.setenv("MERCURY_PUBLIC_BASE_URL", "https://mercury.example.org/")
+
+        _subject, body = notice(_finding().to_dict())
+
+        assert "What Mercury is watching now: https://mercury.example.org/watch" in body

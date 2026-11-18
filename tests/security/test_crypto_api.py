@@ -488,9 +488,16 @@ class TestHybridCryptography:
         both = crypto.verify_hybrid_package(
             data, package, classical_public=classical_public, pqc_public=pqc_public
         )
+        itself = crypto.verify_hybrid_package(data, package)
 
         assert only_pqc["all_valid"] is False
         assert both["classical"] is False and both["all_valid"] is False
+        # A half that was not checked is not reported as holding. It was: with
+        # no classical key anywhere the provider's opt-out answered True, and
+        # the package read as "both halves hold".
+        assert only_pqc["classical"] is False and only_pqc["core_valid"] is False
+        assert itself["classical"] is False and itself["core_valid"] is False
+        assert itself["pqc"] is True  # the half that was checked
 
     def test_a_package_without_a_hybrid_signature_is_not_verified_as_one(self) -> None:
         crypto = MercuryCrypto(security_level=SecurityLevel.POST_QUANTUM)

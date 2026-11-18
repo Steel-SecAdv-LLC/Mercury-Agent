@@ -491,6 +491,9 @@ class WatchPhoneResponse(BaseModel):
     number: str
     verified: bool
     min_severity: str
+    #: When ``number`` is a change still waiting for its code: the verified
+    #: number that goes on being texted until then.
+    texting: str | None = None
 
 
 class WatchSubscriptionsResponse(BaseModel):
@@ -1179,22 +1182,34 @@ def _watch_subscriptions_view(account: Account) -> WatchSubscriptionsResponse:
     store = existing_store()
     rows = store.subscriptions_of(account.email) if store is not None else []
     held = store.phone_of(account.email) if store is not None else {}
-    ranks = {rank: name for name, rank in _WATCH_SEVERITY_RANK.items()}
     return WatchSubscriptionsResponse(
         subscriptions=[_watch_subscription_view(row) for row in rows],
         limit=_max_watch_places_per_account(),
         email_delivery=bool(os.getenv(SMTP_HOST_ENV, "").strip()),
         watching=watching(),
         sms_delivery=_sms_sender() is not None,
-        phone=(
-            WatchPhoneResponse(
-                number=str(held["number"]),
-                verified=bool(held["verified_at"]),
-                min_severity=ranks.get(int(held["min_severity"]), "significant"),
-            )
-            if held
-            else None
-        ),
+        phone=_watch_phone_view(held) if held else None,
+    )
+
+
+def _watch_phone_view(held: dict[str, Any]) -> WatchPhoneResponse:
+    """The account's number as its owner should see it.
+
+    A change that is waiting for its code is shown as the number awaiting
+    verification, with the verified number that is still being texted.
+    """
+    ranks = {rank: name for name, rank in _WATCH_SEVERITY_RANK.items()}
+    if held.get("pending_number"):
+        return WatchPhoneResponse(
+            number=str(held["pending_number"]),
+            verified=False,
+            min_severity=ranks.get(int(held["pending_min_severity"] or 2), "significant"),
+            texting=str(held["number"]),
+        )
+    return WatchPhoneResponse(
+        number=str(held["number"]),
+        verified=bool(held["verified_at"]),
+        min_severity=ranks.get(int(held["min_severity"]), "significant"),
     )
 
 
@@ -1238,11 +1253,7 @@ def add_watch_subscription(
     self-service can never crowd out the places already being checked.
     """
     from omni_mercury_engine.watch.feeds import WarningsFeed
-    from omni_mercury_engine.watch.store import (
-        SubscriptionLimitError,
-        WatchStore,
-        default_state_dir,
-    )
+    from omni_mercury_engine.watch.store import SubscriptionLimitError, open_store
 
     account, _session = session_pair
     if not account.is_verified:
@@ -1252,7 +1263,7 @@ def add_watch_subscription(
         )
     cap = _max_watch_places_per_account()
     try:
-        WatchStore(default_state_dir()).add_subscriber(
+        open_store().add_subscriber(
             account.email,
             place=payload.place,
             latitude=payload.latitude,
@@ -1339,7 +1350,7 @@ def request_watch_phone(
     number already verified sends nothing.
     """
     from omni_mercury_engine.watch.sms import SmsRefusedError, SmsUnreachableError
-    from omni_mercury_engine.watch.store import PhoneLimitError, WatchStore, default_state_dir
+    from omni_mercury_engine.watch.store import PhoneLimitError, open_store
 
     account, _session = session_pair
     if not account.is_verified:
@@ -1353,7 +1364,7 @@ def request_watch_phone(
             status_code=status.HTTP_409_CONFLICT,
             detail={"message": "this server is not set up to send text messages"},
         )
-    store = WatchStore(default_state_dir())
+    store = open_store()
     try:
         code = store.request_phone(
             account.email,

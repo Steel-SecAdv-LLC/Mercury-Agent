@@ -134,7 +134,7 @@ class PhoneLimitError(ValueError):
 def existing_store() -> WatchStore | None:
     """The watch's store, when this deployment has one. Never creates it."""
     directory = default_state_dir()
-    return WatchStore(directory) if (directory / "watch.sqlite").exists() else None
+    return open_store(directory) if (directory / "watch.sqlite").exists() else None
 
 
 def forget_address(email: str) -> None:
@@ -179,6 +179,9 @@ class WatchStore:
                 # answered by parsing every finding ever recorded.
                 ("ongoing", "INTEGER NOT NULL DEFAULT 0"),
                 ("verdict", "TEXT"),
+                # When it last became more severe than it was (or was first
+                # seen): what was sent before then was sent of a milder thing.
+                ("raised_at", "TEXT"),
             ):
                 if column not in present:
                     connection.execute(f"ALTER TABLE findings ADD COLUMN {column} {kind}")
@@ -200,6 +203,10 @@ class WatchStore:
                 "CREATE INDEX IF NOT EXISTS findings_standing "
                 "ON findings (feed, ongoing, last_seen) WHERE ended IS NULL"
             )
+            held = {row["name"] for row in connection.execute("PRAGMA table_info(phones)")}
+            for column, kind in (("pending_number", "TEXT"), ("pending_min_severity", "INTEGER")):
+                if column not in held:
+                    connection.execute(f"ALTER TABLE phones ADD COLUMN {column} {kind}")
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=30.0)
@@ -248,6 +255,10 @@ class WatchStore:
                 row["ended"] is None or now - datetime.fromisoformat(row["ended"]) < same_episode
             )
             if row is not None and resumed:
+                # More severe than it is now, not than it has ever been. The
+                # row used to keep the highest severity it had reached, so a
+                # volcano that went from WARNING to ADVISORY and, months
+                # later, back to WARNING was never announced the second time.
                 escalated = int(finding.severity) > int(row["severity"])
                 connection.execute(
                     "UPDATE findings SET ended=NULL, last_seen=?, body=?, severity=?, ongoing=? "
@@ -255,12 +266,16 @@ class WatchStore:
                     (
                         now.isoformat(),
                         body,
-                        max(int(finding.severity), int(row["severity"])),
+                        int(finding.severity),
                         int(finding.ongoing),
                         finding.key,
                     ),
                 )
                 if escalated:
+                    connection.execute(
+                        "UPDATE findings SET raised_at=? WHERE key=?",
+                        (now.isoformat(), finding.key),
+                    )
                     # What a later record said was said of the milder statement; the
                     # stronger one has not been checked.
                     connection.execute(
@@ -290,8 +305,8 @@ class WatchStore:
                 )
             connection.execute(
                 "INSERT INTO findings "
-                "(key, feed, severity, first_seen, last_seen, ended, body, ongoing) "
-                "VALUES (?, ?, ?, ?, ?, NULL, ?, ?)",
+                "(key, feed, severity, first_seen, last_seen, ended, body, ongoing, raised_at) "
+                "VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)",
                 (
                     finding.key,
                     finding.feed,
@@ -300,6 +315,7 @@ class WatchStore:
                     now.isoformat(),
                     body,
                     int(finding.ongoing),
+                    now.isoformat(),
                 ),
             )
             self._announce(connection, finding.key, now)
@@ -343,13 +359,23 @@ class WatchStore:
             ).fetchall()
         return [(int(row["number"]), self._finding(row)) for row in rows]
 
-    def close_absent(self, feed: str, standing: set[str], now: datetime) -> int:
+    def close_absent(
+        self,
+        feed: str,
+        standing: set[str],
+        now: datetime,
+        unchecked_places: frozenset[int] = frozenset(),
+    ) -> int:
         """End the feed's ongoing findings that the latest read no longer shows.
 
         Args:
             feed: Feed name.
             standing: Keys of the ongoing findings the read produced.
             now: Time of the read.
+            unchecked_places: Subscribed places the read could not look at. A
+                finding in effect at one of them is left standing: the read
+                did not show it because it could not look, not because it
+                has ended.
 
         Returns:
             How many findings ended.
@@ -357,9 +383,20 @@ class WatchStore:
         with self._lock, closing(self._connect()) as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
-                "SELECT key FROM findings WHERE feed=? AND ended IS NULL AND ongoing=1", (feed,)
+                "SELECT key, body FROM findings WHERE feed=? AND ended IS NULL AND ongoing=1",
+                (feed,),
             ).fetchall()
-            ended = [row["key"] for row in rows if row["key"] not in standing]
+            ended = [
+                row["key"]
+                for row in rows
+                if row["key"] not in standing
+                and not (
+                    unchecked_places
+                    and unchecked_places.intersection(
+                        json.loads(row["body"]).get("place_ids") or ()
+                    )
+                )
+            ]
             connection.executemany(
                 "UPDATE findings SET ended=? WHERE key=?", [(now.isoformat(), key) for key in ended]
             )
@@ -423,6 +460,33 @@ class WatchStore:
         """The findings that stand at ``now``, most recently seen first."""
         return self.findings(limit=limit, open_only=True, feed=feed, now=now)
 
+    def overview(
+        self, *, limit: int = 50, open_only: bool = False, now: datetime | None = None
+    ) -> list[dict[str, Any]]:
+        """What to show someone: everything that stands, then what ended most recently.
+
+        The newest ``limit`` rows by last sighting is not that. A river in
+        flood is seen again on every read, so fifty gauges pushed a magnitude
+        7 earthquake of two hours ago off the page, and the command's first
+        line said "50 findings standing" of 181. What stands comes first, the
+        most severe first and the newest first within a severity; what has
+        ended fills what room is left. ``limit`` is applied by the caller,
+        after anything it must leave out.
+        """
+        ranks = {"severe": 0, "significant": 1, "notable": 2}
+        standing = self.standing(now=now)
+        standing.sort(key=lambda f: str(f.get("first_seen") or ""), reverse=True)
+        standing.sort(key=lambda f: ranks.get(str(f.get("severity")), 3))
+        if open_only:
+            return standing
+        held = {str(finding["key"]) for finding in standing}
+        ended = [
+            finding
+            for finding in self.findings(limit=limit + len(standing), now=now)
+            if str(finding["key"]) not in held
+        ]
+        return standing + ended
+
     @classmethod
     def _finding(cls, row: sqlite3.Row, horizon: str | None = None) -> dict[str, Any]:
         """A stored finding as a mapping; with ``horizon``, a lapsed occurrence has ended."""
@@ -440,6 +504,7 @@ class WatchStore:
             ended=ended,
             outcome=json.loads(row["outcome"]) if row["outcome"] else None,
             reviewed_at=row["reviewed_at"],
+            raised_at=row["raised_at"] or row["first_seen"],
         )
         return body
 
@@ -726,8 +791,12 @@ class WatchStore:
                 "SELECT * FROM phones WHERE email = ? COLLATE NOCASE", (address,)
             ).fetchone()
             if row is not None and row["number"] == number and row["verified_at"]:
+                # The verified number again: only the severity can have changed,
+                # and a change that was waiting for a code is called off.
                 connection.execute(
-                    "UPDATE phones SET min_severity=? WHERE id=?", (min_severity, row["id"])
+                    "UPDATE phones SET min_severity=?, pending_number=NULL, "
+                    "pending_min_severity=NULL, code_hash=NULL, code_expires=NULL WHERE id=?",
+                    (min_severity, row["id"]),
                 )
                 return ""
             # The limit is kept for the address and for the number, each apart
@@ -749,6 +818,28 @@ class WatchStore:
                     "since=excluded.since, last=excluded.last",
                     (subject, count + 1, began.isoformat(), moment.isoformat()),
                 )
+            details = {
+                "email": address,
+                "number": number,
+                "least": min_severity,
+                "hash": self._code_hash(address, number, code),
+                "expires": (moment + self.CODE_LIFETIME).isoformat(),
+                "sends": sends + 1,
+                "since": since.isoformat(),
+                "now": moment.isoformat(),
+            }
+            if row is not None and row["verified_at"]:
+                # A different number for an address that has a verified one. The
+                # verified one stays, and goes on being texted, until the new
+                # one is confirmed. It used to be replaced at once: a mistyped
+                # number, or a code never entered, and the flood texts stopped.
+                connection.execute(
+                    "UPDATE phones SET pending_number=:number, pending_min_severity=:least, "
+                    "code_hash=:hash, code_expires=:expires, code_attempts=0, sends=:sends, "
+                    "sends_since=:since, last_send=:now WHERE email = :email COLLATE NOCASE",
+                    details,
+                )
+                return code
             connection.execute(
                 "INSERT INTO phones (email, number, min_severity, code_hash, code_expires, "
                 "code_attempts, sends, sends_since, last_send, verified_at, created) "
@@ -757,17 +848,9 @@ class WatchStore:
                 "number=excluded.number, min_severity=excluded.min_severity, "
                 "code_hash=excluded.code_hash, code_expires=excluded.code_expires, "
                 "code_attempts=0, sends=excluded.sends, sends_since=excluded.sends_since, "
-                "last_send=excluded.last_send, verified_at=NULL",
-                {
-                    "email": address,
-                    "number": number,
-                    "least": min_severity,
-                    "hash": self._code_hash(address, number, code),
-                    "expires": (moment + self.CODE_LIFETIME).isoformat(),
-                    "sends": sends + 1,
-                    "since": since.isoformat(),
-                    "now": moment.isoformat(),
-                },
+                "last_send=excluded.last_send, verified_at=NULL, pending_number=NULL, "
+                "pending_min_severity=NULL",
+                details,
             )
             return code
 
@@ -828,9 +911,10 @@ class WatchStore:
                     (subject,),
                 )
             connection.execute(
-                "UPDATE phones SET code_hash=NULL, code_expires=NULL WHERE email = ? "
-                "COLLATE NOCASE AND number = ?",
-                (email.strip(), number),
+                "UPDATE phones SET code_hash=NULL, code_expires=NULL, pending_number=NULL, "
+                "pending_min_severity=NULL WHERE email = ? COLLATE NOCASE "
+                "AND (number = ? OR pending_number = ?)",
+                (email.strip(), number, number),
             )
 
     def confirm_phone(self, email: str, code: str, now: datetime | None = None) -> bool:
@@ -852,25 +936,31 @@ class WatchStore:
                 or int(row["code_attempts"]) >= self.CODE_ATTEMPTS
             ):
                 return False
-            given = self._code_hash(str(row["email"]), str(row["number"]), code.strip())
+            awaited = str(row["pending_number"] or row["number"])
+            given = self._code_hash(str(row["email"]), awaited, code.strip())
             if not hmac.compare_digest(given, str(row["code_hash"])):
                 connection.execute(
                     "UPDATE phones SET code_attempts = code_attempts + 1 WHERE id=?", (row["id"],)
                 )
                 return False
             connection.execute(
-                "UPDATE phones SET verified_at=?, code_hash=NULL, code_expires=NULL, "
-                "code_attempts=0 WHERE id=?",
-                (moment, row["id"]),
+                "UPDATE phones SET number=?, min_severity=COALESCE(pending_min_severity, "
+                "min_severity), pending_number=NULL, pending_min_severity=NULL, verified_at=?, "
+                "code_hash=NULL, code_expires=NULL, code_attempts=0 WHERE id=?",
+                (awaited, moment, row["id"]),
             )
             return True
 
     def phone_of(self, email: str) -> dict[str, Any]:
-        """The number recorded for ``email`` and whether it is verified (``{}`` when none)."""
+        """The number recorded for ``email`` and whether it is verified (``{}`` when none).
+
+        ``pending_number`` is a different number its owner has asked for and
+        not yet confirmed; ``number`` goes on being texted until they do.
+        """
         with closing(self._connect()) as connection:
             row = connection.execute(
-                "SELECT id, email, number, min_severity, verified_at, created FROM phones "
-                "WHERE email = ? COLLATE NOCASE",
+                "SELECT id, email, number, min_severity, verified_at, created, pending_number, "
+                "pending_min_severity FROM phones WHERE email = ? COLLATE NOCASE",
                 (email.strip(),),
             ).fetchone()
         return dict(row) if row else {}
@@ -926,16 +1016,22 @@ class WatchStore:
             ).fetchone()
         return dict(row) if row else {}
 
-    def standing_deliveries(self) -> dict[tuple[str, int, int, str], dict[str, Any]]:
-        """The ledger for every finding that stands, in one read.
+    def standing_deliveries(
+        self, now: datetime | None = None
+    ) -> dict[tuple[str, int, int, str], dict[str, Any]]:
+        """The ledger for every finding that stands at ``now``, in one read.
 
         A delivery pass asks about each standing finding for each subscriber;
         asked one at a time that is a connection per pair on every feed read.
-        Only deliveries of the occurrence that stands are returned.
+        Only deliveries of the occurrence that stands are returned. "Stands"
+        is what :meth:`findings` means by it: a single occurrence is never
+        given an end, so every delivery of every earthquake ever sent used to
+        be loaded on each pass.
 
         Returns:
             ``(finding key, severity, subscriber, channel)`` to its status and attempts.
         """
+        horizon = ((now or datetime.now(UTC)) - self.OCCURRENCE_STANDS).isoformat()
         with closing(self._connect()) as connection:
             rows = connection.execute(
                 "SELECT d.finding_key, d.severity, d.subscriber, d.channel, d.status, "
@@ -944,7 +1040,9 @@ class WatchStore:
                 # A delivery made before the finding was first seen is of an
                 # earlier occurrence (a store written before deliveries
                 # followed their occurrence into the archive).
-                "WHERE f.ended IS NULL AND d.at >= f.first_seen"
+                "WHERE f.ended IS NULL AND (f.ongoing = 1 OR f.last_seen >= ?) "
+                "AND d.at >= f.first_seen",
+                (horizon,),
             ).fetchall()
         return {
             (
@@ -972,9 +1070,11 @@ class WatchStore:
                 "INSERT INTO deliveries VALUES (?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT "
                 "(finding_key, severity, subscriber, channel) DO UPDATE SET "
                 "status=excluded.status, at=excluded.at, error=excluded.error, "
-                # An attempt on a record left by an earlier occurrence is this one's first.
-                "attempts = CASE WHEN deliveries.at < COALESCE((SELECT first_seen FROM findings "
-                "WHERE key = excluded.finding_key), '') THEN 1 ELSE deliveries.attempts + 1 END",
+                # An attempt on a record left by an earlier occurrence, or from before
+                # the finding last became more severe, is this one's first.
+                "attempts = CASE WHEN deliveries.at < COALESCE((SELECT COALESCE(raised_at, "
+                "first_seen) FROM findings WHERE key = excluded.finding_key), '') "
+                "THEN 1 ELSE deliveries.attempts + 1 END",
                 (
                     key,
                     severity,
@@ -1042,8 +1142,14 @@ class WatchStore:
 
     # ------------------------------------------------------------------- lease
 
-    def hold_lease(self, holder: str, now: datetime, ttl: timedelta) -> bool:
-        """Take or renew the watch's lease for ``holder`` until ``now + ttl``.
+    def hold_lease(self, holder: str, now: datetime, ttl: timedelta, name: str = "watch") -> bool:
+        """Take or renew the lease ``name`` for ``holder`` until ``now + ttl``.
+
+        There is one lease for telling people (``"watch"``) and one for
+        reading each feed (``"feed:<name>"``). There used to be only the
+        first, held by whichever watch started first whatever it read: a
+        ``mercury-agent watch --feed earthquakes`` took it and the server's
+        watch, standing by, read none of the other eight feeds.
 
         Every process that opens this store may run a watch (each worker of
         ``serve --workers 4`` does, and so does ``mercury-agent watch`` beside
@@ -1056,23 +1162,28 @@ class WatchStore:
         """
         with self._lock, closing(self._connect()) as connection, connection:
             cursor = connection.execute(
-                "INSERT INTO lease (name, holder, until) VALUES ('watch', :holder, :until) "
+                "INSERT INTO lease (name, holder, until) VALUES (:name, :holder, :until) "
                 "ON CONFLICT (name) DO UPDATE SET holder = excluded.holder, until = excluded.until "
                 "WHERE lease.holder = excluded.holder OR lease.until <= :now",
-                {"holder": holder, "until": (now + ttl).isoformat(), "now": now.isoformat()},
+                {
+                    "name": name,
+                    "holder": holder,
+                    "until": (now + ttl).isoformat(),
+                    "now": now.isoformat(),
+                },
             )
             return cursor.rowcount == 1
 
     def release_lease(self, holder: str) -> None:
-        """Give the lease up, if ``holder`` has it, so another watch can take it at once."""
+        """Give up every lease ``holder`` has, so another watch can take them at once."""
         with self._lock, closing(self._connect()) as connection, connection:
-            connection.execute("DELETE FROM lease WHERE name = 'watch' AND holder = ?", (holder,))
+            connection.execute("DELETE FROM lease WHERE holder = ?", (holder,))
 
-    def lease(self) -> dict[str, str]:
-        """Who holds the watch's lease and until when (``{}`` when no one does)."""
+    def lease(self, name: str = "watch") -> dict[str, str]:
+        """Who holds the lease ``name`` and until when (``{}`` when no one does)."""
         with closing(self._connect()) as connection:
             row = connection.execute(
-                "SELECT holder, until FROM lease WHERE name = 'watch'"
+                "SELECT holder, until FROM lease WHERE name = ?", (name,)
             ).fetchone()
         return dict(row) if row else {}
 

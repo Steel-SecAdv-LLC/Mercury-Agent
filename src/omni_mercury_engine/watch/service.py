@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["start_background_watch", "stop_background_watch", "watch_enabled", "watching"]
 
 _thread: threading.Thread | None = None
+_watcher: object | None = None
 _stop = threading.Event()
 _guard = threading.Lock()
 
@@ -39,7 +40,7 @@ def start_background_watch() -> bool:
     Idempotent, and failure-isolated: if the watch cannot start, the reason
     is logged and the server serves without it.
     """
-    global _thread
+    global _thread, _watcher
     with _guard:
         if watching():
             return True
@@ -50,6 +51,7 @@ def start_background_watch() -> bool:
         except Exception:
             logger.exception("watch: could not start; serving without it")
             return False
+        _watcher = watcher
         _stop.clear()
         _thread = threading.Thread(
             target=watcher.run_forever, kwargs={"stop": _stop}, name="mercury-watch", daemon=True
@@ -61,9 +63,16 @@ def start_background_watch() -> bool:
 
 def stop_background_watch(timeout: float = 5.0) -> None:
     """Ask the watch to stop after the read in progress."""
-    global _thread
+    global _thread, _watcher
     with _guard:
         _stop.set()
+        stop = getattr(_watcher, "stop", None)
+        if callable(stop):
+            # The read in progress may outlast the wait below (a request can
+            # take 30 s). The leases are given up now, so the next process
+            # can watch at once instead of after they lapse.
+            stop()
         if _thread is not None:
             _thread.join(timeout)
         _thread = None
+        _watcher = None

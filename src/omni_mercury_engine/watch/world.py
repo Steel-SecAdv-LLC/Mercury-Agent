@@ -41,7 +41,15 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import pandas as pd
 
-from omni_mercury_engine.watch.feeds import Feed, Judgment, _clock, _count, _shorten, _utc
+from omni_mercury_engine.watch.feeds import (
+    Feed,
+    Judgment,
+    _alert_thread,
+    _clock,
+    _count,
+    _shorten,
+    _utc,
+)
 from omni_mercury_engine.watch.model import Finding, Outcome, Severity
 
 if TYPE_CHECKING:
@@ -122,6 +130,7 @@ def parse_cap(document: str, prefer: str = "en") -> dict[str, Any]:
         named = [*named[:_AREAS_SAID], f"and {len(named) - _AREAS_SAID:,} more areas"]
     return {
         "identifier": text(root, "identifier"),
+        "thread": _alert_thread(text(root, "identifier"), text(root, "references")),
         "status": text(root, "status"),
         "msg_type": text(root, "msgType"),
         "sent": text(root, "sent"),
@@ -156,7 +165,7 @@ class WorldWarningsFeed(Feed):
     #: Distinct places looked up per read. Each is one request to the centre.
     MAX_PLACES: ClassVar[int] = 250
     _COLUMNS: ClassVar[list[str]] = [
-        "path", "identifier", "event", "headline", "severity", "urgency", "certainty",
+        "path", "identifier", "thread", "event", "headline", "severity", "urgency", "certainty",
         "sender", "sent", "expires", "instruction", "area", "web", "status", "msg_type",
         "place_ids",
     ]  # fmt: skip
@@ -214,6 +223,9 @@ class WorldWarningsFeed(Feed):
         rows: dict[str, dict[str, Any]] = {}
         asked = unanswered = unread = 0
         chosen = list(points.items())[: self.MAX_PLACES]
+        unchecked: set[int] = {
+            place for ids in list(points.values())[self.MAX_PLACES :] for place in ids
+        }
 
         def lookup(point: tuple[float, float]) -> list[str] | Exception:
             try:
@@ -230,6 +242,7 @@ class WorldWarningsFeed(Feed):
             asked += 1
             if isinstance(paths, Exception):
                 unanswered += 1
+                unchecked.update(ids)
                 logger.warning("watch: no alert lookup for a subscribed place: %s", paths)
                 continue
             for path in paths:
@@ -240,6 +253,7 @@ class WorldWarningsFeed(Feed):
                         self._alerts[path] = parse_cap(self._document(path))
                     except Exception as exc:
                         unread += 1
+                        unchecked.update(ids)  # what is in effect here was not all read
                         logger.warning("watch: could not read the alert %s: %s", path, exc)
                         continue
                 row = rows.setdefault(path, {**self._alerts[path], "path": path, "place_ids": []})
@@ -254,8 +268,9 @@ class WorldWarningsFeed(Feed):
         self._alerts = {path: alert for path, alert in self._alerts.items() if path in rows}
         frame = pd.DataFrame(list(rows.values()), columns=self._COLUMNS)
         frame.attrs.update(
-            places=asked - unanswered, unanswered=unanswered, unread=unread, beyond=beyond
-        )
+            places=asked - unanswered, unanswered=unanswered, unread=unread, beyond=beyond,
+            unchecked_places=frozenset(unchecked),
+        )  # fmt: skip
         return frame
 
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
@@ -282,7 +297,8 @@ class WorldWarningsFeed(Feed):
                 Finding(
                     feed=self.name,
                     kind="cap_alert",
-                    subject=str(row.identifier or row.path),
+                    # The warning, not the message: an update has a new identifier.
+                    subject=str(row.thread or row.identifier or row.path),
                     severity=self.SEVERITY.get(str(row.severity), Severity.NOTABLE),
                     headline=(
                         f"{event}: {_shorten(str(row.area), 90)}"
@@ -328,8 +344,10 @@ class WorldWarningsFeed(Feed):
                 f"{self.MAX_PLACES} one read looks up"
             )
         return Judgment(
-            findings, summary, None, len(frame), len(frame), partial=bool(unanswered or unread)
-        )
+            findings, summary, None, len(frame), len(frame),
+            partial=bool(unanswered or unread),
+            unchecked_places=frozenset(frame.attrs.get("unchecked_places", ())),
+        )  # fmt: skip
 
     review_after = timedelta(minutes=30)
     review_until = timedelta(days=2)
@@ -341,7 +359,7 @@ class WorldWarningsFeed(Feed):
             (
                 p
                 for p, alert in self._alerts.items()
-                if alert.get("identifier") == finding.get("subject")
+                if finding.get("subject") in (alert.get("thread"), alert.get("identifier"))
             ),
             "",
         )

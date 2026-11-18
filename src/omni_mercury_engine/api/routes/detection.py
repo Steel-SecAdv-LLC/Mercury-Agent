@@ -345,6 +345,9 @@ async def detect_neurosymbolic(
                 surface="api.detect_neurosymbolic",
                 operation="neuro-symbolic anomaly detection over caller-supplied records",
                 request=_record_text(request.data),
+                # The whole of what was sent, as well: text nested inside a
+                # record, or in a list value, is in neither of the above.
+                payload=request.data,
             )
         )
 

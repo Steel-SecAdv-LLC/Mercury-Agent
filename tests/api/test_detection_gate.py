@@ -98,3 +98,25 @@ def test_neurosymbolic_refuses_uplift_buried_past_summary_cap(client: TestClient
     )
     resp = _post(client, {"data": data})
     assert resp.status_code == 403, f"uplift in record #61 bypassed the gate: {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {"meta": {"note": _UPLIFT["data"][0]["note"]}},
+        {"notes": ["routine", _UPLIFT["data"][0]["note"]]},
+        {"meta": {"tags": [{"text": _UPLIFT["data"][0]["note"]}]}},
+    ],
+    ids=["nested-in-a-record", "in-a-list-value", "three-levels-down"],
+)
+def test_neurosymbolic_refuses_uplift_nested_inside_a_record(
+    client: TestClient, record: dict[str, object]
+) -> None:
+    """Was: only string values one level deep were handed to the gate.
+
+    Text inside a nested mapping or a list value was in neither the folded
+    ``request`` nor any payload, so the gate scored nothing and permitted it.
+    """
+    resp = _post(client, {"data": [{"value": 1.0}, record]})
+
+    assert resp.status_code == 403, f"nested uplift bypassed the gate: {resp.status_code}"

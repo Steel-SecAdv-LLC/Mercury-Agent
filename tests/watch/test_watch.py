@@ -778,7 +778,7 @@ class TestWatcher:
         leading, standby = _Scripted([storm]), _Scripted([storm])
         first = Watcher(store, [leading], clock=lambda: NOW)
         second = Watcher(store, [standby], clock=lambda: NOW)
-        assert first.leads() is True  # the first watch is running
+        assert first.reads(leading) is True  # the first watch is reading this feed
 
         ticks = [0]
 

@@ -43,7 +43,7 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
     if (directory / "watch.sqlite").exists():
         store = open_store(directory)
         statuses = store.statuses()
-        findings = store.findings(limit=limit, open_only=open_only)
+        findings = store.overview(limit=limit, open_only=open_only)
         tally = store.track_record()
         telling.update(subscribers=store.subscriber_count(), **store.delivery_counts())
         telling.update(configured_channels())
@@ -51,7 +51,9 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
     # where a subscriber is. It goes to that subscriber, not to everyone who opens the
     # page. Being rated severe used to exempt it, which published a foreign authority's
     # Extreme alert, with its area, on the strength of one subscriber's place there.
-    findings = [shown for shown in map(public_view, findings) if shown is not None]
+    # The limit comes after that: taken first, sixty private alerts seen on the
+    # latest read left a public flood out of a page of fifty.
+    findings = [shown for shown in map(public_view, findings) if shown is not None][:limit]
     seen = {status["feed"] for status in statuses}
     for name, feed in sorted(FEEDS.items()):
         if name not in seen:

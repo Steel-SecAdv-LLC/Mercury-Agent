@@ -121,7 +121,9 @@ A finding is delivered to the people it concerns.
   `--code …`. A code is good for ten minutes and five wrong guesses. At most
   one code a minute and five a day are sent for an address, and to a number
   whichever addresses ask; removing the number does not start the count
-  again. A code the provider could not be reached to send is not counted.
+  again. A code the provider could not be reached to send is not counted. A
+  verified number goes on being texted until a replacement has been
+  confirmed with its own code.
   Texts go through the
   operator's own Twilio account: `MERCURY_SMS_TWILIO_ACCOUNT_SID`,
   `MERCURY_SMS_TWILIO_AUTH_TOKEN`, and `MERCURY_SMS_FROM` (a number the
@@ -146,9 +148,13 @@ A finding is delivered to the people it concerns.
 Each message says what happened, where and how far from the subscriber's
 place, what to do and whose guidance that is, the source and basis, and that
 Mercury does not issue warnings. Every delivery is recorded. A finding is
-sent to a subscriber once, and again only if it becomes more severe than what
-they were told: a flood falling from major to minor is one message, not
-three. A failed delivery is tried again after one minute, then two, four and
+sent to a subscriber once, and again only when it becomes more severe than it
+was: a flood falling from major to minor is one message, not three, and one
+that falls and later climbs back is told again. An address with several
+places is sent a finding once, whichever place it is nearest. A warning is
+one finding across its updates: the National Weather Service and other
+authorities give each update a new identifier, and the finding follows the
+warning, not the message. A failed delivery is tried again after one minute, then two, four and
 so on up to an hour apart, twelve attempts over about six hours while the
 finding stands, and is counted as failed, never dropped silently. A finding
 that happens somewhere and arrives without its coordinates goes only to
@@ -173,9 +179,13 @@ for it.
 Any process that opens the store may run a watch: each worker of
 `mercury-agent serve --workers 4` does when `MERCURY_WATCH_ENABLED=true`, and
 so does `mercury-agent watch` beside a server. One of them holds the store's
-lease and does the reading and the sending; the others stand by, tell their
-own open consoles what it finds, and take over
-when it stops, or 15 minutes after it last renewed. The store is one SQLite
+lease for telling people and does the sending; each feed has its own lease
+and is read by whichever watch holds it, so a `mercury-agent watch --feed
+earthquakes` beside a server leaves the server reading the rest. A watch that
+has no way of telling anyone does not take the lease for telling. The others
+tell their own open consoles what is found, and take over a lease when its
+holder stops (it gives them up at once on shutdown) or 15 minutes after it
+last renewed. The store is one SQLite
 file, so this holds for processes that share its directory on one host.
 Replicas that each have their own directory are each a separate watch with
 its own subscribers: run the watch in one place and point `MERCURY_WATCH_DIR`

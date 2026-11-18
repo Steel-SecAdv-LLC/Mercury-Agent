@@ -59,6 +59,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import re
 from collections import deque
 from collections.abc import Mapping as _Mapping
 from dataclasses import dataclass, field
@@ -133,6 +134,16 @@ _MAX_PAYLOAD_DEPTH = 6
 #: Types that are numbers and nothing else (a subclass could carry text).
 _NUMBERS: frozenset[type] = frozenset({int, float, bool, complex, type(None)})
 
+#: Plain containers of values, a dict's keys, values and items as views among them.
+_SEQUENCES: tuple[type, ...] = (
+    list, tuple, set, frozenset, deque,
+    type({}.keys()), type({}.values()), type({}.items()),
+)  # fmt: skip
+
+#: Two letters together. A string without them (a timestamp, an id of digits,
+#: a number written out) has no word in it for the gate to read.
+_WORD = re.compile(r"[^\W\d_]{2}")
+
 
 class UnassessableSubjectError(ValueError):
     """The decision carries more than the gate can read; it must be refused."""
@@ -164,17 +175,35 @@ def _object_text(payload: Any) -> list[Any] | None:
         if hasattr(type(payload), "dtypes") and hasattr(type(payload), "columns"):  # a frame
             names = list(payload.columns)
             values: list[Any] = [str(name) for name in names]
+            values.extend(_index_text(payload))
             for name in names:
                 column = payload[name]
-                if getattr(getattr(column, "dtype", None), "kind", "O") in "OUST":
+                if getattr(getattr(column, "dtype", None), "kind", "O") in _TEXT_KINDS:
                     values.extend(_as_list(column))
             return values
         kind = getattr(getattr(payload, "dtype", None), "kind", None)
         if not isinstance(kind, str):
             return None
-        return [_as_list(payload)] if kind in "OUST" else []
+        # "V" is a structured array: its fields can be strings.
+        held = [_as_list(payload)] if kind in _TEXT_KINDS else []
+        return held + _index_text(payload)
     except Exception:
         return None
+
+
+#: dtype kinds that can hold text: object, unicode, bytes, the string dtype, and
+#: structured records.
+_TEXT_KINDS = "OUSTV"
+
+
+def _index_text(labelled: Any) -> list[Any]:
+    """The row labels of a frame or a series, when they can hold text."""
+    index = getattr(labelled, "index", None)
+    if index is None or callable(index):
+        return []
+    if getattr(getattr(index, "dtype", None), "kind", "O") not in _TEXT_KINDS:
+        return []
+    return [_as_list(index)]
 
 
 def _as_list(values: Any) -> list[Any]:
@@ -209,6 +238,7 @@ def payload_text(payload: Any) -> list[str]:
     # seen". A payload of two models or two string arrays was read as the
     # first alone, and whatever the second said went through unread.
     seen: dict[int, Any] = {}
+    read: set[str] = set()
     stack: list[tuple[Any, int]] = [(payload, 0)]
     while stack:
         value, depth = stack.pop()
@@ -223,7 +253,12 @@ def payload_text(payload: Any) -> list[str]:
         if isinstance(value, (bytes, bytearray, memoryview)):
             value = bytes(value).decode("utf-8", errors="replace")
         if isinstance(value, str):
-            if value:
+            # Read once, however often it occurs, and only if it could hold a
+            # word. The keys of 45,000 records are three strings, and 60,000
+            # timestamps are no text at all; counted each time they filled
+            # the reading budget and a table of numbers was refused.
+            if value not in read and _WORD.search(value):
+                read.add(value)
                 chars += len(value)
                 if chars > MAX_ASSESSED_CHARS:
                     raise UnassessableSubjectError(
@@ -238,15 +273,16 @@ def payload_text(payload: Any) -> list[str]:
         children: list[Any] | None
         if isinstance(value, _Mapping):
             children = [part for item in value.items() for part in item]
-        elif isinstance(value, (list, tuple, set, frozenset, deque)):
+        elif isinstance(value, _SEQUENCES):
             # A sequence of nothing but numbers has no words in it. Its types
             # are checked in one pass at C speed instead of visiting every
             # element here (a 1,000 x 1,000 list of floats cost 170 ms a
             # decision); eight of them count as one value walked.
-            if set(map(type, value)) <= _NUMBERS:
-                nodes += len(value) // 8
+            items: Any = value
+            if set(map(type, items)) <= _NUMBERS:
+                nodes += len(items) // 8
                 continue
-            children = list(value)
+            children = list(items)
         else:
             children = _object_text(value)
         if not children:

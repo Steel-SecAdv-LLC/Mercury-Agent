@@ -419,7 +419,7 @@ class TestTheGateReadsEverythingTheCallerSaid:
         models = [Record(note="hello"), Record(note=hidden)]
         arrays = {"a": np.array(["hello", "x"]), "b": np.array([hidden, "y"])}
 
-        assert payload_text(models) == ["note", "hello", "note", hidden]  # keys are text too
+        assert payload_text(models) == ["note", "hello", hidden]  # keys are text; each once
         assert hidden in payload_text(arrays)
         assert _blocked(_subject("", payload=models))
         assert _blocked(_subject("", payload=arrays))
@@ -440,6 +440,56 @@ class TestTheGateReadsEverythingTheCallerSaid:
             """A number that is not only a number is walked, not waved through."""
 
         assert payload_text([Shouts(1.0), 2.0]) == []
+
+    def test_a_large_table_is_not_refused_for_its_column_names_or_timestamps(self) -> None:
+        """Was: 45,000 numeric records, and 60,000 timestamps, refused as a harm-uplift violation.
+
+        Every key of every record and every string cell counted toward the
+        reading budget. A text is now read once however often it occurs, and
+        a string with no two letters together (a timestamp) is not text.
+        """
+        import pandas as pd
+
+        records = [{"temperature": 20.0 + i, "pressure": 1013.0} for i in range(45_000)]
+        stamped = pd.DataFrame(
+            {
+                "when": pd.date_range("2024-01-01", periods=60_000, freq="min").astype(str),
+                "value": np.arange(60_000.0),
+            }
+        )
+
+        assert payload_text(records) == ["temperature", "pressure"]
+        assert payload_text(stamped) == ["when", "value"]
+        assert not _blocked(_subject("find anomalies", payload=records))
+        assert not _blocked(_subject("find anomalies", payload=stamped))
+
+    @pytest.mark.parametrize(
+        "hide",
+        [
+            pytest.param(
+                lambda u: np.array([(1.0, u)], dtype=[("v", "f8"), ("note", "U200")]),
+                id="a-field-of-a-structured-array",
+            ),
+            pytest.param(lambda u: {"a": u}.values(), id="a-dict-values-view"),
+            pytest.param(lambda u: {u: 1.0}.keys(), id="a-dict-keys-view"),
+            pytest.param(lambda u: {"a": u}.items(), id="a-dict-items-view"),
+        ],
+    )
+    def test_more_places_text_was_not_read(self, hide: Any) -> None:
+        """Was: each of these yielded no text at all."""
+        uplift = RED_TEAM_REQUESTS[0]
+
+        assert uplift in payload_text(hide(uplift))
+        assert _blocked(_subject("", payload=hide(uplift)))
+
+    def test_the_row_labels_of_a_frame_and_a_series_are_read(self) -> None:
+        import pandas as pd
+
+        uplift = RED_TEAM_REQUESTS[0]
+
+        assert _blocked(_subject("", payload=pd.DataFrame({"v": [1.0]}, index=[uplift])))
+        assert _blocked(_subject("", payload=pd.Series([1.0], index=[uplift])))
+        assert not _blocked(_subject("", payload=pd.DataFrame({"v": [1.0, 2.0]})))  # 0, 1
 
     def test_an_object_the_gate_cannot_read_is_its_type_name_not_a_refusal(self) -> None:
         """Reading more must not make an odd object a way to have a decision refused.

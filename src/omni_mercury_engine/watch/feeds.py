@@ -63,6 +63,11 @@ class Judgment:
         partial: The read could not look at everything it covers (a lookup
             failed). What it does not show may only be what it could not
             see, so no standing finding is ended on its account.
+        unchecked_places: When the read knows exactly which subscribed
+            places it could not look at, their ids. Then only findings in
+            effect at those places are kept standing; everything else the
+            read no longer shows is ended. Without this one failed lookup
+            in 250 kept every expired warning of the feed "standing".
     """
 
     findings: list[Finding] = field(default_factory=list)
@@ -71,6 +76,7 @@ class Judgment:
     readings: int = 0
     subjects: int = 0
     partial: bool = False
+    unchecked_places: frozenset[int] = frozenset()
 
 
 class Feed:
@@ -162,6 +168,28 @@ def _utc(value: Any) -> datetime:
     stamp = stamp.tz_localize("UTC") if stamp.tzinfo is None else stamp.tz_convert("UTC")
     moment: datetime = stamp.to_pydatetime()
     return moment
+
+
+def _alert_thread(identifier: str, references: Any) -> str:
+    """The id of the first message of the warning this message belongs to.
+
+    A CAP update or cancellation carries a new identifier and ``references``
+    to the messages before it. The earliest of those is the same for every
+    message of one warning, so it names the warning. ``references`` is a
+    list of mappings as the National Weather Service's API gives it, or the
+    CAP text itself: space-separated ``sender,identifier,sent`` triples.
+    """
+    earlier: list[tuple[str, str]] = []
+    if isinstance(references, str):
+        for triple in references.split():
+            parts = triple.split(",")
+            if len(parts) >= 3 and parts[1]:
+                earlier.append((parts[-1], ",".join(parts[1:-1])))
+    elif isinstance(references, list):
+        for reference in references:
+            if isinstance(reference, dict) and reference.get("identifier"):
+                earlier.append((str(reference.get("sent") or ""), str(reference["identifier"])))
+    return min(earlier)[1] if earlier else identifier
 
 
 def _out_of_bounds(exc: Exception) -> bool:
@@ -305,6 +333,21 @@ class EarthquakeFeed(Feed):
                 logger.warning("watch: no felt extent for %s: %s", subject, exc)
         return read
 
+    def _subject(self, row: pd.Series, when: datetime, now: datetime) -> str:
+        """The id an earthquake is recorded under: the one it already has here, if any.
+
+        USGS lists every id an event is known by and prefers one, and the
+        preferred one can change when another network's solution takes over.
+        Recorded under whichever was preferred at each read, one earthquake
+        would be two findings and two messages.
+        """
+        preferred = str(row.get("event_id") or "") or when.isoformat()
+        known = [alias for alias in str(row.get("event_ids") or "").split(",") if alias]
+        if self._store is None or len(known) < 2:
+            return preferred
+        recorded = {str(f["subject"]) for f in self._store.standing(feed=self.name, now=now)}
+        return next((alias for alias in [preferred, *known] if alias in recorded), preferred)
+
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         if frame.empty:
             return Judgment(summary="USGS lists no earthquake in the past hour")
@@ -328,7 +371,7 @@ class EarthquakeFeed(Feed):
                 Finding(
                     feed=self.name,
                     kind="earthquake",
-                    subject=str(row.get("event_id") or f"{when.isoformat()}"),
+                    subject=self._subject(row, when, now),
                     severity=severity,
                     headline=f"Magnitude {magnitude:.1f} earthquake, {place}",
                     detail=(
@@ -983,7 +1026,7 @@ class WarningsFeed(Feed):
     #: Distinct places looked up per read. Each is one request to the Service.
     MAX_PLACES: ClassVar[int] = 250
     _COLUMNS: ClassVar[list[str]] = [
-        "id", "event", "severity", "urgency", "certainty", "area", "headline",
+        "id", "thread", "event", "severity", "urgency", "certainty", "area", "headline",
         "instruction", "sender", "sent", "until", "place_ids",
     ]  # fmt: skip
 
@@ -1021,6 +1064,7 @@ class WarningsFeed(Feed):
                 identifier,
                 {
                     "id": identifier,
+                    "thread": _alert_thread(identifier, alert.get("references")),
                     "event": str(alert.get("event") or "Alert"),
                     "severity": str(alert.get("severity") or "Unknown"),
                     "urgency": str(alert.get("urgency") or ""),
@@ -1049,6 +1093,9 @@ class WarningsFeed(Feed):
         # Extreme ones included, for as long as that place was subscribed.
         beyond = max(0, len(points) - self.MAX_PLACES)
         asked = unanswered = 0
+        unchecked: set[int] = {
+            place for ids in list(points.values())[self.MAX_PLACES :] for place in ids
+        }
         for point, ids in list(points.items())[: self.MAX_PLACES]:
             try:
                 here = self._alerts({"status": "actual", "point": f"{point[0]},{point[1]}"})
@@ -1058,6 +1105,7 @@ class WarningsFeed(Feed):
                     continue
                 asked += 1
                 unanswered += 1
+                unchecked.update(ids)
                 logger.warning("watch: no alert lookup for a subscribed place: %s", exc)
                 continue
             asked += 1
@@ -1075,6 +1123,7 @@ class WarningsFeed(Feed):
         frame.attrs["places_unanswered"] = unanswered
         frame.attrs["places_beyond"] = beyond
         frame.attrs["places_outside"] = sum(1 for point in subscribed if point in self._outside)
+        frame.attrs["unchecked_places"] = frozenset(unchecked)
         return frame
 
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
@@ -1095,8 +1144,12 @@ class WarningsFeed(Feed):
                 f"; {_count(beyond, 'place')} NOT checked: more are subscribed than the "
                 f"{self.MAX_PLACES} one read looks up"
             )
+        unchecked = frozenset(frame.attrs.get("unchecked_places", ()))
         if frame.empty:
-            return Judgment([], f"no alert in effect{watched}", None, 0, 0, partial=unanswered > 0)
+            return Judgment(
+                [], f"no alert in effect{watched}", None, 0, 0,
+                partial=unanswered > 0, unchecked_places=unchecked,
+            )  # fmt: skip
         findings = []
         for row in frame.itertuples(index=False):
             here = tuple(int(place) for place in row.place_ids)
@@ -1111,7 +1164,11 @@ class WarningsFeed(Feed):
                 Finding(
                     feed=self.name,
                     kind="nws_alert",
-                    subject=str(row.id),
+                    # The warning, not the message. The Service gives every update
+                    # of a warning a new id (194 of the 517 alerts in effect on
+                    # 2026-11-17 were updates, one of them the twelfth), and
+                    # keyed by message each one was told as a new alert.
+                    subject=str(row.thread),
                     severity=self.SEVERITY.get(str(row.severity), Severity.NOTABLE),
                     headline=f"{row.event}: {_shorten(str(row.area), 90)}",
                     detail=(
@@ -1149,7 +1206,10 @@ class WarningsFeed(Feed):
         at_places = sum(1 for finding in findings if finding.place_ids)
         if at_places:
             summary += f"; {at_places} in effect at subscribed places"
-        return Judgment(findings, summary, None, len(frame), len(frame), partial=unanswered > 0)
+        return Judgment(
+            findings, summary, None, len(frame), len(frame),
+            partial=unanswered > 0, unchecked_places=unchecked,
+        )  # fmt: skip
 
     review_after = timedelta(minutes=30)
     review_until = timedelta(days=2)
@@ -1214,24 +1274,41 @@ class DeclarationFeed(Feed):
     RECENT_DAYS: ClassVar[int] = 3
 
     def read(self) -> pd.DataFrame:
-        return pd.DataFrame(self._loader("FEMAActivityLoader").fetch_realtime())
+        # With the end of the year before, while this one is young: the feed
+        # looks back three days and checks its findings for fourteen.
+        return pd.DataFrame(
+            self._loader("FEMAActivityLoader").fetch_realtime(
+                days_before_year=self.review_until.days
+            )
+        )
 
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         if frame.empty:
             return Judgment(summary="OpenFEMA returned no record for this year")
         frame = frame.sort_values("timestamp").reset_index(drop=True)
         days = pd.to_datetime(frame["timestamp"], utc=True)
+        this_year = (days.dt.year == pd.Timestamp(now).year).to_numpy()
         counts = frame["designations"].astype(float)
         week = counts.rolling(7, min_periods=1).sum()
         recent = frame[days >= pd.Timestamp(now).floor("D") - pd.Timedelta(days=self.RECENT_DAYS)]
         declared = recent[recent["designations"] > 0]
         findings = []
         if not declared.empty:
-            total = int(declared["designations"].sum())
-            states = int(declared["states"].max())
             when = _utc(pd.to_datetime(declared["timestamp"], utc=True).max())
+            # The days the finding says it counts: the three to the latest
+            # declaration. It used to count the three to today while saying
+            # "to" the declaration's day, and its review, which re-reads the
+            # days it says, then called an unchanged record "revised".
+            told = self._days_to(frame, days, pd.Timestamp(when))
+            total = int(told["designations"].sum())
+            states = int(told["states"].max())
             this_week = float(week.iloc[-1])
-            busiest = this_week >= float(week.iloc[:-7].max()) if len(week) > 7 else False
+            # More than any earlier week, and there has been one: the first
+            # declaration of a year used to tie a history of zeros and be
+            # called "the busiest week of the year".
+            weeks_this_year = week[this_year]
+            earlier = float(weeks_this_year.iloc[:-7].max()) if len(weeks_this_year) > 7 else 0.0
+            busiest = earlier > 0 and this_week > earlier
             findings.append(
                 Finding(
                     feed=self.name,
@@ -1264,7 +1341,7 @@ class DeclarationFeed(Feed):
                     ongoing=True,
                 )
             )
-        year_total = int(counts.sum())
+        year_total = int(counts[this_year].sum())
         summary = f"{year_total} tropical-cyclone designations this year; " + (
             f"{int(declared['designations'].sum())} in the past {self.RECENT_DAYS} days"
             if not declared.empty
@@ -1276,6 +1353,11 @@ class DeclarationFeed(Feed):
     review_every = timedelta(days=3)
     review_until = timedelta(days=14)
 
+    def _days_to(self, frame: pd.DataFrame, days: pd.Series, last: pd.Timestamp) -> pd.DataFrame:
+        """The rows for the :attr:`RECENT_DAYS` days up to and including ``last``'s day."""
+        end = last.floor("D")
+        return frame[(days <= end) & (days >= end - pd.Timedelta(days=self.RECENT_DAYS))]
+
     def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
         """Re-read OpenFEMA: are the same days still declared as reported."""
         frame = self.read()
@@ -1283,7 +1365,7 @@ class DeclarationFeed(Feed):
             return None
         days = pd.to_datetime(frame["timestamp"], utc=True)
         last = pd.Timestamp(finding["observed_at"]).floor("D")
-        window = frame[(days <= last) & (days >= last - pd.Timedelta(days=self.RECENT_DAYS))]
+        window = self._days_to(frame, days, last)
         if window.empty:
             return None
         total, reported = int(window["designations"].sum()), int(finding["value"])

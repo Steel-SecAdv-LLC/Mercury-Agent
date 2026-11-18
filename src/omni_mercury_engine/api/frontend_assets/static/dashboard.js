@@ -481,7 +481,9 @@ function renderWatchPhone(view) {
   document.getElementById("watch-phone-number").textContent = phone.number;
   document.getElementById("watch-phone-detail").textContent = (phone.verified
     ? "Verified · texted about: " + (WATCH_SEVERITY_WORDS[phone.min_severity] || "").toLowerCase()
-    : "Not verified yet: nothing is texted to it until you enter the code");
+    : (phone.texting
+      ? "Not verified yet. Texts still go to " + phone.texting + " until you enter the code"
+      : "Not verified yet: nothing is texted to it until you enter the code"));
   document.getElementById("watch-phone-input").value = phone.number;
   document.getElementById("watch-phone-severity").value = phone.min_severity;
 }

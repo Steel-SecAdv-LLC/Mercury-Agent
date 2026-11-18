@@ -18,7 +18,7 @@ export, and are gone before the account is.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from fastapi import FastAPI
@@ -421,7 +421,7 @@ class TestPhone:
         assert asked.status_code == 202
         assert asked.json()["sms_delivery"] is True
         assert asked.json()["phone"] == {
-            "number": NUMBER, "verified": False, "min_severity": "severe",
+            "number": NUMBER, "verified": False, "min_severity": "severe", "texting": None,
         }  # fmt: skip
         ((to, body),) = texts.sent
         assert to == NUMBER and "good for 10 minutes" in body
@@ -451,7 +451,7 @@ class TestPhone:
 
         assert changed.status_code == 202 and len(texts.sent) == 1
         assert changed.json()["phone"] == {
-            "number": NUMBER, "verified": True, "min_severity": "notable",
+            "number": NUMBER, "verified": True, "min_severity": "notable", "texting": None,
         }  # fmt: skip
 
     def test_codes_cannot_be_asked_for_faster_than_one_a_minute(
@@ -600,7 +600,7 @@ class TestWhatTheReviewFound:
         service = AuthService(InMemoryIdentityStore(), mailer, on_email_changed=locked)
         real = service._auditor.record
 
-        def record(event: str, **details: object) -> object:
+        def record(event: str, **details: Any) -> Any:
             recorded.append((event, str(details.get("outcome", ""))))
             return real(event, **details)
 

@@ -53,8 +53,10 @@ SERVICE_SID_ENV = "MERCURY_SMS_TWILIO_MESSAGING_SERVICE_SID"
 
 #: Twilio: "Attempt to send to unsubscribed recipient" (the owner replied STOP).
 _OPTED_OUT = 21610
-#: A text is at most this long: two segments of the 7-bit alphabet.
-MAX_TEXT = 320
+#: A text is at most this long: two segments. A message in the 7-bit GSM
+#: alphabet that is longer than one segment (160) is sent as segments of 153,
+#: so two are 306 characters; the old limit of 320 was three.
+MAX_TEXT = 306
 
 
 class SmsRefusedError(RuntimeError):
@@ -135,7 +137,8 @@ class TwilioSms:
         """
         import requests
 
-        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
         if not E164.fullmatch(to):
             raise ValueError("a phone number must be written like +14155550123")
@@ -151,8 +154,10 @@ class TwilioSms:
             code, reason = _twilio_error(exc)
             kind = SmsOptedOutError if code == _OPTED_OUT else SmsRefusedError
             raise kind(reason, code) from None
-        except (requests.RequestException, OSError) as exc:
-            # The exception's own text can quote the request; its kind is enough.
+        except (requests.RequestException, OSError, UnsafeURLError, OfflineModeError) as exc:
+            # A name that does not resolve and offline mode are refused by the
+            # egress gate before any request: nothing left either. The
+            # exception's own text can quote the request; its kind is enough.
             raise SmsUnreachableError(
                 f"Twilio could not be reached ({type(exc).__name__})"
             ) from None
@@ -217,5 +222,7 @@ def text_message(
     parts.append("In an emergency call your emergency number.")
     text = " ".join(parts)
     if len(text) > MAX_TEXT:
-        text = text[: MAX_TEXT - 1].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+        # Three full stops, not the ellipsis character: that one is outside the
+        # GSM alphabet and turns the whole message into 16-bit segments of 67.
+        text = text[: MAX_TEXT - 3].rsplit(" ", 1)[0].rstrip(",;:.") + "..."
     return text

@@ -375,6 +375,7 @@ class EarthquakeLoader(BaseDomainLoader):
                     "magnitude",
                     "place",
                     "event_id",
+                    "event_ids",
                 ]
             )
 
@@ -391,6 +392,9 @@ class EarthquakeLoader(BaseDomainLoader):
                     "magnitude": props.get("mag"),
                     "place": props.get("place", ""),
                     "event_id": feature.get("id", ""),
+                    # Every id the event is known by. USGS's preferred id (above)
+                    # can change when another network's solution takes over.
+                    "event_ids": str(props.get("ids") or "").strip(","),
                 }
             )
 

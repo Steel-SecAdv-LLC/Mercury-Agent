@@ -4,12 +4,12 @@
   "inputs": {
    "research/adversarial/served_routes.py": "b108ced1a10d391486f61ba839d921aadd908e0a",
    "src/omni_mercury_engine/api/fusion_weights.py": "411ff9dfab39c5f51e8167b9e32cfe81f8f19c94",
-   "src/omni_mercury_engine/api/routes/detection.py": "313ec3dd5a200846609dbdf23ee27625fd8e3831",
+   "src/omni_mercury_engine/api/routes/detection.py": "13b48bde8763c148357de5a31cecbd878964645f",
    "src/omni_mercury_engine/api/routes/batch.py": "360e62ab8f50d3e0edb2d67669a1e41f25bf7218",
    "src/omni_mercury_engine/api/server.py": "c3024c76468b7659382fa9fa38b05806ae12c737",
-   "src/omni_mercury_engine/detectors/detection_tier.py": "8c08bfc389c5ef1a991187ece96612654b981e20"
+   "src/omni_mercury_engine/detectors/detection_tier.py": "c63c06ca26612f7b16337f48ba2f48c5037648fb"
   },
-  "commit": "78fda78d3f9ec2934aa5dbdcc4f6e452f2b79e6a",
+  "commit": "748ec32d7cea9e954335e4bbc0fe4fe7c51ac7b9",
   "n": 300,
   "seeds": [
    0,
