@@ -530,14 +530,8 @@ def _payload_readings(payload: Any) -> tuple[list[str], list[str]]:
             :data:`MAX_ASSESSED_NODES`, or nests deeper, in containers or in
             objects, than :data:`_MAX_TEXT_DEPTH`.
     """
-    # What is read, in the order it is read. A key's place is kept open
-    # (``None``) until what it names has been read: see ``_KEY_CLOSES``.
-    found: list[str | None] = []
-    is_key: list[bool] = []  # of each entry of ``found``
-    field: list[tuple[Any, ...]] = []  # of each entry, the keys it lies under
-    chars = 0
+    reader = _Reader()
     nodes = 0
-    emitted = 0
     # Containers already read, by identity -- and held, not just their ids. A
     # set of bare ids was wrong: the dict a model dumps to and the list an
     # array converts to are made here and freed as soon as they are read, the
@@ -545,53 +539,22 @@ def _payload_readings(payload: Any) -> tuple[list[str], list[str]]:
     # seen". A payload of two models or two string arrays was read as the
     # first alone, and whatever the second said went through unread.
     seen: dict[int, Any] = {}
-    read: dict[str, int] = {}
-    under: tuple[Any, ...] = ()
-    opened: list[tuple[int, int, tuple[Any, ...]]] = []  # a key's place, and what stood then
-
-    def once(label: str) -> bool:
-        """Whether a label is still to be read: once, a short one a few times over."""
-        times = read.get(label, 0)
-        if times < 0 or times >= (_REPEATS if len(label) <= _SHORT_STRING else 1):
-            return False
-        wanted = _holds_a_word(label)
-        read[label] = times + 1 if wanted else -1
-        return wanted
-
+    named = False  # whether the value now read is what a key of a record names
     # Each value, how deep it lies, and whether it is inside a table.
     stack: list[tuple[Any, int, bool]] = [(payload, 0, False)]
     while stack:
         value, depth, table = stack.pop()
         if type(value) is _Names:
-            opened.append((len(found), emitted, under))
-            under = (*under, value.key)
-            found.append(None)
-            is_key.append(True)
-            field.append(under)
+            reader.open_key(value.key)
+            named = True
             continue
         if value is _KEY_CLOSES:
-            # A key is read beside what it names, each time that says
-            # anything: the field "how to make" was read once for 400
-            # records, and the record that named an agent under it was
-            # permitted. Beside what says nothing new (numbers; labels read
-            # already) it is a label itself: the keys of 45,000 records of
-            # readings are three strings, and counted each time they filled
-            # the reading budget and a table of numbers was refused. Asked
-            # after its value is read, not guessed before.
-            key = under[-1]
-            place, before, under = opened.pop()
-            if not isinstance(key, str):
-                continue
-            spoken = _holds_a_word(key) if emitted > before else once(key)
-            if spoken:
-                found[place] = key
-                emitted += 1
-                chars += len(key)
-                if chars > MAX_ASSESSED_CHARS:
-                    raise UnassessableSubjectError(
-                        f"the payload holds more than {MAX_ASSESSED_CHARS:,} characters of text"
-                    )
+            reader.close_key()
             continue
+        if value is _RECORD_CLOSES:
+            reader.close_record()
+            continue
+        direct, named = named, False
         nodes += 1
         if nodes > MAX_ASSESSED_NODES:
             raise UnassessableSubjectError(
@@ -607,22 +570,12 @@ def _payload_readings(payload: Any) -> tuple[list[str], list[str]]:
             # it occurs, in the order given: "how", "to" and "make" came
             # round again further down a list of words, were passed over as
             # read already, and the request they opened was permitted.
-            if once(value) if table else _holds_a_word(value):
-                found.append(value)
-                is_key.append(False)
-                field.append(under)
-                emitted += 1
-                chars += len(value)
+            if reader.once(value) if table else _holds_a_word(value):
+                reader.say(value)
             elif value in _A_SPACE and not table:
                 # No word, and the gap between two: a request kept a letter
                 # to a record keeps its spaces the same way.
-                found.append(value)
-                is_key.append(False)
-                field.append(under)
-            if chars > MAX_ASSESSED_CHARS:
-                raise UnassessableSubjectError(
-                    f"the payload holds more than {MAX_ASSESSED_CHARS:,} characters of text"
-                )
+                reader.gap(value)
             continue
         if depth >= _MAX_TEXT_DEPTH:
             raise UnassessableSubjectError(
@@ -632,17 +585,15 @@ def _payload_readings(payload: Any) -> tuple[list[str], list[str]]:
             continue
         seen[id(value)] = value
         if isinstance(value, _Mapping) and not table:
-            if set(map(type, value.values())) <= _NUMBERS:
-                # A record of numbers, which is most records: its keys name
-                # nothing that says anything, and are labels.
-                for key in value:
-                    if isinstance(key, str) and once(key):
-                        found.append(key)
-                        is_key.append(True)
-                        field.append((*under, key))
-                        emitted += 1
-                        chars += len(key)
+            words: list[str] = []
+            numbers = _record_of_numbers(value, words, 4) if type(value) is dict else None
+            if numbers is not None:
+                # A record of numbers, which is most records: known for one
+                # without a visit to each thing in it.
+                reader.silent_record(numbers, words, direct)
                 continue
+            reader.open_record(tuple(key for key in value if isinstance(key, str)), direct)
+            stack.append((_RECORD_CLOSES, depth, table))
             for key, held in reversed(list(value.items())):
                 stack += (
                     (_KEY_CLOSES, depth, table),
@@ -669,14 +620,42 @@ def _payload_readings(payload: Any) -> tuple[list[str], list[str]]:
             if children is None:
                 continue
         stack.extend((child, depth + 1, table) for child in reversed(children))
-    return _with_what_keys_kept_apart(found, is_key, field)
+    return _with_what_keys_kept_apart(reader.found, reader.is_key, reader.field)
 
 
+def _record_of_numbers(record: dict[Any, Any], words: list[str], deep: int) -> Any:
+    """What ``record`` is, keys and all, when nothing in it says anything; else ``None``.
+
+    Numbers, strings no word could be in, lists of numbers, and records of
+    the same inside it. Its keys that could hold a word are added to
+    ``words`` in the order they stand.
+    """
+    inside = []
+    for key, held in record.items():
+        if isinstance(key, str) and _holds_a_word(key):
+            words.append(key)
+        kind = type(held)
+        if kind in _NUMBERS:
+            continue
+        if kind is str:
+            if held in _A_SPACE or _holds_a_word(held):
+                return None
+        elif kind is dict and deep:
+            within = _record_of_numbers(held, words, deep - 1)
+            if within is None:
+                return None
+            inside.append(within)
+        elif kind not in (list, tuple) or not set(map(type, held)) <= _NUMBERS:
+            return None
+    return tuple(key for key in record if isinstance(key, str)), tuple(inside)
+
+
+_NUMBERS_AND_STRINGS = _NUMBERS | {str}
 _A_SPACE = frozenset(" \t\n")
 
 
 class _Names:
-    """Stands on the stack of :func:`payload_text` before what ``key`` names."""
+    """Stands on the stack of :func:`_payload_readings` before what ``key`` names."""
 
     __slots__ = ("key",)
 
@@ -684,8 +663,152 @@ class _Names:
         self.key = key
 
 
-#: Stands on that stack after it.
+#: Stand on that stack after what a key names, and after a record.
 _KEY_CLOSES: Any = object()
+_RECORD_CLOSES: Any = object()
+
+
+class _Record:
+    """A record being read: a dict a caller wrote, not a row of a table."""
+
+    __slots__ = ("before", "header", "nested", "parts", "waiting")
+
+    def __init__(self, header: tuple[str, ...], before: int, nested: bool) -> None:
+        self.header = header
+        #: How much had been read when it was opened.
+        self.before = before
+        #: Whether it is what a key of another record names.
+        self.nested = nested
+        #: Of the records it holds that said nothing: their keys, and theirs.
+        self.parts: list[Any] = []
+        #: Its keys whose values said nothing, and the place kept for each.
+        self.waiting: list[tuple[int | None, str]] = []
+
+
+class _Reader:
+    """What :func:`_payload_readings` has read, and the rule for reading a record's keys.
+
+    A record that says anything is read with every one of its keys, each
+    where it stands. Read as labels, once each, "how to make" beside a count
+    was read for the first of 400 records and not in the record that named
+    an agent in its next field, nor in the one that named it in its next
+    key; and words kept one to a record as keys were dropped when they came
+    round again.
+
+    A record that says nothing (numbers, and strings no word could be in) is
+    read with its keys too, unless it is the same record, keys and all, as
+    the one before it in the same place with nothing read between: one row
+    more of a table. The keys of 45,000 rows of readings are three strings,
+    and read for each row they filled the reading budget and a table of
+    numbers was refused. The first two rows are read, so that what ends one
+    and begins the next is read side by side once.
+    """
+
+    def __init__(self) -> None:
+        #: What is read, in the order it is read. A key's place is kept
+        #: (``None``) until its record is done.
+        self.found: list[str | None] = []
+        self.is_key: list[bool] = []  # of each entry of ``found``
+        self.field: list[tuple[Any, ...]] = []  # of each entry, the keys it lies under
+        self.chars = 0
+        self.said = 0  # how many of them have been read, to ask "anything since?"
+        self.under: tuple[Any, ...] = ()
+        self._labels: dict[str, int] = {}
+        self._keys: list[tuple[int | None, int, tuple[Any, ...]]] = []
+        self._records: list[_Record] = []
+        #: Under each field, the last record that said nothing: what it was,
+        #: how many like it in a row, and how much had been read by then.
+        self._silent: dict[tuple[Any, ...], tuple[Any, int, int]] = {}
+
+    def say(self, text: str, *, key: bool = False) -> None:
+        self.found.append(text)
+        self.is_key.append(key)
+        self.field.append(self.under)
+        self._count(text)
+
+    def gap(self, space: str) -> None:
+        """A space between two letters: kept in its place, and nothing said."""
+        self.found.append(space)
+        self.is_key.append(False)
+        self.field.append(self.under)
+
+    def once(self, label: str) -> bool:
+        """Whether a label is still to be read: once, a short one a few times over."""
+        times = self._labels.get(label, 0)
+        if times < 0 or times >= (_REPEATS if len(label) <= _SHORT_STRING else 1):
+            return False
+        wanted = _holds_a_word(label)
+        self._labels[label] = times + 1 if wanted else -1
+        return wanted
+
+    def open_key(self, key: Any) -> None:
+        place = None
+        if isinstance(key, str) and _holds_a_word(key):
+            place = self._place((*self.under, key))
+        self._keys.append((place, self.said, self.under))
+        self.under = (*self.under, key)
+
+    def close_key(self) -> None:
+        key = self.under[-1]
+        place, before, self.under = self._keys.pop()
+        if place is None:
+            return
+        if self.said > before:
+            self._fill(place, key)
+        else:
+            self._records[-1].waiting.append((place, key))
+
+    def open_record(self, header: tuple[str, ...], nested: bool) -> None:
+        self._records.append(_Record(header, self.said, nested))
+
+    def close_record(self) -> None:
+        record = self._records.pop()
+        if self.said > record.before:
+            for place, key in record.waiting:
+                self._fill(place, key)
+        elif record.nested:
+            self._records[-1].parts.append((record.header, tuple(record.parts)))
+            self._records[-1].waiting += record.waiting
+        else:
+            self._settle((record.header, tuple(record.parts)), record.waiting)
+
+    def silent_record(self, record: Any, words: list[str], nested: bool) -> None:
+        """A record of numbers (:func:`_record_of_numbers`), which no visit was made to."""
+        if nested:
+            self._records[-1].parts.append(record)
+            self._records[-1].waiting += [(self._place(self.under), key) for key in words]
+        else:
+            self._settle(record, [(None, key) for key in words])
+
+    def _settle(self, record: Any, waiting: list[tuple[int | None, str]]) -> None:
+        """Read the keys of a record that said nothing, unless it repeats the one before."""
+        like = self._silent.get(self.under)
+        run = like[1] + 1 if like and like[0] == record and like[2] == self.said else 1
+        if run <= 2:
+            for place, key in waiting:
+                self._fill(place, key)
+        self._silent[self.under] = (record, run, self.said)
+
+    def _place(self, under: tuple[Any, ...]) -> int:
+        self.found.append(None)
+        self.is_key.append(True)
+        self.field.append(under)
+        return len(self.found) - 1
+
+    def _fill(self, place: int | None, key: str) -> None:
+        if place is None:
+            self.say(key, key=True)
+            return
+        self.found[place] = key
+        self._count(key)
+
+    def _count(self, text: str) -> None:
+        self.said += 1
+        self.chars += len(text)
+        if self.chars > MAX_ASSESSED_CHARS:
+            raise UnassessableSubjectError(
+                f"the payload holds more than {MAX_ASSESSED_CHARS:,} characters of text"
+            )
 
 
 def _with_what_keys_kept_apart(
