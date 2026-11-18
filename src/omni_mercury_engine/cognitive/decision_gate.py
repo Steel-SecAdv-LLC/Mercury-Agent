@@ -57,6 +57,7 @@ identical verdict" across ``detect`` / ``detect_batch`` / ``detect_biometric`` /
 
 from __future__ import annotations
 
+import collections
 import dataclasses
 import io
 import logging
@@ -64,6 +65,7 @@ import re
 import socket
 import threading
 import types
+import unicodedata
 from array import array
 from collections import UserString, deque
 from collections.abc import (
@@ -339,29 +341,61 @@ def _bytes_text(raw: bytes) -> str:
     undecodable byte becoming a replacement character: a megabyte of
     compressed or random data counted as a megabyte of text, was refused for
     its size, and below that size was scored as noise. Text is told from
-    data by what it is made of, in each encoding it could be: UTF-16 first
-    (by its byte-order mark, or by every other byte being zero: such bytes
-    are valid UTF-8 as well, letters with a NUL between each), then UTF-8,
-    then Latin-1. Bytes that are none of them give up their runs of
-    printable ASCII, as ``strings`` would.
+    data by what it decodes to. With a byte-order mark it is what the mark
+    declares. Without one it is UTF-8 when it is that. Otherwise nothing in
+    the bytes says what they are, so every reading that makes text of them
+    is read: Latin-1, UTF-16 in each byte order (:func:`_utf16_text`), and,
+    where they are not Latin-1, their runs of printable ASCII, as
+    ``strings`` would give.
+
+    Undeclared UTF-16 was recognised by every other byte being zero, which
+    is ASCII text and nothing else: the same request in full-width letters,
+    or with look-alike letters of another alphabet, or spaced with U+2000,
+    was not read, and one spaced so that the zeros fell in the other byte
+    order was read in the wrong one.
     """
     even = raw[: len(raw) - len(raw) % 2]  # a UTF-16 text cut in the middle of a unit
-    for encoding, low in _utf16_guesses(even):
-        if _is_text(low):
-            return even.decode(encoding, errors="replace")
-    if _is_text(raw):
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return even.decode("utf-16", errors="replace")
+    plain = _is_text(raw)
+    if plain:
         try:
             return raw.decode("utf-8")
         except UnicodeDecodeError:
-            if len(raw.translate(None, _LATIN1_TEXT)) * 20 <= len(raw):
-                return raw.decode("latin-1")
-    return " ".join(run.decode("ascii") for run in _PRINTABLE_RUN.findall(raw))
+            pass
+    if plain and len(raw.translate(None, _LATIN1_TEXT)) * 20 <= len(raw):
+        narrow = raw.decode("latin-1")
+    else:
+        narrow = " ".join(run.decode("ascii") for run in _PRINTABLE_RUN.findall(raw))
+    wide = [text for order in ("utf-16-le", "utf-16-be") if (text := _utf16_text(even, order))]
+    # Every reading is read, so their order decides nothing but where the
+    # passages are cut; of the two byte orders the one with more ASCII is first.
+    wide.sort(key=lambda text: -sum(ch.isascii() for ch in text[:_MAX_VALUE_CHARS]))
+    return "\n".join(text for text in (narrow, *wide) if text)
 
 
 #: Bytes that are text in Latin-1: tab, line ends, and the printable ranges.
 _LATIN1_TEXT = bytes([9, 10, 13, *range(0x20, 0x7F), *range(0xA0, 0x100)])
 #: Bytes no text is made of: the control codes other than tab and the line ends.
 _CONTROL = bytes([*range(0, 9), 11, 12, *range(14, 0x20), 0x7F])
+#: Characters no text is made of: control codes, and code points that are
+#: unassigned or for private use (``unicodedata`` general categories).
+_NOT_TEXT = frozenset({"Cc", "Cn", "Co", "Cs"})
+#: A UTF-16 text shorter than this many units is not recognised without a
+#: byte-order mark: any few bytes are a character or two of some alphabet.
+_MIN_UTF16_UNITS = 4
+#: A text uses few characters and uses them unevenly; numbers read as
+#: UTF-16 do neither. Half of a text is made of its this many commonest
+#: characters (Chinese, which uses most, has about three fifths of a text
+#: in its 256 commonest; 16-bit values up to 1,000 have a quarter)...
+_COMMONEST = 256
+#: ...and in a text of :data:`_LONG_ENOUGH` characters or more, the
+#: commonest is used at least this many times as often as the average one
+#: (a space in English: eleven times; counts from 0 to 9, which are a
+#: hundred characters used alike: under twice). A shorter text is too
+#: short to tell, and is read.
+_UNEVEN = 3
+_LONG_ENOUGH = 512
 
 
 def _is_text(raw: bytes) -> bool:
@@ -374,21 +408,40 @@ def _is_text(raw: bytes) -> bool:
     return (len(raw) - len(raw.translate(None, _CONTROL))) * 10 <= len(raw)
 
 
-def _utf16_guesses(raw: bytes) -> list[tuple[str, bytes]]:
-    """The UTF-16 encodings ``raw`` could be in, each with the bytes its letters would be."""
-    if raw[:2] == b"\xff\xfe":
-        return [("utf-16", raw[2::2])]
-    if raw[:2] == b"\xfe\xff":
-        return [("utf-16", raw[3::2])]
-    half = len(raw) // 2
-    if half < 4:
-        return []
-    guesses = []
-    if raw[1::2].count(0) * 10 >= half * 7:
-        guesses.append(("utf-16-le", raw[0::2]))
-    if raw[0::2].count(0) * 10 >= half * 7:
-        guesses.append(("utf-16-be", raw[1::2]))
-    return guesses
+def _utf16_text(even: bytes, order: str) -> str:
+    """``even`` read as UTF-16 in ``order``, or ``""`` when that does not make text of it.
+
+    It is text when it decodes (a buffer of numbers soon holds half of a
+    surrogate pair), when at most one character in ten is a control code or
+    a code point nothing is assigned to, and when it is written as text is:
+    in few characters (:data:`_COMMONEST`), unevenly used (:data:`_UNEVEN`).
+    A text in one byte order is as a rule also text in the other, in an
+    alphabet it was not written in, and nothing in the bytes says which was
+    meant: both are read and both are counted.
+
+    What this does not read is a text padded with thousands of different
+    characters, which is what numbers look like. Nothing tells the two apart.
+    """
+    if len(even) < 2 * _MIN_UTF16_UNITS:
+        return ""
+    try:
+        text = even.decode(order)
+    except UnicodeDecodeError as cut:
+        if cut.start < len(even) - 2:
+            return ""
+        text = even[: cut.start].decode(order)  # cut between the halves of a pair
+    counts = collections.Counter(text)
+    spoiled = sum(
+        count
+        for ch, count in counts.items()
+        if ch not in "\t\n\r" and unicodedata.category(ch) in _NOT_TEXT
+    )
+    commonest = counts.most_common(_COMMONEST)
+    if spoiled * 10 > len(text) or sum(count for _, count in commonest) * 2 < len(text):
+        return ""
+    if len(text) >= _LONG_ENOUGH and commonest[0][1] * len(counts) < _UNEVEN * len(text):
+        return ""
+    return text
 
 
 def payload_text(payload: Any) -> list[str]:
