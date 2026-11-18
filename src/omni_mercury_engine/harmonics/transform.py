@@ -106,29 +106,64 @@ class AssociatedLegendre:
             self._plm_cache.clear()
             self._cache_grid = np.array(cos_theta, copy=True)
 
+        ortho = self._normalization == "ortho"
         key = (degree, m_abs)
         if key in self._plm_cache:
             plm = self._plm_cache[key].copy()
         else:
-            plm = self._compute_plm(degree, m_abs, cos_theta)
+            # The orthonormal value is computed as such, never as the
+            # unnormalised one times a factorial ratio: see
+            # :meth:`_compute_normalised`.
+            compute = self._compute_normalised if ortho else self._compute_plm
+            plm = compute(degree, m_abs, cos_theta)
             if len(self._plm_cache) < 10000:
                 self._plm_cache[key] = plm.copy()
-
-        if self._normalization == "ortho":
-            # ``np.math`` was removed in NumPy 2.0; the stdlib module it
-            # aliased is the drop-in replacement (bit-identical results).
-            norm = np.sqrt(
-                (2 * degree + 1)
-                / (4 * np.pi)
-                * math.factorial(degree - m_abs)
-                / math.factorial(degree + m_abs)
-            )
-            plm = plm * norm
 
         if m < 0:
             plm = plm * ((-1) ** m_abs)
 
         return plm
+
+    def _compute_normalised(
+        self,
+        degree: int,
+        m: int,
+        cos_theta: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """The orthonormal P_l^m, by a recurrence on the normalised values themselves.
+
+        ``sqrt((2l+1)/(4 pi) (l-m)!/(l+m)!) P_l^m`` used to be formed as the
+        unnormalised ``P_l^m`` times that factor. Both pieces leave the range
+        of a float long before their product does: ``P_m^m`` is
+        ``(2m-1)!! sin^m``, past 1e308 from m = 151, and ``(l+m)!`` cannot be
+        converted to a float from l + m = 171. So the class that offers
+        "numerical stability for high degrees" raised ``OverflowError`` at
+        l = 150 and returned NaN before that. The normalised values are all of
+        order one, and each follows from the two below it:
+
+            N_m^m     = (-1)^m sqrt((2m+1)/(4 pi)) sqrt(prod_{k=1..m} (2k-1)/(2k)) sin^m
+            N_{m+1}^m = sqrt(2m+3) x N_m^m
+            N_l^m     = a (x N_{l-1}^m - b N_{l-2}^m)
+            a = sqrt((4 l^2 - 1)/(l^2 - m^2)),  b = sqrt(((l-1)^2 - m^2)/(4 (l-1)^2 - 1))
+
+        The sign convention (Condon-Shortley) is the one :meth:`_compute_plm` has.
+        """
+        x = np.asarray(cos_theta, dtype=np.float64)
+        sin_theta = np.sqrt(np.clip(1.0 - x**2, 0.0, None))
+
+        value = np.full_like(x, math.sqrt(1.0 / (4.0 * math.pi)))
+        for k in range(1, m + 1):
+            value = value * (-math.sqrt((2.0 * k + 1.0) / (2.0 * k))) * sin_theta
+        if degree == m:
+            return value.astype(self._dtype)
+
+        below = value
+        value = math.sqrt(2.0 * m + 3.0) * x * below
+        for ll in range(m + 2, degree + 1):
+            a = math.sqrt((4.0 * ll * ll - 1.0) / (ll * ll - m * m))
+            b = math.sqrt(((ll - 1.0) ** 2 - m * m) / (4.0 * (ll - 1.0) ** 2 - 1.0))
+            below, value = value, a * (x * value - b * below)
+        return value.astype(self._dtype)
 
     def _compute_plm(
         self,
@@ -136,7 +171,7 @@ class AssociatedLegendre:
         m: int,
         cos_theta: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Compute P_l^m using stable recurrence."""
+        """Compute the unnormalised P_l^m by recurrence (it grows without bound in l)."""
         sin_theta = np.sqrt(1 - cos_theta**2)
 
         if degree == 0 and m == 0:

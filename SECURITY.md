@@ -138,9 +138,10 @@ SlhDsaKeyPair` declarations).
 5. **Constant-Time Operation**: AMA Cryptography v5.0.0 enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use — no configuration is needed or possible. `AMA_REQUIRE_CONSTANT_TIME` is a superseded compatibility flag: setting it changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), it redundantly fails closed on an install without the native backend (which Mercury's import-time PQC gate already refuses), and Mercury reads it only for diagnostics (`security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`). Leave it unset.
 
 6. **HMAC routing (v1.7.x)**: AMA Cryptography v5.0.0 also surfaces
-   ACVP-validated HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
+   HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
    (`native_hmac_sha256`, `native_hmac_sha256_2`, `native_hmac_sha384`,
-   `native_hmac_sha512`). Mercury's `native_jwt` module routes HS256,
+   `native_hmac_sha512`), checked here against the RFC 4231 known answers;
+   no CAVP/ACVP validation is claimed (`CAPABILITY_MATRIX.md` §3). Mercury's `native_jwt` module routes HS256,
    HS384, and HS512 through these bindings with no stdlib fallback
    (fail-closed). See
    `tests/security/test_native_jwt_ama_routing.py` for the RFC 4231 KAT
@@ -153,8 +154,11 @@ SlhDsaKeyPair` declarations).
   SPHINCS+ round-trip, and ML-DSA deterministic-signing reproducibility.
 - `tests/security/test_nist_fips_kat.py` verifies bit-for-bit
   reproducibility against curated NIST ACVP-Server test vectors
-  (FIPS 203, 204, 205): ML-DSA-65 deterministic sigGen, ML-KEM-1024
-  decapsulation, SLH-DSA-SHAKE-128s sigGen. Source:
+  (FIPS 203, 204, 205): key generation for ML-DSA-65, ML-KEM-1024 and
+  SLH-DSA-SHAKE-128s, ML-DSA-65 deterministic sigGen, ML-KEM-1024
+  decapsulation and SLH-DSA-SHAKE-128s sigGen: eighteen vectors. It does not
+  reproduce the curated ML-KEM encapsulation vectors (AMA exposes no
+  derandomised encapsulation) and has none for SLH-DSA-SHA2-256f. Source:
   [usnistgov/ACVP-Server](https://github.com/usnistgov/ACVP-Server).
 
 **References:**
@@ -494,18 +498,25 @@ Mercury Agent is designed with compliance in mind:
   under-reported at low humidity — both directions removed in the
   port).
 
-### v1.7 hard-gate boundary contract
+### Hard-gate boundary contract
 
-As of the v1.7 development cycle every public boundary surface
+Every public boundary surface
 (`OmniMercuryEngine.detect_with_fusion[_calibrated]`,
 `CognitiveOrchestrator.analyze`, `NeuroSymbolicHub.predict`) runs **two
-independent mandatory hard ethical gates** — Benevolence (>= 0.99) and
-σ_Immutable (256-D scalar network) — and raises
-`EthicalConstraintViolationError(check=…)` on failure. There is no
-advisory mode. The reserved `check=` codes are `"benevolence"`,
-`"sigma_immutable"`, and `"gosnn_unavailable"`. See
-[`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
-Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2.
+independent mandatory hard gates**: the harm-uplift gate
+(`cognitive/decision_gate.py`), which reads the caller's whole request and
+payload, and σ_Immutable (configuration integrity). Each raises
+`EthicalConstraintViolationError(check=…)` on failure, and neither has a flag
+that turns it off. The `check=` codes these two raise are `"harm_uplift"`,
+`"sigma_immutable"` and `"gosnn_unavailable"`.
+
+The benevolence score is **advisory**: it is computed, logged and attached to
+the verdict, and it decides nothing. This section said until 2026-11-18 that a
+`Benevolence (>= 0.99)` gate was one of the two. That bar was removed
+(`CAPABILITY_MATRIX.md` §6 gives the reason) and these boundaries no longer
+raise `check="benevolence"`; its one remaining enforcing use is the assessment
+purpose screen (`assessment/policy.py`). See [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
+Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2 for the history.
 
 **σ_Immutable artifact dependency (fail-closed).** The σ_Immutable gate
 depends on three artifacts shipped inside the package

@@ -459,6 +459,7 @@ class MercuryCrypto:
             self.ed25519_provider = Ed25519Provider()
 
         self._signing_keypair: KeyPair | None = None
+        self._hybrid_keypairs: tuple[KeyPair | None, KeyPair] | None = None
         self._kem_keypair: KeyPair | None = None
 
         logger.info(
@@ -644,23 +645,109 @@ class MercuryCrypto:
         )
 
         if config.sign_data:
-            if self._signing_keypair is None:
-                self._signing_keypair = self.generate_signing_keypair()
-
             if config.security_level == SecurityLevel.HYBRID:
-                classical_kp, pqc_kp = self.hybrid_provider.generate_keypairs()
+                # One pair of keys for this object, kept, and their public
+                # halves published with every package. Each package used to be
+                # signed with a pair generated on the spot and dropped: nobody,
+                # this object included, held the keys to check the signature.
+                classical_kp, pqc_kp = self._hybrid_signing_keypairs()
                 result.hybrid_signature = self.hybrid_provider.sign(
                     data_bytes,
                     classical_kp.secret_key if classical_kp else None,
                     pqc_kp.secret_key,
                 )
+                result.metadata["hybrid_public_keys"] = {
+                    "classical": classical_kp.public_key.hex() if classical_kp else None,
+                    "pqc": pqc_kp.public_key.hex(),
+                }
             else:
+                if self._signing_keypair is None:
+                    self._signing_keypair = self.generate_signing_keypair()
                 result.signature = self.sign(data_bytes, self._signing_keypair.secret_key)
 
         if config.include_timestamp:
             result.metadata["signed_at"] = time.time()
 
         return result
+
+    def _hybrid_signing_keypairs(self) -> tuple[KeyPair | None, KeyPair]:
+        """This object's hybrid signing keys, generated once."""
+        if self._hybrid_keypairs is None:
+            self._hybrid_keypairs = self.hybrid_provider.generate_keypairs()
+        return self._hybrid_keypairs
+
+    def hybrid_public_keys(self) -> tuple[bytes | None, bytes]:
+        """The public halves of this object's hybrid signing keys: classical, post-quantum.
+
+        Hand these to a verifier out of band. The copy a package carries in
+        ``metadata["hybrid_public_keys"]`` shows only that the package agrees
+        with itself; it does not show who signed it.
+        """
+        classical_kp, pqc_kp = self._hybrid_signing_keypairs()
+        return (classical_kp.public_key if classical_kp else None, pqc_kp.public_key)
+
+    def verify_hybrid_package(
+        self,
+        data: dict[str, Any],
+        package: CryptoPackageResult,
+        *,
+        classical_public: bytes | None = None,
+        pqc_public: bytes | None = None,
+    ) -> dict[str, bool]:
+        """Check a standard package signed at :attr:`SecurityLevel.HYBRID`.
+
+        Args:
+            data: The content the package was created over.
+            package: A result of :meth:`create_crypto_package` carrying a
+                ``hybrid_signature``.
+            classical_public: The signer's Ed25519 public key, obtained out of
+                band. ``None`` uses the copy inside the package.
+            pqc_public: The signer's ML-DSA-65 public key, obtained out of
+                band. ``None`` uses the copy inside the package.
+
+        Returns:
+            ``hash``: the content matches the package's hash. ``classical`` and
+            ``pqc``: each half of the signature verifies. ``key_pinned``: both
+            keys came from the caller, not from the package. ``core_valid``:
+            hash and both halves hold (the package agrees with itself).
+            ``all_valid``: ``core_valid`` and ``key_pinned`` -- the same
+            distinction :meth:`verify_crypto_package` draws.
+
+        Raises:
+            ValueError: If the package carries no hybrid signature, or a key is
+                neither supplied nor carried in the package.
+        """
+        if package.hybrid_signature is None:
+            raise ValueError("this package carries no hybrid signature to verify")
+        carried = package.metadata.get("hybrid_public_keys") or {}
+        # Pinned means both halves: a caller who supplies only the post-quantum
+        # key has not asked for the hybrid guarantee, and a package whose
+        # classical half was stripped must not read as fully verified to them.
+        key_pinned = pqc_public is not None and (
+            classical_public is not None or self.hybrid_provider.classical_provider is None
+        )
+        if pqc_public is None:
+            if not carried.get("pqc"):
+                raise ValueError("no post-quantum public key was supplied or carried")
+            pqc_public = bytes.fromhex(carried["pqc"])
+        if classical_public is None and carried.get("classical"):
+            classical_public = bytes.fromhex(carried["classical"])
+        data_bytes = json.dumps(data, sort_keys=True, default=str).encode()
+        algorithm = str(package.metadata.get("hash_algorithm", "sha3-256"))
+        digest = hashlib.sha3_512 if algorithm == "sha3-512" else hashlib.sha3_256
+        hash_ok = digest(data_bytes).hexdigest() == package.data_hash
+        classical_ok, pqc_ok = self.hybrid_provider.verify(
+            data_bytes, package.hybrid_signature, classical_public, pqc_public
+        )
+        core_valid = bool(hash_ok and classical_ok and pqc_ok)
+        return {
+            "hash": bool(hash_ok),
+            "classical": bool(classical_ok),
+            "pqc": bool(pqc_ok),
+            "key_pinned": bool(key_pinned),
+            "core_valid": core_valid,
+            "all_valid": bool(core_valid and key_pinned),
+        }
 
     def verify_crypto_package(
         self,

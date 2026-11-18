@@ -133,3 +133,56 @@ class TestTransformRoundTrip:
         grid = fast.inverse(coefficients)
         assert grid.shape == (fast._n_theta, fast._n_phi)
         assert np.all(np.isfinite(grid))
+
+
+class TestHighDegreeIsStable:
+    """The orthonormal functions stay finite and orthonormal at high degree.
+
+    Was: ``OverflowError`` at l = 150 (``(l+m)!`` no longer fits a float from
+    l + m = 171) and NaN before that (``(2m-1)!!`` passes 1e308 at m = 151),
+    from a class that offers "numerical stability for high degrees".
+    """
+
+    @pytest.mark.parametrize(
+        ("degree", "order"),
+        [(150, 0), (150, 75), (150, 150), (300, 150), (300, 300), (1000, 500), (1000, 1000)],
+    )
+    def test_a_high_degree_function_has_unit_norm(self, degree: int, order: int) -> None:
+        nodes, weights = np.polynomial.legendre.leggauss(1200)
+        values = AssociatedLegendre(l_max=degree, normalization="ortho").compute(
+            degree, order, nodes
+        )
+
+        assert np.isfinite(values).all()
+        assert 2.0 * np.pi * float(np.sum(weights * values * values)) == pytest.approx(
+            1.0, abs=1e-9
+        )
+
+    def test_two_high_degrees_of_one_order_are_orthogonal(self) -> None:
+        nodes, weights = np.polynomial.legendre.leggauss(1200)
+        legendre = AssociatedLegendre(l_max=300, normalization="ortho")
+
+        overlap = float(
+            np.sum(weights * legendre.compute(300, 20, nodes) * legendre.compute(298, 20, nodes))
+        )
+
+        assert abs(2.0 * np.pi * overlap) < 1e-9
+
+    def test_the_stable_recurrence_gives_what_the_factorial_formula_gave(self) -> None:
+        """Where the old formula could be evaluated, the values have not moved."""
+        x = np.linspace(-0.999, 0.999, 41)
+        for degree in range(0, 31):
+            for order in range(-degree, degree + 1):
+                raw = AssociatedLegendre(l_max=degree, normalization="none").compute(
+                    degree, order, x
+                )
+                factor = math.sqrt(
+                    (2 * degree + 1)
+                    / (4 * math.pi)
+                    * math.factorial(degree - abs(order))
+                    / math.factorial(degree + abs(order))
+                )
+                ortho = AssociatedLegendre(l_max=degree, normalization="ortho").compute(
+                    degree, order, x
+                )
+                np.testing.assert_allclose(ortho, raw * factor, rtol=1e-11, atol=1e-13)

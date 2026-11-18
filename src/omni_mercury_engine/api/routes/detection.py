@@ -64,7 +64,7 @@ def _record_text(records: list[dict[str, Any]]) -> str:
     uplift text that would otherwise sit past that cap (in an arbitrarily long
     ``data`` list) within what the gate actually scores. String values one level
     deep cover the record shapes this endpoint accepts (``{"note": "..."}``);
-    the shared ``MAX_SUBJECT_CHARS`` bound still applies downstream.
+    the gate reads the whole of it, in overlapping passages.
     """
     parts: list[str] = []
     for record in records:
@@ -339,7 +339,7 @@ async def detect_neurosymbolic(
         # only up to its first N items -- so uplift buried past that cap in an
         # arbitrarily long ``data`` list would never be scored. Every string leaf
         # of the (unbounded, min_length=1) records is concatenated so the request
-        # carries all caller text before the shared MAX_SUBJECT_CHARS bound.
+        # carries all caller text, which the gate reads in full.
         enforce_decision_boundary(
             DecisionSubject(
                 surface="api.detect_neurosymbolic",

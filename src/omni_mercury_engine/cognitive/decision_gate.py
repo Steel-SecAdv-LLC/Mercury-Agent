@@ -57,7 +57,10 @@ identical verdict" across ``detect`` / ``detect_batch`` / ``detect_biometric`` /
 
 from __future__ import annotations
 
+import dataclasses
 import logging
+from collections import deque
+from collections.abc import Mapping as _Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -78,10 +81,30 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Upper bound on the free-text handed to the harm gate.  Bounds hot-path cost
-#: and the size of an audited record; the cap is generous enough that a real
-#: uplift request cannot hide past it (the gate's lexicons match early tokens).
+#: Size of one passage handed to the harm gate, and of an audited record.
+#:
+#: It is NOT a bound on what the gate reads. It used to be: the gate scored one
+#: string cut at this length, on the stated ground that "a real uplift request
+#: cannot hide past it". It could. Each of the pillar suite's own red-team
+#: requests was permitted behind 4,640 characters of weather small-talk. The
+#: gate now reads all of the caller's text, as overlapping passages of this
+#: size (:meth:`DecisionSubject.passages`).
 MAX_SUBJECT_CHARS = 4096
+
+#: How much caller text one decision may carry. Past it the gate does not
+#: guess: the decision is refused, fail-closed, like any other it cannot
+#: evaluate. Reading is about 1.7 ms per thousand characters, so this bounds
+#: one decision at roughly two seconds.
+MAX_ASSESSED_CHARS = 1_048_576
+
+#: How many values of a structured payload the gate will walk looking for
+#: text before it refuses to decide. A numeric array is not walked at all
+#: (its shape is its summary), so this is reached only by very large plain
+#: Python containers.
+MAX_ASSESSED_NODES = 5_000_000
+
+#: Nesting the walk follows before it refuses to decide.
+_MAX_TEXT_DEPTH = 64
 
 #: Upper bound on the rendered summary of a single structured payload value.
 _MAX_VALUE_CHARS = 512
@@ -105,6 +128,128 @@ _MAX_PAYLOAD_SUMMARY_CHARS = 2048
 #: old depth-2 ceiling hid exactly that. The total-character cap above, not the
 #: depth, is what bounds cost, so this can be generous.
 _MAX_PAYLOAD_DEPTH = 6
+
+
+class UnassessableSubjectError(ValueError):
+    """The decision carries more than the gate can read; it must be refused."""
+
+
+def _object_text(payload: Any) -> list[Any] | None:
+    """What an object that is not a plain container holds, or ``None`` if nothing is read.
+
+    A float matrix has no words in it and is summarised by its shape. An array
+    of strings or objects, the text columns of a data frame, and the fields of
+    a dataclass or a pydantic model are the caller's words in another
+    container. Summarised by shape or by type name they went unread: the
+    reasoning backend hands the gate a ``ReasoningContext``, which it saw as
+    the single word ``ReasoningContext`` while the evidence inside went on to
+    a language model.
+
+    An object of none of these kinds, or one of them that cannot be read the
+    way its kind is read, is opaque and stays its type name, as it always
+    was: this never raises, so that an odd object is not a way to have a
+    decision refused.
+    """
+    try:
+        if dataclasses.is_dataclass(payload) and not isinstance(payload, type):
+            return [getattr(payload, f.name, None) for f in dataclasses.fields(payload)]
+        # Looked up on the type: an instance that answers to any name at all (a
+        # mock, a proxy) is not thereby a pydantic model.
+        if callable(getattr(type(payload), "model_dump", None)):
+            return [payload.model_dump()]
+        if hasattr(type(payload), "dtypes") and hasattr(type(payload), "columns"):  # a frame
+            names = list(payload.columns)
+            values: list[Any] = [str(name) for name in names]
+            for name in names:
+                column = payload[name]
+                if getattr(getattr(column, "dtype", None), "kind", "O") in "OUST":
+                    values.extend(_as_list(column))
+            return values
+        kind = getattr(getattr(payload, "dtype", None), "kind", None)
+        if not isinstance(kind, str):
+            return None
+        return [_as_list(payload)] if kind in "OUST" else []
+    except Exception:
+        return None
+
+
+def _as_list(values: Any) -> list[Any]:
+    """An array or a column as a Python list (numpy and pandas ``tolist``, polars ``to_list``)."""
+    convert = getattr(values, "tolist", None) or values.to_list
+    listed: list[Any] = convert()
+    return listed
+
+
+def payload_text(payload: Any) -> list[str]:
+    """Every piece of text in ``payload``, however deep and however far along.
+
+    :func:`summarize_payload` is a bounded description for the audit record:
+    the first 24 keys, the first 512 characters of a string, six levels. The
+    gate cannot decide on a description that leaves text out, so it reads this
+    instead: every string value, every string key, bytes as text, and the
+    string cells of arrays and data frames. Numbers carry no words and are
+    skipped.
+
+    Raises:
+        UnassessableSubjectError: When the payload holds more text than
+            :data:`MAX_ASSESSED_CHARS`, more values than
+            :data:`MAX_ASSESSED_NODES`, or nests deeper than the walk follows.
+    """
+    found: list[str] = []
+    chars = 0
+    nodes = 0
+    seen: set[int] = set()
+    stack: list[tuple[Any, int]] = [(payload, 0)]
+    while stack:
+        value, depth = stack.pop()
+        nodes += 1
+        if nodes > MAX_ASSESSED_NODES:
+            raise UnassessableSubjectError(
+                f"the payload holds more than {MAX_ASSESSED_NODES:,} values; "
+                "pass numeric data as an array"
+            )
+        if value is None or isinstance(value, (bool, int, float, complex)):
+            continue
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            value = bytes(value).decode("utf-8", errors="replace")
+        if isinstance(value, str):
+            if value:
+                chars += len(value)
+                if chars > MAX_ASSESSED_CHARS:
+                    raise UnassessableSubjectError(
+                        f"the payload holds more than {MAX_ASSESSED_CHARS:,} characters of text"
+                    )
+                found.append(value)
+            continue
+        if depth >= _MAX_TEXT_DEPTH:
+            raise UnassessableSubjectError(
+                f"the payload nests deeper than {_MAX_TEXT_DEPTH} levels"
+            )
+        children: list[Any] | None
+        if isinstance(value, _Mapping):
+            children = [part for item in value.items() for part in item]
+        elif isinstance(value, (list, tuple, set, frozenset, deque)):
+            children = list(value)
+        else:
+            children = _object_text(value)
+        if not children:
+            continue
+        if id(value) in seen:  # a container reached twice is read once
+            continue
+        seen.add(id(value))
+        stack.extend((child, depth + 1) for child in reversed(children))
+    return found
+
+
+def _windows(text: str, size: int) -> list[str]:
+    """``text`` as passages of ``size`` that overlap by half.
+
+    Any stretch of text up to half a passage long lies whole inside at least
+    one of them, so a request cannot be cut in two at a boundary.
+    """
+    stride = max(size // 2, 1)
+    last_start = max(len(text) - (size - stride), 1)
+    return [text[start : start + size] for start in range(0, last_start, stride)]
 
 
 def summarize_payload(payload: Any, *, _depth: int = 0) -> str:
@@ -219,6 +364,43 @@ class DecisionSubject:
             parts.append(f"input={summary[:_MAX_PAYLOAD_SUMMARY_CHARS]}")
         return " | ".join(parts)[:MAX_SUBJECT_CHARS]
 
+    def passages(self) -> list[str]:
+        """Everything the caller said, as the passages the harm gate scores.
+
+        The first is :meth:`describe`. When that holds all of the caller's
+        text it is the only one, and the gate decides exactly as it did. When
+        it does not -- the request runs past :data:`MAX_SUBJECT_CHARS`, or the
+        payload holds text its bounded summary leaves out -- the whole request
+        and the whole text of the payload follow, each as overlapping passages
+        under the same ``surface: operation | domain=`` heading.
+
+        Raises:
+            UnassessableSubjectError: When the caller's text exceeds what the
+                gate will read (:data:`MAX_ASSESSED_CHARS`).
+        """
+        first = self.describe()
+        passages = [first]
+        texts = payload_text(self.payload)
+        if len(self.request) + sum(map(len, texts)) > MAX_ASSESSED_CHARS:
+            raise UnassessableSubjectError(
+                f"the decision carries more than {MAX_ASSESSED_CHARS:,} characters of text"
+            )
+        heading = f"{self.surface}: {self.operation} | domain={sanitize_domain(self.domain)}"
+        room = max(MAX_SUBJECT_CHARS - len(heading) - len(" | request="), 1024)
+        if self.request and f"request={self.request}" not in first:
+            passages.extend(f"{heading} | request={part}" for part in _windows(self.request, room))
+        if texts and not (len(texts) <= _MAX_KEYS and all(text in first for text in texts)):
+            passages.extend(
+                f"{heading} | input={part}" for part in _windows(", ".join(texts), room)
+            )
+        return passages
+
+
+#: The response ladder, least restrictive first (``WeaponsDisposition``'s own order).
+_RESTRICTION: dict[WeaponsDisposition, int] = {
+    disposition: rank for rank, disposition in enumerate(WeaponsDisposition)
+}
+
 
 @dataclass(frozen=True)
 class BoundaryVerdict:
@@ -287,10 +469,26 @@ def enforce_decision_boundary(
             unexpectedly.
     """
     try:
+        # Every passage is scored. The first that blocks decides, and is what
+        # the refusal and its audit record quote; otherwise the most
+        # restrictive permit stands (a later passage that needs its answer
+        # sourced makes the whole decision need it).
         action = subject.describe()
-        assessment = assess_weapons_uplift(
-            action, dict(subject.context), harm_classifier=harm_classifier
-        )
+        assessment: WeaponsRiskAssessment | None = None
+        for passage in subject.passages():
+            scored = assess_weapons_uplift(
+                passage, dict(subject.context), harm_classifier=harm_classifier
+            )
+            if scored.blocks:
+                action, assessment = passage, scored
+                break
+            if (
+                assessment is None
+                or _RESTRICTION[scored.disposition] > _RESTRICTION[assessment.disposition]
+            ):
+                assessment = scored
+        if assessment is None:  # pragma: no cover - passages() is never empty
+            raise RuntimeError("no passage was scored")
     except Exception as exc:
         # Fail closed. Never return normally on an error path: an exception in
         # the gate must read as "refused", not as "allowed".
@@ -371,11 +569,15 @@ def enforce_decision_boundary(
 
 
 __all__ = [
+    "MAX_ASSESSED_CHARS",
+    "MAX_ASSESSED_NODES",
     "MAX_SUBJECT_CHARS",
     "BoundaryVerdict",
     "DecisionSubject",
     "HazardDomain",
     "OperationalIntent",
+    "UnassessableSubjectError",
     "enforce_decision_boundary",
+    "payload_text",
     "summarize_payload",
 ]

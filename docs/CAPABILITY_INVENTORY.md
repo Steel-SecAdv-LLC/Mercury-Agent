@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,153
+- **Total top-level classes:** 3,154
 - **Capability-bearing classes:** 2,111 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 93 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1238 |
-| Support types (config / result / enum / error) | 1042 |
+| Support types (config / result / enum / error) | 1043 |
 | Detection | 181 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 114 |
@@ -399,7 +399,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `cognitive/` — 280 classes (185 capability)
+### `cognitive/` — 281 classes (185 capability)
 
 **Analysis & scoring**
 
@@ -613,9 +613,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ConstraintSolver` (`cognitive.formal_verification`) — Solver for constraint satisfaction problems.
 - `SafetyVerifier` (`cognitive.formal_verification`) — Verifier for safety properties.
 
-<details><summary>Support types (95)</summary>
+<details><summary>Support types (96)</summary>
 
-`AbstractionLevel`, `ActionResult`, `ActionRisk`, `AdaptationEvent`, `AdaptationResult`, `AdaptationType`, `AgentRole`, `AgentState`, `AgentStatus`, `AnomalyCategory`, `ApprovalRequest`, `ApprovalStatus`, `BeliefState`, `BenefitCategory`, `CalibrationResult`, `CaseOutcome`, `CausalRelationType`, `CognitiveAnalysisResult`, `ConfidenceLevel`, `ConfidenceLevel`, `ConsensusMethod`, `ConsensusResult`, `ConsistencyResult`, `ConstraintType`, `CoordinationStrategy`, `CounterfactualResult`, `CourseOfAction`, `DataType`, `DecisionType`, `DetectionResult`, `DiagnosticResult`, `EdgeType`, `EnvironmentDomain`, `EscalationRecord`, `EthicalConstraintViolationError`, `EthicalPrinciple`, `ExplanationType`, `ExplanationType`, `ExplorationResult`, `ExternalSourceCategory`, `FaithfulnessMetric`, `FeedbackQuality`, `FeedbackType`, `FusionResult`, `FusionStrategy`, `GoalStatus`, `HarmCategory`, `HazardDomain`, `ImprovementPriority`, `IndicatorStatus`, `IndicatorType`, `InferenceResult`, `InferenceStatus`, `InterventionType`, `LogicalConnective`, `MemoryType`, `Message`, `MessageType`, `NodeType`, `OntologyClassType`, `OperationalIntent`, `OutcomeType`, `PatternType`, `PlanExecutionState`, `PlannerType`, `PlasticityMode`, `PlasticityRule`, `PolicyUpdate`, `PredicateType`, `PredictionError`, `PredictionType`, `PredictionType`, `PredictiveResult`, `ProcessingLevel`, `PropertyType`, `PropertyType`, `ReasoningStrategy`, `ReasoningType`, `RefinementResult`, `ReflectionType`, `RelabelingStrategy`, `RetrievalResult`, `RuleType`, `SequenceType`, `SimilarityMetric`, `TemporalOperator`, `ThoughtType`, `ThreatCategory`, `TraversalResult`, `UncertaintyType`, `UpdateMode`, `VerificationReport`, `VerificationResult`, `WarningLevel`, `WeaponsDisposition`
+`AbstractionLevel`, `ActionResult`, `ActionRisk`, `AdaptationEvent`, `AdaptationResult`, `AdaptationType`, `AgentRole`, `AgentState`, `AgentStatus`, `AnomalyCategory`, `ApprovalRequest`, `ApprovalStatus`, `BeliefState`, `BenefitCategory`, `CalibrationResult`, `CaseOutcome`, `CausalRelationType`, `CognitiveAnalysisResult`, `ConfidenceLevel`, `ConfidenceLevel`, `ConsensusMethod`, `ConsensusResult`, `ConsistencyResult`, `ConstraintType`, `CoordinationStrategy`, `CounterfactualResult`, `CourseOfAction`, `DataType`, `DecisionType`, `DetectionResult`, `DiagnosticResult`, `EdgeType`, `EnvironmentDomain`, `EscalationRecord`, `EthicalConstraintViolationError`, `EthicalPrinciple`, `ExplanationType`, `ExplanationType`, `ExplorationResult`, `ExternalSourceCategory`, `FaithfulnessMetric`, `FeedbackQuality`, `FeedbackType`, `FusionResult`, `FusionStrategy`, `GoalStatus`, `HarmCategory`, `HazardDomain`, `ImprovementPriority`, `IndicatorStatus`, `IndicatorType`, `InferenceResult`, `InferenceStatus`, `InterventionType`, `LogicalConnective`, `MemoryType`, `Message`, `MessageType`, `NodeType`, `OntologyClassType`, `OperationalIntent`, `OutcomeType`, `PatternType`, `PlanExecutionState`, `PlannerType`, `PlasticityMode`, `PlasticityRule`, `PolicyUpdate`, `PredicateType`, `PredictionError`, `PredictionType`, `PredictionType`, `PredictiveResult`, `ProcessingLevel`, `PropertyType`, `PropertyType`, `ReasoningStrategy`, `ReasoningType`, `RefinementResult`, `ReflectionType`, `RelabelingStrategy`, `RetrievalResult`, `RuleType`, `SequenceType`, `SimilarityMetric`, `TemporalOperator`, `ThoughtType`, `ThreatCategory`, `TraversalResult`, `UnassessableSubjectError`, `UncertaintyType`, `UpdateMode`, `VerificationReport`, `VerificationResult`, `WarningLevel`, `WeaponsDisposition`
 
 </details>
 

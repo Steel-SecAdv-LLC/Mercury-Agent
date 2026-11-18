@@ -141,9 +141,10 @@ class ReasoningBackend(abc.ABC):
     def _enforce(self, boundary: str, context: ReasoningContext) -> None:
         """Run Mercury's dual hard ethical gate for one reasoning operation.
 
-        Mirrors the narrative-voice contract: benevolence first, σ_Immutable
-        second, both fail-closed. On violation the call raises and no
-        generated content is surfaced.
+        Mirrors the narrative-voice contract: the harm-uplift gate first,
+        σ_Immutable second, both fail-closed. On violation the call raises
+        and no generated content is surfaced. The gate reads the whole
+        context, the evidence included: that is what goes on to the model.
 
         Args:
             boundary: Fully-qualified boundary name for the audit trail.

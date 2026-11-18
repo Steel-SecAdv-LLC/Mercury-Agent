@@ -37,8 +37,11 @@ import pytest
 
 from omni_mercury_engine.agentic.capabilities.contract import CONTRACT_MARKER, Invariant
 from omni_mercury_engine.cognitive.decision_gate import (
+    MAX_ASSESSED_CHARS,
+    MAX_SUBJECT_CHARS,
     DecisionSubject,
     enforce_decision_boundary,
+    payload_text,
 )
 from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
@@ -290,6 +293,178 @@ class TestSubjectCannotHideTheHarmfulText:
     def test_array_payload_still_summarized_structurally(self) -> None:
         """A numeric array carries no lexical harm evidence and must pass."""
         assert not _blocked(_subject("", payload=np.zeros((128, 6))))
+
+
+_SMALL_TALK = "Please summarise the weather outlook for the coming week. "
+
+
+def _fail_closed_reason(subject: DecisionSubject) -> str:
+    """The reason the choke point gives when it refuses because it cannot decide."""
+    with pytest.raises(EthicalConstraintViolationError) as refused:
+        enforce_decision_boundary(subject)
+    details = refused.value.details
+    assert details.get("fail_closed") is True
+    return str(details.get("error"))
+
+
+class TestTheGateReadsEverythingTheCallerSaid:
+    """Nothing the caller says is out of the gate's sight for being far along.
+
+    Was: the gate scored one string cut at ``MAX_SUBJECT_CHARS`` (4,096), on
+    the stated ground that a real uplift request "cannot hide past it". Every
+    request in ``RED_TEAM_REQUESTS`` was permitted behind 4,640 characters of
+    small-talk. A payload was read through a bounded summary -- the first 512
+    characters of a string, the first 24 keys, six levels -- and anything that
+    was not a plain container (bytes, a string array, a data frame, a
+    dataclass) as its type name alone.
+    """
+
+    @pytest.mark.parametrize("request_text", RED_TEAM_REQUESTS)
+    @pytest.mark.parametrize("sentences_before", [80, 1000])
+    def test_a_request_behind_a_long_harmless_preamble_is_refused(
+        self, request_text: str, sentences_before: int
+    ) -> None:
+        preamble = _SMALL_TALK * sentences_before
+        assert len(preamble) > MAX_SUBJECT_CHARS
+        assert _blocked(_subject(preamble + request_text))
+
+    @pytest.mark.parametrize("request_text", RED_TEAM_REQUESTS)
+    def test_a_request_in_the_middle_of_a_long_text_is_refused(self, request_text: str) -> None:
+        text = _SMALL_TALK * 500 + request_text + " " + _SMALL_TALK * 500
+        assert _blocked(_subject(text))
+
+    @pytest.mark.parametrize("offset", range(3900, 4300, 37))
+    def test_a_request_is_not_cut_in_two_where_one_passage_ends(self, offset: int) -> None:
+        """Passages overlap by half, so the request lies whole inside one of them."""
+        request_text = RED_TEAM_REQUESTS[0]
+        text = ("x " * offset)[:offset] + request_text + " " + _SMALL_TALK * 200
+        subject = _subject(text)
+        assert any(request_text in passage for passage in subject.passages())
+        assert _blocked(subject)
+
+    @pytest.mark.parametrize(
+        "hide",
+        [
+            pytest.param(lambda u: _SMALL_TALK * 11 + u, id="past-512-characters-of-a-string"),
+            pytest.param(
+                lambda u: {f"note_{i}": ("fine" if i != 29 else u) for i in range(40)},
+                id="under-the-30th-key",
+            ),
+            pytest.param(lambda u: ["fine"] * 40 + [u], id="the-41st-item"),
+            pytest.param(
+                lambda u: {"a": {"b": {"c": {"d": {"e": {"f": {"g": {"h": u}}}}}}}},
+                id="eight-levels-down",
+            ),
+            pytest.param(lambda u: {u: 1.0}, id="as-a-key"),
+            pytest.param(lambda u: u.encode(), id="as-bytes"),
+            pytest.param(lambda u: np.array(["fine", u]), id="in-a-string-array"),
+            pytest.param(lambda u: np.array([{"note": u}], dtype=object), id="in-an-object-array"),
+            pytest.param(lambda u: [{"readings": [1.0, 2.0], "note": u}] * 3, id="in-records"),
+        ],
+    )
+    def test_text_anywhere_in_a_payload_is_read(self, hide: Any) -> None:
+        uplift = RED_TEAM_REQUESTS[0]
+        assert _blocked(_subject("", payload=hide(uplift)))
+        assert not _blocked(_subject("", payload=hide("routine scan of the gauge network")))
+
+    def test_the_text_columns_of_a_data_frame_are_read(self) -> None:
+        import pandas as pd
+
+        readings = [1.0, 2.0, 3.0]
+        hidden = pd.DataFrame({"value": readings, "note": ["fine", "fine", RED_TEAM_REQUESTS[0]]})
+        harmless = pd.DataFrame({"value": readings, "note": ["fine", "fine", "routine scan"]})
+        assert _blocked(_subject("", payload=hidden))
+        assert not _blocked(_subject("", payload=harmless))
+        assert not _blocked(_subject("", payload=pd.DataFrame({"value": readings})))
+
+    def test_the_evidence_handed_to_a_language_model_is_read(self) -> None:
+        """Was: the reasoning backend's payload was seen as the word ``ReasoningContext``.
+
+        ``ReasoningBackend._enforce`` passes the context itself as the payload,
+        and its ``evidence`` is what goes on to the model.
+        """
+        from omni_mercury_engine.reasoning.schemas import ReasoningContext
+
+        def context(note: str) -> ReasoningContext:
+            return ReasoningContext(summary="explain this finding", evidence={"notes": [note]})
+
+        assert _blocked(_subject("explain this finding", payload=context(RED_TEAM_REQUESTS[0])))
+        assert not _blocked(_subject("explain this finding", payload=context("a gauge rose 2 m")))
+
+    def test_the_fields_of_a_pydantic_model_and_a_series_are_read(self) -> None:
+        import pandas as pd
+        from pydantic import BaseModel
+
+        class Note(BaseModel):
+            text: str
+
+        assert _blocked(_subject("", payload=Note(text=RED_TEAM_REQUESTS[0])))
+        assert not _blocked(_subject("", payload=Note(text="routine scan")))
+        assert _blocked(_subject("", payload=pd.Series(["fine", RED_TEAM_REQUESTS[0]])))
+
+    def test_an_object_the_gate_cannot_read_is_its_type_name_not_a_refusal(self) -> None:
+        """Reading more must not make an odd object a way to have a decision refused.
+
+        A mock answers to every attribute name, so it looks like an array, a
+        frame and a model at once; an object may raise from any attribute.
+        Neither is text, and neither may turn into a fail-closed refusal.
+        """
+        from unittest.mock import MagicMock, Mock
+
+        class Raises:
+            dtype = "not a dtype"
+
+            def __getattr__(self, name: str) -> Any:
+                raise RuntimeError(name)
+
+        for odd in (Mock(), MagicMock(), Raises(), object()):
+            assert payload_text(odd) == []
+            assert not _blocked(_subject("find anomalies in this feed", payload=odd))
+            assert not _blocked(_subject("", payload={"data": odd, "notes": "routine scan"}))
+
+    def test_a_decision_too_large_to_read_is_refused_not_guessed_at(self) -> None:
+        reason = _fail_closed_reason(_subject("x" * (MAX_ASSESSED_CHARS + 1)))
+        assert "UnassessableSubjectError" in reason and "1,048,576" in reason
+
+        reason = _fail_closed_reason(_subject("", payload=["x" * 600_000, "y" * 600_000]))
+        assert "UnassessableSubjectError" in reason
+
+    def test_a_payload_nested_past_the_walk_is_refused_not_guessed_at(self) -> None:
+        nested: Any = RED_TEAM_REQUESTS[0]
+        for _ in range(80):
+            nested = [nested]
+        assert "nests deeper" in _fail_closed_reason(_subject("", payload=nested))
+
+    def test_a_container_that_holds_itself_is_read_once(self) -> None:
+        loop: list[Any] = ["routine scan"]
+        loop.append(loop)
+        assert not _blocked(_subject("", payload=loop))
+        loop.append(RED_TEAM_REQUESTS[0])
+        assert _blocked(_subject("", payload=loop))
+
+    def test_a_decision_that_fits_one_passage_is_scored_as_it_always_was(self) -> None:
+        """Short input is one passage, ``describe()``: no verdict on it has moved."""
+        for text in (*RED_TEAM_REQUESTS, *BENIGN_REQUESTS):
+            subject = _subject(text, payload={"data": [1.0, 2.0], "notes": "routine scan"})
+            assert subject.passages() == [subject.describe()]
+
+    def test_a_long_harmless_text_is_still_permitted(self) -> None:
+        """Reading more must not mean refusing more: the availability side of the fix."""
+        assert not _blocked(_subject(_SMALL_TALK * 1000))
+        assert not _blocked(_subject(" ".join(BENIGN_REQUESTS * 40)))
+        assert not _blocked(_subject("", payload={"log": [_SMALL_TALK * 20] * 60}))
+
+    def test_numbers_are_not_read_as_text_however_many(self) -> None:
+        assert payload_text([[float(i)] * 10 for i in range(20_000)]) == []
+        assert payload_text(np.zeros((500, 40))) == []
+        assert not _blocked(_subject("", payload=np.zeros((500, 40))))
+
+    def test_what_is_audited_stays_one_passage_long(self) -> None:
+        """The refusal quotes the passage that decided it, not the megabyte around it."""
+        with pytest.raises(EthicalConstraintViolationError) as refused:
+            enforce_decision_boundary(_subject(_SMALL_TALK * 1000 + RED_TEAM_REQUESTS[0]))
+        assert RED_TEAM_REQUESTS[0] in refused.value.action
+        assert len(refused.value.action) <= MAX_SUBJECT_CHARS
 
 
 @pytest.mark.slow

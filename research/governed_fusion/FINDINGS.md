@@ -53,6 +53,22 @@ changed, it is stated here.
 Youden point it would displace. Reliability-weighted fusion still cannot reach
 the best single component (regressions in fema, hurricane and marine).
 
+**What "best single" is, stated 2026-11-18.** In `measure_reliability_fusion.py`
+and `measure_decorrelation.py` it is, for each event, the highest of the three
+streams' AUROCs on the evaluation split, chosen with that split's labels. It is
+an oracle: nothing that runs before the labels exist can pick it, and the
+maximum of three noisy AUROCs is biased upward. Over the 35 decorrelation events
+the winner is `info_geometry` on 15, `kinematic` on 12 and `resonance` on 8, so
+no one stream is "the best single". Every "fusion loses to best single" in this
+file is therefore fusion measured against an upper bound, which is the
+conservative direction for a KILL of fusion and is not evidence that a
+deployable single stream beats it. The comparison that would settle it (each
+stream held fixed across events, or chosen on the calibration split) cannot be
+made from the committed results: they keep each event's winning AUROC and not
+the other two. It needs the score cache or the live sources, and is open.
+`research/omni_equation/FINDINGS.md` made the same correction for its own
+table ("about 93% of the advertised gap is the oracle selection").
+
 **The calibration lever probe is a conclusive negative, now with an interval.**
 On the first re-measurement one lever (`l_nb=0.5`) had a lower mean Brier than
 the shipped default by 0.0001 and the probe named it a candidate. A difference

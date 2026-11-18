@@ -1456,15 +1456,16 @@ jobs:
 
       - name: Pillar mutation gate (tests/pillars/ must not be vacuous)
         # The step above proves the pillar suite passes; this one proves it
-        # can fail. Each of the 7 mutations disables or inverts exactly one
-        # enforced control (harm gate -> always ALLOW, grave-harm axis off,
-        # immutable ledger -> mutable, governor tripwire -> reversible, ...)
+        # can fail. Each of the 9 mutations disables or inverts exactly one
+        # enforced control (harm gate -> always ALLOW, harm gate reads only
+        # its first passage, grave-harm axis off, immutable ledger -> mutable,
+        # governor tripwire undone by resume, ...)
         # and requires the pillar module that claims to observe it to go red.
         # A survivor, or a mutation whose suite errors instead of failing,
         # fails the job. CAPABILITY_MATRIX.md marks this row **enforced**
         # ("deleting the control fails CI"); before this step nothing in CI
         # ran the script, so a pillar test could have been weakened into a
-        # vacuous pass unnoticed. Measured 2026-09-27: 7/7 killed, ~80 s.
+        # vacuous pass unnoticed. Measured 2026-11-18: 9/9 killed, ~45 s.
         env:
           MERCURY_REQUIRES_ML: "1"
           AMA_REQUIRE_REAL_PQC: "true"
