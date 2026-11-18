@@ -787,7 +787,14 @@ def export_data(
     ]
     held = store.phone_of(account.email) if store is not None else {}
     data["watch_phone"] = (
-        {"number": held["number"], "verified_at": held["verified_at"], "created": held["created"]}
+        {
+            "number": held["number"],
+            "verified_at": held["verified_at"],
+            "created": held["created"],
+            # A number asked for and not yet confirmed is held against the
+            # address too, and was left out of what its owner is given.
+            "pending_number": held.get("pending_number"),
+        }
         if held
         else None
     )
@@ -1204,7 +1211,8 @@ def _watch_phone_view(held: dict[str, Any]) -> WatchPhoneResponse:
             number=str(held["pending_number"]),
             verified=False,
             min_severity=ranks.get(int(held["pending_min_severity"] or 2), "significant"),
-            texting=str(held["number"]),
+            # The number still texted, while it is: one that has opted out is not.
+            texting=str(held["number"]) if held["verified_at"] else None,
         )
     return WatchPhoneResponse(
         number=str(held["number"]),

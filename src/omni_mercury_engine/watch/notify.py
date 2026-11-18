@@ -33,6 +33,7 @@ message somewhere and calling it sent.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from datetime import UTC, datetime, timedelta
@@ -159,6 +160,15 @@ def audience(
         # Earth: one failed location lookup mailed each Alaskan volcano to a
         # subscriber in Florida with a 50 km radius.
     return out
+
+
+def address_entry(address: str) -> int:
+    """An address's entry in the delivery ledger: its own, whatever places it holds.
+
+    Negative, so it is never a subscription's id, a phone's, or the webhook's 0.
+    """
+    digest = hashlib.sha256(b"address:" + address.strip().lower().encode()).digest()
+    return -(int.from_bytes(digest[:7], "big") + 1)
 
 
 def one_per_address(
@@ -396,6 +406,9 @@ class Notifier:
             heartbeat: Called after each delivery attempt. A long pass (many
                 subscribers, a slow mail server) uses it to renew the
                 watch's lease, so no other watch takes the pass for dead.
+                When it answers ``False`` the lease is gone and the pass
+                ends there: it used to go on sending from the ledger it had
+                read, beside the watch that had taken over.
             feed: Only this feed's findings. The watch delivers after each
                 feed it reads; going over every feed's findings each time
                 was nine full passes where one does.
@@ -426,12 +439,13 @@ class Notifier:
         # is nearest. The entry was the place's: when the nearest place
         # changed between passes (USGS's felt reports arriving for "work"
         # after the radius had chosen "home") the same finding went again.
-        entry_of: dict[str, int] = {}
+        # Then it was the address's oldest place, which changed when that
+        # place was removed: everything standing near the others went again.
+        # It is the address's own. What was recorded under one of its places
+        # is still read, so nothing already sent is sent for the change.
+        places_of: dict[str, list[int]] = {}
         for subscriber in subscribers:
-            address = str(subscriber["email"]).lower()
-            entry_of[address] = min(
-                entry_of.get(address, int(subscriber["id"])), int(subscriber["id"])
-            )
+            places_of.setdefault(str(subscriber["email"]).lower(), []).append(int(subscriber["id"]))
         for finding in standing:
             rank = _RANK.get(str(finding.get("severity")), 1)
             key = str(finding["key"])
@@ -448,8 +462,16 @@ class Notifier:
                 reach = None
             for subscriber, away in one_per_address(audience(finding, subscribers, reach)):
                 note = shaking_note(finding, subscriber, reach)
-                entry = entry_of[str(subscriber["email"]).lower()]
-                if mailer is not None and self._due(ledger, key, rank, entry, "email", now, since):
+                address = str(subscriber["email"]).lower()
+                entry = address_entry(address)
+                if (
+                    mailer is not None
+                    and self._due(ledger, key, rank, entry, "email", now, since)
+                    and not any(
+                        self._sent(ledger, key, rank, place, "email", since)
+                        for place in places_of[address]
+                    )
+                ):
                     subject, body = notice(finding, subscriber, away, note)
                     self._attempt(
                         key, rank, entry, "email", done,
@@ -458,8 +480,8 @@ class Notifier:
                             body=body, headers=AUTOMATIC,
                         ),
                     )  # fmt: skip
-                    if heartbeat is not None:
-                        heartbeat()
+                    if heartbeat is not None and heartbeat() is False:
+                        return done  # the lease is another watch's now, or this one is stopping
                 # A text goes to the address's verified number, for findings at or
                 # above the severity its owner chose for texts. The ledger entry is
                 # the phone's, so it is texted once whichever place matched.
@@ -474,8 +496,8 @@ class Notifier:
                         key, rank, int(phone["id"]), "sms", done,
                         partial(self._text, str(phone["number"]), text),
                     )  # fmt: skip
-                    if heartbeat is not None:
-                        heartbeat()
+                    if heartbeat is not None and heartbeat() is False:
+                        return done  # the lease is another watch's now, or this one is stopping
             if (
                 hook
                 and rank >= least
@@ -528,10 +550,8 @@ class Notifier:
         that. A failed attempt is tried again once its wait has passed, up to
         :data:`MAX_ATTEMPTS`.
         """
-        for told in range(rank, max(RANKS.values()) + 1):
-            sent = ledger.get((key, told, subscriber, channel))
-            if sent and sent["status"] == "sent" and str(sent["at"]) >= since:
-                return False
+        if Notifier._sent(ledger, key, rank, subscriber, channel, since):
+            return False
         record = ledger.get((key, rank, subscriber, channel))
         if not record or str(record["at"]) < since:
             return True
@@ -539,6 +559,22 @@ class Notifier:
         if failures >= MAX_ATTEMPTS:
             return False
         return now - datetime.fromisoformat(str(record["at"])) >= retry_wait(failures)
+
+    @staticmethod
+    def _sent(
+        ledger: dict[tuple[str, int, int, str], dict[str, Any]],
+        key: str,
+        rank: int,
+        subscriber: int,
+        channel: str,
+        since: str,
+    ) -> bool:
+        """Whether it reached ``subscriber`` at ``rank`` or above since ``since``."""
+        for told in range(rank, max(RANKS.values()) + 1):
+            sent = ledger.get((key, told, subscriber, channel))
+            if sent and sent["status"] == "sent" and str(sent["at"]) >= since:
+                return True
+        return False
 
     def _attempt(
         self,

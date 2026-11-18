@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from omni_mercury_engine.watch.feeds import FEEDS, Feed
 from omni_mercury_engine.watch.guidance import with_guidance
 from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
-from omni_mercury_engine.watch.notify import Notifier
+from omni_mercury_engine.watch.notify import RETRY_FIRST, Notifier
 from omni_mercury_engine.watch.store import WatchStore
 
 if TYPE_CHECKING:
@@ -82,6 +82,11 @@ class Watcher:
         self._own: list[str] = []
         self._clock = clock if clock is not None else (lambda: datetime.now(UTC))
         self._last_read: dict[str, datetime] = {}
+        #: When each feed was last read by any watch of this store, as recorded.
+        self._read_by_anyone: dict[str, datetime] = {}
+        #: The last full delivery pass: when, and the newest announcement then.
+        self._delivered_at: datetime | None = None
+        self._delivered_to = 0
         #: This watcher's name on the lease: unique to it, readable by a person.
         self.holder = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
         self._standing_by = False
@@ -98,9 +103,37 @@ class Watcher:
             feed.bind(self.store)
 
     def due(self, feed: Feed, now: datetime) -> bool:
-        """Whether ``feed`` should be read at ``now``."""
-        last = self._last_read.get(feed.name)
-        return last is None or now - last >= feed.cadence
+        """Whether ``feed`` should be read at ``now``.
+
+        It is, when nobody has read it for its cadence: this watcher, or
+        another one of this store (as of this watcher's last pass). Judged by
+        this watcher's reads alone, a worker that had never read a feed found
+        it due at every tick and took its lease the moment it lapsed. A lease
+        lasts fifteen minutes and four feeds are read every thirty to sixty,
+        so the workers of ``serve --workers 4`` took turns reading each of
+        those four times as often as it asks to be read.
+        """
+        reads = [
+            read
+            for read in (self._last_read.get(feed.name), self._read_by_anyone.get(feed.name))
+            if read is not None
+        ]
+        return not reads or now - max(reads) >= feed.cadence
+
+    def _note_reads(self) -> None:
+        """Learn from the store when each feed was last read, by any watch."""
+        try:
+            statuses = self.store.statuses()
+        except Exception as exc:  # the store being busy must not stop a pass
+            logger.warning("watch: could not read when the feeds were last read: %s", exc)
+            return
+        for status in statuses:
+            try:
+                self._read_by_anyone[str(status["feed"])] = datetime.fromisoformat(
+                    str(status["checked_at"])
+                )
+            except (KeyError, ValueError):
+                continue
 
     def read_feed(self, feed: Feed) -> FeedStatus:
         """Read and judge one feed, and record what happened."""
@@ -133,6 +166,7 @@ class Watcher:
                 {finding.key for finding in findings if finding.ongoing},
                 now,
                 judgment.unchecked_places,
+                judgment.listed,
             )
         try:
             # Only the watch that holds the lease delivers. One that was run
@@ -279,6 +313,8 @@ class Watcher:
 
     def _pass(self, *, force: bool) -> list[FeedStatus]:
         now = self._clock()
+        if not force:
+            self._note_reads()
         statuses = []
         for feed in self.feeds:
             if not (force or self.due(feed, now)):
@@ -312,11 +348,27 @@ class Watcher:
         try:
             # Once more over everything: a delivery whose wait has passed, a
             # subscriber who joined since, whichever feed their finding is from.
-            if statuses and self.leads():
+            #
+            # And what another watch read. This pass used to run only when
+            # this watcher had itself read a feed: with ``mercury-agent watch``
+            # reading beside a server (it has no mail settings and cannot
+            # tell anyone), the server delivered a tornado warning only when
+            # it next happened to read something, up to an hour later.
+            if self._owes_a_delivery_pass(bool(statuses), now) and self.leads():
+                newest = self.store.last_announcement()
                 self.notifier.sync(heartbeat=self.leads)
+                self._delivered_at, self._delivered_to = now, newest
         except Exception as exc:  # telling people must not stop the watching
             logger.warning("watch: delivery pass failed: %s", exc)
         return statuses
+
+    def _owes_a_delivery_pass(self, read_a_feed: bool, now: datetime) -> bool:
+        """Whether there may be something to send: a read, a new finding, or a retry's wait."""
+        if read_a_feed or self._delivered_at is None:
+            return True
+        if now - self._delivered_at >= RETRY_FIRST:
+            return True
+        return self.store.last_announcement() > self._delivered_to
 
     def run_forever(
         self, *, tick_seconds: float = 30.0, stop: threading.Event | None = None

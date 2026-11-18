@@ -25,7 +25,7 @@ from omni_mercury_engine.cli import main
 from omni_mercury_engine.watch import Severity, WatchStore
 from omni_mercury_engine.watch.guidance import with_guidance
 from omni_mercury_engine.watch.model import Finding
-from omni_mercury_engine.watch.notify import Notifier
+from omni_mercury_engine.watch.notify import Notifier, address_entry
 
 from .smtp_server import OPENSSL, SmtpServer, mint_certificate
 
@@ -38,6 +38,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 NOW = datetime(2026, 11, 17, 1, 0, tzinfo=UTC)
+
+
+def _entry(store: WatchStore) -> int:
+    """The ledger entry of the store's one subscribed address."""
+    return address_entry(str(store.subscribers()[0]["email"]))
 
 
 @pytest.fixture()
@@ -117,7 +122,7 @@ class TestDelivery:
         body = message.get_content()
         assert "It read 17.09 ft" in body and 'About 7 km from "Home".' in body
         assert "WHAT TO DO" in body and "turn around, don't drown" in body
-        assert store.delivery(finding.key, 3, 1, "email")["status"] == "sent"
+        assert store.delivery(finding.key, 3, _entry(store), "email")["status"] == "sent"
 
     def test_the_message_is_one_a_mail_server_and_a_mail_client_will_take(
         self, tmp_path: Path, smtp: SmtpServer
@@ -164,13 +169,13 @@ class TestDelivery:
 
         assert notifier.sync() == {"sent": 1, "failed": 1}
         assert [got.recipients for got in smtp.received] == [["ana@example.org"]]
-        refused = store.delivery(finding.key, 3, 1, "email")
+        refused = store.delivery(finding.key, 3, _entry(store), "email")
         assert refused["status"] == "failed" and "does not exist" in refused["error"]
 
         smtp.refuse.clear()  # the mailbox comes back
         clock[0] += timedelta(minutes=1)  # the wait after a first failure
         assert notifier.sync() == {"sent": 1, "failed": 0}
-        assert store.delivery(finding.key, 3, 1, "email")["attempts"] == 2
+        assert store.delivery(finding.key, 3, _entry(store), "email")["attempts"] == 2
 
     def test_a_server_whose_certificate_is_not_trusted_is_not_sent_the_message(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, certificate: tuple[Path, Path]
@@ -185,7 +190,10 @@ class TestDelivery:
             done = Notifier(store, clock=lambda: NOW).sync()
 
             assert done == {"sent": 0, "failed": 1} and server.received == []
-        assert "CERTIFICATE_VERIFY_FAILED" in store.delivery(finding.key, 3, 1, "email")["error"]
+        assert (
+            "CERTIFICATE_VERIFY_FAILED"
+            in store.delivery(finding.key, 3, _entry(store), "email")["error"]
+        )
 
     def test_tls_from_the_first_byte_is_used_when_starttls_is_off(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, certificate: tuple[Path, Path]

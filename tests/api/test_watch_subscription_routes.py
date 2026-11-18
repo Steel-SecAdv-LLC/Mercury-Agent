@@ -514,6 +514,7 @@ class TestPhone:
 
         exported = client.get("/api/v1/auth/export").json()["watch_phone"]
         assert exported["number"] == NUMBER and exported["verified_at"]
+        assert exported["pending_number"] is None
 
         client.post(
             "/api/v1/auth/email-change/request",
@@ -529,6 +530,24 @@ class TestPhone:
         csrf = {"X-CSRF-Token": str(login.json()["csrf_token"])}
         assert client.delete(PHONE, headers=csrf).status_code == 200
         assert _store().phone_of("ana@new.example.org") == {}
+
+    def test_a_number_awaiting_its_code_is_in_the_export_too(
+        self, setup: Setup, texts: _Texts
+    ) -> None:
+        """Was: held against the address in the store, and left out of what its owner is given."""
+        from datetime import UTC, datetime, timedelta
+
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        client.post(PHONE, headers=csrf, json={"number": NUMBER})
+        client.post(f"{PHONE}/confirm", headers=csrf, json={"code": texts.code()})
+        address = next(iter(_store().verified_phones()))
+        other = "+14155550199"
+        _store().request_phone(address, other, now=datetime.now(UTC) + timedelta(minutes=5))
+
+        exported = client.get("/api/v1/auth/export").json()["watch_phone"]
+
+        assert (exported["number"], exported["pending_number"]) == (NUMBER, other)
 
     def test_it_is_gone_before_the_account_is(self, setup: Setup, texts: _Texts) -> None:
         client, mailer = setup

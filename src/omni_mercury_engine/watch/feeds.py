@@ -33,9 +33,17 @@ import numpy as np
 import pandas as pd
 
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
-from omni_mercury_engine.watch.model import EXTREME_BASIS, Finding, Outcome, Severity
+from omni_mercury_engine.watch.model import (
+    EXTREME_BASIS,
+    Finding,
+    Outcome,
+    Severity,
+    finding_key,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from omni_mercury_engine.watch.store import WatchStore
 
 logger = logging.getLogger(__name__)
@@ -68,6 +76,12 @@ class Judgment:
             effect at those places are kept standing; everything else the
             read no longer shows is ended. Without this one failed lookup
             in 250 kept every expired warning of the feed "standing".
+        listed: Keys of every warning the source still has in effect,
+            whoever for, when the source gives such a list (the National
+            Weather Service's nationwide one). A finding at a place that
+            could not be checked is kept only while it is on that list: a
+            place whose lookup failed at every read kept a warning that had
+            expired the day before standing for as long as it went on failing.
     """
 
     findings: list[Finding] = field(default_factory=list)
@@ -77,6 +91,7 @@ class Judgment:
     subjects: int = 0
     partial: bool = False
     unchecked_places: frozenset[int] = frozenset()
+    listed: frozenset[str] | None = None
 
 
 class Feed:
@@ -179,17 +194,66 @@ def _alert_thread(identifier: str, references: Any) -> str:
     list of mappings as the National Weather Service's API gives it, or the
     CAP text itself: space-separated ``sender,identifier,sent`` triples.
     """
-    earlier: list[tuple[str, str]] = []
+    return min(_references(references), default=(None, identifier))[1]
+
+
+def _references(references: Any) -> list[tuple[Any, str]]:
+    """``(sent, identifier)`` of each message ``references`` names, ``sent`` as a time.
+
+    The times are compared as times. As text, ``01:30-05:00`` sorted before
+    ``01:10-06:00`` though it is twenty minutes later: across a change of
+    offset the earliest reference, and with it the warning's name, changed.
+    A time that cannot be read sorts last.
+    """
+    named: list[tuple[str, str]] = []
     if isinstance(references, str):
         for triple in references.split():
             parts = triple.split(",")
             if len(parts) >= 3 and parts[1]:
-                earlier.append((parts[-1], ",".join(parts[1:-1])))
+                named.append((parts[-1], ",".join(parts[1:-1])))
     elif isinstance(references, list):
         for reference in references:
             if isinstance(reference, dict) and reference.get("identifier"):
-                earlier.append((str(reference.get("sent") or ""), str(reference["identifier"])))
-    return min(earlier)[1] if earlier else identifier
+                named.append((str(reference.get("sent") or ""), str(reference["identifier"])))
+    never = pd.Timestamp.max.tz_localize("UTC")
+    return [
+        (when if pd.notna(when) else never, identifier)
+        for when, identifier in (
+            (pd.to_datetime(sent, utc=True, errors="coerce"), identifier)
+            for sent, identifier in named
+        )
+    ]
+
+
+def _pieces(rows: Any, name: Callable[[Any], str]) -> list[list[Any]]:
+    """``rows`` grouped by the warning each belongs to, in the order first met.
+
+    An authority often has one warning in effect as several messages at once,
+    one for each group of zones: 23 of the 527 National Weather Service alerts
+    in effect on 2026-11-18 were pieces of 8 warnings, each piece for a
+    different area. They name the same first message, so they are one finding;
+    told piece by piece under that one name, the last piece read replaced the
+    others, and whoever lived in an earlier piece's zones was not told.
+    """
+    grouped: dict[str, list[Any]] = {}
+    for row in rows:
+        grouped.setdefault(name(row), []).append(row)
+    return list(grouped.values())
+
+
+def _joined_areas(pieces: list[Any]) -> str:
+    """Every zone the pieces of one warning name, each once."""
+    zones: dict[str, None] = {}
+    for piece in pieces:
+        for zone in str(piece.area or "").split(";"):
+            if zone.strip():
+                zones.setdefault(zone.strip())
+    return "; ".join(zones)
+
+
+def _joined_places(pieces: list[Any]) -> tuple[int, ...]:
+    """Every subscribed place any piece of one warning is in effect at."""
+    return tuple(sorted({int(place) for piece in pieces for place in piece.place_ids}))
 
 
 def _out_of_bounds(exc: Exception) -> bool:
@@ -307,12 +371,15 @@ class EarthquakeFeed(Feed):
             strong = pd.to_numeric(frame["magnitude"], errors="coerce") >= self.NOTABLE
             times = pd.to_datetime(frame["time"], unit="ms", utc=True) if "time" in frame else None
             for index in np.flatnonzero(strong.to_numpy()):
-                event = frame["event_id"].iloc[int(index)]
-                if event:
-                    when = times.iloc[int(index)] if times is not None else None
-                    happened[str(event)] = (
-                        _utc(when) if when is not None and pd.notna(when) else now
-                    )
+                if not frame["event_id"].iloc[int(index)]:
+                    continue
+                when = times.iloc[int(index)] if times is not None else None
+                at = _utc(when) if when is not None and pd.notna(when) else now
+                # Under the id it is recorded by, which is the one its reach
+                # is looked up by when people are told. After USGS changed an
+                # event's preferred id the reach was read and kept under
+                # both, and the copy under the new one was never used.
+                happened[self._subject(frame.iloc[int(index)], at, now)] = at
         for finding in self._store.standing(now=now, feed=self.name):
             if finding.get("kind") == "earthquake":
                 happened.setdefault(
@@ -1145,16 +1212,34 @@ class WarningsFeed(Feed):
                 f"{self.MAX_PLACES} one read looks up"
             )
         unchecked = frozenset(frame.attrs.get("unchecked_places", ()))
+        # Every warning on the nationwide list, which does not depend on the places.
+        listed = frozenset(
+            finding_key(self.name, "nws_alert", str(thread)) for thread in frame["thread"]
+        )
         if frame.empty:
             return Judgment(
                 [], f"no alert in effect{watched}", None, 0, 0,
-                partial=unanswered > 0, unchecked_places=unchecked,
+                partial=unanswered > 0, unchecked_places=unchecked, listed=listed,
             )  # fmt: skip
         findings = []
-        for row in frame.itertuples(index=False):
-            here = tuple(int(place) for place in row.place_ids)
-            if row.severity != "Extreme" and not here:
-                continue
+        told = [
+            row
+            for row in frame.itertuples(index=False)
+            if row.severity == "Extreme" or len(row.place_ids)
+        ]
+        for pieces in _pieces(told, lambda piece: str(piece.thread)):
+            # The most severe piece speaks for the warning, the latest of
+            # those; its reach is every piece's.
+            row = max(
+                pieces,
+                key=lambda piece: (
+                    int(self.SEVERITY.get(str(piece.severity), Severity.NOTABLE)),
+                    str(piece.sent),
+                    str(piece.id),
+                ),
+            )
+            here = _joined_places(pieces)
+            area = _joined_areas(pieces)
             sent = pd.to_datetime(row.sent, utc=True, errors="coerce")
             until = pd.to_datetime(row.until, utc=True, errors="coerce")
             rated = ", ".join(
@@ -1170,7 +1255,7 @@ class WarningsFeed(Feed):
                     # keyed by message each one was told as a new alert.
                     subject=str(row.thread),
                     severity=self.SEVERITY.get(str(row.severity), Severity.NOTABLE),
-                    headline=f"{row.event}: {_shorten(str(row.area), 90)}",
+                    headline=f"{row.event}: {_shorten(area, 90)}",
                     detail=(
                         (
                             f"{row.headline}. "
@@ -1190,7 +1275,7 @@ class WarningsFeed(Feed):
                     reference=str(row.id),
                     action=str(row.instruction),
                     action_source=str(row.sender) if row.instruction else "",
-                    area=str(row.area),
+                    area=area,
                     place_ids=here,
                 )
             )
@@ -1208,7 +1293,7 @@ class WarningsFeed(Feed):
             summary += f"; {at_places} in effect at subscribed places"
         return Judgment(
             findings, summary, None, len(frame), len(frame),
-            partial=unanswered > 0, unchecked_places=unchecked,
+            partial=unanswered > 0, unchecked_places=unchecked, listed=listed,
         )  # fmt: skip
 
     review_after = timedelta(minutes=30)
@@ -1278,7 +1363,13 @@ class DeclarationFeed(Feed):
         # looks back three days and checks its findings for fourteen.
         return pd.DataFrame(
             self._loader("FEMAActivityLoader").fetch_realtime(
+                # A finding is checked for review_until days and counts the
+                # RECENT_DAYS before it. Asked for the first alone, a finding
+                # of 3 January checked on the 15th had lost 31 December and
+                # was called "revised".
                 days_before_year=self.review_until.days
+                + self.RECENT_DAYS
+                + 1
             )
         )
 
@@ -1289,7 +1380,10 @@ class DeclarationFeed(Feed):
         days = pd.to_datetime(frame["timestamp"], utc=True)
         this_year = (days.dt.year == pd.Timestamp(now).year).to_numpy()
         counts = frame["designations"].astype(float)
-        week = counts.rolling(7, min_periods=1).sum()
+        # Weeks of this year, counted from this year's days: with the end of
+        # December in the frame, the first weeks of January held December's
+        # designations and "earlier this year" was last year.
+        week = counts[this_year].rolling(7, min_periods=1).sum()
         recent = frame[days >= pd.Timestamp(now).floor("D") - pd.Timedelta(days=self.RECENT_DAYS)]
         declared = recent[recent["designations"] > 0]
         findings = []
@@ -1302,12 +1396,11 @@ class DeclarationFeed(Feed):
             told = self._days_to(frame, days, pd.Timestamp(when))
             total = int(told["designations"].sum())
             states = int(told["states"].max())
-            this_week = float(week.iloc[-1])
+            this_week = float(week.iloc[-1]) if len(week) else 0.0
             # More than any earlier week, and there has been one: the first
             # declaration of a year used to tie a history of zeros and be
             # called "the busiest week of the year".
-            weeks_this_year = week[this_year]
-            earlier = float(weeks_this_year.iloc[:-7].max()) if len(weeks_this_year) > 7 else 0.0
+            earlier = float(week.iloc[:-7].max()) if len(week) > 7 else 0.0
             busiest = earlier > 0 and this_week > earlier
             findings.append(
                 Finding(

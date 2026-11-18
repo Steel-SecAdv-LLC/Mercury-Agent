@@ -57,6 +57,43 @@ _OPTED_OUT = 21610
 #: alphabet that is longer than one segment (160) is sent as segments of 153,
 #: so two are 306 characters; the old limit of 320 was three.
 MAX_TEXT = 306
+#: Two segments of a message that is not in that alphabet. One character
+#: outside it (the "ã" of "São Paulo", a curly quote in a headline) and the
+#: whole message is sent as 16-bit units, 67 to a segment: 306 characters
+#: were then five segments, not the two the limit was set for.
+MAX_TEXT_UCS2 = 134
+
+#: The GSM 03.38 default alphabet, and the characters in it that take two places.
+_GSM = frozenset(
+    "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?"
+    "¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà"
+)
+_GSM_TWO_PLACES = frozenset("^{}\\[~]|€")
+
+
+def _places(char: str, gsm: bool) -> int:
+    """How much of a segment ``char`` takes, in the alphabet the message is sent in."""
+    if gsm:
+        return 2 if char in _GSM_TWO_PLACES else 1
+    return len(char.encode("utf-16-le")) // 2
+
+
+def two_segments(text: str) -> str:
+    """``text``, cut to two segments of the encoding it will be sent in.
+
+    Cut at a word, and ended with three full stops (not the ellipsis
+    character, which is outside the GSM alphabet).
+    """
+    gsm = all(char in _GSM or char in _GSM_TWO_PLACES for char in text)
+    room = MAX_TEXT if gsm else MAX_TEXT_UCS2
+    if sum(_places(char, gsm) for char in text) <= room:
+        return text
+    used, kept = 0, 0
+    for kept, char in enumerate(text):
+        used += _places(char, gsm)
+        if used > room - 3:
+            break
+    return text[:kept].rsplit(" ", 1)[0].rstrip(",;:.") + "..."
 
 
 class SmsRefusedError(RuntimeError):
@@ -220,9 +257,4 @@ def text_message(
         first = re.split(r"(?<=[.!?])\s", action, maxsplit=1)[0]
         parts.append(first if first.endswith((".", "!", "?")) else first + ".")
     parts.append("In an emergency call your emergency number.")
-    text = " ".join(parts)
-    if len(text) > MAX_TEXT:
-        # Three full stops, not the ellipsis character: that one is outside the
-        # GSM alphabet and turns the whole message into 16-bit segments of 67.
-        text = text[: MAX_TEXT - 3].rsplit(" ", 1)[0].rstrip(",;:.") + "..."
-    return text
+    return two_segments(" ".join(parts))

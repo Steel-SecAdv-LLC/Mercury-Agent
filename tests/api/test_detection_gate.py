@@ -132,3 +132,18 @@ def test_neurosymbolic_says_when_a_request_carries_more_text_than_the_gate_reads
 
     assert resp.status_code == 413, resp.text
     assert "1,048,576 characters" in resp.text
+
+
+def test_neurosymbolic_reads_the_records_once(client: TestClient) -> None:
+    """Was: the record text was the request and the payload both, and counted twice.
+
+    600,000 characters of notes were 1,200,000 to the gate, past what it
+    reads, and the request was refused for its size.
+    """
+    notes = [
+        {"value": float(index), "note": f"reading {index} " + "ok " * 2_000} for index in range(100)
+    ]
+
+    resp = _post(client, {"data": notes})
+
+    assert resp.status_code not in (403, 413), resp.text

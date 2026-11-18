@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from omni_mercury_engine.utils.email_address import is_email_address
+from omni_mercury_engine.watch.model import RANKS
 from omni_mercury_engine.watch.sms import E164
 
 if TYPE_CHECKING:
@@ -168,6 +169,11 @@ class WatchStore:
         with suppress(OSError):
             self.path.chmod(0o600)
         with closing(self._connect()) as connection, connection:
+            # One process at a time. Every worker of ``serve --workers 4`` opens
+            # the store as it starts; two that both found a column missing both
+            # added it, the second failed on "duplicate column name", and that
+            # worker served without a watch until it was restarted.
+            connection.execute("BEGIN IMMEDIATE")
             # Stores written before the watch checked itself lack these columns.
             present = {row["name"] for row in connection.execute("PRAGMA table_info(findings)")}
             for column, kind in (
@@ -182,6 +188,11 @@ class WatchStore:
                 # When it last became more severe than it was (or was first
                 # seen): what was sent before then was sent of a milder thing.
                 ("raised_at", "TEXT"),
+                # The severity it was told at then, and when it was last seen
+                # at that severity or above: a climb back to it within the
+                # feed's episode is the same thing told, not a new one.
+                ("raised_severity", "INTEGER"),
+                ("peak_seen", "TEXT"),
             ):
                 if column not in present:
                     connection.execute(f"ALTER TABLE findings ADD COLUMN {column} {kind}")
@@ -244,7 +255,8 @@ class WatchStore:
             # failed on the key and its whole pass was recorded as down.
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
-                "SELECT ended, severity FROM findings WHERE key=?", (finding.key,)
+                "SELECT ended, severity, raised_severity, peak_seen FROM findings WHERE key=?",
+                (finding.key,),
             ).fetchone()
             body = json.dumps(finding.to_dict())
             # Open, or ended so recently that this is the same episode: a gauge
@@ -259,23 +271,36 @@ class WatchStore:
                 # row used to keep the highest severity it had reached, so a
                 # volcano that went from WARNING to ADVISORY and, months
                 # later, back to WARNING was never announced the second time.
-                escalated = int(finding.severity) > int(row["severity"])
+                #
+                # And more severe than it was told at, unless that was an
+                # episode ago. A gauge wavering between moderate and major
+                # climbed "back" at every other read, and each climb was told
+                # again to everyone: the feed's own window for "the same
+                # episode" now covers a return to a severity as it covers a
+                # return of the finding.
+                severity = int(finding.severity)
+                told_at = int(row["raised_severity"] or row["severity"])
+                at_peak = row["peak_seen"]
+                lately = at_peak is not None and (
+                    now - datetime.fromisoformat(at_peak) < same_episode
+                )
+                escalated = severity > int(row["severity"]) and (severity > told_at or not lately)
                 connection.execute(
                     "UPDATE findings SET ended=NULL, last_seen=?, body=?, severity=?, ongoing=? "
                     "WHERE key=?",
-                    (
-                        now.isoformat(),
-                        body,
-                        int(finding.severity),
-                        int(finding.ongoing),
-                        finding.key,
-                    ),
+                    (now.isoformat(), body, severity, int(finding.ongoing), finding.key),
                 )
                 if escalated:
                     connection.execute(
-                        "UPDATE findings SET raised_at=? WHERE key=?",
+                        "UPDATE findings SET raised_at=?, raised_severity=? WHERE key=?",
+                        (now.isoformat(), severity, finding.key),
+                    )
+                if severity >= (severity if escalated else told_at):
+                    connection.execute(
+                        "UPDATE findings SET peak_seen=? WHERE key=?",
                         (now.isoformat(), finding.key),
                     )
+                if escalated:
                     # What a later record said was said of the milder statement; the
                     # stronger one has not been checked.
                     connection.execute(
@@ -304,9 +329,9 @@ class WatchStore:
                     (f"{finding.key}@{began}", finding.key),
                 )
             connection.execute(
-                "INSERT INTO findings "
-                "(key, feed, severity, first_seen, last_seen, ended, body, ongoing, raised_at) "
-                "VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)",
+                "INSERT INTO findings (key, feed, severity, first_seen, last_seen, ended, body, "
+                "ongoing, raised_at, raised_severity, peak_seen) "
+                "VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)",
                 (
                     finding.key,
                     finding.feed,
@@ -315,6 +340,8 @@ class WatchStore:
                     now.isoformat(),
                     body,
                     int(finding.ongoing),
+                    now.isoformat(),
+                    int(finding.severity),
                     now.isoformat(),
                 ),
             )
@@ -365,6 +392,7 @@ class WatchStore:
         standing: set[str],
         now: datetime,
         unchecked_places: frozenset[int] = frozenset(),
+        listed: frozenset[str] | None = None,
     ) -> int:
         """End the feed's ongoing findings that the latest read no longer shows.
 
@@ -376,6 +404,9 @@ class WatchStore:
                 finding in effect at one of them is left standing: the read
                 did not show it because it could not look, not because it
                 has ended.
+            listed: Keys of everything the source itself still has in effect,
+                when it gives such a list. A finding at an unchecked place is
+                kept only while it is on it.
 
         Returns:
             How many findings ended.
@@ -392,6 +423,7 @@ class WatchStore:
                 if row["key"] not in standing
                 and not (
                     unchecked_places
+                    and (listed is None or row["key"] in listed)
                     and unchecked_places.intersection(
                         json.loads(row["body"]).get("place_ids") or ()
                     )
@@ -473,10 +505,9 @@ class WatchStore:
         ended fills what room is left. ``limit`` is applied by the caller,
         after anything it must leave out.
         """
-        ranks = {"severe": 0, "significant": 1, "notable": 2}
         standing = self.standing(now=now)
         standing.sort(key=lambda f: str(f.get("first_seen") or ""), reverse=True)
-        standing.sort(key=lambda f: ranks.get(str(f.get("severity")), 3))
+        standing.sort(key=lambda f: -RANKS.get(str(f.get("severity")), 0))
         if open_only:
             return standing
         held = {str(finding["key"]) for finding in standing}
@@ -982,12 +1013,26 @@ class WatchStore:
             return cursor.rowcount == 1
 
     def unverify_phone(self, number: str) -> int:
-        """Stop texting ``number``: its owner told the provider to stop. Returns how many."""
+        """Stop texting ``number``: its owner told the provider to stop. Returns how many.
+
+        A change of number that is waiting for its code is another number's
+        business and keeps its code; it was voided with the opt-out, and the
+        account went on saying "texts still go to" the number that had opted
+        out. A number that opts out while it is the one awaited is no longer
+        awaited.
+        """
         with self._lock, closing(self._connect()) as connection, connection:
-            cursor = connection.execute(
-                "UPDATE phones SET verified_at=NULL, code_hash=NULL WHERE number=?", (number,)
+            stopped = connection.execute(
+                "UPDATE phones SET verified_at=NULL, code_hash=CASE WHEN pending_number IS NULL "
+                "THEN NULL ELSE code_hash END WHERE number=?",
+                (number,),
             )
-            return int(cursor.rowcount)
+            awaited = connection.execute(
+                "UPDATE phones SET pending_number=NULL, pending_min_severity=NULL, "
+                "code_hash=NULL, code_expires=NULL WHERE pending_number=?",
+                (number,),
+            )
+            return int(stopped.rowcount) + int(awaited.rowcount)
 
     def move_phone(self, previous: str, current: str) -> None:
         """Carry an address's number to the address that replaces it."""

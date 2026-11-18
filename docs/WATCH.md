@@ -149,12 +149,19 @@ Each message says what happened, where and how far from the subscriber's
 place, what to do and whose guidance that is, the source and basis, and that
 Mercury does not issue warnings. Every delivery is recorded. A finding is
 sent to a subscriber once, and again only when it becomes more severe than it
-was: a flood falling from major to minor is one message, not three, and one
-that falls and later climbs back is told again. An address with several
-places is sent a finding once, whichever place it is nearest. A warning is
-one finding across its updates: the National Weather Service and other
-authorities give each update a new identifier, and the finding follows the
-warning, not the message. A failed delivery is tried again after one minute, then two, four and
+was: a flood falling from major to minor is one message, not three. One
+that falls and climbs back to a severity it was told at is told again only
+when it has been below it for longer than the feed's episode (26 hours for a
+river gauge): a gauge wavering between two stages is one flood. An address
+with several places is sent a finding once, whichever place it is nearest,
+and removing a place sends nothing again. A warning is one finding across
+its updates and across its pieces: the National Weather Service and other
+authorities give each update a new identifier and often have one warning in
+effect as several messages, each for its own zones (23 of the 527 alerts in
+effect on 2026-11-18 were pieces of 8 warnings). The finding follows the
+warning, and reaches everyone in any piece. A text is cut to two segments in
+the alphabet it is sent in: 306 characters, or 134 when it holds a character
+outside the GSM alphabet. A failed delivery is tried again after one minute, then two, four and
 so on up to an hour apart, twelve attempts over about six hours while the
 finding stands, and is counted as failed, never dropped silently. A finding
 that happens somewhere and arrives without its coordinates goes only to
@@ -182,10 +189,13 @@ so does `mercury-agent watch` beside a server. One of them holds the store's
 lease for telling people and does the sending; each feed has its own lease
 and is read by whichever watch holds it, so a `mercury-agent watch --feed
 earthquakes` beside a server leaves the server reading the rest. A watch that
-has no way of telling anyone does not take the lease for telling. The others
+has no way of telling anyone does not take the lease for telling. The one
+that tells delivers what any of them read, within a tick of its being
+recorded. A feed is due when no watch of the store has read it for its
+cadence, so the workers do not take turns reading a slow feed. The others
 tell their own open consoles what is found, and take over a lease when its
-holder stops (it gives them up at once on shutdown) or 15 minutes after it
-last renewed. The store is one SQLite
+holder stops (it gives them up at once on shutdown, and a delivery pass in
+progress ends there) or 15 minutes after it last renewed. The store is one SQLite
 file, so this holds for processes that share its directory on one host.
 Replicas that each have their own directory are each a separate watch with
 its own subscribers: run the watch in one place and point `MERCURY_WATCH_DIR`

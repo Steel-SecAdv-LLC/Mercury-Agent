@@ -150,9 +150,14 @@ _SEQUENCES: tuple[type, ...] = (
     type({}.keys()), type({}.values()), type({}.items()),
 )  # fmt: skip
 
-#: Two letters together. A string without them (a timestamp, an id of digits,
-#: a number written out) has no word in it for the gate to read.
-_WORD = re.compile(r"[^\W\d_]{2}")
+#: A letter that a date, a time or a number is not written with. A string
+#: without one (``2026-11-18T10:00:00Z``, an id of digits, ``1.5e-3``) has no
+#: word in it for the gate to read.
+#:
+#: This was "two letters together", which also passed over text written one
+#: letter at a time: ``s a r i n`` in a payload went unread, though the
+#: normalizer exists to put exactly that back together.
+_WORD = re.compile(r"[^\W\d_TtZzEe]")
 
 #: A run of printable ASCII inside bytes that are not text: what ``strings``
 #: would show of them.
@@ -196,10 +201,17 @@ def _object_text(payload: Any) -> list[Any] | None:
             return [str(payload)]
         if hasattr(type(payload), "dtypes") and hasattr(type(payload), "columns"):  # a frame
             return _frame_text(payload)
-        kind = getattr(getattr(payload, "dtype", None), "kind", None)
+        dtype: Any = getattr(payload, "dtype", None)
+        kind = getattr(dtype, "kind", None)
         if isinstance(kind, str):
-            # "V" is a structured array: its fields can be strings.
-            held = [_as_list(payload)] if kind in _TEXT_KINDS else []
+            names = getattr(dtype, "names", None)
+            if kind == "V" and names:
+                # A structured array: only the fields that can hold text, each
+                # as the array it is. Converted whole, six million records of
+                # numbers were six million tuples to walk, and a refusal.
+                held = [payload[name] for name in names if dtype[name].kind in _TEXT_KINDS]
+            else:
+                held = [_as_list(payload)] if kind in _TEXT_KINDS else []
             return held + _index_text(payload)
         if isinstance(payload, _Sequence):
             # As a plain list, which is walked like any other: numbers in one
@@ -328,9 +340,10 @@ def payload_text(payload: Any) -> list[str]:
             value = _bytes_text(bytes(value))
         if isinstance(value, str):
             # Read once, however often it occurs, and only if it could hold a
-            # word. The keys of 45,000 records are three strings, and 60,000
-            # timestamps are no text at all; counted each time they filled
-            # the reading budget and a table of numbers was refused.
+            # word (see ``_WORD``). The keys of 45,000 records are three
+            # strings, and 60,000 timestamps are no text at all; counted each
+            # time they filled the reading budget and a table of numbers was
+            # refused.
             if value not in read and _WORD.search(value):
                 read.add(value)
                 chars += len(value)

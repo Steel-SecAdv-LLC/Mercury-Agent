@@ -55,26 +55,6 @@ _flagship_lock = threading.Lock()
 _flagship_engine: Any = None
 
 
-def _record_text(records: list[dict[str, Any]]) -> str:
-    """Concatenate every string leaf of detection ``records`` for the harm gate.
-
-    The harm-uplift gate scores ``DecisionSubject.request`` first and guarantees
-    it survives the bounded subject, but a ``payload`` list is summarised only up
-    to a fixed item cap. Folding the record text into ``request`` therefore keeps
-    uplift text that would otherwise sit past that cap (in an arbitrarily long
-    ``data`` list) within what the gate actually scores. String values one level
-    deep cover the record shapes this endpoint accepts (``{"note": "..."}``);
-    the gate reads the whole of it, in overlapping passages.
-    """
-    parts: list[str] = []
-    for record in records:
-        if isinstance(record, str):
-            parts.append(record)
-        elif isinstance(record, dict):
-            parts.extend(v for v in record.values() if isinstance(v, str))
-    return " ".join(parts)
-
-
 def _raise_if_too_large_to_assess(refusal: Exception) -> None:
     """Answer 413 when the gate refused a request for carrying more text than it reads.
 
@@ -350,20 +330,16 @@ async def detect_neurosymbolic(
         # internally, so it must be enforced here or the documented control is
         # absent on a public decision surface. A refusal maps to HTTP 403 below.
         #
-        # The record text is folded into ``request`` rather than passed as the
-        # ``payload``: the gate scores ``request`` FIRST and guarantees it is not
-        # evicted from the bounded subject, whereas a payload list is summarised
-        # only up to its first N items -- so uplift buried past that cap in an
-        # arbitrarily long ``data`` list would never be scored. Every string leaf
-        # of the (unbounded, min_length=1) records is concatenated so the request
-        # carries all caller text, which the gate reads in full.
+        # The records are the payload, which the gate reads whole: every
+        # string in them, at any depth. Their text used to be folded into
+        # ``request`` as well, from when a payload was read through a bounded
+        # summary; with both, the same text was read twice and counted twice
+        # against what one decision may carry, so a request half the size the
+        # gate reads was refused for its size.
         enforce_decision_boundary(
             DecisionSubject(
                 surface="api.detect_neurosymbolic",
                 operation="neuro-symbolic anomaly detection over caller-supplied records",
-                request=_record_text(request.data),
-                # The whole of what was sent, as well: text nested inside a
-                # record, or in a list value, is in neither of the above.
                 payload=request.data,
             )
         )

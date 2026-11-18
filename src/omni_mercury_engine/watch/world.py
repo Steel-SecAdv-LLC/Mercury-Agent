@@ -47,6 +47,10 @@ from omni_mercury_engine.watch.feeds import (
     _alert_thread,
     _clock,
     _count,
+    _joined_areas,
+    _joined_places,
+    _pieces,
+    _references,
     _shorten,
     _utc,
 )
@@ -131,6 +135,7 @@ def parse_cap(document: str, prefer: str = "en") -> dict[str, Any]:
     return {
         "identifier": text(root, "identifier"),
         "thread": _alert_thread(text(root, "identifier"), text(root, "references")),
+        "references": [named for _, named in _references(text(root, "references"))],
         "status": text(root, "status"),
         "msg_type": text(root, "msgType"),
         "sent": text(root, "sent"),
@@ -175,6 +180,8 @@ class WorldWarningsFeed(Feed):
         self._store: WatchStore | None = None
         #: CAP documents already read, by path. A published alert does not change.
         self._alerts: dict[str, dict[str, Any]] = {}
+        #: The warning each message read belongs to, by the message's identifier.
+        self._warning: dict[str, str] = {}
 
     def bind(self, store: WatchStore) -> None:
         """Take the store, for the subscribed places."""
@@ -266,6 +273,7 @@ class WorldWarningsFeed(Feed):
             )
         # What no place is covered by any more need not be kept.
         self._alerts = {path: alert for path, alert in self._alerts.items() if path in rows}
+        self._name_warnings(rows.values())
         frame = pd.DataFrame(list(rows.values()), columns=self._COLUMNS)
         frame.attrs.update(
             places=asked - unanswered, unanswered=unanswered, unread=unread, beyond=beyond,
@@ -273,19 +281,67 @@ class WorldWarningsFeed(Feed):
         )  # fmt: skip
         return frame
 
+    def _name_warnings(self, rows: Any) -> None:
+        """Give each message the name of its warning, following the chain of references.
+
+        The first message a warning's messages name is its name when each
+        names them all, as the National Weather Service's do. Of 34 updates
+        read from 17 authorities on 2026-11-18, 26 named one earlier message:
+        where that is the one before, not the first, the third message's
+        earliest reference is the second, and every other update would be a
+        new warning. So a message takes the name of any message it references
+        that has been read, oldest first.
+
+        The names are this process's: after a restart a warning whose
+        authority names only the message before is, at its next update, told
+        once more.
+        """
+        ordered = sorted(
+            rows,
+            key=lambda row: (pd.to_datetime(row["sent"], utc=True, errors="coerce"), row["path"]),
+        )
+        for row in ordered:
+            identifier = str(row.get("identifier") or "")
+            name = self._warning.get(identifier) or next(
+                (self._warning[ref] for ref in row.get("references") or () if ref in self._warning),
+                str(row.get("thread") or identifier),
+            )
+            if identifier:
+                self._warning[identifier] = name
+            row["thread"] = name
+        live = {str(row.get("thread")) for row in ordered}
+        self._warning = {known: name for known, name in self._warning.items() if name in live}
+
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
-        """Each alert that is actual, not cancelled and not expired is a finding."""
+        """Each warning that is actual, not cancelled and not expired is a finding."""
         places = int(frame.attrs.get("places", 0))
         unanswered = int(frame.attrs.get("unanswered", 0))
         unread = int(frame.attrs.get("unread", 0))
         beyond = int(frame.attrs.get("beyond", 0))
         findings = []
+        in_effect = []
         for row in frame.itertuples(index=False):
             expires = pd.to_datetime(row.expires, utc=True, errors="coerce")
             if pd.notna(expires) and _utc(expires) <= now:
                 continue
             if row.msg_type == "Cancel" or (row.status and row.status != "Actual"):
                 continue  # withdrawn, or an exercise or test message
+            in_effect.append(row)
+        for pieces in _pieces(
+            in_effect, lambda piece: str(piece.thread or piece.identifier or piece.path)
+        ):
+            # One warning can be in effect as several messages, each for its
+            # own areas. The most severe speaks for it, the latest of those.
+            row = max(
+                pieces,
+                key=lambda piece: (
+                    int(self.SEVERITY.get(str(piece.severity), Severity.NOTABLE)),
+                    str(piece.sent),
+                    str(piece.path),
+                ),
+            )
+            area = _joined_areas(pieces)
+            expires = pd.to_datetime(row.expires, utc=True, errors="coerce")
             sent = pd.to_datetime(row.sent, utc=True, errors="coerce")
             rated = ", ".join(
                 part for part in (row.severity, row.urgency, row.certainty) if part
@@ -300,11 +356,7 @@ class WorldWarningsFeed(Feed):
                     # The warning, not the message: an update has a new identifier.
                     subject=str(row.thread or row.identifier or row.path),
                     severity=self.SEVERITY.get(str(row.severity), Severity.NOTABLE),
-                    headline=(
-                        f"{event}: {_shorten(str(row.area), 90)}"
-                        if row.area
-                        else f"{event} ({issuer})"
-                    ),
+                    headline=(f"{event}: {_shorten(area, 90)}" if area else f"{event} ({issuer})"),
                     detail=(
                         (f"{row.headline}. " if row.headline else f"{row.event} from {issuer}. ")
                         + (
@@ -323,8 +375,8 @@ class WorldWarningsFeed(Feed):
                     reference=str(row.web or row.path),
                     action=str(row.instruction),
                     action_source=issuer if row.instruction else "",
-                    area=str(row.area),
-                    place_ids=tuple(int(place) for place in row.place_ids),
+                    area=area,
+                    place_ids=_joined_places(pieces),
                 )
             )
         if not places and not unanswered:
@@ -355,16 +407,21 @@ class WorldWarningsFeed(Feed):
     def review(self, finding: dict[str, Any], now: datetime) -> Outcome | None:
         """Read the alert again from the centre: was it issued as relayed."""
         record = "the alert's CAP document at the WMO Severe Weather Information Centre"
-        path = next(
-            (
-                p
-                for p, alert in self._alerts.items()
-                if finding.get("subject") in (alert.get("thread"), alert.get("identifier"))
-            ),
-            "",
-        )
-        if not path:
+        # The warning's latest message. The first one found used to be read,
+        # which for a warning since cancelled was the original: "confirmed".
+        named = [
+            (pd.to_datetime(alert.get("sent"), utc=True, errors="coerce"), p)
+            for p, alert in self._alerts.items()
+            if finding.get("subject")
+            in (
+                self._warning.get(str(alert.get("identifier") or "")),
+                alert.get("thread"),
+                alert.get("identifier"),
+            )
+        ]
+        if not named:
             return None  # no longer in effect anywhere subscribed; nothing to read it from
+        path = max(named, key=lambda sent_path: (pd.notna(sent_path[0]), sent_path))[1]
         try:
             again = parse_cap(self._document(path))
         except Exception:

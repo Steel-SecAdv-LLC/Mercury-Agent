@@ -37,6 +37,7 @@ from omni_mercury_engine.watch.notify import (
     RETRY_CAP,
     RETRY_FIRST,
     Notifier,
+    address_entry,
     audience,
     distance_km,
     notice,
@@ -48,6 +49,11 @@ if TYPE_CHECKING:
 
 NOW = datetime(2026, 11, 17, 1, 0, tzinfo=UTC)
 COCOA = (28.37, -80.87)
+
+
+def _entry(store: WatchStore) -> int:
+    """The ledger entry of the store's one subscribed address."""
+    return address_entry(str(store.subscribers()[0]["email"]))
 
 
 @pytest.fixture()
@@ -333,13 +339,13 @@ class TestDelivery:
 
         assert notifier.sync() == {"sent": 1, "failed": 1}
         assert [to for to, _, _ in mail.sent] == ["up@example.org"]
-        record = store.delivery(made.key, 3, 1, "email")
+        record = store.delivery(made.key, 3, _entry(store), "email")
         assert record["status"] == "failed" and "mailbox unavailable" in record["error"]
 
         mail.failing.clear()
         clock[0] += RETRY_FIRST
         assert notifier.sync() == {"sent": 1, "failed": 0}
-        assert store.delivery(made.key, 3, 1, "email")["attempts"] == 2
+        assert store.delivery(made.key, 3, _entry(store), "email")["attempts"] == 2
         assert store.delivery_counts() == {"sent": 2, "failed": 0}
 
     def test_a_line_break_in_a_source_text_does_not_make_the_finding_undeliverable(
@@ -388,7 +394,7 @@ class TestDelivery:
         made = self._standing(store)
         Notifier(store, mailer=_Mail(), clock=lambda: NOW).sync()
         assert store.standing_deliveries() == {
-            (made.key, 3, 1, "email"): {
+            (made.key, 3, _entry(store), "email"): {
                 "status": "sent", "attempts": 1, "at": NOW.isoformat(), "error": None,
             }
         }  # fmt: skip
@@ -396,7 +402,9 @@ class TestDelivery:
         store.close_absent("river_gauges", set(), NOW + timedelta(hours=2))
 
         assert store.standing_deliveries() == {}
-        assert store.delivery(made.key, 3, 1, "email")["status"] == "sent"  # still on record
+        assert (
+            store.delivery(made.key, 3, _entry(store), "email")["status"] == "sent"
+        )  # still on record
 
     def test_one_mailbox_is_one_subscriber_however_it_is_capitalised(
         self, store: WatchStore
@@ -499,8 +507,8 @@ class TestDelivery:
         assert len(mail.sent) == 2
         # Each occurrence keeps its own record.
         archived = f"{first.key}@{NOW.isoformat()}"
-        assert store.delivery(archived, 3, 1, "email")["at"] == NOW.isoformat()
-        assert store.delivery(first.key, 3, 1, "email")["at"] == month.isoformat()
+        assert store.delivery(archived, 3, _entry(store), "email")["at"] == NOW.isoformat()
+        assert store.delivery(first.key, 3, _entry(store), "email")["at"] == month.isoformat()
 
     def test_a_store_whose_deliveries_stayed_under_the_bare_key_tells_the_recurrence_too(
         self, store: WatchStore
@@ -521,7 +529,7 @@ class TestDelivery:
 
         assert store.standing_deliveries() == {}
         assert notifier.sync() == {"sent": 1, "failed": 0}
-        record = store.delivery(made.key, 3, 1, "email")
+        record = store.delivery(made.key, 3, _entry(store), "email")
         assert (record["status"], record["attempts"]) == ("sent", 1)  # this occurrence's first
         assert notifier.sync() == {"sent": 0, "failed": 0}
 

@@ -35,6 +35,7 @@ from omni_mercury_engine.watch.notify import (
     RETRY_CAP,
     RETRY_FIRST,
     Notifier,
+    address_entry,
     audience,
     configured_channels,
     retry_wait,
@@ -50,6 +51,11 @@ if TYPE_CHECKING:
 NOW = datetime(2026, 11, 17, 1, 0, tzinfo=UTC)
 NUMBER = "+14155550123"
 TOKEN = "-".join(("auth", "token"))  # a stand-in, not a credential
+
+
+def _entry(store: WatchStore) -> int:
+    """The ledger entry of the store's one subscribed address."""
+    return address_entry(str(store.subscribers()[0]["email"]))
 
 
 @pytest.fixture()
@@ -135,7 +141,7 @@ class TestAFailedDeliveryIsTriedAgainLater:
         for _ in range(9):  # one pass: a delivery attempt after each of nine feeds
             notifier.sync()
             clock[0] += timedelta(seconds=4)
-        record = store.delivery(_finding().key, 3, 1, "email")
+        record = store.delivery(_finding().key, 3, _entry(store), "email")
         assert (record["status"], record["attempts"]) == ("failed", 1)
 
         mail.down = False

@@ -13,6 +13,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from omni_mercury_engine.watch.model import RANKS
+
 __all__ = ["age", "brief", "finding_text", "record_line", "status_line"]
 
 _MARK = {"severe": "!!!", "significant": "!! ", "notable": "!  "}
@@ -99,8 +101,10 @@ def brief(
 ) -> str:
     """Everything the watch has to say: standing findings, every feed, its track record."""
     standing = [finding for finding in findings if not finding.get("ended")]
-    order = {"severe": 0, "significant": 1, "notable": 2}
-    standing.sort(key=lambda f: (order.get(str(f.get("severity")), 3), f.get("first_seen", "")))
+    # The page's order (``WatchStore.overview``): the most severe first, the
+    # newest first within a severity. This listed the oldest first.
+    standing.sort(key=lambda f: str(f.get("first_seen") or ""), reverse=True)
+    standing.sort(key=lambda f: -RANKS.get(str(f.get("severity")), 0))
     lines: list[str] = []
     if standing:
         lines.append(f"{len(standing)} finding{'s' if len(standing) != 1 else ''} standing")

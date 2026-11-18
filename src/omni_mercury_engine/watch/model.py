@@ -75,6 +75,11 @@ def public_view(finding: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+def finding_key(feed: str, kind: str, subject: str) -> str:
+    """The key a finding of this feed, kind and subject has."""
+    return hashlib.sha256(f"{feed}|{kind}|{subject}".encode()).hexdigest()[:20]
+
+
 @dataclass(frozen=True)
 class Finding:
     """One thing a feed showed that is worth a person's attention.
@@ -129,8 +134,7 @@ class Finding:
     @property
     def key(self) -> str:
         """Identity of the thing found: the same key is the same finding."""
-        raw = f"{self.feed}|{self.kind}|{self.subject}"
-        return hashlib.sha256(raw.encode()).hexdigest()[:20]
+        return finding_key(self.feed, self.kind, self.subject)
 
     def to_dict(self) -> dict[str, Any]:
         """Plain JSON types."""
