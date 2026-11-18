@@ -775,11 +775,29 @@ def canonical_normalize(text: str) -> str:
     Fail-open: returns the plain lowercased text if normalization raises.
     """
     try:
-        rejoined = _rejoin_spaced_words(text or "")
-        base = base_normalize(rejoined or text)
-        return _fold_obfuscation(base)
+        return _fold_obfuscation(canonical_unfolded(text))
     except Exception:
         return (text or "").lower()
+
+
+def canonical_unfolded(text: str) -> str:
+    """What :func:`canonical_normalize` folds, before it is folded.
+
+    Lowercased, with its spaced-out letters put back together, and its digits
+    and symbols still digits and symbols. :func:`fold_obfuscation` of it is
+    the canonical form, character for character: a reader that needs to know
+    whether an "i" was written as one or as "1" compares the two.
+    """
+    return base_normalize(_rejoin_spaced_words(text or "") or text)
+
+
+def fold_obfuscation(base: str) -> str:
+    """``base`` with look-alike letters and leetspeak read as the letters they stand for.
+
+    One character for one, so a position in the result is the same position
+    in ``base``.
+    """
+    return _fold_obfuscation(base)
 
 
 def term_match_forms(term: str) -> tuple[str, ...]:
@@ -1383,7 +1401,9 @@ __all__ = [
     "any_term_in_haystack",
     "base_normalize",
     "canonical_normalize",
+    "canonical_unfolded",
     "compile_terms",
+    "fold_obfuscation",
     "normalized_haystack",
     "register_segmentation_terms",
     "segment_glued_run",

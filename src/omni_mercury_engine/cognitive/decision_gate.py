@@ -1183,12 +1183,16 @@ def _assess(
     most restrictive passage decides, and is what a refusal quotes.
     """
 
-    def score(text: str) -> WeaponsRiskAssessment:
-        return assess_weapons_uplift(text, context, harm_classifier=harm_classifier)
+    def score(text: str, *, in_windows: bool = True) -> WeaponsRiskAssessment:
+        return assess_weapons_uplift(
+            text, context, harm_classifier=harm_classifier, in_windows=in_windows
+        )
 
     if reading.body is None:
         return reading.first, score(reading.first)
-    whole = score(reading.whole())
+    # As a whole, to learn whether anything is in it at all. Its windows are
+    # the passages' windows, and are looked at there.
+    whole = score(reading.whole(), in_windows=False)
     if _nothing_found(whole):
         return reading.first, whole
 

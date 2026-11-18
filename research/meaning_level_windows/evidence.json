@@ -1,0 +1,351 @@
+{
+  "windows": [
+    [
+      48,
+      24
+    ],
+    [
+      24,
+      12
+    ]
+  ],
+  "units": "pairs",
+  "asked": true,
+  "padding": [
+    0,
+    24,
+    96,
+    384,
+    1536
+  ],
+  "blocked": {
+    "neutral": {
+      "train_offensive": {
+        "offensive": {
+          "texts": 400,
+          "blocked": {
+            "0": 400,
+            "24": 398,
+            "96": 392,
+            "384": 392,
+            "1536": 392
+          }
+        }
+      },
+      "train_offensive_split": {
+        "offensive": {
+          "texts": 400,
+          "blocked": {
+            "0": 400,
+            "24": 396,
+            "96": 388,
+            "384": 388,
+            "1536": 388
+          }
+        }
+      },
+      "train_benign": {
+        "benign": {
+          "texts": 400,
+          "blocked": {
+            "0": 0,
+            "24": 0,
+            "96": 0,
+            "384": 0,
+            "1536": 0
+          }
+        }
+      },
+      "held_out": {
+        "offensive": {
+          "texts": 133,
+          "blocked": {
+            "0": 105,
+            "24": 107,
+            "96": 106,
+            "384": 107,
+            "1536": 109
+          }
+        },
+        "benign": {
+          "texts": 30,
+          "blocked": {
+            "0": 0,
+            "24": 0,
+            "96": 0,
+            "384": 0,
+            "1536": 0
+          }
+        }
+      }
+    },
+    "procedural": {
+      "train_offensive": {
+        "offensive": {
+          "texts": 400,
+          "blocked": {
+            "0": 400,
+            "24": 400,
+            "96": 400,
+            "384": 400,
+            "1536": 400
+          }
+        }
+      },
+      "train_offensive_split": {
+        "offensive": {
+          "texts": 400,
+          "blocked": {
+            "0": 400,
+            "24": 397,
+            "96": 400,
+            "384": 400,
+            "1536": 400
+          }
+        }
+      },
+      "train_benign": {
+        "benign": {
+          "texts": 400,
+          "blocked": {
+            "0": 0,
+            "24": 115,
+            "96": 305,
+            "384": 400,
+            "1536": 400
+          }
+        }
+      },
+      "held_out": {
+        "offensive": {
+          "texts": 133,
+          "blocked": {
+            "0": 105,
+            "24": 116,
+            "96": 117,
+            "384": 119,
+            "1536": 119
+          }
+        },
+        "benign": {
+          "texts": 30,
+          "blocked": {
+            "0": 0,
+            "24": 0,
+            "96": 3,
+            "384": 15,
+            "1536": 15
+          }
+        }
+      }
+    }
+  },
+  "as_a_whole": {
+    "neutral": {
+      "train_offensive": {
+        "offensive": {
+          "texts": 400,
+          "blocked": {
+            "0": 400,
+            "24": 284,
+            "96": 178,
+            "384": 178,
+            "1536": 178
+          }
+        }
+      },
+      "train_offensive_split": {
+        "offensive": {
+          "texts": 400,
+          "blocked": {
+            "0": 400,
+            "24": 284,
+            "96": 178,
+            "384": 178,
+            "1536": 178
+          }
+        }
+      },
+      "train_benign": {
+        "benign": {
+          "texts": 400,
+          "blocked": {
+            "0": 0,
+            "24": 0,
+            "96": 0,
+            "384": 0,
+            "1536": 0
+          }
+        }
+      },
+      "held_out": {
+        "offensive": {
+          "texts": 133,
+          "blocked": {
+            "0": 105,
+            "24": 56,
+            "96": 45,
+            "384": 45,
+            "1536": 45
+          }
+        },
+        "benign": {
+          "texts": 30,
+          "blocked": {
+            "0": 0,
+            "24": 0,
+            "96": 0,
+            "384": 0,
+            "1536": 0
+          }
+        }
+      }
+    }
+  },
+  "articles": {
+    "first": {
+      "general": {
+        "articles": 40,
+        "without_windows": [],
+        "with_windows": []
+      },
+      "hazard": {
+        "articles": 40,
+        "without_windows": [
+          "Anthrax",
+          "Bioterrorism",
+          "Chemical_Weapons_Convention",
+          "Chemical_warfare",
+          "Chlorine",
+          "Dirty_bomb",
+          "Enriched_uranium",
+          "Gunpowder",
+          "Manhattan_Project",
+          "Mustard_gas",
+          "Nerve_agent",
+          "Poison",
+          "Ransomware",
+          "Ricin",
+          "Sarin",
+          "Uranium"
+        ],
+        "with_windows": [
+          "Anthrax",
+          "Bioterrorism",
+          "Chemical_Weapons_Convention",
+          "Chemical_warfare",
+          "Chlorine",
+          "Dirty_bomb",
+          "Enriched_uranium",
+          "Gunpowder",
+          "Manhattan_Project",
+          "Mustard_gas",
+          "Nerve_agent",
+          "Poison",
+          "Ransomware",
+          "Ricin",
+          "Sarin",
+          "Uranium"
+        ]
+      }
+    },
+    "second": {
+      "general": {
+        "articles": 20,
+        "without_windows": [],
+        "with_windows": []
+      },
+      "hazard": {
+        "articles": 20,
+        "without_windows": [
+          "Aum_Shinrikyo",
+          "Biological_warfare",
+          "Botulinum_toxin",
+          "Ebola",
+          "Improvised_explosive_device",
+          "Stuxnet",
+          "Tabun_(nerve_agent)",
+          "Thermonuclear_weapon",
+          "Tularemia",
+          "Uranium-235",
+          "VX_(nerve_agent)"
+        ],
+        "with_windows": [
+          "Aum_Shinrikyo",
+          "Biological_warfare",
+          "Botulinum_toxin",
+          "Ebola",
+          "Improvised_explosive_device",
+          "Stuxnet",
+          "Tabun_(nerve_agent)",
+          "Thermonuclear_weapon",
+          "Tularemia",
+          "Uranium-235",
+          "VX_(nerve_agent)"
+        ]
+      }
+    }
+  },
+  "lexical_only": {
+    "procedural": {
+      "train_offensive": {
+        "offensive": {
+          "texts": 400,
+          "blocked": {
+            "0": 178,
+            "24": 233,
+            "96": 341,
+            "384": 400,
+            "1536": 400
+          }
+        }
+      },
+      "train_offensive_split": {
+        "offensive": {
+          "texts": 400,
+          "blocked": {
+            "0": 169,
+            "24": 233,
+            "96": 341,
+            "384": 400,
+            "1536": 400
+          }
+        }
+      },
+      "train_benign": {
+        "benign": {
+          "texts": 400,
+          "blocked": {
+            "0": 0,
+            "24": 115,
+            "96": 305,
+            "384": 400,
+            "1536": 400
+          }
+        }
+      },
+      "held_out": {
+        "offensive": {
+          "texts": 133,
+          "blocked": {
+            "0": 45,
+            "24": 70,
+            "96": 108,
+            "384": 119,
+            "1536": 119
+          }
+        },
+        "benign": {
+          "texts": 30,
+          "blocked": {
+            "0": 0,
+            "24": 0,
+            "96": 3,
+            "384": 15,
+            "1536": 15
+          }
+        }
+      }
+    }
+  }
+}

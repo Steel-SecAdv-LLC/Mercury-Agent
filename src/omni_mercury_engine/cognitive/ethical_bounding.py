@@ -37,7 +37,7 @@ from dataclasses import (
     fields as dataclass_fields,
 )
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -45,12 +45,17 @@ from omni_mercury_engine.cognitive.harm_normalization import (
     MULTILINGUAL_HAZARD_TERMS,
     MULTILINGUAL_OFFENSIVE_CUES,
     any_term_in_haystack,
+    canonical_unfolded,
     compile_terms,
+    fold_obfuscation,
     normalized_haystack,
     register_pattern_literals,
     register_segmentation_terms,
     term_in_haystack,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -1761,7 +1766,203 @@ def _resolve_harm_classifier(harm_classifier: Any) -> Any | None:
     return _SHIPPED_CLASSIFIER_CACHE[0]
 
 
+#: How much of a text the meaning-level classifier is asked about at once.
+#:
+#: It was trained on single requests, the longest of them 23 words
+#: (``benchmarks/meaning_level_corpus.py``), and scores what it is given as one
+#: bag of words: asked about a whole passage, a request in it is weighed with
+#: everything round it. A window is twice the longest request and moves half
+#: its length, so that any request the classifier was trained to know lies
+#: whole inside one window with at most as many words again beside it; a
+#: second, of the longest request's own length, has less beside it still.
+#: Chosen on the classifier's training corpus with other text put round its
+#: rows (``research/meaning_level_windows``), and not on the held-out slice.
+MEANING_WINDOWS: tuple[tuple[int, int], ...] = ((48, 24), (24, 12))
+#: Words read on each side of a window before it is believed: a professional's
+#: frame is cut off by a window's edge as often as it is by a passage's.
+MEANING_WINDOW_MARGIN = 12
+
+
 def assess_weapons_uplift(
+    text: str,
+    context: dict[str, Any] | None = None,
+    *,
+    harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER,
+    in_windows: bool = True,
+) -> WeaponsRiskAssessment:
+    """Assess ``text`` as a whole, and then what the classifier makes of each part of it.
+
+    :func:`assess_weapons_uplift_once` reads the text as one thing. That is
+    what a request is, and it is not what a page is: the meaning-level
+    classifier, asked about everything at once, refused a request among
+    twelve records about an agent and permitted the same request among
+    twenty. Where the text as a whole is not blocked and names a hazard, the
+    classifier is asked about each window of it
+    (:data:`MEANING_WINDOWS`), and a window that would be escalated as
+    a text of its own (a hazard named in it, no defensive frame in it, the
+    classifier at or over its threshold) escalates the text.
+
+    Args:
+        text: The text to assess.
+        context: As for :func:`assess_weapons_uplift_once`.
+        harm_classifier: As for :func:`assess_weapons_uplift_once`.
+        in_windows: ``False`` to assess the text as a whole only: for a caller
+            that goes on to assess its passages one by one, and would
+            otherwise have every window looked at twice.
+
+    Returns:
+        The assessment of the whole, or the escalation a window of it earned.
+    """
+    whole = assess_weapons_uplift_once(text, context, harm_classifier=harm_classifier)
+    if whole.blocks or not in_windows or whole.hazard_domain is HazardDomain.NONE:
+        return whole
+    classifier = _resolve_harm_classifier(harm_classifier)
+    if classifier is None:
+        return whole
+    try:
+        return _escalated_by_a_window(text, context, classifier) or whole
+    except Exception:
+        logger.exception("assess_weapons_uplift failed in a window; failing closed to HARD_REFUSE")
+        return WeaponsRiskAssessment(
+            HazardDomain.OTHER_MASS_HARM,
+            1.0,
+            OperationalIntent.TARGETING,
+            0.0,
+            WeaponsDisposition.HARD_REFUSE,
+            ("assessment_error",),
+        )
+
+
+def _escalated_by_a_window(
+    text: str, context: dict[str, Any] | None, classifier: Any
+) -> WeaponsRiskAssessment | None:
+    """The escalation the first window of ``text`` earns on its own, if any does.
+
+    The same three conditions the whole text is held to, asked of the window:
+    it names a hazard, nothing in it is an offensive pattern the lexical axes
+    already answer for or a professional's frame, and the classifier scores
+    it at or over the escalation threshold. A defensive sentence elsewhere in
+    the text does not speak for a request it stands nowhere near.
+    """
+    threshold = BENEVOLENCE_CALIBRATION.weapons_b6_escalate_confidence
+    # With its letters put back together first: spelled out a letter at a
+    # time, a text is hundreds of one-letter "words", a window of them is the
+    # second half of a sentence, and "i" is someone asking.
+    for words, start, size in _meaning_windows(canonical_unfolded(text)):
+        window = " ".join(words[start : start + size])
+        try:
+            score = max(0.0, min(1.0, float(classifier(window))))
+        except Exception as exc:  # fail-open, as the classifier is everywhere
+            logger.warning("weapons-uplift window classifier failed (%s); no raise applied", exc)
+            return None
+        if score < threshold or (MEANING_WINDOWS_ASKED and not _asks(window)):
+            continue
+        evidence = _gate_evidence(window, context or {})
+        if evidence.domain is HazardDomain.NONE or evidence.offensive or evidence.allowed:
+            continue
+        around = " ".join(
+            words[max(0, start - MEANING_WINDOW_MARGIN) : start + size + MEANING_WINDOW_MARGIN]
+        )
+        if _gate_evidence(around, context or {}).allowed:
+            continue  # "how is exposure to ... treated", with its first words cut off
+        return WeaponsRiskAssessment(
+            evidence.domain,
+            evidence.weight,
+            OperationalIntent.PRODUCTION,
+            score,
+            WeaponsDisposition.ESCALATE,
+            ("meaning_level_routing_raise",),
+        )
+    return None
+
+
+#: Whether a window must ask for something before the classifier is believed
+#: about it (:data:`_ASKS_RE`).
+MEANING_WINDOWS_ASKED = True
+#: Someone asking: a question, an order, a first or second person, or one of
+#: the ways English asks for instructions. The classifier was trained on
+#: requests and has never seen a statement: it scores "the plant produced
+#: sarin until it was closed" as it scores a request to produce it.
+_ASKS_RE = re.compile(
+    r"""
+    \?
+  | \b(?:i|i'm|i'd|i've|me|my|you|your)\b
+  | (?:^|[.!?;:|]\s*)(?:please\s+)?(?:how|what|can|could|would|should|will|do|does|did)\b
+  | (?:^|[.!?;:|,]\s*)(?:please\s+)?(?:show|tell|give|walk|explain|describe|list|write
+        |provide|teach|help|outline|detail|summari[sz]e|draft|suggest|recommend)\b
+  | \b(?:how\s+to|how\s+do|how\s+can|how\s+would|steps?\s+(?:to|for)
+        |instructions?\s+(?:to|for|on)|guide\s+(?:to|for|on)|recipe\s+for
+        |(?:a|any|best|easiest|simplest|fastest|good|practical)\s+ways?\s+to
+        |tutorial|walkthrough|need\s+to|want\s+to|trying\s+to|looking\s+for|please)\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _asks(window: str) -> bool:
+    """Whether someone in ``window`` is asking, in letters that were written as letters.
+
+    ``window`` is as it was written, lowercased. Leetspeak is read ("h0w t0"
+    asks), and a match made of nothing else is not one: "up to 1% gallium"
+    read as letters is "up to i% gallium", and that "i" is nobody speaking.
+    An article on plutonium was refused for it.
+    """
+    folded = fold_obfuscation(window)
+    return any(
+        any(window[at] == folded[at] for at in range(*found.span()))
+        for found in _ASKS_RE.finditer(folded)
+    )
+
+
+#: How :func:`_meaning_windows` divides a text: by its sentences and each two
+#: that stand together ("pairs"), by its sentences alone ("sentences"), or
+#: only by counting words ("words"). The other two are kept so that the
+#: measurement that chose this one can be run again.
+MEANING_UNITS = "pairs"
+_SENTENCE_END_RE = re.compile(r"(?<=[.!?;:|])\s+|\n+")
+
+
+def _meaning_windows(text: str) -> Iterator[tuple[list[str], int, int]]:
+    """The parts of ``text`` the classifier is asked about, one at a time.
+
+    Each is given as the words it is cut from, where in them it starts and
+    how many it is. A sentence is asked about by itself, and so is each two
+    sentences that stand together and fit in a window: a request is a
+    sentence or two, and the sentence after it is someone else's. Whatever
+    is longer than a window (a sentence that runs on, a text with no
+    sentence ends in it) is asked about in windows of
+    :data:`MEANING_WINDOWS`.
+
+    Measured on the classifier's own training rows with unrelated statements
+    put round them (``research/meaning_level_windows``): read as one text,
+    178 of 400 requests were still found once a hundred words stood on each
+    side; read this way, 392, and none of 400 harmless rows about a hazard
+    was refused. A third, shorter window found no more of them and refused
+    a harmless row, and is not used.
+    """
+    if not MEANING_WINDOWS:
+        return  # none set: the text is read as a whole and no other way
+    whole = text.split()
+    if MEANING_UNITS == "words":
+        parts = [whole]
+    else:
+        sentences = [words for part in _SENTENCE_END_RE.split(text) if (words := part.split())]
+        parts = list(sentences)
+        if MEANING_UNITS == "pairs":
+            parts += [
+                first + second
+                for first, second in itertools.pairwise(sentences)
+                if len(first) + len(second) <= MEANING_WINDOWS[0][0]
+            ]
+    for words in parts:
+        if len(words) < len(whole) and len(words) <= MEANING_WINDOWS[0][0]:
+            yield words, 0, len(words)
+        for size, step in MEANING_WINDOWS:
+            for start in range(0, len(words) - size + step if len(words) > size else 0, step):
+                yield words, start, size
+
+
+def assess_weapons_uplift_once(
     text: str,
     context: dict[str, Any] | None = None,
     *,

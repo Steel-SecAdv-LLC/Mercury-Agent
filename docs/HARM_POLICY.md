@@ -159,9 +159,11 @@ refused. The
 Axis-A lexicon and the core Axis-B offensive cues carry taxonomy-level terms in the
 world's most widely spoken languages (native script + Latin transliteration). This
 lexical multilingual/obfuscation layer is high-recall routing; meaning-level
-paraphrase in any language is closed by the **reasoning-backed harm classifier**,
-which is wired by default on the open-web/text surface (fail-open and offline-safe:
-it contributes only when a real local/cloud model is serving, never a regression).
+paraphrase is closed by the **meaning-level classifier**, which ships inside the
+package and is the default at every decision boundary
+([`MEANING_LEVEL_CLASSIFIER.md`](MEANING_LEVEL_CLASSIFIER.md)); a long text is put
+to it a part at a time. A reasoning-backed classifier takes its place where an
+operator has a local or cloud model serving (fail-open and offline-safe).
 
 ## 4. Calibrated response ladder
 
