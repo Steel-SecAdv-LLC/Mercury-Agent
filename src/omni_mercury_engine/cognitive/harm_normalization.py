@@ -826,10 +826,14 @@ def term_in_haystack(haystack: str, forms: tuple[str, ...]) -> bool:
     Returns:
         ``True`` if the term is present in *any* normalization variant.
     """
-    return any(_occurs(haystack, form) for form in forms)
+    # A plural ending may follow a term of several words where its
+    # separators have gone ("nerve-agents"). After a single word put together
+    # from two it is the rest of the second: "so manes" was soman.
+    plurals = _PLURALS if any(not form.isalnum() for form in forms) else _PLURALS[:1]
+    return any(_occurs(haystack, form, plurals) for form in forms)
 
 
-def _occurs(haystack: str, form: str) -> bool:
+def _occurs(haystack: str, form: str, plurals: tuple[str, ...] = ("",)) -> bool:
     """Whether ``form`` occurs in ``haystack`` as a term a writer put there.
 
     A substring test alone found "ricin" in "pricing" and, once the
@@ -840,27 +844,24 @@ def _occurs(haystack: str, form: str) -> bool:
 
     * in a variant that keeps the text's words, wherever it is. The ordinary
       words that hold a term (:data:`ORDINARY_WORDS_HOLDING_A_TERM`) are no
-      longer in the text by then (:func:`_without_ordinary_words`). A term
-      of two words or more must begin a word or end one: "Minerve agentic"
-      holds "nerve agent" and neither;
+      longer in the text by then (:func:`_without_ordinary_words`);
     * in a variant made by taking separators out, where the writer's own
       pieces make it: it starts where a piece of the original text starts
-      and ends where one ends, or a plural ending after it does. ``s a r i
-      n``, ``sa rin``, ``s.a.r.i.n`` and "nerve-agents" do; "so many" ends
-      inside "many" and "fabric-insert" starts inside "fabric".
+      and ends where one ends, or one of ``plurals`` after it does. ``s a
+      r i n``, ``sa rin``, ``s.a.r.i.n`` and "nerve-agents" do; "so many"
+      ends inside "many" and "fabric-insert" starts inside "fabric".
 
     Letters round a term do not hide it: "neurotoxins", ``xsarinx`` and a
     request run together are found as any substring found them. So is a word
-    no list has that holds a term's letters (a reagent, a surname), which is
-    the price of that. What is given up is a term split in two with other
-    letters glued to the halves (``absar incd``).
+    no list has that holds a term's letters (a reagent, a surname, "Minerve
+    agentic"), which is the price of that. What is given up is a term split
+    in two with other letters glued to the halves (``absar incd``).
     """
     at = haystack.find(form)
     if at < 0:
         return False  # nearly every term on nearly every text: one scan and out
     collapsed = getattr(haystack, "collapsed", ())
     despaced = getattr(haystack, "despaced", ())
-    phrase = " " in form
     size = len(form)
     while at >= 0:
         end = at + size
@@ -869,17 +870,15 @@ def _occurs(haystack: str, form: str) -> bool:
                 ends = end - start
                 if edges[at - start] and any(
                     edges[ends + len(plural)] and haystack.startswith(plural, end)
-                    for plural in _PLURALS
+                    for plural in plurals
                     if ends + len(plural) < len(edges)
                 ):
                     return True
                 break
         else:
-            whole = _starts_a_word(haystack, at), _ends_a_word(haystack, end)
-            if any(start <= at < stop for start, stop in despaced):
-                if all(whole):
-                    return True
-            elif not phrase or any(whole):
+            if not any(start <= at < stop for start, stop in despaced):
+                return True
+            if _starts_a_word(haystack, at) and _ends_a_word(haystack, end, plurals):
                 return True
         at = haystack.find(form, at + 1)
     return False
@@ -898,12 +897,12 @@ def _starts_a_word(haystack: str, at: int) -> bool:
     return not (at and _is_latin_word_char(haystack[at - 1]))
 
 
-def _ends_a_word(haystack: str, end: int) -> bool:
-    """Whether a word ends at ``end``, or once a plural ending after it is read."""
+def _ends_a_word(haystack: str, end: int, plurals: tuple[str, ...]) -> bool:
+    """Whether a word ends at ``end``, or once one of ``plurals`` after it is read."""
     return any(
         haystack.startswith(plural, end)
         and not _is_latin_word_char(haystack[end + len(plural) : end + len(plural) + 1] or " ")
-        for plural in _PLURALS
+        for plural in plurals
     )
 
 
@@ -924,8 +923,9 @@ def _without_ordinary_words(text: str) -> str:
     the word; "ricingel" does not, and neither does a word spelled to look
     like one.
     """
-    if not _ORDINARY_RE.search(text):
-        return text  # nearly every text
+    lowered = text.lower()
+    if not any(word in lowered for word in ORDINARY_WORDS_HOLDING_A_TERM):
+        return text  # nearly every text, in sixty substring searches
     return _LETTERS_RE.sub(_ordinary_parts_out, text)
 
 
@@ -956,17 +956,21 @@ _CAMEL_PART_RE = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
 #: seven terms are held by an unrelated word at all: ricin (pricing, and
 #: substances named in "-ricin"), sarin, soman, tabun, TATP, PETN, anthrax,
 #: and "blasting" and "munition" once each.
+#:
+#: Less four more, which a reader takes for the agent: "aricin" and "asarin"
+#: (the name with an article before it), "myricin", and "ricing" (the name
+#: and a letter). "How to make asarin at home" was permitted.
 ORDINARY_WORDS_HOLDING_A_TERM: frozenset[str] = frozenset(
     {
         # ricin
-        "agaricin", "agaricine", "agaricinic", "amphotericin", "aricin", "aricine",
+        "agaricin", "agaricine", "agaricinic", "amphotericin", "aricine",
         "ericineous", "floricin", "hypericin", "hystricinae", "hystricine", "lumbricine",
-        "myricin", "muricine", "natricinae", "natricine", "outpricing", "overpricing",
-        "prepricing", "pricing", "quadricinium", "repricing", "mispricing", "ricing",
+        "muricine", "natricinae", "natricine", "outpricing", "overpricing",
+        "prepricing", "pricing", "quadricinium", "repricing", "mispricing",
         "sericin", "soricinae", "soricine", "streptothricin", "tyrothricin", "tortricina",
         "tortricine", "tricing", "tricinium", "underpricing",
         # sarin
-        "accessariness", "adversariness", "anniversariness", "asarin", "necessariness",
+        "accessariness", "adversariness", "anniversariness", "necessariness",
         "nodosarine", "sarinda", "tsarina", "unnecessariness",
         # soman
         "dipsomania", "dipsomaniac", "dipsomaniacal", "nosomania", "pessomancy",
@@ -978,8 +982,6 @@ ORDINARY_WORDS_HOLDING_A_TERM: frozenset[str] = frozenset(
         "xylanthrax", "cacanthrax", "sandblasting", "electroblasting", "premunition",
     }
 )  # fmt: skip
-
-_ORDINARY_RE = re.compile("|".join(sorted(ORDINARY_WORDS_HOLDING_A_TERM)), re.IGNORECASE)
 
 
 def compile_terms(terms: Iterable[str]) -> tuple[tuple[str, ...], ...]:

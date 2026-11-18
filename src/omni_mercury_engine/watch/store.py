@@ -75,6 +75,30 @@ CREATE TABLE IF NOT EXISTS deliveries (
     channel TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, at TEXT NOT NULL,
     error TEXT, PRIMARY KEY (finding_key, severity, subscriber, channel)
 );
+CREATE TABLE IF NOT EXISTS marks (name TEXT PRIMARY KEY, n INTEGER NOT NULL);
+INSERT OR IGNORE INTO marks (name, n) VALUES ('told', 0);
+CREATE TRIGGER IF NOT EXISTS told_subscriber_added AFTER INSERT ON subscribers
+BEGIN UPDATE marks SET n = n + 1 WHERE name = 'told'; END;
+CREATE TRIGGER IF NOT EXISTS told_subscriber_gone AFTER DELETE ON subscribers
+BEGIN UPDATE marks SET n = n + 1 WHERE name = 'told'; END;
+CREATE TRIGGER IF NOT EXISTS told_subscriber_changed
+AFTER UPDATE OF email, latitude, longitude, radius_km, min_severity ON subscribers
+WHEN OLD.email IS NOT NEW.email OR OLD.latitude IS NOT NEW.latitude
+  OR OLD.longitude IS NOT NEW.longitude OR OLD.radius_km IS NOT NEW.radius_km
+  OR OLD.min_severity IS NOT NEW.min_severity
+BEGIN UPDATE marks SET n = n + 1 WHERE name = 'told'; END;
+CREATE TRIGGER IF NOT EXISTS told_phone_changed
+AFTER UPDATE OF email, number, min_severity, verified_at ON phones
+WHEN OLD.email IS NOT NEW.email OR OLD.number IS NOT NEW.number
+  OR OLD.min_severity IS NOT NEW.min_severity OR OLD.verified_at IS NOT NEW.verified_at
+BEGIN UPDATE marks SET n = n + 1 WHERE name = 'told'; END;
+CREATE TRIGGER IF NOT EXISTS told_phone_gone AFTER DELETE ON phones
+BEGIN UPDATE marks SET n = n + 1 WHERE name = 'told'; END;
+CREATE TRIGGER IF NOT EXISTS told_reach_read AFTER INSERT ON reach
+BEGIN UPDATE marks SET n = n + 1 WHERE name = 'told'; END;
+CREATE TRIGGER IF NOT EXISTS told_reach_changed AFTER UPDATE OF body ON reach
+WHEN OLD.body IS NOT NEW.body
+BEGIN UPDATE marks SET n = n + 1 WHERE name = 'told'; END;
 """
 
 
@@ -1193,27 +1217,18 @@ class WatchStore:
             who is told, or where, has changed: a subscription added, removed
             or re-saved with another place, radius or severity; a number
             verified or its severity changed; an earthquake's felt extent read
-            and found different. The mark is of the rows themselves. Made of
-            their sums, one severity raised and another lowered left it as it
-            was; made of when the extents were last read, every reading
-            changed it.
+            and found different. The mark is a count the store keeps as those
+            rows change (the ``told_`` triggers). Made of their sums, one
+            severity raised and another lowered left it as it was; made of
+            when the extents were last read, every reading changed it; made
+            of the rows themselves, it read every one of them on every tick.
         """
         with closing(self._connect()) as connection:
             failed = connection.execute(
                 "SELECT COUNT(*) FROM deliveries WHERE status = 'failed'"
             ).fetchone()[0]
-            told = [
-                tuple(row)
-                for query in (
-                    "SELECT id, email, latitude, longitude, radius_km, min_severity "
-                    "FROM subscribers ORDER BY id",
-                    "SELECT id, email, number, min_severity FROM phones "
-                    "WHERE verified_at IS NOT NULL ORDER BY id",
-                    "SELECT subject, body FROM reach ORDER BY subject",
-                )
-                for row in connection.execute(query)
-            ]
-        return int(failed), (len(told), hash(tuple(told)))
+            told = connection.execute("SELECT n FROM marks WHERE name = 'told'").fetchone()
+        return int(failed), (int(told[0]) if told else 0,)
 
     def delivery_counts(self) -> dict[str, int]:
         """How many deliveries were sent and how many last failed."""

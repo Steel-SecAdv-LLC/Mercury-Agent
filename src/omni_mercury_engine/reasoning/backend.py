@@ -74,6 +74,8 @@ _PURPOSE_KEYWORDS: str = (
 #: but digits, signs, points and an exponent's ``e``, so no word.
 _NUMBERS_PRINTED = re.compile(r"(?<![\w.])[-+]?\d[\d.eE+-]*(?:[,\s]+[-+]?\d[\d.eE+-]*)+(?![\w.])")
 _A_LETTER = re.compile(r"[^\W\d_]")
+#: A numpy number as a container prints it: ``np.float64(0.25)`` is 0.25.
+_NUMPY_SCALAR = re.compile(r"\bnp\.(?:float|int|uint|complex)\d*\(([^()]*)\)")
 
 
 class ReasoningBackend(abc.ABC):
@@ -178,7 +180,7 @@ class ReasoningBackend(abc.ABC):
         # empty dict, a frame, an object with a length of nothing. Its
         # numbers are not words: 70,000 readings print to 1.2 million
         # characters, and counted as text they were a refusal for size.
-        printed = _NUMBERS_PRINTED.sub(" ", str(context.evidence))
+        printed = _NUMBERS_PRINTED.sub(" ", _NUMPY_SCALAR.sub(r"\1", str(context.evidence)))
         if _A_LETTER.search(printed):
             enforce_decision_boundary(
                 DecisionSubject(

@@ -149,9 +149,10 @@ whole- and word-boundary-preserving separator collapse), so `n3rv3 ag3nt`,
 Cyrillic-glyph spoofing, `s a r i n`, and `n.e.r.v.e a.g.e.n.t` all route. A term
 routes wherever it stands in a word a writer wrote ("neurotoxins", a request
 run together). A word that holds a term and has nothing to do with it is
-taken out of the text first, whole (66 of a 370,105-word English list:
-"pricing", "sericin", "tsarina", "dipsomania"); a word no list has that holds
-a term's letters is read as the term. With the separators removed, a term
+taken out of the text first, whole (62 of a 370,105-word English list:
+"pricing", "sericin", "tsarina", "dipsomania"; not the four a reader takes for
+the agent, such as "asarin"); a word no list has that holds a term's letters
+is read as the term. With the separators removed, a term
 runs only from the start of one piece of the text to the end of one, so that
 "so many" does not hold soman. Both did, and "how to make pricing tables" was
 refused. The
@@ -191,7 +192,7 @@ for **weapons and mass-casualty uplift**, which is the scope it was built for.
 from nothing else; `HarmReducer.evaluate_harm` raises the `PHYSICAL` /
 `SOCIETAL` harm categories on a blocking disposition (max-only — fail-closed,
 never lowering). The `EthicalScore` surfaces `hazard_domain`,
-`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **13**
+`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **14**
 (the agentive-frame lexicon of §5a and its corrections, then term matching
 by the word a term stands in), invalidating cached verdicts.
 

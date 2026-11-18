@@ -230,7 +230,10 @@ class EthicalConstants:
     # only between words the gate knows. A term is found wherever it stands
     # in a word a writer wrote, as in v9; the ordinary words that hold one
     # are taken out of the text first, whole.
-    RULESET_VERSION: int = 13
+    # v14: four of those words read as the agent ("asarin": a sarin) and are
+    # words of the text again; a term of two words is found with a letter
+    # glued to each side, as one of one word is; "so manes" is not soman.
+    RULESET_VERSION: int = 14
 
 
 ETHICAL = EthicalConstants()

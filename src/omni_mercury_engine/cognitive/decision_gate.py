@@ -368,11 +368,16 @@ def _bytes_text(raw: bytes) -> str:
         raw = raw[2:]  # the mark is not text in any reading
     even = raw[: len(raw) - len(raw) % 2]  # a UTF-16 text cut in the middle of a unit
     plain = _is_text(raw)
-    if plain and not declared:
-        try:
-            return raw.decode("utf-8")
-        except UnicodeDecodeError:
-            pass
+    if not declared:
+        # As it is, or without the NULs a fixed-width field is padded with:
+        # "sarin 12345678" and four NULs was neither text by its control
+        # codes nor words by its letters.
+        for whole in (raw, raw.strip(b"\x00")) if plain else (raw.strip(b"\x00"),):
+            if whole and _is_text(whole):
+                try:
+                    return whole.decode("utf-8")
+                except UnicodeDecodeError:
+                    pass
     latin = (
         plain
         and len(raw.translate(None, _LATIN1_TEXT)) * 20 <= len(raw)
@@ -392,6 +397,7 @@ def _bytes_text(raw: bytes) -> str:
         # Every reading is read, so their order decides nothing but where the
         # passages are cut; of the two byte orders the one with more ASCII is first.
         readings += sorted(wide, key=lambda text: -sum(map(str.isascii, text[:_MAX_VALUE_CHARS])))
+    if not latin:
         readings.append(_words_between_controls(raw))
     return "\n".join(dict.fromkeys(filter(None, readings)))  # each reading once
 
@@ -471,7 +477,7 @@ def _utf16_text(even: bytes, order: str, *, declared: bool = False) -> str:
     What this does not read is a text padded with thousands of different
     characters, which is what numbers look like. Nothing tells the two apart.
     """
-    if len(even) < 2 * _MIN_UTF16_UNITS:
+    if not declared and len(even) < 2 * _MIN_UTF16_UNITS:
         return ""
     text = even.decode(order, errors="replace")
     counts = collections.Counter(text)
@@ -536,11 +542,16 @@ def payload_text(payload: Any) -> list[str]:
         if isinstance(value, (bytes, bytearray, memoryview)):
             value = _bytes_text(bytes(value))
         if isinstance(value, str):
-            wanted = _holds_a_word(value)
-            if wanted and label:
+            if label:
+                # Asked of the count first: the keys of a table are the same
+                # few strings a million times over.
                 times = read.get(value, 0)
-                read[value] = times + 1
-                wanted = times < (_REPEATS if len(value) <= _SHORT_STRING else 1)
+                if times < 0 or times >= (_REPEATS if len(value) <= _SHORT_STRING else 1):
+                    continue
+                wanted = _holds_a_word(value)
+                read[value] = times + 1 if wanted else -1
+            else:
+                wanted = _holds_a_word(value)
             if wanted:
                 chars += len(value)
                 if chars > MAX_ASSESSED_CHARS:
@@ -583,7 +594,14 @@ def payload_text(payload: Any) -> list[str]:
             # every element: "how", "to" and "make" came round again further
             # down a list of words, were passed over as read already, and the
             # request they opened was permitted.
-            children = [(item, table) for item in (items if table else _runs_cut(items))]
+            if table:
+                children = [(item, True) for item in items]
+            else:
+                # By row, and then each field down its column: read by row
+                # alone, a request kept a word to a record had the field's
+                # name between each word and the next, and was no request.
+                given = _runs_cut(items)
+                children = [(item, False) for item in (*given, *_columns(given))]
         else:
             held_by_object = _object_text(value)
             if held_by_object is None:
@@ -604,11 +622,70 @@ def _holds_a_word(text: str) -> bool:
     return _WORD.search(text) is not None
 
 
-def _says_nothing(value: Any) -> bool:
-    """Whether ``value`` is a number, or a string no word could be in."""
+def _says_nothing(value: Any, deep: int = 4) -> bool:
+    """Whether ``value`` is numbers through and through, or strings no word could be in.
+
+    A point with its coordinates and a list of readings say no more than a
+    number does. Taken for something said, the key that named them was read
+    for every record, and 250,000 records of numbers were a refusal for size.
+    """
     if isinstance(value, str):
         return not _holds_a_word(value)
-    return value is None or isinstance(value, (bool, int, float, complex))
+    if value is None or isinstance(value, (bool, int, float, complex)):
+        return True
+    if deep and type(value) in (list, tuple):
+        return set(map(type, value)) <= _NUMBERS or all(_says_nothing(v, deep - 1) for v in value)
+    if deep and type(value) is dict:
+        return all(_says_nothing(v, deep - 1) for v in value.values())
+    return False
+
+
+def _columns(items: list[Any]) -> list[list[str]]:
+    """The fields of each run of like records in ``items``, each read down its column.
+
+    Records with the same keys, one after another, are a table. Its strings
+    are given a second time here, field by field in the order of the rows
+    (a field inside a field is a column of its own): what a caller wrote one
+    piece to a row is then read as it was written. A long string is given by
+    its two ends, which is where it meets the rows above and below; given
+    whole, 600,000 characters of notes were counted twice and refused. A run
+    of one record, and a field with one string, add nothing to the reading
+    by row.
+    """
+    columns: list[list[str]] = []
+    run: dict[tuple[Any, ...], list[str]] = {}
+    header: tuple[Any, ...] | None = None
+    rows = 0
+
+    def close() -> None:
+        if rows > 1:
+            columns.extend(column for column in run.values() if len(column) > 1)
+        run.clear()
+
+    for item in items:
+        keys = tuple(item) if type(item) is dict else None
+        if keys is None or keys != header:
+            close()
+            header, rows = keys, 0
+        if keys is not None:
+            rows += 1
+            _strings_by_field(item, (), run, _MAX_TEXT_DEPTH)
+    close()
+    return columns
+
+
+def _strings_by_field(
+    record: dict[Any, Any], path: tuple[Any, ...], into: dict[tuple[Any, ...], list[str]], deep: int
+) -> None:
+    for key, held in record.items():
+        if type(held) is str:
+            # A long string is read whole where its row is read. Down its
+            # column it need only meet its neighbours: its two ends.
+            if len(held) > 2 * _CUT_MARGIN:
+                held = f"{held[:_CUT_MARGIN]} {held[-_CUT_MARGIN:]}"
+            into.setdefault((*path, key), []).append(held)
+        elif type(held) is dict and deep:
+            _strings_by_field(held, (*path, key), into, deep - 1)
 
 
 def _runs_cut(items: Any) -> list[Any]:

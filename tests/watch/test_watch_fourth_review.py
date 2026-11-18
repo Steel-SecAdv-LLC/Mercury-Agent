@@ -905,3 +905,17 @@ def test_a_pass_that_lost_its_lease_is_not_made_by_taking_it_back(store: WatchSt
     assert watcher._delivered_at is None  # cut short: owed again
     watcher._pass(force=False)
     assert len(notifier.mail.sent) == 3
+
+
+def test_the_mark_moves_with_who_is_told_and_with_nothing_else(store: WatchStore) -> None:
+    """A count the store keeps as those rows change; it was every row, read on every tick."""
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1])
+    store.report(_finding(), NOW)
+    before = store.delivery_mark()
+
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1])  # as it was
+    store.record_delivery(_finding().key, 3, address_entry(ANA), "email", error=None, now=NOW)
+    assert store.delivery_mark() == before
+
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1], radius_km=9.0)
+    assert store.delivery_mark() != before

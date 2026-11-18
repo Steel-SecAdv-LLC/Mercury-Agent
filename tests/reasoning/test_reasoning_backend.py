@@ -288,6 +288,15 @@ class TestEthicsFailClosed:
         assert len(str(context.evidence)) > 1_048_576
         assert backend.explain(context).gated
 
+        import numpy as np
+
+        scalars = ReasoningContext(
+            summary="explain this finding",
+            evidence={"series": [np.float64(n) / 7 for n in range(70_000)]},
+        )
+        assert "np.float64(" in str(scalars.evidence)  # as numpy 2 prints them
+        assert backend.explain(scalars).gated
+
     def test_evidence_of_any_kind_is_a_verdict_and_not_an_error(self) -> None:
         """Was, for one commit: ``if context.evidence`` asked a frame for its truth value.
 
