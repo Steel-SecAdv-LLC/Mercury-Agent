@@ -2159,7 +2159,11 @@ _STATE_DIR = click.option(
     default=None,
     help="Where the watch keeps its memory (default: MERCURY_WATCH_DIR or ~/.mercury/watch).",
 )
-_SEVERITIES = {"notable": 1, "significant": 2, "severe": 3}
+_SEVERITIES = {
+    "notable": 1,
+    "significant": 2,
+    "severe": 3,
+}  # watch.model.RANKS, held to it by a test
 
 
 @alerts.command("add")
@@ -2308,7 +2312,11 @@ def alerts_phone(
     (MERCURY_SMS_TWILIO_ACCOUNT_SID, MERCURY_SMS_TWILIO_AUTH_TOKEN and
     MERCURY_SMS_FROM or MERCURY_SMS_TWILIO_MESSAGING_SERVICE_SID).
     """
-    from omni_mercury_engine.watch.sms import SmsRefusedError, build_sms_sender
+    from omni_mercury_engine.watch.sms import (
+        SmsRefusedError,
+        SmsUnreachableError,
+        build_sms_sender,
+    )
     from omni_mercury_engine.watch.store import PhoneLimitError
 
     store = _watch_store(state_dir)
@@ -2360,6 +2368,9 @@ def alerts_phone(
             body=f"Mercury watch: your code is {issued}. It is good for 10 minutes. "
             "If you did not ask for it, ignore this message.",
         )
+    except SmsUnreachableError as exc:
+        store.release_code_send(email, number)  # nothing was sent: it is not counted
+        raise click.ClickException(f"The code could not be sent: {exc}") from exc
     except (SmsRefusedError, ValueError) as exc:
         raise click.ClickException(f"The code could not be sent: {exc}") from exc
     click.echo(

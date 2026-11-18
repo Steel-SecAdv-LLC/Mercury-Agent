@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale
-from omni_mercury_engine.watch.model import Finding, Outcome, Severity
+from omni_mercury_engine.watch.model import EXTREME_BASIS, Finding, Outcome, Severity
 
 if TYPE_CHECKING:
     from omni_mercury_engine.watch.store import WatchStore
@@ -1127,9 +1127,7 @@ class WarningsFeed(Feed):
                     observed_at=_utc(sent) if pd.notna(sent) else now,
                     source=str(row.sender),
                     basis=(
-                        "an NWS alert in effect at a subscribed place"
-                        if here
-                        else "an NWS alert rated Extreme (every Extreme alert is reported)"
+                        "an NWS alert in effect at a subscribed place" if here else EXTREME_BASIS
                     ),
                     ongoing=True,
                     reference=str(row.id),

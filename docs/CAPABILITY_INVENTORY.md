@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,154
+- **Total top-level classes:** 3,155
 - **Capability-bearing classes:** 2,111 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 93 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Category | Count |
 |---|---|
 | Other capability classes | 1238 |
-| Support types (config / result / enum / error) | 1043 |
+| Support types (config / result / enum / error) | 1044 |
 | Detection | 181 |
 | Neural models & layers | 162 |
 | Data sources & loaders | 114 |
@@ -3055,7 +3055,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `watch/` — 25 classes (18 capability)
+### `watch/` — 26 classes (18 capability)
 
 **Other capability classes**
 
@@ -3078,9 +3078,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Watcher` (`watch.watcher`) — Reads feeds on their cadences and keeps the store current.
 - `WorldWarningsFeed` (`watch.world`) — Alerts in effect at subscribed places, from the national authority that issued them.
 
-<details><summary>Support types (7)</summary>
+<details><summary>Support types (8)</summary>
 
-`FeedStatus`, `PhoneLimitError`, `Severity`, `SmsOptedOutError`, `SmsRefusedError`, `SmsSender`, `SubscriptionLimitError`
+`FeedStatus`, `PhoneLimitError`, `Severity`, `SmsOptedOutError`, `SmsRefusedError`, `SmsSender`, `SmsUnreachableError`, `SubscriptionLimitError`
 
 </details>
 

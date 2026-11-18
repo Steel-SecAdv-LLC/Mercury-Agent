@@ -159,7 +159,8 @@ class TestDelivery:
         store.add_subscriber("ana@example.org")
         finding = _flood(store)
         smtp.refuse.add("gone@example.org")
-        notifier = Notifier(store, clock=lambda: NOW)
+        clock = [NOW]
+        notifier = Notifier(store, clock=lambda: clock[0])
 
         assert notifier.sync() == {"sent": 1, "failed": 1}
         assert [got.recipients for got in smtp.received] == [["ana@example.org"]]
@@ -167,6 +168,7 @@ class TestDelivery:
         assert refused["status"] == "failed" and "does not exist" in refused["error"]
 
         smtp.refuse.clear()  # the mailbox comes back
+        clock[0] += timedelta(minutes=1)  # the wait after a first failure
         assert notifier.sync() == {"sent": 1, "failed": 0}
         assert store.delivery(finding.key, 3, 1, "email")["attempts"] == 2
 

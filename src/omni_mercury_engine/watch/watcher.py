@@ -33,6 +33,10 @@ class Watcher:
     cadence; it never stops the others. A finding is announced once, when it
     first appears or when it becomes more severe.
 
+    Announcing to open consoles is every watcher's job, not only the one that
+    read the feed: each tells its own process's consoles what the store says
+    is new (:meth:`announce`), whichever watcher recorded it.
+
     Several watchers may share one store (the workers of ``serve --workers
     4``; ``mercury-agent watch`` beside a server). One of them holds the
     store's lease and does the watching; the rest stand by and take over
@@ -77,6 +81,10 @@ class Watcher:
         self.notifier = (
             notifier if notifier is not None else Notifier(self.store, clock=self._clock)
         )
+        #: The last announcement this watcher has told its consoles of. It
+        #: starts at the store's newest: what was found before this process
+        #: began is the page's to show, not a fresh alert.
+        self._told = self.store.last_announcement()
         for feed in self.feeds:
             feed.bind(self.store)
 
@@ -101,9 +109,9 @@ class Watcher:
         for finding in findings:
             if self.store.report(finding, now, feed.episode_window()):
                 announced += 1
-                self.notifier.broadcast(finding)
                 if self.on_finding is not None:
                     self.on_finding(finding)
+        self.announce()
         if not judgment.partial:
             # A read that could not look everywhere ends nothing: what it does
             # not show may only be what it could not see, and a finding ended
@@ -135,6 +143,24 @@ class Watcher:
     def leads(self) -> bool:
         """Take or renew the store's lease. Returns whether this watcher holds it."""
         return self.store.hold_lease(self.holder, self._clock(), self.LEASE)
+
+    def announce(self) -> int:
+        """Tell this process's open consoles of what the store says is new.
+
+        The alert bus is in-process. When only the watcher that read a feed
+        announced on it, ``serve --workers 4`` reached the consoles of one
+        worker in four, and a ``mercury-agent watch`` running beside the
+        server reached none. Every watcher, leading or standing by, now reads
+        the store's announcements and tells its own.
+
+        Returns:
+            How many findings were put on the bus.
+        """
+        published = 0
+        for number, finding in self.store.announcements_after(self._told):
+            self._told = number
+            published += int(self.notifier.broadcast(finding))
+        return published
 
     def _down(self, status: FeedStatus, summary: str, exc: Exception) -> FeedStatus:
         """Record ``status`` as down with why, as far as the store allows."""
@@ -242,13 +268,15 @@ class Watcher:
                             logger.info("watch: %s has taken over the watch", self.holder)
                         self._standing_by = False
                         self.run_once(force=False)
-                    elif not self._standing_by:
-                        self._standing_by = True
-                        logger.info(
-                            "watch: %s is watching this store; %s stands by",
-                            self.store.lease().get("holder", "another watch"),
-                            self.holder,
-                        )
+                    else:
+                        if not self._standing_by:
+                            self._standing_by = True
+                            logger.info(
+                                "watch: %s is watching this store; %s stands by",
+                                self.store.lease().get("holder", "another watch"),
+                                self.holder,
+                            )
+                        self.announce()  # what the leading watch found, to this process
                 except Exception:  # nothing a pass raises may end the watch
                     logger.exception("watch: a pass failed; trying again at the next tick")
                 halt.wait(tick_seconds)

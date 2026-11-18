@@ -541,3 +541,122 @@ class TestPhone:
         )
 
         assert _store().phone_of("ana@example.org") == {}
+
+
+class TestWhatTheReviewFound:
+    """Each of these was an internal error or a silent wrong state on the code as reviewed."""
+
+    ODD = "o'brien@example.org"  # an address the account system accepts and verifies
+
+    def test_an_account_whose_address_has_an_apostrophe_can_subscribe_and_add_a_phone(
+        self, setup: Setup, texts: _Texts
+    ) -> None:
+        """Was: 500 on both. The watch had its own, stricter, idea of an address."""
+        client, mailer = setup
+        csrf = _sign_in(client, mailer, self.ODD)
+
+        subscribed = client.post(URL, headers=csrf, json=COCOA)
+        phoned = client.post(PHONE, headers=csrf, json={"number": NUMBER})
+
+        assert subscribed.status_code == 201, subscribed.text
+        assert phoned.status_code == 202, phoned.text
+        assert [row["email"] for row in _store().subscribers()] == [self.ODD]
+
+    def test_a_change_to_such_an_address_carries_the_subscriptions(self, setup: Setup) -> None:
+        """Was: the address changed, the request failed, and the old mailbox went on being told."""
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        client.post(URL, headers=csrf, json=COCOA)
+        client.post(
+            "/api/v1/auth/email-change/request",
+            headers=csrf,
+            json={"new_email": self.ODD, "current_password": "a-strong-pw"},
+        )
+
+        confirmed = client.post(
+            "/api/v1/auth/email-change/confirm", json={"token": mailer.last_token()}
+        )
+
+        assert confirmed.status_code == 200, confirmed.text
+        assert [row["email"] for row in _store().subscribers()] == [self.ODD]
+
+    def test_an_address_change_drops_every_session_whatever_follows_it_does(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Was: a failure in what follows left the old sessions valid and no audit record.
+
+        The hook ran between committing the new address and dropping the
+        sessions. Whatever it raised (the watch's store locked, say) ended
+        the request there.
+        """
+        monkeypatch.setenv("MERCURY_SESSION_COOKIE_SECURE", "false")
+        monkeypatch.setenv("MERCURY_WATCH_DIR", str(tmp_path / "watch"))
+        mailer = _Mail()
+        recorded: list[tuple[str, str]] = []
+
+        def locked(previous: str, current: str) -> None:
+            raise RuntimeError("database is locked")
+
+        service = AuthService(InMemoryIdentityStore(), mailer, on_email_changed=locked)
+        real = service._auditor.record
+
+        def record(event: str, **details: object) -> object:
+            recorded.append((event, str(details.get("outcome", ""))))
+            return real(event, **details)
+
+        monkeypatch.setattr(service._auditor, "record", record)
+        app = FastAPI()
+        app.include_router(accounts.router)
+        app.dependency_overrides[accounts.get_auth_service] = lambda: service
+        with TestClient(app) as client:
+            csrf = _sign_in(client, mailer)
+            assert client.get(URL).status_code == 200
+            client.post(
+                "/api/v1/auth/email-change/request",
+                headers=csrf,
+                json={"new_email": "ana@new.example.org", "current_password": "a-strong-pw"},
+            )
+
+            confirmed = client.post(
+                "/api/v1/auth/email-change/confirm", json={"token": mailer.last_token()}
+            )
+
+            assert confirmed.status_code == 200, confirmed.text
+            assert client.get(URL).status_code == 401  # the old session is gone
+        assert ("email_change", "success") in recorded
+        assert ("email_change_followup", "failure") in recorded
+
+    def test_a_provider_that_cannot_be_reached_is_said_and_the_code_is_not_counted(
+        self, setup: Setup, texts: _Texts
+    ) -> None:
+        """Was: an unhandled 500, no audit event, and the requester locked out for a text never sent."""
+        from omni_mercury_engine.watch.sms import SmsUnreachableError
+
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        texts.refuse = SmsUnreachableError("Twilio could not be reached (Timeout)")
+
+        answers = [client.post(PHONE, headers=csrf, json={"number": NUMBER}) for _ in range(7)]
+
+        assert [answer.status_code for answer in answers] == [502] * 7  # never 429, never 500
+        assert "could not be reached" in answers[0].json()["detail"]["message"]
+        texts.refuse = None
+        assert client.post(PHONE, headers=csrf, json={"number": NUMBER}).status_code == 202
+
+    def test_removing_and_adding_a_number_does_not_send_a_sixth_code(
+        self, setup: Setup, texts: _Texts, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: DELETE then POST, as often as wanted: a paid text to a stranger each time."""
+        from datetime import timedelta
+
+        client, mailer = setup
+        csrf = _sign_in(client, mailer)
+        monkeypatch.setattr(WatchStore, "CODE_GAP", timedelta(0))  # the daily limit is the subject
+
+        statuses = []
+        for _ in range(8):
+            statuses.append(client.post(PHONE, headers=csrf, json={"number": NUMBER}).status_code)
+            client.delete(PHONE, headers=csrf)
+
+        assert statuses == [202] * 5 + [429] * 3
+        assert len(texts.sent) == 5

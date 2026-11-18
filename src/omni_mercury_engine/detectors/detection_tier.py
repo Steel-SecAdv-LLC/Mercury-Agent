@@ -938,6 +938,7 @@ def run_tier_ensemble(
     if ref is not None and ref.size < 8:
         raise ValueError(f"reference must hold at least 8 points, got {ref.size}")
     excluded: dict[str, str] = {}
+    n_label_zero = 0
     if ref is not None and ref.size != _to_1d_series(series).size:
         # rca interprets the fitted series' points as the nodes of a dependency
         # graph, so it cannot score a series of another length than its fit.
@@ -964,15 +965,16 @@ def run_tier_ensemble(
         # One label per fitted point. A shorter or longer vector reached the
         # boolean index in ``StreamingScoreEnsemble.fit`` and left as an
         # IndexError, which the MCP server reports as an internal fault.
-        labelled = _to_1d_series(series) if ref is None else ref
+        # (Labels never come with a reference -- refused above -- so the
+        # fitted series is always the scored one.)
+        labelled = _to_1d_series(series)
         if label_array.size != labelled.size:
-            fitted = "reference" if ref is not None else "data"
             raise ValueError(
-                f"'labels' holds {label_array.size} values but '{fitted}', the series the "
+                f"'labels' holds {label_array.size} values but 'data', the series the "
                 f"tier is fitted on, holds {labelled.size} points; send one 0/1 label per point"
             )
-        n_normal = int((label_array == 0).sum())
-        if 0 < n_normal < label_array.size:
+        n_label_zero = int((label_array == 0).sum())
+        if 0 < n_label_zero < label_array.size:
             reason = (
                 "fits a node graph over the training points; with labels the tier fits "
                 "on the label-0 points only, a different length than the scored series"
@@ -989,13 +991,11 @@ def run_tier_ensemble(
     # way out, and the declared minimum everywhere was 8. Say both here.
     fit_size = int((_to_1d_series(series) if ref is None else ref).size)
     fitted = "'reference'" if ref is not None else "'data'"
-    if labels is not None:
+    if n_label_zero:
         # The members are fitted on the label-0 points only (when there are
         # any), so that count is the calibration length, not the series'.
-        n_label_zero = int((np.asarray(labels).astype(int).ravel() == 0).sum())
-        if n_label_zero:
-            fit_size = n_label_zero
-            fitted = f"the label-0 part of {fitted}"
+        fit_size = n_label_zero
+        fitted = "the label-0 part of 'data'"
     if "spot_evt" in detectors and fit_size < SPOT_MIN_CALIBRATION_POINTS:
         raise ValueError(
             f"the detector tier includes spot_evt, which calibrates on at least "

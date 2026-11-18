@@ -16,9 +16,10 @@ from typing import Any
 from fastapi import APIRouter, Query
 
 from omni_mercury_engine.watch.feeds import FEEDS
-from omni_mercury_engine.watch.notify import Notifier
+from omni_mercury_engine.watch.model import public_view
+from omni_mercury_engine.watch.notify import configured_channels
 from omni_mercury_engine.watch.service import watching
-from omni_mercury_engine.watch.store import WatchStore, default_state_dir
+from omni_mercury_engine.watch.store import default_state_dir, open_store
 
 __all__ = ["router", "snapshot"]
 
@@ -40,21 +41,17 @@ def snapshot(*, limit: int = 50, open_only: bool = False) -> dict[str, Any]:
         "subscribers": 0, "email": False, "sms": False, "webhook": False, "sent": 0, "failed": 0,
     }  # fmt: skip
     if (directory / "watch.sqlite").exists():
-        store = WatchStore(directory)
+        store = open_store(directory)
         statuses = store.statuses()
         findings = store.findings(limit=limit, open_only=open_only)
         tally = store.track_record()
         telling.update(subscribers=store.subscriber_count(), **store.delivery_counts())
-        telling.update(Notifier(store).channels())
+        telling.update(configured_channels())
     # An alert that is here only because it is in effect at a subscriber's place says
-    # where a subscriber is. It goes to that subscriber, not to everyone who opens the page.
-    findings = [
-        finding
-        for finding in findings
-        if not finding.get("place_ids") or finding.get("severity") == "severe"
-    ]
-    for finding in findings:
-        finding.pop("place_ids", None)
+    # where a subscriber is. It goes to that subscriber, not to everyone who opens the
+    # page. Being rated severe used to exempt it, which published a foreign authority's
+    # Extreme alert, with its area, on the strength of one subscriber's place there.
+    findings = [shown for shown in map(public_view, findings) if shown is not None]
     seen = {status["feed"] for status in statuses}
     for name, feed in sorted(FEEDS.items()):
         if name not in seen:

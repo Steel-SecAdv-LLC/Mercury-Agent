@@ -13,7 +13,6 @@ import hashlib
 import hmac
 import json
 import os
-import re
 import secrets
 import sqlite3
 import threading
@@ -21,6 +20,9 @@ from contextlib import closing, suppress
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
+
+from omni_mercury_engine.utils.email_address import is_email_address
+from omni_mercury_engine.watch.sms import E164
 
 if TYPE_CHECKING:
 
@@ -61,6 +63,12 @@ CREATE TABLE IF NOT EXISTS reach (
     subject TEXT PRIMARY KEY, body TEXT NOT NULL, read_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS lease (name TEXT PRIMARY KEY, holder TEXT NOT NULL, until TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS announcements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, finding_key TEXT NOT NULL, at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS code_sends (
+    subject TEXT PRIMARY KEY, sends INTEGER NOT NULL, since TEXT NOT NULL, last TEXT
+);
 CREATE TABLE IF NOT EXISTS deliveries (
     finding_key TEXT NOT NULL, severity INTEGER NOT NULL, subscriber INTEGER NOT NULL,
     channel TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, at TEXT NOT NULL,
@@ -69,14 +77,23 @@ CREATE TABLE IF NOT EXISTS deliveries (
 """
 
 
-#: An address a mail server could accept; delivery is the real test.
-_EMAIL = re.compile(
-    r"[^@\s<>,;\"']{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,253}[A-Za-z0-9])?\.[A-Za-z]{2,63}"
-)
+_handles: dict[Path, WatchStore] = {}
+_handles_guard = threading.Lock()
 
 
-#: An international phone number as E.164 writes it.
-_E164 = re.compile(r"\+[1-9]\d{6,14}")
+def open_store(directory: Path | None = None) -> WatchStore:
+    """This process's handle on the store in ``directory``, made once.
+
+    Making a :class:`WatchStore` creates its directory, runs the schema,
+    migrates old columns and sets the file's mode. That is right once in a
+    process and was being done on every request for the public snapshot.
+    """
+    where = (directory if directory is not None else default_state_dir()).resolve()
+    with _handles_guard:
+        held = _handles.get(where)
+        if held is None or not held.path.exists():
+            held = _handles[where] = WatchStore(where)
+        return held
 
 
 def default_state_dir() -> Path:
@@ -251,6 +268,7 @@ class WatchStore:
                         "review_final=0 WHERE key=?",
                         (finding.key,),
                     )
+                    self._announce(connection, finding.key, now)
                 return escalated
             if row is not None:
                 # It ended and has recurred. The earlier occurrence keeps its
@@ -284,7 +302,46 @@ class WatchStore:
                     int(finding.ongoing),
                 ),
             )
+            self._announce(connection, finding.key, now)
             return True
+
+    # ----------------------------------------------------------- announcements
+
+    #: How long an announcement is kept for a process that has yet to read it.
+    ANNOUNCEMENTS_KEPT: ClassVar[timedelta] = timedelta(days=1)
+
+    def _announce(self, connection: sqlite3.Connection, key: str, now: datetime) -> None:
+        """Note, in the transaction that records it, that a finding is new or more severe.
+
+        Every process that serves consoles reads these and tells its own
+        (:meth:`announcements_after`). The watch used to tell the consoles
+        itself, on the alert bus of the one process that read the feed: with
+        four workers three of them never heard, and with ``mercury-agent
+        watch`` running beside a server none did.
+        """
+        connection.execute(
+            "DELETE FROM announcements WHERE at < ?",
+            ((now - self.ANNOUNCEMENTS_KEPT).isoformat(),),
+        )
+        connection.execute(
+            "INSERT INTO announcements (finding_key, at) VALUES (?, ?)", (key, now.isoformat())
+        )
+
+    def last_announcement(self) -> int:
+        """The newest announcement's number (0 when there is none)."""
+        with closing(self._connect()) as connection:
+            row = connection.execute("SELECT MAX(id) AS newest FROM announcements").fetchone()
+        return int(row["newest"] or 0)
+
+    def announcements_after(self, number: int) -> list[tuple[int, dict[str, Any]]]:
+        """Findings announced since announcement ``number``, oldest first, each with its number."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT a.id AS number, f.* FROM announcements AS a "
+                "JOIN findings AS f ON f.key = a.finding_key WHERE a.id > ? ORDER BY a.id",
+                (number,),
+            ).fetchall()
+        return [(int(row["number"]), self._finding(row)) for row in rows]
 
     def close_absent(self, feed: str, standing: set[str], now: datetime) -> int:
         """End the feed's ongoing findings that the latest read no longer shows.
@@ -484,7 +541,7 @@ class WatchStore:
                 be what they claim to be.
         """
         address = email.strip()
-        if not _EMAIL.fullmatch(address):
+        if not is_email_address(address):
             raise ValueError(f"not an email address: {email!r}")
         located = latitude is not None or longitude is not None
         if located and (
@@ -585,7 +642,7 @@ class WatchStore:
             ValueError: If ``current`` is not an email address.
         """
         old, new = previous.strip(), current.strip()
-        if not _EMAIL.fullmatch(new):
+        if not is_email_address(new):
             raise ValueError(f"not an email address: {current!r}")
         with self._lock, closing(self._connect()) as connection, connection:
             connection.execute(
@@ -656,9 +713,9 @@ class WatchStore:
             ValueError: If the address, the number or the severity is not valid.
         """
         address = email.strip()
-        if not _EMAIL.fullmatch(address):
+        if not is_email_address(address):
             raise ValueError(f"not an email address: {email!r}")
-        if not _E164.fullmatch(number):
+        if not E164.fullmatch(number):
             raise ValueError("a phone number must be written like +14155550123")
         if min_severity not in (1, 2, 3):
             raise ValueError("the least severity is 1 (notable), 2 (significant) or 3 (severe)")
@@ -673,25 +730,25 @@ class WatchStore:
                     "UPDATE phones SET min_severity=? WHERE id=?", (min_severity, row["id"])
                 )
                 return ""
-            sends, since = 0, moment
-            if row is not None:
-                if row["last_send"]:
-                    wait = self.CODE_GAP - (moment - datetime.fromisoformat(row["last_send"]))
-                    if wait > timedelta(0):
-                        raise PhoneLimitError(
-                            "a code was sent a moment ago; wait a minute before asking again",
-                            wait.total_seconds(),
-                        )
-                if row["sends_since"]:
-                    began = datetime.fromisoformat(row["sends_since"])
-                    if moment - began < timedelta(days=1):
-                        sends, since = int(row["sends"]), began
-                if sends >= self.CODE_SENDS_PER_DAY:
-                    raise PhoneLimitError(
-                        f"{self.CODE_SENDS_PER_DAY} codes have been sent today; try again tomorrow",
-                        (since + timedelta(days=1) - moment).total_seconds(),
-                    )
+            # The limit is kept for the address and for the number, each apart
+            # from the phone's own row. It was kept in that row, and removing
+            # the number deleted it: remove, add again, and the count began
+            # at nought. Twenty-one codes went to one number in a second.
+            counted = [
+                self._count_code_send(connection, subject, moment)
+                for subject in self._code_subjects(address, number)
+            ]
+            sends, since = max(counted, key=lambda count: count[0])
             code = f"{secrets.randbelow(1_000_000):06d}"
+            for subject, (count, began) in zip(
+                self._code_subjects(address, number), counted, strict=True
+            ):
+                connection.execute(
+                    "INSERT INTO code_sends (subject, sends, since, last) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT (subject) DO UPDATE SET sends=excluded.sends, "
+                    "since=excluded.since, last=excluded.last",
+                    (subject, count + 1, began.isoformat(), moment.isoformat()),
+                )
             connection.execute(
                 "INSERT INTO phones (email, number, min_severity, code_hash, code_expires, "
                 "code_attempts, sends, sends_since, last_send, verified_at, created) "
@@ -713,6 +770,68 @@ class WatchStore:
                 },
             )
             return code
+
+    @staticmethod
+    def _code_subjects(email: str, number: str) -> tuple[str, str]:
+        """Who a code is counted against: the asking address and the number texted.
+
+        Kept as digests, so the count outlives the address and the number
+        without the store holding either.
+        """
+        return (
+            "address:" + hashlib.sha256(email.strip().lower().encode()).hexdigest(),
+            "number:" + hashlib.sha256(number.encode()).hexdigest(),
+        )
+
+    def _count_code_send(
+        self, connection: sqlite3.Connection, subject: str, moment: datetime
+    ) -> tuple[int, datetime]:
+        """Codes counted against ``subject`` in the current day, and when that day began.
+
+        Raises:
+            PhoneLimitError: If one was sent under a minute ago, or five in the past day.
+        """
+        row = connection.execute(
+            "SELECT sends, since, last FROM code_sends WHERE subject = ?", (subject,)
+        ).fetchone()
+        if row is None:
+            return 0, moment
+        if row["last"]:
+            wait = self.CODE_GAP - (moment - datetime.fromisoformat(row["last"]))
+            if wait > timedelta(0):
+                raise PhoneLimitError(
+                    "a code was sent a moment ago; wait a minute before asking again",
+                    wait.total_seconds(),
+                )
+        began = datetime.fromisoformat(row["since"])
+        if moment - began >= timedelta(days=1):
+            return 0, moment
+        if int(row["sends"]) >= self.CODE_SENDS_PER_DAY:
+            raise PhoneLimitError(
+                f"{self.CODE_SENDS_PER_DAY} codes have been sent today; try again tomorrow",
+                (began + timedelta(days=1) - moment).total_seconds(),
+            )
+        return int(row["sends"]), began
+
+    def release_code_send(self, email: str, number: str) -> None:
+        """Take back the count of a code that never left: the provider could not be reached.
+
+        Nothing was sent, so nobody was texted and nothing was spent; the
+        requester is not made to wait a minute, or charged one of the day's
+        five, for it.
+        """
+        with self._lock, closing(self._connect()) as connection, connection:
+            for subject in self._code_subjects(email, number):
+                connection.execute(
+                    "UPDATE code_sends SET sends = MAX(sends - 1, 0), last = NULL "
+                    "WHERE subject = ?",
+                    (subject,),
+                )
+            connection.execute(
+                "UPDATE phones SET code_hash=NULL, code_expires=NULL WHERE email = ? "
+                "COLLATE NOCASE AND number = ?",
+                (email.strip(), number),
+            )
 
     def confirm_phone(self, email: str, code: str, now: datetime | None = None) -> bool:
         """Verify ``email``'s number with the code texted to it. Returns whether it was right.

@@ -32,7 +32,15 @@ from omni_mercury_engine.watch import FEEDS, Severity, Watcher, WatchStore
 from omni_mercury_engine.watch.feeds import Feed, Judgment, WarningsFeed
 from omni_mercury_engine.watch.guidance import EMERGENCY_LINE, GUIDANCE, with_guidance
 from omni_mercury_engine.watch.model import Finding
-from omni_mercury_engine.watch.notify import MAX_ATTEMPTS, Notifier, audience, distance_km, notice
+from omni_mercury_engine.watch.notify import (
+    MAX_ATTEMPTS,
+    RETRY_CAP,
+    RETRY_FIRST,
+    Notifier,
+    audience,
+    distance_km,
+    notice,
+)
 from omni_mercury_engine.watch.voice import finding_text
 
 if TYPE_CHECKING:
@@ -320,7 +328,8 @@ class TestDelivery:
         store.add_subscriber("up@example.org")
         made = self._standing(store)
         mail = _Mail(failing={"down@example.org"})
-        notifier = Notifier(store, mailer=mail, clock=lambda: NOW)
+        clock = [NOW]
+        notifier = Notifier(store, mailer=mail, clock=lambda: clock[0])
 
         assert notifier.sync() == {"sent": 1, "failed": 1}
         assert [to for to, _, _ in mail.sent] == ["up@example.org"]
@@ -328,6 +337,7 @@ class TestDelivery:
         assert record["status"] == "failed" and "mailbox unavailable" in record["error"]
 
         mail.failing.clear()
+        clock[0] += RETRY_FIRST
         assert notifier.sync() == {"sent": 1, "failed": 0}
         assert store.delivery(made.key, 3, 1, "email")["attempts"] == 2
         assert store.delivery_counts() == {"sent": 2, "failed": 0}
@@ -520,9 +530,15 @@ class TestDelivery:
     ) -> None:
         store.add_subscriber("down@example.org")
         self._standing(store)
-        notifier = Notifier(store, mailer=_Mail(failing={"down@example.org"}), clock=lambda: NOW)
+        clock = [NOW]
+        notifier = Notifier(
+            store, mailer=_Mail(failing={"down@example.org"}), clock=lambda: clock[0]
+        )
 
-        attempts = [notifier.sync()["failed"] for _ in range(MAX_ATTEMPTS + 2)]
+        attempts = []
+        for _ in range(MAX_ATTEMPTS + 2):
+            attempts.append(notifier.sync()["failed"])
+            clock[0] += RETRY_CAP  # the longest wait there is
 
         assert attempts == [1] * MAX_ATTEMPTS + [0, 0]
         assert store.delivery_counts() == {"sent": 0, "failed": 1}

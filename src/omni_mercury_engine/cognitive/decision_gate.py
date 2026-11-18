@@ -130,6 +130,10 @@ _MAX_PAYLOAD_SUMMARY_CHARS = 2048
 _MAX_PAYLOAD_DEPTH = 6
 
 
+#: Types that are numbers and nothing else (a subclass could carry text).
+_NUMBERS: frozenset[type] = frozenset({int, float, bool, complex, type(None)})
+
+
 class UnassessableSubjectError(ValueError):
     """The decision carries more than the gate can read; it must be refused."""
 
@@ -198,7 +202,13 @@ def payload_text(payload: Any) -> list[str]:
     found: list[str] = []
     chars = 0
     nodes = 0
-    seen: set[int] = set()
+    # Containers already read, by identity -- and held, not just their ids. A
+    # set of bare ids was wrong: the dict a model dumps to and the list an
+    # array converts to are made here and freed as soon as they are read, the
+    # next one is given the same address, and it was skipped as "already
+    # seen". A payload of two models or two string arrays was read as the
+    # first alone, and whatever the second said went through unread.
+    seen: dict[int, Any] = {}
     stack: list[tuple[Any, int]] = [(payload, 0)]
     while stack:
         value, depth = stack.pop()
@@ -229,6 +239,13 @@ def payload_text(payload: Any) -> list[str]:
         if isinstance(value, _Mapping):
             children = [part for item in value.items() for part in item]
         elif isinstance(value, (list, tuple, set, frozenset, deque)):
+            # A sequence of nothing but numbers has no words in it. Its types
+            # are checked in one pass at C speed instead of visiting every
+            # element here (a 1,000 x 1,000 list of floats cost 170 ms a
+            # decision); eight of them count as one value walked.
+            if set(map(type, value)) <= _NUMBERS:
+                nodes += len(value) // 8
+                continue
             children = list(value)
         else:
             children = _object_text(value)
@@ -236,7 +253,7 @@ def payload_text(payload: Any) -> list[str]:
             continue
         if id(value) in seen:  # a container reached twice is read once
             continue
-        seen.add(id(value))
+        seen[id(value)] = value
         stack.extend((child, depth + 1) for child in reversed(children))
     return found
 

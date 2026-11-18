@@ -63,6 +63,7 @@ from omni_mercury_engine.api.rate_limit_store import (
     build_action_rate_limiter,
 )
 from omni_mercury_engine.api.request_audit import set_audit_actor
+from omni_mercury_engine.watch.model import RANKS as _WATCH_RANKS
 
 if TYPE_CHECKING:
     from omni_mercury_engine.api.auth import APIKey
@@ -118,7 +119,7 @@ DISPATCHED_THROTTLE_ACTIONS: tuple[str, ...] = (
 _DEFAULT_MAX_WATCH_PLACES_PER_ACCOUNT = 5
 
 #: A subscription's least severity, as the watch names it, to its stored rank.
-_WATCH_SEVERITY_RANK: dict[str, int] = {"notable": 1, "significant": 2, "severe": 3}
+_WATCH_SEVERITY_RANK: dict[str, int] = dict(_WATCH_RANKS)
 
 _service: AuthService | None = None
 _service_lock = threading.Lock()
@@ -1270,6 +1271,11 @@ def add_watch_subscription(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail={"message": message}
         ) from exc
+    except ValueError as exc:
+        # What the store will not hold is the caller's to correct, not a fault here.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"message": str(exc)}
+        ) from exc
     service.record_event(
         "watch_subscribed",
         outcome="success",
@@ -1332,7 +1338,7 @@ def request_watch_phone(
     money and ring a stranger's phone. Changing only the severity of a
     number already verified sends nothing.
     """
-    from omni_mercury_engine.watch.sms import SmsRefusedError
+    from omni_mercury_engine.watch.sms import SmsRefusedError, SmsUnreachableError
     from omni_mercury_engine.watch.store import PhoneLimitError, WatchStore, default_state_dir
 
     account, _session = session_pair
@@ -1360,6 +1366,10 @@ def request_watch_phone(
             detail={"message": str(exc)},
             headers={"Retry-After": str(max(1, int(exc.retry_after) + 1))},
         ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"message": str(exc)}
+        ) from exc
     if code:
         try:
             sender.send(
@@ -1367,7 +1377,11 @@ def request_watch_phone(
                 body=f"Mercury watch: your code is {code}. It is good for 10 minutes. "
                 "If you did not ask for it, ignore this message.",
             )
-        except (SmsRefusedError, ValueError) as exc:
+        except (SmsRefusedError, SmsUnreachableError, ValueError) as exc:
+            if isinstance(exc, SmsUnreachableError):
+                # Nothing left this server: the requester is not charged one of
+                # the day's codes, or made to wait, for a text that was never sent.
+                store.release_code_send(account.email, payload.number)
             service.record_event(
                 "watch_phone_code",
                 outcome="failure",

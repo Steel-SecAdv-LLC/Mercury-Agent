@@ -37,6 +37,7 @@ __all__ = [
     "SmsOptedOutError",
     "SmsRefusedError",
     "SmsSender",
+    "SmsUnreachableError",
     "TwilioSms",
     "build_sms_sender",
     "text_message",
@@ -71,6 +72,10 @@ class SmsRefusedError(RuntimeError):
 
 class SmsOptedOutError(SmsRefusedError):
     """The number's owner has told the provider to stop (replied STOP)."""
+
+
+class SmsUnreachableError(RuntimeError):
+    """The provider could not be reached: nothing was sent and nothing was refused."""
 
 
 @runtime_checkable
@@ -123,6 +128,9 @@ class TwilioSms:
         Raises:
             SmsOptedOutError: If the number's owner has replied STOP.
             SmsRefusedError: If Twilio did not accept the message, with its reason.
+            SmsUnreachableError: If Twilio could not be reached (no connection,
+                a timeout). These used to leave as the HTTP library's own
+                exceptions, which no caller expected.
             ValueError: If ``to`` is not an E.164 number.
         """
         import requests
@@ -143,6 +151,11 @@ class TwilioSms:
             code, reason = _twilio_error(exc)
             kind = SmsOptedOutError if code == _OPTED_OUT else SmsRefusedError
             raise kind(reason, code) from None
+        except (requests.RequestException, OSError) as exc:
+            # The exception's own text can quote the request; its kind is enough.
+            raise SmsUnreachableError(
+                f"Twilio could not be reached ({type(exc).__name__})"
+            ) from None
 
 
 def _twilio_error(exc: Exception) -> tuple[int | None, str]:

@@ -429,12 +429,14 @@ class TestDelivery:
         store.report(made, NOW)
         texts = _Texts()
         texts.refuse[NUMBER] = SmsRefusedError("Twilio error 30008: Unknown error", 30008)
-        notifier = self._notifier(store, texts)
+        clock = [NOW]
+        notifier = Notifier(store, sms=texts, clock=lambda: clock[0])
         phone = store.phone_of("ana@example.org")["id"]
 
         assert notifier.sync() == {"sent": 0, "failed": 1}
         assert "30008" in store.delivery(made.key, 3, phone, "sms")["error"]
         texts.refuse.clear()
+        clock[0] += timedelta(minutes=1)  # the wait after a first failure
         assert notifier.sync() == {"sent": 1, "failed": 0}
         assert store.delivery(made.key, 3, phone, "sms")["attempts"] == 2
 

@@ -12,7 +12,16 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import datetime
 
-__all__ = ["FeedStatus", "Finding", "Outcome", "Severity"]
+__all__ = [
+    "EVERYWHERE_KINDS",
+    "EXTREME_BASIS",
+    "RANKS",
+    "FeedStatus",
+    "Finding",
+    "Outcome",
+    "Severity",
+    "public_view",
+]
 
 
 class Severity(IntEnum):
@@ -26,6 +35,44 @@ class Severity(IntEnum):
     def label(self) -> str:
         """Lower-case name, as shown and stored."""
         return self.name.lower()
+
+
+#: Each severity's rank by the name it is shown and stored under. One table:
+#: the notifier, the CLI and the account routes each had their own copy.
+RANKS: dict[str, int] = {severity.label: int(severity) for severity in Severity}
+
+#: Kinds of finding that are nowhere in particular, and so concern everyone: a
+#: geomagnetic storm, a tsunami buoy's alarm, a national surge of disaster
+#: declarations. Every other kind happens somewhere. One of those that arrives
+#: without its coordinates (a volcano whose location lookup failed) has lost
+#: them; it has not become everyone's concern.
+EVERYWHERE_KINDS: frozenset[str] = frozenset(
+    {"geomagnetic_storm", "buoy_event_mode", "declarations"}
+)
+
+#: Why an Extreme alert of the National Weather Service is reported at all:
+#: every one is, whether or not anyone has subscribed where it is in effect.
+EXTREME_BASIS = "an NWS alert rated Extreme (every Extreme alert is reported)"
+
+
+def public_view(finding: dict[str, Any]) -> dict[str, Any] | None:
+    """A finding as anyone may see it, or ``None`` when it may not be shown.
+
+    An alert that is recorded only because it is in effect at a subscriber's
+    place says where a subscriber is. It goes to that subscriber, never to a
+    public page or to every open console. An Extreme alert of the National
+    Weather Service is the one exception, because it is reported whether or
+    not anyone subscribed there: it is shown, without the places and under
+    the reason that makes it public. A foreign authority's alert is looked up
+    for subscribed places only, so it is never public, however severe.
+    """
+    shown = dict(finding)
+    if not shown.pop("place_ids", None):
+        return shown
+    if shown.get("kind") == "nws_alert" and shown.get("severity") == Severity.SEVERE.label:
+        shown["basis"] = EXTREME_BASIS
+        return shown
+    return None
 
 
 @dataclass(frozen=True)

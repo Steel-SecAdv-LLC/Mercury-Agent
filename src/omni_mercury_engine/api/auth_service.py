@@ -34,7 +34,6 @@ is logged and audited but never unwinds them (see :meth:`AuthService._send`).
 from __future__ import annotations
 
 import logging
-import re
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -56,6 +55,7 @@ from omni_mercury_engine.api.secret_sealer import (
     SecretSealer,
     build_secret_sealer,
 )
+from omni_mercury_engine.utils.email_address import MAX_EMAIL_LENGTH, is_email_address
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -89,8 +89,7 @@ __all__ = [
 # possible split and no polynomial backtracking (the previous
 # ``...@[^@\s]+\.[^@\s]+`` overlapped the dot with the surrounding runs, a ReDoS
 # on adversarial input). The required dot in the domain is checked separately.
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
-_MAX_EMAIL_LENGTH = 320  # RFC 5321 max; also bounds the shape check up front.
+_MAX_EMAIL_LENGTH = MAX_EMAIL_LENGTH  # kept under its old name for callers that read it
 _MIN_PASSWORD_LENGTH = 8
 
 #: How many single-use 2FA recovery codes an enrollment issues.
@@ -123,10 +122,7 @@ def _is_valid_email(email: str) -> bool:
         ``True`` if it has exactly one ``@``, non-empty local and domain parts,
         and a dot in the domain; ``False`` otherwise.
     """
-    if len(email) > _MAX_EMAIL_LENGTH or not _EMAIL_RE.match(email):
-        return False
-    domain = email.rsplit("@", 1)[1]
-    return "." in domain and not domain.startswith(".") and not domain.endswith(".")
+    return is_email_address(email)
 
 
 def _normalize_recovery_code(code: str) -> str:
@@ -890,10 +886,21 @@ class AuthService:
             self._store.update_account(account)
         except DuplicateEmailError as exc:
             raise EmailAlreadyRegisteredError("email already registered") from exc
-        if self._on_email_changed is not None and previous != account.email:
-            self._on_email_changed(previous, account.email)
+        # The address has changed and that is committed. Every session is
+        # dropped and the change recorded before anything that can fail: the
+        # hook ran first, and one failure in it (the watch's store locked, or
+        # refusing the new address) returned an error with the old sessions
+        # still valid and nothing in the audit trail.
         self._store.delete_sessions_for_account(account.id)
         self._auditor.record("email_change", outcome="success", account_id=account.id)
+        if self._on_email_changed is not None and previous != account.email:
+            try:
+                self._on_email_changed(previous, account.email)
+            except Exception:
+                logger.exception("email change: what follows an address could not be carried")
+                self._auditor.record(
+                    "email_change_followup", outcome="failure", account_id=account.id
+                )
         return account
 
     # -- deletion + export ------------------------------------------------------ #

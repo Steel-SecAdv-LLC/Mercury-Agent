@@ -99,7 +99,12 @@ A finding is delivered to the people it concerns.
   and the other `MERCURY_SMTP_*` settings); without one nothing is sent and
   the command, the page and the route all say subscribers cannot be reached.
 - **Open consoles.** A new finding appears in the console's alert dock and
-  banner as it is made, and is spoken if the console is set to speak.
+  banner as it is made, and is spoken if the console is set to speak. Every
+  serving process tells its own consoles from the store, whichever process
+  read the feed. An alert that is recorded only because it is in effect at a
+  subscriber's place is not shown to consoles or on the public page: it would
+  say where a subscriber is. (An Extreme National Weather Service alert is
+  reported everywhere regardless, so it is shown.)
 - **From an account.** With the browser front end on, a signed-in person
   manages this for their own address under "Watch alerts" on their account
   page (`GET`/`POST /api/v1/auth/watch-subscriptions`, `DELETE
@@ -113,15 +118,17 @@ A finding is delivered to the people it concerns.
   (significant unless changed). The number is texted nothing until a
   six-digit code sent to it has been typed back, from the account page or
   with `mercury-agent alerts phone --email … --number +1415…` and then
-  `--code …`. A code is good for ten minutes and five wrong guesses; an
-  address is sent at most one a minute and five a day. Texts go through the
+  `--code …`. A code is good for ten minutes and five wrong guesses. At most
+  one code a minute and five a day are sent for an address, and to a number
+  whichever addresses ask; removing the number does not start the count
+  again. A code the provider could not be reached to send is not counted.
+  Texts go through the
   operator's own Twilio account: `MERCURY_SMS_TWILIO_ACCOUNT_SID`,
   `MERCURY_SMS_TWILIO_AUTH_TOKEN`, and `MERCURY_SMS_FROM` (a number the
   account owns) or `MERCURY_SMS_TWILIO_MESSAGING_SERVICE_SID`. Without them
   no text is attempted and the page and the command say so. A reply of STOP
   is honoured by the provider, and the number is then not texted from here
-  either. Deliveries are in the same ledger: once per severity, retried when
-  they fail.
+  either. Deliveries are in the same ledger, under the same rules as email.
 - **How many places.** The `warnings` feed asks the Service about each
   distinct place (coordinates to two decimals) on every read, up to 250.
   Accounts cannot add a place beyond that. If the operator's command does,
@@ -138,9 +145,14 @@ A finding is delivered to the people it concerns.
 
 Each message says what happened, where and how far from the subscriber's
 place, what to do and whose guidance that is, the source and basis, and that
-Mercury does not issue warnings. Every delivery is recorded: a finding is
-sent to a subscriber once per severity, a failed delivery is tried again on
-later passes (five attempts) and counted as failed, never dropped silently.
+Mercury does not issue warnings. Every delivery is recorded. A finding is
+sent to a subscriber once, and again only if it becomes more severe than what
+they were told: a flood falling from major to minor is one message, not
+three. A failed delivery is tried again after one minute, then two, four and
+so on up to an hour apart, twelve attempts over about six hours while the
+finding stands, and is counted as failed, never dropped silently. A finding
+that happens somewhere and arrives without its coordinates goes only to
+subscribers who gave no place; it is not sent to every place.
 Delivery works from the findings that stand, so someone who subscribes during
 a flood is told of it. A condition (a flood, a storm) stands until a read no
 longer shows it, and is told again when it comes back, unless it comes back
@@ -161,7 +173,8 @@ for it.
 Any process that opens the store may run a watch: each worker of
 `mercury-agent serve --workers 4` does when `MERCURY_WATCH_ENABLED=true`, and
 so does `mercury-agent watch` beside a server. One of them holds the store's
-lease and does the reading and the telling; the others stand by and take over
+lease and does the reading and the sending; the others stand by, tell their
+own open consoles what it finds, and take over
 when it stops, or 15 minutes after it last renewed. The store is one SQLite
 file, so this holds for processes that share its directory on one host.
 Replicas that each have their own directory are each a separate watch with

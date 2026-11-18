@@ -402,6 +402,45 @@ class TestTheGateReadsEverythingTheCallerSaid:
         assert not _blocked(_subject("", payload=Note(text="routine scan")))
         assert _blocked(_subject("", payload=pd.Series(["fine", RED_TEAM_REQUESTS[0]])))
 
+    def test_every_one_of_several_models_or_arrays_is_read_not_only_the_first(self) -> None:
+        """Was: the second model, and the second string array, went through unread.
+
+        Containers already read were remembered by ``id()`` alone. The dict a
+        model dumps to and the list an array converts to are temporaries: the
+        first was freed once read, the second was given its address, and it
+        was skipped as already seen.
+        """
+        from pydantic import BaseModel
+
+        class Record(BaseModel):
+            note: str
+
+        hidden = _SMALL_TALK * 90 + RED_TEAM_REQUESTS[0]
+        models = [Record(note="hello"), Record(note=hidden)]
+        arrays = {"a": np.array(["hello", "x"]), "b": np.array([hidden, "y"])}
+
+        assert payload_text(models) == ["note", "hello", "note", hidden]  # keys are text too
+        assert hidden in payload_text(arrays)
+        assert _blocked(_subject("", payload=models))
+        assert _blocked(_subject("", payload=arrays))
+        assert _blocked(_subject("", payload=[Record(note="fine")] * 40 + [Record(note=hidden)]))
+
+    def test_a_large_table_of_numbers_is_cheap_and_is_not_refused(self) -> None:
+        """Was: every float visited one at a time, and 5,000,001 of them refused."""
+        import time
+
+        table = [[float(i)] * 1000 for i in range(1000)]
+        started = time.perf_counter()
+        assert payload_text(table) == []
+        assert time.perf_counter() - started < 0.5  # 170 ms before, about 20 ms now
+        assert payload_text([0.0] * 5_000_001) == []
+        assert payload_text([1.0, 2.0, "routine scan", 3.0]) == ["routine scan"]
+
+        class Shouts(float):
+            """A number that is not only a number is walked, not waved through."""
+
+        assert payload_text([Shouts(1.0), 2.0]) == []
+
     def test_an_object_the_gate_cannot_read_is_its_type_name_not_a_refusal(self) -> None:
         """Reading more must not make an odd object a way to have a decision refused.
 

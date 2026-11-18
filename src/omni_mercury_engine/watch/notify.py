@@ -17,8 +17,10 @@ delivers them.
   the console's alert dock through the alert bus, and to one operator
   webhook (a phone-push or chat service).
 * **Once, and provably.** Every delivery is recorded. A finding is sent to
-  a subscriber once per severity; one that failed is tried again on later
-  passes, and the failure is shown, not swallowed. Delivery works from the
+  a subscriber once, and again only if it becomes more severe than what they
+  were told; one that failed is tried again, at widening intervals for about
+  six hours while the finding stands, and the failure is shown, not
+  swallowed. Delivery works from the
   findings that stand, not from the moment they appeared, so someone who
   subscribes while a flood is under way is told about it. A single
   occurrence (an earthquake) stands for a day: a new subscriber is not sent
@@ -32,13 +34,14 @@ message somewhere and calling it sent.
 from __future__ import annotations
 
 import logging
-import math
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.utils.geo import haversine_km
 from omni_mercury_engine.watch.guidance import EMERGENCY_LINE
+from omni_mercury_engine.watch.model import EVERYWHERE_KINDS, RANKS, Finding, public_view
 from omni_mercury_engine.watch.shaking import felt_at
 from omni_mercury_engine.watch.sms import (
     SmsOptedOutError,
@@ -51,7 +54,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from omni_mercury_engine.api.mailer import Mailer
-    from omni_mercury_engine.watch.model import Finding
     from omni_mercury_engine.watch.store import WatchStore
 
 logger = logging.getLogger(__name__)
@@ -59,16 +61,27 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "AUTOMATIC",
     "MAX_ATTEMPTS",
+    "RETRY_CAP",
+    "RETRY_FIRST",
     "Notifier",
     "audience",
+    "configured_channels",
     "distance_km",
     "notice",
     "one_per_address",
     "shaking_note",
 ]
 
-#: A delivery that has failed this many times is left as failed.
-MAX_ATTEMPTS = 5
+#: A delivery that has failed this many times is left as failed. With the
+#: waits below that is about six hours of trying while the finding stands.
+MAX_ATTEMPTS = 12
+#: How long after a first failure the delivery is tried again; the wait
+#: doubles with each failure, up to :data:`RETRY_CAP`. There used to be no
+#: wait and five attempts: the watch delivers after every feed it reads, nine
+#: in a pass, so a mail server that was down for one minute spent all five in
+#: that pass and the alert was never sent, to anyone.
+RETRY_FIRST = timedelta(minutes=1)
+RETRY_CAP = timedelta(hours=1)
 #: The operator webhook's entry in the delivery ledger.
 WEBHOOK_SUBSCRIBER = 0
 WEBHOOK_URL_ENV = "MERCURY_WATCH_WEBHOOK_URL"
@@ -76,7 +89,7 @@ WEBHOOK_TOPIC_ENV = "MERCURY_WATCH_WEBHOOK_TOPIC"
 WEBHOOK_MIN_SEVERITY_ENV = "MERCURY_WATCH_WEBHOOK_MIN_SEVERITY"
 PUBLIC_URL_ENV = "MERCURY_PUBLIC_URL"
 
-_RANK = {"notable": 1, "significant": 2, "severe": 3}
+_RANK = RANKS
 
 #: Headers on every message the watch sends. RFC 3834: a message no person
 #: wrote says so, and an out-of-office responder does not answer each alert.
@@ -84,13 +97,13 @@ AUTOMATIC = {"Auto-Submitted": "auto-generated"}
 
 
 def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Great-circle distance between two points, in kilometres."""
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    half = (
-        math.sin((phi2 - phi1) / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2
-    )
-    return 2 * 6371.0088 * math.asin(min(1.0, math.sqrt(half)))
+    """Great-circle distance between two points, in kilometres (the shared geo kernel's)."""
+    return float(haversine_km(lat1, lon1, lat2, lon2))
+
+
+def retry_wait(failures: int) -> timedelta:
+    """How long to wait after ``failures`` failed attempts before the next."""
+    return min(RETRY_FIRST * 2 ** max(failures - 1, 0), RETRY_CAP)
 
 
 def audience(
@@ -133,8 +146,12 @@ def audience(
             )
             if said.felt if said is not None else away <= float(subscriber["radius_km"]):
                 out.append((subscriber, away))
-        elif finding.get("kind") != "nws_alert" and not places:
+        elif finding.get("kind") in EVERYWHERE_KINDS and not places:
             out.append((subscriber, None))  # nowhere in particular: everyone
+        # Anything else happens somewhere. Without its coordinates it cannot be
+        # said to be near this place, and it used to be sent to every place on
+        # Earth: one failed location lookup mailed each Alaskan volcano to a
+        # subscriber in Florida with a 50 km radius.
     return out
 
 
@@ -241,6 +258,37 @@ def _smtp_mailer() -> Mailer | None:
     return build_mailer() if os.environ.get(SMTP_HOST_ENV, "").strip() else None
 
 
+_channels: tuple[tuple[str, ...], dict[str, bool]] | None = None
+
+
+def configured_channels() -> dict[str, bool]:
+    """Which ways of reaching people this deployment has, worked out once per configuration.
+
+    The public snapshot asked this by building a :class:`Notifier` on every
+    request, which built a mailer and a text-message sender each time, and
+    logged an error on each when the text settings were wrong.
+    """
+    global _channels
+    from omni_mercury_engine.api.mailer import SMTP_HOST_ENV
+    from omni_mercury_engine.watch import sms
+
+    names = (
+        SMTP_HOST_ENV, sms.ACCOUNT_SID_ENV, sms.AUTH_TOKEN_ENV, sms.FROM_ENV,
+        sms.SERVICE_SID_ENV, WEBHOOK_URL_ENV,
+    )  # fmt: skip
+    settings = tuple(os.environ.get(name, "") for name in names)
+    if _channels is None or _channels[0] != settings:
+        _channels = (
+            settings,
+            {
+                "email": bool(os.environ.get(SMTP_HOST_ENV, "").strip()),
+                "sms": _sms_sender() is not None,
+                "webhook": bool(os.environ.get(WEBHOOK_URL_ENV, "").strip()),
+            },
+        )
+    return dict(_channels[1])
+
+
 class Notifier:
     """Delivers the findings that stand to the people they concern."""
 
@@ -284,37 +332,50 @@ class Notifier:
             "webhook": bool(self.webhook_url),
         }
 
-    def broadcast(self, finding: Finding) -> None:
-        """Put a new finding on the alert bus, for consoles that are open now."""
+    def broadcast(self, finding: Finding | dict[str, Any]) -> bool:
+        """Put a finding on the alert bus, for consoles that are open now.
+
+        The bus reaches every open console, signed in or not. A finding that
+        is recorded only because it is in effect at a subscriber's place is
+        not put on it (:func:`~omni_mercury_engine.watch.model.public_view`):
+        it used to be, with the place ids in the event.
+
+        Returns:
+            Whether it was published.
+        """
+        entry = public_view(finding.to_dict() if isinstance(finding, Finding) else finding)
+        if entry is None:
+            return False
         try:
             from omni_mercury_engine.narrative.alert_bus import get_alert_bus
 
-            entry = finding.to_dict()
-            rank = int(finding.severity)
+            rank = _RANK.get(str(entry.get("severity")), 1)
+            feed, action = str(entry.get("feed")), str(entry.get("action") or "")
             get_alert_bus().publish(
                 {
-                    "domain": f"watch:{finding.feed}",
+                    "domain": f"watch:{feed}",
                     "timestamp": self._clock().timestamp(),
                     "principal": None,
                     "detection": {
                         "anomaly_detected": True,
-                        "detection_id": f"watch:{finding.key}:{rank}",
+                        "detection_id": f"watch:{entry['key']}:{rank}",
                         "severity": rank / 3,
                         "severity_label": entry["severity"],
                     },
                     "alert": {
                         "initiative_type": f"watch_{entry['severity']}",
                         "severity": rank / 3,
-                        "domain": f"watch:{finding.feed}",
-                        "message": finding.headline
-                        + (f". {finding.action}" if finding.action else ""),
+                        "domain": f"watch:{feed}",
+                        "message": str(entry["headline"]) + (f". {action}" if action else ""),
                         "timestamp": self._clock().timestamp(),
                         "event": entry,
                     },
                 }
             )
         except Exception as exc:  # an open console is a courtesy; it must not stop delivery
-            logger.warning("watch: could not broadcast %s: %s", finding.headline, exc)
+            logger.warning("watch: could not broadcast %s: %s", entry.get("headline"), exc)
+            return False
+        return True
 
     def sync(self, heartbeat: Callable[[], object] | None = None) -> dict[str, int]:
         """Deliver every standing finding to everyone it concerns and has not reached.
@@ -341,6 +402,7 @@ class Notifier:
             least = 2
         ledger = self.store.standing_deliveries()
         reaches = self.store.reaches() if subscribers else {}
+        now = self._clock()
         for finding in self.store.standing(now=self._clock(), limit=1000):
             rank = _RANK.get(str(finding.get("severity")), 1)
             key = str(finding["key"])
@@ -355,7 +417,7 @@ class Notifier:
             for subscriber, away in one_per_address(audience(finding, subscribers, reach)):
                 note = shaking_note(finding, subscriber, reach)
                 if mailer is not None and self._due(
-                    ledger, key, rank, int(subscriber["id"]), "email"
+                    ledger, key, rank, int(subscriber["id"]), "email", now
                 ):
                     subject, body = notice(finding, subscriber, away, note)
                     self._attempt(
@@ -374,7 +436,7 @@ class Notifier:
                 if (
                     phone is not None
                     and rank >= int(phone["min_severity"])
-                    and self._due(ledger, key, rank, int(phone["id"]), "sms")
+                    and self._due(ledger, key, rank, int(phone["id"]), "sms", now)
                 ):
                     text = text_message(finding, subscriber, away, note)
                     self._attempt(
@@ -386,7 +448,7 @@ class Notifier:
             if (
                 hook
                 and rank >= least
-                and self._due(ledger, key, rank, WEBHOOK_SUBSCRIBER, "webhook")
+                and self._due(ledger, key, rank, WEBHOOK_SUBSCRIBER, "webhook", now)
             ):
                 subject, body = notice(finding)
                 payload: dict[str, Any] = {
@@ -422,11 +484,27 @@ class Notifier:
         rank: int,
         subscriber: int,
         channel: str,
+        now: datetime,
     ) -> bool:
+        """Whether this finding, at this severity, is still owed on this channel.
+
+        Not when it was sent at this severity or a higher one: a flood that
+        falls from major to moderate to minor is one flood the reader has been
+        told of, and each step down used to go out as a new alert. A failed
+        attempt is tried again once its wait has passed, up to
+        :data:`MAX_ATTEMPTS`.
+        """
+        for told in range(rank, max(RANKS.values()) + 1):
+            sent = ledger.get((key, told, subscriber, channel))
+            if sent and sent["status"] == "sent":
+                return False
         record = ledger.get((key, rank, subscriber, channel))
-        return not record or (
-            record["status"] == "failed" and int(record["attempts"]) < MAX_ATTEMPTS
-        )
+        if not record:
+            return True
+        failures = int(record["attempts"])
+        if failures >= MAX_ATTEMPTS:
+            return False
+        return now - datetime.fromisoformat(str(record["at"])) >= retry_wait(failures)
 
     def _attempt(
         self,
