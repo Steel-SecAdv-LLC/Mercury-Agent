@@ -209,6 +209,7 @@ def test_a_term_repeated_in_one_long_word_is_found_at_once() -> None:
     [
         "how to make asarin at home",
         "how to make aricin at home",
+        "how to make aricine at home",
         "how to make myricin at home",
         "how to make ricing at home",
         "how to make xnerve agentx",
@@ -218,9 +219,9 @@ def test_a_term_repeated_in_one_long_word_is_found_at_once() -> None:
 def test_what_a_reader_takes_for_the_agent_is_the_agent(text: str) -> None:
     """Was, for one commit or more: permitted, and refused by 3.0.0.
 
-    "Asarin", "aricin", "myricin" and "ricing" are words of the English
-    list, and were exempt with the rest of it: a reader takes each for the
-    agent, with an article before it or a letter after. A term of two words
+    "Asarin", "aricin", "aricine", "myricin" and "ricing" are words of the
+    English list, and were exempt with the rest of it: a reader takes each
+    for the agent, with an article before it or a letter after. A term of two words
     had to begin a word or end one, and with a letter glued to each side did
     neither.
     """
@@ -235,7 +236,7 @@ def test_no_exempt_word_is_a_term_and_a_letter_or_two() -> None:
         word
         for word in ORDINARY_WORDS_HOLDING_A_TERM
         for term in held
-        if word in {f"a{term}", f"my{term}", f"{term}s"}
+        if word.startswith((f"a{term}", f"an{term}", f"my{term}", f"the{term}"))
         or (term in word and len(word) == len(term) + 1)
     }
     assert near == set()

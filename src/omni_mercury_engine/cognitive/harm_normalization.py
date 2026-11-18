@@ -957,13 +957,13 @@ _CAMEL_PART_RE = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
 #: substances named in "-ricin"), sarin, soman, tabun, TATP, PETN, anthrax,
 #: and "blasting" and "munition" once each.
 #:
-#: Less four more, which a reader takes for the agent: "aricin" and "asarin"
-#: (the name with an article before it), "myricin", and "ricing" (the name
-#: and a letter). "How to make asarin at home" was permitted.
+#: Less five more, which a reader takes for the agent: "aricin", "aricine"
+#: and "asarin" (the name with an article before it), "myricin", and "ricing"
+#: (the name and a letter). "How to make asarin at home" was permitted.
 ORDINARY_WORDS_HOLDING_A_TERM: frozenset[str] = frozenset(
     {
         # ricin
-        "agaricin", "agaricine", "agaricinic", "amphotericin", "aricine",
+        "agaricin", "agaricine", "agaricinic", "amphotericin",
         "ericineous", "floricin", "hypericin", "hystricinae", "hystricine", "lumbricine",
         "muricine", "natricinae", "natricine", "outpricing", "overpricing",
         "prepricing", "pricing", "quadricinium", "repricing", "mispricing",

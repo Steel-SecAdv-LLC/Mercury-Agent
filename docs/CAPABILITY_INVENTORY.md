@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,158
-- **Capability-bearing classes:** 2,113 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,159
+- **Capability-bearing classes:** 2,114 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 93 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,240 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,241 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1240 |
+| Other capability classes | 1241 |
 | Support types (config / result / enum / error) | 1045 |
 | Detection | 181 |
 | Neural models & layers | 162 |
@@ -399,7 +399,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `cognitive/` — 284 classes (187 capability)
+### `cognitive/` — 285 classes (188 capability)
 
 **Analysis & scoring**
 
@@ -596,6 +596,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `WeaponsRiskAssessment` (`cognitive.ethical_bounding`) — Result of the two-axis weapons/mass-casualty uplift assessment.
 - `_GateEvidence` (`cognitive.ethical_bounding`) — Routed Axis-A/Axis-B evidence for a query (pre-disposition).
 - `_Labels` (`cognitive.decision_gate`) — The cells of a table: an array, a column of a frame, its row labels.
+- `_Names` (`cognitive.decision_gate`) — Stands on the stack of :func:`payload_text` before what ``key`` names.
 
 **Prediction & forecasting**
 

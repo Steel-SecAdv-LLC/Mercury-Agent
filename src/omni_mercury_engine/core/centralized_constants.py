@@ -233,7 +233,8 @@ class EthicalConstants:
     # v14: four of those words read as the agent ("asarin": a sarin) and are
     # words of the text again; a term of two words is found with a letter
     # glued to each side, as one of one word is; "so manes" is not soman.
-    RULESET_VERSION: int = 14
+    # v15: a fifth such word, "aricine".
+    RULESET_VERSION: int = 15
 
 
 ETHICAL = EthicalConstants()

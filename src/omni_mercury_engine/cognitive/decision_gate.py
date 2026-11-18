@@ -499,6 +499,15 @@ def _utf16_text(even: bytes, order: str, *, declared: bool = False) -> str:
 
 
 def payload_text(payload: Any) -> list[str]:
+    """Every piece of text in ``payload``, and then what its keys stood between.
+
+    The two lists of :func:`_payload_readings`, one after the other.
+    """
+    said, again = _payload_readings(payload)
+    return said + again
+
+
+def _payload_readings(payload: Any) -> tuple[list[str], list[str]]:
     """Every piece of text in ``payload``, however deep and however far along.
 
     :func:`summarize_payload` is a bounded description for the audit record:
@@ -509,15 +518,26 @@ def payload_text(payload: Any) -> list[str]:
     data frames, and what :func:`_object_text` reads of an object. Numbers
     carry no words and are skipped.
 
+    Returns:
+        What the caller said, in the order it was given; and what its keys
+        stood between, to be read again without them
+        (:func:`_with_what_keys_kept_apart`). The limit on a decision's text
+        is on the first: the second is made of it and is no longer.
+
     Raises:
         UnassessableSubjectError: When the payload holds more text than
             :data:`MAX_ASSESSED_CHARS`, more values than
             :data:`MAX_ASSESSED_NODES`, or nests deeper, in containers or in
             objects, than :data:`_MAX_TEXT_DEPTH`.
     """
-    found: list[str] = []
+    # What is read, in the order it is read. A key's place is kept open
+    # (``None``) until what it names has been read: see ``_KEY_CLOSES``.
+    found: list[str | None] = []
+    is_key: list[bool] = []  # of each entry of ``found``
+    field: list[tuple[Any, ...]] = []  # of each entry, the keys it lies under
     chars = 0
     nodes = 0
+    emitted = 0
     # Containers already read, by identity -- and held, not just their ids. A
     # set of bare ids was wrong: the dict a model dumps to and the list an
     # array converts to are made here and freed as soon as they are read, the
@@ -526,11 +546,52 @@ def payload_text(payload: Any) -> list[str]:
     # first alone, and whatever the second said went through unread.
     seen: dict[int, Any] = {}
     read: dict[str, int] = {}
-    # Each value, how deep it lies, whether it is a label (read once,
-    # however often it occurs), and whether it is inside a table.
-    stack: list[tuple[Any, int, bool, bool]] = [(payload, 0, False, False)]
+    under: tuple[Any, ...] = ()
+    opened: list[tuple[int, int, tuple[Any, ...]]] = []  # a key's place, and what stood then
+
+    def once(label: str) -> bool:
+        """Whether a label is still to be read: once, a short one a few times over."""
+        times = read.get(label, 0)
+        if times < 0 or times >= (_REPEATS if len(label) <= _SHORT_STRING else 1):
+            return False
+        wanted = _holds_a_word(label)
+        read[label] = times + 1 if wanted else -1
+        return wanted
+
+    # Each value, how deep it lies, and whether it is inside a table.
+    stack: list[tuple[Any, int, bool]] = [(payload, 0, False)]
     while stack:
-        value, depth, label, table = stack.pop()
+        value, depth, table = stack.pop()
+        if type(value) is _Names:
+            opened.append((len(found), emitted, under))
+            under = (*under, value.key)
+            found.append(None)
+            is_key.append(True)
+            field.append(under)
+            continue
+        if value is _KEY_CLOSES:
+            # A key is read beside what it names, each time that says
+            # anything: the field "how to make" was read once for 400
+            # records, and the record that named an agent under it was
+            # permitted. Beside what says nothing new (numbers; labels read
+            # already) it is a label itself: the keys of 45,000 records of
+            # readings are three strings, and counted each time they filled
+            # the reading budget and a table of numbers was refused. Asked
+            # after its value is read, not guessed before.
+            key = under[-1]
+            place, before, under = opened.pop()
+            if not isinstance(key, str):
+                continue
+            spoken = _holds_a_word(key) if emitted > before else once(key)
+            if spoken:
+                found[place] = key
+                emitted += 1
+                chars += len(key)
+                if chars > MAX_ASSESSED_CHARS:
+                    raise UnassessableSubjectError(
+                        f"the payload holds more than {MAX_ASSESSED_CHARS:,} characters of text"
+                    )
+            continue
         nodes += 1
         if nodes > MAX_ASSESSED_NODES:
             raise UnassessableSubjectError(
@@ -542,23 +603,26 @@ def payload_text(payload: Any) -> list[str]:
         if isinstance(value, (bytes, bytearray, memoryview)):
             value = _bytes_text(bytes(value))
         if isinstance(value, str):
-            if label:
-                # Asked of the count first: the keys of a table are the same
-                # few strings a million times over.
-                times = read.get(value, 0)
-                if times < 0 or times >= (_REPEATS if len(value) <= _SHORT_STRING else 1):
-                    continue
-                wanted = _holds_a_word(value)
-                read[value] = times + 1 if wanted else -1
-            else:
-                wanted = _holds_a_word(value)
-            if wanted:
-                chars += len(value)
-                if chars > MAX_ASSESSED_CHARS:
-                    raise UnassessableSubjectError(
-                        f"the payload holds more than {MAX_ASSESSED_CHARS:,} characters of text"
-                    )
+            # A cell of a table is a label. Anything else is read every time
+            # it occurs, in the order given: "how", "to" and "make" came
+            # round again further down a list of words, were passed over as
+            # read already, and the request they opened was permitted.
+            if once(value) if table else _holds_a_word(value):
                 found.append(value)
+                is_key.append(False)
+                field.append(under)
+                emitted += 1
+                chars += len(value)
+            elif value in _A_SPACE and not table:
+                # No word, and the gap between two: a request kept a letter
+                # to a record keeps its spaces the same way.
+                found.append(value)
+                is_key.append(False)
+                field.append(under)
+            if chars > MAX_ASSESSED_CHARS:
+                raise UnassessableSubjectError(
+                    f"the payload holds more than {MAX_ASSESSED_CHARS:,} characters of text"
+                )
             continue
         if depth >= _MAX_TEXT_DEPTH:
             raise UnassessableSubjectError(
@@ -567,19 +631,28 @@ def payload_text(payload: Any) -> list[str]:
         if id(value) in seen:  # a container reached twice is read, and counted, once
             continue
         seen[id(value)] = value
-        children: list[tuple[Any, bool]]
+        if isinstance(value, _Mapping) and not table:
+            if set(map(type, value.values())) <= _NUMBERS:
+                # A record of numbers, which is most records: its keys name
+                # nothing that says anything, and are labels.
+                for key in value:
+                    if isinstance(key, str) and once(key):
+                        found.append(key)
+                        is_key.append(True)
+                        field.append((*under, key))
+                        emitted += 1
+                        chars += len(key)
+                continue
+            for key, held in reversed(list(value.items())):
+                stack += (
+                    (_KEY_CLOSES, depth, table),
+                    (held, depth + 1, table),
+                    (_Names(key), depth, table),
+                )
+            continue
+        children: Any
         if isinstance(value, _Mapping):
-            # A key is read beside what it names, each time: the field "how
-            # to make" was read once for 400 records, and the record that
-            # named an agent under it was permitted. Beside a number it names
-            # nothing new, and is a label: the keys of 45,000 records of
-            # readings are three strings, and counted each time they filled
-            # the reading budget and a table of numbers was refused.
-            children = [
-                part
-                for key, held in value.items()
-                for part in ((key, table or _says_nothing(held)), (held, table))
-            ]
+            children = [part for item in value.items() for part in item]
         elif isinstance(value, _SEQUENCES):
             # A sequence of nothing but numbers has no words in it. Its types
             # are checked in one pass at C speed instead of visiting every
@@ -590,25 +663,81 @@ def payload_text(payload: Any) -> list[str]:
                 nodes += len(items) // 8
                 continue
             table = table or isinstance(value, _Labels)
-            # What a caller hands over in a list is read in the order given,
-            # every element: "how", "to" and "make" came round again further
-            # down a list of words, were passed over as read already, and the
-            # request they opened was permitted.
-            if table:
-                children = [(item, True) for item in items]
-            else:
-                # By row, and then each field down its column: read by row
-                # alone, a request kept a word to a record had the field's
-                # name between each word and the next, and was no request.
-                given = _runs_cut(items)
-                children = [(item, False) for item in (*given, *_columns(given))]
+            children = list(items) if table else _runs_cut(items)
         else:
-            held_by_object = _object_text(value)
-            if held_by_object is None:
+            children = _object_text(value)
+            if children is None:
                 continue
-            children = [(item, table) for item in held_by_object]
-        stack.extend((child, depth + 1, as_label, table) for child, as_label in reversed(children))
-    return found
+        stack.extend((child, depth + 1, table) for child in reversed(children))
+    return _with_what_keys_kept_apart(found, is_key, field)
+
+
+_A_SPACE = frozenset(" \t\n")
+
+
+class _Names:
+    """Stands on the stack of :func:`payload_text` before what ``key`` names."""
+
+    __slots__ = ("key",)
+
+    def __init__(self, key: Any) -> None:
+        self.key = key
+
+
+#: Stands on that stack after it.
+_KEY_CLOSES: Any = object()
+
+
+def _with_what_keys_kept_apart(
+    found: list[str | None], is_key: list[bool], field: list[tuple[Any, ...]]
+) -> tuple[list[str], list[str]]:
+    """What was read, and what its keys stood between, to be read without them.
+
+    Read once with its keys, a request kept a word to a record had the
+    field's name between each word and the next, and was no request:
+    ``[{"w": "how"}, {"w": "to"}, {"w": "make"}, ...]`` was permitted. So the
+    values are given twice more: all of them in the order they came, and,
+    where they lie under more than one field, each field's by itself (one
+    column of a table, read down). Each stretch of text that no key broke
+    was read whole the first time and is given here by its two ends, which
+    is where it meets its neighbours: given whole, 600,000 characters of
+    notes were counted again and refused.
+
+    What this does not put together is a request kept a piece to a record
+    under field names that change from one record to the next, with other
+    text in each record beside it.
+    """
+    texts = [text for text in found if text is not None]
+    stretches: list[tuple[tuple[Any, ...], list[str]]] = []
+    broken = True
+    for text, key, lies_under in zip(found, is_key, field, strict=True):
+        if key:
+            broken = broken or text is not None
+        elif text is not None:
+            if broken:
+                stretches.append((lies_under, []))
+                broken = False
+            stretches[-1][1].append(text)
+    if len(stretches) < 2:
+        return texts, []
+    ends = [(lies_under, _two_ends(stretch)) for lies_under, stretch in stretches]
+    again = [_runs_cut([piece for _, pieces in ends for piece in pieces])]
+    # By the name of the field itself, wherever it lies: the "w" of each
+    # record is one column whether the records are in a list or in a dict.
+    by_field: dict[Any, list[str]] = {}
+    for lies_under, pieces in ends:
+        by_field.setdefault(lies_under[-1:], []).extend(pieces)
+    if len(by_field) > 1:
+        again += [_runs_cut(pieces) for pieces in by_field.values() if len(pieces) > 1]
+    return texts, [piece for pieces in again for piece in pieces]
+
+
+def _two_ends(stretch: list[str]) -> list[str]:
+    """``stretch`` as it is when short; when long, its first and its last characters."""
+    if sum(map(len, stretch)) <= 2 * _CUT_MARGIN:
+        return stretch
+    whole = ", ".join(stretch)
+    return [whole[:_CUT_MARGIN], whole[-_CUT_MARGIN:]]
 
 
 def _holds_a_word(text: str) -> bool:
@@ -620,72 +749,6 @@ def _holds_a_word(text: str) -> bool:
     if len(text) <= _SHORT_STRING:
         return any(char.isalpha() for char in text)
     return _WORD.search(text) is not None
-
-
-def _says_nothing(value: Any, deep: int = 4) -> bool:
-    """Whether ``value`` is numbers through and through, or strings no word could be in.
-
-    A point with its coordinates and a list of readings say no more than a
-    number does. Taken for something said, the key that named them was read
-    for every record, and 250,000 records of numbers were a refusal for size.
-    """
-    if isinstance(value, str):
-        return not _holds_a_word(value)
-    if value is None or isinstance(value, (bool, int, float, complex)):
-        return True
-    if deep and type(value) in (list, tuple):
-        return set(map(type, value)) <= _NUMBERS or all(_says_nothing(v, deep - 1) for v in value)
-    if deep and type(value) is dict:
-        return all(_says_nothing(v, deep - 1) for v in value.values())
-    return False
-
-
-def _columns(items: list[Any]) -> list[list[str]]:
-    """The fields of each run of like records in ``items``, each read down its column.
-
-    Records with the same keys, one after another, are a table. Its strings
-    are given a second time here, field by field in the order of the rows
-    (a field inside a field is a column of its own): what a caller wrote one
-    piece to a row is then read as it was written. A long string is given by
-    its two ends, which is where it meets the rows above and below; given
-    whole, 600,000 characters of notes were counted twice and refused. A run
-    of one record, and a field with one string, add nothing to the reading
-    by row.
-    """
-    columns: list[list[str]] = []
-    run: dict[tuple[Any, ...], list[str]] = {}
-    header: tuple[Any, ...] | None = None
-    rows = 0
-
-    def close() -> None:
-        if rows > 1:
-            columns.extend(column for column in run.values() if len(column) > 1)
-        run.clear()
-
-    for item in items:
-        keys = tuple(item) if type(item) is dict else None
-        if keys is None or keys != header:
-            close()
-            header, rows = keys, 0
-        if keys is not None:
-            rows += 1
-            _strings_by_field(item, (), run, _MAX_TEXT_DEPTH)
-    close()
-    return columns
-
-
-def _strings_by_field(
-    record: dict[Any, Any], path: tuple[Any, ...], into: dict[tuple[Any, ...], list[str]], deep: int
-) -> None:
-    for key, held in record.items():
-        if type(held) is str:
-            # A long string is read whole where its row is read. Down its
-            # column it need only meet its neighbours: its two ends.
-            if len(held) > 2 * _CUT_MARGIN:
-                held = f"{held[:_CUT_MARGIN]} {held[-_CUT_MARGIN:]}"
-            into.setdefault((*path, key), []).append(held)
-        elif type(held) is dict and deep:
-            _strings_by_field(held, (*path, key), into, deep - 1)
 
 
 def _runs_cut(items: Any) -> list[Any]:
@@ -859,17 +922,17 @@ class DecisionSubject:
         """
         first = self.describe()
         request = self._request()
-        texts = payload_text(self.payload)
+        texts, again = _payload_readings(self.payload)
         if len(request) + sum(map(len, texts)) > MAX_ASSESSED_CHARS:
             raise UnassessableSubjectError(
                 f"the decision carries more than {MAX_ASSESSED_CHARS:,} characters of text"
             )
         heading = f"{self.surface}: {self.operation} | domain={sanitize_domain(self.domain)}"
         if (not request or f"request={request}" in first) and (
-            len(texts) <= _MAX_KEYS and all(text in first for text in texts)
+            not again and len(texts) <= _MAX_KEYS and all(text in first for text in texts)
         ):
             return _Reading(first=first, lead=heading, body=None)
-        said = ", ".join(texts)
+        said = ", ".join((*texts, *again))
         if len(request) > _MAX_VALUE_CHARS:
             # A request this long is read as the payload is: in passages.
             body = f"request={request} | input={said}" if said else f"request={request}"
