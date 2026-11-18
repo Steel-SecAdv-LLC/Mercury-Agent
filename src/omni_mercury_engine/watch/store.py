@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from omni_mercury_engine.utils.email_address import is_email_address
-from omni_mercury_engine.watch.model import RANKS
+from omni_mercury_engine.watch.model import most_severe_first
 from omni_mercury_engine.watch.sms import E164
 
 if TYPE_CHECKING:
@@ -136,6 +136,15 @@ def existing_store() -> WatchStore | None:
     """The watch's store, when this deployment has one. Never creates it."""
     directory = default_state_dir()
     return open_store(directory) if (directory / "watch.sqlite").exists() else None
+
+
+def address_entry(address: str) -> int:
+    """An address's entry in the delivery ledger: its own, whatever places it holds.
+
+    Negative, so it is never a subscription's id, a phone's, or the webhook's 0.
+    """
+    digest = hashlib.sha256(b"address:" + address.strip().lower().encode()).digest()
+    return -(int.from_bytes(digest[:7], "big") + 1)
 
 
 def forget_address(email: str) -> None:
@@ -505,9 +514,7 @@ class WatchStore:
         ended fills what room is left. ``limit`` is applied by the caller,
         after anything it must leave out.
         """
-        standing = self.standing(now=now)
-        standing.sort(key=lambda f: str(f.get("first_seen") or ""), reverse=True)
-        standing.sort(key=lambda f: -RANKS.get(str(f.get("severity")), 0))
+        standing = most_severe_first(self.standing(now=now))
         if open_only:
             return standing
         held = {str(finding["key"]) for finding in standing}
@@ -708,7 +715,26 @@ class WatchStore:
                     "DELETE FROM subscribers WHERE email = ? COLLATE NOCASE AND place = ?",
                     (email.strip(), place.strip()),
                 )
+            self._forget_deliveries_if_gone(connection, email)
             return int(cursor.rowcount)
+
+    @staticmethod
+    def _forget_deliveries_if_gone(connection: sqlite3.Connection, email: str) -> None:
+        """Drop the record of what an address was sent, once it holds no subscription.
+
+        The record is kept under a number made from the address. Left behind,
+        it said which findings an address that had left was sent, to anyone
+        who could try an address against the store; and an address that came
+        back was not told what stood, because it "had been".
+        """
+        held = connection.execute(
+            "SELECT 1 FROM subscribers WHERE email = ? COLLATE NOCASE LIMIT 1", (email.strip(),)
+        ).fetchone()
+        if held is None:
+            connection.execute(
+                "DELETE FROM deliveries WHERE subscriber = ? AND channel = 'email'",
+                (address_entry(email),),
+            )
 
     def subscriptions_of(self, email: str) -> list[dict[str, Any]]:
         """The subscriptions of one address, oldest first."""
@@ -726,6 +752,7 @@ class WatchStore:
                 "DELETE FROM subscribers WHERE id = ? AND email = ? COLLATE NOCASE",
                 (int(subscription), email.strip()),
             )
+            self._forget_deliveries_if_gone(connection, email)
             return cursor.rowcount == 1
 
     def move_subscriber(self, previous: str, current: str) -> int:
@@ -750,6 +777,14 @@ class WatchStore:
             cursor = connection.execute(
                 "UPDATE subscribers SET email = :new WHERE email = :old COLLATE NOCASE",
                 {"old": old, "new": new},
+            )
+            # What the old address was sent, the new one has been sent: the
+            # record is kept under the address, and left under the old one
+            # everything standing went again to the new.
+            connection.execute(
+                "UPDATE OR REPLACE deliveries SET subscriber = ? WHERE subscriber = ? "
+                "AND channel = 'email'",
+                (address_entry(new), address_entry(old)),
             )
             return int(cursor.rowcount)
 
@@ -1130,6 +1165,25 @@ class WatchStore:
                     error,
                 ),
             )
+
+    def delivery_mark(self) -> tuple[int, int, int, int]:
+        """What a delivery pass depends on, cheaply: has anything changed that it would act on.
+
+        Returns:
+            How many deliveries last failed, the newest subscription's id, how
+            many subscriptions there are, and how many numbers are verified.
+        """
+        with closing(self._connect()) as connection:
+            failed = connection.execute(
+                "SELECT COUNT(*) FROM deliveries WHERE status = 'failed'"
+            ).fetchone()[0]
+            newest, held = connection.execute(
+                "SELECT COALESCE(MAX(id), 0), COUNT(*) FROM subscribers"
+            ).fetchone()
+            verified = connection.execute(
+                "SELECT COUNT(*) FROM phones WHERE verified_at IS NOT NULL"
+            ).fetchone()[0]
+        return int(failed), int(newest), int(held), int(verified)
 
     def delivery_counts(self) -> dict[str, int]:
         """How many deliveries were sent and how many last failed."""

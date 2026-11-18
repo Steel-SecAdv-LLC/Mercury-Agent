@@ -230,6 +230,18 @@ class TestEthicsFailClosed:
             backend.explain(context)
         assert refused.value.check == "harm_uplift"
 
+    def test_the_evidence_is_counted_once(self) -> None:
+        """Was: read as data and again as printed, so 600,000 characters were refused as too many."""
+        backend = DeterministicReasoningBackend(
+            benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma()
+        )
+        context = ReasoningContext(
+            summary="explain this finding", evidence={"log": "reading nominal. " * 36_000}
+        )
+
+        assert len(context.evidence["log"]) > 600_000
+        assert backend.explain(context).gated
+
     def test_disabled_ethics_skips_gate(self) -> None:
         scorer = _PassScorer()
         backend = DeterministicReasoningBackend(

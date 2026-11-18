@@ -203,7 +203,7 @@ def _references(references: Any) -> list[tuple[Any, str]]:
     The times are compared as times. As text, ``01:30-05:00`` sorted before
     ``01:10-06:00`` though it is twenty minutes later: across a change of
     offset the earliest reference, and with it the warning's name, changed.
-    A time that cannot be read sorts last.
+    A time that cannot be read sorts last. Oldest first.
     """
     named: list[tuple[str, str]] = []
     if isinstance(references, str):
@@ -216,13 +216,13 @@ def _references(references: Any) -> list[tuple[Any, str]]:
             if isinstance(reference, dict) and reference.get("identifier"):
                 named.append((str(reference.get("sent") or ""), str(reference["identifier"])))
     never = pd.Timestamp.max.tz_localize("UTC")
-    return [
+    return sorted(
         (when if pd.notna(when) else never, identifier)
         for when, identifier in (
             (pd.to_datetime(sent, utc=True, errors="coerce"), identifier)
             for sent, identifier in named
         )
-    ]
+    )
 
 
 def _pieces(rows: Any, name: Callable[[Any], str]) -> list[list[Any]]:
@@ -239,6 +239,31 @@ def _pieces(rows: Any, name: Callable[[Any], str]) -> list[list[Any]]:
     for row in rows:
         grouped.setdefault(name(row), []).append(row)
     return list(grouped.values())
+
+
+def _in_force(pieces: list[Any], name: Callable[[Any], str]) -> list[Any]:
+    """The pieces of one warning that no other piece of it replaces.
+
+    A message that another message of the warning references has been
+    updated by it. Where the source still lists both, the earlier one is not
+    a piece of the warning any more: counted as one, a warning its authority
+    had downgraded went on standing at the severity of the message it
+    replaced, with that message's words.
+    """
+    replaced = {
+        str(earlier)
+        for piece in pieces
+        if isinstance(piece.references, (list, tuple))
+        for earlier in piece.references
+    }
+    current = [piece for piece in pieces if name(piece) not in replaced]
+    return current or pieces
+
+
+def _sent_at(piece: Any) -> float:
+    """When a piece was sent, as a number to order by (the earliest possible when unreadable)."""
+    sent = pd.to_datetime(piece.sent, utc=True, errors="coerce")
+    return float(sent.timestamp()) if pd.notna(sent) else float("-inf")
 
 
 def _joined_areas(pieces: list[Any]) -> str:
@@ -412,6 +437,8 @@ class EarthquakeFeed(Feed):
         known = [alias for alias in str(row.get("event_ids") or "").split(",") if alias]
         if self._store is None or len(known) < 2:
             return preferred
+        # One look at the store for an earthquake that has two ids: about one
+        # in a hundred does (1 of 110 at magnitude 4.5 and above in a week).
         recorded = {str(f["subject"]) for f in self._store.standing(feed=self.name, now=now)}
         return next((alias for alias in [preferred, *known] if alias in recorded), preferred)
 
@@ -1093,7 +1120,8 @@ class WarningsFeed(Feed):
     #: Distinct places looked up per read. Each is one request to the Service.
     MAX_PLACES: ClassVar[int] = 250
     _COLUMNS: ClassVar[list[str]] = [
-        "id", "thread", "event", "severity", "urgency", "certainty", "area", "headline",
+        "id", "thread", "references", "event", "severity", "urgency", "certainty", "area",
+        "headline",
         "instruction", "sender", "sent", "until", "place_ids",
     ]  # fmt: skip
 
@@ -1132,6 +1160,7 @@ class WarningsFeed(Feed):
                 {
                     "id": identifier,
                     "thread": _alert_thread(identifier, alert.get("references")),
+                    "references": [named for _, named in _references(alert.get("references"))],
                     "event": str(alert.get("event") or "Alert"),
                     "severity": str(alert.get("severity") or "Unknown"),
                     "urgency": str(alert.get("urgency") or ""),
@@ -1227,14 +1256,15 @@ class WarningsFeed(Feed):
             for row in frame.itertuples(index=False)
             if row.severity == "Extreme" or len(row.place_ids)
         ]
-        for pieces in _pieces(told, lambda piece: str(piece.thread)):
+        for listed_pieces in _pieces(told, lambda piece: str(piece.thread)):
+            pieces = _in_force(listed_pieces, lambda piece: str(piece.id))
             # The most severe piece speaks for the warning, the latest of
             # those; its reach is every piece's.
             row = max(
                 pieces,
                 key=lambda piece: (
                     int(self.SEVERITY.get(str(piece.severity), Severity.NOTABLE)),
-                    str(piece.sent),
+                    _sent_at(piece),
                     str(piece.id),
                 ),
             )

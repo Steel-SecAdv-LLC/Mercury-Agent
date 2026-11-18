@@ -144,10 +144,12 @@ class ReasoningBackend(abc.ABC):
         Mirrors the narrative-voice contract: the harm-uplift gate first,
         σ_Immutable second, both fail-closed. On violation the call raises
         and no generated content is surfaced. The gate reads the whole
-        context, and the evidence a second time as the text every prompt
-        here carries it as (``str``): an exception, or any object that only
-        says what it holds when printed, reaches the model as that text and
-        was read by the gate as a type name.
+        context, and whatever in the evidence it cannot read as data it reads
+        as the prompt will print it: an object that only says what it holds
+        when printed reaches the model as that text, and was read by the
+        gate as a type name. (Only those: with all of the evidence handed
+        over a second time as its printed form, it counted twice against
+        what one decision may carry.)
 
         Args:
             boundary: Fully-qualified boundary name for the audit trail.
@@ -155,7 +157,7 @@ class ReasoningBackend(abc.ABC):
         """
         if not self.ethics_enabled:
             return
-        from omni_mercury_engine.cognitive.decision_gate import DecisionSubject
+        from omni_mercury_engine.cognitive.decision_gate import DecisionSubject, unread_values
 
         safe_domain = sanitize_domain(context.domain)
         enforce_dual_ethical_gate(
@@ -164,7 +166,7 @@ class ReasoningBackend(abc.ABC):
                 operation="generate a natural-language explanation of a Mercury finding",
                 domain=safe_domain,
                 request=str(context.summary or ""),
-                payload=(context, str(context.evidence)),
+                payload=(context, [str(value) for value in unread_values(context.evidence)]),
             ),
             sigma_gate=self._sigma_gate,
             advisory_scorer=self._benevolence_scorer,

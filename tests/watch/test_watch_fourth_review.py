@@ -619,3 +619,179 @@ def test_the_command_lists_what_stands_in_the_page_s_order(store: WatchStore) ->
 
     assert page == ["newer", "older"]
     assert said.index("the newer one") < said.index("St. Johns River")
+
+
+# --------------------------------------------------------------------------- #
+# What a review of the fixes above found
+# --------------------------------------------------------------------------- #
+
+
+class TestTheLedgerGoesWithTheAddress:
+    def _told(self, store: WatchStore) -> tuple[Notifier, _Mail]:
+        store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1])
+        store.report(_finding(), NOW)
+        mail = _Mail()
+        notifier = Notifier(store, mailer=mail, clock=lambda: NOW)
+        assert notifier.sync()["sent"] == 1
+        return notifier, mail
+
+    def test_a_change_of_address_sends_nothing_again(self, store: WatchStore) -> None:
+        """Was: the record stayed under the old address, so the new one was sent it all."""
+        notifier, mail = self._told(store)
+
+        store.move_subscriber(ANA, "ana@new.example.org")
+
+        assert notifier.sync() == {"sent": 0, "failed": 0}
+        assert mail.sent == [ANA]
+
+    def test_an_address_that_leaves_takes_its_record_with_it(self, store: WatchStore) -> None:
+        """Was: what it had been sent stayed in the store under a number made from it."""
+        notifier, mail = self._told(store)
+        finding = _finding()
+        assert store.delivery(finding.key, 3, address_entry(ANA), "email")
+
+        store.remove_subscriber(ANA)
+
+        assert not store.delivery(finding.key, 3, address_entry(ANA), "email")
+        store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1])
+        assert notifier.sync()["sent"] == 1  # it asked again, and is told what stands
+
+
+class TestAMessageAnotherReplaces:
+    def test_a_downgrade_is_not_outvoted_by_the_message_it_replaces(self) -> None:
+        """Was: the most severe message listed spoke for the warning, replaced or not."""
+        frame = _alerts_frame(
+            [
+                {"id": "w.1", "thread": "w.1", "references": [], "place_ids": [1],
+                 "severity": "Extreme", "area": "Dade", "sent": "2026-11-18T01:00:00-05:00"},
+                {"id": "w.2", "thread": "w.1", "references": ["w.1"], "place_ids": [1],
+                 "severity": "Severe", "area": "Dade", "sent": "2026-11-18T03:00:00-05:00"},
+            ]
+        )  # fmt: skip
+
+        (finding,) = WarningsFeed().judge(frame, NOW).findings
+
+        assert finding.reference == "w.2"
+        assert finding.severity is Severity.SIGNIFICANT
+
+    def test_the_latest_of_two_pieces_is_the_latest_by_time(self) -> None:
+        """Was: by the text of the time, the mistake fixed for references in the same change."""
+        frame = _alerts_frame(
+            [
+                {"id": "w.a", "thread": "w.0", "references": ["w.0"], "place_ids": [1],
+                 "area": "East", "sent": "2026-11-01T01:30:00-05:00"},  # 06:30 UTC
+                {"id": "w.b", "thread": "w.0", "references": ["w.0"], "place_ids": [2],
+                 "area": "West", "sent": "2026-11-01T01:10:00-06:00"},  # 07:10 UTC, the later
+            ]
+        )  # fmt: skip
+
+        (finding,) = WarningsFeed().judge(frame, NOW).findings
+
+        assert finding.reference == "w.b"
+
+    def test_an_update_listed_beside_its_original_speaks_for_the_warning(
+        self, store: WatchStore
+    ) -> None:
+        store.add_subscriber(ANA, place="Helsinki", latitude=60.17, longitude=24.94)
+        feed = _World(
+            {
+                "fi/2026/11/18/01/00/a.xml": _cap(
+                    "m1", sent="2026-11-18T01:00:00+00:00", severity="Extreme"
+                ),
+                "fi/2026/11/18/02/00/b.xml": _cap(
+                    "m2", sent="2026-11-18T02:00:00+00:00", msg_type="Update", severity="Severe",
+                    references="fmi.fi,m1,2026-11-18T01:00:00+00:00",
+                ),
+            }
+        )  # fmt: skip
+        feed.bind(store)
+
+        (finding,) = feed.judge(feed.read(), NOW).findings
+
+        assert finding.severity is Severity.SIGNIFICANT
+
+
+class TestAWarningsNameOutlastsOneFailedLookup:
+    def test_the_chain_is_not_forgotten_when_its_place_cannot_be_checked(
+        self, store: WatchStore
+    ) -> None:
+        """Was: names were kept only for warnings in the read just made."""
+        store.add_subscriber(ANA, place="Helsinki", latitude=60.17, longitude=24.94)
+        store.add_subscriber("ben@example.org", place="Turku", latitude=60.45, longitude=22.27)
+        second = _cap(
+            "m2", sent="2026-11-18T02:00:00+00:00", msg_type="Update",
+            references="fmi.fi,m1,2026-11-18T01:00:00+00:00",
+        )  # fmt: skip
+        third = _cap(
+            "m3", sent="2026-11-18T03:00:00+00:00", msg_type="Update",
+            references="fmi.fi,m2,2026-11-18T02:00:00+00:00",
+        )  # fmt: skip
+        other = _cap("o1", sent="2026-11-18T01:00:00+00:00", area="Turku")
+        down = [False]
+
+        class _Flaky(_World):
+            def _covering(self, latitude: float, longitude: float) -> list[str]:
+                if latitude < 60.3:  # Helsinki
+                    if down[0]:
+                        raise ConnectionError("simulated: the centre did not answer")
+                    return [
+                        path for path in self.documents if "/h/" in path or path.endswith("m.xml")
+                    ]
+                return [path for path in self.documents if path.endswith("o.xml")]
+
+        feed = _Flaky({"fi/2026/11/18/02/00/m.xml": second, "fi/2026/11/18/01/00/o.xml": other})
+        feed.bind(store)
+        before = {f.key for f in feed.judge(feed.read(), NOW).findings}
+
+        down[0] = True
+        feed.judge(feed.read(), NOW)  # Helsinki's lookup fails; only Turku's alert is read
+        down[0] = False
+        feed.documents = {"fi/2026/11/18/03/00/m.xml": third, "fi/2026/11/18/01/00/o.xml": other}
+        after = {f.key for f in feed.judge(feed.read(), NOW).findings}
+
+        assert finding_key("world_warnings", "cap_alert", "m1") in before
+        assert after == before
+
+
+class _Counting(Notifier):
+    def __init__(self, store: WatchStore, clock: Any) -> None:
+        super().__init__(store, mailer=_Mail(), clock=clock)
+        self.passes = 0
+
+    def sync(self, heartbeat: Any = None, feed: str | None = None) -> dict[str, int]:
+        self.passes += feed is None
+        return super().sync(heartbeat=heartbeat, feed=feed)
+
+
+def test_a_full_delivery_pass_is_made_when_there_may_be_something_to_send(
+    store: WatchStore,
+) -> None:
+    """Was: once a minute whatever had happened, loading everyone and everything each time."""
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1])
+    clock = [NOW]
+    notifier = _Counting(store, lambda: clock[0])
+    watcher = Watcher(store, feeds=[], clock=lambda: clock[0], notifier=notifier)
+
+    watcher._pass(force=False)
+    for minute in range(1, 6):  # five quiet minutes
+        clock[0] = NOW + timedelta(minutes=minute)
+        watcher._pass(force=False)
+    assert notifier.passes == 1
+
+    store.add_subscriber("ben@example.org", place="home", latitude=MIAMI[0], longitude=MIAMI[1])
+    clock[0] = NOW + timedelta(minutes=6, seconds=30)
+    watcher._pass(force=False)
+    assert notifier.passes == 2  # a subscriber since
+
+
+def test_a_character_outside_the_alphabet_in_the_part_cut_off_costs_nothing() -> None:
+    """Was: the 134-character budget was chosen from the whole text, cut part included."""
+    text = (
+        "Flood warning for the river at Cedar Rapids. " * 6
+        + "\u201cMove to higher ground\u201d now."
+    )
+
+    kept = two_segments(text + " More follows here." * 10)
+
+    assert len(kept) > MAX_TEXT_UCS2 and len(kept) <= MAX_TEXT
+    assert "\u201c" not in kept

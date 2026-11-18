@@ -60,6 +60,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import re
+import sys
 import types
 from array import array
 from collections import UserString, deque
@@ -117,6 +118,19 @@ MAX_ASSESSED_NODES = 5_000_000
 #: Nesting the walk follows before it refuses to decide.
 _MAX_TEXT_DEPTH = 64
 
+#: What is code, and so neither read nor reported as unread.
+_CODE: tuple[type, ...] = (
+    type, types.ModuleType, types.FunctionType, types.BuiltinFunctionType, types.MethodType,
+)  # fmt: skip
+
+#: How many objects deep an object's attributes are followed.
+_MAX_OBJECT_HOPS = 4
+
+#: A string this short is kept as it is: never passed over for holding no
+#: word, and never taken for one already read. A word handed over one letter
+#: to an element is made of such strings.
+_SHORT_STRING = 3
+
 #: Upper bound on the rendered summary of a single structured payload value.
 _MAX_VALUE_CHARS = 512
 
@@ -161,14 +175,14 @@ _WORD = re.compile(r"[^\W\d_TtZzEe]")
 
 #: A run of printable ASCII inside bytes that are not text: what ``strings``
 #: would show of them.
-_PRINTABLE_RUN = re.compile(rb"[\x20-\x7e]{8,}")
+_PRINTABLE_RUN = re.compile(rb"[\x20-\x7e]{6,}")
 
 
 class UnassessableSubjectError(ValueError):
     """The decision carries more than the gate can read; it must be refused."""
 
 
-def _object_text(payload: Any) -> list[Any] | None:
+def _object_text(payload: Any, follow: bool = True) -> tuple[list[Any], bool] | None:
     """What an object that is not a plain container holds, or ``None`` if nothing is read.
 
     A float matrix has no words in it and is summarised by its shape. An array
@@ -187,20 +201,33 @@ def _object_text(payload: Any) -> list[Any] | None:
     above that cannot be read the way its kind is read is opaque too: this
     never raises, so that an odd object is not a way to have a decision
     refused.
+
+    Args:
+        payload: The object.
+        follow: Whether its attributes may be read. An object's attributes
+            are followed a few objects deep (:data:`_MAX_OBJECT_HOPS`) and no
+            further: a record holds its fields, but a record that holds a
+            logger holds, through it, every logger in the process.
+
+    Returns:
+        What it holds, and whether that was read from its attributes; ``None``
+        when nothing is read.
     """
     try:
-        if isinstance(payload, (type, types.ModuleType, range)):
+        if isinstance(payload, (type, types.ModuleType)):
             return None
+        if isinstance(payload, range):
+            return [], False  # numbers
         if isinstance(payload, PurePath):
-            return [str(payload)]
+            return [str(payload)], False
         if isinstance(payload, Enum):
-            return [payload.name, payload.value]
+            return [payload.name, payload.value], False
         if isinstance(payload, array):
-            return [payload.tounicode()] if payload.typecode in "uw" else None
+            return ([payload.tounicode()] if payload.typecode in "uw" else []), False
         if isinstance(payload, UserString):
-            return [str(payload)]
+            return [str(payload)], False
         if hasattr(type(payload), "dtypes") and hasattr(type(payload), "columns"):  # a frame
-            return _frame_text(payload)
+            return _frame_text(payload), False
         dtype: Any = getattr(payload, "dtype", None)
         kind = getattr(dtype, "kind", None)
         if isinstance(kind, str):
@@ -212,35 +239,53 @@ def _object_text(payload: Any) -> list[Any] | None:
                 held = [payload[name] for name in names if dtype[name].kind in _TEXT_KINDS]
             else:
                 held = [_as_list(payload)] if kind in _TEXT_KINDS else []
-            return held + _index_text(payload)
+            return held + _index_text(payload), False
         if isinstance(payload, _Sequence):
             # As a plain list, which is walked like any other: numbers in one
             # pass, and within the same budget.
-            return [list(payload)]
+            return [list(payload)], False
         values: list[Any] = []
-        if dataclasses.is_dataclass(payload):
-            values.extend(getattr(payload, f.name, None) for f in dataclasses.fields(payload))
-        # Looked up on the type: an instance that answers to any name at all (a
-        # mock, a proxy) is not thereby a pydantic model.
-        if callable(getattr(type(payload), "model_dump", None)):
-            values.append(payload.model_dump())
         if isinstance(payload, BaseException):
             values.extend(payload.args)
-        if callable(payload):  # a function, a partial, a mock: code, not a record
-            return values or None
+        if callable(payload) or not follow or _is_library_object(payload):
+            # Code, not a record; or deep enough; or the standard library's own
+            # (a logger, a lock, a file): what such a thing holds is the
+            # process's, not the caller's.
+            return (values, False) if values else None
         # The instance's own attributes, by value (their names are the code's
-        # words, not the caller's): a plain object's fields, and the ones a
-        # model leaves out of what it dumps.
+        # words, not the caller's). Each value once: a dataclass's fields and
+        # a model's are in its ``__dict__`` already, and read from there and
+        # again from the fields or a dump they were walked, and counted
+        # against the budget, twice.
         attributes = getattr(payload, "__dict__", None)
         if isinstance(attributes, dict):
             values.extend(attributes.values())
+        elif dataclasses.is_dataclass(payload):
+            values.extend(getattr(payload, f.name, None) for f in dataclasses.fields(payload))
         for owner in type(payload).__mro__:
             slots = owner.__dict__.get("__slots__", ())
             for name in (slots,) if isinstance(slots, str) else slots:
-                values.append(getattr(payload, name, None))
-        return values or None
+                # A double-underscore slot is the class's own bookkeeping (a
+                # model's set of field names), not something it was given.
+                if not (name.startswith("__") and name.endswith("__")):
+                    values.append(getattr(payload, name, None))
+        # What a pydantic model holds beside its stored fields.
+        extra = getattr(payload, "__pydantic_extra__", None)
+        if isinstance(extra, dict):
+            values.append(extra)
+        computed = getattr(type(payload), "model_computed_fields", None)
+        if isinstance(computed, dict):
+            values.extend(getattr(payload, name, None) for name in computed)
+        return (values, True) if values else None
     except Exception:
         return None
+
+
+def _is_library_object(payload: Any) -> bool:
+    """Whether ``payload`` is an object of the standard library that is not a plain record."""
+    if isinstance(payload, types.SimpleNamespace) or dataclasses.is_dataclass(payload):
+        return False
+    return type(payload).__module__.partition(".")[0] in sys.stdlib_module_names
 
 
 def _frame_text(frame: Any) -> list[Any]:
@@ -285,17 +330,48 @@ def _as_list(values: Any) -> list[Any]:
 
 
 def _bytes_text(raw: bytes) -> str:
-    """The text in ``raw``: all of it when it is UTF-8, else its printable runs.
+    """The text in ``raw``: all of it when it is text in an encoding, else its printable runs.
 
     Bytes that are not text used to be decoded as though they were, every
     undecodable byte becoming a replacement character: a megabyte of
     compressed or random data counted as a megabyte of text, was refused for
-    its size, and below that size was scored as noise.
+    its size, and below that size was scored as noise. Text that is not UTF-8
+    is still text: UTF-16 (by its byte-order mark, or by every other byte
+    being zero) and Latin-1 (when nearly every byte is a printable one) are
+    decoded; anything else gives up the runs of printable ASCII in it, as
+    ``strings`` would.
     """
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError:
-        return " ".join(run.decode("ascii") for run in _PRINTABLE_RUN.findall(raw))
+        pass
+    for encoding in _utf16_guesses(raw):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    if len(raw.translate(None, _LATIN1_TEXT)) * 20 <= len(raw):
+        return raw.decode("latin-1")
+    return " ".join(run.decode("ascii") for run in _PRINTABLE_RUN.findall(raw))
+
+
+#: Bytes that are text in Latin-1: tab, line ends, and the printable ranges.
+_LATIN1_TEXT = bytes([9, 10, 13, *range(0x20, 0x7F), *range(0xA0, 0x100)])
+
+
+def _utf16_guesses(raw: bytes) -> list[str]:
+    """The UTF-16 encodings ``raw`` could be in: by its mark, or by its zero bytes."""
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return ["utf-16"]
+    half = len(raw) // 2
+    if half < 4:
+        return []
+    guesses = []
+    if raw[1::2].count(0) * 10 >= half * 7:
+        guesses.append("utf-16-le")
+    if raw[0::2].count(0) * 10 >= half * 7:
+        guesses.append("utf-16-be")
+    return guesses
 
 
 def payload_text(payload: Any) -> list[str]:
@@ -314,7 +390,27 @@ def payload_text(payload: Any) -> list[str]:
             :data:`MAX_ASSESSED_CHARS`, more values than
             :data:`MAX_ASSESSED_NODES`, or nests deeper than the walk follows.
     """
+    return _read(payload)[0]
+
+
+def unread_values(payload: Any) -> list[Any]:
+    """The objects in ``payload`` that :func:`payload_text` does not read.
+
+    A surface that goes on to print its payload (the reasoning backend prints
+    its evidence into a prompt) hands these to the gate as they print, so
+    that what reaches the model has been read, without the rest of the
+    payload being read and counted a second time.
+
+    Raises:
+        UnassessableSubjectError: As :func:`payload_text`.
+    """
+    return _read(payload)[1]
+
+
+def _read(payload: Any) -> tuple[list[str], list[Any]]:
+    """The text in ``payload``, and the objects in it that were not read."""
     found: list[str] = []
+    unread: list[Any] = []
     chars = 0
     nodes = 0
     # Containers already read, by identity -- and held, not just their ids. A
@@ -325,9 +421,9 @@ def payload_text(payload: Any) -> list[str]:
     # first alone, and whatever the second said went through unread.
     seen: dict[int, Any] = {}
     read: set[str] = set()
-    stack: list[tuple[Any, int]] = [(payload, 0)]
+    stack: list[tuple[Any, int, int]] = [(payload, 0, 0)]
     while stack:
-        value, depth = stack.pop()
+        value, depth, hops = stack.pop()
         nodes += 1
         if nodes > MAX_ASSESSED_NODES:
             raise UnassessableSubjectError(
@@ -343,9 +439,14 @@ def payload_text(payload: Any) -> list[str]:
             # word (see ``_WORD``). The keys of 45,000 records are three
             # strings, and 60,000 timestamps are no text at all; counted each
             # time they filled the reading budget and a table of numbers was
-            # refused.
-            if value not in read and _WORD.search(value):
+            # refused. A string of a letter or two is neither passed over
+            # nor taken for a repeat: "n", "e", "r", "v", "e" is a word.
+            if len(value) <= _SHORT_STRING:
+                wanted = any(char.isalpha() for char in value)
+            else:
+                wanted = value not in read and _WORD.search(value) is not None
                 read.add(value)
+            if wanted:
                 chars += len(value)
                 if chars > MAX_ASSESSED_CHARS:
                     raise UnassessableSubjectError(
@@ -357,7 +458,9 @@ def payload_text(payload: Any) -> list[str]:
             raise UnassessableSubjectError(
                 f"the payload nests deeper than {_MAX_TEXT_DEPTH} levels"
             )
-        children: list[Any] | None
+        if id(value) in seen:  # a container reached twice is read, and counted, once
+            continue
+        children: list[Any]
         if isinstance(value, _Mapping):
             children = [part for item in value.items() for part in item]
         elif isinstance(value, _SEQUENCES):
@@ -366,19 +469,22 @@ def payload_text(payload: Any) -> list[str]:
             # element here (a 1,000 x 1,000 list of floats cost 170 ms a
             # decision); eight of them count as one value walked.
             items: Any = value
+            seen[id(value)] = value
             if set(map(type, items)) <= _NUMBERS:
                 nodes += len(items) // 8
                 continue
             children = list(items)
         else:
-            children = _object_text(value)
-        if not children:
-            continue
-        if id(value) in seen:  # a container reached twice is read once
-            continue
+            held = _object_text(value, follow=hops < _MAX_OBJECT_HOPS)
+            if held is None:
+                if not isinstance(value, _CODE):
+                    unread.append(value)
+                continue
+            children, by_attribute = held
+            hops += int(by_attribute)
         seen[id(value)] = value
-        stack.extend((child, depth + 1) for child in reversed(children))
-    return found
+        stack.extend((child, depth + 1, hops) for child in reversed(children))
+    return found, unread
 
 
 def _spans(length: int, size: int) -> list[tuple[int, int]]:
@@ -640,9 +746,9 @@ def _assess(
     When it finds something, the verdict is the passages'. The gate pairs a
     hazard with an intent inside the text it is handed, and what a passage
     pairs was said together; what the whole text pairs may be a production
-    phrase on one page and a hazard word forty pages on. Measured on 67
+    phrase on one page and a hazard word forty pages on. Measured on 76
     encyclopedia articles (``research/harm_gate_long_text``): pairing at any
-    distance refused 4 of 37 on general subjects, each on such a pair, where
+    distance refused 7 of 40 on general subjects, each on such a pair, where
     passages refuse none. So cues further apart than a passage are not paired --
     the locality of every sliding-window control in ``docs/HARM_POLICY.md`` --
     with one exception that is not a matter of distance: a short request is
@@ -650,9 +756,12 @@ def _assess(
 
     A passage is cut where its length runs out, which can be in the middle of
     a phrase: "make a nerve agent | detector" reads as production of the
-    agent. So a passage that blocks is read again with its neighbours; if the
-    longer run does not block, the cut did it, and the longer reading stands.
-    The most restrictive passage decides, and is what a refusal quotes.
+    agent. So a passage that blocks is read again with a few words more at
+    each end (:data:`_CUT_MARGIN`); if that does not block, the cut did it,
+    and the longer reading stands. It is a few words, not the neighbouring
+    passages: those were read at first, and anything defensive in eight
+    thousand characters around a request then talked its passage down. The
+    most restrictive passage decides, and is what a refusal quotes.
     """
 
     def score(text: str) -> WeaponsRiskAssessment:
@@ -671,7 +780,7 @@ def _assess(
         scored = score(passage)
         if scored.blocks and len(spans) > 1:
             around = reading.passage(
-                spans[max(position - 1, 0)][0], spans[min(position + 1, len(spans) - 1)][1]
+                max(start - _CUT_MARGIN, 0), min(end + _CUT_MARGIN, len(reading.body))
             )
             scored = min(scored, score(around), key=_restriction)
         if worst is None or _restriction(scored) > _restriction(worst[1]):
@@ -681,6 +790,11 @@ def _assess(
     if worst is None:  # pragma: no cover - a body always has a passage
         raise RuntimeError("no passage was scored")
     return worst if worst[1].blocks else (reading.first, worst[1])
+
+
+#: How much is read beyond each end of a passage that blocks, to finish a
+#: phrase its cut may have broken.
+_CUT_MARGIN = 256
 
 
 def _restriction(assessment: WeaponsRiskAssessment) -> int:
@@ -731,6 +845,20 @@ def _refuse_unassessed(
 #: ``details["reason"]`` of a refusal made because the decision carries more
 #: than the gate reads, as against one made on what it read.
 UNASSESSABLE = "unassessable"
+
+
+def refused_for_size(refusal: BaseException) -> str | None:
+    """Why the gate could not read a decision, when that is why it refused it.
+
+    Returns:
+        The gate's statement of what was too much ("the decision carries more
+        than 1,048,576 characters of text"), or ``None`` for a refusal made on
+        what the decision said. A route answers the first with 413.
+    """
+    details = getattr(refusal, "details", None)
+    if isinstance(details, dict) and details.get("reason") == UNASSESSABLE:
+        return str(details.get("error") or "more than the gate reads")
+    return None
 
 
 def enforce_decision_boundary(
@@ -865,5 +993,7 @@ __all__ = [
     "UnassessableSubjectError",
     "enforce_decision_boundary",
     "payload_text",
+    "refused_for_size",
     "summarize_payload",
+    "unread_values",
 ]

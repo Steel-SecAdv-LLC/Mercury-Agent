@@ -432,7 +432,11 @@ def _carried_key(encoded: Any) -> bytes | None:
 
 
 def _holds(check: Callable[[], bool]) -> bool:
-    """Whether a signature check passes; a key or signature it cannot use does not."""
+    """Whether a signature check passes; a key or signature it cannot use does not.
+
+    A backend that cannot run at all raises its own error, and that is left
+    to rise: a check that did not happen is not a signature that failed.
+    """
     try:
         return bool(check())
     except (ValueError, TypeError):

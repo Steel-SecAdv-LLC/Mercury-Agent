@@ -47,6 +47,7 @@ could not reach.
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
 import urllib.error
@@ -116,6 +117,9 @@ class FetchResult:
     screened: bool = False
     harm_blocked: bool = False
     harm_note: str = ""
+    # ``text`` is the first part of the page only: the rest was past what the
+    # default harm screen reads, and what it did not read is not handed on.
+    truncated: bool = False
 
     @property
     def ok(self) -> bool:
@@ -288,7 +292,8 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
 #: The page used to be returned whole all the same, marked ``screened``, on the
 #: ground that "genuine weapons-cookbook content is dense and does not hide
 #: only past a quarter-megabyte of benign padding". Whoever wrote the page
-#: decides what it is padded with. The part that was not read is not returned.
+#: decides what it is padded with. The part that was not read is not returned,
+#: and the result says so (``FetchResult.truncated``).
 _HARM_SCREEN_MAX_CHARS = 262_144
 
 
@@ -324,6 +329,13 @@ def default_content_gate(text: str, harm_classifier: Any | None = None) -> tuple
         return False, ""
     except Exception as exc:  # pragma: no cover - defensive fail-closed
         return True, f"content gate error (fail-closed): {exc}"
+
+
+def _reads_a_prefix(gate: Any) -> bool:
+    """Whether ``gate`` is the default harm screen, which reads a bounded prefix."""
+    return gate is default_content_gate or (
+        isinstance(gate, functools.partial) and gate.func is default_content_gate
+    )
 
 
 @dataclass
@@ -374,7 +386,6 @@ class WebResearcher:
         as the (optional) final rung -- the recommended, provider-first ordering.
         Any keyword overrides are forwarded to the constructor.
         """
-        import functools
         import os
 
         # Optional reasoning-backed harm classifier to thread through the content
@@ -460,8 +471,14 @@ class WebResearcher:
         if result.ok:
             result.text = self.extract_text(result.text)
             if self.content_gate is not None and result.text:
-                # Only what the screen reads goes on to a consumer.
-                result.text = result.text[:_HARM_SCREEN_MAX_CHARS]
+                # Only what the screen reads goes on to a consumer, and the
+                # result says when that is not the whole page. A screen of the
+                # caller's own reads what it reads and is given all of it.
+                if _reads_a_prefix(self.content_gate) and (
+                    len(result.text) > _HARM_SCREEN_MAX_CHARS
+                ):
+                    result.text = result.text[:_HARM_SCREEN_MAX_CHARS]
+                    result.truncated = True
                 result.screened = True
                 try:
                     blocked, note = self.content_gate(result.text)

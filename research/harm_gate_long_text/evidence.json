@@ -67,6 +67,15 @@
     },
     {
       "group": "general",
+      "title": "Coffee",
+      "chars": 57003,
+      "sha256": "a6652a5af56b8184a40e416a0911f04bbf195e494547283045a52216a3f50461",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "escalate"
+    },
+    {
+      "group": "general",
       "title": "Volcano",
       "chars": 49099,
       "sha256": "04499f7fb7b4eb797699ebd613582a74aa25612fb75624d7299f1606c33e3985",
@@ -139,6 +148,15 @@
     },
     {
       "group": "general",
+      "title": "Solar System",
+      "chars": 61616,
+      "sha256": "cb16d1b88ec655f257642a8db226cdb9c7636bd63392c251f550f93c19e8fcf0",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
       "title": "Railway",
       "chars": 63507,
       "sha256": "912a68edc16928da1460d4b4ca6b2b1e2148c3552973bbcf62718fdd13048e64",
@@ -162,7 +180,7 @@
       "sha256": "a7a9e4f0be604d3ae401a8bebb27eecf6e0d72ba602efbda02e34e81ff277039",
       "first": "allow",
       "passages": "allow",
-      "whole": "allow"
+      "whole": "hard_refuse"
     },
     {
       "group": "general",
@@ -252,7 +270,7 @@
       "sha256": "3e65eae139330a2bc19fa83faf283df9ab8be83ebcb295e93961bc08d32c8416",
       "first": "allow",
       "passages": "allow",
-      "whole": "allow"
+      "whole": "hard_refuse"
     },
     {
       "group": "general",
@@ -310,6 +328,15 @@
     },
     {
       "group": "general",
+      "title": "Agriculture",
+      "chars": 72308,
+      "sha256": "56f4fe04394783c1a10a0491858cc772a9420b87ec55a074700bc612616dab43",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "general",
       "title": "Steel",
       "chars": 33711,
       "sha256": "eabe7f3c2509fad94895a477bf32d8502540834d7dde00c2b9ceaf20d41d2ec6",
@@ -341,8 +368,17 @@
       "chars": 19428,
       "sha256": "00989dfb1785728ed9dcd85fca50ba2dcebf54a304a571f4715f4aa793cde48f",
       "first": "allow_provenance",
-      "passages": "escalate",
+      "passages": "refuse_redact",
       "whole": "escalate"
+    },
+    {
+      "group": "hazard",
+      "title": "Tokyo subway sarin attack",
+      "chars": 56791,
+      "sha256": "3e6c74d0a0aa6a24a4897316215be40e8e89b9bab992e9400c9c6520178878e2",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
     },
     {
       "group": "hazard",
@@ -427,6 +463,15 @@
     },
     {
       "group": "hazard",
+      "title": "Nerve agent",
+      "chars": 33236,
+      "sha256": "033e27dd0d02c4269664578dd615a4779ea8bd7cef25835808c885ec1ba54526",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
       "title": "Chernobyl disaster",
       "chars": 73920,
       "sha256": "d3acf1cabf96427ae4d43bd632ba28d018457ba9c61e8f423955d39e4529db88",
@@ -481,6 +526,15 @@
     },
     {
       "group": "hazard",
+      "title": "Ammonium nitrate",
+      "chars": 12044,
+      "sha256": "8613308d36f9109c833d372a5b9de5ee62f39da125717260427f937f5908dbe2",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
       "title": "Uranium",
       "chars": 54456,
       "sha256": "8fa1a7025e0d0aa6e44354fe1729801279190ce3fb03c1d61703f8f85942149a",
@@ -520,7 +574,7 @@
       "title": "Dirty bomb",
       "chars": 25469,
       "sha256": "8d47bd25be0a6d35b3ce7fb7d56d8c1f8750f4c9f7aebe9caa2d9caa4f03a6f2",
-      "first": "allow_provenance",
+      "first": "hard_refuse",
       "passages": "hard_refuse",
       "whole": "hard_refuse"
     },
@@ -530,8 +584,8 @@
       "chars": 29563,
       "sha256": "1418b3e0b55577aacbfc5f2bba387bf11e1af9dfaa79ff4cf1d1e5a1fbd80ddb",
       "first": "allow_provenance",
-      "passages": "refuse_redact",
-      "whole": "escalate"
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
     },
     {
       "group": "hazard",
@@ -539,8 +593,17 @@
       "chars": 50975,
       "sha256": "79d6caa62f6ec6715e8d9b99c9bd9884683245ba4897d14953053e170c21288d",
       "first": "allow_provenance",
-      "passages": "refuse_redact",
-      "whole": "escalate"
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Radiation therapy",
+      "chars": 63946,
+      "sha256": "5e40ef6ef88e6e81699d3bf5b142c360900491d7eb6ff824175c30db6f673890",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
     },
     {
       "group": "hazard",
@@ -589,6 +652,15 @@
     },
     {
       "group": "hazard",
+      "title": "Gunpowder",
+      "chars": 51356,
+      "sha256": "a26f826f66466451094ecb2aa1fa61388ca81c915ae23d67d6bed7b49daf2502",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
       "title": "Computer virus",
       "chars": 39730,
       "sha256": "bbf8b6c6d6c0855b8688dbe5ef929e82db58fea946277c9ac36b3fada4f277cf",
@@ -604,6 +676,15 @@
       "first": "allow",
       "passages": "allow",
       "whole": "allow"
+    },
+    {
+      "group": "hazard",
+      "title": "Ransomware",
+      "chars": 47430,
+      "sha256": "8381d22675c43aaac32ef6fc29416f48750e8d0d45482a72f1d0367629d7ff8b",
+      "first": "allow",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
     }
   ]
 }

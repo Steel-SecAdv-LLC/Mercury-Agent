@@ -1250,10 +1250,16 @@ _HAZARD_CONTEXT_ANCHORS: frozenset[str] = frozenset(
 #: 138 characters) with an unbounded ``.*`` between the verb and the object,
 #: which is the same thing there. In a long text it is not: an article that
 #: said "enhance relationships with clients" on one page and "virus" twenty
-#: pages on was a hard refusal for pathogen enhancement.
-_WITHIN_A_REQUEST = r".{0,160}?"
+#: pages on was a hard refusal for pathogen enhancement. Four hundred
+#: characters is two or three sentences: room for a long qualifying clause,
+#: and on the 76 articles of ``research/harm_gate_long_text`` it refuses
+#: what 160 refuses and no more.
+_WITHIN_A_REQUEST = r".{0,400}?"
 
 _PEOPLE = r"(?:people|persons|civilians|humans)"
+#: Label of a pattern that counts only in a text that names a hazard. It is
+#: reported as ``targeting_planning``, which is what it is there.
+_WHERE_A_HAZARD_IS_NAMED = "targeting_planning:where_a_hazard_is_named"
 _PUT_TO_USE = r"(?:us(?:e|ing)|deploy(?:ing)?|unleash(?:ing)?|turn(?:ing)?|weaponi[sz](?:e|ing))"
 
 _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
@@ -1351,16 +1357,24 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
             r"\bmaximi[sz]e casualties\b|\battack plan\b|\btarget(?:ing)? "
             r"(?:a crowd|civilians|a stadium|a school|a gathering)\b|\bkill as many\b|"
             r"\bmass[- ]casualty target\b|\bantipersonnel\b|"
-            # A thing put to use on people, or an act done to them. The bare
-            # preposition used to stand here -- "against people" -- and with
-            # no hazard anywhere near it a sentence about "prejudice against
-            # people with diabetes", or about "attacks against humans" by
-            # bribery, was a hard refusal for attack planning.
+            # A thing put to use on people, or an act done to them: attack
+            # planning whatever else the text says.
             rf"\b{_PUT_TO_USE} (?:\S+ ){{0,4}}?against {_PEOPLE}\b|"
             rf"\bto (?:kill|harm|maim|injure) {_PEOPLE}\b"
         ),
         OperationalIntent.TARGETING,
         "targeting_planning",
+    ),
+    (
+        # The bare words "against people". They are attack planning where a
+        # hazard is named ("release chlorine gas against civilians", "an
+        # attack against civilians with a nerve agent") and only there: with
+        # no hazard in the text, "prejudice against people with diabetes" and
+        # "attacks against humans" by bribery were hard refusals. See
+        # ``_gate_evidence``.
+        re.compile(rf"\bagainst {_PEOPLE}\b"),
+        OperationalIntent.TARGETING,
+        _WHERE_A_HAZARD_IS_NAMED,
     ),
 )
 _ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
@@ -1617,6 +1631,15 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     offensive = _match_intent_patterns(
         haystack, _OFFENSIVE_INTENT_PATTERNS
     ) + _match_multilingual_offensive(haystack)
+    if any(label == _WHERE_A_HAZARD_IS_NAMED for _, label in offensive):
+        hazard_named = domain is not HazardDomain.NONE or any_term_in_haystack(
+            haystack, _HAZARD_CONTEXT_ANCHOR_FORMS
+        )
+        offensive = [
+            (tier, "targeting_planning" if label == _WHERE_A_HAZARD_IS_NAMED else label)
+            for tier, label in offensive
+            if label != _WHERE_A_HAZARD_IS_NAMED or hazard_named
+        ]
 
     # Safety net (no Axis-A hazard domain routed). Two ways an offensive request
     # still gates: (a) an *inherently weapons-specific* phrase; or (b) a

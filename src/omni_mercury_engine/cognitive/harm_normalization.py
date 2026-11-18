@@ -163,6 +163,8 @@ _LEET: dict[str, str] = {
     "¡": "i",
 }
 
+#: Where a lower-case letter is followed by a capital: a join in camelCase.
+_CAMEL_JOIN_RE = re.compile(r"(?<=[a-z])(?=[A-Z])")
 _COLLAPSE_RE = re.compile(r"[^a-z0-9-￿]+")
 _WHITESPACE_RE = re.compile(r"\s+")
 # Intra-word punctuation only (keeps whitespace + word chars incl. non-Latin
@@ -703,6 +705,11 @@ def normalized_haystack(text: str) -> str:
             (rejoined, None),
             (collapsed, folded),
         ]
+        # Words run together with a capital at each join ("makeSarinNow"):
+        # the capitals are the boundaries, and lower-casing loses them.
+        parted = _CAMEL_JOIN_RE.sub(" ", text or "")
+        if parted != (text or ""):
+            ordered.append((_fold_obfuscation(base_normalize(parted)), None))
         translit = _cyrillic_translit(base)
         if translit != base:
             t_folded = _fold_obfuscation(translit)
@@ -822,26 +829,25 @@ def term_in_haystack(haystack: str, forms: tuple[str, ...]) -> bool:
 
 
 def _occurs(haystack: str, form: str) -> bool:
-    """Whether ``form`` occurs in ``haystack`` as a term, not as letters inside other words.
+    """Whether ``form`` occurs in ``haystack`` as a term, not as letters of another word.
 
     A substring test alone found "ricin" in "pricing" and, in the collapsed
     variant, "soman" in "so many" and "tatp" in "what a tp-link": "how to make
     pricing tables" and "how do I make so many cookies" were refused as
-    production of a biological and of a chemical agent. So an occurrence
-    counts only where it could be the term:
+    production of a biological and of a chemical agent. An occurrence counts:
 
-    * in a variant that keeps its words, when it touches the edge of a word on
-      at least one side. "neurotoxin", "toxins" and "sarin-based" hold the
-      term; "pricing" has it strictly inside;
+    * in a variant that keeps its words, unless the word it is in is one of
+      :data:`ORDINARY_WORDS_HOLDING_A_TERM`. Any other word holds the term, as
+      it always did: a plural, a compound ("neurotoxins"), a request run
+      together or wrapped in letters to be missed ("makesarinnow",
+      "xsarinx");
     * in a collapsed variant, when it starts where a piece of the original
       text starts and ends where one ends. ``s a r i n`` and ``sa rin`` do;
       "so many" ends inside "many".
 
-    Only a Latin letter or a digit beside the occurrence is the inside of a
-    word: scripts written without spaces between words are matched as before.
-
-    What this gives up: a term with other letters on both sides of it
-    (``xsarinx``) routed, as any substring did, and no longer does.
+    What the second gives up: a term split in two with other letters glued to
+    the halves (``absar incd``) was found, as any substring of the collapsed
+    text was, and no longer is.
     """
     at = haystack.find(form)
     if at < 0:
@@ -856,19 +862,60 @@ def _occurs(haystack: str, form: str) -> bool:
                     return True
                 break
         else:
-            if not (
-                _inside_word(haystack, at - 1, form[0]) and _inside_word(haystack, end, form[-1])
-            ):
+            if _word_around(haystack, at, end) not in ORDINARY_WORDS_HOLDING_A_TERM:
                 return True
         at = haystack.find(form, at + 1)
     return False
 
 
-def _inside_word(haystack: str, beside: int, edge: str) -> bool:
-    """Whether the character at ``beside`` continues the word that ``edge`` is the end of."""
-    if not 0 <= beside < len(haystack):
-        return False
-    return _is_latin_word_char(haystack[beside]) and _is_latin_word_char(edge)
+def _word_around(haystack: str, at: int, end: int) -> str:
+    """The word ``haystack[at:end]`` is part of, without a plural ending."""
+    start = at
+    while start > 0 and _is_latin_word_char(haystack[start - 1]):
+        start -= 1
+    stop = end
+    while stop < len(haystack) and _is_latin_word_char(haystack[stop]):
+        stop += 1
+    word = haystack[start:stop]
+    if word in ORDINARY_WORDS_HOLDING_A_TERM:
+        return word
+    for ending in ("es", "s"):
+        if word.endswith(ending) and word[: -len(ending)] in ORDINARY_WORDS_HOLDING_A_TERM:
+            return word[: -len(ending)]
+    return word
+
+
+#: English words that hold the name of an agent and have nothing to do with it.
+#:
+#: Every word of a 370,105-word English list (dwyl/english-words,
+#: ``words_alpha.txt``, read 2026-11-18) that contains a single-word term of the
+#: hazard lexicon, less the ones that are the term's own vocabulary (a plural,
+#: "neurotoxin", "antiricin", "ricinus", "ammunition", "nonexplosive"). Only
+#: seven terms are held by an unrelated word at all: ricin (pricing, and
+#: substances named in "-ricin"), sarin, soman, tabun, TATP, PETN, anthrax,
+#: and "blasting" and "munition" once each.
+ORDINARY_WORDS_HOLDING_A_TERM: frozenset[str] = frozenset(
+    {
+        # ricin
+        "agaricin", "agaricine", "agaricinic", "amphotericin", "aricin", "aricine",
+        "ericineous", "floricin", "hypericin", "hystricinae", "hystricine", "lumbricine",
+        "myricin", "muricine", "natricinae", "natricine", "outpricing", "overpricing",
+        "prepricing", "pricing", "quadricinium", "repricing", "mispricing", "ricing",
+        "sericin", "soricinae", "soricine", "streptothricin", "tyrothricin", "tortricina",
+        "tortricine", "tricing", "tricinium", "underpricing",
+        # sarin
+        "accessariness", "adversariness", "anniversariness", "asarin", "necessariness",
+        "nodosarine", "sarinda", "tsarina", "unnecessariness",
+        # soman
+        "dipsomania", "dipsomaniac", "dipsomaniacal", "nosomania", "pessomancy",
+        "russomania", "russomaniac", "russomaniacal",
+        # tabun
+        "cogitabund", "cogitabundity", "cogitabundly", "cogitabundous", "meditabund",
+        # TATP, PETN, anthrax, blasting, munition
+        "tatpurusha", "petnapping", "anthraxylon", "anthraxolite", "lithanthrax",
+        "xylanthrax", "cacanthrax", "sandblasting", "electroblasting", "premunition",
+    }
+)  # fmt: skip
 
 
 def _is_latin_word_char(char: str) -> bool:

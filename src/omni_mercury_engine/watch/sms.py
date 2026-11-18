@@ -84,15 +84,41 @@ def two_segments(text: str) -> str:
     Cut at a word, and ended with three full stops (not the ellipsis
     character, which is outside the GSM alphabet).
     """
-    gsm = all(char in _GSM or char in _GSM_TWO_PLACES for char in text)
+    outside = next((at for at, char in enumerate(text) if not _is_gsm(char)), None)
+    if outside is None:
+        return _cut(text, gsm=True)
+    # One character outside the alphabet and the whole message goes in 16-bit
+    # units, 134 of them. What stands before that character may be more than
+    # that: a curly quote at the 250th character must not cost the 249 before it.
+    as_it_is = _cut(text, gsm=False)
+    before = _cut(text[:outside], gsm=True, more_follows=True)
+    return before if len(before) > len(as_it_is) else as_it_is
+
+
+def _is_gsm(text: str) -> bool:
+    return all(char in _GSM or char in _GSM_TWO_PLACES for char in text)
+
+
+def _cut(text: str, *, gsm: bool, more_follows: bool = False) -> str:
+    """``text`` cut to two segments, counted in the GSM alphabet or in 16-bit units.
+
+    Args:
+        text: The message.
+        gsm: Which of the two it is counted in.
+        more_follows: The caller has already left some of the message out, so
+            what is returned ends with the three full stops whatever its length.
+    """
     room = MAX_TEXT if gsm else MAX_TEXT_UCS2
-    if sum(_places(char, gsm) for char in text) <= room:
+    if not more_follows and sum(_places(char, gsm) for char in text) <= room:
         return text
-    used, kept = 0, 0
-    for kept, char in enumerate(text):
+    used, kept = 0, len(text)
+    for at, char in enumerate(text):
         used += _places(char, gsm)
         if used > room - 3:
+            kept = at
             break
+    else:
+        return text.rstrip(" ,;:.") + "..."
     return text[:kept].rsplit(" ", 1)[0].rstrip(",;:.") + "..."
 
 

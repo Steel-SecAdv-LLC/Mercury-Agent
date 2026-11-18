@@ -87,6 +87,7 @@ class Watcher:
         #: The last full delivery pass: when, and the newest announcement then.
         self._delivered_at: datetime | None = None
         self._delivered_to = 0
+        self._delivered_mark: tuple[int, int, int, int] = (0, 0, 0, 0)
         #: This watcher's name on the lease: unique to it, readable by a person.
         self.holder = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
         self._standing_by = False
@@ -358,17 +359,28 @@ class Watcher:
                 newest = self.store.last_announcement()
                 self.notifier.sync(heartbeat=self.leads)
                 self._delivered_at, self._delivered_to = now, newest
+                self._delivered_mark = self.store.delivery_mark()
         except Exception as exc:  # telling people must not stop the watching
             logger.warning("watch: delivery pass failed: %s", exc)
         return statuses
 
     def _owes_a_delivery_pass(self, read_a_feed: bool, now: datetime) -> bool:
-        """Whether there may be something to send: a read, a new finding, or a retry's wait."""
+        """Whether there may be something to send, asked of the store in three small queries.
+
+        A feed this watcher read, a finding any watch recorded, a subscriber
+        or a verified number since the last pass, or a failed delivery whose
+        wait may have passed. A full pass loads every subscriber, everything
+        standing and the whole ledger: once a minute for nothing was several
+        times the work the watch had been doing.
+        """
         if read_a_feed or self._delivered_at is None:
             return True
-        if now - self._delivered_at >= RETRY_FIRST:
+        if self.store.last_announcement() > self._delivered_to:
             return True
-        return self.store.last_announcement() > self._delivered_to
+        failed, *held = self.store.delivery_mark()
+        if tuple(held) != self._delivered_mark[1:]:
+            return True
+        return failed > 0 and now - self._delivered_at >= RETRY_FIRST
 
     def run_forever(
         self, *, tick_seconds: float = 30.0, stop: threading.Event | None = None

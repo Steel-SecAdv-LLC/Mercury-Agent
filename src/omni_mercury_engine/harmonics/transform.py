@@ -170,7 +170,9 @@ class AssociatedLegendre:
         sin_theta = np.sqrt(np.clip(1.0 - x**2, 0.0, None))
 
         value = np.full_like(x, math.sqrt(1.0 / (4.0 * math.pi)))
-        exponent = np.zeros(x.shape, dtype=np.int64)
+        # A C int, which is what ``frexp`` gives and ``ldexp`` takes on every
+        # platform; a 64-bit exponent has no ``ldexp`` where a C long is 32 bits.
+        exponent = np.zeros(x.shape, dtype=np.intc)
         for k in range(1, m + 1):
             value = value * (-math.sqrt((2.0 * k + 1.0) / (2.0 * k))) * sin_theta
             if k % _RESCALE_EVERY == 0 or k == m:

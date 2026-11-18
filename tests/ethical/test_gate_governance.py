@@ -147,6 +147,27 @@ class TestTheScreenReadsWhatIsHandedOn:
         assert result.screened
         assert result.harm_blocked or hidden not in result.text
         assert len(result.text) <= web_research._HARM_SCREEN_MAX_CHARS
+        assert result.truncated  # and it says the text is not the whole page
+
+    def test_a_screen_of_the_caller_s_own_is_given_the_whole_page(self) -> None:
+        """Was: cut to the default screen's bound whatever screen was configured."""
+        from omni_mercury_engine.agentic.capabilities import web_research
+
+        padding = "The weather outlook for the coming week is mild and dry. " * 5000
+        seen: list[int] = []
+
+        def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+            return 200, f"<html><body><p>{padding}</p></body></html>", url
+
+        def _reads_everything(text: str) -> tuple[bool, str]:
+            seen.append(len(text))
+            return False, ""
+
+        researcher = WebResearcher(transport=_transport, content_gate=_reads_everything)
+        result = researcher.fetch_text("http://example.test/long")
+
+        assert seen == [len(result.text)] and seen[0] > web_research._HARM_SCREEN_MAX_CHARS
+        assert result.screened and not result.truncated
 
     def test_a_page_within_the_bound_is_returned_whole(self) -> None:
         from omni_mercury_engine.agentic.capabilities import web_research
@@ -162,6 +183,7 @@ class TestTheScreenReadsWhatIsHandedOn:
         result = researcher.fetch_text("http://example.test/short")
 
         assert result.text.count("Atropine") == 40
+        assert not result.truncated
 
 
 class TestEscalationBroker:

@@ -75,6 +75,16 @@ def public_view(finding: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+def most_severe_first(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Stored findings in the order they are shown: the most severe, and of those the newest.
+
+    One order, for the page and for the command: each had its own copy of
+    it and they had drifted (the command listed the oldest first).
+    """
+    newest = sorted(findings, key=lambda f: str(f.get("first_seen") or ""), reverse=True)
+    return sorted(newest, key=lambda f: -RANKS.get(str(f.get("severity")), 0))
+
+
 def finding_key(feed: str, kind: str, subject: str) -> str:
     """The key a finding of this feed, kind and subject has."""
     return hashlib.sha256(f"{feed}|{kind}|{subject}".encode()).hexdigest()[:20]

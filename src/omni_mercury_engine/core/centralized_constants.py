@@ -214,7 +214,13 @@ class EthicalConstants:
     # alone is not attack planning; and a verb reaches its object within 160
     # characters, not across a whole text. Verdicts change for ordinary
     # requests that were refused, so cached v9 verdicts must invalidate.
-    RULESET_VERSION: int = 10
+    # v11: v10 freed more than the ordinary request. A term had to touch the
+    # edge of a word, so "neurotoxins" held no toxin, and "against people"
+    # needed a verb of use even beside a named agent ("release chlorine gas
+    # against civilians" was permitted). A term is in every word but the
+    # ordinary English words that happen to hold it, and the bare words are
+    # attack planning wherever a hazard is named, as in v9.
+    RULESET_VERSION: int = 11
 
 
 ETHICAL = EthicalConstants()

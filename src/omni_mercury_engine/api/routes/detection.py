@@ -62,13 +62,13 @@ def _raise_if_too_large_to_assess(refusal: Exception) -> None:
     how much was sent, not about what it said, and a 403 naming the harm gate
     gave the caller nothing to act on.
     """
-    from omni_mercury_engine.cognitive.decision_gate import UNASSESSABLE
+    from omni_mercury_engine.cognitive.decision_gate import refused_for_size
 
-    details = getattr(refusal, "details", None) or {}
-    if details.get("reason") == UNASSESSABLE:
+    too_much = refused_for_size(refusal)
+    if too_much is not None:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Request not assessed by the harm-uplift decision gate: {details.get('error')}.",
+            detail=f"Request not assessed by the harm-uplift decision gate: {too_much}.",
         ) from refusal
 
 

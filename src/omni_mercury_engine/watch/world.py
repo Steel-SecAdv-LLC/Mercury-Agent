@@ -47,10 +47,12 @@ from omni_mercury_engine.watch.feeds import (
     _alert_thread,
     _clock,
     _count,
+    _in_force,
     _joined_areas,
     _joined_places,
     _pieces,
     _references,
+    _sent_at,
     _shorten,
     _utc,
 )
@@ -169,8 +171,11 @@ class WorldWarningsFeed(Feed):
     }
     #: Distinct places looked up per read. Each is one request to the centre.
     MAX_PLACES: ClassVar[int] = 250
+    #: Reads for which a warning's name is remembered after it was last listed.
+    _NAMES_KEPT: ClassVar[int] = 300
     _COLUMNS: ClassVar[list[str]] = [
-        "path", "identifier", "thread", "event", "headline", "severity", "urgency", "certainty",
+        "path", "identifier", "thread", "references", "event", "headline", "severity", "urgency",
+        "certainty",
         "sender", "sent", "expires", "instruction", "area", "web", "status", "msg_type",
         "place_ids",
     ]  # fmt: skip
@@ -182,6 +187,9 @@ class WorldWarningsFeed(Feed):
         self._alerts: dict[str, dict[str, Any]] = {}
         #: The warning each message read belongs to, by the message's identifier.
         self._warning: dict[str, str] = {}
+        #: The read each warning was last in effect at, and how many reads there have been.
+        self._last_listed: dict[str, int] = {}
+        self._reads = 0
 
     def bind(self, store: WatchStore) -> None:
         """Take the store, for the subscribed places."""
@@ -294,7 +302,10 @@ class WorldWarningsFeed(Feed):
 
         The names are this process's: after a restart a warning whose
         authority names only the message before is, at its next update, told
-        once more.
+        once more. They are kept for :data:`_NAMES_KEPT` reads after a
+        warning was last listed, not dropped the first time it is not: one
+        failed lookup for a place used to forget the chain of every warning
+        there, and the next read named each after its latest reference.
         """
         ordered = sorted(
             rows,
@@ -309,8 +320,16 @@ class WorldWarningsFeed(Feed):
             if identifier:
                 self._warning[identifier] = name
             row["thread"] = name
-        live = {str(row.get("thread")) for row in ordered}
-        self._warning = {known: name for known, name in self._warning.items() if name in live}
+        self._reads += 1
+        for row in ordered:
+            self._last_listed[str(row.get("thread"))] = self._reads
+        kept = {
+            name
+            for name, read in self._last_listed.items()
+            if self._reads - read <= self._NAMES_KEPT
+        }
+        self._last_listed = {name: self._last_listed[name] for name in kept}
+        self._warning = {known: name for known, name in self._warning.items() if name in kept}
 
     def judge(self, frame: pd.DataFrame, now: datetime) -> Judgment:
         """Each warning that is actual, not cancelled and not expired is a finding."""
@@ -327,16 +346,18 @@ class WorldWarningsFeed(Feed):
             if row.msg_type == "Cancel" or (row.status and row.status != "Actual"):
                 continue  # withdrawn, or an exercise or test message
             in_effect.append(row)
-        for pieces in _pieces(
+        for listed in _pieces(
             in_effect, lambda piece: str(piece.thread or piece.identifier or piece.path)
         ):
             # One warning can be in effect as several messages, each for its
-            # own areas. The most severe speaks for it, the latest of those.
+            # own areas. The most severe speaks for it, the latest of those;
+            # a message another one updates is not among them.
+            pieces = _in_force(listed, lambda piece: str(piece.identifier))
             row = max(
                 pieces,
                 key=lambda piece: (
                     int(self.SEVERITY.get(str(piece.severity), Severity.NOTABLE)),
-                    str(piece.sent),
+                    _sent_at(piece),
                     str(piece.path),
                 ),
             )

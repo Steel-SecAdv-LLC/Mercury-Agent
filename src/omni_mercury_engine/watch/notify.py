@@ -33,7 +33,6 @@ message somewhere and calling it sent.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 from datetime import UTC, datetime, timedelta
@@ -50,6 +49,7 @@ from omni_mercury_engine.watch.sms import (
     build_sms_sender,
     text_message,
 )
+from omni_mercury_engine.watch.store import address_entry
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -65,6 +65,7 @@ __all__ = [
     "RETRY_CAP",
     "RETRY_FIRST",
     "Notifier",
+    "address_entry",
     "audience",
     "configured_channels",
     "distance_km",
@@ -160,15 +161,6 @@ def audience(
         # Earth: one failed location lookup mailed each Alaskan volcano to a
         # subscriber in Florida with a 50 km radius.
     return out
-
-
-def address_entry(address: str) -> int:
-    """An address's entry in the delivery ledger: its own, whatever places it holds.
-
-    Negative, so it is never a subscription's id, a phone's, or the webhook's 0.
-    """
-    digest = hashlib.sha256(b"address:" + address.strip().lower().encode()).digest()
-    return -(int.from_bytes(digest[:7], "big") + 1)
 
 
 def one_per_address(
