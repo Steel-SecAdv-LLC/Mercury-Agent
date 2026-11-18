@@ -58,6 +58,25 @@ def _quoted(cell: str) -> list[str]:
     return re.findall(r"\*\*([0-9]+(?:\.[0-9]+)?)\*\*", cell)
 
 
+def _prints(text: str, value: float) -> bool:
+    """Whether ``text`` prints ``value`` as a number of its own, to 4 or 3 decimals.
+
+    A substring test took 0.912 as printed wherever 0.9123, 10.912 or 0.91234
+    was: the digits had to be there, not the figure.
+    """
+    return any(
+        re.search(rf"(?<![\d.]){re.escape(f'{value:.{places}f}')}(?!\d)", text) for places in (4, 3)
+    )
+
+
+def test_a_figure_is_printed_only_as_a_number_of_its_own() -> None:
+    assert _prints("AUC 0.9123 on the held-out year", 0.91234)
+    assert _prints("AUC 0.912 on the held-out year", 0.91234)
+    assert not _prints("AUC 0.9124 on the held-out year", 0.91234)
+    assert not _prints("lag 10.912 s", 0.912)
+    assert not _prints("AUC 0.91234", 0.9123)
+
+
 @pytest.mark.parametrize("name", sorted(ROWS))
 def test_the_headline_number_is_the_checkpoints_recorded_metric(name: str) -> None:
     metric, _ = ROWS[name]
@@ -77,7 +96,7 @@ def test_every_other_figure_the_row_quotes_is_recorded_too(name: str) -> None:
 
     for metric in also:
         value = learned[metric]
-        assert f"{value:.4f}" in status or f"{value:.3f}" in status, f"{name}: {metric} {value:.4f}"
+        assert _prints(status, value), f"{name}: {metric} {value:.4f}"
 
 
 def test_every_shipped_detection_checkpoint_has_a_row() -> None:
@@ -99,9 +118,13 @@ def test_solar_accuracy_is_reported_beside_what_guessing_no_storm_scores() -> No
     accuracy = evaluation["learned"]["g_bucket_accuracy"]
     status = _row("solar_storm_geomag")[5]
 
-    assert accuracy < always_quiet  # the reason the row says what it says
-    assert f"{always_quiet:.4f}" in status
-    assert "not a figure to quote" in status
+    if accuracy < always_quiet:
+        assert _prints(status, always_quiet)
+        assert "not a figure to quote" in status
+    else:
+        # A retrained checkpoint that beats the always-negative rate must
+        # lose the caveat with it, not carry it on.
+        assert "not a figure to quote" not in status
 
 
 def test_the_training_document_carries_the_solar_checkpoints_own_figures() -> None:

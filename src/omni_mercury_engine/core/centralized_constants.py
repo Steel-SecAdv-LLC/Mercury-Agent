@@ -209,7 +209,12 @@ class EthicalConstants:
     # is the plan and / kill my wife") is refused; the same break in a report
     # ("he said he would come and / kill my wife") stays permitted. Earlier
     # rulesets could not tell them apart and permitted both.
-    RULESET_VERSION: int = 9
+    # v10: a hazard term is matched as a word, not as letters inside other
+    # words ("pricing" held ricin, "so many" held soman); "against people"
+    # alone is not attack planning; and a verb reaches its object within 160
+    # characters, not across a whole text. Verdicts change for ordinary
+    # requests that were refused, so cached v9 verdicts must invalidate.
+    RULESET_VERSION: int = 10
 
 
 ETHICAL = EthicalConstants()

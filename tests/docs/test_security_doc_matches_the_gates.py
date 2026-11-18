@@ -54,6 +54,51 @@ def test_every_check_code_the_section_lists_is_one_the_gates_raise() -> None:
     assert "benevolence" not in codes
 
 
+def test_the_section_names_everything_that_turns_a_gate_off() -> None:
+    """Was: "neither has a flag that turns it off", beside a flag that turns one off."""
+    from omni_mercury_engine import engine
+    from omni_mercury_engine.reasoning import backend
+
+    section = " ".join(_section("Hard-gate boundary contract").split())
+
+    assert "neither has a flag" not in section
+    # sigma_Immutable's one switch, and its default.
+    assert "_GOSNN_TESTING_BYPASS" in section
+    assert engine._GOSNN_TESTING_BYPASS is False
+    assert "if _GOSNN_TESTING_BYPASS:" in inspect.getsource(engine)
+    # The reasoning backend's, and its default.
+    assert "ethics_enabled=False" in section
+    parameters = inspect.signature(backend.ReasoningBackend.__init__).parameters
+    assert parameters["ethics_enabled"].default is True
+    # The harm gate reads nothing that could skip it.
+    gate_source = inspect.getsource(decision_gate)
+    assert "os.environ" not in gate_source and "getenv" not in gate_source
+    assert set(inspect.signature(decision_gate.enforce_decision_boundary).parameters) == {
+        "subject",
+        "advisory_scorer",
+        "harm_classifier",
+    }
+
+
+def test_the_reading_the_section_describes_is_the_one_the_gate_does() -> None:
+    section = " ".join(_section("Hard-gate boundary contract").split())
+
+    assert f"{decision_gate.MAX_SUBJECT_CHARS:,} characters" in section
+    assert f"{decision_gate.MAX_ASSESSED_CHARS:,} characters" in section
+    assert f'details["reason"] == "{decision_gate.UNASSESSABLE}"' in section
+
+
+def test_the_policy_names_the_ruleset_version_the_code_has() -> None:
+    """A cache of verdicts is thrown away on this number; the policy must not name an old one."""
+    from omni_mercury_engine.core.centralized_constants import ETHICAL
+
+    policy = (_REPO_ROOT / "docs" / "HARM_POLICY.md").read_text(encoding="utf-8")
+    stated = re.search(r"`RULESET_VERSION` is \*\*(\d+)\*\*", policy)
+
+    assert stated is not None
+    assert int(stated.group(1)) == ETHICAL.RULESET_VERSION
+
+
 def test_no_validation_is_claimed_that_was_not_entered() -> None:
     """The matrix says CAVP/CMVP was never entered; no sentence here may say otherwise."""
     assert "ACVP-validated" not in _SECURITY

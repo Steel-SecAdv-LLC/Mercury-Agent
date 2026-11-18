@@ -63,6 +63,13 @@ class HarmonicCoefficients:
         return cls(l_max=l_max, coefficients=array)
 
 
+#: Steps of a recurrence between rescalings. One step multiplies a value by at
+#: most ``sqrt(3) * 2`` going up in degree, or by ``sin(theta)`` -- as small as
+#: 1e-16 next to a pole -- building the seed; eight of either stay far inside
+#: the range of a float.
+_RESCALE_EVERY = 8
+
+
 class AssociatedLegendre:
     """Compute associated Legendre polynomials with numerical stability.
 
@@ -147,15 +154,30 @@ class AssociatedLegendre:
             a = sqrt((4 l^2 - 1)/(l^2 - m^2)),  b = sqrt(((l-1)^2 - m^2)/(4 (l-1)^2 - 1))
 
         The sign convention (Condon-Shortley) is the one :meth:`_compute_plm` has.
+
+        The result is of order one, but the steps toward it are not. The seed
+        carries ``sin^m``, which is below the smallest float for large ``m``
+        away from the equator, and the recurrence then climbs back from it: a
+        seed that had underflowed to zero stayed zero, and one that had gone
+        subnormal lost its digits, so that from about degree 1,900 the values
+        came back finite and wrong (their squared norm 0.82 at l = 2,500,
+        m = 1,000 and 6e252 at l = 3,000, m = 1,500, where it is 1). Each
+        point therefore carries a binary exponent beside its value, the pair
+        is rescaled whenever the value leaves the middle of the float range,
+        and the exponent is applied once at the end.
         """
         x = np.asarray(cos_theta, dtype=np.float64)
         sin_theta = np.sqrt(np.clip(1.0 - x**2, 0.0, None))
 
         value = np.full_like(x, math.sqrt(1.0 / (4.0 * math.pi)))
+        exponent = np.zeros(x.shape, dtype=np.int64)
         for k in range(1, m + 1):
             value = value * (-math.sqrt((2.0 * k + 1.0) / (2.0 * k))) * sin_theta
+            if k % _RESCALE_EVERY == 0 or k == m:
+                value, shift = np.frexp(value)
+                exponent = exponent + shift
         if degree == m:
-            return value.astype(self._dtype)
+            return np.ldexp(value, exponent).astype(self._dtype)
 
         below = value
         value = math.sqrt(2.0 * m + 3.0) * x * below
@@ -163,7 +185,13 @@ class AssociatedLegendre:
             a = math.sqrt((4.0 * ll * ll - 1.0) / (ll * ll - m * m))
             b = math.sqrt(((ll - 1.0) ** 2 - m * m) / (4.0 * (ll - 1.0) ** 2 - 1.0))
             below, value = value, a * (x * value - b * below)
-        return value.astype(self._dtype)
+            if (ll - m) % _RESCALE_EVERY == 0:
+                # One exponent for the pair: the recurrence is linear in it.
+                _, shift = np.frexp(np.maximum(np.abs(value), np.abs(below)))
+                value = np.ldexp(value, -shift)
+                below = np.ldexp(below, -shift)
+                exponent = exponent + shift
+        return np.ldexp(value, exponent).astype(self._dtype)
 
     def _compute_plm(
         self,

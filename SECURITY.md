@@ -506,9 +506,27 @@ Every public boundary surface
 independent mandatory hard gates**: the harm-uplift gate
 (`cognitive/decision_gate.py`), which reads the caller's whole request and
 payload, and σ_Immutable (configuration integrity). Each raises
-`EthicalConstraintViolationError(check=…)` on failure, and neither has a flag
-that turns it off. The `check=` codes these two raise are `"harm_uplift"`,
-`"sigma_immutable"` and `"gosnn_unavailable"`.
+`EthicalConstraintViolationError(check=…)` on failure. The `check=` codes
+these two raise are `"harm_uplift"`, `"sigma_immutable"` and
+`"gosnn_unavailable"`.
+
+What can turn a gate off, in full. The harm-uplift gate: nothing. It reads no
+flag, environment variable or argument that skips it. σ_Immutable: one
+module-level flag, `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS`, which is
+`False` unless a unit test sets it and which leaves the harm-uplift gate
+running; a deployment must check that it is `False`
+([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)). Outside these three surfaces, a
+reasoning backend constructed with `ethics_enabled=False` runs neither gate on
+what it generates; the default is `True`.
+
+How the harm-uplift gate reads a long input: the bounded description of the
+decision when that holds everything the caller said, otherwise all of the
+text in overlapping passages of 4,096 characters, each opening with the
+request when the request is short. A hazard and an intent are paired when one
+passage holds both; in a single text they are not paired across more than a
+passage. Past 1,048,576 characters of text the decision is refused unread
+(`details["reason"] == "unassessable"`, HTTP 413 on the detection and
+assessment routes).
 
 The benevolence score is **advisory**: it is computed, logged and attached to
 the verdict, and it decides nothing. This section said until 2026-11-18 that a

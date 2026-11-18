@@ -60,10 +60,17 @@ from __future__ import annotations
 import dataclasses
 import logging
 import re
-from collections import deque
-from collections.abc import Mapping as _Mapping
+import types
+from array import array
+from collections import UserString, deque
+from collections.abc import (
+    Mapping as _Mapping,
+    Sequence as _Sequence,
+)
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from enum import Enum
+from pathlib import PurePath
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
     USE_SHIPPED_CLASSIFIER,
@@ -88,14 +95,17 @@ logger = logging.getLogger(__name__)
 #: string cut at this length, on the stated ground that "a real uplift request
 #: cannot hide past it". It could. Each of the pillar suite's own red-team
 #: requests was permitted behind 4,640 characters of weather small-talk. The
-#: gate now reads all of the caller's text, as overlapping passages of this
-#: size (:meth:`DecisionSubject.passages`).
+#: gate now reads all of the caller's text: once whole, and, where that
+#: reading finds something, as overlapping passages of this size
+#: (:func:`enforce_decision_boundary`).
 MAX_SUBJECT_CHARS = 4096
 
 #: How much caller text one decision may carry. Past it the gate does not
 #: guess: the decision is refused, fail-closed, like any other it cannot
-#: evaluate. Reading is about 1.7 ms per thousand characters, so this bounds
-#: one decision at roughly two seconds.
+#: evaluate. Reading it whole is about 1.1 ms per thousand characters, so
+#: this bounds a decision with nothing in it at roughly one second; one with
+#: hazard vocabulary in it is read again as passages, about 2.5 ms per
+#: thousand more.
 MAX_ASSESSED_CHARS = 1_048_576
 
 #: How many values of a structured payload the gate will walk looking for
@@ -144,6 +154,10 @@ _SEQUENCES: tuple[type, ...] = (
 #: a number written out) has no word in it for the gate to read.
 _WORD = re.compile(r"[^\W\d_]{2}")
 
+#: A run of printable ASCII inside bytes that are not text: what ``strings``
+#: would show of them.
+_PRINTABLE_RUN = re.compile(rb"[\x20-\x7e]{8,}")
+
 
 class UnassessableSubjectError(ValueError):
     """The decision carries more than the gate can read; it must be refused."""
@@ -153,42 +167,87 @@ def _object_text(payload: Any) -> list[Any] | None:
     """What an object that is not a plain container holds, or ``None`` if nothing is read.
 
     A float matrix has no words in it and is summarised by its shape. An array
-    of strings or objects, the text columns of a data frame, and the fields of
-    a dataclass or a pydantic model are the caller's words in another
-    container. Summarised by shape or by type name they went unread: the
-    reasoning backend hands the gate a ``ReasoningContext``, which it saw as
-    the single word ``ReasoningContext`` while the evidence inside went on to
-    a language model.
+    of strings or objects, the text columns of a data frame, the fields of a
+    dataclass or a pydantic model, the attributes of a plain object, the
+    arguments of an exception, a path and the name and value of an enum
+    member are the caller's words in another container. Summarised by shape
+    or by type name they went unread: the reasoning backend hands the gate a
+    ``ReasoningContext``, which it saw as the single word ``ReasoningContext``
+    while the evidence inside went on to a language model.
 
-    An object of none of these kinds, or one of them that cannot be read the
-    way its kind is read, is opaque and stays its type name, as it always
-    was: this never raises, so that an odd object is not a way to have a
-    decision refused.
+    What is left opaque, and stays its type name as it always was: a class, a
+    module, a function (their attributes are code, not what a caller said),
+    and a generator or any other one-shot iterator, which cannot be read
+    without using it up for the surface it was passed to. One of the kinds
+    above that cannot be read the way its kind is read is opaque too: this
+    never raises, so that an odd object is not a way to have a decision
+    refused.
     """
     try:
-        if dataclasses.is_dataclass(payload) and not isinstance(payload, type):
-            return [getattr(payload, f.name, None) for f in dataclasses.fields(payload)]
+        if isinstance(payload, (type, types.ModuleType, range)):
+            return None
+        if isinstance(payload, PurePath):
+            return [str(payload)]
+        if isinstance(payload, Enum):
+            return [payload.name, payload.value]
+        if isinstance(payload, array):
+            return [payload.tounicode()] if payload.typecode in "uw" else None
+        if isinstance(payload, UserString):
+            return [str(payload)]
+        if hasattr(type(payload), "dtypes") and hasattr(type(payload), "columns"):  # a frame
+            return _frame_text(payload)
+        kind = getattr(getattr(payload, "dtype", None), "kind", None)
+        if isinstance(kind, str):
+            # "V" is a structured array: its fields can be strings.
+            held = [_as_list(payload)] if kind in _TEXT_KINDS else []
+            return held + _index_text(payload)
+        if isinstance(payload, _Sequence):
+            # As a plain list, which is walked like any other: numbers in one
+            # pass, and within the same budget.
+            return [list(payload)]
+        values: list[Any] = []
+        if dataclasses.is_dataclass(payload):
+            values.extend(getattr(payload, f.name, None) for f in dataclasses.fields(payload))
         # Looked up on the type: an instance that answers to any name at all (a
         # mock, a proxy) is not thereby a pydantic model.
         if callable(getattr(type(payload), "model_dump", None)):
-            return [payload.model_dump()]
-        if hasattr(type(payload), "dtypes") and hasattr(type(payload), "columns"):  # a frame
-            names = list(payload.columns)
-            values: list[Any] = [str(name) for name in names]
-            values.extend(_index_text(payload))
-            for name in names:
-                column = payload[name]
-                if getattr(getattr(column, "dtype", None), "kind", "O") in _TEXT_KINDS:
-                    values.extend(_as_list(column))
-            return values
-        kind = getattr(getattr(payload, "dtype", None), "kind", None)
-        if not isinstance(kind, str):
-            return None
-        # "V" is a structured array: its fields can be strings.
-        held = [_as_list(payload)] if kind in _TEXT_KINDS else []
-        return held + _index_text(payload)
+            values.append(payload.model_dump())
+        if isinstance(payload, BaseException):
+            values.extend(payload.args)
+        if callable(payload):  # a function, a partial, a mock: code, not a record
+            return values or None
+        # The instance's own attributes, by value (their names are the code's
+        # words, not the caller's): a plain object's fields, and the ones a
+        # model leaves out of what it dumps.
+        attributes = getattr(payload, "__dict__", None)
+        if isinstance(attributes, dict):
+            values.extend(attributes.values())
+        for owner in type(payload).__mro__:
+            slots = owner.__dict__.get("__slots__", ())
+            for name in (slots,) if isinstance(slots, str) else slots:
+                values.append(getattr(payload, name, None))
+        return values or None
     except Exception:
         return None
+
+
+def _frame_text(frame: Any) -> list[Any]:
+    """The column names, row labels and text columns of a data frame.
+
+    Columns are taken by position. Taken by name, a frame with two columns of
+    one name gave back a frame where a column was expected, the read failed,
+    and the whole frame went through as its type name.
+    """
+    values: list[Any] = [str(name) for name in frame.columns]
+    values.extend(_index_text(frame))
+    if callable(getattr(type(frame), "get_columns", None)):  # polars
+        columns = frame.get_columns()
+    else:  # pandas
+        columns = [column for _, column in frame.items()]
+    for column in columns:
+        if getattr(getattr(column, "dtype", None), "kind", "O") in _TEXT_KINDS:
+            values.extend(_as_list(column))
+    return values
 
 
 #: dtype kinds that can hold text: object, unicode, bytes, the string dtype, and
@@ -213,15 +272,30 @@ def _as_list(values: Any) -> list[Any]:
     return listed
 
 
+def _bytes_text(raw: bytes) -> str:
+    """The text in ``raw``: all of it when it is UTF-8, else its printable runs.
+
+    Bytes that are not text used to be decoded as though they were, every
+    undecodable byte becoming a replacement character: a megabyte of
+    compressed or random data counted as a megabyte of text, was refused for
+    its size, and below that size was scored as noise.
+    """
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return " ".join(run.decode("ascii") for run in _PRINTABLE_RUN.findall(raw))
+
+
 def payload_text(payload: Any) -> list[str]:
     """Every piece of text in ``payload``, however deep and however far along.
 
     :func:`summarize_payload` is a bounded description for the audit record:
     the first 24 keys, the first 512 characters of a string, six levels. The
     gate cannot decide on a description that leaves text out, so it reads this
-    instead: every string value, every string key, bytes as text, and the
-    string cells of arrays and data frames. Numbers carry no words and are
-    skipped.
+    instead: every string value, every string key, bytes that are text (and
+    the printable runs of bytes that are not), the string cells of arrays and
+    data frames, and what :func:`_object_text` reads of an object. Numbers
+    carry no words and are skipped.
 
     Raises:
         UnassessableSubjectError: When the payload holds more text than
@@ -251,7 +325,7 @@ def payload_text(payload: Any) -> list[str]:
         if value is None or isinstance(value, (bool, int, float, complex)):
             continue
         if isinstance(value, (bytes, bytearray, memoryview)):
-            value = bytes(value).decode("utf-8", errors="replace")
+            value = _bytes_text(bytes(value))
         if isinstance(value, str):
             # Read once, however often it occurs, and only if it could hold a
             # word. The keys of 45,000 records are three strings, and 60,000
@@ -294,15 +368,15 @@ def payload_text(payload: Any) -> list[str]:
     return found
 
 
-def _windows(text: str, size: int) -> list[str]:
-    """``text`` as passages of ``size`` that overlap by half.
+def _spans(length: int, size: int) -> list[tuple[int, int]]:
+    """``[start, end)`` of the passages of ``size`` that cover ``length``, overlapping by half.
 
-    Any stretch of text up to half a passage long lies whole inside at least
-    one of them, so a request cannot be cut in two at a boundary.
+    Any stretch up to half a passage long lies whole inside at least one of
+    them, so a request is not cut in two at every boundary it meets.
     """
     stride = max(size // 2, 1)
-    last_start = max(len(text) - (size - stride), 1)
-    return [text[start : start + size] for start in range(0, last_start, stride)]
+    last_start = max(length - (size - stride), 1)
+    return [(start, min(start + size, length)) for start in range(0, last_start, stride)]
 
 
 def summarize_payload(payload: Any, *, _depth: int = 0) -> str:
@@ -378,7 +452,7 @@ class DecisionSubject:
             :func:`~omni_mercury_engine.cognitive.ethical_bounding.sanitize_domain`
             so a hostile hint cannot inject either harm or allow keywords.
         request: The caller's own free text, verbatim (a query, a payload, a
-            file path).  Empty when the surface takes no text.
+            file path).  Empty, or ``None``, when the surface takes no text.
         payload: The caller's structured input; summarised by
             :func:`summarize_payload`.
         context: Extra structured provenance passed to the gate (e.g.
@@ -410,43 +484,97 @@ class DecisionSubject:
         scored.
         """
         parts = [f"{self.surface}: {self.operation}", f"domain={sanitize_domain(self.domain)}"]
-        if self.request:
-            parts.append(f"request={self.request}")
+        request = self._request()
+        if request:
+            parts.append(f"request={request}")
         summary = summarize_payload(self.payload)
         if summary:
             parts.append(f"input={summary[:_MAX_PAYLOAD_SUMMARY_CHARS]}")
         return " | ".join(parts)[:MAX_SUBJECT_CHARS]
 
-    def passages(self) -> list[str]:
-        """Everything the caller said, as the passages the harm gate scores.
+    def _request(self) -> str:
+        """The request as text. ``None`` is no request, as it was before the gate measured it."""
+        if isinstance(self.request, str):
+            return self.request
+        return "" if self.request is None else str(self.request)
 
-        The first is :meth:`describe`. When that holds all of the caller's
-        text it is the only one, and the gate decides exactly as it did. When
-        it does not -- the request runs past :data:`MAX_SUBJECT_CHARS`, or the
-        payload holds text its bounded summary leaves out -- the whole request
-        and the whole text of the payload follow, each as overlapping passages
-        under the same ``surface: operation | domain=`` heading.
+    def _reading(self) -> _Reading:
+        """Everything the caller said, laid out for :func:`enforce_decision_boundary`.
 
         Raises:
             UnassessableSubjectError: When the caller's text exceeds what the
                 gate will read (:data:`MAX_ASSESSED_CHARS`).
         """
         first = self.describe()
-        passages = [first]
+        request = self._request()
         texts = payload_text(self.payload)
-        if len(self.request) + sum(map(len, texts)) > MAX_ASSESSED_CHARS:
+        if len(request) + sum(map(len, texts)) > MAX_ASSESSED_CHARS:
             raise UnassessableSubjectError(
                 f"the decision carries more than {MAX_ASSESSED_CHARS:,} characters of text"
             )
         heading = f"{self.surface}: {self.operation} | domain={sanitize_domain(self.domain)}"
-        room = max(MAX_SUBJECT_CHARS - len(heading) - len(" | request="), 1024)
-        if self.request and f"request={self.request}" not in first:
-            passages.extend(f"{heading} | request={part}" for part in _windows(self.request, room))
-        if texts and not (len(texts) <= _MAX_KEYS and all(text in first for text in texts)):
-            passages.extend(
-                f"{heading} | input={part}" for part in _windows(", ".join(texts), room)
-            )
-        return passages
+        if (not request or f"request={request}" in first) and (
+            len(texts) <= _MAX_KEYS and all(text in first for text in texts)
+        ):
+            return _Reading(first=first, lead=heading, body=None)
+        said = ", ".join(texts)
+        if len(request) > _MAX_VALUE_CHARS:
+            # A request this long is read as the payload is: in passages.
+            body = f"request={request} | input={said}" if said else f"request={request}"
+            return _Reading(first=first, lead=f"{heading} | ", body=body)
+        # A short request is what the caller asks of the payload, so it opens
+        # every passage of it: "how do I make it" is put to the agent named in
+        # the last row as it is to the one named in the first.
+        asked = f"request={request} | " if request else ""
+        return _Reading(first=first, lead=f"{heading} | {asked}input=", body=said)
+
+    def passages(self) -> list[str]:
+        """Everything the caller said, as passages of :data:`MAX_SUBJECT_CHARS`.
+
+        When :meth:`describe` holds all of the caller's text it is the only
+        one. When it does not -- the request runs past
+        :data:`MAX_SUBJECT_CHARS`, or the payload holds text its bounded
+        summary leaves out -- the text is cut into overlapping passages under
+        the same ``surface: operation | domain=`` heading, each opening with
+        the request when the request is short.
+
+        Raises:
+            UnassessableSubjectError: When the caller's text exceeds what the
+                gate will read (:data:`MAX_ASSESSED_CHARS`).
+        """
+        reading = self._reading()
+        if reading.body is None:
+            return [reading.first]
+        return [reading.passage(start, end) for start, end in reading.spans()]
+
+
+@dataclass(frozen=True)
+class _Reading:
+    """What the gate scores of one decision.
+
+    Attributes:
+        first: :meth:`DecisionSubject.describe`: the bounded description that
+            is audited.
+        lead: What every passage opens with: the heading, and a short request.
+        body: The text that is cut into passages, when ``first`` does not hold
+            all the caller said; ``None`` when it does.
+    """
+
+    first: str
+    lead: str
+    body: str | None
+
+    def whole(self) -> str:
+        """The decision in one string, everything the caller said included."""
+        return self.first if self.body is None else self.lead + self.body
+
+    def spans(self) -> list[tuple[int, int]]:
+        """Where in ``body`` each passage lies."""
+        return _spans(len(self.body or ""), max(MAX_SUBJECT_CHARS - len(self.lead), 1024))
+
+    def passage(self, start: int, end: int) -> str:
+        """``body[start:end]`` under the lead."""
+        return self.lead + (self.body or "")[start:end]
 
 
 #: The response ladder, least restrictive first (``WeaponsDisposition``'s own order).
@@ -482,6 +610,114 @@ class BoundaryVerdict:
     def requires_provenance(self) -> bool:
         """True when the permit is conditional on source attribution."""
         return self.assessment.disposition is WeaponsDisposition.ALLOW_PROVENANCE
+
+
+def _assess(
+    reading: _Reading, context: dict[str, Any], harm_classifier: Any
+) -> tuple[str, WeaponsRiskAssessment]:
+    """Score one decision: the text to quote for it, and the assessment that stands.
+
+    A decision whose bounded description holds all the caller said is scored
+    as that description, as it always was.
+
+    A longer one is read whole first. When that finds no hazard vocabulary
+    and no offensive intent anywhere, no part of it can, and the decision is
+    permitted there: one reading, where passages take two and a half.
+
+    When it finds something, the verdict is the passages'. The gate pairs a
+    hazard with an intent inside the text it is handed, and what a passage
+    pairs was said together; what the whole text pairs may be a production
+    phrase on one page and a hazard word forty pages on. Measured on 67
+    encyclopedia articles (``research/harm_gate_long_text``): pairing at any
+    distance refused 4 of 37 on general subjects, each on such a pair, where
+    passages refuse none. So cues further apart than a passage are not paired --
+    the locality of every sliding-window control in ``docs/HARM_POLICY.md`` --
+    with one exception that is not a matter of distance: a short request is
+    put to every passage of the payload (:meth:`DecisionSubject._reading`).
+
+    A passage is cut where its length runs out, which can be in the middle of
+    a phrase: "make a nerve agent | detector" reads as production of the
+    agent. So a passage that blocks is read again with its neighbours; if the
+    longer run does not block, the cut did it, and the longer reading stands.
+    The most restrictive passage decides, and is what a refusal quotes.
+    """
+
+    def score(text: str) -> WeaponsRiskAssessment:
+        return assess_weapons_uplift(text, context, harm_classifier=harm_classifier)
+
+    if reading.body is None:
+        return reading.first, score(reading.first)
+    whole = score(reading.whole())
+    if _nothing_found(whole):
+        return reading.first, whole
+
+    spans = reading.spans()
+    worst: tuple[str, WeaponsRiskAssessment] | None = None
+    for position, (start, end) in enumerate(spans):
+        passage = reading.passage(start, end)
+        scored = score(passage)
+        if scored.blocks and len(spans) > 1:
+            around = reading.passage(
+                spans[max(position - 1, 0)][0], spans[min(position + 1, len(spans) - 1)][1]
+            )
+            scored = min(scored, score(around), key=_restriction)
+        if worst is None or _restriction(scored) > _restriction(worst[1]):
+            worst = (passage, scored)
+            if scored.disposition is WeaponsDisposition.HARD_REFUSE:
+                break  # nothing later can be more restrictive
+    if worst is None:  # pragma: no cover - a body always has a passage
+        raise RuntimeError("no passage was scored")
+    return worst if worst[1].blocks else (reading.first, worst[1])
+
+
+def _restriction(assessment: WeaponsRiskAssessment) -> int:
+    """Where an assessment stands on the response ladder."""
+    return _RESTRICTION[assessment.disposition]
+
+
+def _nothing_found(assessment: WeaponsRiskAssessment) -> bool:
+    """No hazard vocabulary and no offensive intent: a plain permit with nothing behind it."""
+    return (
+        assessment.disposition is WeaponsDisposition.ALLOW
+        and assessment.hazard_domain is HazardDomain.NONE
+        and not assessment.signals
+    )
+
+
+def _refuse_unassessed(
+    subject: DecisionSubject,
+    *,
+    reason: str,
+    unassessable: bool = False,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    """Record and raise the refusal of a decision the gate did not get to assess."""
+    surface = f"{subject.surface}:{subject.operation}"
+    details: dict[str, Any] = {
+        "surface": subject.surface,
+        "domain": sanitize_domain(subject.domain),
+        "error": reason,
+        "fail_closed": True,
+    }
+    if unassessable:
+        details["reason"] = UNASSESSABLE
+    record_gate_decision(
+        decision="refused",
+        source="decision_boundary",
+        disposition=WeaponsDisposition.HARD_REFUSE.value,
+        signals=("unassessable_subject" if unassessable else "gate_error",),
+        reason=reason,
+        query=surface,
+        extra={"surface": subject.surface, "domain": sanitize_domain(subject.domain)},
+    )
+    raise EthicalConstraintViolationError(
+        action=surface, score=0.0, threshold=1.0, check="harm_uplift", details=details
+    ) from cause
+
+
+#: ``details["reason"]`` of a refusal made because the decision carries more
+#: than the gate reads, as against one made on what it read.
+UNASSESSABLE = "unassessable"
 
 
 def enforce_decision_boundary(
@@ -522,26 +758,20 @@ def enforce_decision_boundary(
             unexpectedly.
     """
     try:
-        # Every passage is scored. The first that blocks decides, and is what
-        # the refusal and its audit record quote; otherwise the most
-        # restrictive permit stands (a later passage that needs its answer
-        # sourced makes the whole decision need it).
-        action = subject.describe()
-        assessment: WeaponsRiskAssessment | None = None
-        for passage in subject.passages():
-            scored = assess_weapons_uplift(
-                passage, dict(subject.context), harm_classifier=harm_classifier
-            )
-            if scored.blocks:
-                action, assessment = passage, scored
-                break
-            if (
-                assessment is None
-                or _RESTRICTION[scored.disposition] > _RESTRICTION[assessment.disposition]
-            ):
-                assessment = scored
-        if assessment is None:  # pragma: no cover - passages() is never empty
-            raise RuntimeError("no passage was scored")
+        reading = subject._reading()
+        action, assessment = _assess(reading, dict(subject.context), harm_classifier)
+    except UnassessableSubjectError as exc:
+        # Not an accident inside the gate: the caller sent more than it reads.
+        # Refused like anything else it cannot evaluate, but said plainly and
+        # put on the audit trail, where it used to be an ERROR with a
+        # traceback and no record.
+        logger.warning(
+            "decision boundary %s (domain=%s): refused, %s",
+            subject.surface,
+            sanitize_domain(subject.domain),
+            exc,
+        )
+        _refuse_unassessed(subject, reason=str(exc), unassessable=True)
     except Exception as exc:
         # Fail closed. Never return normally on an error path: an exception in
         # the gate must read as "refused", not as "allowed".
@@ -551,25 +781,14 @@ def enforce_decision_boundary(
         # user input (credentials in a scanned payload, patient text, an
         # intercepted attacker body) into an unstructured error log with a
         # different retention and access policy than the audit trail, and would
-        # emit up to MAX_SUBJECT_CHARS per failure. The full detail still
-        # reaches the structured refusal below and the gate audit record.
+        # emit up to MAX_SUBJECT_CHARS per failure. The refusal and the gate
+        # audit record name the error and nothing of the caller's.
         logger.exception(
             "decision boundary %s (domain=%s): gate evaluation failed; failing closed",
             subject.surface,
             sanitize_domain(subject.domain),
         )
-        raise EthicalConstraintViolationError(
-            action=f"{subject.surface}:{subject.operation}",
-            score=0.0,
-            threshold=1.0,
-            check="harm_uplift",
-            details={
-                "surface": subject.surface,
-                "domain": sanitize_domain(subject.domain),
-                "error": f"{type(exc).__name__}: {exc}",
-                "fail_closed": True,
-            },
-        ) from exc
+        _refuse_unassessed(subject, reason=f"{type(exc).__name__}: {exc}", cause=exc)
 
     if assessment.blocks:
         record_gate_decision(
@@ -625,6 +844,7 @@ __all__ = [
     "MAX_ASSESSED_CHARS",
     "MAX_ASSESSED_NODES",
     "MAX_SUBJECT_CHARS",
+    "UNASSESSABLE",
     "BoundaryVerdict",
     "DecisionSubject",
     "HazardDomain",

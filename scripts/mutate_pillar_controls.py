@@ -97,9 +97,31 @@ MUTATIONS: tuple[Mutation, ...] = (
         patch="""
         import omni_mercury_engine.cognitive.decision_gate as g
 
-        g.DecisionSubject.passages = lambda self: [self.describe()]
+        g.DecisionSubject._reading = lambda self: g._Reading(
+            first=self.describe(), lead="", body=None
+        )
         """,
         selection="tests/pillars/test_non_maleficence.py",
+    ),
+    Mutation(
+        name="a short request is not put to the rest of the payload",
+        pillar="non-maleficence (what is asked is asked of all of it)",
+        patch="""
+        import omni_mercury_engine.cognitive.decision_gate as g
+
+        g._MAX_VALUE_CHARS = -1
+        """,
+        selection="tests/pillars/test_non_maleficence.py",
+    ),
+    Mutation(
+        name="a hazard term matches as letters inside other words",
+        pillar="non-maleficence (an ordinary request is not refused)",
+        patch="""
+        import omni_mercury_engine.cognitive.harm_normalization as n
+
+        n._occurs = lambda haystack, form: form in haystack
+        """,
+        selection="tests/ethical/test_weapons_gate_word_alignment.py",
     ),
     Mutation(
         name="decision boundary swallows its own refusal",

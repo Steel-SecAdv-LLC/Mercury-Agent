@@ -295,7 +295,7 @@ def test_mlkem1024_does_not_return_the_secret_for_a_changed_ciphertext() -> None
 
 
 def test_what_these_vectors_cover_is_counted_not_assumed() -> None:
-    """Fifteen vectors are reproduced; the three encapsulation ones are not, and why."""
+    """Eighteen vectors are reproduced; the three encapsulation ones are not, and why."""
     data = _load_curated()
     used = {
         ("ML-DSA-65", "keyGen"),

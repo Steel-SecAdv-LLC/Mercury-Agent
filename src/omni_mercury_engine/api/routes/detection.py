@@ -75,6 +75,23 @@ def _record_text(records: list[dict[str, Any]]) -> str:
     return " ".join(parts)
 
 
+def _raise_if_too_large_to_assess(refusal: Exception) -> None:
+    """Answer 413 when the gate refused a request for carrying more text than it reads.
+
+    The refusal is the harm gate's and keeps its check code. But it is about
+    how much was sent, not about what it said, and a 403 naming the harm gate
+    gave the caller nothing to act on.
+    """
+    from omni_mercury_engine.cognitive.decision_gate import UNASSESSABLE
+
+    details = getattr(refusal, "details", None) or {}
+    if details.get("reason") == UNASSESSABLE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Request not assessed by the harm-uplift decision gate: {details.get('error')}.",
+        ) from refusal
+
+
 def _served_flagship_engine() -> Any:
     """Return the served flagship engine, building it once. Hold ``_flagship_lock``.
 
@@ -420,6 +437,7 @@ async def detect_neurosymbolic(
     except EthicalConstraintViolationError as e:
         # Fail closed: the harm-uplift gate refused this request.
         logger.warning("Neuro-symbolic detection blocked by harm-uplift gate '%s'", e.check)
+        _raise_if_too_large_to_assess(e)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Request refused by the harm-uplift decision gate (check={e.check}).",
@@ -1002,6 +1020,7 @@ async def detect_flagship(
     except EthicalConstraintViolationError as e:
         # Fail closed: the flagship refused this input at a hard ethical gate.
         logger.warning("Flagship detection blocked by ethical gate '%s'", e.check)
+        _raise_if_too_large_to_assess(e)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Detection blocked by the '{e.check}' ethical gate.",

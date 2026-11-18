@@ -144,7 +144,10 @@ class ReasoningBackend(abc.ABC):
         Mirrors the narrative-voice contract: the harm-uplift gate first,
         σ_Immutable second, both fail-closed. On violation the call raises
         and no generated content is surfaced. The gate reads the whole
-        context, the evidence included: that is what goes on to the model.
+        context, and the evidence a second time as the text every prompt
+        here carries it as (``str``): an exception, or any object that only
+        says what it holds when printed, reaches the model as that text and
+        was read by the gate as a type name.
 
         Args:
             boundary: Fully-qualified boundary name for the audit trail.
@@ -161,7 +164,7 @@ class ReasoningBackend(abc.ABC):
                 operation="generate a natural-language explanation of a Mercury finding",
                 domain=safe_domain,
                 request=str(context.summary or ""),
-                payload=context,
+                payload=(context, str(context.evidence)),
             ),
             sigma_gate=self._sigma_gate,
             advisory_scorer=self._benevolence_scorer,

@@ -276,16 +276,19 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
     return status, raw.decode(charset, errors="replace"), final_url
 
 
-#: Upper bound on the text handed to the harm screen per fetched page. The gate
-#: runs several O(n) normalization passes plus per-run word-boundary recovery, so
-#: an attacker-fetched page filled to :data:`_DEFAULT_MAX_BYTES` (2 MB) with
-#: per-character-spaced filler is a ~2 s CPU sink on the screen itself. A fetched
-#: page is untrusted input, so the screen scans a bounded prefix -- the gate's
-#: own decision-boundary surfaces already bound their subject to 4096 chars for
-#: the same reason. 256 KiB covers the substantive text of virtually every real
-#: page while capping the worst case to a few hundred ms; genuine weapons-cookbook
-#: content is dense and does not hide only past a quarter-megabyte of benign
-#: padding.
+#: Upper bound on the text of one fetched page: what the harm screen reads, and
+#: what :meth:`WebResearcher.fetch_text` hands on once a screen is configured.
+#: The gate runs several O(n) normalization passes plus per-run word-boundary
+#: recovery, so an attacker-fetched page filled to :data:`_DEFAULT_MAX_BYTES`
+#: (2 MB) with per-character-spaced filler is a ~2 s CPU sink on the screen
+#: itself. A fetched page is untrusted input, so the screen reads a bounded
+#: prefix; 256 KiB covers the substantive text of virtually every real page
+#: while capping the worst case to a few hundred ms.
+#:
+#: The page used to be returned whole all the same, marked ``screened``, on the
+#: ground that "genuine weapons-cookbook content is dense and does not hide
+#: only past a quarter-megabyte of benign padding". Whoever wrote the page
+#: decides what it is padded with. The part that was not read is not returned.
 _HARM_SCREEN_MAX_CHARS = 262_144
 
 
@@ -304,7 +307,8 @@ def default_content_gate(text: str, harm_classifier: Any | None = None) -> tuple
     The text is bounded to :data:`_HARM_SCREEN_MAX_CHARS` before scoring: a
     fetched page is untrusted and can be up to :data:`_DEFAULT_MAX_BYTES`, and the
     gate's normalization is linear in its input, so an unbounded screen is a
-    self-inflicted CPU DoS on a crafted page.
+    self-inflicted CPU DoS on a crafted page. :meth:`WebResearcher.fetch_text`
+    returns no more of a page than that.
     """
     try:
         from omni_mercury_engine.cognitive.ethical_bounding import assess_weapons_uplift
@@ -456,6 +460,8 @@ class WebResearcher:
         if result.ok:
             result.text = self.extract_text(result.text)
             if self.content_gate is not None and result.text:
+                # Only what the screen reads goes on to a consumer.
+                result.text = result.text[:_HARM_SCREEN_MAX_CHARS]
                 result.screened = True
                 try:
                     blocked, note = self.content_gate(result.text)

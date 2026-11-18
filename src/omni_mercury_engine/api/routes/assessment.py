@@ -113,9 +113,19 @@ async def _run(call: Callable[..., dict[str, Any]], *args: Any, **kwargs: Any) -
         result: dict[str, Any] = await run_in_threadpool(call, *args, **kwargs)
         return result
     except EthicalConstraintViolationError as exc:
+        from omni_mercury_engine.cognitive.decision_gate import UNASSESSABLE
+
+        # More text than the gate reads is a refusal about size, and says so.
+        too_large = exc.details.get("reason") == UNASSESSABLE
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"refused": True, "check": exc.check, "reason": str(exc)},
+            status_code=(
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE if too_large else status.HTTP_403_FORBIDDEN
+            ),
+            detail={
+                "refused": True,
+                "check": exc.check,
+                "reason": str(exc.details.get("error")) if too_large else str(exc),
+            },
         ) from exc
     except ConsentRequiredError as exc:
         raise HTTPException(

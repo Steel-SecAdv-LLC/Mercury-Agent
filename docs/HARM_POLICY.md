@@ -146,7 +146,11 @@ Axis-B intent analysis, it does not refuse on its own.
 **Obfuscation and language resistance.** Axis A matches over an obfuscation-
 normalized bundle (homoglyph fold, leetspeak fold, zero-width stripping, and both
 whole- and word-boundary-preserving separator collapse), so `n3rv3 ag3nt`,
-Cyrillic-glyph spoofing, `s a r i n`, and `n.e.r.v.e a.g.e.n.t` all route. The
+Cyrillic-glyph spoofing, `s a r i n`, and `n.e.r.v.e a.g.e.n.t` all route. A term
+routes where it could be the term, not wherever its letters occur: at the edge of
+a word, or, with the separators removed, from the start of one piece of the text
+to the end of one. "Pricing" does not hold ricin and "so many" does not hold
+soman (both did, and "how to make pricing tables" was refused). The
 Axis-A lexicon and the core Axis-B offensive cues carry taxonomy-level terms in the
 world's most widely spoken languages (native script + Latin transliteration). This
 lexical multilingual/obfuscation layer is high-recall routing; meaning-level
@@ -183,8 +187,9 @@ for **weapons and mass-casualty uplift**, which is the scope it was built for.
 from nothing else; `HarmReducer.evaluate_harm` raises the `PHYSICAL` /
 `SOCIETAL` harm categories on a blocking disposition (max-only — fail-closed,
 never lowering). The `EthicalScore` surfaces `hazard_domain`,
-`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **9**
-(the agentive-frame lexicon of §5a and its corrections), invalidating cached verdicts.
+`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **10**
+(the agentive-frame lexicon of §5a and its corrections, then word-aligned term
+matching), invalidating cached verdicts.
 
 ### 5a. The second enforced signal — grave harm directed at a person
 

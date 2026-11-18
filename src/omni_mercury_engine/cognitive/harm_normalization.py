@@ -206,6 +206,42 @@ def _collapse(folded: str) -> str:
     return _COLLAPSE_RE.sub("", folded)
 
 
+#: What :data:`_COLLAPSE_RE` keeps: a run of it is one piece of the collapsed text.
+_PIECE_RE = re.compile(r"[a-z0-9\x80-\uffff]+")
+
+
+def _piece_edges(folded: str) -> bytearray:
+    """For each offset of ``_collapse(folded)`` and one past its end, whether a piece starts there.
+
+    The collapsed text is its pieces run together. A flagged offset is where
+    one piece ended and the next began, which is the only place a term put
+    back together from spaced-out letters can start or stop.
+    """
+    edges = bytearray()
+    for piece in _PIECE_RE.finditer(folded):
+        edges.append(1)
+        edges.extend(bytes(len(piece.group(0)) - 1))
+    edges.append(1)
+    return edges
+
+
+class Haystack(str):
+    """The bundle of :func:`normalized_haystack`, with where its collapsed variants lie.
+
+    A plain string to everything that searches it. :func:`term_in_haystack`
+    reads :attr:`collapsed` as well, to tell a term a writer spaced out from
+    one that only appears once the spaces between ordinary words are gone.
+
+    Attributes:
+        collapsed: ``(start, end, edges)`` for each collapsed variant in the
+            bundle: its span, and :func:`_piece_edges` of the text it was
+            collapsed from.
+    """
+
+    __slots__ = ("collapsed",)
+    collapsed: tuple[tuple[int, int, bytearray], ...]
+
+
 def _punct_strip(folded: str) -> str:
     """Drop intra-word punctuation but keep word boundaries (dotted multi-words)."""
     return _WHITESPACE_RE.sub(" ", _PUNCT_RE.sub("", folded)).strip()
@@ -659,19 +695,40 @@ def normalized_haystack(text: str) -> str:
         # Phonetic-Cyrillic variant: transliterate then apply the same folds, so a
         # phonetic Cyrillic obfuscation (Cyrillic н/р/в mixed with leetspeak) also
         # normalizes toward Latin. Skipped when there is no Cyrillic (no cost).
+        # Each variant, and for a collapsed one the text it was collapsed from.
+        ordered: list[tuple[str, str | None]] = [
+            (base, None),
+            (folded, None),
+            (despaced, None),
+            (rejoined, None),
+            (collapsed, folded),
+        ]
         translit = _cyrillic_translit(base)
-        translit_variants: tuple[str, ...] = ()
         if translit != base:
             t_folded = _fold_obfuscation(translit)
-            translit_variants = (t_folded, _collapse(t_folded), _punct_strip(t_folded))
-        # De-dup identical variants to keep the haystack compact.
+            ordered += [
+                (t_folded, None),
+                (_collapse(t_folded), t_folded),
+                (_punct_strip(t_folded), None),
+            ]
+        # De-dup identical variants to keep the haystack compact. A collapsed
+        # variant is recorded with the edges of its pieces; one that equals a
+        # variant already present had no separators to lose and is that
+        # variant, words and all.
         seen: set[str] = set()
         variants: list[str] = []
-        for v in (base, folded, despaced, rejoined, collapsed, *translit_variants):
+        glued: list[tuple[int, int, bytearray]] = []
+        offset = 0
+        for v, collapsed_from in ordered:
             if v and v not in seen:
                 seen.add(v)
                 variants.append(v)
-        return "\n".join(variants)
+                if collapsed_from is not None:
+                    glued.append((offset, offset + len(v), _piece_edges(collapsed_from)))
+                offset += len(v) + 1
+        bundle = Haystack("\n".join(variants))
+        bundle.collapsed = tuple(glued)
+        return bundle
     except Exception:
         return (text or "").lower()
 
@@ -761,7 +818,61 @@ def term_in_haystack(haystack: str, forms: tuple[str, ...]) -> bool:
     Returns:
         ``True`` if the term is present in *any* normalization variant.
     """
-    return any(form in haystack for form in forms)
+    return any(_occurs(haystack, form) for form in forms)
+
+
+def _occurs(haystack: str, form: str) -> bool:
+    """Whether ``form`` occurs in ``haystack`` as a term, not as letters inside other words.
+
+    A substring test alone found "ricin" in "pricing" and, in the collapsed
+    variant, "soman" in "so many" and "tatp" in "what a tp-link": "how to make
+    pricing tables" and "how do I make so many cookies" were refused as
+    production of a biological and of a chemical agent. So an occurrence
+    counts only where it could be the term:
+
+    * in a variant that keeps its words, when it touches the edge of a word on
+      at least one side. "neurotoxin", "toxins" and "sarin-based" hold the
+      term; "pricing" has it strictly inside;
+    * in a collapsed variant, when it starts where a piece of the original
+      text starts and ends where one ends. ``s a r i n`` and ``sa rin`` do;
+      "so many" ends inside "many".
+
+    Only a Latin letter or a digit beside the occurrence is the inside of a
+    word: scripts written without spaces between words are matched as before.
+
+    What this gives up: a term with other letters on both sides of it
+    (``xsarinx``) routed, as any substring did, and no longer does.
+    """
+    at = haystack.find(form)
+    if at < 0:
+        return False  # nearly every term on nearly every text: one scan and out
+    collapsed = getattr(haystack, "collapsed", ())
+    size = len(form)
+    while at >= 0:
+        end = at + size
+        for start, stop, edges in collapsed:
+            if start <= at < stop:
+                if edges[at - start] and edges[end - start]:
+                    return True
+                break
+        else:
+            if not (
+                _inside_word(haystack, at - 1, form[0]) and _inside_word(haystack, end, form[-1])
+            ):
+                return True
+        at = haystack.find(form, at + 1)
+    return False
+
+
+def _inside_word(haystack: str, beside: int, edge: str) -> bool:
+    """Whether the character at ``beside`` continues the word that ``edge`` is the end of."""
+    if not 0 <= beside < len(haystack):
+        return False
+    return _is_latin_word_char(haystack[beside]) and _is_latin_word_char(edge)
+
+
+def _is_latin_word_char(char: str) -> bool:
+    return char.isascii() and char.isalnum()
 
 
 def compile_terms(terms: Iterable[str]) -> tuple[tuple[str, ...], ...]:

@@ -120,3 +120,15 @@ def test_neurosymbolic_refuses_uplift_nested_inside_a_record(
     resp = _post(client, {"data": [{"value": 1.0}, record]})
 
     assert resp.status_code == 403, f"nested uplift bypassed the gate: {resp.status_code}"
+
+
+def test_neurosymbolic_says_when_a_request_carries_more_text_than_the_gate_reads(
+    client: TestClient,
+) -> None:
+    """Was: 403 naming the harm gate, for a refusal that was about size."""
+    too_much = [{"value": 1.0, "note": f"reading {index} " + "x" * 12_000} for index in range(100)]
+
+    resp = _post(client, {"data": too_much})
+
+    assert resp.status_code == 413, resp.text
+    assert "1,048,576 characters" in resp.text

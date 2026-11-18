@@ -135,6 +135,23 @@ class TestTransformRoundTrip:
         assert np.all(np.isfinite(grid))
 
 
+#: Where the high-degree values below were evaluated, as ``cos(theta)``.
+REFERENCE_POINTS: tuple[float, float, float] = (-0.5, 0.11, 0.8)
+
+#: The orthonormal function at those points, from the recurrence carried at 80
+#: significant digits with mpmath (no step of it leaves that range).
+REFERENCE_2500_1000: tuple[float, float, float] = (
+    0.29087820003191149,
+    0.12477315947303664,
+    -0.41331989303550859,
+)
+REFERENCE_3000_1500: tuple[float, float, float] = (
+    0.091399397238941737,
+    -0.32233807077575756,
+    -0.13046405459567576,
+)
+
+
 class TestHighDegreeIsStable:
     """The orthonormal functions stay finite and orthonormal at high degree.
 
@@ -157,6 +174,41 @@ class TestHighDegreeIsStable:
         assert 2.0 * np.pi * float(np.sum(weights * values * values)) == pytest.approx(
             1.0, abs=1e-9
         )
+
+    @pytest.mark.parametrize(("degree", "order"), [(2500, 1000), (3000, 1500), (3000, 5)])
+    def test_a_degree_past_the_reach_of_the_seed_has_unit_norm(
+        self, degree: int, order: int
+    ) -> None:
+        """Was 0.82 at (2500, 1000) and 6e252 at (3000, 1500): finite, and wrong.
+
+        ``sin^m`` left the range of a float on the way to a value of order
+        one, and the recurrence climbed back from the digits it had lost.
+        """
+        nodes, weights = np.polynomial.legendre.leggauss(degree + 40)
+        values = AssociatedLegendre(l_max=degree, normalization="ortho").compute(
+            degree, order, nodes
+        )
+
+        assert 2.0 * np.pi * float(np.sum(weights * values * values)) == pytest.approx(
+            1.0, abs=1e-9
+        )
+
+    @pytest.mark.parametrize(
+        ("degree", "order", "expected"),
+        [
+            (2500, 1000, REFERENCE_2500_1000),
+            (3000, 1500, REFERENCE_3000_1500),
+        ],
+    )
+    def test_the_values_are_the_ones_eighty_digits_give(
+        self, degree: int, order: int, expected: tuple[float, float, float]
+    ) -> None:
+        """The same recurrence carried at 80 significant digits (mpmath), where nothing underflows."""
+        values = AssociatedLegendre(l_max=degree, normalization="ortho").compute(
+            degree, order, np.array(REFERENCE_POINTS)
+        )
+
+        np.testing.assert_allclose(values, expected, rtol=0.0, atol=1e-11)
 
     def test_two_high_degrees_of_one_order_are_orthogonal(self) -> None:
         nodes, weights = np.polynomial.legendre.leggauss(1200)

@@ -1245,6 +1245,17 @@ _HAZARD_CONTEXT_ANCHORS: frozenset[str] = frozenset(
 # already covers that. Allow patterns match the mechanism/detection/defense/
 # response/policy/licensed-practice frame the professions in
 # docs/HARM_POLICY.md work inside every day.
+#: How far a verb reaches for its object. These patterns were written for a
+#: request of a sentence or two (the longest text in the labelled corpora is
+#: 138 characters) with an unbounded ``.*`` between the verb and the object,
+#: which is the same thing there. In a long text it is not: an article that
+#: said "enhance relationships with clients" on one page and "virus" twenty
+#: pages on was a hard refusal for pathogen enhancement.
+_WITHIN_A_REQUEST = r".{0,160}?"
+
+_PEOPLE = r"(?:people|persons|civilians|humans)"
+_PUT_TO_USE = r"(?:us(?:e|ing)|deploy(?:ing)?|unleash(?:ing)?|turn(?:ing)?|weaponi[sz](?:e|ing))"
+
 _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
     (
         re.compile(
@@ -1321,7 +1332,7 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
             r"\b(?:evade|avoid|escape)\s+detection\b|\bwithout (?:being )?detect(?:ed|ion)\b|"
             r"\bbypass screening\b|\bcircumvent (?:export controls?|safeguards?|customs)\b|"
             r"\bsmuggl(?:e|ing)\b|\bblack market\b|\bundetectable\b|\bavoid (?:customs|inspection)\b|"
-            r"\bdivert(?:ing)? .*(?:material|precursor)\b"
+            rf"\bdivert(?:ing)? {_WITHIN_A_REQUEST}(?:material|precursor)\b"
         ),
         OperationalIntent.ACQUISITION,
         "acquisition_evasion",
@@ -1329,8 +1340,8 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
     (
         re.compile(
             r"\bincrease (?:the )?(?:transmissibility|lethality|virulence)\b|"
-            r"\benhance .*(?:pathogen|virus|toxin)\b|\bimmune escape\b|"
-            r"\bengineer .*(?:more (?:lethal|contagious)|immune evasion)\b"
+            rf"\benhance {_WITHIN_A_REQUEST}(?:pathogen|virus|toxin)\b|\bimmune escape\b|"
+            rf"\bengineer {_WITHIN_A_REQUEST}(?:more (?:lethal|contagious)|immune evasion)\b"
         ),
         OperationalIntent.ENHANCEMENT,
         "offensive_enhancement",
@@ -1340,7 +1351,13 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
             r"\bmaximi[sz]e casualties\b|\battack plan\b|\btarget(?:ing)? "
             r"(?:a crowd|civilians|a stadium|a school|a gathering)\b|\bkill as many\b|"
             r"\bmass[- ]casualty target\b|\bantipersonnel\b|"
-            r"\b(?:against|to (?:kill|harm|maim|injure)) (?:people|persons|civilians|humans)\b"
+            # A thing put to use on people, or an act done to them. The bare
+            # preposition used to stand here -- "against people" -- and with
+            # no hazard anywhere near it a sentence about "prejudice against
+            # people with diabetes", or about "attacks against humans" by
+            # bribery, was a hard refusal for attack planning.
+            rf"\b{_PUT_TO_USE} (?:\S+ ){{0,4}}?against {_PEOPLE}\b|"
+            rf"\bto (?:kill|harm|maim|injure) {_PEOPLE}\b"
         ),
         OperationalIntent.TARGETING,
         "targeting_planning",
@@ -1348,7 +1365,9 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
 )
 _ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
     (
-        re.compile(r"\bhow does .* work\b|\bmechanism of action\b|\bchemistry of\b|\bphysics of\b"),
+        re.compile(
+            rf"\bhow does {_WITHIN_A_REQUEST} work\b|\bmechanism of action\b|\bchemistry of\b|\bphysics of\b"
+        ),
         OperationalIntent.MECHANISM,
         "mechanism",
     ),
