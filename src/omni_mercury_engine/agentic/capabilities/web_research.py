@@ -471,7 +471,8 @@ class WebResearcher:
                 # reads all of a page says so (``reads_whole_page``) and is
                 # given all of it; any other is taken to read what the default
                 # one reads, whatever it is wrapped in.
-                if not getattr(self.content_gate, "reads_whole_page", False) and (
+                # ``is True``: a mock or a proxy answers any name with something.
+                if getattr(self.content_gate, "reads_whole_page", False) is not True and (
                     len(result.text) > _HARM_SCREEN_MAX_CHARS
                 ):
                     result.text = result.text[:_HARM_SCREEN_MAX_CHARS]

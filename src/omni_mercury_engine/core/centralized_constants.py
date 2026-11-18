@@ -225,7 +225,12 @@ class EthicalConstants:
     # "Pricing-model" and "tricine" were refused, and "enhance our outreach"
     # met "flu virus" three sentences on. A term strictly inside a word is
     # that word's letters, and the reach is 160.
-    RULESET_VERSION: int = 12
+    # v13: v12 hid a term behind the letters round it ("AnthraxSpores",
+    # "xsarinx", a request run together), since it counted one inside a word
+    # only between words the gate knows. A term is found wherever it stands
+    # in a word a writer wrote, as in v9; the ordinary words that hold one
+    # are taken out of the text first, whole.
+    RULESET_VERSION: int = 13
 
 
 ETHICAL = EthicalConstants()

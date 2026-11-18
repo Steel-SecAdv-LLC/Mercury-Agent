@@ -848,3 +848,60 @@ def test_an_address_change_keeps_what_the_new_address_was_sent(store: WatchStore
 
     assert store.delivery(finding.key, 3, address_entry(new), "email")["status"] == "sent"
     assert not store.delivery(finding.key, 3, address_entry(ANA), "email")
+
+
+# --------------------------------------------------------------------------- #
+# And of those, in their turn
+# --------------------------------------------------------------------------- #
+
+
+def test_an_address_written_another_way_keeps_its_record(store: WatchStore) -> None:
+    """Was, for one commit: a change of case was "the old address", and its record was deleted."""
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1])
+    finding = _finding()
+    store.report(finding, NOW)
+    store.record_delivery(finding.key, 3, address_entry(ANA), "email", error=None, now=NOW)
+
+    store.move_subscriber(ANA, ANA.title())
+
+    assert address_entry(ANA) == address_entry(ANA.title())
+    assert store.delivery(finding.key, 3, address_entry(ANA), "email")["status"] == "sent"
+
+
+def test_two_changes_that_cancel_in_a_sum_are_still_a_change(store: WatchStore) -> None:
+    """Was, for one commit: the mark was sums, and one severity up and one down left it alone."""
+    ben = "ben@example.org"
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1], min_severity=1)
+    store.add_subscriber(ben, place="home", latitude=MIAMI[0], longitude=MIAMI[1], min_severity=2)
+    before = store.delivery_mark()
+
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1], min_severity=2)
+    store.add_subscriber(ben, place="home", latitude=MIAMI[0], longitude=MIAMI[1], min_severity=1)
+
+    assert store.delivery_mark() != before
+    assert store.delivery_mark() == store.delivery_mark()
+
+
+def test_a_pass_that_lost_its_lease_is_not_made_by_taking_it_back(store: WatchStore) -> None:
+    """Was, for one commit: asked afterwards whether it led, which took the lease back and said yes."""
+    for name in ("ana", "ben", "cy"):
+        store.add_subscriber(
+            f"{name}@example.org", place="home", latitude=MIAMI[0], longitude=MIAMI[1]
+        )
+    store.report(_finding(), NOW)
+    clock = [NOW]
+    notifier = _Counting(store, lambda: clock[0])
+    answers = iter([True, False])  # takes the pass; loses it after the first message
+
+    class _LosesItOnce(Watcher):
+        def leads(self) -> bool:
+            return next(answers, True)
+
+    watcher = _LosesItOnce(store, feeds=[], clock=lambda: clock[0], notifier=notifier)
+
+    watcher._pass(force=False)
+
+    assert len(notifier.mail.sent) == 1
+    assert watcher._delivered_at is None  # cut short: owed again
+    watcher._pass(force=False)
+    assert len(notifier.mail.sent) == 3

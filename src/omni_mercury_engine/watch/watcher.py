@@ -360,9 +360,18 @@ class Watcher:
                 # subscriber who joins while it runs is new to the next one.
                 newest = self.store.last_announcement()
                 mark = self.store.delivery_mark()[1]
-                self.notifier.sync(heartbeat=self.leads)
-                if self.leads():
-                    # A pass that ended because the lease went has not been made.
+                held = [True]
+
+                def still_leads(held: list[bool] = held) -> bool:
+                    held[0] = held[0] and self.leads()
+                    return held[0]
+
+                self.notifier.sync(heartbeat=still_leads)
+                if held[0]:
+                    # A pass that ended because the lease went has not been
+                    # made. Asked of the pass itself: asked of the lease
+                    # afterwards, a lease lost and taken back in between
+                    # counted a pass that had stopped half way.
                     self._delivered_at, self._delivered_to = now, newest
                     self._delivered_mark = mark
         except Exception as exc:  # telling people must not stop the watching

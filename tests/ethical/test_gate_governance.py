@@ -172,6 +172,24 @@ class TestTheScreenReadsWhatIsHandedOn:
         assert seen == [len(result.text)] and seen[0] > web_research._HARM_SCREEN_MAX_CHARS
         assert result.screened and not result.truncated
 
+    def test_a_screen_that_answers_to_any_name_does_not_say_it_reads_everything(self) -> None:
+        """Was, for one commit: any truthy ``reads_whole_page``, which a mock has for the asking."""
+        from unittest.mock import Mock
+
+        from omni_mercury_engine.agentic.capabilities import web_research
+
+        padding = "The weather outlook for the coming week is mild and dry. " * 6000
+
+        def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+            return 200, f"<html><body><p>{padding}</p></body></html>", url
+
+        researcher = WebResearcher(
+            transport=_transport, content_gate=Mock(return_value=(False, ""))
+        )
+        result = researcher.fetch_text("http://example.test/long")
+
+        assert result.truncated and len(result.text) == web_research._HARM_SCREEN_MAX_CHARS
+
     def test_the_default_screen_inside_a_wrapper_is_still_a_screen_of_a_prefix(self) -> None:
         """Was, for one commit: known by being the default function itself, so a wrapper got the page whole."""
         from omni_mercury_engine.agentic.capabilities import web_research

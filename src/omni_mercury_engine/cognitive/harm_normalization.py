@@ -37,7 +37,6 @@ gate does.
 
 from __future__ import annotations
 
-import functools
 import re
 import unicodedata
 from typing import TYPE_CHECKING
@@ -237,10 +236,13 @@ class Haystack(str):
         collapsed: ``(start, end, edges)`` for each collapsed variant in the
             bundle: its span, and :func:`_piece_edges` of the text it was
             collapsed from.
+        despaced: ``(start, end)`` for each variant with its punctuation
+            dropped and its spaces kept.
     """
 
-    __slots__ = ("collapsed",)
+    __slots__ = ("collapsed", "despaced")
     collapsed: tuple[tuple[int, int, bytearray], ...]
+    despaced: tuple[tuple[int, int], ...]
 
 
 def _punct_strip(folded: str) -> str:
@@ -683,6 +685,7 @@ def normalized_haystack(text: str) -> str:
     normalization bug never blinds the gate.
     """
     try:
+        text = _without_ordinary_words(text or "")
         base = base_normalize(text)
         folded = _fold_obfuscation(base)
         collapsed = _collapse(folded)
@@ -700,7 +703,7 @@ def normalized_haystack(text: str) -> str:
         ordered: list[tuple[str, str | None]] = [
             (base, None),
             (folded, None),
-            (despaced, None),
+            (despaced, _DESPACED),
             (rejoined, None),
             (collapsed, folded),
         ]
@@ -710,7 +713,7 @@ def normalized_haystack(text: str) -> str:
             ordered += [
                 (t_folded, None),
                 (_collapse(t_folded), t_folded),
-                (_punct_strip(t_folded), None),
+                (_punct_strip(t_folded), _DESPACED),
             ]
         # De-dup identical variants to keep the haystack compact. A collapsed
         # variant is recorded with the edges of its pieces; one that equals a
@@ -719,16 +722,20 @@ def normalized_haystack(text: str) -> str:
         seen: set[str] = set()
         variants: list[str] = []
         glued: list[tuple[int, int, bytearray]] = []
+        despaced_at: list[tuple[int, int]] = []
         offset = 0
-        for v, collapsed_from in ordered:
+        for v, made_from in ordered:
             if v and v not in seen:
                 seen.add(v)
                 variants.append(v)
-                if collapsed_from is not None:
-                    glued.append((offset, offset + len(v), _piece_edges(collapsed_from)))
+                if made_from is _DESPACED:
+                    despaced_at.append((offset, offset + len(v)))
+                elif made_from is not None:
+                    glued.append((offset, offset + len(v), _piece_edges(made_from)))
                 offset += len(v) + 1
         bundle = Haystack("\n".join(variants))
         bundle.collapsed = tuple(glued)
+        bundle.despaced = tuple(despaced_at)
         return bundle
     except Exception:
         return (text or "").lower()
@@ -823,105 +830,121 @@ def term_in_haystack(haystack: str, forms: tuple[str, ...]) -> bool:
 
 
 def _occurs(haystack: str, form: str) -> bool:
-    """Whether ``form`` occurs in ``haystack`` as a term, not as letters of another word.
+    """Whether ``form`` occurs in ``haystack`` as a term a writer put there.
 
-    A substring test alone found "ricin" in "pricing" and, in the collapsed
-    variant, "soman" in "so many" and "tatp" in "what a tp-link": "how to make
-    pricing tables" and "how do I make so many cookies" were refused as
-    production of a biological and of a chemical agent. An occurrence counts:
+    A substring test alone found "ricin" in "pricing" and, once the
+    separators were gone, "soman" in "so many", "tatp" in "what a tp-link"
+    and "ricin" in "fabric-insert": "how to make pricing tables" and "how do
+    I make so many cookies" were refused as production of a biological and
+    of a chemical agent. An occurrence counts:
 
-    * in a variant that keeps its words, when it is not part of one of
-      :data:`ORDINARY_WORDS_HOLDING_A_TERM` and it could be the term in its
-      word: it touches the word's edge on at least one side ("neurotoxin",
-      "toxins", "sarin-based"), or only a plural ending follows it
-      ("neurotoxins"), or the letters round it in the word are words the
-      gate knows ("makesarin" run together);
-    * in a collapsed variant, when it starts where a piece of the original
-      text starts and ends where one ends. ``s a r i n`` and ``sa rin`` do;
-      "so many" ends inside "many".
+    * in a variant that keeps the text's words, wherever it is. The ordinary
+      words that hold a term (:data:`ORDINARY_WORDS_HOLDING_A_TERM`) are no
+      longer in the text by then (:func:`_without_ordinary_words`). A term
+      of two words or more must begin a word or end one: "Minerve agentic"
+      holds "nerve agent" and neither;
+    * in a variant made by taking separators out, where the writer's own
+      pieces make it: it starts where a piece of the original text starts
+      and ends where one ends, or a plural ending after it does. ``s a r i
+      n``, ``sa rin``, ``s.a.r.i.n`` and "nerve-agents" do; "so many" ends
+      inside "many" and "fabric-insert" starts inside "fabric".
 
-    Only a Latin letter or a digit beside the occurrence is the inside of a
-    word: scripts written without spaces between words are matched as before.
-
-    What this gives up, each found as any substring was: a term with letters
-    that are no word on both sides of it (``xsarinx``), and one split in two
-    with other letters glued to the halves (``absar incd``). What it keeps
-    from being refused is every word that merely holds a term's letters,
-    listed or not: "tricine", "passarinho", a surname.
+    Letters round a term do not hide it: "neurotoxins", ``xsarinx`` and a
+    request run together are found as any substring found them. So is a word
+    no list has that holds a term's letters (a reagent, a surname), which is
+    the price of that. What is given up is a term split in two with other
+    letters glued to the halves (``absar incd``).
     """
     at = haystack.find(form)
     if at < 0:
         return False  # nearly every term on nearly every text: one scan and out
     collapsed = getattr(haystack, "collapsed", ())
+    despaced = getattr(haystack, "despaced", ())
+    phrase = " " in form
     size = len(form)
     while at >= 0:
         end = at + size
         for start, stop, edges in collapsed:
             if start <= at < stop:
-                if edges[at - start] and edges[end - start]:
+                ends = end - start
+                if edges[at - start] and any(
+                    edges[ends + len(plural)] and haystack.startswith(plural, end)
+                    for plural in _PLURALS
+                    if ends + len(plural) < len(edges)
+                ):
                     return True
                 break
         else:
-            if _is_the_term(haystack, form, at, end):
+            whole = _starts_a_word(haystack, at), _ends_a_word(haystack, end)
+            if any(start <= at < stop for start, stop in despaced):
+                if all(whole):
+                    return True
+            elif not phrase or any(whole):
                 return True
         at = haystack.find(form, at + 1)
     return False
 
 
-#: Endings that make a plural of a term.
-_PLURAL_ENDINGS = ("s", "es")
+#: What may follow a term where its end must be a word's end: nothing, or a plural.
+_PLURALS = ("", "s", "es")
 
 
-def _is_the_term(haystack: str, form: str, at: int, end: int) -> bool:
-    """Whether ``haystack[at:end]``, in a variant that keeps its words, is the term ``form``."""
-    if _in_an_ordinary_word(haystack, form, at):
-        return False
-    start = at
-    while start > 0 and _is_latin_word_char(haystack[start - 1]) and _is_latin_word_char(form[0]):
-        start -= 1
-    stop = end
-    while (
-        stop < len(haystack)
-        and _is_latin_word_char(haystack[stop])
-        and _is_latin_word_char(form[-1])
-    ):
-        stop += 1
-    before, after = haystack[start:at], haystack[end:stop]
-    if not before or not after or after in _PLURAL_ENDINGS:
-        return True
-    return _known_words(before) and _known_words(after)
+def _is_latin_word_char(char: str) -> bool:
+    """Only a Latin letter or a digit is the inside of a word: other scripts run words together."""
+    return char.isascii() and char.isalnum()
 
 
-def _known_words(run: str) -> bool:
-    """Whether ``run`` splits wholly into words of the gate's vocabulary."""
-    if len(run) > _MAX_SEGMENT_RUN:
-        return False
-    vocabulary = _vocabulary()
-    return all(piece in vocabulary for piece in segment_glued_run(run).split())
+def _starts_a_word(haystack: str, at: int) -> bool:
+    return not (at and _is_latin_word_char(haystack[at - 1]))
 
 
-def _in_an_ordinary_word(haystack: str, form: str, at: int) -> bool:
-    """Whether the occurrence at ``at`` lies inside an ordinary word that holds ``form``.
-
-    Asked of the letters themselves, not of where the variant's words end: a
-    variant that drops punctuation makes "pricing-model" one run of letters,
-    and looked up as that run the word was no longer the exempt "pricing".
-    """
+def _ends_a_word(haystack: str, end: int) -> bool:
+    """Whether a word ends at ``end``, or once a plural ending after it is read."""
     return any(
-        at >= offset and haystack.startswith(word, at - offset)
-        for word, offset in _ordinary_holders(form)
+        haystack.startswith(plural, end)
+        and not _is_latin_word_char(haystack[end + len(plural) : end + len(plural) + 1] or " ")
+        for plural in _PLURALS
     )
 
 
-@functools.cache
-def _ordinary_holders(form: str) -> tuple[tuple[str, int], ...]:
-    """Each ordinary word that holds ``form``, with where in the word it is."""
-    return tuple(
-        (word, offset)
-        for word in sorted(ORDINARY_WORDS_HOLDING_A_TERM)
-        for offset in range(len(word) - len(form) + 1)
-        if word.startswith(form, offset)
+#: Marks, in :func:`normalized_haystack`, a variant with its punctuation dropped.
+_DESPACED = "despaced"
+#: Stands where an ordinary word was. A letter, so that a pattern which reads
+#: a word reads one; not a Latin one, so that it spells nothing; and kept by
+#: every variant, so that the words on either side of it do not run together.
+_STANDS_FOR_A_WORD = "\u0298"
+
+
+def _without_ordinary_words(text: str) -> str:
+    """``text`` with each of :data:`ORDINARY_WORDS_HOLDING_A_TERM` taken out of it.
+
+    Taken out as the writer wrote them, before any variant is made: a whole
+    word, or a whole part of a name written in camelCase, with or without a
+    plural ``s``. "pricing-model", ``pricing.csv`` and ``PricingTable`` hold
+    the word; "ricingel" does not, and neither does a word spelled to look
+    like one.
+    """
+    if not _ORDINARY_RE.search(text):
+        return text  # nearly every text
+    return _LETTERS_RE.sub(_ordinary_parts_out, text)
+
+
+def _ordinary_parts_out(run: re.Match[str]) -> str:
+    return "".join(
+        _STANDS_FOR_A_WORD if _is_ordinary(part.lower()) else part
+        for part in _CAMEL_PART_RE.findall(run.group(0))
     )
+
+
+def _is_ordinary(word: str) -> bool:
+    return word in ORDINARY_WORDS_HOLDING_A_TERM or (
+        word.endswith("s") and word[:-1] in ORDINARY_WORDS_HOLDING_A_TERM
+    )
+
+
+_LETTERS_RE = re.compile(r"[A-Za-z]+")
+#: The parts of a run of letters: "PricingTable" is "Pricing" and "Table".
+_CAMEL_PART_RE = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
 
 
 #: English words that hold the name of an agent and have nothing to do with it.
@@ -956,9 +979,7 @@ ORDINARY_WORDS_HOLDING_A_TERM: frozenset[str] = frozenset(
     }
 )  # fmt: skip
 
-
-def _is_latin_word_char(char: str) -> bool:
-    return char.isascii() and char.isalnum()
+_ORDINARY_RE = re.compile("|".join(sorted(ORDINARY_WORDS_HOLDING_A_TERM)), re.IGNORECASE)
 
 
 def compile_terms(terms: Iterable[str]) -> tuple[tuple[str, ...], ...]:

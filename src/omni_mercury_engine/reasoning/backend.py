@@ -27,6 +27,7 @@ concrete implementation cannot skip them:
 from __future__ import annotations
 
 import abc
+import re
 from typing import Any
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
@@ -67,6 +68,12 @@ _PURPOSE_KEYWORDS: str = (
     "audit verify inform protect explain evidence fair oversight "
     "transparency care help support honesty"
 )
+
+
+#: A run of numbers as ``str`` prints them: "0.25, 1e-05, -3". Nothing in it
+#: but digits, signs, points and an exponent's ``e``, so no word.
+_NUMBERS_PRINTED = re.compile(r"(?<![\w.])[-+]?\d[\d.eE+-]*(?:[,\s]+[-+]?\d[\d.eE+-]*)+(?![\w.])")
+_A_LETTER = re.compile(r"[^\W\d_]")
 
 
 class ReasoningBackend(abc.ABC):
@@ -167,14 +174,19 @@ class ReasoningBackend(abc.ABC):
         safe_domain = sanitize_domain(context.domain)
         operation = "generate a natural-language explanation of a Mercury finding"
         request = str(context.summary or "")
-        if context.evidence:
+        # As the prompts print it, which is with ``str`` whatever it is: an
+        # empty dict, a frame, an object with a length of nothing. Its
+        # numbers are not words: 70,000 readings print to 1.2 million
+        # characters, and counted as text they were a refusal for size.
+        printed = _NUMBERS_PRINTED.sub(" ", str(context.evidence))
+        if _A_LETTER.search(printed):
             enforce_decision_boundary(
                 DecisionSubject(
                     surface=boundary,
                     operation=operation,
                     domain=safe_domain,
                     request=request,
-                    payload=str(context.evidence),
+                    payload=printed,
                 )
             )
         enforce_dual_ethical_gate(

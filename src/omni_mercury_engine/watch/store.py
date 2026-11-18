@@ -784,6 +784,11 @@ class WatchStore:
             # Where both addresses hold a record of one finding, "sent" stands:
             # replaced by the old address's failed attempt it went out again.
             moved = {"new": address_entry(new), "old": address_entry(old)}
+            if moved["new"] == moved["old"]:
+                # The same address written another way (a change of case):
+                # the record is already under it, and deleted as "the old
+                # address's" everything standing went out again.
+                return int(cursor.rowcount)
             connection.execute(
                 "DELETE FROM deliveries WHERE subscriber = :new AND channel = 'email' "
                 "AND status <> 'sent' AND EXISTS (SELECT 1 FROM deliveries AS was WHERE "
@@ -1187,22 +1192,28 @@ class WatchStore:
             How many deliveries last failed, and a mark that differs whenever
             who is told, or where, has changed: a subscription added, removed
             or re-saved with another place, radius or severity; a number
-            verified or its severity changed; an earthquake's felt extent read.
+            verified or its severity changed; an earthquake's felt extent read
+            and found different. The mark is of the rows themselves. Made of
+            their sums, one severity raised and another lowered left it as it
+            was; made of when the extents were last read, every reading
+            changed it.
         """
         with closing(self._connect()) as connection:
             failed = connection.execute(
                 "SELECT COUNT(*) FROM deliveries WHERE status = 'failed'"
             ).fetchone()[0]
-            subscribed = connection.execute(
-                "SELECT COUNT(*), COALESCE(MAX(id), 0), TOTAL(latitude), TOTAL(longitude), "
-                "TOTAL(radius_km), TOTAL(min_severity) FROM subscribers"
-            ).fetchone()
-            texted = connection.execute(
-                "SELECT COUNT(verified_at), TOTAL(min_severity) FROM phones "
-                "WHERE verified_at IS NOT NULL"
-            ).fetchone()
-            felt = connection.execute("SELECT COUNT(*), MAX(read_at) FROM reach").fetchone()
-        return int(failed), (*subscribed, *texted, *felt)
+            told = [
+                tuple(row)
+                for query in (
+                    "SELECT id, email, latitude, longitude, radius_km, min_severity "
+                    "FROM subscribers ORDER BY id",
+                    "SELECT id, email, number, min_severity FROM phones "
+                    "WHERE verified_at IS NOT NULL ORDER BY id",
+                    "SELECT subject, body FROM reach ORDER BY subject",
+                )
+                for row in connection.execute(query)
+            ]
+        return int(failed), (len(told), hash(tuple(told)))
 
     def delivery_counts(self) -> dict[str, int]:
         """How many deliveries were sent and how many last failed."""

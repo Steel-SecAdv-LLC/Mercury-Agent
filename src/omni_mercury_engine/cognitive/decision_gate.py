@@ -130,20 +130,24 @@ _PROCESS_STATE: tuple[type, ...] = (
     threading.Condition, io.IOBase, socket.socket,
 )  # fmt: skip
 
-#: How many objects deep an object's attributes are followed before the gate
-#: refuses to decide. It refuses: followed four deep and then passed over,
-#: a request five objects down went through unread.
-_MAX_OBJECT_HOPS = 8
+#: How often one thing is read over. A label of a letter or two is read
+#: this many times (a word kept a letter to a cell repeats its letters), and
+#: of a run of equal elements in a list this many are read: the rest of a
+#: column of 300,000 "ok" says nothing the first of them did not.
+_REPEATS = 16
 
-#: How often one short string is read. A word handed over a letter to an
-#: element repeats its letters a few times; the keys of 300,000 records
-#: repeat theirs 300,000 times, and read each time they filled the budget.
-_SHORT_REPEATS = 16
-
-#: A string this short is kept as it is: never passed over for holding no
-#: word, and never taken for one already read. A word handed over one letter
-#: to an element is made of such strings.
+#: A label this short is never passed over for holding no word.
 _SHORT_STRING = 3
+
+
+class _Labels(list[Any]):
+    """The cells of a table: an array, a column of a frame, its row labels.
+
+    Read as labels, each distinct one once: a column of two million names of
+    forty machines is forty names. What a caller hands over in lists and
+    records is not read this way.
+    """
+
 
 #: Upper bound on the rendered summary of a single structured payload value.
 _MAX_VALUE_CHARS = 512
@@ -198,7 +202,7 @@ class UnassessableSubjectError(ValueError):
     """The decision carries more than the gate can read; it must be refused."""
 
 
-def _object_text(payload: Any) -> tuple[list[Any], bool] | None:
+def _object_text(payload: Any) -> list[Any] | None:
     """What an object that is not a plain container holds, or ``None`` if nothing is read.
 
     A float matrix has no words in it and is summarised by its shape. An array
@@ -220,25 +224,29 @@ def _object_text(payload: Any) -> tuple[list[Any], bool] | None:
     kind is read is opaque too: this never raises, so that an odd object is
     not a way to have a decision refused.
 
+    An object's attributes are followed as deep as containers are
+    (:data:`_MAX_TEXT_DEPTH`) and no deeper. Followed four deep and then
+    passed over, a request five objects down went unread; followed eight
+    deep and then refused, a linked list of ten was a refusal.
+
     Returns:
-        What it holds, and whether that was read from its attributes; ``None``
-        when nothing is read.
+        What it holds; ``None`` when nothing is read.
     """
     try:
         if isinstance(payload, (type, types.ModuleType, *_PROCESS_STATE)):
             return None
         if isinstance(payload, range):
-            return [], False  # numbers
+            return []  # numbers
         if isinstance(payload, PurePath):
-            return [str(payload)], False
+            return [str(payload)]
         if isinstance(payload, Enum):
-            return [payload.name, payload.value], False
+            return [payload.name, payload.value]
         if isinstance(payload, array):
-            return ([payload.tounicode()] if payload.typecode in "uw" else []), False
+            return [payload.tounicode()] if payload.typecode in "uw" else []
         if isinstance(payload, UserString):
-            return [str(payload)], False
+            return [str(payload)]
         if hasattr(type(payload), "dtypes") and hasattr(type(payload), "columns"):  # a frame
-            return _frame_text(payload), False
+            return _frame_text(payload)
         dtype: Any = getattr(payload, "dtype", None)
         kind = getattr(dtype, "kind", None)
         if isinstance(kind, str):
@@ -249,12 +257,12 @@ def _object_text(payload: Any) -> tuple[list[Any], bool] | None:
                 # numbers were six million tuples to walk, and a refusal.
                 held = [payload[name] for name in names if dtype[name].kind in _TEXT_KINDS]
             else:
-                held = [_as_list(payload)] if kind in _TEXT_KINDS else []
-            return held + _index_text(payload), False
+                held = [_Labels(_as_list(payload))] if kind in _TEXT_KINDS else []
+            return held + _index_text(payload)
         if isinstance(payload, _Sequence):
             # As a plain list, which is walked like any other: numbers in one
             # pass, and within the same budget.
-            return [list(payload)], False
+            return [list(payload)]
         values: list[Any] = []
         if isinstance(payload, BaseException):
             values.extend(payload.args)
@@ -264,7 +272,7 @@ def _object_text(payload: Any) -> tuple[list[Any], bool] | None:
         if callable(payload) and not record:
             # A function, a partial, a mock: code. (A record that can also be
             # called is still a record.)
-            return (values, False) if values else None
+            return values or None
         # The instance's own attributes, by value (their names are the code's
         # words, not the caller's). Each value once: a dataclass's fields and
         # a model's are in its ``__dict__`` or its slots already, and read
@@ -288,7 +296,7 @@ def _object_text(payload: Any) -> tuple[list[Any], bool] | None:
         computed = getattr(type(payload), "model_computed_fields", None)
         if isinstance(computed, dict):
             values.extend(getattr(payload, name, None) for name in computed)
-        return (values, True) if values else None
+        return values or None
     except Exception:
         return None
 
@@ -308,7 +316,7 @@ def _frame_text(frame: Any) -> list[Any]:
         columns = [column for _, column in frame.items()]
     for column in columns:
         if getattr(getattr(column, "dtype", None), "kind", "O") in _TEXT_KINDS:
-            values.extend(_as_list(column))
+            values.append(_Labels(_as_list(column)))
     return values
 
 
@@ -324,7 +332,7 @@ def _index_text(labelled: Any) -> list[Any]:
         return []
     if getattr(getattr(index, "dtype", None), "kind", "O") not in _TEXT_KINDS:
         return []
-    return [_as_list(index)]
+    return [_Labels(_as_list(index))]
 
 
 def _as_list(values: Any) -> list[Any]:
@@ -335,49 +343,69 @@ def _as_list(values: Any) -> list[Any]:
 
 
 def _bytes_text(raw: bytes) -> str:
-    """The text in ``raw``: all of it when it is text in an encoding, else its printable runs.
+    """The text in ``raw``: every reading that makes text of it, else its printable runs.
 
     Bytes that are not text used to be decoded as though they were, every
     undecodable byte becoming a replacement character: a megabyte of
     compressed or random data counted as a megabyte of text, was refused for
     its size, and below that size was scored as noise. Text is told from
-    data by what it decodes to. With a byte-order mark it is what the mark
-    declares. Without one it is UTF-8 when it is that. Otherwise nothing in
-    the bytes says what they are, so every reading that makes text of them
-    is read: Latin-1, UTF-16 in each byte order (:func:`_utf16_text`), and,
-    where they are not Latin-1, their runs of printable ASCII, as
-    ``strings`` would give.
+    data by what it decodes to:
 
-    Undeclared UTF-16 was recognised by every other byte being zero, which
-    is ASCII text and nothing else: the same request in full-width letters,
-    or with look-alike letters of another alphabet, or spaced with U+2000,
-    was not read, and one spaced so that the zeros fell in the other byte
-    order was read in the wrong one.
+    * UTF-8, when it is that and at most one byte in ten is a control code.
+    * Otherwise nothing in the bytes says what they are, and each of these
+      that makes text of them is read: Latin-1, when it is mostly ASCII;
+      UTF-16 (:func:`_utf16_text`), in the order a byte-order mark declares
+      or else in both; UTF-8 with control codes between its words
+      (:func:`_words_between_controls`).
+    * Where they are not Latin-1, their runs of printable ASCII as well, as
+      ``strings`` would give.
+
+    A byte-order mark does not end the reading: two bytes before an ASCII
+    request made UTF-16 of it, in which it says nothing.
     """
+    declared = _BYTE_ORDER_MARKS.get(raw[:2])
+    if declared:
+        raw = raw[2:]  # the mark is not text in any reading
     even = raw[: len(raw) - len(raw) % 2]  # a UTF-16 text cut in the middle of a unit
-    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
-        return even.decode("utf-16", errors="replace")
     plain = _is_text(raw)
-    if plain:
+    if plain and not declared:
         try:
             return raw.decode("utf-8")
         except UnicodeDecodeError:
             pass
-    if plain and len(raw.translate(None, _LATIN1_TEXT)) * 20 <= len(raw):
-        narrow = raw.decode("latin-1")
-    else:
-        narrow = " ".join(run.decode("ascii") for run in _PRINTABLE_RUN.findall(raw))
-    wide = [text for order in ("utf-16-le", "utf-16-be") if (text := _utf16_text(even, order))]
-    # Every reading is read, so their order decides nothing but where the
-    # passages are cut; of the two byte orders the one with more ASCII is first.
-    wide.sort(key=lambda text: -sum(ch.isascii() for ch in text[:_MAX_VALUE_CHARS]))
-    return "\n".join(text for text in (narrow, *wide) if text)
+    latin = (
+        plain
+        and len(raw.translate(None, _LATIN1_TEXT)) * 20 <= len(raw)
+        and len(raw.translate(None, _ASCII)) * 10 <= len(raw) * 3
+    )
+    readings = [
+        (
+            raw.decode("latin-1")
+            if latin
+            else " ".join(run.decode("ascii") for run in _PRINTABLE_RUN.findall(raw))
+        )
+    ]
+    if declared:
+        readings.append(_utf16_text(even, declared, declared=True))
+    elif not latin:
+        wide = [_utf16_text(even, order) for order in _BYTE_ORDER_MARKS.values()]
+        # Every reading is read, so their order decides nothing but where the
+        # passages are cut; of the two byte orders the one with more ASCII is first.
+        readings += sorted(wide, key=lambda text: -sum(map(str.isascii, text[:_MAX_VALUE_CHARS])))
+        readings.append(_words_between_controls(raw))
+    return "\n".join(dict.fromkeys(filter(None, readings)))  # each reading once
 
 
+_BYTE_ORDER_MARKS = {b"\xff\xfe": "utf-16-le", b"\xfe\xff": "utf-16-be"}
 #: Bytes that are text in Latin-1: tab, line ends, and the printable ranges.
 _LATIN1_TEXT = bytes([9, 10, 13, *range(0x20, 0x7F), *range(0xA0, 0x100)])
+_ASCII = bytes(range(0x80))
 #: Bytes no text is made of: the control codes other than tab and the line ends.
 _CONTROL = bytes([*range(0, 9), 11, 12, *range(14, 0x20), 0x7F])
+_CONTROL_TO_SPACE = bytes.maketrans(_CONTROL, b" " * len(_CONTROL))
+_WHITE_SPACE = b"\t\n\r "
+#: What words are made of, in UTF-8: ASCII letters and the bytes of any other letter.
+_LETTER_BYTES = bytes([*range(0x41, 0x5B), *range(0x61, 0x7B), *range(0x80, 0x100)])
 #: Characters no text is made of: control codes, and code points that are
 #: unassigned or for private use (``unicodedata`` general categories).
 _NOT_TEXT = frozenset({"Cc", "Cn", "Co", "Cs"})
@@ -408,36 +436,56 @@ def _is_text(raw: bytes) -> bool:
     return (len(raw) - len(raw.translate(None, _CONTROL))) * 10 <= len(raw)
 
 
-def _utf16_text(even: bytes, order: str) -> str:
+def _words_between_controls(raw: bytes) -> str:
+    """``raw`` as UTF-8 without its control codes, when what is left is words.
+
+    A field padded with NULs to a fixed width, values with a unit separator
+    between them, a request with a control code between its letters: more
+    than a tenth control codes, so not text by that count, and all of it
+    words. A NUL is padding and is dropped; any other control code stood
+    between two things and is read as a space. Small numbers are valid UTF-8
+    as well, and between their control codes are digits and punctuation as
+    often as letters: three in four of what is left must be letters.
+    """
+    marks = raw.translate(None, _CONTROL + _WHITE_SPACE)
+    if not marks or len(marks.translate(None, _LETTER_BYTES)) * 4 > len(marks):
+        return ""
+    try:
+        return raw.replace(b"\x00", b"").translate(_CONTROL_TO_SPACE).decode("utf-8").strip()
+    except UnicodeDecodeError:
+        return ""
+
+
+def _utf16_text(even: bytes, order: str, *, declared: bool = False) -> str:
     """``even`` read as UTF-16 in ``order``, or ``""`` when that does not make text of it.
 
-    It is text when it decodes (a buffer of numbers soon holds half of a
-    surrogate pair), when at most one character in ten is a control code or
-    a code point nothing is assigned to, and when it is written as text is:
-    in few characters (:data:`_COMMONEST`), unevenly used (:data:`_UNEVEN`).
-    A text in one byte order is as a rule also text in the other, in an
-    alphabet it was not written in, and nothing in the bytes says which was
-    meant: both are read and both are counted.
+    It is text when at most one character in ten is a control code, half of
+    a surrogate pair (a buffer of numbers soon holds one) or a code point
+    nothing is assigned to; and, where no byte-order mark ``declared`` it,
+    when it is written as text is: in few characters (:data:`_COMMONEST`),
+    unevenly used (:data:`_UNEVEN`). A text in one byte order is as a rule
+    also text in the other, in an alphabet it was not written in, and
+    nothing in the bytes says which was meant: both are read and both are
+    counted.
 
     What this does not read is a text padded with thousands of different
     characters, which is what numbers look like. Nothing tells the two apart.
     """
     if len(even) < 2 * _MIN_UTF16_UNITS:
         return ""
-    try:
-        text = even.decode(order)
-    except UnicodeDecodeError as cut:
-        if cut.start < len(even) - 2:
-            return ""
-        text = even[: cut.start].decode(order)  # cut between the halves of a pair
+    text = even.decode(order, errors="replace")
     counts = collections.Counter(text)
     spoiled = sum(
         count
         for ch, count in counts.items()
-        if ch not in "\t\n\r" and unicodedata.category(ch) in _NOT_TEXT
+        if ch == "\ufffd" or (ch not in "\t\n\r" and unicodedata.category(ch) in _NOT_TEXT)
     )
+    if spoiled * 10 > len(text):
+        return ""
+    if declared:
+        return text
     commonest = counts.most_common(_COMMONEST)
-    if spoiled * 10 > len(text) or sum(count for _, count in commonest) * 2 < len(text):
+    if sum(count for _, count in commonest) * 2 < len(text):
         return ""
     if len(text) >= _LONG_ENOUGH and commonest[0][1] * len(counts) < _UNEVEN * len(text):
         return ""
@@ -458,8 +506,8 @@ def payload_text(payload: Any) -> list[str]:
     Raises:
         UnassessableSubjectError: When the payload holds more text than
             :data:`MAX_ASSESSED_CHARS`, more values than
-            :data:`MAX_ASSESSED_NODES`, nests deeper than the walk follows,
-            or holds objects more than :data:`_MAX_OBJECT_HOPS` deep.
+            :data:`MAX_ASSESSED_NODES`, or nests deeper, in containers or in
+            objects, than :data:`_MAX_TEXT_DEPTH`.
     """
     found: list[str] = []
     chars = 0
@@ -472,9 +520,11 @@ def payload_text(payload: Any) -> list[str]:
     # first alone, and whatever the second said went through unread.
     seen: dict[int, Any] = {}
     read: dict[str, int] = {}
-    stack: list[tuple[Any, int, int]] = [(payload, 0, 0)]
+    # Each value, how deep it lies, whether it is a label (read once,
+    # however often it occurs), and whether it is inside a table.
+    stack: list[tuple[Any, int, bool, bool]] = [(payload, 0, False, False)]
     while stack:
-        value, depth, hops = stack.pop()
+        value, depth, label, table = stack.pop()
         nodes += 1
         if nodes > MAX_ASSESSED_NODES:
             raise UnassessableSubjectError(
@@ -486,19 +536,11 @@ def payload_text(payload: Any) -> list[str]:
         if isinstance(value, (bytes, bytearray, memoryview)):
             value = _bytes_text(bytes(value))
         if isinstance(value, str):
-            # Read once, however often it occurs, and only if it could hold a
-            # word (see ``_WORD``). The keys of 45,000 records are three
-            # strings, and 60,000 timestamps are no text at all; counted each
-            # time they filled the reading budget and a table of numbers was
-            # refused. A string of a letter or two is not passed over for
-            # holding no word, and is read a few times over, not once: "n",
-            # "e", "r", "v", "e" is a word.
-            times = read.get(value, 0)
-            read[value] = times + 1
-            if len(value) <= _SHORT_STRING:
-                wanted = times < _SHORT_REPEATS and any(char.isalpha() for char in value)
-            else:
-                wanted = times == 0 and _WORD.search(value) is not None
+            wanted = _holds_a_word(value)
+            if wanted and label:
+                times = read.get(value, 0)
+                read[value] = times + 1
+                wanted = times < (_REPEATS if len(value) <= _SHORT_STRING else 1)
             if wanted:
                 chars += len(value)
                 if chars > MAX_ASSESSED_CHARS:
@@ -513,33 +555,92 @@ def payload_text(payload: Any) -> list[str]:
             )
         if id(value) in seen:  # a container reached twice is read, and counted, once
             continue
-        children: list[Any]
+        seen[id(value)] = value
+        children: list[tuple[Any, bool]]
         if isinstance(value, _Mapping):
-            children = [part for item in value.items() for part in item]
+            # A key is read beside what it names, each time: the field "how
+            # to make" was read once for 400 records, and the record that
+            # named an agent under it was permitted. Beside a number it names
+            # nothing new, and is a label: the keys of 45,000 records of
+            # readings are three strings, and counted each time they filled
+            # the reading budget and a table of numbers was refused.
+            children = [
+                part
+                for key, held in value.items()
+                for part in ((key, table or _says_nothing(held)), (held, table))
+            ]
         elif isinstance(value, _SEQUENCES):
             # A sequence of nothing but numbers has no words in it. Its types
             # are checked in one pass at C speed instead of visiting every
             # element here (a 1,000 x 1,000 list of floats cost 170 ms a
             # decision); eight of them count as one value walked.
             items: Any = value
-            seen[id(value)] = value
             if set(map(type, items)) <= _NUMBERS:
                 nodes += len(items) // 8
                 continue
-            children = list(items)
+            table = table or isinstance(value, _Labels)
+            # What a caller hands over in a list is read in the order given,
+            # every element: "how", "to" and "make" came round again further
+            # down a list of words, were passed over as read already, and the
+            # request they opened was permitted.
+            children = [(item, table) for item in (items if table else _runs_cut(items))]
         else:
-            held = _object_text(value)
-            if held is None:
+            held_by_object = _object_text(value)
+            if held_by_object is None:
                 continue
-            children, by_attribute = held
-            hops += int(by_attribute)
-            if hops > _MAX_OBJECT_HOPS:
-                raise UnassessableSubjectError(
-                    f"the payload holds objects more than {_MAX_OBJECT_HOPS} deep"
-                )
-        seen[id(value)] = value
-        stack.extend((child, depth + 1, hops) for child in reversed(children))
+            children = [(item, table) for item in held_by_object]
+        stack.extend((child, depth + 1, as_label, table) for child, as_label in reversed(children))
     return found
+
+
+def _holds_a_word(text: str) -> bool:
+    """Whether ``text`` could hold a word (see ``_WORD``).
+
+    60,000 timestamps are no text at all. A string of a letter or two is not
+    passed over for holding no word: "n", "e", "r", "v", "e" is one.
+    """
+    if len(text) <= _SHORT_STRING:
+        return any(char.isalpha() for char in text)
+    return _WORD.search(text) is not None
+
+
+def _says_nothing(value: Any) -> bool:
+    """Whether ``value`` is a number, or a string no word could be in."""
+    if isinstance(value, str):
+        return not _holds_a_word(value)
+    return value is None or isinstance(value, (bool, int, float, complex))
+
+
+def _runs_cut(items: Any) -> list[Any]:
+    """``items`` as a caller's list is read: letters joined, long runs of one thing cut.
+
+    Elements of one character each are a string handed over a letter at a
+    time, spaces and all, and are joined as ``"".join`` would join them.
+
+    A run of equal elements is cut to its first :data:`_REPEATS`. What is
+    left out stood next to its like, which is read: nothing that was beside
+    something else is beside it no longer.
+    """
+    kept: list[Any] = []
+    letters: list[str] = []
+    before: Any = _runs_cut  # equal to no element
+    run = 0
+    for item in items:
+        if type(item) is str and len(item) == 1:
+            letters.append(item)
+            continue
+        if letters:
+            kept.append("".join(letters))
+            letters.clear()
+            before = _runs_cut
+        alike = type(item) is type(before) and isinstance(item, (str, dict, list, tuple))
+        run = run + 1 if alike and item == before else 0
+        if run < _REPEATS:
+            kept.append(item)
+        before = item
+    if letters:
+        kept.append("".join(letters))
+    return kept
 
 
 def _spans(length: int, size: int) -> list[tuple[int, int]]:
