@@ -39,6 +39,13 @@ if TYPE_CHECKING:
 # still pin the variable to ``"0"`` for an explicitly real-data run.
 os.environ.setdefault("MERCURY_ALLOW_SYNTHETIC", "1")
 
+# The watch makes a forecast from GFZ's live Kp record on its own
+# (``watch/forecast.py``), from 12:30 UT each day. Hundreds of tests run a
+# watcher, some with clocks past that hour: none of them may read the network
+# for it, or write a forecast into its store. The forecast's own tests turn it
+# back on (``tests/watch/test_watch_forecast.py``) and give it a record to read.
+os.environ.setdefault("MERCURY_WATCH_FORECASTS", "false")
+
 # An operator's installed fusion model (``mercury-agent train --install``) must
 # not change what the suite serves; this directory never holds one.
 os.environ["MERCURY_MODEL_DIR"] = os.path.join(

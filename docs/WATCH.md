@@ -75,6 +75,55 @@ The track record is the count of each verdict over every finding the watch has
 made. It is printed by `mercury-agent watch --status`, returned as
 `track_record` by the route, and shown on the page and in the console.
 
+## What it forecasts
+
+Everything above is about what has happened. The watch also commits to one
+thing that has not: each day from 12:30 UT it issues **the probability that
+the next UT day holds a geomagnetic storm** (planetary Kp at NOAA's G1 or
+above in any three-hour interval), and after that day it records what
+happened.
+
+```bash
+mercury-agent forecasts show      # the newest forecasts, their outcomes, the score so far
+mercury-agent forecasts verify    # that nothing in the ledger was changed, or written afterwards
+mercury-agent forecasts export    # the ledger, one entry a line, for someone else to check
+```
+
+- **Made from** the Kp record alone, as GFZ publishes it: the 27 days that end
+  at 12:00 UT the day before. Persistence of a disturbance, the Sun's 27-day
+  rotation bringing a stream back, the level of the last month, the season.
+  Nothing of the Sun or the solar wind is read. It is a statistical forecast
+  from the index's own past; for a particular storm, ask NOAA's Space Weather
+  Prediction Center, which watches both.
+- **Written down first.** A forecast goes into an append-only ledger in the
+  watch's store. The ledger refuses a forecast of a day that has begun and an
+  outcome before the day has ended; the table refuses changes and deletions;
+  and each entry carries the hash of the one before, so an entry altered,
+  dropped or put in later breaks every hash after it. With
+  `MERCURY_FORECAST_SIGNING_KEY` naming a key file, each entry is signed with
+  ML-DSA-65 too.
+- **What that proves, and what it does not.** The chain proves the order of the
+  entries and that none changed. It cannot prove when they were written: whoever
+  holds the file could write a whole new chain. The ledger's head (its last
+  hash) is served at `GET /api/v1/watch/forecasts` and printed by `forecasts
+  show`; anyone who notes it down before a day can hold the ledger to it
+  afterwards with `forecasts verify --contains <head>`.
+- **Scored against two forecasts fixed with it:** the long-run rate of storm
+  days, and persistence (that rate after a storm in the last 24 hours, or after
+  none). A day for which nothing was issued in its window has no forecast; it
+  is not made up afterwards, and the score counts it as missed.
+
+What it is worth, measured (`research/forecast_kp`): on the record from 1932,
+where a storm day is 21.5% of days, each year from 1960 to 2025 was forecast by
+a model fitted only on the years before it. Over those 24,107 days it has a
+Brier score of 0.1369, against 0.1598 for the long-run rate and 0.1506 for
+persistence: 14.3% and 9.1% better. The model that ships is fitted through
+2025; on the 320 days of 2026 in the record, which it never saw, it is 9.8% and
+10.7% better. Of the days it gave 10 to 20%, 12.8% held a storm; of those it
+gave 60 to 70%, 70.4%. That is modest skill, about what the index's own past
+can give, and it is the whole claim. `MERCURY_WATCH_FORECASTS=false` turns it
+off; nothing is sent to anyone on a forecast.
+
 ## What to do
 
 Every finding says what a person there should do, in the words of the agency

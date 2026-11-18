@@ -16,6 +16,9 @@ package is the part in between.
   it. Most pulls yield none.
 * :mod:`~omni_mercury_engine.watch.voice` speaks: one plain account per
   finding, with its source and what it cannot tell.
+* :mod:`~omni_mercury_engine.watch.forecast` commits to one forecast before
+  each day, in the append-only :mod:`~omni_mercury_engine.watch.ledger`, and
+  is scored on what happened.
 * :mod:`~omni_mercury_engine.watch.canary` sends a test the way an alert is
   sent and learns, from the other end, whether it arrived.
 * :mod:`~omni_mercury_engine.watch.watcher` runs them on a schedule, from

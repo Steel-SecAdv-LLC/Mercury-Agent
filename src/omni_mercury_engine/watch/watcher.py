@@ -14,7 +14,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from omni_mercury_engine.watch.canary import Canary
 from omni_mercury_engine.watch.feeds import FEEDS, Feed
+from omni_mercury_engine.watch.forecast import Forecaster
 from omni_mercury_engine.watch.guidance import with_guidance
+from omni_mercury_engine.watch.ledger import ForecastLedger
 from omni_mercury_engine.watch.model import FeedStatus, Finding, Outcome
 from omni_mercury_engine.watch.notify import RETRY_FIRST, Notifier
 from omni_mercury_engine.watch.store import WatchStore
@@ -97,6 +99,9 @@ class Watcher:
         self.notifier = (
             notifier if notifier is not None else Notifier(self.store, clock=self._clock)
         )
+        #: The forecast the watch commits to before each day, and resolves after.
+        #: Built on first use: a key file that cannot be read must not stop the watch.
+        self._forecaster: Forecaster | None = None
         #: Test messages sent the way findings are, to learn whether one arrives.
         self.canary = Canary(self.store, self.notifier, clock=self._clock)
         #: The last announcement this watcher has told its consoles of. It
@@ -385,6 +390,16 @@ class Watcher:
             self.canary.run(self.leads)
         except Exception as exc:  # proving delivery must not stop the watching either
             logger.warning("watch: the delivery canary failed: %s", exc)
+        try:
+            # Tomorrow's forecast, committed before tomorrow; yesterday's, resolved.
+            if Forecaster.enabled():
+                if self._forecaster is None:
+                    self._forecaster = Forecaster(
+                        ForecastLedger.from_env(self.store), clock=self._clock
+                    )
+                self._forecaster.run(self.holder)
+        except Exception as exc:  # nor must forecasting
+            logger.warning("watch: the forecast pass failed: %s", exc)
         return statuses
 
     def _owes_a_delivery_pass(self, read_a_feed: bool, now: datetime) -> bool:

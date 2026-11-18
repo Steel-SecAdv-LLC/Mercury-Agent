@@ -30,12 +30,14 @@ from fastapi.responses import HTMLResponse
 
 from omni_mercury_engine.watch.canary import proof_of_delivery
 from omni_mercury_engine.watch.feeds import FEEDS
+from omni_mercury_engine.watch.forecast import TARGET, load_model
+from omni_mercury_engine.watch.ledger import GENESIS, ForecastLedger, score
 from omni_mercury_engine.watch.model import public_view
 from omni_mercury_engine.watch.notify import configured_channels
 from omni_mercury_engine.watch.service import watching
 from omni_mercury_engine.watch.store import default_state_dir, existing_store, open_store
 
-__all__ = ["router", "snapshot"]
+__all__ = ["forecasts", "router", "snapshot"]
 
 router = APIRouter(prefix="/api/v1/watch", tags=["Watch"])
 
@@ -99,6 +101,54 @@ def watch_snapshot(
 ) -> dict[str, Any]:
     """Return the last status of every feed and the recorded findings."""
     return snapshot(limit=limit, open_only=open_only)
+
+
+def forecasts(*, limit: int = 30) -> dict[str, Any]:
+    """The watch's forecasts as the ledger holds them, and how they have done.
+
+    Returns:
+        What is forecast and from what model, the ledger's ``head`` (note it
+        down to hold the ledger to later), the public key entries are signed
+        with if any, the ``score`` over every resolved forecast, and the
+        newest ``limit`` forecasts with their outcomes.
+    """
+    model = load_model()
+    shown: dict[str, Any] = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "target": TARGET,
+        "what": (
+            "the probability that a UT day holds a geomagnetic storm at NOAA G1 or above "
+            "(planetary Kp 5- or more in any three-hour interval), issued the day before"
+        ),
+        "model": {"version": model.version, "trained_through": model.trained_through},
+        "head": GENESIS,
+        "public_key": "",
+        "score": score([], TARGET),
+        "forecasts": [],
+    }
+    store = existing_store()
+    if store is not None:
+        ledger = ForecastLedger(store)  # reading needs no key
+        entries = ledger.entries()
+        state = ledger.state(TARGET)
+        today = datetime.now(UTC).date()
+        shown.update(
+            head=ledger.head(),
+            public_key=str(entries[-1].get("signer", "")) if entries else "",
+            score=score(entries, TARGET, until=today),
+            forecasts=[{"forecast": name, **entry} for name, entry in list(state.items())[-limit:]][
+                ::-1
+            ],
+        )
+    return shown
+
+
+@router.get("/forecasts", summary="What the watch forecast, before; and what happened, after")
+def watch_forecasts(
+    limit: int = Query(30, ge=1, le=366, description="Most forecasts to return, newest first."),
+) -> dict[str, Any]:
+    """Return the forecast ledger's head, its score and its newest forecasts."""
+    return forecasts(limit=limit)
 
 
 _TOKEN = PathParameter(..., min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")

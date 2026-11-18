@@ -81,6 +81,15 @@ CREATE TABLE IF NOT EXISTS canaries (
     receipt TEXT NOT NULL DEFAULT '', error TEXT, proven_at TEXT, proven_by TEXT
 );
 CREATE INDEX IF NOT EXISTS canaries_sent ON canaries (channel, sent_at);
+CREATE TABLE IF NOT EXISTS forecast_ledger (
+    seq INTEGER PRIMARY KEY, forecast TEXT NOT NULL, kind TEXT NOT NULL,
+    body TEXT NOT NULL, hash TEXT NOT NULL, signature TEXT NOT NULL DEFAULT '',
+    UNIQUE (forecast, kind)
+);
+CREATE TRIGGER IF NOT EXISTS forecast_ledger_keeps BEFORE UPDATE ON forecast_ledger
+BEGIN SELECT RAISE(ABORT, 'the forecast ledger is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS forecast_ledger_holds BEFORE DELETE ON forecast_ledger
+BEGIN SELECT RAISE(ABORT, 'the forecast ledger is append-only'); END;
 CREATE TABLE IF NOT EXISTS marks (name TEXT PRIMARY KEY, n INTEGER NOT NULL);
 INSERT OR IGNORE INTO marks (name, n) VALUES ('told', 0);
 CREATE TRIGGER IF NOT EXISTS told_subscriber_added AFTER INSERT ON subscribers

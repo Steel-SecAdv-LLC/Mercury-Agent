@@ -2174,6 +2174,163 @@ _SEVERITIES = {
 }  # watch.model.RANKS, held to it by a test
 
 
+@main.group()
+def forecasts() -> None:
+    """What the watch forecast before the day, and what happened after.
+
+    One forecast: the probability that a UT day holds a geomagnetic storm at
+    NOAA G1 or above, issued the day before from the Kp record alone and
+    written into an append-only ledger that refuses a forecast of a day that
+    has begun. Each is resolved after its day and scored against two
+    forecasts fixed with it: the long-run rate, and persistence.
+    """
+
+
+def _forecast_ledger(state_dir: Path | None, *, writes: bool = False) -> Any:
+    from omni_mercury_engine.watch.ledger import ForecastLedger
+
+    store = _watch_store(state_dir)
+    return ForecastLedger.from_env(store) if writes else ForecastLedger(store)
+
+
+@forecasts.command("show")
+@click.option("--limit", type=click.IntRange(1, 366), default=14, show_default=True)
+@click.option("--json", "as_json", is_flag=True, help="Print machine-readable JSON.")
+@_STATE_DIR
+def forecasts_show(limit: int, as_json: bool, state_dir: Path | None) -> None:
+    """Show the newest forecasts, their outcomes, and the score so far."""
+    from datetime import UTC, datetime
+
+    from omni_mercury_engine.watch.forecast import TARGET
+    from omni_mercury_engine.watch.ledger import score
+
+    ledger = _forecast_ledger(state_dir)
+    entries = ledger.entries()
+    account = score(entries, TARGET, until=datetime.now(UTC).date())
+    newest = list(ledger.state(TARGET).items())[-limit:][::-1]
+    if as_json:
+        click.echo(
+            json.dumps(
+                {
+                    "head": ledger.head(),
+                    "score": account,
+                    "forecasts": [{"forecast": name, **entry} for name, entry in newest],
+                },
+                indent=2,
+            )
+        )
+        return
+    if not newest:
+        click.echo("No forecast has been issued. The watch issues one each day from 12:30 UT.")
+        return
+    for name, entry in newest:
+        outcome = (
+            "not yet resolved"
+            if entry["outcome"] is None
+            else ("a storm day" if entry["outcome"] else "no storm")
+        )
+        click.echo(f"{name}  {entry['probability']:6.1%}  {outcome}")
+    click.echo("")
+    click.echo(
+        f"{account['resolved']} resolved of {account['issued']} issued; "
+        f"{len(account['missed'])} day(s) with no forecast."
+    )
+    if account["brier"] is not None:
+        click.echo(
+            f"Brier score {account['brier']:.4f} (lower is better); storms on "
+            f"{account['observed_rate']:.1%} of resolved days."
+        )
+        for reference, told in account["references"].items():
+            skill = "n/a" if told["skill"] is None else f"{told['skill']:+.1%}"
+            click.echo(f"  against {reference}: its Brier score {told['brier']:.4f}; skill {skill}")
+        if account["resolved"] < 100:
+            click.echo("  Fewer than 100 have resolved: the skill above says little yet.")
+    click.echo(f"Ledger head: {ledger.head()}")
+
+
+@forecasts.command("verify")
+@click.option(
+    "--file",
+    "export",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Verify an exported ledger instead of this deployment's.",
+)
+@click.option("--public-key", default="", help="Hex ML-DSA-65 key every entry must be signed with.")
+@click.option(
+    "--contains",
+    default="",
+    help="A head noted down earlier: the ledger must still hold it, unchanged.",
+)
+@_STATE_DIR
+def forecasts_verify(
+    export: Path | None, public_key: str, contains: str, state_dir: Path | None
+) -> None:
+    """Check that the ledger holds: nothing changed, dropped, or forecast after the fact.
+
+    Exits 1 and says what is wrong if an entry does not hash to what it
+    claims or follow the one before it, if a forecast was issued after its
+    day began or resolved before it ended, or (with --public-key) if an
+    entry is not signed with that key. With --contains, also if a head that
+    was noted down earlier is no longer in the ledger.
+    """
+    from omni_mercury_engine.watch.ledger import GENESIS, verify
+
+    if export is not None:
+        entries = [
+            json.loads(line)
+            for line in export.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    else:
+        entries = _forecast_ledger(state_dir).entries()
+    wrong = verify(entries, public_key=public_key)
+    if contains and contains != GENESIS and contains not in {entry["hash"] for entry in entries}:
+        wrong.append(f"the head {contains} is not in this ledger: it is not the one that was noted")
+    for problem in wrong:
+        click.echo(problem)
+    if wrong:
+        raise click.exceptions.Exit(1)
+    head = entries[-1]["hash"] if entries else GENESIS
+    click.echo(f"{len(entries)} entries hold. Head: {head}")
+
+
+@forecasts.command("export")
+@click.option(
+    "--output",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Write here instead of printing.",
+)
+@_STATE_DIR
+def forecasts_export(output: Path | None, state_dir: Path | None) -> None:
+    """Write the ledger out, one entry a line, for someone else to verify and score."""
+    lines = "".join(
+        json.dumps(entry, sort_keys=True) + "\n" for entry in _forecast_ledger(state_dir).entries()
+    )
+    if output is None:
+        click.echo(lines, nl=False)
+    else:
+        output.write_text(lines, encoding="utf-8")
+        click.echo(f"Wrote {len(lines.splitlines())} entries to {output}.")
+
+
+@forecasts.command("run")
+@_STATE_DIR
+def forecasts_run(state_dir: Path | None) -> None:
+    """Issue tomorrow's forecast if it is due, and resolve the ones that are over.
+
+    What the watch does on its own every few minutes; this is for a
+    deployment that runs no watch loop. A forecast can be issued only
+    between 12:30 and 24:00 UT on the day before.
+    """
+    from omni_mercury_engine.watch.forecast import Forecaster
+
+    forecaster = Forecaster(_forecast_ledger(state_dir, writes=True))
+    done = forecaster.run(holder=f"cli:{os.getpid()}")
+    click.echo(f"Issued {done['issued']}, resolved {done['resolved']}.")
+
+
 @alerts.command("add")
 @click.option("--email", required=True, help="Address to tell.")
 @click.option("--place", default="", help='A name for the place ("Home").')

@@ -7,27 +7,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,165
-- **Capability-bearing classes:** 2,118 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,169
+- **Capability-bearing classes:** 2,121 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 94 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,245 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,246 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1245 |
-| Support types (config / result / enum / error) | 1047 |
+| Other capability classes | 1246 |
+| Support types (config / result / enum / error) | 1048 |
 | Detection | 181 |
-| Neural models & layers | 162 |
+| Neural models & layers | 163 |
 | Data sources & loaders | 114 |
 | Adapters & backends | 108 |
 | Engines & orchestration | 102 |
 | Training & optimization | 65 |
 | Analysis & scoring | 59 |
 | Monitoring | 27 |
-| Prediction & forecasting | 21 |
+| Prediction & forecasting | 22 |
 | Ethics & governance | 14 |
 | Solvers & scorers | 12 |
 | Biometric & recognition | 8 |
@@ -3059,7 +3059,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `watch/` — 30 classes (21 capability)
+### `watch/` — 34 classes (24 capability)
+
+**Neural models & layers**
+
+- `Model` (`watch.forecast`) — The fitted forecaster.
 
 **Other capability classes**
 
@@ -3069,6 +3073,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Feed` (`watch.feeds`) — One live source and its judgment.
 - `Felt` (`watch.shaking`) — What USGS says of an earthquake at one place.
 - `Finding` (`watch.model`) — One thing a feed showed that is worth a person's attention.
+- `ForecastLedger` (`watch.ledger`) — The append-only record of forecasts and their outcomes, in the watch's store.
 - `GdacsFeed` (`watch.world`) — Disasters GDACS rates Orange or Red: cyclones, floods, volcanoes, wildfires.
 - `ImapMailbox` (`watch.canary`) — A mailbox read over IMAP with TLS from the first byte (RFC 8314).
 - `Judgment` (`watch.feeds`) — What a feed made of one read.
@@ -3085,9 +3090,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Watcher` (`watch.watcher`) — Reads feeds on their cadences and keeps the store current.
 - `WorldWarningsFeed` (`watch.world`) — Alerts in effect at subscribed places, from the national authority that issued them.
 
-<details><summary>Support types (9)</summary>
+**Prediction & forecasting**
 
-`FeedStatus`, `Mailbox`, `PhoneLimitError`, `Severity`, `SmsOptedOutError`, `SmsRefusedError`, `SmsSender`, `SmsUnreachableError`, `SubscriptionLimitError`
+- `Forecaster` (`watch.forecast`) — Issues tomorrow's forecast when it can be made, and resolves the ones that are over.
+
+<details><summary>Support types (10)</summary>
+
+`FeedStatus`, `LedgerError`, `Mailbox`, `PhoneLimitError`, `Severity`, `SmsOptedOutError`, `SmsRefusedError`, `SmsSender`, `SmsUnreachableError`, `SubscriptionLimitError`
 
 </details>
 

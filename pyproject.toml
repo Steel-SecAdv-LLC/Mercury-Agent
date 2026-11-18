@@ -637,6 +637,9 @@ omni_mercury_engine = [
     # rate versus 0.286 with the model. Fail-open by design, so the loss is
     # silent: this entry is what keeps it from happening.
     "cognitive/meaning_level_weights.json",
+    # The fitted geomagnetic-storm forecaster (watch/forecast.py). Without it
+    # the watch has no forecast to commit to and logs that it cannot load one.
+    "watch/kp_g1_model.json",
     # Account-frontend assets (api/frontend.py): the HTML pages, stylesheet,
     # page scripts, and the vendored MIT qrcode-generator. Served straight
     # from the installed package when MERCURY_FRONTEND_ENABLED=true — a
