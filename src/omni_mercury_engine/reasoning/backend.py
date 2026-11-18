@@ -143,13 +143,15 @@ class ReasoningBackend(abc.ABC):
 
         Mirrors the narrative-voice contract: the harm-uplift gate first,
         σ_Immutable second, both fail-closed. On violation the call raises
-        and no generated content is surfaced. The gate reads the whole
-        context, and whatever in the evidence it cannot read as data it reads
-        as the prompt will print it: an object that only says what it holds
-        when printed reaches the model as that text, and was read by the
-        gate as a type name. (Only those: with all of the evidence handed
-        over a second time as its printed form, it counted twice against
-        what one decision may carry.)
+        and no generated content is surfaced.
+
+        The harm gate reads the request twice, each within what one decision
+        may carry: the context as the data it is, and the evidence as every
+        prompt here prints it (``str``). Read only as data, an object that
+        says what it holds when printed reached the model unread; read only
+        as printed, text the printing escapes (a zero-width character between
+        letters) was not put back together. Handed over as one payload the
+        two counted twice, and 600,000 characters were refused as too many.
 
         Args:
             boundary: Fully-qualified boundary name for the audit trail.
@@ -157,16 +159,31 @@ class ReasoningBackend(abc.ABC):
         """
         if not self.ethics_enabled:
             return
-        from omni_mercury_engine.cognitive.decision_gate import DecisionSubject, unread_values
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
 
         safe_domain = sanitize_domain(context.domain)
+        operation = "generate a natural-language explanation of a Mercury finding"
+        request = str(context.summary or "")
+        if context.evidence:
+            enforce_decision_boundary(
+                DecisionSubject(
+                    surface=boundary,
+                    operation=operation,
+                    domain=safe_domain,
+                    request=request,
+                    payload=str(context.evidence),
+                )
+            )
         enforce_dual_ethical_gate(
             subject=DecisionSubject(
                 surface=boundary,
-                operation="generate a natural-language explanation of a Mercury finding",
+                operation=operation,
                 domain=safe_domain,
-                request=str(context.summary or ""),
-                payload=(context, [str(value) for value in unread_values(context.evidence)]),
+                request=request,
+                payload=context,
             ),
             sigma_gate=self._sigma_gate,
             advisory_scorer=self._benevolence_scorer,

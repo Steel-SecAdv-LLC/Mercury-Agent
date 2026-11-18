@@ -781,10 +781,24 @@ class WatchStore:
             # What the old address was sent, the new one has been sent: the
             # record is kept under the address, and left under the old one
             # everything standing went again to the new.
+            # Where both addresses hold a record of one finding, "sent" stands:
+            # replaced by the old address's failed attempt it went out again.
+            moved = {"new": address_entry(new), "old": address_entry(old)}
             connection.execute(
-                "UPDATE OR REPLACE deliveries SET subscriber = ? WHERE subscriber = ? "
+                "DELETE FROM deliveries WHERE subscriber = :new AND channel = 'email' "
+                "AND status <> 'sent' AND EXISTS (SELECT 1 FROM deliveries AS was WHERE "
+                "was.subscriber = :old AND was.channel = 'email' AND was.status = 'sent' "
+                "AND was.finding_key = deliveries.finding_key "
+                "AND was.severity = deliveries.severity)",
+                moved,
+            )
+            connection.execute(
+                "UPDATE OR IGNORE deliveries SET subscriber = :new WHERE subscriber = :old "
                 "AND channel = 'email'",
-                (address_entry(new), address_entry(old)),
+                moved,
+            )
+            connection.execute(
+                "DELETE FROM deliveries WHERE subscriber = :old AND channel = 'email'", moved
             )
             return int(cursor.rowcount)
 
@@ -1166,24 +1180,29 @@ class WatchStore:
                 ),
             )
 
-    def delivery_mark(self) -> tuple[int, int, int, int]:
+    def delivery_mark(self) -> tuple[int, tuple[Any, ...]]:
         """What a delivery pass depends on, cheaply: has anything changed that it would act on.
 
         Returns:
-            How many deliveries last failed, the newest subscription's id, how
-            many subscriptions there are, and how many numbers are verified.
+            How many deliveries last failed, and a mark that differs whenever
+            who is told, or where, has changed: a subscription added, removed
+            or re-saved with another place, radius or severity; a number
+            verified or its severity changed; an earthquake's felt extent read.
         """
         with closing(self._connect()) as connection:
             failed = connection.execute(
                 "SELECT COUNT(*) FROM deliveries WHERE status = 'failed'"
             ).fetchone()[0]
-            newest, held = connection.execute(
-                "SELECT COALESCE(MAX(id), 0), COUNT(*) FROM subscribers"
+            subscribed = connection.execute(
+                "SELECT COUNT(*), COALESCE(MAX(id), 0), TOTAL(latitude), TOTAL(longitude), "
+                "TOTAL(radius_km), TOTAL(min_severity) FROM subscribers"
             ).fetchone()
-            verified = connection.execute(
-                "SELECT COUNT(*) FROM phones WHERE verified_at IS NOT NULL"
-            ).fetchone()[0]
-        return int(failed), int(newest), int(held), int(verified)
+            texted = connection.execute(
+                "SELECT COUNT(verified_at), TOTAL(min_severity) FROM phones "
+                "WHERE verified_at IS NOT NULL"
+            ).fetchone()
+            felt = connection.execute("SELECT COUNT(*), MAX(read_at) FROM reach").fetchone()
+        return int(failed), (*subscribed, *texted, *felt)
 
     def delivery_counts(self) -> dict[str, int]:
         """How many deliveries were sent and how many last failed."""

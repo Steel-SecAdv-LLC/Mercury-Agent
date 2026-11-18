@@ -87,7 +87,7 @@ class Watcher:
         #: The last full delivery pass: when, and the newest announcement then.
         self._delivered_at: datetime | None = None
         self._delivered_to = 0
-        self._delivered_mark: tuple[int, int, int, int] = (0, 0, 0, 0)
+        self._delivered_mark: tuple[Any, ...] = ()
         #: This watcher's name on the lease: unique to it, readable by a person.
         self.holder = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
         self._standing_by = False
@@ -356,29 +356,34 @@ class Watcher:
             # tell anyone), the server delivered a tornado warning only when
             # it next happened to read something, up to an hour later.
             if self._owes_a_delivery_pass(bool(statuses), now) and self.leads():
+                # What the pass is about to read, noted before it reads: a
+                # subscriber who joins while it runs is new to the next one.
                 newest = self.store.last_announcement()
+                mark = self.store.delivery_mark()[1]
                 self.notifier.sync(heartbeat=self.leads)
-                self._delivered_at, self._delivered_to = now, newest
-                self._delivered_mark = self.store.delivery_mark()
+                if self.leads():
+                    # A pass that ended because the lease went has not been made.
+                    self._delivered_at, self._delivered_to = now, newest
+                    self._delivered_mark = mark
         except Exception as exc:  # telling people must not stop the watching
             logger.warning("watch: delivery pass failed: %s", exc)
         return statuses
 
     def _owes_a_delivery_pass(self, read_a_feed: bool, now: datetime) -> bool:
-        """Whether there may be something to send, asked of the store in three small queries.
+        """Whether there may be something to send, asked of the store in a few small queries.
 
-        A feed this watcher read, a finding any watch recorded, a subscriber
-        or a verified number since the last pass, or a failed delivery whose
-        wait may have passed. A full pass loads every subscriber, everything
-        standing and the whole ledger: once a minute for nothing was several
-        times the work the watch had been doing.
+        A feed this watcher read, a finding any watch recorded, a change in
+        who is told or where (:meth:`WatchStore.delivery_mark`), or a failed
+        delivery whose wait may have passed. A full pass loads every
+        subscriber, everything standing and the whole ledger: once a minute
+        for nothing was several times the work the watch had been doing.
         """
         if read_a_feed or self._delivered_at is None:
             return True
         if self.store.last_announcement() > self._delivered_to:
             return True
-        failed, *held = self.store.delivery_mark()
-        if tuple(held) != self._delivered_mark[1:]:
+        failed, mark = self.store.delivery_mark()
+        if mark != self._delivered_mark:
             return True
         return failed > 0 and now - self._delivered_at >= RETRY_FIRST
 

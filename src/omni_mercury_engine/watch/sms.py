@@ -91,6 +91,8 @@ def two_segments(text: str) -> str:
     # units, 134 of them. What stands before that character may be more than
     # that: a curly quote at the 250th character must not cost the 249 before it.
     as_it_is = _cut(text, gsm=False)
+    if as_it_is == text:
+        return text  # it fits as it is; nothing is to be gained by cutting it
     before = _cut(text[:outside], gsm=True, more_follows=True)
     return before if len(before) > len(as_it_is) else as_it_is
 

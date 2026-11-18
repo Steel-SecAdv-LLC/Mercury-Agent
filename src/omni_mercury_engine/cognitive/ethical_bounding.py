@@ -1250,11 +1250,10 @@ _HAZARD_CONTEXT_ANCHORS: frozenset[str] = frozenset(
 #: 138 characters) with an unbounded ``.*`` between the verb and the object,
 #: which is the same thing there. In a long text it is not: an article that
 #: said "enhance relationships with clients" on one page and "virus" twenty
-#: pages on was a hard refusal for pathogen enhancement. Four hundred
-#: characters is two or three sentences: room for a long qualifying clause,
-#: and on the 76 articles of ``research/harm_gate_long_text`` it refuses
-#: what 160 refuses and no more.
-_WITHIN_A_REQUEST = r".{0,400}?"
+#: pages on was a hard refusal for pathogen enhancement. The reach is longer
+#: than any labelled text and no longer: at 400 characters "enhance our
+#: outreach" still met "flu virus" three sentences on.
+_WITHIN_A_REQUEST = r".{0,160}?"
 
 _PEOPLE = r"(?:people|persons|civilians|humans)"
 #: Label of a pattern that counts only in a text that names a hazard. It is
@@ -1631,10 +1630,11 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     offensive = _match_intent_patterns(
         haystack, _OFFENSIVE_INTENT_PATTERNS
     ) + _match_multilingual_offensive(haystack)
+    anchored: bool | None = None
     if any(label == _WHERE_A_HAZARD_IS_NAMED for _, label in offensive):
-        hazard_named = domain is not HazardDomain.NONE or any_term_in_haystack(
-            haystack, _HAZARD_CONTEXT_ANCHOR_FORMS
-        )
+        if domain is HazardDomain.NONE:
+            anchored = any_term_in_haystack(haystack, _HAZARD_CONTEXT_ANCHOR_FORMS)
+        hazard_named = domain is not HazardDomain.NONE or bool(anchored)
         offensive = [
             (tier, "targeting_planning" if label == _WHERE_A_HAZARD_IS_NAMED else label)
             for tier, label in offensive
@@ -1648,7 +1648,8 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     # (it would false-positive on "how do I cook dinner"). Either way the query
     # is routed to OTHER_MASS_HARM so Axis B gates it.
     if domain is HazardDomain.NONE:
-        anchored = any_term_in_haystack(haystack, _HAZARD_CONTEXT_ANCHOR_FORMS)
+        if anchored is None:
+            anchored = any_term_in_haystack(haystack, _HAZARD_CONTEXT_ANCHOR_FORMS)
         gated_intents = set(_INHERENTLY_OFFENSIVE_INTENTS)
         if anchored:
             gated_intents |= {OperationalIntent.PRODUCTION, OperationalIntent.ACQUISITION}

@@ -118,7 +118,9 @@ class FetchResult:
     harm_blocked: bool = False
     harm_note: str = ""
     # ``text`` is the first part of the page only: the rest was past what the
-    # default harm screen reads, and what it did not read is not handed on.
+    # harm screen reads, and what it did not read is not handed on. A screen
+    # that reads the whole of any page sets ``reads_whole_page = True`` on
+    # itself and is given, and returns, all of it.
     truncated: bool = False
 
     @property
@@ -331,13 +333,6 @@ def default_content_gate(text: str, harm_classifier: Any | None = None) -> tuple
         return True, f"content gate error (fail-closed): {exc}"
 
 
-def _reads_a_prefix(gate: Any) -> bool:
-    """Whether ``gate`` is the default harm screen, which reads a bounded prefix."""
-    return gate is default_content_gate or (
-        isinstance(gate, functools.partial) and gate.func is default_content_gate
-    )
-
-
 @dataclass
 class WebResearcher:
     """Fetch, extract, and search the open web with the standard library only.
@@ -472,9 +467,11 @@ class WebResearcher:
             result.text = self.extract_text(result.text)
             if self.content_gate is not None and result.text:
                 # Only what the screen reads goes on to a consumer, and the
-                # result says when that is not the whole page. A screen of the
-                # caller's own reads what it reads and is given all of it.
-                if _reads_a_prefix(self.content_gate) and (
+                # result says when that is not the whole page. A screen that
+                # reads all of a page says so (``reads_whole_page``) and is
+                # given all of it; any other is taken to read what the default
+                # one reads, whatever it is wrapped in.
+                if not getattr(self.content_gate, "reads_whole_page", False) and (
                     len(result.text) > _HARM_SCREEN_MAX_CHARS
                 ):
                     result.text = result.text[:_HARM_SCREEN_MAX_CHARS]

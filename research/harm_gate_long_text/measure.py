@@ -19,7 +19,7 @@ Three readings of each article, as the text of a request:
 * ``whole`` -- the whole text scored as one string, which pairs a hazard
   with an intent at any distance. Built, measured here, and not adopted.
 
-The articles are 40 on general subjects and 36 on hazards (agents, weapons,
+The articles are 40 on general subjects and 40 on hazards (agents, weapons,
 incidents). Their text is not kept in the repository; ``evidence.json`` holds
 each one's title, length, digest and three verdicts.
 ``tests/research/test_harm_gate_long_text.py`` holds what the code and the

@@ -220,7 +220,12 @@ class EthicalConstants:
     # against civilians" was permitted). A term is in every word but the
     # ordinary English words that happen to hold it, and the bare words are
     # attack planning wherever a hazard is named, as in v9.
-    RULESET_VERSION: int = 11
+    # v12: v11 exempted listed words only, each looked up as one variant of
+    # the text had it, and reached 400 characters from a verb to its object.
+    # "Pricing-model" and "tricine" were refused, and "enhance our outreach"
+    # met "flu virus" three sentences on. A term strictly inside a word is
+    # that word's letters, and the reach is 160.
+    RULESET_VERSION: int = 12
 
 
 ETHICAL = EthicalConstants()

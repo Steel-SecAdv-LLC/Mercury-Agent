@@ -361,16 +361,17 @@ class TestSeveralWatchesOfOneStore:
         """
         clock = [NOW]
         first = Watcher(store, feeds=[_Quiet()], clock=lambda: clock[0])
-        second = Watcher(store, feeds=[_Quiet()], clock=lambda: clock[0])
+        feed = _Quiet()
+        second = Watcher(store, feeds=[feed], clock=lambda: clock[0])
         first._pass(force=False)
 
         clock[0] = NOW + timedelta(minutes=16)  # the first watcher's lease has lapsed
         second._pass(force=False)
-        assert second.feeds[0].read_count == 0  # type: ignore[attr-defined]
+        assert feed.read_count == 0
 
         clock[0] = NOW + timedelta(minutes=31)
         second._pass(force=False)
-        assert second.feeds[0].read_count == 1  # type: ignore[attr-defined]
+        assert feed.read_count == 1
 
     def test_the_watch_that_tells_people_tells_what_another_watch_read(
         self, store: WatchStore
@@ -755,7 +756,8 @@ class TestAWarningsNameOutlastsOneFailedLookup:
 
 class _Counting(Notifier):
     def __init__(self, store: WatchStore, clock: Any) -> None:
-        super().__init__(store, mailer=_Mail(), clock=clock)
+        self.mail = _Mail()
+        super().__init__(store, mailer=self.mail, clock=clock)
         self.passes = 0
 
     def sync(self, heartbeat: Any = None, feed: str | None = None) -> dict[str, int]:
@@ -795,3 +797,54 @@ def test_a_character_outside_the_alphabet_in_the_part_cut_off_costs_nothing() ->
 
     assert len(kept) > MAX_TEXT_UCS2 and len(kept) <= MAX_TEXT
     assert "\u201c" not in kept
+
+
+# --------------------------------------------------------------------------- #
+# And of those
+# --------------------------------------------------------------------------- #
+
+
+def test_a_message_that_fits_is_not_cut_for_a_character_at_its_end() -> None:
+    """Was, for one commit: the text before a late curly quote, with "..." added, was preferred."""
+    text = (
+        "Flood warning for the river valley. Move to higher ground now. "
+        "Shelter is open at Lincoln High\u2019s"
+    )
+
+    assert len(text) < MAX_TEXT_UCS2
+    assert two_segments(text) == text
+
+
+def test_a_changed_place_is_a_reason_for_a_delivery_pass(store: WatchStore) -> None:
+    """Was, for one commit: only a new subscriber or number was; a place moved was not."""
+    far = (47.6, -122.3)
+    store.add_subscriber(ANA, place="home", latitude=far[0], longitude=far[1], radius_km=50.0)
+    store.report(_finding(), NOW)
+    clock = [NOW]
+    notifier = _Counting(store, lambda: clock[0])
+    watcher = Watcher(store, feeds=[], clock=lambda: clock[0], notifier=notifier)
+    watcher._pass(force=False)
+    assert notifier.mail.sent == []
+
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1], radius_km=50.0)
+    clock[0] = NOW + timedelta(seconds=30)
+    watcher._pass(force=False)
+
+    assert notifier.passes == 2
+    assert notifier.mail.sent == [ANA]
+
+
+def test_an_address_change_keeps_what_the_new_address_was_sent(store: WatchStore) -> None:
+    """Was, for one commit: the old address's failed attempt replaced the new one's "sent"."""
+    new = "ana@new.example.org"
+    store.add_subscriber(ANA, place="home", latitude=MIAMI[0], longitude=MIAMI[1])
+    store.add_subscriber(new, place="work", latitude=MIAMI[0], longitude=MIAMI[1])
+    finding = _finding()
+    store.report(finding, NOW)
+    store.record_delivery(finding.key, 3, address_entry(new), "email", error=None, now=NOW)
+    store.record_delivery(finding.key, 3, address_entry(ANA), "email", error="refused", now=NOW)
+
+    store.move_subscriber(ANA, new)
+
+    assert store.delivery(finding.key, 3, address_entry(new), "email")["status"] == "sent"
+    assert not store.delivery(finding.key, 3, address_entry(ANA), "email")

@@ -37,6 +37,7 @@ gate does.
 
 from __future__ import annotations
 
+import functools
 import re
 import unicodedata
 from typing import TYPE_CHECKING
@@ -163,8 +164,6 @@ _LEET: dict[str, str] = {
     "¡": "i",
 }
 
-#: Where a lower-case letter is followed by a capital: a join in camelCase.
-_CAMEL_JOIN_RE = re.compile(r"(?<=[a-z])(?=[A-Z])")
 _COLLAPSE_RE = re.compile(r"[^a-z0-9-￿]+")
 _WHITESPACE_RE = re.compile(r"\s+")
 # Intra-word punctuation only (keeps whitespace + word chars incl. non-Latin
@@ -705,11 +704,6 @@ def normalized_haystack(text: str) -> str:
             (rejoined, None),
             (collapsed, folded),
         ]
-        # Words run together with a capital at each join ("makeSarinNow"):
-        # the capitals are the boundaries, and lower-casing loses them.
-        parted = _CAMEL_JOIN_RE.sub(" ", text or "")
-        if parted != (text or ""):
-            ordered.append((_fold_obfuscation(base_normalize(parted)), None))
         translit = _cyrillic_translit(base)
         if translit != base:
             t_folded = _fold_obfuscation(translit)
@@ -836,18 +830,24 @@ def _occurs(haystack: str, form: str) -> bool:
     pricing tables" and "how do I make so many cookies" were refused as
     production of a biological and of a chemical agent. An occurrence counts:
 
-    * in a variant that keeps its words, unless the word it is in is one of
-      :data:`ORDINARY_WORDS_HOLDING_A_TERM`. Any other word holds the term, as
-      it always did: a plural, a compound ("neurotoxins"), a request run
-      together or wrapped in letters to be missed ("makesarinnow",
-      "xsarinx");
+    * in a variant that keeps its words, when it is not part of one of
+      :data:`ORDINARY_WORDS_HOLDING_A_TERM` and it could be the term in its
+      word: it touches the word's edge on at least one side ("neurotoxin",
+      "toxins", "sarin-based"), or only a plural ending follows it
+      ("neurotoxins"), or the letters round it in the word are words the
+      gate knows ("makesarin" run together);
     * in a collapsed variant, when it starts where a piece of the original
       text starts and ends where one ends. ``s a r i n`` and ``sa rin`` do;
       "so many" ends inside "many".
 
-    What the second gives up: a term split in two with other letters glued to
-    the halves (``absar incd``) was found, as any substring of the collapsed
-    text was, and no longer is.
+    Only a Latin letter or a digit beside the occurrence is the inside of a
+    word: scripts written without spaces between words are matched as before.
+
+    What this gives up, each found as any substring was: a term with letters
+    that are no word on both sides of it (``xsarinx``), and one split in two
+    with other letters glued to the halves (``absar incd``). What it keeps
+    from being refused is every word that merely holds a term's letters,
+    listed or not: "tricine", "passarinho", a surname.
     """
     at = haystack.find(form)
     if at < 0:
@@ -862,27 +862,66 @@ def _occurs(haystack: str, form: str) -> bool:
                     return True
                 break
         else:
-            if _word_around(haystack, at, end) not in ORDINARY_WORDS_HOLDING_A_TERM:
+            if _is_the_term(haystack, form, at, end):
                 return True
         at = haystack.find(form, at + 1)
     return False
 
 
-def _word_around(haystack: str, at: int, end: int) -> str:
-    """The word ``haystack[at:end]`` is part of, without a plural ending."""
+#: Endings that make a plural of a term.
+_PLURAL_ENDINGS = ("s", "es")
+
+
+def _is_the_term(haystack: str, form: str, at: int, end: int) -> bool:
+    """Whether ``haystack[at:end]``, in a variant that keeps its words, is the term ``form``."""
+    if _in_an_ordinary_word(haystack, form, at):
+        return False
     start = at
-    while start > 0 and _is_latin_word_char(haystack[start - 1]):
+    while start > 0 and _is_latin_word_char(haystack[start - 1]) and _is_latin_word_char(form[0]):
         start -= 1
     stop = end
-    while stop < len(haystack) and _is_latin_word_char(haystack[stop]):
+    while (
+        stop < len(haystack)
+        and _is_latin_word_char(haystack[stop])
+        and _is_latin_word_char(form[-1])
+    ):
         stop += 1
-    word = haystack[start:stop]
-    if word in ORDINARY_WORDS_HOLDING_A_TERM:
-        return word
-    for ending in ("es", "s"):
-        if word.endswith(ending) and word[: -len(ending)] in ORDINARY_WORDS_HOLDING_A_TERM:
-            return word[: -len(ending)]
-    return word
+    before, after = haystack[start:at], haystack[end:stop]
+    if not before or not after or after in _PLURAL_ENDINGS:
+        return True
+    return _known_words(before) and _known_words(after)
+
+
+def _known_words(run: str) -> bool:
+    """Whether ``run`` splits wholly into words of the gate's vocabulary."""
+    if len(run) > _MAX_SEGMENT_RUN:
+        return False
+    vocabulary = _vocabulary()
+    return all(piece in vocabulary for piece in segment_glued_run(run).split())
+
+
+def _in_an_ordinary_word(haystack: str, form: str, at: int) -> bool:
+    """Whether the occurrence at ``at`` lies inside an ordinary word that holds ``form``.
+
+    Asked of the letters themselves, not of where the variant's words end: a
+    variant that drops punctuation makes "pricing-model" one run of letters,
+    and looked up as that run the word was no longer the exempt "pricing".
+    """
+    return any(
+        at >= offset and haystack.startswith(word, at - offset)
+        for word, offset in _ordinary_holders(form)
+    )
+
+
+@functools.cache
+def _ordinary_holders(form: str) -> tuple[tuple[str, int], ...]:
+    """Each ordinary word that holds ``form``, with where in the word it is."""
+    return tuple(
+        (word, offset)
+        for word in sorted(ORDINARY_WORDS_HOLDING_A_TERM)
+        for offset in range(len(word) - len(form) + 1)
+        if word.startswith(form, offset)
+    )
 
 
 #: English words that hold the name of an agent and have nothing to do with it.

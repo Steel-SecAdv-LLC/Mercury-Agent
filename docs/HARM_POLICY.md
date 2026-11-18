@@ -147,11 +147,14 @@ Axis-B intent analysis, it does not refuse on its own.
 normalized bundle (homoglyph fold, leetspeak fold, zero-width stripping, and both
 whole- and word-boundary-preserving separator collapse), so `n3rv3 ag3nt`,
 Cyrillic-glyph spoofing, `s a r i n`, and `n.e.r.v.e a.g.e.n.t` all route. A term
-routes in every word that holds it except the ordinary English words that
-happen to (66 of a 370,105-word list: "pricing" holds ricin, "tsarina" sarin,
-"dipsomania" soman), and, with the separators removed, only from the start of
-one piece of the text to the end of one, so that "so many" does not hold soman.
-Both did, and "how to make pricing tables" was refused. The
+routes where it could be the term in its word: at the word's edge, before a
+plural ending, or between words the gate knows. Strictly inside any other
+word it is that word's letters ("pricing" does not hold ricin), and a word
+that touches a term at its edge and has nothing to do with it is exempt by
+name (66 of a 370,105-word English list: "sericin", "tsarina", "dipsomania").
+With the separators removed, a term runs only from the start of one piece of
+the text to the end of one, so that "so many" does not hold soman. Both did,
+and "how to make pricing tables" was refused. The
 Axis-A lexicon and the core Axis-B offensive cues carry taxonomy-level terms in the
 world's most widely spoken languages (native script + Latin transliteration). This
 lexical multilingual/obfuscation layer is high-recall routing; meaning-level
@@ -188,9 +191,9 @@ for **weapons and mass-casualty uplift**, which is the scope it was built for.
 from nothing else; `HarmReducer.evaluate_harm` raises the `PHYSICAL` /
 `SOCIETAL` harm categories on a blocking disposition (max-only — fail-closed,
 never lowering). The `EthicalScore` surfaces `hazard_domain`,
-`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **11**
+`operational_intent`, and `weapons_disposition`. `RULESET_VERSION` is **12**
 (the agentive-frame lexicon of §5a and its corrections, then term matching
-that exempts ordinary words), invalidating cached verdicts.
+by the word a term stands in), invalidating cached verdicts.
 
 ### 5a. The second enforced signal — grave harm directed at a person
 

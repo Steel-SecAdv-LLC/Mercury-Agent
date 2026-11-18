@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """What the gate does with a long text is measured, and the code says what was measured.
 
-``research/harm_gate_long_text/measure.py`` read 76 encyclopedia articles
+``research/harm_gate_long_text/measure.py`` read 80 encyclopedia articles
 through the gate three ways; the verdicts are in ``evidence.json`` beside it.
 The gate pairs a hazard with an intent inside a passage and not across a whole
 text, and the reason it gives is a count from that file. These tests fail if
@@ -29,7 +29,7 @@ def test_every_article_read_is_one_the_harness_names() -> None:
     read = {(article["group"], article["title"]) for article in EVIDENCE["articles"]}
 
     assert read <= {(group, title) for group, titles in TITLES.items() for title in titles}
-    assert len(read) == len(EVIDENCE["articles"]) == 76
+    assert len(read) == len(EVIDENCE["articles"]) == 80
     # Every one is longer than the gate used to read.
     assert (
         min(article["chars"] for article in EVIDENCE["articles"]) > decision_gate.MAX_SUBJECT_CHARS
@@ -75,8 +75,8 @@ def test_what_reading_everything_costs_on_hazard_articles_is_stated_not_hidden()
     passages = refused(EVIDENCE, "hazard", "passages")
     changelog = " ".join((_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8").split())
 
-    assert count(EVIDENCE, "hazard") == 36
-    assert (len(first), len(passages)) == (2, 13)
+    assert count(EVIDENCE, "hazard") == 40
+    assert (len(first), len(passages)) == (3, 15)
     assert set(first) <= set(passages)
     assert f"{len(passages)} of {count(EVIDENCE, 'hazard')}" in changelog
 
@@ -84,4 +84,4 @@ def test_what_reading_everything_costs_on_hazard_articles_is_stated_not_hidden()
 def test_the_table_prints_from_the_evidence() -> None:
     table = report(EVIDENCE)
 
-    assert "general: 40 articles" in table and "hazard: 36 articles" in table
+    assert "general: 40 articles" in table and "hazard: 40 articles" in table

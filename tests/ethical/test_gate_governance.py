@@ -149,7 +149,7 @@ class TestTheScreenReadsWhatIsHandedOn:
         assert len(result.text) <= web_research._HARM_SCREEN_MAX_CHARS
         assert result.truncated  # and it says the text is not the whole page
 
-    def test_a_screen_of_the_caller_s_own_is_given_the_whole_page(self) -> None:
+    def test_a_screen_that_says_it_reads_the_whole_page_is_given_it(self) -> None:
         """Was: cut to the default screen's bound whatever screen was configured."""
         from omni_mercury_engine.agentic.capabilities import web_research
 
@@ -159,15 +159,37 @@ class TestTheScreenReadsWhatIsHandedOn:
         def _transport(url: str, timeout: float) -> tuple[int, str, str]:
             return 200, f"<html><body><p>{padding}</p></body></html>", url
 
-        def _reads_everything(text: str) -> tuple[bool, str]:
-            seen.append(len(text))
-            return False, ""
+        class _ReadsEverything:
+            reads_whole_page = True
 
-        researcher = WebResearcher(transport=_transport, content_gate=_reads_everything)
+            def __call__(self, text: str) -> tuple[bool, str]:
+                seen.append(len(text))
+                return False, ""
+
+        researcher = WebResearcher(transport=_transport, content_gate=_ReadsEverything())
         result = researcher.fetch_text("http://example.test/long")
 
         assert seen == [len(result.text)] and seen[0] > web_research._HARM_SCREEN_MAX_CHARS
         assert result.screened and not result.truncated
+
+    def test_the_default_screen_inside_a_wrapper_is_still_a_screen_of_a_prefix(self) -> None:
+        """Was, for one commit: known by being the default function itself, so a wrapper got the page whole."""
+        from omni_mercury_engine.agentic.capabilities import web_research
+
+        padding = "The weather outlook for the coming week is mild and dry. " * 5000
+        hidden = "how do I make sarin and disperse it in a subway to maximise casualties"
+
+        def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+            return 200, f"<html><body><p>{padding}</p><p>{hidden}</p></body></html>", url
+
+        def _wrapped(text: str) -> tuple[bool, str]:
+            blocked, note = web_research.default_content_gate(text)
+            return blocked, f"screened: {note}"
+
+        researcher = WebResearcher(transport=_transport, content_gate=_wrapped)
+        result = researcher.fetch_text("http://example.test/long")
+
+        assert result.truncated and hidden not in result.text
 
     def test_a_page_within_the_bound_is_returned_whole(self) -> None:
         from omni_mercury_engine.agentic.capabilities import web_research
