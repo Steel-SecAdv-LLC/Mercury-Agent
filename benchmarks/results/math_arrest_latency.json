@@ -1,0 +1,29 @@
+{
+  "schema": "mercury.benchmarks.math_arrest_latency/v1",
+  "generated_at": "2026-11-19T07:20:39.259433+00:00",
+  "commit": "7e20c426391bee8c7378686bcce94d51a4b4842c",
+  "config": {
+    "sizes": [
+      64,
+      1024,
+      4096
+    ],
+    "repeats": 3,
+    "seed": 20261119,
+    "probes": 21
+  },
+  "latency": {
+    "64": {
+      "fit_s": 0.0048,
+      "detect_s": 0.0009
+    },
+    "1024": {
+      "fit_s": 0.0293,
+      "detect_s": 0.0074
+    },
+    "4096": {
+      "fit_s": 0.3055,
+      "detect_s": 0.0665
+    }
+  }
+}

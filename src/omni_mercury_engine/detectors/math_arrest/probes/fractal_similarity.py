@@ -53,22 +53,32 @@ class FractalSelfSimilarityProbe(BaseEquationProbe):
         if max_windows <= 0:
             return np.zeros(n, dtype=np.float64)
 
-        similarities: list[float] = []
-        for i in range(max_windows):
-            win_orig = x[i : i + w]
-            win_scaled = x_scaled[i : i + w]
-            std_o = float(np.std(win_orig))
-            std_s = float(np.std(win_scaled))
+        # The released mathematics — per-window Pearson correlation between
+        # the signal and its PHI-resampled version, with the degenerate-window
+        # branches — evaluated over all windows at once. The former Python
+        # loop called ``np.corrcoef`` per window; the sliding-window form
+        # computes the identical statistic (the ddof in corrcoef's covariance
+        # cancels in the ratio) and is held to it by
+        # ``tests/detectors/test_math_arrest_vectorized.py``.
+        win_orig = np.lib.stride_tricks.sliding_window_view(x, w)[:max_windows]
+        win_scaled = np.lib.stride_tricks.sliding_window_view(x_scaled, w)[:max_windows]
+        centered_o = win_orig - win_orig.mean(axis=1, keepdims=True)
+        centered_s = win_scaled - win_scaled.mean(axis=1, keepdims=True)
+        std_o = win_orig.std(axis=1)
+        std_s = win_scaled.std(axis=1)
 
-            if std_o < EPSILON and std_s < EPSILON:
-                similarities.append(1.0)
-            elif std_o < EPSILON or std_s < EPSILON:
-                similarities.append(0.0)
-            else:
-                corr = np.corrcoef(win_orig, win_scaled)[0, 1]
-                similarities.append(float(np.nan_to_num(corr, nan=0.0)))
+        numerator = np.einsum("ij,ij->i", centered_o, centered_s)
+        denominator = np.sqrt(
+            np.einsum("ij,ij->i", centered_o, centered_o)
+            * np.einsum("ij,ij->i", centered_s, centered_s)
+        )
+        with np.errstate(divide="ignore", invalid="ignore"):
+            corr = np.clip(numerator / denominator, -1.0, 1.0)
+        corr = np.nan_to_num(corr, nan=0.0)
 
-        result = np.array(similarities, dtype=np.float64)
+        both_flat = (std_o < EPSILON) & (std_s < EPSILON)
+        one_flat = (std_o < EPSILON) ^ (std_s < EPSILON)
+        result = np.where(both_flat, 1.0, np.where(one_flat, 0.0, corr))
         # Pad to full length
         if len(result) < n:
             pad = np.zeros(n - len(result), dtype=np.float64)
