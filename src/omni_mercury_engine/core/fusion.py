@@ -512,17 +512,31 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return fused
 
     class HybridFusionLayer(nn.Module):
-        """Hybrid fusion combining early and late fusion strategies with uncertainty weighting.
+        """Multi-head attention fusion over per-detector feature projections.
 
-        Architecture:
-        1. Early fusion: Concatenate normalized detector features → MLP
-        2. Late fusion: Detector anomaly scores → uncertainty-weighted average
-        3. Combine: Concat [early_features, late_scores] → Sparse Attention → Final decision
+        What :meth:`forward` actually computes, and what the measured ablation
+        (``research/ensembles/harness_fusion_mode_ablation.py``) evaluated:
+        each detector's features are linearly projected, the projections are
+        stacked and fused by dense multi-head :class:`AttentionFusion`, and
+        that attended representation is the returned fusion. Two side
+        computations run for diagnostics only — an early-fusion MLP over the
+        concatenated projections and a softmax-weighted late sum of the
+        detector scores — and are surfaced *detached* in the attention dict;
+        neither reaches the returned representation.
 
-        Enhanced with:
-        - Uncertainty-weighted fusion (lambda=0.25 for entropy penalty)
-        - Sparse top-k attention (k=0.3 for O(n)->O(k) complexity)
-        - Resonance integration with 3R mechanism
+        This docstring used to describe an early+late+sparse-attention
+        pipeline that the forward never ran. The ``uncertainty_fusion``,
+        ``resonance_fusion`` and ``sparse_attention`` submodules are
+        constructed but not called: they are retained because shipped
+        checkpoints carry their parameters (removing them breaks state-dict
+        loads) and because each is independently usable through its own
+        class; the ``enable_entropy_weighting`` / ``enable_sparse_attention``
+        / ``uncertainty_lambda`` / ``resonance_lambda`` arguments configure
+        only those inert submodules and do not change the fused output.
+        ``tests/core/test_hybrid_fusion_forward.py`` pins that the forward is
+        the dense attention output whatever the flags say — wiring one of the
+        inert modules into the path is an architecture change that must be
+        re-measured, not slipped in.
         """
 
         def __init__(
