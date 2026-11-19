@@ -413,15 +413,17 @@ def main() -> int:
 
     print(f"full 21-probe mean AUC: {full_means}")
     print("\nleave-one-out delta_overall (sorted):")
-    for n, d in sorted(loo.items(), key=lambda kv: -kv[1]["delta_overall"]):
+    for name, deltas in sorted(loo.items(), key=lambda kv: -kv[1]["delta_overall"]):
         print(
-            f"  {n:28s} {d['delta_overall']:+.4f} (nab {d['delta_nab']:+.4f}, adb {d['delta_adbench']:+.4f})"
+            f"  {name:28s} {deltas['delta_overall']:+.4f} "
+            f"(nab {deltas['delta_nab']:+.4f}, adb {deltas['delta_adbench']:+.4f})"
         )
     print("\nthreshold sweep:")
     for entry in sweep:
-        if entry.get("removed"):
+        removed_names = entry.get("removed")
+        if isinstance(removed_names, list) and removed_names:
             print(
-                f"  |r|>={entry['threshold']}: remove {len(entry['removed'])} -> "
+                f"  |r|>={entry['threshold']}: remove {len(removed_names)} -> "
                 f"mean AUC {entry['mean_auc']}, rank {entry['mean_rank']}, "
                 f"non_degrading={entry['non_degrading']}"
             )

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -36,8 +37,9 @@ MAX_WEIGHT_SPREAD = 0.05
 MAX_DEPTH_SPREAD = 0.02
 
 
-def _artifact() -> dict:
-    return json.loads(ARTIFACT.read_text())
+def _artifact() -> dict[str, Any]:
+    result: dict[str, Any] = json.loads(ARTIFACT.read_text())
+    return result
 
 
 def test_the_surface_is_complete() -> None:

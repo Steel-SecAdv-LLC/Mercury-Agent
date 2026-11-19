@@ -87,7 +87,7 @@ class VectorIsotonicCalibrator:
 
     @property
     def weights(self) -> npt.NDArray[np.float64]:
-        """Copy of the learned per-column index weights (sum to 1)."""
+        """The learned per-column index weights, copied (they sum to 1)."""
         if self._weights is None:
             raise RuntimeError("VectorIsotonicCalibrator has not been fitted.")
         return self._weights.copy()
@@ -280,8 +280,11 @@ class VectorConformalBinary:
         return out
 
     def predict_sets(self, score_matrix: npt.NDArray[np.float64]) -> npt.NDArray[np.bool_]:
-        """Prediction sets, shape ``(n, 2)``: class ``c`` is in the set iff
-        its conformal p-value exceeds ``alpha``."""
+        """Prediction sets over {normal, anomaly}.
+
+        Shape ``(n, 2)``: class ``c`` is in a sample's set iff its conformal
+        p-value exceeds ``alpha``.
+        """
         return self.p_values(score_matrix) > self._alpha
 
     def to_state(self) -> dict[str, Any]:

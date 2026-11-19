@@ -135,7 +135,7 @@ def main() -> int:
     per_config["adaptive"] = per_file
 
     ranks = _mean_rank(per_config)
-    summary = {
+    summary: dict[str, dict[str, Any]] = {
         config: {
             "per_file_auc": files,
             "mean_auc": round(float(np.mean(list(files.values()))), 4),

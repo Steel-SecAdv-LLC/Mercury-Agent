@@ -161,9 +161,11 @@ class CausalMathArrest:
             value: The newest sample.
 
         Returns:
-            ``{"score", "is_anomaly", "threshold", "window_used"}`` for this
-            point. The score is the fused score of the trailing window's last
-            element — the arriving point — under the fitted instrument.
+            ``{"score", "is_anomaly", "threshold", "window_used",
+            "trajectory_stable", "abstain"}`` for this point. The score is
+            the fused score of the trailing window's last element — the
+            arriving point — under the fitted instrument; ``abstain`` is the
+            stability monitor's flag (see :meth:`_trajectory_check`).
 
         Raises:
             RuntimeError: If :meth:`fit` has not been called.

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -67,8 +68,9 @@ MAX_SYMBOLIC_SPREAD = 0.015
 MIN_TRAINED_LEAD = 0.005
 
 
-def _artifact() -> dict:
-    return json.loads(ARTIFACT.read_text())
+def _artifact() -> dict[str, Any]:
+    result: dict[str, Any] = json.loads(ARTIFACT.read_text())
+    return result
 
 
 def test_artifact_covers_every_configuration() -> None:

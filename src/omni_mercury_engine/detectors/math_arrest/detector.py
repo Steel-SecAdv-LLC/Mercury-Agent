@@ -12,6 +12,7 @@ marginal-gain ablation. See ``docs/DORMANCY_LEDGER.md`` §2b.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -37,6 +38,8 @@ from omni_mercury_engine.detectors.provenance import DecisionSource
 
 if TYPE_CHECKING:
     import torch
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["MathArrestDetector"]
 
@@ -426,6 +429,18 @@ class MathArrestDetector(BaseDetector):
             # finite-sample per-class coverage guarantee. The raw fused scores
             # above are untouched, so the uncalibrated surface stays readable.
             matrix = self._matrix_from(results, fused, n_rows=len(series))
+            if matrix.shape[1] != len(self._vector_calibrator.weights):
+                # A probe failed on this batch, so the matrix is narrower than
+                # the fitted column layout. The ensemble is fail-soft: serve
+                # the raw verdict rather than crash the calibrated branch.
+                logger.warning(
+                    "vector calibration skipped: %d score columns against the "
+                    "calibrator's %d (a probe failed on this batch); serving "
+                    "the uncalibrated verdict",
+                    matrix.shape[1],
+                    len(self._vector_calibrator.weights),
+                )
+                return result
             calibrated = self._vector_calibrator.calibrate(matrix)
             width = len(calibrated)
             result["calibrated_scores"] = calibrated.astype(np.float32)

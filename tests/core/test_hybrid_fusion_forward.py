@@ -16,6 +16,8 @@ that must be re-measured; this test is what makes that change visible.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -26,7 +28,7 @@ from omni_mercury_engine.core.fusion import HybridFusionLayer
 FEATURE_DIMS = {"statistical": 6, "temporal": 4, "spectral": 5}
 
 
-def _inputs(seed: int) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
+def _inputs(seed: int) -> tuple[dict[str, Any], dict[str, Any]]:
     generator = torch.Generator().manual_seed(seed)
     features = {
         name: torch.randn(8, dim, generator=generator) for name, dim in FEATURE_DIMS.items()
@@ -35,7 +37,7 @@ def _inputs(seed: int) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]
     return features, scores
 
 
-def _layer(**kwargs: object) -> HybridFusionLayer:
+def _layer(**kwargs: Any) -> HybridFusionLayer:
     torch.manual_seed(0)
     return HybridFusionLayer(feature_dims=FEATURE_DIMS, hidden_dim=16, num_heads=2, **kwargs)
 

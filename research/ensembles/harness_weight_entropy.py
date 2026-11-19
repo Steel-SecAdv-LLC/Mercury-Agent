@@ -177,7 +177,7 @@ def main() -> int:
         (key for key in per_config if key != "shipped_adaptive"), key=lambda key: ranks[key]
     )
 
-    artifact = {
+    artifact: dict[str, Any] = {
         "schema": "mercury.research.fusion_weight_entropy/v1",
         "generated_at": datetime.now(UTC).isoformat(),
         "commit": _git_commit(),
@@ -205,12 +205,13 @@ def main() -> int:
     ARTIFACT_PATH.write_text(json.dumps(artifact, indent=2) + "\n")
 
     print(f"grid: {len(grid)} vectors, {len(in_band)} inside entropy band {ENTROPY_BAND}")
-    for label, cell in (
+    rows: list[tuple[str, dict[str, Any]]] = [
         ("selected (in band)", artifact["selected_in_band"]),
         ("best unconstrained", artifact["best_unconstrained"]),
         ("shipped adaptive", {"key": "-", **summary("shipped_adaptive")}),
         ("fixed 40/30/30", {"key": "-", **summary("w_0.40_0.30_0.30")}),
-    ):
+    ]
+    for label, cell in rows:
         print(
             f"  {label:20s} {cell['key']:18s} mean AUC {cell['mean_auc']:.4f} "
             f"rank {cell['mean_rank']:8.2f} H {cell['normalized_entropy']:.3f}"

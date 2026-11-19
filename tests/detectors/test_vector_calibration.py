@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -88,7 +89,7 @@ class TestVectorIsotonicCalibrator:
 class TestVectorConformalBinary:
     def test_finite_sample_coverage_on_exchangeable_data(self) -> None:
         """Per-class coverage >= 1 - alpha, averaged over disjoint trials."""
-        rates = {0: [], 1: []}
+        rates: dict[int, list[float]] = {0: [], 1: []}
         for trial in range(20):
             matrix, y = _synthetic(900, 100 + trial)
             fit_rows = np.arange(300)
@@ -302,3 +303,32 @@ def test_the_artifact_pins_the_measured_gains() -> None:
     assert means["coverage"] >= 1.0 - ALPHA - 0.02
     assert 1.0 <= means["avg_set_size"] <= 2.0
     assert artifact["mean_rank"]["auc"]["calibrated"] <= artifact["mean_rank"]["auc"]["raw"]
+
+
+def test_a_probe_failure_degrades_to_the_raw_verdict_not_a_crash(
+    recorded_split: dict[str, np.ndarray],
+) -> None:
+    """The ensemble is fail-soft; the calibrated branch must be too.
+
+    The calibrator is fitted on 22 columns (21 probes + fused). If a probe
+    fails at detect time the matrix comes out narrower; this used to raise
+    ValueError out of detect() instead of serving the raw verdict.
+    """
+    detector = MathArrestDetector().fit(recorded_split["fit"])
+    detector.fit_vector_calibration(recorded_split["cal"], recorded_split["cal_y"], alpha=ALPHA)
+
+    broken = detector._arrest._probes[0]
+
+    def _boom(data: np.ndarray) -> Any:
+        raise RuntimeError("probe failure injected by the test")
+
+    original = broken.deviation_score
+    try:
+        broken.deviation_score = _boom  # type: ignore[method-assign]
+        result = detector.detect(recorded_split["test"])
+    finally:
+        broken.deviation_score = original  # type: ignore[method-assign]
+
+    assert "calibrated_scores" not in result, "a narrower matrix must skip calibration"
+    assert result["scores"].shape[0] == len(recorded_split["test"])
+    assert len(result["probe_names"]) == 20  # the failed probe is omitted, not fabricated

@@ -192,7 +192,7 @@ def sweep_lambda(data: dict[str, tuple[np.ndarray, np.ndarray]]) -> dict[str, An
 
 def main() -> int:
     data = _windows()
-    artifact = {
+    artifact: dict[str, Any] = {
         "schema": "mercury.research.oae_sensitivity/v1",
         "generated_at": datetime.now(UTC).isoformat(),
         "commit": _git_commit(),
