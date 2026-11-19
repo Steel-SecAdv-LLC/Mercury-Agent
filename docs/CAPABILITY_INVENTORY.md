@@ -7,24 +7,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,169
-- **Capability-bearing classes:** 2,121 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,172
+- **Capability-bearing classes:** 2,124 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 94 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,246 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,248 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1246 |
+| Other capability classes | 1248 |
 | Support types (config / result / enum / error) | 1048 |
 | Detection | 181 |
 | Neural models & layers | 163 |
 | Data sources & loaders | 114 |
 | Adapters & backends | 108 |
 | Engines & orchestration | 102 |
-| Training & optimization | 65 |
+| Training & optimization | 66 |
 | Analysis & scoring | 59 |
 | Monitoring | 27 |
 | Prediction & forecasting | 22 |
@@ -668,7 +668,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 352 classes (222 capability)
+### `core/` — 354 classes (224 capability)
 
 **Adapters & backends**
 
@@ -892,6 +892,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `USLawPolling` (`core.ethical_risk_matrix`) — Dynamic US-only law compliance polling.
 - `UncertaintyEstimate` (`core.adaptive_fusion`) — Uncertainty quantification result with confidence intervals.
 - `ValidationEvidence` (`core.detector_ontology`) — One admissible validation claim: a domain plus its committed proof.
+- `VectorConformalBinary` (`core.vector_calibration`) — Mondrian split-conformal prediction sets over {normal, anomaly}.
 - `_CallTicket` (`core.detector_registry`) — Agreement between a registry call's worker and its caller on who reports it.
 - `_GuardedDetectorMeta` (`core.base`) — Builds each detector class with its own ``detect`` already guarded.
 - `_IdentityCalibration` (`core.calibration`) — No-op calibrator (exact-reducing fallback for the accept-gate).
@@ -922,6 +923,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `OAEWeightOptimizer` (`core.three_r.fusion`) — Optimizer for OAE weights using gradient-based methods.
 - `ParetoOptimizer` (`core.benevolence_optimization`) — Pareto optimization for multi-objective benevolence optimization.
 - `PlattScalingCalibrator` (`core.adaptive_domain_thresholding`) — Platt scaling for probability calibration.
+- `VectorIsotonicCalibrator` (`core.vector_calibration`) — Isotonic probability calibration on a weighted index of a score matrix.
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
 - `_LegacyOAEWeightOptimizer` (`core.three_r_mechanism`) — Supervised optimizer for OAE weights: maximize F1 on labeled data.
 
@@ -2909,7 +2911,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `streaming/` — 2 classes (2 capability)
+### `streaming/` — 3 classes (3 capability)
 
 **Detection**
 
@@ -2917,6 +2919,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Other capability classes**
 
+- `CausalMathArrest` (`streaming.causal_math_arrest`) — Fixed-window causal execution mode of :class:`AnomalyMathArrest`.
 - `EngineStreamSession` (`streaming.engine_stream`) — Stateful one-sample-at-a-time detection over an engine's detectors.
 
 ### `tools/` — 7 classes (5 capability)

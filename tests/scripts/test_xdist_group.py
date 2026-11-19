@@ -50,8 +50,16 @@ _PROBE_DIR = "_xdist_group_probe"
 #: grouping is a visible change rather than a silent slowdown.
 XDIST_GROUP_USERS: frozenset[str] = frozenset(
     {
+        "tests/benchmarks/test_fusion_mode_ablation.py",
         "tests/core/test_adaptive_domain_thresholding_measured.py",
+        "tests/detectors/test_affinity_lodo.py",
+        "tests/detectors/test_contrastive_refinement.py",
+        "tests/detectors/test_fusion_monotonicity.py",
+        "tests/detectors/test_probe_redundancy.py",
         "tests/detectors/test_recorded_math_arrest.py",
+        "tests/detectors/test_vector_calibration.py",
+        "tests/streaming/test_causal_math_arrest.py",
+        "tests/streaming/test_score_fusion_causal.py",
         "tests/test_decision_coverage_empirical.py",
         "tests/test_decision_layer_wiring.py",
         "tests/test_fusion_calibration.py",
