@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from omni_mercury_engine.security.signing_keys import SigningKeyError
 from omni_mercury_engine.watch.canary import Canary
 from omni_mercury_engine.watch.feeds import FEEDS, Feed
 from omni_mercury_engine.watch.forecast import Forecaster
@@ -102,6 +103,7 @@ class Watcher:
         #: The forecast the watch commits to before each day, and resolves after.
         #: Built on first use: a key file that cannot be read must not stop the watch.
         self._forecaster: Forecaster | None = None
+        self._forecast_unavailable = False
         #: Test messages sent the way findings are, to learn whether one arrives.
         self.canary = Canary(self.store, self.notifier, clock=self._clock)
         #: The last announcement this watcher has told its consoles of. It
@@ -392,12 +394,17 @@ class Watcher:
             logger.warning("watch: the delivery canary failed: %s", exc)
         try:
             # Tomorrow's forecast, committed before tomorrow; yesterday's, resolved.
-            if Forecaster.enabled():
+            if Forecaster.enabled() and not self._forecast_unavailable:
                 if self._forecaster is None:
                     self._forecaster = Forecaster(
                         ForecastLedger.from_env(self.store), clock=self._clock
                     )
                 self._forecaster.run(self.holder)
+        except SigningKeyError as exc:
+            # A key that is wrong stays wrong until the operator fixes it and
+            # restarts: say so once, not on every tick.
+            self._forecast_unavailable = True
+            logger.error("watch: forecasts are off until the signing key is fixed: %s", exc)
         except Exception as exc:  # nor must forecasting
             logger.warning("watch: the forecast pass failed: %s", exc)
         return statuses

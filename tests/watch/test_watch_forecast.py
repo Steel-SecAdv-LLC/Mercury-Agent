@@ -602,6 +602,26 @@ class TestSurfaces:
 
         assert watcher._pass(force=False) == []
 
+    def test_a_forecast_key_that_cannot_be_read_is_said_once_not_every_pass(
+        self,
+        store: WatchStore,
+        clock: Clock,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Was: the same error logged on every 30-second tick, for as long as the key stayed wrong."""
+        monkeypatch.setenv("MERCURY_FORECAST_SIGNING_KEY", "/nonexistent/key")
+        watcher = Watcher(store, feeds=[], clock=clock)
+
+        with caplog.at_level("WARNING"):
+            for _ in range(5):
+                clock.now += timedelta(seconds=30)
+                watcher._pass(force=False)
+
+        said = [r for r in caplog.records if "forecast" in r.getMessage()]
+        assert len(said) == 1, [r.getMessage() for r in said]
+        assert watcher._forecast_unavailable is True
+
     def test_the_route_serves_the_head_the_score_and_the_forecasts(
         self, forecaster: Forecaster, clock: Clock, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -9,7 +9,7 @@
    "src/omni_mercury_engine/api/server.py": "c3024c76468b7659382fa9fa38b05806ae12c737",
    "src/omni_mercury_engine/detectors/detection_tier.py": "c63c06ca26612f7b16337f48ba2f48c5037648fb"
   },
-  "commit": "4e43c4f6f9793226e090186220f4344fa62e50d5",
+  "commit": "9a59b9447bb22e66c3453df654007c2162611477",
   "n": 300,
   "seeds": [
    0,
