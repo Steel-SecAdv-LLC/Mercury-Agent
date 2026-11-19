@@ -207,6 +207,7 @@ def run_causal_math_arrest(
     tables: dict[str, Any] = {}
     aurocs: list[float] = []
     false_rates: list[float] = []
+    false_abstentions: list[float] = []
     for stream in load_nab_corpus(fixture_root, _CATEGORIES):
         n = stream.values.size
         probation = int(probationary_length(n))
@@ -216,7 +217,10 @@ def run_causal_math_arrest(
 
         detector = CausalMathArrest(window=window)
         detector.fit(stream.values[:probation])
-        scores, alarms_tail = detector.score_stream(stream.values[probation:])
+        details = detector.score_stream_detailed(stream.values[probation:])
+        scores = np.asarray(details["scores"], dtype=np.float64)
+        alarms_tail = np.asarray(details["alarms"], dtype=bool)
+        abstain_tail = np.asarray(details["abstain"], dtype=bool)
 
         alarms = np.zeros(n, dtype=bool)
         alarms[probation:] = alarms_tail
@@ -226,11 +230,15 @@ def run_causal_math_arrest(
         held_positive = positive[probation:]
         stream_auroc = auroc(held_positive.astype(np.int64), scores)
         false_rate = float(alarms_tail[~held_positive].mean())
+        false_abstention = float(abstain_tail[~held_positive].mean())
         aurocs.append(stream_auroc)
         false_rates.append(false_rate)
+        false_abstentions.append(false_abstention)
         per_stream[stream.name] = {
             "auroc": round(stream_auroc, 4),
             "alarm_rate_normal_points": round(false_rate, 4),
+            "false_abstention_rate": round(false_abstention, 4),
+            "abstention_rate_in_windows": round(float(abstain_tail[held_positive].mean()), 4),
             "threshold": round(float(detector.threshold or 0.0), 4),
         }
         print(
@@ -246,6 +254,9 @@ def run_causal_math_arrest(
         "mean_auroc": round(float(np.mean(aurocs)), 4),
         "nab_standard_score": round(nab_score, 2),
         "mean_alarm_rate_normal_points": round(float(np.mean(false_rates)), 4),
+        # The Lyapunov-envelope stability monitor's cost on normal data: how
+        # often it raises the abstention flag where no labelled anomaly is.
+        "mean_false_abstention_rate": round(float(np.mean(false_abstentions)), 4),
     }
     print(
         f"causal math_arrest mean AUROC={result['mean_auroc']:.4f} "

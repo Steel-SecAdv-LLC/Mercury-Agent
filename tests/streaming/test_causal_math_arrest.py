@@ -83,6 +83,69 @@ def test_update_before_fit_is_refused() -> None:
         CausalMathArrest(alpha=1.5)
 
 
+class TestTrajectoryStabilityMonitor:
+    """The online Lyapunov-envelope check (item: abstain before the gates)."""
+
+    def test_sustained_non_contracting_excess_raises_the_abstention_flag(self) -> None:
+        from omni_mercury_engine.streaming.causal_math_arrest import (
+            STABILITY_GRACE,
+            STABILITY_PATIENCE,
+        )
+
+        detector = CausalMathArrest(window=64)
+        detector._threshold = 0.5
+        detector._is_fitted = True
+        # A disturbance that never contracts: constant excess above the cut.
+        flags = [detector._trajectory_check(0.9, 0.5) for _ in range(32)]
+        first_unstable = flags.index(False)
+        # The onset call consumes one step and violations start counting at
+        # the grace step, so the flag raises grace + patience - 1 calls later.
+        assert (
+            first_unstable == STABILITY_GRACE + STABILITY_PATIENCE - 1
+        ), "the flag must raise exactly when the patience runs out"
+        assert not flags[-1], "a non-contracting trajectory must stay flagged"
+
+    def test_a_contracting_excess_never_raises_the_flag(self) -> None:
+        detector = CausalMathArrest(window=64)
+        detector._threshold = 0.5
+        detector._is_fitted = True
+        onset_excess = 0.4
+        stable = True
+        for step in range(24):
+            # Decay strictly faster than the documented envelope.
+            score = 0.5 + onset_excess * float(np.exp(-0.5 * step))
+            stable = detector._trajectory_check(score, 0.5)
+            assert stable, f"a contracting trajectory was flagged at step {step}"
+
+    def test_returning_under_the_cut_resets_the_monitor(self) -> None:
+        detector = CausalMathArrest(window=64)
+        detector._threshold = 0.5
+        detector._is_fitted = True
+        for _ in range(20):
+            detector._trajectory_check(0.9, 0.5)
+        assert not detector._trajectory_check(0.9, 0.5)
+        assert detector._trajectory_check(0.1, 0.5)  # back under the cut
+        assert detector._violation_streak == 0
+        assert detector._excess_onset is None
+
+    def test_update_serves_the_stability_fields(self) -> None:
+        warmup, stream = _warmup_and_stream()
+        detector = CausalMathArrest(window=64).fit(warmup)
+        result = detector.update(float(stream[0]))
+        assert {"trajectory_stable", "abstain"} <= set(result)
+        assert result["abstain"] == (not result["trajectory_stable"])
+
+    def test_false_abstention_rate_on_the_recorded_corpus(self) -> None:
+        """Measured 0.0 on every file: the monitor never abstains on a
+        normal point; it fired only inside a labelled anomaly window
+        (realTraffic, 0.86% of window points)."""
+        result = run_causal_math_arrest()
+        assert result["mean_false_abstention_rate"] <= 0.005, (
+            f"false-abstention rate {result['mean_false_abstention_rate']:.4f} "
+            "on normal points; the monitor has become trigger-happy"
+        )
+
+
 def test_the_measured_triple_on_the_recorded_nab_corpus() -> None:
     """The causal mode's triple, measured through the streaming harness."""
     result = run_causal_math_arrest()
