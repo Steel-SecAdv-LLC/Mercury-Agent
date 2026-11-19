@@ -55,6 +55,13 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+from omni_mercury_engine.evaluation.nab_scoring import (
+    load_nab_corpus,
+    probationary_length,
+    score_corpus,
+    sweep_table,
+)
+from omni_mercury_engine.streaming.causal_math_arrest import CausalMathArrest
 
 #: Committed NAB fixture root (see its PROVENANCE.json for source + digests).
 _DEFAULT_FIXTURE = Path(__file__).parent.parent / "tests" / "fixtures" / "nab"
@@ -178,6 +185,76 @@ def evaluate_stream(values: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) 
     }
 
 
+#: NAB categories of the four committed streams (for the causal corpus run).
+_CATEGORIES = ("realAWSCloudwatch", "realAdExchange", "realKnownCause", "realTraffic")
+
+
+def run_causal_math_arrest(
+    fixture_root: Path = _DEFAULT_FIXTURE, window: int = 256
+) -> dict[str, Any]:
+    """The 21-probe ensemble in its causal fixed-window execution mode.
+
+    The same instruments and the same protocol as the offline path pinned in
+    ``tests/detectors/test_recorded_nab_series.py`` — fitted on each file's
+    probationary prefix, conformal alarm cut at alpha 0.05 — except that each
+    post-probation point is scored from its trailing ``window`` samples only,
+    so no future value ever influences a score. Reports the same triple the
+    offline path reports: mean AUROC, the NAB standard score, and the mean
+    alarm rate on normal points.
+    """
+    per_stream: dict[str, dict[str, Any]] = {}
+    alarms_by_file: dict[str, np.ndarray[Any, Any]] = {}
+    tables: dict[str, Any] = {}
+    aurocs: list[float] = []
+    false_rates: list[float] = []
+    for stream in load_nab_corpus(fixture_root, _CATEGORIES):
+        n = stream.values.size
+        probation = int(probationary_length(n))
+        positive = np.zeros(n, dtype=bool)
+        for first, last in stream.windows:
+            positive[first : last + 1] = True
+
+        detector = CausalMathArrest(window=window)
+        detector.fit(stream.values[:probation])
+        scores, alarms_tail = detector.score_stream(stream.values[probation:])
+
+        alarms = np.zeros(n, dtype=bool)
+        alarms[probation:] = alarms_tail
+        alarms_by_file[stream.name] = alarms
+        tables[stream.name] = sweep_table(n, stream.windows, "standard")
+
+        held_positive = positive[probation:]
+        stream_auroc = auroc(held_positive.astype(np.int64), scores)
+        false_rate = float(alarms_tail[~held_positive].mean())
+        aurocs.append(stream_auroc)
+        false_rates.append(false_rate)
+        per_stream[stream.name] = {
+            "auroc": round(stream_auroc, 4),
+            "alarm_rate_normal_points": round(false_rate, 4),
+            "threshold": round(float(detector.threshold or 0.0), 4),
+        }
+        print(
+            f"causal math_arrest {stream.name.split('/')[0]:20s} "
+            f"AUROC={stream_auroc:.4f} alarm_rate={false_rate:.4f}"
+        )
+
+    nab_score = float(score_corpus(alarms_by_file, tables)["score"])
+    result = {
+        "detector": "CausalMathArrest (fixed trailing window over the 21-probe ensemble)",
+        "window": window,
+        "per_stream": per_stream,
+        "mean_auroc": round(float(np.mean(aurocs)), 4),
+        "nab_standard_score": round(nab_score, 2),
+        "mean_alarm_rate_normal_points": round(float(np.mean(false_rates)), 4),
+    }
+    print(
+        f"causal math_arrest mean AUROC={result['mean_auroc']:.4f} "
+        f"NAB={result['nab_standard_score']:.2f} "
+        f"alarm_rate={result['mean_alarm_rate_normal_points']:.4f}"
+    )
+    return result
+
+
 def run_benchmark(fixture_root: Path = _DEFAULT_FIXTURE) -> dict[str, Any]:
     """Run the full NAB streaming benchmark and return the results dict."""
     per_stream: dict[str, dict[str, Any]] = {}
@@ -193,9 +270,11 @@ def run_benchmark(fixture_root: Path = _DEFAULT_FIXTURE) -> dict[str, Any]:
         )
     mean_auroc = float(np.mean(aurocs))
     print(f"mean AUROC across {len(aurocs)} real NAB streams: {mean_auroc:.4f}")
+    causal = run_causal_math_arrest(fixture_root)
     return {
         "dataset": "NAB (Numenta Anomaly Benchmark, MIT; committed fixture)",
         "detector": "MercuryAnomalyDetector (trained statistical ensemble)",
+        "math_arrest_causal": causal,
         "protocol": {
             "feature_window": _FEATURE_WINDOW,
             "warmup_fraction": _WARMUP_FRACTION,

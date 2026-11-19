@@ -3374,6 +3374,54 @@ class OmniMercuryEngine(LoggerMixin):
         )
         return np.asarray(profiled).reshape(-1)
 
+    def score_fusion_causal(
+        self,
+        X: np.ndarray[Any, Any],
+        *,
+        window: int = 256,
+        equation_profile: str | None = None,
+        domain: str | None = None,
+    ) -> np.ndarray[Any, Any]:
+        """Causal fixed-window execution of :meth:`score_fusion`.
+
+        :meth:`score_fusion` hands the whole batch to the feature extractors,
+        several of which compute batch-level statistics, so a row's
+        probability can depend on rows that arrive after it. This mode scores
+        row ``i`` as the last row of the trailing window ``X[i-window+1 : i+1]``
+        — the identical trained model and extractors, read in arrival order,
+        with nothing later than the row itself visible. It is the streaming
+        counterpart for an already-fitted fusion engine; no refit happens.
+
+        Args:
+            X: Rows in arrival order, ``(n_samples, n_features)``.
+            window: Trailing-window length each row is scored within.
+            equation_profile: Forwarded to :meth:`score_fusion`.
+            domain: Forwarded to :meth:`score_fusion`.
+
+        Returns:
+            Array of anomaly probabilities in ``[0, 1]``, one per row, each a
+            function of that row's trailing window only.
+
+        Raises:
+            ValueError: If mode is not 'fusion' or ``window < 1``.
+        """
+        if self.mode != "fusion":
+            raise ValueError("score_fusion_causal() requires mode='fusion'")
+        if window < 1:
+            raise ValueError(f"window must be >= 1, got {window}")
+        X = np.asarray(X, dtype=np.float32)
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+        out = np.empty(len(X), dtype=np.float64)
+        for i in range(len(X)):
+            lo = max(0, i - window + 1)
+            out[i] = float(
+                self.score_fusion(X[lo : i + 1], equation_profile=equation_profile, domain=domain)[
+                    -1
+                ]
+            )
+        return out
+
     def evaluate_neurosymbolic_feedback(
         self,
         X: np.ndarray[Any, Any],
