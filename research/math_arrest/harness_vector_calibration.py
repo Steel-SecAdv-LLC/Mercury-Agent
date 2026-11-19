@@ -113,6 +113,16 @@ def run() -> dict[str, Any]:
                     record(f"coverage_class_{cls}", table, float(member.mean()))
             record("avg_set_size", table, float(sets.sum(axis=1).mean()))
 
+            # Cross-probe consistency gate impact: the served sets include the
+            # don't-know routing; the ungated sets are the raw p-value cut.
+            routed = np.asarray(calibrated["dont_know_routed"], dtype=bool)
+            p_values = np.asarray(calibrated["conformal_p_values"], dtype=np.float64)
+            ungated = p_values > ALPHA
+            ungated_covered = ungated[np.arange(len(y_test)), y_test]
+            record("routed_fraction", table, float(routed.mean()))
+            record("coverage_ungated", table, float(ungated_covered.mean()))
+            record("avg_set_size_ungated", table, float(ungated.sum(axis=1).mean()))
+
     per_table = {
         metric: {table: round(float(np.mean(v)), 4) for table, v in tables.items()}
         for metric, tables in rows.items()
@@ -163,6 +173,11 @@ def main() -> int:
         f"\nconformal (alpha={ALPHA}): coverage {means['coverage']:.4f} "
         f"(class 0 {means['coverage_class_0']:.4f}, class 1 {means['coverage_class_1']:.4f}), "
         f"avg set size {means['avg_set_size']:.4f}"
+    )
+    print(
+        f"consistency gate: routed {means['routed_fraction']:.4f} of samples; "
+        f"ungated coverage {means['coverage_ungated']:.4f} -> gated {means['coverage']:.4f}, "
+        f"ungated set size {means['avg_set_size_ungated']:.4f} -> {means['avg_set_size']:.4f}"
     )
     print(f"mean rank: {artifact['mean_rank']}")
     print(f"wrote {ARTIFACT_PATH.relative_to(_ROOT)}")

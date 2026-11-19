@@ -221,6 +221,77 @@ class TestDetectorIntegration:
         np.testing.assert_array_equal(original["conformal_sets"], restored["conformal_sets"])
 
 
+class TestConsistencyGate:
+    """The cross-probe consistency gate (don't-know routing), pinned.
+
+    Measured on the five recorded tables (three seeds): the gate routes
+    4.9% of held-out samples (the 5% fit-quantile design), lifting conformal
+    coverage 0.9110 → 0.9123 at +0.0104 average set size.
+    """
+
+    def test_detect_serves_the_consistency_fields(
+        self, recorded_split: dict[str, np.ndarray]
+    ) -> None:
+        detector = MathArrestDetector().fit(recorded_split["fit"])
+        result = detector.detect(recorded_split["test"])
+        consistency = np.asarray(result["probe_consistency"], dtype=float)
+        assert consistency.min() >= 0.0 and consistency.max() <= 1.0
+        assert 0.0 <= result["consistency_threshold"] <= 1.0
+        assert result["low_consistency"].dtype == bool
+
+    def test_unanimous_probes_read_full_consistency(self) -> None:
+        detector = MathArrestDetector()
+        detector._probe_medians = {"a": 0.2, "b": 0.3}
+
+        class _Result:
+            def __init__(self, name: str, scores: np.ndarray) -> None:
+                self.probe_name = name
+                self.deviation_scores = scores
+
+        unanimous = [
+            _Result("a", np.array([0.9, 0.05])),
+            _Result("b", np.array([0.95, 0.1])),
+        ]
+        values = detector._consistency(unanimous)  # both above, both below
+        np.testing.assert_allclose(values, [1.0, 1.0])
+        split = [
+            _Result("a", np.array([0.9])),  # +0.7
+            _Result("b", np.array([0.0])),  # -0.3
+        ]
+        assert detector._consistency(split)[0] == pytest.approx(0.4 / 1.0)
+
+    def test_routed_samples_keep_both_classes_in_play(
+        self, recorded_split: dict[str, np.ndarray]
+    ) -> None:
+        detector = MathArrestDetector().fit(recorded_split["fit"])
+        detector.fit_vector_calibration(recorded_split["cal"], recorded_split["cal_y"], alpha=ALPHA)
+        result = detector.detect(recorded_split["test"])
+        routed = np.asarray(result["dont_know_routed"], dtype=bool)
+        sets = np.asarray(result["conformal_sets"], dtype=bool)
+        assert sets[routed].all(), "a routed sample was still forced to a point decision"
+        # The routed share tracks the fit-quantile design.
+        assert routed.mean() <= 3 * MathArrestDetector.CONSISTENCY_QUANTILE
+
+    def test_gate_state_survives_the_checkpoint_round_trip(
+        self, recorded_split: dict[str, np.ndarray]
+    ) -> None:
+        detector = MathArrestDetector().fit(recorded_split["fit"])
+        clone = MathArrestDetector()
+        clone._restore_learned_state(detector._learned_state())
+        original = detector.detect(recorded_split["test"])
+        restored = clone.detect(recorded_split["test"])
+        np.testing.assert_array_equal(original["probe_consistency"], restored["probe_consistency"])
+        assert original["consistency_threshold"] == restored["consistency_threshold"]
+
+    def test_the_artifact_pins_the_gate_impact(self) -> None:
+        means = json.loads(ARTIFACT.read_text())["means"]
+        assert 0.01 <= means["routed_fraction"] <= 0.10
+        assert means["coverage"] >= means["coverage_ungated"]
+        assert means["avg_set_size"] >= means["avg_set_size_ungated"]
+        # The gate buys its coverage with a bounded efficiency cost.
+        assert means["avg_set_size"] - means["avg_set_size_ungated"] <= 0.05
+
+
 def test_the_artifact_pins_the_measured_gains() -> None:
     artifact = json.loads(ARTIFACT.read_text())
     assert artifact["schema"] == "mercury.research.math_arrest_vector_calibration/v1"

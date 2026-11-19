@@ -51,6 +51,13 @@ class MathArrestDetector(BaseDetector):
     #: Share of the fit series the installed operating point leaves above it.
     CALIBRATION_ALPHA = 0.05
 
+    #: Fit-series quantile that sets the cross-probe consistency threshold: a
+    #: scored sample whose probes agree on the sign of its deviation (after
+    #: fit-time median centering) less than the bottom 5% of the fit series
+    #: is routed to the conformal don't-know set instead of being forced to a
+    #: point decision.
+    CONSISTENCY_QUANTILE = 0.05
+
     decision_source = DecisionSource(
         kind="experimental",
         description=(
@@ -104,6 +111,10 @@ class MathArrestDetector(BaseDetector):
         #: score matrix; ``None`` until :meth:`fit_vector_calibration`.
         self._vector_calibrator: VectorIsotonicCalibrator | None = None
         self._vector_conformal: VectorConformalBinary | None = None
+        #: Cross-probe consistency gate state, set at fit: each probe's
+        #: fit-series median and the fit-series consistency quantile.
+        self._probe_medians: dict[str, float] = {}
+        self._consistency_threshold: float | None = None
 
     def is_fitted(self) -> bool:
         """Return ``True`` once the instrument's probes have been fitted."""
@@ -130,7 +141,8 @@ class MathArrestDetector(BaseDetector):
         series = self._series(data)
         self._arrest.fit(series)
         self._is_fitted = True
-        fused = np.asarray(self._arrest.detect(series), dtype=np.float64).reshape(-1)
+        results = self._arrest.scored_results(series)
+        fused = np.asarray(self._arrest.fuse_results(results), dtype=np.float64).reshape(-1)
         fused = fused[np.isfinite(fused)]
         self._reference_scores = np.sort(fused) if fused.size else None
         if not self._threshold_is_configured and not self._auto_calibrate:
@@ -138,7 +150,44 @@ class MathArrestDetector(BaseDetector):
             if cut is not None:
                 self.threshold = cut
                 self._arrest.threshold = cut
+        # Cross-probe consistency gate: fit-time medians anchor the sign of
+        # each probe's deviation, and the fit series' own consistency
+        # distribution sets the don't-know threshold.
+        self._probe_medians = {r.probe_name: float(np.median(r.deviation_scores)) for r in results}
+        consistency = self._consistency(results)
+        self._consistency_threshold = (
+            float(np.quantile(consistency, self.CONSISTENCY_QUANTILE)) if consistency.size else None
+        )
         return self
+
+    def _consistency(self, results: list[Any]) -> np.ndarray[Any, Any]:
+        """Magnitude-weighted sign agreement of the probes, per sample.
+
+        Each probe's scores are centered by that probe's fit-series median;
+        a sample's consistency is ``|sum_j sign_j * m_j| / sum_j m_j`` with
+        ``m_j`` the probe's absolute deviation from its median — 1.0 when
+        every instrument points the same way, 0.0 when strong deviations
+        split evenly. The magnitude weighting is what makes the statistic
+        continuous: the bare fraction-of-signs is quantized to k/21 and piles
+        15–21% of the fit series onto its floor bin, which no quantile
+        threshold can cut usefully. A sample with every probe exactly at its
+        median carries no disagreement evidence and reads 1.0.
+        """
+        usable = [r for r in results if r.probe_name in self._probe_medians]
+        if not usable:
+            return np.array([], dtype=np.float64)
+        width = min(len(r.deviation_scores) for r in usable)
+        centered = np.column_stack(
+            [
+                np.asarray(r.deviation_scores[:width], dtype=np.float64)
+                - self._probe_medians[r.probe_name]
+                for r in usable
+            ]
+        )
+        magnitude = np.abs(centered).sum(axis=1)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            agreement = np.abs(centered.sum(axis=1)) / magnitude
+        return np.where(magnitude > 0.0, np.clip(agreement, 0.0, 1.0), 1.0)
 
     def _learned_state(self) -> dict[str, Any]:
         """Hand the checkpoint the instrument's fitted state, probe by probe.
@@ -163,6 +212,8 @@ class MathArrestDetector(BaseDetector):
             "vector_conformal": (
                 None if self._vector_conformal is None else self._vector_conformal.to_state()
             ),
+            "probe_medians": dict(self._probe_medians),
+            "consistency_threshold": self._consistency_threshold,
         }
         # Stored verbatim, so it must pack its own numpy: the weights_only
         # unpickler refuses numpy's reconstruction globals.
@@ -187,6 +238,11 @@ class MathArrestDetector(BaseDetector):
         self._arrest.threshold = float(state.get("arrest_threshold", self.threshold))
         self._arrest._is_fitted = bool(state.get("arrest_is_fitted", False))
         self._is_fitted = self._arrest._is_fitted
+        self._probe_medians = dict(state.get("probe_medians", {}))
+        restored_threshold = state.get("consistency_threshold")
+        self._consistency_threshold = (
+            None if restored_threshold is None else float(restored_threshold)
+        )
         calibrator_state = state.get("vector_calibrator")
         conformal_state = state.get("vector_conformal")
         if calibrator_state is not None:
@@ -353,6 +409,16 @@ class MathArrestDetector(BaseDetector):
             "redundant_probe_pairs": len(self._arrest._decorrelator.redundant_pairs),
         }
         result.update(batch_evidence(self._reference_scores, scores, self.CALIBRATION_ALPHA))
+        # Cross-probe consistency: how much the 21 instruments agree on each
+        # sample's deviation sign, against the fit-time threshold.
+        consistency = self._consistency(results)
+        low_consistency = np.zeros(len(scores), dtype=bool)
+        if consistency.size and self._consistency_threshold is not None:
+            width = min(len(consistency), len(scores))
+            result["probe_consistency"] = consistency.astype(np.float32)
+            low_consistency[:width] = consistency[:width] < self._consistency_threshold
+            result["low_consistency"] = low_consistency
+            result["consistency_threshold"] = float(self._consistency_threshold)
         if self._vector_calibrator is not None and self._vector_conformal is not None:
             # Opt-in supervised vector calibration: the calibrated probability
             # is the decision score (item: the isotonic model is *applied*, not
@@ -371,6 +437,13 @@ class MathArrestDetector(BaseDetector):
                 tail = scores[width:] > self.threshold
                 result["is_anomaly"] = np.concatenate([calibrated > 0.5, tail])
             result["conformal_p_values"] = self._vector_conformal.p_values(matrix)
-            result["conformal_sets"] = self._vector_conformal.predict_sets(matrix)
+            sets = self._vector_conformal.predict_sets(matrix)
+            # Consistency gate: a sample the instruments cannot agree on is
+            # routed to the don't-know set — both classes stay in play — not
+            # forced to a point decision.
+            routed = low_consistency[: len(sets)]
+            sets[routed] = True
+            result["conformal_sets"] = sets
             result["conformal_alpha"] = float(self._vector_conformal.alpha)
+            result["dont_know_routed"] = routed
         return result
