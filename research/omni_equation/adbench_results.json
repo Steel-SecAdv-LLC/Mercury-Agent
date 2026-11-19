@@ -4,12 +4,12 @@
     "n_scored": 18,
     "mean_auroc": 0.7737,
     "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
-    "commit": "15b0eeacdd654179190d979756c7162830c20334",
-    "detector_commit": "15b0eeacdd654179190d979756c7162830c20334",
-    "detector_blob": "6ad9cb08ff212be32e9c5f9c50c777d3e12a6401",
-    "timestamp": "2026-11-16T16:02:08.996104+00:00",
+    "commit": "24549e637a96862a603464a1539732f753f54b69",
+    "detector_commit": "fdb4a5c7f934a9db28af8c7fdfd69e4431491f65",
+    "detector_blob": "dd42e3581a325eaeed837f35ad188555d008dd03",
+    "timestamp": "2026-11-19T08:45:36.611884+00:00",
     "versions": {
-      "python": "3.12.3",
+      "python": "3.13.18",
       "numpy": "2.5.4"
     }
   },
@@ -22,7 +22,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9801,
-      "secs": 0.2
+      "secs": 0.1
     },
     {
       "dataset": "cardio",
@@ -32,7 +32,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.873,
-      "secs": 0.3
+      "secs": 0.2
     },
     {
       "dataset": "Cardiotocography",
@@ -72,7 +72,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9179,
-      "secs": 0.3
+      "secs": 0.1
     },
     {
       "dataset": "Lymphography",
@@ -82,7 +82,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.993,
-      "secs": 0.2
+      "secs": 0.1
     },
     {
       "dataset": "mammography",
@@ -102,7 +102,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.4548,
-      "secs": 1.4
+      "secs": 1.5
     },
     {
       "dataset": "PageBlocks",
@@ -122,7 +122,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.699,
-      "secs": 0.2
+      "secs": 0.1
     },
     {
       "dataset": "Stamps",
@@ -132,7 +132,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.8654,
-      "secs": 0.2
+      "secs": 0.1
     },
     {
       "dataset": "thyroid",
@@ -142,7 +142,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9792,
-      "secs": 0.3
+      "secs": 0.2
     },
     {
       "dataset": "vertebral",
@@ -162,7 +162,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.6768,
-      "secs": 0.8
+      "secs": 0.7
     },
     {
       "dataset": "WBC",
@@ -172,7 +172,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9911,
-      "secs": 0.2
+      "secs": 0.1
     },
     {
       "dataset": "wine",
@@ -182,7 +182,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.7185,
-      "secs": 0.2
+      "secs": 0.1
     },
     {
       "dataset": "WPBC",
