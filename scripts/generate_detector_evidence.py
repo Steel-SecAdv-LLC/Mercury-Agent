@@ -50,6 +50,9 @@ from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
 
 SEED_PATH = REPO_ROOT / "artifacts" / "detector_evidence" / "2026-10-27_ledger_seed.json"
 LEDGER_PATH = REPO_ROOT / "artifacts" / "detector_evidence" / "ledger.json"
+#: The tiers alone, shipped inside the package so what runs can ask what is
+#: proven (core/evidence_tiers.py). Same generator, same rules, same gate.
+TIERS_PATH = REPO_ROOT / "src" / "omni_mercury_engine" / "core" / "evidence_tiers.json"
 
 #: Detectors whose generic grade is a protocol mismatch, not a verdict
 #: (point-wise AUROC under-credits sequential change/tail statistics).
@@ -173,23 +176,43 @@ def _serialise(ledger: dict[str, Any]) -> str:
     return json.dumps(ledger, indent=1, sort_keys=True, allow_nan=False) + "\n"
 
 
+def tiers_document(ledger: dict[str, Any]) -> dict[str, Any]:
+    """The packaged copy of the ledger's tiers: name to tier and its basis."""
+    return {
+        "schema": "detector_evidence_tiers/v1",
+        "generated_by": "scripts/generate_detector_evidence.py; never hand-assigned",
+        "ledger": "artifacts/detector_evidence/ledger.json",
+        "tiers": {
+            name: {"tier": card["tier"], "basis": card["tier_basis"]}
+            for name, card in sorted(ledger["detectors"].items())
+        },
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="verify the committed ledger")
     args = parser.parse_args(argv)
-    text = _serialise(build_ledger())
+    ledger = build_ledger()
+    text = _serialise(ledger)
+    tiers_text = _serialise(tiers_document(json.loads(text)))
     if args.check:
-        if not LEDGER_PATH.exists() or LEDGER_PATH.read_text() != text:
-            print(
-                "detector evidence ledger is OUT OF SYNC; regenerate with "
-                "python scripts/generate_detector_evidence.py",
-                file=sys.stderr,
-            )
-            return 1
-        print("detector evidence ledger is in sync.")
+        for path, wanted, name in (
+            (LEDGER_PATH, text, "detector evidence ledger"),
+            (TIERS_PATH, tiers_text, "packaged evidence tiers"),
+        ):
+            if not path.exists() or path.read_text() != wanted:
+                print(
+                    f"{name} is OUT OF SYNC; regenerate with "
+                    "python scripts/generate_detector_evidence.py",
+                    file=sys.stderr,
+                )
+                return 1
+        print("detector evidence ledger and packaged tiers are in sync.")
         return 0
     LEDGER_PATH.write_text(text)
+    TIERS_PATH.write_text(tiers_text)
     counts = json.loads(text)["tier_counts"]
     print(f"wrote {LEDGER_PATH.relative_to(REPO_ROOT)} | tiers: {counts}")
     return 0

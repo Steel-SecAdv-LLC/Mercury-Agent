@@ -640,6 +640,10 @@ omni_mercury_engine = [
     # The fitted geomagnetic-storm forecaster (watch/forecast.py). Without it
     # the watch has no forecast to commit to and logs that it cannot load one.
     "watch/kp_g1_model.json",
+    # Each component's evidence tier from the Detector Evidence Ledger
+    # (core/evidence_tiers.py). Without it nothing is excluded from the
+    # default path for being measured broken, as before tiers existed.
+    "core/evidence_tiers.json",
     # What was measured of decisions on each hazard, on real events held out
     # (decision/hazard_evidence.py). Without it a decision record carries no
     # held-out record for its hazard, and says nothing in its place.

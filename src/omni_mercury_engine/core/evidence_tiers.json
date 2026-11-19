@@ -1,0 +1,463 @@
+{
+ "generated_by": "scripts/generate_detector_evidence.py; never hand-assigned",
+ "ledger": "artifacts/detector_evidence/ledger.json",
+ "schema": "detector_evidence_tiers/v1",
+ "tiers": {
+  "acceleration_dynamics": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "adaptive_anomaly": {
+   "basis": "real-data mean AUROC 0.883",
+   "tier": "T3"
+  },
+  "adversarial_autoencoder": {
+   "basis": "single-dataset grade (0.9972); tier capped pending full grading",
+   "tier": "T2"
+  },
+  "affective": {
+   "basis": "constant output on declared modality (measured); input contract fix pending",
+   "tier": "T0"
+  },
+  "anyanomaly": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "astrophysical": {
+   "basis": "real-data mean AUROC 0.803",
+   "tier": "T3"
+  },
+  "atmospheric_river": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "avalanche": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "biometric": {
+   "basis": "window-level burst separation 1.0; no per-point grade",
+   "tier": "T1"
+  },
+  "bocpd": {
+   "basis": "real-data mean AUROC 0.645",
+   "tier": "T2"
+  },
+  "case_surge": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "cflow": {
+   "basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "tier": "T2"
+  },
+  "chemistry": {
+   "basis": "constant output on declared modality (measured); input contract fix pending",
+   "tier": "T0"
+  },
+  "chronos": {
+   "basis": "~chance on real data (0.3706)",
+   "tier": "T1"
+  },
+  "cme_arrival": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "consciousness": {
+   "basis": "real-data mean AUROC 0.717",
+   "tier": "T2"
+  },
+  "copod": {
+   "basis": "real-data mean AUROC 0.864",
+   "tier": "T3"
+  },
+  "deep_svdd": {
+   "basis": "real-data mean AUROC 0.6583",
+   "tier": "T2"
+  },
+  "deeplog_sequence": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "derecho": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "diffusion_ad": {
+   "basis": "real-data mean AUROC 0.6484",
+   "tier": "T2"
+  },
+  "digital_twin": {
+   "basis": "real-data mean AUROC 0.6073",
+   "tier": "T2"
+  },
+  "dimensional": {
+   "basis": "~chance on real data (0.5383)",
+   "tier": "T1"
+  },
+  "directive": {
+   "basis": "real-data mean AUROC 0.9012",
+   "tier": "T3"
+  },
+  "drone": {
+   "basis": "domain artifact: artifacts/alfa_uav.eval.json (aviation_uav)",
+   "tier": "T4"
+  },
+  "drought": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "dual_student": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "dust_storm": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "earthquake": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "echo_state": {
+   "basis": "real-data mean AUROC 0.6914",
+   "tier": "T2"
+  },
+  "emp": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "energy_based": {
+   "basis": "real-data mean AUROC 0.6695",
+   "tier": "T2"
+  },
+  "eq_tsunami_cascade": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "extended_statistical": {
+   "basis": "real-data mean AUROC 0.6225",
+   "tier": "T2"
+  },
+  "financial_crisis": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "financial_stress": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "fire_debris_flow_cascade": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "flood": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "flood_precipitation": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "foundation_ensemble": {
+   "basis": "~chance on real data (0.3556)",
+   "tier": "T1"
+  },
+  "frequent_pattern": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "gaussian_process": {
+   "basis": "~chance on real data (0.5627)",
+   "tier": "T1"
+  },
+  "geo_movement": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "gic": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "gic_minute_series": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "graph_based": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "hail": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "hawkes": {
+   "basis": "graded 0.5328 under a mismatched point-wise protocol",
+   "tier": "T1"
+  },
+  "heatwave": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "hurricane": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "hurricane_pressure": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "imm": {
+   "basis": "~chance on real data (0.5004)",
+   "tier": "T1"
+  },
+  "info_geometry": {
+   "basis": "real-data mean AUROC 0.891",
+   "tier": "T3"
+  },
+  "intelligence_fusion": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "ionospheric_scintillation": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "kmeans_distance": {
+   "basis": "real-data mean AUROC 0.851",
+   "tier": "T3"
+  },
+  "landslide": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "lavad": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "lightning": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "lstm_autoencoder": {
+   "basis": "real-data mean AUROC 0.8291",
+   "tier": "T3"
+  },
+  "marine_biodiversity": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "math_arrest": {
+   "basis": "driven on real inputs by tests/detectors/test_recorded_math_arrest.py; no benchmark metric yet",
+   "tier": "T2"
+  },
+  "matrix_profile": {
+   "basis": "~chance on real data (0.3556)",
+   "tier": "T1"
+  },
+  "medical_abms": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "meteor": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "multivariate_ts": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "nano_safeguard": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "neural_cognitive": {
+   "basis": "window-level burst separation 0.999; no per-point grade",
+   "tier": "T1"
+  },
+  "neurosymbolic": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "padim": {
+   "basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "tier": "T2"
+  },
+  "page_hinkley": {
+   "basis": "graded 0.5756 under a mismatched point-wise protocol",
+   "tier": "T1"
+  },
+  "parapsychology": {
+   "basis": "constant output on declared modality (measured); input contract fix pending",
+   "tier": "T0"
+  },
+  "particle_filter": {
+   "basis": "~chance on real data (0.5897)",
+   "tier": "T1"
+  },
+  "patchcore": {
+   "basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "tier": "T2"
+  },
+  "physics_integrated": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "pm25_air_quality": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "psyop": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "quantum": {
+   "basis": "real-data mean AUROC 0.827",
+   "tier": "T3"
+  },
+  "rca": {
+   "basis": "real-data mean AUROC 0.894",
+   "tier": "T3"
+  },
+  "realtime_threat": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "reverse_distillation": {
+   "basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "tier": "T2"
+  },
+  "rockfall": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "schumann_resonance": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "sep_storm": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "sepsis": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "solar_flare": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "solar_gic_cascade": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "solar_storm": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "solar_wind_geomag": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "spatial": {
+   "basis": "real-data mean AUROC 0.6713",
+   "tier": "T2"
+  },
+  "spectral_domain_frequency": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "spectral_residual": {
+   "basis": "~chance on real data (0.494)",
+   "tier": "T1"
+  },
+  "spectral_vibration": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "spiking": {
+   "basis": "~chance on real data (0.5852)",
+   "tier": "T1"
+  },
+  "spot_evt": {
+   "basis": "graded 0.5027 under a mismatched point-wise protocol",
+   "tier": "T1"
+  },
+  "sprt": {
+   "basis": "graded 0.4924 under a mismatched point-wise protocol",
+   "tier": "T1"
+  },
+  "srcnn": {
+   "basis": "real-data mean AUROC 0.6679",
+   "tier": "T2"
+  },
+  "statistical": {
+   "basis": "~chance on real data (0.5675)",
+   "tier": "T1"
+  },
+  "stfpm": {
+   "basis": "driven on real inputs by tests/test_visual_detectors.py; no benchmark metric yet",
+   "tier": "T2"
+  },
+  "subsidence": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "surge_flood_cascade": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "survival": {
+   "basis": "~chance on real data (0.5969)",
+   "tier": "T1"
+  },
+  "temporal": {
+   "basis": "real-data mean AUROC 0.6425",
+   "tier": "T2"
+  },
+  "threat_detection": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "timegpt": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "topological": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "tornado": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "tornado_conditions": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "tsunami": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "uiux_anomaly": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "volcanic": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "wildfire": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "winter_storm": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  },
+  "xray_flare": {
+   "basis": "runs; no committed grade on labeled data",
+   "tier": "T1"
+  }
+ }
+}

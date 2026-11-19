@@ -1001,6 +1001,7 @@ class OmniMercuryEngine(LoggerMixin):
         require_explicit_fit: bool = True,
         cache_ethical_decisions: bool = True,
         decision_layer: bool = True,
+        include_unproven: bool = False,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -1011,6 +1012,13 @@ class OmniMercuryEngine(LoggerMixin):
             device: Computation device ('cpu' or 'cuda').
             cache_size: Maximum entries in feature cache. Default 128.
             memory_threshold_mb: Memory threshold for GC in MB. Default 2048.
+            include_unproven: When True, models the Detector Evidence Ledger
+                measures broken on their declared modality (tier T0) take
+                part in detection as they used to. By default they are
+                constructed and reachable at ``models`` exactly as before,
+                but contribute no feature and no score
+                (:meth:`_models_on_the_default_path`); a loaded fusion
+                checkpoint trained with one's feature group keeps that group.
             decision_layer: When True (default), the decision / abstention /
                 response layer is active, so every ``detect_with_fusion``
                 result carries a ``"decision"`` record — a grounded label or an
@@ -1184,6 +1192,22 @@ class OmniMercuryEngine(LoggerMixin):
 
         self._init_detectors()
         self._init_models()
+        # What the evidence ledger measures broken stays off the default path.
+        # The models are constructed all the same: the API keeps them, and a
+        # checkpoint trained with one's feature group keeps that group fed.
+        from omni_mercury_engine.core.evidence_tiers import measured_broken
+
+        self.include_unproven = bool(include_unproven)
+        self.excluded_unproven: frozenset[str] = (
+            frozenset() if include_unproven else measured_broken() & set(self.models)
+        )
+        if self.excluded_unproven:
+            logger.info(
+                "models measured broken on their declared modality contribute no feature "
+                "and no score (the Detector Evidence Ledger's T0): %s; "
+                "include_unproven=True restores them",
+                ", ".join(sorted(self.excluded_unproven)),
+            )
         self._init_fusion()
         self._init_resilience()
         self._init_runtime_pipeline()
@@ -2873,7 +2897,7 @@ class OmniMercuryEngine(LoggerMixin):
         # Domain-model feature groups: extracted (never fit) exactly as
         # detect_with_fusion does, so the trained/served feature space matches.
         # Models that cannot process the input are skipped gracefully.
-        for name, model in self.models.items():
+        for name, model in self._models_on_the_default_path():
             extractor: Any = model
             try:
                 _record(name, extractor.extract_features(X))
@@ -5703,6 +5727,24 @@ class OmniMercuryEngine(LoggerMixin):
         cached: tuple[Any, Any] = self.feature_cache.get_or_compute(cache_key, compute_features)
         return cached
 
+    def _models_on_the_default_path(self) -> list[tuple[str, Any]]:
+        """The specialized models whose output this engine uses, in order.
+
+        Every model is constructed and reachable at ``models`` — the released
+        API keeps them — but one the Detector Evidence Ledger measures broken
+        on its declared modality (tier T0: constant output, so its "signal"
+        is the same whatever the input) contributes no feature and no score,
+        unless this engine was built with ``include_unproven=True`` or a
+        loaded fusion checkpoint was trained with its feature group: a
+        trained projection must not be starved of the input it was fitted on.
+        """
+        trained_with = getattr(self, "_fusion_feature_groups", None) or ()
+        return [
+            (name, model)
+            for name, model in self.models.items()
+            if name not in self.excluded_unproven or name in trained_with
+        ]
+
     def _extract_model_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
@@ -5727,7 +5769,7 @@ class OmniMercuryEngine(LoggerMixin):
         model_features = {}
         model_scores = {}
 
-        for name, model in self.models.items():
+        for name, model in self._models_on_the_default_path():
             try:
 
                 def compute_features(mdl: Any = model, d: Any = data) -> tuple[Any, ...]:
