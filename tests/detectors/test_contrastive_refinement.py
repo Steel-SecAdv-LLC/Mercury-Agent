@@ -30,9 +30,7 @@ from omni_mercury_engine.detectors.math_arrest.fusion import CorrelationAwareDec
 from tests.recorded_data import adbench, stratified_split
 
 ARTIFACT = (
-    Path(__file__).resolve().parents[2]
-    / "artifacts"
-    / "math_arrest_contrastive_refinement.json"
+    Path(__file__).resolve().parents[2] / "artifacts" / "math_arrest_contrastive_refinement.json"
 )
 
 
