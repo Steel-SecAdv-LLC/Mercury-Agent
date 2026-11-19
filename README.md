@@ -279,6 +279,13 @@ governed self-improvement rollout.
 
 ### Headline results
 
+This ledger is a historical measurement, not the current tree. It was run
+before `_detect_data_characteristics` began classifying wide (>100-feature)
+non-temporal data as TABULAR (which zeroes KinematicScore there instead of
+leaving it at full weight); none of the recorded tables in the offline
+harness is that wide, but the full run has not been repeated since, so the
+figures below are quoted as of the detector that produced them.
+
 **Ensemble** — unsupervised, three-component weighted fusion:
 
 <!-- BENCHMARK-HEADLINE:START -->
