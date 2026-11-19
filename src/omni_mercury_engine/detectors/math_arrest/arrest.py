@@ -159,6 +159,39 @@ PROBE_PRESETS: dict[str, list[str]] = {
         "IQRRobustProbe",
     ],
     "forensic": _ALL_PROBE_NAMES,
+    # The measured redundancy reduction. On the recorded corpora the fit-time
+    # probe correlations form two clusters at mean |r| >= 0.80 — {additive,
+    # harmonic_oscillator, r3_recursion_resonance, quantum_annealing,
+    # modified_zscore} and {catalan_optimized, exponential_decay} — and keeping
+    # only each cluster's strongest member (by mean held-out AUROC) measures
+    # *better* than the full ensemble through the shipped fusion: mean AUROC
+    # 0.7584 vs 0.7494 on the four NAB files, 0.6859 vs 0.6763 on the five
+    # ADBench tables, mean rank 1.21 vs 1.79 over the 19 evaluations
+    # (``research/math_arrest/harness_probe_redundancy.py``; the matrices are
+    # in ``artifacts/math_arrest_probe_correlation.json`` and the selection is
+    # pinned by ``tests/detectors/test_probe_redundancy.py``). The default
+    # stays ``"all"``: the 21-column per-probe feature surface is a released
+    # contract (``MathArrestDetector.extract_features`` feeds fusion
+    # checkpoints sized to it), and the shipped decorrelator already
+    # down-weights these clusters inside the full ensemble.
+    "decorrelated": [
+        "AdditiveProbe",
+        "MomentumProbe",
+        "VarianceAdaptedProbe",
+        "EthicalConstrainedProbe",
+        "CatalanOptimizedProbe",
+        "HelixMultiplicativeProbe",
+        "SVDProjectionProbe",
+        "LyapunovChaosProbe",
+        "TopologyHomologyProbe",
+        "FractalSelfSimilarityProbe",
+        "ZetaHarmonicProbe",
+        "WavePropagationProbe",
+        "QuantumSuperpositionProbe",
+        "EnergyMinimizationProbe",
+        "BoltzmannCouplingProbe",
+        "IQRRobustProbe",
+    ],
 }
 
 
