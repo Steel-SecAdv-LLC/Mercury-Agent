@@ -21,6 +21,10 @@ from omni_mercury_engine.core.base import (
     _deserialized_state,
     _serializable_state,
 )
+from omni_mercury_engine.core.vector_calibration import (
+    VectorConformalBinary,
+    VectorIsotonicCalibrator,
+)
 from omni_mercury_engine.detectors._calibration import (
     batch_evidence,
     bound_finite_config,
@@ -96,6 +100,10 @@ class MathArrestDetector(BaseDetector):
         #: Sorted fused scores of the fit series: the reference the operating
         #: point and the conformal p-values are taken from.
         self._reference_scores: np.ndarray[Any, Any] | None = None
+        #: Opt-in supervised vector calibration over the (probes + fused)
+        #: score matrix; ``None`` until :meth:`fit_vector_calibration`.
+        self._vector_calibrator: VectorIsotonicCalibrator | None = None
+        self._vector_conformal: VectorConformalBinary | None = None
 
     def is_fitted(self) -> bool:
         """Return ``True`` once the instrument's probes have been fitted."""
@@ -149,6 +157,12 @@ class MathArrestDetector(BaseDetector):
             "reference_scores": self._reference_scores,
             "arrest_threshold": float(self._arrest.threshold),
             "arrest_is_fitted": bool(self._arrest._is_fitted),
+            "vector_calibrator": (
+                None if self._vector_calibrator is None else self._vector_calibrator.to_state()
+            ),
+            "vector_conformal": (
+                None if self._vector_conformal is None else self._vector_conformal.to_state()
+            ),
         }
         # Stored verbatim, so it must pack its own numpy: the weights_only
         # unpickler refuses numpy's reconstruction globals.
@@ -173,6 +187,93 @@ class MathArrestDetector(BaseDetector):
         self._arrest.threshold = float(state.get("arrest_threshold", self.threshold))
         self._arrest._is_fitted = bool(state.get("arrest_is_fitted", False))
         self._is_fitted = self._arrest._is_fitted
+        calibrator_state = state.get("vector_calibrator")
+        conformal_state = state.get("vector_conformal")
+        if calibrator_state is not None:
+            self._vector_calibrator = VectorIsotonicCalibrator.from_state(calibrator_state)
+            if conformal_state is not None:
+                self._vector_conformal = VectorConformalBinary.from_state(
+                    conformal_state, self._vector_calibrator
+                )
+
+    def _vector_matrix(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """The (probes + fused) score matrix the vector calibration consumes.
+
+        One column per fitted probe (the instrument's own breakdown) plus the
+        fused score as the final column — the full vector of Mercury's probe
+        and detector scores, never an external feature.
+        """
+        columns = self._arrest.per_probe_scores(series)
+        fused = np.asarray(self._arrest.detect(series), dtype=np.float64).reshape(-1)
+        if not columns:
+            return fused.reshape(-1, 1)
+        width = min(len(fused), *(len(c) for c in columns.values()))
+        stacked = [np.asarray(c[:width], dtype=np.float64) for c in columns.values()]
+        stacked.append(fused[:width])
+        return np.column_stack(stacked)
+
+    def fit_vector_calibration(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        labels: np.ndarray[Any, Any],
+        *,
+        alpha: float = 0.1,
+        seed: int = 0,
+    ) -> MathArrestDetector:
+        """Fit the opt-in vector calibration on a labelled calibration set.
+
+        Two instruments over the (probes + fused) score matrix, trained on
+        Mercury's own outputs only:
+
+        * a :class:`VectorIsotonicCalibrator` mapping the weighted probe
+          index to a calibrated anomaly probability, and
+        * a :class:`VectorConformalBinary` producing {normal, anomaly}
+          prediction sets with the finite-sample ``1 − alpha`` per-class
+          coverage guarantee.
+
+        The labelled set is split in two internally (stratified, seeded):
+        the first half fits the calibrator, the second supplies the conformal
+        nonconformity scores — reusing the calibrator's own fitting fold for
+        conformal calibration would break the exchangeability the guarantee
+        rests on. Once fitted, :meth:`detect` applies the calibrated
+        probability in the decision path and serves the prediction sets.
+
+        Args:
+            data: Labelled calibration rows/series (never the fit series).
+            labels: Binary ground truth, 1 marking anomalies.
+            alpha: Conformal miscoverage level.
+            seed: Seed for the internal stratified split.
+
+        Returns:
+            ``self``.
+
+        Raises:
+            RuntimeError: If the detector has not been fitted.
+            ValueError: If a class is missing from either internal fold.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("MathArrestDetector has not been fitted. Call fit() first.")
+        series = self._series(data)
+        y = np.asarray(labels, dtype=np.int64).reshape(-1)
+        matrix = self._vector_matrix(series)
+        if len(y) < len(matrix):
+            raise ValueError(f"labels ({len(y)}) shorter than scored rows ({len(matrix)})")
+        y = y[: len(matrix)]
+
+        rng = np.random.RandomState(seed)
+        first = np.zeros(len(y), dtype=bool)
+        for cls in (0, 1):
+            rows = np.where(y == cls)[0]
+            rng.shuffle(rows)
+            first[rows[: len(rows) // 2]] = True
+        if not (first.any() and (~first).any()):
+            raise ValueError("calibration set too small to split into two labelled folds")
+
+        calibrator = VectorIsotonicCalibrator().fit(matrix[first], y[first])
+        conformal = VectorConformalBinary(alpha=alpha).fit(matrix[~first], y[~first], calibrator)
+        self._vector_calibrator = calibrator
+        self._vector_conformal = conformal
+        return self
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion features: one column per probe that fitted.
@@ -221,4 +322,24 @@ class MathArrestDetector(BaseDetector):
             "redundant_probe_pairs": len(self._arrest._decorrelator.redundant_pairs),
         }
         result.update(batch_evidence(self._reference_scores, scores, self.CALIBRATION_ALPHA))
+        if self._vector_calibrator is not None and self._vector_conformal is not None:
+            # Opt-in supervised vector calibration: the calibrated probability
+            # is the decision score (item: the isotonic model is *applied*, not
+            # merely fitted), and the conformal prediction sets carry the
+            # finite-sample per-class coverage guarantee. The raw fused scores
+            # above are untouched, so the uncalibrated surface stays readable.
+            matrix = self._vector_matrix(series)
+            calibrated = self._vector_calibrator.calibrate(matrix)
+            width = len(calibrated)
+            result["calibrated_scores"] = calibrated.astype(np.float32)
+            result["calibrated_threshold"] = 0.5
+            result["is_anomaly"] = np.asarray(calibrated > 0.5)
+            if width < len(scores):
+                # Shorter probe columns (a probe that failed on this batch):
+                # fall back to the raw verdict for the uncovered tail.
+                tail = scores[width:] > self.threshold
+                result["is_anomaly"] = np.concatenate([calibrated > 0.5, tail])
+            result["conformal_p_values"] = self._vector_conformal.p_values(matrix)
+            result["conformal_sets"] = self._vector_conformal.predict_sets(matrix)
+            result["conformal_alpha"] = float(self._vector_conformal.alpha)
         return result
