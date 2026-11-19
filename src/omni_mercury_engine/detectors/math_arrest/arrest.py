@@ -444,6 +444,85 @@ class AnomalyMathArrest:
             out[result.probe_name] = np.asarray(result.deviation_scores, dtype=np.float64)
         return out
 
+    def scored_results(self, data: npt.NDArray[np.float64]) -> list[ProbeResult]:
+        """Every fitted probe's :class:`ProbeResult` on ``data``, one pass.
+
+        The shared scoring step behind :meth:`detect`,
+        :meth:`per_probe_scores` and :meth:`probe_attributions`: callers that
+        need more than one of the fused score, the per-probe columns and the
+        attributions can score the probes once and derive the rest
+        (:meth:`fuse_results` and
+        :meth:`~omni_mercury_engine.detectors.math_arrest.fusion.PhiWeightedFusion.leave_one_out_attribution`),
+        instead of paying a full 21-probe pass per view. A probe that failed
+        to fit, or that raises while scoring, is omitted and logged.
+
+        Args:
+            data: Evaluation data.
+
+        Returns:
+            One result per probe that fitted and scored.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("AnomalyMathArrest has not been fitted. Call fit() first.")
+        results: list[ProbeResult] = []
+        for probe in self._probes:
+            if not probe.is_fitted:
+                continue
+            try:
+                results.append(probe.deviation_score(data))
+            except (RuntimeError, ValueError) as exc:
+                logger.warning("Probe %s failed during scoring: %s", type(probe).__name__, exc)
+        return results
+
+    def fuse_results(self, results: list[ProbeResult]) -> npt.NDArray[np.float64]:
+        """The exact :meth:`detect` fusion of already-scored probe results.
+
+        Args:
+            results: Output of :meth:`scored_results`.
+
+        Returns:
+            Fused scores in ``[0, 1]`` (empty array for no results).
+        """
+        if not results:
+            return np.array([], dtype=np.float64)
+        order = get_affinity_order(self._domain, [r.probe_name for r in results])
+        return self._fusion.fuse(results, affinity_order=order, decorrelator=self._decorrelator)
+
+    def probe_attributions(
+        self, data: npt.NDArray[np.float64]
+    ) -> dict[str, npt.NDArray[np.float64]]:
+        """Per-sample leave-one-probe-out attribution of the fused score.
+
+        For every sample, each probe's attribution is the change in the fused
+        score when that probe is ablated (its weight zeroed, the rest
+        renormalised — under the default ``uniform`` weighting this is
+        exactly the fusion of the remaining probes). Computed against the
+        same effective weights, affinity order and decorrelator state that
+        :meth:`detect` applies, so every attribution explains the score that
+        was actually served.
+
+        Args:
+            data: Evaluation data.
+
+        Returns:
+            ``{probe_name: (n_samples,) attribution}``; empty when nothing
+            fitted.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+        """
+        results = self.scored_results(data)
+        if not results:
+            return {}
+        order = get_affinity_order(self._domain, [r.probe_name for r in results])
+        ordered, weights = self._fusion.effective_weights(
+            results, affinity_order=order, decorrelator=self._decorrelator
+        )
+        return self._fusion.leave_one_out_attribution(ordered, weights)
+
     def predict(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.int32]:
         """Binary classification: 0=normal, 1=anomaly.
 

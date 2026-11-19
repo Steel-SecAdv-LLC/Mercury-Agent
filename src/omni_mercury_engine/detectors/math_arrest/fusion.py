@@ -297,7 +297,48 @@ class PhiWeightedFusion:
         """
         if not probe_results:
             return np.array([], dtype=np.float64)
+        ordered, weights = self.effective_weights(probe_results, affinity_order, decorrelator)
 
+        # Align score arrays to minimum length
+        min_len = min(len(r.deviation_scores) for r in ordered)
+        score_matrix = np.column_stack([r.deviation_scores[:min_len] for r in ordered])
+
+        # Weighted sum
+        fused: npt.NDArray[np.float64] = score_matrix @ weights
+        fused = np.clip(
+            np.nan_to_num(fused, nan=0.0, posinf=0.0, neginf=0.0),
+            0.0,
+            1.0,
+        )
+        return fused
+
+    def effective_weights(
+        self,
+        probe_results: list[ProbeResult],
+        affinity_order: list[int] | None = None,
+        decorrelator: CorrelationAwareDecorrelator | None = None,
+    ) -> tuple[list[ProbeResult], npt.NDArray[np.float64]]:
+        """The exact per-probe weights :meth:`fuse` applies, and their order.
+
+        Exposed so per-sample leave-one-probe-out attribution can be computed
+        against the real weights rather than a reconstruction. The returned
+        weights are the monotonicity projection's output: non-negative and
+        summing to 1, so the fused score is non-decreasing in every retained
+        probe's score by construction.
+
+        Args:
+            probe_results: Active probe results.
+            affinity_order: Optional reordering indices by domain affinity.
+            decorrelator: Optional calibrated decorrelator.
+
+        Returns:
+            ``(ordered_results, weights)`` with one weight per ordered result.
+
+        Raises:
+            ValueError: If ``probe_results`` is empty.
+        """
+        if not probe_results:
+            raise ValueError("effective_weights needs at least one probe result")
         n_active = len(probe_results)
 
         # Reorder by affinity
@@ -345,22 +386,64 @@ class PhiWeightedFusion:
                 "Decorrelator not calibrated; proceeding with unmodified confidence weights."
             )
 
+        # Monotonicity projection: every branch above produces non-negative
+        # weights today, but nothing *enforced* it — a corrupted or hostile
+        # checkpoint can restore a negative decorrelator multiplier, and a
+        # negative weight makes the fused score DECREASE when that probe's
+        # score rises, silently inverting an alarm. Projecting onto the
+        # non-negative orthant before normalisation makes the fused score
+        # provably non-decreasing in every retained probe's score
+        # (``tests/detectors/test_fusion_monotonicity.py`` holds both the
+        # projection and the end-to-end property on the recorded corpora).
+        weights = np.maximum(weights, 0.0)
+
         # Normalize to sum to 1
         w_sum = float(weights.sum())
         if w_sum > EPSILON:
             weights = weights / w_sum
         else:
             weights = np.ones(n_active, dtype=np.float64) / n_active
+        return probe_results, weights
 
-        # Align score arrays to minimum length
-        min_len = min(len(r.deviation_scores) for r in probe_results)
-        score_matrix = np.column_stack([r.deviation_scores[:min_len] for r in probe_results])
+    @staticmethod
+    def leave_one_out_attribution(
+        ordered_results: list[ProbeResult],
+        weights: npt.NDArray[np.float64],
+    ) -> dict[str, npt.NDArray[np.float64]]:
+        """Per-sample change of the fused score when each probe is ablated.
 
-        # Weighted sum
-        fused: npt.NDArray[np.float64] = score_matrix @ weights
-        fused = np.clip(
-            np.nan_to_num(fused, nan=0.0, posinf=0.0, neginf=0.0),
-            0.0,
-            1.0,
-        )
-        return fused
+        Ablation holds the fit-time weight *proportions* fixed (the
+        decorrelator calibration and any affinity ranks are artifacts of the
+        full ensemble's fit): probe ``j``'s weight is zeroed and the rest
+        renormalised, which under the shipped ``uniform`` weighting is
+        exactly the fusion of the remaining probes. The attribution is
+        ``clip(fused) - clip(fused_without_j)``, and pre-clip the identity
+        ``sum_j (1 - w_j) * raw_attribution_j == 0`` ties the vector to the
+        weights (``raw_attribution_j = w_j * (s_j - fused) / (1 - w_j)``).
+
+        Args:
+            ordered_results: Probe results in the order the weights apply.
+            weights: The :meth:`effective_weights` output for those results.
+
+        Returns:
+            ``{probe_name: (n_samples,) attribution}``; a probe carrying the
+            whole weight attributes the entire fused score to itself.
+        """
+        if not ordered_results:
+            return {}
+        min_len = min(len(r.deviation_scores) for r in ordered_results)
+        matrix = np.column_stack([r.deviation_scores[:min_len] for r in ordered_results])
+        raw = np.nan_to_num(matrix @ weights, nan=0.0, posinf=0.0, neginf=0.0)
+        fused = np.clip(raw, 0.0, 1.0)
+        out: dict[str, npt.NDArray[np.float64]] = {}
+        for j, result in enumerate(ordered_results):
+            remaining = 1.0 - float(weights[j])
+            if remaining <= EPSILON:
+                # The probe carries the whole ensemble: ablating it leaves
+                # nothing, so the entire fused score is its attribution.
+                out[result.probe_name] = fused.copy()
+                continue
+            without = (raw - weights[j] * matrix[:, j]) / remaining
+            without = np.clip(np.nan_to_num(without, nan=0.0, posinf=0.0, neginf=0.0), 0.0, 1.0)
+            out[result.probe_name] = fused - without
+        return out

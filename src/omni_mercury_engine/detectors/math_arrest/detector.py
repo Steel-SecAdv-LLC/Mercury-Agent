@@ -203,12 +203,21 @@ class MathArrestDetector(BaseDetector):
         fused score as the final column — the full vector of Mercury's probe
         and detector scores, never an external feature.
         """
-        columns = self._arrest.per_probe_scores(series)
-        fused = np.asarray(self._arrest.detect(series), dtype=np.float64).reshape(-1)
-        if not columns:
+        results = self._arrest.scored_results(series)
+        fused = np.asarray(self._arrest.fuse_results(results), dtype=np.float64).reshape(-1)
+        return self._matrix_from(results, fused, n_rows=len(series))
+
+    @staticmethod
+    def _matrix_from(
+        results: list[Any], fused: np.ndarray[Any, Any], n_rows: int
+    ) -> np.ndarray[Any, Any]:
+        """Assemble the calibration matrix from an existing scoring pass."""
+        if fused.size == 0:
+            fused = np.zeros(n_rows, dtype=np.float64)
+        if not results:
             return fused.reshape(-1, 1)
-        width = min(len(fused), *(len(c) for c in columns.values()))
-        stacked = [np.asarray(c[:width], dtype=np.float64) for c in columns.values()]
+        width = min(len(fused), *(len(r.deviation_scores) for r in results))
+        stacked = [np.asarray(r.deviation_scores[:width], dtype=np.float64) for r in results]
         stacked.append(fused[:width])
         return np.column_stack(stacked)
 
@@ -305,9 +314,25 @@ class MathArrestDetector(BaseDetector):
         ``batch_anomaly`` fields are present once a fit reference exists.
         """
         series = self._series(data)
-        fused = np.asarray(self._arrest.detect(series), dtype=np.float64).reshape(-1)
+        # One 21-probe scoring pass serves the fused score, the per-probe
+        # columns and the attributions (it used to be one pass per view).
+        results = self._arrest.scored_results(series)
+        fused = np.asarray(self._arrest.fuse_results(results), dtype=np.float64).reshape(-1)
+        if fused.size == 0:
+            fused = np.zeros(len(series), dtype=np.float64)
         scores = finite_scores(fused, detector=self.name).astype(np.float32)
-        columns = self._arrest.per_probe_scores(series) if self._is_fitted else {}
+        columns = {r.probe_name: r.deviation_scores for r in results}
+        attributions: dict[str, Any] = {}
+        if results:
+            from omni_mercury_engine.detectors.math_arrest.domain_affinity import (
+                get_affinity_order,
+            )
+
+            order = get_affinity_order(self._arrest._domain, [r.probe_name for r in results])
+            ordered, weights = self._arrest._fusion.effective_weights(
+                results, affinity_order=order, decorrelator=self._arrest._decorrelator
+            )
+            attributions = self._arrest._fusion.leave_one_out_attribution(ordered, weights)
         result: dict[str, Any] = {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,
@@ -316,6 +341,12 @@ class MathArrestDetector(BaseDetector):
             "threshold": float(self.threshold),
             "probe_names": list(columns),
             "probe_scores": {k: np.asarray(v, dtype=np.float32) for k, v in columns.items()},
+            # Per-sample leave-one-probe-out attribution of the fused score:
+            # which mathematical instruments drove each decision, persisted
+            # alongside the score itself.
+            "probe_attributions": {
+                k: np.asarray(v, dtype=np.float32) for k, v in attributions.items()
+            },
             # 21 probes are not 21 dimensions: 11.64-16.00 measured on the
             # recorded NAB files, so the probe count is not the evidence count.
             "effective_probe_count": float(self._arrest._decorrelator.effective_probe_count),
@@ -328,7 +359,7 @@ class MathArrestDetector(BaseDetector):
             # merely fitted), and the conformal prediction sets carry the
             # finite-sample per-class coverage guarantee. The raw fused scores
             # above are untouched, so the uncalibrated surface stays readable.
-            matrix = self._vector_matrix(series)
+            matrix = self._matrix_from(results, fused, n_rows=len(series))
             calibrated = self._vector_calibrator.calibrate(matrix)
             width = len(calibrated)
             result["calibrated_scores"] = calibrated.astype(np.float32)
