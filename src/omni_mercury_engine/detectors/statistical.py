@@ -1691,6 +1691,20 @@ class MercuryAnomalyDetector(BaseDetector):
         if n_features <= 100:
             return DataCharacteristics.TABULAR
 
+        # Wide (> 100 features), not image-shaped, and measured non-temporal:
+        # this used to fall through to UNKNOWN, whose compatibility row is
+        # neutral — so KinematicScore kept full weight on exactly the rows its
+        # own documentation calls meaningless (np.diff over unordered rows; the
+        # high-dimensional mis-gating inversion in docs/BENCHMARKS.md). The
+        # temporal checks above already ran and said no, so the data is a wide
+        # table and is classified as one, which caps and then zeroes the
+        # kinematic weight through the existing TABULAR handling. UNKNOWN
+        # remains the verdict only when no temporal signal could be measured
+        # at all (degenerate variance, too few rows): there the non-temporal
+        # claim would rest on nothing.
+        if autocorr is not None or adj_row_corr is not None:
+            return DataCharacteristics.TABULAR
+
         return DataCharacteristics.UNKNOWN
 
     # =====================================================================

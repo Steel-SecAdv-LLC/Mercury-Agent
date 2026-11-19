@@ -209,6 +209,43 @@ class TestDataTypeDetection:
             result == DataCharacteristics.TABULAR
         ), f"Expected TABULAR for shuffled Gaussian, got {result.value}"
 
+    def test_wide_nontemporal_data_is_tabular_and_kinematic_is_zeroed(self) -> None:
+        """The high-dimensional mis-gating gap, closed.
+
+        Wide (> 100 features), not image-shaped and measured non-temporal
+        used to fall to UNKNOWN, whose compatibility row is neutral — so
+        KinematicScore (``np.diff`` over rows) kept full weight on unordered
+        rows, the exact inversion class ``docs/BENCHMARKS.md`` documents. The
+        existing temporal checks already said no; the classifier must act on
+        that and hand the data to the TABULAR path, which zeroes kinematic
+        before it enters the fusion.
+        """
+        rng = np.random.RandomState(0)
+        X = rng.randn(400, 150)  # wide, unordered, nowhere near sqrt(400)
+        det = MercuryAnomalyDetector()
+        assert det._detect_data_characteristics(X) == DataCharacteristics.TABULAR
+        det.fit(X)
+        assert det._data_type == DataCharacteristics.TABULAR
+        assert det._adaptive_weights[1] == 0.0, (
+            f"kinematic weight {det._adaptive_weights[1]:.4f} on wide "
+            "non-temporal data; the scorer must not enter the fusion there"
+        )
+
+    def test_wide_temporal_data_stays_temporal(self) -> None:
+        """Genuine wide time series keep the TEMPORAL classification."""
+        rng = np.random.RandomState(1)
+        t = np.linspace(0.0, 8 * np.pi, 400)
+        X = np.column_stack([np.sin(t + 0.01 * f) + 0.02 * rng.randn(len(t)) for f in range(120)])
+        det = MercuryAnomalyDetector()
+        assert det._detect_data_characteristics(X) == DataCharacteristics.TEMPORAL
+
+    def test_wide_degenerate_data_stays_unknown(self) -> None:
+        """No measurable temporal signal at all → the non-temporal claim
+        rests on nothing, so the neutral UNKNOWN verdict is kept."""
+        X = np.ones((12, 150), dtype=np.float64)  # constant: no variance anywhere
+        det = MercuryAnomalyDetector()
+        assert det._detect_data_characteristics(X) == DataCharacteristics.UNKNOWN
+
 
 class TestComponentPerformance:
     """Test each component achieves AUC > 0.7 on its ideal synthetic dataset."""
