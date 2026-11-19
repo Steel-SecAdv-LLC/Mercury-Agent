@@ -108,7 +108,7 @@ services:
   # Caddy — TLS termination + reverse proxy (auto-TLS via Let's Encrypt)
   # -------------------------------------------------------------------------
   caddy:
-    image: caddy:2.11.7
+    image: caddy:2.11.9
     container_name: mercury-caddy
     restart: unless-stopped
     ports:
