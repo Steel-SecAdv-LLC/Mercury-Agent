@@ -1,10 +1,10 @@
 {
   "run_metadata": {
-    "run_id": "e35635866a49-20261116T162404",
-    "timestamp": "2026-11-16T16:24:04.841913+00:00",
-    "git_sha": "e35635866a49348f131ed31faa2d833601b20358",
+    "run_id": "caf647002cfb-20261119T090045",
+    "timestamp": "2026-11-19T09:00:45.673516+00:00",
+    "git_sha": "caf647002cfba06d73f3bf4ea80bef7abc337a1c",
     "branch": "steel/maint-cov1",
-    "python_version": "3.12.3",
+    "python_version": "3.13.18",
     "detector": "MercuryAnomalyDetector"
   },
   "summary": {
@@ -13,10 +13,10 @@
     "failed": 9,
     "headline_label_policy": "genuine_labels_only (ground_truth | expert_annotated)",
     "n_genuine_labeled": 55,
-    "mean_auc": 0.8616266586978474,
+    "mean_auc": 0.8616347302095053,
     "median_auc": 0.9037825814877292,
-    "std_auc": 0.14256236520546792,
-    "mean_oracle_f1": 0.6492763331314285,
+    "std_auc": 0.14256442429958743,
+    "mean_oracle_f1": 0.6492800709799995,
     "median_oracle_f1": 0.7168141592920354,
     "unsupervised_eval": {
       "n_datasets": 12,
@@ -34,17 +34,17 @@
         "SolarDynamics",
         "ThreatIntel"
       ],
-      "mean_auc": 0.9273671784053944,
-      "median_auc": 0.9546724432274267,
+      "mean_auc": 0.9276764556545544,
+      "median_auc": 0.9570742935484673,
       "note": "Labels manufactured by thresholding a detector-like score/feature; excluded from headline AUC as circular. Use for unsupervised eval only."
     },
     "deleak_delta": {
       "median_auc_all_datasets": 0.9139467803343817,
       "median_auc_genuine_only": 0.9037825814877292,
       "median_auc_delta": -0.010164198846652539,
-      "mean_auc_all_datasets": 0.8734010801380051,
-      "mean_auc_genuine_only": 0.8616266586978474,
-      "mean_auc_delta": -0.011774421440157723
+      "mean_auc_all_datasets": 0.8734630989459321,
+      "mean_auc_genuine_only": 0.8616347302095053,
+      "mean_auc_delta": -0.011828368736426786
     }
   },
   "domain_summary": {
@@ -143,12 +143,12 @@
       "n_failed": 0,
       "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.8977775594276316,
-        "median_auc": 0.8977775594276316,
+        "mean_auc": 0.8982214925688166,
+        "median_auc": 0.8982214925688166,
         "std_auc": 0.0,
-        "mean_f1": 0.7406043871759472,
-        "mean_precision": 0.7416282642089094,
-        "mean_recall": 0.7395833333333334,
+        "mean_f1": 0.7408099688473521,
+        "mean_precision": 0.7534854245880862,
+        "mean_recall": 0.7285539215686274,
         "component_mean_aucs": {
           "resonance": 0.624223947188378,
           "kinematic": 0.5821491931962094,
@@ -165,19 +165,19 @@
       "n_failed": 0,
       "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.901596329632426,
-        "median_auc": 0.8796289144379382,
-        "std_auc": 0.055847498666717364,
-        "mean_f1": 0.7070441675481022,
-        "mean_precision": 0.7302417830054758,
-        "mean_recall": 0.6932611644429759,
+        "mean_auc": 0.900392084584832,
+        "median_auc": 0.8730702320802344,
+        "std_auc": 0.05958245331174151,
+        "mean_f1": 0.7201306847577023,
+        "mean_precision": 0.6645197047696132,
+        "mean_recall": 0.7908188627858314,
         "component_mean_aucs": {
-          "resonance": 0.8579164190597254,
-          "kinematic": 0.6587538108543053,
-          "info_geometry": 0.8737258969059444
+          "resonance": 0.8594275559085833,
+          "kinematic": 0.6550958535565901,
+          "info_geometry": 0.8747640238452776
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.8737258969059444
+        "best_component_auc": 0.8747640238452776
       }
     },
     "ocean": {
@@ -187,19 +187,19 @@
       "n_failed": 0,
       "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9047327739479774,
-        "median_auc": 0.9047327739479774,
+        "mean_auc": 0.9112706154305665,
+        "median_auc": 0.9112706154305665,
         "std_auc": 0.0,
-        "mean_f1": 0.7267267267267268,
-        "mean_precision": 0.7239316239316239,
-        "mean_recall": 0.7295434969853575,
+        "mean_f1": 0.7478559176672385,
+        "mean_precision": 0.7819848545237146,
+        "mean_recall": 0.716581446311176,
         "component_mean_aucs": {
-          "resonance": 0.7882992667898352,
-          "kinematic": 0.6369399933602581,
-          "info_geometry": 0.8632582284051032
+          "resonance": 0.8017357911107189,
+          "kinematic": 0.63461447727631,
+          "info_geometry": 0.8785731409355585
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.8632582284051032
+        "best_component_auc": 0.8785731409355585
       }
     },
     "climate": {
@@ -209,19 +209,19 @@
       "n_failed": 0,
       "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9754156549732717,
-        "median_auc": 0.9988764345205398,
-        "std_auc": 0.03396900176144687,
-        "mean_f1": 0.8477984619614981,
-        "mean_precision": 0.8007897302246606,
-        "mean_recall": 0.9311541512268183,
+        "mean_auc": 0.9756777285233088,
+        "median_auc": 0.9996526513055213,
+        "std_auc": 0.03415156797513698,
+        "mean_f1": 0.8628526467033093,
+        "mean_precision": 0.8268057093638489,
+        "mean_recall": 0.9359621483271642,
         "component_mean_aucs": {
-          "resonance": 0.9541687664503428,
-          "kinematic": 0.8445812759767647,
-          "info_geometry": 0.994079531589005
+          "resonance": 0.9530365536979231,
+          "kinematic": 0.845502673710041,
+          "info_geometry": 0.9941548660534903
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.994079531589005
+        "best_component_auc": 0.9941548660534903
       }
     },
     "air_quality": {
@@ -278,16 +278,16 @@
         "mean_auc": 0.8316339633401674,
         "median_auc": 0.8316339633401674,
         "std_auc": 0.16836603665983263,
-        "mean_f1": 0.7464654184180359,
-        "mean_precision": 0.6743243243243243,
+        "mean_f1": 0.2940844660370835,
+        "mean_precision": 0.19932432432432431,
         "mean_recall": 0.9204693611473272,
         "component_mean_aucs": {
           "resonance": 0.8669090290988885,
-          "kinematic": 0.7716421569049161,
-          "info_geometry": 0.8734965012659153
+          "kinematic": 0.7734244330981423,
+          "info_geometry": 0.8735715838567651
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.8734965012659153
+        "best_component_auc": 0.8735715838567651
       }
     },
     "academic": {
@@ -379,8 +379,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 402.5658549999207,
-      "score_ms": 309.3636029998379,
+      "fit_ms": 411.5471539998907,
+      "score_ms": 292.1217359998991,
       "error": null
     },
     "ADBench-02": {
@@ -404,8 +404,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 78.10118100042018,
-      "score_ms": 36.18538599948806,
+      "fit_ms": 76.1589500007176,
+      "score_ms": 33.18421399944782,
       "error": null
     },
     "ADBench-03": {
@@ -429,8 +429,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 3665.5061829997067,
-      "score_ms": 1622.7465830006622,
+      "fit_ms": 4038.794543000222,
+      "score_ms": 2070.0547300002654,
       "error": null
     },
     "ADBench-04": {
@@ -454,8 +454,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 28.565317000357027,
-      "score_ms": 5.809650000628608,
+      "fit_ms": 25.73424199999863,
+      "score_ms": 5.028567999943334,
       "error": null
     },
     "ADBench-05": {
@@ -479,8 +479,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 1401.5028359999633,
-      "score_ms": 1413.5462690001077,
+      "fit_ms": 1372.8430880000815,
+      "score_ms": 1247.2938439996142,
       "error": null
     },
     "ADBench-06": {
@@ -504,8 +504,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 61.50717099990288,
-      "score_ms": 16.701968999768724,
+      "fit_ms": 50.79466400002275,
+      "score_ms": 13.33877900015068,
       "error": null
     },
     "ADBench-07": {
@@ -529,8 +529,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 56.71190500015655,
-      "score_ms": 18.28625599955558,
+      "fit_ms": 46.60219400011556,
+      "score_ms": 15.111427000192634,
       "error": null
     },
     "ADBench-08": {
@@ -554,8 +554,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 461.6375000005064,
-      "score_ms": 398.5596339998665,
+      "fit_ms": 410.1705349994518,
+      "score_ms": 319.04679800027225,
       "error": null
     },
     "ADBench-09": {
@@ -579,8 +579,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 17812.480495000273,
-      "score_ms": 13266.184258000067,
+      "fit_ms": 18711.54469599969,
+      "score_ms": 13650.831368000581,
       "error": null
     },
     "ADBench-10": {
@@ -604,8 +604,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 220.5198729998301,
-      "score_ms": 172.58696899989445,
+      "fit_ms": 167.73925899997266,
+      "score_ms": 136.7664670005979,
       "error": null
     },
     "ADBench-11": {
@@ -629,8 +629,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 125.69697300023108,
-      "score_ms": 65.3425780001271,
+      "fit_ms": 105.56286399969395,
+      "score_ms": 54.73963500026002,
       "error": null
     },
     "ADBench-12": {
@@ -654,8 +654,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 57.15004699959536,
-      "score_ms": 22.260878999986744,
+      "fit_ms": 50.028769000164175,
+      "score_ms": 17.953720000150497,
       "error": null
     },
     "ADBench-13": {
@@ -679,8 +679,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 609.6309639997344,
-      "score_ms": 751.3651239996761,
+      "fit_ms": 470.8977570007846,
+      "score_ms": 464.0950039993186,
       "error": null
     },
     "ADBench-14": {
@@ -704,8 +704,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 20.865702999799396,
-      "score_ms": 4.189073999441462,
+      "fit_ms": 19.336592000399833,
+      "score_ms": 3.8034570006857393,
       "error": null
     },
     "ADBench-15": {
@@ -729,8 +729,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 15.866882000409532,
-      "score_ms": 1.8372930007899413,
+      "fit_ms": 14.458661999924516,
+      "score_ms": 1.7508809996797936,
       "error": null
     },
     "ADBench-16": {
@@ -754,8 +754,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 92.95840100003261,
-      "score_ms": 57.10169299982226,
+      "fit_ms": 68.56087899996055,
+      "score_ms": 32.89311800017458,
       "error": null
     },
     "ADBench-17": {
@@ -779,8 +779,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 13802.38932300017,
-      "score_ms": 6036.664684999778,
+      "fit_ms": 11695.43734599938,
+      "score_ms": 5240.132081000411,
       "error": null
     },
     "ADBench-18": {
@@ -804,8 +804,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 28.337673999885737,
-      "score_ms": 5.515648999789846,
+      "fit_ms": 26.172584000050847,
+      "score_ms": 5.016922999857343,
       "error": null
     },
     "ADBench-19": {
@@ -829,8 +829,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 201.01407099991775,
-      "score_ms": 126.99800999962463,
+      "fit_ms": 211.8117499994696,
+      "score_ms": 104.98592100066162,
       "error": null
     },
     "ADBench-20": {
@@ -854,8 +854,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 64.73314100003336,
-      "score_ms": 21.079275000374764,
+      "fit_ms": 58.40679300035845,
+      "score_ms": 16.90007599972887,
       "error": null
     },
     "ADBench-21": {
@@ -879,8 +879,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 19.87157900020975,
-      "score_ms": 2.099363000525045,
+      "fit_ms": 18.77200399940193,
+      "score_ms": 1.863751000200864,
       "error": null
     },
     "ADBench-22": {
@@ -904,8 +904,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 166.09965999941778,
-      "score_ms": 163.1122749995484,
+      "fit_ms": 135.2590220003549,
+      "score_ms": 119.22888000026433,
       "error": null
     },
     "ADBench-23": {
@@ -929,8 +929,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 106.7464130001099,
-      "score_ms": 42.31590000017604,
+      "fit_ms": 76.560999999856,
+      "score_ms": 34.52662099971349,
       "error": null
     },
     "ADBench-24": {
@@ -954,8 +954,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 797.1697789998871,
-      "score_ms": 400.6045969999832,
+      "fit_ms": 734.7702179995395,
+      "score_ms": 311.4839750005558,
       "error": null
     },
     "ADBench-25": {
@@ -970,17 +970,17 @@
       "n_features": 166,
       "anomaly_ratio": 0.03167864141084259,
       "adaptive_weights": {
-        "resonance": 0.4759722710574134,
-        "kinematic": 0.048055457885173146,
-        "info_geometry": 0.4759722710574134
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "UNKNOWN",
+      "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 1037.9639970005883,
-      "score_ms": 182.17833900052938,
+      "fit_ms": 1017.6288569991812,
+      "score_ms": 163.47690499969758,
       "error": null
     },
     "ADBench-26": {
@@ -1004,8 +1004,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 512.7203049996751,
-      "score_ms": 179.9633479995464,
+      "fit_ms": 358.2787710001867,
+      "score_ms": 104.72981800012349,
       "error": null
     },
     "ADBench-27": {
@@ -1029,8 +1029,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 78.33673999994062,
-      "score_ms": 31.190260000585113,
+      "fit_ms": 63.708452000355464,
+      "score_ms": 26.063547999910952,
       "error": null
     },
     "ADBench-28": {
@@ -1054,8 +1054,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 138.35793299949728,
-      "score_ms": 57.90286699993885,
+      "fit_ms": 113.63631799940777,
+      "score_ms": 50.8381539993934,
       "error": null
     },
     "ADBench-29": {
@@ -1079,8 +1079,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 30.88387300067552,
-      "score_ms": 6.72334699993371,
+      "fit_ms": 25.76721900004486,
+      "score_ms": 5.471829999805777,
       "error": null
     },
     "ADBench-30": {
@@ -1104,8 +1104,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 205.88902100007545,
-      "score_ms": 149.1745430002993,
+      "fit_ms": 169.3082490000961,
+      "score_ms": 152.51095700023143,
       "error": null
     },
     "ADBench-31": {
@@ -1129,8 +1129,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 286.1676009997609,
-      "score_ms": 116.54255899975396,
+      "fit_ms": 278.8344730006429,
+      "score_ms": 98.80380899994634,
       "error": null
     },
     "ADBench-32": {
@@ -1154,8 +1154,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 137.3767670002053,
-      "score_ms": 80.36581699980161,
+      "fit_ms": 136.8016999995234,
+      "score_ms": 71.6226459999234,
       "error": null
     },
     "ADBench-33": {
@@ -1179,8 +1179,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 69.60553599947161,
-      "score_ms": 46.06427699945925,
+      "fit_ms": 61.57443299980514,
+      "score_ms": 38.92954099956114,
       "error": null
     },
     "ADBench-34": {
@@ -1204,8 +1204,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 80.78414400006295,
-      "score_ms": 45.39606199978152,
+      "fit_ms": 70.49207599993679,
+      "score_ms": 35.95447099996818,
       "error": null
     },
     "ADBench-35": {
@@ -1229,8 +1229,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 142.34254400071222,
-      "score_ms": 97.77569299967581,
+      "fit_ms": 123.05354799991619,
+      "score_ms": 81.93685500009451,
       "error": null
     },
     "ADBench-36": {
@@ -1254,8 +1254,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 3323.712154000532,
-      "score_ms": 1267.1925069998906,
+      "fit_ms": 2848.0606769999213,
+      "score_ms": 1139.447888000177,
       "error": null
     },
     "ADBench-37": {
@@ -1279,8 +1279,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 25.452142999711214,
-      "score_ms": 4.6540519997506635,
+      "fit_ms": 22.880571999849053,
+      "score_ms": 4.2867840002145385,
       "error": null
     },
     "ADBench-38": {
@@ -1304,8 +1304,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 55.80066400034411,
-      "score_ms": 20.028092999382352,
+      "fit_ms": 50.43878499964194,
+      "score_ms": 16.524398000001383,
       "error": null
     },
     "ADBench-39": {
@@ -1329,8 +1329,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 20.691147999968962,
-      "score_ms": 4.440914999577217,
+      "fit_ms": 19.502752000335022,
+      "score_ms": 3.9076439998098067,
       "error": null
     },
     "ADBench-40": {
@@ -1354,8 +1354,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 42.10954799964384,
-      "score_ms": 10.927752000498003,
+      "fit_ms": 38.98686899992754,
+      "score_ms": 9.657562999564107,
       "error": null
     },
     "ADBench-41": {
@@ -1379,8 +1379,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 147.13740600018355,
-      "score_ms": 58.93205299980764,
+      "fit_ms": 121.05471399991075,
+      "score_ms": 46.78669199984142,
       "error": null
     },
     "ADBench-42": {
@@ -1404,8 +1404,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 22.15171499938151,
-      "score_ms": 4.25275799989322,
+      "fit_ms": 19.818146000034176,
+      "score_ms": 4.003607999948144,
       "error": null
     },
     "ADBench-43": {
@@ -1429,8 +1429,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 33.64290800072922,
-      "score_ms": 5.66504000016721,
+      "fit_ms": 31.38638699965668,
+      "score_ms": 5.203832999541191,
       "error": null
     },
     "ADBench-44": {
@@ -1454,8 +1454,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 58.24221399961971,
-      "score_ms": 21.86718499979179,
+      "fit_ms": 49.56345699974918,
+      "score_ms": 18.678602000363753,
       "error": null
     },
     "ADBench-45": {
@@ -1479,8 +1479,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 19.697553000696644,
-      "score_ms": 2.213114000369387,
+      "fit_ms": 17.24818300044717,
+      "score_ms": 1.9011229996976908,
       "error": null
     },
     "ADBench-46": {
@@ -1504,8 +1504,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 23.92213500024809,
-      "score_ms": 2.3368089996438357,
+      "fit_ms": 29.211138999926334,
+      "score_ms": 3.2807489997139783,
       "error": null
     },
     "ADBench-47": {
@@ -1529,8 +1529,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 36.706966000565444,
-      "score_ms": 10.159316000681429,
+      "fit_ms": 30.523329000061494,
+      "score_ms": 8.99752300028922,
       "error": null
     },
     "NSL-KDD": {
@@ -1554,8 +1554,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 340.6710489998659,
-      "score_ms": 623.6271269999634,
+      "fit_ms": 301.95042499963165,
+      "score_ms": 463.1788699998651,
       "error": null
     },
     "SMD": {
@@ -1579,8 +1579,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 520.510954999736,
-      "score_ms": 236.66588900050556,
+      "fit_ms": 451.1182229998667,
+      "score_ms": 190.93310500011285,
       "error": null
     },
     "NAB": {
@@ -1604,8 +1604,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 82.26931100034562,
-      "score_ms": 50.02650400001585,
+      "fit_ms": 73.23288299994601,
+      "score_ms": 44.657784000264655,
       "error": null
     },
     "SMAP": {
@@ -1671,8 +1671,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 427.13681799978076,
-      "score_ms": 261.7449380004473,
+      "fit_ms": 416.89861499980907,
+      "score_ms": 230.6367119999777,
       "error": null
     },
     "CICIDS-2017": {
@@ -1698,102 +1698,102 @@
     },
     "MIT-BIH": {
       "category": "medical",
-      "auc": 0.8977775594276316,
-      "f1": 0.7406043871759472,
-      "precision": 0.7416282642089094,
-      "recall": 0.7395833333333334,
+      "auc": 0.8982214925688166,
+      "f1": 0.7408099688473521,
+      "precision": 0.7534854245880862,
+      "recall": 0.7285539215686274,
       "n_total": 112544,
       "n_train": 8048,
       "n_test": 9999,
       "n_features": 360,
       "anomaly_ratio": 0.19514145578618142,
       "adaptive_weights": {
-        "resonance": 0.4243656139968846,
-        "kinematic": 0.11293559741521984,
-        "info_geometry": 0.4626987885878956
+        "resonance": 0.44521772938117776,
+        "kinematic": 0.0,
+        "info_geometry": 0.5547822706188222
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "UNKNOWN",
+      "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 10522.45017900077,
-      "score_ms": 8330.95056899947,
+      "fit_ms": 9370.180114000505,
+      "score_ms": 11208.059440999932,
       "error": null
     },
     "USGS_Earthquake": {
       "category": "environmental",
-      "auc": 0.8468800435976441,
-      "f1": 0.653306613226453,
-      "precision": 0.740909090909091,
-      "recall": 0.5842293906810035,
-      "n_total": 1989,
-      "n_train": 855,
-      "n_test": 1134,
+      "auc": 0.8450222901704845,
+      "f1": 0.639344262295082,
+      "precision": 0.5927051671732523,
+      "recall": 0.693950177935943,
+      "n_total": 1943,
+      "n_train": 831,
+      "n_test": 1112,
       "n_features": 11,
-      "anomaly_ratio": 0.14027149321266968,
+      "anomaly_ratio": 0.14462171899125065,
       "adaptive_weights": {
-        "resonance": 0.4735603323928489,
+        "resonance": 0.47341761095002827,
         "kinematic": 0.0,
-        "info_geometry": 0.5264396676071511
+        "info_geometry": 0.5265823890499717
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 40.76087500016001,
-      "score_ms": 12.037945999509247,
+      "fit_ms": 36.1401999998634,
+      "score_ms": 10.139691999938805,
       "error": null
     },
     "NOAA_Weather": {
       "category": "environmental",
-      "auc": 0.9782800308616958,
-      "f1": 0.6290322580645161,
-      "precision": 0.6610169491525424,
-      "recall": 0.6,
+      "auc": 0.983083731503777,
+      "f1": 0.6814814814814815,
+      "precision": 0.5878594249201278,
+      "recall": 0.8105726872246696,
       "n_total": 17472,
-      "n_train": 8541,
-      "n_test": 8931,
+      "n_train": 8509,
+      "n_test": 8963,
       "n_features": 8,
-      "anomaly_ratio": 0.022321428571428572,
+      "anomaly_ratio": 0.025984432234432236,
       "adaptive_weights": {
-        "resonance": 0.45672700736680494,
+        "resonance": 0.4576453555444336,
         "kinematic": 0.0,
-        "info_geometry": 0.5432729926331952
+        "info_geometry": 0.5423546444555664
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 135.3645310000502,
-      "score_ms": 79.27421299973503,
+      "fit_ms": 105.2948100004869,
+      "score_ms": 82.29795099941839,
       "error": null
     },
     "Wildfire": {
       "category": "environmental",
-      "auc": 0.8796289144379382,
-      "f1": 0.8387936313533374,
-      "precision": 0.7887993089547941,
-      "recall": 0.8955541026479241,
-      "n_total": 69383,
-      "n_train": 5592,
+      "auc": 0.8730702320802344,
+      "f1": 0.8395663104965431,
+      "precision": 0.8129945222154595,
+      "recall": 0.8679337231968811,
+      "n_total": 58085,
+      "n_train": 5552,
       "n_test": 9999,
       "n_features": 7,
-      "anomaly_ratio": 0.44078520675093324,
+      "anomaly_ratio": 0.44471033829732287,
       "adaptive_weights": {
-        "resonance": 0.4383776101793667,
+        "resonance": 0.28347593963229767,
         "kinematic": 0.0,
-        "info_geometry": 0.5616223898206333
+        "info_geometry": 0.7165240603677023
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 100.51149199989595,
-      "score_ms": 75.45441900037986,
+      "fit_ms": 90.35580999989179,
+      "score_ms": 64.32442200002697,
       "error": null
     },
     "USGS_Geochemistry": {
@@ -1819,52 +1819,52 @@
     },
     "NOAA_Buoy": {
       "category": "ocean",
-      "auc": 0.9047327739479774,
-      "f1": 0.7267267267267268,
-      "precision": 0.7239316239316239,
-      "recall": 0.7295434969853575,
-      "n_total": 32176,
-      "n_train": 8685,
+      "auc": 0.9112706154305665,
+      "f1": 0.7478559176672385,
+      "precision": 0.7819848545237146,
+      "recall": 0.716581446311176,
+      "n_total": 31987,
+      "n_train": 8413,
       "n_test": 9999,
       "n_features": 9,
-      "anomaly_ratio": 0.13143336648433615,
+      "anomaly_ratio": 0.15868946759621097,
       "adaptive_weights": {
-        "resonance": 0.4540104810678955,
+        "resonance": 0.45388954224595224,
         "kinematic": 0.0,
-        "info_geometry": 0.5459895189321046
+        "info_geometry": 0.5461104577540479
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 157.12086700023065,
-      "score_ms": 101.82859299948177,
+      "fit_ms": 113.98885600010544,
+      "score_ms": 84.19793599932746,
       "error": null
     },
     "NOAA_StormEvents": {
       "category": "climate",
-      "auc": 0.9999899961348703,
-      "f1": 0.9911111111111112,
-      "precision": 0.9911111111111112,
-      "recall": 0.9911111111111112,
-      "n_total": 399518,
-      "n_train": 9885,
+      "auc": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_total": 413269,
+      "n_train": 9884,
       "n_test": 9999,
       "n_features": 10,
-      "anomaly_ratio": 0.011421262621458858,
+      "anomaly_ratio": 0.011559057175834626,
       "adaptive_weights": {
-        "resonance": 0.46975087121147013,
+        "resonance": 0.47129364417560216,
         "kinematic": 0.0,
-        "info_geometry": 0.5302491287885299
+        "info_geometry": 0.5287063558243978
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 177.34024899982614,
-      "score_ms": 110.58734900052514,
+      "fit_ms": 139.6204469992881,
+      "score_ms": 84.10498600005667,
       "error": null
     },
     "NOAA_GSOD": {
@@ -1888,33 +1888,33 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 39.61179300040385,
-      "score_ms": 8.725977000722196,
+      "fit_ms": 34.53652700045495,
+      "score_ms": 8.002663999832293,
       "error": null
     },
     "NOAA_ERDDAP": {
       "category": "climate",
-      "auc": 0.9988764345205398,
-      "f1": 0.9054441260744985,
-      "precision": 0.9054441260744985,
-      "recall": 0.9054441260744985,
+      "auc": 0.9996526513055213,
+      "f1": 0.9417177914110431,
+      "precision": 0.9746031746031746,
+      "recall": 0.9109792284866469,
       "n_total": 34001,
-      "n_train": 9821,
+      "n_train": 9828,
       "n_test": 9999,
       "n_features": 4,
-      "anomaly_ratio": 0.017823005205729242,
+      "anomaly_ratio": 0.017175965412781977,
       "adaptive_weights": {
-        "resonance": 0.5386429140465238,
+        "resonance": 0.53954960757104,
         "kinematic": 0.0,
-        "info_geometry": 0.4613570859534762
+        "info_geometry": 0.4604503924289601
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 86.04856099918834,
-      "score_ms": 44.9089890007599,
+      "fit_ms": 74.26818300064042,
+      "score_ms": 38.686201999553305,
       "error": null
     },
     "EPA_AirQuality": {
@@ -1938,8 +1938,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 152.2306649994789,
-      "score_ms": 102.13400100019498,
+      "fit_ms": 132.97837800018897,
+      "score_ms": 88.38982700035558,
       "error": null
     },
     "FEMA_Disaster": {
@@ -1963,8 +1963,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 75.33487000000605,
-      "score_ms": 29.500132000066515,
+      "fit_ms": 64.25061800018739,
+      "score_ms": 27.414999999564316,
       "error": null
     },
     "FEMA_HazardMitigation": {
@@ -2009,33 +2009,33 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 72.41347600029258,
-      "score_ms": 30.06293199996435,
+      "fit_ms": 66.90062500001659,
+      "score_ms": 27.072224000221468,
       "error": null
     },
     "SolarDynamics": {
       "category": "space",
       "auc": 1.0,
-      "f1": 1.0,
-      "precision": 1.0,
+      "f1": 0.09523809523809523,
+      "precision": 0.05,
       "recall": 1.0,
-      "n_total": 20146,
-      "n_train": 9994,
+      "n_total": 20140,
+      "n_train": 9996,
       "n_test": 9999,
       "n_features": 2,
-      "anomaly_ratio": 0.0005956517422813462,
+      "anomaly_ratio": 0.0003475670307845084,
       "adaptive_weights": {
-        "resonance": 0.3061438529698733,
+        "resonance": 0.29625367231774974,
         "kinematic": 0.0,
-        "info_geometry": 0.6938561470301268
+        "info_geometry": 0.7037463276822503
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 74.37466800001857,
-      "score_ms": 39.33075600070879,
+      "fit_ms": 70.94990099994902,
+      "score_ms": 34.772289999636996,
       "error": null
     },
     "UCR": {
@@ -2071,17 +2071,17 @@
       "n_features": 1024,
       "anomaly_ratio": 0.5993265993265994,
       "adaptive_weights": {
-        "resonance": 0.4761894344048019,
-        "kinematic": 0.04762113119039628,
-        "info_geometry": 0.4761894344048019
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "UNKNOWN",
+      "data_type": "TABULAR",
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 1955.2005080004164,
-      "score_ms": 764.5196269995722,
+      "fit_ms": 1647.2966240007736,
+      "score_ms": 648.4202870005902,
       "error": null
     },
     "MSDS": {
@@ -2126,8 +2126,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 45.591668999804824,
-      "score_ms": 10.242336000374053,
+      "fit_ms": 34.59269399991172,
+      "score_ms": 6.1447660000339965,
       "error": null
     },
     "ThreatIntel": {
@@ -2151,8 +2151,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 42.77240000010352,
-      "score_ms": 6.953956999495858,
+      "fit_ms": 32.664020999618515,
+      "score_ms": 5.39387800017721,
       "error": null
     },
     "ADRepository": {
@@ -2176,8 +2176,8 @@
       "oracle_metadata": {
         "active": false
       },
-      "fit_ms": 182.70319099974586,
-      "score_ms": 96.15052200024365,
+      "fit_ms": 167.01477100014017,
+      "score_ms": 73.51138699959847,
       "error": null
     },
     "SWaT": {
