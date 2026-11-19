@@ -1,0 +1,90 @@
+{
+  "schema": "mercury.research.fusion_weight_entropy/v1",
+  "generated_at": "2026-11-19T08:17:45.669259+00:00",
+  "commit": "b58c209fbf3dec9d40448f9bdae19698f20a2534",
+  "config": {
+    "tables": [
+      "pima_real",
+      "cardio",
+      "breastw",
+      "wbc",
+      "thyroid"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "grid_step": 0.05,
+    "entropy_band": [
+      0.3,
+      0.95
+    ],
+    "n_grid": 231
+  },
+  "selected_in_band": {
+    "key": "w_0.65_0.15_0.20",
+    "per_table_auc": {
+      "pima_real": 0.6336,
+      "cardio": 0.9145,
+      "breastw": 0.9628,
+      "wbc": 1.0,
+      "thyroid": 0.9499
+    },
+    "mean_auc": 0.8922,
+    "mean_rank": 39.0,
+    "normalized_entropy": 0.8069
+  },
+  "best_unconstrained": {
+    "key": "w_0.65_0.15_0.20",
+    "per_table_auc": {
+      "pima_real": 0.6336,
+      "cardio": 0.9145,
+      "breastw": 0.9628,
+      "wbc": 1.0,
+      "thyroid": 0.9499
+    },
+    "mean_auc": 0.8922,
+    "mean_rank": 39.0,
+    "normalized_entropy": 0.8069
+  },
+  "references": {
+    "shipped_adaptive": {
+      "per_table_auc": {
+        "pima_real": 0.6527,
+        "cardio": 0.904,
+        "breastw": 0.961,
+        "wbc": 0.9894,
+        "thyroid": 0.9415
+      },
+      "mean_auc": 0.8897,
+      "mean_rank": 68.5,
+      "normalized_entropy": 0.6542
+    },
+    "uniform": {
+      "per_table_auc": {
+        "pima_real": 0.6141,
+        "cardio": 0.8994,
+        "breastw": 0.9578,
+        "wbc": 0.9912,
+        "thyroid": 0.9214
+      },
+      "mean_auc": 0.8768,
+      "mean_rank": 113.3,
+      "normalized_entropy": 0.9977
+    },
+    "fixed_403030": {
+      "per_table_auc": {
+        "pima_real": 0.6211,
+        "cardio": 0.903,
+        "breastw": 0.9607,
+        "wbc": 0.9912,
+        "thyroid": 0.9291
+      },
+      "mean_auc": 0.881,
+      "mean_rank": 98.4,
+      "normalized_entropy": 0.9912
+    }
+  },
+  "improves_on_shipped": true
+}
