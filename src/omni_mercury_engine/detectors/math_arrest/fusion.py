@@ -67,6 +67,40 @@ class CorrelationAwareDecorrelator:
             return 0.0
         return sum(self._weight_multipliers.values())
 
+    def scale_multipliers(self, factors: dict[str, float]) -> dict[str, float]:
+        """Apply probe-local refinement factors to the calibrated multipliers.
+
+        The contrastive refinement's seam: each probe's multiplier is scaled
+        by its factor, clipped into ``(0, 1]`` after renormalising by the
+        largest product so the strongest probe keeps full weight. Only
+        multipliers for already-calibrated probes change; unknown names are
+        ignored.
+
+        Args:
+            factors: ``{probe_name: positive scale factor}``.
+
+        Returns:
+            The updated multipliers.
+
+        Raises:
+            RuntimeError: If :meth:`calibrate` has not run.
+            ValueError: On a non-positive factor.
+        """
+        if not self._is_calibrated:
+            raise RuntimeError("CorrelationAwareDecorrelator has not been calibrated.")
+        for name, factor in factors.items():
+            if not np.isfinite(factor) or factor <= 0.0:
+                raise ValueError(f"refinement factor for {name!r} must be positive: {factor}")
+        scaled = {
+            name: value * float(factors.get(name, 1.0))
+            for name, value in self._weight_multipliers.items()
+        }
+        peak = max(scaled.values(), default=0.0)
+        if peak > 0.0:
+            scaled = {name: min(value / peak, 1.0) for name, value in scaled.items()}
+        self._weight_multipliers = {name: max(value, EPSILON) for name, value in scaled.items()}
+        return dict(self._weight_multipliers)
+
     def calibrate(
         self,
         score_matrix: npt.NDArray[np.float64],

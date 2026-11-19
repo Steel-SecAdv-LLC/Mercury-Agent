@@ -523,6 +523,103 @@ class AnomalyMathArrest:
         )
         return self._fusion.leave_one_out_attribution(ordered, weights)
 
+    def refine_contrastive(
+        self,
+        data: npt.NDArray[np.float64],
+        labels: npt.NDArray[np.int32],
+        *,
+        eta: float = 0.5,
+        max_pairs: int = 20_000,
+        seed: int = 0,
+    ) -> dict[str, Any]:
+        """Probe-local re-weighting from the fused score's discordant pairs.
+
+        On a labelled calibration set, the discordant pairs are the (anomaly,
+        normal) pairs the fused score orders the wrong way. Each probe is
+        scored by the fraction of those pairs it orders *correctly*; probes
+        that repair disagreements get their decorrelator multiplier scaled up
+        by ``1 + eta * (2r - 1)`` and probes that cause them get scaled down
+        — a small, probe-local adjustment through the ensemble's existing
+        weighting seam, never a change to any probe's mathematics.
+
+        Opt-in and supervised: nothing changes unless this is called, and the
+        caller owns the labelled data (a held-out calibration fold, never the
+        evaluation set).
+
+        Args:
+            data: Labelled calibration rows/series.
+            labels: Binary ground truth, 1 marking anomalies.
+            eta: Adjustment size; ``0`` is a no-op.
+            max_pairs: Pair-sample budget for the discordance estimate.
+            seed: Seed for the pair sampling.
+
+        Returns:
+            ``{"discordant_before", "discordant_after", "repair_rates",
+            "multipliers"}`` — the measured disagreement rate on the sampled
+            pairs before and after the adjustment, per-probe repair rates and
+            the updated multipliers.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+            ValueError: On single-class labels or a negative ``eta``.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("AnomalyMathArrest has not been fitted. Call fit() first.")
+        if eta < 0.0:
+            raise ValueError(f"eta must be >= 0, got {eta}")
+        y = np.asarray(labels).reshape(-1).astype(np.int64)
+        results = self.scored_results(data)
+        if not results:
+            return {
+                "discordant_before": float("nan"),
+                "discordant_after": float("nan"),
+                "repair_rates": {},
+                "multipliers": self._decorrelator.weight_multipliers,
+            }
+        width = min(len(y), *(len(r.deviation_scores) for r in results))
+        matrix = np.column_stack([r.deviation_scores[:width] for r in results])
+        names = [r.probe_name for r in results]
+        y = y[:width]
+        positives = np.where(y == 1)[0]
+        negatives = np.where(y == 0)[0]
+        if positives.size == 0 or negatives.size == 0:
+            raise ValueError("contrastive refinement needs both classes in the labels")
+
+        rng = np.random.default_rng(seed)
+        count = min(max_pairs, positives.size * negatives.size)
+        pair_pos = rng.choice(positives, size=count)
+        pair_neg = rng.choice(negatives, size=count)
+
+        def discordance() -> tuple[float, npt.NDArray[np.bool_]]:
+            fused = self.fuse_results(results)[:width]
+            discordant = fused[pair_pos] < fused[pair_neg]
+            return float(discordant.mean()), discordant
+
+        before, discordant = discordance()
+        repair_rates: dict[str, float] = {}
+        factors: dict[str, float] = {}
+        if discordant.any() and not self._decorrelator.is_calibrated:
+            # A fit on fewer than MIN_SAMPLES_FOR_DECORRELATION rows skipped
+            # the calibration; the labelled calibration fold supplies it.
+            self.calibrate_decorrelator(data)
+        if discordant.any() and self._decorrelator.is_calibrated:
+            pos_rows = pair_pos[discordant]
+            neg_rows = pair_neg[discordant]
+            for j, name in enumerate(names):
+                rate = float((matrix[pos_rows, j] > matrix[neg_rows, j]).mean())
+                repair_rates[name] = rate
+                # Floored so an all-wrong probe is demoted, never zeroed:
+                # a zero multiplier would amount to deleting the probe.
+                factors[name] = max(1.0 + eta * (2.0 * rate - 1.0), 0.05)
+            self._decorrelator.scale_multipliers(factors)
+        after, _ = discordance()
+        return {
+            "discordant_before": before,
+            "discordant_after": after,
+            "repair_rates": repair_rates,
+            "multipliers": self._decorrelator.weight_multipliers,
+        }
+
     def predict(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.int32]:
         """Binary classification: 0=normal, 1=anomaly.
 
