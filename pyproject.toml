@@ -640,6 +640,10 @@ omni_mercury_engine = [
     # The fitted geomagnetic-storm forecaster (watch/forecast.py). Without it
     # the watch has no forecast to commit to and logs that it cannot load one.
     "watch/kp_g1_model.json",
+    # What was measured of decisions on each hazard, on real events held out
+    # (decision/hazard_evidence.py). Without it a decision record carries no
+    # held-out record for its hazard, and says nothing in its place.
+    "decision/hazard_evidence.json",
     # Account-frontend assets (api/frontend.py): the HTML pages, stylesheet,
     # page scripts, and the vendored MIT qrcode-generator. Served straight
     # from the installed package when MERCURY_FRONTEND_ENABLED=true — a

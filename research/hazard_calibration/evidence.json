@@ -1,0 +1,682 @@
+{
+  "measured_on": "2026-11-18",
+  "coverage_target": 0.9,
+  "row_limit": 20000,
+  "detector": "omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector",
+  "hazards": {
+    "earthquake": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "haiti_2010",
+          "rows": 216,
+          "anomalies_scored": 2,
+          "subsampled": false
+        },
+        {
+          "event": "nepal_2015",
+          "rows": 361,
+          "anomalies_scored": 1,
+          "subsampled": false
+        },
+        {
+          "event": "noto_2024",
+          "rows": 333,
+          "anomalies_scored": 1,
+          "subsampled": false
+        },
+        {
+          "event": "tohoku_2011",
+          "rows": 1491,
+          "anomalies_scored": 1,
+          "subsampled": false
+        },
+        {
+          "event": "turkey_syria_2023",
+          "rows": 466,
+          "anomalies_scored": 2,
+          "subsampled": false
+        }
+      ],
+      "rows": 2867,
+      "anomalies": 7,
+      "score": {
+        "brier": 0.097,
+        "ece": 0.2334
+      },
+      "probability": {
+        "brier": 0.0025,
+        "ece": 0.0005,
+        "reference_brier": 0.0024,
+        "skill": -0.0141
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.9887,
+        "coverage_of_anomalies": 0.8571,
+        "coverage_of_normal": 0.989
+      },
+      "decision": {
+        "decided": 0.1704,
+        "abstained": 0.8296,
+        "decided_accuracy": 0.9335,
+        "anomaly_calls": 63,
+        "anomaly_call_precision": 0.0,
+        "anomalies_called": 0.0,
+        "anomalies_abstained": 0.8571,
+        "anomalies_called_normal": 0.1429
+      },
+      "by_split": [
+        {
+          "coverage": 0.978,
+          "abstained": 0.978
+        },
+        {
+          "coverage": 0.9993,
+          "abstained": 0.6812
+        }
+      ],
+      "folds_skipped": []
+    },
+    "energy": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "bastille_day_2000",
+          "rows": 736,
+          "anomalies_scored": 14,
+          "subsampled": false
+        },
+        {
+          "event": "halloween_2003",
+          "rows": 976,
+          "anomalies_scored": 26,
+          "subsampled": false
+        },
+        {
+          "event": "quebec_1989",
+          "rows": 712,
+          "anomalies_scored": 19,
+          "subsampled": false
+        },
+        {
+          "event": "texas_2021",
+          "rows": 720,
+          "anomalies_scored": 141,
+          "subsampled": false
+        },
+        {
+          "event": "texas_2023",
+          "rows": 2920,
+          "anomalies_scored": 128,
+          "subsampled": false
+        }
+      ],
+      "rows": 6064,
+      "anomalies": 328,
+      "score": {
+        "brier": 0.0851,
+        "ece": 0.1978
+      },
+      "probability": {
+        "brier": 0.0527,
+        "ece": 0.0242,
+        "reference_brier": 0.0521,
+        "skill": -0.0107
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.8867,
+        "coverage_of_anomalies": 0.9436,
+        "coverage_of_normal": 0.8835
+      },
+      "decision": {
+        "decided": 0.3672,
+        "abstained": 0.6328,
+        "decided_accuracy": 0.6914,
+        "anomaly_calls": 1667,
+        "anomaly_call_precision": 0.198,
+        "anomalies_called": 0.503,
+        "anomalies_abstained": 0.4405,
+        "anomalies_called_normal": 0.0564
+      },
+      "by_split": [
+        {
+          "coverage": 0.9134,
+          "abstained": 0.6981
+        },
+        {
+          "coverage": 0.86,
+          "abstained": 0.5676
+        }
+      ],
+      "folds_skipped": []
+    },
+    "fema": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "all_2023",
+          "rows": 1338,
+          "anomalies_scored": 125,
+          "subsampled": false
+        },
+        {
+          "event": "earthquake_all",
+          "rows": 229,
+          "anomalies_scored": 80,
+          "subsampled": false
+        },
+        {
+          "event": "fire_2023",
+          "rows": 36,
+          "anomalies_scored": 1,
+          "subsampled": false
+        },
+        {
+          "event": "flood_2024",
+          "rows": 225,
+          "anomalies_scored": 74,
+          "subsampled": false
+        },
+        {
+          "event": "hurricane_2024",
+          "rows": 400,
+          "anomalies_scored": 151,
+          "subsampled": false
+        }
+      ],
+      "rows": 2228,
+      "anomalies": 431,
+      "score": {
+        "brier": 0.2579,
+        "ece": 0.2239
+      },
+      "probability": {
+        "brier": 0.2036,
+        "ece": 0.2459,
+        "reference_brier": 0.1917,
+        "skill": -0.0621
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.952,
+        "coverage_of_anomalies": 0.9234,
+        "coverage_of_normal": 0.9588
+      },
+      "decision": {
+        "decided": 0.077,
+        "abstained": 0.923,
+        "decided_accuracy": 0.3761,
+        "anomaly_calls": 172,
+        "anomaly_call_precision": 0.1395,
+        "anomalies_called": 0.0278,
+        "anomalies_abstained": 0.8956,
+        "anomalies_called_normal": 0.0766
+      },
+      "by_split": [
+        {
+          "coverage": 0.9529,
+          "abstained": 0.9174
+        },
+        {
+          "coverage": 0.9511,
+          "abstained": 0.9286
+        }
+      ],
+      "folds_skipped": []
+    },
+    "hurricane": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "helene_2024",
+          "rows": 45,
+          "anomalies_scored": 7,
+          "subsampled": false
+        },
+        {
+          "event": "irma_2017",
+          "rows": 123,
+          "anomalies_scored": 5,
+          "subsampled": false
+        },
+        {
+          "event": "katrina_2005",
+          "rows": 64,
+          "anomalies_scored": 7,
+          "subsampled": false
+        },
+        {
+          "event": "milton_2024",
+          "rows": 62,
+          "anomalies_scored": 10,
+          "subsampled": false
+        }
+      ],
+      "rows": 294,
+      "anomalies": 29,
+      "score": {
+        "brier": 0.0967,
+        "ece": 0.1057
+      },
+      "probability": {
+        "brier": 0.0896,
+        "ece": 0.0674,
+        "reference_brier": 0.0924,
+        "skill": 0.0297
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.9354,
+        "coverage_of_anomalies": 0.9655,
+        "coverage_of_normal": 0.9321
+      },
+      "decision": {
+        "decided": 0.2296,
+        "abstained": 0.7704,
+        "decided_accuracy": 0.7185,
+        "anomaly_calls": 57,
+        "anomaly_call_precision": 0.3684,
+        "anomalies_called": 0.3621,
+        "anomalies_abstained": 0.6034,
+        "anomalies_called_normal": 0.0345
+      },
+      "by_split": [
+        {
+          "coverage": 0.9116,
+          "abstained": 0.6122
+        },
+        {
+          "coverage": 0.9592,
+          "abstained": 0.9286
+        }
+      ],
+      "folds_skipped": []
+    },
+    "landslide": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "oso_2014",
+          "rows": 24,
+          "anomalies_scored": 3,
+          "subsampled": false
+        }
+      ],
+      "not_measured": "one event: there is no other to calibrate on"
+    },
+    "marine": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "gbr_bleaching_2016",
+          "rows": 21,
+          "anomalies_scored": 15,
+          "subsampled": false
+        },
+        {
+          "event": "gbr_bleaching_2020",
+          "rows": 18,
+          "anomalies_scored": 9,
+          "subsampled": false
+        },
+        {
+          "event": "marine_heatwave_2023",
+          "rows": 404,
+          "anomalies_scored": 23,
+          "subsampled": false
+        }
+      ],
+      "rows": 443,
+      "anomalies": 47,
+      "score": {
+        "brier": 0.0822,
+        "ece": 0.1465
+      },
+      "probability": {
+        "brier": 0.3216,
+        "ece": 0.5129,
+        "reference_brier": 0.3794,
+        "skill": 0.1524
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.9661,
+        "coverage_of_anomalies": 0.883,
+        "coverage_of_normal": 0.976
+      },
+      "decision": {
+        "decided": 0.0655,
+        "abstained": 0.9345,
+        "decided_accuracy": 0.4828,
+        "anomaly_calls": 45,
+        "anomaly_call_precision": 0.5778,
+        "anomalies_called": 0.2766,
+        "anomalies_abstained": 0.6064,
+        "anomalies_called_normal": 0.117
+      },
+      "by_split": [
+        {
+          "coverage": 0.9774,
+          "abstained": 0.9526
+        },
+        {
+          "coverage": 0.9549,
+          "abstained": 0.9165
+        }
+      ],
+      "folds_skipped": []
+    },
+    "network_security": {
+      "label_source": "ground_truth",
+      "events": [
+        {
+          "event": "batadal",
+          "rows": 12938,
+          "anomalies_scored": 219,
+          "subsampled": false
+        },
+        {
+          "event": "nsl_kdd",
+          "rows": 148517,
+          "anomalies_scored": 9502,
+          "subsampled": true
+        }
+      ],
+      "rows": 32938,
+      "anomalies": 9721,
+      "score": {
+        "brier": 0.2269,
+        "ece": 0.1636
+      },
+      "probability": {
+        "brier": 0.3841,
+        "ece": 0.4658,
+        "reference_brier": 0.3679,
+        "skill": -0.0441
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.7008,
+        "coverage_of_anomalies": 0.2363,
+        "coverage_of_normal": 0.8953
+      },
+      "decision": {
+        "decided": 0.5684,
+        "abstained": 0.4316,
+        "decided_accuracy": 0.4736,
+        "anomaly_calls": 7915,
+        "anomaly_call_precision": 0.3858,
+        "anomalies_called": 0.1571,
+        "anomalies_abstained": 0.0792,
+        "anomalies_called_normal": 0.7637
+      },
+      "by_split": [
+        {
+          "coverage": 0.7046,
+          "abstained": 0.4375
+        },
+        {
+          "coverage": 0.6971,
+          "abstained": 0.4257
+        }
+      ],
+      "folds_skipped": []
+    },
+    "pandemic": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "cholera_yemen_2017",
+          "rows": 168,
+          "anomalies_scored": 21,
+          "subsampled": false
+        },
+        {
+          "event": "covid_india_delta",
+          "rows": 1036,
+          "anomalies_scored": 76,
+          "subsampled": false
+        },
+        {
+          "event": "covid_italy_wave1",
+          "rows": 686,
+          "anomalies_scored": 65,
+          "subsampled": false
+        },
+        {
+          "event": "covid_usa_wave1",
+          "rows": 1075,
+          "anomalies_scored": 63,
+          "subsampled": false
+        },
+        {
+          "event": "mpox_2022",
+          "rows": 63674,
+          "anomalies_scored": 725,
+          "subsampled": true
+        }
+      ],
+      "rows": 22965,
+      "anomalies": 950,
+      "score": {
+        "brier": 0.1166,
+        "ece": 0.2431
+      },
+      "probability": {
+        "brier": 0.0629,
+        "ece": 0.0731,
+        "reference_brier": 0.041,
+        "skill": -0.5347
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.8515,
+        "coverage_of_anomalies": 0.9226,
+        "coverage_of_normal": 0.8485
+      },
+      "decision": {
+        "decided": 0.828,
+        "abstained": 0.172,
+        "decided_accuracy": 0.8207,
+        "anomaly_calls": 7888,
+        "anomaly_call_precision": 0.1542,
+        "anomalies_called": 0.64,
+        "anomalies_abstained": 0.2826,
+        "anomalies_called_normal": 0.0774
+      },
+      "by_split": [
+        {
+          "coverage": 0.8513,
+          "abstained": 0.1718
+        },
+        {
+          "coverage": 0.8517,
+          "abstained": 0.1723
+        }
+      ],
+      "folds_skipped": []
+    },
+    "sepsis": {
+      "label_source": "ground_truth",
+      "events": [
+        {
+          "event": "physionet_challenge_2019_A",
+          "rows": 19424,
+          "anomalies_scored": 432,
+          "subsampled": false
+        },
+        {
+          "event": "physionet_challenge_2019_B",
+          "rows": 19466,
+          "anomalies_scored": 242,
+          "subsampled": false
+        }
+      ],
+      "rows": 38890,
+      "anomalies": 674,
+      "score": {
+        "brier": 0.0519,
+        "ece": 0.169
+      },
+      "probability": {
+        "brier": 0.017,
+        "ece": 0.0005,
+        "reference_brier": 0.0171,
+        "skill": 0.0033
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.9146,
+        "coverage_of_anomalies": 0.8509,
+        "coverage_of_normal": 0.9157
+      },
+      "decision": {
+        "decided": 0.3208,
+        "abstained": 0.6792,
+        "decided_accuracy": 0.7338,
+        "anomaly_calls": 6728,
+        "anomaly_call_precision": 0.0427,
+        "anomalies_called": 0.2129,
+        "anomalies_abstained": 0.638,
+        "anomalies_called_normal": 0.1491
+      },
+      "by_split": [
+        {
+          "coverage": 0.9194,
+          "abstained": 0.689
+        },
+        {
+          "coverage": 0.9098,
+          "abstained": 0.6693
+        }
+      ],
+      "folds_skipped": []
+    },
+    "tornado": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "moore_2013",
+          "rows": 65,
+          "anomalies_scored": 3,
+          "subsampled": false
+        },
+        {
+          "event": "super_outbreak_2011",
+          "rows": 349,
+          "anomalies_scored": 37,
+          "subsampled": false
+        }
+      ],
+      "rows": 414,
+      "anomalies": 40,
+      "score": {
+        "brier": 0.0884,
+        "ece": 0.1568
+      },
+      "probability": {
+        "brier": 0.0784,
+        "ece": 0.0796,
+        "reference_brier": 0.0904,
+        "skill": 0.1322
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.8998,
+        "coverage_of_anomalies": 0.225,
+        "coverage_of_normal": 0.9719
+      },
+      "decision": {
+        "decided": 0.8973,
+        "abstained": 0.1027,
+        "decided_accuracy": 0.9017,
+        "anomaly_calls": 37,
+        "anomaly_call_precision": 0.4865,
+        "anomalies_called": 0.225,
+        "anomalies_abstained": 0.1,
+        "anomalies_called_normal": 0.675
+      },
+      "by_split": [
+        {
+          "coverage": 0.8937,
+          "abstained": 0.1353
+        },
+        {
+          "coverage": 0.9058,
+          "abstained": 0.07
+        }
+      ],
+      "folds_skipped": []
+    },
+    "tsunami": {
+      "label_source": "statistical",
+      "events": [
+        {
+          "event": "chile_2010",
+          "rows": 414,
+          "anomalies_scored": 30,
+          "subsampled": false
+        },
+        {
+          "event": "tohoku_2011",
+          "rows": 409,
+          "anomalies_scored": 25,
+          "subsampled": false
+        },
+        {
+          "event": "tonga_2022",
+          "rows": 432,
+          "anomalies_scored": 48,
+          "subsampled": false
+        }
+      ],
+      "rows": 1255,
+      "anomalies": 103,
+      "score": {
+        "brier": 0.0756,
+        "ece": 0.1366
+      },
+      "probability": {
+        "brier": 0.062,
+        "ece": 0.0236,
+        "reference_brier": 0.0759,
+        "skill": 0.1833
+      },
+      "certificate": {
+        "target": 0.9,
+        "coverage": 0.8908,
+        "coverage_of_anomalies": 0.966,
+        "coverage_of_normal": 0.8841
+      },
+      "decision": {
+        "decided": 0.6295,
+        "abstained": 0.3705,
+        "decided_accuracy": 0.8266,
+        "anomaly_calls": 386,
+        "anomaly_call_precision": 0.3083,
+        "anomalies_called": 0.5777,
+        "anomalies_abstained": 0.3883,
+        "anomalies_called_normal": 0.034
+      },
+      "by_split": [
+        {
+          "coverage": 0.8757,
+          "abstained": 0.2271
+        },
+        {
+          "coverage": 0.906,
+          "abstained": 0.5139
+        }
+      ],
+      "folds_skipped": []
+    }
+  },
+  "not_fetched": [
+    "financial",
+    "flood",
+    "volcanic",
+    "wildfire"
+  ]
+}

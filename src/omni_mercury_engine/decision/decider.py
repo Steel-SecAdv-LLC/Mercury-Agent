@@ -40,6 +40,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.decision import hazard_evidence
 from omni_mercury_engine.decision.evidence import Evidence
 from omni_mercury_engine.decision.policy import DecisionPolicy
 from omni_mercury_engine.decision.record import DecisionRecord
@@ -405,6 +406,12 @@ class DecisionAbstentionResponder:
                 "no conformal coverage certificate was attached; confidence is "
                 "a margin heuristic, not a distribution-free guarantee"
             )
+        # What decisions about this hazard have been worth on real events
+        # held out, where that has been measured: a "90%" reads the same for
+        # every hazard, and has not held the same for every hazard.
+        measured = hazard_evidence.caveat(ev.domain)
+        if measured is not None:
+            caveats.append(measured)
         return tuple(caveats)
 
 
