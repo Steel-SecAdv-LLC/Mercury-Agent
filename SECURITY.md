@@ -13,9 +13,9 @@ immediately previous line at the maintainers' discretion.
 
 | Version | Status               | Security updates |
 | ------- | -------------------- | ---------------- |
-| 3.0.x   | **Current**          | :white_check_mark: |
-| 2.0.x   | Previous (EOL on next minor) | Critical CVEs only |
-| < 2.0   | End-of-life          | :x:              |
+| 3.1.x   | **Current**          | :white_check_mark: |
+| 3.0.x   | Previous (EOL on next minor) | Critical CVEs only |
+| < 3.0   | End-of-life          | :x:              |
 
 ## Reporting a Vulnerability
 
@@ -577,5 +577,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-10-21*
-*Version: 3.0.0*
+*Last Updated: 2026-11-19*
+*Version: 3.1.0*

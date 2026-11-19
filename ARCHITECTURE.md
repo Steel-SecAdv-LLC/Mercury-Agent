@@ -1,6 +1,6 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-17.
+Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-19.
 
 ## Overview
 
@@ -980,10 +980,64 @@ anchors, and design contract live in
   irreversible kill-switch, and a failure-rate tripwire (ethical refusals are
   correct, never failures).
 - **Dual-gate commit.** Results are committed through the same
-  [dual hard ethical gate](#dual-gate-hard-ethical-enforcement) — benevolence
-  floor **and** σ-Immutable — used on the engine and orchestrator boundaries;
+  [dual hard ethical gates](#dual-gate-hard-ethical-enforcement) — the
+  harm-uplift choke point **and** σ-Immutable, with benevolence computed as an
+  advisory score — used on the engine and orchestrator boundaries;
   fail-closed. Mass dispatch aggregates transparently (failures surfaced, dissent
   shown; no reordering or fabricated agreement).
+
+## The Watch, Delivery Proof, and the Storm Forecast (v3.1)
+
+The watch (`omni_mercury_engine/watch/`) is Mercury reading its live feeds on
+its own and telling the people a finding concerns. It is additive and off by
+default in the server (`MERCURY_WATCH_ENABLED=true` runs it there;
+`mercury-agent watch` runs the same loop from the CLI).
+
+- **Feeds** (`watch/feeds.py`): nine live sources — USGS earthquakes, NOAA SWPC
+  geomagnetic activity, NOAA DART tsunami buoys, NWS river gauges, USGS volcano
+  alert levels, NWS warnings, national authorities' CAP alerts via the WMO
+  Severe Weather Information Centre, GDACS, and OpenFEMA tropical-cyclone
+  declarations. Each feed is read on its own cadence and a finding is declared
+  only by the source's published scale (USGS magnitude classes, the NOAA G
+  scale, NWS flood categories, volcano alert levels). Episode windows are
+  measured per feed from the records of what they describe, not judged.
+- **Store** (`watch/store.py`): one SQLite store, readable by its owner only,
+  holding findings, feed statuses, subscriptions, per-address delivery records,
+  canaries, and the forecast ledger. Several watches (CLI, server workers)
+  share it under leases; a feed is due when no watch of the store has read it
+  within its cadence.
+- **Delivery** (`watch/notify.py`, `watch/sms.py`): email through
+  `MERCURY_SMTP_*`, text messages to verified numbers through Twilio, one
+  webhook (`MERCURY_WATCH_WEBHOOK_URL`, HTTPS only through `SafeHTTPClient`),
+  and open consoles. A finding is delivered once per severity, retried on
+  failure, and never claimed when it could not be sent. `GET /api/v1/watch`
+  serves per-channel state as counts; no address or place leaves the store.
+- **Delivery proof** (`watch/canary.py`): a test message goes through the same
+  mailer, text sender and webhook as an alert and counts as arrived only on
+  acknowledgement (its link or code), a carrier delivery receipt, or a mailbox
+  check over IMAP. Operator surface: `mercury-agent alerts canary --wait`,
+  `alerts ack`, `alerts proof`.
+- **Forecast** (`watch/forecast.py`, `watch/ledger.py`): the probability that a
+  UT day holds a geomagnetic storm at NOAA G1 or above, issued from 12:30 UT
+  the day before into an append-only, hash-chained ledger (a database trigger
+  refuses updates and deletes; entries are optionally ML-DSA-65 signed), then
+  resolved and scored against two references fixed with it (climatology and
+  persistence). Method and record: `research/forecast_kp/`.
+
+Two sibling v3.1 mechanisms live outside `watch/`:
+
+- **Evidence tiers** (`engine.py`): components whose measured record is broken
+  (`affective`, `chemistry`, `parapsychology`; tier T0) are constructed and
+  reachable at `engine.models` but contribute no feature and no score on an
+  untrained engine; `OmniMercuryEngine(include_unproven=True)` restores them.
+  The shipped fusion checkpoint was trained with `affective` in its feature
+  groups, so loading it keeps `affective` contributing on the `detect`/`serve`
+  path until the checkpoint is retrained without it.
+- **Per-hazard held-out evidence** (`decision/hazard_evidence.py`): the
+  leave-one-event-out calibration record in `docs/HAZARD_CALIBRATION.md` ships
+  in the package, is served at `GET /api/v1/catalog/hazard-evidence`, and adds
+  one caveat string to decision records about a measured hazard. The caveat
+  changes nothing in the verdict.
 
 ## Deployment Architecture
 

@@ -46,7 +46,7 @@
 **License:** GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later)\
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛\
 **Version:** v3.1.0\
-**Date:** 2026-10-21
+**Date:** 2026-11-19
 
 ---
 
@@ -75,7 +75,7 @@ Beyond the library and CLI, the repository ships an **opt-in self-service platfo
 > One additional permission is granted under AGPL section 7: Mercury may be combined with NVIDIA's CUDA libraries (needed for GPU acceleration) and the result conveyed. It covers those libraries only and leaves every other term, section 13 included, intact — see [LICENSE-EXCEPTION](LICENSE-EXCEPTION).
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-10-21
+> **Last Updated:** 2026-11-19
 >
 
 ---
@@ -896,6 +896,33 @@ See `examples/decision_abstention_response_demo.py` and
 > **Note:** Core anomaly detection is benchmarked on **67 reproducible real-world datasets** (of 76 attempted; see `benchmarks/mercury_benchmark_results.json` and the reproducibility note in the Benchmarks section). Domain-specific modules may still require validation on their target datasets before production deployment.
 
 </details>
+
+### The Watch: live feeds, delivery proof, and a scored storm forecast (v3.1)
+
+Mercury reads nine live hazard feeds on its own cadence — USGS earthquakes,
+NOAA geomagnetic activity, DART tsunami buoys, NWS river gauges and warnings,
+USGS volcano alert levels, national authorities' alerts via the WMO Severe
+Weather Information Centre, GDACS, and FEMA tropical-cyclone declarations — and
+reports a finding only when the source's own published scale says so. Findings
+carry the responsible agency's instruction, attributed; subscribers are told by
+email, verified-number text or one HTTPS webhook, once per severity, with every
+delivery recorded and never claimed when it could not be sent.
+
+```bash
+mercury-agent watch --once          # read every feed once and say what was seen
+mercury-agent alerts add --email you@example.org --place Home --lat 28.37 --lon -80.87
+mercury-agent alerts canary --wait 300   # prove a message arrives, from the other end
+```
+
+Delivery is **proven, not assumed**: a canary goes through the same mailer,
+text sender and webhook as an alert and counts as arrived only on
+acknowledgement, a carrier delivery receipt, or a mailbox check over IMAP
+(`alerts proof`). The watch also issues one pre-registered forecast — the
+probability that a UT day holds a geomagnetic storm at NOAA G1 or above —
+committed the day before into an append-only, hash-chained ledger and scored
+after against climatology and persistence (walk-forward 1960–2025: Brier
+0.1369 vs 0.1598 climatology; method in `research/forecast_kp/`). Details:
+[`docs/WATCH.md`](docs/WATCH.md).
 
 ---
 
@@ -2928,6 +2955,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <img width="63" height="65" alt="image" src="https://github.com/user-attachments/assets/ff4770d8-40a9-4d83-b5b7-eb525494a91b" />
 
-*Last updated: 2026-10-21*
+*Last updated: 2026-11-19*
 
 </div>
