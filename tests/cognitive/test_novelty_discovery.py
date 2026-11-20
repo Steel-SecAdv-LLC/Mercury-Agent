@@ -156,3 +156,67 @@ class TestHypothesisOnTheRecord:
         summary = _cognitive_summary({"is_reliable": True, "reasoning_chain": []})
         assert summary is not None
         assert summary["hypothesis"] is None
+
+
+class TestChallengeGrounds:
+    def test_novelty_challenge_carries_distance_threshold_and_recipe(self) -> None:
+        from omni_mercury_engine.decision.evidence import _cognitive_summary
+
+        summary = _cognitive_summary(
+            {
+                "is_reliable": True,
+                "novelty_score": 0.91,
+                "is_novel": True,
+                "novelty_distance": 2.41,
+                "novelty_threshold": 0.7,
+            }
+        )
+        assert summary is not None
+        challenge = summary["novelty_challenge"]
+        assert challenge["standardized_distance"] == pytest.approx(2.41)
+        assert challenge["novelty_threshold"] == pytest.approx(0.7)
+        assert "re-score read-only" in challenge["falsifiable_by"]
+
+    def test_no_novelty_no_fabricated_challenge(self) -> None:
+        from omni_mercury_engine.decision.evidence import _cognitive_summary
+
+        summary = _cognitive_summary({"is_reliable": True})
+        assert summary is not None
+        assert summary["novelty_challenge"] is None
+
+    def test_hypothesis_falsifier_names_the_weakest_step(self) -> None:
+        from omni_mercury_engine.decision.evidence import _chain_hypothesis
+
+        hypothesis = _chain_hypothesis(
+            [
+                {"step": 0, "rule": "modus_ponens", "conclusion": "a", "confidence": 0.95},
+                {"step": 1, "rule": "abduction", "conclusion": "weak link", "confidence": 0.4},
+                {"step": 2, "rule": "modus_ponens", "conclusion": "final", "confidence": 0.8},
+            ]
+        )
+        assert hypothesis is not None
+        falsifier = hypothesis["falsifier"]
+        assert falsifier["weakest_step"] == "weak link"
+        assert falsifier["confidence"] == pytest.approx(0.4)
+        assert "re-test the weakest step" in falsifier["falsifiable_by"]
+
+    def test_orchestrator_result_serializes_the_challenge_fields(self) -> None:
+        from omni_mercury_engine.cognitive.orchestrator import CognitiveAnalysisResult
+
+        result = CognitiveAnalysisResult(
+            anomaly_detected=True,
+            anomaly_score=0.9,
+            severity=0.5,
+            novelty_score=0.8,
+            is_novel=True,
+            novelty_distance=1.7,
+            novelty_threshold=0.7,
+        )
+        payload = result.to_dict()
+        assert payload["novelty_distance"] == pytest.approx(1.7)
+        assert payload["novelty_threshold"] == pytest.approx(0.7)
+        # Without novelty the keys stay absent (schema unchanged).
+        bare = CognitiveAnalysisResult(
+            anomaly_detected=True, anomaly_score=0.9, severity=0.5
+        ).to_dict()
+        assert "novelty_distance" not in bare

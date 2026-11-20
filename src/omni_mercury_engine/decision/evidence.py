@@ -185,6 +185,7 @@ def _cognitive_summary(analysis: Any) -> dict[str, Any] | None:
         # component is unchanged.
         "novelty_score": _as_float(analysis.get("novelty_score")),
         "is_novel": (bool(analysis["is_novel"]) if "is_novel" in analysis else None),
+        "novelty_challenge": _novelty_challenge(analysis),
         "causal_factors": strings(analysis.get("causal_factors"), 5),
         "hypothesis": _chain_hypothesis(analysis.get("reasoning_chain")),
         "similar_cases": strings(analysis.get("similar_cases"), 5),
@@ -200,20 +201,71 @@ def _chain_hypothesis(chain: Any) -> dict[str, Any] | None:
     conclusion with its confidence and the chain depth, so the proposal is
     reconstructable and challengeable from the record without the full chain
     (which stays at the detection result's top level).
+
+    The ``falsifier`` names the chain's weakest step — the lowest-confidence
+    link every later conclusion depends on.  A reviewer challenges the
+    hypothesis there: re-test that step, and if it fails, the conclusion
+    falls with it.  That makes the hypothesis a *proposal with a stated
+    attack surface*, not a take-it-or-leave-it string.
     """
     if not isinstance(chain, (list, tuple)) or not chain:
         return None
+    steps = [step for step in chain if isinstance(step, Mapping)]
     last = chain[-1]
     if not isinstance(last, Mapping):
         return None
     conclusion = last.get("conclusion")
     if not isinstance(conclusion, str) or not conclusion.strip():
         return None
+    weakest: Mapping[str, Any] | None = None
+    weakest_conf: float | None = None
+    for step in steps:
+        conf = _as_float(step.get("confidence"))
+        if conf is None or not isinstance(step.get("conclusion"), str):
+            continue
+        if weakest_conf is None or conf < weakest_conf:
+            weakest, weakest_conf = step, conf
+    falsifier: dict[str, Any] | None = None
+    if weakest is not None:
+        falsifier = {
+            "weakest_step": str(weakest.get("conclusion", ""))[:240],
+            "rule": str(weakest.get("rule", ""))[:80],
+            "confidence": weakest_conf,
+            "falsifiable_by": (
+                "re-test the weakest step: every later conclusion in the "
+                "chain depends on it, so the hypothesis falls if it fails"
+            ),
+        }
     return {
         "conclusion": conclusion[:240],
         "confidence": _as_float(last.get("confidence")),
         "rule": str(last.get("rule", ""))[:80],
         "chain_depth": len(chain),
+        "falsifier": falsifier,
+    }
+
+
+def _novelty_challenge(analysis: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The challenge grounds of a novelty verdict, or ``None`` without one.
+
+    Carries the measured standardized distance behind the score and the
+    threshold the ``is_novel`` verdict was cut at, plus the recipe that
+    falsifies it, so the verdict can be re-measured rather than taken.
+    """
+    if _as_float(analysis.get("novelty_score")) is None:
+        return None
+    distance = _as_float(analysis.get("novelty_distance"))
+    threshold = _as_float(analysis.get("novelty_threshold"))
+    if distance is None and threshold is None:
+        return None
+    return {
+        "standardized_distance": distance,
+        "novelty_threshold": threshold,
+        "falsifiable_by": (
+            "re-score read-only (CuriosityEngine.novelty()) against the "
+            "fitted distribution as it grows; is_novel falls when the score "
+            "drops below the threshold"
+        ),
     }
 
 

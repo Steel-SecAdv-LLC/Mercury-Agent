@@ -105,6 +105,11 @@ class CognitiveAnalysisResult:
     # unchanged when the opt-in component is off.
     novelty_score: float | None = None
     is_novel: bool | None = None
+    # The challenge grounds that make the novelty verdict falsifiable: the
+    # measured standardized distance behind the score, and the threshold the
+    # is_novel verdict was cut at. None whenever novelty_score is None.
+    novelty_distance: float | None = None
+    novelty_threshold: float | None = None
 
     # Predictive-memory forecast (opt-in): Bayesian/HMM prediction from the
     # IntegratedAnomalyDetector for this domain. Empty until a forecast is
@@ -163,6 +168,8 @@ class CognitiveAnalysisResult:
         if self.novelty_score is not None:
             payload["novelty_score"] = self.novelty_score
             payload["is_novel"] = self.is_novel
+            payload["novelty_distance"] = self.novelty_distance
+            payload["novelty_threshold"] = self.novelty_threshold
         if self.predictive_forecast:
             payload["predictive_forecast"] = self.predictive_forecast
         return payload
@@ -708,6 +715,12 @@ class CognitiveOrchestrator(LoggerMixin):
                 )
                 result.novelty_score = exploration.novelty_score
                 result.is_novel = exploration.is_novel
+                # The challenge grounds: the measured distance behind the
+                # score and the threshold the verdict was cut at, so a
+                # reviewer can falsify the verdict by re-measuring
+                # (CuriosityEngine.novelty(), read-only) rather than take it.
+                result.novelty_distance = float(exploration.standardized_distance)
+                result.novelty_threshold = float(self.curiosity.novelty_threshold)
             except Exception as e:
                 logger.debug(f"Curiosity novelty scoring skipped: {e}")
 
