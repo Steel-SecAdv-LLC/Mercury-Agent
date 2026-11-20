@@ -1183,7 +1183,7 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
     Seq-2-Seq with attention   ROC-AUC 0.83   inside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
 
-  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8779 [95% CI 0.809-0.938], AP 0.2746
+  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8780 [95% CI 0.808-0.938], AP 0.2640
     VRNN (GeoTrackNet arch.)   ROC-AUC 0.87   inside Mercury's interval
     Two-step clustering        ROC-AUC 0.73   outside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
@@ -1191,7 +1191,7 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
 
 Four protocols, all seed-pinned and deterministic:
 
-- **Published protocols (0.8934, 0.8779)** are the numbers to read beside the
+- **Published protocols (0.8934, 0.8780)** are the numbers to read beside the
   published ones. Each fits on the training file that paper's models were
   trained on: 1 June to 30 November 2021 for Figure 6.1 of Kristoffer Vinther
   Olesen's DTU PhD thesis (2023, p. 48), and December 2021 without the 13th
