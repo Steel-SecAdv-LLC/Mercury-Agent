@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,181
-- **Capability-bearing classes:** 2,127 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,184
+- **Capability-bearing classes:** 2,130 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 95 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,250 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,252 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1250 |
+| Other capability classes | 1252 |
 | Support types (config / result / enum / error) | 1054 |
 | Detection | 181 |
 | Neural models & layers | 164 |
@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 | Analysis & scoring | 59 |
 | Monitoring | 27 |
 | Prediction & forecasting | 22 |
-| Ethics & governance | 14 |
+| Ethics & governance | 15 |
 | Solvers & scorers | 12 |
 | Biometric & recognition | 8 |
 
@@ -1670,7 +1670,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `FederatedAggregator` (`federation.aggregator`) — Aggregates FittedStatistics from multiple federated nodes.
 
-### `governance/` — 15 classes (10 capability)
+### `governance/` — 17 classes (12 capability)
 
 **Other capability classes**
 
@@ -1681,6 +1681,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `GovernanceRegistry` (`governance.contract`) — Registers only *GROUNDED*, *metric-only* governance scalars into the GOSNN.
 - `GovernanceReview` (`governance.self_improvement`) — Outcome of a governance review over a single proposal.
 - `GovernanceScalar` (`governance.contract`) — A single descriptive governance measurement, or a transparent abstention.
+- `ImprovementEntry` (`governance.improvement_ledger`) — One adaptive change, stated completely.
+- `ImprovementLedger` (`governance.improvement_ledger`) — A bounded, thread-safe, JSON-round-trippable trail of adaptive changes.
 - `MeasurementGovernance` (`governance.self_improvement`) — Explicit measurement policy: authorise the change to measure its effect.
 - `ProposedRecalibration` (`governance.self_improvement`) — A drift-/performance-triggered recalibration awaiting governance.
 - `ProposedThresholdChange` (`governance.self_improvement`) — A Reflexion-proposed operating-threshold change awaiting governance.
@@ -2914,11 +2916,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `streaming/` — 3 classes (3 capability)
+### `streaming/` — 4 classes (4 capability)
 
 **Detection**
 
 - `StreamingDetector` (`streaming.streaming_detector`) — Rolling-window anomaly detector for streaming data.
+
+**Ethics & governance**
+
+- `HysteresisGate` (`streaming.hysteresis`) — Stateful two-threshold verdict gate.
 
 **Other capability classes**
 
