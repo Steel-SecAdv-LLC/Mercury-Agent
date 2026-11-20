@@ -335,9 +335,16 @@ def redact_secrets(text: str, labels: Sequence[str], secret_values: Sequence[str
 #: ``_`` or the string edge, so ``NASA_FIRMS_MAP_KEY`` and
 #: ``FHIR_BEARER_TOKEN`` match while ``AUTHOR`` or ``TOKENIZER_PATH``
 #: (token bounded by neither edge nor underscore) do not.
+# WEBHOOK is credential-shaped: an incoming-webhook URL (Slack, Discord,
+# Teams, generic) IS the bearer credential — whoever holds it can post — and
+# it carries the secret in its PATH, which no structural rule recognises.
+# Without it, MERCURY_WATCH_WEBHOOK_URL's value was never scrubbed, so a
+# failed delivery's "... for url: https://hooks.../<secret>" reached the
+# SafeHTTPClient debug log, the re-raised HTTPError text and the stored
+# delivery error verbatim.
 _ENV_SECRET_NAME_RE = re.compile(
     r"(?:^|_)(?:API_?KEY|APIKEY|TOKEN|SECRET|PASSWORD|PASSWD|MAP_?KEY"
-    r"|CREDENTIALS?|AUTH|BEARER|PRIVATE_?KEY|SIGNATURE)(?:$|_)",
+    r"|CREDENTIALS?|AUTH|BEARER|PRIVATE_?KEY|SIGNATURE|WEBHOOK)(?:$|_)",
     re.IGNORECASE,
 )
 
