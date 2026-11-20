@@ -13,8 +13,8 @@ Series length 300, seeds [0, 1]; kernel blob `411ff9dfab39`.
 | Scenario | univariate_zscore | univariate_iqr | multivariate | fusion_rows | tier_average | fusion series verdict |
 |---|---|---|---|---|---|---|
 | `point_spike` | 1.000 / 1.00 / 0.002 | 1.000 / 1.00 / 0.000 | 1.000 / 1.00 / 0.002 | 1.000 / 1.00 / 0.018 | 0.997 / 1.00 / 0.047 | 2 of 2 flagged |
-| `slow_ramp` | 0.979 / 0.40 / 0.000 | 0.973 / 0.17 / 0.000 | 0.979 / 0.40 / 0.000 | 0.999 / 1.00 / 0.089 | 0.774 / 0.12 / 0.043 | 2 of 2 flagged |
-| `level_shift` | 0.968 / 0.00 / 0.000 | 0.723 / 0.00 / 0.000 | 0.968 / 0.00 / 0.000 | 1.000 / 1.00 / 0.013 | 0.619 / 0.09 / 0.033 | 2 of 2 flagged |
+| `slow_ramp` | 0.979 / 0.40 / 0.000 | 0.973 / 0.17 / 0.000 | 0.979 / 0.40 / 0.000 | 0.999 / 1.00 / 0.089 | 0.776 / 0.12 / 0.041 | 2 of 2 flagged |
+| `level_shift` | 0.968 / 0.00 / 0.000 | 0.723 / 0.00 / 0.000 | 0.968 / 0.00 / 0.000 | 1.000 / 1.00 / 0.013 | 0.620 / 0.09 / 0.033 | 2 of 2 flagged |
 | `seasonal_masking` | 1.000 / 1.00 / 0.002 | 1.000 / 1.00 / 0.000 | 1.000 / 1.00 / 0.002 | 1.000 / 1.00 / 0.005 | 1.000 / 1.00 / 0.047 | 2 of 2 flagged |
 | `variance_burst` | 1.000 / 1.00 / 0.027 | 1.000 / 1.00 / 0.017 | 1.000 / 1.00 / 0.027 | 1.000 / 1.00 / 0.067 | 1.000 / 1.00 / 0.047 | 2 of 2 flagged |
 | `bounded_evasion` | 0.994 / 0.40 / 0.000 | 0.994 / 0.10 / 0.000 | 0.994 / 0.40 / 0.000 | 0.999 / 1.00 / 0.051 | 0.944 / 0.30 / 0.046 | 2 of 2 flagged |
@@ -53,30 +53,30 @@ recorded NAB files (probation as the reference, alpha 0.05): conformal flags on
 | contamination | flag rate | recall | FPR | conformal flag rate | conformal FPR |
 |---|---|---|---|---|---|
 | 0.01 | 0.010 | 0.200 | 0.000 | 0.047 | 0.007 |
-| 0.05 | 0.050 | 0.867 | 0.007 | 0.047 | 0.007 |
+| 0.05 | 0.050 | 0.800 | 0.011 | 0.047 | 0.007 |
 | 0.1 | 0.100 | 1.000 | 0.053 | 0.047 | 0.007 |
 | 0.2 | 0.200 | 1.000 | 0.158 | 0.047 | 0.007 |
 
 ## Attribution: what each tier member adds over the rest
 
-Ensemble (average of all members) AUROC over the shape scenarios: **0.902**. A negative marginal gain means the
+Ensemble (average of all members) AUROC over the shape scenarios: **0.903**. A negative marginal gain means the
 ensemble scores higher without the member on these shapes.
 
 | Member | own AUROC | ensemble without it | marginal gain |
 |---|---|---|---|
-| `energy_based` | 0.986 | 0.878 | +0.024 |
+| `energy_based` | 0.986 | 0.879 | +0.024 |
 | `deep_svdd` | 0.998 | 0.879 | +0.024 |
 | `spiking` | 0.819 | 0.887 | +0.015 |
-| `deeplog_sequence` | 0.653 | 0.902 | +0.000 |
-| `spot_evt` | 0.789 | 0.902 | -0.000 |
-| `rca` | 0.500 | 0.902 | -0.000 |
-| `frequent_pattern` | 0.500 | 0.902 | -0.000 |
-| `spectral_residual` | 0.852 | 0.903 | -0.001 |
-| `particle_filter` | 0.816 | 0.905 | -0.002 |
+| `spot_evt` | 0.789 | 0.903 | +0.000 |
+| `rca` | 0.500 | 0.903 | +0.000 |
+| `deeplog_sequence` | 0.653 | 0.903 | -0.000 |
+| `frequent_pattern` | 0.500 | 0.903 | +0.000 |
+| `spectral_residual` | 0.861 | 0.903 | -0.000 |
+| `particle_filter` | 0.816 | 0.905 | -0.003 |
 | `survival` | 0.764 | 0.906 | -0.004 |
-| `hawkes` | 0.833 | 0.907 | -0.005 |
-| `digital_twin` | 0.869 | 0.907 | -0.005 |
-| `echo_state` | 0.861 | 0.907 | -0.005 |
+| `digital_twin` | 0.869 | 0.907 | -0.004 |
+| `hawkes` | 0.833 | 0.908 | -0.005 |
+| `echo_state` | 0.861 | 0.908 | -0.005 |
 | `imm` | 0.808 | 0.908 | -0.005 |
 | `gaussian_process` | 0.827 | 0.910 | -0.008 |
 | `bocpd` | 0.708 | 0.915 | -0.013 |
