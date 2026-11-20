@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,184
-- **Capability-bearing classes:** 2,130 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,186
+- **Capability-bearing classes:** 2,132 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 95 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,252 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,254 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1252 |
+| Other capability classes | 1254 |
 | Support types (config / result / enum / error) | 1054 |
 | Detection | 181 |
 | Neural models & layers | 164 |
@@ -201,7 +201,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 174 classes (61 capability)
+### `api/` — 176 classes (63 capability)
 
 **Adapters & backends**
 
@@ -237,6 +237,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `AuthService` (`api.auth_service`) — Coordinates the account lifecycle over a store, mailer, sealer, and 2FA.
 - `BatchJob` (`api.routes.batch`) — Batch job tracking record.
 - `BatchJobStore` (`api.routes.batch`) — In-memory batch job store with TTL-based cleanup.
+- `BodySizeLimitMiddleware` (`api.server`) — Refuse request bodies over a byte cap, before parsing spends on them.
 - `ComponentHealth` (`api.health`) — Health status of a single component.
 - `ConsoleMailer` (`api.mailer`) — Mailer that files each message in a local outbox instead of sending it.
 - `CorrelationIDMiddleware` (`api.server`) — Middleware for request correlation ID tracking.
@@ -277,6 +278,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `TraceContext` (`api.trace_context`) — The trace this request belongs to.
 - `UsageSummary` (`api.usage_ledger`) — Aggregated usage for an account over a time window.
 - `User` (`api.auth`) — Authenticated user information.
+- `_BodyLimitExceeded` (`api.server`) — Raised inside the guarded receive when a body outgrows its cap.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
 <details><summary>Support types (113)</summary>

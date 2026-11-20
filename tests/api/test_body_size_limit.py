@@ -116,5 +116,5 @@ class TestWiring:
     def test_the_app_carries_the_middleware(self) -> None:
         from omni_mercury_engine.api.server import app
 
-        names = [m.cls.__name__ for m in app.user_middleware]
+        names = [getattr(m.cls, "__name__", "") for m in app.user_middleware]
         assert "BodySizeLimitMiddleware" in names

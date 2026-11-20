@@ -58,7 +58,12 @@ def for_hazard(hazard: str | None) -> dict[str, Any] | None:
         ``None`` for a name the measurement knows nothing of.
     """
     evidence = published()
-    name = (hazard or "").strip().lower()
+    # The domain reaches here from ``Evidence.from_detection``, which reads
+    # ``result["domain"]`` as-is — a library caller (or a fuzzed result)
+    # can hand a non-string. Coerce defensively: a non-string domain names
+    # no measured hazard, so it is "unknown", never an AttributeError on a
+    # decision path.
+    name = (hazard if isinstance(hazard, str) else "").strip().lower()
     if not name or not evidence:
         return None
     common = {
