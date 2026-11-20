@@ -2002,15 +2002,15 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | `iso-hardening.yml` | Examples Parity | yes | `examples/*.py` must run end-to-end and emit known markers |
 | `iso-hardening.yml` | Load Tests | yes | k6 smoke + locust headless against the live API with FastAPI lifespan warmup + CI warmup loop, SLO `p(95) < 500 ms` on detection endpoints, `p(99) < 150 ms` on `/health` |
 | `iso-hardening.yml` | ISO Hardening Success | yes | Rollup of the three gates above (single required status check) |
-| `security.yml` | Container/SAST scan | yes | Trivy + Semgrep with deterministic SARIF categories |
+| `security.yml` | Container/SAST scan | yes | Trivy + CodeQL with deterministic SARIF categories (Semgrep runs as a blocking gate in `ci.yml`) |
 | `pqc-production-check.yml` | PQC Production Readiness | yes | KAT vectors, NIST FIPS ACVP-Server vectors, real AMA Cryptography build |
 | `benchmark.yml` | Live Benchmark | scheduled | Refreshes `benchmarks/mercury_benchmark_results.json` + README block |
 | `dataset-reachability.yml` | Loader Reachability | nightly | Offline lane + nightly network lane for the 11 watch-listed loaders |
 | `network-tests.yml` | External Source Probe | nightly | Diagnostic probe of upstream data providers |
-| `docker.yml` | Docker Release | tag-driven | Push runtime image with provenance attestation |
+| `docker.yml` | Docker Build | push/PR | Build the runtime image to a tarball and Trivy-scan it (advisory); the tag-driven push WITH BuildKit SBOM + provenance lives in `release.yml`'s docker job |
 | `format.yml` | Formatting check | yes | Drift guard for `black` / `ruff format` output |
 | `mutation-testing.yml` | Mutation Kill-Rate Floors | path-filtered | Full-enumeration mutation testing of ten module sets (σ hot path, hazard adapters, distillation, humanitarian, crisis monitor, geological, observatory, trust surface, hazard evidence, PPO trainer), plus a cheap sample on every PR |
-| `release.yml` | Tagged Release | tag-driven | sdist + wheel + SBOM + provenance |
+| `release.yml` | Tagged Release | tag-driven | sdist + wheel, Sigstore-signed build provenance (`actions/attest-build-provenance` + PEP 740 attestations on trusted publishing), an artifact-hash SPDX record, and a CycloneDX dependency SBOM of the locked `[api]` closure emitted by Mercury's own `tools.sbom_emitter` |
 | `gate-watchdog.yml` | Gate Watchdog | scheduled | Detects required-gate runs that hang or get cancelled without superseding pushes; files an alert issue and auto-closes it once the gates run clean |
 
 The table above is the curated gate surface; the repository's full workflow

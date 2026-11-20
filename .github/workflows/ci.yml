@@ -434,11 +434,14 @@ jobs:
             -color
 
       - name: Run zizmor high-signal audits
-        # Advisory for now: this surfaces unpinned-action and permission
-        # findings without blocking every PR before the repository-wide SHA
-        # pinning migration lands. Blocking workflow invariants are enforced
-        # by scripts/check_workflow_hardening.py in the next step.
-        run: zizmor --no-progress --format=plain --min-severity high --no-exit-codes .github/workflows
+        # BLOCKING at high severity: the four standing high findings
+        # (benchmark.yml workflow-level write scopes; the spoofable actor
+        # clause in dependabot-auto-merge) were fixed on 2026-11-20, so a
+        # new high is a regression. Medium/low remain advisory (126 standing
+        # template-expansion/pin findings tracked, not silenced); blocking
+        # workflow invariants are also enforced by
+        # scripts/check_workflow_hardening.py in the next step.
+        run: zizmor --no-progress --format=plain --min-severity high .github/workflows
 
       - name: Check uv.lock matches pyproject.toml
         # The Dockerfile and the test lanes install with ``uv sync --locked``,

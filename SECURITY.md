@@ -60,7 +60,7 @@ Mercury Agent implements multiple layers of security:
 - **Static Analysis**: Bandit security scanning in CI/CD pipeline
 - **Dependency Scanning**: Regular audits with Safety and pip-audit
 - **Type Safety**: Strict MyPy type checking enabled
-- **Code Review**: All changes require security review
+- **Code Review**: Human-authored changes go through pull-request review; Dependabot patch/minor dependency updates auto-merge once every CI gate passes (`.github/workflows/dependabot-auto-merge.yml`), and major updates are held for human review
 
 ### Cryptographic Security
 
@@ -464,9 +464,9 @@ exact fixed versions the image installs.
 
 Mercury Agent's security analysis is automated and self-assessed:
 
-- **Automated Scanning**: Security scans run on every pull request and push (bandit, safety, pip-audit, semgrep, Trivy, CodeQL) plus a weekly scheduled run (`.github/workflows/security.yml`, Sundays 00:00 UTC)
+- **Automated Scanning**: Security scans run on every pull request and push — bandit, safety, pip-audit and the blocking Semgrep gate in `ci.yml`; Trivy and CodeQL in `security.yml` — plus a weekly scheduled run (`.github/workflows/security.yml`, Sundays 00:00 UTC) and the weekly OpenSSF Scorecard run (`.github/workflows/scorecard.yml`)
 - **Dependency Audits**: Dependabot weekly update checks plus the two-tier CVE gates described below
-- **Code Reviews**: All changes require human review before merge
+- **Code Reviews**: Human-authored changes require pull-request review before merge; Dependabot patch/minor updates auto-merge behind the full CI gate set, majors are held for a human
 
 Mercury Agent has **not** been externally audited or penetration-tested. Production deployments requiring assurance beyond self-assessment must commission an independent security review (see "Important Security Considerations" above and the README status line: Research-grade | Community-tested | Not externally audited).
 

@@ -516,8 +516,19 @@ def _supply_chain_evidence() -> dict[str, Any]:
         "has_ruff": "[tool.ruff]" in pyproject,
         "has_mypy": "[tool.mypy]" in pyproject,
         "has_token_permissions": "permissions:" in wf_raw,
+        # True only when a workflow actually invokes a SIGNING mechanism.
+        # The old keyword set ("slsa", "provenance", "attestation") scored
+        # true for unsigned, self-authored provenance JSON — a metric that
+        # reports signing where none exists feeds false scores into the
+        # supply-chain/SSDF/SLSA scalars downstream.
         "signed_releases": any(
-            tok in wf_lower for tok in ("sigstore", "cosign", "slsa", "attestation", "provenance")
+            tok in wf_lower
+            for tok in (
+                "attest-build-provenance",
+                "cosign",
+                "sigstore",
+                "attestations: true",
+            )
         ),
         "disclosure_process": "report a vulnerability" in security.lower(),
         "response_timeline": "response timeline" in security.lower(),
