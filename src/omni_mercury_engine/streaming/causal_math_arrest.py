@@ -63,6 +63,18 @@ class CausalMathArrest:
         probes: Probe selection forwarded to the instrument (a preset name
             or probe class names); ``None`` is the full 21.
         weighting: Fusion weighting forwarded to the instrument.
+        exit_alpha: Optional hysteresis exit level (> ``alpha``).  When set,
+            the verdict enters the anomalous state at the ``alpha`` cut and
+            clears only when the score falls to or below the warmup scores'
+            ``exit_alpha`` conformal cut, so scores oscillating between the
+            two cuts cannot flip the verdict.  ``None`` (the default) keeps
+            the released single-threshold alarm semantics exactly.  Measured
+            on the four committed NAB streams (enter 0.05 / exit 0.20,
+            i.e. the 0.95/0.80 warmup quantiles): mean verdict churn 0.0235
+            to 0.0153 (35% lower), mean point F1 0.3123 to 0.3722, the
+            choice stable under leave-one-stream-out — see
+            ``streaming/hysteresis.py`` and
+            ``artifacts/nab_streaming.eval.json``.
     """
 
     def __init__(
@@ -71,14 +83,23 @@ class CausalMathArrest:
         alpha: float = 0.05,
         probes: str | list[str] | None = None,
         weighting: str = "uniform",
+        exit_alpha: float | None = None,
     ) -> None:
         """Initialize the instance."""
         if window < 8:
             raise ValueError(f"window must be >= 8 (the probes' minimum), got {window}")
         if not 0.0 < alpha < 1.0:
             raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+        if exit_alpha is not None and not alpha < exit_alpha < 1.0:
+            raise ValueError(
+                f"exit_alpha must be in (alpha, 1) so the exit cut sits below "
+                f"the enter cut; got exit_alpha={exit_alpha} with alpha={alpha}"
+            )
         self._window = window
         self._alpha = alpha
+        self._exit_alpha = exit_alpha
+        self._exit_threshold: float | None = None
+        self._hysteresis: Any = None
         self._arrest = AnomalyMathArrest(probes=probes, weighting=weighting)
         self._threshold: float | None = None
         self._history: list[float] = []
@@ -133,6 +154,14 @@ class CausalMathArrest:
         fused = fused[np.isfinite(fused)]
         cut = conformal_cut(np.sort(fused) if fused.size else None, self._alpha)
         self._threshold = float(cut) if cut is not None else float(self._arrest.threshold)
+        if self._exit_alpha is not None:
+            exit_cut = conformal_cut(np.sort(fused) if fused.size else None, self._exit_alpha)
+            self._exit_threshold = (
+                min(float(exit_cut), self._threshold) if exit_cut is not None else self._threshold
+            )
+            from omni_mercury_engine.streaming.hysteresis import HysteresisGate
+
+            self._hysteresis = HysteresisGate(self._threshold, self._exit_threshold)
         self._history = list(series[-self._window :])
         self._excess_onset = None
         self._steps_since_onset = 0
@@ -220,9 +249,16 @@ class CausalMathArrest:
         fused = np.asarray(self._arrest.detect(window), dtype=np.float64).reshape(-1)
         score = float(fused[-1]) if fused.size else 0.0
         stable = self._trajectory_check(score, threshold)
-        return {
+        if self._hysteresis is not None:
+            # Opt-in decision-stability gate: enter at the alpha cut, clear
+            # only at or below the exit cut (see the constructor docstring
+            # for the measurement).  The score itself is untouched.
+            verdict = bool(self._hysteresis.update(score))
+        else:
+            verdict = bool(score > threshold)
+        result_verdict: dict[str, Any] = {
             "score": score,
-            "is_anomaly": bool(score > threshold),
+            "is_anomaly": verdict,
             "threshold": threshold,
             "window_used": int(window.size),
             # Online Lyapunov-envelope check: False means the fused-score
@@ -233,6 +269,10 @@ class CausalMathArrest:
             "abstain": not stable,
             "reason": None if stable else REASON_TRAJECTORY,
         }
+        if self._exit_threshold is not None:
+            # Additive: present only when the caller opted into hysteresis.
+            result_verdict["exit_threshold"] = float(self._exit_threshold)
+        return result_verdict
 
     def score_stream(
         self, values: npt.NDArray[np.float64]

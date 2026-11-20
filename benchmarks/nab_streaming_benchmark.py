@@ -238,6 +238,57 @@ def evaluate_stream(
         "warmup": warmup,
         "window": window,
         "auroc": auroc(labels[scored], scores[scored]),
+        "decision_stability": decision_stability(scores[scored], labels[scored], scores[:warmup]),
+    }
+
+
+def _point_prf(labels: np.ndarray[Any, Any], verdicts: np.ndarray[Any, Any]) -> dict[str, float]:
+    """Point precision/recall/F1 of boolean verdicts against 0/1 labels."""
+    flags = np.asarray(verdicts, dtype=bool)
+    positive = np.asarray(labels) == 1
+    tp = int(np.sum(flags & positive))
+    fp = int(np.sum(flags & ~positive))
+    fn = int(np.sum(~flags & positive))
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    return {"precision": precision, "recall": recall, "f1": f1}
+
+
+def decision_stability(
+    scores: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any],
+    warmup_scores: np.ndarray[Any, Any],
+    enter_quantile: float = 0.95,
+    exit_quantile: float = 0.80,
+) -> dict[str, Any]:
+    """Verdict churn and point P/R/F1, raw vs the hysteresis gate.
+
+    The raw verdict thresholds each score at the warmup scores'
+    ``enter_quantile``; the hysteresis verdict enters there and clears only
+    at or below the ``exit_quantile`` cut
+    (:func:`omni_mercury_engine.streaming.hysteresis.hysteresis_verdicts`).
+    Churn is the fraction of consecutive verdict flips — the decision-layer
+    instability metric ``EngineStreamSession`` reports per tick, measured
+    here against labels.  The (0.95, 0.80) choice was selected leave-one-
+    stream-out: every fold picks it, and it improves the held-out stream's
+    F1 on three of four (speed_7578 pays 0.051 F1 for its churn cut).
+    """
+    from omni_mercury_engine.streaming.hysteresis import hysteresis_verdicts
+
+    enter = float(np.quantile(warmup_scores, enter_quantile))
+    exit_ = float(np.quantile(warmup_scores, exit_quantile))
+    raw = np.asarray(scores) > enter
+    smoothed = hysteresis_verdicts(np.asarray(scores), enter, min(exit_, enter))
+
+    def churn(verdicts: np.ndarray[Any, Any]) -> float:
+        return float(np.mean(verdicts[1:] != verdicts[:-1])) if len(verdicts) > 1 else 0.0
+
+    return {
+        "enter_threshold": enter,
+        "exit_threshold": min(exit_, enter),
+        "raw": {"churn": churn(raw), **_point_prf(labels, raw)},
+        "hysteresis": {"churn": churn(smoothed), **_point_prf(labels, smoothed)},
     }
 
 
@@ -337,6 +388,20 @@ def run_benchmark(fixture_root: Path = _DEFAULT_FIXTURE) -> dict[str, Any]:
         )
     mean_auroc = float(np.mean(aurocs))
     print(f"mean AUROC across {len(aurocs)} real NAB streams: {mean_auroc:.4f}")
+    raw_churn = float(
+        np.mean([s["decision_stability"]["raw"]["churn"] for s in per_stream.values()])
+    )
+    hys_churn = float(
+        np.mean([s["decision_stability"]["hysteresis"]["churn"] for s in per_stream.values()])
+    )
+    raw_f1 = float(np.mean([s["decision_stability"]["raw"]["f1"] for s in per_stream.values()]))
+    hys_f1 = float(
+        np.mean([s["decision_stability"]["hysteresis"]["f1"] for s in per_stream.values()])
+    )
+    print(
+        f"decision stability: churn {raw_churn:.4f} -> {hys_churn:.4f} "
+        f"(hysteresis), mean point F1 {raw_f1:.4f} -> {hys_f1:.4f}"
+    )
     causal = run_causal_math_arrest(fixture_root)
     return {
         "dataset": "NAB (Numenta Anomaly Benchmark, MIT; committed fixture)",
@@ -356,6 +421,14 @@ def run_benchmark(fixture_root: Path = _DEFAULT_FIXTURE) -> dict[str, Any]:
         },
         "per_stream": per_stream,
         "mean_auroc": mean_auroc,
+        "decision_stability": {
+            "enter_quantile": 0.95,
+            "exit_quantile": 0.80,
+            "mean_raw_churn": round(raw_churn, 4),
+            "mean_hysteresis_churn": round(hys_churn, 4),
+            "mean_raw_f1": round(raw_f1, 4),
+            "mean_hysteresis_f1": round(hys_f1, 4),
+        },
     }
 
 

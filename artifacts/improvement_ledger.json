@@ -11,7 +11,11 @@
       "impact": {
         "harness": "research/ensembles/harness_weight_entropy.py",
         "artifact": "artifacts/fusion_weight_entropy.json",
-        "winner": [0.65, 0.15, 0.2],
+        "winner": [
+          0.65,
+          0.15,
+          0.2
+        ],
         "winner_normalized_entropy": 0.8069,
         "winner_mean_auroc": 0.8922,
         "shipped_adaptive_mean_auroc": 0.8897,
@@ -19,8 +23,18 @@
         "winner_mean_rank": 39.0,
         "shipped_mean_rank": 68.5,
         "rank_universe": 232,
-        "tables": ["pima_real", "cardio", "breastw", "wbc", "thyroid"],
-        "seeds": [0, 1, 2]
+        "tables": [
+          "pima_real",
+          "cardio",
+          "breastw",
+          "wbc",
+          "thyroid"
+        ],
+        "seeds": [
+          0,
+          1,
+          2
+        ]
       },
       "why_not_adopted": "The winner was selected on the same five tables it is scored on; a +0.0025 in-sample margin is selection-bias territory. Adoption requires the margin to survive on tables the selection never saw.",
       "rollback": "Nothing shipped: the served path keeps _compute_adaptive_weights unchanged. The artifact and harness remain for re-measurement on held-out tables."
@@ -84,7 +98,11 @@
       "impact": {
         "harness": "research/math_arrest/harness_probe_redundancy.py",
         "artifact": "artifacts/math_arrest_probe_correlation.json",
-        "full_ensemble_mean_auc": {"nab": 0.7494, "adbench": 0.6763, "overall": 0.7088},
+        "full_ensemble_mean_auc": {
+          "nab": 0.7494,
+          "adbench": 0.6763,
+          "overall": 0.7088
+        },
         "note": "The 'decorrelated' preset (16 probes) measures better than 'all'; 'all' stays the default because the 21-column feature surface is a released contract (detectors/math_arrest/arrest.py PROBE_PRESETS)."
       },
       "rollback": "Do not call calibrate_decorrelator (multipliers stay 1.0), or construct with preset='all' (the default)."
@@ -99,11 +117,66 @@
         "artifact": "artifacts/math_arrest_contrastive_refinement.json",
         "calibration_discordance_before": 0.3128,
         "calibration_discordance_after_eta_0_5": 0.2793,
-        "improving_etas": [0.25, 0.5, 1.0],
-        "tables": ["pima_real", "cardio", "breastw", "wbc", "thyroid"],
-        "seeds": [0, 1, 2]
+        "improving_etas": [
+          0.25,
+          0.5,
+          1.0
+        ],
+        "tables": [
+          "pima_real",
+          "cardio",
+          "breastw",
+          "wbc",
+          "thyroid"
+        ],
+        "seeds": [
+          0,
+          1,
+          2
+        ]
       },
       "rollback": "eta=0, or do not call refine_contrastive; the probes' fitted state is untouched unless the call is made."
+    },
+    {
+      "component": "streaming.hysteresis_gate",
+      "change": "Two-threshold (Schmitt) verdict gate on streaming paths: enter the anomalous state at the warmup scores' 0.95 conformal/quantile cut, clear only at or below the 0.80 cut (streaming/hysteresis.py; CausalMathArrest(exit_alpha=...)).",
+      "reason": "Decision stability: streaming verdicts flipped on scores oscillating around the single alarm cut (measured mean churn 0.0235 on the four committed NAB streams), and nothing could reduce it.",
+      "verdict": "adopted_opt_in",
+      "impact": {
+        "harness": "benchmarks/nab_streaming_benchmark.py",
+        "artifact": "artifacts/nab_streaming.eval.json",
+        "mean_churn_before": 0.0235,
+        "mean_churn_after": 0.0153,
+        "mean_f1_before": 0.3123,
+        "mean_f1_after": 0.3722,
+        "loso": "every leave-one-stream-out fold selects (0.95, 0.80); held-out F1 improves on 3 of 4 streams; speed_7578 pays 0.051 F1 for its churn cut",
+        "guarantee": "the gate can only merge verdict-flip pairs, never create one (tests/test_streaming_hysteresis.py::test_churn_never_increases); scores and AUROC are untouched"
+      },
+      "rollback": "Omit exit_alpha (the default): the released single-threshold alarm semantics are bit-identical. The gate is opt-in precisely because one measured stream pays F1 for the churn cut."
+    },
+    {
+      "component": "ensembles.meta_fusion_controller",
+      "change": "Meta-Fusion Controller selecting per dataset among {plain average, historically best single probe, historical-AUC-weighted sum, decorrelated subset} using domain affinity (corpus) and leave-one-dataset-out historical performance; dataset-local uncertainty (probe dispersion) and score entropy measured as selector signals.",
+      "reason": "Phase 3 item: a controller over live fusion candidates using uncertainty, entropy, domain affinity and historical performance. Historical cross-dataset performance was the one signal family the prior per-set-weighter search (research/omni_equation/FINDINGS.md) never tested.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/ensembles/harness_meta_fusion.py",
+        "artifact": "artifacts/meta_fusion_controller.json",
+        "shipped_uniform_mean_auc": 0.6917,
+        "meta_controller_mean_auc": 0.733,
+        "meta_controller_mean_delta": 0.0413,
+        "meta_controller_worst_delta": -0.1016,
+        "best_single_hist_mean_delta": 0.0395,
+        "best_single_hist_worst_delta": -0.1401,
+        "local_signal_rank_correlations": {
+          "probe_dispersion": -0.23,
+          "score_entropy": -0.25
+        },
+        "n_evaluations": 19,
+        "bar": "adopt only if mean delta > +0.003 with no dataset below -0.002"
+      },
+      "why_refused": "The LODO historical prior is the first label-free selector signal measured to raise the mean out-of-fold (+0.0413, where all four previously tested per-set signal families carried none), but every mean-improving candidate regresses individual datasets by 0.04-0.14 - the exact dilution/selection pattern the FINDINGS record documents. The standing keep bar (no set below -0.002) exists because a fleet operator cannot trade one hazard's detection for another's mean; until a per-set guard exists that catches the -0.10 regressions, the controller stays refused. The dataset-local signals (dispersion -0.23, entropy -0.25 rank correlation) again carry no usable selection signal.",
+      "rollback": "Nothing shipped; the harness and artifact remain, and the controller becomes adoptable the day a per-set reliability guard clears the regression floor."
     }
   ]
 }
