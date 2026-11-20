@@ -132,8 +132,32 @@ class FuzzyOperators:
 
     @staticmethod
     def forall_pmean(x: torch.Tensor, p: float = 2.0, dim: int = -1) -> torch.Tensor:
-        """Pmean aggregator (generalized mean) - smoother gradients."""
-        return torch.pow(torch.mean(torch.pow(x, p), dim=dim), 1 / p)
+        """Smooth universal quantifier: the p-mean-error aggregator (pME).
+
+        Computes ``1 - mean((1 - x)^p)^(1/p)`` (Badreddine et al. 2022,
+        "Logic Tensor Networks", eq. for A_pME). Aggregating the *errors*
+        ``1 - x`` makes the quantifier stricter than the arithmetic mean --
+        a single violated instance pulls the aggregate down -- and puts the
+        largest gradient on the most-violating rows (``(1 - x_i)^(p-1)``),
+        exactly where a universal quantifier should focus learning.
+
+        The previous implementation returned the plain p-mean
+        ``mean(x^p)^(1/p)``, which is *more lenient* than the mean for
+        ``p > 1`` and gives violating rows (``x -> 0``) a vanishing gradient
+        ``x_i^(p-1)`` -- the opposite of forall semantics.
+
+        Args:
+            x: Fuzzy truth values in ``[0, 1]``.
+            p: Aggregator exponent (``>= 1``; higher penalises violations more).
+            dim: Dimension to aggregate over.
+
+        Returns:
+            Aggregated truth value in ``[0, 1]``.
+        """
+        # clamp_min keeps the root's gradient finite when every instance is
+        # fully satisfied (mean of errors == 0).
+        err = torch.mean(torch.pow(1.0 - x, p), dim=dim).clamp_min(1e-12)
+        return 1.0 - torch.pow(err, 1 / p)
 
     @staticmethod
     def exists_product(x: torch.Tensor, dim: int = -1) -> torch.Tensor:

@@ -90,3 +90,88 @@ def test_the_inert_modules_stay_constructed_for_checkpoint_shape() -> None:
     assert any(key.startswith("uncertainty_fusion") for key in names)
     assert any(key.startswith("resonance_fusion") for key in names)
     assert any(key.startswith("sparse_attention") for key in names)
+
+
+class TestMaskedMeanPooling:
+    """Opt-in masked pooling: absent groups stop diluting the attention mean.
+
+    The flag adds no parameters or buffers (checkpoint shape unchanged) and
+    defaults to False, so the shipped ``default_fusion.pt`` keeps the plain
+    mean it was trained with.
+    """
+
+    def test_flag_adds_no_state_dict_entries(self) -> None:
+        """Same keys either way: the flag cannot break checkpoint loads."""
+        plain = _layer()
+        masked = _layer(masked_mean_pooling=True)
+        assert set(plain.state_dict().keys()) == set(masked.state_dict().keys())
+
+    def test_default_is_the_historical_plain_mean(self) -> None:
+        """masked_mean_pooling defaults off; with every group present the
+        masked mean equals the plain mean anyway (mask of all ones)."""
+        features, scores = _inputs(3)
+        plain = _layer()
+        plain.eval()
+        masked = _layer(masked_mean_pooling=True)
+        masked.load_state_dict(plain.state_dict())
+        masked.eval()
+        assert plain.masked_mean_pooling is False
+        with torch.no_grad():
+            reference, _ = plain(features, scores)
+            fused, _ = masked(features, scores)
+        torch.testing.assert_close(fused, reference)
+
+    def test_masked_mean_excludes_absent_groups_zero_tokens(self) -> None:
+        """With a group absent, the masked mean over present tokens equals the
+        average of the per-token attention outputs of the present groups (read
+        off via one-hot pool masks), and differs from the plain mean, which
+        averages the absent group's zero token in."""
+        features, scores = _inputs(4)
+        partial_features = {k: v for k, v in features.items() if k != "spectral"}
+        partial_scores = {k: v for k, v in scores.items() if k != "spectral"}
+
+        plain = _layer()
+        plain.eval()
+        masked = _layer(masked_mean_pooling=True)
+        masked.load_state_dict(plain.state_dict())
+        masked.eval()
+
+        with torch.no_grad():
+            fused_plain, _ = plain(partial_features, partial_scores)
+            fused_masked, _ = masked(partial_features, partial_scores)
+
+            # Reconstruct the expected masked mean from one-hot pool masks on
+            # the identical attended token stack.
+            names = masked.detector_names
+            batch = next(iter(partial_features.values())).shape[0]
+            projected = []
+            for name in names:
+                if name in partial_features:
+                    projected.append(masked.feature_projectors[name](partial_features[name]))
+                else:
+                    projected.append(torch.zeros(batch, masked.hidden_dim))
+            stacked = torch.stack(projected, dim=1)
+            token_outputs = []
+            for i, name in enumerate(names):
+                if name not in partial_features:
+                    continue
+                one_hot = torch.zeros(len(names))
+                one_hot[i] = 1.0
+                token, _ = masked.attention(stacked, return_attention=True, pool_mask=one_hot)
+                token_outputs.append(token)
+            expected = torch.stack(token_outputs, dim=0).mean(dim=0)
+
+        torch.testing.assert_close(fused_masked, expected)
+        assert not torch.allclose(fused_masked, fused_plain)
+
+    def test_hybrid_detect_honors_the_flag(self) -> None:
+        """hybrid_detect pools the same way as forward under the flag."""
+        features, scores = _inputs(5)
+        partial_features = {k: v for k, v in features.items() if k != "temporal"}
+        partial_scores = {k: v for k, v in scores.items() if k != "temporal"}
+        masked = _layer(masked_mean_pooling=True)
+        masked.eval()
+        with torch.no_grad():
+            from_forward, _ = masked(partial_features, partial_scores)
+            from_detect, _ = masked.hybrid_detect(partial_features, partial_scores)
+        torch.testing.assert_close(from_detect, from_forward)

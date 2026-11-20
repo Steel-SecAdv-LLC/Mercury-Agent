@@ -164,6 +164,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             detector_embeddings: torch.Tensor,
             return_attention: bool = False,
             context_embeddings: torch.Tensor | None = None,
+            pool_mask: torch.Tensor | None = None,
         ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
             """Apply multi-head attention over detector embeddings.
 
@@ -173,6 +174,12 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
                 detector_embeddings: [batch_size, num_detectors, embed_dim]
                 return_attention: Whether to return attention weights (default: False)
                 context_embeddings: Optional context for cross-attention
+                pool_mask: Optional token mask of shape [num_detectors] or
+                    [batch_size, num_detectors]; nonzero entries mark present
+                    tokens. When given, the pooled representation is the mean
+                    over present tokens only, so absent (zero-filled) tokens
+                    do not dilute it. ``None`` keeps the historical plain mean
+                    over all tokens. Ignored by the hierarchical path.
 
             Returns:
                 If return_attention=False:
@@ -203,7 +210,14 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
                     )
                     attn_output = self.cross_layer_norm(attn_output + cross_output)
 
-                fused = attn_output.mean(dim=1)
+                if pool_mask is None:
+                    fused = attn_output.mean(dim=1)
+                else:
+                    mask = pool_mask.to(device=attn_output.device, dtype=attn_output.dtype)
+                    if mask.dim() == 1:
+                        mask = mask.unsqueeze(0).expand(attn_output.shape[0], -1)
+                    denom = mask.sum(dim=1, keepdim=True).clamp_min(1.0)
+                    fused = (attn_output * mask.unsqueeze(-1)).sum(dim=1) / denom
 
             if return_attention:
                 return fused, attn_weights
@@ -553,14 +567,26 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             sparse_top_k_ratio: float = 0.3,
             # Resonance integration parameters
             resonance_lambda: float = 0.15,
+            masked_mean_pooling: bool = False,
         ):
-            """Initialize the instance."""
+            """Initialize the instance.
+
+            ``masked_mean_pooling`` pools the attended representation over the
+            feature groups actually *present* in the input instead of averaging
+            absent groups' zero tokens into it. It defaults to ``False``
+            because the shipped ``default_fusion.pt`` checkpoint was trained
+            with the plain mean -- flipping it changes that artifact's scores
+            materially (measured on the shipped checkpoint with its extracted
+            feature groups: mean |delta anomaly_prob| ~= 0.047, max ~= 0.077).
+            Enable it only for freshly constructed/fitted layers.
+            """
             super().__init__()
             self.feature_dims = feature_dims
             self.hidden_dim = hidden_dim
             self.detector_names = list(feature_dims.keys())
             self.num_detectors = len(self.detector_names)
             self.enable_sparse_attention = enable_sparse_attention
+            self.masked_mean_pooling = bool(masked_mean_pooling)
 
             self.feature_projectors = nn.ModuleDict(
                 {name: nn.Linear(feature_dims[name], hidden_dim) for name in feature_dims}
@@ -678,8 +704,18 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
 
             stacked_features = torch.stack(projected_features, dim=1)
 
+            pool_mask = None
+            if self.masked_mean_pooling:
+                # Pool over present groups only; absent groups stay as zero
+                # tokens (shape compatibility) but no longer dilute the mean.
+                pool_mask = torch.tensor(
+                    [1.0 if name in detector_features else 0.0 for name in self.detector_names],
+                    device=device,
+                    dtype=dtype,
+                )
+
             attended_features, attn_weights = self.attention(
-                stacked_features, return_attention=True
+                stacked_features, return_attention=True, pool_mask=pool_mask
             )
 
             fused_representation = attended_features
@@ -701,14 +737,22 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             Explicitly named method for feature extraction phase.
             """
             extracted = {}
-            batch_size = next(iter(detector_features.values())).shape[0]
+            reference = next(iter(detector_features.values()))
+            batch_size = reference.shape[0]
 
             for name in self.detector_names:
                 if name in detector_features:
                     proj = self.feature_projectors[name](detector_features[name])
                     extracted[name] = proj
                 else:
-                    extracted[name] = torch.zeros(batch_size, self.hidden_dim)
+                    # Zero-fill on the input's device/dtype: a bare torch.zeros
+                    # lands on CPU and crashes CUDA runs downstream.
+                    extracted[name] = torch.zeros(
+                        batch_size,
+                        self.hidden_dim,
+                        device=reference.device,
+                        dtype=reference.dtype,
+                    )
 
             return extracted
 
@@ -718,14 +762,23 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             Explicitly named method for early fusion phase.
             """
             projected_features = []
-            batch_size = next(iter(detector_features.values())).shape[0]
+            reference = next(iter(detector_features.values()))
+            batch_size = reference.shape[0]
 
             for name in self.detector_names:
                 if name in detector_features:
                     proj = self.feature_projectors[name](detector_features[name])
                     projected_features.append(proj)
                 else:
-                    projected_features.append(torch.zeros(batch_size, self.hidden_dim))
+                    # Zero-fill on the input's device/dtype (CUDA-safe).
+                    projected_features.append(
+                        torch.zeros(
+                            batch_size,
+                            self.hidden_dim,
+                            device=reference.device,
+                            dtype=reference.dtype,
+                        )
+                    )
 
             concatenated = torch.cat(projected_features, dim=1)
             result: torch.Tensor = self.early_fusion(concatenated)
@@ -736,14 +789,18 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
 
             Explicitly named method for late fusion phase.
             """
-            batch_size = next(iter(detector_scores.values())).shape[0]
+            reference = next(iter(detector_scores.values()))
+            batch_size = reference.shape[0]
             score_list = []
 
             for name in self.detector_names:
                 if name in detector_scores:
                     score_list.append(detector_scores[name])
                 else:
-                    score_list.append(torch.zeros(batch_size, 1))
+                    # Zero-fill on the input's device/dtype (CUDA-safe).
+                    score_list.append(
+                        torch.zeros(batch_size, 1, device=reference.device, dtype=reference.dtype)
+                    )
 
             scores_tensor = torch.cat(score_list, dim=1)
             weights = F.softmax(self.late_fusion_weights, dim=0)
@@ -762,18 +819,34 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             late_output = self.late_fusion_forward(detector_scores)
 
             projected_features = []
-            batch_size = next(iter(detector_features.values())).shape[0]
+            reference = next(iter(detector_features.values()))
+            batch_size = reference.shape[0]
 
             for name in self.detector_names:
                 if name in detector_features:
                     proj = self.feature_projectors[name](detector_features[name])
                     projected_features.append(proj)
                 else:
-                    projected_features.append(torch.zeros(batch_size, self.hidden_dim))
+                    # Zero-fill on the input's device/dtype (CUDA-safe).
+                    projected_features.append(
+                        torch.zeros(
+                            batch_size,
+                            self.hidden_dim,
+                            device=reference.device,
+                            dtype=reference.dtype,
+                        )
+                    )
 
             stacked_features = torch.stack(projected_features, dim=1)
+            pool_mask = None
+            if self.masked_mean_pooling:
+                pool_mask = torch.tensor(
+                    [1.0 if name in detector_features else 0.0 for name in self.detector_names],
+                    device=reference.device,
+                    dtype=reference.dtype,
+                )
             attended_features, attn_weights = self.attention(
-                stacked_features, return_attention=True
+                stacked_features, return_attention=True, pool_mask=pool_mask
             )
 
             attention_dict = {
