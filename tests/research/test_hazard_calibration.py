@@ -74,8 +74,10 @@ def test_halves_that_disagree_are_near_and_neither_held_nor_short() -> None:
     assert measure.verdict(told(0.729, 0.720)) == "fell short"
 
 
-_COUNT = ("none", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
-_COUNT += ("eleven", "twelve", "thirteen")
+_COUNT: tuple[str, ...] = (
+    *("none", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"),
+    *("eleven", "twelve", "thirteen"),
+)
 
 
 def test_the_changelog_gives_the_same_account() -> None:

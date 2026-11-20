@@ -94,7 +94,12 @@ MEASURED: dict[str, tuple[float, float, float]] = {
     "math_arrest": (0.749, 33.7, 0.017),
     "page_hinkley": (0.534, 26.6, 0.008),
     "particle_filter": (0.582, 39.6, 0.017),
-    "spectral_residual": (0.489, 45.3, 0.010),
+    # Was (0.489, 45.3, 0.010) on a centred local average, where half of each
+    # point's baseline was its own saliency. On the paper's trailing baseline
+    # and relative score the cut alarms on 0.021 of normal points -- the 0.02
+    # its 0.98 calibration quantile sets (0.009 to 0.034 by file) -- and NAB's
+    # standard profile scores the extra alarms lower. Ranking stays at chance.
+    "spectral_residual": (0.509, 42.4, 0.021),
     "spiking": (0.583, -318.7, 0.142),
     "spot_evt": (0.503, 19.5, 0.003),
     "sprt": (0.494, 30.2, 0.005),
