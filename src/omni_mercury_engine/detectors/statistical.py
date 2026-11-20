@@ -610,10 +610,15 @@ class MercuryAnomalyDetector(BaseDetector):
                     and ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled") != "disabled"
                 )
 
-                if should_init:
+                if should_init and arr.shape[0] >= self._ORACLE_MIN_ROWS:
                     oracle_cfg = {"domain": oracle_domain}
                     self._oracle_detector = SpectralDomainFrequency(oracle_cfg)
-                    self._oracle_detector.fit(arr)
+                    # Axis 0 is time on TEMPORAL data, so each COLUMN is one
+                    # time-domain signal. The former ``fit(arr)`` handed the
+                    # Oracle rows -- one time step across features -- which
+                    # made every "signal" d samples long and the spectral
+                    # references meaningless.
+                    self._oracle_detector.fit(np.ascontiguousarray(arr.T))
                     logger.info("Oracle fitted: domain=%s", oracle_domain)
             except Exception as exc:
                 logger.debug("Oracle init skipped: %s", exc)
@@ -631,6 +636,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # --- Ensemble diversity metrics (Task 6) ---
         self._ensemble_diversity = self._compute_ensemble_diversity(arr)
+        self._apply_diversity_penalty(self._ensemble_diversity)
         if self._ensemble_diversity["mean_correlation"] > 0.9:
             logger.warning(
                 "fit: high mean component correlation (%.3f) — ensemble diversity is low",
@@ -727,7 +733,18 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
 
         # --- Operating-point reference distribution (last: weights final) ---
-        self._fit_reference_distribution(arr)
+        # The reference answers "what does NORMAL data score like", so when
+        # calibration labels are available the labelled anomalies are excluded:
+        # leaving them in inflates the upper quantile and lifts the conformal
+        # cut above its nominal level.
+        reference_rows = arr
+        if calibration_labels is not None:
+            ref_labels = np.asarray(calibration_labels).ravel()
+            if len(ref_labels) == len(arr):
+                normal_rows = arr[ref_labels == 0]
+                if len(normal_rows) >= 8:
+                    reference_rows = normal_rows
+        self._fit_reference_distribution(reference_rows)
 
         return self
 
@@ -807,6 +824,16 @@ class MercuryAnomalyDetector(BaseDetector):
                 self._adaptive_weights[_i],
                 _direction,
             )
+
+        # Re-anchor the operating-point reference under the SERVED weights.
+        # ``self.fit(data)`` above stored the reference under the unsupervised
+        # weights; the supervised weights replace them just before this point,
+        # so conformal p-values, FDR flags and ``batch_anomaly`` would
+        # otherwise be computed against a stale score function (measured up to
+        # 0.287 score-units apart). Normal rows only: the reference describes
+        # what normal data scores like.
+        normal_rows = arr[labels == 0]
+        self._fit_reference_distribution(normal_rows if len(normal_rows) >= 8 else arr)
 
         # Generate ensemble scores for the training data
         detection = self.detect(arr)
@@ -2035,7 +2062,27 @@ class MercuryAnomalyDetector(BaseDetector):
                 "kinematic_infogeo": ki,
                 "mean_correlation": mean_corr,
             }
+            return diversity
 
+        except Exception as exc:
+            logger.debug("Ensemble diversity computation failed: %s", exc)
+            return {
+                "resonance_kinematic": 0.0,
+                "resonance_infogeo": 0.0,
+                "kinematic_infogeo": 0.0,
+                "mean_correlation": 0.0,
+            }
+
+    def _apply_diversity_penalty(self, diversity: dict[str, float]) -> None:
+        """Halve the lower-AUC component's weight for each redundant pair.
+
+        Explicit fit step, split out of :meth:`_compute_ensemble_diversity`
+        so measuring diversity has no side effect on the served weights.
+        """
+        try:
+            rk = diversity["resonance_kinematic"]
+            ri = diversity["resonance_infogeo"]
+            ki = diversity["kinematic_infogeo"]
             # Apply redundancy penalty to adaptive weights if they exist
             if hasattr(self, "_adaptive_weights") and hasattr(self, "_component_aucs"):
                 aucs = self._component_aucs
@@ -2065,16 +2112,8 @@ class MercuryAnomalyDetector(BaseDetector):
                     if wsum > 0:
                         self._adaptive_weights = self._adaptive_weights / wsum
 
-            return diversity
-
         except Exception as exc:
-            logger.debug("Ensemble diversity computation failed: %s", exc)
-            return {
-                "resonance_kinematic": 0.0,
-                "resonance_infogeo": 0.0,
-                "kinematic_infogeo": 0.0,
-                "mean_correlation": 0.0,
-            }
+            logger.debug("Diversity penalty skipped: %s", exc)
 
     # =====================================================================
     # Per-component validation and diagnostics (Task 4)
@@ -2709,8 +2748,17 @@ class MercuryAnomalyDetector(BaseDetector):
         # below) is the sound mechanism and remains.
 
         # --- Oracle spectral influence ---
+        # --- Oracle spectral metadata (severity context, not a score factor) ---
+        # The Oracle analyses each FEATURE's time series (axis 0 is time on
+        # TEMPORAL data), so it is handed columns, not rows. Its influence
+        # multiplier is reported as metadata only: multiplying the decision
+        # scores by a batch-level factor shifts the operating point per batch
+        # (the same unsoundness as the withdrawn batch-median flip above), and
+        # with the [0, 1] clip below it saturated the top-ranked scores into
+        # ties on exactly the batches that looked anomalous. Consumers that
+        # want spectral severity read ``oracle_metadata``.
         oracle_meta: dict[str, Any] = {"active": False}
-        if self._oracle_detector is not None:
+        if self._oracle_detector is not None and data.shape[0] >= self._ORACLE_MIN_ROWS:
             try:
                 # Dynamic Oracle sensitivity (F1 Precision Directive, Phase 9):
                 # High initial severity → look harder for spectral confirmation
@@ -2719,16 +2767,28 @@ class MercuryAnomalyDetector(BaseDetector):
                 severity_factor = float(np.clip(severity_factor, 0.5, 3.0))
                 self._oracle_detector._dynamic_alpha_factor = severity_factor
 
-                oracle_result = self._oracle_detector.detect(data)
-                # Extract influence multiplier from the influence_vector object
-                # (Oracle returns per-signal analysis, not per-sample)
-                iv = oracle_result.get("influence_vector")
-                if iv is not None and hasattr(iv, "influence_multiplier"):
-                    scalar = float(iv.influence_multiplier)
-                    multiplier = np.full(len(data), scalar)
+                oracle_result = self._oracle_detector.detect(np.ascontiguousarray(data.T))
+                per_signal = oracle_result.get("per_sample_results") or [oracle_result]
+                multipliers = [
+                    float(r["influence_vector"].influence_multiplier)
+                    for r in per_signal
+                    if r.get("influence_vector") is not None
+                    and hasattr(r["influence_vector"], "influence_multiplier")
+                ]
+                # Geometric mean: the per-signal factors are multiplicative.
+                if multipliers:
+                    arr_m = np.asarray(multipliers, dtype=np.float64)
+                    arr_m = arr_m[arr_m > 0.0]
+                    scalar = float(np.exp(np.mean(np.log(arr_m)))) if arr_m.size else 1.0
                 else:
-                    multiplier = np.ones(len(data))
-                combined_scores = combined_scores * multiplier
+                    scalar = 1.0
+                significant: list[str] = []
+                for r in per_signal:
+                    significant.extend(
+                        b.band_label
+                        for b in r.get("band_results", [])
+                        if getattr(b, "is_significant", False)
+                    )
                 oracle_meta = {
                     "active": True,
                     "domain": getattr(
@@ -2736,13 +2796,9 @@ class MercuryAnomalyDetector(BaseDetector):
                         "domain",
                         "unknown",
                     ),
-                    "mean_multiplier": float(np.mean(multiplier)),
-                    "significant_bands": [
-                        b.band_label
-                        for b in oracle_result.get("band_results", [])
-                        if getattr(b, "is_significant", False)
-                    ],
-                    "change_points": oracle_result.get("n_change_points", 0),
+                    "mean_multiplier": scalar,
+                    "significant_bands": sorted(set(significant)),
+                    "change_points": sum(int(r.get("n_change_points", 0) or 0) for r in per_signal),
                 }
             except Exception as exc:
                 logger.debug("Oracle detect failed: %s", exc)
@@ -3380,6 +3436,10 @@ class MercuryAnomalyDetector(BaseDetector):
     #: (16 KiB) bound the detector state while keeping the conformal quantile
     #: resolution far finer than any alpha this detector is configured with.
     _REFERENCE_MAX_SCORES: int = 2048
+
+    #: Minimum rows for the spectral Oracle: below this a column is too short
+    #: a signal for band statistics to mean anything, and the Oracle stays off.
+    _ORACLE_MIN_ROWS: int = 32
 
     def _fit_reference_distribution(self, arr: np.ndarray[Any, Any]) -> None:
         """Score the training data with the serving pipeline and keep the sorted scores.
