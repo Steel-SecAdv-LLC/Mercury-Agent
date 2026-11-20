@@ -70,6 +70,7 @@ class StreamingDetector:
         min_samples: int = 50,
         detector_config: dict[str, Any] | None = None,
         on_anomaly: Callable[[dict[str, Any]], None] | None = None,
+        score_window: int = 256,
     ) -> None:
         """Initialize the streaming detector.
 
@@ -79,8 +80,14 @@ class StreamingDetector:
             min_samples: Minimum samples needed before detection starts.
             detector_config: Configuration dict for MercuryAnomalyDetector.
             on_anomaly: Optional callback when anomaly detected.
+            score_window: How many of the most recent observations the newest
+                point is scored against (its dynamics need recent history, not
+                the whole fit window; bounding it keeps the per-point cost flat).
         """
+        if score_window < 2:
+            raise ValueError("score_window must be at least 2")
         self.window_size = window_size
+        self.score_window = score_window
         self.refit_interval = refit_interval
         self.min_samples = min_samples
         self.on_anomaly = on_anomaly
@@ -100,6 +107,12 @@ class StreamingDetector:
         #: what tells an outage from a cold start.
         self.last_status: str = "warmup"
         self.last_error: str | None = None
+        #: The most recent refit failure and how many refits have failed in a
+        #: row. A successful DETECT does not clear these: a detector whose
+        #: refits keep failing goes on serving an ever-staler fit, and that
+        #: must stay visible while it answers "ok".
+        self.last_refit_error: str | None = None
+        self.refit_failures: int = 0
         self._refit_retry_at: int = 0
 
         # Performance tracking
@@ -140,14 +153,40 @@ class StreamingDetector:
             self._is_fitted = True
             self._points_since_refit = 0
             self._last_refit_time = time.monotonic()
+            self.last_refit_error, self.refit_failures = None, 0
             logger.debug("StreamingDetector refit on %d samples.", len(self._window))
         except Exception as exc:
             self.last_error = f"{type(exc).__name__}: {exc}"
+            self.last_refit_error = self.last_error
+            self.refit_failures += 1
             if self._is_fitted:
                 self._points_since_refit = 0
             else:
                 self._refit_retry_at = self._total_points + max(1, self.min_samples // 10)
             logger.warning("StreamingDetector refit failed: %s", exc)
+
+    @classmethod
+    def _newest_point_view(cls, result: dict[str, Any], n_rows: int) -> dict[str, Any]:
+        """Cut every per-row entry of a window-level result down to its newest row.
+
+        Arrays and lists whose leading dimension is the window length keep
+        their type and rank but hold only the last row; nested dicts are
+        treated the same way. ``batch_anomaly`` is re-derived for the one row.
+        """
+        view: dict[str, Any] = {}
+        for key, value in result.items():
+            per_row = (
+                isinstance(value, np.ndarray) and value.ndim >= 1 and value.shape[0] == n_rows
+            ) or (isinstance(value, list) and len(value) == n_rows)
+            if per_row:
+                view[key] = value[-1:]
+            elif isinstance(value, dict):
+                view[key] = cls._newest_point_view(value, n_rows)
+            else:
+                view[key] = value
+        if "batch_anomaly" in view and "fdr_flags" in view:
+            view["batch_anomaly"] = bool(np.asarray(view["fdr_flags"]).any())
+        return view
 
     def ingest(self, point: np.ndarray[Any, Any] | list[float] | float) -> dict[str, Any] | None:
         """Ingest a single data point and optionally return detection results.
@@ -182,16 +221,15 @@ class StreamingDetector:
             return None
 
         try:
-            # Score the newest point as the last element of its TRAILING
-            # WINDOW, not alone. A lone point has no dynamics, so the kinematic
-            # component falls back to its ``n < 2`` constant of 0.5 -- about a
-            # third of every score carried no information. Detecting over the
-            # rolling window gives the newest sample (reported at ``[-1]``) real
-            # velocity/acceleration/jerk against its own recent history. The
-            # per-point arrays align with the window, so callers read the newest
-            # verdict at ``result["scores"][-1]`` / ``result["is_anomaly"][-1]``.
-            window = self.window_data
-            result = self._detector.detect(window)
+            # Score the newest point against its TRAILING WINDOW, not alone: a
+            # lone row has no dynamics, so the kinematic component falls back
+            # to its ``n < 2`` constant of 0.5 and a third of the score carries
+            # nothing. The RESULT, though, is the newest point's: every
+            # per-point array is cut to that one row, as it always was, so a
+            # caller summing ``is_anomaly`` or testing ``np.any`` counts this
+            # point and not the window it was scored in.
+            tail = np.array(list(self._window)[-self.score_window :])
+            result = self._newest_point_view(self._detector.detect(tail), len(tail))
 
             elapsed = time.monotonic() - start
             self._latencies.append(elapsed)
@@ -201,6 +239,7 @@ class StreamingDetector:
                 "total_points_ingested": self._total_points,
                 "window_size": len(self._window),
                 "points_since_refit": self._points_since_refit,
+                "scored_against": len(tail),
                 "latency_ms": elapsed * 1000,
                 "mean_latency_ms": self.mean_latency_ms,
             }
@@ -324,6 +363,7 @@ class StreamingDetector:
         self._is_fitted = False
         self._latencies.clear()
         self.last_status, self.last_error = "warmup", None
+        self.last_refit_error, self.refit_failures = None, 0
         self._refit_retry_at = 0
         _cls = _get_detector_class()
         self._detector = _cls(
@@ -346,4 +386,6 @@ class StreamingDetector:
             "is_ready": self.is_ready,
             "last_status": self.last_status,
             "last_error": self.last_error,
+            "last_refit_error": self.last_refit_error,
+            "refit_failures": self.refit_failures,
         }

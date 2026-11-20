@@ -181,6 +181,11 @@ class TsunamiLoader(BaseDomainLoader):
     # Cache historical event data for 24 hours (events are static).
     CACHE_TTL: int = 86400
 
+    # A live read is not static: a buoy can enter event mode between two
+    # calls. It is cached only long enough to spare the DART stations a burst
+    # of repeat requests, never for the historical TTL above.
+    REALTIME_CACHE_TTL: int = 300
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------
@@ -206,7 +211,7 @@ class TsunamiLoader(BaseDomainLoader):
                 exhausting retries.
         """
         cache_key = "tsunami_realtime"
-        cached = self._read_frame_cache(cache_key)
+        cached = self._read_frame_cache(cache_key, max_age=self.REALTIME_CACHE_TTL)
         if cached is not None:
             logger.debug("tsunami: returning cached real-time data.")
             return cached
@@ -236,9 +241,9 @@ class TsunamiLoader(BaseDomainLoader):
             )
 
         combined = pd.concat(frames, ignore_index=True)
-        # Cache like the other loaders, so a repeat call inside the TTL does
-        # not re-hit every DART station (and so an offline follow-up call has
-        # a frame to serve).
+        # Cached for REALTIME_CACHE_TTL only, so a burst of calls does not
+        # re-hit every DART station. A later offline call finds it expired and
+        # fails closed rather than being served an old "live" reading.
         self._write_frame_cache(cache_key, combined)
         logger.info(
             "tsunami: fetched real-time data — %d rows from %d stations",

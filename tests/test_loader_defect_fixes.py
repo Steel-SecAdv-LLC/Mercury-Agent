@@ -151,17 +151,19 @@ class TestH1StableSortAlignment:
         raw = raw.sort_values("date").reset_index(drop=True)
 
         loader = PandemicLoader(cache_dir=tmp_path / "pand", max_retries=0)
-        # The engineered matrix must have one row per input row (no drops), and
-        # the loader's internal stable re-sort must keep the cached label
-        # order on the tied dates.
         features = loader.engineer_features(raw)
         assert features.shape[0] == len(raw)
 
-        label_order = raw["location"].tolist()
-        engineered = raw.copy()
-        engineered["date"] = pd.to_datetime(engineered["date"], errors="coerce")
-        engineered = engineered.sort_values("date", kind="stable").reset_index(drop=True)
-        assert engineered["location"].tolist() == label_order
+        # The same rows with the ties broken by a per-row time offset: no sort
+        # can reorder these, so their features are the row-aligned reference.
+        # ``engineer_features`` must return the identical matrix for the tied
+        # frame; an unstable re-sort permutes the tied rows and its rolling
+        # features then differ. (This test used to assert on a frame it had
+        # stable-sorted itself, which passed whatever the loader did.)
+        untied = raw.copy()
+        untied["date"] = untied["date"] + pd.to_timedelta(untied.groupby("date").cumcount(), "s")
+        reference = loader.engineer_features(untied)
+        np.testing.assert_allclose(features, reference, rtol=0, atol=1e-9)
 
 
 # ======================================================================
@@ -1243,3 +1245,57 @@ class TestCacheSchemaBump:
             pytest.raises(DataSourceUnavailableError),
         ):
             loader.fetch_historical("kilauea_2018")
+
+
+class TestFinancialGapImputation:
+    """Gaps are filled from the past; only a leading gap takes the nearest later value."""
+
+    def test_a_gap_takes_the_last_value_before_it_not_a_later_statistic(self) -> None:
+        from omni_mercury_engine.loaders.financial_loader import FinancialLoader
+
+        column = np.array([np.nan, np.nan, 1.0, np.nan, 100.0, np.inf, 100.0, 100.0])
+        filled = FinancialLoader._impute_gaps(column.reshape(-1, 1))[:, 0]
+        # The whole-window median (100.0) is what the leading rows used to get.
+        np.testing.assert_array_equal(filled, [1.0, 1.0, 1.0, 1.0, 100.0, 100.0, 100.0, 100.0])
+
+    def test_complete_and_empty_columns(self) -> None:
+        from omni_mercury_engine.loaders.financial_loader import FinancialLoader
+
+        features = np.column_stack([np.arange(4.0), np.full(4, np.nan)])
+        filled = FinancialLoader._impute_gaps(features)
+        np.testing.assert_array_equal(filled[:, 0], np.arange(4.0))
+        np.testing.assert_array_equal(filled[:, 1], np.zeros(4))
+        assert np.isnan(features[:, 1]).all(), "the caller's array must not be modified"
+
+
+class TestRealtimeReadIsNotCachedLikeHistory:
+    def test_tsunami_realtime_entry_expires_on_the_realtime_ttl(self, tmp_path: Path) -> None:
+        """A live DART read older than a few minutes is fetched again.
+
+        It was cached under the 24-hour historical TTL, so a buoy entering
+        event mode after the first call of the day stayed invisible.
+        """
+        import json
+        import time as _time
+
+        from omni_mercury_engine.loaders.tsunami_loader import TsunamiLoader
+
+        loader = TsunamiLoader(cache_dir=tmp_path / "tsu", max_retries=0)
+        assert loader.REALTIME_CACHE_TTL < 3600 < loader.CACHE_TTL
+        frame = pd.DataFrame({"station_id": ["21413"], "water_height": [5000.0]})
+        loader._write_frame_cache("tsunami_realtime", frame)
+        assert (
+            loader._read_frame_cache("tsunami_realtime", max_age=loader.REALTIME_CACHE_TTL)
+            is not None
+        )
+
+        path = loader._get_cache_path("tsunami_realtime")
+        payload = json.loads(path.read_text())
+        payload["timestamp"] = _time.time() - (loader.REALTIME_CACHE_TTL + 60)
+        path.write_text(json.dumps(payload))
+
+        # Stale for a live read, though still inside the historical TTL.
+        assert (
+            loader._read_frame_cache("tsunami_realtime", max_age=loader.REALTIME_CACHE_TTL) is None
+        )
+        assert loader._read_frame_cache("tsunami_realtime") is not None

@@ -155,3 +155,81 @@ class TestFailedRefitIsNotRetriedEveryTick:
         assert sd.last_status == "refit_failed"
         # 40 eligible ticks; one attempt per tick before, a backoff of 2 now.
         assert attempts <= 22, f"{attempts} cold refit attempts over 40 eligible points"
+
+
+class TestResultIsTheNewestPoint:
+    """``ingest`` reports the point it was given, whatever it was scored against."""
+
+    @staticmethod
+    def _stream(n: int = 400, spike_at: int = 300) -> np.ndarray:
+        rng = np.random.default_rng(5)
+        values = np.cumsum(rng.normal(0.0, 0.1, size=n))
+        values[spike_at] += 25.0
+        return values
+
+    def test_every_per_point_array_has_one_row(self) -> None:
+        sd = StreamingDetector(window_size=1000, refit_interval=50, min_samples=50)
+        result = None
+        for value in self._stream()[:200]:
+            result = sd.ingest(float(value))
+        assert result is not None
+        for key in ("scores", "is_anomaly", "kinematic_scores", "p_values", "fdr_flags"):
+            assert np.asarray(result[key]).shape[0] == 1, key
+        assert np.asarray(result["z_scores"]).shape == (1, 1)
+        assert result["streaming_metadata"]["scored_against"] <= sd.score_window
+
+    def test_one_spike_is_not_counted_once_per_window_position(self) -> None:
+        """Summing ``is_anomaly`` over a stream counts flagged POINTS.
+
+        When ``ingest`` returned the whole scoring window, a consumer doing
+        exactly this reported 2,912 "anomalies" for one spike in 400 points.
+        """
+        sd = StreamingDetector(window_size=1000, refit_interval=50, min_samples=50)
+        flagged = 0
+        answered = 0
+        for value in self._stream():
+            result = sd.ingest(float(value))
+            if result is not None:
+                answered += 1
+                flagged += int(np.asarray(result["is_anomaly"], dtype=bool).sum())
+        assert flagged <= answered
+        assert flagged < 0.25 * answered, f"{flagged} of {answered} points flagged for one spike"
+
+    def test_the_scoring_window_is_bounded(self) -> None:
+        seen: list[int] = []
+        sd = StreamingDetector(
+            window_size=1000, refit_interval=100, min_samples=50, score_window=64
+        )
+        original = sd._detector.detect
+
+        def recording_detect(data: Any, *args: Any, **kwargs: Any) -> Any:
+            seen.append(len(data))
+            return original(data, *args, **kwargs)
+
+        sd._detector.detect = recording_detect  # type: ignore[method-assign]
+        rng = np.random.default_rng(6)
+        for _ in range(300):
+            sd.ingest(float(rng.normal()))
+        assert seen and max(seen) == 64
+
+
+class TestStaleFitStaysVisible:
+    def test_refit_failures_are_not_cleared_by_a_successful_detect(self) -> None:
+        sd = StreamingDetector(window_size=200, refit_interval=10, min_samples=20)
+        rng = np.random.default_rng(7)
+        for _ in range(30):
+            sd.ingest(rng.normal(size=2).tolist())
+        assert sd.refit_failures == 0
+
+        def failing_fit(*_args: Any, **_kwargs: Any) -> Any:
+            raise ValueError("degenerate window")
+
+        sd._detector.fit = failing_fit  # type: ignore[method-assign]
+        for _ in range(40):
+            assert sd.ingest(rng.normal(size=2).tolist()) is not None
+
+        stats = sd.get_stats()
+        assert stats["last_status"] == "ok"  # it still answers...
+        assert stats["refit_failures"] >= 3  # ...on a fit that has not been renewed
+        assert stats["last_refit_error"] is not None
+        assert "degenerate window" in stats["last_refit_error"]

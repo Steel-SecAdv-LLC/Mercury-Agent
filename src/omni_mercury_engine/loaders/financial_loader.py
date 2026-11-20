@@ -429,15 +429,33 @@ class FinancialLoader(BaseDomainLoader):
             ]
         )
 
-        # Clean up non-finite values
-        features = np.where(np.isinf(features), np.nan, features)
+        return self._impute_gaps(features)
+
+    @staticmethod
+    def _impute_gaps(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Fill non-finite cells without reaching further into the future than needed.
+
+        A gap takes the last value observed BEFORE it. Only a gap at the very
+        start of a column has no past to draw on; it takes the first observed
+        value, the nearest reading in time. That value is later than the rows
+        it fills -- rows cannot be dropped here without breaking alignment
+        with the labels -- so it is the smallest look-ahead available, and it
+        is stated rather than hidden: the whole-window median this replaced
+        drew on every later observation in the event. A column with no finite
+        value at all becomes 0.0.
+        """
+        features = np.where(np.isinf(features), np.nan, features).astype(float, copy=True)
         for col_idx in range(features.shape[1]):
             col = features[:, col_idx]
-            mask = np.isnan(col)
-            if mask.any():
-                median_val = np.nanmedian(col)
-                col[mask] = median_val if np.isfinite(median_val) else 0.0
-
+            finite = np.flatnonzero(np.isfinite(col))
+            if finite.size == col.size:
+                continue
+            if finite.size == 0:
+                col[:] = 0.0
+                continue
+            # Index of the most recent finite value at or before each row.
+            last_seen = np.maximum.accumulate(np.where(np.isfinite(col), np.arange(col.size), -1))
+            col[:] = np.where(last_seen >= 0, col[np.maximum(last_seen, 0)], col[finite[0]])
         return features
 
     # ------------------------------------------------------------------
@@ -629,8 +647,9 @@ class FinancialLoader(BaseDomainLoader):
         # Fill staggered publication gaps FORWARD only. Back-filling (the old
         # ``.bfill()``) copied later observations backward over the start of
         # the window, leaking future values into the leading rows. Leading
-        # rows with no prior observation are left NaN here and imputed from
-        # past/overall statistics downstream, never from a future date.
+        # rows with no prior observation are left NaN here; ``_impute_gaps``
+        # gives them the first observed value, the smallest look-ahead that
+        # keeps the rows aligned with their labels.
         merged[value_cols] = merged[value_cols].ffill()
 
         # Overnight funding rate: SOFR (``funding_rate``) only begins in April

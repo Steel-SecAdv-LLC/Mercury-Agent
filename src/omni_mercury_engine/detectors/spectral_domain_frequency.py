@@ -494,7 +494,7 @@ class SpectralDomainFrequency(BaseDetector):
         if win_len < 1:
             # Empty signal: nothing to transform.
             return np.zeros((0, 0)), np.zeros(0)
-        hann = np.hanning(win_len)
+        hann = self._analysis_window(win_len)
 
         # Pre-compute frequency axis ONCE (invariant across windows)
         freqs_full = fftfreq(win_len, d=1.0 / self._oracle_config.sample_rate)
@@ -520,6 +520,23 @@ class SpectralDomainFrequency(BaseDetector):
     # ------------------------------------------------------------------
     # Parseval validation
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _analysis_window(win_len: int) -> np.ndarray[Any, Any]:
+        """Periodic (DFT-even) Hann window of ``win_len`` samples.
+
+        ``np.hanning(N)`` is the symmetric form, whose first AND last samples
+        are exactly zero -- so the newest sample of every frame, the one a
+        streaming caller is asking about, contributed nothing to the spectrum
+        (adding 1e6 to it changed the magnitude matrix by exactly 0.0). The
+        periodic form is zero only at the first sample and is the correct
+        window for spectral analysis. A taper still de-emphasises a frame's
+        edges (about 1.5e-4 of full weight at the last of 256 samples): the
+        spectrum describes the frame, not its final point.
+        """
+        if win_len < 2:
+            return np.ones(win_len)
+        return np.hanning(win_len + 1)[:-1]
 
     @staticmethod
     def _frame_starts(n: int, win_len: int) -> list[int]:
@@ -581,7 +598,7 @@ class SpectralDomainFrequency(BaseDetector):
         starts = self._frame_starts(n, win_len)
         if len(starts) != freq_matrix.shape[0]:
             return float("nan")
-        hann = np.hanning(win_len)
+        hann = self._analysis_window(win_len)
         frames = np.stack([signal[start : start + win_len] for start in starts]) * hann
         time_energy = float(np.sum(frames**2)) / win_len
         if time_energy < EPSILON:

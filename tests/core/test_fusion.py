@@ -221,6 +221,29 @@ class TestFusionNetworkForwardPass:
         # late_fusion_weights source returned the identical uniform 1/n here.
         assert importance_a != importance_b
 
+    def test_absent_detector_groups_get_no_importance(self) -> None:
+        """A group that supplied no features is a placeholder token, not a detector.
+
+        The attention map still assigns placeholders mass -- on an untrained
+        model with 3 of 13 groups present the 10 absent ones held 0.77 of the
+        total -- and the importance report passed that on.
+        """
+        torch.manual_seed(0)
+        dims = {f"detector{i}": 16 for i in range(8)}
+        network = OmniFusionModel(feature_dims=dims, hidden_dim=64)
+        network.eval()
+        present = {name: torch.randn(4, 16) for name in ("detector1", "detector4", "detector6")}
+
+        importance = network.get_detector_importance(present)
+
+        assert set(importance) == set(dims)
+        for name, value in importance.items():
+            if name in present:
+                assert value > 0.0, name
+            else:
+                assert value == 0.0, f"{name} supplied nothing but was credited {value}"
+        assert abs(sum(importance.values()) - 1.0) < 1e-5
+
     def test_detector_importance_matches_single_forward_attention(self) -> None:
         """importance_from_attention on a forward's own attention dict equals
         get_detector_importance, so callers need no second forward pass."""

@@ -955,6 +955,17 @@ class OmniFusionModel(nn.Module):
         attn = attention_weights["attention_weights"]
         with torch.no_grad():
             per_token = attn.mean(dim=(0, 1))  # attention received by each group token
+            # A group that supplied no features is a zero placeholder token. The
+            # attention map still assigns it mass (on an untrained model with 3
+            # of 13 groups present the 10 absent ones held 0.77 of the total),
+            # but a detector that was not there has no importance: it gets 0.0
+            # and the present groups are renormalised.
+            present = attention_weights.get("present_groups")
+            if present is not None:
+                per_token = per_token * present.to(per_token)
+                total = per_token.sum()
+                if float(total) > 0.0:
+                    per_token = per_token / total
         names = getattr(self.fusion_layer, "detector_names", list(self.feature_dims.keys()))
         return {name: float(per_token[i]) for i, name in enumerate(names)}
 

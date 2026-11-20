@@ -104,6 +104,9 @@ _WEIGHT_MARGIN_POWER: float = 4.0
 # of the feature-pair / row samples the coherence is measured on.
 _IMAGE_MIN_SIDE: int = 8
 _IMAGE_NEIGHBOUR_COHERENCE: float = 0.5
+# How much more a pixel must cohere with the pixel one raster row down than
+# with the pixel half a row away (the signature a 1-D waveform cannot show).
+_IMAGE_ROW_STRIDE_MARGIN: float = 0.1
 _IMAGE_COHERENCE_PAIRS: int = 96
 _IMAGE_MIN_PAIRS: int = 8
 _IMAGE_COHERENCE_ROWS: int = 512
@@ -434,6 +437,9 @@ class MercuryAnomalyDetector(BaseDetector):
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
         self._oracle_metadata: dict[str, Any] = {"active": False}
+        #: Length of the reference segments the Oracle was fitted on (``None``
+        #: for an Oracle restored from statistics that predate segmenting).
+        self._oracle_segment_len: int | None = None
 
         # kNN density stream (default-on; ``knn_stream=False`` restores the
         # three-component ensemble exactly). Fused after the weighted sum,
@@ -585,7 +591,7 @@ class MercuryAnomalyDetector(BaseDetector):
         # real block autocorrelation and is statistically a piecewise-stationary
         # series, so no test on the data alone separates it from a noisy
         # stream (see ``_detect_data_characteristics``).
-        declared = str(self.config.get("data_type", "auto")).lower()
+        declared = str(self.config.get("data_type") or "auto").lower()
         if declared == "auto":
             self._data_type = self._detect_data_characteristics(arr)
             logger.info("fit: detected data type=%s", self._data_type.value)
@@ -624,6 +630,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self._oracle_detector = None
         self._oracle_metadata = {"active": False}
 
+        self._oracle_segment_len = None
         if self._data_type == DataCharacteristics.TEMPORAL:
             try:
                 from omni_mercury_engine.core.config import (
@@ -642,16 +649,37 @@ class MercuryAnomalyDetector(BaseDetector):
                     and ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled") != "disabled"
                 )
 
-                if should_init and arr.shape[0] >= self._ORACLE_MIN_ROWS:
-                    oracle_cfg = {"domain": oracle_domain}
-                    self._oracle_detector = SpectralDomainFrequency(oracle_cfg)
-                    # Axis 0 is time on TEMPORAL data, so each COLUMN is one
-                    # time-domain signal. The former ``fit(arr)`` handed the
-                    # Oracle rows -- one time step across features -- which
-                    # made every "signal" d samples long and the spectral
-                    # references meaningless.
-                    self._oracle_detector.fit(np.ascontiguousarray(arr.T))
-                    logger.info("Oracle fitted: domain=%s", oracle_domain)
+                if should_init:
+                    oracle = SpectralDomainFrequency({"domain": oracle_domain})
+                    segment_len = self._oracle_segment_length(
+                        arr.shape[0], int(oracle._oracle_config.inner_window)
+                    )
+                    if segment_len is not None:
+                        # Axis 0 is time on TEMPORAL data, so a signal is a
+                        # stretch of one COLUMN. (The former ``fit(arr)`` handed
+                        # the Oracle rows -- one time step across features.)
+                        # The reference is this data's own history: every
+                        # column cut into consecutive segments of one length,
+                        # so the per-band spread is "how much does a segment of
+                        # this series vary", which is what a later segment is
+                        # judged against. Fitting whole columns instead made
+                        # the spread a spread across FEATURES -- zero for a
+                        # univariate series, where every band then read as
+                        # significant on clean data.
+                        segments = [
+                            arr[start : start + segment_len, col]
+                            for col in range(arr.shape[1])
+                            for start in range(0, arr.shape[0] - segment_len + 1, segment_len)
+                        ]
+                        oracle.fit(np.ascontiguousarray(np.stack(segments)))
+                        self._oracle_detector = oracle
+                        self._oracle_segment_len = segment_len
+                        logger.info(
+                            "Oracle fitted: domain=%s segments=%d of %d samples",
+                            oracle_domain,
+                            len(segments),
+                            segment_len,
+                        )
             except Exception as exc:
                 logger.debug("Oracle init skipped: %s", exc)
                 self._oracle_detector = None
@@ -838,6 +866,16 @@ class MercuryAnomalyDetector(BaseDetector):
 
         labels = np.asarray(labels, dtype=np.int32).ravel()
 
+        # ``self.fit`` dropped the non-finite rows; everything below (weights,
+        # reference, threshold calibration) must see the same rows, or one NaN
+        # cell reaches the supervised weights and the conformal reference that
+        # ``fit`` kept it out of.
+        finite = np.isfinite(arr).all(axis=1)
+        if not finite.all() and len(labels) == len(arr):
+            arr, labels = arr[finite], labels[finite]
+            if group_ids is not None:
+                group_ids = np.asarray(group_ids).ravel()[finite]
+
         # Compute data-driven component weights before generating scores
         self._adaptive_weights = self._supervised_weights(arr, labels)
 
@@ -977,6 +1015,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 "domain": getattr(oc, "domain", "environmental"),
                 "threshold": getattr(oracle, "threshold", 0.5),
                 "is_fitted": getattr(oracle, "_is_fitted", False),
+                "segment_len": self._oracle_segment_len,
             }
             # Export per-band reference statistics
             if hasattr(oracle, "_ref_band_means") and oracle._ref_band_means:
@@ -1108,6 +1147,7 @@ class MercuryAnomalyDetector(BaseDetector):
         """
         self._oracle_detector = None
         self._oracle_metadata = {"active": False}
+        self._oracle_segment_len = None
         if oracle_ref_stats is None:
             return
         try:
@@ -1147,6 +1187,8 @@ class MercuryAnomalyDetector(BaseDetector):
                 oracle._noise_fit_r2 = float(oracle_ref_stats["noise_fit_r2"])
             oracle._is_fitted = True
             self._oracle_detector = oracle
+            segment_len = oracle_ref_stats.get("segment_len")
+            self._oracle_segment_len = int(segment_len) if segment_len else None
             self._oracle_metadata = {"active": True, "domain": domain}
             logger.info("Oracle restored from federation stats: domain=%s", domain)
         except Exception as exc:
@@ -1795,12 +1837,14 @@ class MercuryAnomalyDetector(BaseDetector):
 
     @staticmethod
     def _neighbour_coherence(sample: np.ndarray[Any, Any], offset: int) -> float | None:
-        """Median ``|corr|`` between feature ``j`` and feature ``j + offset``.
+        """Median correlation (signed) between feature ``j`` and feature ``j + offset``.
 
         Constant features (image borders) carry no correlation and are skipped;
         ``None`` when too few informative pairs remain to say anything.
         """
         n_features = sample.shape[1]
+        if offset < 1 or offset >= n_features:
+            return None
         starts = np.unique(
             np.linspace(0, n_features - offset - 1, _IMAGE_COHERENCE_PAIRS).astype(int)
         )
@@ -1811,15 +1855,19 @@ class MercuryAnomalyDetector(BaseDetector):
         informative = norm > _MIN_VARIANCE
         if int(informative.sum()) < _IMAGE_MIN_PAIRS:
             return None
-        corr = np.abs((left * right).sum(axis=0)[informative] / norm[informative])
+        corr = (left * right).sum(axis=0)[informative] / norm[informative]
         return float(np.median(corr))
 
     def _looks_like_raster(self, X: np.ndarray[Any, Any]) -> bool:
         """Whether the rows are flattened images: a raster layout that coheres in 2-D.
 
-        Horizontal coherence alone also describes a 1-D waveform stored one
-        window per row; requiring the vertical neighbour (one raster row down)
-        to cohere as well is what makes it an image.
+        Three measurements, all on the data: a pixel moves with its horizontal
+        neighbour, with its vertical neighbour (one raster row down), and --
+        what separates an image from a smooth 1-D waveform stored one window
+        per row -- it moves with the pixel one row down MORE than with the
+        pixel half a row away. A waveform's correlation only decays with lag,
+        so it is at least as coherent at half the stride as at the full
+        stride; in a raster the full stride lands back on an adjacent pixel.
         """
         layout = self._raster_layout(X.shape[1])
         if layout is None:
@@ -1833,10 +1881,12 @@ class MercuryAnomalyDetector(BaseDetector):
         for horizontal, vertical in sorted(candidates):
             along = self._neighbour_coherence(sample, horizontal)
             down = self._neighbour_coherence(sample, vertical)
+            half_stride = self._neighbour_coherence(sample, (side // 2) * horizontal)
+            if along is None or down is None or half_stride is None:
+                continue
             if (
-                along is not None
-                and down is not None
-                and min(along, down) >= _IMAGE_NEIGHBOUR_COHERENCE
+                min(along, down) >= _IMAGE_NEIGHBOUR_COHERENCE
+                and down - half_stride >= _IMAGE_ROW_STRIDE_MARGIN
             ):
                 return True
         return False
@@ -2865,7 +2915,10 @@ class MercuryAnomalyDetector(BaseDetector):
         # ties on exactly the batches that looked anomalous. Consumers that
         # want spectral severity read ``oracle_metadata``.
         oracle_meta: dict[str, Any] = {"active": False}
-        if self._oracle_detector is not None and data.shape[0] >= self._ORACLE_MIN_ROWS:
+        segment_len = self._oracle_segment_len or data.shape[0]
+        if self._oracle_detector is not None and data.shape[0] >= max(
+            self._ORACLE_MIN_ROWS, segment_len
+        ):
             try:
                 # Dynamic Oracle sensitivity (F1 Precision Directive, Phase 9):
                 # High initial severity → look harder for spectral confirmation
@@ -2874,7 +2927,11 @@ class MercuryAnomalyDetector(BaseDetector):
                 severity_factor = float(np.clip(severity_factor, 0.5, 3.0))
                 self._oracle_detector._dynamic_alpha_factor = severity_factor
 
-                oracle_result = self._oracle_detector.detect(np.ascontiguousarray(data.T))
+                # The newest segment of each column, the same length the
+                # reference segments had.
+                oracle_result = self._oracle_detector.detect(
+                    np.ascontiguousarray(data[-segment_len:].T)
+                )
                 per_signal = oracle_result.get("per_sample_results") or [oracle_result]
                 multipliers = [
                     float(r["influence_vector"].influence_multiplier)
@@ -3547,6 +3604,20 @@ class MercuryAnomalyDetector(BaseDetector):
     #: Minimum rows for the spectral Oracle: below this a column is too short
     #: a signal for band statistics to mean anything, and the Oracle stays off.
     _ORACLE_MIN_ROWS: int = 32
+
+    #: Fewest reference segments per column the Oracle needs to estimate how
+    #: much one segment's band powers vary.
+    _ORACLE_MIN_SEGMENTS: int = 4
+
+    @classmethod
+    def _oracle_segment_length(cls, n_rows: int, inner_window: int) -> int | None:
+        """Length of the Oracle's reference segments, or ``None`` if the data is too short.
+
+        One analysis window where the data allows it, otherwise the longest
+        segment that still leaves :data:`_ORACLE_MIN_SEGMENTS` per column.
+        """
+        segment_len = min(inner_window, n_rows // cls._ORACLE_MIN_SEGMENTS)
+        return segment_len if segment_len >= cls._ORACLE_MIN_ROWS else None
 
     def _fit_reference_distribution(self, arr: np.ndarray[Any, Any]) -> None:
         """Score the training data with the serving pipeline and keep the sorted scores.

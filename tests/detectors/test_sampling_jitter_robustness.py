@@ -299,6 +299,10 @@ class TestMultiscaleTTA:
         det = MercuryAnomalyDetector({"multiscale_tta": True}).fit(X)
         oracle = _StubOracle()
         det._oracle_detector = oracle
+        # The stub stands in for an Oracle restored without a reference-segment
+        # length, which is handed the whole window (so the dilated passes are
+        # visible to it as different signal lengths).
+        det._oracle_segment_len = None
 
         result = det.detect(X)
 

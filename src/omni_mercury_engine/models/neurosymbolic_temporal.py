@@ -154,10 +154,18 @@ class FuzzyOperators:
         Returns:
             Aggregated truth value in ``[0, 1]``.
         """
-        # clamp_min keeps the root's gradient finite when every instance is
-        # fully satisfied (mean of errors == 0).
-        err = torch.mean(torch.pow(1.0 - x, p), dim=dim).clamp_min(1e-12)
-        return 1.0 - torch.pow(err, 1 / p)
+        # The p-norm of the errors, computed relative to the largest error so
+        # the root is never taken of a vanishing number. A fixed floor under
+        # ``mean(err^p)`` (it was 1e-12) is harmless at p=2 but saturates for
+        # larger p: 1e-12 ** (1/10) is 0.063, so at p=10 a fully satisfied
+        # batch read 0.937 with zero gradient. Errors are clamped at 0 first,
+        # so a truth value a rounding step above 1 cannot make a fractional
+        # power of a negative number (NaN at p=1.5).
+        err = (1.0 - x).clamp_min(0.0)
+        tiny = torch.finfo(err.dtype).tiny
+        scale = err.detach().amax(dim=dim, keepdim=True).clamp_min(tiny)
+        relative = torch.mean(torch.pow(err / scale, p), dim=dim).clamp_min(tiny)
+        return 1.0 - scale.squeeze(dim) * torch.pow(relative, 1 / p)
 
     @staticmethod
     def exists_product(x: torch.Tensor, dim: int = -1) -> torch.Tensor:

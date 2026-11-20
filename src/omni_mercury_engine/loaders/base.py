@@ -289,15 +289,21 @@ class BaseDomainLoader(ABC):
             },
         )
 
-    def _read_frame_cache(self, key: str) -> pd.DataFrame | None:
+    def _read_frame_cache(self, key: str, max_age: float | None = None) -> pd.DataFrame | None:
         """The cached frame with its provenance and datetime columns restored, or ``None``.
 
         A payload in the pre-provenance shape (a bare column dict) is treated
         as absent so it is fetched again and re-cached with its mark: its
         provenance is unknown, and an unknown frame must not be scored as a
         real one.
+
+        Args:
+            key: Cache key.
+            max_age: Seconds after which this entry is stale, when shorter than
+                :attr:`CACHE_TTL` (a live read must not be served for as long
+                as a static historical event).
         """
-        cached = self._read_cache(key)
+        cached = self._read_cache(key, max_age=max_age)
         if not isinstance(cached, dict) or "frame" not in cached:
             return None
         frame = pd.DataFrame(cached["frame"])
@@ -780,11 +786,13 @@ class BaseDomainLoader(ABC):
         hashed = hashlib.sha256(key.encode()).hexdigest()[:16]
         return self.cache_dir / f"{hashed}.json"
 
-    def _read_cache(self, key: str) -> Any | None:
+    def _read_cache(self, key: str, max_age: float | None = None) -> Any | None:
         """Read data from cache if valid (not expired).
 
         Args:
             key: Cache key.
+            max_age: Seconds after which this entry is stale, when shorter than
+                :attr:`CACHE_TTL`.
 
         Returns:
             Cached data or None if expired/missing.
@@ -792,10 +800,11 @@ class BaseDomainLoader(ABC):
         path = self._get_cache_path(key)
         if not path.exists():
             return None
+        ttl = self.CACHE_TTL if max_age is None else min(self.CACHE_TTL, max_age)
         try:
             with open(path) as f:
                 cached = json.load(f)
-            if time.time() - cached.get("timestamp", 0) > self.CACHE_TTL:
+            if time.time() - cached.get("timestamp", 0) > ttl:
                 return None
             return cached.get("data")
         except (json.JSONDecodeError, KeyError, OSError):

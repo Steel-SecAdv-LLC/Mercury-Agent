@@ -49,15 +49,39 @@ def fitted() -> MercuryAnomalyDetector:
 
 
 class TestOracleAxis:
-    def test_oracle_is_fitted_on_columns_not_rows(self, fitted: MercuryAnomalyDetector) -> None:
-        """Each per-band reference array holds one entry per FEATURE signal."""
+    def test_oracle_is_fitted_on_column_segments_not_rows(
+        self, fitted: MercuryAnomalyDetector
+    ) -> None:
+        """The reference is each feature's own history, cut into equal segments."""
         oracle = fitted._oracle_detector
         assert oracle is not None, "temporal fit should arm the Oracle"
+        segment_len = fitted._oracle_segment_len
+        assert segment_len == 100  # min(inner window 256, 400 rows // 4 segments)
         n_signals = {len(v) for v in oracle._ref_band_powers.values()}
-        assert n_signals == {2}, (
-            f"per-band references describe {n_signals} signals; the fit handed "
-            "the Oracle rows (400 d-sample fragments) instead of the 2 columns"
+        assert n_signals == {8}, (
+            f"per-band references describe {n_signals} signals; expected 2 columns x 4 "
+            "segments (the old fit handed the Oracle 400 row fragments)"
         )
+
+    def test_univariate_series_has_a_real_reference_spread(self) -> None:
+        """One column still yields a spread: across its segments, not across features.
+
+        Fitting whole columns made the per-band spread a spread across FEATURES,
+        which for one feature is zero -- every band stood ~1e8 deviations from
+        its reference and read as significant on clean data.
+        """
+        rng = np.random.default_rng(31)
+        series = np.cumsum(rng.normal(0.0, 1.0, size=1200)).reshape(-1, 1)
+        det = MercuryAnomalyDetector()
+        det.fit(series[:800])
+        oracle = det._oracle_detector
+        assert oracle is not None
+        # A band the series has no energy in is legitimately flat; every band
+        # that carries energy must have a measured spread.
+        energetic = [band for band, mean in oracle._ref_band_means.items() if mean > 1e-9]
+        assert len(energetic) >= 3
+        spreads = {band: oracle._ref_band_stds[band] for band in energetic}
+        assert all(spread > 1e-6 for spread in spreads.values()), spreads
 
     def test_oracle_inactive_below_min_rows(self, fitted: MercuryAnomalyDetector) -> None:
         """A window too short for band statistics reports an inactive Oracle."""
@@ -103,6 +127,22 @@ class TestReferenceAnchoring:
         stored = det._reference_scores.copy()
         det._fit_reference_distribution(data[labels == 0])
         np.testing.assert_allclose(det._reference_scores, stored, atol=1e-12)
+
+    def test_reanchoring_ignores_rows_fit_dropped_as_non_finite(self) -> None:
+        """One NaN cell must not reach the reference the labelled path re-anchors."""
+        data, labels = self._labelled(seed=11)
+        clean = MercuryAnomalyDetector()
+        clean.fit_with_labels(np.delete(data, 3, axis=0), np.delete(labels, 3))
+        dirty_data = data.copy()
+        dirty_data[3, 1] = np.nan  # a normal row
+        dirty = MercuryAnomalyDetector()
+        dirty.fit_with_labels(dirty_data, labels)
+        assert clean._reference_scores is not None
+        assert dirty._reference_scores is not None
+        assert np.isfinite(dirty._reference_scores).all()
+        # The NaN row is simply absent: same reference as fitting without it.
+        assert len(dirty._reference_scores) == len(clean._reference_scores)
+        np.testing.assert_allclose(dirty._reference_scores, clean._reference_scores, atol=1e-9)
 
     def test_calibration_labels_exclude_anomalies_from_reference(self) -> None:
         data, labels = self._labelled(seed=9)

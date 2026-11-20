@@ -257,3 +257,32 @@ def test_fisher_aggregate_p_survives_underflow() -> None:
     # ...the survival function keeps the tiny positive tail.
     agg = SpectralDomainFrequency._fisher_aggregate_p(p_values)
     assert 0.0 < agg < 1e-12, f"aggregate p should be tiny-positive, got {agg}"
+
+
+@pytest.mark.parametrize("n", [16, 23, 256, 257, 1000])
+def test_the_newest_sample_reaches_the_spectrum(n: int) -> None:
+    """Changing only the final sample must change the magnitude matrix.
+
+    The symmetric Hann window is exactly zero at its last sample, so the newest
+    observation had no effect on the spectrum at all (a 1e6 jump moved the
+    matrix by exactly 0.0). With the periodic window it has one. The effect is
+    small by design -- any taper de-emphasises a frame's edges, about 1.5e-4 of
+    full weight at the last of 256 samples -- so this pins "not zero", which is
+    what was wrong, rather than a size no tapered window could deliver.
+    """
+    rng = np.random.default_rng(3)
+    signal = rng.standard_normal(n)
+    bumped = signal.copy()
+    bumped[-1] += 50.0
+    oracle = SpectralDomainFrequency({"domain": "medical", "sample_rate": 256.0})
+    before, _ = oracle._compute_frequency_matrix(signal)
+    after, _ = oracle._compute_frequency_matrix(bumped)
+    assert float(np.abs(after - before).max()) > 0.0
+
+
+def test_analysis_window_is_periodic_hann() -> None:
+    window = SpectralDomainFrequency._analysis_window(8)
+    assert window[0] == 0.0
+    assert window[-1] > 0.0
+    np.testing.assert_allclose(window, 0.5 - 0.5 * np.cos(2 * np.pi * np.arange(8) / 8))
+    np.testing.assert_array_equal(SpectralDomainFrequency._analysis_window(1), np.ones(1))

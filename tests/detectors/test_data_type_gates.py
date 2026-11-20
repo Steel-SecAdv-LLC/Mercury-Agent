@@ -79,6 +79,23 @@ class TestImageGate:
         )
         assert _kind(X) is not DataCharacteristics.IMAGE
 
+    @pytest.mark.parametrize("period", [40.0, 64.0, 100.0, 300.0])
+    def test_smooth_waveform_rows_are_not_an_image(self, period: float) -> None:
+        """A slowly varying 1-D window coheres at EVERY lag, the row stride included.
+
+        What it cannot do is cohere more one stride away than half a stride
+        away, which is what a raster does.
+        """
+        rng = np.random.default_rng(14)
+        t = np.arange(256)
+        X = np.asarray(
+            [
+                np.sin(2 * np.pi * t / period + rng.uniform(0, 6.28)) + 0.05 * rng.normal(size=256)
+                for _ in range(300)
+            ]
+        )
+        assert _kind(X) is not DataCharacteristics.IMAGE
+
     def test_non_raster_width_is_never_image(self) -> None:
         rng = np.random.default_rng(5)
         base = rng.normal(size=(300, 1))
@@ -115,6 +132,13 @@ class TestDeclaredDataType:
         det = MercuryAnomalyDetector({"data_type": "TEMPORAL"})
         det.fit(rng.normal(size=(200, 4)))
         assert det._data_type is DataCharacteristics.TEMPORAL
+
+    @pytest.mark.parametrize("unset", [None, "", "auto", "AUTO"])
+    def test_an_unset_declaration_means_auto(self, unset: str | None) -> None:
+        rng = np.random.default_rng(10)
+        det = MercuryAnomalyDetector({"data_type": unset})
+        det.fit(rng.normal(size=(200, 4)))
+        assert det._data_type is DataCharacteristics.TABULAR
 
     def test_unknown_declaration_is_refused(self) -> None:
         det = MercuryAnomalyDetector({"data_type": "video"})

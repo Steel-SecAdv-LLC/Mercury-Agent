@@ -725,9 +725,25 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
                 "attention_weights": attn_weights.detach(),
                 "early_contribution": early_output.detach(),
                 "late_contribution": late_output.detach(),
+                "present_groups": self._present_groups(detector_features, attn_weights),
             }
 
             return fused_representation, attention_dict
+
+        def _present_groups(
+            self, detector_features: dict[str, torch.Tensor], like: torch.Tensor
+        ) -> torch.Tensor:
+            """1.0 for each detector group that supplied features, 0.0 for a zero-filled one.
+
+            Recorded with every attention map so a reader of the map can tell a
+            group that was attended to from a placeholder token that was not
+            there (see ``OmniFusionModel.importance_from_attention``).
+            """
+            return torch.tensor(
+                [1.0 if name in detector_features else 0.0 for name in self.detector_names],
+                device=like.device,
+                dtype=like.dtype,
+            )
 
         def extract_features(
             self, detector_features: dict[str, torch.Tensor]
@@ -854,6 +870,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
                 "attention_weights": attn_weights.detach(),
                 "early_contribution": early_output.detach(),
                 "late_contribution": late_output.detach(),
+                "present_groups": self._present_groups(detector_features, attn_weights),
             }
 
             return attended_features, attention_dict

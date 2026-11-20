@@ -122,6 +122,31 @@ class TestFuzzyOperators:
         zeros = torch.zeros(8).clamp(1e-6, 1 - 1e-6)
         assert float(FuzzyOperators.forall_pmean(zeros)) < 1e-4
 
+    @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
+    @pytest.mark.parametrize("p", [2.0, 4.0, 6.0, 10.0])
+    def test_forall_pmean_does_not_saturate_at_higher_exponents(self, p: float) -> None:
+        """A satisfied batch is 1.0 and a uniform shortfall is that shortfall, at any ``p``.
+
+        A fixed 1e-12 floor under ``mean(err^p)`` is invisible at p=2 but its
+        p-th root is not small for larger p (0.063 at p=10): a fully satisfied
+        batch read 0.937 there, and so did a batch at a uniform 0.98, with zero
+        gradient in both cases.
+        """
+        satisfied = FuzzyOperators.forall_pmean(torch.ones(100), p=p, dim=0)
+        assert abs(float(satisfied) - 1.0) < 1e-6
+
+        uniform = torch.full((100,), 0.98, requires_grad=True)
+        aggregate = FuzzyOperators.forall_pmean(uniform, p=p, dim=0)
+        assert abs(float(aggregate.detach()) - 0.98) < 1e-5
+        aggregate.backward()
+        assert uniform.grad is not None
+        assert abs(float(uniform.grad.sum()) - 1.0) < 1e-4  # d/dx of "x" for a uniform batch
+
+    @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
+    def test_forall_pmean_is_finite_for_a_truth_value_a_rounding_step_above_one(self) -> None:
+        x = torch.tensor([1.0 + 1e-7, 0.5, 0.9])
+        assert torch.isfinite(FuzzyOperators.forall_pmean(x, p=1.5, dim=0))
+
 
 class TestTemporalGraphReasoner:
     """Tests for temporal graph reasoning."""
