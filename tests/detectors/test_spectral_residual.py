@@ -89,9 +89,9 @@ class TestSignal:
 
         With an edge-padded local baseline that included the point, most of
         the window at the final index was the point's own saliency, which
-        suppressed its deviation. The baseline is the mean of the point's
-        neighbours, itself left out, so a spike at the final index is compared
-        with its history and scores on par with one mid-series.
+        suppressed its deviation. The baseline is the trailing mean of the
+        points preceding it, so a spike at the final index is compared with
+        its history and scores on par with one mid-series.
         """
         rng = np.random.default_rng(7)
         base = rng.normal(0.0, 1.0, 600)
@@ -115,11 +115,11 @@ class TestSignal:
 
 
 def test_a_point_is_not_part_of_its_own_baseline() -> None:
-    """The neighbours' mean leaves the point out and truncates at the ends."""
+    """The trailing mean reads only the points strictly before each index."""
     values = np.array([1.0, 2.0, 3.0, 40.0, 5.0])
-    baseline = SpectralResidualDetector._neighbour_average(values, 3)
+    baseline = SpectralResidualDetector._trailing_average(values, 3)
 
-    np.testing.assert_allclose(baseline, [2.0, 2.0, 21.0, 4.0, 40.0])
-    # One sample has no neighbour: its baseline is itself, a zero deviation.
-    np.testing.assert_allclose(SpectralResidualDetector._neighbour_average(values[:1], 3), [1.0])
-    np.testing.assert_allclose(SpectralResidualDetector._neighbour_average(values, 1), values)
+    np.testing.assert_allclose(baseline, [1.0, 1.0, 1.5, 2.0, 15.0])
+    # The first sample has no history: its baseline is itself, a zero deviation.
+    np.testing.assert_allclose(SpectralResidualDetector._trailing_average(values[:1], 3), [1.0])
+    np.testing.assert_allclose(SpectralResidualDetector._trailing_average(values, 0), values)
